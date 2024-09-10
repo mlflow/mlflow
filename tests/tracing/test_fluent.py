@@ -29,9 +29,7 @@ from mlflow.tracing.constant import (
     TraceMetadataKey,
     TraceTagKey,
 )
-from mlflow.tracing.export.mlflow import MlflowSpanExporter
 from mlflow.tracing.fluent import TRACE_BUFFER
-from mlflow.tracing.processor.mlflow import MlflowSpanProcessor
 from mlflow.tracing.provider import _get_trace_exporter, _get_tracer
 from mlflow.utils.file_utils import local_file_uri_to_path
 
@@ -1115,18 +1113,39 @@ def test_set_trace_exporter_mlflow():
     assert exporter._client._tracking_client.tracking_uri == mlflow.get_tracking_uri()
 
     # Change Tracking URI
-    mlflow.set_trace_exporter("mlflow", target_url="http://some-other-uri")
+    mlflow.set_trace_exporter(type="mlflow", target_url="http://some-other-uri")
     exporter = _get_trace_exporter()
     assert exporter._client._tracking_client.tracking_uri == "http://some-other-uri"
 
 
-def test_set_trace_exporter_otel():
-    from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
+def test_set_trace_exporter_otel(otel_collector, mock_client):
+    from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
 
-    mlflow.set_trace_exporter("otel", "https://localhost:6000/v1/traces")
+    mlflow.set_trace_exporter(type="otel", target_url="http://127.0.0.1:4317/v1/traces")
     exporter = _get_trace_exporter()
     assert isinstance(exporter, OTLPSpanExporter)
-    assert exporter._endpoint == "https://localhost:6000/v1/traces"
+    assert exporter._endpoint == "127.0.0.1:4317"
+
+    # Create a trace
+    model = DefaultTestModel()
+    model.predict(2, 5)
+    time.sleep(5)
+
+    # Traces should not be logged to MLflow
+    mock_client._start_stacked_trace.assert_not_called()
+    mock_client._upload_trace_data.assert_not_called()
+    mock_client._upload_ended_trace_info.assert_not_called()
+
+    # Analyze the logs of the collector
+    _, output_file = otel_collector
+    with open(output_file) as f:
+        collector_logs = f.read()
+
+    # 3 spans should be exported
+    assert "Span #0" in collector_logs
+    assert "Span #1" in collector_logs
+    assert "Span #2" in collector_logs
+    assert "Span #3" not in collector_logs
 
 
 def test_set_trace_exporter_invalid_target():

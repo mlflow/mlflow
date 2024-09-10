@@ -143,11 +143,18 @@ def _setup_tracer_provider(
         processor = MlflowSpanProcessor(exporter)
 
     elif type == "otel":
-        from opentelemetry.sdk.trace.export import BatchSpanProcessor
-        from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
+        from mlflow.tracing.processor.otel import OtelSpanProcessor
 
-        exporter = OTLPSpanExporter(endpoint=target_url)
-        processor = BatchSpanProcessor(exporter)
+        try:
+            from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
+        except ImportError:
+            raise ImportError(
+                "OTLP exporter is not available. Please install the required dependency by "
+                "running `pip install opentelemetry-exporter-otlp-proto-grpc`."
+            )
+
+        exporter = OTLPSpanExporter(endpoint=target_url, insecure=target_url.startswith("http://"))
+        processor = OtelSpanProcessor(exporter)
 
     else:
         raise ValueError(f"Unsupported tracing type: {type}")

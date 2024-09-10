@@ -11,8 +11,8 @@ from typing import TYPE_CHECKING, Any, Callable, Dict, Generator, List, Literal,
 from cachetools import TTLCache
 from opentelemetry import trace as trace_api
 
-from mlflow import MlflowClient
 import mlflow
+from mlflow import MlflowClient
 from mlflow.entities import NoOpSpan, SpanType, Trace
 from mlflow.entities.span import LiveSpan, create_mlflow_span
 from mlflow.environment_variables import (
@@ -552,19 +552,17 @@ def get_last_active_trace() -> Optional[Trace]:
         return None
 
 
-
-def set_trace_exporter(
-    type: Literal["mlflow", "otel"],
-    target_url: Optional[str] = None
-):
+def set_trace_exporter(type: Literal["mlflow", "otel"], target_url: Optional[str] = None):
     """
-    Configure the trace export target. Currently, MLflow supports two types of destinations for exporting traces.
+    Configure a target destination for exporting traces.
 
-    1. MLflow Tracking Server: Traces will be logged to the current MLflow Experiment and can be viewed via
-        the "Traces" tab in the MLflow UI. This is the standard destination for storing traces.
+    Currently, MLflow supports two types of destinations for exporting traces.
+
+    1. MLflow Tracking Server: Traces will be logged to the current MLflow Experiment and can be
+        viewed on the "Traces" tab in the MLflow UI. This is the standard way for storing traces.
     2. OpenTelemetry Collector: You can also export the traces to your self-hosted
-        `OpenTelemetry Collector <https://opentelemetry.io/docs/collector/>`. MLflow Traces are compatible
-        with the OpenTelemetry specification.
+        `OpenTelemetry Collector <https://opentelemetry.io/docs/collector/>`. MLflow Traces
+        are compatible with the OpenTelemetry specification.
 
     Example of using MLflow Tracking Server as a trace export destination:
 
@@ -593,30 +591,38 @@ def set_trace_exporter(
             - For `"otel"` type, this should be the endpoint of the OpenTelemetry collector.
     """
     if not provider._is_enabled():
-        raise MlflowException("Tracing is not enabled. Please enable tracing first by calling "
-                              "`mlflow.tracing.enable()`.",
-                              error_code=INVALID_PARAMETER_VALUE)
+        raise MlflowException(
+            "Tracing is not enabled. Please enable tracing first by calling "
+            "`mlflow.tracing.enable()`.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
 
     if type not in ["mlflow", "otel"]:
-        raise MlflowException(f"Unsupported target type: {type}. Supported values are "
-                              "[\"mlflow\", \"otel\"]",
-                                error_code=INVALID_PARAMETER_VALUE)
+        raise MlflowException(
+            f'Unsupported target type: {type}. Supported values are \'["mlflow", "otel"]\'',
+            error_code=INVALID_PARAMETER_VALUE,
+        )
 
     if not target_url:
         if type == "otel":
-            raise MlflowException("The target URL must be provided for OpenTelemetry collector. "
-                                "Please specify ``target_url`` parameter with your endpoint URL.",
-                                error_code=INVALID_PARAMETER_VALUE)
+            raise MlflowException(
+                "The target URL must be provided for OpenTelemetry collector. "
+                "Please specify ``target_url`` parameter with your endpoint URL.",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
         else:
-            _logger.info("The target URL is not provided. The current MLflow tracking URI will be "
-                         "used as a trace export target.")
+            _logger.info(
+                "The target URL is not provided. The current MLflow tracking URI will be "
+                "used as a trace export target."
+            )
             target_url = mlflow.get_tracking_uri()
-
 
     provider._setup_tracer_provider(
         disabled=False,
         type=type,
         target_url=target_url,
     )
+    # Set the initialization flag to True to prevent re-initialization
+    provider._MLFLOW_TRACER_PROVIDER_INITIALIZED.done = True
 
     _logger.info(f"Tracing exporter is set to target '{type}' with URL: {target_url}")

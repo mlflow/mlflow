@@ -1,3 +1,6 @@
+import subprocess
+import tempfile
+import time
 from typing import Dict
 from unittest import mock
 
@@ -92,3 +95,39 @@ def databricks_tracking_uri():
 def async_logging_enabled(request, monkeypatch):
     monkeypatch.setenv(MLFLOW_ENABLE_ASYNC_LOGGING.name, str(request.param))
     return request.param
+
+
+@pytest.fixture
+def otel_collector():
+    """Start an OpenTelemetry collector in a Docker container."""
+    subprocess.run(["docker", "pull", "otel/opentelemetry-collector-contrib"], check=True)
+
+    output_file = tempfile.NamedTemporaryFile().name
+
+    with open(output_file, "w") as f:
+        process = subprocess.Popen(
+            [
+                "docker",
+                "run",
+                "-p",
+                "127.0.0.1:4317:4317",
+                "otel/opentelemetry-collector",
+            ],
+            stdout=f,
+            stderr=subprocess.STDOUT,
+            text=True,
+        )
+
+    # Wait for the collector to start
+    time.sleep(5)
+
+    yield process, output_file
+
+    # Stop the collector
+    container_id = subprocess.run(
+        ["docker", "ps", "-q", "--filter", "ancestor=otel/opentelemetry-collector"],
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout.strip()
+    subprocess.run(["docker", "stop", container_id], check=True)
