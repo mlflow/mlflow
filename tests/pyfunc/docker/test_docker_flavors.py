@@ -330,6 +330,8 @@ def prophet_model(model_path, prophet_raw_model):
         pr_model=prophet_raw_model.model,
         path=model_path,
         input_example=prophet_raw_model.data[:1],
+        # Prophet does not handle numpy 2 yet. https://github.com/facebook/prophet/issues/2595
+        extra_pip_requirements=["numpy<2"],
     )
     return model_path
 
