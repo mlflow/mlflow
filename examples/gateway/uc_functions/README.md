@@ -1,6 +1,6 @@
 # Unity Catalog Integration
 
-This example demonstrates how to use the Unity Catalog (UC) integration with MLflow Deployments server.
+This example demonstrates how to use the Unity Catalog (UC) integration with MLflow AI Gateway.
 
 ## Pre-requisites
 
