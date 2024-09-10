@@ -62,7 +62,7 @@ class ChainCompletionChunk:
 @experimental
 class ChatCompletionResponse:
     choices: List[ChainCompletionChoice] = field(default_factory=lambda: [ChainCompletionChoice()])
-    object: str = field(default="chat.completion")
+    object: str = "chat.completion"
     # TODO: support ChainCompletionChunk in the future
 
 

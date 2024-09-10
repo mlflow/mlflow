@@ -21,6 +21,7 @@ class TestRagModel(mlflow.pyfunc.PythonModel):
         return asdict(
             ChatCompletionResponse(
                 choices=[ChainCompletionChoice(message=Message(role="assistant", content=message))]
+                # NB: intentionally validating the default population of the object field
             )
         )
 
