@@ -89,7 +89,7 @@ The following table summarizes the different methods for logging models with the
 Memory-Efficient Model Logging
 ------------------------------
 
-Introduced in MLflow 2.17.0, this method allows you to log a model without loading it into memory:
+Introduced in MLflow 2.16.1, this method allows you to log a model without loading it into memory:
 
 .. code-block:: python
 
@@ -105,7 +105,7 @@ Introduced in MLflow 2.17.0, this method allows you to log a model without loadi
         )
 
 
-In the above example, we passed a path to local model checkpoint/weight as a model to the :py:func:`mlflow.transformers.log_model()` API, instead of the pipeline instance. MLflow will inspect the model metadata the checkpoint and log the model weight without loading it into memory. This way, you can log a huge model such as LLMs with billions of parameters to MLflow with minimal computational resources.
+In the above example, we pass a path to the local model checkpoint/weight as the model argument in the  :py:func:`mlflow.transformers.log_model()` API, instead of a pipeline instance. MLflow will inspect the model metadata of the checkpoint and log the model weights without loading them into memory. This way, you can log an enormous multi-billion parameter model  to MLflow with minimal computational resources.
 
 
 Important Notes
@@ -130,7 +130,7 @@ Storage-Efficient Model Logging
 Typically, when MLflow logs an ML model, it saves a copy of the model weight to the artifact store.
 However, this is not optimal when you use a pretrained model from HuggingFace Hub and have no intention of fine-tuning or otherwise manipulating the model or its weights before logging it. For this very common case, copying the (typically very large) model weights is redundant while developing prompts, testing inference parameters, and otherwise is little more than an unnecessary waste of storage space.
 
-To address this issue, MLflow 2.11.0 introduced a new argument ``save_pretrained`` in the :py:func:`mlflow.transformers.save_model()` and :py:func:`mlflow.transformers.log_model()` APIs. When with argument is set to ``False``, MLflow will forego saving the pretrained model weights, opting instead to store a reference to the underlying repository entry on the HuggingFace Hub; specifically, the repository name and the unique commit hash of the model weights are stored when your components or pipeline are logged. When loading back such a *refernce-only* model, MLflow will check the repository name and commit hash from the saved metadata, and either download the model weight from the HuggingFace Hub or use the locally cached model from your HuggingFace local cache directory.
+To address this issue, MLflow 2.11.0 introduced a new argument ``save_pretrained`` in the :py:func:`mlflow.transformers.save_model()` and :py:func:`mlflow.transformers.log_model()` APIs. When with argument is set to ``False``, MLflow will forego saving the pretrained model weights, opting instead to store a reference to the underlying repository entry on the HuggingFace Hub; specifically, the repository name and the unique commit hash of the model weights are stored when your components or pipeline are logged. When loading back such a *reference-only* model, MLflow will check the repository name and commit hash from the saved metadata, and either download the model weight from the HuggingFace Hub or use the locally cached model from your HuggingFace local cache directory.
 
 Here is the example of using ``save_pretrained`` argument for logging a model
 
@@ -226,13 +226,13 @@ model weight to the artifact store before registering the model. You can use the
 
 .. _caveats-of-save-pretrained:
 
-Caveats in Skip Saving Pretrained Model Weights
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Caveats for Skipping Saving of Pretrained Model Weights
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 While these features are useful for saving computational resources and storage space for logging large models, there are some caveats to be aware of:
 
-* **Change in Model Unavailability**: If you are using a model from other users' repository, the model may be deleted or become private in the HuggingFace Hub. In such cases, MLflow cannot load the model back. For production use cases, it is recommended to save the copy model weight to the artifact store prior to moving from development or staging to production for your model.
+* **Change in Model Availability**: If you are using a model from other users' repository, the model may be deleted or become private in the HuggingFace Hub. In such cases, MLflow cannot load the model back. For production use cases, it is recommended to save a  copy of the model weights to the artifact store prior to moving from development or staging to production for your model.
 
-* **HuggingFace Hub Access**: Downloading a model from the HuggingFace Hub might be slow or unstable due to the network condition or the HuggingFace Hub service status. MLflow doesn't provide any retry mechanism or robust error handling for the model downloading. As such, you should not rely on this functionality for your final production-candidate run.
+* **HuggingFace Hub Access**: Downloading a model from the HuggingFace Hub might be slow or unstable due to the network latency or the HuggingFace Hub service status. MLflow doesn't provide any retry mechanism or robust error handling for model downloading from the HuggingFace Hub. As such, you should not rely on this functionality for your final production-candidate run.
 
 By understanding these methods and their limitations, you can effectively work with large Transformers models in MLflow while optimizing resource usage.
