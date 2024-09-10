@@ -667,7 +667,6 @@ langchain:
           "numexpr",
           "hf_transfer",
           "langchain-core!=0.1.39", # https://github.com/langchain-ai/langchain/issues/19947
-          "langchain-databricks",
           "langchain-openai",
           "langgraph",
         ]
@@ -675,7 +674,6 @@ langchain:
       # https://github.com/langchain-ai/langchain/commit/b83f1eb0d56dbf99605a1fce93953ee09d77aabf
       "< 0.2": ["langchain-openai<=0.1.22"]
       ">= 0.2": [
-          "langchain-openai",
           "langchain-huggingface",
           # Install langchain-databricks from the main branch
           "git+https://github.com/langchain-ai/langchain-databricks.git@main#egg=langchain-databricks&subdirectory=libs/databricks",
