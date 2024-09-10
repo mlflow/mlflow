@@ -1106,30 +1106,20 @@ def test_non_ascii_characters_not_encoded_as_unicode():
     assert json.dumps("👍").strip('"') not in data
 
 
-def test_set_trace_exporter_mlflow():
-    mlflow.set_trace_exporter("mlflow")
-
-    exporter = _get_trace_exporter()
-    assert exporter._client._tracking_client.tracking_uri == mlflow.get_tracking_uri()
-
-    # Change Tracking URI
-    mlflow.set_trace_exporter(type="mlflow", target_url="http://some-other-uri")
-    exporter = _get_trace_exporter()
-    assert exporter._client._tracking_client.tracking_uri == "http://some-other-uri"
-
-
-def test_set_trace_exporter_otel(otel_collector, mock_client):
+def test_export_to_otel_collector(otel_collector, mock_client, monkeypatch):
     from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
 
-    mlflow.set_trace_exporter(type="otel", target_url="http://127.0.0.1:4317/v1/traces")
-    exporter = _get_trace_exporter()
-    assert isinstance(exporter, OTLPSpanExporter)
-    assert exporter._endpoint == "127.0.0.1:4317"
+    monkeypatch.setenv("OTEL_EXPORTER_OTLP_TRACES_ENDPOINT", "http://127.0.0.1:4317/v1/traces")
 
     # Create a trace
     model = DefaultTestModel()
     model.predict(2, 5)
     time.sleep(5)
+
+    # Tracer should be configured to export to OTLP
+    exporter = _get_trace_exporter()
+    assert isinstance(exporter, OTLPSpanExporter)
+    assert exporter._endpoint == "127.0.0.1:4317"
 
     # Traces should not be logged to MLflow
     mock_client._start_stacked_trace.assert_not_called()
@@ -1146,17 +1136,3 @@ def test_set_trace_exporter_otel(otel_collector, mock_client):
     assert "Span #1" in collector_logs
     assert "Span #2" in collector_logs
     assert "Span #3" not in collector_logs
-
-
-def test_set_trace_exporter_invalid_target():
-    with pytest.raises(MlflowException, match="Unsupported target type"):
-        mlflow.set_trace_exporter("invalid")
-
-    # Setting Otel collector without URL should fail
-    with pytest.raises(MlflowException, match="The target URL must be provided"):
-        mlflow.set_trace_exporter("otel")
-
-    # Exporter can be set only when tracing is enabled
-    mlflow.tracing.disable()
-    with pytest.raises(MlflowException, match="Tracing is not enabled."):
-        mlflow.set_trace_exporter("mlflow")

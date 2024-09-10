@@ -113,7 +113,6 @@ from mlflow.tracing.fluent import (
     get_last_active_trace,
     get_trace,
     search_traces,
-    set_trace_exporter,
     start_span,
     trace,
 )
@@ -234,7 +233,6 @@ __all__ = [
     "search_traces",
     "start_span",
     "trace",
-    "set_trace_exporter",
 ]
 
 

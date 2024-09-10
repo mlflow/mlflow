@@ -10,7 +10,7 @@ use OpenTelemetry e.g. PromptFlow, Snowpark.
 import functools
 import json
 import logging
-from typing import Literal, Optional, Tuple
+from typing import Optional, Tuple
 
 from opentelemetry import trace
 from opentelemetry.sdk.trace import TracerProvider
@@ -19,6 +19,7 @@ from mlflow.exceptions import MlflowTracingException
 from mlflow.tracing.constant import SpanAttributeKey
 from mlflow.tracing.utils.exception import raise_as_trace_exception
 from mlflow.tracing.utils.once import Once
+from mlflow.tracing.utils.otlp import get_otlp_exporter, should_use_otlp_exporter
 from mlflow.utils.databricks_utils import (
     is_in_databricks_model_serving_environment,
     is_mlflow_tracing_enabled_in_model_serving,
@@ -104,11 +105,7 @@ def _get_trace_exporter():
         return processor.span_exporter
 
 
-def _setup_tracer_provider(
-    disabled=False,
-    type: Literal["mlflow", "otel"] = "mlflow",
-    target_url: Optional[str] = None,
-):
+def _setup_tracer_provider(disabled=False):
     """
     Instantiate a tracer provider and set it as the global tracer provider.
 
@@ -122,7 +119,15 @@ def _setup_tracer_provider(
         _MLFLOW_TRACER_PROVIDER = trace.NoOpTracerProvider()
         return
 
-    if is_in_databricks_model_serving_environment():
+    if should_use_otlp_exporter():
+        # Export to OpenTelemetry Collector when configured
+        from mlflow.tracing.processor.otel import OtelSpanProcessor
+
+        exporter = get_otlp_exporter()
+        processor = OtelSpanProcessor(exporter)
+
+    elif is_in_databricks_model_serving_environment():
+        # Export to Inference Table when running in Databricks Model Serving
         if not is_mlflow_tracing_enabled_in_model_serving():
             _MLFLOW_TRACER_PROVIDER = trace.NoOpTracerProvider()
             return
@@ -133,31 +138,13 @@ def _setup_tracer_provider(
         exporter = InferenceTableSpanExporter()
         processor = InferenceTableSpanProcessor(exporter)
 
-    elif type == "mlflow":
+    else:
+        # Default to MLflow Tracking Server
         from mlflow.tracing.export.mlflow import MlflowSpanExporter
         from mlflow.tracing.processor.mlflow import MlflowSpanProcessor
-        from mlflow.tracking.client import MlflowClient
 
-        client = MlflowClient(tracking_uri=target_url)
-        exporter = MlflowSpanExporter(client)
+        exporter = MlflowSpanExporter()
         processor = MlflowSpanProcessor(exporter)
-
-    elif type == "otel":
-        from mlflow.tracing.processor.otel import OtelSpanProcessor
-
-        try:
-            from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
-        except ImportError:
-            raise ImportError(
-                "OTLP exporter is not available. Please install the required dependency by "
-                "running `pip install opentelemetry-exporter-otlp-proto-grpc`."
-            )
-
-        exporter = OTLPSpanExporter(endpoint=target_url, insecure=target_url.startswith("http://"))
-        processor = OtelSpanProcessor(exporter)
-
-    else:
-        raise ValueError(f"Unsupported tracing type: {type}")
 
     tracer_provider = TracerProvider()
     tracer_provider.add_span_processor(processor)
