@@ -416,7 +416,6 @@ def infer_pip_requirements(model_uri, flavor, fallback=None, timeout=None):
         else:
             return _infer_requirements(model_uri, flavor, raise_on_error=raise_on_error)
     except Exception as e:
-        raise e
         if raise_on_error or (fallback is None):
             raise
 

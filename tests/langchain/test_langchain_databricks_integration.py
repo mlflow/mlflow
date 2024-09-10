@@ -47,7 +47,8 @@ def model_path(tmp_path):
     Version(langchain.__version__) < Version("0.2.0"),
     reason="langchain-databricks requires langchain >= 0.2.0",
 )
-def test_save_and_load_chat_databricks(model_path):
+def test_save_and_load_chat_databricks(model_path, monkeypatch):
+    monkeypatch.setenv("MLFLOW_REQUIREMENTS_INFERENCE_RAISE_ERRORS", "true")
     from langchain_databricks import ChatDatabricks
 
     llm = ChatDatabricks(endpoint="databricks-meta-llama-3-70b-instruct")
