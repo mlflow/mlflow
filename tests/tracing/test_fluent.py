@@ -1132,6 +1132,7 @@ def test_export_to_otel_collector(otel_collector, mock_client, monkeypatch):
         collector_logs = f.read()
 
     # 3 spans should be exported
+    print(collector_logs)
     assert "Span #0" in collector_logs
     assert "Span #1" in collector_logs
     assert "Span #2" in collector_logs
