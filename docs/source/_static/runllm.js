@@ -10,7 +10,10 @@ document.addEventListener("DOMContentLoaded", function () {
     script.setAttribute("runllm-position", "BOTTOM_RIGHT");
     script.setAttribute("runllm-assistant-id", "116");
     script.setAttribute("runllm-theme-color", "#008ED9");
-    script.setAttribute("runllm-brand-logo", "https://github.com/mlflow-automation.png")
+    script.setAttribute("runllm-brand-logo", "_static/favicon.ico");
+    script.setAttribute("runllm-community-type", "slack");
+    script.setAttribute("runllm-community-url", "https://mlflow.org/slack");
+    script.setAttribute("runllm-disable-ask-a-person", "true");
 
     script.async = true;
     document.head.appendChild(script);
