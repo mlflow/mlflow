@@ -1,7 +1,7 @@
 Unity Catalog Integration
 =========================
 
-This example illustrates the use of the `Unity Catalog (UC) <https://docs.databricks.com/en/data-governance/unity-catalog/index.html>`_ integration with the MLflow Deployments server. This integration enables you to leverage functions registered in Unity Catalog as tools for enhancing your chat application.
+This example illustrates the use of the `Unity Catalog (UC) <https://docs.databricks.com/en/data-governance/unity-catalog/index.html>`_ integration with the MLflow AI Gateway. This integration enables you to leverage functions registered in Unity Catalog as tools for enhancing your chat application.
 
 Pre-requisites
 --------------
@@ -88,7 +88,7 @@ Once the server is running, you can run the example script:
 What's happening under the hood?
 --------------------------------
 
-When MLflow Deployments Server receives a request with ``tools`` containing ``uc_function``, it automatically fetches the UC function metadata to construct the function schema, query the chat API to figure out the parameters required to call the function, and then call the function with the provided parameters.
+When MLflow AI Gateway receives a request with ``tools`` containing ``uc_function``, it automatically fetches the UC function metadata to construct the function schema, query the chat API to figure out the parameters required to call the function, and then call the function with the provided parameters.
 
 .. code-block:: python
 

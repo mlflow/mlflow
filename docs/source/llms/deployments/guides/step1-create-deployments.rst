@@ -18,7 +18,7 @@ Step 2: Set the OpenAI Token as an Environment Variable
 -------------------------------------------------------
 Next, set the OpenAI API key as an environment variable in your CLI.
 
-This approach allows the MLflow Deployments Server to read the sensitive API key safely, reducing the risk
+This approach allows the MLflow AI Gateway to read the sensitive API key safely, reducing the risk
 of leaking the token in code. The Deployments Server, when started, will read the value set by this environment
 variable without any additional action required.
 
@@ -96,5 +96,5 @@ the URL: ``http://localhost:5000``. To modify these default settings, use the
         mlflow deployments start-server --config-path config.yaml
 
 .. note::
-    MLflow Deployments Server automatically creates API docs. You can validate your deployment server
+    MLflow AI Gateway automatically creates API docs. You can validate your deployment server
     is running by viewing the docs. Go to `http://{host}:{port}` in your web browser.

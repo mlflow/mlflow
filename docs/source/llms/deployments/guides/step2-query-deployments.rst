@@ -21,7 +21,7 @@ Example 1: Completions
 ----------------------
 Completion models are designed to finish sentences or respond to prompts. 
 
-To query these models via the MLflow Deployments Server, you need to provide a ``prompt`` parameter, 
+To query these models via the MLflow AI Gateway, you need to provide a ``prompt`` parameter, 
 which is the string the Language Model (LLM) will respond to. The deployments server also accommodates 
 various other parameters. For detailed information, please refer to the documentation.
 
@@ -51,7 +51,7 @@ Chat models facilitate interactive conversations with users, gradually accumulat
 
 Creating a chat payload is slightly more complex compared to the other model types since it accommodates an 
 unlimited number of messages from three distinct personas: ``system``, ``user``, and ``assistant``. To set up 
-a chat payload through the MLflow Deployments Server, you'll need to specify a ``messages`` parameter. This parameter 
+a chat payload through the MLflow AI Gateway, you'll need to specify a ``messages`` parameter. This parameter 
 takes a list of dictionaries formatted as follows:
    
    ``{"role": "system/user/assistant", "content": "user-specified content"}``
@@ -85,7 +85,7 @@ Example 3: Embeddings
 ---------------------
 Embedding models transform tokens into numerical vectors. 
 
-To use embedding models via the MLflow Deployments Server, supply a `text` parameter, which can be a 
+To use embedding models via the MLflow AI Gateway, supply a `text` parameter, which can be a 
 string or a list of strings. The deployments server then processes these strings and returns their 
 respective numerical vectors. Let's proceed with an example...
 
