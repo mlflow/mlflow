@@ -33,6 +33,7 @@ from mlflow.utils.environment import (
     _PythonEnv,
 )
 from mlflow.utils.file_utils import get_total_file_size, write_to
+from mlflow.utils.model_utils import _validate_and_prepare_target_save_path
 from mlflow.utils.requirements_utils import _get_pinned_requirement
 
 FLAVOR_NAME = "dspy"
@@ -114,6 +115,8 @@ def save_model(
     if signature is not None:
         mlflow_model.signature = signature
     if input_example is not None:
+        path = os.path.abspath(path)
+        _validate_and_prepare_target_save_path(path)
         _save_example(mlflow_model, input_example, path)
     if metadata is not None:
         mlflow_model.metadata = metadata
@@ -177,6 +180,9 @@ def save_model(
     else:
         conda_env, pip_requirements, pip_constraints = _process_conda_env(conda_env)
 
+    # dspy's pypi name is dspy-ai, so we need to remove "dspy" from the pip_requirements
+    pip_requirements = list(filter(lambda x: not x.startswith("dspy=="), pip_requirements))
+    conda_env["dependencies"][-1]["pip"] = pip_requirements
     with open(os.path.join(path, _CONDA_ENV_FILE_NAME), "w") as f:
         yaml.safe_dump(conda_env, stream=f, default_flow_style=False)
 
