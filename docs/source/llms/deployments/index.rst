@@ -1204,7 +1204,7 @@ and a config class that inherits from ``mlflow.gateway.base_models.ConfigModel``
     import os
     from typing import AsyncIterable
 
-    from pydantic import validator
+    from pydantic import field_validator
     from mlflow.gateway.base_models import ConfigModel
     from mlflow.gateway.config import RouteConfig
     from mlflow.gateway.providers import BaseProvider
@@ -1215,7 +1215,7 @@ and a config class that inherits from ``mlflow.gateway.base_models.ConfigModel``
         # This model defines the configuration for the provider such as API keys
         my_llm_api_key: str
 
-        @validator("my_llm_api_key", pre=True)
+        @field_validator("my_llm_api_key", mode="before")
         def validate_my_llm_api_key(cls, value):
             return os.environ[value.lstrip("$")]
 

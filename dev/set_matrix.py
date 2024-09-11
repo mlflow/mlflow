@@ -24,6 +24,7 @@ python dev/set_matrix.py --flavors sklearn
 python dev/set_matrix.py --versions 1.1.1
 ```
 """
+
 import argparse
 import functools
 import json
@@ -42,7 +43,7 @@ import yaml
 from packaging.specifiers import SpecifierSet
 from packaging.version import InvalidVersion
 from packaging.version import Version as OriginalVersion
-from pydantic import BaseModel, validator
+from pydantic import BaseModel, field_validator
 
 VERSIONS_YAML_PATH = "mlflow/ml-package-versions.yml"
 DEV_VERSION = "dev"
@@ -83,15 +84,15 @@ class TestConfig(BaseModel, extra="forbid"):
     class Config:
         arbitrary_types_allowed = True
 
-    @validator("minimum", pre=True)
+    @field_validator("minimum", mode="before")
     def validate_minimum(cls, v):
         return Version(v)
 
-    @validator("maximum", pre=True)
+    @field_validator("maximum", mode="before")
     def validate_maximum(cls, v):
         return Version(v)
 
-    @validator("unsupported", pre=True)
+    @field_validator("unsupported", mode="before")
     def validate_unsupported(cls, v):
         return [Version(v) for v in v] if v else None
 

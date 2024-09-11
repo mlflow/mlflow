@@ -3,19 +3,20 @@ from typing import List
 
 from fastapi import HTTPException
 from fastapi.encoders import jsonable_encoder
-from pydantic import BaseModel, StrictFloat, StrictStr, ValidationError, validator
+from pydantic import BaseModel, StrictFloat, StrictStr, ValidationError
 
 from mlflow.gateway.config import MlflowModelServingConfig, RouteConfig
 from mlflow.gateway.constants import MLFLOW_SERVING_RESPONSE_KEY
 from mlflow.gateway.providers.base import BaseProvider
 from mlflow.gateway.providers.utils import send_request
 from mlflow.gateway.schemas import chat, completions, embeddings
+from mlflow.utils.pydantic import pydantic_field_validator
 
 
 class ServingTextResponse(BaseModel):
     predictions: List[StrictStr]
 
-    @validator("predictions", pre=True)
+    @pydantic_field_validator("predictions")
     def extract_choices(cls, predictions):
         if isinstance(predictions, list) and not predictions:
             raise ValueError("The input list is empty")
@@ -37,7 +38,7 @@ class ServingTextResponse(BaseModel):
 class EmbeddingsResponse(BaseModel):
     predictions: List[List[StrictFloat]]
 
-    @validator("predictions", pre=True)
+    @pydantic_field_validator("predictions")
     def validate_predictions(cls, predictions):
         if isinstance(predictions, list) and not predictions:
             raise ValueError("The input list is empty")

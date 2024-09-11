@@ -1,8 +1,8 @@
 from typing import List, Optional
 
 from mlflow.gateway.base_models import ResponseModel
-from mlflow.gateway.config import IS_PYDANTIC_V2
 from mlflow.gateway.schemas.chat import BaseRequestPayload
+from mlflow.utils.pydantic import IS_PYDANTIC_V2
 
 _REQUEST_PAYLOAD_EXTRA_SCHEMA = {
     "example": {

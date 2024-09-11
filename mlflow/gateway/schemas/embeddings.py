@@ -1,7 +1,7 @@
 from typing import List, Optional, Union
 
 from mlflow.gateway.base_models import RequestModel, ResponseModel
-from mlflow.gateway.config import IS_PYDANTIC_V2
+from mlflow.utils.pydantic import IS_PYDANTIC_V2
 
 _REQUEST_PAYLOAD_EXTRA_SCHEMA = {
     "example": {
