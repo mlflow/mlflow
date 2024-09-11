@@ -10,14 +10,14 @@ This guide will cover:
 
 - **Installation**: Setting up the necessary dependencies and tools to get your MLflow AI Gateway up and running.
 
-- **Configuration**: How to expose your OpenAI token, configure the deployments server, and define routes for various OpenAI models.
+- **Configuration**: How to expose your OpenAI token, configure the gateway server, and define routes for various OpenAI models.
 
-- **Starting the deployments server**: Launching the deployments server and ensuring it's operational.
+- **Starting the gateway server**: Launching the gateway server and ensuring it's operational.
 
-- **Querying the deployments server**: Interacting with the deployments server using fluent APIs to query various OpenAI models, including completions, chat, and embeddings.
+- **Querying the gateway server**: Interacting with the gateway server using fluent APIs to query various OpenAI models, including completions, chat, and embeddings.
 
 By the end of this tutorial, you'll have a fully functional MLflow AI Gateway tailored for OpenAI, ready to handle and process requests.
-You'll also gain insights into querying different types of routes, providers, and models through the deployments server.
+You'll also gain insights into querying different types of routes, providers, and models through the gateway server.
 
 .. toctree::
     :maxdepth: 1
