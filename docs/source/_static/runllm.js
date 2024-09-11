@@ -6,7 +6,7 @@ document.addEventListener("DOMContentLoaded", function () {
     script.src = "https://widget.runllm.com";
 
     script.setAttribute("runllm-keyboard-shortcut", "Mod+j"); // cmd-j or ctrl-j to open the widget.
-    script.setAttribute("runllm-name", "MLFlow");
+    script.setAttribute("runllm-name", "MLflow");
     script.setAttribute("runllm-position", "BOTTOM_RIGHT");
     script.setAttribute("runllm-assistant-id", "116");
     script.setAttribute("runllm-theme-color", "#008ED9");
