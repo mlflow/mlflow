@@ -15,7 +15,8 @@ def get_otlp_exporter() -> SpanExporter:
     """
     Get the OTLP exporter based on the configured protocol.
     """
-    endpoint, protocol = _get_otlp_endpoint(), _get_otlp_protocol()
+    endpoint = _get_otlp_endpoint()
+    protocol = _get_otlp_protocol()
     if protocol == "grpc":
         try:
             from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
@@ -41,7 +42,7 @@ def get_otlp_exporter() -> SpanExporter:
     else:
         raise MlflowException.invalid_parameter_value(
             f"Unsupported OTLP protocol '{protocol}' is configured. Please set "
-            "OTEL_EXPORTER_OTLP_TRACES_PROTOCOL env variable to either 'grpc' or 'http/protobuf'."
+            "the protocol to either 'grpc' or 'http/protobuf'."
         )
 
 
@@ -50,12 +51,13 @@ def _get_otlp_endpoint() -> Optional[str]:
     Get the OTLP endpoint from the environment variables.
     Ref: https://opentelemetry.io/docs/languages/sdk-configuration/otlp-exporter/#endpoint-configuration
     """
-    return os.environ.get(
-        "OTEL_EXPORTER_OTLP_TRACES_ENDPOINT", os.environ.get("OTEL_EXPORTER_OTLP_ENDPOINT", None)
+    # Use `or` instead of default value to do lazy eval
+    return os.environ.get("OTEL_EXPORTER_OTLP_TRACES_ENDPOINT") or os.environ.get(
+        "OTEL_EXPORTER_OTLP_ENDPOINT"
     )
 
 
 def _get_otlp_protocol() -> str:
-    return os.environ.get(
-        "OTEL_EXPORTER_OTLP_TRACES_PROTOCOL", os.environ.get("OTEL_EXPORTER_OPTL_PROTOCOL", "grpc")
+    return os.environ.get("OTEL_EXPORTER_OTLP_TRACES_PROTOCOL") or os.environ.get(
+        "OTEL_EXPORTER_OPTL_PROTOCOL", "grpc"
     )

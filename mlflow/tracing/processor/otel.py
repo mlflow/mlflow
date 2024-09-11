@@ -59,6 +59,6 @@ class OtelSpanProcessor(BatchSpanProcessor):
     def on_end(self, span: OTelReadableSpan):
         # Pops the trace entry from the in-memory trace manager to avoid memory leak
         if span._parent is None:
-            _ = self._trace_manager.pop_trace(span.context.trace_id)
+            self._trace_manager.pop_trace(span.context.trace_id)
 
         super().on_end(span)
