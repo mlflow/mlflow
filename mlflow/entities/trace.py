@@ -9,7 +9,6 @@ from mlflow.entities.trace_data import TraceData
 from mlflow.entities.trace_info import TraceInfo
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
-from mlflow.tracing.constant import SpanAttributeKey
 
 
 @dataclass
@@ -45,15 +44,6 @@ class Trace(_MlflowObject):
                 f"Received keys: {list(trace_dict.keys())}",
                 error_code=INVALID_PARAMETER_VALUE,
             )
-
-        # Databricks serving endpoint sometimes does not return the request ID in the trace info.
-        # In such cases, we look for the request ID in the spans.
-        # TODO: Remove this once the trace info format is fixed in serving side.
-        if "request_id" not in info:
-            info["request_id"] = data["spans"][0]["attributes"][SpanAttributeKey.REQUEST_ID]
-        # Trace from databricks model serving does not have experiment_id
-        if "experiment_id" not in info:
-            info["experiment_id"] = None
 
         return cls(
             info=TraceInfo.from_dict(info),
