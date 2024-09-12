@@ -1,8 +1,8 @@
 import click
 
-from mlflow.deployments.server.runner import run_app
 from mlflow.environment_variables import MLFLOW_GATEWAY_CONFIG
 from mlflow.gateway.config import _validate_config
+from mlflow.gateway.runner import run_app
 from mlflow.utils.os import is_windows
 
 
