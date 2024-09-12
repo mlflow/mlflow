@@ -127,21 +127,23 @@ def save_model(
     # Construct new data folder in existing path.
     data_path = os.path.join(path, model_data_subpath)
     os.makedirs(data_path, exist_ok=True)
-
-    model_subpath = os.path.join(model_data_subpath, _MODEL_SAVE_PATH)
     # Set the model path to end with ".pkl" as we use cloudpickle for serialization.
-    model_path = os.path.join(path, model_subpath) + ".pkl"
+    model_subpath = os.path.join(model_data_subpath, _MODEL_SAVE_PATH) + ".pkl"
+    model_path = os.path.join(path, model_subpath)
+    # Dspy has a global context `dspy.settings`, and we need to save it along with the model.
     dspy_settings = dict(dspy.settings.config)
     if "trace" in dspy_settings:
         # Don't save the trace in the model, which is only useful during the training phase.
         del dspy_settings["trace"]
+
+    # Store both dspy model and settings in `DspyModelWrapper` for serialization.
     wrapped_dspy_model = DspyModelWrapper(model, dspy_settings)
 
     with open(model_path, "wb") as f:
         cloudpickle.dump(wrapped_dspy_model, f)
 
     flavor_options = {
-        "model_path": model_subpath + ".pkl",
+        "model_path": model_subpath,
         "dspy_version": version("dspy-ai"),
     }
 
@@ -160,7 +162,7 @@ def save_model(
     if size := get_total_file_size(path):
         mlflow_model.model_size_bytes = size
 
-    # save mlflow_model to path/MLmodel
+    # Save mlflow_model to path/MLmodel.
     mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
 
     if conda_env is None:
@@ -180,7 +182,8 @@ def save_model(
     else:
         conda_env, pip_requirements, pip_constraints = _process_conda_env(conda_env)
 
-    # dspy's pypi name is dspy-ai, so we need to remove "dspy" from the pip_requirements
+    # dspy's pypi name is dspy-ai, so we need to remove "dspy" from the
+    # auto-generated pip_requirements.
     pip_requirements = list(filter(lambda x: not x.startswith("dspy=="), pip_requirements))
     conda_env["dependencies"][-1]["pip"] = pip_requirements
     with open(os.path.join(path, _CONDA_ENV_FILE_NAME), "w") as f:
@@ -234,6 +237,47 @@ def log_model(
         extra_pip_requirements: {{ extra_pip_requirements }}
         metadata: Custom metadata dictionary passed to the model and stored in the MLmodel
             file.
+
+    .. code-block:: python
+        :caption: Example
+
+        import dspy
+        import mlflow
+        from mlflow.models import ModelSignature
+        from mlflow.types.schema import ColSpec, Schema
+
+        # Set up the LM.
+        lm = dspy.OpenAI(model="gpt-4o-mini", max_tokens=250)
+        dspy.settings.configure(lm=lm)
+
+
+        class CoT(dspy.Module):
+            def __init__(self):
+                super().__init__()
+                self.prog = dspy.ChainOfThought("question -> answer")
+
+            def forward(self, question):
+                return self.prog(question=question)
+
+
+        dspy_model = CoT()
+
+        mlflow.set_tracking_uri("http://127.0.0.1:5000")
+        mlflow.set_experiment("test-dspy-logging")
+
+        from mlflow.dspy import log_model
+
+        input_schema = Schema([ColSpec("string")])
+        output_schema = Schema([ColSpec("string")])
+        signature = ModelSignature(inputs=input_schema, outputs=output_schema)
+
+        with mlflow.start_run():
+            log_model(
+                dspy_model,
+                "model",
+                input_example="what is 2 + 2?",
+                signature=signature,
+            )
     """
     return Model.log(
         artifact_path=artifact_path,
