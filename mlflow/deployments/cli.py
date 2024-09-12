@@ -505,6 +505,6 @@ def start_server(config_path: str, host: str, port: str, workers: int):
     if is_windows():
         raise click.ClickException("MLflow AI Gateway does not support Windows.")
 
-    from mlflow.deployments.server.runner import run_app
+    from mlflow.gateway.runner import run_app
 
     run_app(config_path=config_path, host=host, port=port, workers=workers)
