@@ -1,3 +1,7 @@
+"""
+TODO: Remove this module once after Deployments Server deprecation window elapses
+"""
+
 from mlflow.environment_variables import (
     MLFLOW_DEPLOYMENTS_CONFIG,
 )
