@@ -1,7 +1,10 @@
+.. meta::
+  :description: LLM evaluation involves assessing how well a model performs on a task. MLflow provides a simple API to evaluate your LLMs with popular metrics.
+
 .. _llm-eval:
 
-MLflow LLM Evaluate
-===================
+MLflow LLM Evaluation
+=====================
 
 With the emerging of ChatGPT, LLMs have shown its power of text generation in various fields, such as 
 question answering, translating and text summarization. Evaluating LLMs' performance is slightly different 
