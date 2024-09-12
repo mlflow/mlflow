@@ -30,8 +30,9 @@ from mlflow.tracing.constant import (
     TraceTagKey,
 )
 from mlflow.tracing.fluent import TRACE_BUFFER
-from mlflow.tracing.provider import _get_tracer
+from mlflow.tracing.provider import _get_trace_exporter, _get_tracer
 from mlflow.utils.file_utils import local_file_uri_to_path
+from mlflow.utils.os import is_windows
 
 from tests.tracing.helper import create_test_trace_info, create_trace, get_traces
 
@@ -1104,3 +1105,36 @@ def test_non_ascii_characters_not_encoded_as_unicode():
     assert "👍" in data
     assert json.dumps("あ").strip('"') not in data
     assert json.dumps("👍").strip('"') not in data
+
+
+@pytest.mark.skipif(is_windows(), reason="Otel collector docker image does not support Windows")
+def test_export_to_otel_collector(otel_collector, mock_client, monkeypatch):
+    from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
+
+    monkeypatch.setenv("OTEL_EXPORTER_OTLP_TRACES_ENDPOINT", "http://127.0.0.1:4317/v1/traces")
+
+    # Create a trace
+    model = DefaultTestModel()
+    model.predict(2, 5)
+    time.sleep(10)
+
+    # Tracer should be configured to export to OTLP
+    exporter = _get_trace_exporter()
+    assert isinstance(exporter, OTLPSpanExporter)
+    assert exporter._endpoint == "127.0.0.1:4317"
+
+    # Traces should not be logged to MLflow
+    mock_client._start_stacked_trace.assert_not_called()
+    mock_client._upload_trace_data.assert_not_called()
+    mock_client._upload_ended_trace_info.assert_not_called()
+
+    # Analyze the logs of the collector
+    _, output_file = otel_collector
+    with open(output_file) as f:
+        collector_logs = f.read()
+
+    # 3 spans should be exported
+    assert "Span #0" in collector_logs
+    assert "Span #1" in collector_logs
+    assert "Span #2" in collector_logs
+    assert "Span #3" not in collector_logs
