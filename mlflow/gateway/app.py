@@ -247,7 +247,7 @@ def create_app_from_config(config: GatewayConfig) -> GatewayAPI:
     @app.get("/favicon.ico", include_in_schema=False)
     async def favicon():
         for directory in ["build", "public"]:
-            favicon_file = Path(__file__).parent.parent.parent.joinpath(
+            favicon_file = Path(__file__).parent.parent.joinpath(
                 "server", "js", directory, "favicon.ico"
             )
             if favicon_file.exists():
