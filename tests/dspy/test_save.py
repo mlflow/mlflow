@@ -1,7 +1,13 @@
+import json
+
 import dspy
 import dspy.teleprompt
 
 import mlflow
+from mlflow.models import ModelSignature
+from mlflow.types.schema import ColSpec, Schema
+
+from tests.helper_functions import expect_status_code, pyfunc_serve_and_score_model
 
 
 def test_basic_save():
@@ -114,6 +120,9 @@ def test_save_model_with_multiple_modules():
     with mlflow.start_run() as run:
         mlflow.dspy.log_model(optimized_cot, "model")
 
+    original_settings = dict(dspy.settings.config)
+    original_settings["traces"] = None
+
     # Clear the lm setting to test the loading logic.
     dspy.settings.configure(lm=None)
 
@@ -127,3 +136,62 @@ def test_save_model_with_multiple_modules():
         loaded_model.generate_answer.predictors()[0].demos
         == optimized_cot.generate_answer.predictors()[0].demos
     )
+
+    loaded_settings = dict(dspy.settings.config)
+    loaded_settings["traces"] = None
+
+    assert loaded_settings["lm"].__dict__ == original_settings["lm"].__dict__
+    assert loaded_settings["rm"].__dict__ == original_settings["rm"].__dict__
+
+    del (
+        loaded_settings["lm"],
+        original_settings["lm"],
+        loaded_settings["rm"],
+        original_settings["rm"],
+    )
+
+    assert original_settings == loaded_settings
+
+
+def test_serving_logged_model():
+    class CoT(dspy.Module):
+        def __init__(self):
+            super().__init__()
+            self.prog = dspy.ChainOfThought("question -> answer")
+
+        def forward(self, question):
+            return self.prog(question=question)
+
+    dspy_model = CoT()
+    dspy.settings.configure(lm=dspy.OpenAI(model="gpt-4o-mini", max_tokens=250))
+
+    input_examples = {"inputs": ["What is 2 + 2?"]}
+    input_schema = Schema([ColSpec("string")])
+    output_schema = Schema([ColSpec("string")])
+    signature = ModelSignature(inputs=input_schema, outputs=output_schema)
+
+    with mlflow.start_run() as run:
+        mlflow.dspy.log_model(
+            dspy_model, "model", input_example=input_examples, signature=signature
+        )
+
+    # Clear the lm setting to test the loading logic.
+    dspy.settings.configure(lm=None)
+
+    model_path = "model"
+    model_url = f"runs:/{run.info.run_id}/{model_path}"
+
+    # test that the model can be served
+    response = pyfunc_serve_and_score_model(
+        model_uri=model_url,
+        data=json.dumps(input_examples),
+        content_type="application/json",
+        extra_args=["--env-manager", "local"],
+    )
+
+    expect_status_code(response, 200)
+
+    json_response = json.loads(response.content)
+    # Assert the required fields are in the response.
+    assert "rationale" in json_response["predictions"]
+    assert "answer" in json_response["predictions"]
