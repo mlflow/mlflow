@@ -94,7 +94,6 @@ class TraceInfo(_MlflowObject):
         """
         Convert trace info dictionary to TraceInfo object.
         """
-        if "status" not in trace_info_dict:
-            raise ValueError("status is required in trace info dictionary.")
-        trace_info_dict["status"] = TraceStatus(trace_info_dict["status"])
+        # The dictionary form
+        trace_info_dict["status"] = TraceStatus(trace_info_dict.get("status", "OK"))
         return cls(**trace_info_dict)

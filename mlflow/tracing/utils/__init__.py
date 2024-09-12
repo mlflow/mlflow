@@ -129,7 +129,12 @@ def decode_id(span_or_trace_id: str) -> int:
     """
     Decode the given hex string span or trace ID to an integer.
     """
-    return int(span_or_trace_id, 16)
+    try:
+        return int(span_or_trace_id, 16)
+    except Exception:
+        # A short-term workaround to handle invalid span/trace ID from serving endpoint.
+        # TODO: Remove this once the span/trace generation logic is fixed in serving side.
+        return int(f"0x{span_or_trace_id.encode('utf-8').hex()}", 16)
 
 
 def build_otel_context(trace_id: int, span_id: int) -> trace_api.SpanContext:

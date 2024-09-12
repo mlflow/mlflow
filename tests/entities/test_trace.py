@@ -223,6 +223,18 @@ def test_trace_to_from_dict_and_json():
                 )
 
 
+def test_trace_from_dict_missing_request_id_in_info():
+    model = _test_model()
+    model.predict(2, 5)
+
+    trace = mlflow.get_last_active_trace()
+    trace_dict = trace.to_dict()
+    trace_dict["info"].pop("request_id")
+
+    trace_from_dict = Trace.from_dict(trace_dict)
+    trace_from_dict.info.request_id = trace.info.request_id
+
+
 def test_trace_pandas_dataframe_columns():
     t = Trace(
         info=create_test_trace_info("a"),
