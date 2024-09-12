@@ -3,7 +3,9 @@ from threading import Thread
 from typing import Optional
 
 from mlflow.entities import LiveSpan, Span, Trace
+from mlflow.entities.trace_data import TraceData
 from mlflow.tracing.trace_manager import InMemoryTraceManager
+from mlflow.tracing.utils import encode_span_id, encode_trace_id
 
 from tests.tracing.helper import create_mock_otel_span, create_test_trace_info
 
@@ -190,6 +192,67 @@ def test_get_root_span_id():
 
     # Non-existing trace
     assert trace_manager.get_root_span_id("tr-2") is None
+
+
+def test_merge_trace():
+    trace_manager = InMemoryTraceManager.get_instance()
+
+    # Define a parent trace
+    request_id_1 = "tr-1"
+    trace_manager.register_trace(
+        trace_id=12345,
+        trace_info=create_test_trace_info(
+            request_id=request_id_1,
+            experiment_id="test",
+            request_metadata={"fruit": "banana"},
+            tags={"vegetable": "potato"},
+        ),
+    )
+    span_1_1 = _create_test_span(request_id_1, span_id=1)
+    span_1_2 = _create_test_span(request_id_1, span_id=2, parent_id=1)
+    trace_manager.register_span(span_1_1)
+    trace_manager.register_span(span_1_2)
+
+    # Define a child trace to be merged into the parent trace
+    child_trace = Trace(
+        info=create_test_trace_info(
+            request_id="tr-2",
+            experiment_id="test",
+            request_metadata={"fish": "salmon"},
+            tags={"vegetable": "carrot"},
+        ),
+        data=TraceData(
+            [
+                _create_test_span("tr-2", span_id=3).to_immutable_span(),
+                _create_test_span("tr-2", span_id=4, parent_id=3).to_immutable_span(),
+            ]
+        ),
+    )
+
+    # Merge the child trace under the span_1_2 of the parent trace
+    trace_manager.merge_trace(child_trace, request_id_1, span_1_2.span_id)
+
+    assert len(trace_manager._traces) == 1
+    for span in trace_manager._traces[request_id_1].span_dict.values():
+        assert isinstance(span, LiveSpan)
+        assert span.request_id == request_id_1
+        assert span._trace_id == encode_trace_id(12345)
+
+    trace = trace_manager.pop_trace(12345)
+    assert len(trace.data.spans) == 4
+    assert trace.data.spans[0].span_id == encode_span_id(1)
+    assert trace.data.spans[0].parent_id is None
+    assert trace.data.spans[1].span_id == encode_span_id(2)
+    assert trace.data.spans[1].parent_id == encode_span_id(1)
+    assert trace.data.spans[2].span_id == encode_span_id(3)
+    assert trace.data.spans[2].parent_id == encode_span_id(2)  # New parent ID
+    assert trace.data.spans[3].span_id == encode_span_id(4)
+    assert trace.data.spans[3].parent_id == encode_span_id(3)
+
+    assert trace.info.request_metadata == {"fruit": "banana", "fish": "salmon"}
+    assert trace.info.tags == {
+        "vegetable": "potato"
+    }  # Parent trace's tag value should be preserved
 
 
 def _create_test_span(

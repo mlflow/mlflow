@@ -94,7 +94,7 @@ def _get_tracer(module_name: str):
     return _MLFLOW_TRACER_PROVIDER.get_tracer(module_name)
 
 
-def _get_trace_exporter():
+def get_trace_exporter():
     """
     Get the exporter instance that is used by the current tracer provider.
     """

@@ -115,6 +115,7 @@ from mlflow.tracing.fluent import (
     search_traces,
     start_span,
     trace,
+    use_remote_trace,
 )
 from mlflow.tracking._model_registry.fluent import (
     register_model,
@@ -233,6 +234,7 @@ __all__ = [
     "search_traces",
     "start_span",
     "trace",
+    "use_remote_trace",
 ]
 
 

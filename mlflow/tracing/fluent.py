@@ -14,6 +14,7 @@ from opentelemetry import trace as trace_api
 from mlflow import MlflowClient
 from mlflow.entities import NoOpSpan, SpanType, Trace
 from mlflow.entities.span import LiveSpan, create_mlflow_span
+from mlflow.entities.trace_status import TraceStatus
 from mlflow.environment_variables import (
     MLFLOW_TRACE_BUFFER_MAX_SIZE,
     MLFLOW_TRACE_BUFFER_TTL_SECONDS,
@@ -549,3 +550,125 @@ def get_last_active_trace() -> Optional[Trace]:
         return TRACE_BUFFER.get(last_active_request_id)
     else:
         return None
+
+
+@experimental
+def use_remote_trace(trace: Trace):
+    """
+    Merge a trace from a remote service into the current active trace.
+    If there is an active span, the remote trace will be merged under that span. Otherwise,
+    a new trace is created locally that copies all spans and metadata from the remote trace.
+
+    The following example demonstrates how to use this function to merge a trace from a remote
+    service to the current active trace.
+
+    ..code-block:: python
+
+        @mlflow.trace(name="apple")
+        def run():
+            # Call a remote service that returns a trace in the response
+            resp = requests.get("https://your-service-endpoint", ...)
+
+            # Extract the trace from the response
+            trace_json = resp.json().get("trace")
+            trace = Trace.from_dict(trace_json)
+
+            # Use the remote trace as a part of the current active trace.
+            # It will be merged under the span "apple" and exported together when it is ended.
+            mlflow.use_remote_trace(trace)
+
+    Args:
+        trace: A :py:class:`Trace <mlflow.entities.Trace>` object that represents the remote trace.
+            The trace **must** be already completed i.e. no further updates should be made to it.
+            Otherwise, this function will raise an exception.
+
+    Raises:
+        MlflowException: If there is no active span found.
+    """
+    if not isinstance(trace, Trace):
+        raise MlflowException.invalid_parameter_value(
+            f"Invalid trace object: {type(trace)}. Please provide a valid MLflow Trace object "
+            "to use it as a remote trace. You can create a Trace object from its json format by "
+            "using the Trace.from_dict() method."
+        )
+
+    if trace.info.status not in TraceStatus.end_statuses():
+        raise MlflowException.invalid_parameter_value("The remote trace must be ended.")
+
+    if active_span := get_current_active_span():
+        # If there is an active span, merge the new trace under the active one
+        _merge_remote_trace_to_local(
+            remote_trace=trace,
+            local_request_id=active_span.request_id,
+            local_parent_span_id=active_span.span_id,
+        )
+    else:
+        # If there is no active span, create a new root span named "Remote Trace <...>"
+        # and put the remote trace under it. This design aims to keep the trace export
+        # logic simpler and consistent with the normal case, compared to directly
+        # exporting the remote trace.
+        client = MlflowClient()
+        remote_root_span = trace.data.spans[0]
+        span = client.start_trace(
+            name=f"Remote Trace <{remote_root_span.name}>",
+            inputs=remote_root_span.inputs,
+            attributes=remote_root_span.attributes,
+            start_time_ns=remote_root_span.start_time,
+        )
+        _merge_remote_trace_to_local(
+            remote_trace=trace,
+            local_request_id=span.request_id,
+            local_parent_span_id=span.span_id,
+        )
+        client.end_trace(
+            request_id=span.request_id,
+            status=trace.info.status,
+            outputs=remote_root_span.outputs,
+            end_time_ns=remote_root_span.end_time_ns,
+        )
+
+
+def _merge_remote_trace_to_local(
+    remote_trace: Trace,
+    local_request_id: str,
+    local_parent_span_id: str,
+):
+    """
+    Merge the given trace object under an existing trace in the in-memory trace registry.
+
+    This is particularly used for handling a remote trace that is created in a different
+    process and needs to be merged into the current trace.
+
+    Args:
+        trace: The trace object to be merged.
+        parent_request_id: The request ID of the parent trace.
+        parent_span_id: The parent span ID, under which the child trace should be merged.
+    """
+    trace_manager = InMemoryTraceManager.get_instance()
+
+    # The merged trace should have the same trace ID as the parent trace.
+    with trace_manager.get_trace(local_request_id) as parent_trace:
+        new_trace_id = parent_trace.span_dict[local_parent_span_id]._trace_id
+
+    # NB: We clone span one by one in the order it was saved in the original trace. This
+    # works upon the assumption that the parent span always comes before its children.
+    # This is guaranteed in current implementation, but if it changes in the future,
+    # we have to traverse the tree to determine the order.
+    for span in remote_trace.data.spans:
+        cloned_span = LiveSpan.from_immutable_span(
+            span=span,
+            parent_span_id=span.parent_id or local_parent_span_id,
+            request_id=local_request_id,
+            trace_id=new_trace_id,
+        )
+        trace_manager.register_span(cloned_span)
+
+    # Merge the tags and metadata from the child trace to the parent trace.
+    with trace_manager.get_trace(local_request_id) as parent_trace:
+        # Order of merging is important to ensure the parent trace's metadata is
+        # not overwritten by the child trace's metadata if they have the same key.
+        parent_trace.info.tags = {**remote_trace.info.tags, **parent_trace.info.tags}
+        parent_trace.info.request_metadata = {
+            **remote_trace.info.request_metadata,
+            **parent_trace.info.request_metadata,
+        }

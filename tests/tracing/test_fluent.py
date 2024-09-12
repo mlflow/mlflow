@@ -1138,3 +1138,99 @@ def test_export_to_otel_collector(otel_collector, mock_client, monkeypatch):
     assert "Span #1" in collector_logs
     assert "Span #2" in collector_logs
     assert "Span #3" not in collector_logs
+
+
+def test_use_remote_trace():
+    # Create a dummy child trace to be returned by a remote service
+    client = mlflow.MlflowClient()
+    s1 = client.start_trace(name="child")
+    s2 = client.start_span(name="grandchild", request_id=s1.request_id, parent_id=s1.span_id)
+    client.end_span(s2.request_id, s2.span_id)
+    client.end_trace(s1.request_id)
+    remote_trace = client.get_trace(s1.request_id)
+
+    # Mimic a remote service call that returns a trace as a part of the response
+    def dummy_remote_call():
+        return {
+            "prediction": 1,
+            "trace": remote_trace.to_dict(),
+        }
+
+    # The parent function that invokes the dummy remote service
+    @mlflow.trace(name="parent")
+    def run(use_remote_trace: bool):
+        resp = dummy_remote_call()
+        remote_trace = Trace.from_dict(resp["trace"])
+
+        if use_remote_trace:
+            mlflow.use_remote_trace(remote_trace)
+        return resp["prediction"]
+
+    # If we don't call use_remote_trace, the trace from the remote service should be discarded
+    run(use_remote_trace=False)
+    trace = mlflow.get_last_active_trace()
+    assert len(trace.data.spans) == 1
+
+    # If we call use_remote_trace, the trace from the remote service should be merged
+    run(use_remote_trace=True)
+    trace = mlflow.get_last_active_trace()
+    request_id = trace.info.request_id
+    assert request_id is not None
+    assert trace.data.request == '{"use_remote_trace": true}'
+    assert trace.data.response == "1"
+    # Remote spans should be merged
+    assert len(trace.data.spans) == 3
+    assert all(span.request_id == request_id for span in trace.data.spans)
+    parent_span, child_span, grandchild_span = trace.data.spans
+    assert child_span.parent_id == parent_span.span_id
+    assert child_span._trace_id == parent_span._trace_id
+    assert grandchild_span.parent_id == child_span.span_id
+    assert grandchild_span._trace_id == parent_span._trace_id
+
+
+def test_use_remote_trace_merge_tags():
+    # Create a dummy child trace to be returned by a remote service
+    client = mlflow.MlflowClient()
+    s1 = client.start_trace(
+        name="child",
+        tags={
+            "fruit": "apple",
+            "food": "pizza",
+        },
+    )
+    client.end_trace(s1.request_id)
+    remote_trace = client.get_trace(s1.request_id)
+
+    # Start the parent trace and merge the above trace as a child
+    with mlflow.start_span(name="parent") as span:
+        client.set_trace_tag(span.request_id, "vegetable", "carrot")
+        client.set_trace_tag(span.request_id, "food", "sushi")
+
+        mlflow.use_remote_trace(remote_trace)
+
+    trace = mlflow.get_last_active_trace()
+    custom_tags = {k: v for k, v in trace.info.tags.items() if not k.startswith("mlflow.")}
+    assert custom_tags == {
+        "fruit": "apple",
+        "vegetable": "carrot",
+        # Tag value from the parent trace should prevail
+        "food": "sushi",
+    }
+
+
+def test_use_remote_trace_raise_for_invalid_trace():
+    with pytest.raises(MlflowException, match="Invalid trace object"):
+        mlflow.use_remote_trace(None)
+
+    trace = Trace(
+        info=TraceInfo(
+            request_id="123",
+            status=TraceStatus.IN_PROGRESS,
+            experiment_id="0",
+            timestamp_ms=0,
+            execution_time_ms=0,
+        ),
+        data=TraceData(),
+    )
+    with pytest.raises(MlflowException, match="The remote trace must be ended"):
+        mlflow.use_remote_trace(trace)
