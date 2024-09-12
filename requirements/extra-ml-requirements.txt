@@ -7,7 +7,7 @@ mxnet!=1.8.0
 # Required by mlflow.fastai
 fastai>=2.4.1
 # Required by mlflow.spacy
-spacy>=3.3.0
+spacy>=3.3.0,<3.8
 # Required by mlflow.tensorflow
 tensorflow>=2.10.0
 # tensorflow-macos>=2.10.0  # Comment out the line above and uncomment this line if setting up dev
