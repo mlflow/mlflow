@@ -1,3 +1,6 @@
+.. meta::
+  :description: MLflow Tracing is a feature that enables LLM observability in your apps. You can automatically log traces for LangChain, LlamaIndex, and more.
+
 Introduction to MLflow Tracing
 ==============================
 
