@@ -193,6 +193,8 @@ The following example demonstrates how to log a simple chain with this method:
 
         If you are using Jupyter Notebook, you can use the `%%writefile` magic command to write the code cell directly to a file, without leaving the notebook to create it manually.
 
+    .. blacken-docs:off
+
     .. code-block:: python
 
         %%writefile chain.py
@@ -245,6 +247,8 @@ The following example demonstrates how to log a simple chain with this method:
         )
 
         mlflow.models.set_model(chain)
+
+    .. blacken-docs:on
 
 2. Then from the main notebook, log the model via supplying the path to the file that defines the chain:
 
