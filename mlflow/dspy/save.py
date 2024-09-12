@@ -131,7 +131,7 @@ def save_model(
     model_subpath = os.path.join(model_data_subpath, _MODEL_SAVE_PATH)
     # Set the model path to end with ".pkl" as we use cloudpickle for serialization.
     model_path = os.path.join(path, model_subpath) + ".pkl"
-    dspy_settings = dspy.settings.config
+    dspy_settings = dict(dspy.settings.config)
     if "trace" in dspy_settings:
         # Don't save the trace in the model, which is only useful during the training phase.
         del dspy_settings["trace"]
