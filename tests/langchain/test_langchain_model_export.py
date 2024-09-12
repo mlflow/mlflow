@@ -3527,6 +3527,10 @@ def test_langgraph_agent_log_model_from_code():
     assert all(item in expected["serving_endpoint"] for item in actual["serving_endpoint"])
 
 
+@pytest.mark.skipif(
+    Version(langchain.__version__) < Version("0.2.0"),
+    reason="Configurable fields are not supported correctly in old versions",
+)
 def test_invoking_model_with_params():
     with mlflow.start_run():
         model_info = mlflow.langchain.log_model(
