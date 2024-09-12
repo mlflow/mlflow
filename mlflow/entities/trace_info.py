@@ -94,6 +94,5 @@ class TraceInfo(_MlflowObject):
         """
         Convert trace info dictionary to TraceInfo object.
         """
-        # The dictionary form
         trace_info_dict["status"] = TraceStatus(trace_info_dict.get("status", "OK"))
         return cls(**trace_info_dict)

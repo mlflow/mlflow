@@ -39,7 +39,7 @@ from mlflow.protos.databricks_pb2 import (
     RESOURCE_DOES_NOT_EXIST,
 )
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
-from mlflow.tracing.provider import get_trace_exporter
+from mlflow.tracing.provider import _get_trace_exporter
 from mlflow.tracking import _get_artifact_repo, _get_store, artifact_utils
 from mlflow.tracking.client import MlflowClient
 from mlflow.tracking.context import registry as context_registry
@@ -724,7 +724,7 @@ def flush_trace_async_logging(terminate=False) -> None:
         terminate: If True, shut down the logging threads after flushing.
     """
     try:
-        get_trace_exporter()._async_queue.flush(terminate=terminate)
+        _get_trace_exporter()._async_queue.flush(terminate=terminate)
     except Exception as e:
         _logger.error(f"Failed to flush trace async logging: {e}")
 

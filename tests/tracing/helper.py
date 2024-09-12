@@ -1,4 +1,5 @@
 import time
+from dataclasses import dataclass
 from typing import List, Optional
 
 import opentelemetry.trace as trace_api
@@ -26,6 +27,12 @@ def create_mock_otel_span(
     OpenTelemetry doesn't allow creating a span outside of a tracer. So here we create a mock span
     that extends ReadableSpan (data object) and exposes the necessary attributes for testing.
     """
+
+    @dataclass
+    class _MockSpanContext:
+        trace_id: str
+        span_id: str
+        trace_flags: trace_api.TraceFlags = trace_api.TraceFlags(1)
 
     class _MockOTelSpan(trace_api.Span, ReadableSpan):
         def __init__(
@@ -76,8 +83,8 @@ def create_mock_otel_span(
 
     return _MockOTelSpan(
         name=name,
-        context=trace_api.SpanContext(trace_id, span_id, is_remote=False),
-        parent=trace_api.SpanContext(trace_id, parent_id, is_remote=False) if parent_id else None,
+        context=_MockSpanContext(trace_id, span_id),
+        parent=_MockSpanContext(trace_id, parent_id) if parent_id else None,
         start_time=start_time,
         end_time=end_time,
     )

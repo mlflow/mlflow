@@ -134,7 +134,11 @@ def decode_id(span_or_trace_id: str) -> int:
     except Exception:
         # A short-term workaround to handle invalid span/trace ID from serving endpoint.
         # TODO: Remove this once the span/trace generation logic is fixed in serving side.
-        return int(f"0x{span_or_trace_id.encode('utf-8').hex()}", 16)
+        return (
+            int(f"0x{span_or_trace_id.encode('utf-8').hex()}", 16)
+            # OTel span ID must be max 64-bit integer
+            & 0xFFFFFFFFFFFFFFFF
+        )
 
 
 def build_otel_context(trace_id: int, span_id: int) -> trace_api.SpanContext:
@@ -188,7 +192,8 @@ def get_otel_attribute(span: trace_api.Span, key: str) -> Optional[str]:
         be parsed, return None.
     """
     try:
-        return json.loads(span.attributes.get(key))
+        value = span.attributes.get(key)
+        return json.loads(value) if value else None
     except Exception:
         _logger.debug(f"Failed to get attribute {key} with from span {span}.", exc_info=True)
 

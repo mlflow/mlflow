@@ -76,9 +76,13 @@ def start_detached_span(
     """
     tracer = _get_tracer(__name__)
     context = trace.set_span_in_context(parent) if parent else None
-    attributes = (
-        {SpanAttributeKey.EXPERIMENT_ID: json.dumps(experiment_id)} if experiment_id else None
-    )
+    attributes = {}
+
+    # Set start time and experiment to attribute so we can pass it to the span processor
+    if start_time_ns:
+        attributes[SpanAttributeKey.START_TIME_NS] = json.dumps(start_time_ns)
+    if experiment_id:
+        attributes[SpanAttributeKey.EXPERIMENT_ID] = json.dumps(experiment_id)
     return tracer.start_span(name, context=context, attributes=attributes, start_time=start_time_ns)
 
 
@@ -94,7 +98,7 @@ def _get_tracer(module_name: str):
     return _MLFLOW_TRACER_PROVIDER.get_tracer(module_name)
 
 
-def get_trace_exporter():
+def _get_trace_exporter():
     """
     Get the exporter instance that is used by the current tracer provider.
     """

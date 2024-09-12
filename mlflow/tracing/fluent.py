@@ -605,15 +605,19 @@ def use_remote_trace(trace: Trace):
     else:
         # If there is no active span, create a new root span named "Remote Trace <...>"
         # and put the remote trace under it. This design aims to keep the trace export
-        # logic simpler and consistent with the normal case, compared to directly
-        # exporting the remote trace.
+        # logic simpler and consistent, rather than directly exporting the remote trace.
         client = MlflowClient()
         remote_root_span = trace.data.spans[0]
         span = client.start_trace(
             name=f"Remote Trace <{remote_root_span.name}>",
             inputs=remote_root_span.inputs,
-            attributes=remote_root_span.attributes,
-            start_time_ns=remote_root_span.start_time,
+            attributes={
+                # Exclude request ID attribute not to reuse same request ID
+                k: v
+                for k, v in remote_root_span.attributes.items()
+                if k != SpanAttributeKey.REQUEST_ID
+            },
+            start_time_ns=remote_root_span.start_time_ns,
         )
         _merge_remote_trace_to_local(
             remote_trace=trace,
@@ -648,13 +652,17 @@ def _merge_remote_trace_to_local(
 
     # The merged trace should have the same trace ID as the parent trace.
     with trace_manager.get_trace(local_request_id) as parent_trace:
+        if not parent_trace:
+            _logger.warning(
+                f"Parent trace with request ID {local_request_id} not found. Skipping merge."
+            )
         new_trace_id = parent_trace.span_dict[local_parent_span_id]._trace_id
 
     # NB: We clone span one by one in the order it was saved in the original trace. This
     # works upon the assumption that the parent span always comes before its children.
     # This is guaranteed in current implementation, but if it changes in the future,
     # we have to traverse the tree to determine the order.
-    for span in remote_trace.data.spans:
+    for i, span in enumerate(remote_trace.data.spans):
         cloned_span = LiveSpan.from_immutable_span(
             span=span,
             parent_span_id=span.parent_id or local_parent_span_id,

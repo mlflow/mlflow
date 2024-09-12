@@ -288,7 +288,7 @@ class LiveSpan(Span):
         Note that the constructor doesn't call the super().__init__ method, because the Span
         initialization logic is a bit different from the immutable span.
         """
-        if not isinstance(otel_span, OTelSpan):
+        if not isinstance(otel_span, OTelReadableSpan):
             raise MlflowException(
                 "The `otel_span` argument for the LiveSpan class must be an instance of "
                 f"trace.Span, but got {type(otel_span)}.",
@@ -573,11 +573,9 @@ class _SpanAttributesRegistry:
         if serialized_value:
             try:
                 return json.loads(serialized_value)
-            except Exception as e:
-                _logger.warning(
-                    f"Failed to get value for key {key}, make sure you set the attribute "
-                    f"on mlflow Span class instead of directly to the OpenTelemetry span. {e}"
-                )
+            except Exception:
+                # Return the serialized value as it is if it fails to deserialize
+                return serialized_value
 
     def set(self, key: str, value: Any):
         if not isinstance(key, str):

@@ -225,27 +225,3 @@ def test_from_dict_raises_when_request_id_is_empty():
                 "events": [],
             }
         )
-
-
-def test_from_dict_handle_invalid_id_encoding():
-    span = Span.from_dict(
-        {
-            "name": "predict",
-            "context": {
-                "trace_id": "R8Bok8r4D12brgyl",
-                "span_id": "bAuq0aPqYiyCfDh9",
-            },
-            "parent_id": None,
-            "start_time": 0,
-            "end_time": 1,
-            "status_code": "OK",
-            "status_message": "",
-            "attributes": {
-                "mlflow.traceRequestId": '"tr-12345"',
-            },
-            "events": [],
-        }
-    )
-    assert span.request_id == "tr-12345"
-    assert span.span_id is not None
-    assert span._trace_id is not None

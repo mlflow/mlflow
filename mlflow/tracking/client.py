@@ -858,13 +858,10 @@ class MlflowClient:
 
         try:
             otel_span = mlflow.tracing.provider.start_detached_span(
-                name=name, parent=parent_span._span
+                name=name,
+                parent=parent_span._span,
+                start_time_ns=start_time_ns,
             )
-
-            # We have to set the custom start time here after the span is created,
-            # because span processor may override the start time in the on_start() method.
-            if start_time_ns is not None:
-                otel_span._start_time = start_time_ns
 
             span = create_mlflow_span(otel_span, request_id, span_type)
             span.set_attributes(attributes or {})
