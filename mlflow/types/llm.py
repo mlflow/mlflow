@@ -1,6 +1,6 @@
 import time
 from dataclasses import asdict, dataclass, field
-from typing import List, Literal, Optional
+from typing import Dict, List, Literal, Optional
 
 from mlflow.types.schema import Array, ColSpec, DataType, Map, Object, Property, Schema
 
@@ -132,7 +132,7 @@ class ChatParams(_BaseDataclass):
     frequency_penalty: Optional[float] = None
     presence_penalty: Optional[float] = None
 
-    metadata: Optional[dict[str, str]] = None
+    metadata: Optional[Dict[str, str]] = None
 
     def __post_init__(self):
         self._validate_field("temperature", float, True)
@@ -156,12 +156,12 @@ class ChatParams(_BaseDataclass):
             for key, value in self.metadata.items():
                 if not isinstance(key, str):
                     raise ValueError(
-                        "Expected `metadata` to be of type `dict[str, str]`, "
+                        "Expected `metadata` to be of type `Dict[str, str]`, "
                         f"received key of type `{type(key).__name__}` (key: {key})"
                     )
                 if not isinstance(value, str):
                     raise ValueError(
-                        "Expected `metadata` to be of type `dict[str, str]`, "
+                        "Expected `metadata` to be of type `Dict[str, str]`, "
                         f"received value of type `{type(value).__name__}` in `metadata['{key}']`)"
                     )
 
@@ -349,7 +349,7 @@ class ChatResponse(_BaseDataclass):
     model: Optional[str] = None
     object: Literal["chat.completion"] = "chat.completion"
     created: int = field(default_factory=lambda: int(time.time()))
-    metadata: Optional[dict[str, str]] = None
+    metadata: Optional[Dict[str, str]] = None
 
     def __post_init__(self):
         self._validate_field("id", str, False)
