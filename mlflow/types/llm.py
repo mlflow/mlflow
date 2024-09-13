@@ -119,6 +119,9 @@ class ChatParams(_BaseDataclass):
         presence_penalty: (float): An optional param of positive or negative value,
             positive values penalize new tokens based on whether they appear in the text so far,
             increasing the model's likelihood to talk about new topics.
+        metadata (Dict[str, str]): An optional param to provide arbitrary additional context
+            to the model. Both the keys and the values must be strings (i.e. nested dictionaries
+            are not supported).
     """
 
     temperature: float = 1.0
@@ -336,11 +339,14 @@ class ChatResponse(_BaseDataclass):
         choices (List[:py:class:`ChatChoice`]): A list of :py:class:`ChatChoice` objects
             containing the generated responses
         usage (:py:class:`TokenUsageStats`): An object describing the tokens used by the request.
+            **Optional**, defaults to ``None``.
         id (str): The ID of the response. **Optional**, defaults to ``None``
         model (str): The name of the model used. **Optional**, defaults to ``None``
         object (str): The object type. The value should always be 'chat.completion'
         created (int): The time the response was created.
             **Optional**, defaults to the current time.
+        metadata (Dict[str, str]): An param that can contain arbitrary additional context.
+            **Optional**, defaults to ``None``
     """
 
     choices: List[ChatChoice]
@@ -441,10 +447,6 @@ CHAT_MODEL_INPUT_EXAMPLE = {
     "stop": ["\n"],
     "n": 1,
     "stream": False,
-    "metadata": {
-        "info": "The metadata field can be used to store arbitrary string data",
-        "foo": "bar",
-    },
 }
 
 COMPLETIONS_MODEL_INPUT_SCHEMA = Schema(

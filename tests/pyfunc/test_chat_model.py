@@ -302,8 +302,11 @@ def test_chat_model_works_with_infer_signature_input_example(tmp_path):
     assert model_info.signature.outputs == CHAT_MODEL_OUTPUT_SCHEMA
     mlflow_model = Model.load(model_info.model_uri)
     local_path = _download_artifact_from_uri(model_info.model_uri)
-    assert mlflow_model.load_input_example(local_path)["messages"] == input_example["messages"]
-    assert mlflow_model.load_input_example_params(local_path) == {**DEFAULT_PARAMS, **params_subset}
+    assert mlflow_model.load_input_example(local_path) == {
+        "messages": input_example["messages"],
+        **DEFAULT_PARAMS,
+        **params_subset,
+    }
 
     inference_payload = load_serving_example(model_info.model_uri)
     response = pyfunc_serve_and_score_model(
@@ -336,7 +339,8 @@ def test_chat_model_works_with_chat_message_input_example(tmp_path):
     mlflow_model = Model.load(model_info.model_uri)
     local_path = _download_artifact_from_uri(model_info.model_uri)
     assert mlflow_model.load_input_example(local_path) == {
-        "messages": [message.to_dict() for message in input_example]
+        "messages": [message.to_dict() for message in input_example],
+        **DEFAULT_PARAMS,
     }
 
     inference_payload = load_serving_example(model_info.model_uri)
@@ -378,11 +382,11 @@ def test_chat_model_works_with_infer_signature_multi_input_example(tmp_path):
     assert model_info.signature.outputs == CHAT_MODEL_OUTPUT_SCHEMA
     mlflow_model = Model.load(model_info.model_uri)
     local_path = _download_artifact_from_uri(model_info.model_uri)
-    assert mlflow_model.load_input_example_params(local_path) == {
+    assert mlflow_model.load_input_example(local_path) == {
+        "messages": input_example["messages"],
         **DEFAULT_PARAMS,
         **params_subset,
     }
-    assert mlflow_model.load_input_example(local_path)["messages"] == input_example["messages"]
 
     inference_payload = load_serving_example(model_info.model_uri)
     response = pyfunc_serve_and_score_model(
@@ -425,7 +429,7 @@ def test_chat_model_can_receive_and_return_metadata():
     }
     input_example = {
         "messages": messages,
-        "metadata": params["metadata"],
+        **params,
     }
 
     model = ChatModelWithMetadata()

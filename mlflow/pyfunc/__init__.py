@@ -395,6 +395,7 @@ support additional params.
 In summary, use the function-based Model when you have a simple function to serialize.
 If you need more power, use  the class-based model.
 """
+
 import collections
 import functools
 import importlib
@@ -2542,7 +2543,10 @@ def save_model(
                         messages.append(ChatMessage(**each_message))
             else:
                 # If the input example is a dictionary, convert it to ChatMessage format
-                messages = [ChatMessage(**m) for m in input_example["messages"]]
+                messages = [
+                    ChatMessage(**m) if isinstance(m, dict) else m
+                    for m in input_example["messages"]
+                ]
                 params = ChatParams(**{k: v for k, v in input_example.items() if k != "messages"})
             input_example = {
                 "messages": [m.to_dict() for m in messages],
