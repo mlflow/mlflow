@@ -629,7 +629,7 @@ def add_trace(trace: Union[Trace, Dict[str, Any]], target: Optional[LiveSpan] = 
     if trace.info.status not in TraceStatus.end_statuses():
         raise MlflowException.invalid_parameter_value(
             "The trace must be ended before adding it to another trace. "
-            f" Current status: {trace.info.status}.",
+            f"Current status: {trace.info.status}.",
         )
 
     if target_span := target or get_current_active_span():
