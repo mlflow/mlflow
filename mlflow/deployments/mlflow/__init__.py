@@ -31,15 +31,15 @@ if TYPE_CHECKING:
 @experimental
 class MlflowDeploymentClient(BaseDeploymentClient):
     """
-    Client for interacting with the MLflow Deployments Server.
+    Client for interacting with the MLflow AI Gateway.
 
     Example:
 
-    First, start the MLflow Deployments Server:
+    First, start the MLflow AI Gateway:
 
     .. code-block:: bash
 
-        mlflow deployments start-server --config-path path/to/config.yaml
+        mlflow gateway start --config-path path/to/config.yaml
 
     Then, create a client and use it to interact with the server:
 
@@ -143,7 +143,7 @@ class MlflowDeploymentClient(BaseDeploymentClient):
     @experimental
     def get_endpoint(self, endpoint) -> "Endpoint":
         """
-        Gets a specified endpoint configured for the MLflow Deployments Server.
+        Gets a specified endpoint configured for the MLflow AI Gateway.
 
         Args:
             endpoint: The name of the endpoint to retrieve.
@@ -204,7 +204,7 @@ class MlflowDeploymentClient(BaseDeploymentClient):
     @experimental
     def list_endpoints(self) -> "List[Endpoint]":
         """
-        List endpoints configured for the MLflow Deployments Server.
+        List endpoints configured for the MLflow AI Gateway.
 
         Returns:
             A list of ``Endpoint`` objects.

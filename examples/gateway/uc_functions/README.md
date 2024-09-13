@@ -1,6 +1,6 @@
 # Unity Catalog Integration
 
-This example demonstrates how to use the Unity Catalog (UC) integration with MLflow Deployments server.
+This example demonstrates how to use the Unity Catalog (UC) integration with MLflow AI Gateway.
 
 ## Pre-requisites
 
@@ -48,7 +48,7 @@ export DATABRICKS_WAREHOUSE_ID="..."
 # Enable Unity Catalog integration
 export MLFLOW_ENABLE_UC_FUNCTIONS=true
 
-mlflow deployments start-server --config-path examples/deployments/deployments_server/openai/config.yaml --port 7000
+mlflow gateway start --config-path examples/gateway/openai/config.yaml --port 7000
 ```
 
 Once the server starts running, run the example script:
