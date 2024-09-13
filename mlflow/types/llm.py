@@ -444,7 +444,7 @@ CHAT_MODEL_INPUT_EXAMPLE = {
     "metadata": {
         "info": "The metadata field can be used to store arbitrary string data",
         "foo": "bar",
-    }
+    },
 }
 
 COMPLETIONS_MODEL_INPUT_SCHEMA = Schema(

@@ -219,11 +219,12 @@ def test_chat_response_defaults():
     assert response.id is None
     assert response.choices[0].finish_reason == "stop"
 
+
 @pytest.mark.parametrize(
     ("metadata", "match"),
     [
         (1, r"Expected `metadata` to be a dictionary, received `int`"),
-        ({"nested": { "dict": "input" }}, r"received value of type `dict` in `metadata\['nested'\]`"),
+        ({"nested": {"dict": "input"}}, r"received value of type `dict` in `metadata\['nested'\]`"),
         ({1: "example"}, r"received key of type `int` \(key: 1\)"),
     ],
 )
