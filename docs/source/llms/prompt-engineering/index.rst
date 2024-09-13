@@ -6,7 +6,7 @@ Prompt Engineering UI (Experimental)
 
 Starting in MLflow 2.7, the MLflow Tracking UI provides a best-in-class experience for prompt
 engineering. With no code required, you can try out multiple LLMs from the
-:ref:`MLflow Deployments Server <deployments>`, parameter configurations, and prompts to build a variety of models for
+:ref:`MLflow AI Gateway <deployments>`, parameter configurations, and prompts to build a variety of models for
 question answering, document summarization, and beyond. Using the embedded Evaluation UI, you can
 also evaluate multiple models on a set of inputs and compare the responses to select the best one.
 Every model created with the prompt engineering UI is stored in the :ref:`MLflow Model <models>`
@@ -20,12 +20,12 @@ Quickstart
 
 The following guide will get you started with MLflow's UI for prompt engineering.
 
-Step 1: Create an MLflow Deployments Server Completions or Chat Endpoint
+Step 1: Create an MLflow AI Gateway Completions or Chat Endpoint
 ------------------------------------------------------------------------
-To use the prompt engineering UI, you need to create one or more :ref:`MLflow Deployments Server <deployments>`
+To use the prompt engineering UI, you need to create one or more :ref:`MLflow AI Gateway <deployments>`
 completions or chat :ref:`Endpoints <deployments-endpoints>`. Follow the
-:ref:`MLflow Deployments Server Quickstart guide <deployments-quickstart>` to easily create an endpoint in less than five
-minutes. If you already have access to an MLflow Deployments Server endpoint of type ``llm/v1/completions``
+:ref:`MLflow AI Gateway Quickstart guide <deployments-quickstart>` to easily create an endpoint in less than five
+minutes. If you already have access to an MLflow AI Gateway endpoint of type ``llm/v1/completions``
 or ``llm/v1/chat``, you can skip this step.
 
 .. code-block:: bash
@@ -33,14 +33,14 @@ or ``llm/v1/chat``, you can skip this step.
    mlflow deployments start-server --config-path config.yaml --port 7000
 
 
-Step 2: Connect the MLflow Deployments Server to your MLflow Tracking Server
+Step 2: Connect the MLflow AI Gateway to your MLflow Tracking Server
 ----------------------------------------------------------------------------
-The prompt engineering UI also requires a connection between the MLflow Deployments Server and the MLflow
-Tracking Server. To connect the MLflow Deployments Server with the MLflow Tracking Server, simply set the
+The prompt engineering UI also requires a connection between the MLflow AI Gateway and the MLflow
+Tracking Server. To connect the MLflow AI Gateway with the MLflow Tracking Server, simply set the
 ``MLFLOW_DEPLOYMENTS_TARGET`` environment variable in the environment where the server is running and
-restart the server. For example, if the MLflow Deployments Server is running at ``http://localhost:7000``, you
+restart the server. For example, if the MLflow AI Gateway is running at ``http://localhost:7000``, you
 can start an MLflow Tracking Server in a shell on your local machine and connect it to the
-MLflow Deployments Server using the :ref:`mlflow server <cli>` command as follows:
+MLflow AI Gateway using the :ref:`mlflow server <cli>` command as follows:
 
 .. code-block:: bash
 
@@ -71,13 +71,13 @@ out different LLMs, parameters, and prompts.
 
 Step 5: Select your endpoint and evaluate the example prompt
 ------------------------------------------------------------
-Next, click the *Select endpoint* dropdown and select the MLflow Deployments Server completions endpoint you created in
+Next, click the *Select endpoint* dropdown and select the MLflow AI Gateway completions endpoint you created in
 Step 1. Then, click the **Evaluate** button to test out an example prompt engineering use case
 for generating product advertisements.
 
 MLflow will embed the specified *stock_type* input
 variable value - ``"books"`` - into the specified *prompt  template* and send it to the LLM
-associated with the MLflow Deployments Server endpoint with the configured *temperature* (currently ``0.01``)
+associated with the MLflow AI Gateway endpoint with the configured *temperature* (currently ``0.01``)
 and *max_tokens* (currently 1000). The LLM response will appear in the *Output* section.
 
 .. figure:: ../../_static/images/prompt_modal_2.png
@@ -369,7 +369,7 @@ can deploy the corresponding MLflow Model for real-time serving as follows:
 2. Define the following environment variables in the environment where you will run your
    MLflow Model Server, such as a shell on your local machine:
 
-   * ``MLFLOW_DEPLOYMENTS_TARGET``: The URL of the MLflow Deployments Server
+   * ``MLFLOW_DEPLOYMENTS_TARGET``: The URL of the MLflow AI Gateway
 
 3. Use the :ref:`mlflow models serve <cli>` command to start the MLflow Model Server. For example,
    running the following command from a shell on your local machine will serve the model

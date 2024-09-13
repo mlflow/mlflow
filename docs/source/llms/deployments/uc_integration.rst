@@ -1,7 +1,7 @@
 Unity Catalog Integration
 =========================
 
-This example illustrates the use of the `Unity Catalog (UC) <https://docs.databricks.com/en/data-governance/unity-catalog/index.html>`_ integration with the MLflow Deployments server. This integration enables you to leverage functions registered in Unity Catalog as tools for enhancing your chat application.
+This example illustrates the use of the `Unity Catalog (UC) <https://docs.databricks.com/en/data-governance/unity-catalog/index.html>`_ integration with the MLflow AI Gateway. This integration enables you to leverage functions registered in Unity Catalog as tools for enhancing your chat application.
 
 Pre-requisites
 --------------
@@ -41,10 +41,10 @@ To define your own function, see https://docs.databricks.com/en/sql/language-man
 
 4. Create a SQL warehouse by following the instructions at https://docs.databricks.com/en/compute/sql-warehouse/create.html.
 
-Running the deployments server
+Running the gateway server
 ------------------------------
 
-Once you have completed the pre-requisites, you can start the deployments server:
+Once you have completed the pre-requisites, you can start the gateway server:
 
 .. code-block:: bash
 
@@ -76,7 +76,7 @@ Once the server is running, you can run the example script:
 
 .. code-block:: bash
 
-    # `run.py` uses the `openai.OpenAI` client to query the deployments server,
+    # `run.py` uses the `openai.OpenAI` client to query the gateway server,
     # but it throws an error if the `OPENAI_API_KEY` environment variable is not set.
     # To avoid this error, use a dummy API key.
     export OPENAI_API_KEY="test"
@@ -88,7 +88,7 @@ Once the server is running, you can run the example script:
 What's happening under the hood?
 --------------------------------
 
-When MLflow Deployments Server receives a request with ``tools`` containing ``uc_function``, it automatically fetches the UC function metadata to construct the function schema, query the chat API to figure out the parameters required to call the function, and then call the function with the provided parameters.
+When MLflow AI Gateway receives a request with ``tools`` containing ``uc_function``, it automatically fetches the UC function metadata to construct the function schema, query the chat API to figure out the parameters required to call the function, and then call the function with the provided parameters.
 
 .. code-block:: python
 
