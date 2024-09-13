@@ -60,7 +60,7 @@ Supported Elements in MLflow LangChain Integration
 
 .. warning::
 
-    There is a known deserialization issue when logging chain/agent that includes LangChain components from `the partner packages <https://python.langchain.com/v0.1/docs/integrations/platforms/#partner-packages>`_ such as ``langchain-openai``. If you log such models using the legacy serialization based logging, the some components might be loaded from ``langchain-community`` package instead of the partner package, which can lead to unexpected behavior.
+    There is a known deserialization issue when logging chains or agents dependent upon LangChain components from `the partner packages <https://python.langchain.com/v0.1/docs/integrations/platforms/#partner-packages>`_ such as ``langchain-openai``. If you log such models using the legacy serialization based logging, some components may be loaded from the respective ``langchain-community`` package instead of the partner package library, which can lead to unexpected behavior or import errors when executing your code.
     To avoid this issue, we strongly recommend using the `Model-from-Code <#logging-models-from-code>`_ method for logging such models. This method allows you to bypass the model serialization and robustly save the model definition.
 
 
@@ -174,7 +174,7 @@ The feature provides several benefits to manage LangChain models:
 
 1. **Avoid Serialization Complication**: File handles, sockets, external connections, dynamic references, lambda functions and system resources are unpicklable. Some LangChain components do not support native serialization, e.g. ``RunnableLambda``.
 
-2. **No Pickeling**: Loading a pickle or cloudpickle file in a Python version that was different than the one used to serialize the object does not guarantee compatibility.
+2. **No Pickling**: Loading a pickle or cloudpickle file in a Python version that was different than the one used to serialize the object does not guarantee compatibility.
 
 3. **Readability**: The serialized objects are often hardly readable by humans. Model-from-code allows you to review your model definition via code.
 
