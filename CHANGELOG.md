@@ -2,27 +2,25 @@
 
 ## 2.16.1 (2024-09-13)
 
-MLflow 2.16.1 includes several major features and improvements
+MLflow 2.15.1 is a patch release that includes some minor feature improvements and addresses several bug fixes.
 
 Features:
 
-- [Tracking] Support OTLP exporter for tracing (#13118, @B-Step62)
-- [Model Registry] Handle AWS encryption details (#12495, @artjen)
-- [Docs / Model Registry] MLFlow OSS Rest Store (#13034, @rohitarun-db)
-- [Models] Support logging Transformer models with a path to local model checkpoints to reduce memory footprint (#13070, @B-Step62)
-- [Model Registry] UC OSS Artifact Repository Impl (MLFlow Client) (#13066, @rohitarun-db)
-- [Model Registry] UC OSS Finalized Protos (#13065, @rohitarun-db)
+- [Tracing] Add Support for an Open Telemetry compatible exporter to configure external sinks for MLflow traces (#13118, @B-Step62)
+- [Model Registry, AWS] Add support for utilizing AWS KMS-based encryption for the MLflow Model Registry (#12495, @artjen)
+- [Model Registry] Add support for using the OSS Unity Catalog server as a Model Registry (#13034, #13065, #13066,  @rohitarun-db)
+- [Models] Introduce path-based transformers logging to reduce memory requirements for saving large transformers models (#13070, @B-Step62)
 
 Bug fixes:
 
-- [Tracking] fix `Model.get_tags_dict` to return result without containing config field (#13086, @harshilprajapati96)
-- [] Update Dependency Extraction for Agents (#13105, @aravind-segu)
-- [Tracking] Fix incorrect best model selection in auto checkpointing (#12981, @hareeen)
-- [Tracking] Fix timezone issue with autogen tracing (#13047, @B-Step62)
+- [Tracking] Fix a data payload size issue with `Model.get_tags_dict` by eliminating the return of the internally-used `config` field (#13086, @harshilprajapati96)
+- [Models] Fix an issue with LangChain Agents where sub-dependencies were not being properly extracted (#13105, @aravind-segu)
+- [Tracking] Fix an issue where the wrong checkpoint for the current best model in auto checkpointing was being selected (#12981, @hareeen)
+- [Tracking] Fix an issue where local timezones for trace initialization were not being taken into account in AutoGen tracing (#13047, @B-Step62)
 
 Documentation updates:
 
-- [] Adds RunLLM chat widget to MLflow's doc site (#13123, @likawind)
+- [Docs] Added RunLLM chat widget to MLflow's documentation site (#13123, @likawind)
 
 Small bug fixes and documentation updates:
 
