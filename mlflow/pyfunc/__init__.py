@@ -395,7 +395,6 @@ support additional params.
 In summary, use the function-based Model when you have a simple function to serialize.
 If you need more power, use  the class-based model.
 """
-
 import collections
 import functools
 import importlib
