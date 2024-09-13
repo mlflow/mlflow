@@ -172,7 +172,7 @@ Since MLflow 2.12.2, MLflow introduced the ability to log LangChain models direc
 
 The feature provides several benefits to manage LangChain models:
 
-1. **Avoid Serialization Complication**: File handles, sockets, external connections, dynamic references, lambda functions and system resources are unavailable for pickling. Some LangChain components does not support native serialization, e.g. ``RunnableLambda``.
+1. **Avoid Serialization Complication**: File handles, sockets, external connections, dynamic references, lambda functions and system resources are unpicklable. Some LangChain components do not support native serialization, e.g. ``RunnableLambda``.
 
 2. **No Pickeling**: Loading a pickle or cloudpickle file in a Python version that was different than the one used to serialize the object does not guarantee compatibility.
 
@@ -181,8 +181,8 @@ The feature provides several benefits to manage LangChain models:
 
 Refer to the `Models From Code feature documentation <../../models.html#models-from-code>`_ for more information about this feature.
 
-In order to use this feature, you will utilize the :py:func:`mlflow.models.set_model` API to define the chain that you would like to log as an MLflow model. 
-After having this set within your code that defines your chain, when logging your model, you will specify the **path** to the file that defines your chain. 
+In order to use this feature, you will utilize the :py:func:`mlflow.models.set_model` API to define the chain that you would like to log as an MLflow model.
+After having this set within your code that defines your chain, when logging your model, you will specify the **path** to the file that defines your chain.
 
 The following example demonstrates how to log a simple chain with this method:
 
@@ -293,6 +293,9 @@ The following example demonstrates how to log a simple chain with this method:
             :width: 100%
             :align: center
 
+.. warning::
+
+    When logging models from code, make sure that your code does not contain any sensitive information, such as API keys, passwords, or other confidential data. The code will be stored in plain text in the MLflow model artifact, and anyone with access to the artifact will be able to view the code.
 
 
 `Detailed Documentation <guide/index.html>`_
