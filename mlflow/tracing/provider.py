@@ -76,9 +76,13 @@ def start_detached_span(
     """
     tracer = _get_tracer(__name__)
     context = trace.set_span_in_context(parent) if parent else None
-    attributes = (
-        {SpanAttributeKey.EXPERIMENT_ID: json.dumps(experiment_id)} if experiment_id else None
-    )
+    attributes = {}
+
+    # Set start time and experiment to attribute so we can pass it to the span processor
+    if start_time_ns:
+        attributes[SpanAttributeKey.START_TIME_NS] = json.dumps(start_time_ns)
+    if experiment_id:
+        attributes[SpanAttributeKey.EXPERIMENT_ID] = json.dumps(experiment_id)
     return tracer.start_span(name, context=context, attributes=attributes, start_time=start_time_ns)
 
 

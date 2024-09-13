@@ -6,9 +6,10 @@ from typing import Any, Dict, List, Optional, Union
 
 from opentelemetry.sdk.trace import Event as OTelEvent
 from opentelemetry.sdk.trace import ReadableSpan as OTelReadableSpan
-from opentelemetry.trace import NonRecordingSpan
+from opentelemetry.trace import NonRecordingSpan, SpanContext, TraceFlags
 from opentelemetry.trace import Span as OTelSpan
 
+import mlflow
 from mlflow.entities.span_event import SpanEvent
 from mlflow.entities.span_status import SpanStatus, SpanStatusCode
 from mlflow.exceptions import MlflowException
@@ -390,6 +391,77 @@ class LiveSpan(Span):
         """
         # All state of the live span is already persisted in the OpenTelemetry span object.
         return Span(self._span)
+
+    @classmethod
+    def from_immutable_span(
+        cls,
+        span: Span,
+        parent_span_id: Optional[str] = None,
+        request_id: Optional[str] = None,
+        trace_id: Optional[str] = None,
+    ) -> "LiveSpan":
+        """
+        Create a new LiveSpan object from the given immutable span by
+        cloning the underlying OpenTelemetry span within current context.
+
+        This is particularly useful when we merging a remote trace into the current trace.
+        We cannot merge the remote trace directly, because it is already stored as an immutable
+        span, meaning that we cannot update metadata like request ID, trace ID, parent span ID,
+        which are necessary for merging the trace.
+
+        Args:
+            span: The immutable span object to clone.
+            parent_span_id: The parent span ID of the new span.
+                If it is None, the span will be created as a root span.
+            request_id: The request ID to be set on the new span. Specify this if you want to
+                create the new span with a different request ID from the original span.
+            trace_id: The trace ID of the new span in hex encoded format. Specify this if you
+                want to create the new span with a different trace ID from the original span
+
+        Returns:
+            The new LiveSpan object with the same state as the original span.
+
+        :meta private:
+        """
+        from mlflow.tracing.trace_manager import InMemoryTraceManager
+
+        trace_manager = InMemoryTraceManager.get_instance()
+        request_id = request_id or span.request_id
+        parent_span = trace_manager.get_span_from_id(request_id, parent_span_id)
+
+        # Create a new span with the same name, parent, and start time
+        otel_span = mlflow.tracing.provider.start_detached_span(
+            name=span.name,
+            parent=parent_span._span if parent_span else None,
+            start_time_ns=span.start_time_ns,
+        )
+        # otel_span._span_processor = span._span._span_processor
+        clone_span = LiveSpan(otel_span, request_id, span.span_type)
+
+        # Copy all the attributes, inputs, outputs, and events from the original span
+        clone_span.set_status(span.status)
+        clone_span.set_attributes(
+            {k: v for k, v in span.attributes.items() if k != SpanAttributeKey.REQUEST_ID}
+        )
+        clone_span.set_inputs(span.inputs)
+        clone_span.set_outputs(span.outputs)
+        for event in span.events:
+            clone_span.add_event(event)
+
+        # Update trace ID and span ID
+        context = span._span.get_span_context()
+        clone_span._span._context = SpanContext(
+            # Override trace_id if provided, otherwise use the original trace ID
+            trace_id=decode_id(trace_id) or context.trace_id,
+            span_id=context.span_id,
+            is_remote=context.is_remote,
+            # Override trace flag as if it is sampled within current context.
+            trace_flags=TraceFlags(TraceFlags.SAMPLED),
+        )
+
+        # Mark the span completed with the original end time
+        clone_span.end(end_time=span.end_time_ns)
+        return clone_span
 
 
 NO_OP_SPAN_REQUEST_ID = "MLFLOW_NO_OP_SPAN_REQUEST_ID"
