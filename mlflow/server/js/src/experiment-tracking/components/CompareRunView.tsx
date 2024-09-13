@@ -25,6 +25,7 @@ import { PageHeader } from '../../shared/building_blocks/PageHeader';
 import { CollapsibleSection } from '../../common/components/CollapsibleSection';
 import { shouldDisableLegacyRunCompareCharts } from '../../common/utils/FeatureUtils';
 import { RunInfoEntity } from '../types';
+import { CompareRunArtifactView } from './CompareRunArtifactView';
 
 const { TabPane } = Tabs;
 
@@ -57,6 +58,7 @@ export class CompareRunView extends Component<CompareRunViewProps, CompareRunVie
       onlyShowParamDiff: false,
       onlyShowTagDiff: false,
       onlyShowMetricDiff: false,
+      onlyShowArtifactDiff: false,
     };
     this.onResizeHandler = this.onResizeHandler.bind(this);
     this.onCompareRunTableScrollHandler = this.onCompareRunTableScrollHandler.bind(this);
@@ -276,6 +278,10 @@ export class CompareRunView extends Component<CompareRunViewProps, CompareRunVie
     );
   }
 
+  renderArtifactTable(colWidth: any) {
+    return <CompareRunArtifactView runUuids={this.props.runUuids} runInfos={this.props.runInfos} colWidth={colWidth} />;
+  }
+
   renderTagTable(colWidth: any) {
     const dataRows = this.renderDataRows(
       this.props.tagLists,
@@ -398,6 +404,11 @@ export class CompareRunView extends Component<CompareRunViewProps, CompareRunVie
     const metricsLabel = this.props.intl.formatMessage({
       defaultMessage: 'Metrics',
       description: 'Row group title for metrics of runs on the experiment compare runs page',
+    });
+
+    const artifactsLabel = this.props.intl.formatMessage({
+      defaultMessage: 'Artifacts',
+      description: 'Row group title for artifacts of runs on the experiment compare runs page',
     });
 
     const tagsLabel = this.props.intl.formatMessage({
@@ -576,6 +587,17 @@ export class CompareRunView extends Component<CompareRunViewProps, CompareRunVie
           />
           <Spacer size="lg" />
           {this.renderMetricTable(colWidth, experimentIds)}
+        </CollapsibleSection>
+        <CollapsibleSection title={artifactsLabel}>
+          <Switch
+            label={diffOnlyLabel}
+            aria-label={[artifactsLabel, diffOnlyLabel].join(' - ')}
+            // @ts-expect-error TS(4111): Property 'onlyShowArtifactDiff' comes from an index ... Remove this comment to see the full error message
+            checked={this.state.onlyShowArtifactDiff}
+            onChange={(checked, e) => this.setState({ onlyShowArtifactDiff: checked })}
+          />
+          <Spacer size="lg" />
+          {this.renderArtifactTable(colWidth)}
         </CollapsibleSection>
         <CollapsibleSection title={tagsLabel}>
           <Switch
