@@ -1,3 +1,4 @@
+import inspect
 import json
 import keyword
 import logging
@@ -20,6 +21,7 @@ from mlflow.data.evaluation_dataset import EvaluationDataset, convert_data_to_ml
 from mlflow.entities.dataset_input import DatasetInput
 from mlflow.entities.input_tag import InputTag
 from mlflow.exceptions import MlflowException
+from mlflow.metrics.base import MetricValue
 from mlflow.models.evaluation.validation import (
     MetricThreshold,
     ModelValidationFailedException,
@@ -151,6 +153,102 @@ class EvaluationMetric:
         return "EvaluationMetric(" + ", ".join(parts) + ")"
 
 
+class GenAIEvaluationMetric(EvaluationMetric):
+    def __init__(self, *args, **kwargs):
+        self._with_llm_judge = kwargs.pop("with_llm_judge", False)
+        super().__init__(*args, **kwargs)
+        self._setup_evaluate()
+
+    def eval_method(
+        self,
+        *,
+        predictions: Union[pd.Series, str, list],
+        inputs: Union[pd.Series, str, list],
+        metrics: Optional[Dict[str, MetricValue]] = None,
+        return_only_scores: bool = False,
+        **kwargs,
+    ) -> Union[MetricValue, List[str], List[float]]:
+        """
+        Evaluate the metric on the given inputs and predictions.
+        Note: only keyword arguments are supported.
+
+        Args:
+            predictions: predictions made by the model.
+            inputs: inputs used to make the predictions.
+            metrics: metrics calculated by the default evaluator.
+            return_only_scores: If True, return only the scores from the metric.
+                Otherwise, return the full MetricValue object. Default to False.
+            kwargs: additional arguments used to compute the metric.
+
+        Returns:
+            If return_only_scores is True, return the scores from the metric.
+            Otherwise, return the full MetricValue object.
+        """
+        allowed_kwargs_names = [
+            param_name
+            for param_name in inspect.signature(self.eval_fn).parameters.keys()
+            if param_name not in ["predictions", "metrics", "inputs"]
+        ]
+        if missed_kwargs := set(allowed_kwargs_names) - set(kwargs.keys()):
+            raise MlflowException.invalid_parameter_value(
+                f"Missing required arguments: {missed_kwargs}",
+            )
+        if extra_kwargs := set(kwargs.keys()) - set(allowed_kwargs_names):
+            raise MlflowException.invalid_parameter_value(
+                f"Unexpected arguments: {extra_kwargs}",
+            )
+        result = self.eval_fn(
+            _convert_val_to_pd_Series(predictions, "predictions"),
+            metrics or {},
+            _convert_val_to_pd_Series(inputs, "inputs"),
+            *[kwargs[arg_name] for arg_name in allowed_kwargs_names],
+        )
+        if return_only_scores:
+            return result.scores
+        return result
+
+    def eval_method_with_llm_judge(
+        self,
+        *,
+        return_only_scores: bool = False,
+        **kwargs,
+    ) -> Union[MetricValue, List[str], List[float]]:
+        """
+        Evaluate the metric on the given inputs and predictions.
+        Note: only keyword arguments are supported.
+
+        Args:
+            return_only_scores: If True, return only the scores from the metric.
+                Otherwise, return the full MetricValue object. Default to False.
+            kwargs: additional arguments used to compute the metric.
+
+        Returns:
+            If return_only_scores is True, return the scores from the metric.
+            Otherwise, return the full MetricValue object.
+        """
+        result = self.eval_fn(**kwargs)
+        if return_only_scores:
+            return result.scores
+        return result
+
+    def _setup_evaluate(self):
+        if self._with_llm_judge:
+            self.evaluate = self.eval_method_with_llm_judge
+        else:
+            self.evaluate = self.eval_method
+
+
+def _convert_val_to_pd_Series(val, name):
+    if val is not None and not isinstance(val, pd.Series):
+        if isinstance(val, str):
+            return pd.Series([val])
+        elif isinstance(val, list):
+            return pd.Series(val)
+        else:
+            raise TypeError(f"Expected {name} to be a string or list, got {type(val)}")
+    return val
+
+
 def make_metric(
     *,
     eval_fn,
@@ -161,6 +259,8 @@ def make_metric(
     metric_details=None,
     metric_metadata=None,
     genai_metric_args=None,
+    return_genai_metric=False,
+    with_llm_judge=False,
 ):
     '''
     A factory function to create an :py:class:`EvaluationMetric` object.
@@ -258,16 +358,20 @@ def make_metric(
             "name to enable creation of derived metrics that use the given metric."
         )
 
-    return EvaluationMetric(
-        eval_fn,
-        name,
-        greater_is_better,
-        long_name,
-        version,
-        metric_details,
-        metric_metadata,
-        genai_metric_args,
-    )
+    init_args = {
+        "eval_fn": eval_fn,
+        "name": name,
+        "greater_is_better": greater_is_better,
+        "long_name": long_name,
+        "version": version,
+        "metric_details": metric_details,
+        "metric_metadata": metric_metadata,
+        "genai_metric_args": genai_metric_args,
+    }
+    if return_genai_metric:
+        return GenAIEvaluationMetric(**init_args, with_llm_judge=with_llm_judge)
+    else:
+        return EvaluationMetric(**init_args)
 
 
 @developer_stable

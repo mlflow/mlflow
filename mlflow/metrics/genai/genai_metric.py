@@ -16,7 +16,11 @@ from mlflow.metrics.genai import model_utils
 from mlflow.metrics.genai.base import EvaluationExample
 from mlflow.metrics.genai.prompt_template import PromptTemplate
 from mlflow.metrics.genai.utils import _get_default_model, _get_latest_metric_version
-from mlflow.models import EvaluationMetric, make_metric
+from mlflow.models import (
+    EvaluationMetric,
+    GenAIEvaluationMetric,
+    make_metric,
+)
 from mlflow.protos.databricks_pb2 import (
     BAD_REQUEST,
     INTERNAL_ERROR,
@@ -194,7 +198,7 @@ def make_genai_metric_from_prompt(
     greater_is_better: bool = True,
     max_workers: int = 10,
     metric_metadata: Optional[Dict[str, Any]] = None,
-) -> EvaluationMetric:
+) -> GenAIEvaluationMetric:
     """
     Create a genai metric used to evaluate LLM using LLM as a judge in MLflow. This produces
     a metric using only the supplied judge prompt without any pre-written system prompt.
@@ -299,6 +303,8 @@ def make_genai_metric_from_prompt(
         name=name,
         metric_metadata=metric_metadata,
         genai_metric_args=genai_metric_args,
+        return_genai_metric=True,
+        with_llm_judge=True,
     )
 
 
@@ -317,7 +323,7 @@ def make_genai_metric(
     greater_is_better: bool = True,
     max_workers: int = 10,
     metric_metadata: Optional[Dict[str, Any]] = None,
-) -> EvaluationMetric:
+) -> GenAIEvaluationMetric:
     """
     Create a genai metric used to evaluate LLM using LLM as a judge in MLflow. The full grading
     prompt is stored in the metric_details field of the ``EvaluationMetric`` object.
@@ -594,6 +600,8 @@ def make_genai_metric(
     for var in grading_context_columns:
         signature_parameters.append(Parameter(var, Parameter.POSITIONAL_OR_KEYWORD))
 
+    # Note: this doesn't change how python allows calling the function
+    # extra params in grading_context_columns can only be passed as positional args
     eval_fn.__signature__ = Signature(signature_parameters)
 
     return make_metric(
@@ -604,6 +612,7 @@ def make_genai_metric(
         metric_details=evaluation_context["eval_prompt"].__str__(),
         metric_metadata=metric_metadata,
         genai_metric_args=genai_metric_args,
+        return_genai_metric=True,
     )
 
 
