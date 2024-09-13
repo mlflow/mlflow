@@ -30,7 +30,7 @@ or ``llm/v1/chat``, you can skip this step.
 
 .. code-block:: bash
 
-   mlflow deployments start-server --config-path config.yaml --port 7000
+   mlflow gateway start --config-path config.yaml --port 7000
 
 
 Step 2: Connect the MLflow AI Gateway to your MLflow Tracking Server
