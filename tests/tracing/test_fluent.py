@@ -1329,7 +1329,7 @@ def test_add_trace_raise_for_invalid_trace():
         ),
         data=TraceData(),
     )
-    with pytest.raises(MlflowException, match="The remote trace must be ended"):
+    with pytest.raises(MlflowException, match="The trace must be ended"):
         mlflow.add_trace(in_progress_trace)
 
     trace = Trace.from_dict(_SAMPLE_REMOTE_TRACE)
