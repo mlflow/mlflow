@@ -342,7 +342,7 @@ class ChatResponse(_BaseDataclass):
             **Optional**, defaults to ``None``.
         id (str): The ID of the response. **Optional**, defaults to ``None``
         model (str): The name of the model used. **Optional**, defaults to ``None``
-        object (str): The object type. The value should always be 'chat.completion'
+        object (str): The object type. Defaults to 'chat.completion'
         created (int): The time the response was created.
             **Optional**, defaults to the current time.
         metadata (Dict[str, str]): An param that can contain arbitrary additional context.
@@ -353,7 +353,7 @@ class ChatResponse(_BaseDataclass):
     usage: Optional[TokenUsageStats] = None
     id: Optional[str] = None
     model: Optional[str] = None
-    object: Literal["chat.completion"] = "chat.completion"
+    object: str = "chat.completion"
     created: int = field(default_factory=lambda: int(time.time()))
     metadata: Optional[Dict[str, str]] = None
 
