@@ -1,5 +1,33 @@
 # CHANGELOG
 
+## 2.16.1 (2024-09-13)
+
+MLflow 2.16.1 includes several major features and improvements
+
+Features:
+
+- [Tracking] Support OTLP exporter for tracing (#13118, @B-Step62)
+- [Model Registry] Handle AWS encryption details (#12495, @artjen)
+- [Docs / Model Registry] MLFlow OSS Rest Store (#13034, @rohitarun-db)
+- [Models] Support logging Transformer models with a path to local model checkpoints to reduce memory footprint (#13070, @B-Step62)
+- [Model Registry] UC OSS Artifact Repository Impl (MLFlow Client) (#13066, @rohitarun-db)
+- [Model Registry] UC OSS Finalized Protos (#13065, @rohitarun-db)
+
+Bug fixes:
+
+- [Tracking] fix `Model.get_tags_dict` to return result without containing config field (#13086, @harshilprajapati96)
+- [] Update Dependency Extraction for Agents (#13105, @aravind-segu)
+- [Tracking] Fix incorrect best model selection in auto checkpointing (#12981, @hareeen)
+- [Tracking] Fix timezone issue with autogen tracing (#13047, @B-Step62)
+
+Documentation updates:
+
+- [] Adds RunLLM chat widget to MLflow's doc site (#13123, @likawind)
+
+Small bug fixes and documentation updates:
+
+#13140, #13141, #13098, #13091, #13101, #13100, #13095, #13044, #13048, @B-Step62; #13142, #13092, #13132, #13055, #13049, @harupy; #13135, #13036, #13029, @serena-ruan; #13134, #13081, #13078, @daniellok-db; #13107, #13103, @kriscon-db; #13104, @arpitjasa-db; #13022, @nojaf; #13069, @minihat; #12879, @faizankshaikh
+
 ## 2.16.0 (2024-08-30)
 
 We are excited to announce the release of MLflow 2.16.0. This release includes many major features and improvements!
