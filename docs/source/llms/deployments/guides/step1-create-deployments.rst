@@ -86,14 +86,14 @@ To launch the gateway server using a YAML config file, use the deployments CLI c
 
 The gateway server will automatically start on ``localhost`` at port ``5000``, accessible via
 the URL: ``http://localhost:5000``. To modify these default settings, use the
-``mlflow deployments start-server --help`` command to view additional configuration options.
+``mlflow gateway start --help`` command to view additional configuration options.
 
 .. code-section::
 
     .. code-block:: bash
         :name: start-server
 
-        mlflow deployments start-server --config-path config.yaml
+        mlflow gateway start --config-path config.yaml
 
 .. note::
     MLflow AI Gateway automatically creates API docs. You can validate your deployment server
