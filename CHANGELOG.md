@@ -2,7 +2,7 @@
 
 ## 2.16.1 (2024-09-13)
 
-MLflow 2.15.1 is a patch release that includes some minor feature improvements and addresses several bug fixes.
+MLflow 2.16.1 is a patch release that includes some minor feature improvements and addresses several bug fixes.
 
 Features:
 
