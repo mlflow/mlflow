@@ -156,7 +156,6 @@ class PresignedUrlArtifactRepository(CloudArtifactRepository):
         )
 
     def _refresh_credentials(self):
-        """ 
+        """
         No-op method
         """
-
