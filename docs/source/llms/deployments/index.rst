@@ -432,8 +432,8 @@ that defines the endpoints and providers available to the server. The configurat
 how the gateway server interacts with various language model providers and determines the end-points that
 users can access.
 
-gateway server Configuration
---------------------------------
+AI Gateway server Configuration
+-------------------------------
 
 The configuration file includes a series of sections, each representing a unique endpoint.
 Each endpoint section has a name, a type, and a model specification, which includes the model
@@ -488,8 +488,8 @@ environment. For example:
 
 .. _deployments_configuration_details:
 
-gateway server Configuration Details
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+AI Gateway server Configuration Details
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 The MLflow AI Gateway relies on a user-provided configuration file. It defines how the gateway server interacts with various language model providers and dictates the endpoints that users can access.
 
@@ -756,8 +756,8 @@ For specifying an API key, there are three options:
 
 .. _deployments_query:
 
-Querying the gateway server
-===============================
+Querying the AI Gateway server
+==============================
 
 Once the MLflow AI Gateway has been configured and started, it is ready to receive traffic from users.
 
