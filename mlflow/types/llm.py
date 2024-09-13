@@ -67,16 +67,27 @@ class ChatMessage(_BaseDataclass):
     Args:
         role (str): The role of the entity that sent the message (e.g. ``"user"``, ``"system"``).
         content (str): The content of the message.
+            **Optional** Supplied if a non-refusal response is provided.
+        refusal (str): The refusal message content.
+            **Optional** Supplied if a refusal response is provided.
         name (str): The name of the entity that sent the message. **Optional**.
     """
 
     role: str
-    content: str
+    content: Optional[str] = None
+    refusal: Optional[str] = None
     name: Optional[str] = None
 
     def __post_init__(self):
         self._validate_field("role", str, True)
-        self._validate_field("content", str, True)
+
+        if self.refusal:
+            self._validate_field("refusal", str, True)
+            if self.content:
+                raise ValueError("Both `content` and `refusal` cannot be set")
+        else:
+            self._validate_field("content", str, True)
+
         self._validate_field("name", str, False)
 
 

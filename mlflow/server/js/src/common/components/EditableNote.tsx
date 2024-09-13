@@ -175,6 +175,7 @@ export class EditableNoteImpl extends Component<EditableNoteImplProps, EditableN
             </div>
             {error && (
               <Alert
+                componentId="codegen_mlflow_app_src_common_components_editablenote.tsx_178"
                 type="error"
                 message={this.props.intl.formatMessage({
                   defaultMessage: 'There was an error submitting your note.',

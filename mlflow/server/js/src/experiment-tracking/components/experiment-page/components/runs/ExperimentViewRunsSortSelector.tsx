@@ -104,7 +104,12 @@ export const ExperimentViewRunsSortSelector = React.memo(
     const [open, setOpen] = useState(false);
 
     return (
-      <DialogCombobox label={sortLabelElement} onOpenChange={setOpen} open={open}>
+      <DialogCombobox
+        componentId="codegen_mlflow_app_src_experiment-tracking_components_experiment-page_components_runs_experimentviewrunssortselector.tsx_107"
+        label={sortLabelElement}
+        onOpenChange={setOpen}
+        open={open}
+      >
         <DialogComboboxTrigger
           onClear={handleClear}
           data-test-id="sort-select-dropdown"

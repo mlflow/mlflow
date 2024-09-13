@@ -1,9 +1,13 @@
 import sys
+from collections import Counter, defaultdict
 from contextlib import contextmanager
 from unittest.mock import MagicMock
 
 import langchain
 import pytest
+from langchain_community.chat_models import ChatDatabricks
+from langchain_community.embeddings import DatabricksEmbeddings
+from langchain_community.vectorstores import DatabricksVectorSearch
 from packaging.version import Version
 
 from mlflow.langchain.databricks_dependencies import (
@@ -11,9 +15,15 @@ from mlflow.langchain.databricks_dependencies import (
     _extract_databricks_dependencies_from_chat_model,
     _extract_databricks_dependencies_from_llm,
     _extract_databricks_dependencies_from_retriever,
+    _extract_dependency_list_from_lc_model,
 )
 from mlflow.langchain.utils import IS_PICKLE_SERIALIZATION_RESTRICTED
-from mlflow.models.resources import DatabricksServingEndpoint, DatabricksVectorSearchIndex
+from mlflow.models.resources import (
+    DatabricksFunction,
+    DatabricksServingEndpoint,
+    DatabricksSQLWarehouse,
+    DatabricksVectorSearchIndex,
+)
 
 
 class MockDatabricksServingEndpointClient:
@@ -33,7 +43,7 @@ class MockDatabricksServingEndpointClient:
 
 
 def test_parsing_dependency_from_databricks_llm(monkeypatch: pytest.MonkeyPatch):
-    from langchain.llms import Databricks
+    from langchain_community.llms import Databricks
 
     monkeypatch.setattr(
         "langchain_community.llms.databricks._DatabricksServingEndpointClient",
@@ -112,15 +122,7 @@ class MockVectorSearchClient:
         return MockVectorSearchIndex(endpoint_name, index_name, has_embedding_endpoint)
 
 
-@pytest.mark.parametrize("module_name", ["langchain", "langchain_community"])
-def test_parsing_dependency_from_databricks_retriever(module_name, monkeypatch: pytest.MonkeyPatch):
-    if module_name == "langchain":
-        from langchain.embeddings import DatabricksEmbeddings
-        from langchain.vectorstores import DatabricksVectorSearch
-    elif module_name == "langchain_community":
-        from langchain_community.embeddings import DatabricksEmbeddings
-        from langchain_community.vectorstores import DatabricksVectorSearch
-
+def test_parsing_dependency_from_databricks_retriever(monkeypatch: pytest.MonkeyPatch):
     vsc = MockVectorSearchClient()
     vs_index_1 = vsc.get_index(endpoint_name="vs_endpoint", index_name="mlflow.rag.vs_index_1")
     vs_index_2 = vsc.get_index(
@@ -146,7 +148,7 @@ def test_parsing_dependency_from_databricks_retriever(module_name, monkeypatch: 
     vectorstore_2 = DatabricksVectorSearch(vs_index_2, text_column="content")
     retriever_2 = vectorstore_2.as_retriever()
 
-    from langchain.chat_models import ChatOpenAI
+    from langchain_community.chat_models import ChatOpenAI
 
     llm = ChatOpenAI(temperature=0)
 
@@ -203,16 +205,9 @@ def test_parsing_dependency_from_databricks_retriever(module_name, monkeypatch: 
     ]
 
 
-@pytest.mark.parametrize("module_name", ["langchain", "langchain_community"])
 def test_parsing_dependency_from_databricks_retriever_with_embedding_endpoint_in_index(
-    module_name,
     monkeypatch: pytest.MonkeyPatch,
 ):
-    if module_name == "langchain":
-        from langchain.vectorstores import DatabricksVectorSearch
-    elif module_name == "langchain_community":
-        from langchain_community.vectorstores import DatabricksVectorSearch
-
     vsc = MockVectorSearchClient()
     vs_index = vsc.get_index(
         endpoint_name="dbdemos_vs_endpoint",
@@ -237,9 +232,192 @@ def test_parsing_dependency_from_databricks_retriever_with_embedding_endpoint_in
     ]
 
 
-def test_parsing_dependency_from_databricks_chat(monkeypatch: pytest.MonkeyPatch):
-    from langchain_community.chat_models import ChatDatabricks
+def test_parsing_dependency_from_agent(monkeypatch: pytest.MonkeyPatch):
+    from databricks.sdk.service.catalog import FunctionInfo
+    from langchain.agents import initialize_agent
+    from langchain_community.llms import OpenAI
 
+    try:
+        from langchain_community.tools.databricks import UCFunctionToolkit
+    except Exception:
+        return
+
+    # When get is called return a function
+    def mock_function_get(self, function_name):
+        components = function_name.split(".")
+        # Initialize agent used below requires functions to take in exactly one parameter
+        param_dict = {
+            "parameters": [
+                {
+                    "name": "param",
+                    "parameter_type": "PARAM",
+                    "position": 0,
+                    "type_json": '{"name":"param","type":"string","nullable":true,"metadata":{}}',
+                    "type_name": "STRING",
+                    "type_precision": 0,
+                    "type_scale": 0,
+                    "type_text": "string",
+                }
+            ]
+        }
+        # Add the catalog, schema and name to the function Info followed by the parameter
+        return FunctionInfo.from_dict(
+            {
+                "catalog_name": components[0],
+                "schema_name": components[1],
+                "name": components[2],
+                "input_params": param_dict,
+            }
+        )
+
+    monkeypatch.setenv("DATABRICKS_HOST", "my-default-host")
+    monkeypatch.setenv("DATABRICKS_TOKEN", "my-default-token")
+    monkeypatch.setattr("databricks.sdk.service.catalog.FunctionsAPI.get", mock_function_get)
+
+    toolkit = UCFunctionToolkit(warehouse_id="testId1").include("rag.test.test_function")
+    llm = OpenAI(temperature=0)
+    agent = initialize_agent(
+        toolkit.get_tools(),
+        llm,
+        verbose=True,
+    )
+
+    resources = list(_extract_dependency_list_from_lc_model(agent))
+    assert resources == [
+        DatabricksFunction(function_name="rag.test.test_function"),
+        DatabricksSQLWarehouse(warehouse_id="testId1"),
+    ]
+
+
+@pytest.mark.skipif(
+    Version(langchain.__version__) < Version("0.1.0"),
+    reason="Tools are not supported the way we want in earlier versions",
+)
+def test_parsing_multiple_dependency_from_agent(monkeypatch: pytest.MonkeyPatch):
+    from databricks.sdk.service.catalog import FunctionInfo
+    from langchain.agents import initialize_agent
+    from langchain.tools.retriever import create_retriever_tool
+
+    mock_get_deploy_client = MagicMock()
+
+    def mock_function_get(self, function_name):
+        components = function_name.split(".")
+        param_dict = {
+            "parameters": [
+                {
+                    "name": "param",
+                    "parameter_type": "PARAM",
+                    "position": 0,
+                    "type_json": '{"name":"param","type":"string","nullable":true,"metadata":{}}',
+                    "type_name": "STRING",
+                    "type_precision": 0,
+                    "type_scale": 0,
+                    "type_text": "string",
+                }
+            ]
+        }
+        return FunctionInfo.from_dict(
+            {
+                "catalog_name": components[0],
+                "schema_name": components[1],
+                "name": components[2],
+                "input_params": param_dict,
+            }
+        )
+
+    # In addition to above now handle the case where a '*' is passed in and list all the functions
+    def mock_function_list(self, catalog_name, schema_name):
+        assert catalog_name == "rag"
+        assert schema_name == "test"
+        return [
+            FunctionInfo(full_name="rag.test.test_function"),
+            FunctionInfo(full_name="rag.test.test_function_2"),
+            FunctionInfo(full_name="rag.test.test_function_3"),
+        ]
+
+    vsc = MockVectorSearchClient()
+    vs_index = vsc.get_index(
+        endpoint_name="dbdemos_vs_endpoint",
+        index_name="mlflow.rag.vs_index",
+        has_embedding_endpoint=True,
+    )
+
+    mock_module = MagicMock()
+    mock_module.VectorSearchIndex = MockVectorSearchIndex
+
+    monkeypatch.setenv("DATABRICKS_HOST", "my-default-host")
+    monkeypatch.setenv("DATABRICKS_TOKEN", "my-default-token")
+    monkeypatch.setitem(sys.modules, "databricks.vector_search.client", mock_module)
+    monkeypatch.setattr("mlflow.deployments.get_deploy_client", mock_get_deploy_client)
+    monkeypatch.setattr("databricks.sdk.service.catalog.FunctionsAPI.get", mock_function_get)
+    monkeypatch.setattr("databricks.sdk.service.catalog.FunctionsAPI.list", mock_function_list)
+
+    include_uc_function_tools = False
+    try:
+        from langchain_community.tools.databricks import UCFunctionToolkit
+
+        include_uc_function_tools = True
+    except Exception:
+        include_uc_function_tools = False
+
+    uc_function_tools = (
+        (UCFunctionToolkit(warehouse_id="testId1").include("rag.test.*").get_tools())
+        if include_uc_function_tools
+        else []
+    )
+    chat_model = ChatDatabricks(endpoint="databricks-llama-2-70b-chat", max_tokens=500)
+
+    vectorstore = DatabricksVectorSearch(vs_index, text_column="content")
+    retriever = vectorstore.as_retriever()
+
+    retriever_tool = create_retriever_tool(retriever, "vs_index_name", "vs_index_desc")
+
+    agent = initialize_agent(
+        uc_function_tools + [retriever_tool],
+        chat_model,
+        verbose=True,
+    )
+    resources = list(_extract_dependency_list_from_lc_model(agent))
+    # Ensure all resources are added in
+    expected = [
+        DatabricksVectorSearchIndex(index_name="mlflow.rag.vs_index"),
+        DatabricksServingEndpoint(endpoint_name="embedding-model"),
+        DatabricksServingEndpoint(endpoint_name="databricks-llama-2-70b-chat"),
+    ]
+    if include_uc_function_tools:
+        expected = [
+            DatabricksServingEndpoint(endpoint_name="databricks-llama-2-70b-chat"),
+            DatabricksFunction(function_name="rag.test.test_function"),
+            DatabricksFunction(function_name="rag.test.test_function_2"),
+            DatabricksFunction(function_name="rag.test.test_function_3"),
+            DatabricksVectorSearchIndex(index_name="mlflow.rag.vs_index"),
+            DatabricksServingEndpoint(endpoint_name="embedding-model"),
+            DatabricksSQLWarehouse(warehouse_id="testId1"),
+        ]
+
+    def build_resource_map(resources):
+        resource_map = defaultdict(list)
+
+        for resource in resources:
+            resource_type = resource.type.value
+            resource_name = resource.to_dict()[resource_type][0]["name"]
+            resource_map[resource_type].append(resource_name)
+
+        return dict(resource_map)
+
+    # Build maps for resources and expected resources
+    resource_maps = build_resource_map(resources)
+    expected_maps = build_resource_map(expected)
+
+    assert len(resource_maps) == len(expected_maps)
+
+    for resource_type in resource_maps:
+        assert Counter(resource_maps[resource_type]) == Counter(
+            expected_maps.get(resource_type, [])
+        )
+
+
+def test_parsing_dependency_from_databricks_chat(monkeypatch: pytest.MonkeyPatch):
     mock_get_deploy_client = MagicMock()
 
     monkeypatch.setattr("mlflow.deployments.get_deploy_client", mock_get_deploy_client)
@@ -250,9 +428,6 @@ def test_parsing_dependency_from_databricks_chat(monkeypatch: pytest.MonkeyPatch
 
 
 def test_parsing_dependency_from_databricks(monkeypatch: pytest.MonkeyPatch):
-    from langchain_community.chat_models import ChatDatabricks
-    from langchain_community.vectorstores import DatabricksVectorSearch
-
     mock_get_deploy_client = MagicMock()
 
     monkeypatch.setattr("mlflow.deployments.get_deploy_client", mock_get_deploy_client)

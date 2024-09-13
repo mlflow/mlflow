@@ -230,6 +230,22 @@ token = <your Databricks shard access token>
     mlflow.set_registry_uri("databricks-uc://my-databricks-shard1")
 
 
+OSS Unity Catalog Model Registry
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+To use an `OSS Unity Catalog <https://www.unitycatalog.io/>`_ server as your MLflow model registry, specify the UC server address in the MLflow registry URI in the format ``"uc:http://localhost:8080"``.  If your unity catalog server is configured to use authentication, set the environmental variable ``"MLFLOW_UC_OSS_TOKEN"``.
+
+**Use the OSS unity catalog model registry using a bearer token**
+
+.. code-block:: python
+
+    import mlflow
+    import os
+
+    mlflow.set_registry_uri("uc:http://localhost:8080")
+    # Set this environment variable for MLflow to use your UC OSS token
+    os.environ["MLFLOW_UC_OSS_TOKEN"] = "<your OSS UC access token>"
+
 Deploy and Organize Models with Aliases and Tags
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 

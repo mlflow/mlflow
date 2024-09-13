@@ -4,6 +4,8 @@ from dataclasses import asdict
 from typing import List
 from unittest.mock import ANY
 
+import importlib_metadata
+import llama_index.core
 import openai
 import pytest
 from llama_index.agent.openai import OpenAIAgent
@@ -14,6 +16,7 @@ from llama_index.core.retrievers import VectorIndexRetriever
 from llama_index.core.tools import FunctionTool
 from llama_index.llms.openai import OpenAI
 from openai.types.chat import ChatCompletionMessageToolCall
+from packaging.version import Version
 
 import mlflow
 import mlflow.tracking._tracking_service
@@ -23,6 +26,8 @@ from mlflow.entities.trace_status import TraceStatus
 from mlflow.llama_index.tracer import remove_llama_index_tracer, set_llama_index_tracer
 from mlflow.tracking._tracking_service.utils import _use_tracking_uri
 from mlflow.tracking.default_experiment import DEFAULT_EXPERIMENT_ID
+
+llama_oai_version = Version(importlib_metadata.version("llama-index-llms-openai"))
 
 
 @pytest.fixture(autouse=True)
@@ -68,7 +73,7 @@ def test_trace_llm_complete(is_async):
 
 
 def test_trace_llm_complete_stream():
-    model_name = "gpt-3.5-turbo-instruct"
+    model_name = "gpt-3.5-turbo"
     llm = OpenAI(model=model_name)
 
     response_gen = llm.stream_complete("Hello")
@@ -91,7 +96,7 @@ def test_trace_llm_complete_stream():
     assert spans[0].outputs["text"] == "Hello world"
 
     attr = spans[0].attributes
-    assert attr["usage"] == {"prompt_tokens": 5, "completion_tokens": 7, "total_tokens": 12}
+    assert attr["usage"] == {"prompt_tokens": 9, "completion_tokens": 12, "total_tokens": 21}
     assert attr["prompt"] == "Hello"
     assert attr["invocation_params"]["model_name"] == model_name
     assert attr["model_dict"]["model"] == model_name
@@ -117,6 +122,12 @@ def test_trace_llm_chat(is_async):
     assert spans[0].inputs == {
         "messages": [{"role": "system", "content": "Hello", "additional_kwargs": {}}]
     }
+    # `addtional_kwargs` was broken until 0.1.30 release of llama-index-llms-openai
+    expected_kwargs = (
+        {"completion_tokens": 12, "prompt_tokens": 9, "total_tokens": 21}
+        if llama_oai_version >= Version("0.1.30")
+        else {}
+    )
     assert spans[0].outputs == {
         "message": {
             "role": "assistant",
@@ -126,7 +137,7 @@ def test_trace_llm_chat(is_async):
         "raw": ANY,
         "delta": None,
         "logprobs": None,
-        "additional_kwargs": {},
+        "additional_kwargs": expected_kwargs,
     }
 
     attr = spans[0].attributes
@@ -160,6 +171,12 @@ def test_trace_llm_chat_stream():
     assert spans[0].inputs == {
         "messages": [{"role": "system", "content": "Hello", "additional_kwargs": {}}]
     }
+    # `addtional_kwargs` was broken until 0.1.30 release of llama-index-llms-openai
+    expected_kwargs = (
+        {"completion_tokens": 12, "prompt_tokens": 9, "total_tokens": 21}
+        if llama_oai_version >= Version("0.1.30")
+        else {}
+    )
     assert spans[0].outputs == {
         "message": {
             "role": "assistant",
@@ -169,7 +186,7 @@ def test_trace_llm_chat_stream():
         "raw": ANY,
         "delta": " world",
         "logprobs": None,
-        "additional_kwargs": {},
+        "additional_kwargs": expected_kwargs,
     }
 
     attr = spans[0].attributes
@@ -271,6 +288,8 @@ def test_trace_query_engine(multi_index, is_stream, is_async):
         response = asyncio.run(engine.aquery("Hello")) if is_async else engine.query("Hello")
         assert response.response.startswith('[{"role": "system", "content": "You are an')
         response = asdict(response)
+        if Version(llama_index.core.__version__) > Version("0.10.68"):
+            response["source_nodes"] = [n.dict() for n in response["source_nodes"]]
 
     traces = _get_all_traces()
     assert len(traces) == 1

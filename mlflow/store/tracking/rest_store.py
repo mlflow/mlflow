@@ -1,3 +1,4 @@
+import json
 import logging
 from typing import Dict, List, Optional
 
@@ -535,7 +536,9 @@ class RestStore(AbstractStore):
         self._call_endpoint(LogBatch, req_body)
 
     def record_logged_model(self, run_id, mlflow_model):
-        req_body = message_to_json(LogModel(run_id=run_id, model_json=mlflow_model.to_json()))
+        req_body = message_to_json(
+            LogModel(run_id=run_id, model_json=json.dumps(mlflow_model.get_tags_dict()))
+        )
         self._call_endpoint(LogModel, req_body)
 
     def log_inputs(self, run_id: str, datasets: Optional[List[DatasetInput]] = None):

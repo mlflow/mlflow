@@ -32,7 +32,8 @@ class ChatCompletionsOutputParser(BaseTransformOutputParser[Dict[str, Any]]):
     def parse(self, text: str) -> Dict[str, Any]:
         return asdict(
             ChatCompletionResponse(
-                choices=[ChainCompletionChoice(message=Message(role="assistant", content=text))]
+                choices=[ChainCompletionChoice(message=Message(role="assistant", content=text))],
+                object="chat.completion",
             )
         )
 

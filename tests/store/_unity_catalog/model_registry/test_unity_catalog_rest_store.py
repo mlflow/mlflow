@@ -243,6 +243,10 @@ def langchain_local_model_dir_with_resources(tmp_path):
                     {"name": "chat_endpoint"},
                 ],
                 "vector_search_index": [{"name": "index1"}, {"name": "index2"}],
+                "function": [
+                    {"name": "test.schema.test_function"},
+                    {"name": "test.schema.test_function_2"},
+                ],
             }
         },
     }
@@ -356,6 +360,8 @@ def test_create_model_version_with_resources(store, langchain_local_model_dir_wi
         {"type": "DATABRICKS_MODEL_ENDPOINT", "name": "embedding_endpoint"},
         {"type": "DATABRICKS_MODEL_ENDPOINT", "name": "llm_endpoint"},
         {"type": "DATABRICKS_MODEL_ENDPOINT", "name": "chat_endpoint"},
+        {"type": "DATABRICKS_UC_FUNCTION", "name": "test.schema.test_function"},
+        {"type": "DATABRICKS_UC_FUNCTION", "name": "test.schema.test_function_2"},
     ]
 
     mock_artifact_repo = mock.MagicMock(autospec=OptimizedS3ArtifactRepository)

@@ -10,6 +10,7 @@ export interface TypeaheadComboboxMultiSelectInputProps<T> extends Omit<Typeahea
     showTagAfterValueCount?: number;
     width?: string | number;
     maxHeight?: string | number;
+    disableTooltip?: boolean;
 }
 export declare const TypeaheadComboboxMultiSelectInput: React.FC<TypeaheadComboboxMultiSelectInputProps<any>>;
 //# sourceMappingURL=TypeaheadComboboxMultiSelectInput.d.ts.map

@@ -3,6 +3,7 @@ from __future__ import annotations
 import contextlib
 import functools
 import importlib
+import inspect
 import json
 import logging
 from typing import TYPE_CHECKING, Any, Callable, Dict, Generator, List, Optional
@@ -127,9 +128,11 @@ def trace(
         attributes: A dictionary of attributes to set on the span.
     """
 
-    def decorator(fn):
-        @functools.wraps(fn)
-        def wrapper(*args, **kwargs):
+    class _WrappingContext:
+        # define the wrapping logic as a coroutine to avoid code duplication
+        # between sync and async cases
+        @staticmethod
+        def _wrapping_logic(fn, args, kwargs):
             span_name = name or fn.__name__
 
             with start_span(name=span_name, span_type=span_type, attributes=attributes) as span:
@@ -138,11 +141,39 @@ def trace(
                     span.set_inputs(capture_function_input_args(fn, args, kwargs))
                 except Exception:
                     _logger.warning(f"Failed to capture inputs for function {fn.__name__}.")
-                result = fn(*args, **kwargs)
+                result = yield  # sync/async function output to be sent here
                 span.set_outputs(result)
-                return result
+                yield result
 
-        return wrapper
+        def __init__(self, fn, args, kwargs):
+            self.coro = self._wrapping_logic(fn, args, kwargs)
+
+        def __enter__(self):
+            next(self.coro)
+            return self.coro
+
+        def __exit__(self, exc_type, exc_value, traceback):
+            # Since the function call occurs outside the coroutine,
+            # if an exception occurs, we need to throw it back in, so that
+            # we return control to the coro (in particular, so that the __exit__'s
+            # of start_span and OTel's use_span can execute).
+            if exc_type is not None:
+                self.coro.throw(exc_type, exc_value, traceback)
+            self.coro.close()
+
+    def decorator(fn):
+        if inspect.iscoroutinefunction(fn):
+
+            async def wrapper(*args, **kwargs):
+                with _WrappingContext(fn, args, kwargs) as wrapping_coro:
+                    return wrapping_coro.send(await fn(*args, **kwargs))
+        else:
+
+            def wrapper(*args, **kwargs):
+                with _WrappingContext(fn, args, kwargs) as wrapping_coro:
+                    return wrapping_coro.send(fn(*args, **kwargs))
+
+        return functools.wraps(fn)(wrapper)
 
     return decorator(func) if func else decorator
 

@@ -2,6 +2,7 @@
 Internal module implementing the fluent API, allowing management of an active
 MLflow run. This module is exposed to users at the top-level :py:mod:`mlflow` module.
 """
+
 import atexit
 import contextlib
 import importlib
@@ -38,6 +39,7 @@ from mlflow.protos.databricks_pb2 import (
     RESOURCE_DOES_NOT_EXIST,
 )
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
+from mlflow.tracing.provider import _get_trace_exporter
 from mlflow.tracking import _get_artifact_repo, _get_store, artifact_utils
 from mlflow.tracking.client import MlflowClient
 from mlflow.tracking.context import registry as context_registry
@@ -162,9 +164,9 @@ def set_experiment(
     if experiment.lifecycle_stage != LifecycleStage.ACTIVE:
         raise MlflowException(
             message=(
-                "Cannot set a deleted experiment '%s' as the active experiment. "
+                f"Cannot set a deleted experiment {experiment.name!r} as the active experiment. "
                 "You can restore the experiment, or permanently delete the "
-                "experiment to create a new one." % experiment.name
+                "experiment to create a new one."
             ),
             error_code=INVALID_PARAMETER_VALUE,
         )
@@ -376,12 +378,12 @@ def start_run(
             _validate_run_id(parent_run_id)
             # Make sure parent_run_id matches the current run id, if there is an active run
             if len(_active_run_stack) > 0 and parent_run_id != _active_run_stack[-1].info.run_id:
-                raise Exception(
-                    (
-                        "Current run with UUID {} does not match the specified parent_run_id {}"
-                        + " To start a new nested run under the parent run with UUID {}, "
-                        + "first end the current run with mlflow.end_run()."
-                    ).format(_active_run_stack[-1].info.run_id, parent_run_id)
+                current_run_id = _active_run_stack[-1].info.run_id
+                raise MlflowException(
+                    f"Current run with UUID {current_run_id} does not match the specified "
+                    f"parent_run_id {parent_run_id}. To start a new nested run under "
+                    f"the parent run with UUID {current_run_id}, first end the current run "
+                    "with mlflow.end_run()."
                 )
             parent_run_obj = client.get_run(parent_run_id)
             # Check if the specified parent_run has been deleted.
@@ -712,6 +714,19 @@ def flush_artifact_async_logging() -> None:
     _artifact_repo = _get_artifact_repo(run_id)
     if _artifact_repo:
         _artifact_repo.flush_async_logging()
+
+
+def flush_trace_async_logging(terminate=False) -> None:
+    """
+    Flush all pending trace async logging.
+
+    Args:
+        terminate: If True, shut down the logging threads after flushing.
+    """
+    try:
+        _get_trace_exporter()._async_queue.flush(terminate=terminate)
+    except Exception as e:
+        _logger.error(f"Failed to flush trace async logging: {e}")
 
 
 def set_experiment_tag(key: str, value: Any) -> None:
@@ -2095,8 +2110,8 @@ def search_runs(
         return pd.DataFrame(data)
     else:
         raise ValueError(
-            "Unsupported output format: %s. Supported string values are 'pandas' or 'list'"
-            % output_format
+            f"Unsupported output format: {output_format}. Supported string values are 'pandas' "
+            "or 'list'"
         )
 
 

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "mlflow"
-version = "2.15.2.dev0"
+version = "2.16.1.dev0"
 description = "MLflow is an open source platform for the complete machine learning lifecycle"
 readme = "README.rst"
 keywords = ["mlflow", "ai", "databricks"]
@@ -31,23 +31,20 @@ dependencies = [
   "cloudpickle<4",
   "databricks-sdk<1,>=0.20.0",
   "docker<8,>=4.0.0",
-  "entrypoints<1",
   "gitpython<4,>=3.1.9",
   "graphene<4",
-  "gunicorn<23; platform_system != 'Windows'",
-  "importlib_metadata<8,>=3.7.0,!=4.7.0",
+  "gunicorn<24; platform_system != 'Windows'",
+  "importlib_metadata<9,>=3.7.0,!=4.7.0",
   "markdown<4,>=3.3",
   "matplotlib<4",
-  "numpy<2",
+  "numpy<3",
   "opentelemetry-api<3,>=1.9.0",
   "opentelemetry-sdk<3,>=1.9.0",
   "packaging<25",
   "pandas<3",
   "protobuf<6,>=3.12.0",
-  "pyarrow<16,>=4.0.0",
-  "pytz<2025",
+  "pyarrow<18,>=4.0.0",
   "pyyaml<7,>=5.1",
-  "querystring_parser<2",
   "requests<3,>=2.17.3",
   "scikit-learn<2",
   "scipy<2",
@@ -107,7 +104,7 @@ sqlserver = ["mlflow-dbstore"]
 aliyun-oss = ["aliyunstoreplugin"]
 xethub = ["mlflow-xethub"]
 jfrog = ["mlflow-jfrog-plugin"]
-langchain = ["langchain>=0.1.0,<=0.2.11"]
+langchain = ["langchain>=0.1.0,<=0.2.15"]
 
 [project.urls]
 homepage = "https://mlflow.org"
@@ -210,7 +207,6 @@ select = [
   "S307",    # suspicious-eval-usage
   "S324",    # hashlib-insecure-hash-function
   "SIM101",  # duplicate-isinstance-call
-  "SIM103",  # needless-bool
   "SIM108",  # if-else-block-instead-of-if-exp
   "SIM114",  # if-with-same-arms
   "SIM115",  # open-file-with-context-handler
@@ -227,7 +223,6 @@ select = [
   "UP015",   # redundant-open-modes
   "UP030",   # format-literals
   "UP031",   # printf-string-format
-  "UP032",   # f-string
   "UP034",   # extraneous-parenthesis
   "W",       # warning
 ]
@@ -257,6 +252,7 @@ forced-separate = ["tests"]
 
 [tool.ruff.lint.flake8-tidy-imports.banned-api]
 "pkg_resources".msg = "Do not use pkg_resources. Use importlib.resources or importlib.metadata instead."
+"entrypoints".msg = "Do not use entrypoints. Use importlib.metadata.entry_points instead."
 "pip".msg = "Importing pip can cause undesired side effects such as https://github.com/scikit-learn/scikit-learn/issues/26992. Consider using `subprocess.run([sys.executable, '-m', 'pip', ...])` instead."
 
 [tool.ruff.lint.pydocstyle]

@@ -71,4 +71,15 @@ describe('ExperimentViewTracesTablePreviewCell', () => {
 
     expect(screen.queryByText(formattedLongValue, { collapseWhitespace: false })).not.toBeInTheDocument();
   });
+
+  test('it should unescape non-ascii characters', async () => {
+    jest
+      .spyOn(MlflowService, 'getExperimentTraceData')
+      .mockImplementation(() => Promise.resolve({ response: longValue }));
+
+    const escapedJson = '{"model_input":"\\uD83D\\uDE42"}';
+    const unescapedJson = '{"model_input":"🙂"}';
+    renderTable(escapedJson);
+    expect(screen.getByText(unescapedJson, { collapseWhitespace: false })).toBeInTheDocument();
+  });
 });

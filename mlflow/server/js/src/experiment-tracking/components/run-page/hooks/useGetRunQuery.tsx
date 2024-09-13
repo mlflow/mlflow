@@ -5,6 +5,11 @@ import { useQuery } from '@mlflow/mlflow/src/common/utils/graphQLHooks';
 const GET_RUN_QUERY = gql`
   query GetRun($data: MlflowGetRunInput!) @component(name: "MLflow.ExperimentRunTracking") {
     mlflowGetRun(input: $data) {
+      apiError {
+        helpUrl
+        code
+        message
+      }
       run {
         info {
           runName
@@ -55,6 +60,14 @@ const GET_RUN_QUERY = gql`
             dataset {
               digest
               name
+              profile
+              schema
+              source
+              sourceType
+            }
+            tags {
+              key
+              value
             }
           }
         }
@@ -64,13 +77,21 @@ const GET_RUN_QUERY = gql`
 `;
 
 export type UseGetRunQueryResponseRunInfo = NonNullable<NonNullable<UseGetRunQueryDataResponse>['info']>;
+export type UseGetRunQueryResponseDatasetInputs = NonNullable<
+  NonNullable<UseGetRunQueryDataResponse>['inputs']
+>['datasetInputs'];
 export type UseGetRunQueryResponseExperiment = NonNullable<NonNullable<UseGetRunQueryDataResponse>['experiment']>;
+export type UseGetRunQueryResponseDataMetrics = NonNullable<
+  NonNullable<NonNullable<UseGetRunQueryDataResponse>['data']>['metrics']
+>;
 
 export type UseGetRunQueryDataResponse = NonNullable<GetRun['mlflowGetRun']>['run'];
+export type UseGetRunQueryDataApiError = NonNullable<GetRun['mlflowGetRun']>['apiError'];
 export type UseGetRunQueryResponse = {
   data?: UseGetRunQueryDataResponse;
   loading: boolean;
-  error?: ApolloError;
+  apolloError?: ApolloError;
+  apiError?: UseGetRunQueryDataApiError;
   refetchRun: () => Promise<ApolloQueryResult<GetRun>>;
 };
 
@@ -81,7 +102,12 @@ export const useGetRunQuery = ({
   runUuid: string;
   disabled?: boolean;
 }): UseGetRunQueryResponse => {
-  const { data, loading, error, refetch } = useQuery<GetRun, GetRunVariables>(GET_RUN_QUERY, {
+  const {
+    data,
+    loading,
+    error: apolloError,
+    refetch,
+  } = useQuery<GetRun, GetRunVariables>(GET_RUN_QUERY, {
     variables: {
       data: {
         runId: runUuid,
@@ -94,6 +120,7 @@ export const useGetRunQuery = ({
     loading,
     data: data?.mlflowGetRun?.run,
     refetchRun: refetch,
-    error,
+    apolloError,
+    apiError: data?.mlflowGetRun?.apiError,
   } as const;
 };

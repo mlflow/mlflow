@@ -303,7 +303,7 @@ const ParallelCoordinatesPlotImpl = (props: {
         .data(data)
         .dimensions(getAxesTypes())
         .alpha(0.8)
-        .alphaOnBrushed(0.2)
+        .alphaOnBrushed(0.1)
         .hideAxis(['uuid'])
         .lineWidth(1)
         .color((d: any) => {
@@ -455,7 +455,7 @@ export const ParallelCoordinatesPlot = (props: any) => {
         paddingTop: '20px',
         fontSize: 0,
         '.parcoords': {
-          backgroundColor: 'transparent',
+          backgroundColor: theme.colors.backgroundPrimary,
         },
         '.parcoords text.label': {
           fill: theme.colors.textPrimary,

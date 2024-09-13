@@ -5,7 +5,6 @@ import logging
 import os
 import subprocess
 import time
-from sys import stderr
 from typing import NamedTuple, Optional, TypeVar
 
 import mlflow.utils
@@ -403,6 +402,22 @@ def get_command_run_id():
         return None
 
 
+@_use_repl_context_if_available("workloadId")
+def get_workload_id():
+    try:
+        return _get_command_context().workloadId().get()
+    except Exception:
+        return _get_context_tag("workloadId")
+
+
+@_use_repl_context_if_available("workloadClass")
+def get_workload_class():
+    try:
+        return _get_command_context().workloadClass().get()
+    except Exception:
+        return _get_context_tag("workloadClass")
+
+
 @_use_repl_context_if_available("apiUrl")
 def get_webapp_url():
     """Should only be called if is_in_databricks_notebook or is_in_databricks_jobs is true"""
@@ -445,14 +460,19 @@ def get_workspace_info_from_dbutils():
 
 
 @_use_repl_context_if_available("workspaceUrl")
-def get_workspace_url():
+def _get_workspace_url():
     try:
-        spark_session = _get_active_spark_session()
-        if spark_session is not None:
+        if spark_session := _get_active_spark_session():
             if workspace_url := spark_session.conf.get("spark.databricks.workspaceUrl", None):
-                return f"https://{workspace_url}"
+                return workspace_url
     except Exception:
         return None
+
+
+def get_workspace_url():
+    if url := _get_workspace_url():
+        return f"https://{url}" if not url.startswith("https://") else url
+    return None
 
 
 def warn_on_deprecated_cross_workspace_registry_uri(registry_uri):
@@ -623,7 +643,7 @@ def get_databricks_host_creds(server_uri=None):
             use_databricks_sdk = True
             databricks_auth_profile = profile
         except Exception as e:
-            _logger.info(f"Failed to create databricks SDK workspace client, error: {e!r}")
+            _logger.debug(f"Failed to create databricks SDK workspace client, error: {e!r}")
             use_databricks_sdk = False
             databricks_auth_profile = None
     else:
@@ -1022,10 +1042,9 @@ def _init_databricks_dynamic_token_config_provider(entry_point):
                             host=ctx.apiUrl, token=ctx.apiToken, insecure=ctx.sslTrustAll
                         )
                 except Exception as e:
-                    print(  # noqa
+                    _logger.debug(
                         "Unexpected internal error while constructing `DatabricksConfig` "
                         f"from REPL context: {e}",
-                        file=stderr,
                     )
                 # Invoking getContext() will attempt to find the credentials related to the
                 # current command execution, so it's critical that we execute it on every
@@ -1071,10 +1090,9 @@ def _init_databricks_dynamic_token_config_provider(entry_point):
                             host=ctx.apiUrl, token=ctx.apiToken, insecure=ctx.sslTrustAll
                         )
                 except Exception as e:
-                    print(  # noqa
+                    _logger.debug(
                         "Unexpected internal error while constructing `DatabricksConfig` "
                         f"from REPL context: {e}",
-                        file=stderr,
                     )
                 # Invoking getContext() will attempt to find the credentials related to the
                 # current command execution, so it's critical that we execute it on every

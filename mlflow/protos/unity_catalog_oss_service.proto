@@ -1,0 +1,154 @@
+syntax = "proto2";
+
+package mlflow.unitycatalog;
+
+import "databricks.proto";
+import "scalapb/scalapb.proto";
+import "unity_catalog_oss_messages.proto";
+
+option java_package = "com.databricks.api.proto.managedcatalog";
+option java_generate_equals_and_hash = true;
+option py_generic_services = true;
+option (scalapb.options) = {
+  flat_package: true,
+};
+
+service UnityCatalogService {
+  // Registered Model Management API
+  rpc createRegisteredModel(CreateRegisteredModel) returns (CreateRegisteredModel.Response) {
+    option (rpc) = {
+      endpoints: {
+        method: "POST",
+        path: "/unity-catalog/models",
+        since { major: 2, minor: 1 },
+      },
+      // https://docs.databricks.com/api/workspace/registeredmodels/create
+      visibility: PUBLIC,
+    };
+  }
+
+  rpc updateRegisteredModel(UpdateRegisteredModel) returns (UpdateRegisteredModel.Response) {
+    option (rpc) = {
+      endpoints: {
+        method: "PATCH",
+        path: "/unity-catalog/models/{full_name}",
+        since { major: 2, minor: 1 },
+      },
+      visibility: PUBLIC_UNDOCUMENTED,
+    };
+  }
+
+  rpc deleteRegisteredModel(DeleteRegisteredModel) returns (DeleteRegisteredModel.Response) {
+    option (rpc) = {
+      endpoints: {
+        method: "DELETE",
+        path: "/unity-catalog/models/{full_name}",
+        since { major: 2, minor: 1 },
+      },
+      visibility: PUBLIC_UNDOCUMENTED,
+    };
+  }
+
+  rpc getRegisteredModel(GetRegisteredModel) returns (GetRegisteredModel.Response) {
+    option idempotency_level = IDEMPOTENT;
+    option (rpc) = {
+      endpoints: {
+        method: "GET",
+        path: "/unity-catalog/models/{full_name}",
+        since { major: 2, minor: 1 },
+      },
+      visibility: PUBLIC_UNDOCUMENTED,
+    };
+  }
+
+  rpc getModelVersion(GetModelVersion) returns (GetModelVersion.Response) {
+    option idempotency_level = IDEMPOTENT;
+    option (rpc) = {
+      endpoints: {
+        method: "GET",
+        path: "/unity-catalog/models/{full_name}/versions/{version}",
+        since { major: 2, minor: 1 },
+      },
+      visibility: PUBLIC_UNDOCUMENTED,
+    };
+  }
+
+  rpc deleteModelVersion(DeleteModelVersion) returns (DeleteModelVersion.Response) {
+    option (rpc) = {
+      endpoints: {
+        method: "DELETE",
+        path: "/unity-catalog/models/{full_name}/versions/{version}",
+        since { major: 2, minor: 1 },
+      },
+      visibility: PUBLIC_UNDOCUMENTED,
+    };
+  }
+
+  rpc createModelVersion(CreateModelVersion) returns (CreateModelVersion.Response) {
+    option (rpc) = {
+      endpoints: {
+        method: "POST",
+        path: "/unity-catalog/models/versions",
+        since { major: 2, minor: 1 },
+      },
+    };
+  }
+
+  rpc generateTemporaryModelVersionCredential(GenerateTemporaryModelVersionCredential) returns (GenerateTemporaryModelVersionCredential.Response) {
+    option (rpc) = {
+      endpoints: {
+        method: "POST",
+        path: "/unity-catalog/temporary-model-version-credentials",
+        since {major: 2, minor: 1},
+      },
+      visibility: PUBLIC_UNDOCUMENTED,
+    };
+  }
+
+  rpc finalizeModelVersion(FinalizeModelVersion) returns (FinalizeModelVersion.Response) {
+    option (rpc) = {
+      endpoints: {
+        method: "PATCH",
+        path: "/unity-catalog/models/{full_name}/versions/{version}/finalize",
+        since { major: 2, minor: 1 },
+      },
+      visibility: PUBLIC_UNDOCUMENTED,
+    };
+  }
+
+  rpc updateModelVersion(UpdateModelVersion) returns (UpdateModelVersion.Response) {
+    option (rpc) = {
+      endpoints: {
+        method: "PATCH",
+        path: "/unity-catalog/models/{full_name}/versions/{version}",
+        since { major: 2, minor: 1 },
+      },
+      visibility: PUBLIC_UNDOCUMENTED,
+    };
+  }
+
+  rpc listRegisteredModels(ListRegisteredModels) returns (ListRegisteredModels.Response) {
+    option idempotency_level = IDEMPOTENT;
+    option (rpc) = {
+      endpoints: {
+        method: "GET",
+        path: "/unity-catalog/models",
+        since { major: 2, minor: 1 },
+      },
+      visibility: PUBLIC_UNDOCUMENTED,
+    };
+  }
+
+  rpc listModelVersions(ListModelVersions) returns (ListModelVersions.Response) {
+    option idempotency_level = IDEMPOTENT;
+    option (rpc) = {
+      endpoints: {
+        method: "GET",
+        path: "/unity-catalog/models/{full_name}/versions",
+        since { major: 2, minor: 1 },
+      },
+      visibility: PUBLIC_UNDOCUMENTED,
+    };
+  }
+
+}

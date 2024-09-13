@@ -159,12 +159,21 @@ class has four key functions:
 
 
 Models From Code
-^^^^^^^^^^^^^^^^
+----------------
+
+.. toctree::
+    :maxdepth: 1
+    :hidden:
+
+    model/models-from-code
+
+To **learn more about the Models From Code feature**, please visit `the deep dive guide <model/models-from-code.html>`_ for more in-depth explanation 
+and to see additional examples.
 
 .. note::
     The Models from Code feature is available in MLflow versions 2.12.2 and later. This feature is experimental and may change in future releases.
 
-The Models from Code feature allows you to define and log models directly from Python code. This feature is particularly useful when you want to 
+The Models from Code feature allows you to define and log models directly from a stand-alone python script. This feature is particularly useful when you want to 
 log models that can be effectively stored as a code representation (models that do not need optimized weights through training) or applications 
 that rely on external services (e.g., LangChain chains). Another benefit is that this approach entirely bypasses the use of the ``pickle`` or 
 ``cloudpickle`` modules within Python, which can carry security risks when loading untrusted models.
@@ -277,6 +286,8 @@ This module also includes utilities for creating custom Python models, which is 
 adding custom python code to ML models. For more information, see the :ref:`custom Python models
 documentation <custom-python-models>`.
 
+For information on how to store a custom model from a python script (models from code functionality), 
+see the `guide to models from code <model/models-from-code.html>`_ for the recommended approaches.
 
 How To Load And Score Python Function Models
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -1836,56 +1847,77 @@ ds            y
 
     import numpy as np
     import pandas as pd
-    from prophet import Prophet
+    from prophet import Prophet, serialize
     from prophet.diagnostics import cross_validation, performance_metrics
 
     import mlflow
     from mlflow.models import infer_signature
 
-    # starts on 2007-12-10, ends on 2016-01-20
-    train_df = pd.read_csv(
-        "https://raw.githubusercontent.com/facebook/prophet/main/examples/example_wp_log_peyton_manning.csv"
-    )
+    # URL to the dataset
+    SOURCE_DATA = "https://raw.githubusercontent.com/facebook/prophet/main/examples/example_wp_log_peyton_manning.csv"
+
+    np.random.seed(12345)
+
+
+    def extract_params(pr_model):
+        params = {attr: getattr(pr_model, attr) for attr in serialize.SIMPLE_ATTRIBUTES}
+        return {k: v for k, v in params.items() if isinstance(v, (int, float, str, bool))}
+
+
+    # Load the training data
+    train_df = pd.read_csv(SOURCE_DATA)
 
     # Create a "test" DataFrame with the "ds" column containing 10 days after the end date in train_df
     test_dates = pd.date_range(start="2016-01-21", end="2016-01-31", freq="D")
-    test_df = pd.Series(data=test_dates.values, name="ds").to_frame()
+    test_df = pd.DataFrame({"ds": test_dates})
 
+    # Initialize Prophet model with specific parameters
     prophet_model = Prophet(changepoint_prior_scale=0.5, uncertainty_samples=7)
 
     with mlflow.start_run():
+        # Fit the model on the training data
         prophet_model.fit(train_df)
 
-        # extract and log parameters such as changepoint_prior_scale in the mlflow run
-        model_params = {
-            name: value for name, value in vars(prophet_model).items() if np.isscalar(value)
-        }
-        mlflow.log_params(model_params)
+        # Extract and log model parameters
+        params = extract_params(prophet_model)
+        mlflow.log_params(params)
 
-        # cross validate with 900 days of data initially, predictions for next 30 days
-        # walk forward by 30 days
+        # Perform cross-validation
         cv_results = cross_validation(
-            prophet_model, initial="900 days", period="30 days", horizon="30 days"
+            prophet_model,
+            initial="900 days",
+            period="30 days",
+            horizon="30 days",
+            parallel="threads",
+            disable_tqdm=True,
         )
 
-        # Calculate metrics from cv_results, then average each metric across all backtesting windows and log to mlflow
-        cv_metrics = ["mse", "rmse", "mape"]
-        metrics_results = performance_metrics(cv_results, metrics=cv_metrics)
-        average_metrics = metrics_results.loc[:, cv_metrics].mean(axis=0).to_dict()
+        # Calculate and log performance metrics
+        cv_metrics = performance_metrics(cv_results, metrics=["mse", "rmse", "mape"])
+        average_metrics = cv_metrics.drop(columns=["horizon"]).mean(axis=0).to_dict()
         mlflow.log_metrics(average_metrics)
 
-        # Calculate model signature
+        # Generate predictions and infer model signature
         train = prophet_model.history
-        predictions = prophet_model.predict(prophet_model.make_future_dataframe(30))
-        signature = infer_signature(train, predictions)
 
+        # Log the Prophet model with MLflow
         model_info = mlflow.prophet.log_model(
-            prophet_model, "prophet-model", signature=signature
+            prophet_model,
+            artifact_path="prophet_model",
+            input_example=train[["ds"]].head(10),
         )
 
-    # Load saved model
+    # Load the saved model as a pyfunc
     prophet_model_saved = mlflow.pyfunc.load_model(model_info.model_uri)
+
+    # Generate predictions for the test set
     predictions = prophet_model_saved.predict(test_df)
+
+    # Truncate and display the forecast if needed
+    forecast = predictions[["ds", "yhat"]]
+
+    print(f"forecast:\n{forecast.head(5)}")
+
 
 Output (``Pandas DataFrame``):
 

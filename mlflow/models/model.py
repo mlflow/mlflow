@@ -51,11 +51,15 @@ _LOG_MODEL_METADATA_WARNING_TEMPLATE = (
     '`logging.getLogger("mlflow").setLevel(logging.DEBUG)` to see the full traceback.'
 )
 _LOG_MODEL_MISSING_SIGNATURE_WARNING = (
-    "Model logged without a signature. Signatures will be required for upcoming model registry "
-    "features as they validate model inputs and denote the expected schema of model outputs. "
+    "Model logged without a signature. Signatures are required for Databricks UC model registry "
+    "as they validate model inputs and denote the expected schema of model outputs. "
     f"Please visit https://www.mlflow.org/docs/{mlflow.__version__.replace('.dev0', '')}/"
-    "models.html#set-signature-on-logged-model for instructions on setting a model signature on "
-    "your logged model."
+    "model/signatures.html#how-to-set-signatures-on-models for instructions on setting "
+    "signature on models."
+)
+_LOG_MODEL_MISSING_INPUT_EXAMPLE_WARNING = (
+    "Model logged without a signature and input example. Please set `input_example` parameter "
+    "when logging the model to auto infer the model signature."
 )
 # NOTE: The _MLFLOW_VERSION_KEY constant is considered @developer_stable
 _MLFLOW_VERSION_KEY = "mlflow_version"
@@ -67,6 +71,9 @@ METADATA_FILES = [
 ]
 MODEL_CONFIG = "config"
 MODEL_CODE_PATH = "model_code_path"
+SET_MODEL_ERROR = (
+    "Model should either be an instance of PyFuncModel, Langchain type, or LlamaIndex index."
+)
 
 
 class ModelInfo:
@@ -548,6 +555,26 @@ class Model:
             metadata=self.metadata,
         )
 
+    def get_tags_dict(self):
+        result = self.to_dict()
+
+        tags = {
+            key: value
+            for key, value in result.items()
+            if key in ["run_id", "utc_time_created", "artifact_path", "model_uuid"]
+        }
+
+        tags["flavors"] = {
+            flavor: (
+                {k: v for k, v in config.items() if k != "config"}
+                if isinstance(config, dict)
+                else config
+            )
+            for flavor, config in result.get("flavors", {}).items()
+        }
+
+        return tags
+
     def to_dict(self):
         """Serialize the model to a dictionary."""
         res = {k: v for k, v in self.__dict__.items() if not k.startswith("_")}
@@ -705,12 +732,14 @@ class Model:
                 _copy_model_metadata_for_uc_sharing(local_path, flavor)
 
             tracking_uri = _resolve_tracking_uri()
+            serving_input = mlflow_model.get_serving_input(local_path)
             # We check signature presence here as some flavors have a default signature as a
             # fallback when not provided by user, which is set during flavor's save_model() call.
-            if mlflow_model.signature is None and (
-                tracking_uri == "databricks" or get_uri_scheme(tracking_uri) == "databricks"
-            ):
-                _logger.warning(_LOG_MODEL_MISSING_SIGNATURE_WARNING)
+            if mlflow_model.signature is None:
+                if serving_input is None:
+                    _logger.warning(_LOG_MODEL_MISSING_INPUT_EXAMPLE_WARNING)
+                elif tracking_uri == "databricks" or get_uri_scheme(tracking_uri) == "databricks":
+                    _logger.warning(_LOG_MODEL_MISSING_SIGNATURE_WARNING)
             mlflow.tracking.fluent.log_artifacts(local_path, mlflow_model.artifact_path, run_id)
 
             # if the model_config kwarg is passed in, then log the model config as an params
@@ -767,13 +796,7 @@ class Model:
                 model_info.registered_model_version = registered_model.version
 
             # validate input example works for serving when logging the model
-            serving_input = mlflow_model.get_serving_input(local_path)
-            if mlflow_model.signature is None and serving_input is None:
-                _logger.warning(
-                    "Input example should be provided to infer model signature if the model "
-                    "signature is not provided when logging the model."
-                )
-            if serving_input:
+            if serving_input and kwargs.get("validate_serving_input", True):
                 from mlflow.models import validate_serving_input
 
                 try:
@@ -1001,6 +1024,18 @@ def update_model_requirements(
 __mlflow_model__ = None
 
 
+def _validate_langchain_model(model):
+    from mlflow.langchain import _validate_and_prepare_lc_model_or_path
+
+    return _validate_and_prepare_lc_model_or_path(model, None)
+
+
+def _validate_llama_index_model(model):
+    from mlflow.llama_index import _validate_and_prepare_llama_index_model_or_path
+
+    return _validate_and_prepare_llama_index_model_or_path(model, None)
+
+
 @experimental
 def set_model(model):
     """
@@ -1008,24 +1043,26 @@ def set_model(model):
     to be logged.
 
     Args:
-        model: The model object to be logged.
+        model: The model object to be logged. Supported model types are:
+
+                - A Python function or callable object.
+                - A Langchain model or path to a Langchain model.
+                - A Llama Index model or path to a Llama Index model.
     """
     from mlflow.pyfunc import PythonModel
 
-    if not (isinstance(model, PythonModel) or callable(model)):
+    if isinstance(model, str):
+        raise mlflow.MlflowException(SET_MODEL_ERROR)
+
+    if isinstance(model, PythonModel) or callable(model):
+        globals()["__mlflow_model__"] = model
+        return
+
+    for validate_function in [_validate_langchain_model, _validate_llama_index_model]:
         try:
-            from mlflow.langchain import _validate_and_prepare_lc_model_or_path
+            globals()["__mlflow_model__"] = validate_function(model)
+            return
+        except Exception:
+            pass
 
-            # If its not a PyFuncModel, then it should be a Langchain model (not a path)
-            # Check this since the validation function does not
-            if isinstance(model, str):
-                raise mlflow.MlflowException(
-                    "Model should either be an instance of PyFuncModel or Langchain type."
-                )
-            model = _validate_and_prepare_lc_model_or_path(model, None)
-        except Exception as e:
-            raise mlflow.MlflowException(
-                "Model should either be an instance of PyFuncModel or Langchain type."
-            ) from e
-
-    globals()["__mlflow_model__"] = model
+    raise mlflow.MlflowException(SET_MODEL_ERROR)

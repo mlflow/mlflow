@@ -84,13 +84,21 @@ export const RunViewMetricChartHeader = ({
           />
         </DropdownMenu.Trigger>
         <DropdownMenu.Content>
-          <DropdownMenu.Item disabled={!canMoveUp} onClick={onMoveUp}>
+          <DropdownMenu.Item
+            componentId="codegen_mlflow_app_src_experiment-tracking_components_run-page_runviewmetricchartheader.tsx_87"
+            disabled={!canMoveUp}
+            onClick={onMoveUp}
+          >
             <FormattedMessage
               defaultMessage="Move up"
               description="Run page > Charts tab > Chart box header > Move up dropdown option"
             />
           </DropdownMenu.Item>
-          <DropdownMenu.Item disabled={!canMoveDown} onClick={onMoveDown}>
+          <DropdownMenu.Item
+            componentId="codegen_mlflow_app_src_experiment-tracking_components_run-page_runviewmetricchartheader.tsx_93"
+            disabled={!canMoveDown}
+            onClick={onMoveDown}
+          >
             <FormattedMessage
               defaultMessage="Move down"
               description="Run page > Charts tab > Chart box header > Move down dropdown option"

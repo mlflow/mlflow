@@ -19,6 +19,7 @@ from mlflow.exceptions import MlflowTracingException
 from mlflow.tracing.constant import SpanAttributeKey
 from mlflow.tracing.utils.exception import raise_as_trace_exception
 from mlflow.tracing.utils.once import Once
+from mlflow.tracing.utils.otlp import get_otlp_exporter, should_use_otlp_exporter
 from mlflow.utils.databricks_utils import (
     is_in_databricks_model_serving_environment,
     is_mlflow_tracing_enabled_in_model_serving,
@@ -52,7 +53,10 @@ def start_span_in_context(name: str) -> trace.Span:
 
 
 def start_detached_span(
-    name: str, parent: Optional[trace.Span] = None, experiment_id: Optional[str] = None
+    name: str,
+    parent: Optional[trace.Span] = None,
+    experiment_id: Optional[str] = None,
+    start_time_ns: Optional[int] = None,
 ) -> Optional[Tuple[str, trace.Span]]:
     """
     Start a new OpenTelemetry span that is not part of the current trace context, but with the
@@ -64,6 +68,8 @@ def start_detached_span(
                 span.
         experiment_id: The ID of the experiment. This is used to associate the span with a specific
             experiment in MLflow.
+        start_time_ns: The start time of the span in nanoseconds.
+            If not provided, the current timestamp is used.
 
     Returns:
         The newly created OpenTelemetry span.
@@ -73,7 +79,7 @@ def start_detached_span(
     attributes = (
         {SpanAttributeKey.EXPERIMENT_ID: json.dumps(experiment_id)} if experiment_id else None
     )
-    return tracer.start_span(name, context=context, attributes=attributes)
+    return tracer.start_span(name, context=context, attributes=attributes, start_time=start_time_ns)
 
 
 def _get_tracer(module_name: str):
@@ -86,6 +92,17 @@ def _get_tracer(module_name: str):
     # Initiate tracer provider only once in the application lifecycle
     _MLFLOW_TRACER_PROVIDER_INITIALIZED.do_once(_setup_tracer_provider)
     return _MLFLOW_TRACER_PROVIDER.get_tracer(module_name)
+
+
+def _get_trace_exporter():
+    """
+    Get the exporter instance that is used by the current tracer provider.
+    """
+    if _MLFLOW_TRACER_PROVIDER:
+        processors = _MLFLOW_TRACER_PROVIDER._active_span_processor._span_processors
+        # There should be only one processor used for MLflow tracing
+        processor = processors[0]
+        return processor.span_exporter
 
 
 def _setup_tracer_provider(disabled=False):
@@ -102,7 +119,15 @@ def _setup_tracer_provider(disabled=False):
         _MLFLOW_TRACER_PROVIDER = trace.NoOpTracerProvider()
         return
 
-    if is_in_databricks_model_serving_environment():
+    if should_use_otlp_exporter():
+        # Export to OpenTelemetry Collector when configured
+        from mlflow.tracing.processor.otel import OtelSpanProcessor
+
+        exporter = get_otlp_exporter()
+        processor = OtelSpanProcessor(exporter)
+
+    elif is_in_databricks_model_serving_environment():
+        # Export to Inference Table when running in Databricks Model Serving
         if not is_mlflow_tracing_enabled_in_model_serving():
             _MLFLOW_TRACER_PROVIDER = trace.NoOpTracerProvider()
             return
@@ -112,7 +137,9 @@ def _setup_tracer_provider(disabled=False):
 
         exporter = InferenceTableSpanExporter()
         processor = InferenceTableSpanProcessor(exporter)
+
     else:
+        # Default to MLflow Tracking Server
         from mlflow.tracing.export.mlflow import MlflowSpanExporter
         from mlflow.tracing.processor.mlflow import MlflowSpanProcessor
 

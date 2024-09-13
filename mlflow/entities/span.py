@@ -360,7 +360,7 @@ class LiveSpan(Span):
         """
         self._span.add_event(event.name, event.attributes, event.timestamp)
 
-    def end(self):
+    def end(self, end_time: Optional[int] = None):
         """
         End the span. This is a thin wrapper around the OpenTelemetry's end method but just
         to handle the status update.
@@ -377,7 +377,7 @@ class LiveSpan(Span):
         if self.status.status_code != SpanStatusCode.ERROR:
             self.set_status(SpanStatus(SpanStatusCode.OK))
 
-        self._span.end()
+        self._span.end(end_time=end_time)
 
     def from_dict(cls, data: Dict[str, Any]) -> "Span":
         raise NotImplementedError("The `from_dict` method is not supported for the LiveSpan class.")
@@ -515,7 +515,7 @@ class _SpanAttributesRegistry:
         # NB: OpenTelemetry attribute can store not only string but also a few primitives like
         #   int, float, bool, and list of them. However, we serialize all into JSON string here
         #   for the simplicity in deserialization process.
-        self._span.set_attribute(key, json.dumps(value, cls=TraceJSONEncoder))
+        self._span.set_attribute(key, json.dumps(value, cls=TraceJSONEncoder, ensure_ascii=False))
 
 
 class _CachedSpanAttributesRegistry(_SpanAttributesRegistry):

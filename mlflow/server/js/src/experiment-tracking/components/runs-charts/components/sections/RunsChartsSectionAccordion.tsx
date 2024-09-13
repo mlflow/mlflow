@@ -9,6 +9,7 @@ import {
   RunsChartsScatterCardConfig,
   RunsChartsContourCardConfig,
   SerializedRunsChartsCardConfigCard,
+  RunsChartsParallelCardConfig,
 } from '../../runs-charts.types';
 import MetricChartsAccordion, { METRIC_CHART_SECTION_HEADER_SIZE } from '../../../MetricChartsAccordion';
 import { RunsChartsSectionHeader } from './RunsChartsSectionHeader';
@@ -25,9 +26,29 @@ import { useUpdateRunsChartsUIConfiguration } from '../../hooks/useRunsChartsUIC
 import { isArray } from 'lodash';
 import { RunsChartCardSetFullscreenFn } from '../cards/ChartCard.common';
 import type { RunsGroupByConfig } from '../../../experiment-page/utils/experimentPage.group-row-utils';
-import { shouldEnableHidingChartsWithNoData } from '../../../../../common/utils/FeatureUtils';
+import {
+  shouldEnableHidingChartsWithNoData,
+  shouldUseRegexpBasedChartFiltering,
+} from '../../../../../common/utils/FeatureUtils';
+import type { RunsChartsGlobalLineChartConfig } from '../../../experiment-page/models/ExperimentPageUIState';
 
 const chartMatchesFilter = (filter: string, config: RunsChartsCardConfig) => {
+  // Use regexp-based filtering if a feature flag is enabled
+  if (shouldUseRegexpBasedChartFiltering()) {
+    // Don't filter image or difference charts out
+    if (config.type === RunsChartType.IMAGE || config.type === RunsChartType.DIFFERENCE) {
+      return true;
+    }
+
+    try {
+      const filterRegex = new RegExp(filter, 'i');
+      return getChartMetricsAndParams(config).some((metricOrParam) => metricOrParam.match(filterRegex));
+    } catch {
+      // If the regex is invalid (e.g. user it still typing it), prevent from filtering
+      return true;
+    }
+  }
+
   const filterLowerCase = filter.toLowerCase();
 
   if (config.type === RunsChartType.BAR) {
@@ -47,14 +68,37 @@ const chartMatchesFilter = (filter: string, config: RunsChartsCardConfig) => {
     );
   } else if (config.type === RunsChartType.PARALLEL) {
     return 'Parallel Coordinates'.toLowerCase().includes(filterLowerCase);
-  } else {
-    // Must be contour
+  } else if (config.type === RunsChartType.CONTOUR) {
     const contourConfig = config as RunsChartsContourCardConfig;
     return (
       contourConfig.xaxis.key.toLowerCase().includes(filterLowerCase) ||
       contourConfig.yaxis.key.toLowerCase().includes(filterLowerCase) ||
       contourConfig.zaxis.key.toLowerCase().includes(filterLowerCase)
     );
+  }
+
+  return true;
+};
+
+const getChartMetricsAndParams = (config: RunsChartsCardConfig): string[] => {
+  if (config.type === RunsChartType.BAR) {
+    const barConfig = config as RunsChartsBarCardConfig;
+    return [barConfig.metricKey];
+  } else if (config.type === RunsChartType.LINE) {
+    const lineConfig = config as RunsChartsLineCardConfig;
+    if (isArray(lineConfig.selectedMetricKeys)) {
+      return lineConfig.selectedMetricKeys;
+    }
+    return [lineConfig.metricKey];
+  } else if (config.type === RunsChartType.SCATTER) {
+    const scatterConfig = config as RunsChartsScatterCardConfig;
+    return [scatterConfig.xaxis.key.toLowerCase(), scatterConfig.yaxis.key.toLowerCase()];
+  } else if (config.type === RunsChartType.PARALLEL) {
+    const parallelConfig = config as RunsChartsParallelCardConfig;
+    return [...parallelConfig.selectedMetrics, ...parallelConfig.selectedParams];
+  } else {
+    const contourConfig = config as RunsChartsContourCardConfig;
+    return [contourConfig.xaxis.key, contourConfig.yaxis.key, contourConfig.zaxis.key];
   }
 };
 
@@ -74,6 +118,7 @@ export interface RunsChartsSectionAccordionProps {
   hideEmptyCharts?: boolean;
   supportedChartTypes?: RunsChartType[] | undefined;
   setFullScreenChart: RunsChartCardSetFullscreenFn;
+  globalLineChartConfig?: RunsChartsGlobalLineChartConfig;
 }
 
 export const RunsChartsSectionAccordion = ({
@@ -92,6 +137,7 @@ export const RunsChartsSectionAccordion = ({
   supportedChartTypes,
   hideEmptyCharts,
   setFullScreenChart = () => {},
+  globalLineChartConfig,
 }: RunsChartsSectionAccordionProps) => {
   const updateUIState = useUpdateRunsChartsUIConfiguration();
   const [editSection, setEditSection] = useState(-1);
@@ -380,6 +426,7 @@ export const RunsChartsSectionAccordion = ({
             >
               <RunsChartsSection
                 sectionId={sectionConfig.uuid}
+                sectionConfig={sectionConfig}
                 sectionCharts={sectionCharts}
                 reorderCharts={reorderCharts}
                 insertCharts={insertCharts}
@@ -392,6 +439,7 @@ export const RunsChartsSectionAccordion = ({
                 setFullScreenChart={setFullScreenChart}
                 autoRefreshEnabled={autoRefreshEnabled}
                 hideEmptyCharts={hideEmptyCharts}
+                globalLineChartConfig={globalLineChartConfig}
               />
             </Accordion.Panel>
           );
