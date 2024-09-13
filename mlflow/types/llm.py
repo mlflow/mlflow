@@ -345,7 +345,7 @@ class ChatResponse(_BaseDataclass):
         object (str): The object type. Defaults to 'chat.completion'
         created (int): The time the response was created.
             **Optional**, defaults to the current time.
-        metadata (Dict[str, str]): An param that can contain arbitrary additional context.
+        metadata (Dict[str, str]): An field that can contain arbitrary additional context.
             **Optional**, defaults to ``None``
     """
 
