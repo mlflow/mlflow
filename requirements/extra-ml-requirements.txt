@@ -74,3 +74,5 @@ langchain
 promptflow
 # Required by mlflow.sentence_transformers
 sentence-transformers
+# Required by mlflow.dspy
+dspy
