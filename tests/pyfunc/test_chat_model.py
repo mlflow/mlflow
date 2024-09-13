@@ -90,6 +90,15 @@ class ChatModelWithTrace(mlflow.pyfunc.ChatModel):
         return ChatResponse(**mock_response)
 
 
+class ChatModelWithMetadata(mlflow.pyfunc.ChatModel):
+    def predict(self, context, messages: List[ChatMessage], params: ChatParams) -> ChatResponse:
+        mock_response = get_mock_response(messages, params)
+        return ChatResponse(
+            **mock_response,
+            metadata=params.metadata,
+        )
+
+
 def test_chat_model_save_load(tmp_path):
     model = TestChatModel()
     mlflow.pyfunc.save_model(python_model=model, path=tmp_path)
@@ -406,26 +415,41 @@ def test_chat_model_predict_stream(tmp_path):
     assert response["choices"][0]["message"]["content"] == json.dumps(messages)
 
 
-# test that users cannot overwrite the 'object' field in ChatResponse
-def test_chat_model_response_cannot_overwrite_object():
-    message = ChatMessage(role="user", content="Hello!")
-    params = ChatParams(**DEFAULT_PARAMS)
-    mock_response = get_mock_response([message], params)
+def test_chat_model_can_receive_and_return_metadata():
+    messages = [{"role": "user", "content": "Hello!"}]
+    params = {
+        "metadata": {
+            "image_url": "example",
+            "detail": "high",
+        },
+    }
+    input_example = {
+        "messages": messages,
+        "metadata": params["metadata"],
+    }
 
-    # test initialization without setting the property 'object'
-    response = ChatResponse(**mock_response)
-    assert response.object == "chat.completion"
-    with pytest.raises(ValueError, match="`object` field must be 'chat.completion'"):
-        response.object = "other"
+    model = ChatModelWithMetadata()
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model(
+            "model",
+            python_model=model,
+            input_example=input_example,
+        )
 
-    # test to set correct value for 'object' when initializing ChatResponse
-    mock_response["object"] = "chat.completion"
-    response = ChatResponse(**mock_response)
-    assert response.object == "chat.completion"
-    with pytest.raises(ValueError, match="`object` field must be 'chat.completion'"):
-        response.object = "other"
+    loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
 
-    # test to set incorrect value for 'object' when initializing ChatResponse
-    mock_response["object"] = "invalid.value"
-    with pytest.raises(ValueError, match="`object` field must be 'chat.completion'"):
-        response = ChatResponse(**mock_response)
+    # test that it works for normal pyfunc predict
+    response = loaded_model.predict({"messages": messages, **params})
+    assert response["metadata"] == params["metadata"]
+
+    # test that it works in serving
+    inference_payload = load_serving_example(model_info.model_uri)
+    response = pyfunc_serve_and_score_model(
+        model_uri=model_info.model_uri,
+        data=inference_payload,
+        content_type="application/json",
+        extra_args=["--env-manager", "local"],
+    )
+
+    serving_response = json.loads(response.content)
+    assert serving_response["metadata"] == params["metadata"]

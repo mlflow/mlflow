@@ -489,6 +489,7 @@ from mlflow.types.llm import (
     CHAT_MODEL_OUTPUT_SCHEMA,
     ChatMessage,
     ChatParams,
+    ChatRequest,
     ChatResponse,
 )
 from mlflow.utils import (
@@ -2540,14 +2541,17 @@ def save_model(
                         messages.append(each_message)
                     else:
                         messages.append(ChatMessage(**each_message))
-            else:
+            elif isinstance(input_example, dict):
                 # If the input example is a dictionary, convert it to ChatMessage format
                 messages = [ChatMessage(**m) for m in input_example["messages"]]
                 params = ChatParams(**{k: v for k, v in input_example.items() if k != "messages"})
-            input_example = (
-                {"messages": [m.to_dict() for m in messages]},
-                {**params.to_dict(), **(input_params or {})},
-            )
+            else:
+                raise MlflowException(
+                    "Failed to save ChatModel. "
+                    "Please ensure that the input example is one of the following:\n"
+                    "  1. A list of `ChatMessage`s or dicts matching the `ChatMessage` structure\n"
+                    "  2. A dict matching the `ChatRequest` data structure\n"
+                )
 
             # call load_context() first, as predict may depend on it
             _logger.info("Predicting on input example to validate output")
