@@ -67,7 +67,7 @@ Once you have completed the pre-requisites, you can start the gateway server:
     export MLFLOW_ENABLE_UC_FUNCTIONS=true
 
     # Run the server
-    mlflow deployments start-server --config-path examples/deployments/deployments_server/openai/config.yaml --port 7000
+    mlflow gateway start --config-path examples/deployments/deployments_server/openai/config.yaml --port 7000
 
 Query the Endpoint with UC Function
 -----------------------------------
