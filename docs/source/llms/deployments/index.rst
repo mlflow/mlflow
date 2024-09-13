@@ -135,7 +135,7 @@ Use the MLflow AI Gateway ``start-server`` command and specify the path to your 
 
 .. code-block:: sh
 
-    mlflow deployments start-server --config-path config.yaml --port {port} --host {host} --workers {worker count}
+    mlflow gateway start --config-path config.yaml --port {port} --host {host} --workers {worker count}
 
 The configuration file can also be set using the ``MLFLOW_DEPLOYMENTS_CONFIG`` environment variable:
 
@@ -1344,7 +1344,7 @@ The OpenAI client can be used to query the server as shown in the example below:
 
 .. code-block:: shell
 
-    mlflow deployments start-server --config-path /path/to/config.yaml --port 7000
+    mlflow gateway start --config-path /path/to/config.yaml --port 7000
 
 3. Once the server is up and running, query the server using the OpenAI client:
 
