@@ -109,13 +109,13 @@ from mlflow.exceptions import MlflowException
 from mlflow.models import evaluate
 from mlflow.projects import run
 from mlflow.tracing.fluent import (
+    add_trace,
     get_current_active_span,
     get_last_active_trace,
     get_trace,
     search_traces,
     start_span,
     trace,
-    use_remote_trace,
 )
 from mlflow.tracking._model_registry.fluent import (
     register_model,
@@ -234,7 +234,7 @@ __all__ = [
     "search_traces",
     "start_span",
     "trace",
-    "use_remote_trace",
+    "add_trace",
 ]
 
 

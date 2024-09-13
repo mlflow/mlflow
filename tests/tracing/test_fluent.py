@@ -1204,31 +1204,30 @@ _SAMPLE_REMOTE_TRACE = {
 }
 
 
-def test_use_remote_trace():
+def test_add_trace():
     # Mimic a remote service call that returns a trace as a part of the response
     def dummy_remote_call():
         return {"prediction": 1, "trace": _SAMPLE_REMOTE_TRACE}
 
     @mlflow.trace
-    def predict(use_remote_trace: bool):
+    def predict(add_trace: bool):
         resp = dummy_remote_call()
-        remote_trace = Trace.from_dict(resp["trace"])
 
-        if use_remote_trace:
-            mlflow.use_remote_trace(remote_trace)
+        if add_trace:
+            mlflow.add_trace(resp["trace"])
         return resp["prediction"]
 
-    # If we don't call use_remote_trace, the trace from the remote service should be discarded
-    predict(use_remote_trace=False)
+    # If we don't call add_trace, the trace from the remote service should be discarded
+    predict(add_trace=False)
     trace = mlflow.get_last_active_trace()
     assert len(trace.data.spans) == 1
 
-    # If we call use_remote_trace, the trace from the remote service should be merged
-    predict(use_remote_trace=True)
+    # If we call add_trace, the trace from the remote service should be merged
+    predict(add_trace=True)
     trace = mlflow.get_last_active_trace()
     request_id = trace.info.request_id
     assert request_id is not None
-    assert trace.data.request == '{"use_remote_trace": true}'
+    assert trace.data.request == '{"add_trace": true}'
     assert trace.data.response == "1"
     # Remote spans should be merged
     assert len(trace.data.spans) == 3
@@ -1251,11 +1250,11 @@ def test_use_remote_trace():
         assert child_span.attributes[k] == rs.attributes[k]
 
 
-def test_use_remote_trace_no_current_active_trace():
+def test_add_trace_no_current_active_trace():
     # Use the remote trace without any active trace
     remote_trace = Trace.from_dict(_SAMPLE_REMOTE_TRACE)
 
-    mlflow.use_remote_trace(remote_trace)
+    mlflow.add_trace(remote_trace)
 
     trace = mlflow.get_last_active_trace()
     assert len(trace.data.spans) == 3
@@ -1277,7 +1276,23 @@ def test_use_remote_trace_no_current_active_trace():
         assert child_span.attributes[k] == rs.attributes[k]
 
 
-def test_use_remote_trace_merge_tags():
+def test_add_trace_specific_target_span():
+    client = mlflow.MlflowClient()
+    span = client.start_trace(name="parent")
+    mlflow.add_trace(_SAMPLE_REMOTE_TRACE, target=span)
+    client.end_trace(span.request_id)
+
+    trace = mlflow.get_last_active_trace()
+    assert len(trace.data.spans) == 3
+    parent_span, child_span, grandchild_span = trace.data.spans
+    assert parent_span.span_id == span.span_id
+    rs = Trace.from_dict(_SAMPLE_REMOTE_TRACE).data.spans[0]
+    assert child_span.name == rs.name
+    assert child_span.parent_id is parent_span.span_id
+    assert grandchild_span.parent_id == child_span.span_id
+
+
+def test_add_trace_merge_tags():
     client = mlflow.MlflowClient()
 
     # Start the parent trace and merge the above trace as a child
@@ -1285,7 +1300,7 @@ def test_use_remote_trace_merge_tags():
         client.set_trace_tag(span.request_id, "vegetable", "carrot")
         client.set_trace_tag(span.request_id, "food", "sushi")
 
-        mlflow.use_remote_trace(Trace.from_dict(_SAMPLE_REMOTE_TRACE))
+        mlflow.add_trace(Trace.from_dict(_SAMPLE_REMOTE_TRACE))
 
     trace = mlflow.get_last_active_trace()
     custom_tags = {k: v for k, v in trace.info.tags.items() if not k.startswith("mlflow.")}
@@ -1297,11 +1312,14 @@ def test_use_remote_trace_merge_tags():
     }
 
 
-def test_use_remote_trace_raise_for_invalid_trace():
+def test_add_trace_raise_for_invalid_trace():
     with pytest.raises(MlflowException, match="Invalid trace object"):
-        mlflow.use_remote_trace(None)
+        mlflow.add_trace(None)
 
-    trace = Trace(
+    with pytest.raises(MlflowException, match="Failed to load a trace object"):
+        mlflow.add_trace({"info": {}, "data": {}})
+
+    in_progress_trace = Trace(
         info=TraceInfo(
             request_id="123",
             status=TraceStatus.IN_PROGRESS,
@@ -1312,10 +1330,16 @@ def test_use_remote_trace_raise_for_invalid_trace():
         data=TraceData(),
     )
     with pytest.raises(MlflowException, match="The remote trace must be ended"):
-        mlflow.use_remote_trace(trace)
+        mlflow.add_trace(in_progress_trace)
+
+    trace = Trace.from_dict(_SAMPLE_REMOTE_TRACE)
+    spans = trace.data.spans
+    unordered_trace = Trace(info=trace.info, data=TraceData(spans=[spans[1], spans[0]]))
+    with pytest.raises(MlflowException, match="Span with ID "):
+        mlflow.add_trace(unordered_trace)
 
 
-def test_use_remote_trace_in_databricks_model_serving(mock_databricks_serving_with_tracing_env):
+def test_add_trace_in_databricks_model_serving(mock_databricks_serving_with_tracing_env):
     # Mimic a remote service call that returns a trace as a part of the response
     def dummy_remote_call():
         return {"prediction": 1, "trace": _SAMPLE_REMOTE_TRACE}
@@ -1325,7 +1349,7 @@ def test_use_remote_trace_in_databricks_model_serving(mock_databricks_serving_wi
     def predict():
         resp = dummy_remote_call()
         remote_trace = Trace.from_dict(resp["trace"])
-        mlflow.use_remote_trace(remote_trace)
+        mlflow.add_trace(remote_trace)
         return resp["prediction"]
 
     db_request_id = "databricks-request-id"
