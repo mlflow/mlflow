@@ -3525,3 +3525,23 @@ def test_langgraph_agent_log_model_from_code():
     expected = {"serving_endpoint": [{"name": "fake-endpoint"}]}
     assert all(item in actual["serving_endpoint"] for item in expected["serving_endpoint"])
     assert all(item in expected["serving_endpoint"] for item in actual["serving_endpoint"])
+
+
+@pytest.mark.skipif(
+    Version(langchain.__version__) < Version("0.2.0"),
+    reason="Configurable fields are not supported correctly in old versions",
+)
+def test_invoking_model_with_params():
+    with mlflow.start_run():
+        model_info = mlflow.langchain.log_model(
+            lc_model=os.path.abspath("tests/langchain/sample_code/model_with_config.py"),
+            artifact_path="model",
+        )
+    pyfunc_model = mlflow.pyfunc.load_model(model_info.model_uri)
+    data = {"x": 0}
+    pyfunc_model.predict(data)
+    params = {"config": {"temperature": 3.0}}
+    with mock.patch("mlflow.pyfunc._validate_prediction_input", return_value=(data, params)):
+        # This proves the temperature is passed to the model
+        with pytest.raises(MlflowException, match=r"Temperature must be between 0.0 and 2.0"):
+            pyfunc_model.predict(data=data, params=params)

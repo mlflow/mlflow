@@ -718,6 +718,7 @@ class _LangChainModelWrapper:
             requests=messages,
             callback_handlers=callback_handlers,
             convert_chat_responses=convert_chat_responses,
+            params=params or {},
         )
         return results[0] if return_first_element else results
 
@@ -780,6 +781,7 @@ class _LangChainModelWrapper:
         return process_stream_request(
             lc_model=self.lc_model,
             request_json=data,
+            params=params or {},
         )
 
     def _predict_stream_with_callbacks(
@@ -811,6 +813,7 @@ class _LangChainModelWrapper:
             request_json=data,
             callback_handlers=callback_handlers,
             convert_chat_responses=convert_chat_responses,
+            params=params or {},
         )
 
 
