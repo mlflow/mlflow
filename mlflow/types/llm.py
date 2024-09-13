@@ -1,6 +1,6 @@
 import time
 from dataclasses import asdict, dataclass, field
-from typing import Dict, List, Literal, Optional
+from typing import Dict, List, Optional
 
 from mlflow.types.schema import Array, ColSpec, DataType, Map, Object, Property, Schema
 
