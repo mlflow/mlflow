@@ -1,4 +1,4 @@
-Configuring and Starting the Deployments Server
+Configuring and Starting the gateway server
 ===============================================
 
 Step 1: Install
@@ -18,8 +18,8 @@ Step 2: Set the OpenAI Token as an Environment Variable
 -------------------------------------------------------
 Next, set the OpenAI API key as an environment variable in your CLI.
 
-This approach allows the MLflow Deployments Server to read the sensitive API key safely, reducing the risk
-of leaking the token in code. The Deployments Server, when started, will read the value set by this environment
+This approach allows the MLflow AI Gateway to read the sensitive API key safely, reducing the risk
+of leaking the token in code. The gateway server, when started, will read the value set by this environment
 variable without any additional action required.
 
 .. code-section::
@@ -29,12 +29,12 @@ variable without any additional action required.
 
         export OPENAI_API_KEY=your_api_key_here
 
-Step 3: Configure the Deployments Server
+Step 3: Configure the gateway server
 ----------------------------------------
-Third, set up several routes for the Deployments Server to host. The configuration of the Deployments Server is done through
+Third, set up several routes for the gateway server to host. The configuration of the gateway server is done through
 editing a YAML file that is read by the server initialization command (covered in step 4).
 
-Notably, the Deployments Server allows real-time updates to an active server through the YAML configuration;
+Notably, the gateway server allows real-time updates to an active server through the YAML configuration;
 service restart is not required for changes to take effect and can instead be done simply by editing the
 configuration file that is defined at server start, permitting dynamic route creation without downtime of the service.
 
@@ -80,11 +80,11 @@ configuration file that is defined at server start, permitting dynamic route cre
 
 Step 4: Start the Server
 -------------------------
-Fourth, let's test the deployments server!
+Fourth, let's test the gateway server!
 
-To launch the deployments server using a YAML config file, use the deployments CLI command.
+To launch the gateway server using a YAML config file, use the deployments CLI command.
 
-The deployments server will automatically start on ``localhost`` at port ``5000``, accessible via
+The gateway server will automatically start on ``localhost`` at port ``5000``, accessible via
 the URL: ``http://localhost:5000``. To modify these default settings, use the
 ``mlflow deployments start-server --help`` command to view additional configuration options.
 
@@ -96,5 +96,5 @@ the URL: ``http://localhost:5000``. To modify these default settings, use the
         mlflow deployments start-server --config-path config.yaml
 
 .. note::
-    MLflow Deployments Server automatically creates API docs. You can validate your deployment server
+    MLflow AI Gateway automatically creates API docs. You can validate your deployment server
     is running by viewing the docs. Go to `http://{host}:{port}` in your web browser.
