@@ -22,7 +22,7 @@ classifiers = [
 ]
 requires-python = ">=3.8"
 dependencies = [
-  "mlflow-skinny==2.16.1.dev0",
+  "mlflow-skinny==2.16.2.dev0",
   "Flask<4",
   "Jinja2<4,>=2.11; platform_system != 'Windows'",
   "Jinja2<4,>=3.0; platform_system == 'Windows'",
