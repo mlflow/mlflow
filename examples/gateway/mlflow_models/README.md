@@ -6,7 +6,7 @@ step that must be taken prior to interfacing with an MLflow served model is that
 MLflow tracking server.
 
 An important consideration for deciding whether to interface MLflow Deployments with a specific model is to evaluate the PyFunc interface that the model will
-return after being called for inference. Due to the fact that the MLflow Deployments server defines a specific response signature, expectations for each endpoint type's payload contents
+return after being called for inference. Due to the fact that the MLflow AI Gateway defines a specific response signature, expectations for each endpoint type's payload contents
 must be met in order for a endpoint to be valid.
 
 For example, an embeddings endpoint (llm/v1/embeddings endpoint type) is designed to return embeddings data as a collection (a list) of floats that correspond to each of the
@@ -37,7 +37,7 @@ However, a return value from a serving endpoint via a custom PyFunc of the form 
 }
 ```
 
-It is important to note that the MLflow Deployments server does not perform validation on a configured endpoint until the point of querying. Creating a endpoint that interfaces with the
+It is important to note that the MLflow AI Gateway does not perform validation on a configured endpoint until the point of querying. Creating a endpoint that interfaces with the
 MLflow model server that is returning a payload that is incompatible with the configured endpoint type definition will raise 502 exceptions only when queried.
 
 > **NOTE:** It is important to validate the output response of a model served by MLflow to ensure compatibility with the MLflow Deployments endpoint definitions. Not all model outputs are compatible with given endpoint types.
@@ -95,7 +95,7 @@ After assigning a valid port and ensuring that the model server starts correctly
 
 The flask app is ready to receive traffic.
 
-Update the MLflow Deployments server configuration file (config.yaml) with the new endpoint:
+Update the MLflow AI Gateway configuration file (config.yaml) with the new endpoint:
 
 ```yaml
 endpoints:
@@ -111,7 +111,7 @@ endpoints:
 The key component here is the `model_server_url`. For serving an MLflow LLM, this url must match to the service that you are specifying for the
 Model Serving server.
 
-> **NOTE:** The MLflow Model Server does not have to be running in order to update the configuration file or to start the MLflow Deployments server. In order to respond to submitted queries, it is required to be running.
+> **NOTE:** The MLflow Model Server does not have to be running in order to update the configuration file or to start the MLflow AI Gateway. In order to respond to submitted queries, it is required to be running.
 
 ## Creating and logging a fill mask model
 
@@ -167,7 +167,7 @@ Ensure that the MLflow serving endpoint starts and is ready for traffic.
 [2023-08-08 17:39:15 -0400] [55722] [INFO] Booting worker with pid: 55724
 ```
 
-Add the entry to the MLflow Deployments server configuration file. The final file should match [the config file](config.yaml)
+Add the entry to the MLflow AI Gateway configuration file. The final file should match [the config file](config.yaml)
 
 ## Create a completions model using MPT-7B-instruct (optional, see notes below)
 
@@ -362,17 +362,17 @@ endpoints:
         model_server_url: http://127.0.0.1:9030
 ```
 
-## Start the MLflow Deployments server
+## Start the MLflow AI Gateway
 
-Now that both endpoints (or all 3, if adding in the optional MPT-7B-instruct model endpoint) are defined within the configuration YAML file and the Model Serving servers are ready to receive queries, we can start the MLflow Deployments server.
+Now that both endpoints (or all 3, if adding in the optional MPT-7B-instruct model endpoint) are defined within the configuration YAML file and the Model Serving servers are ready to receive queries, we can start the MLflow AI Gateway.
 
 ```sh
-mlflow deployments start-server --config-path examples/deployments/deployments_server/mlflow_serving/config.yaml --port 7000
+mlflow gateway start --config-path examples/gateway/mlflow_serving/config.yaml --port 7000
 ```
 
-If adding the mpt-7b-instruct model, start the MLflow Deployments server by directing the `--config-path` argument to the location of the `config.yaml` file that you've created with the endpoint's addition.
+If adding the mpt-7b-instruct model, start the MLflow AI Gateway by directing the `--config-path` argument to the location of the `config.yaml` file that you've created with the endpoint's addition.
 
-## Query the MLflow Deployments server
+## Query the MLflow AI Gateway
 
 See the [example script](example.py) within this directory to see how to query these two models that are being served.
 

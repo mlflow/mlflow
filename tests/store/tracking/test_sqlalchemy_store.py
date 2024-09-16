@@ -1091,6 +1091,8 @@ def test_record_logged_model(
     with store.ManagedSessionMaker() as session:
         run = store._get_run(run_uuid=run.info.run_id, session=session)
         tags = [t.value for t in run.tags if t.key == mlflow_tags.MLFLOW_LOGGED_MODELS]
+        flavors = m_with_config.get_tags_dict().get("flavors", {})
+        assert all("config" not in v for v in flavors.values())
         assert tags[0] == json.dumps([m_with_config.get_tags_dict()])
 
 

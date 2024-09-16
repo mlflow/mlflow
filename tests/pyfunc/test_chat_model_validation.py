@@ -218,3 +218,17 @@ def test_chat_response_defaults():
     assert response.model is None
     assert response.id is None
     assert response.choices[0].finish_reason == "stop"
+
+
+@pytest.mark.parametrize(
+    ("metadata", "match"),
+    [
+        (1, r"Expected `metadata` to be a dictionary, received `int`"),
+        ({"nested": {"dict": "input"}}, r"received value of type `dict` in `metadata\['nested'\]`"),
+        ({1: "example"}, r"received key of type `int` \(key: 1\)"),
+    ],
+)
+def test_chat_request_metadata_must_be_string_map(metadata, match):
+    message = ChatMessage("user", "Hello")
+    with pytest.raises(ValueError, match=match):
+        ChatRequest(messages=[message], metadata=metadata)

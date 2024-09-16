@@ -555,6 +555,7 @@ def test_record_logged_model(store):
         flavors={"python_function": {"config": {"a": 1}, "code": "code"}},
     )
     store.record_logged_model(run_id, m4)
+    assert all("config" not in v for v in m4.get_tags_dict().get("flavors", {}).values())
     _verify_logged(
         store,
         run_id,

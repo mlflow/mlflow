@@ -1,5 +1,31 @@
 # CHANGELOG
 
+## 2.16.1 (2024-09-13)
+
+MLflow 2.16.1 is a patch release that includes some minor feature improvements and addresses several bug fixes.
+
+Features:
+
+- [Tracing] Add Support for an Open Telemetry compatible exporter to configure external sinks for MLflow traces (#13118, @B-Step62)
+- [Model Registry, AWS] Add support for utilizing AWS KMS-based encryption for the MLflow Model Registry (#12495, @artjen)
+- [Model Registry] Add support for using the OSS Unity Catalog server as a Model Registry (#13034, #13065, #13066,  @rohitarun-db)
+- [Models] Introduce path-based transformers logging to reduce memory requirements for saving large transformers models (#13070, @B-Step62)
+
+Bug fixes:
+
+- [Tracking] Fix a data payload size issue with `Model.get_tags_dict` by eliminating the return of the internally-used `config` field (#13086, @harshilprajapati96)
+- [Models] Fix an issue with LangChain Agents where sub-dependencies were not being properly extracted (#13105, @aravind-segu)
+- [Tracking] Fix an issue where the wrong checkpoint for the current best model in auto checkpointing was being selected (#12981, @hareeen)
+- [Tracking] Fix an issue where local timezones for trace initialization were not being taken into account in AutoGen tracing (#13047, @B-Step62)
+
+Documentation updates:
+
+- [Docs] Added RunLLM chat widget to MLflow's documentation site (#13123, @likawind)
+
+Small bug fixes and documentation updates:
+
+#13140, #13141, #13098, #13091, #13101, #13100, #13095, #13044, #13048, @B-Step62; #13142, #13092, #13132, #13055, #13049, @harupy; #13135, #13036, #13029, @serena-ruan; #13134, #13081, #13078, @daniellok-db; #13107, #13103, @kriscon-db; #13104, @arpitjasa-db; #13022, @nojaf; #13069, @minihat; #12879, @faizankshaikh
+
 ## 2.16.0 (2024-08-30)
 
 We are excited to announce the release of MLflow 2.16.0. This release includes many major features and improvements!
