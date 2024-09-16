@@ -246,8 +246,9 @@ def _traverse_runnable(
         try:
             # Visit the variables of the function as well to extract dependencies
             if hasattr(lc_model, "func") and lc_model.func is not None:
-                for node in inspect.getclosurevars(lc_model.func).globals.values():
-                    yield from _traverse_runnable(node, visited)
+                if inspect.isfunction(lc_model.func) or inspect.ismethod(lc_model.func):
+                    for node in inspect.getclosurevars(lc_model.func).globals.values():
+                        yield from _traverse_runnable(node, visited)
         except Exception as e:
             _logger.warning(
                 "Unable to detect Databricks dependencies through closure values"
