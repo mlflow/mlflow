@@ -285,7 +285,7 @@ class CloudArtifactRepository(ArtifactRepository):
                 num_retries -= 1
                 time.sleep(interval)
 
-            if num_retries == 0 and failed_downloads:
+            if failed_downloads:
                 raise MlflowException(
                     message=("All retries have been exhausted. Download has failed.")
                 )
