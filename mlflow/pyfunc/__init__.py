@@ -2542,12 +2542,16 @@ def save_model(
                         messages.append(ChatMessage(**each_message))
             else:
                 # If the input example is a dictionary, convert it to ChatMessage format
-                messages = [ChatMessage(**m) for m in input_example["messages"]]
+                messages = [
+                    ChatMessage(**m) if isinstance(m, dict) else m
+                    for m in input_example["messages"]
+                ]
                 params = ChatParams(**{k: v for k, v in input_example.items() if k != "messages"})
-            input_example = (
-                {"messages": [m.to_dict() for m in messages]},
-                {**params.to_dict(), **(input_params or {})},
-            )
+            input_example = {
+                "messages": [m.to_dict() for m in messages],
+                **params.to_dict(),
+                **(input_params or {}),
+            }
 
             # call load_context() first, as predict may depend on it
             _logger.info("Predicting on input example to validate output")
