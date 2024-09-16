@@ -47,6 +47,7 @@ from mlflow.models.evaluation import (
 )
 from mlflow.models.evaluation.artifacts import ImageEvaluationArtifact
 from mlflow.models.evaluation.base import (
+    _get_model_from_deployment_endpoint_uri,
     _is_model_deployment_endpoint_uri,
     _start_run_or_reuse_active_run,
 )
@@ -467,8 +468,6 @@ def test_langchain_evaluate_autologs_traces():
         assert len(trace.data.spans) == 3
     assert run.info.run_id == get_traces()[0].info.request_metadata[TraceMetadataKey.SOURCE_RUN]
 
-    TRACE_BUFFER.clear()
-
     # Test original langchain autolog configs is restored
     with mock.patch("mlflow.langchain.log_model") as log_model_mock:
         with mlflow.start_run() as run:
@@ -479,7 +478,7 @@ def test_langchain_evaluate_autologs_traces():
             assert len(loaded_dict) == 1
             assert loaded_dict[0]["input"] == "text"
         log_model_mock.assert_called_once()
-        assert len(get_traces()) == 1
+        assert len(get_traces()) == 3
         assert len(get_traces()[0].data.spans) == 3
 
 
@@ -2127,7 +2126,7 @@ def test_evaluate_on_completion_model_endpoint(mock_deploy_client, input_data, f
         # Input column not str or dict
         (
             pd.DataFrame({"inputs": [1, 2], "ground_truth": _TEST_GT_LIST}),
-            "Invalid input column type",
+            "Invalid input data type",
         ),
     ],
 )
@@ -2141,6 +2140,62 @@ def test_evaluate_on_model_endpoint_invalid_input_data(input_data, error_message
                 targets="ground_truth",
                 inference_params={"max_tokens": 10, "temperature": 0.5},
             )
+
+
+@pytest.mark.parametrize(
+    "model_input",
+    [
+        # Case 1: Single chat dictionary.
+        # This is an expected input format from the Databricks RAG Evaluator.
+        {
+            "messages": [{"content": "What is MLflow?", "role": "user"}],
+            "max_tokens": 10,
+        },
+        # Case 2: List of chat dictionaries.
+        # This is not a typical input format from either default or Databricks RAG evaluators,
+        # but we support it for compatibility with the normal Pyfunc models.
+        [
+            {"messages": [{"content": "What is MLflow?", "role": "user"}]},
+            {"messages": [{"content": "What is Spark?", "role": "user"}]},
+        ],
+        # Case 3: DataFrame with a column of dictionaries
+        pd.DataFrame(
+            {
+                "inputs": [
+                    {
+                        "messages": [{"content": "What is MLflow?", "role": "user"}],
+                        "max_tokens": 10,
+                    },
+                    {
+                        "messages": [{"content": "What is Spark?", "role": "user"}],
+                    },
+                ]
+            }
+        ),
+        # Case 4: DataFrame with a column of strings
+        pd.DataFrame(
+            {
+                "inputs": ["What is MLflow?", "What is Spark?"],
+            }
+        ),
+    ],
+)
+@mock.patch("mlflow.deployments.get_deploy_client")
+def test_model_from_deployment_endpoint(mock_deploy_client, model_input):
+    mock_deploy_client.return_value.predict.return_value = _DUMMY_CHAT_RESPONSE
+    mock_deploy_client.return_value.get_endpoint.return_value = {"task": "llm/v1/chat"}
+
+    model = _get_model_from_deployment_endpoint_uri("endpoints:/chat")
+
+    response = model.predict(model_input)
+
+    if isinstance(model_input, dict):
+        assert mock_deploy_client.return_value.predict.call_count == 1
+        # Chat response should be unwrapped
+        assert response == "This is a response"
+    else:
+        assert mock_deploy_client.return_value.predict.call_count == 2
+        assert pd.Series(response).equals(pd.Series(["This is a response"] * 2))
 
 
 def test_import_evaluation_dataset():
@@ -2170,3 +2225,11 @@ def test_evaluate_shows_server_stdout_and_stderr_on_error(
                     env_manager="virtualenv",
                 )
             mock_serve.assert_called_once()
+
+
+def test_env_manager_set_on_served_pyfunc_model(multiclass_logistic_regressor_model_uri):
+    model = mlflow.pyfunc.load_model(multiclass_logistic_regressor_model_uri)
+    client = ScoringServerClient("127.0.0.1", "8080")
+    served_model_1 = _ServedPyFuncModel(model_meta=model.metadata, client=client, server_pid=1)
+    served_model_1.env_manager = "virtualenv"
+    assert served_model_1.env_manager == "virtualenv"

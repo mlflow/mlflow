@@ -188,6 +188,22 @@ following parameters:
 
 .. _pyfunc-create-custom:
 
+**********************************
+Models From Code for Custom Models
+**********************************
+
+.. tip::
+
+    MLflow 2.12.2 introduced the feature "models from code", which greatly simplifies the process
+    of serializing and deploying custom models through the use of script serialization. It is
+    strongly recommended to migrate custom model implementations to this new paradigm to avoid the
+    limitations and complexity of serializing with cloudpickle.
+    You can learn more about models from code within the
+    `Models From Code Guide <../model/models-from-code.html>`_.
+
+The section below illustrates the process of using the legacy serializer for custom Pyfunc models.
+Models from code will provide a far simpler experience for logging of your models.
+
 ******************************
 Creating custom Pyfunc models
 ******************************
@@ -378,7 +394,6 @@ support additional params.
 
 In summary, use the function-based Model when you have a simple function to serialize.
 If you need more power, use  the class-based model.
-
 """
 import collections
 import functools
@@ -1101,6 +1116,10 @@ class _ServedPyFuncModel(PyFuncModel):
     @property
     def env_manager(self):
         return self._env_manager
+
+    @env_manager.setter
+    def env_manager(self, value):
+        self._env_manager = value
 
 
 def _load_model_or_server(
@@ -2259,7 +2278,7 @@ def save_model(
         data_path: Path to a file or directory containing model data.
         code_path: **Deprecated** The legacy argument for defining dependent code. This argument is
             replaced by ``code_paths`` and will be removed in a future version of MLflow.
-        code_paths: {{ code_paths }}
+        code_paths: {{ code_paths_pyfunc }}
         infer_code_paths: {{ infer_code_paths }}
         conda_env: {{ conda_env }}
         mlflow_model: :py:mod:`mlflow.models.Model` configuration to which to add the
@@ -2664,7 +2683,7 @@ def log_model(
         data_path: Path to a file or directory containing model data.
         code_path: **Deprecated** The legacy argument for defining dependent code. This argument is
             replaced by ``code_paths`` and will be removed in a future version of MLflow.
-        code_paths: {{ code_paths }}
+        code_paths: {{ code_paths_pyfunc }}
         infer_code_paths: {{ infer_code_paths }}
         conda_env: {{ conda_env }}
         python_model:

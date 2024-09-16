@@ -9,6 +9,9 @@ from mlflow.store.artifact.databricks_models_artifact_repo import DatabricksMode
 from mlflow.store.artifact.unity_catalog_models_artifact_repo import (
     UnityCatalogModelsArtifactRepository,
 )
+from mlflow.store.artifact.unity_catalog_oss_models_artifact_repo import (
+    UnityCatalogOSSModelsArtifactRepository,
+)
 from mlflow.store.artifact.utils.models import (
     get_model_name_and_version,
     is_using_databricks_registry,
@@ -18,6 +21,7 @@ from mlflow.utils.uri import (
     add_databricks_profile_info_to_artifact_uri,
     get_databricks_profile_uri_from_artifact_uri,
     is_databricks_unity_catalog_uri,
+    is_oss_unity_catalog_uri,
 )
 
 REGISTERED_MODEL_META_FILE_NAME = "registered_model_meta"
@@ -42,6 +46,12 @@ class ModelsArtifactRepository(ArtifactRepository):
         registry_uri = mlflow.get_registry_uri()
         if is_databricks_unity_catalog_uri(uri=registry_uri):
             self.repo = UnityCatalogModelsArtifactRepository(
+                artifact_uri=artifact_uri, registry_uri=registry_uri
+            )
+            self.model_name = self.repo.model_name
+            self.model_version = self.repo.model_version
+        elif is_oss_unity_catalog_uri(uri=registry_uri):
+            self.repo = UnityCatalogOSSModelsArtifactRepository(
                 artifact_uri=artifact_uri, registry_uri=registry_uri
             )
             self.model_name = self.repo.model_name

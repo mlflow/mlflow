@@ -1,19 +1,20 @@
-import pytest
-from unittest import mock
-from mlflow.environment_variables import _MLFLOW_MPD_NUM_RETRIES, _MLFLOW_MPD_RETRY_INTERVAL_SECONDS
 from concurrent.futures import Future
-from mlflow.store.artifact.cloud_artifact_repo import CloudArtifactRepository
+from unittest import mock
+
+import pytest
 
 from mlflow.exceptions import MlflowException
-from mlflow.store.artifact.cloud_artifact_repo import _readable_size, _validate_chunk_size_aws
 from mlflow.protos.databricks_artifacts_pb2 import ArtifactCredentialInfo, ArtifactCredentialType
-
+from mlflow.store.artifact.cloud_artifact_repo import (
+    CloudArtifactRepository,
+    _readable_size,
+    _validate_chunk_size_aws,
+)
 
 
 @pytest.mark.parametrize(
     ("size", "size_str"), [(5 * 1024**2, "5.00 MB"), (712.345 * 1024**2, "712.35 MB")]
 )
-
 def test_readable_size(size, size_str):
     assert _readable_size(size) == size_str
 
@@ -38,6 +39,9 @@ def test__parallelized_download_from_cloud(
     monkeypatch.setenv("_MLFLOW_MPD_NUM_RETRIES", "3")
     monkeypatch.setenv("_MLFLOW_MPD_RETRY_INTERVAL_SECONDS", "0")
 
+    with mock.patch(
+        "mlflow.store.artifact.cloud_artifact_repo.CloudArtifactRepository"
+    ) as cloud_artifact_mock:
     with mock.patch(
         "mlflow.store.artifact.cloud_artifact_repo.CloudArtifactRepository"
     ) as cloud_artifact_mock:
@@ -117,6 +121,11 @@ def test__parallelized_download_from_cloud(
                         1, "fake_remote_path", str(fake_local_path)
                     )
 
+                # Assert
+                assert (
+                    cloud_artifact_instance._get_read_credential_infos.call_count
+                    == expected_call_count
+                )
                 # Assert
                 assert (
                     cloud_artifact_instance._get_read_credential_infos.call_count

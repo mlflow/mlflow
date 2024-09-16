@@ -273,9 +273,9 @@ MLFLOW_HUGGINGFACE_DISABLE_ACCELERATE_FEATURES = _BooleanEnvironmentVariable(
 
 #: Specifies to Huggingface whether to use the automatic device placement logic of
 # HuggingFace accelerate. If it's set to false, the low_cpu_mem_usage flag will not be
-# set to True and device_map will not be set to "auto".
+# set to True and device_map will not be set to "auto". Default to False.
 MLFLOW_HUGGINGFACE_USE_DEVICE_MAP = _BooleanEnvironmentVariable(
-    "MLFLOW_HUGGINGFACE_USE_DEVICE_MAP", True
+    "MLFLOW_HUGGINGFACE_USE_DEVICE_MAP", False
 )
 
 #: Specifies to Huggingface to use the automatic device placement logic of HuggingFace accelerate.
@@ -379,6 +379,10 @@ MLFLOW_EXPERIMENT_NAME = _EnvironmentVariable("MLFLOW_EXPERIMENT_NAME", str, Non
 #: Specified the path to the configuration file for MLflow Authentication.
 #: (default: ``None``)
 MLFLOW_AUTH_CONFIG_PATH = _EnvironmentVariable("MLFLOW_AUTH_CONFIG_PATH", str, None)
+
+#: Specifies and takes precedence for setting the UC OSS basic/bearer auth on http requests.
+#: (default: ``None``)
+MLFLOW_UC_OSS_TOKEN = _EnvironmentVariable("MLFLOW_UC_OSS_TOKEN", str, None)
 
 #: Specifies the root directory to create Python virtual environments in.
 #: (default: ``~/.mlflow/envs``)

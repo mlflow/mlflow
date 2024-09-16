@@ -5,6 +5,7 @@ import pytest
 from mlflow.entities import Metric, Param, RunTag
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, ErrorCode
+from mlflow.utils.os import is_windows
 from mlflow.utils.validation import (
     _is_numeric,
     _validate_batch_log_data,
@@ -40,7 +41,6 @@ BAD_METRIC_OR_PARAM_NAMES = [
     "a/./b",
     "/a",
     "a/",
-    ":",
     "\\",
     "./",
     "/./",
@@ -124,9 +124,21 @@ def test_validate_metric_name_good(metric_name):
     _validate_metric_name(metric_name)
 
 
+def _bad_parameter_pattern(name):
+    if name == "\\":
+        return r"Invalid value \"\\\\\" for parameter"  # Manually handle the backslash case
+    elif name == "*****":
+        return r"Invalid value \"\*\*\*\*\*\" for parameter"
+    else:
+        return f'Invalid value "{name}" for parameter'
+
+
 @pytest.mark.parametrize("metric_name", BAD_METRIC_OR_PARAM_NAMES)
 def test_validate_metric_name_bad(metric_name):
-    with pytest.raises(MlflowException, match="Invalid metric name") as e:
+    with pytest.raises(
+        MlflowException,
+        match=_bad_parameter_pattern(metric_name),
+    ) as e:
         _validate_metric_name(metric_name)
     assert e.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
 
@@ -138,7 +150,21 @@ def test_validate_param_name_good(param_name):
 
 @pytest.mark.parametrize("param_name", BAD_METRIC_OR_PARAM_NAMES)
 def test_validate_param_name_bad(param_name):
-    with pytest.raises(MlflowException, match="Invalid parameter name") as e:
+    with pytest.raises(MlflowException, match=_bad_parameter_pattern(param_name)) as e:
+        _validate_param_name(param_name)
+    assert e.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+
+
+@pytest.mark.skipif(not is_windows(), reason="Windows do not support colon in params and metrics")
+@pytest.mark.parametrize(
+    "param_name",
+    [
+        ":",
+        "aa:bb:cc",
+    ],
+)
+def test_validate_colon_name_bad_windows(param_name):
+    with pytest.raises(MlflowException, match=_bad_parameter_pattern(param_name)) as e:
         _validate_param_name(param_name)
     assert e.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
 
@@ -150,7 +176,7 @@ def test_validate_tag_name_good(tag_name):
 
 @pytest.mark.parametrize("tag_name", BAD_METRIC_OR_PARAM_NAMES)
 def test_validate_tag_name_bad(tag_name):
-    with pytest.raises(MlflowException, match="Invalid tag name") as e:
+    with pytest.raises(MlflowException, match=_bad_parameter_pattern(tag_name)) as e:
         _validate_tag_name(tag_name)
     assert e.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
 
@@ -188,7 +214,7 @@ def test_validate_run_id_good(run_id):
 
 @pytest.mark.parametrize("run_id", ["a/bc" * 8, "", "a" * 400, "*" * 5])
 def test_validate_run_id_bad(run_id):
-    with pytest.raises(MlflowException, match="Invalid run ID") as e:
+    with pytest.raises(MlflowException, match=_bad_parameter_pattern(run_id)) as e:
         _validate_run_id(run_id)
     assert e.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
 

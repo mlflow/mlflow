@@ -208,6 +208,7 @@ export const RunViewParamsTable = ({
       <>
         <div css={{ marginBottom: theme.spacing.sm }}>
           <Input
+            componentId="codegen_mlflow_app_src_experiment-tracking_components_run-page_overview_runviewparamstable.tsx_213"
             prefix={<SearchIcon />}
             placeholder={intl.formatMessage({
               defaultMessage: 'Search parameters',

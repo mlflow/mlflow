@@ -197,19 +197,6 @@ def test_format_predict_input_correct(single_index, engine_type):
     "engine_type",
     ["query", "retriever"],
 )
-def test_format_predict_input_incorrect_schema(single_index, engine_type):
-    wrapped_model = create_engine_wrapper(single_index, engine_type)
-
-    with pytest.raises(TypeError, match="missing 1 required positional argument"):
-        wrapped_model._format_predict_input(pd.DataFrame({"incorrect": ["hi"]}))
-    with pytest.raises(TypeError, match="missing 1 required positional argument"):
-        wrapped_model._format_predict_input({"incorrect": ["hi"]})
-
-
-@pytest.mark.parametrize(
-    "engine_type",
-    ["query", "retriever"],
-)
 def test_format_predict_input_correct_schema_complex(single_index, engine_type):
     wrapped_model = create_engine_wrapper(single_index, engine_type)
 
@@ -238,7 +225,7 @@ def test_format_predict_input_correct_schema_complex(single_index, engine_type):
 )
 def test_spark_udf_retriever_and_query_engine(model_path, spark, single_index, engine_type, input):
     mlflow.llama_index.save_model(
-        index=single_index,
+        llama_index_model=single_index,
         engine_type=engine_type,
         path=model_path,
         input_example=input,
@@ -260,7 +247,7 @@ def test_spark_udf_chat(model_path, spark, single_index):
         }
     )
     mlflow.llama_index.save_model(
-        index=single_index,
+        llama_index_model=single_index,
         engine_type=engine_type,
         path=model_path,
         input_example=input,

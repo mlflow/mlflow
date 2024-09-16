@@ -7,6 +7,7 @@ $ pip install packaging pyyaml
 # How to run (make sure you're in the repository root):
 $ python dev/update_ml_package_versions.py
 """
+
 import argparse
 import json
 import re
@@ -77,7 +78,7 @@ def update_max_version(src, key, new_max_version, category):
         minimum: "1.1.1"
         maximum: "1.2.1"
     """
-    pattern = r"((^|\n){key}:.+?{category}:.+?maximum: )\".+?\"".format(  # noqa: UP032
+    pattern = r"((^|\n){key}:.+?{category}:.+?maximum: )\".+?\"".format(
         key=re.escape(key), category=category
     )
     # Matches the following pattern:

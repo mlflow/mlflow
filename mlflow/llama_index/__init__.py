@@ -1,5 +1,6 @@
 import logging
 import os
+import tempfile
 from typing import Any, Dict, List, Optional, Union
 
 import yaml
@@ -7,10 +8,15 @@ import yaml
 import mlflow
 from mlflow import pyfunc
 from mlflow.exceptions import MlflowException
+from mlflow.llama_index.pyfunc_wrapper import create_engine_wrapper
 from mlflow.models import Model, ModelInputExample, ModelSignature
-from mlflow.models.model import MLMODEL_FILE_NAME
+from mlflow.models.model import MLMODEL_FILE_NAME, MODEL_CODE_PATH
 from mlflow.models.signature import _infer_signature_from_input_example
-from mlflow.models.utils import _save_example
+from mlflow.models.utils import (
+    _load_model_code_path,
+    _save_example,
+    _validate_and_get_model_code_path,
+)
 from mlflow.tracing.provider import trace_disabled
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
@@ -33,6 +39,7 @@ from mlflow.utils.model_utils import (
     _add_code_from_conf_to_system_path,
     _get_flavor_configuration,
     _validate_and_copy_code_paths,
+    _validate_and_copy_file_to_directory,
     _validate_and_prepare_target_save_path,
 )
 from mlflow.utils.requirements_utils import _get_pinned_requirement
@@ -87,13 +94,22 @@ def _get_llama_index_version() -> str:
         )
 
 
+def _supported_classes():
+    from llama_index.core.base.base_query_engine import BaseQueryEngine
+    from llama_index.core.chat_engine.types import BaseChatEngine
+    from llama_index.core.indices.base import BaseIndex
+    from llama_index.core.retrievers import BaseRetriever
+
+    return BaseIndex, BaseChatEngine, BaseQueryEngine, BaseRetriever
+
+
 @experimental
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
 @trace_disabled  # Suppress traces while loading model
 def save_model(
-    index,
+    llama_index_model,
     path: str,
-    engine_type: str,
+    engine_type: Optional[str] = None,
     model_config: Optional[Dict[str, Any]] = None,
     code_paths=None,
     mlflow_model: Optional[Model] = None,
@@ -105,13 +121,15 @@ def save_model(
     metadata: Optional[Dict[str, Any]] = None,
 ) -> None:
     """
-    Save a LlamaIndex index to a path on the local file system.
+    Save a LlamaIndex model to a path on the local file system.
 
     Args:
-        index: LlamaIndex index to be saved.
+        llama_index_model: An LlamaIndex object to be saved, or a string representing the path to
+            a script contains LlamaIndex index/engine definition.
         path: Local path where the serialized model (as YAML) is to be saved.
-        engine_type: Determine the inference interface for the index when loaded as a pyfunc
-            model. The supported types are as follows:
+        engine_type: Required when saving an index object to determine the inference interface
+            for the index when loaded as a pyfunc model. This field is **not** required when
+            saving an engine directly. The supported types are as follows:
 
             - ``"chat"``: load the index as an instance of the LlamaIndex
               `ChatEngine <https://docs.llamaindex.ai/en/stable/module_guides/deploying/chat_engines/>`_.
@@ -136,15 +154,44 @@ def save_model(
         conda_env: {{ conda_env }}
         metadata: {{ metadata }}
     """
-    from mlflow.llama_index.pyfunc_wrapper import create_engine_wrapper
+    from llama_index.core.indices.base import BaseIndex
+
     from mlflow.llama_index.serialize_objects import serialize_settings
 
-    _validate_engine_type(engine_type)
-    _validate_index(index)
-    _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
+    # TODO: make this logic cleaner and maybe a util
+    with tempfile.TemporaryDirectory() as temp_dir:
+        model_or_code_path = _validate_and_prepare_llama_index_model_or_path(
+            llama_index_model, temp_dir
+        )
 
-    path = os.path.abspath(path)
-    _validate_and_prepare_target_save_path(path)
+        _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
+
+        path = os.path.abspath(path)
+        _validate_and_prepare_target_save_path(path)
+
+        model_code_path = None
+        if isinstance(model_or_code_path, str):
+            model_code_path = model_or_code_path
+            llama_index_model = _load_model_code_path(model_code_path, model_config)
+            _validate_and_copy_file_to_directory(model_code_path, path, "code")
+
+            # Warn when user provides `engine_type` argument while saving an engine directly
+            if not isinstance(llama_index_model, BaseIndex) and engine_type is not None:
+                _logger.warning("The `engine_type` argument is ignored when saving an engine.")
+
+        elif isinstance(model_or_code_path, BaseIndex):
+            _validate_engine_type(engine_type)
+            llama_index_model = model_or_code_path
+
+        elif isinstance(model_or_code_path, _supported_classes()):
+            raise MlflowException.invalid_parameter_value(
+                "Saving an engine object is only supported in the 'Model-from-Code' saving mode. "
+                "The legacy serialization method is exclusively for saving index objects. Please "
+                "pass the path to the script containing the engine definition to save an engine "
+                "object. For more information, see "
+                "https://www.mlflow.org/docs/latest/model/models-from-code.html",
+            )
+
     code_dir_subpath = _validate_and_copy_code_paths(code_paths, path)
 
     if mlflow_model is None:
@@ -152,7 +199,7 @@ def save_model(
     saved_example = _save_example(mlflow_model, input_example, path)
 
     if signature is None and saved_example is not None:
-        wrapped_model = create_engine_wrapper(index, engine_type, model_config)
+        wrapped_model = create_engine_wrapper(llama_index_model, engine_type, model_config)
         signature = _infer_signature_from_input_example(saved_example, wrapped_model)
     elif signature is False:
         signature = None
@@ -171,7 +218,9 @@ def save_model(
     settings_path = os.path.join(path, _SETTINGS_FILE)
     serialize_settings(settings_path)
 
-    _save_index(index, path)
+    # Do not save the index/engine object in model-from-code saving mode
+    if not isinstance(model_code_path, str) and isinstance(llama_index_model, BaseIndex):
+        _save_index(llama_index_model, path)
 
     pyfunc.add_to_model(
         mlflow_model,
@@ -179,6 +228,7 @@ def save_model(
         conda_env=_CONDA_ENV_FILE_NAME,
         python_env=_PYTHON_ENV_FILE_NAME,
         code=code_dir_subpath,
+        model_code_path=model_code_path,
         model_config=model_config,
     )
     mlflow_model.add_flavor(
@@ -224,9 +274,9 @@ def save_model(
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
 @trace_disabled  # Suppress traces while loading model
 def log_model(
-    index,
+    llama_index_model,
     artifact_path: str,
-    engine_type: str,
+    engine_type: Optional[str] = None,
     model_config: Optional[Dict[str, Any]] = None,
     code_paths: Optional[List[str]] = None,
     registered_model_name: Optional[str] = None,
@@ -240,13 +290,15 @@ def log_model(
     **kwargs,
 ):
     """
-    Log a LlamaIndex index as an MLflow artifact for the current run.
+    Log a LlamaIndex model as an MLflow artifact for the current run.
 
     Args:
-        index: LlamaIndex index to be saved.
+        llama_index_model: An LlamaIndex object to be saved, or a string representing the path to
+            a script contains LlamaIndex index/engine definition.
         artifact_path: Local path where the serialized model (as YAML) is to be saved.
-        engine_type: Determine the inference interface for the index when loaded as a pyfunc
-            model. The supported types are as follows:
+        engine_type: Required when saving an index object to determine the inference interface
+            for the index when loaded as a pyfunc model. This field is **not** required when
+            saving an engine directly. The supported types are as follows:
 
             - ``"chat"``: load the index as an instance of the LlamaIndex
               `ChatEngine <https://docs.llamaindex.ai/en/stable/module_guides/deploying/chat_engines/>`_.
@@ -285,7 +337,7 @@ def log_model(
         model_config=model_config,
         flavor=mlflow.llama_index,
         registered_model_name=registered_model_name,
-        index=index,
+        llama_index_model=llama_index_model,
         conda_env=conda_env,
         code_paths=code_paths,
         signature=signature,
@@ -298,14 +350,19 @@ def log_model(
     )
 
 
-def _validate_index(index):
-    from llama_index.core.indices.base import BaseIndex
+def _validate_and_prepare_llama_index_model_or_path(llama_index_model, temp_dir=None):
+    if isinstance(llama_index_model, str):
+        return _validate_and_get_model_code_path(llama_index_model, temp_dir)
 
-    if not isinstance(index, BaseIndex):
+    if not isinstance(llama_index_model, _supported_classes()):
+        supported_cls_names = [cls.__name__ for cls in _supported_classes()]
         raise MlflowException.invalid_parameter_value(
-            message=f"The provided object of type {type(index).__name__} is not a valid "
-            "index. MLflow llama-index flavor only supports saving LlamaIndex indices."
+            message=f"The provided object of type {type(llama_index_model).__name__} is not "
+            "supported. MLflow llama-index flavor only supports saving LlamaIndex objects "
+            f"subclassed from one of the following classes: {supported_cls_names}.",
         )
+
+    return llama_index_model
 
 
 def _save_index(index, path):
@@ -314,22 +371,34 @@ def _save_index(index, path):
     index.storage_context.persist(persist_dir=index_path)
 
 
-def _load_index(path, flavor_conf):
-    """Deserialize the index."""
+def _load_llama_model(path, flavor_conf):
+    """Load the LlamaIndex index or engine from either model code or serialized index."""
     from llama_index.core import StorageContext, load_index_from_storage
 
     _add_code_from_conf_to_system_path(path, flavor_conf)
 
-    index_path = os.path.join(path, _INDEX_PERSIST_FOLDER)
-    storage_context = StorageContext.from_defaults(persist_dir=index_path)
-    return load_index_from_storage(storage_context)
+    # Handle model-from-code
+    pyfunc_flavor_conf = _get_flavor_configuration(model_path=path, flavor_name=pyfunc.FLAVOR_NAME)
+    if model_code_path := pyfunc_flavor_conf.get(MODEL_CODE_PATH):
+        # TODO: The code path saved in the MLModel file is the local absolute path to the code
+        # file when it is saved. We should update the relative path in artifact directory.
+        model_code_path = os.path.join(
+            path,
+            os.path.basename(model_code_path),
+        )
+        return _load_model_code_path(model_code_path, flavor_conf)
+    else:
+        # Use default vector store when loading from the serialized index
+        index_path = os.path.join(path, _INDEX_PERSIST_FOLDER)
+        storage_context = StorageContext.from_defaults(persist_dir=index_path)
+        return load_index_from_storage(storage_context)
 
 
 @experimental
 @trace_disabled  # Suppress traces while loading model
 def load_model(model_uri, dst_path=None):
     """
-    Load a LlamaIndex index from a local file or a run.
+    Load a LlamaIndex index or engine from a local file or a run.
 
     Args:
         model_uri: The location, in URI format, of the MLflow model. For example:
@@ -358,7 +427,7 @@ def load_model(model_uri, dst_path=None):
     settings_path = os.path.join(local_model_path, _SETTINGS_FILE)
     # NB: Settings is a singleton and can be loaded via llama_index.core.Settings
     deserialize_settings(settings_path)
-    return _load_index(local_model_path, flavor_conf)
+    return _load_llama_model(local_model_path, flavor_conf)
 
 
 def _load_pyfunc(path, model_config: Optional[Dict[str, Any]] = None):
@@ -366,7 +435,7 @@ def _load_pyfunc(path, model_config: Optional[Dict[str, Any]] = None):
 
     index = load_model(path)
     flavor_conf = _get_flavor_configuration(model_path=path, flavor_name=FLAVOR_NAME)
-    engine_type = flavor_conf.pop("engine_type")
+    engine_type = flavor_conf.pop("engine_type", None)  # Not present when saving an engine object
     return create_engine_wrapper(index, engine_type, model_config)
 
 
@@ -381,9 +450,8 @@ def autolog(
     only supports autologging for tracing.
 
     Args:
-        log_traces: If ``True``, traces are logged for Langchain models by using
-            MlflowLangchainTracer as a callback during inference. If ``False``, no traces are
-            collected during inference. Default to ``True``.
+        log_traces: If ``True``, traces are logged for LlamaIndex models by using. If ``False``,
+            no traces are collected during inference. Default to ``True``.
         disable: If ``True``, disables the LlamaIndex autologging integration. If ``False``,
             enables the LlamaIndex autologging integration.
         silent: If ``True``, suppress all event logs and warnings from MLflow during LlamaIndex
@@ -400,11 +468,12 @@ def autolog(
     else:
         remove_llama_index_tracer()
 
-    _autolog(disable=disable, silent=silent)
+    _autolog(log_traces=log_traces, disable=disable, silent=silent)
 
 
 @autologging_integration(FLAVOR_NAME)
 def _autolog(
+    log_traces: bool,
     disable: bool = False,
     silent: bool = False,
 ):

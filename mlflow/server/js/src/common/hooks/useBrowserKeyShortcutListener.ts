@@ -1,4 +1,3 @@
-import userEvent from '@testing-library/user-event';
 import { useEffect } from 'react';
 
 declare interface NavigatorWithUserData extends Navigator {

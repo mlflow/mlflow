@@ -34,28 +34,35 @@ import { RunsChartsConfigureField, RunsChartsRunNumberSelect } from './RunsChart
 import {
   shouldEnableChartExpressions,
   shouldEnableDeepLearningUIPhase3,
+  shouldEnableGlobalLineChartConfig,
   shouldEnableManualRangeControls,
 } from '@mlflow/mlflow/src/common/utils/FeatureUtils';
 import { RunsChartsLineChartXAxisType } from '@mlflow/mlflow/src/experiment-tracking/components/runs-charts/components/RunsCharts.common';
 import { LineSmoothSlider } from '@mlflow/mlflow/src/experiment-tracking/components/LineSmoothSlider';
 import { isUndefined } from 'lodash';
 import { RunsChartsYAxisMetricAndExpressionSelector } from '../RunsChartsYAxisMetricAndExpressionSelector';
+import { RunsChartsLineChartExpression } from '../../runs-charts.types';
+import { useChartExpressionParser } from '../../hooks/useChartExpressionParser';
+
+const USE_GLOBAL_SETTING_KEY = '_GLOBAL';
 
 const renderXAxisMetricSelector = ({
   theme,
   metricKeyList,
   selectedXAxisMetricKey,
   updateSelectedXAxisMetricKey,
+  disabled = false,
 }: {
   theme: ThemeType;
   metricKeyList: string[];
   selectedXAxisMetricKey?: string;
   updateSelectedXAxisMetricKey: (metricKey: string) => void;
+  disabled?: boolean;
 }) => {
   const emptyMetricsList = metricKeyList.length === 0;
 
   return (
-    <Radio value={RunsChartsLineChartXAxisType.METRIC}>
+    <Radio value={RunsChartsLineChartXAxisType.METRIC} disabled={disabled}>
       <FormattedMessage
         defaultMessage="Metric"
         description="Label for a radio button that configures the x-axis on a line chart. This option makes the X-axis a custom metric that the user selects."
@@ -86,7 +93,7 @@ const renderXAxisMetricSelector = ({
           e.stopPropagation();
         }}
         onChange={updateSelectedXAxisMetricKey}
-        disabled={emptyMetricsList}
+        disabled={emptyMetricsList || disabled}
         dangerouslySetAntdProps={{ showSearch: true }}
       >
         {metricKeyList.map((metric) => (
@@ -164,7 +171,7 @@ export const RunsChartsConfigureLineChart = ({
   );
 
   const updateXAxisKey = useCallback(
-    (xAxisKey: RunsChartsLineCardConfig['xAxisKey']) => {
+    (xAxisKey: RunsChartsLineCardConfig['xAxisKey'], useGlobal = false) => {
       onStateChange((current) => {
         const config = current as RunsChartsLineCardConfig;
         return {
@@ -176,6 +183,8 @@ export const RunsChartsConfigureLineChart = ({
             xMin: undefined,
             xMax: undefined,
           },
+          useGlobalXaxisKey: useGlobal ?? config.useGlobalXaxisKey,
+          selectedYAxisMetricKey: RunsChartsLineChartYAxisType.METRIC,
         };
       });
     },
@@ -425,9 +434,10 @@ export const RunsChartsConfigureLineChart = ({
       <RunsChartsConfigureField title="Type" compact>
         {usingChartExpressions ? (
           <SimpleSelect
+            componentId="codegen_mlflow_app_src_experiment-tracking_components_runs-charts_components_config_runschartsconfigurelinechart.tsx_436"
             id="x-axis-type"
             width="100%"
-            value={state.xAxisKey}
+            value={state.useGlobalXaxisKey ? USE_GLOBAL_SETTING_KEY : state.xAxisKey}
             contentProps={{ matchTriggerWidth: true, textOverflowMode: 'ellipsis' }}
             onChange={({ target: { value } }) => {
               if (value.startsWith(METRIC_AXIS_PREFIX)) {
@@ -438,9 +448,19 @@ export const RunsChartsConfigureLineChart = ({
                 updateXAxisKey(RunsChartsLineChartXAxisType.TIME);
               } else if (value === RunsChartsLineChartXAxisType.TIME_RELATIVE) {
                 updateXAxisKey(RunsChartsLineChartXAxisType.TIME_RELATIVE);
+              } else if (value === USE_GLOBAL_SETTING_KEY) {
+                updateXAxisKey(RunsChartsLineChartXAxisType.STEP, true);
               }
             }}
           >
+            {shouldEnableGlobalLineChartConfig() && (
+              <SimpleSelectOption value={USE_GLOBAL_SETTING_KEY}>
+                <FormattedMessage
+                  defaultMessage="Use workspace settings"
+                  description="Label for a radio button that configures the x-axis on a line chart. This option is for using global workspace settings."
+                />
+              </SimpleSelectOption>
+            )}
             <SimpleSelectOption value={RunsChartsLineChartXAxisType.STEP}>
               <FormattedMessage
                 defaultMessage="Step"
@@ -503,10 +523,25 @@ export const RunsChartsConfigureLineChart = ({
           </SimpleSelect>
         ) : (
           <Radio.Group
+            componentId="codegen_mlflow_app_src_experiment-tracking_components_runs-charts_components_config_runschartsconfigurelinechart.tsx_524"
             name="runs-charts-field-group-x-axis"
-            value={state.xAxisKey}
-            onChange={({ target: { value } }) => updateXAxisKey(value)}
+            value={state.useGlobalXaxisKey ? USE_GLOBAL_SETTING_KEY : state.xAxisKey}
+            onChange={({ target: { value } }) => {
+              if (value === USE_GLOBAL_SETTING_KEY) {
+                updateXAxisKey(RunsChartsLineChartXAxisType.STEP, true);
+              } else {
+                updateXAxisKey(value);
+              }
+            }}
           >
+            {shouldEnableGlobalLineChartConfig() && (
+              <Radio value={USE_GLOBAL_SETTING_KEY}>
+                <FormattedMessage
+                  defaultMessage="Use workspace settings"
+                  description="Label for a radio button that configures the x-axis on a line chart. This option is for using global workspace settings."
+                />
+              </Radio>
+            )}
             <Radio value={RunsChartsLineChartXAxisType.STEP}>
               <FormattedMessage
                 defaultMessage="Step"
@@ -593,6 +628,7 @@ export const RunsChartsConfigureLineChart = ({
               </div>
               <div style={{ padding: theme.spacing.xs }} />
               <Switch
+                componentId="codegen_mlflow_app_src_experiment-tracking_components_runs-charts_components_config_runschartsconfigurelinechart.tsx_628"
                 aria-label="x-axis-log"
                 checked={state.xAxisScaleType === 'log'}
                 onChange={updateXAxisScaleType}
@@ -647,6 +683,7 @@ export const RunsChartsConfigureLineChart = ({
         )}
         <Spacer size="xs" />
         <Switch
+          componentId="codegen_mlflow_app_src_experiment-tracking_components_runs-charts_components_config_runschartsconfigurelinechart.tsx_682"
           aria-label="y-axis-log"
           checked={state.scaleType === 'log'}
           onChange={updateYAxisType}
@@ -681,6 +718,7 @@ export const RunsChartsConfigureLineChart = ({
             </Tooltip>
           </div>
           <Switch
+            componentId="codegen_mlflow_app_src_experiment-tracking_components_runs-charts_components_config_runschartsconfigurelinechart.tsx_716"
             aria-label="y-axis-ignore-outliers"
             checked={state.ignoreOutliers}
             onChange={updateIgnoreOutliers}
@@ -712,6 +750,7 @@ export const RunsChartsConfigureLineChart = ({
         compact
       >
         <SegmentedControlGroup
+          componentId="codegen_mlflow_app_src_experiment-tracking_components_runs-charts_components_config_runschartsconfigurelinechart.tsx_747"
           name={intl.formatMessage({
             defaultMessage: 'Display points',
             description: 'Runs charts > line chart > display points > label',
@@ -790,13 +829,41 @@ export const RunsChartsConfigureLineChart = ({
           </SegmentedControlButton>
         </SegmentedControlGroup>
       </RunsChartsConfigureField>
-      <RunsChartsConfigureField title="Line smoothness" compact>
+      <RunsChartsConfigureField
+        title={
+          <>
+            <FormattedMessage
+              defaultMessage="Line smoothing"
+              description="Runs charts > line chart > configuration > label for line smoothing slider control. The control allows changing data trace line smoothness from 1 to 100, where 1 is the original data trace and 100 is the smoothest trace. Line smoothing helps eliminate noise in the data."
+            />
+          </>
+        }
+        compact
+      >
+        {shouldEnableGlobalLineChartConfig() && (
+          <Radio.Group
+            componentId="codegen_mlflow_app_src_experiment-tracking_components_runs-charts_components_config_runschartsconfigurelinechart.tsx_838"
+            name="use-global-line-smoothness"
+            value={Boolean(state.useGlobalLineSmoothing)}
+            onChange={({ target }) => {
+              onStateChange((current) => ({
+                ...(current as RunsChartsLineCardConfig),
+                useGlobalLineSmoothing: target.value === true,
+              }));
+            }}
+          >
+            <Radio value>Use workspace settings</Radio>
+            <Radio value={false}>Custom</Radio>
+          </Radio.Group>
+        )}
+
         <LineSmoothSlider
           data-testid="smoothness-toggle"
           min={0}
           max={100}
           onChange={updateSmoothing}
           defaultValue={state.lineSmoothness ? state.lineSmoothness : 0}
+          disabled={shouldEnableGlobalLineChartConfig() && state.useGlobalLineSmoothing}
         />
       </RunsChartsConfigureField>
       <RunsChartsRunNumberSelect

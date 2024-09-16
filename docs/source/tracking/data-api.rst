@@ -24,7 +24,6 @@ There are a number of concrete implementations of this abstract class, including
 - :py:class:`mlflow.data.pandas_dataset.PandasDataset`
 - :py:class:`mlflow.data.numpy_dataset.NumpyDataset`
 - :py:class:`mlflow.data.huggingface_dataset.HuggingFaceDataset`
-- :py:class:`mlflow.data.spark_dataset.SparkDataset`
 - :py:class:`mlflow.data.tensorflow_dataset.TensorFlowDataset`
 
 The following example demonstrates how to construct a :py:class:`mlflow.data.pandas_dataset.PandasDataset` object from a Pandas DataFrame:

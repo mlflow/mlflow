@@ -8,25 +8,24 @@ from collections import namedtuple
 from concurrent.futures import as_completed
 
 from mlflow.environment_variables import (
+    _MLFLOW_MPD_NUM_RETRIES,
+    _MLFLOW_MPD_RETRY_INTERVAL_SECONDS,
     MLFLOW_ENABLE_MULTIPART_DOWNLOAD,
     MLFLOW_MULTIPART_DOWNLOAD_CHUNK_SIZE,
     MLFLOW_MULTIPART_DOWNLOAD_MINIMUM_FILE_SIZE,
     MLFLOW_MULTIPART_UPLOAD_CHUNK_SIZE,
-    _MLFLOW_MPD_NUM_RETRIES,
-    _MLFLOW_MPD_RETRY_INTERVAL_SECONDS,
 )
 from mlflow.exceptions import MlflowException
 from mlflow.store.artifact.artifact_repo import ArtifactRepository
 from mlflow.utils import chunk_list
 from mlflow.utils.file_utils import (
     ArtifactProgressBar,
-    download_chunk_retries,
     parallelized_download_file_using_http_uri,
     relative_path_to_artifact_path,
     remove_on_error,
 )
-from mlflow.utils.uri import is_fuse_or_uc_volumes_uri
 from mlflow.utils.request_utils import download_chunk
+from mlflow.utils.uri import is_fuse_or_uc_volumes_uri
 
 _logger = logging.getLogger(__name__)
 _ARTIFACT_UPLOAD_BATCH_SIZE = (
@@ -257,7 +256,17 @@ class CloudArtifactRepository(ArtifactRepository):
                 new_signed_uri = new_cloud_creds.signed_uri
                 new_headers = self._extract_headers_from_credentials(new_cloud_creds.headers)
 
-                futures = {self.chunk_thread_pool.submit(download_chunk, range_start=chunk.start, range_end=chunk.end, headers=new_headers, download_path=local_path, http_uri=new_signed_uri): chunk for chunk in failed_downloads}
+                futures = {
+                    self.chunk_thread_pool.submit(
+                        download_chunk,
+                        range_start=chunk.start,
+                        range_end=chunk.end,
+                        headers=new_headers,
+                        download_path=local_path,
+                        http_uri=new_signed_uri,
+                    ): chunk
+                    for chunk in failed_downloads
+                }
 
                 new_failed_downloads = []
 
@@ -271,16 +280,14 @@ class CloudArtifactRepository(ArtifactRepository):
                             f"The download of this chunk will be retried later."
                         )
                         new_failed_downloads.append(chunk)
-                
+
                 failed_downloads = new_failed_downloads
                 num_retries -= 1
                 time.sleep(interval)
-            
-            if num_retries == 0 and failed_downloads:
+
+            if failed_downloads:
                 raise MlflowException(
-                    message=(
-                        f"All retries have been exhausted. Download has failed."
-                    )
+                    message=("All retries have been exhausted. Download has failed.")
                 )
 
     def _download_file(self, remote_file_path, local_path):
@@ -328,12 +335,12 @@ class CloudArtifactRepository(ArtifactRepository):
             local_path: Local path to download file to.
 
         """
-    
+
     @abstractmethod
     def _refresh_credentials(self):
         """
-        Refresh credentials for user in the case of credential expiration 
+        Refresh credentials for user in the case of credential expiration
 
         Args:
-            None 
+            None
         """

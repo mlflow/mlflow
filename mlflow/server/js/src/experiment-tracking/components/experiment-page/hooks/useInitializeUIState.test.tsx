@@ -1,4 +1,4 @@
-import { act, renderHook } from '@testing-library/react-for-react-18';
+import { act, renderHook } from '@testing-library/react';
 import { useInitializeUIState } from './useInitializeUIState';
 import { MemoryRouter } from '../../../../common/utils/RoutingUtils';
 import { loadExperimentViewState } from '../utils/persistSearchFacets';

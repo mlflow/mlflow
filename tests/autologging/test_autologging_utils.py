@@ -760,10 +760,7 @@ def test_disable_for_unsupported_versions_warning_sklearn_integration():
     log_info_fn_name = "mlflow.tracking.fluent._logger.info"
 
     def is_sklearn_warning_fired(log_warn_fn_args):
-        return (
-            "You are using an unsupported version of" in log_warn_fn_args[0][0]
-            and log_warn_fn_args[0][1] == "sklearn"
-        )
+        return "MLflow sklearn autologging is known to be compatible" in log_warn_fn_args[0][0]
 
     def is_sklearn_autolog_enabled_info_fired(log_info_fn_args):
         return (
@@ -823,6 +820,17 @@ def test_disable_for_unsupported_versions_warning_sklearn_integration():
             mlflow.sklearn.autolog(disable_for_unsupported_versions=False)
             assert log_warn_fn.call_count == 1
             assert is_sklearn_warning_fired(log_warn_fn.call_args)
+
+
+def test_unsupported_versions_warning_should_not_shown_for_excluded_packages():
+    with mock.patch("langchain.__version__", "100.200.300"):
+        AUTOLOGGING_INTEGRATIONS.clear()
+        with mock.patch("mlflow.utils.autologging_utils._logger.warning") as log_warn_fn:
+            mlflow.langchain.autolog()
+            assert len(log_warn_fn.call_args_list) == 0 or (
+                "MLflow langchain autologging is known to be compatible"
+                not in log_warn_fn.call_args_list[0][0]
+            )
 
 
 def test_get_instance_method_first_arg_value():

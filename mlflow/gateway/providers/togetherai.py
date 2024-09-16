@@ -293,6 +293,7 @@ class TogetherAIAdapter(ProviderAdapter):
 
 class TogetherAIProvider(BaseProvider):
     NAME = "TogetherAI"
+    CONFIG_TYPE = TogetherAIConfig
 
     def __init__(self, config: RouteConfig) -> None:
         super().__init__(config)

@@ -48,6 +48,7 @@ import { RunsChartsConfigureDifferenceChart } from './config/RunsChartsConfigure
 import type { RunsGroupByConfig } from '../../experiment-page/utils/experimentPage.group-row-utils';
 import { RunsChartsConfigureImageChart } from './config/RunsChartsConfigureImageChart';
 import { RunsChartsConfigureImageChartPreview } from './config/RunsChartsConfigureImageChart.preview';
+import type { RunsChartsGlobalLineChartConfig } from '../../experiment-page/models/ExperimentPageUIState';
 
 const previewComponentsMap: Record<
   RunsChartType,
@@ -55,6 +56,7 @@ const previewComponentsMap: Record<
     previewData: RunsChartsRunData[];
     cardConfig: any;
     groupBy: RunsGroupByConfig | null;
+    globalLineChartConfig?: RunsChartsGlobalLineChartConfig;
     setCardConfig: (
       setter: (
         current: RunsChartsCardConfig,
@@ -80,6 +82,7 @@ export const RunsChartsConfigureModal = ({
   paramKeyList,
   groupBy,
   supportedChartTypes,
+  globalLineChartConfig,
 }: {
   metricKeyList: string[];
   paramKeyList: string[];
@@ -89,6 +92,7 @@ export const RunsChartsConfigureModal = ({
   groupBy: RunsGroupByConfig | null;
   onSubmit: (formData: Partial<RunsChartsCardConfig>) => void;
   supportedChartTypes?: RunsChartType[] | undefined;
+  globalLineChartConfig?: RunsChartsGlobalLineChartConfig;
 }) => {
   const isChartTypeSupported = (type: RunsChartType) => !supportedChartTypes || supportedChartTypes.includes(type);
   const { theme } = useDesignSystemTheme();
@@ -211,6 +215,7 @@ export const RunsChartsConfigureModal = ({
         cardConfig={currentFormState}
         groupBy={groupBy}
         setCardConfig={setCurrentFormState}
+        globalLineChartConfig={globalLineChartConfig}
       />
     );
   };
@@ -225,6 +230,7 @@ export const RunsChartsConfigureModal = ({
 
   return (
     <Modal
+      componentId="codegen_mlflow_app_src_experiment-tracking_components_runs-charts_components_runschartsconfiguremodal.tsx_232"
       visible
       onCancel={onCancel}
       onOk={() => onSubmit(currentFormState)}
@@ -289,6 +295,7 @@ export const RunsChartsConfigureModal = ({
           {!isEditing && (
             <RunsChartsConfigureField title="Chart type">
               <SimpleSelect
+                componentId="codegen_mlflow_app_src_experiment-tracking_components_runs-charts_components_runschartsconfiguremodal.tsx_296"
                 id="chart-type-select"
                 css={{ width: '100%' }}
                 value={currentFormState.type}
@@ -384,6 +391,7 @@ export const RunsChartsConfigureModal = ({
             <div
               css={{
                 minHeight: 500,
+                height: '100%',
                 width: 500,
                 padding: '32px 0px',
               }}

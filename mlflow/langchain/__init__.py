@@ -29,7 +29,6 @@ from packaging.version import Version
 
 import mlflow
 from mlflow import pyfunc
-from mlflow.environment_variables import _MLFLOW_TESTING
 from mlflow.exceptions import MlflowException
 from mlflow.langchain.databricks_dependencies import _detect_databricks_dependencies
 from mlflow.langchain.runnables import _load_runnables, _save_runnables
@@ -569,6 +568,9 @@ def log_model(
     )
 
 
+# patch_langchain_type_to_cls_dict here as we attempt to load model
+# if it's saved by `dict` method
+@patch_langchain_type_to_cls_dict
 def _save_model(model, path, loader_fn, persist_dir):
     if Version(cloudpickle.__version__) < Version("2.1.0"):
         warnings.warn(
@@ -577,15 +579,15 @@ def _save_model(model, path, loader_fn, persist_dir):
             "using `pip install cloudpickle>=2.1.0` "
             "to ensure the model can be loaded correctly."
         )
-    # patch_langchain_type_to_cls_dict here as we attempt to load model
-    # if it's saved by `dict` method
-    with register_pydantic_v1_serializer_cm(), patch_langchain_type_to_cls_dict():
+
+    with register_pydantic_v1_serializer_cm():
         if isinstance(model, lc_runnables_types()):
             return _save_runnables(model, path, loader_fn=loader_fn, persist_dir=persist_dir)
         else:
             return _save_base_lcs(model, path, loader_fn, persist_dir)
 
 
+@patch_langchain_type_to_cls_dict
 def _load_model(local_model_path, flavor_conf):
     from mlflow.langchain._langchain_autolog import _update_langchain_model_config
 
@@ -716,6 +718,7 @@ class _LangChainModelWrapper:
             requests=messages,
             callback_handlers=callback_handlers,
             convert_chat_responses=convert_chat_responses,
+            params=params or {},
         )
         return results[0] if return_first_element else results
 
@@ -778,6 +781,7 @@ class _LangChainModelWrapper:
         return process_stream_request(
             lc_model=self.lc_model,
             request_json=data,
+            params=params or {},
         )
 
     def _predict_stream_with_callbacks(
@@ -809,70 +813,8 @@ class _LangChainModelWrapper:
             request_json=data,
             callback_handlers=callback_handlers,
             convert_chat_responses=convert_chat_responses,
+            params=params or {},
         )
-
-
-class _TestLangChainWrapper(_LangChainModelWrapper):
-    """
-    A wrapper class that should be used for testing purposes only.
-    """
-
-    def predict(
-        self,
-        data,
-        params: Optional[Dict[str, Any]] = None,
-    ):
-        """
-        Model input data and additional parameters.
-
-        Args:
-            data: Model input data.
-            params: Additional parameters to pass to the model for inference.
-
-        Returns:
-            Model predictions.
-        """
-        import langchain
-        from langchain.schema.retriever import BaseRetriever
-
-        from mlflow.utils.openai_utils import (
-            TEST_CONTENT,
-            TEST_INTERMEDIATE_STEPS,
-            TEST_SOURCE_DOCUMENTS,
-        )
-
-        from tests.langchain.test_langchain_model_export import _mock_async_request
-
-        if isinstance(
-            self.lc_model,
-            (
-                langchain.chains.llm.LLMChain,
-                langchain.chains.RetrievalQA,
-                BaseRetriever,
-            ),
-        ):
-            mockContent = TEST_CONTENT
-        elif isinstance(self.lc_model, langchain.agents.agent.AgentExecutor):
-            mockContent = f"Final Answer: {TEST_CONTENT}"
-        else:
-            mockContent = TEST_CONTENT
-
-        with _mock_async_request(mockContent):
-            result = super().predict(data)
-        if (
-            hasattr(self.lc_model, "return_source_documents")
-            and self.lc_model.return_source_documents
-        ):
-            for res in result:
-                res["source_documents"] = TEST_SOURCE_DOCUMENTS
-        if (
-            hasattr(self.lc_model, "return_intermediate_steps")
-            and self.lc_model.return_intermediate_steps
-        ):
-            for res in result:
-                res["intermediate_steps"] = TEST_INTERMEDIATE_STEPS
-
-        return result
 
 
 def _load_pyfunc(path: str, model_config: Optional[Dict[str, Any]] = None):
@@ -881,8 +823,7 @@ def _load_pyfunc(path: str, model_config: Optional[Dict[str, Any]] = None):
     Args:
         path: Local filesystem path to the MLflow Model with the ``langchain`` flavor.
     """
-    wrapper_cls = _TestLangChainWrapper if _MLFLOW_TESTING.get() else _LangChainModelWrapper
-    return wrapper_cls(_load_model_from_local_fs(path, model_config), path)
+    return _LangChainModelWrapper(_load_model_from_local_fs(path, model_config), path)
 
 
 def _load_model_from_local_fs(local_model_path, model_config_overrides=None):
@@ -890,6 +831,8 @@ def _load_model_from_local_fs(local_model_path, model_config_overrides=None):
     pyfunc_flavor_conf = _get_flavor_configuration(
         model_path=local_model_path, flavor_name=PYFUNC_FLAVOR_NAME
     )
+    # Add code from the langchain flavor to the system path
+    _add_code_from_conf_to_system_path(local_model_path, flavor_conf)
     # The model_code_path and the model_config were previously saved langchain flavor but now we
     # also save them inside the pyfunc flavor. For backwards compatibility of previous models,
     # we need to check both places.
@@ -905,25 +848,21 @@ def _load_model_from_local_fs(local_model_path, model_config_overrides=None):
         flavor_code_path = pyfunc_flavor_conf.get(
             MODEL_CODE_PATH, flavor_conf.get(MODEL_CODE_PATH, None)
         )
-        code_path = os.path.join(
+        model_code_path = os.path.join(
             local_model_path,
             os.path.basename(flavor_code_path),
         )
-
         try:
             model = _load_model_code_path(
-                code_path, {**(model_config or {}), **(model_config_overrides or {})}
+                model_code_path, {**(model_config or {}), **(model_config_overrides or {})}
             )
         finally:
             # We would like to clean up the dependencies schema which is set to global
             # after loading the mode to avoid the schema being used in the next model loading
             _clear_dependencies_schemas()
-
         return model
     else:
-        _add_code_from_conf_to_system_path(local_model_path, flavor_conf)
-        with patch_langchain_type_to_cls_dict():
-            return _load_model(local_model_path, flavor_conf)
+        return _load_model(local_model_path, flavor_conf)
 
 
 @experimental

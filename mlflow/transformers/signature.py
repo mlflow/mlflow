@@ -22,20 +22,18 @@ _CLASSIFICATION_SIGNATURE = ModelSignature(
     outputs=Schema([ColSpec("string", name="label"), ColSpec("double", name="score")]),
 )
 
-
-# Order is important here, the first matching pipeline type will be used
-_DEFAULT_SIGNATURE_FOR_PIPELINES = {
-    "TokenClassificationPipeline": _TEXT2TEXT_SIGNATURE,
-    # TODO: ConversationalPipeline is deprecated since Transformers 4.42.0.
-    # Remove this once we drop support for earlier versions.
-    "ConversationalPipeline": _TEXT2TEXT_SIGNATURE,
-    "TranslationPipeline": _TEXT2TEXT_SIGNATURE,
-    "FillMaskPipeline": _TEXT2TEXT_SIGNATURE,
-    "TextGenerationPipeline": _TEXT2TEXT_SIGNATURE,
-    "Text2TextGenerationPipeline": _TEXT2TEXT_SIGNATURE,
-    "TextClassificationPipeline": _CLASSIFICATION_SIGNATURE,
-    "ImageClassificationPipeline": _CLASSIFICATION_SIGNATURE,
-    "ZeroShotClassificationPipeline": ModelSignature(
+# Order is important here, the first matching task type will be used
+_DEFAULT_SIGNATURE_FOR_TASK = {
+    "token-classification": _TEXT2TEXT_SIGNATURE,
+    "translation": _TEXT2TEXT_SIGNATURE,
+    "text-generation": _TEXT2TEXT_SIGNATURE,
+    "text2text-generation": _TEXT2TEXT_SIGNATURE,
+    "text-classification": _CLASSIFICATION_SIGNATURE,
+    "conversational": _TEXT2TEXT_SIGNATURE,
+    "fill-mask": _TEXT2TEXT_SIGNATURE,
+    "summarization": _TEXT2TEXT_SIGNATURE,
+    "image-classification": _CLASSIFICATION_SIGNATURE,
+    "zero-shot-classification": ModelSignature(
         inputs=Schema(
             [
                 ColSpec(DataType.string, name="sequences"),
@@ -51,29 +49,29 @@ _DEFAULT_SIGNATURE_FOR_PIPELINES = {
             ]
         ),
     ),
-    "AutomaticSpeechRecognitionPipeline": ModelSignature(
+    "automatic-speech-recognition": ModelSignature(
         inputs=Schema([ColSpec(DataType.binary)]),
         outputs=Schema([ColSpec(DataType.string)]),
     ),
-    "AudioClassificationPipeline": ModelSignature(
+    "audio-classification": ModelSignature(
         inputs=Schema([ColSpec(DataType.binary)]),
         outputs=Schema(
             [ColSpec(DataType.double, name="score"), ColSpec(DataType.string, name="label")]
         ),
     ),
-    "TableQuestionAnsweringPipeline": ModelSignature(
+    "table-question-answering": ModelSignature(
         inputs=Schema(
             [ColSpec(DataType.string, name="query"), ColSpec(DataType.string, name="table")]
         ),
         outputs=Schema([ColSpec(DataType.string)]),
     ),
-    "QuestionAnsweringPipeline": ModelSignature(
+    "question-answering": ModelSignature(
         inputs=Schema(
             [ColSpec(DataType.string, name="question"), ColSpec(DataType.string, name="context")]
         ),
         outputs=Schema([ColSpec(DataType.string)]),
     ),
-    "FeatureExtractionPipeline": ModelSignature(
+    "feature-extraction": ModelSignature(
         inputs=Schema([ColSpec(DataType.string)]),
         outputs=Schema([TensorSpec(np.dtype("float64"), [-1], "double")]),
     ),
@@ -90,7 +88,9 @@ def infer_or_get_default_signature(
     For signature inference in some Pipelines that support complex input types, an input example
     is needed.
     """
-    if example is not None:
+    import transformers
+
+    if example is not None and isinstance(pipeline, transformers.Pipeline):
         try:
             timeout = MLFLOW_INPUT_EXAMPLE_INFERENCE_TIMEOUT.get()
             if timeout and is_windows():
@@ -118,14 +118,14 @@ def infer_or_get_default_signature(
                 )
             _logger.warning(msg)
 
-    import transformers
-
-    for pipeline_type, signature in _DEFAULT_SIGNATURE_FOR_PIPELINES.items():
-        if isinstance(pipeline, getattr(transformers, pipeline_type, type(None))):
-            return signature
+    task = getattr(pipeline, "task", None)
+    if task.startswith("translation_"):
+        task = "translation"
+    if signature := _DEFAULT_SIGNATURE_FOR_TASK.get(task):
+        return signature
 
     _logger.warning(
-        "An unsupported Pipeline type was supplied for signature inference. Either provide an "
+        "An unsupported task type was supplied for signature inference. Either provide an "
         "`input_example` or generate a signature manually via `infer_signature` to have a "
         "signature recorded in the MLmodel file."
     )
@@ -162,12 +162,10 @@ def format_input_example_for_special_cases(input_example, pipeline):
     reflects the correct example input structure that mirrors the behavior of the input parsing
     for pyfunc.
     """
-    import transformers
-
     input_data = input_example[0] if isinstance(input_example, tuple) else input_example
 
     if (
-        isinstance(pipeline, transformers.ZeroShotClassificationPipeline)
+        pipeline.task == "zero-shot-classification"
         and isinstance(input_data, dict)
         and isinstance(input_data["candidate_labels"], list)
     ):

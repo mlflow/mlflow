@@ -11,6 +11,7 @@ import {
 } from '../../constants';
 import { isNil, uniq } from 'lodash';
 import { customMetricBehaviorDefs } from '../experiment-page/utils/customMetricBehaviorUtils';
+import { shouldEnableGlobalLineChartConfig } from '../../../common/utils/FeatureUtils';
 
 /**
  * Enum for all recognized chart types used in runs charts
@@ -461,6 +462,15 @@ export enum RunsChartsLineChartYAxisType {
   EXPRESSION = 'expression',
 }
 
+export interface RunsChartsLineChartExpression {
+  // The expression parsed in Reverse Polish Notation
+  rpn: (string | number)[];
+  // The parsed variables in the expression
+  variables: string[];
+  // The original input expression
+  expression: string;
+}
+
 // TODO: add configuration fields relevant to line chart
 export class RunsChartsLineCardConfig extends RunsChartsCardConfig {
   type: RunsChartType.LINE = RunsChartType.LINE;
@@ -525,13 +535,23 @@ export class RunsChartsLineCardConfig extends RunsChartsCardConfig {
   /**
    * Custom expressions for Y axis
    */
-  yAxisExpressions?: string[] = [];
+  yAxisExpressions?: RunsChartsLineChartExpression[] = [];
 
   /**
    * Whether or not to ignore outliers. If true, the data will be clipped
    * to the 5th and 95th percentiles.
    */
   ignoreOutliers?: boolean = false;
+
+  /**
+   * Whether or not to use global X axis settings.
+   */
+  useGlobalXaxisKey?: boolean = shouldEnableGlobalLineChartConfig();
+
+  /**
+   * Whether or not to use global line smoothing setting.
+   */
+  useGlobalLineSmoothing?: boolean = shouldEnableGlobalLineChartConfig();
 }
 
 // TODO: add configuration fields relevant to bar chart
