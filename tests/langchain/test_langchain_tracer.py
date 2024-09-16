@@ -10,13 +10,13 @@ import langchain
 import pytest
 from langchain.agents import AgentType, initialize_agent, load_tools
 from langchain.chains.llm import LLMChain
-from langchain.document_loaders import TextLoader
-from langchain.llms.openai import OpenAI
 from langchain.prompts import PromptTemplate
 from langchain.prompts.chat import SystemMessagePromptTemplate
 from langchain.text_splitter import CharacterTextSplitter
-from langchain.vectorstores import FAISS
+from langchain_community.document_loaders import TextLoader
 from langchain_community.embeddings import FakeEmbeddings
+from langchain_community.llms.openai import OpenAI
+from langchain_community.vectorstores import FAISS
 from langchain_core.documents import Document
 from langchain_core.output_parsers.string import StrOutputParser
 from langchain_core.outputs import LLMResult

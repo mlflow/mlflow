@@ -4441,6 +4441,7 @@ __metadata:
     url: "npm:^0.11.0"
     use-debounce: "npm:^9.0.3"
     use-sync-external-store: "npm:^1.2.0"
+    wavesurfer.js: "npm:^7.8.4"
     webpack: "npm:^5.69.0"
     whatwg-fetch: "npm:^3.6.17"
   languageName: unknown
@@ -32792,6 +32793,13 @@ __metadata:
     glob-to-regexp: "npm:^0.4.1"
     graceful-fs: "npm:^4.1.2"
   checksum: 10c0/c694de0a61004e587a8a0fdc9cfec20ee692c52032d9ab2c2e99969a37fdab9e6e1bd3164ed506f9a13f7c83e65563d563e0d6b87358470cdb7309b83db78683
+  languageName: node
+  linkType: hard
+
+"wavesurfer.js@npm:^7.8.4":
+  version: 7.8.4
+  resolution: "wavesurfer.js@npm:7.8.4"
+  checksum: 10c0/15e1dce15afd290bdd22e051f46a92bc5f1d6b673d273d997ed60a3fc2dd4041a18f0ad3ced4d46caf52a43fa58a42acdb1f31b2d472ecff2ff904d73dc1dab3
   languageName: node
   linkType: hard
 

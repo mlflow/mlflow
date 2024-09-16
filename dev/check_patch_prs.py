@@ -105,8 +105,15 @@ def main(version):
         master_commits = get_commits("master")
         cherry_picks = [c.sha for c in master_commits if c.pr_num in not_cherry_picked]
         # reverse the order of cherry-picks to maintain the order of PRs
-        print("\nTo cherry-pick the above commits, run:")
+        print("\n# Steps to cherry-pick the patch PRs:")
+        print(
+            f"1. Make sure your local master and {release_branch} branches are synced with "
+            "upstream."
+        )
+        print(f"2. Cut a new branch from {release_branch} (e.g. {release_branch}-cherry-picks).")
+        print("3. Run the following command on the new branch:\n")
         print("git cherry-pick " + " ".join(cherry_picks[::-1]))
+        print(f"\n4. File a PR against {release_branch}.")
         sys.exit(1)
 
 

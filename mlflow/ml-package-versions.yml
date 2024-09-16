@@ -457,6 +457,8 @@ prophet:
     minimum: "1.1.1"
     maximum: "1.1.5"
     requirements:
+      # Prophet does not handle numpy 2 yet. https://github.com/facebook/prophet/issues/2595
+      ">= 0.0.0": ["numpy<2"]
       # Avoid holidays 0.25 due to https://github.com/dr-prodigy/python-holidays/issues/1200 on
       # older version of prophet. Compatibility updates have been released as part of the 1.1.4
       # release of prophet.
@@ -671,7 +673,11 @@ langchain:
       # langchain-openai 0.1.22 is imcomptible with earlier langchain-core due to
       # https://github.com/langchain-ai/langchain/commit/b83f1eb0d56dbf99605a1fce93953ee09d77aabf
       "< 0.2": ["langchain-openai<=0.1.22"]
-      ">= 0.2": ["langchain-openai", "langchain-huggingface"]
+      ">= 0.2": [
+          "langchain-huggingface",
+          # Install langchain-databricks from the main branch
+          "git+https://github.com/langchain-ai/langchain-databricks.git@main#egg=langchain-databricks&subdirectory=libs/databricks",
+        ]
     run: |
       # Run all langchain tests except autologging
       pytest tests/langchain --ignore tests/langchain/test_langchain_autolog.py
@@ -718,11 +724,12 @@ llama_index:
     module_name: "llama_index.core"
     install_dev: |
       pip install git+https://github.com/run-llama/llama_index.git
-      pip install git+https://github.com/run-llama/llama_index.git#egg=llama-index-llms-openai-like\&subdirectory=llama-index-integrations/llms/llama-index-llms-openai-like
   models:
     # New event/span framework is fully implemented in 0.10.44
     minimum: "0.10.44"
     maximum: "0.11.2"
+    python:
+      "== dev": "3.9"
     requirements:
       ">= 0.0.0": [
           "openai",
@@ -737,6 +744,8 @@ llama_index:
   autologging:
     minimum: "0.10.44"
     maximum: "0.11.2"
+    python:
+      "== dev": "3.9"
     requirements:
       ">= 0.0.0": ["openai"]
       ">= 0.11.0": ["fastapi>=0.100.0"]

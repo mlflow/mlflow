@@ -130,7 +130,7 @@ def visualize_importances(
     feature_imp = PrettyTable(["feature_name", "importances"])
     feature_imp_dict = {}
     for i in range(len(feature_names)):
-        print(feature_names[i], ": ", "%.3f" % (importances[i]))
+        print(feature_names[i], ": ", f"{importances[i]:.3f}")
         feature_imp.add_row([feature_names[i], importances[i]])
         feature_imp_dict[str(feature_names[i])] = importances[i]
     x_pos = np.arange(len(feature_names))

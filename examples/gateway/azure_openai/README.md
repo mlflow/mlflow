@@ -6,7 +6,7 @@ Additionally, it illustrates the two separate api types that are supported for t
 - `azure` api type: uses a generated token that is applied by setting the API token key directly to an environment variable
 - `azuread` api type: uses Azure Active Directory for supplying the active directory key to be used to an environment variable
 
-Depending on how your users will be interacting with the MLflow Deployments server, a single access paradigm (either `azure` **or** `azuread` is recommended, not a mix of both).
+Depending on how your users will be interacting with the MLflow AI Gateway, a single access paradigm (either `azure` **or** `azuread` is recommended, not a mix of both).
 
 See the [Azure OpenAI configuration](config.yaml) YAML file for example configurations showing all supported endpoint types and the different token access types.
 

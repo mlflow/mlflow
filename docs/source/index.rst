@@ -355,6 +355,7 @@ Explore the guides and tutorials below to start your journey!
     getting-started/index
     new-features/index
     llms/index
+    MLflow Tracing<llms/tracing/index>
     model-evaluation/index
     deep-learning/index
     traditional-ml/index

@@ -1,5 +1,6 @@
 import json
 import sys
+import warnings
 from inspect import signature
 
 import click
@@ -472,7 +473,7 @@ def validate_config_path(_ctx, _param, value):
 
 
 @experimental
-@commands.command("start-server", help="Start the MLflow Deployments server")
+@commands.command("start-server", help="Start MLflow AI Gateway")
 @click.option(
     "--config-path",
     envvar=MLFLOW_DEPLOYMENTS_CONFIG.name,
@@ -496,8 +497,13 @@ def validate_config_path(_ctx, _param, value):
     help="The number of workers.",
 )
 def start_server(config_path: str, host: str, port: str, workers: int):
+    warnings.warn(
+        "`mlflow deployments start-server` is deprecated and will be removed in a future release. "
+        "Use `mlflow gateway start` instead.",
+        FutureWarning,
+    )
     if is_windows():
-        raise click.ClickException("MLflow Deployments Server does not support Windows.")
+        raise click.ClickException("MLflow AI Gateway does not support Windows.")
 
     from mlflow.deployments.server.runner import run_app
 

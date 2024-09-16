@@ -179,10 +179,6 @@
     "defaultMessage": "Aliases allow you to assign a mutable, named reference to a particular model version. <link>Learn more</link>",
     "description": "Explanation of registered model aliases"
   },
-  "2Exf7S": {
-    "defaultMessage": "Supported formats: image, text, html, pdf, geojson files",
-    "description": "Text to explain users which formats are supported to display the artifacts"
-  },
   "2Hf+yU": {
     "defaultMessage": "Time (wall)",
     "description": "Label for a radio button that configures the x-axis on a line chart. This option is for the absolute time that the metrics were logged."
@@ -1574,6 +1570,10 @@
   "Vvn8Cb": {
     "defaultMessage": "Open dataset",
     "description": "Text for the HTTP/HF location link in the experiment run dataset drawer"
+  },
+  "VzuUre": {
+    "defaultMessage": "Supported formats: image, text, html, pdf, audio, geojson files",
+    "description": "Text to explain users which formats are supported to display the artifacts"
   },
   "W8bOkn": {
     "defaultMessage": "250",

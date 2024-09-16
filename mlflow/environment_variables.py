@@ -380,6 +380,10 @@ MLFLOW_EXPERIMENT_NAME = _EnvironmentVariable("MLFLOW_EXPERIMENT_NAME", str, Non
 #: (default: ``None``)
 MLFLOW_AUTH_CONFIG_PATH = _EnvironmentVariable("MLFLOW_AUTH_CONFIG_PATH", str, None)
 
+#: Specifies and takes precedence for setting the UC OSS basic/bearer auth on http requests.
+#: (default: ``None``)
+MLFLOW_UC_OSS_TOKEN = _EnvironmentVariable("MLFLOW_UC_OSS_TOKEN", str, None)
+
 #: Specifies the root directory to create Python virtual environments in.
 #: (default: ``~/.mlflow/envs``)
 MLFLOW_ENV_ROOT = _EnvironmentVariable(
@@ -408,7 +412,7 @@ _MLFLOW_AUTOLOGGING_TESTING = _BooleanEnvironmentVariable("MLFLOW_AUTOLOGGING_TE
 MLFLOW_GATEWAY_URI = _EnvironmentVariable("MLFLOW_GATEWAY_URI", str, None)
 
 #: (Experimental, may be changed or removed)
-#: Specifies the uri of a MLflow Deployments Server instance to be used with the Deployments
+#: Specifies the uri of an MLflow AI Gateway instance to be used with the Deployments
 #: Client APIs
 #: (default: ``None``)
 MLFLOW_DEPLOYMENTS_TARGET = _EnvironmentVariable("MLFLOW_DEPLOYMENTS_TARGET", str, None)
@@ -417,7 +421,7 @@ MLFLOW_DEPLOYMENTS_TARGET = _EnvironmentVariable("MLFLOW_DEPLOYMENTS_TARGET", st
 #: (default: ``None``)
 MLFLOW_GATEWAY_CONFIG = _EnvironmentVariable("MLFLOW_GATEWAY_CONFIG", str, None)
 
-#: Specifies the path of the config file for the MLflow Deployments server.
+#: Specifies the path of the config file for MLflow AI Gateway.
 #: (default: ``None``)
 MLFLOW_DEPLOYMENTS_CONFIG = _EnvironmentVariable("MLFLOW_DEPLOYMENTS_CONFIG", str, None)
 
@@ -627,7 +631,7 @@ MLFLOW_HTTP_POOL_CONNECTIONS = _EnvironmentVariable("MLFLOW_HTTP_POOL_CONNECTION
 #: By adjusting this variable, users can enhance the concurrency of HTTP requests made by MLflow.
 MLFLOW_HTTP_POOL_MAXSIZE = _EnvironmentVariable("MLFLOW_HTTP_POOL_MAXSIZE", int, 10)
 
-#: Enable Unity Catalog integration for mlflow deployments server.
+#: Enable Unity Catalog integration for MLflow AI Gateway.
 #: (default: ``False``)
 MLFLOW_ENABLE_UC_FUNCTIONS = _BooleanEnvironmentVariable("MLFLOW_ENABLE_UC_FUNCTIONS", False)
 

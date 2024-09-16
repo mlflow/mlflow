@@ -1780,7 +1780,12 @@ def test_convert_dataclass_to_schema_for_rag():
             },
             "name": "choices",
             "required": True,
-        }
+        },
+        {
+            "name": "object",
+            "required": True,
+            "type": "string",
+        },
     ]
 
 

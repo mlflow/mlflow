@@ -159,7 +159,7 @@ def _listen_for_spark_activity(spark_context):
             "autologging. Note that Spark datasource autologging only works with Spark 3.0 "
             "and above. Please create a new Spark session with required Spark version and "
             "ensure you have the mlflow-spark JAR attached to your Spark session as described "
-            "in https://mlflow.org/docs/latest/tracking/autolog.html#spark Exception:\n%s" % e
+            f"in https://mlflow.org/docs/latest/tracking/autolog.html#spark Exception:\n{e}"
         )
 
     # Register context provider for Spark autologging

@@ -15,7 +15,7 @@ For a more detailed description of all features, please go to the [documentation
 
 > **NOTE** This example is tested on a Linux Machine (Debian 11) with a NVIDIA A100 GPU.
 
-To configure the MLflow Deployments server with Huggingface Text Generation Inference, a few additional steps need to be followed. The initial step involves deploying a Huggingface model on the TGI server, which is illustrated in the next section.
+To configure the MLflow AI Gateway with Huggingface Text Generation Inference, a few additional steps need to be followed. The initial step involves deploying a Huggingface model on the TGI server, which is illustrated in the next section.
 
 The recommended approach for deploying the TGI server is by utilizing the [official Docker container](ghcr.io/huggingface/text-generation-inference:1.1.1). Docker is an open-source platform that provides a streamlined solution for automating the deployment, scaling, and management of applications through containers. These containers encompass all the essential dependencies required for seamless execution, including libraries, binaries, and configuration files. To install Docker, please refer to the [installation guide](https://docs.docker.com/get-docker/).
 
@@ -70,7 +70,7 @@ print(response.json())
 
 ## Update the config.yaml to add a new embeddings endpoint
 
-After you started the server, update the MLflow Deployments server configuration file [config.yaml](config.yaml) and add the server as a new endpoint:
+After you started the server, update the MLflow AI Gateway configuration file [config.yaml](config.yaml) and add the server as a new endpoint:
 
 ```
 endpoints:
@@ -83,12 +83,12 @@ endpoints:
         hf_server_url: http://127.0.0.1:8000/generate
 ```
 
-## Starting the MLflow Deployments server
+## Starting the MLflow AI Gateway
 
-After the configuration file is created, you can start the MLflow Deployments server by running the following command:
+After the configuration file is created, you can start the MLflow AI Gateway by running the following command:
 
 ```
-mlflow deplyments start-server --config-path examples/deployments/deployments_server//huggingface/config.yaml --port 7000
+mlflow deplyments start-server --config-path examples/gateway/huggingface/config.yaml --port 7000
 ```
 
 ## Querying the endpoint
