@@ -42,9 +42,6 @@ def test__parallelized_download_from_cloud(
     with mock.patch(
         "mlflow.store.artifact.cloud_artifact_repo.CloudArtifactRepository"
     ) as cloud_artifact_mock:
-    with mock.patch(
-        "mlflow.store.artifact.cloud_artifact_repo.CloudArtifactRepository"
-    ) as cloud_artifact_mock:
         cloud_artifact_instance = cloud_artifact_mock.return_value
 
         # Mock all methods except '_parallelized_download_from_cloud'
