@@ -1192,6 +1192,7 @@ def evaluate(
 
                   model = mlflow.pyfunc.load_model(model_uri)
 
+
                   def fn(model_input):
                       return model.predict(model_input)
 
