@@ -705,6 +705,7 @@ langchain:
           "spacy",
           "langchain-core!=0.1.39", # https://github.com/langchain-ai/langchain/issues/19947
           "pytest-asyncio", # for testing runnable async functions patches
+          "langchain_openai",
         ]
     run: |
       pytest tests/langchain/test_langchain_autolog.py
