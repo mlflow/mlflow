@@ -3506,22 +3506,19 @@ def test_signature_inference_fails(monkeypatch: pytest.MonkeyPatch):
 
 @pytest.mark.skipif(
     Version(langchain.__version__) < Version("0.2.0"),
-    reason="Langgraph are not supported the way we want in earlier versions",
+    reason="Configurable fields are not supported correctly in old versions",
 )
-def test_langgraph_agent_log_model_from_code():
-    input_example = {"messages": [{"role": "user", "content": "what is the weather in sf?"}]}
-
-    pyfunc_artifact_path = "weather_agent"
-    with mlflow.start_run() as run:
-        mlflow.langchain.log_model(
-            lc_model="tests/langchain/sample_code/langgraph_agent.py",
-            artifact_path=pyfunc_artifact_path,
-            input_example=input_example,
+def test_invoking_model_with_params():
+    with mlflow.start_run():
+        model_info = mlflow.langchain.log_model(
+            lc_model=os.path.abspath("tests/langchain/sample_code/model_with_config.py"),
+            artifact_path="model",
         )
-    pyfunc_model_uri = f"runs:/{run.info.run_id}/{pyfunc_artifact_path}"
-    pyfunc_model_path = _download_artifact_from_uri(pyfunc_model_uri)
-    reloaded_model = Model.load(os.path.join(pyfunc_model_path, "MLmodel"))
-    actual = reloaded_model.resources["databricks"]
-    expected = {"serving_endpoint": [{"name": "fake-endpoint"}]}
-    assert all(item in actual["serving_endpoint"] for item in expected["serving_endpoint"])
-    assert all(item in expected["serving_endpoint"] for item in actual["serving_endpoint"])
+    pyfunc_model = mlflow.pyfunc.load_model(model_info.model_uri)
+    data = {"x": 0}
+    pyfunc_model.predict(data)
+    params = {"config": {"temperature": 3.0}}
+    with mock.patch("mlflow.pyfunc._validate_prediction_input", return_value=(data, params)):
+        # This proves the temperature is passed to the model
+        with pytest.raises(MlflowException, match=r"Temperature must be between 0.0 and 2.0"):
+            pyfunc_model.predict(data=data, params=params)

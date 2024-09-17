@@ -311,7 +311,8 @@ def test_signature_for_rag():
             '"message": {"type": "object", "properties": '
             '{"content": {"type": "string", "required": true}, '
             '"role": {"type": "string", "required": true}}, '
-            '"required": true}}}, "name": "choices", "required": true}]'
+            '"required": true}}}, "name": "choices", "required": true}, '
+            '{"type": "string", "name": "object", "required": true}]'
         ),
         "params": None,
     }

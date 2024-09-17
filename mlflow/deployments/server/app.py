@@ -233,7 +233,7 @@ def create_app_from_config(config: GatewayConfig) -> GatewayAPI:
     app = GatewayAPI(
         config=config,
         limiter=limiter,
-        title="MLflow Deployments Server",
+        title="MLflow AI Gateway",
         description="The core deployments API for reverse proxy interface using remote inference "
         "endpoints within MLflow",
         version=VERSION,
@@ -258,7 +258,7 @@ def create_app_from_config(config: GatewayConfig) -> GatewayAPI:
     async def docs():
         return get_swagger_ui_html(
             openapi_url="/openapi.json",
-            title="MLflow Deployments Server",
+            title="MLflow AI Gateway",
             swagger_favicon_url="/favicon.ico",
         )
 

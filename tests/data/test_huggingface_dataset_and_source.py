@@ -48,35 +48,22 @@ def test_from_huggingface_dataset_constructs_expected_dataset():
 
 
 def test_from_huggingface_dataset_constructs_expected_dataset_with_revision():
-    new_revision = "c33cbf965006dba64f134f7bef69c53d5d0d285d"
-    old_revision = "8ca2693371541a5ba2b23981de4222be3bef149f"
-    ds_new = datasets.load_dataset(
+    # Load this revision:
+    # https://huggingface.co/datasets/cornell-movie-review-data/rotten_tomatoes/commit/aa13bc287fa6fcab6daf52f0dfb9994269ffea28
+    revision = "aa13bc287fa6fcab6daf52f0dfb9994269ffea28"
+    ds = datasets.load_dataset(
         "cornell-movie-review-data/rotten_tomatoes",
         split="train",
-        revision=new_revision,
-        trust_remote_code=True,
-    )
-    ds_old = datasets.load_dataset(
-        "cornell-movie-review-data/rotten_tomatoes",
-        split="train",
-        revision=old_revision,
+        revision=revision,
         trust_remote_code=True,
     )
 
     mlflow_ds_new = mlflow.data.from_huggingface(
-        ds_new, path="rotten_tomatoes", revision=new_revision, trust_remote_code=True
-    )
-    mlflow_ds_old = mlflow.data.from_huggingface(
-        ds_old, path="rotten_tomatoes", revision=old_revision, trust_remote_code=True
+        ds, path="rotten_tomatoes", revision=revision, trust_remote_code=True
     )
 
-    reloaded_ds_new = mlflow_ds_new.source.load()
-    reloaded_ds_old = mlflow_ds_old.source.load()
-
-    # Newer versions of the rotten "rotten_tomatoes" has a `task_templates` field, while the older
-    # one does not.
-    assert reloaded_ds_new.task_templates
-    assert not reloaded_ds_old.task_templates
+    ds = mlflow_ds_new.source.load()
+    assert any(revision in cs for cs in ds.info.download_checksums)
 
 
 def test_from_huggingface_dataset_constructs_expected_dataset_with_data_files():

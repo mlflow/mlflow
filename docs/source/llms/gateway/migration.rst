@@ -50,7 +50,7 @@ New:
 
 .. code-block:: bash
 
-    mlflow deployments start-server --config-path path/to/config.yaml
+    mlflow gateway start --config-path path/to/config.yaml
     #      ^^^^^^^^^^^^^^^^^^^^^^^^
     #      Renamed to "deployments start-server"
 

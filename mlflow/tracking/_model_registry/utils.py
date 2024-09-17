@@ -46,8 +46,8 @@ def set_registry_uri(uri: str) -> None:
     Args:
         uri: An empty string, or a local file path, prefixed with ``file:/``. Data is stored
             locally at the provided file (or ``./mlruns`` if empty). An HTTP URI like
-            ``https://my-tracking-server:5000``. A Databricks workspace, provided as the string
-            "databricks" or, to use a Databricks CLI
+            ``https://my-tracking-server:5000`` or ``http://my-oss-uc-server:8080``. A Databricks
+            workspace, provided as the string "databricks" or, to use a Databricks CLI
             `profile <https://github.com/databricks/databricks-cli#installation>`_,
             "databricks://<profileName>".
 
