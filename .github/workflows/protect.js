@@ -85,7 +85,7 @@ module.exports = async ({ github, context }) => {
   let iterationCount = 0;
   const TIMEOUT = 120 * 60 * 1000; // 2 hours
   while (new Date() - start < TIMEOUT) {
-    ++counter;
+    ++iterationCount;
     const checks = await fetchChecks(sha);
     const longest = Math.max(...checks.map(({ name }) => name.length));
     checks.forEach(({ name, status }) => {
