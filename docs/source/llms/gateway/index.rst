@@ -4,11 +4,6 @@
 MLflow AI Gateway (Experimental)
 ================================
 
-.. warning::
-
-    MLflow AI gateway is deprecated and has been replaced by `the deployments API <deployments>`
-    for generative AI. See :ref:`gateway-migration` for migration.
-
 The MLflow AI Gateway service is a powerful tool designed to streamline the usage and management of
 various large language model (LLM) providers, such as OpenAI and Anthropic, within an organization.
 It offers a high-level interface that simplifies the interaction with these services by providing
@@ -34,7 +29,6 @@ organizations that use LLMs on a regular basis.
     :hidden:
 
     guides/index
-    migration
 
 Tutorials and Guides
 ====================
