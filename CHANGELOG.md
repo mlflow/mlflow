@@ -8,9 +8,6 @@ Bug fixes:
 
 - [Models] Revert "Update Dependency Extraction for Agents (#13105)" (#13155, @aravind-segu)
 
-Small bug fixes and documentation updates:
-
-
 
 ## 2.16.1 (2024-09-13)
 
