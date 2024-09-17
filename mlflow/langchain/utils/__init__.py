@@ -225,9 +225,6 @@ def _get_map_of_special_chain_class_to_loader_arg():
 
 @lru_cache
 def _get_supported_llms():
-    import langchain.chat_models
-    import langchain.llms
-
     supported_llms = set()
 
     def try_adding_llm(module, class_name):
@@ -247,9 +244,10 @@ def _get_supported_llms():
     safe_import_and_add("langchain.llms", "HuggingFacePipeline")
     safe_import_and_add("langchain.langchain_huggingface", "HuggingFacePipeline")
     safe_import_and_add("langchain_openai", "OpenAI")
+    safe_import_and_add("langchain_databricks", "ChatDatabricks")
 
     for llm_name in ["Databricks", "Mlflow"]:
-        try_adding_llm(langchain.llms, llm_name)
+        safe_import_and_add("langchain.llms", llm_name)
 
     for chat_model_name in [
         "ChatDatabricks",
@@ -257,7 +255,7 @@ def _get_supported_llms():
         "ChatOpenAI",
         "AzureChatOpenAI",
     ]:
-        try_adding_llm(langchain.chat_models, chat_model_name)
+        safe_import_and_add("langchain.chat_models", chat_model_name)
 
     return supported_llms
 

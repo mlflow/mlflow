@@ -14,6 +14,7 @@ LangChain (native) format
 
 import contextlib
 import functools
+import importlib
 import inspect
 import json
 import logging
@@ -926,7 +927,12 @@ def _inspect_module_and_patch_cls(module, inspected_modules, patched_classes):
         inspected_modules.add(module.__name__)
         for _, obj in inspect.getmembers(module):
             if inspect.ismodule(obj) and (obj.__name__.startswith("langchain")):
-                _inspect_module_and_patch_cls(obj, inspected_modules, patched_classes)
+                # NB: Sometimes child modules require additional packages
+                # e.g. langchain.chat_models requires langchain_community.
+                try:
+                    _inspect_module_and_patch_cls(obj, inspected_modules, patched_classes)
+                except ImportError:
+                    pass
             elif (
                 inspect.isclass(obj)
                 and obj.__name__ not in patched_classes
@@ -1007,13 +1013,6 @@ def autolog(
             collected during inference. Default to ``True``.
     """
     with contextlib.suppress(ImportError):
-        import langchain
-        import langchain_community
-        from langchain.agents.agent import AgentExecutor
-        from langchain.chains.base import Chain
-        from langchain.schema import BaseRetriever
-        from langchain.schema.runnable import Runnable
-
         from mlflow.langchain._langchain_autolog import patched_inference
 
         # avoid duplicate patching
@@ -1021,10 +1020,20 @@ def autolog(
         # avoid infinite recursion
         inspected_modules = set()
 
-        for module in [langchain, langchain_community]:
+        # Get all installed LangChain packages
+        lc_pkgs = [
+            d.metadata["Name"]
+            for d in importlib.metadata.distributions()
+            if d.metadata["Name"].startswith("langchain")
+        ]
+        lc_modules = [importlib.import_module(pkg.replace("-", "_")) for pkg in lc_pkgs]
+
+        for module in lc_modules:
             _inspect_module_and_patch_cls(module, inspected_modules, patched_classes)
 
         if extra_model_classes:
+            from langchain_core.runnables import Runnable
+
             unsupported_classes = []
             for cls in extra_model_classes:
                 if cls.__name__ in patched_classes:
@@ -1040,17 +1049,28 @@ def autolog(
                     "Only subclasses of Runnable are supported."
                 )
 
-        for cls in [AgentExecutor, Chain]:
+        try:
+            from langchain.agents.agent import AgentExecutor
+            from langchain.chains.base import Chain
+
+            for cls in [AgentExecutor, Chain]:
+                safe_patch(
+                    FLAVOR_NAME,
+                    cls,
+                    "__call__",
+                    functools.partial(patched_inference, "__call__"),
+                )
+        except ImportError:
+            pass
+
+        try:
+            from langchain_core.retrievers import BaseRetriever
+
             safe_patch(
                 FLAVOR_NAME,
-                cls,
-                "__call__",
-                functools.partial(patched_inference, "__call__"),
+                BaseRetriever,
+                "get_relevant_documents",
+                functools.partial(patched_inference, "get_relevant_documents"),
             )
-
-        safe_patch(
-            FLAVOR_NAME,
-            BaseRetriever,
-            "get_relevant_documents",
-            functools.partial(patched_inference, "get_relevant_documents"),
-        )
+        except ImportError:
+            pass

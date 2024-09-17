@@ -701,7 +701,6 @@ langchain:
           "google-search-results",
           "psutil",
           "faiss-cpu",
-          "langchain-experimental",
           "numexpr",
           "spacy",
           "langchain-core!=0.1.39", # https://github.com/langchain-ai/langchain/issues/19947
@@ -717,6 +716,11 @@ langchain:
         echo "Testing langchain autolog with pydantic v2"
         pytest tests/langchain/test_langchain_autolog.py
       fi
+      # test with langchain-community package installed
+      LC_VERSION=$(python -c "import langchain; print(langchain.__version__)")
+      pip install langchain-community==$LC_VERSION
+      sleep 10
+      pytest tests/langchain/test_langchain_autolog.py
 
 llama_index:
   package_info:
