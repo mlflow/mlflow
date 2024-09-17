@@ -1,5 +1,14 @@
 # CHANGELOG
 
+## 2.16.2 (2024-09-17)
+
+MLflow 2.16.2 includes several major features and improvements
+
+Bug fixes:
+
+- [Models] Revert "Update Dependency Extraction for Agents (#13105)" (#13155, @aravind-segu)
+
+
 ## 2.16.1 (2024-09-13)
 
 MLflow 2.16.1 is a patch release that includes some minor feature improvements and addresses several bug fixes.
