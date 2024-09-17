@@ -242,11 +242,6 @@ def _traverse_runnable(
         # Visit the returned graph
         for node in lc_model.get_graph().nodes.values():
             yield from _traverse_runnable(node.data, visited)
-
-        # Visit the variables of the function as well to extract dependencies
-        if hasattr(lc_model, "func") and lc_model.func is not None:
-            for node in inspect.getclosurevars(lc_model.func).globals.values():
-                yield from _traverse_runnable(node, visited)
     else:
         # No-op for non-runnable, if any
         pass
