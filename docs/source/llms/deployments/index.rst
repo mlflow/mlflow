@@ -4,13 +4,6 @@
 MLflow AI Gateway (Experimental)
 ========================================
 
-.. important::
-   The feature previously known as **MLflow AI Gateway** in experimental status has been moved to
-   utilize the **MLflow deployments API**. This major update involves changes to API endpoints and
-   standardization for Large Language Models, both custom and SaaS-based. Users currently utilizing
-   MLflow AI Gateway should refer to the new documentation for migration guidelines and familiarize
-   themselves with the updated API structure. See :ref:`gateway-migration` for migration.
-
 .. warning::
 
     MLflow AI Gateway does not support Windows.
