@@ -405,11 +405,12 @@ def test_model_pyfunc_predict_with_params(basic_model, tmp_path):
 )
 def test_model_pyfunc_predict_with_invalid_params(basic_model, tmp_path):
     sentence = "hello world and hello mlflow"
-    params = {"batch_size": 16}
-
     model_path = tmp_path / "model"
-    signature = infer_signature(sentence, params=params)
-    mlflow.sentence_transformers.save_model(basic_model, model_path, signature=signature)
+    mlflow.sentence_transformers.save_model(
+        basic_model,
+        model_path,
+        signature=infer_signature(sentence, params={"invalid_param": "value"}),
+    )
     loaded_pyfunc = pyfunc.load_model(model_uri=model_path)
 
     loaded_pyfunc = pyfunc.load_model(model_uri=model_path)
