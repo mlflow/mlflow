@@ -630,7 +630,7 @@ openai:
     install_dev: |
       pip install git+https://github.com/openai/openai-python
   models:
-    minimum: "0.27.2"
+    minimum: "1.0.1"
     maximum: "1.43.0"
     requirements:
       ">= 0.0.0": ["pyspark", "tiktoken", "aiohttp", "tenacity"]
