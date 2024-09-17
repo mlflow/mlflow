@@ -1188,7 +1188,7 @@ def evaluate(
               :py:func:`predict <mlflow.pyfunc.PyFuncModel.predict>` method. Here's an example
               of a valid function:
 
-              ..code-block:: python
+              .. code-block:: python
 
                   model = mlflow.pyfunc.load_model(model_uri)
 
