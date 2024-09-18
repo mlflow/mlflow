@@ -633,14 +633,30 @@ openai:
     minimum: "1.0.1"
     maximum: "1.43.0"
     requirements:
-      ">= 0.0.0": ["pyspark", "tiktoken", "aiohttp", "tenacity"]
+      ">= 0.0.0": [
+          "pyspark",
+          "tiktoken",
+          "aiohttp",
+          "tenacity",
+          # Required to run tests/openai/mock_openai.py
+          "fastapi",
+          "uvicorn",
+        ]
     run: |
       pytest tests/openai --ignore tests/openai/test_openai_autolog.py
   autologging:
     minimum: "1.17.0"
     maximum: "1.43.0"
     requirements:
-      ">= 0.0.0": ["pyspark", "tiktoken", "aiohttp", "tenacity"]
+      ">= 0.0.0": [
+          "pyspark",
+          "tiktoken",
+          "aiohttp",
+          "tenacity",
+          # Required to run tests/openai/mock_openai.py
+          "fastapi",
+          "uvicorn",
+        ]
     run: |
       pytest tests/openai/test_openai_autolog.py
 
@@ -783,6 +799,12 @@ autogen:
     # Tool call logging is implemented in autogen 0.2.29
     minimum: "0.2.29"
     maximum: "0.2.35"
+    requirements:
+      ">= 0.0.0": [
+          # Required to run tests/openai/mock_openai.py
+          "fastapi",
+          "uvicorn",
+        ]
     run: pytest tests/autogen
 
 sentence_transformers:
