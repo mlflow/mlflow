@@ -131,16 +131,11 @@ MOCK_OPENAI_CHAT_REFUSAL_RESPONSE = {
             ValueError,
             "`content` is required",
         ),  # missing one-of required field
-        (
-            {"role": "user", "content": "hello", "extra": "field"},
-            TypeError,
-            "unexpected keyword",
-        ),  # extra field
     ],
 )
 def test_chat_message_throws_on_invalid_data(data, error, match):
     with pytest.raises(error, match=match):
-        ChatMessage(**data)
+        ChatMessage.from_dict(data)
 
 
 @pytest.mark.parametrize(
@@ -151,7 +146,7 @@ def test_chat_message_throws_on_invalid_data(data, error, match):
     ],
 )
 def test_chat_message_succeeds_on_valid_data(data):
-    assert ChatMessage(**data).to_dict() == data
+    assert ChatMessage.from_dict(data).to_dict() == data
 
 
 @pytest.mark.parametrize(
@@ -162,12 +157,11 @@ def test_chat_message_succeeds_on_valid_data(data):
             {"messages": ["not a dict"]},
             "Items in `messages` must all have the same type: ChatMessage or dict",
         ),
-        ({"messages": [{"bad": "key"}]}, "unexpected keyword argument 'bad'"),
         (
             {
                 "messages": [
                     {"role": "user", "content": "not all the same"},
-                    ChatMessage(**{"role": "user", "content": "hello"}),
+                    ChatMessage.from_dict({"role": "user", "content": "hello"}),
                 ]
             },
             "Items in `messages` must all have the same type: ChatMessage or dict",
@@ -176,7 +170,7 @@ def test_chat_message_succeeds_on_valid_data(data):
 )
 def test_list_validation_throws_on_invalid_lists(data, match):
     with pytest.raises(ValueError, match=match):
-        ChatRequest(**data)
+        ChatRequest.from_dict(data)
 
 
 @pytest.mark.parametrize(
@@ -184,7 +178,7 @@ def test_list_validation_throws_on_invalid_lists(data, match):
     [MOCK_RESPONSE, MOCK_OPENAI_CHAT_COMPLETION_RESPONSE, MOCK_OPENAI_CHAT_REFUSAL_RESPONSE],
 )
 def test_dataclass_constructs_nested_types_from_dict(sample_output):
-    response = ChatResponse(**sample_output)
+    response = ChatResponse.from_dict(sample_output)
     assert isinstance(response.usage, TokenUsageStats)
     assert isinstance(response.choices[0], ChatChoice)
     assert isinstance(response.choices[0].message, ChatMessage)
@@ -195,7 +189,7 @@ def test_dataclass_constructs_nested_types_from_dict(sample_output):
     [MOCK_RESPONSE, MOCK_OPENAI_CHAT_COMPLETION_RESPONSE, MOCK_OPENAI_CHAT_REFUSAL_RESPONSE],
 )
 def test_to_dict_converts_nested_dataclasses(sample_output):
-    response = ChatResponse(**sample_output).to_dict()
+    response = ChatResponse.from_dict(sample_output).to_dict()
     assert isinstance(response["choices"][0], dict)
     assert isinstance(response["usage"], dict)
     assert isinstance(response["choices"][0]["message"], dict)
@@ -232,3 +226,23 @@ def test_chat_request_metadata_must_be_string_map(metadata, match):
     message = ChatMessage("user", "Hello")
     with pytest.raises(ValueError, match=match):
         ChatRequest(messages=[message], metadata=metadata)
+
+
+@pytest.mark.parametrize(
+    ("cls", "data"),
+    [
+        (ChatMessage, {"role": "user", "content": "hello", "extra": "field"}),
+        (
+            TokenUsageStats,
+            {
+                "completion_tokens": 10,
+                "prompt_tokens": 57,
+                "total_tokens": 67,
+                # this field is not in the TokenUsageStats schema
+                "completion_tokens_details": {"reasoning_tokens": 0},
+            },
+        ),
+    ],
+)
+def test_from_dict_ingores_extra_fields(cls, data):
+    assert isinstance(cls.from_dict(data), cls)
