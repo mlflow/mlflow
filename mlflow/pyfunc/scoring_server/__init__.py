@@ -12,6 +12,7 @@ Defines four endpoints:
     /version used for getting the mlflow version
     /invocations used for scoring
 """
+
 import inspect
 import json
 import logging

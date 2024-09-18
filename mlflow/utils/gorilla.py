@@ -93,7 +93,6 @@ def default_filter(name, obj):
 
 
 class DecoratorData:
-
     """Decorator data.
 
     Attributes
@@ -116,7 +115,6 @@ class DecoratorData:
 
 
 class Settings:
-
     """Define the patching behaviour.
 
     Attributes
@@ -170,7 +168,6 @@ class Settings:
 
 
 class Patch:
-
     """Describe all the information required to apply a patch.
 
     Attributes

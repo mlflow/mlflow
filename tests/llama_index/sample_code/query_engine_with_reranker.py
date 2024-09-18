@@ -3,6 +3,7 @@ Sample code to define an query engine with post processors and save it with mode
 
 Ref: https://qdrant.tech/documentation/quickstart/
 """
+
 from typing import List, Optional
 
 from llama_index.core import Document, QueryBundle, VectorStoreIndex

@@ -3,6 +3,7 @@
 From https://github.com/ryan-roemer/sphinx-bootstrap-theme.
 
 """
+
 import os
 
 VERSION = (0, 1, 9)

@@ -164,9 +164,9 @@ class SqlAlchemyStore(AbstractStore):
                 # inefficiency from multiple threads waiting for the lock to check for engine
                 # existence if it has already been created.
                 if db_uri not in SqlAlchemyStore._db_uri_sql_alchemy_engine_map:
-                    SqlAlchemyStore._db_uri_sql_alchemy_engine_map[
-                        db_uri
-                    ] = mlflow.store.db.utils.create_sqlalchemy_engine_with_retry(db_uri)
+                    SqlAlchemyStore._db_uri_sql_alchemy_engine_map[db_uri] = (
+                        mlflow.store.db.utils.create_sqlalchemy_engine_with_retry(db_uri)
+                    )
         self.engine = SqlAlchemyStore._db_uri_sql_alchemy_engine_map[db_uri]
         # On a completely fresh MLflow installation against an empty database (verify database
         # emptiness by checking that 'experiments' etc aren't in the list of table names), run all
@@ -1476,9 +1476,9 @@ class SqlAlchemyStore(AbstractStore):
             )
             dataset_uuids = {}
             for existing_dataset in existing_datasets:
-                dataset_uuids[
-                    (existing_dataset.name, existing_dataset.digest)
-                ] = existing_dataset.dataset_uuid
+                dataset_uuids[(existing_dataset.name, existing_dataset.digest)] = (
+                    existing_dataset.dataset_uuid
+                )
 
             # collect all objects to write to DB in a single list
             objs_to_write = []
@@ -1490,9 +1490,9 @@ class SqlAlchemyStore(AbstractStore):
                     dataset_input.dataset.digest,
                 ) not in dataset_uuids:
                     new_dataset_uuid = uuid.uuid4().hex
-                    dataset_uuids[
-                        (dataset_input.dataset.name, dataset_input.dataset.digest)
-                    ] = new_dataset_uuid
+                    dataset_uuids[(dataset_input.dataset.name, dataset_input.dataset.digest)] = (
+                        new_dataset_uuid
+                    )
                     objs_to_write.append(
                         SqlDataset(
                             dataset_uuid=new_dataset_uuid,
@@ -1518,9 +1518,9 @@ class SqlAlchemyStore(AbstractStore):
             )
             input_uuids = {}
             for existing_input in existing_inputs:
-                input_uuids[
-                    (existing_input.source_id, existing_input.destination_id)
-                ] = existing_input.input_uuid
+                input_uuids[(existing_input.source_id, existing_input.destination_id)] = (
+                    existing_input.input_uuid
+                )
 
             # add input edges to objs_to_write
             for dataset_input in dataset_inputs:
@@ -1529,9 +1529,9 @@ class SqlAlchemyStore(AbstractStore):
                 ]
                 if (dataset_uuid, run_id) not in input_uuids:
                     new_input_uuid = uuid.uuid4().hex
-                    input_uuids[
-                        (dataset_input.dataset.name, dataset_input.dataset.digest)
-                    ] = new_input_uuid
+                    input_uuids[(dataset_input.dataset.name, dataset_input.dataset.digest)] = (
+                        new_input_uuid
+                    )
                     objs_to_write.append(
                         SqlInput(
                             input_uuid=new_input_uuid,

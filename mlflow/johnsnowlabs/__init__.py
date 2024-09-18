@@ -44,6 +44,7 @@ You can set them using the following code:
     }
     os.environ["JOHNSNOWLABS_LICENSE_JSON"] = json.dumps(creds)
 """
+
 import json
 import logging
 import os
