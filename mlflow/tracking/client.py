@@ -24,7 +24,11 @@ from mlflow.entities import (
     DatasetInput,
     Experiment,
     FileInfo,
+    LoggedModel,
     Metric,
+    ModelInput,
+    ModelOutput,
+    ModelStatus,
     Param,
     Run,
     RunTag,
@@ -487,6 +491,7 @@ class MlflowClient:
         max_results: int = SEARCH_TRACES_DEFAULT_MAX_RESULTS,
         order_by: Optional[List[str]] = None,
         page_token: Optional[str] = None,
+        model_id: Optional[str] = None,
     ) -> PagedList[Trace]:
         """
         Return traces that match the given list of search expressions within the experiments.
@@ -513,6 +518,7 @@ class MlflowClient:
             max_results=max_results,
             order_by=order_by,
             page_token=page_token,
+            model_id=model_id,
         )
 
         get_display_handler().display_traces(traces)
@@ -1443,6 +1449,9 @@ class MlflowClient:
         timestamp: Optional[int] = None,
         step: Optional[int] = None,
         synchronous: Optional[bool] = None,
+        dataset_name: Optional[str] = None,
+        dataset_digest: Optional[str] = None,
+        model_id: Optional[str] = None,
     ) -> Optional[RunOperations]:
         """
         Log a metric against the run ID.
@@ -1518,7 +1527,15 @@ class MlflowClient:
             synchronous if synchronous is not None else not MLFLOW_ENABLE_ASYNC_LOGGING.get()
         )
         return self._tracking_client.log_metric(
-            run_id, key, value, timestamp, step, synchronous=synchronous
+            run_id,
+            key,
+            value,
+            timestamp,
+            step,
+            synchronous=synchronous,
+            dataset_name=dataset_name,
+            dataset_digest=dataset_digest,
+            model_id=model_id,
         )
 
     def log_param(
@@ -1863,6 +1880,7 @@ class MlflowClient:
         self,
         run_id: str,
         datasets: Optional[Sequence[DatasetInput]] = None,
+        models: Optional[Sequence[ModelInput]] = None,
     ) -> None:
         """
         Log one or more dataset inputs to a run.
@@ -1870,11 +1888,15 @@ class MlflowClient:
         Args:
             run_id: String ID of the run.
             datasets: List of :py:class:`mlflow.entities.DatasetInput` instances to log.
+            models: List of :py:class:`mlflow.entities.ModelInput` instances to log.
 
         Raises:
             mlflow.MlflowException: If any errors occur.
         """
-        self._tracking_client.log_inputs(run_id, datasets)
+        self._tracking_client.log_inputs(run_id, datasets, models)
+
+    def log_outputs(self, run_id: str, models: Sequence[ModelOutput]):
+        self._tracking_client.log_outputs(run_id, models)
 
     def log_artifact(self, run_id, local_path, artifact_path=None) -> None:
         """Write a local file or directory to the remote ``artifact_uri``.
@@ -3590,6 +3612,7 @@ class MlflowClient:
         description: Optional[str] = None,
         await_creation_for: int = DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
         local_model_path: Optional[str] = None,
+        model_id: Optional[str] = None,
     ) -> ModelVersion:
         tracking_uri = self._tracking_client.tracking_uri
         if (
@@ -3632,6 +3655,7 @@ class MlflowClient:
             description=description,
             await_creation_for=await_creation_for,
             local_model_path=local_model_path,
+            model_id=model_id,
         )
 
     def create_model_version(
@@ -4740,3 +4764,39 @@ class MlflowClient:
         """
         _validate_model_name(name)
         return self._get_registry_client().get_model_version_by_alias(name, alias)
+
+    def create_logged_model(
+        self,
+        experiment_id: str,
+        name: str,
+        run_id: Optional[str] = None,
+        tags: Optional[Dict[str, str]] = None,
+        params: Optional[Dict[str, str]] = None,
+        model_type: Optional[str] = None,
+    ) -> LoggedModel:
+        return self._tracking_client.create_logged_model(
+            experiment_id, name, run_id, tags, params, model_type
+        )
+
+    def finalize_logged_model(self, model_id: str, status: ModelStatus) -> LoggedModel:
+        return self._tracking_client.finalize_logged_model(model_id, status)
+
+    def get_logged_model(self, model_id: str) -> LoggedModel:
+        return self._tracking_client.get_logged_model(model_id)
+
+    def set_logged_model_tag(self, model_id: str, key: str, value: str):
+        return self._tracking_client.set_logged_model_tag(model_id, key, value)
+
+    def log_model_artifacts(self, model_id: str, local_dir: str) -> None:
+        return self._tracking_client.log_model_artifacts(model_id, local_dir)
+
+    def search_logged_models(
+        self,
+        experiment_ids: List[str],
+        filter_string: Optional[str] = None,
+        max_results: Optional[int] = None,
+        order_by: Optional[List[str]] = None,
+    ):
+        return self._tracking_client.search_logged_models(
+            experiment_ids, filter_string, max_results, order_by
+        )

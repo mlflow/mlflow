@@ -18,7 +18,9 @@ from mlflow.entities import (
     DatasetInput,
     Experiment,
     InputTag,
+    LoggedModel,
     Metric,
+    ModelInput,
     Param,
     Run,
     RunStatus,
@@ -826,6 +828,8 @@ def log_metric(
     synchronous: Optional[bool] = None,
     timestamp: Optional[int] = None,
     run_id: Optional[str] = None,
+    model_id: Optional[str] = None,
+    dataset: Optional[Dataset] = None,
 ) -> Optional[RunOperations]:
     """
     Log a metric under the current run. If no run is active, this method will create
@@ -871,14 +875,77 @@ def log_metric(
     """
     run_id = run_id or _get_or_start_run().info.run_id
     synchronous = synchronous if synchronous is not None else not MLFLOW_ENABLE_ASYNC_LOGGING.get()
-    return MlflowClient().log_metric(
+    _log_inputs_for_metrics_if_necessary(
         run_id,
-        key,
-        value,
-        timestamp or get_current_time_millis(),
-        step or 0,
-        synchronous=synchronous,
+        [
+            Metric(
+                key=key,
+                value=value,
+                timestamp=timestamp or get_current_time_millis(),
+                step=step or 0,
+                model_id=model_id,
+                dataset_name=dataset.name if dataset is not None else None,
+                dataset_digest=dataset.digest if dataset is not None else None,
+            ),
+        ],
+        datasets=[dataset] if dataset is not None else None,
     )
+    timestamp = timestamp or get_current_time_millis()
+    step = step or 0
+    model_ids = (
+        [model_id]
+        if model_id is not None
+        else (_get_model_ids_for_new_metric_if_exist(run_id, step) or [None])
+    )
+    for model_id in model_ids:
+        return MlflowClient().log_metric(
+            run_id,
+            key,
+            value,
+            timestamp,
+            step,
+            synchronous=synchronous,
+            model_id=model_id,
+            dataset_name=dataset.name if dataset is not None else None,
+            dataset_digest=dataset.digest if dataset is not None else None,
+        )
+
+
+def _log_inputs_for_metrics_if_necessary(
+    run_id, metrics: List[Metric], datasets: Optional[List[Dataset]] = None
+) -> None:
+    client = MlflowClient()
+    run = client.get_run(run_id)
+    datasets = datasets or []
+    for metric in metrics:
+        if metric.model_id is not None and metric.model_id not in [
+            inp.model_id for inp in run.inputs.model_inputs
+        ] + [output.model_id for output in run.outputs.model_outputs]:
+            client.log_inputs(run_id, models=[ModelInput(model_id=metric.model_id)])
+        if (metric.dataset_name, metric.dataset_digest) not in [
+            (inp.dataset.name, inp.dataset.digest) for inp in run.inputs.dataset_inputs
+        ]:
+            matching_dataset = next(
+                (
+                    dataset
+                    for dataset in datasets
+                    if dataset.name == metric.dataset_name
+                    and dataset.digest == metric.dataset_digest
+                ),
+                None,
+            )
+            if matching_dataset is not None:
+                client.log_inputs(
+                    run_id,
+                    datasets=[DatasetInput(matching_dataset._to_mlflow_entity(), tags=[])],
+                )
+
+
+def _get_model_ids_for_new_metric_if_exist(run_id: str, metric_step: str) -> List[str]:
+    client = MlflowClient()
+    run = client.get_run(run_id)
+    model_outputs_at_step = [mo for mo in run.outputs.model_outputs if mo.step == metric_step]
+    return [mo.model_id for mo in model_outputs_at_step]
 
 
 def log_metrics(
@@ -887,6 +954,8 @@ def log_metrics(
     synchronous: Optional[bool] = None,
     run_id: Optional[str] = None,
     timestamp: Optional[int] = None,
+    model_id: Optional[str] = None,
+    dataset: Optional[Dataset] = None,
 ) -> Optional[RunOperations]:
     """
     Log multiple metrics for the current run. If no run is active, this method will create a new
@@ -930,10 +999,37 @@ def log_metrics(
     """
     run_id = run_id or _get_or_start_run().info.run_id
     timestamp = timestamp or get_current_time_millis()
-    metrics_arr = [Metric(key, value, timestamp, step or 0) for key, value in metrics.items()]
+    step = step or 0
+    dataset_name = dataset.name if dataset is not None else None
+    dataset_digest = dataset.digest if dataset is not None else None
+    model_ids = (
+        [model_id]
+        if model_id is not None
+        else (_get_model_ids_for_new_metric_if_exist(run_id, step) or [None])
+    )
+    metrics_arr = [
+        Metric(
+            key,
+            value,
+            timestamp,
+            step or 0,
+            model_id=model_id,
+            dataset_name=dataset_name,
+            dataset_digest=dataset_digest,
+        )
+        for key, value in metrics.items()
+        for model_id in model_ids
+    ]
+    _log_inputs_for_metrics_if_necessary(
+        run_id, metrics_arr, [dataset] if dataset is not None else None
+    )
     synchronous = synchronous if synchronous is not None else not MLFLOW_ENABLE_ASYNC_LOGGING.get()
     return MlflowClient().log_batch(
-        run_id=run_id, metrics=metrics_arr, params=[], tags=[], synchronous=synchronous
+        run_id=run_id,
+        metrics=metrics_arr,
+        params=[],
+        tags=[],
+        synchronous=synchronous,
     )
 
 
@@ -1828,6 +1924,60 @@ def delete_experiment(experiment_id: str) -> None:
 
     """
     MlflowClient().delete_experiment(experiment_id)
+
+
+def create_logged_model(
+    name: str,
+    run_id: Optional[str] = None,
+    tags: Optional[Dict[str, str]] = None,
+    params: Optional[Dict[str, str]] = None,
+    model_type: Optional[str] = None,
+    experiment_id: Optional[str] = None,
+) -> LoggedModel:
+    run = active_run()
+    if run_id is None and run is not None:
+        run_id = run.info.run_id
+    experiment_id = experiment_id if experiment_id is not None else _get_experiment_id()
+    return MlflowClient().create_logged_model(
+        experiment_id=experiment_id,
+        name=name,
+        run_id=run_id,
+        tags=tags,
+        params=params,
+        model_type=model_type,
+    )
+
+
+def get_logged_model(model_id: str) -> LoggedModel:
+    return MlflowClient().get_logged_model(model_id)
+
+
+def search_logged_models(
+    experiment_ids: Optional[List[str]] = None,
+    filter_string: Optional[str] = None,
+    max_results: Optional[int] = None,
+    order_by: Optional[List[str]] = None,
+    output_format: str = "pandas",
+) -> Union[List[LoggedModel], "pandas.DataFrame"]:
+    experiment_ids = experiment_ids or [_get_experiment_id()]
+    models = MlflowClient().search_logged_models(
+        experiment_ids=experiment_ids,
+        filter_string=filter_string,
+        max_results=max_results,
+        order_by=order_by,
+    )
+    if output_format == "pandas":
+        import pandas as pd
+
+        return pd.DataFrame([model.to_dictionary() for model in models])
+    elif output_format == "list":
+        return models
+    else:
+        raise MlflowException(
+            "Unsupported output format: %s. Supported string values are 'pandas' or 'list'"
+            % output_format,
+            INVALID_PARAMETER_VALUE,
+        )
 
 
 def delete_run(run_id: str) -> None:

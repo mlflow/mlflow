@@ -36,7 +36,8 @@ def _get_latest_model_version(client, name, stage):
 
 
 class ParsedModelUri(NamedTuple):
-    name: str
+    model_id: Optional[str] = None
+    name: Optional[str] = None
     version: Optional[str] = None
     stage: Optional[str] = None
     alias: Optional[str] = None
@@ -46,6 +47,7 @@ def _parse_model_uri(uri):
     """
     Returns a ParsedModelUri tuple. Since a models:/ URI can only have one of
     {version, stage, 'latest', alias}, it will return
+        - (id, None, None, None) to look for a specific model by ID,
         - (name, version, None, None) to look for a specific version,
         - (name, None, stage, None) to look for the latest version of a stage,
         - (name, None, None, None) to look for the latest of all versions.
@@ -76,16 +78,21 @@ def _parse_model_uri(uri):
         else:
             # The suffix is a specific stage (case insensitive), e.g. "models:/AdsModel1/Production"
             return ParsedModelUri(name, stage=suffix)
-    else:
+    elif "@" in path:
         # The URI is an alias URI, e.g. "models:/AdsModel1@Champion"
         alias_parts = parts[0].rsplit("@", 1)
         if len(alias_parts) != 2 or alias_parts[1].strip() == "":
             raise MlflowException(_improper_model_uri_msg(uri))
         return ParsedModelUri(alias_parts[0], alias=alias_parts[1])
+    else:
+        # The URI is of the form "models:/<model_id>"
+        return ParsedModelUri(parts[0])
 
 
 def get_model_name_and_version(client, models_uri):
-    (model_name, model_version, model_stage, model_alias) = _parse_model_uri(models_uri)
+    (model_id, model_name, model_version, model_stage, model_alias) = _parse_model_uri(models_uri)
+    if model_id is not None:
+        return (model_id,)
     if model_version is not None:
         return model_name, model_version
     if model_alias is not None:

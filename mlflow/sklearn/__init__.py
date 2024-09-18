@@ -334,7 +334,7 @@ def save_model(
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name="scikit-learn"))
 def log_model(
     sk_model,
-    artifact_path,
+    name: Optional[str] = None,
     conda_env=None,
     code_paths=None,
     serialization_format=SERIALIZATION_FORMAT_CLOUDPICKLE,
@@ -346,6 +346,11 @@ def log_model(
     extra_pip_requirements=None,
     pyfunc_predict_fn="predict",
     metadata=None,
+    params: Optional[Dict[str, Any]] = None,
+    tags: Optional[Dict[str, Any]] = None,
+    model_type: Optional[str] = None,
+    step: int = 0,
+    model_id: Optional[str] = None,
 ):
     """
     Log a scikit-learn model as an MLflow artifact for the current run. Produces an MLflow Model
@@ -357,7 +362,7 @@ def log_model(
 
     Args:
         sk_model: scikit-learn model to be saved.
-        artifact_path: Run-relative artifact path.
+        name: Model name.
         conda_env: {{ conda_env }}
         code_paths: {{ code_paths }}
         serialization_format: The format in which to serialize the model. This should be one of
@@ -411,7 +416,7 @@ def log_model(
 
     """
     return Model.log(
-        artifact_path=artifact_path,
+        name=name,
         flavor=mlflow.sklearn,
         sk_model=sk_model,
         conda_env=conda_env,
@@ -425,6 +430,11 @@ def log_model(
         extra_pip_requirements=extra_pip_requirements,
         pyfunc_predict_fn=pyfunc_predict_fn,
         metadata=metadata,
+        params=params,
+        tags=tags,
+        model_type=model_type,
+        step=step,
+        model_id=model_id,
     )
 
 
