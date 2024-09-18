@@ -88,7 +88,14 @@ def fetch_patch_prs(version):
 
 @click.command()
 @click.option("--version", required=True, help="The version to release")
-def main(version):
+@click.option(
+    "--dry-run/--no-dry-run",
+    "dry_run",
+    is_flag=True,
+    default=True,
+    envvar="DRY_RUN",
+)
+def main(version, dry_run):
     release_branch = get_release_branch(version)
     commits = get_commits(release_branch)
     patch_prs = fetch_patch_prs(version)
@@ -114,7 +121,7 @@ def main(version):
         print("3. Run the following command on the new branch:\n")
         print("git cherry-pick " + " ".join(cherry_picks[::-1]))
         print(f"\n4. File a PR against {release_branch}.")
-        sys.exit(1)
+        sys.exit(0 if dry_run else 1)
 
 
 if __name__ == "__main__":
