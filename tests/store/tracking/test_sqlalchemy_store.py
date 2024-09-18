@@ -1307,7 +1307,9 @@ def test_set_tag(store: SqlAlchemyStore, monkeypatch):
     # test setting tags that are too long fails.
     monkeypatch.setenv("MLFLOW_TRUNCATE_LONG_VALUES", "false")
     with pytest.raises(MlflowException, match=f"exceeded length limit of {MAX_TAG_VAL_LENGTH}"):
-        store.set_tag(run.info.run_id, entities.RunTag("longTagKey", "a" * (MAX_TAG_VAL_LENGTH + 1)))
+        store.set_tag(
+            run.info.run_id, entities.RunTag("longTagKey", "a" * (MAX_TAG_VAL_LENGTH + 1))
+        )
 
     monkeypatch.setenv("MLFLOW_TRUNCATE_LONG_VALUES", "true")
     store.set_tag(run.info.run_id, entities.RunTag("longTagKey", "a" * (MAX_TAG_VAL_LENGTH + 1)))

@@ -7,6 +7,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, ErrorCode
 from mlflow.utils.os import is_windows
 from mlflow.utils.validation import (
+    MAX_TAG_VAL_LENGTH,
     _is_numeric,
     _validate_batch_log_data,
     _validate_batch_log_limits,
@@ -19,7 +20,6 @@ from mlflow.utils.validation import (
     _validate_run_id,
     _validate_tag_name,
     path_not_unique,
-    MAX_TAG_VAL_LENGTH,
 )
 
 GOOD_METRIC_OR_PARAM_NAMES = [
