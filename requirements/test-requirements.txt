@@ -52,3 +52,4 @@ pyspark
 # Required for testing the opentelemetry exporter of tracing
 opentelemetry-exporter-otlp-proto-grpc
 opentelemetry-exporter-otlp-proto-http
+uvicorn
