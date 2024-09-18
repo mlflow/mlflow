@@ -1,4 +1,4 @@
-"""increase run tag value limit to 65535
+"""increase run tag value limit to 8000
 
 Revision ID: f5a4f2784254
 Revises: 4465047574b1
@@ -26,7 +26,7 @@ def upgrade():
         batch_op.alter_column(
             "value",
             existing_type=sa.String(5000),
-            type_=sa.String(65535),
+            type_=sa.String(8000),
             existing_nullable=True,
             existing_server_default=None,
         )
