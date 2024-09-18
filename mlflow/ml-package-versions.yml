@@ -671,6 +671,8 @@ langchain:
           "langchain-core!=0.1.39", # https://github.com/langchain-ai/langchain/issues/19947
           "langchain-openai",
           "langgraph",
+          "fastapi",
+          "uvicorn",
         ]
       # langchain-openai 0.1.22 is imcomptible with earlier langchain-core due to
       # https://github.com/langchain-ai/langchain/commit/b83f1eb0d56dbf99605a1fce93953ee09d77aabf
@@ -708,6 +710,8 @@ langchain:
           "spacy",
           "langchain-core!=0.1.39", # https://github.com/langchain-ai/langchain/issues/19947
           "pytest-asyncio", # for testing runnable async functions patches
+          "fastapi",
+          "uvicorn",
         ]
     run: |
       pytest tests/langchain/test_langchain_autolog.py
