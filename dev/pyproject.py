@@ -131,8 +131,8 @@ def build(package_type: PackageType) -> None:
                     # a remote Kubernetes cluster
                     "kubernetes",
                     # Required to serve models through MLServer
-                    "mlserver>=1.2.0,!=1.3.1",
-                    "mlserver-mlflow>=1.2.0,!=1.3.1",
+                    # "mlserver>=1.2.0,!=1.3.1",
+                    # "mlserver-mlflow>=1.2.0,!=1.3.1",
                     "virtualenv",
                     # Required for exporting metrics from the MLflow server to Prometheus
                     # as part of the MLflow server monitoring add-on

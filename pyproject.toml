@@ -69,8 +69,6 @@ extras = [
   "azureml-core>=1.2.0",
   "pysftp",
   "kubernetes",
-  "mlserver>=1.2.0,!=1.3.1",
-  "mlserver-mlflow>=1.2.0,!=1.3.1",
   "virtualenv",
   "prometheus-flask-exporter",
 ]
