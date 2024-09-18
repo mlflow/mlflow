@@ -717,9 +717,7 @@ langchain:
         echo "Testing langchain autolog with pydantic v2"
         pytest tests/langchain/test_langchain_autolog.py
       fi
-      # test with langchain-community package installed
-      LC_VERSION=$(python -c "import langchain; print(langchain.__version__)")
-      pip install langchain-community==$LC_VERSION
+      pip install langchain-community
       sleep 10
       pytest tests/langchain/test_langchain_autolog.py
 
