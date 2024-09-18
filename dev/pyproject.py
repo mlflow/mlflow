@@ -144,8 +144,6 @@ def build(package_type: PackageType) -> None:
                 ],
                 "mlserver": [
                     # Required to serve models through MLServer
-                    # NOTE: remove the upper version pin once protobuf is no longer pinned in
-                    # mlserver. Reference issue: https://github.com/SeldonIO/MLServer/issues/1089
                     "mlserver>=1.2.0,!=1.3.1",
                     "mlserver-mlflow>=1.2.0,!=1.3.1",
                 ],
