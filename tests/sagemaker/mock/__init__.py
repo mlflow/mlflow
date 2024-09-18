@@ -714,7 +714,6 @@ class Endpoint(TimestampedResource):
 
 
 class TransformJob(TimestampedResource):
-
     """
     Object representing a SageMaker transform job. The SageMakerBackend will create
     and manage transform jobs.

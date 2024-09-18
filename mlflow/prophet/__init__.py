@@ -11,6 +11,7 @@ Prophet (native) format
 .. _Prophet:
     https://facebook.github.io/prophet/docs/quick_start.html#python-api
 """
+
 import json
 import logging
 import os

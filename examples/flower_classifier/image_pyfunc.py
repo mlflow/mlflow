@@ -2,6 +2,7 @@
 Example of a custom python function implementing image classifier with image preprocessing embedded
 in the model.
 """
+
 import base64
 import importlib.metadata
 import os

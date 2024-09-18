@@ -17,6 +17,7 @@ LightGBM (native) format
 .. _scikit-learn API:
     https://lightgbm.readthedocs.io/en/latest/Python-API.html#scikit-learn-api
 """
+
 import functools
 import json
 import logging
