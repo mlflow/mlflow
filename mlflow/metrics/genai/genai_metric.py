@@ -250,6 +250,9 @@ def make_genai_metric_from_prompt(
         )
 
     """
+    prompt_template = PromptTemplate([judge_prompt, _PROMPT_FORMATTING_WRAPPER])
+    allowed_variables = prompt_template.variables
+
     # When users create a custom metric using this function,the metric configuration
     # will be serialized and stored as an artifact. This enables us to later deserialize
     # the configuration, allowing users to understand their LLM evaluation results more clearly.
@@ -276,9 +279,7 @@ def make_genai_metric_from_prompt(
         """
         This is the function that is called when the metric is evaluated.
         """
-        prompt_template = PromptTemplate([judge_prompt, _PROMPT_FORMATTING_WRAPPER])
-        missing_variables = prompt_template.variables - set(kwargs.keys())
-        if missing_variables:
+        if missing_variables := allowed_variables - set(kwargs.keys()):
             raise MlflowException(
                 message=f"Missing variable inputs to eval_fn: {missing_variables}",
                 error_code=INVALID_PARAMETER_VALUE,
@@ -293,12 +294,21 @@ def make_genai_metric_from_prompt(
 
         return MetricValue(scores, justifications, aggregate_scores)
 
+    if allowed_variables:
+        eval_fn.__signature__ = Signature(
+            parameters=[
+                Parameter(name=var, kind=Parameter.KEYWORD_ONLY) for var in allowed_variables
+            ]
+        )
+
     return make_metric(
         eval_fn=eval_fn,
         greater_is_better=greater_is_better,
         name=name,
         metric_metadata=metric_metadata,
         genai_metric_args=genai_metric_args,
+        return_genai_metric=True,
+        with_llm_judge=True,
     )
 
 
@@ -594,6 +604,8 @@ def make_genai_metric(
     for var in grading_context_columns:
         signature_parameters.append(Parameter(var, Parameter.POSITIONAL_OR_KEYWORD))
 
+    # Note: this doesn't change how python allows calling the function
+    # extra params in grading_context_columns can only be passed as positional args
     eval_fn.__signature__ = Signature(signature_parameters)
 
     return make_metric(
@@ -604,6 +616,7 @@ def make_genai_metric(
         metric_details=evaluation_context["eval_prompt"].__str__(),
         metric_metadata=metric_metadata,
         genai_metric_args=genai_metric_args,
+        return_genai_metric=True,
     )
 
 
