@@ -17,8 +17,6 @@ kaleido
 hyperopt
 # Required by recipes tests
 ipython
-# Required by automl tests
-flaml[automl]
 # Required by transformers tests
 # Note: other requirements for transformers are defined in cross-version-tests.yml
 # they are not installed here due to their size and stability implications for other test suites.

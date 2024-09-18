@@ -8,6 +8,7 @@ dependencies:
       - torchvision>=0.15.1
       - cloudpickle==1.6.0
       - lightning==2.0.0
+      - numpy<2
       - jsonargparse[signatures]>=4.17.0
       # typeguard is used for type validation in the ax-platform code base. 3.0.0 release has
       # breaking changes that need to be resolved in ax. Remove this pin when

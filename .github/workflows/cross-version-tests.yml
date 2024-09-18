@@ -74,6 +74,10 @@ jobs:
           ref: ${{ github.event.inputs.ref }}
       - uses: ./.github/actions/untracked
       - uses: ./.github/actions/setup-python
+        with:
+          # TODO: Updating python version in cross-version test will likely cause many compatibility problems.
+          # Instead of upgrading at a breath, we will do it gradually.
+          python-version: "3.8"
       - name: Install dependencies
         run: |
           pip install -r dev/requirements.txt

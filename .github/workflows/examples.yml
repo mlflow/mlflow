@@ -74,6 +74,10 @@ jobs:
           echo "examples_changed=$EXAMPLES_CHANGED" >> $GITHUB_OUTPUT
 
       - uses: ./.github/actions/setup-python
+        with:
+          # TODO: Updating python version in example test will likely cause many compatibility problems.
+          # Instead of upgrading at a breath, we will do it gradually
+          python-version: "3.8"
       - uses: ./.github/actions/setup-pyenv
 
       - name: Install dependencies

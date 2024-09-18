@@ -994,7 +994,9 @@ class DefaultEvaluator(ModelEvaluator):
 
             if algorithm == "kernel":
                 shap_values = shap.Explanation(
-                    explainer.shap_values(sampled_X), feature_names=self.feature_names
+                    explainer.shap_values(sampled_X),
+                    feature_names=self.feature_names,
+                    data=sampled_X,
                 )
             else:
                 shap_values = explainer(sampled_X)

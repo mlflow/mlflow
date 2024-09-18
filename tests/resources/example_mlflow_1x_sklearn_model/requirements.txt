@@ -2,4 +2,5 @@ mlflow
 cloudpickle==1.6.0
 psutil==5.9.0
 scikit-learn==1.1.2
+numpy==1.26.4
 typing-extensions==4.1.1

@@ -216,7 +216,7 @@ check_and_install_pyenv() {
 
 check_and_install_min_py_version() {
   # Get the minimum supported version for development purposes
-  min_py_version="3.8"
+  min_py_version="3.9"
 
   echo "The minimum version of Python to ensure backwards compatibility for MLflow development is: $(
     tput bold

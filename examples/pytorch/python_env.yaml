@@ -1,4 +1,4 @@
-python: "3.8"
+python: "3.9"
 build_dependencies:
   - pip
 dependencies:
@@ -7,3 +7,4 @@ dependencies:
   - mlflow>=1.0
   - tensorboardX
   - protobuf<4.0.0
+  - numpy<2

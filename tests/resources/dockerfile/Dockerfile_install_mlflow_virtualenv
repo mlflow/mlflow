@@ -13,8 +13,8 @@ RUN git clone \
     https://github.com/pyenv/pyenv.git /root/.pyenv
 ENV PYENV_ROOT="/root/.pyenv"
 ENV PATH="$PYENV_ROOT/bin:$PATH"
-RUN apt install -y python3.8 python3.8-distutils \
-    && ln -s -f $(which python3.8) /usr/bin/python \
+RUN apt install -y python3.9 python3.9-distutils \
+    && ln -s -f $(which python3.9) /usr/bin/python \
     && wget https://bootstrap.pypa.io/get-pip.py -O /tmp/get-pip.py \
     && python /tmp/get-pip.py
 RUN pip install virtualenv

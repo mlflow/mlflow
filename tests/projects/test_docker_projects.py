@@ -290,7 +290,7 @@ def test_docker_build_image_local(tmp_path):
     dockerfile = tmp_path.joinpath("Dockerfile")
     dockerfile.write_text(
         """
-FROM python:3.8
+FROM python:3.9
 RUN pip --version
 """
     )

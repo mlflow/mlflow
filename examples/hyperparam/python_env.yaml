@@ -1,8 +1,8 @@
-python: "3.8"
+python: "3.9"
 build_dependencies:
   - pip
 dependencies:
-  - numpy
+  - numpy<2
   - click
   - pandas
   - scipy
