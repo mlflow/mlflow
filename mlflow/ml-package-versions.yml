@@ -721,8 +721,10 @@ langchain:
         echo "Testing langchain autolog with pydantic v2"
         pytest tests/langchain/test_langchain_autolog.py
       fi
-      pip install langchain-community --no-deps
-      sleep 10
+
+      echo "Testing langchain autolog with langchain-community"
+      # Install with 'langchain' to ensure the compatible version is installed
+      pip install langchain langchain-community
       pytest tests/langchain/test_langchain_autolog.py
 
 llama_index:

@@ -3,6 +3,7 @@ from operator import itemgetter
 from typing import Any, Dict, List, Optional
 from unittest import mock
 
+import langchain
 import openai
 import pytest
 from langchain.chains.llm import LLMChain
@@ -26,7 +27,6 @@ try:
     from langchain_community.document_loaders import TextLoader
     from langchain_community.llms import OpenAI
     from langchain_community.vectorstores import FAISS
-    from test_langchain_model_export import DeterministicDummyEmbeddings
 
     _LC_COMMUNITY_INSTALLED = True
 except ImportError:
@@ -56,6 +56,7 @@ from mlflow.models.utils import _read_example
 from mlflow.pyfunc.context import Context, set_prediction_context
 from mlflow.tracing.constant import TraceMetadataKey, TraceTagKey
 
+from tests.langchain.conftest import DeterministicDummyEmbeddings
 from tests.tracing.conftest import async_logging_enabled  # noqa: F401
 from tests.tracing.helper import get_traces
 
@@ -351,6 +352,10 @@ def test_llmchain_autolog_with_registered_model_name():
 
 
 @pytest.mark.skipif(not _LC_COMMUNITY_INSTALLED, reason="This test requires langchain_community")
+@pytest.mark.skipif(
+    Version(langchain.__version__) >= Version("0.3.0"),
+    reason="LLMChain saving does not work in LangChain v0.3.0",
+)
 def test_loaded_llmchain_autolog():
     mlflow.langchain.autolog(log_models=True, log_input_examples=True)
     model = create_openai_llmchain()
@@ -377,13 +382,12 @@ def test_loaded_llmchain_autolog():
         assert signature == infer_signature(question, [TEST_CONTENT])
 
 
-@pytest.mark.skipif(not _LC_COMMUNITY_INSTALLED, reason="This test requires langchain_community")
 @mock.patch("mlflow.tracing.export.mlflow.get_display_handler")
 def test_loaded_llmchain_within_model_evaluation(mock_get_display, tmp_path, async_logging_enabled):
     # Disable autolog here as it is enabled in other tests.
     mlflow.langchain.autolog(disable=True)
 
-    model = create_openai_llmchain()
+    model = create_openai_runnable()
     model_path = tmp_path / "model"
     mlflow.langchain.save_model(model, path=model_path)
     loaded_model = mlflow.pyfunc.load_model(model_path)
@@ -397,7 +401,7 @@ def test_loaded_llmchain_within_model_evaluation(mock_get_display, tmp_path, asy
     if async_logging_enabled:
         mlflow.flush_trace_async_logging(terminate=True)
 
-    assert response == [TEST_CONTENT]
+    assert response == '[{"role": "user", "content": "What is MLflow?"}]'
     trace = mlflow.get_trace(request_id)
     assert trace.info.tags[TraceTagKey.EVAL_REQUEST_ID] == request_id
     assert trace.info.request_metadata[TraceMetadataKey.SOURCE_RUN] == run_id

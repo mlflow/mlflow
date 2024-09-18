@@ -1021,15 +1021,14 @@ def autolog(
         inspected_modules = set()
 
         # Get all installed LangChain packages
-        lc_pkgs = [
-            d.metadata["Name"]
-            for d in importlib.metadata.distributions()
-            if d.metadata["Name"].startswith("langchain")
-        ]
-        lc_modules = [importlib.import_module(pkg.replace("-", "_")) for pkg in lc_pkgs]
-
-        for module in lc_modules:
-            _inspect_module_and_patch_cls(module, inspected_modules, patched_classes)
+        for pkg in importlib.metadata.distributions():
+            if pkg.metadata["Name"].startswith("langchain"):
+                module_name = pkg.metadata["Name"].replace("-", "_")
+                try:
+                    module = importlib.import_module(module_name)
+                    _inspect_module_and_patch_cls(module, inspected_modules, patched_classes)
+                except Exception:
+                    pass
 
         if extra_model_classes:
             from langchain_core.runnables import Runnable
