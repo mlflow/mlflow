@@ -298,6 +298,11 @@ def _combine_input_and_output(input, output, session_id, func_name):
 
 
 def _update_langchain_model_config(model):
+    # LangChain v0.3 uses pydantic v2
+    if hasattr(model, "model_config"):
+        model.model_config["extra"] = "allow"
+        return
+
     try:
         from langchain_core.pydantic_v1 import Extra
     except ImportError as e:
