@@ -25,7 +25,6 @@ from mlflow.data.evaluation_dataset import (
 from mlflow.entities.dataset_input import DatasetInput
 from mlflow.entities.input_tag import InputTag
 from mlflow.exceptions import MlflowException
-from mlflow.metrics.base import MetricValue
 from mlflow.models.evaluation.validation import (
     MetricThreshold,
     ModelValidationFailedException,
@@ -158,6 +157,8 @@ class EvaluationMetric:
 
 
 def dynamically_generate_genai_eval_metric(eval_fn, with_llm_judge=False):
+    from mlflow.metrics.base import MetricValue
+
     if with_llm_judge:
 
         def gen_ai_with_llm_judge_call_method(
