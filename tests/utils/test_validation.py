@@ -270,7 +270,7 @@ def test_validate_batch_log_data(monkeypatch):
     ]
     tags_with_bad_val = [
         RunTag("good-tag-key", "hi"),
-        RunTag("another-good-key", "but-bad-val" * 1000),
+        RunTag("another-good-key", "but-bad-val" * 6000),
     ]
     bad_kwargs = {
         "metrics": [
