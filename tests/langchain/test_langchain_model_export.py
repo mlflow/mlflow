@@ -64,7 +64,6 @@ from langchain_community.llms import OpenAI
 from langchain_community.utilities import SQLDatabase, TextRequestsWrapper
 from langchain_community.vectorstores import FAISS
 from langchain_core.callbacks.base import BaseCallbackHandler
-from langchain_experimental.sql import SQLDatabaseChain
 from packaging import version
 from packaging.version import Version
 from pydantic import BaseModel
@@ -1040,6 +1039,8 @@ def load_db(persist_dir):
     reason="LangChain 0.1.14 and 0.1.15 has a bug in loading SQLDatabaseChain",
 )
 def test_log_and_load_sql_database_chain(tmp_path):
+    from langchain_experimental.sql import SQLDatabaseChain
+
     # Create the SQLDatabaseChain
     db_file_path = tmp_path / "my_database.db"
     sqlite_uri = f"sqlite:///{db_file_path}"

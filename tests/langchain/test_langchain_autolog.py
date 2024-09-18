@@ -19,7 +19,6 @@ from langchain_core.prompts import PromptTemplate
 from langchain_core.prompts.chat import ChatPromptTemplate
 from langchain_core.runnables import Runnable, RunnableLambda, RunnablePassthrough
 from langchain_core.runnables.config import RunnableConfig
-from langchain_text_splitters.character import CharacterTextSplitter
 
 # NB: We run this test suite twice - once with langchain_community installed and once without.
 try:
@@ -34,6 +33,12 @@ except ImportError:
     from langchain_openai import ChatOpenAI, OpenAI
 
     _LC_COMMUNITY_INSTALLED = False
+
+# langchain-text-splitters is moved to a separate package since LangChain v0.1.10
+try:
+    from langchain_text_splitters.character import CharacterTextSplitter
+except ImportError:
+    from langchain.text_splitter import CharacterTextSplitter
 
 from packaging.version import Version
 

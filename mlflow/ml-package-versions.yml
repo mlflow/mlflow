@@ -696,8 +696,7 @@ langchain:
     requirements:
       ">= 0.0.0": [
           "pyspark",
-          # Pinning for the same reason as in the models section
-          "openai<1.8.0",
+          "openai",
           "google-search-results",
           "psutil",
           "faiss-cpu",
