@@ -251,8 +251,6 @@ def is_in_databricks_serverless():
 
 
 def is_dbfs_fuse_available():
-    if not is_in_databricks_runtime():
-        return False
 
     with open(os.devnull, "w") as devnull_stderr, open(os.devnull, "w") as devnull_stdout:
         try:
