@@ -271,7 +271,7 @@ def test_validate_batch_log_data(monkeypatch):
     ]
     tags_with_bad_val = [
         RunTag("good-tag-key", "hi"),
-        RunTag("another-good-key", "a" (MAX_TAG_VAL_LENGTH + 1)),
+        RunTag("another-good-key", "a" * (MAX_TAG_VAL_LENGTH + 1)),
     ]
     bad_kwargs = {
         "metrics": [
