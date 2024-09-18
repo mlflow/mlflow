@@ -80,14 +80,14 @@ class _BaseDataclass:
         return asdict(self, dict_factory=lambda obj: {k: v for (k, v) in obj if v is not None})
 
     @classmethod
-    def from_dict(self, data):
+    def from_dict(cls, data):
         """
         Create an instance of the class from a dict, ignoring any undefined fields.
         This is useful when the dict contains extra fields, causing cls(**data) to fail.
         """
-        field_names = [field.name for field in fields(self)]
+        field_names = [field.name for field in fields(cls)]
         filtered_data = {k: v for k, v in data.items() if k in field_names}
-        return self(**filtered_data)
+        return cls(**filtered_data)
 
 
 @dataclass
