@@ -1,3 +1,5 @@
+from typing import Any, Dict, Optional
+
 import numpy as np
 import pandas as pd
 
@@ -14,12 +16,17 @@ class DspyModelWrapper:
             used at serving time.
     """
 
-    def __init__(self, model, dspy_settings, **kwargs):
-        super().__init__(**kwargs)
+    def __init__(
+        self,
+        model: "dspy.Module",  # noqa: F821
+        dspy_settings: "dsp.utils.settings.Settings",  # noqa: F821
+        model_config: Optional[Dict[str, Any]] = None,
+    ):
         self.model = model
         self.dspy_settings = dspy_settings
+        self.model_config = model_config or {}
 
-    def predict(self, inputs, **kwargs):
+    def predict(self, inputs: Any, params: Optional[Dict[str, Any]] = None):
         supported_input_types = (np.ndarray, pd.DataFrame, str)
         if not isinstance(inputs, supported_input_types):
             raise MlflowException(

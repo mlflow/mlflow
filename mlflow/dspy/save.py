@@ -3,6 +3,7 @@
 import logging
 import os
 from importlib.metadata import version
+from typing import Any, Dict, List, Optional, Union
 
 import cloudpickle
 import yaml
@@ -33,7 +34,10 @@ from mlflow.utils.environment import (
     _PythonEnv,
 )
 from mlflow.utils.file_utils import get_total_file_size, write_to
-from mlflow.utils.model_utils import _validate_and_prepare_target_save_path
+from mlflow.utils.model_utils import (
+    _validate_and_copy_code_paths,
+    _validate_and_prepare_target_save_path,
+)
 from mlflow.utils.requirements_utils import _get_pinned_requirement
 
 FLAVOR_NAME = "dspy"
@@ -68,14 +72,16 @@ def get_default_conda_env():
 def save_model(
     model,
     path,
-    conda_env=None,
-    mlflow_model=None,
-    signature: ModelSignature = None,
-    input_example: ModelInputExample = None,
-    pip_requirements=None,
-    extra_pip_requirements=None,
-    save_model_kwargs=None,
-    metadata=None,
+    model_config: Optional[Dict[str, Any]] = None,
+    code_paths: Optional[List[str]] = None,
+    mlflow_model: Optional[Model] = None,
+    conda_env: Optional[Union[List[str], str]] = None,
+    signature: Optional[ModelSignature] = None,
+    input_example: Optional[ModelInputExample] = None,
+    pip_requirements: Optional[Union[List[str], str]] = None,
+    extra_pip_requirements: Optional[Union[List[str], str]] = None,
+    metadata: Optional[Dict[str, Any]] = None,
+    **kwargs,
 ):
     """
     Save a Dspy model.
@@ -86,16 +92,18 @@ def save_model(
     Args:
         model: an instance of `dspy.Module`. The Dspy model/module to be saved.
         path: local path where the MLflow model is to be saved.
-        conda_env: {{ conda_env }}
+        model_config: keyword arguments to be passed to the Dspy Module at instantiation.
+        code_paths: {{ code_paths }}
         mlflow_model: an instance of `mlflow.models.Model`, defaults to None. MLflow model
             configuration to which to add the Dspy model metadata. If None, a blank instance will
             be created.
+        conda_env: {{ conda_env }}
         signature: {{ signature }}
         input_example: {{ input_example }}
         pip_requirements: {{ pip_requirements }}
         extra_pip_requirements: {{ extra_pip_requirements }}
-        save_model_kwargs: A dict of kwargs to pass save method.
         metadata: {{ metadata }}
+        kwargs: Additional kwargs.
     """
 
     import dspy
@@ -121,8 +129,6 @@ def save_model(
     if metadata is not None:
         mlflow_model.metadata = metadata
 
-    save_model_kwargs = save_model_kwargs or {}
-
     model_data_subpath = _MODEL_DATA_PATH
     # Construct new data folder in existing path.
     data_path = os.path.join(path, model_data_subpath)
@@ -147,13 +153,16 @@ def save_model(
         "dspy_version": version("dspy-ai"),
     }
 
+    code_dir_subpath = _validate_and_copy_code_paths(code_paths, path)
+
     # Add flavor info to `mlflow_model`.
-    mlflow_model.add_flavor(FLAVOR_NAME, **flavor_options)
+    mlflow_model.add_flavor(FLAVOR_NAME, code=code_dir_subpath, **flavor_options)
 
     # Add loader_module, data and env data to `mlflow_model`.
     pyfunc.add_to_model(
         mlflow_model,
         loader_module="mlflow.dspy",
+        code=code_dir_subpath,
         conda_env=_CONDA_ENV_FILE_NAME,
         python_env=_PYTHON_ENV_FILE_NAME,
     )
@@ -202,16 +211,19 @@ def save_model(
 @experimental
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
 def log_model(
-    model,
-    artifact_path,
-    conda_env=None,
-    signature: ModelSignature = None,
-    input_example: ModelInputExample = None,
-    registered_model_name=None,
-    await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
-    pip_requirements=None,
-    extra_pip_requirements=None,
-    metadata=None,
+    dspy_model: "dspy.Module",  # noqa: F821
+    artifact_path: str,
+    model_config: Optional[Dict[str, Any]] = None,
+    code_paths: Optional[List[str]] = None,
+    conda_env: Optional[Union[List[str], str]] = None,
+    signature: Optional[ModelSignature] = None,
+    input_example: Optional[ModelInputExample] = None,
+    registered_model_name: Optional[str] = None,
+    await_registration_for: int = DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
+    pip_requirements: Optional[Union[List[str], str]] = None,
+    extra_pip_requirements: Optional[Union[List[str], str]] = None,
+    metadata: Optional[Dict[str, Any]] = None,
+    **kwargs,
 ):
     """
     Log a Dspy model along with metadata to MLflow.
@@ -220,8 +232,10 @@ def log_model(
     environments to MLflow.
 
     Args:
-        model: an instance of `dspy.module`. The Dspy model to be saved.
+        dspy_model: an instance of `dspy.module`. The Dspy model to be saved.
         artifact_path: the run-relative path to which to log model artifacts.
+        model_config: keyword arguments to be passed to the Dspy Module at instantiation.
+        code_paths: {{ code_paths }}
         conda_env: {{ conda_env }}
         signature: {{ signature }}
         input_example: {{ input_example }}
@@ -282,7 +296,7 @@ def log_model(
     return Model.log(
         artifact_path=artifact_path,
         flavor=mlflow.dspy,
-        model=model,
+        model=dspy_model,
         conda_env=conda_env,
         registered_model_name=registered_model_name,
         signature=signature,

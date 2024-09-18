@@ -2,6 +2,7 @@ import json
 
 import dspy
 import dspy.teleprompt
+import pytest
 
 import mlflow
 from mlflow.models import ModelSignature
@@ -10,7 +11,14 @@ from mlflow.types.schema import ColSpec, Schema
 from tests.helper_functions import expect_status_code, pyfunc_serve_and_score_model
 
 
-def test_basic_save():
+@pytest.fixture
+def cleanup_fixture():
+    yield
+
+    dspy.settings.configure(lm=None, rm=None)
+
+
+def test_basic_save(cleanup_fixture):
     class CoT(dspy.Module):
         def __init__(self):
             super().__init__()
@@ -37,7 +45,7 @@ def test_basic_save():
     assert isinstance(loaded_model, CoT)
 
 
-def test_save_compiled_model():
+def test_save_compiled_model(cleanup_fixture):
     class CoT(dspy.Module):
         def __init__(self):
             super().__init__()
@@ -78,7 +86,7 @@ def test_save_compiled_model():
     assert loaded_model.prog.predictors()[0].demos == optimized_cot.prog.predictors()[0].demos
 
 
-def test_save_model_with_multiple_modules():
+def test_save_model_with_multiple_modules(cleanup_fixture):
     class GenerateAnswer(dspy.Signature):
         """Answer questions with short factoid answers."""
 
@@ -128,8 +136,18 @@ def test_save_model_with_multiple_modules():
 
     model_path = "model"
     model_url = f"runs:/{run.info.run_id}/{model_path}"
-    loaded_model = mlflow.dspy.load_model(model_url)
 
+    input_examples = {"inputs": ["What is 2 + 2?"]}
+    # test that the model can be served
+    response = pyfunc_serve_and_score_model(
+        model_uri=model_url,
+        data=json.dumps(input_examples),
+        content_type="application/json",
+        extra_args=["--env-manager", "local"],
+    )
+    expect_status_code(response, 200)
+
+    loaded_model = mlflow.dspy.load_model(model_url)
     assert isinstance(loaded_model, RAG)
     assert loaded_model.retrieve is not None
     assert (
@@ -153,7 +171,7 @@ def test_save_model_with_multiple_modules():
     assert original_settings == loaded_settings
 
 
-def test_serving_logged_model():
+def test_serving_logged_model(cleanup_fixture):
     class CoT(dspy.Module):
         def __init__(self):
             super().__init__()
@@ -163,7 +181,9 @@ def test_serving_logged_model():
             return self.prog(question=question)
 
     dspy_model = CoT()
-    dspy.settings.configure(lm=dspy.OpenAI(model="gpt-4o-mini", max_tokens=250))
+    random_answers = ["4", "6", "8", "10"]
+    lm = dspy.utils.DummyLM(answers=random_answers)
+    dspy.settings.configure(lm=lm)
 
     input_examples = {"inputs": ["What is 2 + 2?"]}
     input_schema = Schema([ColSpec("string")])
