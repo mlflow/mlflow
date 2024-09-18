@@ -395,6 +395,7 @@ support additional params.
 In summary, use the function-based Model when you have a simple function to serialize.
 If you need more power, use  the class-based model.
 """
+
 import collections
 import functools
 import importlib
@@ -2539,14 +2540,16 @@ def save_model(
                     if isinstance(each_message, ChatMessage):
                         messages.append(each_message)
                     else:
-                        messages.append(ChatMessage(**each_message))
+                        messages.append(ChatMessage.from_dict(each_message))
             else:
                 # If the input example is a dictionary, convert it to ChatMessage format
                 messages = [
-                    ChatMessage(**m) if isinstance(m, dict) else m
+                    ChatMessage.from_dict(m) if isinstance(m, dict) else m
                     for m in input_example["messages"]
                 ]
-                params = ChatParams(**{k: v for k, v in input_example.items() if k != "messages"})
+                params = ChatParams.from_dict(
+                    {k: v for k, v in input_example.items() if k != "messages"}
+                )
             input_example = {
                 "messages": [m.to_dict() for m in messages],
                 **params.to_dict(),
@@ -2562,8 +2565,8 @@ def save_model(
                 raise MlflowException(
                     "Failed to save ChatModel. Please ensure that the model's predict() method "
                     "returns a ChatResponse object. If your predict() method currently returns "
-                    "a dict, you can instantiate a ChatResponse by unpacking the output, e.g. "
-                    "`ChatResponse(**output)`",
+                    "a dict, you can instantiate a ChatResponse using `from_dict()`, e.g. "
+                    "`ChatResponse.from_dict(output)`",
                 )
         elif isinstance(python_model, PythonModel):
             saved_example = _save_example(mlflow_model, input_example, path, example_no_conversion)

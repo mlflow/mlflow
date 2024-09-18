@@ -196,7 +196,7 @@ def test_to_dict_converts_nested_dataclasses(sample_output):
 
 
 def test_to_dict_excludes_nones():
-    response = ChatResponse(**MOCK_RESPONSE).to_dict()
+    response = ChatResponse.from_dict(MOCK_RESPONSE).to_dict()
     assert "name" not in response["choices"][0]["message"]
 
 
