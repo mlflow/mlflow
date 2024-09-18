@@ -194,7 +194,10 @@ def dynamically_generate_genai_eval_metric(eval_fn, with_llm_judge=False):
                     annotation=bool,
                     default=False,
                 ),
-                *[Parameter(name, Parameter.KEYWORD_ONLY) for name in allowed_kwargs_params.keys()],
+                *[
+                    Parameter(name, Parameter.KEYWORD_ONLY, annotation=Union[pd.Series, list])
+                    for name in allowed_kwargs_params.keys()
+                ],
             ]
         )
         call_method = gen_ai_with_llm_judge_call_method
@@ -281,7 +284,10 @@ def dynamically_generate_genai_eval_metric(eval_fn, with_llm_judge=False):
                     annotation=bool,
                     default=False,
                 ),
-                *[Parameter(name, Parameter.KEYWORD_ONLY) for name in allowed_kwargs_names],
+                *[
+                    Parameter(name, Parameter.KEYWORD_ONLY, annotation=Union[pd.Series, str, list])
+                    for name in allowed_kwargs_names
+                ],
             ]
         )
         call_method = genai_call_method
