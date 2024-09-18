@@ -1974,8 +1974,8 @@ def search_logged_models(
         return models
     else:
         raise MlflowException(
-            "Unsupported output format: %s. Supported string values are 'pandas' or 'list'"
-            % output_format,
+            f"Unsupported output format: {output_format}. Supported string values are "
+            "'pandas' or 'list'",
             INVALID_PARAMETER_VALUE,
         )
 

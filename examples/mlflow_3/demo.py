@@ -16,9 +16,9 @@ import mlflow
 import mlflow.sklearn
 
 with tempfile.TemporaryDirectory() as tmp_dir:
-    mlflow.set_tracking_uri(tmp_dir)
-    mlflow.set_registry_uri(tmp_dir)
-    mlflow.set_experiment("mlflow3demo")
+    # mlflow.set_tracking_uri(tmp_dir)
+    # mlflow.set_registry_uri(tmp_dir)
+    # mlflow.set_experiment("mlflow3demo")
 
     # Read the wine-quality csv file from the URL
     csv_url = (

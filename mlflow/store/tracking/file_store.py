@@ -1958,8 +1958,8 @@ class FileStore(AbstractStore):
         experiment = self.get_experiment(experiment_id)
         if experiment is None:
             raise MlflowException(
-                "Could not create model under experiment with ID %s - no such experiment "
-                "exists." % experiment_id,
+                f"Could not create model under experiment with ID {experiment_id} - no such "
+                "experiment exists." % experiment_id,
                 databricks_pb2.RESOURCE_DOES_NOT_EXIST,
             )
         if experiment.lifecycle_stage != LifecycleStage.ACTIVE:

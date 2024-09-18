@@ -346,6 +346,7 @@ def log_model(
     extra_pip_requirements=None,
     pyfunc_predict_fn="predict",
     metadata=None,
+    # New arguments
     params: Optional[Dict[str, Any]] = None,
     tags: Optional[Dict[str, Any]] = None,
     model_type: Optional[str] = None,
