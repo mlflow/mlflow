@@ -156,7 +156,24 @@ class EvaluationMetric:
         return "EvaluationMetric(" + ", ".join(parts) + ")"
 
 
+# NB: we need this function because we cannot modify the signature of
+# a class's __call__ method after the class has been defined.
+# This is also useful to distinguish between the signatures with/without llm_judge.
 def dynamically_generate_genai_eval_metric(eval_fn, with_llm_judge=False):
+    """
+    Dynamically generate a GenAIEvaluationMetric class that can be used to evaluate the metric
+    on the given input data. The generated class is callable with a __call__ method that
+    takes the arguments specified in the signature of the eval_fn function.
+
+    Args:
+        eval_fn: the evaluation function of the EvaluationMetric.
+        with_llm_judge: whether the metric is used with the LLM judge. Default to False.
+            This should only be used internally by MLflow. When generating a metric from
+            `make_genai_metric_from_prompt`, this should be set to True.
+
+    Returns:
+        A dynamically generated callable GenAIEvaluation class.
+    """
     from mlflow.metrics.base import MetricValue
 
     if with_llm_judge:
