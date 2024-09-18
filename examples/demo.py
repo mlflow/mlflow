@@ -1,4 +1,7 @@
 # ruff: noqa
+"""
+python examples/demo.py
+"""
 import os
 from pathlib import Path
 import tempfile
