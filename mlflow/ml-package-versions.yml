@@ -310,6 +310,8 @@ spacy:
   models:
     minimum: "2.2.4"
     maximum: "3.7.6"
+    python:
+      "== dev": "3.9"
     requirements:
       ">= 0.0.0": ["scikit-learn", "click<8.1.0"]
       "<= 3.0.9": ["flask<2.1.0", "werkzeug<3"]
@@ -618,7 +620,7 @@ transformers:
       "< 4.30.0": ["tensorflow<2.13.0"]
       # Installing `transformers==4.34.1` with `datasets` results in installing `huggingface_hub==0.17.3`.
       # `accelerate>=0.32.0` is incompatible with `huggingface_hub==0.17.3`.
-      "== 4.34.1": ["accelerate<0.32.0"]
+      "== 4.34.1": ["accelerate<0.32.0", "sentence-transformers<3.1.0"]
     run: |
       pytest tests/transformers/test_transformers_autolog.py
 
@@ -628,7 +630,7 @@ openai:
     install_dev: |
       pip install git+https://github.com/openai/openai-python
   models:
-    minimum: "0.27.2"
+    minimum: "1.0.1"
     maximum: "1.43.0"
     requirements:
       ">= 0.0.0": ["pyspark", "tiktoken", "aiohttp", "tenacity"]
@@ -669,6 +671,9 @@ langchain:
           "langchain-core!=0.1.39", # https://github.com/langchain-ai/langchain/issues/19947
           "langchain-openai",
           "langgraph",
+          # Required to run tests/openai/mock_openai.py
+          "fastapi",
+          "uvicorn",
         ]
       # langchain-openai 0.1.22 is imcomptible with earlier langchain-core due to
       # https://github.com/langchain-ai/langchain/commit/b83f1eb0d56dbf99605a1fce93953ee09d77aabf
@@ -706,6 +711,9 @@ langchain:
           "spacy",
           "langchain-core!=0.1.39", # https://github.com/langchain-ai/langchain/issues/19947
           "pytest-asyncio", # for testing runnable async functions patches
+          # Required to run tests/openai/mock_openai.py
+          "fastapi",
+          "uvicorn",
         ]
     run: |
       pytest tests/langchain/test_langchain_autolog.py
@@ -713,7 +721,6 @@ langchain:
       PYDANTIC_VERSION=$(python -c "import pydantic; print(pydantic.__version__)")
       if [[ $PYDANTIC_VERSION == 1.* ]]; then
         pip install 'pydantic>2' 'fastapi>=0.100.0'
-        sleep 10
         echo "Testing langchain autolog with pydantic v2"
         pytest tests/langchain/test_langchain_autolog.py
       fi
@@ -738,8 +745,10 @@ llama_index:
           "llama-index-embeddings-databricks",
           # Required to test external vector stores
           "llama-index-vector-stores-qdrant",
+          # Required to run tests/openai/mock_openai.py
+          "fastapi",
+          "uvicorn",
         ]
-      ">= 0.11.0": ["fastapi>=0.100.0"]
     run: pytest tests/llama_index --ignore tests/llama_index/test_llama_index_autolog.py --ignore tests/llama_index/test_llama_index_tracer.py
   autologging:
     minimum: "0.10.44"
@@ -747,8 +756,13 @@ llama_index:
     python:
       "== dev": "3.9"
     requirements:
-      ">= 0.0.0": ["openai"]
-      ">= 0.11.0": ["fastapi>=0.100.0"]
+      ">= 0.0.0": [
+          "openai",
+          # Required to run tests/openai/mock_openai.py
+          "fastapi",
+          "uvicorn",
+        ]
+      "< 0.11.0": ["pydantic<2"]
     run: pytest tests/llama_index/test_llama_index_autolog.py tests/llama_index/test_llama_index_tracer.py
 
 autogen:

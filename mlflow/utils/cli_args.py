@@ -1,6 +1,7 @@
 """
 Definitions of click options shared by several CLI commands.
 """
+
 import warnings
 
 import click

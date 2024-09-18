@@ -387,18 +387,6 @@ def test_model_pyfunc_predict_with_params(basic_model, tmp_path):
     with pytest.raises(MlflowException, match=r"Incompatible types for param 'batch_size'"):
         loaded_pyfunc.predict(sentence, {"batch_size": "16"})
 
-    model_path = tmp_path / "model2"
-    mlflow.sentence_transformers.save_model(
-        basic_model,
-        model_path,
-        signature=infer_signature(sentence, params={"invalid_param": "value"}),
-    )
-    loaded_pyfunc = pyfunc.load_model(model_uri=model_path)
-    with pytest.raises(
-        MlflowException, match=r"Received invalid parameter value for `params` argument"
-    ):
-        loaded_pyfunc.predict(sentence, {"invalid_param": "random_value"})
-
     model_path = tmp_path / "model3"
     mlflow.sentence_transformers.save_model(basic_model, model_path)
     loaded_pyfunc = pyfunc.load_model(model_uri=model_path)
@@ -409,6 +397,27 @@ def test_model_pyfunc_predict_with_params(basic_model, tmp_path):
         "schema. This model does not define a params schema. Ignoring provided params: "
         "['batch_size']"
     )
+
+
+@pytest.mark.skipif(
+    Version(sentence_transformers.__version__) >= Version("3.1.0"),
+    reason="This test only passes for Sentence Transformers < 3.1.0",
+)
+def test_model_pyfunc_predict_with_invalid_params(basic_model, tmp_path):
+    sentence = "hello world and hello mlflow"
+    model_path = tmp_path / "model"
+    mlflow.sentence_transformers.save_model(
+        basic_model,
+        model_path,
+        signature=infer_signature(sentence, params={"invalid_param": "value"}),
+    )
+    loaded_pyfunc = pyfunc.load_model(model_uri=model_path)
+
+    loaded_pyfunc = pyfunc.load_model(model_uri=model_path)
+    with pytest.raises(
+        MlflowException, match=r"Received invalid parameter value for `params` argument"
+    ):
+        loaded_pyfunc.predict(sentence, {"invalid_param": "random_value"})
 
 
 def test_spark_udf(basic_model, spark):

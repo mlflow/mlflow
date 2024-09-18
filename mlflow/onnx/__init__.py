@@ -7,6 +7,7 @@ ONNX (native) format
 :py:mod:`mlflow.pyfunc`
     Produced for use by generic pyfunc-based deployment tools and batch inference.
 """
+
 import logging
 import os
 from pathlib import Path

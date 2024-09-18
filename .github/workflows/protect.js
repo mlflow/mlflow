@@ -1,3 +1,11 @@
+function getSleepLength(iterationCount, numPendingJobs) {
+  if (iterationCount <= 5 && numPendingJobs <= 5) {
+    // It's likely that this job was triggered with other quick jobs.
+    // To minimize the wait time, shorten the polling interval for the first 5 iterations.
+    return 5 * 1000; // 5 seconds
+  }
+  return (numPendingJobs <= 3 ? 1 : 5) * 60 * 1000; // 1 minute or 5 minutes
+}
 module.exports = async ({ github, context }) => {
   const {
     repo: { owner, repo },
@@ -74,9 +82,10 @@ module.exports = async ({ github, context }) => {
   }
 
   const start = new Date();
-  const MINUTE = 1000 * 60;
-  const TIMEOUT = 120 * MINUTE; // 2 hours
+  let iterationCount = 0;
+  const TIMEOUT = 120 * 60 * 1000; // 2 hours
   while (new Date() - start < TIMEOUT) {
+    ++iterationCount;
     const checks = await fetchChecks(sha);
     const longest = Math.max(...checks.map(({ name }) => name.length));
     checks.forEach(({ name, status }) => {
@@ -96,9 +105,9 @@ module.exports = async ({ github, context }) => {
     }
 
     await logRateLimit();
-    const pending = checks.filter(({ status }) => status === STATE.pending);
-    const waitMinutes = pending.length <= 3 ? 1 : 5;
-    await sleep(waitMinutes * MINUTE);
+    const pendingJobs = checks.filter(({ status }) => status === STATE.pending);
+    const sleepLength = getSleepLength(iterationCount, pendingJobs.length);
+    await sleep(sleepLength);
   }
 
   throw new Error("Timeout");

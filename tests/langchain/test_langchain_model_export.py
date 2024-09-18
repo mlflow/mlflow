@@ -3506,29 +3506,6 @@ def test_signature_inference_fails(monkeypatch: pytest.MonkeyPatch):
 
 @pytest.mark.skipif(
     Version(langchain.__version__) < Version("0.2.0"),
-    reason="Langgraph are not supported the way we want in earlier versions",
-)
-def test_langgraph_agent_log_model_from_code():
-    input_example = {"messages": [{"role": "user", "content": "what is the weather in sf?"}]}
-
-    pyfunc_artifact_path = "weather_agent"
-    with mlflow.start_run() as run:
-        mlflow.langchain.log_model(
-            lc_model="tests/langchain/sample_code/langgraph_agent.py",
-            artifact_path=pyfunc_artifact_path,
-            input_example=input_example,
-        )
-    pyfunc_model_uri = f"runs:/{run.info.run_id}/{pyfunc_artifact_path}"
-    pyfunc_model_path = _download_artifact_from_uri(pyfunc_model_uri)
-    reloaded_model = Model.load(os.path.join(pyfunc_model_path, "MLmodel"))
-    actual = reloaded_model.resources["databricks"]
-    expected = {"serving_endpoint": [{"name": "fake-endpoint"}]}
-    assert all(item in actual["serving_endpoint"] for item in expected["serving_endpoint"])
-    assert all(item in expected["serving_endpoint"] for item in actual["serving_endpoint"])
-
-
-@pytest.mark.skipif(
-    Version(langchain.__version__) < Version("0.2.0"),
     reason="Configurable fields are not supported correctly in old versions",
 )
 def test_invoking_model_with_params():

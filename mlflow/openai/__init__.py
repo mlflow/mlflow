@@ -32,6 +32,7 @@ corresponding environment variable. See https://docs.databricks.com/security/sec
 for how to set up secrets on Databricks.
 """
 
+import importlib.metadata
 import itertools
 import logging
 import os
@@ -120,38 +121,20 @@ def get_default_conda_env():
 
 
 def _get_obj_to_task_mapping():
-    if Version(_get_openai_package_version()).major < 1:
-        from openai import api_resources as ar
+    from openai import resources as r
 
-        return {
-            ar.Audio: ar.Audio.OBJECT_NAME,
-            ar.ChatCompletion: ar.ChatCompletion.OBJECT_NAME,
-            ar.Completion: ar.Completion.OBJECT_NAME,
-            ar.Edit: ar.Edit.OBJECT_NAME,
-            ar.Deployment: ar.Deployment.OBJECT_NAME,
-            ar.Embedding: ar.Embedding.OBJECT_NAME,
-            ar.Engine: ar.Engine.OBJECT_NAME,
-            ar.File: ar.File.OBJECT_NAME,
-            ar.Image: ar.Image.OBJECT_NAME,
-            ar.FineTune: ar.FineTune.OBJECT_NAME,
-            ar.Model: ar.Model.OBJECT_NAME,
-            ar.Moderation: "moderations",
-        }
-    else:
-        from openai import resources as r
-
-        return {
-            r.Audio: "audio",
-            r.chat.Completions: "chat.completions",
-            r.Completions: "completions",
-            r.Images.edit: "images.edit",
-            r.Embeddings: "embeddings",
-            r.Files: "files",
-            r.Images: "images",
-            r.FineTuning: "fine_tuning",
-            r.Moderations: "moderations",
-            r.Models: "models",
-        }
+    return {
+        r.Audio: "audio",
+        r.chat.Completions: "chat.completions",
+        r.Completions: "completions",
+        r.Images.edit: "images.edit",
+        r.Embeddings: "embeddings",
+        r.Files: "files",
+        r.Images: "images",
+        r.FineTuning: "fine_tuning",
+        r.Moderations: "moderations",
+        r.Models: "models",
+    }
 
 
 def _get_model_name(model):
@@ -220,13 +203,7 @@ def _get_api_config() -> _OpenAIApiConfig:
 
 
 def _get_openai_package_version():
-    import openai
-
-    try:
-        return openai.__version__
-    except AttributeError:
-        # openai < 0.27.5 doesn't have a __version__ attribute
-        return openai.version.VERSION
+    return importlib.metadata.version("openai")
 
 
 def _log_secrets_yaml(local_model_dir, scope):
@@ -332,6 +309,9 @@ def save_model(
             path="model",
         )
     """
+    if Version(_get_openai_package_version()).major < 1:
+        raise MlflowException("Only openai>=1.0 is supported.")
+
     import numpy as np
 
     _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)

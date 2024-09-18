@@ -9,6 +9,7 @@ python tests/db/check_migration.py pre-migration
 # post migration
 python tests/db/check_migration.py post-migration
 """
+
 import os
 import uuid
 from pathlib import Path

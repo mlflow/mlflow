@@ -54,7 +54,7 @@ First, please install mlflow to your local machine using the following command:
 
 .. code-block:: bash
 
-  pip install mlflow[extras]
+  pip install mlflow[mlserver]
 
 ``[extras]`` will install additional dependencies required for this tutorial including `mlserver <https://mlserver.readthedocs.io/en/latest/>`_ and
 `scikit-learn <https://scikit-learn.org/stable/>`_. Note that scikit-learn is not required for deployment, just for training the example model used in this tutorial.

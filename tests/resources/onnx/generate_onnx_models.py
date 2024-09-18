@@ -8,7 +8,6 @@ Generates the following test resources:
 Usage: python generate_onnx_models.py
 """
 
-
 import numpy as np
 import onnx
 import onnxmltools
