@@ -66,7 +66,12 @@ def test_trace_llm_complete(is_async):
     assert spans[0].outputs["text"] == "Hello"
 
     attr = spans[0].attributes
-    assert attr["usage"] == {"prompt_tokens": 5, "completion_tokens": 7, "total_tokens": 12}
+    assert attr["usage"] == {
+        "prompt_tokens": 5,
+        "completion_tokens": 7,
+        "total_tokens": 12,
+        "completion_tokens_details": None,
+    }
     assert attr["prompt"] == "Hello"
     assert attr["invocation_params"]["model_name"] == model_name
     assert attr["model_dict"]["model"] == model_name
@@ -96,7 +101,12 @@ def test_trace_llm_complete_stream():
     assert spans[0].outputs["text"] == "Hello world"
 
     attr = spans[0].attributes
-    assert attr["usage"] == {"prompt_tokens": 9, "completion_tokens": 12, "total_tokens": 21}
+    assert attr["usage"] == {
+        "prompt_tokens": 9,
+        "completion_tokens": 12,
+        "total_tokens": 21,
+        "completion_tokens_details": None,
+    }
     assert attr["prompt"] == "Hello"
     assert attr["invocation_params"]["model_name"] == model_name
     assert attr["model_dict"]["model"] == model_name
@@ -141,7 +151,12 @@ def test_trace_llm_chat(is_async):
     }
 
     attr = spans[0].attributes
-    assert attr["usage"] == {"prompt_tokens": 9, "completion_tokens": 12, "total_tokens": 21}
+    assert attr["usage"] == {
+        "prompt_tokens": 9,
+        "completion_tokens": 12,
+        "total_tokens": 21,
+        "completion_tokens_details": None,
+    }
     assert attr["invocation_params"]["model_name"] == llm.metadata.model_name
     assert attr["model_dict"]["model"] == llm.metadata.model_name
 
@@ -190,7 +205,12 @@ def test_trace_llm_chat_stream():
     }
 
     attr = spans[0].attributes
-    assert attr["usage"] == {"prompt_tokens": 9, "completion_tokens": 12, "total_tokens": 21}
+    assert attr["usage"] == {
+        "prompt_tokens": 9,
+        "completion_tokens": 12,
+        "total_tokens": 21,
+        "completion_tokens_details": None,
+    }
     assert attr["invocation_params"]["model_name"] == llm.metadata.model_name
     assert attr["model_dict"]["model"] == llm.metadata.model_name
 

@@ -310,6 +310,8 @@ spacy:
   models:
     minimum: "2.2.4"
     maximum: "3.7.6"
+    python:
+      "== dev": "3.9"
     requirements:
       ">= 0.0.0": ["scikit-learn", "click<8.1.0"]
       "<= 3.0.9": ["flask<2.1.0", "werkzeug<3"]
@@ -618,7 +620,7 @@ transformers:
       "< 4.30.0": ["tensorflow<2.13.0"]
       # Installing `transformers==4.34.1` with `datasets` results in installing `huggingface_hub==0.17.3`.
       # `accelerate>=0.32.0` is incompatible with `huggingface_hub==0.17.3`.
-      "== 4.34.1": ["accelerate<0.32.0"]
+      "== 4.34.1": ["accelerate<0.32.0", "sentence-transformers<3.1.0"]
     run: |
       pytest tests/transformers/test_transformers_autolog.py
 
@@ -628,7 +630,7 @@ openai:
     install_dev: |
       pip install git+https://github.com/openai/openai-python
   models:
-    minimum: "0.27.2"
+    minimum: "1.0.1"
     maximum: "1.43.0"
     requirements:
       ">= 0.0.0": ["pyspark", "tiktoken", "aiohttp", "tenacity"]
