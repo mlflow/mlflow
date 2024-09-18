@@ -11,7 +11,6 @@ from typing import Any, Dict, Iterator, List, Mapping, Optional
 from unittest import mock
 
 import langchain
-import numpy as np
 import pytest
 import yaml
 from langchain.agents import AgentType, initialize_agent
@@ -24,7 +23,6 @@ from langchain.chains import (
 from langchain.chains.api import open_meteo_docs
 from langchain.chains.base import Chain
 from langchain.chains.qa_with_sources import load_qa_with_sources_chain
-from langchain.embeddings.base import Embeddings
 from langchain.evaluation.qa import QAEvalChain
 
 from mlflow.tracing.export.inference_table import pop_trace
@@ -64,10 +62,8 @@ from langchain_community.llms import OpenAI
 from langchain_community.utilities import SQLDatabase, TextRequestsWrapper
 from langchain_community.vectorstores import FAISS
 from langchain_core.callbacks.base import BaseCallbackHandler
-from langchain_experimental.sql import SQLDatabaseChain
 from packaging import version
 from packaging.version import Version
-from pydantic import BaseModel
 from pyspark.sql import SparkSession
 
 import mlflow
@@ -93,6 +89,7 @@ from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.types.schema import Array, ColSpec, DataType, Object, Property
 
 from tests.helper_functions import _compare_logged_code_paths, pyfunc_serve_and_score_model
+from tests.langchain.conftest import DeterministicDummyEmbeddings
 from tests.tracing.export.test_inference_table_exporter import _REQUEST_ID
 
 # this kwarg was added in langchain_community 0.0.27, and
@@ -828,22 +825,6 @@ def test_log_and_load_retrieval_qa_chain_multiple_output(tmp_path):
     assert response["predictions"][0][loaded_model.output_key].startswith("Use the following")
 
 
-# Define a special embedding for testing
-class DeterministicDummyEmbeddings(Embeddings, BaseModel):
-    size: int
-
-    def _get_embedding(self, text: str) -> List[float]:
-        seed = abs(hash(text)) % (10**8)
-        np.random.seed(seed)
-        return list(np.random.normal(size=self.size))
-
-    def embed_documents(self, texts: List[str]) -> List[List[float]]:
-        return [self._get_embedding(t) for t in texts]
-
-    def embed_query(self, text: str) -> List[float]:
-        return self._get_embedding(text)
-
-
 def assert_equal_retrievers(retriever, expected_retreiver):
     from langchain.schema.retriever import BaseRetriever
 
@@ -1040,6 +1021,8 @@ def load_db(persist_dir):
     reason="LangChain 0.1.14 and 0.1.15 has a bug in loading SQLDatabaseChain",
 )
 def test_log_and_load_sql_database_chain(tmp_path):
+    from langchain_experimental.sql import SQLDatabaseChain
+
     # Create the SQLDatabaseChain
     db_file_path = tmp_path / "my_database.db"
     sqlite_uri = f"sqlite:///{db_file_path}"
