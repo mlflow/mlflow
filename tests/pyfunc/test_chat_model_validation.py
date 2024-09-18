@@ -229,6 +229,26 @@ def test_chat_request_metadata_must_be_string_map(metadata, match):
 
 
 @pytest.mark.parametrize(
+    ("cls", "data", "match"),
+    [
+        (
+            ChatChoice,
+            {"index": 0, "message": 123},
+            "Expected `message` to be either an instance of `ChatMessage` or a dict",
+        ),
+        (
+            ChatResponse,
+            {"choices": [], "usage": 123},
+            "Expected `usage` to be either an instance of `TokenUsageStats` or a dict",
+        ),
+    ],
+)
+def test_convert_dataclass_throws_on_invalid_data(cls, data, match):
+    with pytest.raises(ValueError, match=match):
+        cls.from_dict(data)
+
+
+@pytest.mark.parametrize(
     ("cls", "data"),
     [
         (ChatMessage, {"role": "user", "content": "hello", "extra": "field"}),

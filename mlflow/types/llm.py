@@ -44,6 +44,12 @@ class _BaseDataclass:
         if isinstance(value, cls):
             return
 
+        if not isinstance(value, dict):
+            raise ValueError(
+                f"Expected `{key}` to be either an instance of `{cls.__name__}` or "
+                f"a dict matching the schema. Received `{type(value).__name__}`"
+            )
+
         try:
             setattr(self, key, cls.from_dict(value))
         except TypeError as e:
