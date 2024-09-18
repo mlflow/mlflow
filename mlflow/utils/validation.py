@@ -116,6 +116,10 @@ def missing_value(path):
     return f"Missing value for required parameter '{path}'."
 
 
+def exceeds_maximum_length(path, limit):
+    return f"'{path}' exceeds the maximum length of {limit} characters"
+
+
 def append_to_json_path(currenPath, value):
     if not currenPath:
         return value
@@ -440,7 +444,7 @@ def _validate_experiment_name(experiment_name):
 
     if len(experiment_name) > MAX_EXPERIMENT_NAME_LENGTH:
         raise MlflowException.invalid_parameter_value(
-            f"Experiment name exceeds the maximum length of {MAX_EXPERIMENT_NAME_LENGTH} characters"
+            exceeds_maximum_length("name", MAX_EXPERIMENT_NAME_LENGTH)
         )
 
 
@@ -546,27 +550,27 @@ def _validate_dataset(dataset: Dataset):
         raise MlflowException("Dataset source cannot be None", INVALID_PARAMETER_VALUE)
     if len(dataset.name) > MAX_DATASET_NAME_SIZE:
         raise MlflowException(
-            f"Dataset name exceeds the maximum length of {MAX_DATASET_NAME_SIZE}",
+            exceeds_maximum_length("name", MAX_DATASET_NAME_SIZE),
             INVALID_PARAMETER_VALUE,
         )
     if len(dataset.digest) > MAX_DATASET_DIGEST_SIZE:
         raise MlflowException(
-            f"Dataset digest exceeds the maximum length of {MAX_DATASET_DIGEST_SIZE}",
+            exceeds_maximum_length("digest", MAX_DATASET_DIGEST_SIZE),
             INVALID_PARAMETER_VALUE,
         )
     if len(dataset.source) > MAX_DATASET_SOURCE_SIZE:
         raise MlflowException(
-            f"Dataset source exceeds the maximum length of {MAX_DATASET_SOURCE_SIZE}",
+            exceeds_maximum_length("source", MAX_DATASET_SOURCE_SIZE),
             INVALID_PARAMETER_VALUE,
         )
     if dataset.schema is not None and len(dataset.schema) > MAX_DATASET_SCHEMA_SIZE:
         raise MlflowException(
-            f"Dataset schema exceeds the maximum length of {MAX_DATASET_SCHEMA_SIZE}",
+            exceeds_maximum_length("schema", MAX_DATASET_SCHEMA_SIZE),
             INVALID_PARAMETER_VALUE,
         )
     if dataset.profile is not None and len(dataset.profile) > MAX_DATASET_PROFILE_SIZE:
         raise MlflowException(
-            f"Dataset profile exceeds the maximum length of {MAX_DATASET_PROFILE_SIZE}",
+            exceeds_maximum_length("profile", MAX_DATASET_PROFILE_SIZE),
             INVALID_PARAMETER_VALUE,
         )
 
@@ -585,12 +589,12 @@ def _validate_input_tag(input_tag: InputTag):
         raise MlflowException("InputTag value cannot be None", INVALID_PARAMETER_VALUE)
     if len(input_tag.key) > MAX_INPUT_TAG_KEY_SIZE:
         raise MlflowException(
-            f"InputTag key exceeds the maximum length of {MAX_INPUT_TAG_KEY_SIZE}",
+            exceeds_maximum_length("key", MAX_INPUT_TAG_KEY_SIZE),
             INVALID_PARAMETER_VALUE,
         )
     if len(input_tag.value) > MAX_INPUT_TAG_VALUE_SIZE:
         raise MlflowException(
-            f"InputTag value exceeds the maximum length of {MAX_INPUT_TAG_VALUE_SIZE}",
+            exceeds_maximum_length("value", MAX_INPUT_TAG_VALUE_SIZE),
             INVALID_PARAMETER_VALUE,
         )
 
