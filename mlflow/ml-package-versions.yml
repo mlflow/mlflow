@@ -764,6 +764,7 @@ llama_index:
           "fastapi",
           "uvicorn",
         ]
+      "<= 0.10.68": ["pydantic<2"]
       ">= 0.11.0": ["fastapi>=0.100.0"]
     run: pytest tests/llama_index/test_llama_index_autolog.py tests/llama_index/test_llama_index_tracer.py
 
