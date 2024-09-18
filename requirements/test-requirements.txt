@@ -53,3 +53,4 @@ pyspark
 opentelemetry-exporter-otlp-proto-grpc
 opentelemetry-exporter-otlp-proto-http
 uvicorn
+fastapi
