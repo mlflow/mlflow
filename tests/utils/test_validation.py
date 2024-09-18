@@ -19,6 +19,7 @@ from mlflow.utils.validation import (
     _validate_run_id,
     _validate_tag_name,
     path_not_unique,
+    MAX_TAG_VAL_LENGTH,
 )
 
 GOOD_METRIC_OR_PARAM_NAMES = [
@@ -270,7 +271,7 @@ def test_validate_batch_log_data(monkeypatch):
     ]
     tags_with_bad_val = [
         RunTag("good-tag-key", "hi"),
-        RunTag("another-good-key", "but-bad-val" * 6000),
+        RunTag("another-good-key", "a" (MAX_TAG_VAL_LENGTH + 1)),
     ]
     bad_kwargs = {
         "metrics": [
