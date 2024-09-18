@@ -719,6 +719,7 @@ langchain:
         echo "Testing langchain autolog with pydantic v2"
         pytest tests/langchain/test_langchain_autolog.py
       fi
+      echo test
 
 llama_index:
   package_info:
