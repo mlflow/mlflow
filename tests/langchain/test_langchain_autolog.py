@@ -382,6 +382,7 @@ def test_loaded_llmchain_autolog():
         assert signature == infer_signature(question, [TEST_CONTENT])
 
 
+@pytest.mark.skipif(not _LC_COMMUNITY_INSTALLED, reason="This test requires langchain_community")
 @mock.patch("mlflow.tracing.export.mlflow.get_display_handler")
 def test_loaded_llmchain_within_model_evaluation(mock_get_display, tmp_path, async_logging_enabled):
     # Disable autolog here as it is enabled in other tests.
