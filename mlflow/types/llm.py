@@ -34,7 +34,7 @@ class _BaseDataclass:
             elif not isinstance(values, list):
                 raise ValueError(f"`{key}` must be a list, got {type(values).__name__}")
 
-    def _convert_dataclass(self, key: str, cls: '_BaseDataclass', required=True):
+    def _convert_dataclass(self, key: str, cls: "_BaseDataclass", required=True):
         value = getattr(self, key)
         if value is None:
             if required:
@@ -49,7 +49,7 @@ class _BaseDataclass:
         except TypeError as e:
             raise ValueError(f"Error when coercing {value} to {cls.__name__}: {e}")
 
-    def _convert_dataclass_list(self, key: str, cls: '_BaseDataclass', required=True):
+    def _convert_dataclass_list(self, key: str, cls: "_BaseDataclass", required=True):
         values = getattr(self, key)
         if values is None:
             if required:
