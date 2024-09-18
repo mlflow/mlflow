@@ -671,6 +671,9 @@ langchain:
           "langchain-core!=0.1.39", # https://github.com/langchain-ai/langchain/issues/19947
           "langchain-openai",
           "langgraph",
+          # Required to run tests/openai/mock_openai.py
+          "fastapi",
+          "uvicorn",
         ]
       # langchain-openai 0.1.22 is imcomptible with earlier langchain-core due to
       # https://github.com/langchain-ai/langchain/commit/b83f1eb0d56dbf99605a1fce93953ee09d77aabf
@@ -708,6 +711,9 @@ langchain:
           "spacy",
           "langchain-core!=0.1.39", # https://github.com/langchain-ai/langchain/issues/19947
           "pytest-asyncio", # for testing runnable async functions patches
+          # Required to run tests/openai/mock_openai.py
+          "fastapi",
+          "uvicorn",
         ]
     run: |
       pytest tests/langchain/test_langchain_autolog.py
@@ -740,6 +746,9 @@ llama_index:
           "llama-index-embeddings-databricks",
           # Required to test external vector stores
           "llama-index-vector-stores-qdrant",
+          # Required to run tests/openai/mock_openai.py
+          "fastapi",
+          "uvicorn",
         ]
       ">= 0.11.0": ["fastapi>=0.100.0"]
     run: pytest tests/llama_index --ignore tests/llama_index/test_llama_index_autolog.py --ignore tests/llama_index/test_llama_index_tracer.py
@@ -749,7 +758,12 @@ llama_index:
     python:
       "== dev": "3.9"
     requirements:
-      ">= 0.0.0": ["openai"]
+      ">= 0.0.0": [
+          "openai",
+          # Required to run tests/openai/mock_openai.py
+          "fastapi",
+          "uvicorn",
+        ]
       ">= 0.11.0": ["fastapi>=0.100.0"]
     run: pytest tests/llama_index/test_llama_index_autolog.py tests/llama_index/test_llama_index_tracer.py
 
