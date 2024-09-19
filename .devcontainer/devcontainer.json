@@ -16,7 +16,7 @@
         "python.defaultInterpreterPath": "/usr/local/bin/python",
         "python.analysis.autoImportCompletions": false,
         "[python]": {
-          "editor.defaultFormatter": "ms-python.black-formatter",
+          "editor.defaultFormatter": "charliermarsh.ruff",
           "editor.formatOnSave": true
         },
         "python.formatting.provider": "none",
@@ -32,7 +32,6 @@
         "GitHub.copilot-chat",
         "GitHub.vscode-pull-request-github",
         "ms-azuretools.vscode-docker",
-        "ms-python.black-formatter",
         "ms-python.python",
         "ms-toolsai.jupyter",
         "oderwat.indent-rainbow",
