@@ -250,6 +250,8 @@ def make_genai_metric_from_prompt(
         )
 
     """
+    import numpy as np
+
     prompt_template = PromptTemplate([judge_prompt, _PROMPT_FORMATTING_WRAPPER])
     allowed_variables = prompt_template.variables
 
@@ -284,6 +286,7 @@ def make_genai_metric_from_prompt(
                 message=f"Missing variable inputs to eval_fn: {missing_variables}",
                 error_code=INVALID_PARAMETER_VALUE,
             )
+        kwargs = {k: [v] if np.isscalar(v) else v for k, v in kwargs.items()}
         grading_payloads = pd.DataFrame(kwargs).to_dict(orient="records")
         arg_strings = [prompt_template.format(**payload) for payload in grading_payloads]
         scores, justifications = _score_model_on_payloads(
@@ -307,8 +310,6 @@ def make_genai_metric_from_prompt(
         name=name,
         metric_metadata=metric_metadata,
         genai_metric_args=genai_metric_args,
-        return_genai_metric=True,
-        with_llm_judge=True,
     )
 
 
@@ -616,7 +617,7 @@ def make_genai_metric(
         metric_details=evaluation_context["eval_prompt"].__str__(),
         metric_metadata=metric_metadata,
         genai_metric_args=genai_metric_args,
-        return_genai_metric=True,
+        strict_signature=True,
     )
 
 

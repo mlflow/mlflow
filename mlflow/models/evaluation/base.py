@@ -158,8 +158,8 @@ class EvaluationMetric:
 
 # NB: we need this function because we cannot modify the signature of
 # a class's __call__ method after the class has been defined.
-# This is also useful to distinguish between the signatures with/without llm_judge.
-def dynamically_generate_genai_eval_metric(eval_fn, with_llm_judge=False):
+# This is also useful to distinguish between the metric signatures with different eval_fn signatures
+def dynamically_generate_eval_metric(eval_fn, strict_signature=False):
     """
     Dynamically generate a GenAIEvaluationMetric class that can be used to evaluate the metric
     on the given input data. The generated class is callable with a __call__ method that
@@ -167,60 +167,25 @@ def dynamically_generate_genai_eval_metric(eval_fn, with_llm_judge=False):
 
     Args:
         eval_fn: the evaluation function of the EvaluationMetric.
-        with_llm_judge: whether the metric is used with the LLM judge. Default to False.
-            This should only be used internally by MLflow. When generating a metric from
-            `make_genai_metric_from_prompt`, this should be set to True.
+        strict_signature: Whether the metric follows a strict signature, if True then
+            the eval_fn must follow below signature:
+                ```
+                def eval_fn(
+                    predictions: "pd.Series",
+                    metrics: Dict[str, MetricValue],
+                    inputs: "pd.Series",
+                    *args,
+                ) -> MetricValue:
+                ```
+            When generating a metric from `make_genai_metric`, this should be set to True.
+            Default to False.
 
     Returns:
-        A dynamically generated callable GenAIEvaluation class.
+        A dynamically generated callable CallableEvaluationMetric class.
     """
     from mlflow.metrics.base import MetricValue
 
-    if with_llm_judge:
-
-        def gen_ai_with_llm_judge_call_method(
-            self,
-            *,
-            return_only_scores: bool = False,
-            **kwargs,
-        ) -> Union[MetricValue, List[str], List[float]]:
-            """
-            Evaluate the metric on the given inputs and predictions.
-            Note: only keyword arguments are supported.
-
-            Args:
-                return_only_scores: If True, return only the scores from the metric.
-                    Otherwise, return the full MetricValue object. Default to False.
-                kwargs: additional arguments used to compute the metric.
-
-            Returns:
-                If return_only_scores is True, return the scores from the metric.
-                Otherwise, return the full MetricValue object.
-            """
-            result = self.eval_fn(**kwargs)
-            if return_only_scores:
-                return result.scores
-            return result
-
-        allowed_kwargs_params = inspect.signature(eval_fn).parameters
-        gen_ai_with_llm_judge_call_method.__signature__ = Signature(
-            parameters=[
-                Parameter("self", Parameter.POSITIONAL_OR_KEYWORD),
-                Parameter(
-                    "return_only_scores",
-                    Parameter.KEYWORD_ONLY,
-                    annotation=bool,
-                    default=False,
-                ),
-                *[
-                    Parameter(name, Parameter.KEYWORD_ONLY, annotation=Union[pd.Series, list])
-                    for name in allowed_kwargs_params.keys()
-                ],
-            ]
-        )
-        call_method = gen_ai_with_llm_judge_call_method
-
-    else:
+    if strict_signature:
         allowed_kwargs_names = [
             param_name
             for param_name in inspect.signature(eval_fn).parameters.keys()
@@ -310,8 +275,56 @@ def dynamically_generate_genai_eval_metric(eval_fn, with_llm_judge=False):
         )
         call_method = genai_call_method
 
+    else:
+
+        def _call_method(
+            self,
+            *,
+            return_only_scores: bool = False,
+            **kwargs,
+        ) -> Union[MetricValue, List[str], List[float]]:
+            """
+            Evaluate the metric on the given inputs and predictions.
+            Note: only keyword arguments are supported.
+
+            Args:
+                return_only_scores: If True, return only the scores from the metric.
+                    Otherwise, return the full MetricValue object. Default to False.
+                kwargs: additional arguments used to compute the metric.
+
+            Returns:
+                If return_only_scores is True, return the scores from the metric.
+                Otherwise, return the full MetricValue object.
+            """
+            result = self.eval_fn(**kwargs)
+            if return_only_scores:
+                return result.scores
+            return result
+
+        allowed_kwargs_params = inspect.signature(eval_fn).parameters
+        _call_method.__signature__ = Signature(
+            parameters=[
+                Parameter("self", Parameter.POSITIONAL_OR_KEYWORD),
+                Parameter(
+                    "return_only_scores",
+                    Parameter.KEYWORD_ONLY,
+                    annotation=bool,
+                    default=False,
+                ),
+                *[
+                    Parameter(
+                        name,
+                        Parameter.KEYWORD_ONLY,
+                        annotation=allowed_kwargs_params[name].annotation,
+                    )
+                    for name in allowed_kwargs_params.keys()
+                ],
+            ]
+        )
+        call_method = _call_method
+
     return type(
-        "GenAIEvaluationMetric",
+        "CallableEvaluationMetric",
         (EvaluationMetric,),
         {"__call__": call_method},
     )
@@ -338,8 +351,7 @@ def make_metric(
     metric_details=None,
     metric_metadata=None,
     genai_metric_args=None,
-    return_genai_metric=False,
-    with_llm_judge=False,
+    strict_signature=False,
 ):
     '''
     A factory function to create an :py:class:`EvaluationMetric` object.
@@ -391,6 +403,18 @@ def make_metric(
         genai_metric_args: (Optional) A dictionary containing arguments specified by users
             when calling make_genai_metric or make_genai_metric_from_prompt. Those args
             are persisted so that we can deserialize the same metric object later.
+        strict_signature: (Optional) Whether the metric follows a strict signature, if True then
+            the eval_fn must follow below signature:
+                ```
+                def eval_fn(
+                    predictions: "pd.Series",
+                    metrics: Dict[str, MetricValue],
+                    inputs: "pd.Series",
+                    *args,
+                ) -> MetricValue:
+                ```
+            When generating a metric from `make_genai_metric`, this should be set to True.
+            Default to False.
 
     .. seealso::
 
@@ -447,12 +471,7 @@ def make_metric(
         "metric_metadata": metric_metadata,
         "genai_metric_args": genai_metric_args,
     }
-    if return_genai_metric:
-        return dynamically_generate_genai_eval_metric(eval_fn, with_llm_judge=with_llm_judge)(
-            **init_args
-        )
-    else:
-        return EvaluationMetric(**init_args)
+    return dynamically_generate_eval_metric(eval_fn, strict_signature=strict_signature)(**init_args)
 
 
 @developer_stable

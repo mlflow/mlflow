@@ -1279,11 +1279,8 @@ def test_genai_metrics_with_llm_judge_callable():
         metric_metadata={"metadata_field": "metadata_value"},
     )
 
-    inputs = ["What is MLflow?", "What is Spark?"]
-    outputs = [
-        "MLflow is an open-source platform",
-        "Apache Spark is an open-source distributed framework",
-    ]
+    inputs = "What is MLflow?"
+    outputs = "MLflow is an open-source platform"
 
     with mock.patch.object(
         model_utils,
@@ -1291,27 +1288,27 @@ def test_genai_metrics_with_llm_judge_callable():
         return_value=properly_formatted_openai_response1,
     ):
         expected_result = custom_judge_prompt_metric.eval_fn(
-            input=pd.Series(inputs), output=pd.Series(outputs)
+            input=pd.Series([inputs]), output=pd.Series([outputs])
         )
         metric_value = custom_judge_prompt_metric(
-            input=pd.Series(inputs),
-            output=pd.Series(outputs),
+            input=inputs,
+            output=outputs,
         )
         scores = custom_judge_prompt_metric(
-            input=pd.Series(inputs),
-            output=pd.Series(outputs),
+            input=[inputs],
+            output=[outputs],
             return_only_scores=True,
         )
 
     assert metric_value == expected_result
-    assert metric_value.scores == [3, 3]
-    assert metric_value.justifications == [openai_justification1, openai_justification1]
+    assert metric_value.scores == [3]
+    assert metric_value.justifications == [openai_justification1]
     assert metric_value.aggregate_results == {
         "mean": 3,
         "variance": 0,
         "p90": 3,
     }
-    assert scores == [3, 3]
+    assert scores == [3]
     assert set(inspect.signature(custom_judge_prompt_metric).parameters.keys()) == {
         "input",
         "output",
