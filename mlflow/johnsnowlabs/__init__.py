@@ -665,7 +665,7 @@ def _load_model(model_uri, dfs_tmpdir_base=None, local_model_path=None):
     return nlp.load(path=local_model_path)
 
 
-def load_model(model_uri, dfs_tmpdir=None, dst_path=None, **kwargs):
+def load_model(model_uri, dfs_tmpdir=None, dst_path=None, **kwargs):  # noqa: D417
     """
     Load the Johnsnowlabs MLflow model from the path.
 
@@ -767,7 +767,7 @@ def _load_pyfunc(path, spark=None):
     )
 
 
-def _get_or_create_sparksession(model_path=None):
+def _get_or_create_sparksession(model_path=None):  # noqa: D417
     """Check if SparkSession running and get it.
 
     If none exists, create a new one using jars in model_path. If model_path not defined, rely on

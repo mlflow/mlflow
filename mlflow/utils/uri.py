@@ -25,7 +25,7 @@ _DATABRICKS_UNITY_CATALOG_SCHEME = "databricks-uc"
 _OSS_UNITY_CATALOG_SCHEME = "uc"
 
 
-def is_local_uri(uri, is_tracking_or_registry_uri=True):
+def is_local_uri(uri, is_tracking_or_registry_uri=True):  # noqa: D417
     """Returns true if the specified URI is a local file path (/foo or file:/foo).
 
     Args:

@@ -454,7 +454,7 @@ class MlflowClient:
         )
 
     @experimental
-    def get_trace(self, request_id: str, display=True) -> Trace:
+    def get_trace(self, request_id: str, display=True) -> Trace:  # noqa: D417
         """
         Get the trace matching the specified ``request_id``.
 
@@ -1386,7 +1386,7 @@ class MlflowClient:
         """
         self._tracking_client.restore_experiment(experiment_id)
 
-    def rename_experiment(self, experiment_id: str, new_name: str) -> None:
+    def rename_experiment(self, experiment_id: str, new_name: str) -> None:  # noqa: D417
         """
         Update an experiment's name. The new name must be unique.
 
@@ -1624,7 +1624,7 @@ class MlflowClient:
         """
         self._tracking_client.set_experiment_tag(experiment_id, key, value)
 
-    def set_tag(
+    def set_tag(  # noqa: D417
         self, run_id: str, key: str, value: Any, synchronous: Optional[bool] = None
     ) -> Optional[RunOperations]:
         """
@@ -1874,7 +1874,7 @@ class MlflowClient:
         """
         self._tracking_client.log_inputs(run_id, datasets)
 
-    def log_artifact(self, run_id, local_path, artifact_path=None) -> None:
+    def log_artifact(self, run_id, local_path, artifact_path=None) -> None:  # noqa: D417
         """Write a local file or directory to the remote ``artifact_uri``.
 
         Args:
@@ -1923,7 +1923,7 @@ class MlflowClient:
             )
         self._tracking_client.log_artifact(run_id, local_path, artifact_path)
 
-    def log_artifacts(
+    def log_artifacts(  # noqa: D417
         self, run_id: str, local_dir: str, artifact_path: Optional[str] = None
     ) -> None:
         """Write a directory of files to the remote ``artifact_uri``.
@@ -2169,7 +2169,7 @@ class MlflowClient:
             else:
                 raise TypeError(f"Unsupported figure object type: '{type(figure)}'")
 
-    def log_image(
+    def log_image(  # noqa: D417
         self,
         run_id: str,
         image: Union["numpy.ndarray", "PIL.Image.Image", "mlflow.Image"],

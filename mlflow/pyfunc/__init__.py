@@ -569,7 +569,7 @@ PY_VERSION = "python_version"
 _logger = logging.getLogger(__name__)
 
 
-def add_to_model(
+def add_to_model(  # noqa: D417
     model,
     loader_module,
     data=None,
@@ -2228,7 +2228,7 @@ def _validate_function_python_model(python_model):
 
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name="scikit-learn"))
 @trace_disabled  # Suppress traces for internal predict calls while saving model
-def save_model(
+def save_model(  # noqa: D417
     path,
     loader_module=None,
     data_path=None,
@@ -2885,7 +2885,7 @@ def log_model(
     )
 
 
-def _save_model_with_loader_module_and_data_path(
+def _save_model_with_loader_module_and_data_path(  # noqa: D417
     path,
     loader_module,
     data_path=None,

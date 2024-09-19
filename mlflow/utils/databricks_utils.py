@@ -773,7 +773,7 @@ def get_databricks_run_url(tracking_uri: str, run_id: str, artifact_path=None) -
         return None
 
 
-def get_databricks_model_version_url(registry_uri: str, name: str, version: str) -> Optional[str]:
+def get_databricks_model_version_url(registry_uri: str, name: str, version: str) -> Optional[str]:  # noqa: D417
     """Obtains a Databricks URL corresponding to the specified Model Version.
 
     Args:

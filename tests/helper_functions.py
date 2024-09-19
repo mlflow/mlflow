@@ -108,7 +108,7 @@ def score_model_in_sagemaker_docker_container(
         return endpoint.invoke(data, content_type)
 
 
-def pyfunc_generate_dockerfile(output_directory, model_uri=None, extra_args=None, env=None):
+def pyfunc_generate_dockerfile(output_directory, model_uri=None, extra_args=None, env=None):  # noqa: D417
     """
     Builds a dockerfile for the specified model.
 
@@ -133,7 +133,7 @@ def pyfunc_generate_dockerfile(output_directory, model_uri=None, extra_args=None
     subprocess.run(cmd, check=True, env=env)
 
 
-def pyfunc_build_image(model_uri=None, extra_args=None, env=None):
+def pyfunc_build_image(model_uri=None, extra_args=None, env=None):  # noqa: D417
     """
     Builds a docker image containing the specified model, returning the name of the image.
 
@@ -223,7 +223,7 @@ def pyfunc_serve_and_score_model(
 
 
 @contextmanager
-def pyfunc_scoring_endpoint(
+def pyfunc_scoring_endpoint(  # noqa: D417
     model_uri, activity_polling_timeout_seconds=500, extra_args=None, stdout=sys.stdout
 ):
     """

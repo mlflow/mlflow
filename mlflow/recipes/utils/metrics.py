@@ -74,7 +74,7 @@ DEFAULT_METRICS = {
 }
 
 
-def _get_error_fn(tmpl: str, use_probability: bool = False, positive_class: Optional[str] = None):
+def _get_error_fn(tmpl: str, use_probability: bool = False, positive_class: Optional[str] = None):  # noqa: D417
     """
     Args:
         tmpl: The template kind, e.g. `regression/v1`.
@@ -111,7 +111,7 @@ def _get_error_fn(tmpl: str, use_probability: bool = False, positive_class: Opti
     )
 
 
-def _get_extended_task(recipe: str, positive_class: str) -> str:
+def _get_extended_task(recipe: str, positive_class: str) -> str:  # noqa: D417
     """
     Args:
         step_config: Step config
@@ -151,7 +151,7 @@ def _get_model_type_from_template(tmpl: str) -> str:
     )
 
 
-def _get_builtin_metrics(ext_task: str) -> Dict[str, str]:
+def _get_builtin_metrics(ext_task: str) -> Dict[str, str]:  # noqa: D417
     """
     Args:
         tmpl: The template kind, e.g. `regression/v1`.
@@ -184,7 +184,7 @@ def transform_multiclass_metrics_dict(eval_metrics: Dict[str, Any], ext_task) ->
     return {transform_multiclass_metric(k, ext_task): v for k, v in eval_metrics.items()}
 
 
-def _get_custom_metrics(step_config: Dict, ext_task: str) -> List[Dict]:
+def _get_custom_metrics(step_config: Dict, ext_task: str) -> List[Dict]:  # noqa: D417
     """
     Args:
         Configuration dictionary: For the train or evaluate step.

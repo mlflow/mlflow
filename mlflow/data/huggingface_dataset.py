@@ -26,7 +26,7 @@ class HuggingFaceDataset(Dataset, PyFuncConvertibleDatasetMixin):
     Represents a HuggingFace dataset for use with MLflow Tracking.
     """
 
-    def __init__(
+    def __init__(  # noqa: D417
         self,
         ds: "datasets.Dataset",
         source: HuggingFaceDatasetSource,

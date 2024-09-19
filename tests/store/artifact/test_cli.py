@@ -82,7 +82,7 @@ def test_download_from_uri():
             assert expected_result == actual_result
 
 
-def _run_download_artifact_command(args) -> pathlib.Path:
+def _run_download_artifact_command(args) -> pathlib.Path:  # noqa: D417
     """
     Args:
         command: An `mlflow artifacts` command list.

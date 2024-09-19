@@ -48,7 +48,7 @@ SERVING_ENVIRONMENT = "SERVING_ENVIRONMENT"
 _logger = logging.getLogger(__name__)
 
 
-def _init(cmd, env_manager):
+def _init(cmd, env_manager):  # noqa: D417
     """
     Initialize the container and execute command.
 

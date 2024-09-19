@@ -99,7 +99,7 @@ def _try_get_delta_table_latest_version_from_table_name(table_name: str) -> Opti
         )
 
 
-def _get_delta_table_latest_version(j_delta_table) -> int:
+def _get_delta_table_latest_version(j_delta_table) -> int:  # noqa: D417
     """Obtains the latest version of the specified Delta table Java class.
 
     Args:

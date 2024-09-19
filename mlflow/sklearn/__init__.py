@@ -1296,7 +1296,7 @@ def autolog(
     )
 
 
-def _autolog(
+def _autolog(  # noqa: D417
     flavor_name=FLAVOR_NAME,
     log_input_examples=False,
     log_model_signatures=True,
@@ -1432,7 +1432,7 @@ def _autolog(
         params_logging_future.await_completion()
         return fit_output
 
-    def _log_pretraining_metadata(autologging_client, estimator, X, y):
+    def _log_pretraining_metadata(autologging_client, estimator, X, y):  # noqa: D417
         """
         Records metadata (e.g., params and tags) for a scikit-learn estimator prior to training.
         This is intended to be invoked within a patched scikit-learn training routine

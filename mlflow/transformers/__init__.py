@@ -270,7 +270,7 @@ def get_default_conda_env(model):
 @experimental
 @docstring_version_compatibility_warning(integration_name=FLAVOR_NAME)
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
-def save_model(
+def save_model(  # noqa: D417
     transformers_model,
     path: str,
     processor=None,
@@ -788,7 +788,7 @@ def save_model(
 @experimental
 @docstring_version_compatibility_warning(integration_name=FLAVOR_NAME)
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
-def log_model(
+def log_model(  # noqa: D417
     transformers_model,
     artifact_path: str,
     processor=None,

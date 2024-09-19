@@ -42,7 +42,7 @@ class FlavorKey:
     PROMPT_TEMPLATE = "prompt_template"
 
 
-def build_flavor_config(
+def build_flavor_config(  # noqa: D417
     pipeline: transformers.Pipeline, processor=None, torch_dtype=None, save_pretrained=True
 ) -> Dict[str, Any]:
     """

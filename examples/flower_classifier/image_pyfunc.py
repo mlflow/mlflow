@@ -116,7 +116,7 @@ class KerasImageClassifierPyfunc:
                 return self._model.predict(x)
 
 
-def log_model(keras_model, signature, artifact_path, image_dims, domain):
+def log_model(keras_model, signature, artifact_path, image_dims, domain):  # noqa: D417
     """
     Log a KerasImageClassifierPyfunc model as an MLflow artifact for the current run.
 

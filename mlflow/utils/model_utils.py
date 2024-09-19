@@ -290,7 +290,7 @@ def _add_code_from_conf_to_system_path(local_path, conf, code_key=FLAVOR_CONFIG_
         _add_code_to_system_path(code_path)
 
 
-def _validate_onnx_session_options(onnx_session_options):
+def _validate_onnx_session_options(onnx_session_options):  # noqa: D417
     """Validates that the specified onnx_session_options dict is valid.
 
     Args:
