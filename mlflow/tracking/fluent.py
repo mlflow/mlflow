@@ -2012,7 +2012,7 @@ def search_logged_models(
 
     else:
         raise MlflowException(
-            f"Unsupported output format: {output_format}. Supported string values are "
+            f"Unsupported output format: {output_format!r}. Supported string values are "
             "'pandas' or 'list'",
             INVALID_PARAMETER_VALUE,
         )
