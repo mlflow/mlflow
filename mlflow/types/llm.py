@@ -602,8 +602,31 @@ CHAT_MODEL_INPUT_SCHEMA = Schema(
                 Object(
                     [
                         Property("role", DataType.string),
-                        Property("content", DataType.string),
+                        Property("content", DataType.string, False),
                         Property("name", DataType.string, False),
+                        Property("refusal", DataType.string, False),
+                        Property(
+                            "tool_calls",
+                            Array(
+                                Object(
+                                    [
+                                        Property("id", DataType.string),
+                                        Property(
+                                            "function",
+                                            Object(
+                                                [
+                                                    Property("name", DataType.string),
+                                                    Property("arguments", DataType.string),
+                                                ]
+                                            ),
+                                        ),
+                                        Property("type", DataType.string),
+                                    ]
+                                )
+                            ),
+                            False,
+                        ),
+                        Property("tool_call_id", DataType.string, False),
                     ]
                 )
             ),
@@ -704,8 +727,33 @@ CHAT_MODEL_OUTPUT_SCHEMA = Schema(
                             Object(
                                 [
                                     Property("role", DataType.string),
-                                    Property("content", DataType.string),
+                                    Property("content", DataType.string, False),
                                     Property("name", DataType.string, False),
+                                    Property("refusal", DataType.string, False),
+                                    Property(
+                                        "tool_calls",
+                                        Array(
+                                            Object(
+                                                [
+                                                    Property("id", DataType.string),
+                                                    Property(
+                                                        "function",
+                                                        Object(
+                                                            [
+                                                                Property("name", DataType.string),
+                                                                Property(
+                                                                    "arguments", DataType.string
+                                                                ),
+                                                            ]
+                                                        ),
+                                                    ),
+                                                    Property("type", DataType.string),
+                                                ]
+                                            )
+                                        ),
+                                        False,
+                                    ),
+                                    Property("tool_call_id", DataType.string, False),
                                 ]
                             ),
                         ),
