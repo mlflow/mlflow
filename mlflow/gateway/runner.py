@@ -6,8 +6,8 @@ from typing import Generator
 
 from watchfiles import watch
 
-from mlflow.deployments.server import app
-from mlflow.environment_variables import MLFLOW_DEPLOYMENTS_CONFIG
+from mlflow.environment_variables import MLFLOW_GATEWAY_CONFIG
+from mlflow.gateway import app
 from mlflow.gateway.config import _load_route_config
 from mlflow.gateway.utils import kill_child_processes
 
@@ -72,7 +72,7 @@ class Runner:
             ],
             env={
                 **os.environ,
-                MLFLOW_DEPLOYMENTS_CONFIG.name: self.config_path,
+                MLFLOW_GATEWAY_CONFIG.name: self.config_path,
             },
         )
 
