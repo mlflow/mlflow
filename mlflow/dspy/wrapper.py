@@ -45,8 +45,8 @@ class DspyModelWrapper:
                     INVALID_PARAMETER_VALUE,
                 )
             inputs = str(flatten[0])
-            # Return the output as a string for serving simplicity.
-            return str(self.model(inputs))
+            # Return the output as a dict for serving simplicity.
+            return self.model(inputs).toDict()
 
         if isinstance(inputs, str):
-            return str(self.model(inputs))
+            return self.model(inputs).toDict()

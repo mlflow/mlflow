@@ -1,14 +1,30 @@
 import json
+from unittest import mock
 
 import dspy
 import dspy.teleprompt
 import pytest
 
 import mlflow
-from mlflow.models import ModelSignature
+from mlflow.models import Model, ModelSignature
 from mlflow.types.schema import ColSpec, Schema
 
-from tests.helper_functions import expect_status_code, pyfunc_serve_and_score_model
+from tests.helper_functions import (
+    _assert_pip_requirements,
+    _compare_logged_code_paths,
+    _mlflow_major_version_string,
+    expect_status_code,
+    pyfunc_serve_and_score_model,
+)
+
+
+class CoT(dspy.Module):
+    def __init__(self):
+        super().__init__()
+        self.prog = dspy.ChainOfThought("question -> answer")
+
+    def forward(self, question):
+        return self.prog(question=question)
 
 
 @pytest.fixture
@@ -19,14 +35,6 @@ def cleanup_fixture():
 
 
 def test_basic_save(cleanup_fixture):
-    class CoT(dspy.Module):
-        def __init__(self):
-            super().__init__()
-            self.prog = dspy.ChainOfThought("question -> answer")
-
-        def forward(self, question):
-            return self.prog(question=question)
-
     dspy_model = CoT()
     dspy.settings.configure(lm=dspy.OpenAI(model="gpt-4o-mini", max_tokens=250))
 
@@ -46,14 +54,6 @@ def test_basic_save(cleanup_fixture):
 
 
 def test_save_compiled_model(cleanup_fixture):
-    class CoT(dspy.Module):
-        def __init__(self):
-            super().__init__()
-            self.prog = dspy.ChainOfThought("question -> answer")
-
-        def forward(self, question):
-            return self.prog(question=question)
-
     train_data = ["What is 2 + 2?", "What is 3 + 3?", "What is 4 + 4?", "What is 5 + 5?"]
     train_label = ["4", "6", "8", "10"]
     trainset = [
@@ -86,7 +86,7 @@ def test_save_compiled_model(cleanup_fixture):
     assert loaded_model.prog.predictors()[0].demos == optimized_cot.prog.predictors()[0].demos
 
 
-def test_save_model_with_multiple_modules(cleanup_fixture):
+def test_dspy_save_preserves_object_state(cleanup_fixture):
     class GenerateAnswer(dspy.Signature):
         """Answer questions with short factoid answers."""
 
@@ -171,7 +171,31 @@ def test_save_model_with_multiple_modules(cleanup_fixture):
     assert original_settings == loaded_settings
 
 
+def test_load_logged_model_in_native_dspy(cleanup_fixture):
+    dspy_model = CoT()
+    # Arbitrary set the demo to test saving/loading has no data loss.
+    dspy_model.prog.predictors()[0].demos = [
+        "What is 2 + 2?",
+        "What is 3 + 3?",
+        "What is 4 + 4?",
+        "What is 5 + 5?",
+    ]
+    random_answers = ["4", "6", "8", "10"]
+    lm = dspy.utils.DummyLM(answers=random_answers)
+    dspy.settings.configure(lm=lm)
+
+    with mlflow.start_run() as run:
+        mlflow.dspy.log_model(dspy_model, "model")
+    model_path = "model"
+    model_url = f"runs:/{run.info.run_id}/{model_path}"
+    loaded_dspy_model = mlflow.dspy.load_model(model_url)
+
+    assert isinstance(loaded_dspy_model, CoT)
+    assert loaded_dspy_model.prog.predictors()[0].demos == dspy_model.prog.predictors()[0].demos
+
+
 def test_serving_logged_model(cleanup_fixture):
+    # Need to redefine a CoT in the test case for cloudpickle to find the class.
     class CoT(dspy.Module):
         def __init__(self):
             super().__init__()
@@ -190,20 +214,21 @@ def test_serving_logged_model(cleanup_fixture):
     output_schema = Schema([ColSpec("string")])
     signature = ModelSignature(inputs=input_schema, outputs=output_schema)
 
-    with mlflow.start_run() as run:
+    artifact_path = "model"
+    with mlflow.start_run():
         mlflow.dspy.log_model(
-            dspy_model, "model", input_example=input_examples, signature=signature
+            dspy_model,
+            artifact_path,
+            signature=signature,
+            input_example=input_examples,
         )
-
+        model_uri = mlflow.get_artifact_uri(artifact_path)
     # Clear the lm setting to test the loading logic.
     dspy.settings.configure(lm=None)
 
-    model_path = "model"
-    model_url = f"runs:/{run.info.run_id}/{model_path}"
-
     # test that the model can be served
     response = pyfunc_serve_and_score_model(
-        model_uri=model_url,
+        model_uri=model_uri,
         data=json.dumps(input_examples),
         content_type="application/json",
         extra_args=["--env-manager", "local"],
@@ -212,6 +237,48 @@ def test_serving_logged_model(cleanup_fixture):
     expect_status_code(response, 200)
 
     json_response = json.loads(response.content)
+
     # Assert the required fields are in the response.
     assert "rationale" in json_response["predictions"]
     assert "answer" in json_response["predictions"]
+
+
+def test_code_paths_is_used():
+    artifact_path = "model"
+    dspy_model = CoT()
+    with mlflow.start_run(), mock.patch(
+        "mlflow.dspy.load._add_code_from_conf_to_system_path"
+    ) as add_mock:
+        mlflow.dspy.log_model(dspy_model, artifact_path, code_paths=[__file__])
+        model_uri = mlflow.get_artifact_uri(artifact_path)
+        _compare_logged_code_paths(__file__, model_uri, "dspy")
+        mlflow.dspy.load_model(model_uri)
+        add_mock.assert_called()
+
+
+def test_additional_pip_requirements():
+    expected_mlflow_version = _mlflow_major_version_string()
+    artifact_path = "model"
+    dspy_model = CoT()
+    with mlflow.start_run():
+        mlflow.dspy.log_model(dspy_model, artifact_path, extra_pip_requirements=["dummy"])
+
+        _assert_pip_requirements(
+            mlflow.get_artifact_uri("model"), [expected_mlflow_version, "dummy"]
+        )
+
+
+def test_infer_signature_from_input_examples():
+    artifact_path = "model"
+    dspy_model = CoT()
+    random_answers = ["4", "6", "8", "10"]
+    dspy.settings.configure(lm=dspy.utils.DummyLM(answers=random_answers))
+    with mlflow.start_run():
+        mlflow.dspy.log_model(dspy_model, artifact_path, input_example="what is 2 + 2?")
+
+        model_uri = mlflow.get_artifact_uri(artifact_path)
+        loaded_model = Model.load(model_uri)
+        assert loaded_model.signature.inputs == Schema([ColSpec("string")])
+        assert loaded_model.signature.outputs == Schema(
+            [ColSpec(name="rationale", type="string"), ColSpec(name="answer", type="string")]
+        )

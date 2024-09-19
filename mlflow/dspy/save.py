@@ -19,6 +19,7 @@ from mlflow.models import (
     infer_pip_requirements,
 )
 from mlflow.models.model import MLMODEL_FILE_NAME
+from mlflow.models.signature import _infer_signature_from_input_example
 from mlflow.models.utils import _save_example
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.utils.annotations import experimental
@@ -122,10 +123,11 @@ def save_model(
         mlflow_model = Model()
     if signature is not None:
         mlflow_model.signature = signature
+    saved_example = None
     if input_example is not None:
         path = os.path.abspath(path)
         _validate_and_prepare_target_save_path(path)
-        _save_example(mlflow_model, input_example, path)
+        saved_example = _save_example(mlflow_model, input_example, path)
     if metadata is not None:
         mlflow_model.metadata = metadata
 
@@ -145,6 +147,9 @@ def save_model(
     # Store both dspy model and settings in `DspyModelWrapper` for serialization.
     wrapped_dspy_model = DspyModelWrapper(model, dspy_settings)
 
+    if saved_example and signature is None:
+        signature = _infer_signature_from_input_example(saved_example, wrapped_dspy_model)
+        mlflow_model.signature = signature
     with open(model_path, "wb") as f:
         cloudpickle.dump(wrapped_dspy_model, f)
 
@@ -157,7 +162,6 @@ def save_model(
 
     # Add flavor info to `mlflow_model`.
     mlflow_model.add_flavor(FLAVOR_NAME, code=code_dir_subpath, **flavor_options)
-
     # Add loader_module, data and env data to `mlflow_model`.
     pyfunc.add_to_model(
         mlflow_model,
@@ -297,6 +301,8 @@ def log_model(
         artifact_path=artifact_path,
         flavor=mlflow.dspy,
         model=dspy_model,
+        model_config=model_config,
+        code_paths=code_paths,
         conda_env=conda_env,
         registered_model_name=registered_model_name,
         signature=signature,
