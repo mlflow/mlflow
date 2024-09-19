@@ -142,7 +142,7 @@ def get_default_conda_env(is_spark_connect_model=False):
 
 
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name="pyspark"))
-def log_model(  # noqa: D417
+def log_model(
     spark_model,
     artifact_path,
     conda_env=None,
@@ -195,8 +195,6 @@ def log_model(  # noqa: D417
             the array into Spark ML vector and then invoke Spark model for inference. Similarly,
             if the model has vector type output, MLflow internally converts Spark ML vector
             output data into ``Array[double]`` type inference result.
-
-            Example:
 
             .. code-block:: python
 

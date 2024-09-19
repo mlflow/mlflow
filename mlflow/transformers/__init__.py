@@ -270,7 +270,7 @@ def get_default_conda_env(model):
 @experimental
 @docstring_version_compatibility_warning(integration_name=FLAVOR_NAME)
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
-def save_model(  # noqa: D417
+def save_model(
     transformers_model,
     path: str,
     processor=None,
@@ -373,6 +373,10 @@ def save_model(  # noqa: D417
             pipeline utilities within the transformers library will be used to infer the
             correct task type. If the value specified is not a supported type,
             an Exception will be thrown.
+        torch_dtype: The Pytorch dtype applied to the model when loading back. This is useful
+            when you want to save the model with a specific dtype that is different from the
+            dtype of the model when it was trained. If not specified, the current dtype of the
+            model instance will be used.
         model_card: An Optional `ModelCard` instance from `huggingface-hub`. If provided, the
             contents of the model card will be saved along with the provided
             `transformers_model`. If not provided, an attempt will be made to fetch
@@ -444,8 +448,6 @@ def save_model(  # noqa: D417
         signature: A Model Signature object that describes the input and output Schema of the
             model. The model signature can be inferred using `infer_signature` function
             of `mlflow.models.signature`.
-
-            Example:
 
             .. code-block:: python
 
@@ -788,7 +790,7 @@ def save_model(  # noqa: D417
 @experimental
 @docstring_version_compatibility_warning(integration_name=FLAVOR_NAME)
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
-def log_model(  # noqa: D417
+def log_model(
     transformers_model,
     artifact_path: str,
     processor=None,
@@ -967,8 +969,6 @@ def log_model(  # noqa: D417
             model. The model signature can be inferred using `infer_signature` function
             of `mlflow.models.signature`.
 
-            Example:
-
             .. code-block:: python
 
                 from mlflow.models import infer_signature
@@ -1001,6 +1001,7 @@ def log_model(  # noqa: D417
             a supported type, this inference functionality will not function correctly
             and a warning will be issued. In order to ensure that a precise signature
             is logged, it is recommended to explicitly provide one.
+
         input_example: {{ input_example }}
         await_registration_for: Number of seconds to wait for the model version
             to finish being created and is in ``READY`` status.
