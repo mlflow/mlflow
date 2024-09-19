@@ -617,7 +617,7 @@ def make_genai_metric(
         metric_details=evaluation_context["eval_prompt"].__str__(),
         metric_metadata=metric_metadata,
         genai_metric_args=genai_metric_args,
-        strict_signature=True,
+        standard_signature=True,
     )
 
 
