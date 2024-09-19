@@ -282,7 +282,7 @@ class FunctionToolDefinition(_BaseDataclass):
         name (str): The name of the tool.
         description (str): A description of what the tool does, and how it should be used.
             **Optional**, defaults to ``None``
-        parameters (Dict[str, :py:class:`ToolParams`]): A mapping of parameter names to their
+        parameters (Dict[str, :py:class:`ToolParamsSchema`]): A mapping of parameter names to their
             definitions. If not provided, this defines a function without parameters.
             **Optional**, defaults to ``None``
         strict (bool): Whether or not to opt into structured outputs.
