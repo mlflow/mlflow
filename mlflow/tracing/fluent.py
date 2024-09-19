@@ -668,7 +668,7 @@ def add_trace(trace: Union[Trace, Dict[str, Any]], target: Optional[LiveSpan] = 
         )
 
 
-def _merge_trace(
+def _merge_trace(  # noqa: D417
     trace: Trace,
     target_request_id: str,
     target_parent_span_id: str,

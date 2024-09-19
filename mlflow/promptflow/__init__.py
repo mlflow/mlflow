@@ -437,7 +437,7 @@ class _PromptflowModelWrapper:
         raise mlflow.MlflowException.invalid_parameter_value(_INVALID_PREDICT_INPUT_ERROR_MESSAGE)
 
 
-def _load_pyfunc(path, model_config: Optional[Dict[str, Any]] = None):
+def _load_pyfunc(path, model_config: Optional[Dict[str, Any]] = None):  # noqa: D417
     """
     Load PyFunc implementation for Promptflow. Called by ``pyfunc.load_model``.
 

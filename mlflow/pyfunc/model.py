@@ -227,7 +227,7 @@ class ChatModel(PythonModel, metaclass=ABCMeta):
     """
 
     @abstractmethod
-    def predict(self, context, messages: List[ChatMessage], params: ChatParams) -> ChatResponse:
+    def predict(self, context, messages: List[ChatMessage], params: ChatParams) -> ChatResponse:  # noqa: D417
         """
         Evaluates a chat input and produces a chat output.
 
@@ -245,7 +245,7 @@ class ChatModel(PythonModel, metaclass=ABCMeta):
             the model's response(s), as well as other metadata.
         """
 
-    def predict_stream(
+    def predict_stream(  # noqa: D417
         self, context, messages: List[ChatMessage], params: ChatParams
     ) -> Iterator[ChatResponse]:
         """
@@ -269,7 +269,7 @@ class ChatModel(PythonModel, metaclass=ABCMeta):
         yield self.predict(context, messages, params)
 
 
-def _save_model_with_class_artifacts_params(
+def _save_model_with_class_artifacts_params(  # noqa: D417
     path,
     python_model,
     signature=None,

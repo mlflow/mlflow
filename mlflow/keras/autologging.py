@@ -110,7 +110,7 @@ def _log_keras_model(
 
 @experimental
 @autologging_integration("keras")
-def autolog(
+def autolog(  # noqa: D417
     log_every_epoch=True,
     log_every_n_steps=None,
     log_models=True,

@@ -351,7 +351,7 @@ class SqlAlchemyStore(AbstractStore):
         )
         return PagedList(experiments, next_page_token)
 
-    def _get_experiment(self, session, experiment_id, view_type, eager=False):
+    def _get_experiment(self, session, experiment_id, view_type, eager=False):  # noqa: D417
         """
         Args:
             eager: If ``True``, eagerly loads the experiments's tags. If ``False``, these tags
@@ -520,7 +520,7 @@ class SqlAlchemyStore(AbstractStore):
 
             return run.to_mlflow_entity()
 
-    def _get_run(self, session, run_uuid, eager=False):
+    def _get_run(self, session, run_uuid, eager=False):  # noqa: D417
         """
         Args:
             eager: If ``True``, eagerly loads the run's summary metrics (``latest_metrics``),

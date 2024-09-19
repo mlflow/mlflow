@@ -169,7 +169,7 @@ class ModelsArtifactRepository(ArtifactRepository):
             ensure_yaml_extension=False,
         )
 
-    def download_artifacts(self, artifact_path, dst_path=None, lineage_header_info=None):
+    def download_artifacts(self, artifact_path, dst_path=None, lineage_header_info=None):  # noqa: D417
         """
         Download an artifact file or directory to a local directory if applicable, and return a
         local path for it.

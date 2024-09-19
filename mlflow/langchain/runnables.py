@@ -302,7 +302,7 @@ def _warning_if_imported_from_lc_partner_pkg(runnable):
         )
 
 
-def _save_runnable_with_steps(model, file_path: Union[Path, str], loader_fn=None, persist_dir=None):
+def _save_runnable_with_steps(model, file_path: Union[Path, str], loader_fn=None, persist_dir=None):  # noqa: D417
     """Save the model with steps. Currently it supports saving RunnableSequence and
     RunnableParallel.
 

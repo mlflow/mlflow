@@ -819,7 +819,7 @@ def delete_tag(key: str) -> None:
     MlflowClient().delete_tag(run_id, key)
 
 
-def log_metric(
+def log_metric(  # noqa: D417
     key: str,
     value: float,
     step: Optional[int] = None,
@@ -879,7 +879,7 @@ def log_metric(
     )
 
 
-def log_metrics(
+def log_metrics(  # noqa: D417
     metrics: Dict[str, float],
     step: Optional[int] = None,
     synchronous: Optional[bool] = None,
@@ -1090,7 +1090,7 @@ def set_tags(tags: Dict[str, Any], synchronous: Optional[bool] = None) -> Option
     )
 
 
-def log_artifact(
+def log_artifact(  # noqa: D417
     local_path: str, artifact_path: Optional[str] = None, run_id: Optional[str] = None
 ) -> None:
     """
@@ -1124,7 +1124,7 @@ def log_artifact(
     MlflowClient().log_artifact(run_id, local_path, artifact_path)
 
 
-def log_artifacts(
+def log_artifacts(  # noqa: D417
     local_dir: str, artifact_path: Optional[str] = None, run_id: Optional[str] = None
 ) -> None:
     """
@@ -1162,7 +1162,7 @@ def log_artifacts(
     MlflowClient().log_artifacts(run_id, local_dir, artifact_path)
 
 
-def log_text(text: str, artifact_file: str, run_id: Optional[str] = None) -> None:
+def log_text(text: str, artifact_file: str, run_id: Optional[str] = None) -> None:  # noqa: D417
     """
     Log text as an artifact.
 
@@ -1192,7 +1192,7 @@ def log_text(text: str, artifact_file: str, run_id: Optional[str] = None) -> Non
     MlflowClient().log_text(run_id, text, artifact_file)
 
 
-def log_dict(dictionary: Dict[str, Any], artifact_file: str, run_id: Optional[str] = None) -> None:
+def log_dict(dictionary: Dict[str, Any], artifact_file: str, run_id: Optional[str] = None) -> None:  # noqa: D417
     """
     Log a JSON/YAML-serializable object (e.g. `dict`) as an artifact. The serialization
     format (JSON or YAML) is automatically inferred from the extension of `artifact_file`.
@@ -1414,7 +1414,7 @@ def log_image(
 
 
 @experimental
-def log_table(
+def log_table(  # noqa: D417
     data: Union[Dict[str, Any], "pandas.DataFrame"],
     artifact_file: str,
     run_id: Optional[str] = None,

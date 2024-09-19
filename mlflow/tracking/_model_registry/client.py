@@ -179,7 +179,7 @@ class ModelRegistryClient:
 
     # Model Version Methods
 
-    def create_model_version(
+    def create_model_version(  # noqa: D417
         self,
         name,
         source,

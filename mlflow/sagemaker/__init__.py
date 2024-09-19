@@ -1301,7 +1301,7 @@ def _make_tarfile(output_filename, source_dir):
             tar.add(os.path.join(source_dir, f), arcname=f)
 
 
-def _upload_s3(local_model_path, bucket, prefix, region_name, s3_client, **assume_role_credentials):
+def _upload_s3(local_model_path, bucket, prefix, region_name, s3_client, **assume_role_credentials):  # noqa: D417
     """
     Upload dir to S3 as .tar.gz.
 
@@ -1558,7 +1558,7 @@ def _create_sagemaker_transform_job(
     return _SageMakerOperation(status_check_fn=status_check_fn, cleanup_fn=cleanup_fn)
 
 
-def _create_sagemaker_endpoint(
+def _create_sagemaker_endpoint(  # noqa: D417
     endpoint_name,
     model_name,
     model_s3_path,
@@ -1683,7 +1683,7 @@ def _create_sagemaker_endpoint(
     return _SageMakerOperation(status_check_fn=status_check_fn, cleanup_fn=cleanup_fn)
 
 
-def _update_sagemaker_endpoint(
+def _update_sagemaker_endpoint(  # noqa: D417
     endpoint_name,
     model_name,
     model_uri,
@@ -1901,7 +1901,7 @@ def _create_sagemaker_model(
     return sage_client.create_model(**create_model_args)
 
 
-def _delete_sagemaker_model(model_name, sage_client, s3_client):
+def _delete_sagemaker_model(model_name, sage_client, s3_client):  # noqa: D417
     """
     Args:
         sage_client: A boto3 client for SageMaker.
@@ -1927,7 +1927,7 @@ def _delete_sagemaker_model(model_name, sage_client, s3_client):
     return model_arn
 
 
-def _delete_sagemaker_endpoint_configuration(endpoint_config_name, sage_client):
+def _delete_sagemaker_endpoint_configuration(endpoint_config_name, sage_client):  # noqa: D417
     """
     Args:
         sage_client: A boto3 client for SageMaker.
@@ -1942,7 +1942,7 @@ def _delete_sagemaker_endpoint_configuration(endpoint_config_name, sage_client):
     return endpoint_config_info["EndpointConfigArn"]
 
 
-def _find_endpoint(endpoint_name, sage_client):
+def _find_endpoint(endpoint_name, sage_client):  # noqa: D417
     """
     Finds a SageMaker endpoint with the specified name in the caller's AWS account, returning a
     NoneType if the endpoint is not found.
@@ -1969,7 +1969,7 @@ def _find_endpoint(endpoint_name, sage_client):
             return None
 
 
-def _find_transform_job(job_name, sage_client):
+def _find_transform_job(job_name, sage_client):  # noqa: D417
     """
     Finds a SageMaker batch transform job with the specified name in the caller's AWS account,
     returning a NoneType if the transform job is not found.
@@ -1998,7 +1998,7 @@ def _find_transform_job(job_name, sage_client):
             return None
 
 
-def _does_model_exist(model_name, sage_client):
+def _does_model_exist(model_name, sage_client):  # noqa: D417
     """
     Determines whether a SageMaker model exists with the specified name in the caller's AWS account,
     returning True if the model exists, returning False if the model does not exist.
@@ -2788,7 +2788,7 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
                 message=f"There was an error while retrieving the deployment: {exc}\n"
             )
 
-    def predict(
+    def predict(  # noqa: D417
         self,
         deployment_name=None,
         inputs=None,

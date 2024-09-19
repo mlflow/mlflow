@@ -302,7 +302,7 @@ def _get_transformers_model_name(model_name_or_path):
 @experimental
 @docstring_version_compatibility_warning(integration_name=FLAVOR_NAME)
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
-def log_model(
+def log_model(  # noqa: D417
     model,
     artifact_path: str,
     task: Optional[str] = None,
@@ -418,7 +418,7 @@ def _get_load_kwargs():
     return load_kwargs
 
 
-def _load_pyfunc(path, model_config: Optional[Dict[str, Any]] = None):
+def _load_pyfunc(path, model_config: Optional[Dict[str, Any]] = None):  # noqa: D417
     """
     Load PyFunc implementation for SentenceTransformer. Called by ``pyfunc.load_model``.
 

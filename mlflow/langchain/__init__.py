@@ -818,7 +818,7 @@ class _LangChainModelWrapper:
         )
 
 
-def _load_pyfunc(path: str, model_config: Optional[Dict[str, Any]] = None):
+def _load_pyfunc(path: str, model_config: Optional[Dict[str, Any]] = None):  # noqa: D417
     """Load PyFunc implementation for LangChain. Called by ``pyfunc.load_model``.
 
     Args:

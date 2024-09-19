@@ -176,7 +176,7 @@ class BertDataModule(L.LightningDataModule):
             print(f"Number of samples used for validation: {self.val_count}")
             print(f"Number of samples used for test: {self.test_count}")
 
-    def create_data_loader(self, source, count):
+    def create_data_loader(self, source, count):  # noqa: D417
         """
         Generic data loader function
 
