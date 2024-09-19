@@ -1952,7 +1952,7 @@ class FileStore(AbstractStore):
             params: Key-value params for the model.
 
         Returns:
-            The model version.
+            The created model.
         """
         experiment_id = FileStore.DEFAULT_EXPERIMENT_ID if experiment_id is None else experiment_id
         experiment = self.get_experiment(experiment_id)

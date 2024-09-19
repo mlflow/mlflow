@@ -3,6 +3,9 @@ from typing import Dict, List, Optional, Tuple
 
 from mlflow.entities import (
     DatasetInput,
+    LoggedModel,
+    ModelStatus,
+    ModelTag,
     TraceInfo,
     ViewType,
 )
@@ -662,6 +665,88 @@ class AbstractStore:
         Returns:
             None.
         """
+
+    def create_logged_model(
+        self,
+        experiment_id: str,
+        name: str,
+        run_id: Optional[str] = None,
+        tags: Optional[Dict[str, str]] = None,
+        params: Optional[Dict[str, str]] = None,
+        model_type: Optional[str] = None,
+    ) -> LoggedModel:
+        """
+        Create a new model.
+
+        Args:
+            experiment_id: ID of the Experiment where the model is being created.
+            name: Name of the model.
+            run_id: Run ID where the model is being created from.
+            tags: Key-value tags for the model.
+            params: Key-value params for the model.
+
+        Returns:
+            The created model.
+        """
+        raise NotImplementedError
+
+    def search_logged_models(
+        self,
+        experiment_ids: List[str],
+        filter_string: Optional[str] = None,
+        max_results: Optional[int] = None,
+        order_by: Optional[List[str]] = None,
+    ) -> List[LoggedModel]:
+        """
+        Search for models that match the given search expressions within the experiments.
+
+        Args:
+            experiment_ids: List of experiment ids to scope the search.
+            filter_string: A search filter string.
+            max_results: Maximum number of models desired.
+            order_by: List of order_by clauses.
+
+        Returns:
+            A list of logged models that satisfy the search expressions.
+        """
+        raise NotImplementedError
+
+    def finalize_logged_model(self, model_id: str, status: ModelStatus) -> LoggedModel:
+        """
+        Finalize a model by updating its status.
+
+        Args:
+            model_id: ID of the model to finalize.
+            status: Final status to set on the model.
+
+        Returns:
+            The updated model.
+        """
+
+    def set_logged_model_tag(self, model_id: str, tag: ModelTag):
+        """
+        Set a tag for the specified model.
+
+        Args:
+            model_id: ID of the model.
+            tag: Tag to set.
+
+        Returns:
+            None.
+        """
+        raise NotImplementedError
+
+    def get_logged_model(self, model_id: str) -> LoggedModel:
+        """
+        Fetch the logged model by ID.
+
+        Args:
+            model_id: ID of the model.
+
+        Returns:
+            The fetched model.
+        """
+        raise NotImplementedError
 
     @abstractmethod
     def log_inputs(self, run_id: str, datasets: Optional[List[DatasetInput]] = None):
