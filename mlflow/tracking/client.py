@@ -460,7 +460,7 @@ class MlflowClient:
 
         Args:
             request_id: String ID of the trace to fetch.
-            display: If ``True``, display the trace using the configured display handler.
+            display: If ``True``, display the trace on the notebook.
 
         Returns:
             The retrieved :py:class:`Trace <mlflow.entities.Trace>`.
