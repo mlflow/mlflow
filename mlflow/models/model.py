@@ -1,10 +1,10 @@
+import datetime
 import json
 import logging
 import os
 import shutil
 import uuid
 import warnings
-from datetime import datetime
 from pathlib import Path
 from pprint import pformat
 from typing import Any, Callable, Dict, List, Literal, NamedTuple, Optional, Union
@@ -325,7 +325,9 @@ class Model:
         # store model id instead of run_id and path to avoid confusion when model gets exported
         self.run_id = run_id
         self.artifact_path = artifact_path
-        self.utc_time_created = str(utc_time_created or datetime.utcnow())
+        self.utc_time_created = str(
+            utc_time_created or datetime.datetime.now(datetime.timezone.utc)
+        )
         self.flavors = flavors if flavors is not None else {}
         self.signature = signature
         self.saved_input_example_info = saved_input_example_info

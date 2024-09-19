@@ -176,6 +176,7 @@ select = [
   "B015",    # useless-comparison
   "D209",    # new-line-after-last-paragraph
   "D411",    # no-blank-line-before-section
+  "DTZ003",  # call-datetime-utcnow
   "E",       # error
   "F",       # Pyflakes
   "C4",      # flake8-comprehensions
