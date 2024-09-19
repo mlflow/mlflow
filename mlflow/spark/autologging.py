@@ -17,7 +17,7 @@ from mlflow.utils.autologging_utils import (
     autologging_is_disabled,
 )
 from mlflow.utils.databricks_utils import get_repl_id as get_databricks_repl_id
-from mlflow.utils.validation import MAX_TAG_VAL_LENGTH
+from mlflow.utils.validation_common import MAX_TAG_VAL_LENGTH
 
 _JAVA_PACKAGE = "org.mlflow.spark.autologging"
 _SPARK_TABLE_INFO_TAG_NAME = "sparkDatasourceInfo"

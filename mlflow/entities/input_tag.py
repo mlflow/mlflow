@@ -1,35 +1,30 @@
-from mlflow.entities._mlflow_object import _MlflowObject
+from mlflow.entities.base_tag import BaseTag
 from mlflow.protos.service_pb2 import InputTag as ProtoInputTag
+from mlflow.utils.annotations import experimental
 
 
-class InputTag(_MlflowObject):
-    """Input tag object associated with a dataset."""
+@experimental
+class InputTag(BaseTag):
+    """Tag object associated with an experiment."""
 
-    def __init__(self, key: str, value: str) -> None:
-        self._key = key
-        self._value = value
-
-    def __eq__(self, other: _MlflowObject) -> bool:
-        if type(other) is type(self):
-            return self.__dict__ == other.__dict__
-        return False
+    def to_proto(self):
+        param = ProtoInputTag()
+        param.key = self.key
+        param.value = self.value
+        return param
 
     @property
-    def key(self) -> str:
-        """String name of the input tag."""
+    def key(self):
+        """
+        String name of the tag.
+        To be compatible with _MLflowObject._get_properties_helper
+        """
         return self._key
 
     @property
-    def value(self) -> str:
-        """String value of the input tag."""
+    def value(self):
+        """
+        String value of the tag.
+        To be compatible with _MLflowObject._get_properties_helper
+        """
         return self._value
-
-    def to_proto(self):
-        tag = ProtoInputTag()
-        tag.key = self.key
-        tag.value = self.value
-        return tag
-
-    @classmethod
-    def from_proto(cls, proto):
-        return cls(proto.key, proto.value)
