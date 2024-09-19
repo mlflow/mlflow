@@ -1003,7 +1003,6 @@ def log_model(
             a supported type, this inference functionality will not function correctly
             and a warning will be issued. In order to ensure that a precise signature
             is logged, it is recommended to explicitly provide one.
-
         input_example: {{ input_example }}
         await_registration_for: Number of seconds to wait for the model version
             to finish being created and is in ``READY`` status.
