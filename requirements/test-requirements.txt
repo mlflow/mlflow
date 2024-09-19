@@ -18,7 +18,8 @@ hyperopt
 # Required by recipes tests
 ipython
 # Required by automl tests
-flaml[automl]
+# TODO: Remove pin once https://github.com/microsoft/FLAML/issues/1353 is resolved
+flaml[automl]!=2.3.0
 # Required by transformers tests
 # Note: other requirements for transformers are defined in cross-version-tests.yml
 # they are not installed here due to their size and stability implications for other test suites.
