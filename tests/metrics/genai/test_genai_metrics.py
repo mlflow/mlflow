@@ -1266,7 +1266,9 @@ def test_genai_metrics_callable_errors(custom_metric):
     with pytest.raises(MlflowException, match=r"Unexpected arguments: {'data'}"):
         custom_metric(**data, targets=mlflow_ground_truth, data="data")
 
-    with pytest.raises(TypeError, match=r"Expected predictions to be a string or list"):
+    with pytest.raises(
+        TypeError, match=r"Expected predictions to be a string, list, or Pandas Series"
+    ):
         custom_metric(predictions=1, inputs="What is MLflow?", targets=mlflow_ground_truth)
 
 
