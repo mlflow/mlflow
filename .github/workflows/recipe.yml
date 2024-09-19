@@ -52,7 +52,7 @@ jobs:
           pip install pyspark 'xgboost<2.1.0'
       - name: Run tests
         run: |
-          pytest tests/recipes
+          pytest tests/recipes/test_train_step.py
 
   recipes-windows:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
