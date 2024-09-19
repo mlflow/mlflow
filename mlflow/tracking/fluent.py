@@ -2003,12 +2003,13 @@ def search_logged_models(
         max_results=max_results,
         order_by=order_by,
     )
-    if output_format == "pandas":
+    if output_format == "list":
+        return models
+    elif output_format == "pandas":
         import pandas as pd
 
         return pd.DataFrame([model.to_dictionary() for model in models])
-    elif output_format == "list":
-        return models
+
     else:
         raise MlflowException(
             f"Unsupported output format: {output_format}. Supported string values are "
