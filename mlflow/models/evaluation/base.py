@@ -167,16 +167,19 @@ def dynamically_generate_eval_metric(eval_fn, strict_signature=False):
 
     Args:
         eval_fn: the evaluation function of the EvaluationMetric.
-        strict_signature: Whether the metric follows a strict signature, if True then
+        strict_signature: (Optional) Whether the metric follows a strict signature, if True then
             the eval_fn must follow below signature:
-                ```
-                def eval_fn(
-                    predictions: "pd.Series",
-                    metrics: Dict[str, MetricValue],
-                    inputs: "pd.Series",
-                    *args,
-                ) -> MetricValue:
-                ```
+
+                .. code-block:: python
+
+                    def eval_fn(
+                        predictions: "pd.Series",
+                        metrics: Dict[str, MetricValue],
+                        inputs: "pd.Series",
+                        *args,
+                    ) -> MetricValue:
+                        pass
+
             When generating a metric from `make_genai_metric`, this should be set to True.
             Default to False.
 
@@ -405,14 +408,17 @@ def make_metric(
             are persisted so that we can deserialize the same metric object later.
         strict_signature: (Optional) Whether the metric follows a strict signature, if True then
             the eval_fn must follow below signature:
-                ```
-                def eval_fn(
-                    predictions: "pd.Series",
-                    metrics: Dict[str, MetricValue],
-                    inputs: "pd.Series",
-                    *args,
-                ) -> MetricValue:
-                ```
+
+                .. code-block:: python
+
+                    def eval_fn(
+                        predictions: "pd.Series",
+                        metrics: Dict[str, MetricValue],
+                        inputs: "pd.Series",
+                        *args,
+                    ) -> MetricValue:
+                        pass
+
             When generating a metric from `make_genai_metric`, this should be set to True.
             Default to False.
 
