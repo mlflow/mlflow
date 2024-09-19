@@ -2547,9 +2547,7 @@ def save_model(
                     ChatMessage.from_dict(m) if isinstance(m, dict) else m
                     for m in input_example["messages"]
                 ]
-                params = ChatParams.from_dict(
-                    {k: v for k, v in input_example.items() if k != "messages"}
-                )
+                params = ChatParams.from_dict(input_example)
             input_example = {
                 "messages": [m.to_dict() for m in messages],
                 **params.to_dict(),
