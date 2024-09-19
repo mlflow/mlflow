@@ -69,11 +69,11 @@ Find out about the details of major features, changes, and deprecations below.
             <div class="grid-card">
                 <div class="content-container">
                     <div class="header">
-                        Unity Catalog Integration in MLflow Deployments Server
+                        Unity Catalog Integration in MLflow AI Gateway
                     </div>
                     <img class="card-image" src="../_static/images/logos/unity-catalog-logo.png" alt="Unity Catalog"></img>
                     <div class="body">
-                        The MLflow Deployments server now has <a href="../llms/deployments/uc_integration.html">an integration with Unity Catalog</a>, allowing you to leverage registered functions as tools for enhancing your chat application.
+                        MLflow AI Gateway now has <a href="../llms/deployments/uc_integration.html">an integration with Unity Catalog</a>, allowing you to leverage registered functions as tools for enhancing your chat application.
                     </div>
                     <div class="doc"><a href="../llms/deployments/uc_integration.html">Learn more</a></div>
                     <div class="tag">
@@ -129,11 +129,11 @@ Find out about the details of major features, changes, and deprecations below.
             <div class="grid-card">
                 <div class="content-container">
                     <div class="header">
-                        Together.ai added to MLflow Deployments Server
+                        Together.ai added to MLflow AI Gateway
                     </div>
                     <img class="card-image" src="../_static/images/logos/togetherai-logo.png" alt="Together.ai"></img>
                     <div class="body">
-                        <p>The <a href="../llms/deployments/index.html">MLflow Deployments Server</a> can now 
+                        <p>The <a href="../llms/deployments/index.html">MLflow AI Gateway</a> can now 
                         accept <a href="https://www.together.ai/">together.ai</a> endpoints.  
                         </p>
                     </div>
@@ -306,7 +306,7 @@ Find out about the details of major features, changes, and deprecations below.
                     </div>
                     <img class="card-image" src="../_static/images/logos/mistral-ai-logo.svg" alt="Mistral AI" style="max-height: 5rem"></img>
                     <div class="body">
-                        The <a href="../llms/deployments/index.html">MLflow Deployments Server</a> can now 
+                        The <a href="../llms/deployments/index.html">MLflow AI Gateway</a> can now 
                         accept <a href="https://mistral.ai/">Mistral AI</a> endpoints. Give their models a try today! 
                     </div>
                     <div class="tag">
