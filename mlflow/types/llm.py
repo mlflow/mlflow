@@ -1,5 +1,5 @@
 import time
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass, field, fields
 from typing import Dict, List, Optional
 
 from mlflow.types.schema import Array, ColSpec, DataType, Map, Object, Property, Schema
@@ -34,7 +34,28 @@ class _BaseDataclass:
             elif not isinstance(values, list):
                 raise ValueError(f"`{key}` must be a list, got {type(values).__name__}")
 
-    def _convert_dataclass_list(self, key, cls, required=True):
+    def _convert_dataclass(self, key: str, cls: "_BaseDataclass", required=True):
+        value = getattr(self, key)
+        if value is None:
+            if required:
+                raise ValueError(f"`{key}` is required")
+            return
+
+        if isinstance(value, cls):
+            return
+
+        if not isinstance(value, dict):
+            raise ValueError(
+                f"Expected `{key}` to be either an instance of `{cls.__name__}` or "
+                f"a dict matching the schema. Received `{type(value).__name__}`"
+            )
+
+        try:
+            setattr(self, key, cls.from_dict(value))
+        except TypeError as e:
+            raise ValueError(f"Error when coercing {value} to {cls.__name__}: {e}")
+
+    def _convert_dataclass_list(self, key: str, cls: "_BaseDataclass", required=True):
         values = getattr(self, key)
         if values is None:
             if required:
@@ -47,7 +68,7 @@ class _BaseDataclass:
             # if the items are all dicts, try to convert them to the desired class
             if all(isinstance(v, dict) for v in values):
                 try:
-                    setattr(self, key, [cls(**v) for v in values])
+                    setattr(self, key, [cls.from_dict(v) for v in values])
                 except TypeError as e:
                     raise ValueError(f"Error when coercing {values} to {cls.__name__}: {e}")
             elif any(not isinstance(v, cls) for v in values):
@@ -57,6 +78,16 @@ class _BaseDataclass:
 
     def to_dict(self):
         return asdict(self, dict_factory=lambda obj: {k: v for (k, v) in obj if v is not None})
+
+    @classmethod
+    def from_dict(cls, data):
+        """
+        Create an instance of the class from a dict, ignoring any undefined fields.
+        This is useful when the dict contains extra fields, causing cls(**data) to fail.
+        """
+        field_names = [field.name for field in fields(cls)]
+        filtered_data = {k: v for k, v in data.items() if k in field_names}
+        return cls(**filtered_data)
 
 
 @dataclass
@@ -292,18 +323,8 @@ class ChatChoice(_BaseDataclass):
     def __post_init__(self):
         self._validate_field("index", int, True)
         self._validate_field("finish_reason", str, True)
-        if isinstance(self.message, dict):
-            self.message = ChatMessage(**self.message)
-        if not isinstance(self.message, ChatMessage):
-            raise ValueError(
-                f"Expected `message` to be of type ChatMessage or dict, got {type(self.message)}"
-            )
-        if isinstance(self.logprobs, dict):
-            self.logprobs = ChatChoiceLogProbs(**self.logprobs)
-        if self.logprobs and not isinstance(self.logprobs, ChatChoiceLogProbs):
-            raise ValueError(
-                f"Expected `logprobs` to be of type LogProbs or dict, got {type(self.logprobs)}"
-            )
+        self._convert_dataclass("message", ChatMessage, True)
+        self._convert_dataclass("logprobs", ChatChoiceLogProbs, False)
 
 
 @dataclass
@@ -363,9 +384,7 @@ class ChatResponse(_BaseDataclass):
         self._validate_field("created", int, True)
         self._validate_field("model", str, False)
         self._convert_dataclass_list("choices", ChatChoice)
-        if isinstance(self.usage, dict):
-            self.usage = TokenUsageStats(**self.usage)
-        self._validate_field("usage", TokenUsageStats, False)
+        self._convert_dataclass("usage", TokenUsageStats, False)
 
 
 CHAT_MODEL_INPUT_SCHEMA = Schema(

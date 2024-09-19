@@ -70,7 +70,7 @@ def get_mock_response(messages, params):
 class TestChatModel(mlflow.pyfunc.ChatModel):
     def predict(self, context, messages: List[ChatMessage], params: ChatParams) -> ChatResponse:
         mock_response = get_mock_response(messages, params)
-        return ChatResponse(**mock_response)
+        return ChatResponse.from_dict(mock_response)
 
 
 class ChatModelWithContext(mlflow.pyfunc.ChatModel):
@@ -80,14 +80,14 @@ class ChatModelWithContext(mlflow.pyfunc.ChatModel):
 
     def predict(self, context, messages: List[ChatMessage], params: ChatParams) -> ChatResponse:
         message = ChatMessage(role="assistant", content=self.predict_fn())
-        return ChatResponse(**get_mock_response([message], params))
+        return ChatResponse.from_dict(get_mock_response([message], params))
 
 
 class ChatModelWithTrace(mlflow.pyfunc.ChatModel):
     @mlflow.trace
     def predict(self, context, messages: List[ChatMessage], params: ChatParams) -> ChatResponse:
         mock_response = get_mock_response(messages, params)
-        return ChatResponse(**mock_response)
+        return ChatResponse.from_dict(mock_response)
 
 
 class ChatModelWithMetadata(mlflow.pyfunc.ChatModel):
@@ -129,7 +129,7 @@ def test_chat_model_with_trace(tmp_path):
     assert len(traces) == 1
     assert traces[0].info.tags[TraceTagKey.TRACE_NAME] == "predict"
     request = json.loads(traces[0].data.request)
-    assert request["messages"] == [asdict(ChatMessage(**msg)) for msg in messages]
+    assert request["messages"] == [asdict(ChatMessage.from_dict(msg)) for msg in messages]
 
 
 def test_chat_model_save_throws_with_signature(tmp_path):

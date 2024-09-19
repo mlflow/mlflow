@@ -54,8 +54,8 @@ class _ChatModelPyfuncWrapper:
                 error_code=INTERNAL_ERROR,
             )
 
-        messages = [ChatMessage(**message) for message in dict_input.pop("messages", [])]
-        params = ChatParams(**dict_input)
+        messages = [ChatMessage.from_dict(message) for message in dict_input.pop("messages", [])]
+        params = ChatParams.from_dict(dict_input)
         return messages, params
 
     def predict(
