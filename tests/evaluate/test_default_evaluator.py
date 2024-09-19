@@ -2141,14 +2141,16 @@ def test_make_metric_name_inference():
     def metric(_df, _metrics):
         return 1
 
-    metric = make_metric(eval_fn=metric, greater_is_better=True)
-    assert metric.name == "metric"
+    eval_metric = make_metric(eval_fn=metric, greater_is_better=True)
+    assert eval_metric.name == "metric"
 
-    metric = make_metric(eval_fn=metric, greater_is_better=True, name="my_metric")
-    assert metric.name == "my_metric"
+    eval_metric = make_metric(eval_fn=metric, greater_is_better=True, name="my_metric")
+    assert eval_metric.name == "my_metric"
 
-    metric = make_metric(eval_fn=lambda _df, _metrics: 0, greater_is_better=True, name="metric")
-    assert metric.name == "metric"
+    eval_metric = make_metric(
+        eval_fn=lambda _df, _metrics: 0, greater_is_better=True, name="metric"
+    )
+    assert eval_metric.name == "metric"
 
     with pytest.raises(
         MlflowException, match="`name` must be specified if `eval_fn` is a lambda function."

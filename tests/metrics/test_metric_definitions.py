@@ -155,7 +155,7 @@ def test_rougeL():
     assert result.aggregate_results["mean"] == 0.5
     assert result.aggregate_results["p90"] == 0.9
     assert result.aggregate_results["variance"] == 0.25
-    assert rougeL(predictions=predictions, targets=targets) == result
+    assert rougeL()(predictions=predictions, targets=targets) == result
 
 
 def test_rougeLsum():
