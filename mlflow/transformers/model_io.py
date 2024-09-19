@@ -17,7 +17,7 @@ _COMPONENTS_BINARY_DIR_NAME = "components"
 _PROCESSOR_BINARY_DIR_NAME = "processor"
 
 
-def save_pipeline_pretrained_weights(path, pipeline, flavor_conf, processor=None):
+def save_pipeline_pretrained_weights(path, pipeline, flavor_conf, processor=None):  # noqa: D417
     """
     Save the binary artifacts of the pipeline to the specified local path.
 
@@ -42,7 +42,7 @@ def save_pipeline_pretrained_weights(path, pipeline, flavor_conf, processor=None
         processor.save_pretrained(component_dir.joinpath(_PROCESSOR_BINARY_DIR_NAME))
 
 
-def save_local_checkpoint(path, checkpoint_dir, flavor_conf, processor=None):
+def save_local_checkpoint(path, checkpoint_dir, flavor_conf, processor=None):  # noqa: D417
     """
     Save the local checkpoint of the model and other components to the specified local path.
 

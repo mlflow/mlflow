@@ -43,7 +43,7 @@ _request_header_provider_registry.register(DefaultRequestHeaderProvider)
 _request_header_provider_registry.register_entrypoints()
 
 
-def resolve_request_headers(request_headers=None):
+def resolve_request_headers(request_headers=None):  # noqa: D417
     """Generate a set of request headers from registered providers.
 
     Request headers are resolved in the order that providers are registered. Argument headers are

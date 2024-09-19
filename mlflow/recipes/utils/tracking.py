@@ -270,7 +270,7 @@ def get_run_tags_env_vars(recipe_root_path: str) -> Dict[str, str]:
     return {MLFLOW_RUN_CONTEXT.name: json.dumps({**run_context_tags, **git_tags})}
 
 
-def log_code_snapshot(
+def log_code_snapshot(  # noqa: D417
     recipe_root: str,
     run_id: str,
     artifact_path: str = "recipe_snapshot",

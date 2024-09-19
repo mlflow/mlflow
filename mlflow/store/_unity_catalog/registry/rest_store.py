@@ -706,7 +706,7 @@ class UcModelRegistryStore(BaseRestStore):
                 if not os.path.exists(source) and not is_fuse_or_uc_volumes_uri(local_model_dir):
                     shutil.rmtree(local_model_dir)
 
-    def create_model_version(
+    def create_model_version(  # noqa: D417
         self,
         name,
         source,

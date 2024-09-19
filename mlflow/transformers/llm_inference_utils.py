@@ -415,7 +415,7 @@ def preprocess_llm_embedding_params(
     return input_data, params
 
 
-def postprocess_output_for_llm_v1_embedding_task(
+def postprocess_output_for_llm_v1_embedding_task(  # noqa: D417
     input_prompts: List[str],
     output_tensors: List[List[float]],
     tokenizer,

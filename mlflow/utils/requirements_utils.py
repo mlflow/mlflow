@@ -295,7 +295,7 @@ def _get_installed_version(package, module=None):
     return version
 
 
-def _capture_imported_modules(model_uri, flavor, record_full_module=False):
+def _capture_imported_modules(model_uri, flavor, record_full_module=False):  # noqa: D417
     """Runs `_capture_modules.py` in a subprocess and captures modules imported during the model
     loading procedure.
     If flavor is `transformers`, `_capture_transformers_modules.py` is run instead.

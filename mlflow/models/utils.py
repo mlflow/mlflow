@@ -484,7 +484,7 @@ def convert_input_example_to_serving_input(input_example) -> Optional[str]:
     return example.json_serving_input
 
 
-def _save_example(
+def _save_example(  # noqa: D417
     mlflow_model: Model, input_example: Optional[ModelInputExample], path: str, no_conversion=None
 ) -> Optional[_Example]:
     """

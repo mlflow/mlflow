@@ -675,7 +675,7 @@ class Model:
 
     @format_docstring(LOG_MODEL_PARAM_DOCS)
     @classmethod
-    def log(
+    def log(  # noqa: D417
         cls,
         artifact_path,
         flavor,

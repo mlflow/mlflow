@@ -572,7 +572,7 @@ def save_model(
     _PythonEnv.current().to_yaml(os.path.join(path, _PYTHON_ENV_FILE_NAME))
 
 
-def _load_model(path, device=None, **kwargs):
+def _load_model(path, device=None, **kwargs):  # noqa: D417
     """
     Args:
         path: The path to a serialized PyTorch model.
@@ -694,7 +694,7 @@ def load_model(model_uri, dst_path=None, **kwargs):
     return _load_model(path=torch_model_artifacts_path, **kwargs)
 
 
-def _load_pyfunc(path, model_config=None):
+def _load_pyfunc(path, model_config=None):  # noqa: D417
     """
     Load PyFunc implementation. Called by ``pyfunc.load_model``.
 
