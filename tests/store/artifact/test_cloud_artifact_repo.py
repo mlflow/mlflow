@@ -62,79 +62,79 @@ def test__parallelized_download_from_cloud(
         fake_chunk_1 = FakeChunk(index=1, start=0, end=100, path="fake_path_1")
         mock_failed_downloads = {fake_chunk_1: "fake_chunk_1"}
 
+        # Wrap fake_chunk_1 in a Future
+        future = Future()
+        if future_result is None:
+            future.set_result(fake_chunk_1)
+        else:
+            future.set_exception(future_result)
+
+        futures = {future: fake_chunk_1}
+
+        # Create a new ArtifactCredentialInfo object
+        fake_credential = ArtifactCredentialInfo(
+            signed_uri="fake_signed_uri",
+            type=ArtifactCredentialType.AWS_PRESIGNED_URL,
+        )
+        fake_credential.headers.extend(
+            [
+                ArtifactCredentialInfo.HttpHeader(
+                    name="fake_header_name", value="fake_header_value"
+                )
+            ]
+        )
+
+        # Set the return value of _get_read_credential_infos to the fake_credential object
+        cloud_artifact_instance._get_read_credential_infos.return_value = [
+            fake_credential
+        ]
+
+        # Set return value for mocks
+        cloud_artifact_instance._get_read_credential_infos.return_value = [
+            fake_credential
+        ]
+        cloud_artifact_instance._get_uri_for_path.return_value = "fake_uri_path"
+
+        cloud_artifact_instance.chunk_thread_pool.submit.return_value = future
+
+        # Create a fake local path using tmp_path
+        fake_local_path = tmp_path / "downloaded_file"
+
         with mock.patch(
             "mlflow.store.artifact.cloud_artifact_repo.parallelized_download_file_using_http_uri",
             return_value=mock_failed_downloads,
+        ), mock.patch(
+            "mlflow.store.artifact.cloud_artifact_repo.as_completed",
+            return_value=futures,
         ):
-            # Create a new ArtifactCredentialInfo object
-            fake_credential = ArtifactCredentialInfo(
-                signed_uri="fake_signed_uri",
-                type=ArtifactCredentialType.AWS_PRESIGNED_URL,
-            )
-            fake_credential.headers.extend(
-                [
-                    ArtifactCredentialInfo.HttpHeader(
-                        name="fake_header_name", value="fake_header_value"
-                    )
-                ]
-            )
 
-            # Set the return value of _get_read_credential_infos to the fake_credential object
-            cloud_artifact_instance._get_read_credential_infos.return_value = [
-                fake_credential
-            ]
-
-            # Wrap fake_chunk_1 in a Future
-            future = Future()
-            if future_result is None:
-                future.set_result(fake_chunk_1)
-            else:
-                future.set_exception(future_result)
-
-            futures = {future: fake_chunk_1}
-
-            with mock.patch(
-                "mlflow.store.artifact.cloud_artifact_repo.as_completed",
-                return_value=futures,
-            ):
-                # Mocks
-                cloud_artifact_instance._get_read_credential_infos.return_value = [
-                    fake_credential
-                ]
-                cloud_artifact_instance._get_uri_for_path.return_value = "fake_uri_path"
-
-                cloud_artifact_instance.chunk_thread_pool.submit.return_value = future
-
-                # Create a fake local path using tmp_path
-                fake_local_path = tmp_path / "downloaded_file"
-
-                if future_result:
-                    with pytest.raises(MlflowException):
-                        cloud_artifact_instance._parallelized_download_from_cloud(
-                            1, "fake_remote_path", str(fake_local_path)
-                        )
-                else:
+            if future_result:
+                with pytest.raises(MlflowException):
                     cloud_artifact_instance._parallelized_download_from_cloud(
                         1, "fake_remote_path", str(fake_local_path)
                     )
-
-                # Assert
-                assert (
-                    cloud_artifact_instance._get_read_credential_infos.call_count
-                    == expected_call_count
-                )
-                # Assert
-                assert (
-                    cloud_artifact_instance._get_read_credential_infos.call_count
-                    == expected_call_count
+            else:
+                cloud_artifact_instance._parallelized_download_from_cloud(
+                    1, "fake_remote_path", str(fake_local_path)
                 )
 
-                for call in cloud_artifact_instance.chunk_thread_pool.submit.call_args_list:
-                    assert call == mock.call(
-                        mock.ANY,
-                        range_start=fake_chunk_1.start,
-                        range_end=fake_chunk_1.end,
-                        headers=mock.ANY,
-                        download_path=str(fake_local_path),
-                        http_uri="fake_signed_uri",
-                    )
+            # Assert
+            assert (
+                cloud_artifact_instance._get_read_credential_infos.call_count
+                == expected_call_count
+            )
+            # Assert
+            assert (
+                cloud_artifact_instance._get_read_credential_infos.call_count
+                == expected_call_count
+            )
+
+            for call in cloud_artifact_instance.chunk_thread_pool.submit.call_args_list:
+                assert call == mock.call(
+                    mock.ANY,
+                    range_start=fake_chunk_1.start,
+                    range_end=fake_chunk_1.end,
+                    headers=mock.ANY,
+                    download_path=str(fake_local_path),
+                    http_uri="fake_signed_uri",
+                )

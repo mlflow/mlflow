@@ -336,7 +336,6 @@ class CloudArtifactRepository(ArtifactRepository):
 
         """
 
-    @abstractmethod
     def _refresh_credentials(self):
         """
         Refresh credentials for user in the case of credential expiration
