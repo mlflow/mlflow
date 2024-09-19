@@ -254,16 +254,17 @@ def is_dbfs_fuse_available():
     if not is_in_databricks_runtime():
         return False
 
-    with open(os.devnull, "w") as devnull_stderr, open(os.devnull, "w") as devnull_stdout:
-        try:
-            return (
-                subprocess.call(
-                    ["mountpoint", "/dbfs"], stderr=devnull_stderr, stdout=devnull_stdout
-                )
-                == 0
+    try:
+        return (
+            subprocess.call(
+                ["mountpoint", "/dbfs"],
+                stderr=subprocess.DEVNULL,
+                stdout=subprocess.DEVNULL,
             )
-        except Exception:
-            return False
+            == 0
+        )
+    except Exception:
+        return False
 
 
 def is_uc_volume_fuse_available():
