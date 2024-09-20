@@ -450,7 +450,7 @@ def save_model(
             of `mlflow.models.signature`.
 
             .. code-block:: python
-                caption: Example
+                :caption: Example
 
                 from mlflow.models import infer_signature
                 from mlflow.transformers import generate_signature_output
