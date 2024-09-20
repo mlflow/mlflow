@@ -201,7 +201,6 @@ def dynamically_generate_eval_metric(eval_fn, standard_signature=False):
             predictions: Union[pd.Series, str, list],
             inputs: Union[pd.Series, str, list],
             metrics: Optional[Dict[str, MetricValue]] = None,
-            return_only_scores: bool = False,
             **kwargs,
         ) -> Union[MetricValue, List[str], List[float]]:
             if missed_kwargs := set(allowed_kwargs_names) - set(kwargs.keys()):
@@ -212,7 +211,7 @@ def dynamically_generate_eval_metric(eval_fn, standard_signature=False):
                 raise MlflowException.invalid_parameter_value(
                     f"Unexpected arguments: {extra_kwargs}",
                 )
-            result = self.eval_fn(
+            return self.eval_fn(
                 _convert_val_to_pd_Series(predictions, "predictions"),
                 metrics or {},
                 _convert_val_to_pd_Series(inputs, "inputs"),
@@ -224,9 +223,6 @@ def dynamically_generate_eval_metric(eval_fn, standard_signature=False):
                     for arg_name in allowed_kwargs_names
                 ],
             )
-            if return_only_scores:
-                return result.scores
-            return result
 
         genai_call_method.__signature__ = Signature(
             parameters=[
@@ -247,12 +243,6 @@ def dynamically_generate_eval_metric(eval_fn, standard_signature=False):
                     annotation=Optional[Dict[str, MetricValue]],
                     default=None,
                 ),
-                Parameter(
-                    "return_only_scores",
-                    Parameter.KEYWORD_ONLY,
-                    annotation=bool,
-                    default=False,
-                ),
                 *[
                     Parameter(name, Parameter.KEYWORD_ONLY, annotation=Union[pd.Series, str, list])
                     for name in allowed_kwargs_names
@@ -267,14 +257,11 @@ def dynamically_generate_eval_metric(eval_fn, standard_signature=False):
                 predictions: predictions made by the model.
                 inputs: inputs used to make the predictions.
                 metrics: metrics calculated by the default evaluator.
-                return_only_scores: If True, return only the scores from the metric.
-                    Otherwise, return the full MetricValue object. Default to False.
                 kwargs: additional arguments used to compute the metric.
                     Required arguments: {allowed_kwargs_names}
 
             Returns:
-                If return_only_scores is True, return the scores from the metric.
-                Otherwise, return the full MetricValue object.
+                evaluation result as MetricValue object.
             """
         call_method = genai_call_method
 
@@ -282,25 +269,14 @@ def dynamically_generate_eval_metric(eval_fn, standard_signature=False):
 
         def _call_method(
             self,
-            *,
-            return_only_scores: bool = False,
             **kwargs,
         ) -> Union[MetricValue, List[str], List[float]]:
-            result = self.eval_fn(**kwargs)
-            if return_only_scores:
-                return result.scores
-            return result
+            return self.eval_fn(**kwargs)
 
         allowed_kwargs_params = inspect.signature(eval_fn).parameters
         _call_method.__signature__ = Signature(
             parameters=[
                 Parameter("self", Parameter.POSITIONAL_OR_KEYWORD),
-                Parameter(
-                    "return_only_scores",
-                    Parameter.KEYWORD_ONLY,
-                    annotation=bool,
-                    default=False,
-                ),
                 *[
                     Parameter(
                         name,
@@ -316,14 +292,11 @@ def dynamically_generate_eval_metric(eval_fn, standard_signature=False):
             Note: only keyword arguments are supported.
 
             Args:
-                return_only_scores: If True, return only the scores from the metric.
-                    Otherwise, return the full MetricValue object. Default to False.
                 kwargs: additional arguments used to compute the metric.
                     Required arguments: {list(allowed_kwargs_params.keys())}
 
             Returns:
-                If return_only_scores is True, return the scores from the metric.
-                Otherwise, return the full MetricValue object.
+                evaluation result as MetricValue object.
             """
         call_method = _call_method
 

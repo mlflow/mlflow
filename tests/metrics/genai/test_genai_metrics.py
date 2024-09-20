@@ -1229,10 +1229,6 @@ def test_genai_metrics_callable(custom_metric):
             pd.Series([mlflow_ground_truth]),
         )
         metric_value = custom_metric(**data)
-        scores = custom_metric(
-            **data,
-            return_only_scores=True,
-        )
 
     assert metric_value == expected_result
     assert metric_value.scores == [3]
@@ -1242,12 +1238,10 @@ def test_genai_metrics_callable(custom_metric):
         "variance": 0,
         "p90": 3,
     }
-    assert scores == [3]
     assert set(inspect.signature(custom_metric).parameters.keys()) == {
         "predictions",
         "inputs",
         "metrics",
-        "return_only_scores",
         "targets",
     }
 
@@ -1296,11 +1290,6 @@ def test_genai_metrics_with_llm_judge_callable():
             input=inputs,
             output=outputs,
         )
-        scores = custom_judge_prompt_metric(
-            input=[inputs],
-            output=[outputs],
-            return_only_scores=True,
-        )
 
     assert metric_value == expected_result
     assert metric_value.scores == [3]
@@ -1310,9 +1299,7 @@ def test_genai_metrics_with_llm_judge_callable():
         "variance": 0,
         "p90": 3,
     }
-    assert scores == [3]
     assert set(inspect.signature(custom_judge_prompt_metric).parameters.keys()) == {
         "input",
         "output",
-        "return_only_scores",
     }
