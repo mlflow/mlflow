@@ -1474,6 +1474,11 @@ class MlflowClient:
                 If False, logs the metric asynchronously and returns a future representing the
                 logging operation. If None, read from environment variable
                 `MLFLOW_ENABLE_ASYNC_LOGGING`, which defaults to False if not set.
+            dataset_name: The name of the dataset associated with the metric. If specified,
+                ``dataset_digest`` must also be provided.
+            dataset_digest: The digest of the dataset associated with the metric. If specified,
+                ``dataset_name`` must also be provided.
+            model_id: The ID of the model associated with the metric.
 
         Returns:
             When `synchronous=True` or None, returns None. When `synchronous=False`, returns an
