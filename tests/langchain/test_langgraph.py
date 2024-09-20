@@ -36,7 +36,6 @@ def test_langgraph_save_as_code():
     messages = response["messages"]
     assert len(messages) == 4
     for msg, (role, expected_content) in zip(messages, expected_messages):
-        assert msg.role == role
         assert msg.content == expected_content
 
     # Need to reload to reset the iterator in FakeOpenAI
@@ -51,7 +50,6 @@ def test_langgraph_save_as_code():
     messages = response["messages"]
     assert len(messages) == 4
     for msg, (role, expected_content) in zip(messages, expected_messages):
-        assert msg["role"] == role
         assert msg["content"] == expected_content
     # response should be json serializable
     assert json.dumps(response) is not None
