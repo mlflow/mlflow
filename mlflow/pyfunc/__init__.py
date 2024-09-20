@@ -2228,7 +2228,7 @@ def _validate_function_python_model(python_model):
 
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name="scikit-learn"))
 @trace_disabled  # Suppress traces for internal predict calls while saving model
-def save_model(  # noqa: D417
+def save_model(
     path,
     loader_module=None,
     data_path=None,
@@ -2425,6 +2425,10 @@ def save_model(  # noqa: D417
 
             .. Note:: Experimental: This parameter may change or be removed in a future
                                     release without warning.
+        streamable: A boolean value indicating if the model supports streaming prediction,
+                    If None, MLflow will try to inspect if the model supports streaming
+                    by checking if `predict_stream` method exists. Default None.
+        kwargs: Extra keyword arguments.
     """
     _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
     _validate_pyfunc_model_config(model_config)

@@ -73,7 +73,7 @@ def get_default_conda_env():
 
 
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
-def save_model(  # noqa: D417
+def save_model(
     h2o_model,
     path,
     conda_env=None,
@@ -94,6 +94,7 @@ def save_model(  # noqa: D417
         conda_env: {{ conda_env }}
         code_paths: {{ code_paths }}
         mlflow_model: :py:mod:`mlflow.models.Model` this flavor is being added to.
+        settings: Settings to pass to ``h2o.init()`` when loading the model.
         signature: {{ signature }}
         input_example: {{ input_example }}
         pip_requirements: {{ pip_requirements }}
