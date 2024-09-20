@@ -41,4 +41,4 @@ jobs:
       - run: |
           pip install . scikit-learn langchain langchain_community
       - run: |
-          python examples/mlflow-3/sklearn.py
+          python examples/mlflow-3/sklearn_example.py
