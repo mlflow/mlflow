@@ -3,9 +3,10 @@ import ShowArtifactPage from './artifact-view-components/ShowArtifactPage';
 import { RunInfoEntity } from '../types';
 import { useRunsArtifacts } from './experiment-page/hooks/useRunsArtifacts';
 import { getCommonArtifacts } from './experiment-page/utils/getCommonArtifacts';
-import { CompareRunArtifactViewSidebar } from './CompareRunArtifactViewSidebar';
 import { useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
+import { ArtifactViewTree } from './ArtifactViewTree';
+import { getBasename } from '../../common/utils/FileUtils';
 
 export const CompareRunArtifactView = ({
   runUuids,
@@ -40,7 +41,25 @@ export const CompareRunArtifactView = ({
         height: '100vh',
       }}
     >
-      <CompareRunArtifactViewSidebar artifacts={commonArtifacts} onSelectArtifact={setArtifactPath} />
+      <div
+        css={{
+          backgroundColor: theme.colors.backgroundPrimary,
+          color: theme.colors.textPrimary,
+          flex: '1 1 0%',
+          whiteSpace: 'nowrap',
+          border: `1px solid ${theme.colors.grey300}`,
+          overflowY: 'auto',
+        }}
+      >
+        <ArtifactViewTree
+          data={commonArtifacts.map((path: string) => ({
+            id: path,
+            active: artifactPath === path,
+            name: getBasename(path),
+          }))}
+          onToggleTreebeard={({ id }) => setArtifactPath(id)}
+        />
+      </div>
       <div
         css={{
           border: `1px solid ${theme.colors.grey300}`,
