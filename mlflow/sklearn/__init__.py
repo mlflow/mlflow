@@ -332,7 +332,7 @@ def save_model(
 
 
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name="scikit-learn"))
-def log_model(
+def log_model(  # noqa: D417
     sk_model,
     name: Optional[str] = None,
     conda_env=None,

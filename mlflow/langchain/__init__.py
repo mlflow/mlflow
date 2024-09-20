@@ -405,7 +405,7 @@ def save_model(
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
 @docstring_version_compatibility_warning(FLAVOR_NAME)
 @trace_disabled  # Suppress traces for internal predict calls while logging model
-def log_model(
+def log_model(  # noqa: D417
     lc_model,
     name: Optional[str] = None,
     conda_env=None,

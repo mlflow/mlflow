@@ -2645,7 +2645,7 @@ def save_model(
 
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name="scikit-learn"))
 @trace_disabled  # Suppress traces for internal predict calls while logging model
-def log_model(
+def log_model(  # noqa: D417
     name=None,
     loader_module=None,
     data_path=None,

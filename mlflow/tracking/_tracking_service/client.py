@@ -551,7 +551,7 @@ class TrackingServiceClient:
         """
         self.store.rename_experiment(experiment_id, new_name)
 
-    def log_metric(
+    def log_metric(  # noqa: D417
         self,
         run_id,
         key,

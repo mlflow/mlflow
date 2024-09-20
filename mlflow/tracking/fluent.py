@@ -821,7 +821,7 @@ def delete_tag(key: str) -> None:
     MlflowClient().delete_tag(run_id, key)
 
 
-def log_metric(
+def log_metric(  # noqa: D417
     key: str,
     value: float,
     step: Optional[int] = None,
@@ -948,7 +948,7 @@ def _get_model_ids_for_new_metric_if_exist(run_id: str, metric_step: str) -> Lis
     return [mo.model_id for mo in model_outputs_at_step]
 
 
-def log_metrics(
+def log_metrics(  # noqa: D417
     metrics: Dict[str, float],
     step: Optional[int] = None,
     synchronous: Optional[bool] = None,

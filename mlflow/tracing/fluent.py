@@ -54,7 +54,7 @@ TRACE_BUFFER = TTLCache(
 
 
 @experimental
-def trace(
+def trace(  # noqa: D417
     func: Optional[Callable] = None,
     name: Optional[str] = None,
     span_type: str = SpanType.UNKNOWN,
@@ -184,7 +184,7 @@ def trace(
 
 @experimental
 @contextlib.contextmanager
-def start_span(
+def start_span(  # noqa: D417
     name: str = "span",
     span_type: Optional[str] = SpanType.UNKNOWN,
     attributes: Optional[Dict[str, Any]] = None,
@@ -333,7 +333,7 @@ def get_trace(request_id: str) -> Optional[Trace]:
 
 
 @experimental
-def search_traces(
+def search_traces(  # noqa: D417
     experiment_ids: Optional[List[str]] = None,
     filter_string: Optional[str] = None,
     max_results: Optional[int] = None,

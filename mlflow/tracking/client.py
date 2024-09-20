@@ -484,7 +484,7 @@ class MlflowClient:
         return trace
 
     @experimental
-    def search_traces(
+    def search_traces(  # noqa: D417
         self,
         experiment_ids: List[str],
         filter_string: Optional[str] = None,
@@ -1441,7 +1441,7 @@ class MlflowClient:
         """
         self._tracking_client.rename_experiment(experiment_id, new_name)
 
-    def log_metric(
+    def log_metric(  # noqa: D417
         self,
         run_id: str,
         key: str,
