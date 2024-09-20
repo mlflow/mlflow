@@ -91,6 +91,7 @@ from mlflow.utils.validation import (
     MAX_EXPERIMENT_NAME_LENGTH,
     MAX_INPUT_TAG_KEY_SIZE,
     MAX_INPUT_TAG_VALUE_SIZE,
+    MAX_TAG_VAL_LENGTH,
 )
 
 from tests.integration.utils import invoke_cli_runner
@@ -1305,14 +1306,16 @@ def test_set_tag(store: SqlAlchemyStore, monkeypatch):
     store.set_tag(run.info.run_id, new_tag)
     # test setting tags that are too long fails.
     monkeypatch.setenv("MLFLOW_TRUNCATE_LONG_VALUES", "false")
-    with pytest.raises(MlflowException, match="exceeded length limit of 5000"):
-        store.set_tag(run.info.run_id, entities.RunTag("longTagKey", "a" * 5001))
+    with pytest.raises(MlflowException, match=f"exceeded length limit of {MAX_TAG_VAL_LENGTH}"):
+        store.set_tag(
+            run.info.run_id, entities.RunTag("longTagKey", "a" * (MAX_TAG_VAL_LENGTH + 1))
+        )
 
     monkeypatch.setenv("MLFLOW_TRUNCATE_LONG_VALUES", "true")
-    store.set_tag(run.info.run_id, entities.RunTag("longTagKey", "a" * 5001))
+    store.set_tag(run.info.run_id, entities.RunTag("longTagKey", "a" * (MAX_TAG_VAL_LENGTH + 1)))
 
     # test can set tags that are somewhat long
-    store.set_tag(run.info.run_id, entities.RunTag("longTagKey", "a" * 4999))
+    store.set_tag(run.info.run_id, entities.RunTag("longTagKey", "a" * (MAX_TAG_VAL_LENGTH - 1)))
     run = store.get_run(run.info.run_id)
     assert tkey in run.data.tags
     assert run.data.tags[tkey] == new_val
