@@ -916,30 +916,31 @@ def _patch_runnable_cls(cls):
             )
 
 
-def _inspect_module_and_patch_cls(module, inspected_modules, patched_classes):
+def _inspect_module_and_patch_cls(module_name, inspected_modules, patched_classes):
     """
     Internal method to inspect the module and patch classes that are
     subclasses of Runnable for autologging.
     """
     from langchain.schema.runnable import Runnable
 
-    if module.__name__ not in inspected_modules:
-        inspected_modules.add(module.__name__)
-        for _, obj in inspect.getmembers(module):
-            if inspect.ismodule(obj) and (obj.__name__.startswith("langchain")):
-                # NB: Sometimes child modules require additional packages
-                # e.g. langchain.chat_models requires langchain_community.
-                try:
-                    _inspect_module_and_patch_cls(obj, inspected_modules, patched_classes)
-                except ImportError:
-                    pass
-            elif (
-                inspect.isclass(obj)
-                and obj.__name__ not in patched_classes
-                and issubclass(obj, Runnable)
-            ):
-                _patch_runnable_cls(obj)
-                patched_classes.add(obj.__name__)
+    if module_name not in inspected_modules:
+        inspected_modules.add(module_name)
+
+        try:
+            for _, obj in inspect.getmembers(importlib.import_module(module_name)):
+                if inspect.ismodule(obj) and (
+                    obj.__name__.startswith("langchain") or obj.__name__.startswith("langgraph")
+                ):
+                    _inspect_module_and_patch_cls(obj.__name__, inspected_modules, patched_classes)
+                elif (
+                    inspect.isclass(obj)
+                    and obj.__name__ not in patched_classes
+                    and issubclass(obj, Runnable)
+                ):
+                    _patch_runnable_cls(obj)
+                    patched_classes.add(obj.__name__)
+        except Exception:
+            pass
 
 
 @experimental
@@ -1024,11 +1025,18 @@ def autolog(
         for pkg in importlib.metadata.distributions():
             if pkg.metadata["Name"].startswith("langchain"):
                 module_name = pkg.metadata["Name"].replace("-", "_")
-                try:
-                    module = importlib.import_module(module_name)
-                    _inspect_module_and_patch_cls(module, inspected_modules, patched_classes)
-                except Exception:
-                    pass
+                _inspect_module_and_patch_cls(module_name, inspected_modules, patched_classes)
+
+            # If LangGraph is installed, patch the classes. LangGraph does not define members
+            # under the top level module, so we need to hardcode the submodules to patch.
+            if pkg.metadata["Name"] == "langgraph":
+                langgraph_submodules = [
+                    "langgraph.graph",
+                    "langgraph.prebuilt",
+                    "langgraph.pregel",
+                ]
+                for submodule in langgraph_submodules:
+                    _inspect_module_and_patch_cls(submodule, inspected_modules, patched_classes)
 
         if extra_model_classes:
             from langchain_core.runnables import Runnable
