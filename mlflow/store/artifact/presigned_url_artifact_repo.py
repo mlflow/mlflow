@@ -154,8 +154,3 @@ class PresignedUrlArtifactRepository(CloudArtifactRepository):
             json_body=req_body,
             response_proto=response_proto,
         )
-
-    def _refresh_credentials(self):
-        """
-        No-op method
-        """
