@@ -123,7 +123,6 @@ def test__parallelized_download_from_cloud(
                 cloud_artifact_instance._get_read_credential_infos.call_count
                 == expected_call_count
             )
-            # Assert
             assert (
                 cloud_artifact_instance._get_read_credential_infos.call_count
                 == expected_call_count
