@@ -26,7 +26,7 @@ def test_chunk_size_validation_failure():
         _validate_chunk_size_aws(5 * 1024**3 + 1)
 
 @pytest.mark.parametrize(
-    "future_result, expected_call_count",
+    ("future_result, expected_call_count"),
     [
         (None, 2),  # Simulate where creds are expired, but successfully download after refresh
         (Exception("fake_exception"), 4),  # Simulate where there is a download failure and retries are exhausted
