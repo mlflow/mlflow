@@ -819,7 +819,7 @@ def delete_tag(key: str) -> None:
     MlflowClient().delete_tag(run_id, key)
 
 
-def log_metric(  # noqa: D417
+def log_metric(
     key: str,
     value: float,
     step: Optional[int] = None,
@@ -847,6 +847,8 @@ def log_metric(  # noqa: D417
             successfully. If False, logs the metric asynchronously and
             returns a future representing the logging operation. If None, read from environment
             variable `MLFLOW_ENABLE_ASYNC_LOGGING`, which defaults to False if not set.
+        run_id: If specified, log the metric to the specified run. If not specified, log the metric
+            to the currently active run.
 
     Returns:
         When `synchronous=True`, returns None.
@@ -879,7 +881,7 @@ def log_metric(  # noqa: D417
     )
 
 
-def log_metrics(  # noqa: D417
+def log_metrics(
     metrics: Dict[str, float],
     step: Optional[int] = None,
     synchronous: Optional[bool] = None,
@@ -901,6 +903,8 @@ def log_metrics(  # noqa: D417
             successfully. If False, logs the metrics asynchronously and
             returns a future representing the logging operation. If None, read from environment
             variable `MLFLOW_ENABLE_ASYNC_LOGGING`, which defaults to False if not set.
+        run_id: Run ID. If specified, log metrics to the specified run. If not specified, log
+            metrics to the currently active run.
         timestamp: Time when these metrics were calculated. Defaults to the current system time.
 
     Returns:
@@ -1090,7 +1094,7 @@ def set_tags(tags: Dict[str, Any], synchronous: Optional[bool] = None) -> Option
     )
 
 
-def log_artifact(  # noqa: D417
+def log_artifact(
     local_path: str, artifact_path: Optional[str] = None, run_id: Optional[str] = None
 ) -> None:
     """
@@ -1100,6 +1104,8 @@ def log_artifact(  # noqa: D417
     Args:
         local_path: Path to the file to write.
         artifact_path: If provided, the directory in ``artifact_uri`` to write to.
+        run_id: If specified, log the artifact to the specified run. If not specified, log the
+            artifact to the currently active run.
 
     .. code-block:: python
         :test:
@@ -1124,7 +1130,7 @@ def log_artifact(  # noqa: D417
     MlflowClient().log_artifact(run_id, local_path, artifact_path)
 
 
-def log_artifacts(  # noqa: D417
+def log_artifacts(
     local_dir: str, artifact_path: Optional[str] = None, run_id: Optional[str] = None
 ) -> None:
     """
@@ -1134,6 +1140,8 @@ def log_artifacts(  # noqa: D417
     Args:
         local_dir: Path to the directory of files to write.
         artifact_path: If provided, the directory in ``artifact_uri`` to write to.
+        run_id: If specified, log the artifacts to the specified run. If not specified, log the
+            artifacts to the currently active run.
 
     .. code-block:: python
         :test:
@@ -1162,7 +1170,7 @@ def log_artifacts(  # noqa: D417
     MlflowClient().log_artifacts(run_id, local_dir, artifact_path)
 
 
-def log_text(text: str, artifact_file: str, run_id: Optional[str] = None) -> None:  # noqa: D417
+def log_text(text: str, artifact_file: str, run_id: Optional[str] = None) -> None:
     """
     Log text as an artifact.
 
@@ -1170,6 +1178,8 @@ def log_text(text: str, artifact_file: str, run_id: Optional[str] = None) -> Non
         text: String containing text to log.
         artifact_file: The run-relative artifact file path in posixpath format to which
             the text is saved (e.g. "dir/file.txt").
+        run_id: If specified, log the artifact to the specified run. If not specified, log the
+            artifact to the currently active run.
 
     .. code-block:: python
         :test:
@@ -1192,7 +1202,7 @@ def log_text(text: str, artifact_file: str, run_id: Optional[str] = None) -> Non
     MlflowClient().log_text(run_id, text, artifact_file)
 
 
-def log_dict(dictionary: Dict[str, Any], artifact_file: str, run_id: Optional[str] = None) -> None:  # noqa: D417
+def log_dict(dictionary: Dict[str, Any], artifact_file: str, run_id: Optional[str] = None) -> None:
     """
     Log a JSON/YAML-serializable object (e.g. `dict`) as an artifact. The serialization
     format (JSON or YAML) is automatically inferred from the extension of `artifact_file`.
@@ -1203,6 +1213,8 @@ def log_dict(dictionary: Dict[str, Any], artifact_file: str, run_id: Optional[st
         dictionary: Dictionary to log.
         artifact_file: The run-relative artifact file path in posixpath format to which
             the dictionary is saved (e.g. "dir/data.json").
+        run_id: If specified, log the dictionary to the specified run. If not specified, log the
+            dictionary to the currently active run.
 
     .. code-block:: python
         :test:
@@ -1414,7 +1426,7 @@ def log_image(
 
 
 @experimental
-def log_table(  # noqa: D417
+def log_table(
     data: Union[Dict[str, Any], "pandas.DataFrame"],
     artifact_file: str,
     run_id: Optional[str] = None,
@@ -1427,6 +1439,8 @@ def log_table(  # noqa: D417
         data: Dictionary or pandas.DataFrame to log.
         artifact_file: The run-relative artifact file path in posixpath format to which
             the table is saved (e.g. "dir/file.json").
+        run_id: If specified, log the table to the specified run. If not specified, log the
+            table to the currently active run.
 
     .. code-block:: python
         :test:

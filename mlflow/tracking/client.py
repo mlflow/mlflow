@@ -454,12 +454,13 @@ class MlflowClient:
         )
 
     @experimental
-    def get_trace(self, request_id: str, display=True) -> Trace:  # noqa: D417
+    def get_trace(self, request_id: str, display=True) -> Trace:
         """
         Get the trace matching the specified ``request_id``.
 
         Args:
             request_id: String ID of the trace to fetch.
+            display: If ``True``, display the trace on the notebook.
 
         Returns:
             The retrieved :py:class:`Trace <mlflow.entities.Trace>`.
@@ -1386,12 +1387,13 @@ class MlflowClient:
         """
         self._tracking_client.restore_experiment(experiment_id)
 
-    def rename_experiment(self, experiment_id: str, new_name: str) -> None:  # noqa: D417
+    def rename_experiment(self, experiment_id: str, new_name: str) -> None:
         """
         Update an experiment's name. The new name must be unique.
 
         Args:
             experiment_id: The experiment ID returned from ``create_experiment``.
+            new_name: The new name for the experiment.
 
         .. code-block:: python
             :caption: Example
@@ -1624,7 +1626,7 @@ class MlflowClient:
         """
         self._tracking_client.set_experiment_tag(experiment_id, key, value)
 
-    def set_tag(  # noqa: D417
+    def set_tag(
         self, run_id: str, key: str, value: Any, synchronous: Optional[bool] = None
     ) -> Optional[RunOperations]:
         """
@@ -1637,7 +1639,7 @@ class MlflowClient:
                 length 250, but some may support larger keys.
             value: Tag value, but will be string-ified if not. All backend stores will support
                 values up to length 5000, but some may support larger values.
-           synchronous: *Experimental* If True, blocks until the metric is logged successfully.
+            synchronous: *Experimental* If True, blocks until the metric is logged successfully.
                 If False, logs the metric asynchronously and returns a future representing the
                 logging operation. If None, read from environment variable
                 `MLFLOW_ENABLE_ASYNC_LOGGING`, which defaults to False if not set.
@@ -1874,16 +1876,13 @@ class MlflowClient:
         """
         self._tracking_client.log_inputs(run_id, datasets)
 
-    def log_artifact(self, run_id, local_path, artifact_path=None) -> None:  # noqa: D417
+    def log_artifact(self, run_id, local_path, artifact_path=None) -> None:
         """Write a local file or directory to the remote ``artifact_uri``.
 
         Args:
+            run_id: String ID of run.
             local_path: Path to the file or directory to write.
             artifact_path: If provided, the directory in ``artifact_uri`` to write to.
-            synchronous: *Experimental* If True, blocks until the metric is logged successfully.
-                If False, logs the metric asynchronously and returns a future representing the
-                logging operation. If None, read from environment variable
-                `MLFLOW_ENABLE_ASYNC_LOGGING`, which defaults to False if not set.
 
         .. code-block:: python
             :caption: Example
@@ -1923,12 +1922,13 @@ class MlflowClient:
             )
         self._tracking_client.log_artifact(run_id, local_path, artifact_path)
 
-    def log_artifacts(  # noqa: D417
+    def log_artifacts(
         self, run_id: str, local_dir: str, artifact_path: Optional[str] = None
     ) -> None:
         """Write a directory of files to the remote ``artifact_uri``.
 
         Args:
+            run_id: String ID of run.
             local_dir: Path to the directory of files to write.
             artifact_path: If provided, the directory in ``artifact_uri`` to write to.
 
@@ -2169,7 +2169,7 @@ class MlflowClient:
             else:
                 raise TypeError(f"Unsupported figure object type: '{type(figure)}'")
 
-    def log_image(  # noqa: D417
+    def log_image(
         self,
         run_id: str,
         image: Union["numpy.ndarray", "PIL.Image.Image", "mlflow.Image"],
@@ -2240,6 +2240,10 @@ class MlflowClient:
             step: Integer training step (iteration) at which the image was saved.
                 Defaults to 0.
             timestamp: Time when this image was saved. Defaults to the current system time.
+            synchronous: *Experimental* If True, blocks until the metric is logged successfully.
+                If False, logs the metric asynchronously and returns a future representing the
+                logging operation. If None, read from environment variable
+                `MLFLOW_ENABLE_ASYNC_LOGGING`, which defaults to False if not set.
 
         .. code-block:: python
             :caption: Time-stepped image logging numpy example
