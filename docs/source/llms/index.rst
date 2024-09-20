@@ -9,7 +9,74 @@ multiple providers to fine-tuning specific models to achieve desired outcomes.
 Such complexities can easily become a bottleneck for developers and data scientists aiming to integrate LLM 
 capabilities into their applications.
 
-**MLflow's Support for LLMs** aims to alleviate these challenges by introducing a suite of features and tools designed with the end-user in mind:
+**MLflow's Support for LLMs** aims to alleviate these challenges by introducing a suite of features and tools designed with the end-user in mind.
+
+Tutorials and Use Case Guides for GenAI applications in MLflow
+--------------------------------------------------------------
+
+Interested in learning how to leverage MLflow for your GenAI projects? 
+
+Look in the tutorials and guides below to learn more about interesting use cases that could help to make your journey into leveraging GenAI a bit easier!
+
+Note that there are additional tutorials within the `"Explore the Native LLM Flavors" section below <#explore-the-native-llm-flavors>`_, so be sure to check those out as well!
+
+.. toctree::
+    :maxdepth: 1
+    :hidden:
+  
+    rag/index
+    custom-pyfunc-for-llms/index
+    llm-evaluate/notebooks/index
+    chat-model-guide/index
+
+
+.. raw:: html
+
+    <section>
+        <article class="simple-grid">
+            <div class="simple-card">
+                <a href="chat-model-guide/index.html" >
+                    <div class="header">
+                        Simplified Custom GenAI Models
+                    </div>
+                    <p>
+                        Learn how to build a custom GenAI Agent with a simplified developer experience using MLflow's <code>ChatModel</code>.
+                    </p>
+                </a>
+            </div>
+            <div class="simple-card">
+                <a href="llm-evaluate/index.html" >
+                    <div class="header">
+                        Evaluating LLMs
+                    </div>
+                    <p>
+                        Learn how to evaluate LLMs with various metrics including LLM-as-a-Judge using <code>mlflow.evaluate()</code> API.
+                    </p>
+                </a>
+            </div>
+            <div class="simple-card">
+                <a href="custom-pyfunc-for-llms/index.html" >
+                    <div class="header">
+                        Using Custom PyFunc with LLMs
+                    </div>
+                    <p>
+                        Explore the nuances of packaging, customizing, and deploying advanced LLMs in MLflow using custom PyFuncs. 
+                    </p>
+                </a>
+            </div>
+            <div class="simple-card">
+                <a href="rag/notebooks/index.html" >
+                    <div class="header">
+                        Evaluation for RAG
+                    </div>
+                    <p>
+                        Learn how to evaluate Retrieval Augmented Generation applications by leveraging LLMs to generate a evaluation dataset and evaluate it using the built-in metrics in the MLflow Evaluate API.
+                    </p>
+                </a>
+            </div>
+        </article>
+    </section>
+
 
 `MLflow Tracing <tracing/index.html>`_
 --------------------------------------
@@ -352,61 +419,6 @@ Benefits of the MLflow LLM Tracking System
   - Ensures consistent and transparent tracking across all LLM interactions.
   - Facilitates informed decision-making and optimization in LLM deployment and utilization.
 
-
-Tutorials and Use Case Guides for LLMs in MLflow
-------------------------------------------------
-
-Interested in learning how to leverage MLflow for your LLM projects? 
-
-Look in the tutorials and guides below to learn more about interesting use cases that could help to make your journey into leveraging LLMs a bit easier!
-
-Note that there are additional tutorials within the `"Explore the Native LLM Flavors" section above <#explore-the-native-llm-flavors>`_, so be sure to check those out as well!
-
-.. toctree::
-    :maxdepth: 1
-    :hidden:
-  
-    rag/index
-    custom-pyfunc-for-llms/index
-    llm-evaluate/notebooks/index
-
-
-.. raw:: html
-
-    <section>
-        <article class="simple-grid">
-            <div class="simple-card">
-                <a href="llm-evaluate/index.html" >
-                    <div class="header">
-                        Evaluating LLMs
-                    </div>
-                    <p>
-                        Learn how to evaluate LLMs with various metrics including LLM-as-a-Judge using <code>mlflow.evaluate()</code> API.
-                    </p>
-                </a>
-            </div>
-            <div class="simple-card">
-                <a href="custom-pyfunc-for-llms/index.html" >
-                    <div class="header">
-                        Using Custom PyFunc with LLMs
-                    </div>
-                    <p>
-                        Explore the nuances of packaging, customizing, and deploying advanced LLMs in MLflow using custom PyFuncs. 
-                    </p>
-                </a>
-            </div>
-            <div class="simple-card">
-                <a href="rag/notebooks/index.html" >
-                    <div class="header">
-                        Evaluation for RAG
-                    </div>
-                    <p>
-                        Learn how to evaluate Retrieval Augmented Generation applications by leveraging LLMs to generate a evaluation dataset and evaluate it using the built-in metrics in the MLflow Evaluate API.
-                    </p>
-                </a>
-            </div>
-        </article>
-    </section>
 
 .. toctree::
     :maxdepth: 1
