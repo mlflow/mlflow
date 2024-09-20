@@ -159,7 +159,7 @@ class EvaluationMetric:
 # NB: we need this function because we cannot modify the signature of
 # a class's __call__ method after the class has been defined.
 # This is also useful to distinguish between the metric signatures with different eval_fn signatures
-def _dynamically_generate_eval_metric(eval_fn, require_strict_signature=False):
+def _generate_eval_metric_class(eval_fn, require_strict_signature=False):
     """
     Dynamically generate a GenAIEvaluationMetric class that can be used to evaluate the metric
     on the given input data. The generated class is callable with a __call__ method that
@@ -198,11 +198,11 @@ def _dynamically_generate_eval_metric(eval_fn, require_strict_signature=False):
         def genai_call_method(
             self,
             *,
-            predictions: Union[pd.Series, str, list],
-            inputs: Union[pd.Series, str, list],
+            predictions: Union[pd.Series, str, List[str]],
+            inputs: Union[pd.Series, str, List[str]],
             metrics: Optional[Dict[str, MetricValue]] = None,
             **kwargs,
-        ) -> Union[MetricValue, List[str], List[float]]:
+        ) -> MetricValue:
             if missed_kwargs := set(allowed_kwargs_names) - set(kwargs.keys()):
                 raise MlflowException.invalid_parameter_value(
                     f"Missing required arguments: {missed_kwargs}",
@@ -230,12 +230,12 @@ def _dynamically_generate_eval_metric(eval_fn, require_strict_signature=False):
                 Parameter(
                     "predictions",
                     Parameter.KEYWORD_ONLY,
-                    annotation=Union[pd.Series, str, list],
+                    annotation=Union[pd.Series, str, List[str]],
                 ),
                 Parameter(
                     "inputs",
                     Parameter.KEYWORD_ONLY,
-                    annotation=Union[pd.Series, str, list],
+                    annotation=Union[pd.Series, str, List[str]],
                 ),
                 Parameter(
                     "metrics",
@@ -244,7 +244,9 @@ def _dynamically_generate_eval_metric(eval_fn, require_strict_signature=False):
                     default=None,
                 ),
                 *[
-                    Parameter(name, Parameter.KEYWORD_ONLY, annotation=Union[pd.Series, str, list])
+                    Parameter(
+                        name, Parameter.KEYWORD_ONLY, annotation=Union[pd.Series, str, List[str]]
+                    )
                     for name in allowed_kwargs_names
                 ],
             ]
@@ -270,7 +272,7 @@ def _dynamically_generate_eval_metric(eval_fn, require_strict_signature=False):
         def _call_method(
             self,
             **kwargs,
-        ) -> Union[MetricValue, List[str], List[float]]:
+        ) -> MetricValue:
             return self.eval_fn(**kwargs)
 
         allowed_kwargs_params = inspect.signature(eval_fn).parameters
@@ -443,19 +445,16 @@ def make_metric(
             "name to enable creation of derived metrics that use the given metric."
         )
 
-    init_args = {
-        "eval_fn": eval_fn,
-        "name": name,
-        "greater_is_better": greater_is_better,
-        "long_name": long_name,
-        "version": version,
-        "metric_details": metric_details,
-        "metric_metadata": metric_metadata,
-        "genai_metric_args": genai_metric_args,
-    }
-    return _dynamically_generate_eval_metric(
-        eval_fn, require_strict_signature=require_strict_signature
-    )(**init_args)
+    return _generate_eval_metric_class(eval_fn, require_strict_signature=require_strict_signature)(
+        eval_fn=eval_fn,
+        name=name,
+        greater_is_better=greater_is_better,
+        long_name=long_name,
+        version=version,
+        metric_details=metric_details,
+        metric_metadata=metric_metadata,
+        genai_metric_args=genai_metric_args,
+    )
 
 
 @developer_stable

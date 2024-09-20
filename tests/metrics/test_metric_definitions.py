@@ -365,11 +365,13 @@ def test_ndcg_at_k():
 
 def test_builtin_metric_call_signature():
     metric = ndcg_at_k(3)
-    assert set(inspect.signature(metric).parameters.keys()) == {"predictions", "targets"}
+    assert inspect.signature(metric).parameters.keys() == {"predictions", "targets"}
 
     captured_output = io.StringIO()
     sys.stdout = captured_output
-    help(metric)
-    sys.stdout = sys.__stdout__
+    try:
+        help(metric)
+    finally:
+        sys.stdout = sys.__stdout__
 
     assert "__call__ = _call_method(self, *, predictions, targets)" in captured_output.getvalue()
