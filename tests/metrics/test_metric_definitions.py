@@ -1,3 +1,6 @@
+import inspect
+import io
+import sys
 from unittest import mock
 
 import pandas as pd
@@ -358,3 +361,15 @@ def test_ndcg_at_k():
     targets = pd.Series([["a", "b"]])
     result = ndcg_at_k(k=3).eval_fn(predictions, targets)
     assert result.scores[0] == 0.0
+
+
+def test_builtin_metric_call_signature():
+    metric = ndcg_at_k(3)
+    assert set(inspect.signature(metric).parameters.keys()) == {"predictions", "targets"}
+
+    captured_output = io.StringIO()
+    sys.stdout = captured_output
+    help(metric)
+    sys.stdout = sys.__stdout__
+
+    assert "__call__ = _call_method(self, *, predictions, targets)" in captured_output.getvalue()
