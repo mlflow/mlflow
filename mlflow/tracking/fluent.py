@@ -1934,21 +1934,6 @@ def create_logged_model(
     model_type: Optional[str] = None,
     experiment_id: Optional[str] = None,
 ) -> LoggedModel:
-    """
-    Create a new model.
-
-    Args:
-        name: Name of the model.
-        run_id: Run ID where the model is being created from.
-        tags: Key-value tags for the model.
-        params: Key-value params for the model.
-        model_type: Type of the model.
-        name: Name of the model.
-        experiment_id: The experiment ID.
-
-    Returns:
-        The created model.
-    """
     if run_id is None and (run := active_run()):
         run_id = run.info.run_id
     experiment_id = experiment_id if experiment_id is not None else _get_experiment_id()
@@ -1963,15 +1948,6 @@ def create_logged_model(
 
 
 def get_logged_model(model_id: str) -> LoggedModel:
-    """
-    Get a model by model ID.
-
-    Args:
-        model_id: The ID of the model to fetch.
-
-    Returns:
-        The model with the specified ID.
-    """
     return MlflowClient().get_logged_model(model_id)
 
 
@@ -1982,20 +1958,6 @@ def search_logged_models(
     order_by: Optional[List[str]] = None,
     output_format: str = "pandas",
 ) -> Union[List[LoggedModel], "pandas.DataFrame"]:
-    """
-    Search for models that match the specified search query.
-
-    Args:
-        experiment_ids: The experiment IDs to search for models in.
-        filter_string: The filter query string.
-        max_results: The maximum number of models to return.
-        order_by: The columns to order by.
-        output_format: The output format. Can be "pandas" or "list".
-
-    Returns:
-        The models that match the search query. The output format is determined by the
-        `output_format` parameter.
-    """
     experiment_ids = experiment_ids or [_get_experiment_id()]
     models = MlflowClient().search_logged_models(
         experiment_ids=experiment_ids,

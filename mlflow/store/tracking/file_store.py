@@ -1941,19 +1941,6 @@ class FileStore(AbstractStore):
         params: Optional[List[ModelParam]] = None,
         model_type: Optional[str] = None,
     ) -> LoggedModel:
-        """
-        Create a new model.
-
-        Args:
-            experiment_id: ID of the Experiment where the model is being created.
-            name: Name of the model.
-            run_id: Run ID where the model is being created from.
-            tags: Key-value tags for the model.
-            params: Key-value params for the model.
-
-        Returns:
-            The created model.
-        """
         experiment_id = FileStore.DEFAULT_EXPERIMENT_ID if experiment_id is None else experiment_id
         experiment = self.get_experiment(experiment_id)
         if experiment is None:
