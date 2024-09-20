@@ -1441,7 +1441,7 @@ class MlflowClient:
         """
         self._tracking_client.rename_experiment(experiment_id, new_name)
 
-    def log_metric(  # noqa: D417
+    def log_metric(
         self,
         run_id: str,
         key: str,
