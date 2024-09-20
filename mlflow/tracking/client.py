@@ -4779,17 +4779,61 @@ class MlflowClient:
         params: Optional[Dict[str, str]] = None,
         model_type: Optional[str] = None,
     ) -> LoggedModel:
+        """
+        Create a new logged model.
+
+        Args:
+            experiment_id: ID of the experiment to which the model belongs.
+            name: Name of the model.
+            run_id: ID of the run that produced the model.
+            tags: Tags to set on the model.
+            params: Parameters to set on the model.
+            model_type: Type of the model.
+
+        Returns:
+            The created model.
+        """
         return self._tracking_client.create_logged_model(
             experiment_id, name, run_id, tags, params, model_type
         )
 
     def finalize_logged_model(self, model_id: str, status: ModelStatus) -> LoggedModel:
+        """
+        Finalize a model by updating its status.
+
+        Args:
+            model_id: ID of the model to finalize.
+            status: Final status to set on the model.
+
+        Returns:
+            The updated model.
+        """
         return self._tracking_client.finalize_logged_model(model_id, status)
 
     def get_logged_model(self, model_id: str) -> LoggedModel:
+        """
+        Fetch the logged model with the specified ID.
+
+        Args:
+            model_id: ID of the model to fetch.
+
+        Returns:
+            The fetched model.
+        """
         return self._tracking_client.get_logged_model(model_id)
 
     def set_logged_model_tag(self, model_id: str, key: str, value: str):
+        """
+        Set a tag on the specified logged model.
+
+        Args:
+            model_id: ID of the model.
+            key: Key of the tag.
+            value: Value of the tag.
+
+        Returns:
+            None.
+        """
         return self._tracking_client.set_logged_model_tag(model_id, key, value)
 
     def log_model_artifacts(self, model_id: str, local_dir: str) -> None:
@@ -4803,6 +4847,20 @@ class MlflowClient:
         order_by: Optional[List[str]] = None,
         page_token: Optional[str] = None,
     ):
+        """
+        Search for logged models that match the specified search criteria.
+
+        Args:
+            experiment_ids: List of experiment ids to scope the search.
+            filter_string: A search filter string.
+            max_results: Maximum number of logged models desired.
+            order_by: List of order_by clauses.
+            page_token: Token specifying the next page of results.
+
+        Returns:
+            A :py:class:`PagedList <mlflow.store.entities.PagedList>` of
+            :py:class:`LoggedModel <mlflow.entities.LoggedModel>` objects.
+        """
         return self._tracking_client.search_logged_models(
             experiment_ids, filter_string, max_results, order_by, page_token
         )
