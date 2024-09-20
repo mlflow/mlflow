@@ -4796,7 +4796,8 @@ class MlflowClient:
         filter_string: Optional[str] = None,
         max_results: Optional[int] = None,
         order_by: Optional[List[str]] = None,
+        page_token: Optional[str] = None,
     ):
         return self._tracking_client.search_logged_models(
-            experiment_ids, filter_string, max_results, order_by
+            experiment_ids, filter_string, max_results, order_by, page_token
         )

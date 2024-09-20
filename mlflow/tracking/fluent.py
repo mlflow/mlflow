@@ -1934,6 +1934,20 @@ def create_logged_model(
     model_type: Optional[str] = None,
     experiment_id: Optional[str] = None,
 ) -> LoggedModel:
+    """
+    Create a new logged model.
+
+    Args:
+        name: The name of the model.
+        run_id: The ID of the run that the model is associated with.
+        tags: A dictionary of string keys and values to set as tags on the model.
+        params: A dictionary of string keys and values to set as parameters on the model.
+        model_type: The type of the model.
+        experiment_id: The experiment ID of the experiment to which the model belongs.
+
+    Returns:
+        The created logged model.
+    """
     if run_id is None and (run := active_run()):
         run_id = run.info.run_id
     experiment_id = experiment_id if experiment_id is not None else _get_experiment_id()
@@ -1948,6 +1962,15 @@ def create_logged_model(
 
 
 def get_logged_model(model_id: str) -> LoggedModel:
+    """
+    Get a logged model by ID.
+
+    Args:
+        model_id: The ID of the logged model.
+
+    Returns:
+        The logged model.
+    """
     return MlflowClient().get_logged_model(model_id)
 
 
@@ -1958,6 +1981,22 @@ def search_logged_models(
     order_by: Optional[List[str]] = None,
     output_format: str = "pandas",
 ) -> Union[List[LoggedModel], "pandas.DataFrame"]:
+    """
+    Search for logged models that match the specified search criteria.
+
+    Args:
+        experiment_ids: List of experiment IDs to search for logged models. If not specified,
+            the active experiment will be used.
+        filter_string: Filter query string, defaults to searching all logged models.
+        max_results: The maximum number of logged models to return.
+        order_by: List of column names with ASC|DESC annotation, to be used for ordering
+            matching search results.
+        output_format: The output format of the search results. Supported values are 'pandas'
+            and 'list'.
+
+    Returns:
+        The search results in the specified output format.
+    """
     experiment_ids = experiment_ids or [_get_experiment_id()]
     models = MlflowClient().search_logged_models(
         experiment_ids=experiment_ids,

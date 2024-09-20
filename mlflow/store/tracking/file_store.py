@@ -1986,16 +1986,6 @@ class FileStore(AbstractStore):
         return self.get_logged_model(model_id=model_id)
 
     def finalize_logged_model(self, model_id: str, status: ModelStatus) -> LoggedModel:
-        """
-        Finalize a model by updating its status.
-
-        Args:
-            model_id: ID of the model to finalize.
-            status: Final status to set on the model.
-
-        Returns:
-            The updated model.
-        """
         if status != ModelStatus.READY:
             raise MlflowException(
                 f"Invalid model status: {status}. Expected statuses: [{ModelStatus.READY}]",

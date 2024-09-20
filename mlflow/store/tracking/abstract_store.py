@@ -674,6 +674,20 @@ class AbstractStore:
         params: Optional[Dict[str, str]] = None,
         model_type: Optional[str] = None,
     ) -> LoggedModel:
+        """
+        Create a new logged model.
+
+        Args:
+            experiment_id: ID of the experiment to which the model belongs.
+            name: Name of the model.
+            run_id: ID of the run that produced the model.
+            tags: Tags to set on the model.
+            params: Parameters to set on the model.
+            model_type: Type of the model.
+
+        Returns:
+            The created model.
+        """
         raise NotImplementedError
 
     def search_logged_models(
@@ -682,14 +696,59 @@ class AbstractStore:
         filter_string: Optional[str] = None,
         max_results: Optional[int] = None,
         order_by: Optional[List[str]] = None,
-    ) -> List[LoggedModel]:
+        page_token: Optional[str] = None,
+    ) -> PagedList[LoggedModel]:
+        """
+        Search for logged models that match the specified search criteria.
+
+        Args:
+            experiment_ids: List of experiment ids to scope the search.
+            filter_string: A search filter string.
+            max_results: Maximum number of logged models desired.
+            order_by: List of order_by clauses.
+            page_token: Token specifying the next page of results.
+
+        Returns:
+            A :py:class:`PagedList <mlflow.store.entities.PagedList>` of
+            :py:class:`LoggedModel <mlflow.entities.LoggedModel>` objects.
+        """
+
         raise NotImplementedError
 
     def finalize_logged_model(self, model_id: str, status: ModelStatus) -> LoggedModel:
+        """
+        Finalize a model by updating its status.
+
+        Args:
+            model_id: ID of the model to finalize.
+            status: Final status to set on the model.
+
+        Returns:
+            The updated model.
+        """
         raise NotImplementedError
 
     def set_logged_model_tag(self, model_id: str, tag: ModelTag):
+        """
+        Set a tag on the specified logged model.
+
+        Args:
+            model_id: ID of the model.
+            tag: Tag to set on the model.
+
+        Returns:
+            None.
+        """
         raise NotImplementedError
 
     def get_logged_model(self, model_id: str) -> LoggedModel:
+        """
+        Fetch the logged model with the specified ID.
+
+        Args:
+            model_id: ID of the model to fetch.
+
+        Returns:
+            The fetched model.
+        """
         raise NotImplementedError
