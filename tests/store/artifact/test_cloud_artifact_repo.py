@@ -25,11 +25,12 @@ def test_chunk_size_validation_failure():
     with pytest.raises(MlflowException, match="Multipart chunk size"):
         _validate_chunk_size_aws(5 * 1024**3 + 1)
 
+
 @pytest.mark.parametrize(
     ("future_result", "expected_call_count"),
     [
         (None, 2),  # Simulate where creds are expired, but successfully download after refresh
-        (Exception("fake_exception"), 4),  
+        (Exception("fake_exception"), 4),
         # Simulate where there is a download failure and retries are exhausted
     ],
 )
@@ -78,22 +79,14 @@ def test__parallelized_download_from_cloud(
             type=ArtifactCredentialType.AWS_PRESIGNED_URL,
         )
         fake_credential.headers.extend(
-            [
-                ArtifactCredentialInfo.HttpHeader(
-                    name="fake_header_name", value="fake_header_value"
-                )
-            ]
+            [ArtifactCredentialInfo.HttpHeader(name="fake_header_name", value="fake_header_value")]
         )
 
         # Set the return value of _get_read_credential_infos to the fake_credential object
-        cloud_artifact_instance._get_read_credential_infos.return_value = [
-            fake_credential
-        ]
+        cloud_artifact_instance._get_read_credential_infos.return_value = [fake_credential]
 
         # Set return value for mocks
-        cloud_artifact_instance._get_read_credential_infos.return_value = [
-            fake_credential
-        ]
+        cloud_artifact_instance._get_read_credential_infos.return_value = [fake_credential]
         cloud_artifact_instance._get_uri_for_path.return_value = "fake_uri_path"
 
         cloud_artifact_instance.chunk_thread_pool.submit.return_value = future
@@ -108,9 +101,10 @@ def test__parallelized_download_from_cloud(
             "mlflow.store.artifact.cloud_artifact_repo.as_completed",
             return_value=futures,
         ):
-
             if future_result:
-                with pytest.raises(MlflowException, match="All retries have been exhausted. Download has failed."):
+                with pytest.raises(
+                    MlflowException, match="All retries have been exhausted. Download has failed."
+                ):
                     cloud_artifact_instance._parallelized_download_from_cloud(
                         1, "fake_remote_path", str(fake_local_path)
                     )
@@ -120,12 +114,10 @@ def test__parallelized_download_from_cloud(
                 )
 
             assert (
-                cloud_artifact_instance._get_read_credential_infos.call_count
-                == expected_call_count
+                cloud_artifact_instance._get_read_credential_infos.call_count == expected_call_count
             )
             assert (
-                cloud_artifact_instance._get_read_credential_infos.call_count
-                == expected_call_count
+                cloud_artifact_instance._get_read_credential_infos.call_count == expected_call_count
             )
 
             for call in cloud_artifact_instance.chunk_thread_pool.submit.call_args_list:
