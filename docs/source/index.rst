@@ -334,7 +334,7 @@ Explore the guides and tutorials below to start your journey!
 
             |prompt-engineering-ui|
 
-        .. tab:: Deployments Server
+        .. tab:: AI Gatway
 
             |deployments-server|
         
