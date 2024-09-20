@@ -219,7 +219,7 @@ jobs:
       - name: Install dependencies
         run: |
           source ./dev/install-common-deps.sh
-          pip install pyspark langchain langchain-community
+          pip install pyspark langchain langchain-community '.[mlserver]'
       - uses: ./.github/actions/show-versions
       - uses: ./.github/actions/pipdeptree
       - name: Run tests
@@ -245,7 +245,7 @@ jobs:
       - name: Install dependencies
         run: |
           source ./dev/install-common-deps.sh
-          pip install pyspark torch transformers langchain langchain-experimental
+          pip install pyspark torch transformers langchain langchain-experimental '.[genai]'
       - uses: ./.github/actions/show-versions
       - uses: ./.github/actions/pipdeptree
       - name: Run tests
@@ -334,7 +334,7 @@ jobs:
           source .venv/Scripts/activate
           python -m pip install -U pip
           pip install --no-dependencies tests/resources/mlflow-test-plugin
-          pip install .[extras]
+          pip install '.[extras,genai]'
           pip install pyspark
           pip install mleap
           # Install Hugging Face datasets to test Hugging Face usage with MLflow dataset tracking

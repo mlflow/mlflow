@@ -15,6 +15,7 @@ Diviner format
 .. _Diviner:
     https://databricks-diviner.readthedocs.io/en/latest/index.html
 """
+
 import logging
 import os
 import pathlib

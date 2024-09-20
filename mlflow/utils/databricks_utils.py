@@ -251,16 +251,20 @@ def is_in_databricks_serverless():
 
 
 def is_dbfs_fuse_available():
-    with open(os.devnull, "w") as devnull_stderr, open(os.devnull, "w") as devnull_stdout:
-        try:
-            return (
-                subprocess.call(
-                    ["mountpoint", "/dbfs"], stderr=devnull_stderr, stdout=devnull_stdout
-                )
-                == 0
+    if not is_in_databricks_runtime():
+        return False
+
+    try:
+        return (
+            subprocess.call(
+                ["mountpoint", "/dbfs"],
+                stderr=subprocess.DEVNULL,
+                stdout=subprocess.DEVNULL,
             )
-        except Exception:
-            return False
+            == 0
+        )
+    except Exception:
+        return False
 
 
 def is_uc_volume_fuse_available():
@@ -769,7 +773,7 @@ def get_databricks_run_url(tracking_uri: str, run_id: str, artifact_path=None) -
         return None
 
 
-def get_databricks_model_version_url(registry_uri: str, name: str, version: str) -> Optional[str]:
+def get_databricks_model_version_url(registry_uri: str, name: str, version: str) -> Optional[str]:  # noqa: D417
     """Obtains a Databricks URL corresponding to the specified Model Version.
 
     Args:

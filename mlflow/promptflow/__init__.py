@@ -375,9 +375,9 @@ def _resolve_env_from_flow(flow_dag_path):
     environment = flow_dict.get("environment", {})
     if _FLOW_ENV_REQUIREMENTS in environment:
         # Append entry path to requirements
-        environment[
-            _FLOW_ENV_REQUIREMENTS
-        ] = f"{_MODEL_FLOW_DIRECTORY}/{environment[_FLOW_ENV_REQUIREMENTS]}"
+        environment[_FLOW_ENV_REQUIREMENTS] = (
+            f"{_MODEL_FLOW_DIRECTORY}/{environment[_FLOW_ENV_REQUIREMENTS]}"
+        )
     return environment
 
 
@@ -437,7 +437,7 @@ class _PromptflowModelWrapper:
         raise mlflow.MlflowException.invalid_parameter_value(_INVALID_PREDICT_INPUT_ERROR_MESSAGE)
 
 
-def _load_pyfunc(path, model_config: Optional[Dict[str, Any]] = None):
+def _load_pyfunc(path, model_config: Optional[Dict[str, Any]] = None):  # noqa: D417
     """
     Load PyFunc implementation for Promptflow. Called by ``pyfunc.load_model``.
 

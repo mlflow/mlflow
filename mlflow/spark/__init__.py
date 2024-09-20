@@ -18,6 +18,7 @@ Spark MLlib (native) format
     ``mlflow/java`` package. This flavor is produced only if you specify
     MLeap-compatible arguments.
 """
+
 import logging
 import os
 import posixpath
@@ -141,7 +142,7 @@ def get_default_conda_env(is_spark_connect_model=False):
 
 
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name="pyspark"))
-def log_model(
+def log_model(  # noqa: D417
     spark_model,
     artifact_path,
     conda_env=None,

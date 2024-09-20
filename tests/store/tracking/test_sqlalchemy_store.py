@@ -91,6 +91,7 @@ from mlflow.utils.validation import (
     MAX_EXPERIMENT_NAME_LENGTH,
     MAX_INPUT_TAG_KEY_SIZE,
     MAX_INPUT_TAG_VALUE_SIZE,
+    MAX_TAG_VAL_LENGTH,
 )
 
 from tests.integration.utils import invoke_cli_runner
@@ -689,7 +690,7 @@ def test_create_experiments(store: SqlAlchemyStore):
     assert actual.creation_time >= time_before_create
     assert actual.last_update_time == actual.creation_time
 
-    with pytest.raises(MlflowException, match=r"Experiment name exceeds the maximum length"):
+    with pytest.raises(MlflowException, match=r"'name' exceeds the maximum length"):
         store.create_experiment(name="x" * (MAX_EXPERIMENT_NAME_LENGTH + 1))
 
 
@@ -1305,14 +1306,16 @@ def test_set_tag(store: SqlAlchemyStore, monkeypatch):
     store.set_tag(run.info.run_id, new_tag)
     # test setting tags that are too long fails.
     monkeypatch.setenv("MLFLOW_TRUNCATE_LONG_VALUES", "false")
-    with pytest.raises(MlflowException, match="exceeded length limit of 5000"):
-        store.set_tag(run.info.run_id, entities.RunTag("longTagKey", "a" * 5001))
+    with pytest.raises(MlflowException, match=f"exceeded length limit of {MAX_TAG_VAL_LENGTH}"):
+        store.set_tag(
+            run.info.run_id, entities.RunTag("longTagKey", "a" * (MAX_TAG_VAL_LENGTH + 1))
+        )
 
     monkeypatch.setenv("MLFLOW_TRUNCATE_LONG_VALUES", "true")
-    store.set_tag(run.info.run_id, entities.RunTag("longTagKey", "a" * 5001))
+    store.set_tag(run.info.run_id, entities.RunTag("longTagKey", "a" * (MAX_TAG_VAL_LENGTH + 1)))
 
     # test can set tags that are somewhat long
-    store.set_tag(run.info.run_id, entities.RunTag("longTagKey", "a" * 4999))
+    store.set_tag(run.info.run_id, entities.RunTag("longTagKey", "a" * (MAX_TAG_VAL_LENGTH - 1)))
     run = store.get_run(run.info.run_id)
     assert tkey in run.data.tags
     assert run.data.tags[tkey] == new_val
@@ -3492,7 +3495,7 @@ def test_log_inputs_with_large_inputs_limit_check(store: SqlAlchemyStore):
                 dataset=dataset,
             )
         ],
-        f"InputTag key exceeds the maximum length of {MAX_INPUT_TAG_KEY_SIZE}",
+        f"'key' exceeds the maximum length of {MAX_INPUT_TAG_KEY_SIZE}",
     )
 
     # Test input value
@@ -3516,7 +3519,7 @@ def test_log_inputs_with_large_inputs_limit_check(store: SqlAlchemyStore):
                 dataset=dataset,
             )
         ],
-        f"InputTag value exceeds the maximum length of {MAX_INPUT_TAG_VALUE_SIZE}",
+        f"'value' exceeds the maximum length of {MAX_INPUT_TAG_VALUE_SIZE}",
     )
 
     # Test dataset name
@@ -3550,7 +3553,7 @@ def test_log_inputs_with_large_inputs_limit_check(store: SqlAlchemyStore):
                 ),
             )
         ],
-        f"Dataset name exceeds the maximum length of {MAX_DATASET_NAME_SIZE}",
+        f"'name' exceeds the maximum length of {MAX_DATASET_NAME_SIZE}",
     )
 
     # Test dataset digest
@@ -3583,7 +3586,7 @@ def test_log_inputs_with_large_inputs_limit_check(store: SqlAlchemyStore):
                 ),
             )
         ],
-        f"Dataset digest exceeds the maximum length of {MAX_DATASET_DIGEST_SIZE}",
+        f"'digest' exceeds the maximum length of {MAX_DATASET_DIGEST_SIZE}",
     )
 
     # Test dataset source
@@ -3616,7 +3619,7 @@ def test_log_inputs_with_large_inputs_limit_check(store: SqlAlchemyStore):
                 ),
             )
         ],
-        f"Dataset source exceeds the maximum length of {MAX_DATASET_SOURCE_SIZE}",
+        f"'source' exceeds the maximum length of {MAX_DATASET_SOURCE_SIZE}",
     )
 
     # Test dataset schema
@@ -3651,7 +3654,7 @@ def test_log_inputs_with_large_inputs_limit_check(store: SqlAlchemyStore):
                 ),
             )
         ],
-        f"Dataset schema exceeds the maximum length of {MAX_DATASET_SCHEMA_SIZE}",
+        f"'schema' exceeds the maximum length of {MAX_DATASET_SCHEMA_SIZE}",
     )
 
     # Test dataset profile
@@ -3686,7 +3689,7 @@ def test_log_inputs_with_large_inputs_limit_check(store: SqlAlchemyStore):
                 ),
             )
         ],
-        f"Dataset profile exceeds the maximum length of {MAX_DATASET_PROFILE_SIZE}",
+        f"'profile' exceeds the maximum length of {MAX_DATASET_PROFILE_SIZE}",
     )
 
 

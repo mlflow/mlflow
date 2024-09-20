@@ -38,7 +38,7 @@ RUN case ${TARGETPLATFORM#*/} in \
 ENV PATH="/root/protoc/bin:$PATH"
 
 # Install node and yarn for UI development
-RUN curl -fsSL https://deb.nodesource.com/setup_16.x | sudo -E bash - \
+RUN curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash - \
     && sudo apt install -y nodejs \
     && npm -g install yarn
 

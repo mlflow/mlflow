@@ -592,13 +592,13 @@ def filter_search_registered_models(resp: Response):
         len(response_message.registered_models) < request_message.max_results
         and response_message.next_page_token != ""
     ):
-        refetched: PagedList[
-            RegisteredModel
-        ] = _get_model_registry_store().search_registered_models(
-            filter_string=request_message.filter,
-            max_results=request_message.max_results,
-            order_by=request_message.order_by,
-            page_token=response_message.next_page_token,
+        refetched: PagedList[RegisteredModel] = (
+            _get_model_registry_store().search_registered_models(
+                filter_string=request_message.filter,
+                max_results=request_message.max_results,
+                order_by=request_message.order_by,
+                page_token=response_message.next_page_token,
+            )
         )
         refetched = refetched[
             : request_message.max_results - len(response_message.registered_models)

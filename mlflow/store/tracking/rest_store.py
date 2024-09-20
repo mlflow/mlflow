@@ -105,7 +105,7 @@ class RestStore(AbstractStore):
         )
         return PagedList(experiments, token)
 
-    def create_experiment(self, name, artifact_location=None, tags=None):
+    def create_experiment(self, name, artifact_location=None, tags=None):  # noqa: D417
         """
         Create a new experiment.
         If an experiment with the given name already exists, throws exception.
@@ -180,7 +180,7 @@ class RestStore(AbstractStore):
         response_proto = self._call_endpoint(UpdateRun, req_body)
         return RunInfo.from_proto(response_proto.run_info)
 
-    def create_run(self, experiment_id, user_id, start_time, tags, run_name):
+    def create_run(self, experiment_id, user_id, start_time, tags, run_name):  # noqa: D417
         """
         Create a run under the specified experiment ID, setting the run's status to "RUNNING"
         and the start time to the current time.

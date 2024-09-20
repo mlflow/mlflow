@@ -190,7 +190,7 @@ def _get_request_session(
     )
 
 
-def _get_http_response_with_retries(
+def _get_http_response_with_retries(  # noqa: D417
     method,
     url,
     max_retries,

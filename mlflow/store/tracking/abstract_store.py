@@ -158,7 +158,7 @@ class AbstractStore:
         """
 
     @abstractmethod
-    def rename_experiment(self, experiment_id, new_name):
+    def rename_experiment(self, experiment_id, new_name):  # noqa: D417
         """
         Update an experiment's name. The new name must be unique.
 
@@ -195,7 +195,7 @@ class AbstractStore:
         """
 
     @abstractmethod
-    def create_run(self, experiment_id, user_id, start_time, tags, run_name):
+    def create_run(self, experiment_id, user_id, start_time, tags, run_name):  # noqa: D417
         """
         Create a run under the specified experiment ID, setting the run's status to "RUNNING"
         and the start time to the current time.
@@ -219,7 +219,7 @@ class AbstractStore:
         """
 
     @abstractmethod
-    def restore_run(self, run_id):
+    def restore_run(self, run_id):  # noqa: D417
         """
         Restore a run.
 

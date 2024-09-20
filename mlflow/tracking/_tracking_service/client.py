@@ -522,7 +522,7 @@ class TrackingServiceClient:
         """
         self.store.restore_experiment(experiment_id)
 
-    def rename_experiment(self, experiment_id, new_name):
+    def rename_experiment(self, experiment_id, new_name):  # noqa: D417
         """Update an experiment's name. The new name must be unique.
 
         Args:
@@ -803,7 +803,7 @@ class TrackingServiceClient:
             utils._artifact_repos_cache[run_id] = artifact_repo
             return artifact_repo
 
-    def log_artifact(self, run_id, local_path, artifact_path=None):
+    def log_artifact(self, run_id, local_path, artifact_path=None):  # noqa: D417
         """
         Write a local file or directory to the remote ``artifact_uri``.
 
@@ -830,7 +830,7 @@ class TrackingServiceClient:
         trace_data_json = json.dumps(trace_data.to_dict(), cls=TraceJSONEncoder, ensure_ascii=False)
         return artifact_repo.upload_trace_data(trace_data_json)
 
-    def _log_artifact_async(self, run_id, filename, artifact_path=None, artifact=None):
+    def _log_artifact_async(self, run_id, filename, artifact_path=None, artifact=None):  # noqa: D417
         """
         Write an artifact to the remote ``artifact_uri`` asynchronously.
 
@@ -842,7 +842,7 @@ class TrackingServiceClient:
         artifact_repo = self._get_artifact_repo(run_id)
         artifact_repo._log_artifact_async(filename, artifact_path, artifact)
 
-    def log_artifacts(self, run_id, local_dir, artifact_path=None):
+    def log_artifacts(self, run_id, local_dir, artifact_path=None):  # noqa: D417
         """Write a directory of files to the remote ``artifact_uri``.
 
         Args:
@@ -903,7 +903,7 @@ class TrackingServiceClient:
         _logger.info(f"🏃 View run {run_name} at: {run_url}.")
         _logger.info(f"🧪 View experiment at: {experment_url}.")
 
-    def set_terminated(self, run_id, status=None, end_time=None):
+    def set_terminated(self, run_id, status=None, end_time=None):  # noqa: D417
         """Set a run's status to terminated.
 
         Args:

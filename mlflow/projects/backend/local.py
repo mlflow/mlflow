@@ -257,7 +257,7 @@ def _run_mlflow_run_cmd(mlflow_run_arr, env_map):
         return subprocess.Popen(mlflow_run_arr, env=final_env, text=True, preexec_fn=os.setsid)
 
 
-def _run_entry_point(command, work_dir, experiment_id, run_id):
+def _run_entry_point(command, work_dir, experiment_id, run_id):  # noqa: D417
     """
     Run an entry point command in a subprocess, returning a SubmittedRun that can be used to
     query the run's status.

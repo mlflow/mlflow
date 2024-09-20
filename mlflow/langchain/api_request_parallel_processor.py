@@ -14,6 +14,7 @@ Features:
 - Makes requests concurrently, to maximize throughput
 - Logs errors, to diagnose problems with requests
 """
+
 from __future__ import annotations
 
 import logging
@@ -203,9 +204,9 @@ class APIRequest:
             self.results.append((self.index, response))
             status_tracker.complete_task(success=True)
         except Exception as e:
-            self.errors[
-                self.index
-            ] = f"error: {e!r} {traceback.format_exc()}\n request payload: {self.request_json}"
+            self.errors[self.index] = (
+                f"error: {e!r} {traceback.format_exc()}\n request payload: {self.request_json}"
+            )
             status_tracker.increment_num_api_errors()
             status_tracker.complete_task(success=False)
 

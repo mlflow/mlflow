@@ -44,6 +44,7 @@ class Trace(_MlflowObject):
                 f"Received keys: {list(trace_dict.keys())}",
                 error_code=INVALID_PARAMETER_VALUE,
             )
+
         return cls(
             info=TraceInfo.from_dict(info),
             data=TraceData.from_dict(data),

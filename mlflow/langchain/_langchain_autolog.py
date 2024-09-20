@@ -7,6 +7,7 @@ from copy import deepcopy
 from typing import Dict, List, Union
 
 from langchain_core.callbacks.base import BaseCallbackHandler, BaseCallbackManager
+from packaging.version import Version
 
 import mlflow
 from mlflow.entities import RunTag
@@ -298,22 +299,30 @@ def _combine_input_and_output(input, output, session_id, func_name):
 
 
 def _update_langchain_model_config(model):
+    # Langchain models are Pydantic models, and the value for extra is
+    # ignored, we need to set it to allow so as to set attributes on
+    # the model to keep track of logging status
+    import langchain
+
     try:
-        from langchain_core.pydantic_v1 import Extra
-    except ImportError as e:
+        # LangChain 0.3.0 and above is fully migrated to Pydantic v2
+        if Version(langchain.__version__) >= Version("0.3.0"):
+            if hasattr(model, "model_config") and model.model_config is not None:
+                model.model_config["extra"] = "allow"
+                model.__pydantic_extra__ = {}
+                return True
+        else:
+            from langchain_core.pydantic_v1 import Extra
+
+            if hasattr(model, "__config__"):
+                model.__config__.extra = Extra.allow
+            return True
+    except Exception as e:
         warnings.warn(
-            "MLflow langchain autologging might log model several "
-            "times due to the pydantic.config.Extra import error. "
-            f"Error: {e}"
+            "Failed to set extra attribute on the model for keeping track of logging status. "
+            f"MLflow langchain autologging might log model several times. Error: {e}"
         )
         return False
-    else:
-        # Langchain models are Pydantic models, and the value for extra is
-        # ignored, we need to set it to allow so as to set attributes on
-        # the model to keep track of logging status
-        if hasattr(model, "__config__"):
-            model.__config__.extra = Extra.allow
-        return True
 
 
 def _runnable_with_retriever(model):

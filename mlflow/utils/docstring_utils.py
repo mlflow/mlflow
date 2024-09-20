@@ -87,7 +87,7 @@ class ParamDocs(dict):
         replacements = _replace_keys_with_placeholders(kwargs)
         return ParamDocs({k: _replace_all(v, replacements) for k, v in self.items()})
 
-    def format_docstring(self, docstring: str) -> str:
+    def format_docstring(self, docstring: str) -> str:  # noqa: D417
         """
         Formats placeholders in `docstring`.
 

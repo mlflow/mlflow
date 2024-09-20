@@ -7,6 +7,7 @@ H20 (native) format
 :py:mod:`mlflow.pyfunc`
     Produced for use by generic pyfunc-based deployment tools and batch inference.
 """
+
 import logging
 import os
 import warnings
@@ -72,7 +73,7 @@ def get_default_conda_env():
 
 
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
-def save_model(
+def save_model(  # noqa: D417
     h2o_model,
     path,
     conda_env=None,

@@ -12,6 +12,7 @@ statsmodels (native) format
     https://www.statsmodels.org/stable/_modules/statsmodels/base/model.html#Results
 
 """
+
 import inspect
 import itertools
 import logging
@@ -213,7 +214,7 @@ def save_model(
 
 
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
-def log_model(
+def log_model(  # noqa: D417
     statsmodels_model,
     artifact_path,
     conda_env=None,

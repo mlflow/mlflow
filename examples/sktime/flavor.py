@@ -50,6 +50,7 @@ Index  predict_method    coverage     fh
 0      predict_interval  [0.9,0.95]   [1,2,3]
 ====== ================= ============ ========
 """
+
 import logging
 import os
 import pickle

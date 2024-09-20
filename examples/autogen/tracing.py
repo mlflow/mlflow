@@ -3,6 +3,7 @@ This is an example for leveraging MLflow's auto tracing capabilities for AutoGen
 
 For more information about MLflow Tracing, see: https://mlflow.org/docs/latest/llms/tracing/index.html
 """
+
 import os
 from typing import Annotated, Literal
 

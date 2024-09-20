@@ -26,6 +26,7 @@ implement mutual exclusion manually.
 
 For a lower level API, see the :py:mod:`mlflow.client` module.
 """
+
 import contextlib
 
 from mlflow.version import VERSION
@@ -109,6 +110,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.models import evaluate
 from mlflow.projects import run
 from mlflow.tracing.fluent import (
+    add_trace,
     get_current_active_span,
     get_last_active_trace,
     get_trace,
@@ -233,6 +235,7 @@ __all__ = [
     "search_traces",
     "start_span",
     "trace",
+    "add_trace",
 ]
 
 

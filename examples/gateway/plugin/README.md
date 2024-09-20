@@ -18,7 +18,7 @@ pip install -e ./my-llm
 Then, start the server:
 
 ```sh
-MY_LLM_API_KEY=some-api-key mlflow deployments start-server --config-path config.yaml --port 7000
+MY_LLM_API_KEY=some-api-key mlflow gateway start --config-path config.yaml --port 7000
 ```
 
 To clean up the installed package after the example, run

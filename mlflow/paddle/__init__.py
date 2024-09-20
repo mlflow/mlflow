@@ -376,12 +376,10 @@ def log_model(
         import mlflow.paddle
 
 
-        def load_data():
-            ...
+        def load_data(): ...
 
 
-        class Regressor:
-            ...
+        class Regressor: ...
 
 
         model = Regressor()

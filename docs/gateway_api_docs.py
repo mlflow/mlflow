@@ -21,7 +21,7 @@ API_HTML = """
       rel="shortcut icon"
       href="../_static/favicon.ico"
     />
-    <title>MLflow Deployments Server - Swagger UI</title>
+    <title>MLflow AI Gateway - Swagger UI</title>
   </head>
   <body>
     <div id="swagger-ui"></div>

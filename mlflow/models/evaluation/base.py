@@ -453,7 +453,7 @@ class ModelEvaluator(metaclass=ABCMeta):
         raise NotImplementedError()
 
     @abstractmethod
-    def evaluate(
+    def evaluate(  # noqa: D417
         self,
         *,
         model_type,
@@ -854,7 +854,7 @@ def _get_model_from_deployment_endpoint_uri(
             self.endpoint = endpoint
             self.params = params
 
-        def predict(
+        def predict(  # noqa: D417
             self, context, model_input: Union[pd.DataFrame, Dict[str, Any], List[Dict[str, Any]]]
         ):
             """
@@ -935,7 +935,7 @@ def _get_model_from_deployment_endpoint_uri(
     return _PythonModelPyfuncWrapper(python_model, None, None)
 
 
-def evaluate(
+def evaluate(  # noqa: D417
     model=None,
     data=None,
     *,
@@ -1188,9 +1188,10 @@ def evaluate(
               :py:func:`predict <mlflow.pyfunc.PyFuncModel.predict>` method. Here's an example
               of a valid function:
 
-              ..code-block:: python
+              .. code-block:: python
 
                   model = mlflow.pyfunc.load_model(model_uri)
+
 
                   def fn(model_input):
                       return model.predict(model_input)

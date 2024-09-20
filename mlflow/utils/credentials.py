@@ -73,7 +73,7 @@ def get_default_host_creds(store_uri):
     )
 
 
-def login(backend: str = "databricks", interactive: bool = True) -> None:
+def login(backend: str = "databricks", interactive: bool = True) -> None:  # noqa: D417
     """Configure MLflow server authentication and connect MLflow to tracking server.
 
     This method provides a simple way to connect MLflow to its tracking server. Currently only

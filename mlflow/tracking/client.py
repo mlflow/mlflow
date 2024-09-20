@@ -3,6 +3,7 @@ Internal package providing a Python CRUD interface to MLflow experiments, runs, 
 and model versions. This is a lower level API than the :py:mod:`mlflow.tracking.fluent` module,
 and is exposed in the :py:mod:`mlflow.tracking` module.
 """
+
 import contextlib
 import json
 import logging
@@ -453,7 +454,7 @@ class MlflowClient:
         )
 
     @experimental
-    def get_trace(self, request_id: str, display=True) -> Trace:
+    def get_trace(self, request_id: str, display=True) -> Trace:  # noqa: D417
         """
         Get the trace matching the specified ``request_id``.
 
@@ -524,6 +525,7 @@ class MlflowClient:
         attributes: Optional[Dict[str, str]] = None,
         tags: Optional[Dict[str, str]] = None,
         experiment_id: Optional[str] = None,
+        start_time_ns: Optional[int] = None,
     ) -> Span:
         """
         Create a new trace object and start a root span under it.
@@ -551,6 +553,7 @@ class MlflowClient:
                 :py:func:`mlflow.set_experiment() <mlflow.set_experiment>`,
                 ``MLFLOW_EXPERIMENT_NAME`` environment variable, ``MLFLOW_EXPERIMENT_ID``
                 environment variable, or the default experiment as defined by the tracking server.
+            start_time_ns: The start time of the trace in nanoseconds since the UNIX epoch.
 
         Returns:
             An :py:class:`Span <mlflow.entities.Span>` object
@@ -600,7 +603,7 @@ class MlflowClient:
             # Once OTel span is created, SpanProcessor.on_start is invoked
             # TraceInfo is created and logged into backend store inside on_start method
             otel_span = mlflow.tracing.provider.start_detached_span(
-                name, experiment_id=experiment_id
+                name, experiment_id=experiment_id, start_time_ns=start_time_ns
             )
             request_id = get_otel_attribute(otel_span, SpanAttributeKey.REQUEST_ID)
             mlflow_span = create_mlflow_span(otel_span, request_id, span_type)
@@ -637,6 +640,7 @@ class MlflowClient:
         outputs: Optional[Dict[str, Any]] = None,
         attributes: Optional[Dict[str, Any]] = None,
         status: Union[SpanStatus, str] = "OK",
+        end_time_ns: Optional[int] = None,
     ):
         """
         End the trace with the given trace ID. This will end the root span of the trace and
@@ -657,6 +661,7 @@ class MlflowClient:
                 representing the status code defined in
                 :py:class:`SpanStatusCode <mlflow.entities.SpanStatusCode>`
                 e.g. ``"OK"``, ``"ERROR"``. The default status is OK.
+            end_time_ns: The end time of the trace in nanoseconds since the UNIX epoch.
         """
         # NB: If the specified request ID is of no-op span, this means something went wrong in
         #     the span start logic. We should simply ignore it as the upstream should already
@@ -680,7 +685,7 @@ class MlflowClient:
                     error_code=INVALID_PARAMETER_VALUE,
                 )
 
-        self.end_span(request_id, root_span_id, outputs, attributes, status)
+        self.end_span(request_id, root_span_id, outputs, attributes, status, end_time_ns)
 
     def _upload_trace_spans_as_tag(self, trace_info: TraceInfo, trace_data: TraceData):
         # When a trace is logged, we set a mlflow.traceSpans tag via SetTraceTag API
@@ -854,19 +859,15 @@ class MlflowClient:
 
         try:
             otel_span = mlflow.tracing.provider.start_detached_span(
-                name=name, parent=parent_span._span
+                name=name,
+                parent=parent_span._span,
+                start_time_ns=start_time_ns,
             )
-
-            # We have to set the custom start time here after the span is created,
-            # because span processor may override the start time in the on_start() method.
-            if start_time_ns is not None:
-                otel_span._start_time = start_time_ns
 
             span = create_mlflow_span(otel_span, request_id, span_type)
             span.set_attributes(attributes or {})
             if inputs is not None:
                 span.set_inputs(inputs)
-
             trace_manager.register_span(span)
             return span
         except Exception as e:
@@ -1385,7 +1386,7 @@ class MlflowClient:
         """
         self._tracking_client.restore_experiment(experiment_id)
 
-    def rename_experiment(self, experiment_id: str, new_name: str) -> None:
+    def rename_experiment(self, experiment_id: str, new_name: str) -> None:  # noqa: D417
         """
         Update an experiment's name. The new name must be unique.
 
@@ -1623,7 +1624,7 @@ class MlflowClient:
         """
         self._tracking_client.set_experiment_tag(experiment_id, key, value)
 
-    def set_tag(
+    def set_tag(  # noqa: D417
         self, run_id: str, key: str, value: Any, synchronous: Optional[bool] = None
     ) -> Optional[RunOperations]:
         """
@@ -1873,7 +1874,7 @@ class MlflowClient:
         """
         self._tracking_client.log_inputs(run_id, datasets)
 
-    def log_artifact(self, run_id, local_path, artifact_path=None) -> None:
+    def log_artifact(self, run_id, local_path, artifact_path=None) -> None:  # noqa: D417
         """Write a local file or directory to the remote ``artifact_uri``.
 
         Args:
@@ -1922,7 +1923,7 @@ class MlflowClient:
             )
         self._tracking_client.log_artifact(run_id, local_path, artifact_path)
 
-    def log_artifacts(
+    def log_artifacts(  # noqa: D417
         self, run_id: str, local_dir: str, artifact_path: Optional[str] = None
     ) -> None:
         """Write a directory of files to the remote ``artifact_uri``.
@@ -2168,7 +2169,7 @@ class MlflowClient:
             else:
                 raise TypeError(f"Unsupported figure object type: '{type(figure)}'")
 
-    def log_image(
+    def log_image(  # noqa: D417
         self,
         run_id: str,
         image: Union["numpy.ndarray", "PIL.Image.Image", "mlflow.Image"],
