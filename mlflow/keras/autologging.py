@@ -110,7 +110,7 @@ def _log_keras_model(
 
 @experimental
 @autologging_integration("keras")
-def autolog(  # noqa: D417
+def autolog(
     log_every_epoch=True,
     log_every_n_steps=None,
     log_models=True,
@@ -157,6 +157,9 @@ def autolog(  # noqa: D417
             `False`, autologged content is logged to the active fluent run, which may be
             user-created.  disable_for_unsupported_versions: If `True`, disable autologging for
             incompatible Keras versions.
+        disable_for_unsupported_versions: If ``True``, disable autologging for versions of keras
+            that have not been tested against this version of the MLflow client or are
+            incompatible.
         silent: If `True`, suppress all event logs and warnings from MLflow during Keras
             autologging.  If `True`, show all events and warnings during Keras autologging.
         registered_model_name: If set, each time a model is trained, it is registered as a new model

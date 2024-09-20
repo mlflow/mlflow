@@ -214,7 +214,7 @@ def save_model(
 
 
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
-def log_model(  # noqa: D417
+def log_model(
     statsmodels_model,
     artifact_path,
     conda_env=None,
@@ -251,6 +251,7 @@ def log_model(  # noqa: D417
         pip_requirements: {{ pip_requirements }}
         extra_pip_requirements: {{ extra_pip_requirements }}
         metadata: {{ metadata }}
+        kwargs: Extra kwargs to pass to ``mlflow.models.Model.log``.
 
     Returns:
         A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the metadata
