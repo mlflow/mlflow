@@ -60,7 +60,11 @@ Core Concepts
 
             @mlflow.trace
             def _get_system_message(self, role: str) -> Dict:
-                # Function implementation
+                if role not in self.models:
+                    raise ValueError(f"Unknown role: {role}")
+
+                instruction = self.models[role]["instruction"]
+                return ChatMessage(role="system", content=instruction).to_dict()
         
         Using the :py:func:`@mlflow.trace <mlflow.trace>` tracing decorator is the simplest way to add tracing functionality to functions and methods. By default, a span that is generated from 
         the application of this decorator will utilize the name of the function as the name of the span. It is possible to override this naming, as well as
@@ -70,7 +74,11 @@ Core Concepts
 
             @mlflow.trace(name="custom_span_name", attributes={"key": "value"}, span_type="func")
             def _get_system_message(self, role: str) -> Dict:
-                # Function implementation
+                if role not in self.models:
+                    raise ValueError(f"Unknown role: {role}")
+
+                instruction = self.models[role]["instruction"]
+                return ChatMessage(role="system", content=instruction).to_dict()
         
         .. tip::
             It is always advised to set a human-readable name for any span that you generate, particularly if you are instrumenting private or generically 
@@ -190,27 +198,28 @@ Core Concepts
         .. code-block:: python
 
             [
-                {'type': 'array',
-                 'items': {'type': 'object',
-                 'properties': {'content': {'type': 'string', 'required': True},
-                    'name': {'type': 'string', 'required': False},
-                    'role': {'type': 'string', 'required': True}}},
-                 'name': 'messages',
-                 'required': True
+                {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "content": {"type": "string", "required": True},
+                            "name": {"type": "string", "required": False},
+                            "role": {"type": "string", "required": True},
+                        },
+                    },
+                    "name": "messages",
+                    "required": True,
                 },
-                {'type': 'double', 'name': 'temperature', 'required': False},
-                {'type': 'long', 'name': 'max_tokens', 'required': False},
-                {'type': 'array',
-                 'items': {'type': 'string'},
-                 'name': 'stop',
-                 'required': False
-                },
-                {'type': 'long', 'name': 'n', 'required': False},
-                {'type': 'boolean', 'name': 'stream', 'required': False},
-                {'type': 'double', 'name': 'top_p', 'required': False},
-                {'type': 'long', 'name': 'top_k', 'required': False},
-                {'type': 'double', 'name': 'frequency_penalty', 'required': False},
-                {'type': 'double', 'name': 'presence_penalty', 'required': False}
+                {"type": "double", "name": "temperature", "required": False},
+                {"type": "long", "name": "max_tokens", "required": False},
+                {"type": "array", "items": {"type": "string"}, "name": "stop", "required": False},
+                {"type": "long", "name": "n", "required": False},
+                {"type": "boolean", "name": "stream", "required": False},
+                {"type": "double", "name": "top_p", "required": False},
+                {"type": "long", "name": "top_k", "required": False},
+                {"type": "double", "name": "frequency_penalty", "required": False},
+                {"type": "double", "name": "presence_penalty", "required": False},
             ]
 
         By using :py:class:`mlflow.pyfunc.ChatModel` to base a custom implementation off of, we don't have to reason about this complex signature.
@@ -259,8 +268,8 @@ Core Concepts
 
             from mlflow.pyfunc import ChatModel
 
-            class MyModel(ChatModel):
 
+            class MyModel(ChatModel):
                 def __init__(self):
                     self.state = []
 
@@ -275,8 +284,8 @@ Core Concepts
             
             from mlflow.pyfunc import ChatModel
 
-            class MyModel(ChatModel):
 
+            class MyModel(ChatModel):
                 def __init__(self):
                     self.state = []
                     self.my_model_config = None  # Define the attribute here
@@ -348,7 +357,7 @@ Core Concepts
 
             from mlflow.models import validate_serving_input
 
-            model_uri = 'runs:/8935b7aff5a84f559b5fcc2af3e2ea31/model'
+            model_uri = "runs:/8935b7aff5a84f559b5fcc2af3e2ea31/model"
 
             # The model is logged with an input example. MLflow converts
             # it into the serving payload format for the deployed model endpoint,
@@ -463,7 +472,9 @@ The implementation below highlights the following key aspects:
             return ChatMessage(role="system", content=instruction).to_dict()
 
         @mlflow.trace(name="Raw Agent Response")
-        def _get_agent_response(self, message_list: List[Dict], endpoint: str, params: Optional[dict] = None) -> Dict:
+        def _get_agent_response(
+            self, message_list: List[Dict], endpoint: str, params: Optional[dict] = None
+        ) -> Dict:
             """
             Call the agent endpoint to get a response.
 
@@ -476,13 +487,14 @@ The implementation below highlights the following key aspects:
                 dict: The response from the agent.
             """
             response = self.deploy_client.predict(
-                endpoint=endpoint,
-                inputs={"messages": message_list, **(params or {})}
+                endpoint=endpoint, inputs={"messages": message_list, **(params or {})}
             )
             return response["choices"][0]["message"]
 
         @mlflow.trace(name="Agent Call")
-        def _call_agent(self, message: ChatMessage, role: str, params: Optional[dict] = None) -> Dict:
+        def _call_agent(
+            self, message: ChatMessage, role: str, params: Optional[dict] = None
+        ) -> Dict:
             """
             Prepares and sends the request to a specific agent based on the role.
 
@@ -499,14 +511,18 @@ The implementation below highlights the following key aspects:
 
             # Fetch agent response
             agent_config = self.models[role]
-            response = self._get_agent_response(message_list, agent_config["endpoint"], params)
+            response = self._get_agent_response(
+                message_list, agent_config["endpoint"], params
+            )
 
             # Update conversation history
             self.conversation_history.extend([message.to_dict(), response])
             return response
 
         @mlflow.trace(name="Assemble Conversation")
-        def _prepare_message_list(self, system_message: Dict, user_message: ChatMessage) -> List[Dict]:
+        def _prepare_message_list(
+            self, system_message: Dict, user_message: ChatMessage
+        ) -> List[Dict]:
             """
             Prepare the list of messages to send to the agent.
 
@@ -517,13 +533,20 @@ The implementation below highlights the following key aspects:
             Returns:
                 List[dict]: The complete list of messages to send.
             """
-            user_prompt = {"role": "user", "content": self.models_config.get("user_response_instruction", "Can you make the answer better?")}
+            user_prompt = {
+                "role": "user",
+                "content": self.models_config.get(
+                    "user_response_instruction", "Can you make the answer better?"
+                ),
+            }
             if self.conversation_history:
                 return [system_message, *self.conversation_history, user_prompt]
             else:
                 return [system_message, user_message.to_dict()]
 
-        def predict(self, context, messages: List[ChatMessage], params: Optional[ChatParams] = None) -> ChatResponse:
+        def predict(
+            self, context, messages: List[ChatMessage], params: Optional[ChatParams] = None
+        ) -> ChatResponse:
             """
             Predict method to handle agent conversation.
 
@@ -535,31 +558,35 @@ The implementation below highlights the following key aspects:
             Returns:
                 ChatResponse: The structured response object.
             """
+            # Use the fluent API context handler to have added control over what is included in the span
             with mlflow.start_span(name="Audit Agent") as root_span:
+                # Add the user input to the root span
+                root_span.set_inputs(messages)
 
-            # Add the user input to the root span
-            root_span.set_inputs(messages)
-            attributes = {**params.to_dict(), **self.models_config, **self.models}
-            root_span.set_attributes(attributes)
+                # Add attributes to the root span
+                attributes = {**params.to_dict(), **self.models_config, **self.models}
+                root_span.set_attributes(attributes)
 
-            # Initiate the conversation with the oracle
-            oracle_params = self._get_model_params("oracle")
-            oracle_response = self._call_agent(messages[0], "oracle", oracle_params)
+                # Initiate the conversation with the oracle
+                oracle_params = self._get_model_params("oracle")
+                oracle_response = self._call_agent(messages[0], "oracle", oracle_params)
 
-            # Process the response with the judge
-            judge_params = self._get_model_params("judge")
-            judge_response = self._call_agent(ChatMessage(**oracle_response), "judge", judge_params)
+                # Process the response with the judge
+                judge_params = self._get_model_params("judge")
+                judge_response = self._call_agent(
+                    ChatMessage(**oracle_response), "judge", judge_params
+                )
 
-            # Reset the conversation history and return the final response
-            self.conversation_history = []
+                # Reset the conversation history and return the final response
+                self.conversation_history = []
 
-            output = ChatResponse(
-                choices=[ChatChoice(index=0, message=ChatMessage(**judge_response))],
-                usage={},
-                model=judge_params.get("endpoint", "unknown")
-            )
+                output = ChatResponse(
+                    choices=[ChatChoice(index=0, message=ChatMessage(**judge_response))],
+                    usage={},
+                    model=judge_params.get("endpoint", "unknown"),
+                )
 
-            root_span.set_outputs(output)
+                root_span.set_outputs(output)
 
             return output
 
@@ -644,7 +671,7 @@ Here's how we set the configuration for our agents:
        },
        "configuration": {
            "user_response_instruction": "Can you evaluate and enhance this answer with the provided contextual history?"
-       }
+       },
    }
 
 Benefits of External Configuration
@@ -684,7 +711,7 @@ Here's the input example we'll use:
         "messages": [
             {
                 "role": "user",
-                "content": "What is a good recipe for baking scones that doesn't require a lot of skill?"
+                "content": "What is a good recipe for baking scones that doesn't require a lot of skill?",
             }
         ]
     }
@@ -725,7 +752,16 @@ To log and load the model using MLflow, use:
 
     loaded = mlflow.pyfunc.load_model(model_info.model_uri)
 
-    response = loaded.predict({"messages": [{"role": "user", "content": "What is the best material to make a baseball bat out of?"}]})
+    response = loaded.predict(
+        {
+            "messages": [
+                {
+                    "role": "user",
+                    "content": "What is the best material to make a baseball bat out of?",
+                }
+            ]
+        }
+    )
 
 Conclusion
 ----------
