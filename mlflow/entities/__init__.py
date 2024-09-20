@@ -11,12 +11,19 @@ from mlflow.entities.experiment_tag import ExperimentTag
 from mlflow.entities.file_info import FileInfo
 from mlflow.entities.input_tag import InputTag
 from mlflow.entities.lifecycle_stage import LifecycleStage
+from mlflow.entities.logged_model import LoggedModel
 from mlflow.entities.metric import Metric
+from mlflow.entities.model_input import ModelInput
+from mlflow.entities.model_output import ModelOutput
+from mlflow.entities.model_param import ModelParam
+from mlflow.entities.model_status import ModelStatus
+from mlflow.entities.model_tag import ModelTag
 from mlflow.entities.param import Param
 from mlflow.entities.run import Run
 from mlflow.entities.run_data import RunData
 from mlflow.entities.run_info import RunInfo
 from mlflow.entities.run_inputs import RunInputs
+from mlflow.entities.run_outputs import RunOutputs
 from mlflow.entities.run_status import RunStatus
 from mlflow.entities.run_tag import RunTag
 from mlflow.entities.source_type import SourceType
@@ -46,6 +53,7 @@ __all__ = [
     "InputTag",
     "DatasetInput",
     "RunInputs",
+    "RunOutputs",
     "Span",
     "LiveSpan",
     "NoOpSpan",
@@ -57,4 +65,10 @@ __all__ = [
     "TraceInfo",
     "SpanStatusCode",
     "_DatasetSummary",
+    "LoggedModel",
+    "ModelInput",
+    "ModelOutput",
+    "ModelStatus",
+    "ModelTag",
+    "ModelParam",
 ]

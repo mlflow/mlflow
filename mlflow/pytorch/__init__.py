@@ -136,9 +136,9 @@ def get_default_conda_env():
 
 
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name="torch"))
-def log_model(
+def log_model(  # noqa: D417
     pytorch_model,
-    artifact_path,
+    name: Optional[str] = None,
     conda_env=None,
     code_paths=None,
     pickle_module=None,
@@ -151,6 +151,11 @@ def log_model(
     pip_requirements=None,
     extra_pip_requirements=None,
     metadata=None,
+    params: Optional[Dict[str, Any]] = None,
+    tags: Optional[Dict[str, Any]] = None,
+    model_type: Optional[str] = None,
+    step: int = 0,
+    model_id: Optional[str] = None,
     **kwargs,
 ):
     """
@@ -178,7 +183,7 @@ def log_model(
                   ``conda_env`` parameter.
                 - One or more of the files specified by the ``code_paths`` parameter.
 
-        artifact_path: Run-relative artifact path.
+        name: The name of the model.
         conda_env: {{ conda_env }}
         code_paths: {{ code_paths }}
         pickle_module: The module that PyTorch should use to serialize ("pickle") the specified
@@ -294,7 +299,7 @@ def log_model(
     """
     pickle_module = pickle_module or mlflow_pytorch_pickle_module
     return Model.log(
-        artifact_path=artifact_path,
+        name=name,
         flavor=mlflow.pytorch,
         pytorch_model=pytorch_model,
         conda_env=conda_env,
@@ -309,6 +314,11 @@ def log_model(
         pip_requirements=pip_requirements,
         extra_pip_requirements=extra_pip_requirements,
         metadata=metadata,
+        params=params,
+        tags=tags,
+        model_type=model_type,
+        step=step,
+        model_id=model_id,
         **kwargs,
     )
 

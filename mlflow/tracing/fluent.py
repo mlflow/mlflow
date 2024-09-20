@@ -54,11 +54,12 @@ TRACE_BUFFER = TTLCache(
 
 
 @experimental
-def trace(
+def trace(  # noqa: D417
     func: Optional[Callable] = None,
     name: Optional[str] = None,
     span_type: str = SpanType.UNKNOWN,
     attributes: Optional[Dict[str, Any]] = None,
+    model_id: Optional[str] = None,
 ) -> Callable:
     """
     A decorator that creates a new span for the decorated function.
@@ -136,7 +137,9 @@ def trace(
         def _wrapping_logic(fn, args, kwargs):
             span_name = name or fn.__name__
 
-            with start_span(name=span_name, span_type=span_type, attributes=attributes) as span:
+            with start_span(
+                name=span_name, span_type=span_type, attributes=attributes, model_id=model_id
+            ) as span:
                 span.set_attribute(SpanAttributeKey.FUNCTION_NAME, fn.__name__)
                 try:
                     span.set_inputs(capture_function_input_args(fn, args, kwargs))
@@ -181,10 +184,11 @@ def trace(
 
 @experimental
 @contextlib.contextmanager
-def start_span(
+def start_span(  # noqa: D417
     name: str = "span",
     span_type: Optional[str] = SpanType.UNKNOWN,
     attributes: Optional[Dict[str, Any]] = None,
+    model_id: Optional[str] = None,
 ) -> Generator[LiveSpan, None, None]:
     """
     Context manager to create a new span and start it as the current span in the context.
@@ -254,9 +258,11 @@ def start_span(
         # Create a new MLflow span and register it to the in-memory trace manager
         request_id = get_otel_attribute(otel_span, SpanAttributeKey.REQUEST_ID)
         mlflow_span = create_mlflow_span(otel_span, request_id, span_type)
-        mlflow_span.set_attributes(attributes or {})
+        attributes = dict(attributes) if attributes is not None else {}
+        if model_id is not None:
+            attributes[SpanAttributeKey.MODEL_ID] = model_id
+        mlflow_span.set_attributes(attributes)
         InMemoryTraceManager.get_instance().register_span(mlflow_span)
-
     except Exception as e:
         _logger.warning(
             f"Failed to start span: {e}. For full traceback, set logging level to debug.",
@@ -327,12 +333,13 @@ def get_trace(request_id: str) -> Optional[Trace]:
 
 
 @experimental
-def search_traces(
+def search_traces(  # noqa: D417
     experiment_ids: Optional[List[str]] = None,
     filter_string: Optional[str] = None,
     max_results: Optional[int] = None,
     order_by: Optional[List[str]] = None,
     extract_fields: Optional[List[str]] = None,
+    model_id: Optional[str] = None,
 ) -> "pandas.DataFrame":
     """
     Return traces that match the given list of search expressions within the experiments.
@@ -431,6 +438,7 @@ def search_traces(
             filter_string=filter_string,
             order_by=order_by,
             page_token=next_page_token,
+            model_id=model_id,
         )
 
     results = get_results_from_paginated_fn(

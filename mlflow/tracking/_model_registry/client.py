@@ -5,6 +5,7 @@ exposed in the :py:mod:`mlflow.tracking` module.
 """
 
 import logging
+from typing import Optional
 
 from mlflow.entities.model_registry import ModelVersionTag, RegisteredModelTag
 from mlflow.exceptions import MlflowException
@@ -189,6 +190,7 @@ class ModelRegistryClient:
         description=None,
         await_creation_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
         local_model_path=None,
+        model_id: Optional[str] = None,
     ):
         """Create a new model version from given source.
 
@@ -203,6 +205,8 @@ class ModelRegistryClient:
             await_creation_for: Number of seconds to wait for the model version to finish being
                 created and is in ``READY`` status. By default, the function
                 waits for five minutes. Specify 0 or None to skip waiting.
+            model_id: The ID of the model (from an Experiment) that is being promoted to a
+                      registered model version, if applicable.
 
         Returns:
             Single :py:class:`mlflow.entities.model_registry.ModelVersion` object created by
@@ -221,6 +225,7 @@ class ModelRegistryClient:
                 run_link,
                 description,
                 local_model_path=local_model_path,
+                model_id=model_id,
             )
         else:
             # Fall back to calling create_model_version without

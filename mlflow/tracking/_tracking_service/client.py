@@ -13,7 +13,13 @@ from typing import Dict, List, Optional
 
 from mlflow.entities import (
     ExperimentTag,
+    LoggedModel,
     Metric,
+    ModelInput,
+    ModelOutput,
+    ModelParam,
+    ModelStatus,
+    ModelTag,
     Param,
     RunStatus,
     RunTag,
@@ -32,6 +38,7 @@ from mlflow.exceptions import (
     MlflowTraceDataNotFound,
 )
 from mlflow.protos.databricks_pb2 import BAD_REQUEST, INVALID_PARAMETER_VALUE, ErrorCode
+from mlflow.store.artifact.artifact_repo import ArtifactRepository
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.tracking import (
@@ -296,7 +303,18 @@ class TrackingServiceClient:
         max_results: int = SEARCH_TRACES_DEFAULT_MAX_RESULTS,
         order_by: Optional[List[str]] = None,
         page_token: Optional[str] = None,
+        model_id: Optional[str] = None,
     ):
+        if model_id is not None:
+            if filter_string:
+                raise MlflowException(
+                    message=(
+                        "Cannot specify both `model_id` and `experiment_ids` or `filter_string`"
+                        " in the search_traces call."
+                    ),
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
+            filter_string = f"request_metadata.`mlflow.modelId` = '{model_id}'"
         return self.store.search_traces(
             experiment_ids=experiment_ids,
             filter_string=filter_string,
@@ -312,6 +330,7 @@ class TrackingServiceClient:
         max_results: int = SEARCH_TRACES_DEFAULT_MAX_RESULTS,
         order_by: Optional[List[str]] = None,
         page_token: Optional[str] = None,
+        model_id: Optional[str] = None,
     ) -> PagedList[Trace]:
         def download_trace_data(trace_info: TraceInfo) -> Optional[Trace]:
             """
@@ -343,6 +362,7 @@ class TrackingServiceClient:
                     max_results=next_max_results,
                     order_by=order_by,
                     page_token=next_token,
+                    model_id=model_id,
                 )
                 traces.extend(t for t in executor.map(download_trace_data, trace_infos) if t)
 
@@ -531,8 +551,17 @@ class TrackingServiceClient:
         """
         self.store.rename_experiment(experiment_id, new_name)
 
-    def log_metric(
-        self, run_id, key, value, timestamp=None, step=None, synchronous=True
+    def log_metric(  # noqa: D417
+        self,
+        run_id,
+        key,
+        value,
+        timestamp=None,
+        step=None,
+        synchronous=True,
+        dataset_name: Optional[str] = None,
+        dataset_digest: Optional[str] = None,
+        model_id: Optional[str] = None,
     ) -> Optional[RunOperations]:
         """Log a metric against the run ID.
 
@@ -559,7 +588,15 @@ class TrackingServiceClient:
         timestamp = timestamp if timestamp is not None else get_current_time_millis()
         step = step if step is not None else 0
         metric_value = convert_metric_value_to_float_if_possible(value)
-        metric = Metric(key, metric_value, timestamp, step)
+        metric = Metric(
+            key,
+            metric_value,
+            timestamp,
+            step,
+            model_id=model_id,
+            dataset_name=dataset_name,
+            dataset_digest=dataset_digest,
+        )
         if synchronous:
             self.store.log_metric(run_id, metric)
         else:
@@ -698,10 +735,14 @@ class TrackingServiceClient:
 
         metrics = [
             Metric(
-                metric.key,
-                convert_metric_value_to_float_if_possible(metric.value),
-                metric.timestamp,
-                metric.step,
+                key=metric.key,
+                value=convert_metric_value_to_float_if_possible(metric.value),
+                timestamp=metric.timestamp,
+                step=metric.step,
+                dataset_name=metric.dataset_name,
+                dataset_digest=metric.dataset_digest,
+                model_id=metric.model_id,
+                run_id=metric.run_id,
             )
             for metric in metrics
         ]
@@ -752,12 +793,18 @@ class TrackingServiceClient:
             # Merge all the run operations into a single run operations object
             return get_combined_run_operations(run_operations_list)
 
-    def log_inputs(self, run_id: str, datasets: Optional[List[DatasetInput]] = None):
+    def log_inputs(
+        self,
+        run_id: str,
+        datasets: Optional[List[DatasetInput]] = None,
+        models: Optional[List[ModelInput]] = None,
+    ):
         """Log one or more dataset inputs to a run.
 
         Args:
             run_id: String ID of the run
             datasets: List of :py:class:`mlflow.entities.DatasetInput` instances to log.
+            models: List of :py:class:`mlflow.entities.ModelInput` instances to log.
 
         Raises:
             MlflowException: If any errors occur.
@@ -765,10 +812,10 @@ class TrackingServiceClient:
         Returns:
             None
         """
-        if datasets is None or len(datasets) == 0:
-            return
+        self.store.log_inputs(run_id=run_id, datasets=datasets, models=models)
 
-        self.store.log_inputs(run_id=run_id, datasets=datasets)
+    def log_outputs(self, run_id: str, models: List[ModelOutput]):
+        self.store.log_outputs(run_id=run_id, models=models)
 
     def _record_logged_model(self, run_id, mlflow_model):
         from mlflow.models import Model
@@ -976,3 +1023,64 @@ class TrackingServiceClient:
             order_by=order_by,
             page_token=page_token,
         )
+
+    def create_logged_model(
+        self,
+        experiment_id: str,
+        name: str,
+        run_id: Optional[str] = None,
+        tags: Optional[Dict[str, str]] = None,
+        params: Optional[Dict[str, str]] = None,
+        model_type: Optional[str] = None,
+    ) -> LoggedModel:
+        return self.store.create_logged_model(
+            experiment_id=experiment_id,
+            name=name,
+            run_id=run_id,
+            tags=[ModelTag(str(key), str(value)) for key, value in tags.items()]
+            if tags is not None
+            else tags,
+            params=[ModelParam(str(key), str(value)) for key, value in params.items()]
+            if params is not None
+            else params,
+            model_type=model_type,
+        )
+
+    def finalize_logged_model(self, model_id: str, status: ModelStatus) -> LoggedModel:
+        return self.store.finalize_logged_model(model_id, status)
+
+    def get_logged_model(self, model_id: str) -> LoggedModel:
+        return self.store.get_logged_model(model_id)
+
+    def set_logged_model_tag(self, model_id: str, key: str, value: str):
+        return self.store.set_logged_model_tag(model_id, ModelTag(key, value))
+
+    def log_model_artifacts(self, model_id: str, local_dir: str) -> None:
+        self._get_artifact_repo_for_logged_model(model_id).log_artifacts(local_dir)
+
+    def search_logged_models(
+        self,
+        experiment_ids: List[str],
+        filter_string: Optional[str] = None,
+        max_results: Optional[int] = None,
+        order_by: Optional[List[str]] = None,
+    ):
+        return self.store.search_logged_models(experiment_ids, filter_string, max_results, order_by)
+
+    def _get_artifact_repo_for_logged_model(self, model_id: str) -> ArtifactRepository:
+        # Attempt to fetch the artifact repo from a local cache
+        cached_repo = utils._artifact_repos_cache.get(model_id)
+        if cached_repo is not None:
+            return cached_repo
+        else:
+            model = self.get_logged_model(model_id)
+            artifact_uri = add_databricks_profile_info_to_artifact_uri(
+                model.artifact_location, self.tracking_uri
+            )
+            artifact_repo = get_artifact_repository(artifact_uri)
+            # Cache the artifact repo to avoid a future network call, removing the oldest
+            # entry in the cache if there are too many elements
+            if len(utils._artifact_repos_cache) > 1024:
+                utils._artifact_repos_cache.popitem(last=False)
+            utils._artifact_repos_cache[model_id] = artifact_repo
+            return artifact_repo

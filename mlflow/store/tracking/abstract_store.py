@@ -3,6 +3,9 @@ from typing import Dict, List, Optional, Tuple
 
 from mlflow.entities import (
     DatasetInput,
+    LoggedModel,
+    ModelStatus,
+    ModelTag,
     TraceInfo,
     ViewType,
 )
@@ -646,24 +649,6 @@ class AbstractStore:
             self._async_logging_queue.shut_down_async_logging()
 
     @abstractmethod
-    def record_logged_model(self, run_id, mlflow_model):
-        """
-        Record logged model information with tracking store. The list of logged model infos is
-        maintained in a mlflow.models tag in JSON format.
-
-        Note: The actual models are logged as artifacts via artifact repository.
-
-        Args:
-            run_id: String id for the run.
-            mlflow_model: Model object to be recorded.
-
-        The default implementation is a no-op.
-
-        Returns:
-            None.
-        """
-
-    @abstractmethod
     def log_inputs(self, run_id: str, datasets: Optional[List[DatasetInput]] = None):
         """
         Log inputs, such as datasets, to the specified run.
@@ -676,3 +661,35 @@ class AbstractStore:
         Returns:
             None.
         """
+
+    def record_logged_model(self, run_id, mlflow_model):
+        raise NotImplementedError
+
+    def create_logged_model(
+        self,
+        experiment_id: str,
+        name: str,
+        run_id: Optional[str] = None,
+        tags: Optional[Dict[str, str]] = None,
+        params: Optional[Dict[str, str]] = None,
+        model_type: Optional[str] = None,
+    ) -> LoggedModel:
+        raise NotImplementedError
+
+    def search_logged_models(
+        self,
+        experiment_ids: List[str],
+        filter_string: Optional[str] = None,
+        max_results: Optional[int] = None,
+        order_by: Optional[List[str]] = None,
+    ) -> List[LoggedModel]:
+        raise NotImplementedError
+
+    def finalize_logged_model(self, model_id: str, status: ModelStatus) -> LoggedModel:
+        raise NotImplementedError
+
+    def set_logged_model_tag(self, model_id: str, tag: ModelTag):
+        raise NotImplementedError
+
+    def get_logged_model(self, model_id: str) -> LoggedModel:
+        raise NotImplementedError

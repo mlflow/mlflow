@@ -5,8 +5,9 @@ import shutil
 import sys
 import time
 import uuid
+from collections import defaultdict
 from dataclasses import dataclass
-from typing import Dict, List, NamedTuple, Optional, Tuple
+from typing import Any, Dict, List, NamedTuple, Optional, Tuple
 
 from mlflow.entities import (
     Dataset,
@@ -14,12 +15,19 @@ from mlflow.entities import (
     Experiment,
     ExperimentTag,
     InputTag,
+    LoggedModel,
     Metric,
+    ModelInput,
+    ModelOutput,
+    ModelParam,
+    ModelStatus,
+    ModelTag,
     Param,
     Run,
     RunData,
     RunInfo,
     RunInputs,
+    RunOutputs,
     RunStatus,
     RunTag,
     SourceType,
@@ -38,7 +46,7 @@ from mlflow.protos.databricks_pb2 import (
     INVALID_PARAMETER_VALUE,
     RESOURCE_DOES_NOT_EXIST,
 )
-from mlflow.protos.internal_pb2 import InputVertexType
+from mlflow.protos.internal_pb2 import InputVertexType, OutputVertexType
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.model_registry.file_store import FileStore as ModelRegistryFileStore
 from mlflow.store.tracking import (
@@ -163,6 +171,7 @@ class FileStore(AbstractStore):
     EXPERIMENT_TAGS_FOLDER_NAME = "tags"
     DATASETS_FOLDER_NAME = "datasets"
     INPUTS_FOLDER_NAME = "inputs"
+    OUTPUTS_FOLDER_NAME = "outputs"
     META_DATA_FILE_NAME = "meta.yaml"
     DEFAULT_EXPERIMENT_ID = "0"
     TRACE_INFO_FILE_NAME = "trace_info.yaml"
@@ -174,6 +183,7 @@ class FileStore(AbstractStore):
         DATASETS_FOLDER_NAME,
         TRACES_FOLDER_NAME,
     ]
+    MODELS_FOLDER_NAME = "models"
 
     def __init__(self, root_directory=None, artifact_root_uri=None):
         """
@@ -241,6 +251,12 @@ class FileStore(AbstractStore):
             self._get_run_dir(experiment_id, run_uuid),
             FileStore.METRICS_FOLDER_NAME,
             metric_key,
+        )
+
+    def _get_model_metric_path(self, experiment_id: str, model_id: str, metric_key: str) -> str:
+        _validate_metric_name(metric_key)
+        return os.path.join(
+            self._get_model_dir(experiment_id, model_id), FileStore.METRICS_FOLDER_NAME, metric_key
         )
 
     def _get_param_path(self, experiment_id, run_uuid, param_name):
@@ -703,11 +719,12 @@ class FileStore(AbstractStore):
         params = self._get_all_params(run_info)
         tags = self._get_all_tags(run_info)
         inputs: RunInputs = self._get_all_inputs(run_info)
+        outputs: RunOutputs = self._get_all_outputs(run_info)
         if not run_info.run_name:
             run_name = _get_run_name_from_tags(tags)
             if run_name:
                 run_info._set_run_name(run_name)
-        return Run(run_info, RunData(metrics, params, tags), inputs)
+        return Run(run_info, RunData(metrics, params, tags), inputs, outputs)
 
     def _get_run_info(self, run_uuid):
         """
@@ -768,10 +785,12 @@ class FileStore(AbstractStore):
         return source_dirs[0], file_names
 
     @staticmethod
-    def _get_metric_from_file(parent_path, metric_name, exp_id):
+    def _get_metric_from_file(
+        parent_path: str, metric_name: str, run_id: str, exp_id: str
+    ) -> Metric:
         _validate_metric_name(metric_name)
         metric_objs = [
-            FileStore._get_metric_from_line(metric_name, line, exp_id)
+            FileStore._get_metric_from_line(run_id, metric_name, line, exp_id)
             for line in read_file_lines(parent_path, metric_name)
         ]
         if len(metric_objs) == 0:
@@ -792,24 +811,38 @@ class FileStore(AbstractStore):
         metrics = []
         for metric_file in metric_files:
             metrics.append(
-                self._get_metric_from_file(parent_path, metric_file, run_info.experiment_id)
+                self._get_metric_from_file(
+                    parent_path, metric_file, run_info.run_id, run_info.experiment_id
+                )
             )
         return metrics
 
     @staticmethod
-    def _get_metric_from_line(metric_name, metric_line, exp_id):
+    def _get_metric_from_line(
+        run_id: str, metric_name: str, metric_line: str, exp_id: str
+    ) -> Metric:
         metric_parts = metric_line.strip().split(" ")
-        if len(metric_parts) != 2 and len(metric_parts) != 3:
+        if len(metric_parts) != 2 and len(metric_parts) != 3 and len(metric_parts) != 5:
             raise MlflowException(
                 f"Metric '{metric_name}' is malformed; persisted metric data contained "
-                f"{len(metric_parts)} fields. Expected 2 or 3 fields. "
+                f"{len(metric_parts)} fields. Expected 2, 3, or 5 fields. "
                 f"Experiment id: {exp_id}",
                 databricks_pb2.INTERNAL_ERROR,
             )
         ts = int(metric_parts[0])
         val = float(metric_parts[1])
         step = int(metric_parts[2]) if len(metric_parts) == 3 else 0
-        return Metric(key=metric_name, value=val, timestamp=ts, step=step)
+        dataset_name = str(metric_parts[3]) if len(metric_parts) == 5 else None
+        dataset_digest = str(metric_parts[4]) if len(metric_parts) == 5 else None
+        return Metric(
+            key=metric_name,
+            value=val,
+            timestamp=ts,
+            step=step,
+            dataset_name=dataset_name,
+            dataset_digest=dataset_digest,
+            run_id=run_id,
+        )
 
     def get_metric_history(self, run_id, metric_key, max_results=None, page_token=None):
         """
@@ -848,7 +881,7 @@ class FileStore(AbstractStore):
             return PagedList([], None)
         return PagedList(
             [
-                FileStore._get_metric_from_line(metric_key, line, run_info.experiment_id)
+                FileStore._get_metric_from_line(run_id, metric_key, line, run_info.experiment_id)
                 for line in read_file_lines(parent_path, metric_key)
             ],
             None,
@@ -971,17 +1004,45 @@ class FileStore(AbstractStore):
         runs, next_page_token = SearchUtils.paginate(sorted_runs, page_token, max_results)
         return runs, next_page_token
 
-    def log_metric(self, run_id, metric):
+    def log_metric(self, run_id: str, metric: Metric):
         _validate_run_id(run_id)
         _validate_metric(metric.key, metric.value, metric.timestamp, metric.step)
         run_info = self._get_run_info(run_id)
         check_run_is_active(run_info)
         self._log_run_metric(run_info, metric)
+        if metric.model_id is not None:
+            self._log_model_metric(
+                experiment_id=run_info.experiment_id,
+                model_id=metric.model_id,
+                run_id=run_id,
+                metric=metric,
+            )
 
     def _log_run_metric(self, run_info, metric):
         metric_path = self._get_metric_path(run_info.experiment_id, run_info.run_id, metric.key)
         make_containing_dirs(metric_path)
-        append_to(metric_path, f"{metric.timestamp} {metric.value} {metric.step}\n")
+        if metric.dataset_name is not None and metric.dataset_digest is not None:
+            append_to(
+                metric_path,
+                f"{metric.timestamp} {metric.value} {metric.step} {metric.dataset_name} "
+                f"{metric.dataset_digest}\n",
+            )
+        else:
+            append_to(metric_path, f"{metric.timestamp} {metric.value} {metric.step}\n")
+
+    def _log_model_metric(self, experiment_id: str, model_id: str, run_id: str, metric: Metric):
+        metric_path = self._get_model_metric_path(
+            experiment_id=experiment_id, model_id=model_id, metric_key=metric.key
+        )
+        make_containing_dirs(metric_path)
+        if metric.dataset_name is not None and metric.dataset_digest is not None:
+            append_to(
+                metric_path,
+                f"{metric.timestamp} {metric.value} {metric.step} {run_id} {metric.dataset_name} "
+                f"{metric.dataset_digest}\n",
+            )
+        else:
+            append_to(metric_path, f"{metric.timestamp} {metric.value} {metric.step} {run_id}\n")
 
     def _writeable_value(self, tag_value):
         if tag_value is None:
@@ -1103,6 +1164,13 @@ class FileStore(AbstractStore):
                 self._log_run_param(run_info, param)
             for metric in metrics:
                 self._log_run_metric(run_info, metric)
+                if metric.model_id is not None:
+                    self._log_model_metric(
+                        experiment_id=run_info.experiment_id,
+                        model_id=metric.model_id,
+                        run_id=run_id,
+                        metric=metric,
+                    )
             for tag in tags:
                 # NB: If the tag run name value is set, update the run info to assure
                 # synchronization.
@@ -1138,13 +1206,20 @@ class FileStore(AbstractStore):
         except Exception as e:
             raise MlflowException(e, INTERNAL_ERROR)
 
-    def log_inputs(self, run_id: str, datasets: Optional[List[DatasetInput]] = None):
+    def log_inputs(
+        self,
+        run_id: str,
+        datasets: Optional[List[DatasetInput]] = None,
+        models: Optional[List[ModelInput]] = None,
+    ):
         """
-        Log inputs, such as datasets, to the specified run.
+        Log inputs, such as datasets and models, to the specified run.
 
         Args:
             run_id: String id for the run
             datasets: List of :py:class:`mlflow.entities.DatasetInput` instances to log
+                as inputs to the run.
+            models: List of :py:class:`mlflow.entities.ModelInput` instances to log
                 as inputs to the run.
 
         Returns:
@@ -1154,13 +1229,13 @@ class FileStore(AbstractStore):
         run_info = self._get_run_info(run_id)
         check_run_is_active(run_info)
 
-        if datasets is None:
+        if datasets is None and models is None:
             return
 
         experiment_dir = self._get_experiment_path(run_info.experiment_id, assert_exists=True)
         run_dir = self._get_run_dir(run_info.experiment_id, run_id)
 
-        for dataset_input in datasets:
+        for dataset_input in datasets or []:
             dataset = dataset_input.dataset
             dataset_id = FileStore._get_dataset_id(
                 dataset_name=dataset.name, dataset_digest=dataset.digest
@@ -1170,7 +1245,7 @@ class FileStore(AbstractStore):
                 os.makedirs(dataset_dir, exist_ok=True)
                 write_yaml(dataset_dir, FileStore.META_DATA_FILE_NAME, dict(dataset))
 
-            input_id = FileStore._get_input_id(dataset_id=dataset_id, run_id=run_id)
+            input_id = FileStore._get_dataset_input_id(dataset_id=dataset_id, run_id=run_id)
             input_dir = os.path.join(run_dir, FileStore.INPUTS_FOLDER_NAME, input_id)
             if not os.path.exists(input_dir):
                 os.makedirs(input_dir, exist_ok=True)
@@ -1183,6 +1258,57 @@ class FileStore(AbstractStore):
                 )
                 fs_input.write_yaml(input_dir, FileStore.META_DATA_FILE_NAME)
 
+        for model_input in models or []:
+            model_id = model_input.model_id
+            input_id = FileStore._get_model_input_id(model_id=model_id, run_id=run_id)
+            input_dir = os.path.join(run_dir, FileStore.INPUTS_FOLDER_NAME, input_id)
+            if not os.path.exists(input_dir):
+                os.makedirs(input_dir, exist_ok=True)
+                fs_input = FileStore._FileStoreInput(
+                    source_type=InputVertexType.MODEL,
+                    source_id=model_id,
+                    destination_type=InputVertexType.RUN,
+                    destination_id=run_id,
+                    tags={},
+                )
+                fs_input.write_yaml(input_dir, FileStore.META_DATA_FILE_NAME)
+
+    def log_outputs(self, run_id, models: Optional[List[ModelOutput]] = None):
+        """
+        Log outputs, such as models, to the specified run.
+
+        Args:
+            run_id: String id for the run
+            models: List of :py:class:`mlflow.entities.ModelOutput` instances to log
+                as outputs of the run.
+
+        Returns:
+            None.
+        """
+        _validate_run_id(run_id)
+        run_info = self._get_run_info(run_id)
+        check_run_is_active(run_info)
+
+        if models is None:
+            return
+
+        run_dir = self._get_run_dir(run_info.experiment_id, run_id)
+
+        for model_output in models:
+            model_id = model_output.model_id
+            output_dir = os.path.join(run_dir, FileStore.OUTPUTS_FOLDER_NAME, model_id)
+            if not os.path.exists(output_dir):
+                os.makedirs(output_dir, exist_ok=True)
+                fs_output = FileStore._FileStoreOutput(
+                    source_type=OutputVertexType.RUN_OUTPUT,
+                    source_id=model_id,
+                    destination_type=OutputVertexType.MODEL_OUTPUT,
+                    destination_id=run_id,
+                    tags={},
+                    step=model_output.step,
+                )
+                fs_output.write_yaml(output_dir, FileStore.META_DATA_FILE_NAME)
+
     @staticmethod
     def _get_dataset_id(dataset_name: str, dataset_digest: str) -> str:
         md5 = insecure_hash.md5(dataset_name.encode("utf-8"))
@@ -1190,8 +1316,14 @@ class FileStore(AbstractStore):
         return md5.hexdigest()
 
     @staticmethod
-    def _get_input_id(dataset_id: str, run_id: str) -> str:
+    def _get_dataset_input_id(dataset_id: str, run_id: str) -> str:
         md5 = insecure_hash.md5(dataset_id.encode("utf-8"))
+        md5.update(run_id.encode("utf-8"))
+        return md5.hexdigest()
+
+    @staticmethod
+    def _get_model_input_id(model_id: str, run_id: str) -> str:
+        md5 = insecure_hash.md5(model_id.encode("utf-8"))
         md5.update(run_id.encode("utf-8"))
         return md5.hexdigest()
 
@@ -1223,13 +1355,54 @@ class FileStore(AbstractStore):
                 tags=dict_from_yaml["tags"],
             )
 
+    class _FileStoreOutput(NamedTuple):
+        source_type: int
+        source_id: str
+        destination_type: int
+        destination_id: str
+        tags: Dict[str, str]
+        step: int
+
+        def write_yaml(self, root: str, file_name: str):
+            dict_for_yaml = {
+                "source_type": OutputVertexType.Name(self.source_type),
+                "source_id": self.source_id,
+                "destination_type": OutputVertexType.Name(self.destination_type),
+                "destination_id": self.source_id,
+                "tags": self.tags,
+                "step": self.step,
+            }
+            write_yaml(root, file_name, dict_for_yaml)
+
+        @classmethod
+        def from_yaml(cls, root, file_name):
+            dict_from_yaml = FileStore._read_yaml(root, file_name)
+            return cls(
+                source_type=OutputVertexType.Value(dict_from_yaml["source_type"]),
+                source_id=dict_from_yaml["source_id"],
+                destination_type=OutputVertexType.Value(dict_from_yaml["destination_type"]),
+                destination_id=dict_from_yaml["destination_id"],
+                tags=dict_from_yaml["tags"],
+                step=dict_from_yaml["step"],
+            )
+
     def _get_all_inputs(self, run_info: RunInfo) -> RunInputs:
         run_dir = self._get_run_dir(run_info.experiment_id, run_info.run_id)
         inputs_parent_path = os.path.join(run_dir, FileStore.INPUTS_FOLDER_NAME)
+        if not os.path.exists(inputs_parent_path):
+            return RunInputs(dataset_inputs=[], model_inputs=[])
+
         experiment_dir = self._get_experiment_path(run_info.experiment_id, assert_exists=True)
-        datasets_parent_path = os.path.join(experiment_dir, FileStore.DATASETS_FOLDER_NAME)
-        if not os.path.exists(inputs_parent_path) or not os.path.exists(datasets_parent_path):
-            return RunInputs(dataset_inputs=[])
+        dataset_inputs = self._get_dataset_inputs(run_info, inputs_parent_path, experiment_dir)
+        model_inputs = self._get_model_inputs(inputs_parent_path, experiment_dir)
+        return RunInputs(dataset_inputs=dataset_inputs, model_inputs=model_inputs)
+
+    def _get_dataset_inputs(
+        self, run_info: RunInfo, inputs_parent_path: str, experiment_dir_path: str
+    ) -> List[DatasetInput]:
+        datasets_parent_path = os.path.join(experiment_dir_path, FileStore.DATASETS_FOLDER_NAME)
+        if not os.path.exists(datasets_parent_path):
+            return []
 
         dataset_dirs = os.listdir(datasets_parent_path)
         dataset_inputs = []
@@ -1239,9 +1412,6 @@ class FileStore(AbstractStore):
                 input_dir_full_path, FileStore.META_DATA_FILE_NAME
             )
             if fs_input.source_type != InputVertexType.DATASET:
-                logging.warning(
-                    f"Encountered invalid run input source type '{fs_input.source_type}'. Skipping."
-                )
                 continue
 
             matching_dataset_dirs = [d for d in dataset_dirs if d == fs_input.source_id]
@@ -1264,7 +1434,51 @@ class FileStore(AbstractStore):
             )
             dataset_inputs.append(dataset_input)
 
-        return RunInputs(dataset_inputs=dataset_inputs)
+        return dataset_inputs
+
+    def _get_model_inputs(
+        self, inputs_parent_path: str, experiment_dir_path: str
+    ) -> List[ModelInput]:
+        model_inputs = []
+        for input_dir in os.listdir(inputs_parent_path):
+            input_dir_full_path = os.path.join(inputs_parent_path, input_dir)
+            fs_input = FileStore._FileStoreInput.from_yaml(
+                input_dir_full_path, FileStore.META_DATA_FILE_NAME
+            )
+            if fs_input.source_type != InputVertexType.MODEL:
+                continue
+
+            model_input = ModelInput(model_id=fs_input.source_id)
+            model_inputs.append(model_input)
+
+        return model_inputs
+
+    def _get_all_outputs(self, run_info: RunInfo) -> RunOutputs:
+        run_dir = self._get_run_dir(run_info.experiment_id, run_info.run_id)
+        outputs_parent_path = os.path.join(run_dir, FileStore.OUTPUTS_FOLDER_NAME)
+        if not os.path.exists(outputs_parent_path):
+            return RunOutputs(model_outputs=[])
+
+        experiment_dir = self._get_experiment_path(run_info.experiment_id, assert_exists=True)
+        model_outputs = self._get_model_outputs(outputs_parent_path, experiment_dir)
+        return RunOutputs(model_outputs=model_outputs)
+
+    def _get_model_outputs(
+        self, outputs_parent_path: str, experiment_dir: str
+    ) -> List[ModelOutput]:
+        model_outputs = []
+        for output_dir in os.listdir(outputs_parent_path):
+            output_dir_full_path = os.path.join(outputs_parent_path, output_dir)
+            fs_output = FileStore._FileStoreOutput.from_yaml(
+                output_dir_full_path, FileStore.META_DATA_FILE_NAME
+            )
+            if fs_output.destination_type != OutputVertexType.MODEL_OUTPUT:
+                continue
+
+            model_output = ModelOutput(model_id=fs_output.destination_id, step=fs_output.step)
+            model_outputs.append(model_output)
+
+        return model_outputs
 
     def _search_datasets(self, experiment_ids) -> List[_DatasetSummary]:
         """
@@ -1717,3 +1931,281 @@ class FileStore(AbstractStore):
                     exc_info=_logger.isEnabledFor(logging.DEBUG),
                 )
         return trace_infos
+
+    def create_logged_model(
+        self,
+        experiment_id: str,
+        name: str,
+        run_id: Optional[str] = None,
+        tags: Optional[List[ModelTag]] = None,
+        params: Optional[List[ModelParam]] = None,
+        model_type: Optional[str] = None,
+    ) -> LoggedModel:
+        experiment_id = FileStore.DEFAULT_EXPERIMENT_ID if experiment_id is None else experiment_id
+        experiment = self.get_experiment(experiment_id)
+        if experiment is None:
+            raise MlflowException(
+                f"Could not create model under experiment with ID {experiment_id} - no such "
+                "experiment exists." % experiment_id,
+                databricks_pb2.RESOURCE_DOES_NOT_EXIST,
+            )
+        if experiment.lifecycle_stage != LifecycleStage.ACTIVE:
+            raise MlflowException(
+                f"Could not create model under non-active experiment with ID {experiment_id}.",
+                databricks_pb2.INVALID_STATE,
+            )
+        for param in params or []:
+            _validate_param(param.key, param.value)
+
+        model_id = str(uuid.uuid4())
+        artifact_location = self._get_model_artifact_dir(experiment_id, model_id)
+        creation_timestamp = int(time.time() * 1000)
+        model = LoggedModel(
+            experiment_id=experiment_id,
+            model_id=model_id,
+            name=name,
+            artifact_location=artifact_location,
+            creation_timestamp=creation_timestamp,
+            last_updated_timestamp=creation_timestamp,
+            run_id=run_id,
+            status=ModelStatus.PENDING,
+            tags=tags,
+            params=params,
+            model_type=model_type,
+        )
+
+        # Persist model metadata and create directories for logging metrics, tags
+        model_dir = self._get_model_dir(experiment_id, model_id)
+        mkdir(model_dir)
+        model_info_dict: Dict[str, Any] = self._make_persisted_model_dict(model)
+        write_yaml(model_dir, FileStore.META_DATA_FILE_NAME, model_info_dict)
+        mkdir(model_dir, FileStore.METRICS_FOLDER_NAME)
+        for tag in tags or []:
+            self.set_logged_model_tag(model_id=model_id, tag=tag)
+
+        return self.get_logged_model(model_id=model_id)
+
+    def finalize_logged_model(self, model_id: str, status: ModelStatus) -> LoggedModel:
+        """
+        Finalize a model by updating its status.
+
+        Args:
+            model_id: ID of the model to finalize.
+            status: Final status to set on the model.
+
+        Returns:
+            The updated model.
+        """
+        if status != ModelStatus.READY:
+            raise MlflowException(
+                f"Invalid model status: {status}. Expected statuses: [{ModelStatus.READY}]",
+                databricks_pb2.INVALID_PARAMETER_VALUE,
+            )
+        model_dict = self._get_model_dict(model_id)
+        model = LoggedModel.from_dictionary(model_dict)
+        model.status = status
+        model.last_updated_timestamp = int(time.time() * 1000)
+        model_dir = self._get_model_dir(model.experiment_id, model.model_id)
+        model_info_dict = self._make_persisted_model_dict(model)
+        write_yaml(model_dir, FileStore.META_DATA_FILE_NAME, model_info_dict, overwrite=True)
+        return self.get_logged_model(model_id)
+
+    def set_logged_model_tag(self, model_id: str, tag: ModelTag):
+        _validate_tag_name(tag.key)
+        model = self.get_logged_model(model_id)
+        tag_path = os.path.join(
+            self._get_model_dir(model.experiment_id, model.model_id),
+            FileStore.TAGS_FOLDER_NAME,
+            tag.key,
+        )
+        make_containing_dirs(tag_path)
+        # Don't add trailing newline
+        write_to(tag_path, self._writeable_value(tag.value))
+
+    def get_logged_model(self, model_id: str) -> LoggedModel:
+        return LoggedModel.from_dictionary(self._get_model_dict(model_id))
+
+    def _get_model_artifact_dir(self, experiment_id: str, model_id: str) -> str:
+        return append_to_uri_path(
+            self.get_experiment(experiment_id).artifact_location,
+            FileStore.MODELS_FOLDER_NAME,
+            model_id,
+            FileStore.ARTIFACTS_FOLDER_NAME,
+        )
+
+    def _make_persisted_model_dict(self, model: LoggedModel) -> Dict[str, Any]:
+        model_dict = model.to_dictionary()
+        model_dict.pop("tags", None)
+        model_dict.pop("metrics", None)
+        return model_dict
+
+    def _get_model_dict(self, model_id: str) -> Dict[str, Any]:
+        exp_id, model_dir = self._find_model_root(model_id)
+        if model_dir is None:
+            raise MlflowException(
+                f"Model '{model_id}' not found", databricks_pb2.RESOURCE_DOES_NOT_EXIST
+            )
+        model_dict: Dict[str, Any] = self._get_model_info_from_dir(model_dir)
+        if model_dict["experiment_id"] != exp_id:
+            raise MlflowException(
+                f"Model '{model_id}' metadata is in invalid state.", databricks_pb2.INVALID_STATE
+            )
+        return model_dict
+
+    def _get_model_dir(self, experiment_id: str, model_id: str) -> str:
+        if not self._has_experiment(experiment_id):
+            return None
+        return os.path.join(
+            self._get_experiment_path(experiment_id, assert_exists=True),
+            FileStore.MODELS_FOLDER_NAME,
+            model_id,
+        )
+
+    def _find_model_root(self, model_id):
+        self._check_root_dir()
+        all_experiments = self._get_active_experiments(False) + self._get_deleted_experiments(False)
+        for experiment_dir in all_experiments:
+            models_dir_path = os.path.join(
+                self.root_directory, experiment_dir, FileStore.MODELS_FOLDER_NAME
+            )
+            models = find(models_dir_path, model_id, full_path=True)
+            if len(models) == 0:
+                continue
+            return os.path.basename(os.path.dirname(os.path.abspath(models_dir_path))), models[0]
+        return None, None
+
+    def _get_model_from_dir(self, model_dir: str) -> LoggedModel:
+        return LoggedModel.from_dictionary(self._get_model_info_from_dir(model_dir))
+
+    def _get_model_info_from_dir(self, model_dir: str) -> Dict[str, Any]:
+        model_dict = FileStore._read_yaml(model_dir, FileStore.META_DATA_FILE_NAME)
+        model_dict["tags"] = self._get_all_model_tags(model_dir)
+        model_dict["metrics"] = self._get_all_model_metrics(
+            model_id=model_dict["model_id"], model_dir=model_dir
+        )
+        return model_dict
+
+    def _get_all_model_tags(self, model_dir: str) -> List[ModelTag]:
+        parent_path, tag_files = self._get_resource_files(model_dir, FileStore.TAGS_FOLDER_NAME)
+        tags = []
+        for tag_file in tag_files:
+            tags.append(self._get_tag_from_file(parent_path, tag_file))
+        return tags
+
+    def _get_all_model_metrics(self, model_id: str, model_dir: str) -> List[Metric]:
+        parent_path, metric_files = self._get_resource_files(
+            model_dir, FileStore.METRICS_FOLDER_NAME
+        )
+        metrics = []
+        for metric_file in metric_files:
+            metrics.extend(
+                FileStore._get_model_metrics_from_file(
+                    model_id=model_id, parent_path=parent_path, metric_name=metric_file
+                )
+            )
+        return metrics
+
+    @staticmethod
+    def _get_model_metrics_from_file(
+        model_id: str, parent_path: str, metric_name: str
+    ) -> List[Metric]:
+        _validate_metric_name(metric_name)
+        metric_objs = [
+            FileStore._get_model_metric_from_line(model_id, metric_name, line)
+            for line in read_file_lines(parent_path, metric_name)
+        ]
+        if len(metric_objs) == 0:
+            raise ValueError(f"Metric '{metric_name}' is malformed. No data found.")
+
+        # Group metrics by (dataset_name, dataset_digest)
+        grouped_metrics = defaultdict(list)
+        for metric in metric_objs:
+            key = (metric.dataset_name, metric.dataset_digest)
+            grouped_metrics[key].append(metric)
+
+        # Compute the max for each group
+        return [
+            max(group, key=lambda m: (m.step, m.timestamp, m.value))
+            for group in grouped_metrics.values()
+        ]
+
+    @staticmethod
+    def _get_model_metric_from_line(model_id: str, metric_name: str, metric_line: str) -> Metric:
+        metric_parts = metric_line.strip().split(" ")
+        if len(metric_parts) not in [4, 6]:
+            raise MlflowException(
+                f"Metric '{metric_name}' is malformed; persisted metric data contained "
+                f"{len(metric_parts)} fields. Expected 4 or 6 fields.",
+                databricks_pb2.INTERNAL_ERROR,
+            )
+        ts = int(metric_parts[0])
+        val = float(metric_parts[1])
+        step = int(metric_parts[2])
+        run_id = str(metric_parts[3])
+        dataset_name = str(metric_parts[4]) if len(metric_parts) == 6 else None
+        dataset_digest = str(metric_parts[5]) if len(metric_parts) == 6 else None
+        # TODO: Read run ID from the metric file and pass it to the Metric constructor
+        return Metric(
+            key=metric_name,
+            value=val,
+            timestamp=ts,
+            step=step,
+            model_id=model_id,
+            dataset_name=dataset_name,
+            dataset_digest=dataset_digest,
+            run_id=run_id,
+        )
+
+    def search_logged_models(
+        self,
+        experiment_ids: List[str],
+        filter_string: Optional[str] = None,
+        max_results: Optional[int] = None,
+        order_by: Optional[List[str]] = None,
+    ) -> List[LoggedModel]:
+        all_models = []
+        for experiment_id in experiment_ids:
+            models = self._list_models(experiment_id)
+            all_models.extend(models)
+        filtered = SearchUtils.filter_logged_models(models, filter_string)
+        return SearchUtils.sort_logged_models(filtered, order_by)[:max_results]
+
+    def _list_models(self, experiment_id: str) -> List[LoggedModel]:
+        self._check_root_dir()
+        if not self._has_experiment(experiment_id):
+            return []
+        experiment_dir = self._get_experiment_path(experiment_id, assert_exists=True)
+        model_dirs = list_all(
+            os.path.join(experiment_dir, FileStore.MODELS_FOLDER_NAME),
+            filter_func=lambda x: all(
+                os.path.basename(os.path.normpath(x)) != reservedFolderName
+                for reservedFolderName in FileStore.RESERVED_EXPERIMENT_FOLDERS
+            )
+            and os.path.isdir(x),
+            full_path=True,
+        )
+        models = []
+        for m_dir in model_dirs:
+            try:
+                # trap and warn known issues, will raise unexpected exceptions to caller
+                model = self._get_model_from_dir(m_dir)
+                if model.experiment_id != experiment_id:
+                    logging.warning(
+                        "Wrong experiment ID (%s) recorded for model '%s'. "
+                        "It should be %s. Model will be ignored.",
+                        str(model.experiment_id),
+                        str(model.model_id),
+                        str(experiment_id),
+                        exc_info=True,
+                    )
+                    continue
+                models.append(model)
+            except MissingConfigException as exc:
+                # trap malformed model exception and log
+                # this is at debug level because if the same store is used for
+                # artifact storage, it's common the folder is not a run folder
+                m_id = os.path.basename(m_dir)
+                logging.debug(
+                    "Malformed model '%s'. Detailed error %s", m_id, str(exc), exc_info=True
+                )
+        return models
