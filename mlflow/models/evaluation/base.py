@@ -159,7 +159,7 @@ class EvaluationMetric:
 # NB: we need this function because we cannot modify the signature of
 # a class's __call__ method after the class has been defined.
 # This is also useful to distinguish between the metric signatures with different eval_fn signatures
-def dynamically_generate_eval_metric(eval_fn, standard_signature=False):
+def _dynamically_generate_eval_metric(eval_fn, require_strict_signature=False):
     """
     Dynamically generate a GenAIEvaluationMetric class that can be used to evaluate the metric
     on the given input data. The generated class is callable with a __call__ method that
@@ -167,8 +167,8 @@ def dynamically_generate_eval_metric(eval_fn, standard_signature=False):
 
     Args:
         eval_fn: the evaluation function of the EvaluationMetric.
-        standard_signature: (Optional) Whether the metric follows a strict signature, if True then
-            the eval_fn must follow below signature:
+        require_strict_signature: (Optional) Whether the eval_fn needs to follow a strict signature.
+            If True, then the eval_fn must follow below signature:
 
                 .. code-block:: python
 
@@ -188,7 +188,7 @@ def dynamically_generate_eval_metric(eval_fn, standard_signature=False):
     """
     from mlflow.metrics.base import MetricValue
 
-    if standard_signature:
+    if require_strict_signature:
         allowed_kwargs_names = [
             param_name
             for param_name in inspect.signature(eval_fn).parameters.keys()
@@ -330,7 +330,7 @@ def make_metric(
     metric_details=None,
     metric_metadata=None,
     genai_metric_args=None,
-    standard_signature=False,
+    require_strict_signature=False,
 ):
     '''
     A factory function to create an :py:class:`EvaluationMetric` object.
@@ -382,8 +382,8 @@ def make_metric(
         genai_metric_args: (Optional) A dictionary containing arguments specified by users
             when calling make_genai_metric or make_genai_metric_from_prompt. Those args
             are persisted so that we can deserialize the same metric object later.
-        standard_signature: (Optional) Whether the metric follows a strict signature, if True then
-            the eval_fn must follow below signature:
+        require_strict_signature: (Optional) Whether the eval_fn needs to follow a strict signature.
+            If True, then the eval_fn must follow below signature:
 
                 .. code-block:: python
 
@@ -453,9 +453,9 @@ def make_metric(
         "metric_metadata": metric_metadata,
         "genai_metric_args": genai_metric_args,
     }
-    return dynamically_generate_eval_metric(eval_fn, standard_signature=standard_signature)(
-        **init_args
-    )
+    return _dynamically_generate_eval_metric(
+        eval_fn, require_strict_signature=require_strict_signature
+    )(**init_args)
 
 
 @developer_stable
