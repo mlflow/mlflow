@@ -118,7 +118,6 @@ def test__parallelized_download_from_cloud(
                     1, "fake_remote_path", str(fake_local_path)
                 )
 
-            # Assert
             assert (
                 cloud_artifact_instance._get_read_credential_infos.call_count
                 == expected_call_count
