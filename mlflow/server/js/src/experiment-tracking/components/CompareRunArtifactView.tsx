@@ -5,7 +5,6 @@ import { useRunsArtifacts } from './experiment-page/hooks/useRunsArtifacts';
 import { getCommonArtifacts } from './experiment-page/utils/getCommonArtifacts';
 import { CompareRunArtifactViewSidebar } from './CompareRunArtifactViewSidebar';
 import { useDesignSystemTheme } from '@databricks/design-system';
-import './CompareRunArtifactView.css';
 import { FormattedMessage } from 'react-intl';
 
 export const CompareRunArtifactView = ({
@@ -34,16 +33,24 @@ export const CompareRunArtifactView = ({
     );
   }
   return (
-    <div className="artifact-container">
+    <div
+      css={{
+        display: 'flex',
+        flexDirection: 'row',
+        height: '100vh',
+      }}
+    >
       <CompareRunArtifactViewSidebar artifacts={commonArtifacts} onSelectArtifact={setArtifactPath} />
       <div
-        className="artifact-right"
         css={{
           border: `1px solid ${theme.colors.grey300}`,
           borderLeft: 'none',
+          display: 'flex',
+          flexDirection: 'column',
+          overflow: 'hidden',
         }}
       >
-        <div css={{ display: 'flex', flexDirection: 'row' }}>
+        <div css={{ display: 'flex', flexDirection: 'row', flexWrap: 'wrap' }}>
           {runUuids.map((runUuid, index) => (
             <div
               key={runUuid}
