@@ -27,11 +27,7 @@ defaults:
 
 env:
   MLFLOW_HOME: /home/runner/work/mlflow/mlflow
-  # Note miniconda is pre-installed in the virtual environments for GitHub Actions:
-  # https://github.com/actions/virtual-environments/blob/main/images/linux/scripts/installers/miniconda.sh
   MLFLOW_CONDA_HOME: /usr/share/miniconda
-  SPARK_LOCAL_IP: localhost
-  PIP_EXTRA_INDEX_URL: https://download.pytorch.org/whl/cpu
   PYTHONUTF8: "1"
 
 jobs:
@@ -42,5 +38,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/untracked
       - uses: ./.github/actions/setup-python
+      - run: |
+          pip install . scikit-learn langchain
       - run: |
           python examples/mlflow-3/example.py
