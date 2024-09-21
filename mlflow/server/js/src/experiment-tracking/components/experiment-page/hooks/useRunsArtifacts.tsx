@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { listArtifactsApi } from '../../../actions';
+import { ArtifactListFilesResponse } from '../../../types';
 
 /**
  * Fetches artifacts given a list of run UUIDs
@@ -7,7 +8,7 @@ import { listArtifactsApi } from '../../../actions';
  * @returns Object containing artifacts keyed by run UUID
  */
 export const useRunsArtifacts = (runUuids: string[]) => {
-  const [artifactsKeyedByRun, setArtifactsKeyedByRun] = useState({});
+  const [artifactsKeyedByRun, setArtifactsKeyedByRun] = useState<Record<string, ArtifactListFilesResponse>>({});
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -16,13 +17,13 @@ export const useRunsArtifacts = (runUuids: string[]) => {
       setIsLoading(true);
       setError(null);
 
-      const artifactsByRun: Record<string, any> = {};
+      const artifactsByRun: Record<string, ArtifactListFilesResponse> = {};
 
       try {
         await Promise.all(
           runUuids.map(async (runUuid) => {
             const response = listArtifactsApi(runUuid);
-            const artifacts = await response.payload;
+            const artifacts = (await response.payload) as ArtifactListFilesResponse;
             artifactsByRun[runUuid] = artifacts;
           }),
         );

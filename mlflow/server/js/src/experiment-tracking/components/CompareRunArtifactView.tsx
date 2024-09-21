@@ -18,7 +18,7 @@ export const CompareRunArtifactView = ({
   colWidth: number;
 }) => {
   const { theme } = useDesignSystemTheme();
-  const [artifactPath, setArtifactPath] = useState<string>();
+  const [artifactPath, setArtifactPath] = useState<string | undefined>();
 
   const { artifactsKeyedByRun } = useRunsArtifacts(runUuids);
   const commonArtifacts = getCommonArtifacts(artifactsKeyedByRun);
@@ -81,11 +81,7 @@ export const CompareRunArtifactView = ({
                 whiteSpace: 'nowrap',
               }}
             >
-              <ShowArtifactPage
-                runUuid={runUuid}
-                artifactRootUri={runInfos[index].artifactUri}
-                path={artifactPath ?? '/'}
-              />
+              <ShowArtifactPage runUuid={runUuid} artifactRootUri={runInfos[index].artifactUri} path={artifactPath} />
             </div>
           ))}
         </div>
