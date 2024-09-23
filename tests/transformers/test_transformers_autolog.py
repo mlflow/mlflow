@@ -321,7 +321,7 @@ def test_transformers_autolog_adheres_to_global_behavior_using_setfit(setfit_tra
     mlflow.transformers.autolog(disable=False)
 
     setfit_trainer.train()
-    assert len(mlflow.search_runs()) == 1 if SETFIT_PRODUCES_RUN else 0
+    assert len(mlflow.search_runs()) == (1 if SETFIT_PRODUCES_RUN else 0)
     preds = setfit_trainer.model(["Jim, I'm a doctor, not an archaeologist!"])
     assert len(preds) == 1
 
@@ -385,7 +385,7 @@ def test_active_autolog_no_setfit_logging_followed_by_successful_sklearn_autolog
 
     client = mlflow.MlflowClient()
     runs = client.search_runs([exp.experiment_id])
-    assert len(runs) == 2 if SETFIT_PRODUCES_RUN else 1
+    assert len(runs) == (2 if SETFIT_PRODUCES_RUN else 1)
     assert runs[0].info == logged_sklearn_data.info
 
 
@@ -463,7 +463,7 @@ def test_disabled_sklearn_autologging_does_not_revert_to_enabled_with_setfit(
     client = mlflow.MlflowClient()
     runs = client.search_runs([exp.experiment_id])
 
-    assert len(runs) == 2 if SETFIT_PRODUCES_RUN else 1
+    assert len(runs) == (2 if SETFIT_PRODUCES_RUN else 1)
     assert runs[0].info == logged_sklearn_data.info
 
 
