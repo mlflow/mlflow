@@ -178,7 +178,7 @@ class ChatMessage(_BaseDataclass):
         role (str): The role of the entity that sent the message (e.g. ``"user"``,
             ``"system"``, ``"assistant"``, ``"tool"``).
         content (str): The content of the message.
-            **Optional** Can be null if refusal or tool_calls are provided.
+            **Optional** Can be ``None`` if refusal or tool_calls are provided.
         refusal (str): The refusal message content.
             **Optional** Supplied if a refusal response is provided.
         name (str): The name of the entity that sent the message. **Optional**.
@@ -282,23 +282,23 @@ class FunctionToolDefinition(_BaseDataclass):
         name (str): The name of the tool.
         description (str): A description of what the tool does, and how it should be used.
             **Optional**, defaults to ``None``
-        parameters (Dict[str, :py:class:`ToolParamsSchema`]): A mapping of parameter names to their
+        parameters: A mapping of parameter names to their
             definitions. If not provided, this defines a function without parameters.
             **Optional**, defaults to ``None``
-        strict (bool): Whether or not to opt into structured outputs.
-            **Optional**, defaults to ``None``.
+        strict (bool): A flag that represents whether or not the model should
+            strictly follow the schema provided.
     """
 
     name: str
     description: Optional[str] = None
-    parameters: ToolParamsSchema = None
-    strict: Optional[bool] = None
+    parameters: Optional[ToolParamsSchema] = None
+    strict: bool = False
 
     def __post_init__(self):
         self._validate_field("name", str, True)
         self._validate_field("description", str, False)
         self._convert_dataclass("parameters", ToolParamsSchema, False)
-        self._validate_field("strict", bool, False)
+        self._validate_field("strict", bool, True)
 
     def to_tool_definition(self):
         """
@@ -594,6 +594,8 @@ class ChatResponse(_BaseDataclass):
         self._convert_dataclass("usage", TokenUsageStats, False)
 
 
+# turn off formatting for the model signatures to preserve readability
+# fmt: off
 CHAT_MODEL_INPUT_SCHEMA = Schema(
     [
         ColSpec(
@@ -605,27 +607,14 @@ CHAT_MODEL_INPUT_SCHEMA = Schema(
                         Property("content", DataType.string, False),
                         Property("name", DataType.string, False),
                         Property("refusal", DataType.string, False),
-                        Property(
-                            "tool_calls",
-                            Array(
-                                Object(
-                                    [
-                                        Property("id", DataType.string),
-                                        Property(
-                                            "function",
-                                            Object(
-                                                [
-                                                    Property("name", DataType.string),
-                                                    Property("arguments", DataType.string),
-                                                ]
-                                            ),
-                                        ),
-                                        Property("type", DataType.string),
-                                    ]
-                                )
-                            ),
-                            False,
-                        ),
+                        Property("tool_calls", Array(Object([
+                            Property("id", DataType.string),
+                            Property("function", Object([
+                                Property("name", DataType.string),
+                                Property("arguments", DataType.string),
+                            ])),
+                            Property("type", DataType.string),
+                        ])), False),
                         Property("tool_call_id", DataType.string, False),
                     ]
                 )
@@ -643,66 +632,25 @@ CHAT_MODEL_INPUT_SCHEMA = Schema(
         ColSpec(
             name="tools",
             type=Array(
-                Object(
-                    [
-                        Property("type", DataType.string),
-                        Property(
-                            "function",
-                            Object(
-                                [
-                                    Property("name", DataType.string),
-                                    Property("description", DataType.string, False),
-                                    Property(
-                                        "parameters",
-                                        Object(
-                                            [
-                                                Property(
-                                                    "properties",
-                                                    Map(
-                                                        Object(
-                                                            [
-                                                                Property("type", DataType.string),
-                                                                Property(
-                                                                    "description",
-                                                                    DataType.string,
-                                                                    False,
-                                                                ),
-                                                                Property(
-                                                                    "enum",
-                                                                    Array(DataType.string),
-                                                                    False,
-                                                                ),
-                                                                Property(
-                                                                    "items",
-                                                                    Object(
-                                                                        [
-                                                                            Property(
-                                                                                "type",
-                                                                                DataType.string,
-                                                                            ),
-                                                                        ]
-                                                                    ),
-                                                                    False,
-                                                                ),
-                                                            ]
-                                                        )
-                                                    ),
-                                                ),
-                                                Property("type", DataType.string, False),
-                                                Property("required", Array(DataType.string), False),
-                                                Property(
-                                                    "additionalProperties", DataType.boolean, False
-                                                ),
-                                            ]
-                                        ),
-                                        False,
-                                    ),
-                                    Property("strict", DataType.boolean, False),
-                                ]
-                            ),
-                        ),
-                    ]
-                ),
+                Object([
+                    Property("type", DataType.string),
+                    Property("function", Object([
+                        Property("name", DataType.string),
+                        Property("description", DataType.string, False),
+                        Property("parameters", Object([
+                            Property("properties", Map(Object([
+                                Property("type", DataType.string),
+                                Property("description", DataType.string, False),
+                                Property("enum", Array(DataType.string), False),
+                                Property("items", Object([Property("type", DataType.string)]), False), # noqa
+                            ]))),
+                            Property("type", DataType.string, False),
+                            Property("required", Array(DataType.string), False),
+                            Property("additionalProperties", DataType.boolean, False),
+                        ])),
+                        Property("strict", DataType.boolean, False),
+                    ]), False),
+                ]),
             ),
             required=False,
         ),
@@ -718,49 +666,25 @@ CHAT_MODEL_OUTPUT_SCHEMA = Schema(
         ColSpec(name="model", type=DataType.string),
         ColSpec(
             name="choices",
-            type=Array(
-                Object(
-                    [
-                        Property("index", DataType.long),
-                        Property(
-                            "message",
-                            Object(
-                                [
-                                    Property("role", DataType.string),
-                                    Property("content", DataType.string, False),
-                                    Property("name", DataType.string, False),
-                                    Property("refusal", DataType.string, False),
-                                    Property(
-                                        "tool_calls",
-                                        Array(
-                                            Object(
-                                                [
-                                                    Property("id", DataType.string),
-                                                    Property(
-                                                        "function",
-                                                        Object(
-                                                            [
-                                                                Property("name", DataType.string),
-                                                                Property(
-                                                                    "arguments", DataType.string
-                                                                ),
-                                                            ]
-                                                        ),
-                                                    ),
-                                                    Property("type", DataType.string),
-                                                ]
-                                            )
-                                        ),
-                                        False,
-                                    ),
-                                    Property("tool_call_id", DataType.string, False),
-                                ]
-                            ),
-                        ),
-                        Property("finish_reason", DataType.string),
-                    ]
-                )
-            ),
+            type=Array(Object([
+                Property("index", DataType.long),
+                Property("message", Object([
+                    Property("role", DataType.string),
+                    Property("content", DataType.string, False),
+                    Property("name", DataType.string, False),
+                    Property("refusal", DataType.string, False),
+                    Property("tool_calls",Array(Object([
+                        Property("id", DataType.string),
+                        Property("function", Object([
+                            Property("name", DataType.string),
+                            Property("arguments", DataType.string),
+                        ])),
+                        Property("type", DataType.string),
+                    ])), False),
+                    Property("tool_call_id", DataType.string, False),
+                ])),
+                Property("finish_reason", DataType.string),
+            ])),
         ),
         ColSpec(
             name="usage",
@@ -866,3 +790,4 @@ EMBEDDING_MODEL_OUTPUT_SCHEMA = Schema(
         ),
     ]
 )
+# fmt: on
