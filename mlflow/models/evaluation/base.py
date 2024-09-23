@@ -322,7 +322,7 @@ def _convert_val_to_pd_Series(val, name):
     return val
 
 
-def make_metric(
+def make_metric(  # noqa: D417
     *,
     eval_fn,
     greater_is_better,
