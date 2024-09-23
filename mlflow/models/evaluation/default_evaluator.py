@@ -645,7 +645,7 @@ def _is_string(value):
     return isinstance(value, str)
 
 
-def _evaluate_metric(metric_tuple, eval_fn_args):
+def _evaluate_metric(metric_tuple, eval_fn_args):  # noqa: D417
     """
     This function calls the metric function and performs validations on the returned
     result to ensure that they are in the expected format. It will warn and will not log metrics
@@ -1477,6 +1477,8 @@ class DefaultEvaluator(ModelEvaluator):
                 return sum(y_pred_list, [])
             elif isinstance(sample_pred, pd.Series):
                 return pd.concat(y_pred_list, ignore_index=True)
+            elif isinstance(sample_pred, str):
+                return y_pred_list
             else:
                 raise MlflowException(
                     message=f"Unsupported prediction type {type(sample_pred)} for model type "

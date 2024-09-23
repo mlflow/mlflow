@@ -176,7 +176,7 @@ class WheeledModel:
         with open(conda_env_path, "w") as out:
             yaml.safe_dump(new_conda_env, stream=out, default_flow_style=False)
 
-    def _update_mlflow_model(self, original_model_metadata, mlflow_model):
+    def _update_mlflow_model(self, original_model_metadata, mlflow_model):  # noqa: D417
         """
         Modifies the MLModel file to reflect updated information such as the run_id,
         utc_time_created. Additionally, this also adds `wheels` to the MLModel file to indicate that
@@ -236,11 +236,12 @@ class WheeledModel:
                     "--no-cache-dir",
                 ],
                 check=True,
-                capture_output=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
             )
         except subprocess.CalledProcessError as e:
             raise MlflowException(
-                f"An error occurred while downloading the dependency wheels: {e.stderr}"
+                f"An error occurred while downloading the dependency wheels: {e.stdout}"
             )
 
     def _overwrite_pip_requirements_with_wheels(self, pip_requirements_path, wheels_dir):

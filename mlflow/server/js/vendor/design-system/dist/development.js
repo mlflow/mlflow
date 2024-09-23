@@ -1,14 +1,16 @@
 import { css } from '@emotion/react';
-import React__default, { forwardRef, useState, useRef, useEffect, useCallback, useImperativeHandle, useMemo, createContext } from 'react';
-import { W as WarningIcon, x as DangerIcon, a as useDesignSystemTheme, c as useDesignSystemEventComponentCallbacks, d as DesignSystemEventProviderComponentTypes, e as DesignSystemEventProviderAnalyticsEventTypes, f as useNotifyOnFirstView, B as Button$1, C as CloseIcon, h as addDebugOutlineIfEnabled, o as Typography, a4 as primitiveColors, k as Root$5, T as Trigger$1, l as Content$1, A as Arrow, r as getValidationStateColor, p as importantify, w as getShadowScrollStyles } from './Typography-c0049677.js';
+import React__default, { forwardRef, useState, useRef, useEffect, useCallback, useMemo, useImperativeHandle, createContext } from 'react';
+import { W as WarningIcon, y as DangerIcon, a as useDesignSystemTheme, b as useDesignSystemEventComponentCallbacks, c as DesignSystemEventProviderComponentTypes, d as DesignSystemEventProviderAnalyticsEventTypes, f as useNotifyOnFirstView, B as Button$1, C as CloseIcon, h as addDebugOutlineIfEnabled, p as Typography, a6 as primitiveColors, k as Root$6, T as Trigger$1, l as Content$1, G as ChevronLeftIcon, m as ChevronRightIcon, q as importantify, x as getShadowScrollStyles } from './Typography-a18b0186.js';
 import { jsx, Fragment, jsxs } from '@emotion/react/jsx-runtime';
-import { M as MegaphoneIcon, I as Input, C as CalendarEventIcon, A as ArrowRightIcon, P as PlusIcon, a as CloseSmallIcon } from './index-a2e493c0.js';
-import { format, isValid } from 'date-fns';
-import { DayPicker, useDayRender, Button as Button$2 } from 'react-day-picker';
+import { M as MegaphoneIcon, I as Input, C as ClockIcon, P as PlusIcon, a as CloseSmallIcon } from './index-9b7de1ae.js';
+import { startOfToday, startOfYesterday, sub, format, startOfWeek, endOfToday, endOfYesterday, isAfter, isBefore, isValid } from 'date-fns';
+import { DayPicker, useDayRender, Button as Button$2, isMatch } from 'react-day-picker';
+import * as RadixNavigationMenu from '@radix-ui/react-navigation-menu';
 import { RadioGroup, RadioGroupItem } from '@radix-ui/react-radio-group';
 import * as Progress$1 from '@radix-ui/react-progress';
 import * as RadixSlider from '@radix-ui/react-slider';
-export { S as Stepper } from './Stepper-431a4a97.js';
+export { S as Stepper } from './Stepper-56765495.js';
+import _debounce from 'lodash/debounce';
 import { useMergeRefs } from '@floating-ui/react';
 import * as ScrollArea from '@radix-ui/react-scroll-area';
 import * as RadixTabs from '@radix-ui/react-tabs';
@@ -27,7 +29,7 @@ import 'lodash/memoize';
 import '@emotion/unitless';
 import 'lodash/isUndefined';
 
-function _EMOTION_STRINGIFIED_CSS_ERROR__$3() { return "You have tried to stringify object returned from `css` function. It isn't supposed to be used directly (e.g. as value of the `className` prop), but rather handed to emotion so it can handle it (e.g. as value of `css` prop)."; }
+function _EMOTION_STRINGIFIED_CSS_ERROR__$2() { return "You have tried to stringify object returned from `css` function. It isn't supposed to be used directly (e.g. as value of the `className` prop), but rather handed to emotion so it can handle it (e.g. as value of `css` prop)."; }
 const {
   Text,
   Paragraph
@@ -35,13 +37,13 @@ const {
 const BANNER_MIN_HEIGHT = 68;
 // Max height will allow 2 lines of description (3 lines total)
 const BANNER_MAX_HEIGHT = 82;
-var _ref$2 = process.env.NODE_ENV === "production" ? {
+var _ref$1 = process.env.NODE_ENV === "production" ? {
   name: "1te1whx",
   styles: "margin-left:auto;display:flex;align-items:center"
 } : {
   name: "13c4h59-rightContainer",
   styles: "margin-left:auto;display:flex;align-items:center;label:rightContainer;",
-  toString: _EMOTION_STRINGIFIED_CSS_ERROR__$3
+  toString: _EMOTION_STRINGIFIED_CSS_ERROR__$2
 };
 const useStyles = (props, theme) => {
   const bannerLevelToBannerColors = {
@@ -108,7 +110,7 @@ const useStyles = (props, theme) => {
     mainContent: /*#__PURE__*/css("flex-direction:column;align-self:", props.description ? 'flex-start' : 'center', ";display:flex;box-sizing:border-box;padding-right:", theme.spacing.sm, "px;padding-top:2px;padding-bottom:2px;min-width:", theme.spacing.lg, "px;width:100%;" + (process.env.NODE_ENV === "production" ? "" : ";label:mainContent;")),
     messageTextBlock: /*#__PURE__*/css("display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;overflow:hidden;&&{color:", colorScheme.textColor, ";}" + (process.env.NODE_ENV === "production" ? "" : ";label:messageTextBlock;")),
     descriptionBlock: /*#__PURE__*/css("display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;&&{color:", colorScheme.textColor, ";}" + (process.env.NODE_ENV === "production" ? "" : ";label:descriptionBlock;")),
-    rightContainer: _ref$2,
+    rightContainer: _ref$1,
     closeIconContainer: /*#__PURE__*/css("display:flex;margin-left:", theme.spacing.xs, "px;box-sizing:border-box;line-height:0;" + (process.env.NODE_ENV === "production" ? "" : ";label:closeIconContainer;")),
     closeButton: /*#__PURE__*/css("cursor:pointer;background:none;border:none;margin:0;&&{height:24px!important;width:24px!important;padding:", theme.spacing.xs, "px!important;}&&:hover{background-color:transparent!important;border-color:", colorScheme.textHoverColor, "!important;color:", colorScheme.closeIconTextHoverColor ? colorScheme.closeIconTextHoverColor : colorScheme.textColor, "!important;background-color:", colorScheme.closeIconBackgroundHoverColor ? colorScheme.closeIconBackgroundHoverColor : colorScheme.backgroundDefaultColor, "!important;}&&:active{border-color:", colorScheme.actionBorderColor, "!important;color:", colorScheme.closeIconTextPressColor ? colorScheme.closeIconTextPressColor : colorScheme.textColor, "!important;background-color:", colorScheme.closeIconBackgroundPressColor ? colorScheme.closeIconBackgroundPressColor : colorScheme.backgroundDefaultColor, "!important;}" + (process.env.NODE_ENV === "production" ? "" : ";label:closeButton;")),
     closeIcon: /*#__PURE__*/css("color:", colorScheme.closeIconColor ? colorScheme.closeIconColor : colorScheme.textColor, "!important;" + (process.env.NODE_ENV === "production" ? "" : ";label:closeIcon;")),
@@ -223,15 +225,51 @@ const Banner = props => {
   });
 };
 
-function _EMOTION_STRINGIFIED_CSS_ERROR__$2() { return "You have tried to stringify object returned from `css` function. It isn't supposed to be used directly (e.g. as value of the `className` prop), but rather handed to emotion so it can handle it (e.g. as value of `css` prop)."; }
-const dayPickerStyles = process.env.NODE_ENV === "production" ? {
-  name: "rfehes",
-  styles: ".rdp{--rdp-cell-size:40px;--rdp-caption-font-size:18px;--rdp-accent-color:#0000ff;--rdp-background-color:#e7edff;--rdp-accent-color-dark:#3003e1;--rdp-background-color-dark:#180270;--rdp-outline:2px solid var(--rdp-accent-color);--rdp-outline-selected:3px solid var(--rdp-accent-color);--rdp-selected-color:#fff;margin:1em;}.rdp-vhidden{box-sizing:border-box;padding:0;margin:0;background:transparent;border:0;-moz-appearance:none;-webkit-appearance:none;appearance:none;position:absolute!important;top:0;width:1px!important;height:1px!important;padding:0!important;overflow:hidden!important;clip:rect(1px, 1px, 1px, 1px)!important;border:0!important;}.rdp-button_reset{appearance:none;position:relative;margin:0;padding:0;cursor:default;color:inherit;background:none;font:inherit;-moz-appearance:none;-webkit-appearance:none;}.rdp-button_reset:focus-visible{outline:none;}.rdp-button{border:2px solid transparent;}.rdp-button[disabled]:not(.rdp-day_selected){opacity:0.25;}.rdp-button:not([disabled]){cursor:pointer;}.rdp-button:focus-visible:not([disabled]){color:inherit;background-color:var(--rdp-background-color);border:var(--rdp-outline);}.rdp-button:hover:not([disabled]):not(.rdp-day_selected){background-color:var(--rdp-background-color);}.rdp-months{display:flex;}.rdp-month{margin:0 1em;}.rdp-month:first-child{margin-left:0;}.rdp-month:last-child{margin-right:0;}.rdp-table{margin:0;max-width:calc(var(--rdp-cell-size) * 7);border-collapse:collapse;}.rdp-with_weeknumber .rdp-table{max-width:calc(var(--rdp-cell-size) * 8);border-collapse:collapse;}.rdp-caption{display:flex;align-items:center;justify-content:space-between;padding:0;text-align:left;}.rdp-multiple_months .rdp-caption{position:relative;display:block;text-align:center;}.rdp-caption_dropdowns{position:relative;display:inline-flex;}.rdp-caption_label{position:relative;z-index:1;display:inline-flex;align-items:center;margin:0;padding:0 0.25em;white-space:nowrap;color:currentColor;border:0;border:2px solid transparent;font-family:inherit;font-size:var(--rdp-caption-font-size);font-weight:bold;}.rdp-nav{white-space:nowrap;}.rdp-multiple_months .rdp-caption_start .rdp-nav{position:absolute;top:50%;left:0;transform:translateY(-50%);}.rdp-multiple_months .rdp-caption_end .rdp-nav{position:absolute;top:50%;right:0;transform:translateY(-50%);}.rdp-nav_button{display:inline-flex;align-items:center;justify-content:center;width:var(--rdp-cell-size);height:var(--rdp-cell-size);padding:0.25em;border-radius:100%;}.rdp-dropdown_year,.rdp-dropdown_month{position:relative;display:inline-flex;align-items:center;}.rdp-dropdown{appearance:none;position:absolute;z-index:2;top:0;bottom:0;left:0;width:100%;margin:0;padding:0;cursor:inherit;opacity:0;border:none;background-color:transparent;font-family:inherit;font-size:inherit;line-height:inherit;}.rdp-dropdown[disabled]{opacity:unset;color:unset;}.rdp-dropdown:focus-visible:not([disabled])+.rdp-caption_label{background-color:var(--rdp-background-color);border:var(--rdp-outline);border-radius:6px;}.rdp-dropdown_icon{margin:0 0 0 5px;}.rdp-head{border:0;}.rdp-head_row,.rdp-row{height:100%;}.rdp-head_cell{vertical-align:middle;font-size:0.75em;font-weight:700;text-align:center;height:100%;height:var(--rdp-cell-size);padding:0;text-transform:uppercase;}.rdp-tbody{border:0;}.rdp-tfoot{margin:0.5em;}.rdp-cell{width:var(--rdp-cell-size);height:100%;height:var(--rdp-cell-size);padding:0;text-align:center;}.rdp-weeknumber{font-size:0.75em;}.rdp-weeknumber,.rdp-day{display:flex;overflow:hidden;align-items:center;justify-content:center;box-sizing:border-box;width:var(--rdp-cell-size);max-width:var(--rdp-cell-size);height:var(--rdp-cell-size);margin:0;border:2px solid transparent;border-radius:100%;}.rdp-day_today:not(.rdp-day_outside){font-weight:bold;}.rdp-day_selected,.rdp-day_selected:focus-visible,.rdp-day_selected:hover{color:var(--rdp-selected-color);opacity:1;background-color:var(--rdp-accent-color);}.rdp-day_outside{opacity:0.5;}.rdp-day_selected:focus-visible{outline:var(--rdp-outline);outline-offset:2px;z-index:1;}.rdp:not([dir='rtl']) .rdp-day_range_start:not(.rdp-day_range_end){border-top-right-radius:0;border-bottom-right-radius:0;}.rdp:not([dir='rtl']) .rdp-day_range_end:not(.rdp-day_range_start){border-top-left-radius:0;border-bottom-left-radius:0;}.rdp[dir='rtl'] .rdp-day_range_start:not(.rdp-day_range_end){border-top-left-radius:0;border-bottom-left-radius:0;}.rdp[dir='rtl'] .rdp-day_range_end:not(.rdp-day_range_start){border-top-right-radius:0;border-bottom-right-radius:0;}.rdp-day_range_end.rdp-day_range_start{border-radius:100%;}.rdp-day_range_middle{border-radius:0;}"
-} : {
-  name: "11liau0-dayPickerStyles",
-  styles: ".rdp{--rdp-cell-size:40px;--rdp-caption-font-size:18px;--rdp-accent-color:#0000ff;--rdp-background-color:#e7edff;--rdp-accent-color-dark:#3003e1;--rdp-background-color-dark:#180270;--rdp-outline:2px solid var(--rdp-accent-color);--rdp-outline-selected:3px solid var(--rdp-accent-color);--rdp-selected-color:#fff;margin:1em;}.rdp-vhidden{box-sizing:border-box;padding:0;margin:0;background:transparent;border:0;-moz-appearance:none;-webkit-appearance:none;appearance:none;position:absolute!important;top:0;width:1px!important;height:1px!important;padding:0!important;overflow:hidden!important;clip:rect(1px, 1px, 1px, 1px)!important;border:0!important;}.rdp-button_reset{appearance:none;position:relative;margin:0;padding:0;cursor:default;color:inherit;background:none;font:inherit;-moz-appearance:none;-webkit-appearance:none;}.rdp-button_reset:focus-visible{outline:none;}.rdp-button{border:2px solid transparent;}.rdp-button[disabled]:not(.rdp-day_selected){opacity:0.25;}.rdp-button:not([disabled]){cursor:pointer;}.rdp-button:focus-visible:not([disabled]){color:inherit;background-color:var(--rdp-background-color);border:var(--rdp-outline);}.rdp-button:hover:not([disabled]):not(.rdp-day_selected){background-color:var(--rdp-background-color);}.rdp-months{display:flex;}.rdp-month{margin:0 1em;}.rdp-month:first-child{margin-left:0;}.rdp-month:last-child{margin-right:0;}.rdp-table{margin:0;max-width:calc(var(--rdp-cell-size) * 7);border-collapse:collapse;}.rdp-with_weeknumber .rdp-table{max-width:calc(var(--rdp-cell-size) * 8);border-collapse:collapse;}.rdp-caption{display:flex;align-items:center;justify-content:space-between;padding:0;text-align:left;}.rdp-multiple_months .rdp-caption{position:relative;display:block;text-align:center;}.rdp-caption_dropdowns{position:relative;display:inline-flex;}.rdp-caption_label{position:relative;z-index:1;display:inline-flex;align-items:center;margin:0;padding:0 0.25em;white-space:nowrap;color:currentColor;border:0;border:2px solid transparent;font-family:inherit;font-size:var(--rdp-caption-font-size);font-weight:bold;}.rdp-nav{white-space:nowrap;}.rdp-multiple_months .rdp-caption_start .rdp-nav{position:absolute;top:50%;left:0;transform:translateY(-50%);}.rdp-multiple_months .rdp-caption_end .rdp-nav{position:absolute;top:50%;right:0;transform:translateY(-50%);}.rdp-nav_button{display:inline-flex;align-items:center;justify-content:center;width:var(--rdp-cell-size);height:var(--rdp-cell-size);padding:0.25em;border-radius:100%;}.rdp-dropdown_year,.rdp-dropdown_month{position:relative;display:inline-flex;align-items:center;}.rdp-dropdown{appearance:none;position:absolute;z-index:2;top:0;bottom:0;left:0;width:100%;margin:0;padding:0;cursor:inherit;opacity:0;border:none;background-color:transparent;font-family:inherit;font-size:inherit;line-height:inherit;}.rdp-dropdown[disabled]{opacity:unset;color:unset;}.rdp-dropdown:focus-visible:not([disabled])+.rdp-caption_label{background-color:var(--rdp-background-color);border:var(--rdp-outline);border-radius:6px;}.rdp-dropdown_icon{margin:0 0 0 5px;}.rdp-head{border:0;}.rdp-head_row,.rdp-row{height:100%;}.rdp-head_cell{vertical-align:middle;font-size:0.75em;font-weight:700;text-align:center;height:100%;height:var(--rdp-cell-size);padding:0;text-transform:uppercase;}.rdp-tbody{border:0;}.rdp-tfoot{margin:0.5em;}.rdp-cell{width:var(--rdp-cell-size);height:100%;height:var(--rdp-cell-size);padding:0;text-align:center;}.rdp-weeknumber{font-size:0.75em;}.rdp-weeknumber,.rdp-day{display:flex;overflow:hidden;align-items:center;justify-content:center;box-sizing:border-box;width:var(--rdp-cell-size);max-width:var(--rdp-cell-size);height:var(--rdp-cell-size);margin:0;border:2px solid transparent;border-radius:100%;}.rdp-day_today:not(.rdp-day_outside){font-weight:bold;}.rdp-day_selected,.rdp-day_selected:focus-visible,.rdp-day_selected:hover{color:var(--rdp-selected-color);opacity:1;background-color:var(--rdp-accent-color);}.rdp-day_outside{opacity:0.5;}.rdp-day_selected:focus-visible{outline:var(--rdp-outline);outline-offset:2px;z-index:1;}.rdp:not([dir='rtl']) .rdp-day_range_start:not(.rdp-day_range_end){border-top-right-radius:0;border-bottom-right-radius:0;}.rdp:not([dir='rtl']) .rdp-day_range_end:not(.rdp-day_range_start){border-top-left-radius:0;border-bottom-left-radius:0;}.rdp[dir='rtl'] .rdp-day_range_start:not(.rdp-day_range_end){border-top-left-radius:0;border-bottom-left-radius:0;}.rdp[dir='rtl'] .rdp-day_range_end:not(.rdp-day_range_start){border-top-right-radius:0;border-bottom-right-radius:0;}.rdp-day_range_end.rdp-day_range_start{border-radius:100%;}.rdp-day_range_middle{border-radius:0;};label:dayPickerStyles;",
-  toString: _EMOTION_STRINGIFIED_CSS_ERROR__$2
-};
+const getDayPickerStyles = (prefix, theme) => /*#__PURE__*/css(".", prefix, "{--rdp-cell-size:", theme.general.heightSm, "px;--rdp-caption-font-size:", theme.typography.fontSizeBase, "px;--rdp-accent-color:", theme.colors.actionPrimaryBackgroundDefault, ";--rdp-background-color:", theme.colors.actionTertiaryBackgroundPress, ";--rdp-accent-color-dark:", theme.colors.actionPrimaryBackgroundDefault, ";--rdp-background-color-dark:", theme.colors.actionTertiaryBackgroundPress, ";--rdp-outline:2px solid var(--rdp-accent-color);--rdp-outline-selected:3px solid var(--rdp-accent-color);--rdp-selected-color:#fff;padding:4px;}.", prefix, "-vhidden{box-sizing:border-box;padding:0;margin:0;background:transparent;border:0;-moz-appearance:none;-webkit-appearance:none;appearance:none;position:absolute!important;top:0;width:1px!important;height:1px!important;padding:0!important;overflow:hidden!important;clip:rect(1px, 1px, 1px, 1px)!important;border:0!important;}.", prefix, "-button_reset{appearance:none;position:relative;margin:0;padding:0;cursor:default;color:inherit;background:none;font:inherit;-moz-appearance:none;-webkit-appearance:none;}.", prefix, "-button_reset:focus-visible{outline:none;}.", prefix, "-button{border:2px solid transparent;}.", prefix, "-button[disabled]:not(.", prefix, "-day_selected){opacity:0.25;}.", prefix, "-button:not([disabled]){cursor:pointer;}.", prefix, "-button:focus-visible:not([disabled]){color:inherit;background-color:var(--rdp-background-color);border:var(--rdp-outline);}.", prefix, "-button:hover:not([disabled]):not(.", prefix, "-day_selected){background-color:var(--rdp-background-color);}.", prefix, "-months{display:flex;justify-content:center;}.", prefix, "-month{margin:0 1em;}.", prefix, "-month:first-child{margin-left:0;}.", prefix, "-month:last-child{margin-right:0;}.", prefix, "-table{margin:0;max-width:calc(var(--rdp-cell-size) * 7);border-collapse:collapse;}.", prefix, "-with_weeknumber .", prefix, "-table{max-width:calc(var(--rdp-cell-size) * 8);border-collapse:collapse;}.", prefix, "-caption{display:flex;align-items:center;justify-content:space-between;padding:0;text-align:left;}.", prefix, "-multiple_months .", prefix, "-caption{position:relative;display:block;text-align:center;}.", prefix, "-caption_dropdowns{position:relative;display:inline-flex;}.", prefix, "-caption_label{position:relative;z-index:1;display:inline-flex;align-items:center;margin:0;padding:0 0.25em;white-space:nowrap;color:currentColor;border:0;border:2px solid transparent;font-family:inherit;font-size:var(--rdp-caption-font-size);font-weight:600;}.", prefix, "-nav{white-space:nowrap;}.", prefix, "-multiple_months .", prefix, "-caption_start .", prefix, "-nav{position:absolute;top:50%;left:0;transform:translateY(-50%);}.", prefix, "-multiple_months .", prefix, "-caption_end .", prefix, "-nav{position:absolute;top:50%;right:0;transform:translateY(-50%);}.", prefix, "-nav_button{display:inline-flex;align-items:center;justify-content:center;width:var(--rdp-cell-size);height:var(--rdp-cell-size);}.", prefix, "-dropdown_year,.", prefix, "-dropdown_month{position:relative;display:inline-flex;align-items:center;}.", prefix, "-dropdown{appearance:none;position:absolute;z-index:2;top:0;bottom:0;left:0;width:100%;margin:0;padding:0;cursor:inherit;opacity:0;border:none;background-color:transparent;font-family:inherit;font-size:inherit;line-height:inherit;}.", prefix, "-dropdown[disabled]{opacity:unset;color:unset;}.", prefix, "-dropdown:focus-visible:not([disabled])+.", prefix, "-caption_label{background-color:var(--rdp-background-color);border:var(--rdp-outline);border-radius:6px;}.", prefix, "-dropdown_icon{margin:0 0 0 5px;}.", prefix, "-head{border:0;}.", prefix, "-head_row,.", prefix, "-row{height:100%;}.", prefix, "-head_cell{vertical-align:middle;font-size:inherit;font-weight:400;color:", theme.colors.textSecondary, ";text-align:center;height:100%;height:var(--rdp-cell-size);padding:0;text-transform:uppercase;}.", prefix, "-tbody{border:0;}.", prefix, "-tfoot{margin:0.5em;}.", prefix, "-cell{width:var(--rdp-cell-size);height:100%;height:var(--rdp-cell-size);padding:0;text-align:center;}.", prefix, "-weeknumber{font-size:0.75em;}.", prefix, "-weeknumber,.", prefix, "-day{display:flex;overflow:hidden;align-items:center;justify-content:center;box-sizing:border-box;width:var(--rdp-cell-size);max-width:var(--rdp-cell-size);height:var(--rdp-cell-size);margin:0;border:2px solid transparent;border-radius:", theme.general.borderRadiusBase, "px;}.", prefix, "-day_today:not(.", prefix, "-day_outside){font-weight:bold;}.", prefix, "-day_selected,.", prefix, "-day_selected:focus-visible,.", prefix, "-day_selected:hover{color:var(--rdp-selected-color);opacity:1;background-color:var(--rdp-accent-color);}.", prefix, "-day_outside{pointer-events:none;color:", theme.colors.textSecondary, ";}.", prefix, "-day_selected:focus-visible{outline:var(--rdp-outline);outline-offset:2px;z-index:1;}.", prefix, ":not([dir='rtl']) .", prefix, "-day_range_start:not(.", prefix, "-day_range_end){border-top-right-radius:0;border-bottom-right-radius:0;}.", prefix, ":not([dir='rtl']) .", prefix, "-day_range_end:not(.", prefix, "-day_range_start){border-top-left-radius:0;border-bottom-left-radius:0;}.", prefix, "[dir='rtl'] .", prefix, "-day_range_start:not(.", prefix, "-day_range_end){border-top-left-radius:0;border-bottom-left-radius:0;}.", prefix, "[dir='rtl'] .", prefix, "-day_range_end:not(.", prefix, "-day_range_start){border-top-right-radius:0;border-bottom-right-radius:0;}.", prefix, "-day_range_start,.", prefix, "-day_range_end{border:0;&>span{width:100%;height:100%;display:flex;align-items:center;justify-content:center;border-radius:", theme.general.borderRadiusBase, "px;background-color:var(--rdp-accent-color);color:", theme.colors.white, ";}}.", prefix, "-day_range_end.", prefix, "-day_range_start{border-radius:", theme.general.borderRadiusBase, "px;}.", prefix, "-day_range_middle{border-radius:0;background-color:var(--rdp-background-color);color:", theme.colors.actionDefaultTextDefault, ";&:hover{color:", theme.colors.actionTertiaryTextHover, ";}}.", prefix, "-row>td:last-of-type .", prefix, "-day_range_middle{border-top-right-radius:", theme.general.borderRadiusBase, "px;border-bottom-right-radius:", theme.general.borderRadiusBase, "px;}.", prefix, "-row>td:first-of-type .", prefix, "-day_range_middle{border-top-left-radius:", theme.general.borderRadiusBase, "px;border-bottom-left-radius:", theme.general.borderRadiusBase, "px;}" + (process.env.NODE_ENV === "production" ? "" : ";label:getDayPickerStyles;"));
+
+const generateDatePickerClassNames = prefix => ({
+  root: `${prefix}`,
+  multiple_months: `${prefix}-multiple_months`,
+  with_weeknumber: `${prefix}-with_weeknumber`,
+  vhidden: `${prefix}-vhidden`,
+  button_reset: `${prefix}-button_reset`,
+  button: `${prefix}-button`,
+  caption: `${prefix}-caption`,
+  caption_start: `${prefix}-caption_start`,
+  caption_end: `${prefix}-caption_end`,
+  caption_between: `${prefix}-caption_between`,
+  caption_label: `${prefix}-caption_label`,
+  caption_dropdowns: `${prefix}-caption_dropdowns`,
+  dropdown: `${prefix}-dropdown`,
+  dropdown_month: `${prefix}-dropdown_month`,
+  dropdown_year: `${prefix}-dropdown_year`,
+  dropdown_icon: `${prefix}-dropdown_icon`,
+  months: `${prefix}-months`,
+  month: `${prefix}-month`,
+  table: `${prefix}-table`,
+  tbody: `${prefix}-tbody`,
+  tfoot: `${prefix}-tfoot`,
+  head: `${prefix}-head`,
+  head_row: `${prefix}-head_row`,
+  head_cell: `${prefix}-head_cell`,
+  nav: `${prefix}-nav`,
+  nav_button: `${prefix}-nav_button`,
+  nav_button_previous: `${prefix}-nav_button_previous`,
+  nav_button_next: `${prefix}-nav_button_next`,
+  nav_icon: `${prefix}-nav_icon`,
+  row: `${prefix}-row`,
+  weeknumber: `${prefix}-weeknumber`,
+  cell: `${prefix}-cell`,
+  day: `${prefix}-day`,
+  day_today: `${prefix}-day_today`,
+  day_outside: `${prefix}-day_outside`,
+  day_selected: `${prefix}-day_selected`,
+  day_disabled: `${prefix}-day_disabled`,
+  day_hidden: `${prefix}-day_hidden`,
+  day_range_start: `${prefix}-day_range_start`,
+  day_range_end: `${prefix}-day_range_end`,
+  day_range_middle: `${prefix}-day_range_middle`
+});
 
 function _EMOTION_STRINGIFIED_CSS_ERROR__$1() { return "You have tried to stringify object returned from `css` function. It isn't supposed to be used directly (e.g. as value of the `className` prop), but rather handed to emotion so it can handle it (e.g. as value of `css` prop)."; }
 const handleInputKeyDown = (event, setIsVisible) => {
@@ -261,7 +299,29 @@ function Day(props) {
     role: "button"
   });
 }
-var _ref$1 = process.env.NODE_ENV === "production" ? {
+const getDatePickerQuickActionBasic = _ref => {
+  let {
+    today,
+    yesterday,
+    sevenDaysAgo
+  } = _ref;
+  return [{
+    label: 'Today',
+    value: startOfToday(),
+    ...today
+  }, {
+    label: 'Yesterday',
+    value: startOfYesterday(),
+    ...yesterday
+  }, {
+    label: '7 days ago',
+    value: sub(startOfToday(), {
+      days: 7
+    }),
+    ...sevenDaysAgo
+  }];
+};
+var _ref2 = process.env.NODE_ENV === "production" ? {
   name: "1xsrjyo",
   styles: "*::-webkit-calendar-picker-indicator{display:none;}"
 } : {
@@ -271,7 +331,8 @@ var _ref$1 = process.env.NODE_ENV === "production" ? {
 };
 const DatePicker = /*#__PURE__*/forwardRef((props, ref) => {
   const {
-    classNamePrefix
+    classNamePrefix,
+    theme
   } = useDesignSystemTheme();
   const {
     id,
@@ -289,10 +350,12 @@ const DatePicker = /*#__PURE__*/forwardRef((props, ref) => {
     timeInputProps,
     mode = 'single',
     selected,
-    wrapperDivProps,
     width,
     maxWidth,
     minWidth,
+    dateTimeDisabledFn,
+    quickActions,
+    wrapperProps,
     ...restProps
   } = props;
   const format$1 = includeTime ? 'yyyy-MM-dd HH:mm' : 'yyyy-MM-dd';
@@ -312,16 +375,25 @@ const DatePicker = /*#__PURE__*/forwardRef((props, ref) => {
     onOpenChange === null || onOpenChange === void 0 || onOpenChange(isVisible);
   }, [isVisible, onOpenChange]);
   useEffect(() => {
+    if (value && format(value, format$1) !== triggerValue) {
+      setTriggerValue(format(value, format$1));
+    }
+    if (!value && !date && triggerValue) {
+      setTriggerValue(undefined);
+    }
+  }, [value, triggerValue, format$1, date]);
+  useEffect(() => {
     setIsVisible(Boolean(open));
   }, [open]);
-  const handleChange = useCallback(date => {
+  const handleChange = useCallback((date, isCalendarUpdate) => {
     if (onChange) {
       onChange({
         target: {
           name,
           value: date
         },
-        type: 'change'
+        type: 'change',
+        updateLocation: isCalendarUpdate ? 'calendar' : 'input'
       });
     }
   }, [onChange, name]);
@@ -336,7 +408,7 @@ const DatePicker = /*#__PURE__*/forwardRef((props, ref) => {
         date.setHours(prevDate.getHours());
         date.setMinutes(prevDate.getMinutes());
       }
-      handleChange === null || handleChange === void 0 || handleChange(date);
+      handleChange === null || handleChange === void 0 || handleChange(date, true);
       return date;
     });
     setTriggerValue(format(date, format$1));
@@ -344,23 +416,38 @@ const DatePicker = /*#__PURE__*/forwardRef((props, ref) => {
       setIsVisible(false);
     }
   };
+  const isDateDisabled = (date, value) => {
+    if (!date || !value) {
+      return false;
+    }
+    return isMatch(date, Array.isArray(value) ? value : [value]);
+  };
   const handleTriggerUpdate = e => {
     var _e$nativeEvent;
     const value = (_e$nativeEvent = e.nativeEvent) === null || _e$nativeEvent === void 0 || (_e$nativeEvent = _e$nativeEvent.target) === null || _e$nativeEvent === void 0 ? void 0 : _e$nativeEvent.value;
+
+    // Checks if date is disabled via disabled props (only checks days)
+    if (datePickerProps !== null && datePickerProps !== void 0 && datePickerProps.disabled && isDateDisabled(value, datePickerProps === null || datePickerProps === void 0 ? void 0 : datePickerProps.disabled)) {
+      return;
+    }
+
+    // If time is included, check if the time is disabled via dateTimeDisabledFn that has access to the full range
+    if (includeTime && dateTimeDisabledFn && dateTimeDisabledFn(value)) {
+      return;
+    }
     setTriggerValue(value);
     if (value) {
       const parsedDate = new Date(value);
       if (isValid(parsedDate)) {
         setDate(parsedDate);
-        handleChange === null || handleChange === void 0 || handleChange(parsedDate);
+        handleChange === null || handleChange === void 0 || handleChange(parsedDate, false);
       }
     }
   };
   const handleClear = useCallback(() => {
     setDate(undefined);
-    setTriggerValue(undefined);
     onClear === null || onClear === void 0 || onClear();
-    handleChange === null || handleChange === void 0 || handleChange(undefined);
+    handleChange === null || handleChange === void 0 || handleChange(undefined, false);
   }, [onClear, handleChange]);
   const handleTimeUpdate = e => {
     var _e$nativeEvent2;
@@ -393,6 +480,19 @@ const DatePicker = /*#__PURE__*/forwardRef((props, ref) => {
       }
     }
   }, [classNamePrefix, defaultTime, handleClear, allowClear]);
+  const {
+    classNames,
+    datePickerStyles
+  } = useMemo(() => ({
+    classNames: generateDatePickerClassNames(`${classNamePrefix}-datepicker`),
+    datePickerStyles: getDayPickerStyles(`${classNamePrefix}-datepicker`, theme)
+  }), [classNamePrefix, theme]);
+  const chevronLeftIconComp = props => jsx(ChevronLeftIcon, {
+    ...props
+  });
+  const chevronRightIconComp = props => jsx(ChevronRightIcon, {
+    ...props
+  });
   return jsx("div", {
     css: /*#__PURE__*/css({
       width,
@@ -400,13 +500,14 @@ const DatePicker = /*#__PURE__*/forwardRef((props, ref) => {
       maxWidth,
       pointerEvents: restProps !== null && restProps !== void 0 && restProps.disabled ? 'none' : 'auto'
     }, process.env.NODE_ENV === "production" ? "" : ";label:DatePicker;"),
-    ...wrapperDivProps,
-    children: jsxs(Root$5, {
+    ...wrapperProps,
+    children: jsxs(Root$6, {
       open: isVisible,
       onOpenChange: setIsVisible,
       children: [jsx(Trigger$1, {
         asChild: true,
         disabled: restProps === null || restProps === void 0 ? void 0 : restProps.disabled,
+        role: "combobox",
         children: jsxs("div", {
           children: [jsx(Input, {
             id: id,
@@ -416,10 +517,22 @@ const DatePicker = /*#__PURE__*/forwardRef((props, ref) => {
             allowClear: allowClear,
             placeholder: "Select Date",
             "aria-label": includeTime ? 'Select Date and Time' : 'Select Date',
-            suffix: jsx(CalendarEventIcon, {}),
+            prefix: "Date:",
             role: "textbox",
             ...restProps,
-            css: _ref$1,
+            css: /*#__PURE__*/css({
+              '*::-webkit-calendar-picker-indicator': {
+                display: 'none'
+              },
+              [`.${classNamePrefix}-input-prefix`]: {
+                ...(!(restProps !== null && restProps !== void 0 && restProps.disabled) && {
+                  color: `${theme.colors.textPrimary} !important`
+                })
+              },
+              [`&.${classNamePrefix}-input-affix-wrapper > *`]: {
+                height: theme.typography.lineHeightBase
+              }
+            }, process.env.NODE_ENV === "production" ? "" : ";label:DatePicker;"),
             type: includeTime ? 'datetime-local' : 'date',
             onKeyDown: event => handleInputKeyDown(event, setIsVisible),
             onChange: handleTriggerUpdate,
@@ -432,101 +545,92 @@ const DatePicker = /*#__PURE__*/forwardRef((props, ref) => {
         })
       }), jsxs(Content$1, {
         align: "start",
-        css: dayPickerStyles,
+        css: datePickerStyles,
         children: [jsx(DayPicker, {
+          initialFocus: true,
           ...datePickerProps,
           mode: mode,
           selected: mode === 'range' ? selected : date,
           onDayClick: handleDatePickerUpdate,
+          showOutsideDays: mode === 'range' ? false : true,
+          formatters: {
+            formatWeekdayName: date => format(date, 'iiiii', {
+              locale: datePickerProps === null || datePickerProps === void 0 ? void 0 : datePickerProps.locale
+            })
+          },
           components: {
-            Day
-          }
+            Day,
+            IconLeft: chevronLeftIconComp,
+            IconRight: chevronRightIconComp
+          },
+          classNames: classNames
+        }), (quickActions === null || quickActions === void 0 ? void 0 : quickActions.length) && jsx("div", {
+          style: {
+            display: 'flex',
+            gap: theme.spacing.sm,
+            marginBottom: theme.spacing.md,
+            padding: `${theme.spacing.xs}px ${theme.spacing.xs}px 0`,
+            maxWidth: 225,
+            flexWrap: 'wrap'
+          },
+          children: quickActions === null || quickActions === void 0 ? void 0 : quickActions.map((action, i) => jsx(Button$1, {
+            size: "small",
+            componentId: "codegen_design-system_src_design-system_datepicker_datepicker.tsx_281",
+            onClick: () => action.onClick ? action.onClick(action.value) : !Array.isArray(action.value) && handleDatePickerUpdate(action.value),
+            children: action.label
+          }, i))
         }), includeTime && jsx(Input, {
+          componentId: "codegen_design-system_src_development_datepicker_datepicker.tsx_306",
           type: "time",
           "aria-label": "Time",
           role: "textbox",
           ...timeInputProps,
           value: date ? format(date, 'HH:mm') : defaultTime,
           onChange: handleTimeUpdate,
-          disabled: !date || (timeInputProps === null || timeInputProps === void 0 ? void 0 : timeInputProps.disabled)
-        }), jsx(Arrow, {})]
+          css: _ref2,
+          suffix: jsx(ClockIcon, {}),
+          disabled: timeInputProps === null || timeInputProps === void 0 ? void 0 : timeInputProps.disabled
+        })]
       })]
     })
   });
 });
-const getRangePickerStyles = (clsPrefix, theme, _ref2) => {
+const getRangeQuickActionsBasic = _ref3 => {
   let {
-    validationState,
-    disabled,
-    useTransparent = false
-  } = _ref2;
-  const inputClass = `.${clsPrefix}-input`;
-  const affixClass = `.${clsPrefix}-input-affix-wrapper`;
-  const validationColor = getValidationStateColor(theme, validationState);
-  return {
-    '&&': {
-      ...(disabled && {
-        pointerEvents: 'none'
-      }),
-      lineHeight: theme.typography.lineHeightBase,
-      minHeight: theme.general.heightSm,
-      ...(validationState && {
-        borderColor: validationColor
-      }),
-      '&[data-focused="true"], &[data-focused="true"]:hover': {
-        [`${affixClass}:focus-within, ${affixClass}`]: {
-          outlineWidth: '0px !important',
-          boxShadow: 'none',
-          border: 'none'
-        },
-        outlineColor: validationState ? validationColor : theme.colors.actionPrimaryBackgroundDefault,
-        outlineWidth: 2,
-        borderRadius: 4,
-        outlineStyle: 'solid',
-        boxShadow: 'none',
-        borderColor: 'transparent'
-      },
-      [`&:hover ${affixClass}`]: {
-        borderColor: validationState ? validationColor : theme.colors.actionPrimaryBackgroundHover
-      }
-    },
-    [`&${inputClass}, ${inputClass}`]: {
-      ...(useTransparent && {
-        backgroundColor: 'transparent'
-      }),
-      '&:disabled': {
-        backgroundColor: theme.colors.actionDisabledBackground,
-        color: theme.colors.actionDisabledText,
-        borderColor: theme.colors.actionDisabledBorder
-      },
-      '&::placeholder': {
-        color: theme.colors.textPlaceholder
-      }
-    }
-  };
-};
-var _ref3 = process.env.NODE_ENV === "production" ? {
-  name: "1tbporb",
-  styles: "border-right:none;border-top-right-radius:0;border-bottom-right-radius:0;*::-webkit-calendar-picker-indicator{display:none;}"
-} : {
-  name: "lvtbb2-RangePicker",
-  styles: "border-right:none;border-top-right-radius:0;border-bottom-right-radius:0;*::-webkit-calendar-picker-indicator{display:none;};label:RangePicker;",
-  toString: _EMOTION_STRINGIFIED_CSS_ERROR__$1
+    today,
+    yesterday,
+    lastWeek
+  } = _ref3;
+  const todayStart = startOfToday();
+  const weekStart = startOfWeek(todayStart);
+  return [{
+    label: 'Today',
+    value: [todayStart, endOfToday()],
+    ...today
+  }, {
+    label: 'Yesterday',
+    value: [startOfYesterday(), endOfYesterday()],
+    ...yesterday
+  }, {
+    label: 'Last week',
+    value: [sub(weekStart, {
+      days: 7
+    }), sub(weekStart, {
+      days: 1
+    })],
+    ...lastWeek
+  }];
 };
 var _ref4 = process.env.NODE_ENV === "production" ? {
-  name: "1rv6kv8",
-  styles: "border-left:none;border-top-left-radius:0;border-bottom-left-radius:0"
+  name: "stj4fv",
+  styles: "*::-webkit-calendar-picker-indicator{display:none;}border-top-right-radius:0;border-bottom-right-radius:0"
 } : {
-  name: "1vhmfrm-RangePicker",
-  styles: "border-left:none;border-top-left-radius:0;border-bottom-left-radius:0;label:RangePicker;",
+  name: "p55v8c-RangePicker",
+  styles: "*::-webkit-calendar-picker-indicator{display:none;}border-top-right-radius:0;border-bottom-right-radius:0;label:RangePicker;",
   toString: _EMOTION_STRINGIFIED_CSS_ERROR__$1
 };
 const RangePicker = props => {
-  var _startDatePickerProps6, _endDatePickerProps$d5;
-  const {
-    classNamePrefix,
-    theme
-  } = useDesignSystemTheme();
+  var _startDatePickerProps6, _endDatePickerProps$d5, _range$from;
   const {
     id,
     onChange,
@@ -537,7 +641,9 @@ const RangePicker = props => {
     minWidth,
     maxWidth,
     width,
-    disabled
+    disabled,
+    quickActions,
+    wrapperProps
   } = props;
   const [range, setRange] = useState({
     from: startDatePickerProps === null || startDatePickerProps === void 0 ? void 0 : startDatePickerProps.value,
@@ -568,8 +674,42 @@ const RangePicker = props => {
     }
     toInputRefVisible.current = isToVisible;
   }, [isToVisible]);
-  const handleUpdateDate = useCallback(function (e, isStart) {
-    let shouldFocusNextInput = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : true;
+  const checkIfDateTimeIsDisabled = useCallback(function (date) {
+    let isStart = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : false;
+    const dateToCompareTo = isStart ? range === null || range === void 0 ? void 0 : range.to : range === null || range === void 0 ? void 0 : range.from;
+    if (date && dateToCompareTo) {
+      return isStart ? isAfter(date, dateToCompareTo) : isBefore(date, dateToCompareTo);
+    }
+    return false;
+  }, [range]);
+  const quickActionsWithHandler = useMemo(() => {
+    if (quickActions) {
+      return quickActions.map(action => {
+        if (Array.isArray(action.value)) {
+          return {
+            ...action,
+            onClick: value => {
+              var _action$onClick;
+              setRange({
+                from: value[0],
+                to: value[1]
+              });
+              onChange === null || onChange === void 0 || onChange({
+                from: value[0],
+                to: value[1]
+              });
+              (_action$onClick = action.onClick) === null || _action$onClick === void 0 || _action$onClick.call(action, value);
+              setIsFromVisible(false);
+              setIsToVisible(false);
+            }
+          };
+        }
+        return action;
+      });
+    }
+    return quickActions;
+  }, [quickActions, onChange]);
+  const handleUpdateDate = useCallback((e, isStart) => {
     setRange(prevRange => {
       const date = e.target.value;
       const newRange = isStart ? {
@@ -582,7 +722,7 @@ const RangePicker = props => {
       if (!includeTime) {
         if (isStart) {
           setIsFromVisible(false);
-          if (shouldFocusNextInput) {
+          if (e.updateLocation === 'calendar') {
             setIsToVisible(true);
           }
         } else {
@@ -625,22 +765,22 @@ const RangePicker = props => {
     };
   }, [range === null || range === void 0 ? void 0 : range.from, range === null || range === void 0 ? void 0 : range.to, startDatePickerProps === null || startDatePickerProps === void 0 || (_startDatePickerProps6 = startDatePickerProps.datePickerProps) === null || _startDatePickerProps6 === void 0 ? void 0 : _startDatePickerProps6.disabled, endDatePickerProps === null || endDatePickerProps === void 0 || (_endDatePickerProps$d5 = endDatePickerProps.datePickerProps) === null || _endDatePickerProps$d5 === void 0 ? void 0 : _endDatePickerProps$d5.disabled]);
   return jsxs("div", {
+    ...wrapperProps,
     "data-focused": isRangeInputFocused,
-    css: [{
+    css: /*#__PURE__*/css({
       display: 'flex',
       alignItems: 'center',
       minWidth,
       maxWidth,
       width
-    }, getRangePickerStyles(classNamePrefix, theme, {
-      validationState: (startDatePickerProps === null || startDatePickerProps === void 0 ? void 0 : startDatePickerProps.validationState) || (endDatePickerProps === null || endDatePickerProps === void 0 ? void 0 : endDatePickerProps.validationState),
-      disabled
-    }), process.env.NODE_ENV === "production" ? "" : ";label:RangePicker;"],
+    }, process.env.NODE_ENV === "production" ? "" : ";label:RangePicker;"),
     children: [jsx(DatePicker, {
+      quickActions: quickActionsWithHandler,
+      prefix: "Start:",
       ...startDatePickerProps,
       id: id,
       ref: fromInputRef,
-      disabled: disabled,
+      disabled: disabled || (startDatePickerProps === null || startDatePickerProps === void 0 ? void 0 : startDatePickerProps.disabled),
       onChange: e => handleUpdateDate(e, true),
       includeTime: includeTime,
       open: isFromVisible,
@@ -655,6 +795,7 @@ const RangePicker = props => {
       mode: "range",
       selected: range,
       value: range === null || range === void 0 ? void 0 : range.from,
+      dateTimeDisabledFn: date => checkIfDateTimeIsDisabled(date, true),
       onFocus: e => {
         var _startDatePickerProps7;
         setIsRangeInputFocused(true);
@@ -665,17 +806,19 @@ const RangePicker = props => {
         setIsRangeInputFocused(false);
         startDatePickerProps === null || startDatePickerProps === void 0 || (_startDatePickerProps8 = startDatePickerProps.onBlur) === null || _startDatePickerProps8 === void 0 || _startDatePickerProps8.call(startDatePickerProps, e);
       },
-      css: _ref3,
-      wrapperDivProps: {
+      css: _ref4,
+      wrapperProps: {
         style: {
           width: '50%'
         }
-      },
-      suffix: jsx(ArrowRightIcon, {})
+      }
     }), jsx(DatePicker, {
+      quickActions: quickActionsWithHandler,
+      prefix: "End:",
+      min: range === null || range === void 0 || (_range$from = range.from) === null || _range$from === void 0 ? void 0 : _range$from.toString(),
       ...endDatePickerProps,
       ref: toInputRef,
-      disabled: disabled,
+      disabled: disabled || (endDatePickerProps === null || endDatePickerProps === void 0 ? void 0 : endDatePickerProps.disabled),
       onChange: e => handleUpdateDate(e, false),
       includeTime: includeTime,
       open: isToVisible,
@@ -690,6 +833,7 @@ const RangePicker = props => {
       mode: "range",
       selected: range,
       value: range === null || range === void 0 ? void 0 : range.to,
+      dateTimeDisabledFn: date => checkIfDateTimeIsDisabled(date, false),
       onFocus: e => {
         var _startDatePickerProps9;
         setIsRangeInputFocused(true);
@@ -700,8 +844,12 @@ const RangePicker = props => {
         setIsRangeInputFocused(false);
         startDatePickerProps === null || startDatePickerProps === void 0 || (_startDatePickerProps10 = startDatePickerProps.onBlur) === null || _startDatePickerProps10 === void 0 || _startDatePickerProps10.call(startDatePickerProps, e);
       },
-      css: _ref4,
-      wrapperDivProps: {
+      css: /*#__PURE__*/css({
+        borderTopLeftRadius: 0,
+        borderBottomLeftRadius: 0,
+        left: -1
+      }, process.env.NODE_ENV === "production" ? "" : ";label:RangePicker;"),
+      wrapperProps: {
         style: {
           width: '50%'
         }
@@ -709,6 +857,108 @@ const RangePicker = props => {
     })]
   });
 };
+
+const getCommonTabsListStyles = theme => {
+  return {
+    display: 'flex',
+    borderBottom: `1px solid ${theme.colors.border}`,
+    marginBottom: theme.spacing.md,
+    height: theme.general.heightSm,
+    boxSizing: 'border-box'
+  };
+};
+const getCommonTabsTriggerStyles = theme => {
+  return {
+    display: 'flex',
+    fontWeight: theme.typography.typographyBoldFontWeight,
+    fontSize: theme.typography.fontSizeMd,
+    backgroundColor: 'transparent',
+    marginRight: theme.spacing.md
+  };
+};
+
+const Root$5 = /*#__PURE__*/React__default.forwardRef((props, forwardedRef) => {
+  return jsx(RadixNavigationMenu.Root, {
+    ...props,
+    ref: forwardedRef
+  });
+});
+const List$1 = /*#__PURE__*/React__default.forwardRef((props, forwardedRef) => {
+  const {
+    theme
+  } = useDesignSystemTheme();
+  const commonTabsListStyles = getCommonTabsListStyles(theme);
+  return jsx(RadixNavigationMenu.List, {
+    css: /*#__PURE__*/css({
+      ...commonTabsListStyles,
+      marginTop: 0,
+      padding: 0,
+      overflow: 'auto hidden',
+      listStyle: 'none'
+    }, process.env.NODE_ENV === "production" ? "" : ";label:List;"),
+    ...props,
+    ref: forwardedRef
+  });
+});
+const Item$1 = /*#__PURE__*/React__default.forwardRef((_ref, forwardedRef) => {
+  let {
+    children,
+    active,
+    ...props
+  } = _ref;
+  const {
+    theme
+  } = useDesignSystemTheme();
+  const commonTabsTriggerStyles = getCommonTabsTriggerStyles(theme);
+  return jsx(RadixNavigationMenu.Item, {
+    css: /*#__PURE__*/css({
+      ...commonTabsTriggerStyles,
+      height: theme.general.heightSm,
+      minWidth: theme.spacing.lg,
+      justifyContent: 'center',
+      ...(active && {
+        // Use box-shadow instead of border to prevent it from affecting the size of the element, which results in visual
+        // jumping when switching tabs.
+        boxShadow: `inset 0 -4px 0 ${theme.colors.actionPrimaryBackgroundDefault}`
+      })
+    }, process.env.NODE_ENV === "production" ? "" : ";label:Item;"),
+    ...props,
+    ref: forwardedRef,
+    children: jsx(RadixNavigationMenu.Link, {
+      asChild: true,
+      active: active,
+      css: /*#__PURE__*/css({
+        padding: `${theme.spacing.xs}px 0 ${theme.spacing.sm}px 0`,
+        '&:focus': {
+          outline: `2px auto ${theme.colors.actionDefaultBorderFocus}`,
+          outlineOffset: '-1px'
+        },
+        '&&': {
+          color: active ? theme.colors.textPrimary : theme.colors.textSecondary,
+          textDecoration: 'none',
+          '&:hover': {
+            color: active ? theme.colors.textPrimary : theme.colors.actionDefaultTextHover,
+            textDecoration: 'none'
+          },
+          '&:focus': {
+            textDecoration: 'none'
+          },
+          '&:active': {
+            color: active ? theme.colors.textPrimary : theme.colors.actionDefaultTextPress
+          }
+        }
+      }, process.env.NODE_ENV === "production" ? "" : ";label:Item;"),
+      children: children
+    })
+  });
+});
+
+var NavigationMenu = /*#__PURE__*/Object.freeze({
+  __proto__: null,
+  Item: Item$1,
+  List: List$1,
+  Root: Root$5
+});
 
 const RadioGroupContext = /*#__PURE__*/React__default.createContext('medium');
 const Root$4 = /*#__PURE__*/React__default.forwardRef((_ref, forwardedRef) => {
@@ -899,6 +1149,8 @@ const PreviewCard = _ref => {
     onClick,
     size = 'default',
     dangerouslyAppendEmotionCSS,
+    componentId,
+    analyticsEvents,
     ...props
   } = _ref;
   const styles = usePreviewCardStyles({
@@ -908,14 +1160,26 @@ const PreviewCard = _ref => {
   const tabIndex = onClick ? 0 : undefined;
   const role = onClick ? 'button' : undefined;
   const showFooter = startActions || endActions;
+  const eventContext = useDesignSystemEventComponentCallbacks({
+    componentType: DesignSystemEventProviderComponentTypes.PreviewCard,
+    componentId,
+    analyticsEvents: analyticsEvents !== null && analyticsEvents !== void 0 ? analyticsEvents : []
+  });
+  const onClickWrapper = useCallback(e => {
+    if (onClick) {
+      eventContext.onClick();
+      onClick(e);
+    }
+  }, [eventContext, onClick]);
   return jsxs("div", {
     ...addDebugOutlineIfEnabled(),
     css: [styles['container'], dangerouslyAppendEmotionCSS, process.env.NODE_ENV === "production" ? "" : ";label:PreviewCard;"],
     tabIndex: tabIndex,
-    onClick: onClick,
+    onClick: onClickWrapper,
     role: role,
     ...props,
     children: [image && jsx("div", {
+      css: styles['image'],
       children: image
     }), jsxs("div", {
       css: styles['header'],
@@ -991,6 +1255,11 @@ const usePreviewCardStyles = _ref2 => {
         }
       })
     },
+    image: {
+      '& > *': {
+        borderRadius: theme.borders.borderRadiusMd
+      }
+    },
     header: {
       display: 'flex',
       alignItems: 'center',
@@ -1018,7 +1287,10 @@ const usePreviewCardStyles = _ref2 => {
       flexWrap: 'wrap'
     },
     action: {
-      overflow: 'hidden'
+      overflow: 'hidden',
+      // to ensure focus ring is rendered
+      margin: theme.spacing.md * -1,
+      padding: theme.spacing.md
     }
   };
 };
@@ -1347,13 +1619,13 @@ const Trigger = /*#__PURE__*/React__default.forwardRef((_ref3, forwardedRef) => 
     viewportRef
   } = React__default.useContext(TabsV2ListContext);
   const isClosable = onClose !== undefined && !disabled;
-  const css = useTriggerStyles();
+  const css = useTriggerStyles(isClosable);
   const eventContext = useDesignSystemEventComponentCallbacks({
     componentType: DesignSystemEventProviderComponentTypes.Button,
     componentId: `${componentId}.close_tab`,
     analyticsEvents: [DesignSystemEventProviderAnalyticsEventTypes.OnClick]
   });
-  React__default.useEffect(() => {
+  const scrollActiveTabIntoView = React__default.useCallback(() => {
     if (triggerRef.current && viewportRef.current && activeValue === value) {
       const viewportPosition = viewportRef.current.getBoundingClientRect();
       const triggerPosition = triggerRef.current.getBoundingClientRect();
@@ -1363,7 +1635,23 @@ const Trigger = /*#__PURE__*/React__default.forwardRef((_ref3, forwardedRef) => 
         viewportRef.current.scrollLeft += triggerPosition.right - viewportPosition.right;
       }
     }
-  }, [viewportRef, triggerRef, activeValue, value]);
+  }, [viewportRef, activeValue, value]);
+  const debouncedScrollActiveTabIntoView = React__default.useMemo(() => _debounce(scrollActiveTabIntoView, 10), [scrollActiveTabIntoView]);
+  React__default.useEffect(() => {
+    scrollActiveTabIntoView();
+  }, [scrollActiveTabIntoView]);
+  React__default.useEffect(() => {
+    if (!viewportRef.current || !triggerRef.current) {
+      return;
+    }
+    const resizeObserver = new ResizeObserver(debouncedScrollActiveTabIntoView);
+    resizeObserver.observe(viewportRef.current);
+    resizeObserver.observe(triggerRef.current);
+    return () => {
+      resizeObserver.disconnect();
+      debouncedScrollActiveTabIntoView.cancel();
+    };
+  }, [debouncedScrollActiveTabIntoView, viewportRef]);
   return jsxs(RadixTabs.Trigger, {
     css: css['trigger'],
     value: value,
@@ -1417,14 +1705,9 @@ const useListStyles = () => {
   const {
     theme
   } = useDesignSystemTheme();
+  const containerStyles = getCommonTabsListStyles(theme);
   return {
-    container: {
-      display: 'flex',
-      borderBottom: `1px solid ${theme.colors.border}`,
-      marginBottom: theme.spacing.md,
-      height: theme.general.heightSm,
-      boxSizing: 'border-box'
-    },
+    container: containerStyles,
     root: {
       overflow: 'hidden'
     },
@@ -1462,23 +1745,22 @@ const useListStyles = () => {
     }
   };
 };
-const useTriggerStyles = () => {
+const useTriggerStyles = isClosable => {
   const {
     theme
   } = useDesignSystemTheme();
+  const commonTriggerStyles = getCommonTabsTriggerStyles(theme);
   return {
     trigger: {
-      display: 'flex',
+      ...commonTriggerStyles,
       alignItems: 'center',
+      justifyContent: isClosable ? 'space-between' : 'center',
+      minWidth: isClosable ? theme.spacing.lg + theme.spacing.md : theme.spacing.lg,
       color: theme.colors.textSecondary,
-      fontWeight: theme.typography.typographyBoldFontWeight,
-      fontSize: theme.typography.fontSizeMd,
       lineHeight: theme.typography.lineHeightBase,
-      backgroundColor: 'transparent',
       whiteSpace: 'nowrap',
       border: 'none',
       padding: `${theme.spacing.xs}px 0 ${theme.spacing.sm}px 0`,
-      marginRight: theme.spacing.md,
       // The close icon is hidden on inactive tabs until the tab is hovered
       // Checking for the last icon to handle cases where the tab name includes an icon
       [`& > .anticon:last-of-type`]: {
@@ -1639,5 +1921,5 @@ var Toolbar = /*#__PURE__*/Object.freeze({
   ToggleItem: ToggleItem
 });
 
-export { BANNER_MAX_HEIGHT, BANNER_MIN_HEIGHT, Banner, DatePicker, PillControl, PreviewCard, Progress, RangePicker, Slider, TabsV2, Toolbar };
+export { BANNER_MAX_HEIGHT, BANNER_MIN_HEIGHT, Banner, DatePicker, NavigationMenu, PillControl, PreviewCard, Progress, RangePicker, Slider, TabsV2, Toolbar, getDatePickerQuickActionBasic, getRangeQuickActionsBasic };
 //# sourceMappingURL=development.js.map

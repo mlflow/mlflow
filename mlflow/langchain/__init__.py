@@ -14,6 +14,7 @@ LangChain (native) format
 
 import contextlib
 import functools
+import importlib
 import inspect
 import json
 import logging
@@ -568,6 +569,9 @@ def log_model(
     )
 
 
+# patch_langchain_type_to_cls_dict here as we attempt to load model
+# if it's saved by `dict` method
+@patch_langchain_type_to_cls_dict
 def _save_model(model, path, loader_fn, persist_dir):
     if Version(cloudpickle.__version__) < Version("2.1.0"):
         warnings.warn(
@@ -576,15 +580,15 @@ def _save_model(model, path, loader_fn, persist_dir):
             "using `pip install cloudpickle>=2.1.0` "
             "to ensure the model can be loaded correctly."
         )
-    # patch_langchain_type_to_cls_dict here as we attempt to load model
-    # if it's saved by `dict` method
-    with register_pydantic_v1_serializer_cm(), patch_langchain_type_to_cls_dict():
+
+    with register_pydantic_v1_serializer_cm():
         if isinstance(model, lc_runnables_types()):
             return _save_runnables(model, path, loader_fn=loader_fn, persist_dir=persist_dir)
         else:
             return _save_base_lcs(model, path, loader_fn, persist_dir)
 
 
+@patch_langchain_type_to_cls_dict
 def _load_model(local_model_path, flavor_conf):
     from mlflow.langchain._langchain_autolog import _update_langchain_model_config
 
@@ -715,6 +719,7 @@ class _LangChainModelWrapper:
             requests=messages,
             callback_handlers=callback_handlers,
             convert_chat_responses=convert_chat_responses,
+            params=params or {},
         )
         return results[0] if return_first_element else results
 
@@ -777,6 +782,7 @@ class _LangChainModelWrapper:
         return process_stream_request(
             lc_model=self.lc_model,
             request_json=data,
+            params=params or {},
         )
 
     def _predict_stream_with_callbacks(
@@ -808,10 +814,11 @@ class _LangChainModelWrapper:
             request_json=data,
             callback_handlers=callback_handlers,
             convert_chat_responses=convert_chat_responses,
+            params=params or {},
         )
 
 
-def _load_pyfunc(path: str, model_config: Optional[Dict[str, Any]] = None):
+def _load_pyfunc(path: str, model_config: Optional[Dict[str, Any]] = None):  # noqa: D417
     """Load PyFunc implementation for LangChain. Called by ``pyfunc.load_model``.
 
     Args:
@@ -856,8 +863,7 @@ def _load_model_from_local_fs(local_model_path, model_config_overrides=None):
             _clear_dependencies_schemas()
         return model
     else:
-        with patch_langchain_type_to_cls_dict():
-            return _load_model(local_model_path, flavor_conf)
+        return _load_model(local_model_path, flavor_conf)
 
 
 @experimental
@@ -921,7 +927,12 @@ def _inspect_module_and_patch_cls(module, inspected_modules, patched_classes):
         inspected_modules.add(module.__name__)
         for _, obj in inspect.getmembers(module):
             if inspect.ismodule(obj) and (obj.__name__.startswith("langchain")):
-                _inspect_module_and_patch_cls(obj, inspected_modules, patched_classes)
+                # NB: Sometimes child modules require additional packages
+                # e.g. langchain.chat_models requires langchain_community.
+                try:
+                    _inspect_module_and_patch_cls(obj, inspected_modules, patched_classes)
+                except ImportError:
+                    pass
             elif (
                 inspect.isclass(obj)
                 and obj.__name__ not in patched_classes
@@ -1002,13 +1013,6 @@ def autolog(
             collected during inference. Default to ``True``.
     """
     with contextlib.suppress(ImportError):
-        import langchain
-        import langchain_community
-        from langchain.agents.agent import AgentExecutor
-        from langchain.chains.base import Chain
-        from langchain.schema import BaseRetriever
-        from langchain.schema.runnable import Runnable
-
         from mlflow.langchain._langchain_autolog import patched_inference
 
         # avoid duplicate patching
@@ -1016,10 +1020,19 @@ def autolog(
         # avoid infinite recursion
         inspected_modules = set()
 
-        for module in [langchain, langchain_community]:
-            _inspect_module_and_patch_cls(module, inspected_modules, patched_classes)
+        # Get all installed LangChain packages
+        for pkg in importlib.metadata.distributions():
+            if pkg.metadata["Name"].startswith("langchain"):
+                module_name = pkg.metadata["Name"].replace("-", "_")
+                try:
+                    module = importlib.import_module(module_name)
+                    _inspect_module_and_patch_cls(module, inspected_modules, patched_classes)
+                except Exception:
+                    pass
 
         if extra_model_classes:
+            from langchain_core.runnables import Runnable
+
             unsupported_classes = []
             for cls in extra_model_classes:
                 if cls.__name__ in patched_classes:
@@ -1035,17 +1048,28 @@ def autolog(
                     "Only subclasses of Runnable are supported."
                 )
 
-        for cls in [AgentExecutor, Chain]:
+        try:
+            from langchain.agents.agent import AgentExecutor
+            from langchain.chains.base import Chain
+
+            for cls in [AgentExecutor, Chain]:
+                safe_patch(
+                    FLAVOR_NAME,
+                    cls,
+                    "__call__",
+                    functools.partial(patched_inference, "__call__"),
+                )
+        except ImportError:
+            pass
+
+        try:
+            from langchain_core.retrievers import BaseRetriever
+
             safe_patch(
                 FLAVOR_NAME,
-                cls,
-                "__call__",
-                functools.partial(patched_inference, "__call__"),
+                BaseRetriever,
+                "get_relevant_documents",
+                functools.partial(patched_inference, "get_relevant_documents"),
             )
-
-        safe_patch(
-            FLAVOR_NAME,
-            BaseRetriever,
-            "get_relevant_documents",
-            functools.partial(patched_inference, "get_relevant_documents"),
-        )
+        except ImportError:
+            pass

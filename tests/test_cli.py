@@ -439,6 +439,7 @@ def test_mlflow_gc_sqlite_with_s3_artifact_repository(
             store.get_run(run.info.run_uuid)
 
 
+@pytest.mark.skip(reason="mlserver is incompatible with the latest version of pydantic")
 @pytest.mark.parametrize(
     "enable_mlserver",
     [
@@ -466,8 +467,8 @@ def test_mlflow_models_serve(enable_mlserver):
                 artifact_path="model",
                 python_model=model,
                 extra_pip_requirements=[
-                    "mlserver>=1.2.0,!=1.3.1,<1.4.0",
-                    "mlserver-mlflow>=1.2.0,!=1.3.1,<1.4.0",
+                    "mlserver>=1.2.0,!=1.3.1",
+                    "mlserver-mlflow>=1.2.0,!=1.3.1",
                     PROTOBUF_REQUIREMENT,
                 ],
             )

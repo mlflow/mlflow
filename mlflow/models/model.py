@@ -555,6 +555,26 @@ class Model:
             metadata=self.metadata,
         )
 
+    def get_tags_dict(self):
+        result = self.to_dict()
+
+        tags = {
+            key: value
+            for key, value in result.items()
+            if key in ["run_id", "utc_time_created", "artifact_path", "model_uuid"]
+        }
+
+        tags["flavors"] = {
+            flavor: (
+                {k: v for k, v in config.items() if k != "config"}
+                if isinstance(config, dict)
+                else config
+            )
+            for flavor, config in result.get("flavors", {}).items()
+        }
+
+        return tags
+
     def to_dict(self):
         """Serialize the model to a dictionary."""
         res = {k: v for k, v in self.__dict__.items() if not k.startswith("_")}
@@ -655,7 +675,7 @@ class Model:
 
     @format_docstring(LOG_MODEL_PARAM_DOCS)
     @classmethod
-    def log(
+    def log(  # noqa: D417
         cls,
         artifact_path,
         flavor,
@@ -776,7 +796,7 @@ class Model:
                 model_info.registered_model_version = registered_model.version
 
             # validate input example works for serving when logging the model
-            if serving_input:
+            if serving_input and kwargs.get("validate_serving_input", True):
                 from mlflow.models import validate_serving_input
 
                 try:

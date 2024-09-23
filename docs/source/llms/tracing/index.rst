@@ -1,13 +1,50 @@
-Tracing in MLflow
-=================
+.. meta::
+  :description: MLflow Tracing is a feature that enables LLM observability in your apps. MLflow automatically logs traces for LangChain, LlamaIndex, and more.
+
+Introduction to MLflow Tracing
+==============================
 
 .. note::
     MLflow Tracing is currently in **Experimental Status** and is subject to change without deprecation warning or notification. 
 
+.. raw:: html
+
+    <section>
+        <div class="logo-grid">
+            <a href="../langchain/autologging.html">
+                <div class="logo-card">
+                    <img src="../../_static/images/logos/langchain-logo.png" alt="LangChain Logo"/>
+                </div>
+            </a>
+            <a href="../langchain/autologging.html">
+                <div class="logo-card">
+                    <img src="../../_static/images/logos/langgraph-logo.png" alt="LangGraph Logo"/>
+                </div>
+            </a>
+            <a href="../llama-index/index.html##enable-tracing">
+                <div class="logo-card">
+                    <img src="../../_static/images/logos/llamaindex-logo.svg" alt="LlamaIndex Logo"/>
+                </div>
+            </a>
+            <a href="../openai/autologging.html">
+                <div class="logo-card">
+                    <img src="../../_static/images/logos/openai-logo.png" alt="OpenAI Logo"/>
+                </div>
+            </a>
+            <a href="#automatic-tracing">
+                <div class="logo-card">
+                    <img src="../../_static/images/logos/autogen-logo.svg" alt="AutoGen Logo"/>
+                </div>
+            </a>
+    </section>
+
+
+MLflow Tracing is a feature that enhances LLM observability in your Generative AI (GenAI) applications by capturing detailed information about the execution of your application's services.
+Tracing provides a way to record the inputs, outputs, and metadata associated with each intermediate step of a request, enabling you to easily pinpoint the source of bugs and unexpected behaviors.
 
 MLflow offers a number of different options to enable tracing of your GenAI applications. 
 
-- **Automated tracing**: MLflow provides a fully automated integration with integrated libraries such as LangChain, OpenAI, and LlamaIndex, that can activate by simply enabling ``mlflow.<library>.autolog()``.
+- **Automated tracing**: MLflow provides a fully automated integration with integrated libraries such as LangChain, OpenAI, LlamaIndex, and AutoGen, that can activate by simply enabling ``mlflow.<library>.autolog()``.
 - **Manual trace instrumentation with high-level fluent APIs**: Decorators, function wrappers and context managers via the fluent API allow you to add tracing functionality with minor code modifications.
 - **Low-level client APIs for tracing**: The MLflow client API provides a thread-safe way to handle trace implementations, even in aysnchronous modes of operation.
 
@@ -28,14 +65,14 @@ Automatic Tracing
 -----------------
 
 The easiest way to get started with MLflow Tracing is to leverage the built-in capabilities with MLflow's integrated libraries. MLflow provides automatic tracing capabilities for some of the integrated libraries such as
-LangChain, OpenAI, and LlamaIndex. For these libraries, you can instrument your code with
+LangChain, OpenAI, LlamaIndex, and AutoGen. For these libraries, you can instrument your code with
 just a single command ``mlflow.<library>.autolog()`` and MLflow will automatically log traces
 for model/API invocations to the active MLflow Experiment.
 
 
 .. tabs::
 
-    .. tab::  LangChain
+    .. tab::  LangChain / LangGraph
 
         .. raw:: html
 
@@ -208,6 +245,30 @@ for model/API invocations to the active MLflow Experiment.
 
         .. figure:: ../../_static/images/llms/llama-index/llama-index-trace.png
             :alt: LlamaIndex Tracing
+            :width: 100%
+            :align: center
+
+    .. tab:: AutoGen
+
+        .. raw:: html
+
+            <h3>AutoGen Automatic Tracing</h3>
+
+        |
+
+        MLflow Tracing ensures observability for your AutoGen application that involves complex multi-agent interactions. You can enable auto-tracing by calling :py:func:`mlflow.autogen.autolog`, then the internal steps of the agents chat session will be logged to the active MLflow Experiment.
+
+
+        .. code-block:: python
+
+            import mlflow
+
+            mlflow.autogen.autolog()
+
+        To see the full example of tracing AutoGen, please refer to the `AutoGen Tracing example <https://github.com/mlflow/mlflow/tree/master/examples/autogen/tracing.py>`_.
+
+        .. figure:: ../../_static/images/llms/autogen/autogen-trace.png
+            :alt: AutoGen Tracing
             :width: 100%
             :align: center
 
@@ -748,6 +809,46 @@ To enable async logging for tracing, call :py:func:`mlflow.config.enable_async_l
 
 
 Note that the async logging does not fully eliminate the performance overhead. Some backend calls still need to be made synchronously and there are other factors such as data serialization. However, async logging can significantly reduce the overall overhead of logging traces, empirically about ~80% for typical workloads.
+
+Using OpenTelemetry Collector for Exporting Traces
+--------------------------------------------------
+
+Traces generated by MLflow are compatible with the `OpenTelemetry trace specs <https://opentelemetry.io/docs/specs/otel/trace/api/#span>`_.
+Therefore, MLflow Tracing supports exporting traces to an OpenTelemetry Collector, which can then be used to export traces to various backends such as Jaeger, Zipkin, and AWS X-Ray.
+
+By default, MLflow exports traces to the MLflow Tracking Server. To enable exporting traces to an OpenTelemetry Collector, set the ``OTEL_EXPORTER_OTLP_ENDPOINT`` environment variable (or ``OTEL_EXPORTER_OTLP_TRACES_ENDPOINT``) to the target URL of the OpenTelemetry Collector **before starting any trace**.
+
+.. code-block:: python
+
+    import mlflow
+    import os
+
+    # Set the endpoint of the OpenTelemetry Collector
+    os.environ["OTEL_EXPORTER_OTLP_TRACES_ENDPOINT"] = "http://localhost:4317/v1/traces"
+    # Optionally, set the service name to group traces
+    os.environ["OTEL_SERVICE_NAME"] = "<your-service-name>"
+
+    # Trace will be exported to the OTel collector at http://localhost:4317/v1/traces
+    with mlflow.start_span(name="foo") as span:
+        span.set_inputs({"a": 1})
+        span.set_outputs({"b": 2})
+
+.. warning::
+
+    MLflow only exports traces to a single destination. When  the ``OTEL_EXPORTER_OTLP_ENDPOINT`` environment variable is configured, MLflow will **not** export traces to the MLflow Tracking Server and you will not see traces in the MLflow UI.
+
+    Similarly, if you deploy the model to the `Databricks Model Serving with tracing enabled <https://docs.databricks.com/en/mlflow/mlflow-tracing.html#use-mlflow-tracing-in-production>`_, using the OpenTelemetry Collector will result in traces not being recorded in the Inference Table.
+
+Configurations
+^^^^^^^^^^^^^^
+
+MLflow uses the standard OTLP Exporter for exporting traces to OpenTelemetry Collector instances. Thereby, you can use `all of the configurations <https://opentelemetry.io/docs/languages/sdk-configuration/otlp-exporter/>`_ supported by OpenTelemetry. The following example configures the OTLP Exporter to use HTTP protocol instead of the default gRPC and sets custom headers:
+
+.. code-block:: bash
+
+    export OTEL_EXPORTER_OTLP_TRACES_ENDPOINT="http://localhost:4317/v1/traces"
+    export OTEL_EXPORTER_OTLP_TRACES_PROTOCOL="http/protobuf"
+    export OTEL_EXPORTER_OTLP_TRACES_HEADERS="api_key=12345"
 
 
 FAQ

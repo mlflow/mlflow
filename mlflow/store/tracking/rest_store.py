@@ -1,3 +1,4 @@
+import json
 import logging
 from typing import Dict, List, Optional
 
@@ -104,7 +105,7 @@ class RestStore(AbstractStore):
         )
         return PagedList(experiments, token)
 
-    def create_experiment(self, name, artifact_location=None, tags=None):
+    def create_experiment(self, name, artifact_location=None, tags=None):  # noqa: D417
         """
         Create a new experiment.
         If an experiment with the given name already exists, throws exception.
@@ -179,7 +180,7 @@ class RestStore(AbstractStore):
         response_proto = self._call_endpoint(UpdateRun, req_body)
         return RunInfo.from_proto(response_proto.run_info)
 
-    def create_run(self, experiment_id, user_id, start_time, tags, run_name):
+    def create_run(self, experiment_id, user_id, start_time, tags, run_name):  # noqa: D417
         """
         Create a run under the specified experiment ID, setting the run's status to "RUNNING"
         and the start time to the current time.
@@ -535,7 +536,9 @@ class RestStore(AbstractStore):
         self._call_endpoint(LogBatch, req_body)
 
     def record_logged_model(self, run_id, mlflow_model):
-        req_body = message_to_json(LogModel(run_id=run_id, model_json=mlflow_model.to_json()))
+        req_body = message_to_json(
+            LogModel(run_id=run_id, model_json=json.dumps(mlflow_model.get_tags_dict()))
+        )
         self._call_endpoint(LogModel, req_body)
 
     def log_inputs(self, run_id: str, datasets: Optional[List[DatasetInput]] = None):

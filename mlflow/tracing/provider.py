@@ -19,6 +19,7 @@ from mlflow.exceptions import MlflowTracingException
 from mlflow.tracing.constant import SpanAttributeKey
 from mlflow.tracing.utils.exception import raise_as_trace_exception
 from mlflow.tracing.utils.once import Once
+from mlflow.tracing.utils.otlp import get_otlp_exporter, should_use_otlp_exporter
 from mlflow.utils.databricks_utils import (
     is_in_databricks_model_serving_environment,
     is_mlflow_tracing_enabled_in_model_serving,
@@ -75,9 +76,13 @@ def start_detached_span(
     """
     tracer = _get_tracer(__name__)
     context = trace.set_span_in_context(parent) if parent else None
-    attributes = (
-        {SpanAttributeKey.EXPERIMENT_ID: json.dumps(experiment_id)} if experiment_id else None
-    )
+    attributes = {}
+
+    # Set start time and experiment to attribute so we can pass it to the span processor
+    if start_time_ns:
+        attributes[SpanAttributeKey.START_TIME_NS] = json.dumps(start_time_ns)
+    if experiment_id:
+        attributes[SpanAttributeKey.EXPERIMENT_ID] = json.dumps(experiment_id)
     return tracer.start_span(name, context=context, attributes=attributes, start_time=start_time_ns)
 
 
@@ -118,7 +123,15 @@ def _setup_tracer_provider(disabled=False):
         _MLFLOW_TRACER_PROVIDER = trace.NoOpTracerProvider()
         return
 
-    if is_in_databricks_model_serving_environment():
+    if should_use_otlp_exporter():
+        # Export to OpenTelemetry Collector when configured
+        from mlflow.tracing.processor.otel import OtelSpanProcessor
+
+        exporter = get_otlp_exporter()
+        processor = OtelSpanProcessor(exporter)
+
+    elif is_in_databricks_model_serving_environment():
+        # Export to Inference Table when running in Databricks Model Serving
         if not is_mlflow_tracing_enabled_in_model_serving():
             _MLFLOW_TRACER_PROVIDER = trace.NoOpTracerProvider()
             return
@@ -128,7 +141,9 @@ def _setup_tracer_provider(disabled=False):
 
         exporter = InferenceTableSpanExporter()
         processor = InferenceTableSpanProcessor(exporter)
+
     else:
+        # Default to MLflow Tracking Server
         from mlflow.tracing.export.mlflow import MlflowSpanExporter
         from mlflow.tracing.processor.mlflow import MlflowSpanProcessor
 

@@ -18,12 +18,12 @@ capabilities into their applications.
     MLflow Tracing is currently in **Experimental Status** and is subject to change without deprecation warning or notification. 
 
 MLflow offers comprehensive tracing capabilities to monitor and analyze the execution of GenAI applications. This includes automated tracing GenAI frameworks such as
-LangChain, OpenAI, and LlamaIndex, manual trace instrumentation using high-level fluent APIs, and low-level client APIs for fine-grained control. This functionality 
+LangChain, OpenAI, LlamaIndex, manual trace instrumentation using high-level fluent APIs, and low-level client APIs for fine-grained control. This functionality 
 allows you to capture detailed trace data, enabling better debugging, performance monitoring, and insights into complex workflows. 
 Whether through decorators, context managers, or explicit API calls, MLflow provides the flexibility needed to trace and optimize the operations 
 of your GenAI models and retain your traced data within the tracking server for further analysis.
 
-- `Automated tracing with GenAI libraries <tracing/index.html#automatic-tracing>`_: Seamless integration with libraries such as LangChain, OpenAI, and LlamaIndex, for automatic trace data collection.
+- `Automated tracing with GenAI libraries <tracing/index.html#automatic-tracing>`_: Seamless integration with libraries such as LangChain, OpenAI, LlamaIndex, and AutoGen, for automatic trace data collection.
 - `Manual trace instrumentation with high-level fluent APIs <tracing/index.html#tracing-fluent-apis>`_: Easy-to-use decorators and context managers for adding tracing with minimal code changes.
 - `Low-level client APIs for tracing <tracing/index.html#tracing-client-apis>`_: Thread-safe methods for detailed and explicit control over trace data management.
 
@@ -38,7 +38,7 @@ of your GenAI models and retain your traced data within the tracking server for 
 To learn more about what tracing is, see our `Tracing Concepts Overview <tracing/overview.html>`_ guide. For an in-depth exploration into the structure of 
 MLflow traces and their schema, see the `Tracing Schema <tracing/tracing-schema.html>`_ guide.
 
-`MLflow Deployments Server for LLMs <deployments/index.html>`_
+`MLflow AI Gateway for LLMs <deployments/index.html>`_
 --------------------------------------------------------------
 
 .. toctree::
@@ -47,15 +47,15 @@ MLflow traces and their schema, see the `Tracing Schema <tracing/tracing-schema.
 
     deployments/index
 
-Serving as a unified interface, the `MLflow Deployments Server <deployments/index.html>`_ (previously known as "MLflow AI Gateway") 
-simplifies interactions with multiple LLM providers. In addition to supporting the most popular SaaS LLM providers, the MLflow Deployments Server 
+Serving as a unified interface, the `MLflow AI Gateway <deployments/index.html>`_ (previously known as "MLflow AI Gateway") 
+simplifies interactions with multiple LLM providers. In addition to supporting the most popular SaaS LLM providers, the MLflow AI Gateway 
 provides an integration to MLflow model serving, allowing you to serve your own LLM or a fine-tuned foundation model within your own serving infrastructure.
 
 .. note:: 
-    The MLflow Deployments Server is in active development and has been marked as **Experimental**. 
+    The MLflow AI Gateway is in active development and has been marked as **Experimental**. 
     APIs may change as this new feature is refined and its functionality is expanded based on feedback.
 
-Benefits of the MLflow Deployments Server
+Benefits of the MLflow AI Gateway
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 - **Unified Endpoint**: No more juggling between multiple provider APIs.
@@ -78,15 +78,15 @@ Benefits of the MLflow Deployments Server
   - Zero downtime provider, model, or route swapping.
 
 
-Explore the Native Providers of the MLflow Deployments Server
+Explore the Native Providers of the MLflow AI Gateway
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-The MLflow Deployments Server supports a large range of foundational models from popular SaaS model vendors, as well as providing a means of self-hosting your 
+The MLflow AI Gateway supports a large range of foundational models from popular SaaS model vendors, as well as providing a means of self-hosting your 
 own open source model via an integration with MLflow model serving. 
 
 Please refer to `Supported Provider Models <deployments/index.html#providers>`_ for the full list of supported providers and models.
 
-If you're interested in learning about how to set up the MLflow Deployments Server for a specific provider, follow the links below for our up-to-date 
+If you're interested in learning about how to set up the MLflow AI Gateway for a specific provider, follow the links below for our up-to-date 
 documentation on GitHub. Each link will take you to a README file that will explain how to set up a route for the provider. In the same directory as 
 the README, you will find a runnable example of how to query the routes that the example creates, providing you with a quick reference for getting started 
 with your favorite provider!

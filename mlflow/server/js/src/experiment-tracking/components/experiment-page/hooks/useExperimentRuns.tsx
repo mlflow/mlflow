@@ -13,7 +13,7 @@ import { searchModelVersionsApi } from '../../../../model-registry/actions';
 import { shouldEnableExperimentPageAutoRefresh } from '../../../../common/utils/FeatureUtils';
 import Utils from '../../../../common/utils/Utils';
 import { useExperimentRunsAutoRefresh } from './useExperimentRunsAutoRefresh';
-import { RunEntity } from '../../../types';
+import type { RunEntity, SearchRunsApiResponse } from '../../../types';
 
 export type FetchRunsHookParams = ReturnType<typeof createSearchRunsParams> & {
   requestedFacets: ExperimentPageSearchFacetsState;
@@ -23,9 +23,9 @@ export type FetchRunsHookFunction = (
   params: FetchRunsHookParams,
   options?: {
     isAutoRefreshing?: boolean;
-    discardResultsFn?: (lastRequestedParams: FetchRunsHookParams) => boolean;
+    discardResultsFn?: (lastRequestedParams: FetchRunsHookParams, response?: SearchRunsApiResponse) => boolean;
   },
-) => Promise<RunEntity[]>;
+) => Promise<{ runs: RunEntity[]; next_page_token?: string }>;
 
 // Calculate actual params to use for fetching runs
 const createFetchRunsRequestParams = (
@@ -63,6 +63,7 @@ export const useExperimentRuns = (
 
   const lastFetchedTime = useRef<number | null>(null);
   const lastRequestedParams = useRef<FetchRunsHookParams | null>(null);
+  const lastSuccessfulRequestedParams = useRef<FetchRunsHookParams | null>(null);
 
   // Reset initial loading state when experiment IDs change
   useEffect(() => {
@@ -113,15 +114,17 @@ export const useExperimentRuns = (
         }
         return thunkDispatch((fetchParams.pageToken ? loadMoreRunsApi : searchRunsApi)(fetchParams))
           .then(async ({ value }) => {
-            setNextPageToken(value.next_page_token || null);
             lastFetchedTime.current = Date.now();
 
             setIsLoadingRuns(false);
             setIsInitialLoadingRuns(false);
 
-            if (lastRequestedParams.current && options.discardResultsFn?.(lastRequestedParams.current)) {
+            if (lastRequestedParams.current && options.discardResultsFn?.(lastRequestedParams.current, value)) {
               return value;
             }
+
+            lastSuccessfulRequestedParams.current = fetchParams;
+            setNextPageToken(value.next_page_token || null);
 
             // We rely on redux reducer to update the state with new runs data,
             // then we pick it up from the store. This benefits other pages that use same data
@@ -162,12 +165,11 @@ export const useExperimentRuns = (
     return fetchRuns({ ...requestParams, pageToken: nextPageToken });
   };
 
-  const refreshRuns = () => {
-    const requestParams = createFetchRunsRequestParams(searchFacets, experimentIds, cachedPinnedRuns.current);
-    if (requestParams) {
-      fetchRuns(requestParams);
+  const refreshRuns = useCallback(() => {
+    if (lastSuccessfulRequestedParams.current) {
+      fetchRuns({ ...lastSuccessfulRequestedParams.current, pageToken: undefined });
     }
-  };
+  }, [fetchRuns]);
 
   useExperimentRunsAutoRefresh({
     experimentIds,

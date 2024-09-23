@@ -222,7 +222,7 @@ def make_containing_dirs(path):
         os.makedirs(dir_name)
 
 
-def write_yaml(root, file_name, data, overwrite=False, sort_keys=True, ensure_yaml_extension=True):
+def write_yaml(root, file_name, data, overwrite=False, sort_keys=True, ensure_yaml_extension=True):  # noqa: D417
     """Write dictionary data in yaml format.
 
     Args:
@@ -459,7 +459,7 @@ def read_file(parent_path, file_name):
         return f.read()
 
 
-def get_file_info(path, rel_path):
+def get_file_info(path, rel_path):  # noqa: D417
     """Returns file meta data : location, size, ... etc
 
     Args:
@@ -524,7 +524,7 @@ def make_tarfile(output_filename, source_dir, archive_name, custom_filter=None):
         os.close(unzipped_file_handle)
 
 
-def _copy_project(src_path, dst_path=""):
+def _copy_project(src_path, dst_path=""):  # noqa: D417
     """Internal function used to copy MLflow project during development.
 
     Copies the content of the whole directory tree except patterns defined in .dockerignore.

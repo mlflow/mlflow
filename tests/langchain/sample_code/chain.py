@@ -4,13 +4,14 @@ dbutils.library.restartPython()
 
 from typing import Any, List, Optional
 
-from langchain.document_loaders import TextLoader
-from langchain.embeddings.fake import FakeEmbeddings
 from langchain.prompts import ChatPromptTemplate
 from langchain.schema.output_parser import StrOutputParser
 from langchain.schema.runnable import RunnablePassthrough
 from langchain.text_splitter import CharacterTextSplitter
-from langchain.vectorstores import FAISS
+from langchain_community.chat_models import ChatDatabricks, ChatMlflow
+from langchain_community.document_loaders import TextLoader
+from langchain_community.embeddings.fake import FakeEmbeddings
+from langchain_community.vectorstores import FAISS
 
 import mlflow
 from mlflow.models import ModelConfig, set_model, set_retriever_schema
@@ -20,7 +21,6 @@ base_config = ModelConfig(development_config="tests/langchain/config.yml")
 
 def get_fake_chat_model(endpoint="fake-endpoint"):
     from langchain.callbacks.manager import CallbackManagerForLLMRun
-    from langchain.chat_models import ChatDatabricks, ChatMlflow
     from langchain.schema.messages import BaseMessage
     from langchain_core.outputs import ChatResult
 

@@ -21,7 +21,6 @@ from mlflow.langchain.utils import (
     _MODEL_TYPE_KEY,
     _PICKLE_LOAD_KEY,
     _RUNNABLE_LOAD_KEY,
-    _UNSUPPORTED_MODEL_ERROR_MESSAGE,
     _load_base_lcs,
     _load_from_json,
     _load_from_pickle,
@@ -31,11 +30,13 @@ from mlflow.langchain.utils import (
     _validate_and_prepare_lc_model_or_path,
     base_lc_types,
     custom_type_to_loader_dict,
+    get_unsupported_model_message,
     lc_runnable_assign_types,
     lc_runnable_binding_types,
     lc_runnable_branch_types,
     lc_runnable_with_steps_types,
     lc_runnables_types,
+    patch_langchain_type_to_cls_dict,
     picklable_runnable_types,
 )
 
@@ -51,6 +52,7 @@ _DEFAULT_BRANCH_NAME = "default"
 _RUNNABLE_BINDING_CONF_FILE_NAME = "binding_conf.yaml"
 
 
+@patch_langchain_type_to_cls_dict
 def _load_model_from_config(path, model_config):
     from langchain.chains.loading import type_to_loader_dict as chains_type_to_loader_dict
     from langchain.llms import get_type_to_cls_dict as llms_get_type_to_cls_dict
@@ -80,7 +82,7 @@ def _load_model_from_config(path, model_config):
 
         return load_prompt(config_path)
     elif _type in llms_get_type_to_cls_dict():
-        from langchain.llms.loading import load_llm
+        from langchain_community.llms.loading import load_llm
 
         return _patch_loader(load_llm)(config_path)
     elif _type in custom_type_to_loader_dict():
@@ -300,7 +302,7 @@ def _warning_if_imported_from_lc_partner_pkg(runnable):
         )
 
 
-def _save_runnable_with_steps(model, file_path: Union[Path, str], loader_fn=None, persist_dir=None):
+def _save_runnable_with_steps(model, file_path: Union[Path, str], loader_fn=None, persist_dir=None):  # noqa: D417
     """Save the model with steps. Currently it supports saving RunnableSequence and
     RunnableParallel.
 
@@ -493,7 +495,7 @@ def _save_runnables(model, path, loader_fn=None, persist_dir=None):
         _save_runnable_binding(model, os.path.join(path, model_data_path), loader_fn, persist_dir)
     else:
         raise MlflowException.invalid_parameter_value(
-            _UNSUPPORTED_MODEL_ERROR_MESSAGE.format(instance_type=type(model).__name__)
+            get_unsupported_model_message(type(model).__name__)
         )
     model_data_kwargs[_MODEL_DATA_KEY] = model_data_path
     return model_data_kwargs
@@ -515,9 +517,7 @@ def _load_runnables(path, conf):
         return _load_runnable_assign(os.path.join(path, model_data))
     if model_type in (x.__name__ for x in lc_runnable_binding_types()):
         return _load_runnable_binding(os.path.join(path, model_data))
-    raise MlflowException.invalid_parameter_value(
-        _UNSUPPORTED_MODEL_ERROR_MESSAGE.format(instance_type=model_type)
-    )
+    raise MlflowException.invalid_parameter_value(get_unsupported_model_message(model_type))
 
 
 def get_runnable_steps(model: Runnable):

@@ -5,7 +5,6 @@ import logging
 import os
 import subprocess
 import time
-from sys import stderr
 from typing import NamedTuple, Optional, TypeVar
 
 import mlflow.utils
@@ -252,16 +251,20 @@ def is_in_databricks_serverless():
 
 
 def is_dbfs_fuse_available():
-    with open(os.devnull, "w") as devnull_stderr, open(os.devnull, "w") as devnull_stdout:
-        try:
-            return (
-                subprocess.call(
-                    ["mountpoint", "/dbfs"], stderr=devnull_stderr, stdout=devnull_stdout
-                )
-                == 0
+    if not is_in_databricks_runtime():
+        return False
+
+    try:
+        return (
+            subprocess.call(
+                ["mountpoint", "/dbfs"],
+                stderr=subprocess.DEVNULL,
+                stdout=subprocess.DEVNULL,
             )
-        except Exception:
-            return False
+            == 0
+        )
+    except Exception:
+        return False
 
 
 def is_uc_volume_fuse_available():
@@ -401,6 +404,22 @@ def get_command_run_id():
     except Exception:
         # Older runtimes may not have the commandRunId available
         return None
+
+
+@_use_repl_context_if_available("workloadId")
+def get_workload_id():
+    try:
+        return _get_command_context().workloadId().get()
+    except Exception:
+        return _get_context_tag("workloadId")
+
+
+@_use_repl_context_if_available("workloadClass")
+def get_workload_class():
+    try:
+        return _get_command_context().workloadClass().get()
+    except Exception:
+        return _get_context_tag("workloadClass")
 
 
 @_use_repl_context_if_available("apiUrl")
@@ -628,7 +647,7 @@ def get_databricks_host_creds(server_uri=None):
             use_databricks_sdk = True
             databricks_auth_profile = profile
         except Exception as e:
-            _logger.info(f"Failed to create databricks SDK workspace client, error: {e!r}")
+            _logger.debug(f"Failed to create databricks SDK workspace client, error: {e!r}")
             use_databricks_sdk = False
             databricks_auth_profile = None
     else:
@@ -754,7 +773,7 @@ def get_databricks_run_url(tracking_uri: str, run_id: str, artifact_path=None) -
         return None
 
 
-def get_databricks_model_version_url(registry_uri: str, name: str, version: str) -> Optional[str]:
+def get_databricks_model_version_url(registry_uri: str, name: str, version: str) -> Optional[str]:  # noqa: D417
     """Obtains a Databricks URL corresponding to the specified Model Version.
 
     Args:
@@ -1027,10 +1046,9 @@ def _init_databricks_dynamic_token_config_provider(entry_point):
                             host=ctx.apiUrl, token=ctx.apiToken, insecure=ctx.sslTrustAll
                         )
                 except Exception as e:
-                    print(  # noqa
+                    _logger.debug(
                         "Unexpected internal error while constructing `DatabricksConfig` "
                         f"from REPL context: {e}",
-                        file=stderr,
                     )
                 # Invoking getContext() will attempt to find the credentials related to the
                 # current command execution, so it's critical that we execute it on every
@@ -1076,10 +1094,9 @@ def _init_databricks_dynamic_token_config_provider(entry_point):
                             host=ctx.apiUrl, token=ctx.apiToken, insecure=ctx.sslTrustAll
                         )
                 except Exception as e:
-                    print(  # noqa
+                    _logger.debug(
                         "Unexpected internal error while constructing `DatabricksConfig` "
                         f"from REPL context: {e}",
-                        file=stderr,
                     )
                 # Invoking getContext() will attempt to find the credentials related to the
                 # current command execution, so it's critical that we execute it on every

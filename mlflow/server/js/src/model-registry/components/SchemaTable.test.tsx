@@ -6,19 +6,19 @@
  */
 
 import React from 'react';
-import userEvent from '@testing-library/user-event';
+import userEvent from '@testing-library/user-event-14';
 
 import { SchemaTable } from './SchemaTable';
 import { MemoryRouter } from '../../common/utils/RoutingUtils';
 import { renderWithIntl } from '../../common/utils/TestUtils.react18';
 
-function clickHeaderRow(container: HTMLElement, rowIndex: number): void {
+async function clickHeaderRow(container: HTMLElement, rowIndex: number): Promise<void> {
   // click to render inputs table
   const rows = container.querySelectorAll('tr.section-header-row');
   if (rows.length < rowIndex + 1) {
     throw new Error("Couldn't find the row to click");
   }
-  userEvent.click(rows[rowIndex]);
+  await userEvent.click(rows[rowIndex]);
 }
 
 describe('SchemaTable', () => {
@@ -69,7 +69,7 @@ describe('SchemaTable', () => {
     expect(container.innerHTML).not.toContain('long');
   });
 
-  test('should inputs table render by click', () => {
+  test('should inputs table render by click', async () => {
     const { container } = renderWithIntl(
       <MemoryRouter>
         <SchemaTable {...props} />
@@ -78,7 +78,7 @@ describe('SchemaTable', () => {
 
     expect(container.getElementsByTagName('table')).toHaveLength(1);
     // click to render inputs table
-    clickHeaderRow(container, 0);
+    await clickHeaderRow(container, 0);
 
     expect(container.getElementsByTagName('table')).toHaveLength(2);
     expect(container.querySelectorAll('.outer-table table')).toHaveLength(2);
@@ -93,7 +93,7 @@ describe('SchemaTable', () => {
     expect(container.innerHTML).not.toContain('long');
   });
 
-  test('Should display optional input field schema as expected', () => {
+  test('Should display optional input field schema as expected', async () => {
     props = {
       schema: {
         // column1 is required but column2 is optional
@@ -110,7 +110,7 @@ describe('SchemaTable', () => {
       </MemoryRouter>,
     );
     // click to render input schema table
-    clickHeaderRow(wrapper.container, 0);
+    await clickHeaderRow(wrapper.container, 0);
     expect(wrapper.container.innerHTML).toContain('column1');
     // the optional input param should have (optional) after the name"
     const col2 = wrapper.getByText('column2');
@@ -119,7 +119,7 @@ describe('SchemaTable', () => {
     expect(wrapper.container.innerHTML).toContain('float');
   });
 
-  test('Should display required input field schema as expected', () => {
+  test('Should display required input field schema as expected', async () => {
     props = {
       schema: {
         // column1 is required but column2 is optional
@@ -133,14 +133,14 @@ describe('SchemaTable', () => {
       </MemoryRouter>,
     );
     // click to render input schema table
-    clickHeaderRow(wrapper.container, 0);
+    await clickHeaderRow(wrapper.container, 0);
     expect(wrapper.container.innerHTML).toContain('column');
     // the optional input param should have (optional) after the name"
     const col2 = wrapper.getByText('column');
     expect(col2.textContent).toEqual('column (required)');
   });
 
-  test('Should display optional output field schema as expected', () => {
+  test('Should display optional output field schema as expected', async () => {
     props = {
       schema: {
         inputs: [{ name: 'column1', type: 'string' }],
@@ -154,13 +154,13 @@ describe('SchemaTable', () => {
       </MemoryRouter>,
     );
     // click to render output schema table
-    clickHeaderRow(wrapper.container, 1);
+    await clickHeaderRow(wrapper.container, 1);
     // the optional output name should have (optional) after the name
     const score1 = wrapper.getByText('score1');
     expect(score1.textContent).toEqual('score1 (optional)');
   });
 
-  test('should outputs table render by click', () => {
+  test('should outputs table render by click', async () => {
     const { container } = renderWithIntl(
       <MemoryRouter>
         <SchemaTable {...props} />
@@ -168,7 +168,7 @@ describe('SchemaTable', () => {
     );
     // click to render outputs table
     expect(container.getElementsByTagName('table')).toHaveLength(1);
-    clickHeaderRow(container, 1);
+    await clickHeaderRow(container, 1);
 
     expect(container.getElementsByTagName('table')).toHaveLength(2);
     expect(container.querySelectorAll('.outer-table table')).toHaveLength(2);
@@ -183,7 +183,7 @@ describe('SchemaTable', () => {
     expect(container.innerHTML).toContain('long');
   });
 
-  test('should inputs and outputs table render by click', () => {
+  test('should inputs and outputs table render by click', async () => {
     const { container } = renderWithIntl(
       <MemoryRouter>
         <SchemaTable {...props} />
@@ -191,9 +191,9 @@ describe('SchemaTable', () => {
     );
     expect(container.getElementsByTagName('table')).toHaveLength(1);
     // click to render inputs and outputs table
-    clickHeaderRow(container, 0);
+    await clickHeaderRow(container, 0);
     expect(container.getElementsByTagName('table')).toHaveLength(2);
-    clickHeaderRow(container, 1);
+    await clickHeaderRow(container, 1);
     expect(container.getElementsByTagName('table')).toHaveLength(3);
     expect(container.querySelectorAll('.outer-table table')).toHaveLength(3);
     expect(container.querySelectorAll('.inner-table table')).toHaveLength(2);
@@ -207,7 +207,7 @@ describe('SchemaTable', () => {
     expect(container.innerHTML).toContain('long');
   });
 
-  test('Should display tensorSpec as expected', () => {
+  test('Should display tensorSpec as expected', async () => {
     props = {
       schema: {
         inputs: [
@@ -233,9 +233,9 @@ describe('SchemaTable', () => {
     );
     expect(container.getElementsByTagName('table')).toHaveLength(1);
     // click to render inputs and outputs table
-    clickHeaderRow(container, 0);
+    await clickHeaderRow(container, 0);
     expect(container.getElementsByTagName('table')).toHaveLength(2);
-    clickHeaderRow(container, 1);
+    await clickHeaderRow(container, 1);
     expect(container.getElementsByTagName('table')).toHaveLength(3);
     expect(container.querySelectorAll('.outer-table table')).toHaveLength(3);
     expect(container.querySelectorAll('.inner-table table')).toHaveLength(2);
@@ -249,7 +249,7 @@ describe('SchemaTable', () => {
     expect(container.innerHTML).toContain('Tensor (dtype: float64, shape: [-1])');
   });
 
-  test('should render object/array column types correctly', () => {
+  test('should render object/array column types correctly', async () => {
     props = {
       schema: {
         // column1 is required but column2 is optional
@@ -284,7 +284,7 @@ describe('SchemaTable', () => {
     if (row === null) {
       throw new Error("Couldn't find SchemaTable header row");
     }
-    userEvent.click(row);
+    await userEvent.click(row);
 
     const signatures = container.getElementsByTagName('pre');
     expect(signatures).toHaveLength(2);

@@ -226,7 +226,7 @@ class RestStore(BaseRestStore):
 
     # CRUD API for ModelVersion objects
 
-    def create_model_version(
+    def create_model_version(  # noqa: D417
         self,
         name,
         source,

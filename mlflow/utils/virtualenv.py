@@ -324,7 +324,7 @@ _VIRTUALENV_ENVS_DIR = "virtualenv_envs"
 _PYENV_ROOT_DIR = "pyenv_root"
 
 
-def _get_or_create_virtualenv(
+def _get_or_create_virtualenv(  # noqa: D417
     local_model_path,
     env_id=None,
     env_root_dir=None,

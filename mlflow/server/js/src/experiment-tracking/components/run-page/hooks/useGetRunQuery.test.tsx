@@ -1,4 +1,4 @@
-import { renderHook, waitFor } from '@testing-library/react-for-react-18';
+import { renderHook, waitFor } from '@testing-library/react';
 import { graphql } from 'msw';
 import { useGetRunQuery } from './useGetRunQuery';
 import { setupServer } from '../../../../common/utils/setup-msw';
@@ -18,6 +18,7 @@ describe('useGetRunQuery', () => {
         res(
           ctx.data({
             mlflowGetRun: {
+              apiError: null,
               run: {
                 info: {
                   runName: 'test-run-name',
@@ -74,6 +75,6 @@ describe('useGetRunQuery', () => {
     });
 
     expect(result.current.data).toBeUndefined();
-    expect(result.current.error?.message).toEqual('test-error-message');
+    expect(result.current.apolloError?.message).toEqual('test-error-message');
   });
 });

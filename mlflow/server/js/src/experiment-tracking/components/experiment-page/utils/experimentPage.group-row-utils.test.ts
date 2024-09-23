@@ -110,7 +110,7 @@ describe('getGroupedRowRenderMetadata', () => {
         params: [
           { key: 'param3', value: 'param_3_value' },
           { key: 'param_number', value: '-80' },
-        ],
+        ] as any,
         tags: {},
       },
     ];

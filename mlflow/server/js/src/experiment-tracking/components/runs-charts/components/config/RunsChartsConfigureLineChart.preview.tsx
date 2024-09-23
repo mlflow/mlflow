@@ -10,8 +10,9 @@ import {
 } from '../RunsCharts.common';
 import { RunsMetricsLinePlot } from '../RunsMetricsLinePlot';
 import { RunsChartsTooltipMode, useRunsChartsTooltip } from '../../hooks/useRunsChartsTooltip';
-import { RunsChartsLineCardConfig } from '../../runs-charts.types';
+import { RunsChartsLineCardConfig, RunsChartsLineChartYAxisType } from '../../runs-charts.types';
 import {
+  shouldEnableChartExpressions,
   shouldEnableDeepLearningUIPhase3,
   shouldEnableManualRangeControls,
 } from '../../../../../common/utils/FeatureUtils';
@@ -19,21 +20,31 @@ import { useSampledMetricHistory } from '../../hooks/useSampledMetricHistory';
 import { compact, isUndefined, uniq } from 'lodash';
 import type { RunsGroupByConfig } from '../../../experiment-page/utils/experimentPage.group-row-utils';
 import { useGroupedChartRunData } from '../../../runs-compare/hooks/useGroupedChartRunData';
+import { RunsChartsGlobalLineChartConfig } from '../../../experiment-page/models/ExperimentPageUIState';
+import { useLineChartGlobalConfig } from '../hooks/useLineChartGlobalConfig';
 
 export const RunsChartsConfigureLineChartPreviewImpl = ({
   previewData,
   cardConfig,
   metricsByRunUuid,
   groupBy,
+  globalLineChartConfig,
 }: {
   previewData: RunsChartsRunData[];
   cardConfig: RunsChartsLineCardConfig;
   groupBy: RunsGroupByConfig | null;
 
+  globalLineChartConfig?: RunsChartsGlobalLineChartConfig;
+
   metricsByRunUuid: Record<string, MetricHistoryByName>;
 }) => {
   const usingMultipleRunsHoverTooltip = shouldEnableDeepLearningUIPhase3();
   const usingManualRangeControls = shouldEnableManualRangeControls();
+
+  const { lineSmoothness, selectedXAxisMetricKey, xAxisKey } = useLineChartGlobalConfig(
+    cardConfig,
+    globalLineChartConfig,
+  );
 
   const isGrouped = useMemo(() => previewData.some((r) => r.groupParentInfo), [previewData]);
 
@@ -51,12 +62,21 @@ export const RunsChartsConfigureLineChartPreviewImpl = ({
   }, [previewData, isGrouped]);
 
   const metricKeysToFetch = useMemo(() => {
-    const fallback = [cardConfig.metricKey];
-
-    const yAxisKeys = cardConfig.selectedMetricKeys ?? fallback;
-    const xAxisKeys = !cardConfig.selectedXAxisMetricKey ? [] : [cardConfig.selectedXAxisMetricKey];
+    const getYAxisKeys = (cardConfig: RunsChartsLineCardConfig) => {
+      const fallback = [cardConfig.metricKey];
+      if (!shouldEnableChartExpressions() || cardConfig.yAxisKey !== RunsChartsLineChartYAxisType.EXPRESSION) {
+        return cardConfig.selectedMetricKeys ?? fallback;
+      }
+      const yAxisKeys = cardConfig.yAxisExpressions?.reduce((acc, exp) => {
+        exp.variables.forEach((variable) => acc.add(variable));
+        return acc;
+      }, new Set<string>());
+      return yAxisKeys === undefined ? fallback : Array.from(yAxisKeys);
+    };
+    const yAxisKeys = getYAxisKeys(cardConfig);
+    const xAxisKeys = !selectedXAxisMetricKey ? [] : [selectedXAxisMetricKey];
     return yAxisKeys.concat(xAxisKeys);
-  }, [cardConfig.metricKey, cardConfig.selectedMetricKeys, cardConfig.selectedXAxisMetricKey]);
+  }, [cardConfig, selectedXAxisMetricKey]);
 
   const { resultsByRunUuid, isLoading } = useSampledMetricHistory({
     runUuids: runUuidsToFetch,
@@ -91,8 +111,7 @@ export const RunsChartsConfigureLineChartPreviewImpl = ({
     metricKeys: metricKeysToFetch,
     sampledDataResultsByRunUuid: resultsByRunUuid,
     aggregateFunction,
-    selectedXAxisMetricKey:
-      cardConfig.xAxisKey === RunsChartsLineChartXAxisType.METRIC ? cardConfig.selectedXAxisMetricKey : undefined,
+    selectedXAxisMetricKey: xAxisKey === RunsChartsLineChartXAxisType.METRIC ? selectedXAxisMetricKey : undefined,
     ignoreOutliers: cardConfig.ignoreOutliers ?? false,
   });
 
@@ -128,10 +147,12 @@ export const RunsChartsConfigureLineChartPreviewImpl = ({
       selectedMetricKeys={cardConfig.selectedMetricKeys}
       scaleType={cardConfig.scaleType}
       xAxisScaleType={cardConfig.xAxisScaleType}
-      lineSmoothness={cardConfig.lineSmoothness}
-      xAxisKey={cardConfig.xAxisKey}
-      selectedXAxisMetricKey={cardConfig.selectedXAxisMetricKey}
+      lineSmoothness={lineSmoothness}
+      xAxisKey={xAxisKey}
+      selectedXAxisMetricKey={selectedXAxisMetricKey}
       displayPoints={cardConfig.displayPoints}
+      yAxisExpressions={cardConfig.yAxisExpressions}
+      yAxisKey={cardConfig.yAxisKey}
       useDefaultHoverBox={false}
       onHover={setTooltip}
       onUnhover={resetTooltip}

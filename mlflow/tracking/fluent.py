@@ -2,6 +2,7 @@
 Internal module implementing the fluent API, allowing management of an active
 MLflow run. This module is exposed to users at the top-level :py:mod:`mlflow` module.
 """
+
 import atexit
 import contextlib
 import importlib
@@ -163,9 +164,9 @@ def set_experiment(
     if experiment.lifecycle_stage != LifecycleStage.ACTIVE:
         raise MlflowException(
             message=(
-                "Cannot set a deleted experiment '%s' as the active experiment. "
+                f"Cannot set a deleted experiment {experiment.name!r} as the active experiment. "
                 "You can restore the experiment, or permanently delete the "
-                "experiment to create a new one." % experiment.name
+                "experiment to create a new one."
             ),
             error_code=INVALID_PARAMETER_VALUE,
         )
@@ -377,12 +378,12 @@ def start_run(
             _validate_run_id(parent_run_id)
             # Make sure parent_run_id matches the current run id, if there is an active run
             if len(_active_run_stack) > 0 and parent_run_id != _active_run_stack[-1].info.run_id:
-                raise Exception(
-                    (
-                        "Current run with UUID {} does not match the specified parent_run_id {}"
-                        + " To start a new nested run under the parent run with UUID {}, "
-                        + "first end the current run with mlflow.end_run()."
-                    ).format(_active_run_stack[-1].info.run_id, parent_run_id)
+                current_run_id = _active_run_stack[-1].info.run_id
+                raise MlflowException(
+                    f"Current run with UUID {current_run_id} does not match the specified "
+                    f"parent_run_id {parent_run_id}. To start a new nested run under "
+                    f"the parent run with UUID {current_run_id}, first end the current run "
+                    "with mlflow.end_run()."
                 )
             parent_run_obj = client.get_run(parent_run_id)
             # Check if the specified parent_run has been deleted.
@@ -846,6 +847,8 @@ def log_metric(
             successfully. If False, logs the metric asynchronously and
             returns a future representing the logging operation. If None, read from environment
             variable `MLFLOW_ENABLE_ASYNC_LOGGING`, which defaults to False if not set.
+        run_id: If specified, log the metric to the specified run. If not specified, log the metric
+            to the currently active run.
 
     Returns:
         When `synchronous=True`, returns None.
@@ -900,6 +903,8 @@ def log_metrics(
             successfully. If False, logs the metrics asynchronously and
             returns a future representing the logging operation. If None, read from environment
             variable `MLFLOW_ENABLE_ASYNC_LOGGING`, which defaults to False if not set.
+        run_id: Run ID. If specified, log metrics to the specified run. If not specified, log
+            metrics to the currently active run.
         timestamp: Time when these metrics were calculated. Defaults to the current system time.
 
     Returns:
@@ -1099,6 +1104,8 @@ def log_artifact(
     Args:
         local_path: Path to the file to write.
         artifact_path: If provided, the directory in ``artifact_uri`` to write to.
+        run_id: If specified, log the artifact to the specified run. If not specified, log the
+            artifact to the currently active run.
 
     .. code-block:: python
         :test:
@@ -1133,6 +1140,8 @@ def log_artifacts(
     Args:
         local_dir: Path to the directory of files to write.
         artifact_path: If provided, the directory in ``artifact_uri`` to write to.
+        run_id: If specified, log the artifacts to the specified run. If not specified, log the
+            artifacts to the currently active run.
 
     .. code-block:: python
         :test:
@@ -1169,6 +1178,8 @@ def log_text(text: str, artifact_file: str, run_id: Optional[str] = None) -> Non
         text: String containing text to log.
         artifact_file: The run-relative artifact file path in posixpath format to which
             the text is saved (e.g. "dir/file.txt").
+        run_id: If specified, log the artifact to the specified run. If not specified, log the
+            artifact to the currently active run.
 
     .. code-block:: python
         :test:
@@ -1202,6 +1213,8 @@ def log_dict(dictionary: Dict[str, Any], artifact_file: str, run_id: Optional[st
         dictionary: Dictionary to log.
         artifact_file: The run-relative artifact file path in posixpath format to which
             the dictionary is saved (e.g. "dir/data.json").
+        run_id: If specified, log the dictionary to the specified run. If not specified, log the
+            dictionary to the currently active run.
 
     .. code-block:: python
         :test:
@@ -1426,6 +1439,8 @@ def log_table(
         data: Dictionary or pandas.DataFrame to log.
         artifact_file: The run-relative artifact file path in posixpath format to which
             the table is saved (e.g. "dir/file.json").
+        run_id: If specified, log the table to the specified run. If not specified, log the
+            table to the currently active run.
 
     .. code-block:: python
         :test:
@@ -2109,8 +2124,8 @@ def search_runs(
         return pd.DataFrame(data)
     else:
         raise ValueError(
-            "Unsupported output format: %s. Supported string values are 'pandas' or 'list'"
-            % output_format
+            f"Unsupported output format: {output_format}. Supported string values are 'pandas' "
+            "or 'list'"
         )
 
 

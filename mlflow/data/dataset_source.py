@@ -97,7 +97,7 @@ class DatasetSource:
         """
 
     @classmethod
-    def from_json(cls, source_json: str) -> "DatasetSource":
+    def from_json(cls, source_json: str) -> "DatasetSource":  # noqa: D417
         """Constructs an instance of the DatasetSource from a JSON string representation.
 
         Args:

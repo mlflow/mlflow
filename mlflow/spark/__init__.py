@@ -18,6 +18,7 @@ Spark MLlib (native) format
     ``mlflow/java`` package. This flavor is produced only if you specify
     MLeap-compatible arguments.
 """
+
 import logging
 import os
 import posixpath
@@ -194,8 +195,6 @@ def log_model(
             the array into Spark ML vector and then invoke Spark model for inference. Similarly,
             if the model has vector type output, MLflow internally converts Spark ML vector
             output data into ``Array[double]`` type inference result.
-
-            Example:
 
             .. code-block:: python
 

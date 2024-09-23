@@ -1,8 +1,8 @@
 import time
-from dataclasses import asdict, dataclass, field
-from typing import List, Literal, Optional
+from dataclasses import asdict, dataclass, field, fields
+from typing import Dict, List, Optional
 
-from mlflow.types.schema import Array, ColSpec, DataType, Object, Property, Schema
+from mlflow.types.schema import Array, ColSpec, DataType, Map, Object, Property, Schema
 
 # TODO: Switch to pydantic in a future version of MLflow.
 #       For now, to prevent adding pydantic as a core dependency,
@@ -34,7 +34,28 @@ class _BaseDataclass:
             elif not isinstance(values, list):
                 raise ValueError(f"`{key}` must be a list, got {type(values).__name__}")
 
-    def _convert_dataclass_list(self, key, cls, required=True):
+    def _convert_dataclass(self, key: str, cls: "_BaseDataclass", required=True):
+        value = getattr(self, key)
+        if value is None:
+            if required:
+                raise ValueError(f"`{key}` is required")
+            return
+
+        if isinstance(value, cls):
+            return
+
+        if not isinstance(value, dict):
+            raise ValueError(
+                f"Expected `{key}` to be either an instance of `{cls.__name__}` or "
+                f"a dict matching the schema. Received `{type(value).__name__}`"
+            )
+
+        try:
+            setattr(self, key, cls.from_dict(value))
+        except TypeError as e:
+            raise ValueError(f"Error when coercing {value} to {cls.__name__}: {e}")
+
+    def _convert_dataclass_list(self, key: str, cls: "_BaseDataclass", required=True):
         values = getattr(self, key)
         if values is None:
             if required:
@@ -47,7 +68,7 @@ class _BaseDataclass:
             # if the items are all dicts, try to convert them to the desired class
             if all(isinstance(v, dict) for v in values):
                 try:
-                    setattr(self, key, [cls(**v) for v in values])
+                    setattr(self, key, [cls.from_dict(v) for v in values])
                 except TypeError as e:
                     raise ValueError(f"Error when coercing {values} to {cls.__name__}: {e}")
             elif any(not isinstance(v, cls) for v in values):
@@ -58,6 +79,16 @@ class _BaseDataclass:
     def to_dict(self):
         return asdict(self, dict_factory=lambda obj: {k: v for (k, v) in obj if v is not None})
 
+    @classmethod
+    def from_dict(cls, data):
+        """
+        Create an instance of the class from a dict, ignoring any undefined fields.
+        This is useful when the dict contains extra fields, causing cls(**data) to fail.
+        """
+        field_names = [field.name for field in fields(cls)]
+        filtered_data = {k: v for k, v in data.items() if k in field_names}
+        return cls(**filtered_data)
+
 
 @dataclass
 class ChatMessage(_BaseDataclass):
@@ -67,16 +98,27 @@ class ChatMessage(_BaseDataclass):
     Args:
         role (str): The role of the entity that sent the message (e.g. ``"user"``, ``"system"``).
         content (str): The content of the message.
+            **Optional** Supplied if a non-refusal response is provided.
+        refusal (str): The refusal message content.
+            **Optional** Supplied if a refusal response is provided.
         name (str): The name of the entity that sent the message. **Optional**.
     """
 
     role: str
-    content: str
+    content: Optional[str] = None
+    refusal: Optional[str] = None
     name: Optional[str] = None
 
     def __post_init__(self):
         self._validate_field("role", str, True)
-        self._validate_field("content", str, True)
+
+        if self.refusal:
+            self._validate_field("refusal", str, True)
+            if self.content:
+                raise ValueError("Both `content` and `refusal` cannot be set")
+        else:
+            self._validate_field("content", str, True)
+
         self._validate_field("name", str, False)
 
 
@@ -108,6 +150,9 @@ class ChatParams(_BaseDataclass):
         presence_penalty: (float): An optional param of positive or negative value,
             positive values penalize new tokens based on whether they appear in the text so far,
             increasing the model's likelihood to talk about new topics.
+        metadata (Dict[str, str]): An optional param to provide arbitrary additional context
+            to the model. Both the keys and the values must be strings (i.e. nested dictionaries
+            are not supported).
     """
 
     temperature: float = 1.0
@@ -121,6 +166,8 @@ class ChatParams(_BaseDataclass):
     frequency_penalty: Optional[float] = None
     presence_penalty: Optional[float] = None
 
+    metadata: Optional[Dict[str, str]] = None
+
     def __post_init__(self):
         self._validate_field("temperature", float, True)
         self._validate_field("max_tokens", int, False)
@@ -132,6 +179,25 @@ class ChatParams(_BaseDataclass):
         self._validate_field("top_k", int, False)
         self._validate_field("frequency_penalty", float, False)
         self._validate_field("presence_penalty", float, False)
+
+        # validate that the metadata field is a map from string to string
+        if self.metadata is not None:
+            if not isinstance(self.metadata, dict):
+                raise ValueError(
+                    "Expected `metadata` to be a dictionary, "
+                    f"received `{type(self.metadata).__name__}`"
+                )
+            for key, value in self.metadata.items():
+                if not isinstance(key, str):
+                    raise ValueError(
+                        "Expected `metadata` to be of type `Dict[str, str]`, "
+                        f"received key of type `{type(key).__name__}` (key: {key})"
+                    )
+                if not isinstance(value, str):
+                    raise ValueError(
+                        "Expected `metadata` to be of type `Dict[str, str]`, "
+                        f"received value of type `{type(value).__name__}` in `metadata['{key}']`)"
+                    )
 
 
 @dataclass()
@@ -257,18 +323,8 @@ class ChatChoice(_BaseDataclass):
     def __post_init__(self):
         self._validate_field("index", int, True)
         self._validate_field("finish_reason", str, True)
-        if isinstance(self.message, dict):
-            self.message = ChatMessage(**self.message)
-        if not isinstance(self.message, ChatMessage):
-            raise ValueError(
-                f"Expected `message` to be of type ChatMessage or dict, got {type(self.message)}"
-            )
-        if isinstance(self.logprobs, dict):
-            self.logprobs = ChatChoiceLogProbs(**self.logprobs)
-        if self.logprobs and not isinstance(self.logprobs, ChatChoiceLogProbs):
-            raise ValueError(
-                f"Expected `logprobs` to be of type LogProbs or dict, got {type(self.logprobs)}"
-            )
+        self._convert_dataclass("message", ChatMessage, True)
+        self._convert_dataclass("logprobs", ChatChoiceLogProbs, False)
 
 
 @dataclass
@@ -304,19 +360,23 @@ class ChatResponse(_BaseDataclass):
         choices (List[:py:class:`ChatChoice`]): A list of :py:class:`ChatChoice` objects
             containing the generated responses
         usage (:py:class:`TokenUsageStats`): An object describing the tokens used by the request.
+            **Optional**, defaults to ``None``.
         id (str): The ID of the response. **Optional**, defaults to ``None``
         model (str): The name of the model used. **Optional**, defaults to ``None``
-        object (str): The object type. The value should always be 'chat.completion'
+        object (str): The object type. Defaults to 'chat.completion'
         created (int): The time the response was created.
             **Optional**, defaults to the current time.
+        metadata (Dict[str, str]): An field that can contain arbitrary additional context.
+            **Optional**, defaults to ``None``
     """
 
     choices: List[ChatChoice]
-    usage: TokenUsageStats
+    usage: Optional[TokenUsageStats] = None
     id: Optional[str] = None
     model: Optional[str] = None
-    object: Literal["chat.completion"] = "chat.completion"
+    object: str = "chat.completion"
     created: int = field(default_factory=lambda: int(time.time()))
+    metadata: Optional[Dict[str, str]] = None
 
     def __post_init__(self):
         self._validate_field("id", str, False)
@@ -324,18 +384,7 @@ class ChatResponse(_BaseDataclass):
         self._validate_field("created", int, True)
         self._validate_field("model", str, False)
         self._convert_dataclass_list("choices", ChatChoice)
-        if isinstance(self.usage, dict):
-            self.usage = TokenUsageStats(**self.usage)
-        if not isinstance(self.usage, TokenUsageStats):
-            raise ValueError(
-                f"Expected `usage` to be of type TokenUsageStats or dict, got {type(self.usage)}"
-            )
-
-    def __setattr__(self, name, value):
-        # A hack to ensure users cannot overwrite 'object' field
-        if name == "object" and value != "chat.completion":
-            raise ValueError("`object` field must be 'chat.completion'")
-        return super().__setattr__(name, value)
+        self._convert_dataclass("usage", TokenUsageStats, False)
 
 
 CHAT_MODEL_INPUT_SCHEMA = Schema(
@@ -361,6 +410,7 @@ CHAT_MODEL_INPUT_SCHEMA = Schema(
         ColSpec(name="top_k", type=DataType.long, required=False),
         ColSpec(name="frequency_penalty", type=DataType.double, required=False),
         ColSpec(name="presence_penalty", type=DataType.double, required=False),
+        ColSpec(name="metadata", type=Map(DataType.string), required=False),
     ]
 )
 
@@ -400,7 +450,9 @@ CHAT_MODEL_OUTPUT_SCHEMA = Schema(
                     Property("total_tokens", DataType.long),
                 ]
             ),
+            required=False,
         ),
+        ColSpec(name="metadata", type=Map(DataType.string), required=False),
     ]
 )
 

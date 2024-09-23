@@ -1,6 +1,6 @@
 import { Tabs } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
-import { Link, useNavigate, useParams } from '../../../common/utils/RoutingUtils';
+import { useNavigate, useParams } from '../../../common/utils/RoutingUtils';
 import Routes from '../../routes';
 import { RunPageTabName } from '../../constants';
 import { useRunViewActiveTab } from './useRunViewActiveTab';

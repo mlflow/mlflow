@@ -395,6 +395,7 @@ support additional params.
 In summary, use the function-based Model when you have a simple function to serialize.
 If you need more power, use  the class-based model.
 """
+
 import collections
 import functools
 import importlib
@@ -568,7 +569,7 @@ PY_VERSION = "python_version"
 _logger = logging.getLogger(__name__)
 
 
-def add_to_model(
+def add_to_model(  # noqa: D417
     model,
     loader_module,
     data=None,
@@ -2278,7 +2279,7 @@ def save_model(
         data_path: Path to a file or directory containing model data.
         code_path: **Deprecated** The legacy argument for defining dependent code. This argument is
             replaced by ``code_paths`` and will be removed in a future version of MLflow.
-        code_paths: {{ code_paths }}
+        code_paths: {{ code_paths_pyfunc }}
         infer_code_paths: {{ infer_code_paths }}
         conda_env: {{ conda_env }}
         mlflow_model: :py:mod:`mlflow.models.Model` configuration to which to add the
@@ -2424,6 +2425,10 @@ def save_model(
 
             .. Note:: Experimental: This parameter may change or be removed in a future
                                     release without warning.
+        streamable: A boolean value indicating if the model supports streaming prediction,
+                    If None, MLflow will try to inspect if the model supports streaming
+                    by checking if `predict_stream` method exists. Default None.
+        kwargs: Extra keyword arguments.
     """
     _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
     _validate_pyfunc_model_config(model_config)
@@ -2539,15 +2544,19 @@ def save_model(
                     if isinstance(each_message, ChatMessage):
                         messages.append(each_message)
                     else:
-                        messages.append(ChatMessage(**each_message))
+                        messages.append(ChatMessage.from_dict(each_message))
             else:
                 # If the input example is a dictionary, convert it to ChatMessage format
-                messages = [ChatMessage(**m) for m in input_example["messages"]]
-                params = ChatParams(**{k: v for k, v in input_example.items() if k != "messages"})
-            input_example = (
-                {"messages": [m.to_dict() for m in messages]},
-                {**params.to_dict(), **(input_params or {})},
-            )
+                messages = [
+                    ChatMessage.from_dict(m) if isinstance(m, dict) else m
+                    for m in input_example["messages"]
+                ]
+                params = ChatParams.from_dict(input_example)
+            input_example = {
+                "messages": [m.to_dict() for m in messages],
+                **params.to_dict(),
+                **(input_params or {}),
+            }
 
             # call load_context() first, as predict may depend on it
             _logger.info("Predicting on input example to validate output")
@@ -2558,8 +2567,8 @@ def save_model(
                 raise MlflowException(
                     "Failed to save ChatModel. Please ensure that the model's predict() method "
                     "returns a ChatResponse object. If your predict() method currently returns "
-                    "a dict, you can instantiate a ChatResponse by unpacking the output, e.g. "
-                    "`ChatResponse(**output)`",
+                    "a dict, you can instantiate a ChatResponse using `from_dict()`, e.g. "
+                    "`ChatResponse.from_dict(output)`",
                 )
         elif isinstance(python_model, PythonModel):
             saved_example = _save_example(mlflow_model, input_example, path, example_no_conversion)
@@ -2683,7 +2692,7 @@ def log_model(
         data_path: Path to a file or directory containing model data.
         code_path: **Deprecated** The legacy argument for defining dependent code. This argument is
             replaced by ``code_paths`` and will be removed in a future version of MLflow.
-        code_paths: {{ code_paths }}
+        code_paths: {{ code_paths_pyfunc }}
         infer_code_paths: {{ infer_code_paths }}
         conda_env: {{ conda_env }}
         python_model:
@@ -2880,7 +2889,7 @@ def log_model(
     )
 
 
-def _save_model_with_loader_module_and_data_path(
+def _save_model_with_loader_module_and_data_path(  # noqa: D417
     path,
     loader_module,
     data_path=None,

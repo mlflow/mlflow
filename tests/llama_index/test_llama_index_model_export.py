@@ -1,12 +1,15 @@
 import os
 from pathlib import Path
 from typing import Any
+from unittest import mock
 
+import llama_index.core
 import numpy as np
 import pandas as pd
 import pytest
 from llama_index.core import QueryBundle, Settings, VectorStoreIndex
 from llama_index.core.base.base_query_engine import BaseQueryEngine
+from llama_index.core.chat_engine import SimpleChatEngine
 from llama_index.core.llms import ChatMessage
 from llama_index.core.vector_stores.simple import SimpleVectorStore
 from llama_index.embeddings.databricks import DatabricksEmbedding
@@ -14,6 +17,7 @@ from llama_index.embeddings.openai import OpenAIEmbedding
 from llama_index.llms.databricks import Databricks
 from llama_index.llms.openai import OpenAI
 from llama_index.vector_stores.qdrant import QdrantVectorStore
+from packaging.version import Version
 
 import mlflow
 import mlflow.llama_index
@@ -21,6 +25,8 @@ import mlflow.pyfunc
 from mlflow.exceptions import MlflowException
 from mlflow.llama_index.pyfunc_wrapper import (
     _CHAT_MESSAGE_HISTORY_PARAMETER_NAME,
+    ChatEngineWrapper,
+    QueryEngineWrapper,
     create_engine_wrapper,
 )
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
@@ -74,9 +80,15 @@ def test_llama_index_native_log_and_load_model(request, index_fixture):
     assert engine.query(_TEST_QUERY).response != ""
 
 
-def test_llama_index_save_invalid_object_raise():
+def test_llama_index_save_invalid_object_raise(single_index):
     with pytest.raises(MlflowException, match="The provided object of type "):
-        mlflow.llama_index.save_model(index=OpenAI(), path="model", engine_type="query")
+        mlflow.llama_index.save_model(llama_index_model=OpenAI(), path="model", engine_type="query")
+
+    with pytest.raises(MlflowException, match="Saving an engine object is only supported"):
+        mlflow.llama_index.save_model(
+            llama_index_model=single_index.as_query_engine(),
+            path="model",
+        )
 
 
 @pytest.mark.parametrize(
@@ -103,9 +115,15 @@ def test_format_predict_input_correct(single_index, engine_type):
 def test_format_predict_input_incorrect_schema(single_index, engine_type):
     wrapped_model = create_engine_wrapper(single_index, engine_type)
 
-    with pytest.raises(TypeError, match="missing 1 required positional argument"):
+    exception_error = (
+        r"__init__\(\) got an unexpected keyword argument 'incorrect'"
+        if Version(llama_index.core.__version__) >= Version("0.11.0")
+        else r"missing 1 required positional argument"
+    )
+
+    with pytest.raises(TypeError, match=exception_error):
         wrapped_model._format_predict_input(pd.DataFrame({"incorrect": ["hi"]}))
-    with pytest.raises(TypeError, match="missing 1 required positional argument"):
+    with pytest.raises(TypeError, match=exception_error):
         wrapped_model._format_predict_input({"incorrect": ["hi"]})
 
 
@@ -149,7 +167,7 @@ def test_format_predict_input_correct_schema_complex(single_index, engine_type):
 def test_query_engine_predict(single_index, with_input_example, payload):
     with mlflow.start_run():
         model_info = mlflow.llama_index.log_model(
-            index=single_index,
+            llama_index_model=single_index,
             artifact_path="model",
             input_example=payload if with_input_example else None,
             engine_type="query",
@@ -185,7 +203,7 @@ def test_query_engine_predict(single_index, with_input_example, payload):
 def test_query_engine_predict_list(single_index, with_input_example, payload):
     with mlflow.start_run():
         model_info = mlflow.llama_index.log_model(
-            index=single_index,
+            llama_index_model=single_index,
             artifact_path="model",
             input_example=payload if with_input_example else None,
             engine_type="query",
@@ -212,13 +230,15 @@ def test_query_engine_predict_numeric(model_path, single_index, with_input_examp
     if with_input_example:
         with pytest.raises(ValueError, match="Unsupported input type"):
             mlflow.llama_index.save_model(
-                index=single_index,
+                llama_index_model=single_index,
                 input_example=input_example,
                 path=model_path,
                 engine_type="query",
             )
     else:
-        mlflow.llama_index.save_model(index=single_index, path=model_path, engine_type="query")
+        mlflow.llama_index.save_model(
+            llama_index_model=single_index, path=model_path, engine_type="query"
+        )
         model = mlflow.pyfunc.load_model(model_path)
         with pytest.raises(ValueError, match="Unsupported input type"):
             _ = model.predict(payload)
@@ -244,7 +264,7 @@ def test_query_engine_predict_numeric(model_path, single_index, with_input_examp
 def test_chat_engine_predict(single_index, with_input_example, payload):
     with mlflow.start_run():
         model_info = mlflow.llama_index.log_model(
-            index=single_index,
+            llama_index_model=single_index,
             artifact_path="model",
             input_example=payload if with_input_example else None,
             engine_type="chat",
@@ -271,11 +291,17 @@ def test_chat_engine_dict_raises(model_path, single_index, with_input_example):
     if with_input_example:
         with pytest.raises(TypeError, match="got an unexpected keyword argument"):
             mlflow.llama_index.save_model(
-                index=single_index, input_example=input_example, path=model_path, engine_type="chat"
+                llama_index_model=single_index,
+                input_example=input_example,
+                path=model_path,
+                engine_type="chat",
             )
     else:
         mlflow.llama_index.save_model(
-            index=single_index, input_example=input_example, path=model_path, engine_type="chat"
+            llama_index_model=single_index,
+            input_example=input_example,
+            path=model_path,
+            engine_type="chat",
         )
 
         model = mlflow.pyfunc.load_model(model_path)
@@ -288,7 +314,7 @@ def test_retriever_engine_predict(single_index, with_input_example):
     payload = "string"
     with mlflow.start_run():
         model_info = mlflow.llama_index.log_model(
-            index=single_index,
+            llama_index_model=single_index,
             artifact_path="model",
             input_example=payload if with_input_example else None,
             engine_type="retriever",
@@ -314,7 +340,9 @@ def test_llama_index_databricks_integration(monkeypatch, document, model_path, m
     )
 
     index = VectorStoreIndex(nodes=[document])
-    mlflow.llama_index.save_model(index, path=model_path, input_example="hi", engine_type="query")
+    mlflow.llama_index.save_model(
+        llama_index_model=index, path=model_path, input_example="hi", engine_type="query"
+    )
 
     with model_path.joinpath("requirements.txt").open() as file:
         requirements = file.read()
@@ -366,10 +394,10 @@ def test_llama_index_databricks_integration(monkeypatch, document, model_path, m
         ),
     ],
 )
-def test_save_load_index_as_code_optional_code_path(index_code_path, vector_store_class):
+def test_save_load_index_as_code_index(index_code_path, vector_store_class):
     with mlflow.start_run():
         model_info = mlflow.llama_index.log_model(
-            index=index_code_path,
+            llama_index_model=index_code_path,
             engine_type="query",
             artifact_path="model",
             input_example="hi",
@@ -386,3 +414,60 @@ def test_save_load_index_as_code_optional_code_path(index_code_path, vector_stor
     pyfunc_loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
     assert isinstance(pyfunc_loaded_model.get_raw_model(), BaseQueryEngine)
     assert _TEST_QUERY in pyfunc_loaded_model.predict(_TEST_QUERY)
+
+
+def test_save_load_query_engine_as_code():
+    index_code_path = "tests/llama_index/sample_code/query_engine_with_reranker.py"
+    with mlflow.start_run():
+        model_info = mlflow.llama_index.log_model(
+            llama_index_model=index_code_path,
+            artifact_path="model",
+            input_example="hi",
+        )
+
+    loaded_engine = mlflow.llama_index.load_model(model_info.model_uri)
+    assert isinstance(loaded_engine, BaseQueryEngine)
+    processors = loaded_engine._node_postprocessors
+    assert len(processors) == 2
+    assert processors[0].__class__.__name__ == "LLMRerank"
+    assert processors[1].__class__.__name__ == "CustomNodePostprocessor"
+
+    pyfunc_loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
+    assert isinstance(pyfunc_loaded_model._model_impl, QueryEngineWrapper)
+    assert isinstance(pyfunc_loaded_model.get_raw_model(), BaseQueryEngine)
+    assert pyfunc_loaded_model.predict(_TEST_QUERY) != ""
+    custom_processor = pyfunc_loaded_model.get_raw_model()._node_postprocessors[1]
+    assert custom_processor.call_count == 1
+
+
+def test_save_load_chat_engine_as_code():
+    index_code_path = "tests/llama_index/sample_code/basic_chat_engine.py"
+    with mlflow.start_run():
+        model_info = mlflow.llama_index.log_model(
+            llama_index_model=index_code_path,
+            artifact_path="model",
+            input_example="hi",
+        )
+
+    loaded_engine = mlflow.llama_index.load_model(model_info.model_uri)
+    # The sample code sets chat mode to SIMPLE, so it should be a SimpleChatEngine
+    assert isinstance(loaded_engine, SimpleChatEngine)
+
+    pyfunc_loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
+    assert isinstance(pyfunc_loaded_model._model_impl, ChatEngineWrapper)
+    assert isinstance(pyfunc_loaded_model.get_raw_model(), SimpleChatEngine)
+    assert pyfunc_loaded_model.predict(_TEST_QUERY) != ""
+
+
+def test_save_engine_with_engine_type_issues_warning(model_path):
+    index_code_path = "tests/llama_index/sample_code/query_engine_with_reranker.py"
+
+    with mock.patch("mlflow.llama_index._logger") as mock_logger:
+        mlflow.llama_index.save_model(
+            llama_index_model=index_code_path,
+            path=model_path,
+            engine_type="query",
+        )
+
+    assert mock_logger.warning.call_count == 1
+    assert "The `engine_type` argument" in mock_logger.warning.call_args[0][0]

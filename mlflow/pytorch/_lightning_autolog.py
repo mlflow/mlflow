@@ -148,7 +148,7 @@ class __MlflowPLCallback(pl.Callback, metaclass=ExceptionSafeAbstractClass):
         # pytorch-lightning >= 1.3.0
 
         @rank_zero_only
-        def on_train_epoch_end(self, trainer, pl_module, *args):
+        def on_train_epoch_end(self, trainer, pl_module, *args):  # noqa: D417
             """
             Log loss and other metrics values after each train epoch
 
@@ -187,7 +187,7 @@ class __MlflowPLCallback(pl.Callback, metaclass=ExceptionSafeAbstractClass):
             self._log_epoch_metrics(trainer, pl_module)
 
     @rank_zero_only
-    def on_train_batch_end(self, trainer, pl_module, *args):
+    def on_train_batch_end(self, trainer, pl_module, *args):  # noqa: D417
         """
         Log metric values after each step
 

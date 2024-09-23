@@ -166,8 +166,7 @@ def log_explanation(predict_function, features, artifact_path=None):
 
             .. code-block:: python
 
-                def predict_function(X) -> pred:
-                    ...
+                def predict_function(X) -> pred: ...
 
             - ``X``: An array-like object whose shape should be (# samples, # features).
             - ``pred``: An array-like object whose shape should be (# samples) for a regressor or

@@ -6,7 +6,7 @@ Models From Code Guide
     you are required to use the legacy serialization methods outlined in the `Custom Python Model <../models.html#custom-python-models>`_ documentation.
 
 .. note::
-    Models from code is only available for `LangChain <../llms/langchain/index.html>`_ and custom ``pyfunc`` (PythonModel instances) models. If you are 
+    Models from code is only available for `LangChain <../llms/langchain/index.html>`_, `LlamaIndex <../llm/llama-index/index.html>`, and custom ``pyfunc`` (PythonModel instances) models. If you are 
     using other libraries directly, using the provided saving and logging functionality within specific model flavors is recommended.
 
 
@@ -67,6 +67,10 @@ via a script that may not be immediately apparent.
 .. tip::
     If you define import statements that are never used within your script, these will still be included in the requirements listing. It is recommended to use a linter
     that is capable of determining unused import statements while writing your implementation so that you are not including irrelevant package dependencies.
+
+.. warning::
+
+    When logging models from code, make sure that your code does not contain any sensitive information, such as API keys, passwords, or other confidential data. The code will be stored in plain text in the MLflow model artifact, and anyone with access to the artifact will be able to view the code.
 
 Using Models From Code in a Jupyter Notebook
 --------------------------------------------

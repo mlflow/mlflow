@@ -1,4 +1,5 @@
 """Tests verifying that the SQLAlchemyStore generates the expected database schema"""
+
 import os
 import sqlite3
 

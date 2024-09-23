@@ -6,4 +6,5 @@ export declare function useStepperStepsFromWizardSteps(wizardSteps: WizardStep[]
     status?: import("../../development").Step["status"];
     description?: React.ReactNode;
 }[];
+export declare function isWizardStepEnabled(steps: WizardStep[], stepIdx: number, currentStepIdx: number, status: WizardStep['status']): boolean;
 //# sourceMappingURL=useStepperStepsFromWizardSteps.d.ts.map

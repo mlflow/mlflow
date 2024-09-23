@@ -1,7 +1,10 @@
+.. meta::
+  :description: LLM evaluation involves assessing how well a model performs on a task. MLflow provides a simple API to evaluate your LLMs with popular metrics.
+
 .. _llm-eval:
 
-MLflow LLM Evaluate
-===================
+MLflow LLM Evaluation
+=====================
 
 With the emerging of ChatGPT, LLMs have shown its power of text generation in various fields, such as 
 question answering, translating and text summarization. Evaluating LLMs' performance is slightly different 
@@ -237,7 +240,7 @@ Selecting the LLM-as-judge Model
 
 By default, llm-as-judge metrics use ``openai:/gpt-4`` as the judge. You can change the default judge model by passing an override to the ``model`` argument within the metric definition, as shown below. In addition to OpenAI models, you can also use any endpoint via MLflow Deployments. Use :py:func:`mlflow.deployments.set_deployments_target` to set the target deployment client.
 
-To use an endpoint hosted by a local MLflow Deployments Server, you can use the following code.
+To use an endpoint hosted by a local MLflow AI Gateway, you can use the following code.
 
 .. code-block:: python
 
@@ -418,7 +421,7 @@ In order to evaluate your LLM with ``mlflow.evaluate()``, your LLM has to be one
 
    * Has ``data`` as the only argument, which can be a ``pandas.Dataframe``, ``numpy.ndarray``, python list, dictionary or scipy matrix.
    * Returns one of ``pandas.DataFrame``, ``pandas.Series``, ``numpy.ndarray`` or list. 
-3. An MLflow Deployments endpoint URI pointing to a local `MLflow Deployments Server <../deployments/index.html>`_, `Databricks Foundation Models API <https://docs.databricks.com/en/machine-learning/model-serving/score-foundation-models.html>`_, and `External Models in Databricks Model Serving <https://docs.databricks.com/en/generative-ai/external-models/index.html>`_. 
+3. An MLflow Deployments endpoint URI pointing to a local `MLflow AI Gateway <../deployments/index.html>`_, `Databricks Foundation Models API <https://docs.databricks.com/en/machine-learning/model-serving/score-foundation-models.html>`_, and `External Models in Databricks Model Serving <https://docs.databricks.com/en/generative-ai/external-models/index.html>`_. 
 4. Set ``model=None``, and put model outputs in ``data``. Only applicable when the data is a Pandas dataframe.
 
 Evaluating with an MLflow Model
@@ -511,13 +514,13 @@ Evaluating with an MLflow Deployments Endpoint
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 For MLflow >= 2.11.0, :py:func:`mlflow.evaluate()` supports evaluating a model endpoint by directly passing the MLflow Deployments endpoint URI to the ``model`` argument.
-This is particularly useful when you want to evaluate a deployed model hosted by a local `MLflow Deployments Server <../deployments/index.html>`_,  `Databricks Foundation Models API <https://docs.databricks.com/en/machine-learning/model-serving/score-foundation-models.html>`_, and `External Models in Databricks Model Serving <https://docs.databricks.com/en/generative-ai/external-models/index.html>`_, without implementing custom prediction logic to wrap it as an MLflow model or a python function.
+This is particularly useful when you want to evaluate a deployed model hosted by a local `MLflow AI Gateway <../deployments/index.html>`_,  `Databricks Foundation Models API <https://docs.databricks.com/en/machine-learning/model-serving/score-foundation-models.html>`_, and `External Models in Databricks Model Serving <https://docs.databricks.com/en/generative-ai/external-models/index.html>`_, without implementing custom prediction logic to wrap it as an MLflow model or a python function.
 
 Please don't forget to set the target deployment client by using :py:func:`mlflow.deployments.set_deployments_target` before calling :py:func:`mlflow.evaluate()` with the endpoint URI, as shown in the example below. Otherwise, you will see an error message like ``MlflowException: No deployments target has been set...``.
 
 .. hint::
 
-    When you want to use an endpoint **not** hosted by an MLflow Deployments Server or Databricks, you can create a custom Python function following the :ref:`Evaluating with a Custom Function <llm-eval-custom-function>` guide and use it as the ``model`` argument.
+    When you want to use an endpoint **not** hosted by an MLflow AI Gateway or Databricks, you can create a custom Python function following the :ref:`Evaluating with a Custom Function <llm-eval-custom-function>` guide and use it as the ``model`` argument.
 
 Supported Input Data Formats
 ****************************
@@ -611,7 +614,7 @@ You can pass additional inference parameters such as ``max_tokens``, ``temperatu
 Examples
 ********
 
-**Chat Endpoint hosted by a local** `MLflow Deployments Server <../deployments/index.html>`_
+**Chat Endpoint hosted by a local** `MLflow AI Gateway <../deployments/index.html>`_
 
 .. code-block:: python
 
@@ -619,7 +622,7 @@ Examples
     from mlflow.deployments import set_deployments_target
     import pandas as pd
 
-    # Point the client to the local MLflow Deployments Server
+    # Point the client to the local MLflow AI Gateway
     set_deployments_target("http://localhost:5000")
 
     eval_data = pd.DataFrame(

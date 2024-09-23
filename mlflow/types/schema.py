@@ -1134,7 +1134,7 @@ class ParamSpec:
         )
 
     @classmethod
-    def enforce_param_datatype(cls, name, value, dtype: DataType):
+    def enforce_param_datatype(cls, name, value, dtype: DataType):  # noqa: D417
         """
         Enforce the value matches the data type.
 
@@ -1385,7 +1385,7 @@ class ParamSchema:
 def _map_field_type(field):
     field_type_mapping = {
         bool: "boolean",
-        int: "integer",
+        int: "long",  # int is mapped to long to support 64-bit integers
         builtins.float: "float",
         str: "string",
         bytes: "binary",
