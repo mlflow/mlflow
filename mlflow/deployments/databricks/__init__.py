@@ -326,7 +326,7 @@ class DatabricksDeploymentClient(BaseDeploymentClient):
             yield json.loads(value)
 
     @experimental
-    def create_endpoint(self, name, config=None, **kwargs):
+    def create_endpoint(self, name, config=None, route_optimized=False):
         """
         Create a new serving endpoint with the provided name and configuration.
 
@@ -336,7 +336,7 @@ class DatabricksDeploymentClient(BaseDeploymentClient):
         Args:
             name: The name of the serving endpoint to create.
             config: A dictionary containing the configuration of the serving endpoint to create.
-            kwargs: Extra arguments for serving endpoint
+            route_optimized: A boolean which defines whether databricks serving endpoint in optimized for routing traffic
 
         Returns:
             A :py:class:`DatabricksEndpoint` object containing the request response.
@@ -379,7 +379,6 @@ class DatabricksDeploymentClient(BaseDeploymentClient):
             }
 
         """
-        route_optimized = kwargs.get("route_optimized", False)
         config = config.copy() if config else {}  # avoid mutating config
         extras = {}
         for key in ("tags", "rate_limits"):
