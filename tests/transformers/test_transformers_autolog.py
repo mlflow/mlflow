@@ -8,6 +8,7 @@ import sklearn
 import sklearn.cluster
 import sklearn.datasets
 import torch
+import transformers
 from datasets import load_dataset
 from packaging.version import Version
 from sentence_transformers.losses import CosineSimilarityLoss
@@ -27,7 +28,9 @@ import mlflow
 # For setfit >= 1.1.0, the trainer.train function internally
 # invokes transformers trainer, so autologging is invoked and runs
 # are generated
-SETFIT_PRODUCES_RUN = Version(setfit.__version__) >= Version("1.1.0")
+SETFIT_PRODUCES_RUN = Version(setfit.__version__) >= Version("1.1.0") and Version(
+    transformers.__version__
+) >= Version("4.41.2")
 
 
 @pytest.fixture
