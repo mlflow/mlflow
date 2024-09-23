@@ -25,7 +25,7 @@ from mlflow.store.tracking import SEARCH_TRACES_DEFAULT_MAX_RESULTS
 from mlflow.tracing import provider
 from mlflow.tracing.constant import SpanAttributeKey
 from mlflow.tracing.display import get_display_handler
-from mlflow.tracing.provider import is_trace_enabled
+from mlflow.tracing.provider import is_tracing_enabled
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracing.utils import (
     SPANS_COLUMN_NAME,
@@ -612,7 +612,7 @@ def add_trace(trace: Union[Trace, Dict[str, Any]], target: Optional[LiveSpan] = 
             - If not provided and there is no active span, a new span named "Remote Trace <...>"
               will be created and the trace will be merged under it.
     """
-    if not is_trace_enabled():
+    if not is_tracing_enabled():
         _logger.debug("Tracing is disabled. Skipping add_trace.")
         return
 
