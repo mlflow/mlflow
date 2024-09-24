@@ -46,7 +46,7 @@ class _ChatModelPyfuncWrapper:
             dict_input = model_input
         elif isinstance(model_input, pandas.DataFrame):
             dict_input = {
-                k: _convert_llm_ndarray_to_list(v[0]) if isinstance(v[0], list) else v[0]
+                k: _convert_llm_ndarray_to_list(v[0])
                 for k, v in model_input.to_dict(orient="list").items()
             }
         else:

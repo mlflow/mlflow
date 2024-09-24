@@ -1,4 +1,5 @@
 import time
+import uuid
 from dataclasses import asdict, dataclass, field, fields
 from typing import Dict, List, Literal, Optional
 
@@ -144,7 +145,7 @@ class FunctionToolCallArguments(_BaseDataclass):
         self._validate_field("name", str, True)
         self._validate_field("arguments", str, True)
 
-    def to_tool_call(self, id):
+    def to_tool_call(self, id=uuid.uuid4().hex):
         return ToolCall(id=id, function=self)
 
 
