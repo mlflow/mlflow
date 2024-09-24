@@ -1087,7 +1087,7 @@ def log_params(
 
 
 def log_input(
-    dataset: Dataset,
+    dataset: Optional[Dataset] = None,
     context: Optional[str] = None,
     tags: Optional[Dict[str, str]] = None,
     model: Optional[ModelInput] = None,
@@ -1100,7 +1100,7 @@ def log_input(
         context: Context in which the dataset is used. For example: "training", "testing".
             This will be set as an input tag with key `mlflow.data.context`.
         tags: Tags to be associated with the dataset. Dictionary of tag_key -> tag_value.
-        model: A :py:class:`mlflow.entities.ModelInput` instance to log as inputs to the run.
+        model: A :py:class:`mlflow.entities.ModelInput` instance to log as as input to the run.
 
     .. code-block:: python
         :test:
@@ -1116,6 +1116,10 @@ def log_input(
         with mlflow.start_run():
             mlflow.log_input(dataset, context="training")
     """
+    if (context or tags) and dataset is None:
+        raise MlflowException.invalid_parameter_value(
+            "`dataset` must be specified if `context` or `tags` is specified."
+        )
     run_id = _get_or_start_run().info.run_id
     tags_to_log = []
     if tags:
