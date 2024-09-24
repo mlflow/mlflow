@@ -160,8 +160,8 @@ def _call_deployments_api(deployment_uri, payload, eval_parameters, wrap_payload
         return client.predict(endpoint=deployment_uri, inputs=chat_inputs)
     else:
         raise MlflowException(
-            f"Unsupported endpoint type: {endpoint_type}. Use an "
-            "endpoint of type 'llm/v1/completions' or 'llm/v1/chat' instead.",
+            f"Unsupported endpoint type: {endpoint_type}. Endpoint type, if specified, "
+            "must be 'llm/v1/completions' or 'llm/v1/chat'.",
             error_code=INVALID_PARAMETER_VALUE,
         )
 
