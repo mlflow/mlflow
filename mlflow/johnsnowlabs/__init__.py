@@ -365,7 +365,16 @@ def log_model(
             model_id=model_id,
         )
     # Otherwise, override the default model log behavior and save model directly to artifact repo
-    mlflow_model = Model(artifact_path=name, run_id=run_id)
+    client = mlflow.tracking.MlflowClient()
+    logged_model = client.create_logged_model(
+        experiment_id=mlflow.tracking.fluent._get_experiment_id(),
+        name=name,
+        run_id=run.info.run_id if (run := mlflow.active_run()) else None,
+        model_type=model_type,
+        params=params,
+        tags=tags,
+    )
+    mlflow_model = Model(artifact_path=logged_model.artifact_location, run_id=run_id)
     with TempDir() as tmp:
         tmp_model_metadata_dir = tmp.path()
         _save_model_metadata(
@@ -386,7 +395,7 @@ def log_model(
         mlflow.tracking.fluent._record_logged_model(mlflow_model)
         if registered_model_name is not None:
             mlflow.register_model(
-                f"runs:/{run_id}/{name}",
+                f"runs:/{logged_model.model_id}",
                 registered_model_name,
                 await_registration_for,
             )
