@@ -646,8 +646,8 @@ dspy:
     install_dev: |
       pip install git+https://github.com/stanfordnlp/dspy.git
   models:
-    minimum: "2.4.0"
-    maximum: "2.4.16"
+    minimum: "2.4.16"
+    maximum: "2.5.0"
     requirements:
       ">= 0.0.0": ["openai"]
     run: |
