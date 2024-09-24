@@ -115,7 +115,7 @@ class APIRequest:
                 error = response_json["error"]
                 logging.warning(f"Request #{self.index} failed with error {error}")
                 # Rate limit error
-                if "Rate limit" in error.get("message", ""):
+                if response.status_code == 429:
                     _logger.debug(f"Request #{self.index} failed with {error!r}")
                     current_time = time.time()
                     status_tracker.time_of_last_rate_limit_error = current_time
