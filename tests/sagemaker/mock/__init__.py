@@ -775,11 +775,11 @@ class EndpointOperation:
     Endpoint is associated with the operation that was most recently invoked on it.
     """
 
-    def __init__(self, latency_seconds, pending_status, completed_status):  # noqa: D417
+    def __init__(self, latency_seconds, pending_status, completed_status):
         """
         Args:
-            latency: The latency of the operation, in seconds. Before the time window specified
-                by this latency elapses, the operation will have the status specified by
+            latency_seconds: The latency of the operation, in seconds. Before the time window
+                specified by this latency elapses, the operation will have the status specified by
                 ``pending_status``. After the time window elapses, the operation will
                 have the status  specified by ``completed_status``.
             pending_status: The status that the operation should reflect *before* the latency

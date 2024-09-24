@@ -522,11 +522,12 @@ class TrackingServiceClient:
         """
         self.store.restore_experiment(experiment_id)
 
-    def rename_experiment(self, experiment_id, new_name):  # noqa: D417
+    def rename_experiment(self, experiment_id, new_name):
         """Update an experiment's name. The new name must be unique.
 
         Args:
             experiment_id: The experiment ID returned from ``create_experiment``.
+            new_name: New name for the experiment.
 
         """
         self.store.rename_experiment(experiment_id, new_name)
@@ -756,7 +757,7 @@ class TrackingServiceClient:
         """Log one or more dataset inputs to a run.
 
         Args:
-            run_id: String ID of the run
+            run_id: String ID of the run.
             datasets: List of :py:class:`mlflow.entities.DatasetInput` instances to log.
 
         Raises:
@@ -803,11 +804,12 @@ class TrackingServiceClient:
             utils._artifact_repos_cache[run_id] = artifact_repo
             return artifact_repo
 
-    def log_artifact(self, run_id, local_path, artifact_path=None):  # noqa: D417
+    def log_artifact(self, run_id, local_path, artifact_path=None):
         """
         Write a local file or directory to the remote ``artifact_uri``.
 
         Args:
+            run_id: String ID of the run.
             local_path: Path to the file or directory to write.
             artifact_path: If provided, the directory in ``artifact_uri`` to write to.
         """
@@ -830,11 +832,12 @@ class TrackingServiceClient:
         trace_data_json = json.dumps(trace_data.to_dict(), cls=TraceJSONEncoder, ensure_ascii=False)
         return artifact_repo.upload_trace_data(trace_data_json)
 
-    def _log_artifact_async(self, run_id, filename, artifact_path=None, artifact=None):  # noqa: D417
+    def _log_artifact_async(self, run_id, filename, artifact_path=None, artifact=None):
         """
         Write an artifact to the remote ``artifact_uri`` asynchronously.
 
         Args:
+            run_id: String ID of the run.
             filename: Filename of the artifact to be logged.
             artifact_path: If provided, the directory in ``artifact_uri`` to write to.
             artifact: The artifact to be logged.
@@ -842,10 +845,11 @@ class TrackingServiceClient:
         artifact_repo = self._get_artifact_repo(run_id)
         artifact_repo._log_artifact_async(filename, artifact_path, artifact)
 
-    def log_artifacts(self, run_id, local_dir, artifact_path=None):  # noqa: D417
+    def log_artifacts(self, run_id, local_dir, artifact_path=None):
         """Write a directory of files to the remote ``artifact_uri``.
 
         Args:
+            run_id: String ID of the run.
             local_dir: Path to the directory of files to write.
             artifact_path: If provided, the directory in ``artifact_uri`` to write to.
 
@@ -903,10 +907,11 @@ class TrackingServiceClient:
         _logger.info(f"🏃 View run {run_name} at: {run_url}.")
         _logger.info(f"🧪 View experiment at: {experment_url}.")
 
-    def set_terminated(self, run_id, status=None, end_time=None):  # noqa: D417
+    def set_terminated(self, run_id, status=None, end_time=None):
         """Set a run's status to terminated.
 
         Args:
+            run_id: String ID of the run.
             status: A string value of :py:class:`mlflow.entities.RunStatus`. Defaults to "FINISHED".
             end_time: If not provided, defaults to the current time.
         """
