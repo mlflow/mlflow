@@ -17,6 +17,7 @@ from mlflow.metrics.genai.base import EvaluationExample
 from mlflow.metrics.genai.prompt_template import PromptTemplate
 from mlflow.metrics.genai.utils import _get_default_model, _get_latest_metric_version
 from mlflow.models import EvaluationMetric, make_metric
+from mlflow.models.evaluation.base import _make_metric
 from mlflow.protos.databricks_pb2 import (
     BAD_REQUEST,
     INTERNAL_ERROR,
@@ -609,7 +610,7 @@ def make_genai_metric(
     # extra params in grading_context_columns can only be passed as positional args
     eval_fn.__signature__ = Signature(signature_parameters)
 
-    return make_metric(
+    return _make_metric(
         eval_fn=eval_fn,
         greater_is_better=greater_is_better,
         name=name,

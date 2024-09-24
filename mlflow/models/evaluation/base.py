@@ -322,7 +322,87 @@ def _convert_val_to_pd_Series(val, name):
     return val
 
 
-def make_metric(  # noqa: D417
+def make_metric(
+    *,
+    eval_fn,
+    greater_is_better,
+    name=None,
+    long_name=None,
+    version=None,
+    metric_details=None,
+    metric_metadata=None,
+    genai_metric_args=None,
+):
+    '''
+    A factory function to create an :py:class:`EvaluationMetric` object.
+
+    Args:
+        eval_fn: A function that computes the metric with the following signature:
+
+            .. code-block:: python
+
+                def eval_fn(
+                    predictions: pandas.Series,
+                    targets: pandas.Series,
+                    metrics: Dict[str, MetricValue],
+                    **kwargs,
+                ) -> Union[float, MetricValue]:
+                    """
+                    Args:
+                        predictions: A pandas Series containing the predictions made by the model.
+                        targets: (Optional) A pandas Series containing the corresponding labels
+                            for the predictions made on that input.
+                        metrics: (Optional) A dictionary containing the metrics calculated by the
+                            default evaluator.  The keys are the names of the metrics and the values
+                            are the metric values.  To access the MetricValue for the metrics
+                            calculated by the system, make sure to specify the type hint for this
+                            parameter as Dict[str, MetricValue].  Refer to the DefaultEvaluator
+                            behavior section for what metrics will be returned based on the type of
+                            model (i.e. classifier or regressor).  kwargs: Includes a list of args
+                            that are used to compute the metric. These args could information coming
+                            from input data, model outputs or parameters specified in the
+                            `evaluator_config` argument of the `mlflow.evaluate` API.
+                        kwargs: Includes a list of args that are used to compute the metric. These
+                            args could be information coming from input data, model outputs,
+                            other metrics, or parameters specified in the `evaluator_config`
+                            argument of the `mlflow.evaluate` API.
+
+                    Returns: MetricValue with per-row scores, per-row justifications, and aggregate
+                        results.
+                    """
+                    ...
+
+        greater_is_better: Whether a higher value of the metric is better.
+        name: The name of the metric. This argument must be specified if ``eval_fn`` is a lambda
+                    function or the ``eval_fn.__name__`` attribute is not available.
+        long_name: (Optional) The long name of the metric. For example, ``"mean_squared_error"``
+            for ``"mse"``.
+        version: (Optional) The metric version. For example ``v1``.
+        metric_details: (Optional) A description of the metric and how it is calculated.
+        metric_metadata: (Optional) A dictionary containing metadata for the metric.
+        genai_metric_args: (Optional) A dictionary containing arguments specified by users
+            when calling make_genai_metric or make_genai_metric_from_prompt. Those args
+            are persisted so that we can deserialize the same metric object later.
+
+    .. seealso::
+
+        - :py:class:`mlflow.models.EvaluationMetric`
+        - :py:func:`mlflow.evaluate`
+    '''
+    return _make_metric(
+        eval_fn=eval_fn,
+        greater_is_better=greater_is_better,
+        name=name,
+        long_name=long_name,
+        version=version,
+        metric_details=metric_details,
+        metric_metadata=metric_metadata,
+        genai_metric_args=genai_metric_args,
+        require_strict_signature=False,
+    )
+
+
+def _make_metric(
     *,
     eval_fn,
     greater_is_better,
@@ -384,6 +464,21 @@ def make_metric(  # noqa: D417
         genai_metric_args: (Optional) A dictionary containing arguments specified by users
             when calling make_genai_metric or make_genai_metric_from_prompt. Those args
             are persisted so that we can deserialize the same metric object later.
+        require_strict_signature: (Optional) Whether the eval_fn needs to follow a strict signature.
+            If True, then the eval_fn must follow below signature:
+
+                .. code-block:: python
+
+                    def eval_fn(
+                        predictions: "pd.Series",
+                        metrics: Dict[str, MetricValue],
+                        inputs: "pd.Series",
+                        *args,
+                    ) -> MetricValue:
+                        pass
+
+            When generating a metric from `make_genai_metric`, this should be set to True.
+            Default to False.
 
     .. seealso::
 
