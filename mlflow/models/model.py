@@ -676,7 +676,7 @@ class Model:
 
     @format_docstring(LOG_MODEL_PARAM_DOCS)
     @classmethod
-    def log(  # noqa: D417
+    def log(
         cls,
         name,
         flavor,
@@ -710,6 +710,7 @@ class Model:
                 being created and is in ``READY`` status. By default, the
                 function waits for five minutes. Specify 0 or None to skip
                 waiting.
+            run_id: If specified, log the model to the specified run. Otherwise, use the active run.
             metadata: {{ metadata }}
             resources: {{ resources }}
             model_type: {{ model_type }}
