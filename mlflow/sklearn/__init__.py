@@ -363,7 +363,7 @@ def log_model(
 
     Args:
         sk_model: scikit-learn model to be saved.
-        name: Model name.
+        name: {{ name }}
         conda_env: {{ conda_env }}
         code_paths: {{ code_paths }}
         serialization_format: The format in which to serialize the model. This should be one of

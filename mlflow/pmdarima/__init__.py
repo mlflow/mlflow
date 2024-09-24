@@ -281,7 +281,7 @@ def save_model(
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
 def log_model(
     pmdarima_model,
-    artifact_path,
+    name: Optional[str] = None,
     conda_env=None,
     code_paths=None,
     registered_model_name=None,
@@ -291,6 +291,11 @@ def log_model(
     pip_requirements=None,
     extra_pip_requirements=None,
     metadata=None,
+    params: Optional[Dict[str, Any]] = None,
+    tags: Optional[Dict[str, Any]] = None,
+    model_type: Optional[str] = None,
+    step: int = 0,
+    model_id: Optional[str] = None,
     **kwargs,
 ):
     """
@@ -299,7 +304,7 @@ def log_model(
     Args:
         pmdarima_model: pmdarima ``ARIMA`` or ``Pipeline`` model that has been ``fit`` on a
             temporal series.
-        artifact_path: Run-relative artifact path to save the model instance to.
+        name: {{ name }}
         conda_env: {{ conda_env }}
         code_paths: {{ code_paths }}
         registered_model_name: This argument may change or be removed in a
@@ -339,6 +344,11 @@ def log_model(
         pip_requirements: {{ pip_requirements }}
         extra_pip_requirements: {{ extra_pip_requirements }}
         metadata: {{ metadata }}
+        params: {{ params }}
+        tags: {{ tags }}
+        model_type: {{ model_type }}
+        step: {{ step }}
+        model_id: {{ model_id }}
         kwargs: Additional arguments for :py:class:`mlflow.models.model.Model`
 
     Returns:
@@ -384,7 +394,7 @@ def log_model(
     """
 
     return Model.log(
-        artifact_path=artifact_path,
+        name=name,
         flavor=mlflow.pmdarima,
         registered_model_name=registered_model_name,
         pmdarima_model=pmdarima_model,
@@ -396,6 +406,11 @@ def log_model(
         pip_requirements=pip_requirements,
         extra_pip_requirements=extra_pip_requirements,
         metadata=metadata,
+        params=params,
+        tags=tags,
+        model_type=model_type,
+        step=step,
+        model_id=model_id,
         **kwargs,
     )
 

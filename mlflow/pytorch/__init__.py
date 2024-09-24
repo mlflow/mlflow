@@ -136,7 +136,7 @@ def get_default_conda_env():
 
 
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name="torch"))
-def log_model(  # noqa: D417
+def log_model(
     pytorch_model,
     name: Optional[str] = None,
     conda_env=None,
@@ -227,6 +227,11 @@ def log_model(  # noqa: D417
         pip_requirements: {{ pip_requirements }}
         extra_pip_requirements: {{ extra_pip_requirements }}
         metadata: {{ metadata }}
+        params: {{ params }}
+        tags: {{ tags }}
+        model_type: {{ model_type }}
+        step: {{ step }}
+        model_id: {{ model_id }}
         kwargs: kwargs to pass to ``torch.save`` method.
 
     Returns:
