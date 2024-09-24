@@ -145,7 +145,9 @@ class FunctionToolCallArguments(_BaseDataclass):
         self._validate_field("name", str, True)
         self._validate_field("arguments", str, True)
 
-    def to_tool_call(self, id=uuid.uuid4().hex):
+    def to_tool_call(self, id=None):
+        if id is None:
+            id = str(uuid.uuid4())
         return ToolCall(id=id, function=self)
 
 
@@ -160,8 +162,8 @@ class ToolCall(_BaseDataclass):
         type (str): The type of the object. Currently only "function" is supported.
     """
 
-    id: str
     function: FunctionToolCallArguments
+    id: str = field(default_factory=lambda: str(uuid.uuid4()))
     type: Literal["function"] = "function"
 
     def __post_init__(self):
