@@ -7,6 +7,49 @@ MLflow addresses this need with the :py:class:`mlflow.pyfunc.ChatModel` class in
 `version 2.11.0 <https://mlflow.org/releases/2.11.0#chatmodel-interface-for-a-unified-chat-experience-with-pyfunc-models>`_, providing a 
 consistent interface for GenAI applications while simplifying deployment and testing.
 
+Choosing Between ChatModel and PythonModel
+------------------------------------------
+
+When building GenAI applications in MLflow, it's essential to choose the right model abstraction that balances ease of use with the level of 
+customization you need. MLflow offers two primary classes for this purpose: :py:class:`mlflow.pyfunc.ChatModel` and 
+:py:class:`mlflow.pyfunc.PythonModel`. Each has its own strengths and trade-offs, making it crucial to understand which one best suits your use case.
+
+**When to Use ChatModel**
+
+- **Simplified Interface**: :py:class:`mlflow.pyfunc.ChatModel` provides a streamlined interface specifically designed for conversational AI applications. 
+  It adheres to a standardized input-output format compatible with popular GenAI services like OpenAI, ensuring consistency across deployments.
+  
+- **Standardization**: This model type enforces the widely adopted OpenAI API specification, which simplifies model deployment and integration 
+  by reducing the need to handle complex input schemas manually.
+
+- **Quick Start**: If your goal is to get started quickly with minimal setup, :py:class:`mlflow.pyfunc.ChatModel` is an excellent choice. It abstracts away 
+  much of the complexity, allowing you to focus on your application logic rather than on managing detailed model signatures.
+
+- **Less Customization**: The trade-off for this simplicity is a more rigid structure. :py:class:`mlflow.pyfunc.ChatModel` is ideal when your use case aligns 
+  well with the standardized interface, but it might restrict you if you need to deviate from the prescribed input-output patterns.
+
+**When to Use PythonModel**
+
+- **Full Customization**: :py:class:`mlflow.pyfunc.PythonModel` offers complete control over the input, output, and processing logic of your model. This makes 
+  it the preferred choice when building highly customized applications or when integrating with models and services that don't follow a standardized API.
+
+- **Complex Integrations**: If your application requires complex data processing, multiple steps of data transformation, or integration with 
+  unique APIs that don’t conform to a standard schema, :py:class:`mlflow.pyfunc.PythonModel` provides the flexibility needed to handle these tasks.
+
+- **Increased Complexity**: However, with great flexibility comes increased complexity. Using :py:class:`mlflow.pyfunc.PythonModel` requires you to define and manage 
+  your model's input and output signatures, which can be more challenging, particularly when handling JSON structures common in GenAI use cases.
+
+**Key Considerations**
+
+- **ChatModel Pros**: Simplicity, standardization, faster deployment, less code to manage.
+- **ChatModel Cons**: Limited flexibility, standardized inputs may not fit all custom needs.
+- **PythonModel Pros**: Highly customizable, can handle any input/output format, adaptable to complex requirements.
+- **PythonModel Cons**: More setup required, potentially more prone to errors in defining custom signatures, requires careful management of input transformations.
+
+**Recommendation**: Use :py:class:`mlflow.pyfunc.ChatModel` when you need a quick, standardized, and reliable solution for conversational agents that align with 
+popular GenAI interfaces. Opt for :py:class:`mlflow.pyfunc.PythonModel` when your project demands flexibility and the ability to customize every aspect of your 
+model's behavior.
+
 Purpose of this tutorial
 ------------------------
 
@@ -26,7 +69,8 @@ Prerequisites
 -------------
 
 - Familiarity with MLflow logging APIs and GenAI concepts.
-- MLflow version 2.11.0 or higher installed.
+- MLflow version 2.11.0 or higher installed for use of :py:class:`mlflow.pyfunc.ChatModel`.
+- MLflow version 2.14.0 or higher installed for use of `MLflow Tracing <../tracing/index.html>`_.
 
 This tutorial uses the `Databricks Foundation Model APIs <https://docs.databricks.com/en/machine-learning/foundation-models/index.html>`_ purely as
 an example of interfacing with an external service. You can easily swap the 
@@ -221,6 +265,16 @@ Core Concepts
                 {"type": "double", "name": "frequency_penalty", "required": False},
                 {"type": "double", "name": "presence_penalty", "required": False},
             ]
+
+        .. note::
+
+            Agent-based (tool-calling) schemas are significantly more complex than the simpler chat interface example shown above. As GenAI frameworks and services 
+            evolve with increasingly sophisticated capabilities and features, the complexity of these interfaces will grow, making manual schema definitions a 
+            challenging and time-consuming task. The structured input validation provided by the MLflow :py:class:`mlflow.pyfunc.ChatModel` interface removes the burden of defining and 
+            managing these intricate signatures manually. By leveraging these pre-defined schemas, you gain robust input type safety and validation, ensuring your 
+            deployed applications handle inputs consistently and correctly without additional effort. This approach not only reduces the risk of errors but also 
+            streamlines the development process, allowing you to focus on building impactful GenAI solutions without the overhead of managing complex input specifications.
+
 
         By using :py:class:`mlflow.pyfunc.ChatModel` to base a custom implementation off of, we don't have to reason about this complex signature.
         It is provided for us.
@@ -644,6 +698,12 @@ The configuration consists of two main sections:
 
 2. **General Configuration**: Additional settings for the overall behavior of the model, such as how user responses should be framed for subsequent agents.
 
+.. note:: 
+    
+    There are two options available for setting a model configuration: directly within the logging code (shown below) or by writing a configuration file 
+    in ``yaml`` format to a local location whose path can be specified when defining the ``model_config`` argument during logging. To learn more about 
+    how the ``model_config`` parameter is utilized, `see the guide on model_config usage <../../models.html#python-function-model-interfaces>`_.
+
 Here's how we set the configuration for our agents:
 
 .. code-block:: python
@@ -702,6 +762,13 @@ Before logging our model, it's important to provide an ``input_example`` that de
   users to understand the expected input structure when interacting with the deployed model.
 
 By providing an input example, you ensure that your model is tested with real data, increasing confidence that it will behave as expected when deployed.
+
+.. tip::
+
+    When defining your GenAI application using the :py:class:`mlflow.pyfunc.ChatModel`, a default placeholder input example will be used if none is provided. 
+    If you notice an unfamiliar or generic input example in the MLflow UI’s artifact viewer, it's likely the default placeholder assigned by the system. 
+    To avoid this, ensure you specify a custom input example when saving your model.
+
 
 Here's the input example we'll use:
 
