@@ -645,14 +645,14 @@ def _is_string(value):
     return isinstance(value, str)
 
 
-def _evaluate_metric(metric_tuple, eval_fn_args):  # noqa: D417
+def _evaluate_metric(metric_tuple, eval_fn_args):
     """
     This function calls the metric function and performs validations on the returned
     result to ensure that they are in the expected format. It will warn and will not log metrics
     that are in the wrong format.
 
     Args:
-        extra_metric_tuple: Containing a user provided function and its index in the
+        metric_tuple: Containing a user provided function and its index in the
             ``extra_metrics`` parameter of ``mlflow.evaluate``
         eval_fn_args: A dictionary of args needed to compute the eval metrics.
 
