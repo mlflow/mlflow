@@ -25,6 +25,7 @@ from mlflow.store.tracking import SEARCH_TRACES_DEFAULT_MAX_RESULTS
 from mlflow.tracing import provider
 from mlflow.tracing.constant import SpanAttributeKey
 from mlflow.tracing.display import get_display_handler
+from mlflow.tracing.provider import is_tracing_enabled
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracing.utils import (
     SPANS_COLUMN_NAME,
@@ -611,6 +612,10 @@ def add_trace(trace: Union[Trace, Dict[str, Any]], target: Optional[LiveSpan] = 
             - If not provided and there is no active span, a new span named "Remote Trace <...>"
               will be created and the trace will be merged under it.
     """
+    if not is_tracing_enabled():
+        _logger.debug("Tracing is disabled. Skipping add_trace.")
+        return
+
     if isinstance(trace, dict):
         try:
             trace = Trace.from_dict(trace)
@@ -689,6 +694,8 @@ def _merge_trace(  # noqa: D417
             _logger.warning(
                 f"Parent trace with request ID {target_request_id} not found. Skipping merge."
             )
+            return
+
         new_trace_id = parent_trace.span_dict[target_parent_span_id]._trace_id
 
     for span in trace.data.spans:
