@@ -1372,3 +1372,21 @@ def test_add_trace_in_databricks_model_serving(mock_databricks_serving_with_trac
     assert child_span.name == rs.name
     assert child_span.start_time_ns == rs.start_time_ns
     assert child_span.end_time_ns == rs.end_time_ns
+
+
+def test_add_trace_logging_model_from_code():
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model(
+            python_model="tests/tracing/sample_code/model_with_add_trace.py",
+            artifact_path="model",
+            input_example=[1, 2],
+        )
+
+    loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
+    # Trace should not be logged while logging / loading
+    assert mlflow.get_last_active_trace() is None
+
+    loaded_model.predict(1)
+    trace = mlflow.get_last_active_trace()
+    assert trace is not None
+    assert len(trace.data.spans) == 2

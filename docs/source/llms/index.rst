@@ -47,7 +47,7 @@ MLflow traces and their schema, see the `Tracing Schema <tracing/tracing-schema.
 
     deployments/index
 
-Serving as a unified interface, the `MLflow AI Gateway <deployments/index.html>`_ (previously known as "MLflow AI Gateway") 
+Serving as a unified interface, the `MLflow AI Gateway <deployments/index.html>`_ 
 simplifies interactions with multiple LLM providers. In addition to supporting the most popular SaaS LLM providers, the MLflow AI Gateway 
 provides an integration to MLflow model serving, allowing you to serve your own LLM or a fine-tuned foundation model within your own serving infrastructure.
 
