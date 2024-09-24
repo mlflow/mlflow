@@ -671,13 +671,13 @@ class AbstractStore:
             None.
         """
 
-    def log_outputs(self, run_id, models: Optional[List[ModelOutput]] = None):
+    def log_outputs(self, run_id, outputs: Optional[List[ModelOutput]] = None):
         """
         Log outputs, such as models, to the specified run.
 
         Args:
             run_id: String id for the run
-            models: List of :py:class:`mlflow.entities.ModelOutput` instances to log
+            outputs: List of :py:class:`mlflow.entities.ModelOutput` instances to log
                 as outputs of the run.
 
         Returns:

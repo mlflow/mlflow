@@ -785,7 +785,7 @@ class Model:
 
             if active_run is not None:
                 run_id = active_run.info.run_id
-                client.log_outputs(run_id=run_id, models=[ModelOutput(model.model_id, step=step)])
+                client.log_outputs(run_id=run_id, outputs=[ModelOutput(model.model_id, step=step)])
                 log_model_metrics_for_step(
                     client=client, model_id=model.model_id, run_id=run_id, step=step
                 )

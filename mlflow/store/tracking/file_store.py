@@ -1210,7 +1210,7 @@ class FileStore(AbstractStore):
         self,
         run_id: str,
         datasets: Optional[List[DatasetInput]] = None,
-        models: Optional[List[ModelInput]] = None,
+        inputs: Optional[List[ModelInput]] = None,
     ):
         """
         Log inputs, such as datasets and models, to the specified run.
@@ -1219,7 +1219,7 @@ class FileStore(AbstractStore):
             run_id: String id for the run
             datasets: List of :py:class:`mlflow.entities.DatasetInput` instances to log
                 as inputs to the run.
-            models: List of :py:class:`mlflow.entities.ModelInput` instances to log
+            inputs: List of :py:class:`mlflow.entities.ModelInput` instances to log
                 as inputs to the run.
 
         Returns:
@@ -1229,7 +1229,7 @@ class FileStore(AbstractStore):
         run_info = self._get_run_info(run_id)
         check_run_is_active(run_info)
 
-        if datasets is None and models is None:
+        if datasets is None and inputs is None:
             return
 
         experiment_dir = self._get_experiment_path(run_info.experiment_id, assert_exists=True)
@@ -1258,7 +1258,7 @@ class FileStore(AbstractStore):
                 )
                 fs_input.write_yaml(input_dir, FileStore.META_DATA_FILE_NAME)
 
-        for model_input in models or []:
+        for model_input in inputs or []:
             model_id = model_input.model_id
             input_id = FileStore._get_model_input_id(model_id=model_id, run_id=run_id)
             input_dir = os.path.join(run_dir, FileStore.INPUTS_FOLDER_NAME, input_id)
@@ -1273,13 +1273,13 @@ class FileStore(AbstractStore):
                 )
                 fs_input.write_yaml(input_dir, FileStore.META_DATA_FILE_NAME)
 
-    def log_outputs(self, run_id, models: Optional[List[ModelOutput]] = None):
+    def log_outputs(self, run_id, outputs: Optional[List[ModelOutput]] = None):
         """
         Log outputs, such as models, to the specified run.
 
         Args:
             run_id: String id for the run
-            models: List of :py:class:`mlflow.entities.ModelOutput` instances to log
+            outputs: List of :py:class:`mlflow.entities.ModelOutput` instances to log
                 as outputs of the run.
 
         Returns:
@@ -1289,12 +1289,12 @@ class FileStore(AbstractStore):
         run_info = self._get_run_info(run_id)
         check_run_is_active(run_info)
 
-        if models is None:
+        if outputs is None:
             return
 
         run_dir = self._get_run_dir(run_info.experiment_id, run_id)
 
-        for model_output in models:
+        for model_output in outputs:
             model_id = model_output.model_id
             output_dir = os.path.join(run_dir, FileStore.OUTPUTS_FOLDER_NAME, model_id)
             if not os.path.exists(output_dir):
