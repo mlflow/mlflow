@@ -1286,9 +1286,18 @@ def get_metric_history_bulk_interval_impl(request_message):
         # get a list of all steps for all runs. this is necessary
         # because we can't assume that every step was logged, so
         # sampling needs to be done on the steps that actually exist
-        all_runs = [
-            [m.step for m in store.get_metric_history(run_id, metric_key)] for run_id in run_ids
-        ]
+        def fetch_all_metrics(run_id, key, token=None):
+            """
+            Fetch all metrics in chunks of MAX_RESULTS_PER_RUN to avoid OOM errors.
+            """
+            page = store.get_metric_history(
+                run_id, key, max_results=MAX_RESULTS_PER_RUN, page_token=token
+            )
+            return page + fetch_all_metrics(run_id, key, page.token) if page.token else page
+
+        all_runs = []
+        for run_id in run_ids:
+            all_runs.extend({m.step for m in fetch_all_metrics(run_id, metric_key, None)})
 
         # save mins and maxes to be added back later
         all_mins_and_maxes = {step for run in all_runs if run for step in [min(run), max(run)]}
