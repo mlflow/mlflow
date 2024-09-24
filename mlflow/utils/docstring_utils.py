@@ -358,7 +358,7 @@ it to MLflow without modifying the model weights. In such case, specifying this 
         "params": "A dictionary of parameters to log with the model.",
         "tags": "A dictionary of tags to log with the model.",
         "model_type": "The type of the model.",
-        "step": "???",
+        "step": "The step at which to log the model outputs and metrics",
         "model_id": "The ID of the model.",
     }
 )
