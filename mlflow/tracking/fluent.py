@@ -21,6 +21,7 @@ from mlflow.entities import (
     LoggedModel,
     Metric,
     ModelInput,
+    ModelOutput,
     Param,
     Run,
     RunStatus,
@@ -2030,13 +2031,13 @@ def search_logged_models(
         )
 
 
-def log_outputs(outputs: Optional[List[ModelInput]] = None):
+def log_outputs(outputs: Optional[List[ModelOutput]] = None):
     """
     Log outputs, such as models, to the active run. If there is no active run, a new run will be
     created.
 
     Args:
-        outputs: List of :py:class:`mlflow.entities.ModelInput` instances to log
+        outputs: List of :py:class:`mlflow.entities.ModelOutput` instances to log
             as outputs to the run.
 
     Returns:
