@@ -673,7 +673,7 @@ def add_trace(trace: Union[Trace, Dict[str, Any]], target: Optional[LiveSpan] = 
         )
 
 
-def _merge_trace(  # noqa: D417
+def _merge_trace(
     trace: Trace,
     target_request_id: str,
     target_parent_span_id: str,
@@ -683,7 +683,7 @@ def _merge_trace(  # noqa: D417
 
     Args:
         trace: The trace object to be merged.
-        paretarget_request_idnt_request_id: The request ID of the parent trace.
+        target_request_id: The request ID of the parent trace.
         target_parent_span_id: The parent span ID, under which the child trace should be merged.
     """
     trace_manager = InMemoryTraceManager.get_instance()

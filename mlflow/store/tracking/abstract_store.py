@@ -154,16 +154,17 @@ class AbstractStore:
         Restore deleted experiment unless it is permanently deleted.
 
         Args:
-            experiment_id: String id for the experiment
+            experiment_id: String id for the experiment.
         """
 
     @abstractmethod
-    def rename_experiment(self, experiment_id, new_name):  # noqa: D417
+    def rename_experiment(self, experiment_id, new_name):
         """
         Update an experiment's name. The new name must be unique.
 
         Args:
-            experiment_id: String id for the experiment
+            experiment_id: String id for the experiment.
+            new_name: New name for the experiment.
         """
 
     @abstractmethod
@@ -201,8 +202,8 @@ class AbstractStore:
         and the start time to the current time.
 
         Args:
-            experiment_id: String id of the experiment for this run
-            user_id: ID of the user launching this run
+            experiment_id: String id of the experiment for this run.
+            user_id: ID of the user launching this run.
 
         Returns:
             The created Run object
@@ -214,17 +215,17 @@ class AbstractStore:
         Delete a run.
 
         Args:
-            run_id: Description of run_id.
+            run_id: The ID of the run to delete.
 
         """
 
     @abstractmethod
-    def restore_run(self, run_id):  # noqa: D417
+    def restore_run(self, run_id):
         """
         Restore a run.
 
         Args:
-            run_id:
+            run_id: The ID of the run to restore.
 
         """
 
@@ -428,8 +429,8 @@ class AbstractStore:
         Log a param for the specified run in async fashion.
 
         Args:
-            run_id: String id for the run
-            param: :py:class:`mlflow.entities.Param` instance to log
+            run_id: String id for the run.
+            param: :py:class:`mlflow.entities.Param` instance to log.
         """
         return self.log_batch_async(run_id, metrics=[], params=[param], tags=[])
 
@@ -438,8 +439,8 @@ class AbstractStore:
         Set a tag for the specified experiment
 
         Args:
-            experiment_id: String id for the experiment
-            tag: :py:class:`mlflow.entities.ExperimentTag` instance to set
+            experiment_id: String id for the experiment.
+            tag: :py:class:`mlflow.entities.ExperimentTag` instance to set.
         """
 
     def set_tag(self, run_id, tag):
@@ -447,8 +448,8 @@ class AbstractStore:
         Set a tag for the specified run
 
         Args:
-            run_id: String id for the run
-            tag: :py:class:`mlflow.entities.RunTag` instance to set
+            run_id: String id for the run.
+            tag: :py:class:`mlflow.entities.RunTag` instance to set.
         """
         self.log_batch(run_id, metrics=[], params=[], tags=[tag])
 
@@ -457,8 +458,8 @@ class AbstractStore:
         Set a tag for the specified run in async fashion.
 
         Args:
-            run_id: String id for the run
-            tag: :py:class:`mlflow.entities.RunTag` instance to set
+            run_id: String id for the run.
+            tag: :py:class:`mlflow.entities.RunTag` instance to set.
         """
         return self.log_batch_async(run_id, metrics=[], params=[], tags=[tag])
 

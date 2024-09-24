@@ -1134,7 +1134,7 @@ class ParamSpec:
         )
 
     @classmethod
-    def enforce_param_datatype(cls, name, value, dtype: DataType):  # noqa: D417
+    def enforce_param_datatype(cls, name, value, dtype: DataType):
         """
         Enforce the value matches the data type.
 
@@ -1150,7 +1150,7 @@ class ParamSpec:
         Args:
             name: parameter name
             value: parameter value
-            t: expected data type
+            dtype: expected data type
         """
         if value is None:
             return

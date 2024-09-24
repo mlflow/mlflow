@@ -176,14 +176,14 @@ class WheeledModel:
         with open(conda_env_path, "w") as out:
             yaml.safe_dump(new_conda_env, stream=out, default_flow_style=False)
 
-    def _update_mlflow_model(self, original_model_metadata, mlflow_model):  # noqa: D417
+    def _update_mlflow_model(self, original_model_metadata, mlflow_model):
         """
         Modifies the MLModel file to reflect updated information such as the run_id,
         utc_time_created. Additionally, this also adds `wheels` to the MLModel file to indicate that
         this is a `wheeled` model.
 
         Args:
-            original_model_file_path: The model metadata stored in the original MLmodel file.
+            original_model_metadata: The model metadata stored in the original MLmodel file.
             mlflow_model: :py:mod:`mlflow.models.Model` configuration of the newly created
                           wheeled model
         """
