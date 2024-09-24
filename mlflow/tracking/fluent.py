@@ -1090,7 +1090,7 @@ def log_input(
     dataset: Dataset,
     context: Optional[str] = None,
     tags: Optional[Dict[str, str]] = None,
-    models: Optional[List[ModelInput]] = None,
+    model: Optional[ModelInput] = None,
 ) -> None:
     """
     Log a dataset used in the current run.
@@ -1100,8 +1100,7 @@ def log_input(
         context: Context in which the dataset is used. For example: "training", "testing".
             This will be set as an input tag with key `mlflow.data.context`.
         tags: Tags to be associated with the dataset. Dictionary of tag_key -> tag_value.
-        models: List of :py:class:`mlflow.entities.ModelInput` instances to log as inputs to the
-            run.
+        model: A :py:class:`mlflow.entities.ModelInput` instance to log as inputs to the run.
 
     .. code-block:: python
         :test:
@@ -1126,7 +1125,7 @@ def log_input(
 
     dataset_input = DatasetInput(dataset=dataset._to_mlflow_entity(), tags=tags_to_log)
 
-    MlflowClient().log_inputs(run_id=run_id, datasets=[dataset_input], models=models)
+    MlflowClient().log_inputs(run_id=run_id, datasets=[dataset_input], models=[model])
 
 
 def set_experiment_tags(tags: Dict[str, Any]) -> None:
