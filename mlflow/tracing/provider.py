@@ -189,7 +189,7 @@ def disable():
         assert len(mlflow.search_traces()) == 1
 
     """
-    if not _is_enabled():
+    if not is_tracing_enabled():
         return
 
     _setup_tracer_provider(disabled=True)
@@ -229,7 +229,7 @@ def enable():
         assert len(mlflow.search_traces()) == 2
 
     """
-    if _is_enabled() and _MLFLOW_TRACER_PROVIDER_INITIALIZED.done:
+    if is_tracing_enabled() and _MLFLOW_TRACER_PROVIDER_INITIALIZED.done:
         _logger.info("Tracing is already enabled")
         return
 
@@ -262,7 +262,7 @@ def trace_disabled(f):
         is_func_called = False
         result = None
         try:
-            if _is_enabled():
+            if is_tracing_enabled():
                 disable()
                 try:
                     is_func_called, result = True, f(*args, **kwargs)
@@ -304,7 +304,7 @@ def reset_tracer_setup():
 
 
 @raise_as_trace_exception
-def _is_enabled() -> bool:
+def is_tracing_enabled() -> bool:
     """
     Check if tracing is enabled based on whether the global tracer
     is instantiated or not.
