@@ -2025,6 +2025,36 @@ def search_logged_models(
         )
 
 
+def log_inputs(models: Optional[List[ModelInput]] = None):
+    """
+    Log inputs, such as datasets, to the specified run.
+
+    Args:
+        models: List of :py:class:`mlflow.entities.ModelInput` instances to log
+            as inputs to the run.
+
+    Returns:
+        None.
+    """
+    run_id = _get_or_start_run().info.run_id
+    MlflowClient().log_inputs(run_id, models=models)
+
+
+def log_outputs(models: Optional[List[ModelInput]] = None):
+    """
+    Log outputs, such as datasets, to the specified run.
+
+    Args:
+        models: List of :py:class:`mlflow.entities.ModelInput` instances to log
+            as inputs to the run.
+
+    Returns:
+        None.
+    """
+    run_id = _get_or_start_run().info.run_id
+    MlflowClient().log_outputs(run_id, models=models)
+
+
 def delete_run(run_id: str) -> None:
     """
     Deletes a run with the given ID.
