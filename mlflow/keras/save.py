@@ -361,4 +361,9 @@ def log_model(
         save_model_kwargs=save_model_kwargs,
         save_exported_model=save_exported_model,
         metadata=metadata,
+        params=params,
+        tags=tags,
+        model_type=model_type,
+        step=step,
+        model_id=model_id,
     )

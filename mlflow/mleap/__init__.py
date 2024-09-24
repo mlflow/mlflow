@@ -145,6 +145,11 @@ def log_model(
         signature=signature,
         input_example=input_example,
         metadata=metadata,
+        params=params,
+        tags=tags,
+        model_type=model_type,
+        step=step,
+        model_id=model_id,
     )
 
 
