@@ -17,6 +17,7 @@ from mlflow.metrics.genai.base import EvaluationExample
 from mlflow.metrics.genai.prompt_template import PromptTemplate
 from mlflow.metrics.genai.utils import _get_default_model, _get_latest_metric_version
 from mlflow.models import EvaluationMetric, make_metric
+from mlflow.models.evaluation.base import _make_metric
 from mlflow.protos.databricks_pb2 import (
     BAD_REQUEST,
     INTERNAL_ERROR,
@@ -250,6 +251,11 @@ def make_genai_metric_from_prompt(
         )
 
     """
+    import numpy as np
+
+    prompt_template = PromptTemplate([judge_prompt, _PROMPT_FORMATTING_WRAPPER])
+    allowed_variables = prompt_template.variables
+
     # When users create a custom metric using this function,the metric configuration
     # will be serialized and stored as an artifact. This enables us to later deserialize
     # the configuration, allowing users to understand their LLM evaluation results more clearly.
@@ -276,13 +282,12 @@ def make_genai_metric_from_prompt(
         """
         This is the function that is called when the metric is evaluated.
         """
-        prompt_template = PromptTemplate([judge_prompt, _PROMPT_FORMATTING_WRAPPER])
-        missing_variables = prompt_template.variables - set(kwargs.keys())
-        if missing_variables:
+        if missing_variables := allowed_variables - set(kwargs.keys()):
             raise MlflowException(
                 message=f"Missing variable inputs to eval_fn: {missing_variables}",
                 error_code=INVALID_PARAMETER_VALUE,
             )
+        kwargs = {k: [v] if np.isscalar(v) else v for k, v in kwargs.items()}
         grading_payloads = pd.DataFrame(kwargs).to_dict(orient="records")
         arg_strings = [prompt_template.format(**payload) for payload in grading_payloads]
         scores, justifications = _score_model_on_payloads(
@@ -292,6 +297,13 @@ def make_genai_metric_from_prompt(
         aggregate_scores = _get_aggregate_results(scores, aggregations)
 
         return MetricValue(scores, justifications, aggregate_scores)
+
+    if allowed_variables:
+        eval_fn.__signature__ = Signature(
+            parameters=[
+                Parameter(name=var, kind=Parameter.KEYWORD_ONLY) for var in allowed_variables
+            ]
+        )
 
     return make_metric(
         eval_fn=eval_fn,
@@ -594,9 +606,11 @@ def make_genai_metric(
     for var in grading_context_columns:
         signature_parameters.append(Parameter(var, Parameter.POSITIONAL_OR_KEYWORD))
 
+    # Note: this doesn't change how python allows calling the function
+    # extra params in grading_context_columns can only be passed as positional args
     eval_fn.__signature__ = Signature(signature_parameters)
 
-    return make_metric(
+    return _make_metric(
         eval_fn=eval_fn,
         greater_is_better=greater_is_better,
         name=name,
@@ -604,6 +618,7 @@ def make_genai_metric(
         metric_details=evaluation_context["eval_prompt"].__str__(),
         metric_metadata=metric_metadata,
         genai_metric_args=genai_metric_args,
+        require_strict_signature=True,
     )
 
 
