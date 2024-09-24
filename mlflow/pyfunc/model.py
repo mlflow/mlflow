@@ -664,7 +664,7 @@ def _get_pyfunc_loader_module(python_model):
     return __name__
 
 
-class ModelFromDeploymentEndpoint(mlflow.pyfunc.PythonModel):
+class ModelFromDeploymentEndpoint(PythonModel):
     """
     A PythonModel wrapper for invoking an MLflow Deployments endpoint.
     This class is particularly used for running evaluation against an MLflow Deployments endpoint.
