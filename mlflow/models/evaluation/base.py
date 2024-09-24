@@ -1113,87 +1113,8 @@ def _is_model_deployment_endpoint_uri(model: Any) -> bool:
 def _get_model_from_deployment_endpoint_uri(
     endpoint_uri: str, params: Optional[Dict[str, Any]] = None
 ):
-    from mlflow.metrics.genai.model_utils import _call_deployments_api, _parse_model_uri
-    from mlflow.pyfunc.model import _PythonModelPyfuncWrapper
-
-    class ModelFromDeploymentEndpoint(mlflow.pyfunc.PythonModel):
-        def __init__(self, endpoint, params):
-            self.endpoint = endpoint
-            self.params = params
-
-        def predict(  # noqa: D417
-            self, context, model_input: Union[pd.DataFrame, Dict[str, Any], List[Dict[str, Any]]]
-        ):
-            """
-            Run prediction on the input data.
-
-            Args:
-                model_input: The input data for prediction, either of the following:
-                    - Pandas DataFrame: If the default evaluator is used, input is a DF
-                        that contains the multiple request payloads in a single column.
-                    - A dictionary: If the model_type is "databricks-agents" and the
-                        Databricks RAG evaluator is used, this PythonModel can be invoked
-                        with a single dict corresponding to the ChatCompletionsRequest schema.
-                    - A list of dictionaries: Currently we don't have any evaluator that
-                        gives this input format, but we keep this for future use cases and
-                        compatibility with normal pyfunc models.
-
-            Return:
-                The prediction result. The return type will be consistent with the model input type,
-                e.g., if the input is a Pandas DataFrame, the return will be a Pandas Series.
-            """
-            if isinstance(model_input, dict):
-                return self._predict_single(model_input)
-            elif isinstance(model_input, list) and all(
-                isinstance(data, dict) for data in model_input
-            ):
-                return [self._predict_single(data) for data in model_input]
-            elif isinstance(model_input, pd.DataFrame):
-                if len(model_input.columns) != 1:
-                    raise MlflowException(
-                        f"The number of input columns must be 1, but got {model_input.columns}. "
-                        "Multi-column input is not supported for evaluating an MLflow Deployments "
-                        "endpoint. Please include the input text or payload in a single column.",
-                        error_code=INVALID_PARAMETER_VALUE,
-                    )
-                input_column = model_input.columns[0]
-
-                predictions = [self._predict_single(data) for data in model_input[input_column]]
-                return pd.Series(predictions)
-            else:
-                raise MlflowException(
-                    f"Invalid input data type: {type(model_input)}. The input data must be either "
-                    "a Pandas DataFrame, a dictionary, or a list of dictionaries containing the "
-                    "request payloads for evaluating an MLflow Deployments endpoint.",
-                    error_code=INVALID_PARAMETER_VALUE,
-                )
-
-        def _predict_single(self, data: Union[str, Dict[str, Any]]) -> Dict[str, Any]:
-            """
-            Send a single prediction request to the MLflow Deployments endpoint.
-
-            Args:
-                data: The single input data for prediction. If the input data is a string, we will
-                    construct the request payload from it. If the input data is a dictionary, we
-                    will directly use it as the request payload.
-
-            Returns:
-                The prediction result from the MLflow Deployments endpoint as a dictionary.
-            """
-            if isinstance(data, str):
-                prediction = _call_deployments_api(self.endpoint, data, self.params)
-            elif isinstance(data, dict):
-                prediction = _call_deployments_api(
-                    self.endpoint, data, self.params, wrap_payload=False
-                )
-            else:
-                raise MlflowException(
-                    f"Invalid input data type: {type(data)}. The feature column of the evaluation "
-                    "dataset must contain only strings or dictionaries containing the request "
-                    "payload for evaluating an MLflow Deployments endpoint.",
-                    error_code=INVALID_PARAMETER_VALUE,
-                )
-            return prediction
+    from mlflow.metrics.genai.model_utils import _parse_model_uri
+    from mlflow.pyfunc.model import ModelFromDeploymentEndpoint, _PythonModelPyfuncWrapper
 
     _, endpoint = _parse_model_uri(endpoint_uri)
     params = params or {}
