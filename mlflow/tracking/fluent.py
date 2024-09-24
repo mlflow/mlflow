@@ -2037,7 +2037,7 @@ def log_outputs(outputs: Optional[List[ModelInput]] = None):
 
     Args:
         outputs: List of :py:class:`mlflow.entities.ModelInput` instances to log
-            as inputs to the run.
+            as outputs to the run.
 
     Returns:
         None.
