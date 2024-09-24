@@ -1286,7 +1286,7 @@ def get_metric_history_bulk_interval_impl(request_message):
         # get a list of all steps for all runs. this is necessary
         # because we can't assume that every step was logged, so
         # sampling needs to be done on the steps that actually exist
-        max_results = (
+        batch_size = (
             int(v)
             if (v := os.environ.get("MLFLOW_GET_METRIC_HISTORY_BULK_BATCH_SIZE"))
             else MAX_RESULTS_PER_RUN
@@ -1296,7 +1296,7 @@ def get_metric_history_bulk_interval_impl(request_message):
             """
             Fetch all metrics in chunks of MAX_RESULTS_PER_RUN to avoid OOM errors.
             """
-            page = store.get_metric_history(run_id, key, max_results=max_results, page_token=token)
+            page = store.get_metric_history(run_id, key, max_results=batch_size, page_token=token)
             if page.token:
                 return page + fetch_all_metrics(run_id, key, page.token)
             else:
