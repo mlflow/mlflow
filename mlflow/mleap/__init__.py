@@ -66,7 +66,7 @@ def log_model(
             cannot contain any custom transformers.
         sample_input: Sample PySpark DataFrame input that the model can evaluate. This is
             required by MLeap for data schema inference.
-        name: Model name.
+        name: {{ name }}
         registered_model_name: If given, create a model version under
             ``registered_model_name``, also creating a registered model if one
             with the given name does not exist.

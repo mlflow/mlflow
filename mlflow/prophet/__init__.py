@@ -229,7 +229,7 @@ def log_model(
 
     Args:
         pr_model: Prophet model to be saved.
-        name: Model name.
+        name: {{ name }}
         conda_env: {{ conda_env }}
         code_paths: {{ code_paths }}
         registered_model_name: This argument may change or be removed in a

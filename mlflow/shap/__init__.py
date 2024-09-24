@@ -313,7 +313,7 @@ def log_explainer(
 
     Args:
         explainer: SHAP explainer to be saved.
-        name: Model name.
+        name: {{ name }}
         serialize_model_using_mlflow: When set to True, MLflow will extract the underlying
             model and serialize it as an MLmodel, otherwise it uses SHAP's internal serialization.
             Defaults to True. Currently MLflow serialization is only supported for models of

@@ -300,7 +300,7 @@ def log_model(
     Args:
         llama_index_model: An LlamaIndex object to be saved, or a string representing the path to
             a script contains LlamaIndex index/engine definition.
-        name: Model name.
+        name: {{ name }}
         engine_type: Required when saving an index object to determine the inference interface
             for the index when loaded as a pyfunc model. This field is **not** required when
             saving an engine directly. The supported types are as follows:

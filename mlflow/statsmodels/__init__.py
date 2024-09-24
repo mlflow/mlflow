@@ -240,7 +240,7 @@ def log_model(
     Args:
         statsmodels_model: statsmodels model (an instance of `statsmodels.base.model.Results`_) to
             be saved.
-        name: Model name.
+        name: {{ name }}
         conda_env: {{ conda_env }}
         code_paths: {{ code_paths }}
         registered_model_name: If given, create a model version under ``registered_model_name``,

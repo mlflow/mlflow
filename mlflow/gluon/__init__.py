@@ -334,7 +334,7 @@ def log_model(
 
     Args:
         gluon_model: Gluon model to be saved. Must be already hybridized.
-        name: Model name.
+        name: {{ name }}
         conda_env: {{ conda_env }}
         code_paths: {{ code_paths }}
         registered_model_name: If given, create a model version under

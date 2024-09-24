@@ -462,7 +462,7 @@ def log_model(
             ``openai.Model.retrieve("gpt-4o-mini")``.
         task: The task the model is performing, e.g., ``openai.chat.completions`` or
             ``'chat.completions'``.
-        name: Model name.
+        name: {{ name }}
         conda_env: {{ conda_env }}
         code_paths: {{ code_paths }}
         registered_model_name: If given, create a model version under

@@ -223,7 +223,7 @@ def log_model(
     Args:
         cb_model: CatBoost model (an instance of `CatBoost`_, `CatBoostClassifier`_,
             `CatBoostRanker`_, or `CatBoostRegressor`_) to be saved.
-        name: Model name.
+        name: {{ name }}
         conda_env: {{ conda_env }}
         code_paths: A list of local filesystem paths to Python file dependencies (or directories
             containing file dependencies). These files are *prepended* to the system

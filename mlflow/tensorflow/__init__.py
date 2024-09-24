@@ -192,7 +192,7 @@ def log_model(
 
     Args:
         model: The TF2 core model (inheriting tf.Module) or Keras model to be saved.
-        name: Model name.
+        name: {{ name }}
         custom_objects: A Keras ``custom_objects`` dictionary mapping names (strings) to
             custom classes or functions associated with the Keras model. MLflow saves
             these custom layers using CloudPickle and restores them automatically

@@ -884,7 +884,7 @@ def log_model(
                         artifact_path="model",
                     )
 
-        name: Model name.
+        name: {{ name }}
         processor: An optional ``Processor`` subclass object. Some model architectures,
             particularly multi-modal types, utilize Processors to combine text
             encoding and image or audio encoding in a single entrypoint.

@@ -357,7 +357,7 @@ def log_model(  # noqa: D417
 
     Args:
         model: A trained ``sentence-transformers`` model.
-        name: Model name.
+        name: {{ name }}
         task: MLflow inference task type for ``sentence-transformers`` model. Candidate task type
             is `llm/v1/embeddings`.
         inference_config:

@@ -353,7 +353,7 @@ def log_model(
 
     Args:
         pd_model: paddle model to be saved.
-        name: Model name.
+        name: {{ name }}
         training: Only valid when saving a model trained using the PaddlePaddle high level API.
             If set to True, the saved model supports both re-training and
             inference. If set to False, it only supports inference.

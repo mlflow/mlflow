@@ -228,7 +228,7 @@ def log_model(
             <https://nlp.johnsnowlabs.com/docs/en/jsl/load_api>`_
         store_license: If True, the license will be stored with the model and used and re-loading
             it.
-        name: Model name.
+        name: {{ name }}
         conda_env: Either a dictionary representation of a Conda environment or the path to a
             Conda environment yaml file. If provided, this describes the environment
             this model should be run in. At minimum, it should specify the dependencies

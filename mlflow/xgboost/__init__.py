@@ -247,7 +247,7 @@ def log_model(
     Args:
         xgb_model: XGBoost model (an instance of `xgboost.Booster`_ or models that implement the
             `scikit-learn API`_) to be saved.
-        name: Model name.
+        name: {{ name }}
         conda_env: {{ conda_env }}
         code_paths: {{ code_paths }}
         registered_model_name: If given, create a model version under

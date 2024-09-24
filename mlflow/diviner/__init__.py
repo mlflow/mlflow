@@ -374,7 +374,7 @@ def log_model(
 
     Args:
         diviner_model: ``Diviner`` model that has been ``fit`` on a grouped temporal ``DataFrame``.
-        name: Model name.
+        name: {{ name }}
         conda_env: {{ conda_env }}
         code_paths: {{ code_paths }}
         registered_model_name: This argument may change or be removed in a

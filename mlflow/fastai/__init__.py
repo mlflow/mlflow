@@ -258,7 +258,7 @@ def log_model(
 
     Args:
         fastai_learner: Fastai model (an instance of `fastai.Learner`_) to be saved.
-        name: Model name.
+        name: {{ name }}
         conda_env: {{ conda_env }}
         code_paths: A list of local filesystem paths to Python file dependencies (or directories
             containing file dependencies). These files are *prepended* to the system

@@ -304,7 +304,7 @@ def log_model(
 
     Args:
         model: an instance of `keras.Model`. The Keras model to be saved.
-        name: Model name.
+        name: {{ name }}
         save_exported_model: defaults to False. If True, save Keras model in exported
             model format, otherwise save in `.keras` format. For more information, please
             refer to [Keras doc](https://keras.io/guides/serialization_and_saving/).
