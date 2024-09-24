@@ -1,3 +1,4 @@
+import inspect
 import json
 import keyword
 import logging
@@ -11,12 +12,16 @@ from abc import ABCMeta, abstractmethod
 from collections import OrderedDict
 from contextlib import contextmanager
 from decimal import Decimal
+from inspect import Parameter, Signature
 from types import FunctionType
 from typing import Any, Dict, List, Optional, Union
 
 import mlflow
 from mlflow.data.dataset import Dataset
-from mlflow.data.evaluation_dataset import EvaluationDataset, convert_data_to_mlflow_dataset
+from mlflow.data.evaluation_dataset import (
+    EvaluationDataset,
+    convert_data_to_mlflow_dataset,
+)
 from mlflow.entities.dataset_input import DatasetInput
 from mlflow.entities.input_tag import InputTag
 from mlflow.exceptions import MlflowException
@@ -151,6 +156,172 @@ class EvaluationMetric:
         return "EvaluationMetric(" + ", ".join(parts) + ")"
 
 
+# NB: we need this function because we cannot modify the signature of
+# a class's __call__ method after the class has been defined.
+# This is also useful to distinguish between the metric signatures with different eval_fn signatures
+def _generate_eval_metric_class(eval_fn, require_strict_signature=False):
+    """
+    Dynamically generate a GenAIEvaluationMetric class that can be used to evaluate the metric
+    on the given input data. The generated class is callable with a __call__ method that
+    takes the arguments specified in the signature of the eval_fn function.
+
+    Args:
+        eval_fn: the evaluation function of the EvaluationMetric.
+        require_strict_signature: (Optional) Whether the eval_fn needs to follow a strict signature.
+            If True, then the eval_fn must follow below signature:
+
+                .. code-block:: python
+
+                    def eval_fn(
+                        predictions: "pd.Series",
+                        metrics: Dict[str, MetricValue],
+                        inputs: "pd.Series",
+                        *args,
+                    ) -> MetricValue:
+                        pass
+
+            When generating a metric from `make_genai_metric`, this should be set to True.
+            Default to False.
+
+    Returns:
+        A dynamically generated callable CallableEvaluationMetric class.
+    """
+    from mlflow.metrics.base import MetricValue
+
+    if require_strict_signature:
+        allowed_kwargs_names = [
+            param_name
+            for param_name in inspect.signature(eval_fn).parameters.keys()
+            if param_name not in ["predictions", "metrics", "inputs"]
+        ]
+
+        def genai_call_method(
+            self,
+            *,
+            predictions: Union[pd.Series, str, List[str]],
+            inputs: Union[pd.Series, str, List[str]],
+            metrics: Optional[Dict[str, MetricValue]] = None,
+            **kwargs,
+        ) -> MetricValue:
+            if missed_kwargs := set(allowed_kwargs_names) - set(kwargs.keys()):
+                raise MlflowException.invalid_parameter_value(
+                    f"Missing required arguments: {missed_kwargs}",
+                )
+            if extra_kwargs := set(kwargs.keys()) - set(allowed_kwargs_names):
+                raise MlflowException.invalid_parameter_value(
+                    f"Unexpected arguments: {extra_kwargs}",
+                )
+            return self.eval_fn(
+                _convert_val_to_pd_Series(predictions, "predictions"),
+                metrics or {},
+                _convert_val_to_pd_Series(inputs, "inputs"),
+                # Note: based on https://github.com/mlflow/mlflow/blob/4fef77afdbe4d76302cb0b1aad2bd72b5cde64e9/mlflow/metrics/genai/genai_metric.py#L49-L53
+                # the extra params passed https://github.com/mlflow/mlflow/blob/4fef77afdbe4d76302cb0b1aad2bd72b5cde64e9/mlflow/metrics/genai/genai_metric.py#L513
+                # should always be pandas Series
+                *[
+                    _convert_val_to_pd_Series(kwargs[arg_name], arg_name)
+                    for arg_name in allowed_kwargs_names
+                ],
+            )
+
+        genai_call_method.__signature__ = Signature(
+            parameters=[
+                Parameter("self", Parameter.POSITIONAL_OR_KEYWORD),
+                Parameter(
+                    "predictions",
+                    Parameter.KEYWORD_ONLY,
+                    annotation=Union[pd.Series, str, List[str]],
+                ),
+                Parameter(
+                    "inputs",
+                    Parameter.KEYWORD_ONLY,
+                    annotation=Union[pd.Series, str, List[str]],
+                ),
+                Parameter(
+                    "metrics",
+                    Parameter.KEYWORD_ONLY,
+                    annotation=Optional[Dict[str, MetricValue]],
+                    default=None,
+                ),
+                *[
+                    Parameter(
+                        name, Parameter.KEYWORD_ONLY, annotation=Union[pd.Series, str, List[str]]
+                    )
+                    for name in allowed_kwargs_names
+                ],
+            ]
+        )
+        genai_call_method.__doc__ = f"""
+            Evaluate the metric on the given inputs and predictions.
+            Note: only keyword arguments are supported.
+
+            Args:
+                predictions: predictions made by the model.
+                inputs: inputs used to make the predictions.
+                metrics: metrics calculated by the default evaluator.
+                kwargs: additional arguments used to compute the metric.
+                    Required arguments: {allowed_kwargs_names}
+
+            Returns:
+                evaluation result as MetricValue object.
+            """
+        call_method = genai_call_method
+
+    else:
+
+        def _call_method(
+            self,
+            **kwargs,
+        ) -> MetricValue:
+            return self.eval_fn(**kwargs)
+
+        allowed_kwargs_params = inspect.signature(eval_fn).parameters
+        _call_method.__signature__ = Signature(
+            parameters=[
+                Parameter("self", Parameter.POSITIONAL_OR_KEYWORD),
+                *[
+                    Parameter(
+                        name,
+                        Parameter.KEYWORD_ONLY,
+                        annotation=allowed_kwargs_params[name].annotation,
+                    )
+                    for name in allowed_kwargs_params.keys()
+                ],
+            ]
+        )
+        _call_method.__doc__ = f"""
+            Evaluate the metric on the given inputs and predictions.
+            Note: only keyword arguments are supported.
+
+            Args:
+                kwargs: additional arguments used to compute the metric.
+                    Required arguments: {list(allowed_kwargs_params.keys())}
+
+            Returns:
+                evaluation result as MetricValue object.
+            """
+        call_method = _call_method
+
+    return type(
+        "CallableEvaluationMetric",
+        (EvaluationMetric,),
+        {"__call__": call_method},
+    )
+
+
+def _convert_val_to_pd_Series(val, name):
+    if val is not None and not isinstance(val, pd.Series):
+        if isinstance(val, str):
+            return pd.Series([val])
+        elif isinstance(val, list):
+            return pd.Series(val)
+        else:
+            raise TypeError(
+                f"Expected {name} to be a string, list, or Pandas Series, got {type(val)}"
+            )
+    return val
+
+
 def make_metric(
     *,
     eval_fn,
@@ -218,6 +389,102 @@ def make_metric(
         - :py:class:`mlflow.models.EvaluationMetric`
         - :py:func:`mlflow.evaluate`
     '''
+    return _make_metric(
+        eval_fn=eval_fn,
+        greater_is_better=greater_is_better,
+        name=name,
+        long_name=long_name,
+        version=version,
+        metric_details=metric_details,
+        metric_metadata=metric_metadata,
+        genai_metric_args=genai_metric_args,
+        require_strict_signature=False,
+    )
+
+
+def _make_metric(
+    *,
+    eval_fn,
+    greater_is_better,
+    name=None,
+    long_name=None,
+    version=None,
+    metric_details=None,
+    metric_metadata=None,
+    genai_metric_args=None,
+    require_strict_signature=False,
+):
+    '''
+    A factory function to create an :py:class:`EvaluationMetric` object.
+
+    Args:
+        eval_fn: A function that computes the metric with the following signature:
+
+            .. code-block:: python
+
+                def eval_fn(
+                    predictions: pandas.Series,
+                    targets: pandas.Series,
+                    metrics: Dict[str, MetricValue],
+                    **kwargs,
+                ) -> Union[float, MetricValue]:
+                    """
+                    Args:
+                        predictions: A pandas Series containing the predictions made by the model.
+                        targets: (Optional) A pandas Series containing the corresponding labels
+                            for the predictions made on that input.
+                        metrics: (Optional) A dictionary containing the metrics calculated by the
+                            default evaluator.  The keys are the names of the metrics and the values
+                            are the metric values.  To access the MetricValue for the metrics
+                            calculated by the system, make sure to specify the type hint for this
+                            parameter as Dict[str, MetricValue].  Refer to the DefaultEvaluator
+                            behavior section for what metrics will be returned based on the type of
+                            model (i.e. classifier or regressor).  kwargs: Includes a list of args
+                            that are used to compute the metric. These args could information coming
+                            from input data, model outputs or parameters specified in the
+                            `evaluator_config` argument of the `mlflow.evaluate` API.
+                        kwargs: Includes a list of args that are used to compute the metric. These
+                            args could be information coming from input data, model outputs,
+                            other metrics, or parameters specified in the `evaluator_config`
+                            argument of the `mlflow.evaluate` API.
+
+                    Returns: MetricValue with per-row scores, per-row justifications, and aggregate
+                        results.
+                    """
+                    ...
+
+        greater_is_better: Whether a higher value of the metric is better.
+        name: The name of the metric. This argument must be specified if ``eval_fn`` is a lambda
+                    function or the ``eval_fn.__name__`` attribute is not available.
+        long_name: (Optional) The long name of the metric. For example, ``"mean_squared_error"``
+            for ``"mse"``.
+        version: (Optional) The metric version. For example ``v1``.
+        metric_details: (Optional) A description of the metric and how it is calculated.
+        metric_metadata: (Optional) A dictionary containing metadata for the metric.
+        genai_metric_args: (Optional) A dictionary containing arguments specified by users
+            when calling make_genai_metric or make_genai_metric_from_prompt. Those args
+            are persisted so that we can deserialize the same metric object later.
+        require_strict_signature: (Optional) Whether the eval_fn needs to follow a strict signature.
+            If True, then the eval_fn must follow below signature:
+
+                .. code-block:: python
+
+                    def eval_fn(
+                        predictions: "pd.Series",
+                        metrics: Dict[str, MetricValue],
+                        inputs: "pd.Series",
+                        *args,
+                    ) -> MetricValue:
+                        pass
+
+            When generating a metric from `make_genai_metric`, this should be set to True.
+            Default to False.
+
+    .. seealso::
+
+        - :py:class:`mlflow.models.EvaluationMetric`
+        - :py:func:`mlflow.evaluate`
+    '''
     if name is None:
         if isinstance(eval_fn, FunctionType) and eval_fn.__name__ == "<lambda>":
             raise MlflowException(
@@ -258,15 +525,15 @@ def make_metric(
             "name to enable creation of derived metrics that use the given metric."
         )
 
-    return EvaluationMetric(
-        eval_fn,
-        name,
-        greater_is_better,
-        long_name,
-        version,
-        metric_details,
-        metric_metadata,
-        genai_metric_args,
+    return _generate_eval_metric_class(eval_fn, require_strict_signature=require_strict_signature)(
+        eval_fn=eval_fn,
+        name=name,
+        greater_is_better=greater_is_better,
+        long_name=long_name,
+        version=version,
+        metric_details=metric_details,
+        metric_metadata=metric_metadata,
+        genai_metric_args=genai_metric_args,
     )
 
 
