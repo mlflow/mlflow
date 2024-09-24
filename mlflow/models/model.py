@@ -84,7 +84,7 @@ class ModelInfo:
 
     def __init__(
         self,
-        name: str,
+        artifact_path: str,
         flavors: Dict[str, Any],
         model_uri: str,
         model_uuid: str,
@@ -97,7 +97,7 @@ class ModelInfo:
         metadata: Optional[Dict[str, Any]] = None,
         registered_model_version: Optional[int] = None,
     ):
-        self._name = name
+        self._artifact_path = artifact_path
         self._flavors = flavors
         self._model_uri = model_uri
         self._model_uuid = model_uuid
@@ -111,14 +111,14 @@ class ModelInfo:
         self._registered_model_version = registered_model_version
 
     @property
-    def name(self):
+    def artifact_path(self):
         """
-        The model name.
+        Run relative path identifying the logged model.
 
-        :getter: Retrieves The model name.
+        :getter: Retrieves the relative path of the logged model.
         :type: str
         """
-        return self._name
+        return self._artifact_path
 
     @property
     def flavors(self):
