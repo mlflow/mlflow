@@ -148,13 +148,14 @@ class __MlflowPLCallback(pl.Callback, metaclass=ExceptionSafeAbstractClass):
         # pytorch-lightning >= 1.3.0
 
         @rank_zero_only
-        def on_train_epoch_end(self, trainer, pl_module, *args):  # noqa: D417
+        def on_train_epoch_end(self, trainer, pl_module, *args):
             """
             Log loss and other metrics values after each train epoch
 
             Args:
                 trainer: pytorch lightning trainer instance
                 pl_module: pytorch lightning base module
+                args: additional positional arguments
             """
             # If validation loop is enabled (meaning `validation_step` is overridden),
             # log metrics in `on_validaion_epoch_end` to avoid logging the same metrics
@@ -187,13 +188,14 @@ class __MlflowPLCallback(pl.Callback, metaclass=ExceptionSafeAbstractClass):
             self._log_epoch_metrics(trainer, pl_module)
 
     @rank_zero_only
-    def on_train_batch_end(self, trainer, pl_module, *args):  # noqa: D417
+    def on_train_batch_end(self, trainer, pl_module, *args):
         """
         Log metric values after each step
 
         Args:
             trainer: pytorch lightning trainer instance
             pl_module: pytorch lightning base module
+            args: additional positional arguments
         """
         if not self.log_every_n_step:
             return

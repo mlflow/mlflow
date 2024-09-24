@@ -524,13 +524,14 @@ def make_tarfile(output_filename, source_dir, archive_name, custom_filter=None):
         os.close(unzipped_file_handle)
 
 
-def _copy_project(src_path, dst_path=""):  # noqa: D417
+def _copy_project(src_path, dst_path=""):
     """Internal function used to copy MLflow project during development.
 
     Copies the content of the whole directory tree except patterns defined in .dockerignore.
     The MLflow is assumed to be accessible as a local directory in this case.
 
     Args:
+        src_path: Path to the original MLflow project
         dst_path: MLflow will be copied here
 
     Returns:

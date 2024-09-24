@@ -25,13 +25,13 @@ _DATABRICKS_UNITY_CATALOG_SCHEME = "databricks-uc"
 _OSS_UNITY_CATALOG_SCHEME = "uc"
 
 
-def is_local_uri(uri, is_tracking_or_registry_uri=True):  # noqa: D417
+def is_local_uri(uri, is_tracking_or_registry_uri=True):
     """Returns true if the specified URI is a local file path (/foo or file:/foo).
 
     Args:
         uri: The URI.
-        is_tracking_uri: Whether or not the specified URI is an MLflow Tracking or MLflow
-            Model Registry URI. Examples of other URIs are MLflow artifact URIs,
+        is_tracking_or_registry_uri: Whether or not the specified URI is an MLflow Tracking or
+            MLflow Model Registry URI. Examples of other URIs are MLflow artifact URIs,
             filesystem paths, etc.
     """
     if uri == "databricks" and is_tracking_or_registry_uri:
