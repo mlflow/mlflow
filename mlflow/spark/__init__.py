@@ -172,7 +172,7 @@ def log_model(
         spark_model: Spark model to be saved - MLflow can only save descendants of
             pyspark.ml.Model or pyspark.ml.Transformer which implement
             MLReadable and MLWritable.
-        name: Model name.
+        name: {{ name }}
         conda_env: {{ conda_env }}
         code_paths: {{ code_paths }}
         dfs_tmpdir: Temporary directory path on Distributed (Hadoop) File System (DFS) or local
