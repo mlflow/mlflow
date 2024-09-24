@@ -576,7 +576,7 @@ def _load_model(path, device=None, **kwargs):
     """
     Args:
         path: The path to a serialized PyTorch model.
-        device: If not None, load the model on the specified device.
+        device: If specified, load the model on the specified device.
         kwargs: Additional kwargs to pass to the PyTorch ``torch.load`` function.
     """
     import torch
