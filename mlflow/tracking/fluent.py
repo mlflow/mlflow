@@ -21,6 +21,7 @@ from mlflow.entities import (
     LoggedModel,
     Metric,
     ModelInput,
+    ModelOutput,
     Param,
     Run,
     RunStatus,
@@ -1086,7 +1087,10 @@ def log_params(
 
 
 def log_input(
-    dataset: Dataset, context: Optional[str] = None, tags: Optional[Dict[str, str]] = None
+    dataset: Optional[Dataset] = None,
+    context: Optional[str] = None,
+    tags: Optional[Dict[str, str]] = None,
+    model: Optional[ModelInput] = None,
 ) -> None:
     """
     Log a dataset used in the current run.
@@ -1096,6 +1100,7 @@ def log_input(
         context: Context in which the dataset is used. For example: "training", "testing".
             This will be set as an input tag with key `mlflow.data.context`.
         tags: Tags to be associated with the dataset. Dictionary of tag_key -> tag_value.
+        model: A :py:class:`mlflow.entities.ModelInput` instance to log as as input to the run.
 
     .. code-block:: python
         :test:
@@ -1111,6 +1116,10 @@ def log_input(
         with mlflow.start_run():
             mlflow.log_input(dataset, context="training")
     """
+    if (context or tags) and dataset is None:
+        raise MlflowException.invalid_parameter_value(
+            "`dataset` must be specified if `context` or `tags` is specified."
+        )
     run_id = _get_or_start_run().info.run_id
     tags_to_log = []
     if tags:
@@ -1120,7 +1129,7 @@ def log_input(
 
     dataset_input = DatasetInput(dataset=dataset._to_mlflow_entity(), tags=tags_to_log)
 
-    MlflowClient().log_inputs(run_id=run_id, datasets=[dataset_input])
+    MlflowClient().log_inputs(run_id=run_id, datasets=[dataset_input], models=[model])
 
 
 def set_experiment_tags(tags: Dict[str, Any]) -> None:
@@ -2023,6 +2032,22 @@ def search_logged_models(
             "'pandas' or 'list'",
             INVALID_PARAMETER_VALUE,
         )
+
+
+def log_outputs(models: Optional[List[ModelOutput]] = None):
+    """
+    Log outputs, such as models, to the active run. If there is no active run, a new run will be
+    created.
+
+    Args:
+        models: List of :py:class:`mlflow.entities.ModelOutput` instances to log
+            as outputs to the run.
+
+    Returns:
+        None.
+    """
+    run_id = _get_or_start_run().info.run_id
+    MlflowClient().log_outputs(run_id, models=models)
 
 
 def delete_run(run_id: str) -> None:

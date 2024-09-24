@@ -4,6 +4,8 @@ from typing import Dict, List, Optional, Tuple
 from mlflow.entities import (
     DatasetInput,
     LoggedModel,
+    ModelInput,
+    ModelOutput,
     ModelStatus,
     ModelTag,
     TraceInfo,
@@ -649,7 +651,12 @@ class AbstractStore:
             self._async_logging_queue.shut_down_async_logging()
 
     @abstractmethod
-    def log_inputs(self, run_id: str, datasets: Optional[List[DatasetInput]] = None):
+    def log_inputs(
+        self,
+        run_id: str,
+        datasets: Optional[List[DatasetInput]] = None,
+        models: Optional[List[ModelInput]] = None,
+    ):
         """
         Log inputs, such as datasets, to the specified run.
 
@@ -657,10 +664,26 @@ class AbstractStore:
             run_id: String id for the run
             datasets: List of :py:class:`mlflow.entities.DatasetInput` instances to log
                 as inputs to the run.
+            models: List of :py:class:`mlflow.entities.ModelInput` instances to log
+                as inputs to the run.
 
         Returns:
             None.
         """
+
+    def log_outputs(self, run_id, models: Optional[List[ModelOutput]] = None):
+        """
+        Log outputs, such as models, to the specified run.
+
+        Args:
+            run_id: String id for the run
+            models: List of :py:class:`mlflow.entities.ModelOutput` instances to log
+                as outputs of the run.
+
+        Returns:
+            None.
+        """
+        raise NotImplementedError
 
     def record_logged_model(self, run_id, mlflow_model):
         raise NotImplementedError
