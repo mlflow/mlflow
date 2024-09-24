@@ -25,6 +25,7 @@ from mlflow.metrics import (
     rougeL,
     rougeLsum,
     toxicity,
+    bleu
 )
 
 
@@ -39,6 +40,7 @@ from mlflow.metrics import (
         rougeL(),
         rougeLsum(),
         toxicity(),
+        bleu()
     ],
 )
 def test_return_type_and_len_with_target(metric):
@@ -338,3 +340,23 @@ def test_ndcg_at_k():
     targets = pd.Series([["a", "b"]])
     result = ndcg_at_k(k=3).eval_fn(predictions, targets)
     assert result.scores[0] == 0.0
+
+
+def test_bleu():
+    predictions = ["hello world", "this is a test"]
+    targets = ["hello world", "this is a test sentence"]
+    result = bleu().eval_fn(predictions, targets)
+    assert result.scores == [0.0, 0.7788007830714049]
+    assert result.justifications == None
+    assert result.aggregate_results["mean"] == 0.38940039153570244
+    assert result.aggregate_results["p90"] == 0.7009207047642644
+    assert result.aggregate_results["variance"] == 0.15163266492815836
+
+    predictions = ["hello there general kenobi", "foo bar foobar"]
+    targets = ["hello there general kenobi", "hello there !","foo bar foobar"]
+    result = bleu().eval_fn(predictions, targets)
+    assert result.scores == [1.0, 0.0]
+    assert result.justifications == None
+    assert result.aggregate_results["mean"] == 0.5
+    assert result.aggregate_results["p90"] == 0.25
+    assert result.aggregate_results["variance"] == 0.9
