@@ -819,8 +819,8 @@ class TrackingServiceClient:
         """
         self.store.log_inputs(run_id=run_id, datasets=datasets, models=models)
 
-    def log_outputs(self, run_id: str, outputs: List[ModelOutput]):
-        self.store.log_outputs(run_id=run_id, outputs=outputs)
+    def log_outputs(self, run_id: str, models: List[ModelOutput]):
+        self.store.log_outputs(run_id=run_id, models=models)
 
     def _record_logged_model(self, run_id, mlflow_model):
         from mlflow.models import Model
