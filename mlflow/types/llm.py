@@ -157,8 +157,8 @@ class ToolCall(_BaseDataclass):
     A tool call made by the model.
 
     Args:
-        id (str): The ID of the tool call.
         function (:py:class:`FunctionToolCallArguments`): The arguments of the function tool call.
+        id (str): The ID of the tool call. Defaults to a random UUID.
         type (str): The type of the object. Currently only "function" is supported.
     """
 
