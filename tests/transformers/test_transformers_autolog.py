@@ -8,7 +8,6 @@ import sklearn
 import sklearn.cluster
 import sklearn.datasets
 import torch
-import transformers
 from datasets import load_dataset
 from packaging.version import Version
 from sentence_transformers.losses import CosineSimilarityLoss
@@ -24,13 +23,6 @@ from transformers import (
 )
 
 import mlflow
-
-# For setfit >= 1.1.0, the trainer.train function internally
-# invokes transformers trainer, so autologging is invoked and runs
-# are generated
-SETFIT_PRODUCES_RUN = Version(setfit.__version__) >= Version("1.1.0") and Version(
-    transformers.__version__
-) >= Version("4.41.2")
 
 
 @pytest.fixture
@@ -61,7 +53,7 @@ def setfit_trainer():
     #   evaluation_strategy argument is being addressed in the SetFit library.
     training_args.eval_strategy = training_args.evaluation_strategy
 
-    return SetFitTrainer(
+    trainer = SetFitTrainer(
         model=model,
         train_dataset=train_dataset,
         eval_dataset=eval_dataset,
@@ -69,6 +61,18 @@ def setfit_trainer():
         column_mapping={"sentence": "text", "label": "label"},
         args=training_args,
     )
+
+    # setfit >= 1.1.0 defines an internal BCSentenceTransformersTrainer
+    # which directly uses transformers.Trainer, and the default callbacks
+    # include MLflowCallback, so it produces extra runs no matter autologging
+    # is on or off
+    # ref: https://github.com/huggingface/transformers/blob/11c27dd331151e7d2ac20016cce11d9d7c4b1756/src/transformers/integrations/integration_utils.py#L2138
+    if Version(setfit.__version__) >= Version("1.1.0"):
+        from transformers.integrations.integration_utils import MLflowCallback
+
+        trainer.remove_callback(MLflowCallback)
+
+    return trainer
 
 
 @pytest.fixture
@@ -284,10 +288,7 @@ def test_setfit_does_not_autolog(setfit_trainer):
     setfit_trainer.train()
 
     last_run = mlflow.last_active_run()
-    if SETFIT_PRODUCES_RUN:
-        assert last_run
-    else:
-        assert not last_run
+    assert not last_run
     preds = setfit_trainer.model(
         ["Always carry a towel!", "The hobbits are going to Isengard", "What's tatoes, precious?"]
     )
@@ -321,7 +322,7 @@ def test_transformers_autolog_adheres_to_global_behavior_using_setfit(setfit_tra
     mlflow.transformers.autolog(disable=False)
 
     setfit_trainer.train()
-    assert len(mlflow.search_runs()) == (1 if SETFIT_PRODUCES_RUN else 0)
+    assert len(mlflow.search_runs()) == 0
     preds = setfit_trainer.model(["Jim, I'm a doctor, not an archaeologist!"])
     assert len(preds) == 1
 
@@ -385,7 +386,7 @@ def test_active_autolog_no_setfit_logging_followed_by_successful_sklearn_autolog
 
     client = mlflow.MlflowClient()
     runs = client.search_runs([exp.experiment_id])
-    assert len(runs) == (2 if SETFIT_PRODUCES_RUN else 1)
+    assert len(runs) == 1
     assert runs[0].info == logged_sklearn_data.info
 
 
@@ -463,7 +464,7 @@ def test_disabled_sklearn_autologging_does_not_revert_to_enabled_with_setfit(
     client = mlflow.MlflowClient()
     runs = client.search_runs([exp.experiment_id])
 
-    assert len(runs) == (2 if SETFIT_PRODUCES_RUN else 1)
+    assert len(runs) == 1
     assert runs[0].info == logged_sklearn_data.info
 
 
