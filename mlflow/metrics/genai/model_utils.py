@@ -150,7 +150,14 @@ def _call_deployments_api(deployment_uri, payload, eval_parameters, wrap_payload
         completion_inputs = {**payload, **eval_parameters}
         response = client.predict(endpoint=deployment_uri, inputs=completion_inputs)
         return _parse_chat_response_format(response)
-
+    elif endpoint_type is None:
+        # If the endpoint type is not specified, we don't assume any format
+        # and directly send the payload to the endpoint. This is primary for Databricks
+        # Managed Agent Evaluation, where the endpoint type may not be specified but the
+        # eval harness ensures that the payload is formatted to the chat format, as well
+        # as parsing the response.
+        chat_inputs = {**payload, **eval_parameters}
+        return client.predict(endpoint=deployment_uri, inputs=chat_inputs)
     else:
         raise MlflowException(
             f"Unsupported endpoint type: {endpoint_type}. Use an "

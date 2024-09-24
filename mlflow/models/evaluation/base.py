@@ -14,7 +14,7 @@ from contextlib import contextmanager
 from decimal import Decimal
 from inspect import Parameter, Signature
 from types import FunctionType
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, Optional
 
 import mlflow
 from mlflow.data.dataset import Dataset
