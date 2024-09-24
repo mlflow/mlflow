@@ -712,6 +712,11 @@ class Model:
                 waiting.
             metadata: {{ metadata }}
             resources: {{ resources }}
+            model_type: {{ model_type }}
+            params: {{ params }}
+            tags: {{ tags }}
+            step: {{ step }}
+            model_id: {{ model_id }}
             kwargs: Extra args passed to the model flavor.
 
         Returns:
