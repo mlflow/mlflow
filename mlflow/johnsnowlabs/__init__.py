@@ -688,7 +688,6 @@ def load_model(model_uri, dfs_tmpdir=None, dst_path=None):
         dst_path: The local filesystem path to which to download the model artifact.
             This directory must already exist. If unspecified, a local output
             path will be created.
-        kwargs: Ignore additional arguments.
 
     Returns:
         A
