@@ -405,7 +405,7 @@ def save_model(
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
 @docstring_version_compatibility_warning(FLAVOR_NAME)
 @trace_disabled  # Suppress traces for internal predict calls while logging model
-def log_model(  # noqa: D417
+def log_model(
     lc_model,
     name: Optional[str] = None,
     conda_env=None,
@@ -547,6 +547,11 @@ def log_model(  # noqa: D417
         streamable: A boolean value indicating if the model supports streaming prediction. If
             True, the model must implement `stream` method. If None, If None, streamable is
             set to True if the model implements `stream` method. Default to `None`.
+        params: {{ params }}
+        tags: {{ tags }}
+        model_type: {{ model_type }}
+        step: {{ step }}
+        model_id: {{ model_id }}
 
     Returns:
         A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the

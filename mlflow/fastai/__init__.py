@@ -237,7 +237,7 @@ def save_model(
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
 def log_model(
     fastai_learner,
-    artifact_path,
+    name: Optional[str] = None,
     conda_env=None,
     code_paths=None,
     registered_model_name=None,
@@ -247,13 +247,18 @@ def log_model(
     pip_requirements=None,
     extra_pip_requirements=None,
     metadata=None,
+    params: Optional[Dict[str, Any]] = None,
+    tags: Optional[Dict[str, Any]] = None,
+    model_type: Optional[str] = None,
+    step: int = 0,
+    model_id: Optional[str] = None,
     **kwargs,
 ):
     """Log a fastai model as an MLflow artifact for the current run.
 
     Args:
         fastai_learner: Fastai model (an instance of `fastai.Learner`_) to be saved.
-        artifact_path: Run-relative artifact path.
+        name: Model name.
         conda_env: {{ conda_env }}
         code_paths: A list of local filesystem paths to Python file dependencies (or directories
             containing file dependencies). These files are *prepended* to the system
@@ -283,6 +288,11 @@ def log_model(
         pip_requirements: {{ pip_requirements }}
         extra_pip_requirements: {{ extra_pip_requirements }}
         metadata: {{ metadata }}
+        params: {{ params }}
+        tags: {{ tags }}
+        model_type: {{ model_type }}
+        step: {{ step }}
+        model_id: {{ model_id }}
 
     Returns:
         A ModelInfo instance that contains the metadata of the logged model.
@@ -324,7 +334,7 @@ def log_model(
         artifacts: ['model/MLmodel', 'model/conda.yaml', 'model/model.fastai']
     """
     return Model.log(
-        artifact_path=artifact_path,
+        name=name,
         flavor=mlflow.fastai,
         registered_model_name=registered_model_name,
         fastai_learner=fastai_learner,

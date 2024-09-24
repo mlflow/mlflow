@@ -140,7 +140,7 @@ def get_global_custom_objects():
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
 def log_model(
     model,
-    artifact_path,
+    name: Optional[str] = None,
     custom_objects=None,
     conda_env=None,
     code_paths=None,
@@ -153,6 +153,11 @@ def log_model(
     saved_model_kwargs=None,
     keras_model_kwargs=None,
     metadata=None,
+    params: Optional[Dict[str, Any]] = None,
+    tags: Optional[Dict[str, Any]] = None,
+    model_type: Optional[str] = None,
+    step: int = 0,
+    model_id: Optional[str] = None,
 ):
     """
     Log a TF2 core model (inheriting tf.Module) or a Keras model in MLflow Model format.
@@ -187,7 +192,7 @@ def log_model(
 
     Args:
         model: The TF2 core model (inheriting tf.Module) or Keras model to be saved.
-        artifact_path: The run-relative path to which to log model artifacts.
+        name: Model name.
         custom_objects: A Keras ``custom_objects`` dictionary mapping names (strings) to
             custom classes or functions associated with the Keras model. MLflow saves
             these custom layers using CloudPickle and restores them automatically
@@ -208,6 +213,11 @@ def log_model(
         saved_model_kwargs: a dict of kwargs to pass to ``tensorflow.saved_model.save`` method.
         keras_model_kwargs: a dict of kwargs to pass to ``keras_model.save`` method.
         metadata: {{ metadata }}
+        params: {{ params }}
+        tags: {{ tags }}
+        model_type: {{ model_type }}
+        step: {{ step }}
+        model_id: {{ model_id }}
 
     Returns
         A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
@@ -215,7 +225,7 @@ def log_model(
     """
 
     return Model.log(
-        artifact_path=artifact_path,
+        name=name,
         flavor=mlflow.tensorflow,
         model=model,
         conda_env=conda_env,

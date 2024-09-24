@@ -326,7 +326,7 @@ def load_model(model_uri, model=None, dst_path=None, **kwargs):
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
 def log_model(
     pd_model,
-    artifact_path,
+    name: Optional[str] = None,
     training=False,
     conda_env=None,
     code_paths=None,
@@ -337,6 +337,11 @@ def log_model(
     pip_requirements=None,
     extra_pip_requirements=None,
     metadata=None,
+    params: Optional[Dict[str, Any]] = None,
+    tags: Optional[Dict[str, Any]] = None,
+    model_type: Optional[str] = None,
+    step: int = 0,
+    model_id: Optional[str] = None,
 ):
     """
     Log a paddle model as an MLflow artifact for the current run. Produces an MLflow Model
@@ -348,7 +353,7 @@ def log_model(
 
     Args:
         pd_model: paddle model to be saved.
-        artifact_path: Run-relative artifact path.
+        name: Model name.
         training: Only valid when saving a model trained using the PaddlePaddle high level API.
             If set to True, the saved model supports both re-training and
             inference. If set to False, it only supports inference.
@@ -365,6 +370,11 @@ def log_model(
         pip_requirements: {{ pip_requirements }}
         extra_pip_requirements: {{ extra_pip_requirements }}
         metadata: {{ metadata }}
+        params: {{ params }}
+        tags: {{ tags }}
+        model_type: {{ model_type }}
+        step: {{ step }}
+        model_id: {{ model_id }}
 
     Returns:
         A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
@@ -396,7 +406,7 @@ def log_model(
         mlflow.paddle.save_model(model, sk_path_dir)
     """
     return Model.log(
-        artifact_path=artifact_path,
+        name=name,
         flavor=mlflow.paddle,
         pd_model=pd_model,
         conda_env=conda_env,

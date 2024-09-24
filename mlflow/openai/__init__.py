@@ -436,7 +436,7 @@ def save_model(
 def log_model(
     model,
     task,
-    artifact_path,
+    name: Optional[str] = None,
     conda_env=None,
     code_paths=None,
     registered_model_name=None,
@@ -447,6 +447,11 @@ def log_model(
     extra_pip_requirements=None,
     metadata=None,
     example_no_conversion=None,
+    params: Optional[Dict[str, Any]] = None,
+    tags: Optional[Dict[str, Any]] = None,
+    model_type: Optional[str] = None,
+    step: int = 0,
+    model_id: Optional[str] = None,
     **kwargs,
 ):
     """
@@ -457,7 +462,7 @@ def log_model(
             ``openai.Model.retrieve("gpt-4o-mini")``.
         task: The task the model is performing, e.g., ``openai.chat.completions`` or
             ``'chat.completions'``.
-        artifact_path: Run-relative artifact path.
+        name: Model name.
         conda_env: {{ conda_env }}
         code_paths: {{ code_paths }}
         registered_model_name: If given, create a model version under
@@ -486,6 +491,11 @@ def log_model(
         extra_pip_requirements: {{ extra_pip_requirements }}
         metadata: {{ metadata }}
         example_no_conversion: {{ example_no_conversion }}
+        params: {{ params }}
+        tags: {{ tags }}
+        model_type: {{ model_type }}
+        step: {{ step }}
+        model_id: {{ model_id }}
         kwargs: Keyword arguments specific to the OpenAI task, such as the ``messages`` (see
             :ref:`mlflow.openai.messages` for more details on this parameter)
             or ``top_p`` value to use for chat completion.
@@ -523,7 +533,7 @@ def log_model(
     """
 
     return Model.log(
-        artifact_path=artifact_path,
+        name=name,
         flavor=mlflow.openai,
         registered_model_name=registered_model_name,
         model=model,

@@ -144,7 +144,7 @@ def get_default_conda_env(is_spark_connect_model=False):
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name="pyspark"))
 def log_model(
     spark_model,
-    artifact_path,
+    name: Optional[str] = None,
     conda_env=None,
     code_paths=None,
     dfs_tmpdir=None,
@@ -156,6 +156,11 @@ def log_model(
     pip_requirements=None,
     extra_pip_requirements=None,
     metadata=None,
+    params: Optional[Dict[str, Any]] = None,
+    tags: Optional[Dict[str, Any]] = None,
+    model_type: Optional[str] = None,
+    step: int = 0,
+    model_id: Optional[str] = None,
 ):
     """
     Log a Spark MLlib model as an MLflow artifact for the current run. This uses the
@@ -167,7 +172,7 @@ def log_model(
         spark_model: Spark model to be saved - MLflow can only save descendants of
             pyspark.ml.Model or pyspark.ml.Transformer which implement
             MLReadable and MLWritable.
-        artifact_path: Run relative artifact path.
+        name: Model name.
         conda_env: {{ conda_env }}
         code_paths: {{ code_paths }}
         dfs_tmpdir: Temporary directory path on Distributed (Hadoop) File System (DFS) or local
@@ -246,6 +251,11 @@ def log_model(
         pip_requirements: {{ pip_requirements }}
         extra_pip_requirements: {{ extra_pip_requirements }}
         metadata: {{ metadata }}
+        params: {{ params }}
+        tags: {{ tags }}
+        model_type: {{ model_type }}
+        step: {{ step }}
+        model_id: {{ model_id }}
 
     Returns:
         A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
@@ -279,7 +289,7 @@ def log_model(
 
     if _is_spark_connect_model(spark_model):
         return Model.log(
-            artifact_path=artifact_path,
+            name=name,
             flavor=mlflow.spark,
             spark_model=spark_model,
             conda_env=conda_env,
@@ -300,10 +310,8 @@ def log_model(
     run_root_artifact_uri = mlflow.get_artifact_uri()
     remote_model_path = None
     if _should_use_mlflowdbfs(run_root_artifact_uri):
-        remote_model_path = append_to_uri_path(
-            run_root_artifact_uri, artifact_path, _SPARK_MODEL_PATH_SUB
-        )
-        mlflowdbfs_path = _mlflowdbfs_path(run_id, artifact_path)
+        remote_model_path = append_to_uri_path(run_root_artifact_uri, name, _SPARK_MODEL_PATH_SUB)
+        mlflowdbfs_path = _mlflowdbfs_path(run_id, name)
         with databricks_utils.MlflowCredentialContext(
             get_databricks_profile_uri_from_artifact_uri(run_root_artifact_uri)
         ):
@@ -320,10 +328,10 @@ def log_model(
     # artifact repo via Spark. If this fails, we defer to Model.log().
     elif is_local_uri(run_root_artifact_uri) or not _maybe_save_model(
         spark_model,
-        append_to_uri_path(run_root_artifact_uri, artifact_path),
+        append_to_uri_path(run_root_artifact_uri, name),
     ):
         return Model.log(
-            artifact_path=artifact_path,
+            name=name,
             flavor=mlflow.spark,
             spark_model=spark_model,
             conda_env=conda_env,
@@ -339,7 +347,7 @@ def log_model(
             metadata=metadata,
         )
     # Otherwise, override the default model log behavior and save model directly to artifact repo
-    mlflow_model = Model(artifact_path=artifact_path, run_id=run_id)
+    mlflow_model = Model(artifact_path=name, run_id=run_id)
     with TempDir() as tmp:
         tmp_model_metadata_dir = tmp.path()
         _save_model_metadata(
@@ -355,11 +363,11 @@ def log_model(
             extra_pip_requirements=extra_pip_requirements,
             remote_model_path=remote_model_path,
         )
-        mlflow.tracking.fluent.log_artifacts(tmp_model_metadata_dir, artifact_path)
+        mlflow.tracking.fluent.log_artifacts(tmp_model_metadata_dir, name)
         mlflow.tracking.fluent._record_logged_model(mlflow_model)
         if registered_model_name is not None:
             mlflow.register_model(
-                f"runs:/{run_id}/{artifact_path}",
+                f"runs:/{run_id}/{name}",
                 registered_model_name,
                 await_registration_for,
             )
