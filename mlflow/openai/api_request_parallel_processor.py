@@ -25,6 +25,7 @@ import logging
 import queue
 import threading
 import time
+import os
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from typing import Dict
@@ -228,7 +229,7 @@ def process_api_requests(
     api_token: _OAITokenHolder,
     # Reference: https://platform.openai.com/docs/guides/rate-limits/overview
     max_requests_per_minute: float = 3_500,
-    max_tokens_per_minute: float = 90_000,
+    max_tokens_per_minute: float | None = None,
     token_encoding_name: str = "cl100k_base",
     max_attempts: int = 5,
     max_workers: int = 10,
@@ -237,6 +238,9 @@ def process_api_requests(
     """Processes API requests in parallel, throttling to stay under rate limits."""
     # constants
     seconds_to_pause_after_rate_limit_error = 15
+
+    if max_requests_per_minute is None:
+        max_requests_per_minute = float(os.getenv('MAX_TOKENS_PER_MINUTE', '90_000'))
 
     # initialize trackers
     retry_queue = queue.Queue()
@@ -298,21 +302,28 @@ def process_api_requests(
                 next_request_tokens = next_request.token_consumption
                 if (
                     available_request_capacity >= 1
-                    and available_token_capacity >= next_request_tokens
+                    and next_request_tokens <= max_tokens_per_minute
                 ):
-                    # update counters
-                    available_request_capacity -= 1
-                    available_token_capacity -= next_request_tokens
-                    next_request.attempts_left -= 1
-                    # call API
-                    api_token.refresh(logger=_logger)
-                    executor.submit(
-                        next_request.call_api,
-                        retry_queue=retry_queue,
-                        status_tracker=status_tracker,
-                        headers=api_token.auth_headers(),
-                    )
-                    next_request = None  # reset next_request to empty
+                    if available_token_capacity >= next_request_tokens:
+                        # update counters
+                        available_request_capacity -= 1
+                        available_token_capacity -= next_request_tokens
+                        next_request.attempts_left -= 1
+                        # call API
+                        api_token.refresh(logger=_logger)
+                        executor.submit(
+                            next_request.call_api,
+                            retry_queue=retry_queue,
+                            status_tracker=status_tracker,
+                            headers=api_token.auth_headers(),
+                        )
+                        next_request = None  # reset next_request to empty
+                    else:
+                        _logger.debug(
+                            f"Waiting for token capacity. Required: {next_request_tokens}, Available: {available_token_capacity}"
+                        )
+                        # Wait until token capacity matches required tokens
+                        time.sleep(0.1)
                 else:
                     next_request = None
                     status_tracker.complete_task(success=False)
