@@ -1941,6 +1941,20 @@ class FileStore(AbstractStore):
         params: Optional[List[ModelParam]] = None,
         model_type: Optional[str] = None,
     ) -> LoggedModel:
+        """
+        Create a new logged model.
+
+        Args:
+            experiment_id: ID of the experiment to which the model belongs.
+            name: Name of the model.
+            run_id: ID of the run that produced the model.
+            tags: Tags to set on the model.
+            params: Parameters to set on the model.
+            model_type: Type of the model.
+
+        Returns:
+            The created model.
+        """
         experiment_id = FileStore.DEFAULT_EXPERIMENT_ID if experiment_id is None else experiment_id
         experiment = self.get_experiment(experiment_id)
         if experiment is None:
@@ -2011,6 +2025,16 @@ class FileStore(AbstractStore):
         return self.get_logged_model(model_id)
 
     def set_logged_model_tag(self, model_id: str, tag: ModelTag):
+        """
+        Set a tag on the specified logged model.
+
+        Args:
+            model_id: ID of the model.
+            tag: Tag to set on the model.
+
+        Returns:
+            None.
+        """
         _validate_tag_name(tag.key)
         model = self.get_logged_model(model_id)
         tag_path = os.path.join(
@@ -2023,6 +2047,15 @@ class FileStore(AbstractStore):
         write_to(tag_path, self._writeable_value(tag.value))
 
     def get_logged_model(self, model_id: str) -> LoggedModel:
+        """
+        Fetch the logged model with the specified ID.
+
+        Args:
+            model_id: ID of the model to fetch.
+
+        Returns:
+            The fetched model.
+        """
         return LoggedModel.from_dictionary(self._get_model_dict(model_id))
 
     def _get_model_artifact_dir(self, experiment_id: str, model_id: str) -> str:
@@ -2162,7 +2195,22 @@ class FileStore(AbstractStore):
         filter_string: Optional[str] = None,
         max_results: Optional[int] = None,
         order_by: Optional[List[str]] = None,
+        page_token: Optional[str] = None,
     ) -> List[LoggedModel]:
+        """
+        Search for logged models that match the specified search criteria.
+
+        Args:
+            experiment_ids: List of experiment ids to scope the search.
+            filter_string: A search filter string.
+            max_results: Maximum number of logged models desired.
+            order_by: List of order_by clauses.
+            page_token: Token specifying the next page of results.
+
+        Returns:
+            A :py:class:`PagedList <mlflow.store.entities.PagedList>` of
+            :py:class:`LoggedModel <mlflow.entities.LoggedModel>` objects.
+        """
         all_models = []
         for experiment_id in experiment_ids:
             models = self._list_models(experiment_id)

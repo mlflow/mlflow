@@ -551,7 +551,7 @@ class TrackingServiceClient:
         """
         self.store.rename_experiment(experiment_id, new_name)
 
-    def log_metric(  # noqa: D417
+    def log_metric(
         self,
         run_id,
         key,
@@ -579,6 +579,11 @@ class TrackingServiceClient:
             synchronous: *Experimental* If True, blocks until the metric is logged successfully. If
                 False, logs the metric asynchronously and returns a future representing the logging
                 operation.
+            dataset_name: The name of the dataset associated with the metric. If specified,
+                ``dataset_digest`` must also be provided.
+            dataset_digest: The digest of the dataset associated with the metric. If specified,
+                ``dataset_name`` must also be provided.
+            model_id: The ID of the model associated with the metric.
 
         Returns:
             When synchronous=True, returns None. When synchronous=False, returns
