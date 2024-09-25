@@ -1754,6 +1754,14 @@ class MockDbutils:
         self.real_dbutils = real_dbutils
 
     def __getattr__(self, name):
+        warnings.warn(
+            (
+                "The model code uses dbutils, which isn't supported. "
+                "Please consider %%writefile command to isolate the model code in a separate file."
+            ),
+            UserWarning,
+            stacklevel=2,
+        )
         try:
             if self.real_dbutils:
                 return getattr(self.real_dbutils, name)
