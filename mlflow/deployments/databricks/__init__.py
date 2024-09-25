@@ -336,7 +336,9 @@ class DatabricksDeploymentClient(BaseDeploymentClient):
         Args:
             name: The name of the serving endpoint to create.
             config: A dictionary containing the configuration of the serving endpoint to create.
-            route_optimized: A boolean which defines whether databricks serving endpoint in optimized for routing traffic
+            route_optimized: A boolean which defines whether databricks serving endpoint
+                in optimized for routing traffic. Refer to the following doc for more details.
+                https://docs.databricks.com/en/machine-learning/model-serving/route-optimization.html
 
         Returns:
             A :py:class:`DatabricksEndpoint` object containing the request response.
