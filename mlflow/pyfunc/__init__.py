@@ -1712,8 +1712,9 @@ def prebuild_model_env(model_uri, save_path):
             shell=True,
         )
     finally:
-        shutil.rmtree(local_model_path, ignore_errors=True)
-        shutil.rmtree(env_root_dir, ignore_errors=True)
+        #shutil.rmtree(local_model_path, ignore_errors=True)
+        #shutil.rmtree(env_root_dir, ignore_errors=True)
+        pass
 
 def spark_udf(
     spark,
