@@ -403,6 +403,7 @@ import inspect
 import json
 import logging
 import os
+import shutil
 import signal
 import subprocess
 import sys
@@ -539,6 +540,7 @@ from mlflow.utils.requirements_utils import (
     _parse_requirements,
     warn_dependency_requirement_mismatches,
 )
+from mlflow.utils.spark_utils import is_spark_connect_mode
 
 try:
     from pyspark.sql import DataFrame as SparkDataFrame
@@ -1648,13 +1650,70 @@ def _convert_struct_values(
     return result_dict
 
 
-def _is_spark_connect():
-    try:
-        from pyspark.sql.utils import is_remote
-    except ImportError:
-        return False
-    return is_remote()
+_DATABRICKS_SERVERLESS_PREBUILD_ENV_ROOT_LOCATION = "/tmp"
 
+
+def prebuild_model_env(model_uri, save_path):
+    from mlflow.utils.databricks_utils import is_in_databricks_serverless, get_databricks_runtime_version
+    from mlflow.utils.virtualenv import _get_python_env, _get_virtualenv_name
+
+    if not is_in_databricks_serverless():
+        raise RuntimeError(
+            "'prebuild_model_env' only support running in Databricks serverless notebook."
+        )
+
+    if not os.path.exists(save_path):
+        raise RuntimeError(f"The saving path '{save_path}' does not exist.")
+    if not os.path.isdir(save_path):
+        raise RuntimeError(f"The saving path '{save_path}' must be a directory.")
+
+    runtime_version = get_databricks_runtime_version()
+    local_model_path = _download_artifact_from_uri(
+        artifact_uri=model_uri,
+        output_path=_create_model_downloading_tmp_dir(should_use_nfs=False)
+    )
+
+    python_env = _get_python_env(local_model_path)
+    env_name = _get_virtualenv_name(python_env, local_model_path, env_id)
+
+    env_name = f"{env_name}-{runtime_version}"
+    env_root_dir = os.path.join(
+        _DATABRICKS_SERVERLESS_PREBUILD_ENV_ROOT_LOCATION,
+        env_name,
+    )
+    if os.path.exists(env_root_dir):
+        shutil.rmtree(env_root_dir)
+
+    try:
+        pyfunc_backend = get_flavor_backend(
+            local_model_path,
+            env_manager="virtualenv",
+            install_mlflow=False,
+            create_env_root_dir=False,
+            env_root_dir=env_root_dir,
+        )
+
+        pyfunc_backend.prepare_env(
+            model_uri=local_model_path, capture_output=False
+        )
+
+        # Archive the environment directory as a `tar.gz` format archive file,
+        # and then move the archive file to the destination directory.
+        # note:
+        #  - `tar` command will keep symlink file as it is.
+        #  - the destination directory could be UC-volume fuse mounted directory
+        #  which only supports limited filesystem operations, so to ensure it works,
+        #  we generate the archive file under /tmp and then move it into the
+        #  destination directory.
+        archive_file_name = f"{env_name}.tar.gz"
+        subprocess.check_call(
+            cmd=f"cd {env_root_dir} && tar -czf {archive_file_name} ./* "
+                f"&& mv {archive_file_name} {save_path}/",
+            shell=True,
+        )
+    finally:
+        shutil.rmtree(local_model_path, ignore_errors=True)
+        shutil.rmtree(env_root_dir, ignore_errors=True)
 
 def spark_udf(
     spark,
@@ -1795,7 +1854,7 @@ def spark_udf(
     from mlflow.pyfunc.spark_model_cache import SparkModelCache
     from mlflow.utils._spark_utils import _SparkDirectoryDistributor
 
-    is_spark_connect = _is_spark_connect()
+    is_spark_connect = is_spark_connect_mode()
     # Used in test to force install local version of mlflow when starting a model server
     mlflow_home = os.environ.get("MLFLOW_HOME")
     openai_env_vars = mlflow.openai._OpenAIEnvVar.read_environ()

@@ -8,6 +8,7 @@ from mlflow.utils.databricks_utils import (
     is_in_databricks_runtime,
     is_in_databricks_serverless,
 )
+from mlflow.utils.spark_utils import is_spark_connect_mode
 
 # Set spark config "spark.mlflow.nfs.rootDir" to specify a NFS (network file system) directory
 # which is shared with all spark cluster nodes.
@@ -28,7 +29,11 @@ def get_nfs_cache_root_dir():
     if is_in_databricks_runtime():
         spark_sess = _get_active_spark_session()
         if is_in_databricks_serverless():
-            nfs_enabled = True
+            # Serverless client can't access NFS.
+            nfs_enabled = False
+        elif is_spark_connect_mode():
+            # For testing.
+            nfs_enabled = False
         else:
             nfs_enabled = spark_sess and (
                 spark_sess.conf.get("spark.databricks.mlflow.nfs.enabled", "true").lower() == "true"
@@ -52,6 +57,9 @@ def get_nfs_cache_root_dir():
         else:
             return None
     else:
+        if is_spark_connect_mode():
+            return False
+
         spark_session = _get_active_spark_session()
         if spark_session is not None:
             return spark_session.conf.get("spark.mlflow.nfs.rootDir", None)
