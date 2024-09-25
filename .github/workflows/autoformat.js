@@ -56,13 +56,6 @@ const createReaction = async (context, github) => {
     comment_id,
     content: "rocket",
   });
-};
-
-const createStatus = async (context, github, core) => {
-  const { head_sha, head_ref, repository } = await getPullInformation(context, github);
-  if (repository === "mlflow/mlflow" && head_ref === "master") {
-    core.setFailed("Running autoformat bot against master branch of mlflow/mlflow is not allowed.");
-  }
 
   if (isOldCommand(context.payload.comment)) {
     await github.rest.issues.createComment({
@@ -71,6 +64,13 @@ const createStatus = async (context, github, core) => {
       issue_number: context.issue.number,
       body: "The command `@mlflow-automation autoformat` has been deprecated and will be removed soon. Please use `/autoformat` instead.",
     });
+  }
+};
+
+const createStatus = async (context, github, core) => {
+  const { head_sha, head_ref, repository } = await getPullInformation(context, github);
+  if (repository === "mlflow/mlflow" && head_ref === "master") {
+    core.setFailed("Running autoformat bot against master branch of mlflow/mlflow is not allowed.");
   }
   await createCommitStatus(context, github, head_sha, "pending");
 };
