@@ -610,6 +610,22 @@ message Metric {
 
   // Step at which to log the metric.
   optional int64 step = 4 [default = 0];
+
+  // The name of the dataset associated with the metric.
+  // E.g. “my.uc.table@2” “nyc-taxi-dataset”, “fantastic-elk-3”
+  optional string dataset_name = 5 [(visibility) = PUBLIC_UNDOCUMENTED];
+
+  // Dataset digest of the dataset associated with the metric,
+  // e.g. an md5 hash of the dataset that uniquely identifies it
+  // within datasets of the same name.
+  optional string dataset_digest = 6 [(visibility) = PUBLIC_UNDOCUMENTED];
+
+  // The ID of the LoggedModel or Registered Model Version associated with
+  // the metric, if applicable.
+  optional string model_id = 7 [(visibility) = PUBLIC_UNDOCUMENTED];
+
+  // The ID of the run containing the metric.
+  optional string run_id = 8 [(visibility) = PUBLIC_UNDOCUMENTED];
 }
 
 // Param associated with a run.
