@@ -1,6 +1,7 @@
 from typing import Any, Dict, Iterator, Optional
 
 from mlflow.exceptions import MlflowException
+from mlflow.models.utils import _convert_llm_ndarray_to_list
 from mlflow.protos.databricks_pb2 import INTERNAL_ERROR
 from mlflow.pyfunc.model import (
     _load_context_model_and_signature,
@@ -45,7 +46,8 @@ class _ChatModelPyfuncWrapper:
             dict_input = model_input
         elif isinstance(model_input, pandas.DataFrame):
             dict_input = {
-                key: value[0] for key, value in model_input.to_dict(orient="list").items()
+                k: _convert_llm_ndarray_to_list(v[0])
+                for k, v in model_input.to_dict(orient="list").items()
             }
         else:
             raise MlflowException(
