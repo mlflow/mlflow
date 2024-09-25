@@ -5,6 +5,14 @@ from mlflow.entities.metric import Metric
 from mlflow.entities.model_param import ModelParam
 from mlflow.entities.model_status import ModelStatus
 from mlflow.entities.model_tag import ModelTag
+from mlflow.protos.service_pb2 import (
+    LoggedModel,
+    LoggedModelData,
+    LoggedModelInfo,
+    LoggedModelParameter,
+    LoggedModelTag,
+    Metric,
+)
 
 
 class LoggedModel(_MlflowObject):
@@ -160,6 +168,26 @@ class LoggedModel(_MlflowObject):
         model_dict = dict(self)
         model_dict["status"] = str(self.status)
         return model_dict
+
+    def to_proto(self):
+        return LoggedModel(
+            info=LoggedModelInfo(
+                experiment_id=self.experiment_id,
+                model_id=self.model_id,
+                name=self.name,
+                artifact_uri=self.artifact_location,
+                creation_timestamp_ms=self.creation_timestamp,
+                last_updated_timestamp_ms=self.last_updated_timestamp,
+                model_type=self.model_type,
+                source_run_id=self.run_id,
+                status=self.status.to_proto(),
+                tags=[LoggedModelTag(key=k, value=v) for k, v in self.tags.items()],
+            ),
+            data=LoggedModelData(
+                params=[LoggedModelParameter(key=k, value=v) for (k, v) in self.params.items()],
+                metrics=[m.to_proto() for m in self.metrics] if self.metrics else [],
+            ),
+        )
 
     @classmethod
     def from_proto(cls, proto):
