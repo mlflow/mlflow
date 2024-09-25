@@ -14,7 +14,7 @@ const createCommitStatus = async (context, github, sha, state) => {
 };
 
 const shouldAutoformat = (comment) => {
-  return /^@mlflow-automation\s+autoformat$/.test(comment.body.trim());
+  return comment.body.trim() === "/autoformat";
 };
 
 const getPullInformation = async (context, github) => {
