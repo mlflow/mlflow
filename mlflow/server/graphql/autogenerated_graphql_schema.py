@@ -131,6 +131,10 @@ class MlflowMetric(graphene.ObjectType):
     value = graphene.Float()
     timestamp = LongString()
     step = LongString()
+    dataset_name = graphene.String()
+    dataset_digest = graphene.String()
+    model_id = graphene.String()
+    run_id = graphene.String()
 
 
 class MlflowRunData(graphene.ObjectType):

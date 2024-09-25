@@ -855,6 +855,134 @@ public final class Service {
      * @return The step.
      */
     long getStep();
+
+    /**
+     * <pre>
+     * The name of the dataset associated with the metric.
+     * E.g. “my.uc.table&#64;2” “nyc-taxi-dataset”, “fantastic-elk-3”
+     * </pre>
+     *
+     * <code>optional string dataset_name = 5 [(.mlflow.visibility) = PUBLIC_UNDOCUMENTED];</code>
+     * @return Whether the datasetName field is set.
+     */
+    boolean hasDatasetName();
+    /**
+     * <pre>
+     * The name of the dataset associated with the metric.
+     * E.g. “my.uc.table&#64;2” “nyc-taxi-dataset”, “fantastic-elk-3”
+     * </pre>
+     *
+     * <code>optional string dataset_name = 5 [(.mlflow.visibility) = PUBLIC_UNDOCUMENTED];</code>
+     * @return The datasetName.
+     */
+    java.lang.String getDatasetName();
+    /**
+     * <pre>
+     * The name of the dataset associated with the metric.
+     * E.g. “my.uc.table&#64;2” “nyc-taxi-dataset”, “fantastic-elk-3”
+     * </pre>
+     *
+     * <code>optional string dataset_name = 5 [(.mlflow.visibility) = PUBLIC_UNDOCUMENTED];</code>
+     * @return The bytes for datasetName.
+     */
+    com.google.protobuf.ByteString
+        getDatasetNameBytes();
+
+    /**
+     * <pre>
+     * Dataset digest of the dataset associated with the metric,
+     * e.g. an md5 hash of the dataset that uniquely identifies it
+     * within datasets of the same name.
+     * </pre>
+     *
+     * <code>optional string dataset_digest = 6 [(.mlflow.visibility) = PUBLIC_UNDOCUMENTED];</code>
+     * @return Whether the datasetDigest field is set.
+     */
+    boolean hasDatasetDigest();
+    /**
+     * <pre>
+     * Dataset digest of the dataset associated with the metric,
+     * e.g. an md5 hash of the dataset that uniquely identifies it
+     * within datasets of the same name.
+     * </pre>
+     *
+     * <code>optional string dataset_digest = 6 [(.mlflow.visibility) = PUBLIC_UNDOCUMENTED];</code>
+     * @return The datasetDigest.
+     */
+    java.lang.String getDatasetDigest();
+    /**
+     * <pre>
+     * Dataset digest of the dataset associated with the metric,
+     * e.g. an md5 hash of the dataset that uniquely identifies it
+     * within datasets of the same name.
+     * </pre>
+     *
+     * <code>optional string dataset_digest = 6 [(.mlflow.visibility) = PUBLIC_UNDOCUMENTED];</code>
+     * @return The bytes for datasetDigest.
+     */
+    com.google.protobuf.ByteString
+        getDatasetDigestBytes();
+
+    /**
+     * <pre>
+     * The ID of the LoggedModel or Registered Model Version associated with
+     * the metric, if applicable.
+     * </pre>
+     *
+     * <code>optional string model_id = 7 [(.mlflow.visibility) = PUBLIC_UNDOCUMENTED];</code>
+     * @return Whether the modelId field is set.
+     */
+    boolean hasModelId();
+    /**
+     * <pre>
+     * The ID of the LoggedModel or Registered Model Version associated with
+     * the metric, if applicable.
+     * </pre>
+     *
+     * <code>optional string model_id = 7 [(.mlflow.visibility) = PUBLIC_UNDOCUMENTED];</code>
+     * @return The modelId.
+     */
+    java.lang.String getModelId();
+    /**
+     * <pre>
+     * The ID of the LoggedModel or Registered Model Version associated with
+     * the metric, if applicable.
+     * </pre>
+     *
+     * <code>optional string model_id = 7 [(.mlflow.visibility) = PUBLIC_UNDOCUMENTED];</code>
+     * @return The bytes for modelId.
+     */
+    com.google.protobuf.ByteString
+        getModelIdBytes();
+
+    /**
+     * <pre>
+     * The ID of the run containing the metric.
+     * </pre>
+     *
+     * <code>optional string run_id = 8 [(.mlflow.visibility) = PUBLIC_UNDOCUMENTED];</code>
+     * @return Whether the runId field is set.
+     */
+    boolean hasRunId();
+    /**
+     * <pre>
+     * The ID of the run containing the metric.
+     * </pre>
+     *
+     * <code>optional string run_id = 8 [(.mlflow.visibility) = PUBLIC_UNDOCUMENTED];</code>
+     * @return The runId.
+     */
+    java.lang.String getRunId();
+    /**
+     * <pre>
+     * The ID of the run containing the metric.
+     * </pre>
+     *
+     * <code>optional string run_id = 8 [(.mlflow.visibility) = PUBLIC_UNDOCUMENTED];</code>
+     * @return The bytes for runId.
+     */
+    com.google.protobuf.ByteString
+        getRunIdBytes();
   }
   /**
    * <pre>
@@ -874,6 +1002,10 @@ public final class Service {
     }
     private Metric() {
       key_ = "";
+      datasetName_ = "";
+      datasetDigest_ = "";
+      modelId_ = "";
+      runId_ = "";
     }
 
     @java.lang.Override
@@ -926,6 +1058,30 @@ public final class Service {
             case 32: {
               bitField0_ |= 0x00000008;
               step_ = input.readInt64();
+              break;
+            }
+            case 42: {
+              com.google.protobuf.ByteString bs = input.readBytes();
+              bitField0_ |= 0x00000010;
+              datasetName_ = bs;
+              break;
+            }
+            case 50: {
+              com.google.protobuf.ByteString bs = input.readBytes();
+              bitField0_ |= 0x00000020;
+              datasetDigest_ = bs;
+              break;
+            }
+            case 58: {
+              com.google.protobuf.ByteString bs = input.readBytes();
+              bitField0_ |= 0x00000040;
+              modelId_ = bs;
+              break;
+            }
+            case 66: {
+              com.google.protobuf.ByteString bs = input.readBytes();
+              bitField0_ |= 0x00000080;
+              runId_ = bs;
               break;
             }
             default: {
@@ -1102,6 +1258,258 @@ public final class Service {
       return step_;
     }
 
+    public static final int DATASET_NAME_FIELD_NUMBER = 5;
+    private volatile java.lang.Object datasetName_;
+    /**
+     * <pre>
+     * The name of the dataset associated with the metric.
+     * E.g. “my.uc.table&#64;2” “nyc-taxi-dataset”, “fantastic-elk-3”
+     * </pre>
+     *
+     * <code>optional string dataset_name = 5 [(.mlflow.visibility) = PUBLIC_UNDOCUMENTED];</code>
+     * @return Whether the datasetName field is set.
+     */
+    @java.lang.Override
+    public boolean hasDatasetName() {
+      return ((bitField0_ & 0x00000010) != 0);
+    }
+    /**
+     * <pre>
+     * The name of the dataset associated with the metric.
+     * E.g. “my.uc.table&#64;2” “nyc-taxi-dataset”, “fantastic-elk-3”
+     * </pre>
+     *
+     * <code>optional string dataset_name = 5 [(.mlflow.visibility) = PUBLIC_UNDOCUMENTED];</code>
+     * @return The datasetName.
+     */
+    @java.lang.Override
+    public java.lang.String getDatasetName() {
+      java.lang.Object ref = datasetName_;
+      if (ref instanceof java.lang.String) {
+        return (java.lang.String) ref;
+      } else {
+        com.google.protobuf.ByteString bs = 
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        if (bs.isValidUtf8()) {
+          datasetName_ = s;
+        }
+        return s;
+      }
+    }
+    /**
+     * <pre>
+     * The name of the dataset associated with the metric.
+     * E.g. “my.uc.table&#64;2” “nyc-taxi-dataset”, “fantastic-elk-3”
+     * </pre>
+     *
+     * <code>optional string dataset_name = 5 [(.mlflow.visibility) = PUBLIC_UNDOCUMENTED];</code>
+     * @return The bytes for datasetName.
+     */
+    @java.lang.Override
+    public com.google.protobuf.ByteString
+        getDatasetNameBytes() {
+      java.lang.Object ref = datasetName_;
+      if (ref instanceof java.lang.String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        datasetName_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+
+    public static final int DATASET_DIGEST_FIELD_NUMBER = 6;
+    private volatile java.lang.Object datasetDigest_;
+    /**
+     * <pre>
+     * Dataset digest of the dataset associated with the metric,
+     * e.g. an md5 hash of the dataset that uniquely identifies it
+     * within datasets of the same name.
+     * </pre>
+     *
+     * <code>optional string dataset_digest = 6 [(.mlflow.visibility) = PUBLIC_UNDOCUMENTED];</code>
+     * @return Whether the datasetDigest field is set.
+     */
+    @java.lang.Override
+    public boolean hasDatasetDigest() {
+      return ((bitField0_ & 0x00000020) != 0);
+    }
+    /**
+     * <pre>
+     * Dataset digest of the dataset associated with the metric,
+     * e.g. an md5 hash of the dataset that uniquely identifies it
+     * within datasets of the same name.
+     * </pre>
+     *
+     * <code>optional string dataset_digest = 6 [(.mlflow.visibility) = PUBLIC_UNDOCUMENTED];</code>
+     * @return The datasetDigest.
+     */
+    @java.lang.Override
+    public java.lang.String getDatasetDigest() {
+      java.lang.Object ref = datasetDigest_;
+      if (ref instanceof java.lang.String) {
+        return (java.lang.String) ref;
+      } else {
+        com.google.protobuf.ByteString bs = 
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        if (bs.isValidUtf8()) {
+          datasetDigest_ = s;
+        }
+        return s;
+      }
+    }
+    /**
+     * <pre>
+     * Dataset digest of the dataset associated with the metric,
+     * e.g. an md5 hash of the dataset that uniquely identifies it
+     * within datasets of the same name.
+     * </pre>
+     *
+     * <code>optional string dataset_digest = 6 [(.mlflow.visibility) = PUBLIC_UNDOCUMENTED];</code>
+     * @return The bytes for datasetDigest.
+     */
+    @java.lang.Override
+    public com.google.protobuf.ByteString
+        getDatasetDigestBytes() {
+      java.lang.Object ref = datasetDigest_;
+      if (ref instanceof java.lang.String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        datasetDigest_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+
+    public static final int MODEL_ID_FIELD_NUMBER = 7;
+    private volatile java.lang.Object modelId_;
+    /**
+     * <pre>
+     * The ID of the LoggedModel or Registered Model Version associated with
+     * the metric, if applicable.
+     * </pre>
+     *
+     * <code>optional string model_id = 7 [(.mlflow.visibility) = PUBLIC_UNDOCUMENTED];</code>
+     * @return Whether the modelId field is set.
+     */
+    @java.lang.Override
+    public boolean hasModelId() {
+      return ((bitField0_ & 0x00000040) != 0);
+    }
+    /**
+     * <pre>
+     * The ID of the LoggedModel or Registered Model Version associated with
+     * the metric, if applicable.
+     * </pre>
+     *
+     * <code>optional string model_id = 7 [(.mlflow.visibility) = PUBLIC_UNDOCUMENTED];</code>
+     * @return The modelId.
+     */
+    @java.lang.Override
+    public java.lang.String getModelId() {
+      java.lang.Object ref = modelId_;
+      if (ref instanceof java.lang.String) {
+        return (java.lang.String) ref;
+      } else {
+        com.google.protobuf.ByteString bs = 
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        if (bs.isValidUtf8()) {
+          modelId_ = s;
+        }
+        return s;
+      }
+    }
+    /**
+     * <pre>
+     * The ID of the LoggedModel or Registered Model Version associated with
+     * the metric, if applicable.
+     * </pre>
+     *
+     * <code>optional string model_id = 7 [(.mlflow.visibility) = PUBLIC_UNDOCUMENTED];</code>
+     * @return The bytes for modelId.
+     */
+    @java.lang.Override
+    public com.google.protobuf.ByteString
+        getModelIdBytes() {
+      java.lang.Object ref = modelId_;
+      if (ref instanceof java.lang.String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        modelId_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+
+    public static final int RUN_ID_FIELD_NUMBER = 8;
+    private volatile java.lang.Object runId_;
+    /**
+     * <pre>
+     * The ID of the run containing the metric.
+     * </pre>
+     *
+     * <code>optional string run_id = 8 [(.mlflow.visibility) = PUBLIC_UNDOCUMENTED];</code>
+     * @return Whether the runId field is set.
+     */
+    @java.lang.Override
+    public boolean hasRunId() {
+      return ((bitField0_ & 0x00000080) != 0);
+    }
+    /**
+     * <pre>
+     * The ID of the run containing the metric.
+     * </pre>
+     *
+     * <code>optional string run_id = 8 [(.mlflow.visibility) = PUBLIC_UNDOCUMENTED];</code>
+     * @return The runId.
+     */
+    @java.lang.Override
+    public java.lang.String getRunId() {
+      java.lang.Object ref = runId_;
+      if (ref instanceof java.lang.String) {
+        return (java.lang.String) ref;
+      } else {
+        com.google.protobuf.ByteString bs = 
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        if (bs.isValidUtf8()) {
+          runId_ = s;
+        }
+        return s;
+      }
+    }
+    /**
+     * <pre>
+     * The ID of the run containing the metric.
+     * </pre>
+     *
+     * <code>optional string run_id = 8 [(.mlflow.visibility) = PUBLIC_UNDOCUMENTED];</code>
+     * @return The bytes for runId.
+     */
+    @java.lang.Override
+    public com.google.protobuf.ByteString
+        getRunIdBytes() {
+      java.lang.Object ref = runId_;
+      if (ref instanceof java.lang.String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        runId_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+
     private byte memoizedIsInitialized = -1;
     @java.lang.Override
     public final boolean isInitialized() {
@@ -1128,6 +1536,18 @@ public final class Service {
       if (((bitField0_ & 0x00000008) != 0)) {
         output.writeInt64(4, step_);
       }
+      if (((bitField0_ & 0x00000010) != 0)) {
+        com.google.protobuf.GeneratedMessageV3.writeString(output, 5, datasetName_);
+      }
+      if (((bitField0_ & 0x00000020) != 0)) {
+        com.google.protobuf.GeneratedMessageV3.writeString(output, 6, datasetDigest_);
+      }
+      if (((bitField0_ & 0x00000040) != 0)) {
+        com.google.protobuf.GeneratedMessageV3.writeString(output, 7, modelId_);
+      }
+      if (((bitField0_ & 0x00000080) != 0)) {
+        com.google.protobuf.GeneratedMessageV3.writeString(output, 8, runId_);
+      }
       unknownFields.writeTo(output);
     }
 
@@ -1151,6 +1571,18 @@ public final class Service {
       if (((bitField0_ & 0x00000008) != 0)) {
         size += com.google.protobuf.CodedOutputStream
           .computeInt64Size(4, step_);
+      }
+      if (((bitField0_ & 0x00000010) != 0)) {
+        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(5, datasetName_);
+      }
+      if (((bitField0_ & 0x00000020) != 0)) {
+        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(6, datasetDigest_);
+      }
+      if (((bitField0_ & 0x00000040) != 0)) {
+        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(7, modelId_);
+      }
+      if (((bitField0_ & 0x00000080) != 0)) {
+        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(8, runId_);
       }
       size += unknownFields.getSerializedSize();
       memoizedSize = size;
@@ -1188,6 +1620,26 @@ public final class Service {
         if (getStep()
             != other.getStep()) return false;
       }
+      if (hasDatasetName() != other.hasDatasetName()) return false;
+      if (hasDatasetName()) {
+        if (!getDatasetName()
+            .equals(other.getDatasetName())) return false;
+      }
+      if (hasDatasetDigest() != other.hasDatasetDigest()) return false;
+      if (hasDatasetDigest()) {
+        if (!getDatasetDigest()
+            .equals(other.getDatasetDigest())) return false;
+      }
+      if (hasModelId() != other.hasModelId()) return false;
+      if (hasModelId()) {
+        if (!getModelId()
+            .equals(other.getModelId())) return false;
+      }
+      if (hasRunId() != other.hasRunId()) return false;
+      if (hasRunId()) {
+        if (!getRunId()
+            .equals(other.getRunId())) return false;
+      }
       if (!unknownFields.equals(other.unknownFields)) return false;
       return true;
     }
@@ -1217,6 +1669,22 @@ public final class Service {
         hash = (37 * hash) + STEP_FIELD_NUMBER;
         hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
             getStep());
+      }
+      if (hasDatasetName()) {
+        hash = (37 * hash) + DATASET_NAME_FIELD_NUMBER;
+        hash = (53 * hash) + getDatasetName().hashCode();
+      }
+      if (hasDatasetDigest()) {
+        hash = (37 * hash) + DATASET_DIGEST_FIELD_NUMBER;
+        hash = (53 * hash) + getDatasetDigest().hashCode();
+      }
+      if (hasModelId()) {
+        hash = (37 * hash) + MODEL_ID_FIELD_NUMBER;
+        hash = (53 * hash) + getModelId().hashCode();
+      }
+      if (hasRunId()) {
+        hash = (37 * hash) + RUN_ID_FIELD_NUMBER;
+        hash = (53 * hash) + getRunId().hashCode();
       }
       hash = (29 * hash) + unknownFields.hashCode();
       memoizedHashCode = hash;
@@ -1363,6 +1831,14 @@ public final class Service {
         bitField0_ = (bitField0_ & ~0x00000004);
         step_ = 0L;
         bitField0_ = (bitField0_ & ~0x00000008);
+        datasetName_ = "";
+        bitField0_ = (bitField0_ & ~0x00000010);
+        datasetDigest_ = "";
+        bitField0_ = (bitField0_ & ~0x00000020);
+        modelId_ = "";
+        bitField0_ = (bitField0_ & ~0x00000040);
+        runId_ = "";
+        bitField0_ = (bitField0_ & ~0x00000080);
         return this;
       }
 
@@ -1407,6 +1883,22 @@ public final class Service {
           result.step_ = step_;
           to_bitField0_ |= 0x00000008;
         }
+        if (((from_bitField0_ & 0x00000010) != 0)) {
+          to_bitField0_ |= 0x00000010;
+        }
+        result.datasetName_ = datasetName_;
+        if (((from_bitField0_ & 0x00000020) != 0)) {
+          to_bitField0_ |= 0x00000020;
+        }
+        result.datasetDigest_ = datasetDigest_;
+        if (((from_bitField0_ & 0x00000040) != 0)) {
+          to_bitField0_ |= 0x00000040;
+        }
+        result.modelId_ = modelId_;
+        if (((from_bitField0_ & 0x00000080) != 0)) {
+          to_bitField0_ |= 0x00000080;
+        }
+        result.runId_ = runId_;
         result.bitField0_ = to_bitField0_;
         onBuilt();
         return result;
@@ -1469,6 +1961,26 @@ public final class Service {
         }
         if (other.hasStep()) {
           setStep(other.getStep());
+        }
+        if (other.hasDatasetName()) {
+          bitField0_ |= 0x00000010;
+          datasetName_ = other.datasetName_;
+          onChanged();
+        }
+        if (other.hasDatasetDigest()) {
+          bitField0_ |= 0x00000020;
+          datasetDigest_ = other.datasetDigest_;
+          onChanged();
+        }
+        if (other.hasModelId()) {
+          bitField0_ |= 0x00000040;
+          modelId_ = other.modelId_;
+          onChanged();
+        }
+        if (other.hasRunId()) {
+          bitField0_ |= 0x00000080;
+          runId_ = other.runId_;
+          onChanged();
         }
         this.mergeUnknownFields(other.unknownFields);
         onChanged();
@@ -1769,6 +2281,462 @@ public final class Service {
       public Builder clearStep() {
         bitField0_ = (bitField0_ & ~0x00000008);
         step_ = 0L;
+        onChanged();
+        return this;
+      }
+
+      private java.lang.Object datasetName_ = "";
+      /**
+       * <pre>
+       * The name of the dataset associated with the metric.
+       * E.g. “my.uc.table&#64;2” “nyc-taxi-dataset”, “fantastic-elk-3”
+       * </pre>
+       *
+       * <code>optional string dataset_name = 5 [(.mlflow.visibility) = PUBLIC_UNDOCUMENTED];</code>
+       * @return Whether the datasetName field is set.
+       */
+      public boolean hasDatasetName() {
+        return ((bitField0_ & 0x00000010) != 0);
+      }
+      /**
+       * <pre>
+       * The name of the dataset associated with the metric.
+       * E.g. “my.uc.table&#64;2” “nyc-taxi-dataset”, “fantastic-elk-3”
+       * </pre>
+       *
+       * <code>optional string dataset_name = 5 [(.mlflow.visibility) = PUBLIC_UNDOCUMENTED];</code>
+       * @return The datasetName.
+       */
+      public java.lang.String getDatasetName() {
+        java.lang.Object ref = datasetName_;
+        if (!(ref instanceof java.lang.String)) {
+          com.google.protobuf.ByteString bs =
+              (com.google.protobuf.ByteString) ref;
+          java.lang.String s = bs.toStringUtf8();
+          if (bs.isValidUtf8()) {
+            datasetName_ = s;
+          }
+          return s;
+        } else {
+          return (java.lang.String) ref;
+        }
+      }
+      /**
+       * <pre>
+       * The name of the dataset associated with the metric.
+       * E.g. “my.uc.table&#64;2” “nyc-taxi-dataset”, “fantastic-elk-3”
+       * </pre>
+       *
+       * <code>optional string dataset_name = 5 [(.mlflow.visibility) = PUBLIC_UNDOCUMENTED];</code>
+       * @return The bytes for datasetName.
+       */
+      public com.google.protobuf.ByteString
+          getDatasetNameBytes() {
+        java.lang.Object ref = datasetName_;
+        if (ref instanceof String) {
+          com.google.protobuf.ByteString b = 
+              com.google.protobuf.ByteString.copyFromUtf8(
+                  (java.lang.String) ref);
+          datasetName_ = b;
+          return b;
+        } else {
+          return (com.google.protobuf.ByteString) ref;
+        }
+      }
+      /**
+       * <pre>
+       * The name of the dataset associated with the metric.
+       * E.g. “my.uc.table&#64;2” “nyc-taxi-dataset”, “fantastic-elk-3”
+       * </pre>
+       *
+       * <code>optional string dataset_name = 5 [(.mlflow.visibility) = PUBLIC_UNDOCUMENTED];</code>
+       * @param value The datasetName to set.
+       * @return This builder for chaining.
+       */
+      public Builder setDatasetName(
+          java.lang.String value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  bitField0_ |= 0x00000010;
+        datasetName_ = value;
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * The name of the dataset associated with the metric.
+       * E.g. “my.uc.table&#64;2” “nyc-taxi-dataset”, “fantastic-elk-3”
+       * </pre>
+       *
+       * <code>optional string dataset_name = 5 [(.mlflow.visibility) = PUBLIC_UNDOCUMENTED];</code>
+       * @return This builder for chaining.
+       */
+      public Builder clearDatasetName() {
+        bitField0_ = (bitField0_ & ~0x00000010);
+        datasetName_ = getDefaultInstance().getDatasetName();
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * The name of the dataset associated with the metric.
+       * E.g. “my.uc.table&#64;2” “nyc-taxi-dataset”, “fantastic-elk-3”
+       * </pre>
+       *
+       * <code>optional string dataset_name = 5 [(.mlflow.visibility) = PUBLIC_UNDOCUMENTED];</code>
+       * @param value The bytes for datasetName to set.
+       * @return This builder for chaining.
+       */
+      public Builder setDatasetNameBytes(
+          com.google.protobuf.ByteString value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  bitField0_ |= 0x00000010;
+        datasetName_ = value;
+        onChanged();
+        return this;
+      }
+
+      private java.lang.Object datasetDigest_ = "";
+      /**
+       * <pre>
+       * Dataset digest of the dataset associated with the metric,
+       * e.g. an md5 hash of the dataset that uniquely identifies it
+       * within datasets of the same name.
+       * </pre>
+       *
+       * <code>optional string dataset_digest = 6 [(.mlflow.visibility) = PUBLIC_UNDOCUMENTED];</code>
+       * @return Whether the datasetDigest field is set.
+       */
+      public boolean hasDatasetDigest() {
+        return ((bitField0_ & 0x00000020) != 0);
+      }
+      /**
+       * <pre>
+       * Dataset digest of the dataset associated with the metric,
+       * e.g. an md5 hash of the dataset that uniquely identifies it
+       * within datasets of the same name.
+       * </pre>
+       *
+       * <code>optional string dataset_digest = 6 [(.mlflow.visibility) = PUBLIC_UNDOCUMENTED];</code>
+       * @return The datasetDigest.
+       */
+      public java.lang.String getDatasetDigest() {
+        java.lang.Object ref = datasetDigest_;
+        if (!(ref instanceof java.lang.String)) {
+          com.google.protobuf.ByteString bs =
+              (com.google.protobuf.ByteString) ref;
+          java.lang.String s = bs.toStringUtf8();
+          if (bs.isValidUtf8()) {
+            datasetDigest_ = s;
+          }
+          return s;
+        } else {
+          return (java.lang.String) ref;
+        }
+      }
+      /**
+       * <pre>
+       * Dataset digest of the dataset associated with the metric,
+       * e.g. an md5 hash of the dataset that uniquely identifies it
+       * within datasets of the same name.
+       * </pre>
+       *
+       * <code>optional string dataset_digest = 6 [(.mlflow.visibility) = PUBLIC_UNDOCUMENTED];</code>
+       * @return The bytes for datasetDigest.
+       */
+      public com.google.protobuf.ByteString
+          getDatasetDigestBytes() {
+        java.lang.Object ref = datasetDigest_;
+        if (ref instanceof String) {
+          com.google.protobuf.ByteString b = 
+              com.google.protobuf.ByteString.copyFromUtf8(
+                  (java.lang.String) ref);
+          datasetDigest_ = b;
+          return b;
+        } else {
+          return (com.google.protobuf.ByteString) ref;
+        }
+      }
+      /**
+       * <pre>
+       * Dataset digest of the dataset associated with the metric,
+       * e.g. an md5 hash of the dataset that uniquely identifies it
+       * within datasets of the same name.
+       * </pre>
+       *
+       * <code>optional string dataset_digest = 6 [(.mlflow.visibility) = PUBLIC_UNDOCUMENTED];</code>
+       * @param value The datasetDigest to set.
+       * @return This builder for chaining.
+       */
+      public Builder setDatasetDigest(
+          java.lang.String value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  bitField0_ |= 0x00000020;
+        datasetDigest_ = value;
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * Dataset digest of the dataset associated with the metric,
+       * e.g. an md5 hash of the dataset that uniquely identifies it
+       * within datasets of the same name.
+       * </pre>
+       *
+       * <code>optional string dataset_digest = 6 [(.mlflow.visibility) = PUBLIC_UNDOCUMENTED];</code>
+       * @return This builder for chaining.
+       */
+      public Builder clearDatasetDigest() {
+        bitField0_ = (bitField0_ & ~0x00000020);
+        datasetDigest_ = getDefaultInstance().getDatasetDigest();
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * Dataset digest of the dataset associated with the metric,
+       * e.g. an md5 hash of the dataset that uniquely identifies it
+       * within datasets of the same name.
+       * </pre>
+       *
+       * <code>optional string dataset_digest = 6 [(.mlflow.visibility) = PUBLIC_UNDOCUMENTED];</code>
+       * @param value The bytes for datasetDigest to set.
+       * @return This builder for chaining.
+       */
+      public Builder setDatasetDigestBytes(
+          com.google.protobuf.ByteString value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  bitField0_ |= 0x00000020;
+        datasetDigest_ = value;
+        onChanged();
+        return this;
+      }
+
+      private java.lang.Object modelId_ = "";
+      /**
+       * <pre>
+       * The ID of the LoggedModel or Registered Model Version associated with
+       * the metric, if applicable.
+       * </pre>
+       *
+       * <code>optional string model_id = 7 [(.mlflow.visibility) = PUBLIC_UNDOCUMENTED];</code>
+       * @return Whether the modelId field is set.
+       */
+      public boolean hasModelId() {
+        return ((bitField0_ & 0x00000040) != 0);
+      }
+      /**
+       * <pre>
+       * The ID of the LoggedModel or Registered Model Version associated with
+       * the metric, if applicable.
+       * </pre>
+       *
+       * <code>optional string model_id = 7 [(.mlflow.visibility) = PUBLIC_UNDOCUMENTED];</code>
+       * @return The modelId.
+       */
+      public java.lang.String getModelId() {
+        java.lang.Object ref = modelId_;
+        if (!(ref instanceof java.lang.String)) {
+          com.google.protobuf.ByteString bs =
+              (com.google.protobuf.ByteString) ref;
+          java.lang.String s = bs.toStringUtf8();
+          if (bs.isValidUtf8()) {
+            modelId_ = s;
+          }
+          return s;
+        } else {
+          return (java.lang.String) ref;
+        }
+      }
+      /**
+       * <pre>
+       * The ID of the LoggedModel or Registered Model Version associated with
+       * the metric, if applicable.
+       * </pre>
+       *
+       * <code>optional string model_id = 7 [(.mlflow.visibility) = PUBLIC_UNDOCUMENTED];</code>
+       * @return The bytes for modelId.
+       */
+      public com.google.protobuf.ByteString
+          getModelIdBytes() {
+        java.lang.Object ref = modelId_;
+        if (ref instanceof String) {
+          com.google.protobuf.ByteString b = 
+              com.google.protobuf.ByteString.copyFromUtf8(
+                  (java.lang.String) ref);
+          modelId_ = b;
+          return b;
+        } else {
+          return (com.google.protobuf.ByteString) ref;
+        }
+      }
+      /**
+       * <pre>
+       * The ID of the LoggedModel or Registered Model Version associated with
+       * the metric, if applicable.
+       * </pre>
+       *
+       * <code>optional string model_id = 7 [(.mlflow.visibility) = PUBLIC_UNDOCUMENTED];</code>
+       * @param value The modelId to set.
+       * @return This builder for chaining.
+       */
+      public Builder setModelId(
+          java.lang.String value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  bitField0_ |= 0x00000040;
+        modelId_ = value;
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * The ID of the LoggedModel or Registered Model Version associated with
+       * the metric, if applicable.
+       * </pre>
+       *
+       * <code>optional string model_id = 7 [(.mlflow.visibility) = PUBLIC_UNDOCUMENTED];</code>
+       * @return This builder for chaining.
+       */
+      public Builder clearModelId() {
+        bitField0_ = (bitField0_ & ~0x00000040);
+        modelId_ = getDefaultInstance().getModelId();
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * The ID of the LoggedModel or Registered Model Version associated with
+       * the metric, if applicable.
+       * </pre>
+       *
+       * <code>optional string model_id = 7 [(.mlflow.visibility) = PUBLIC_UNDOCUMENTED];</code>
+       * @param value The bytes for modelId to set.
+       * @return This builder for chaining.
+       */
+      public Builder setModelIdBytes(
+          com.google.protobuf.ByteString value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  bitField0_ |= 0x00000040;
+        modelId_ = value;
+        onChanged();
+        return this;
+      }
+
+      private java.lang.Object runId_ = "";
+      /**
+       * <pre>
+       * The ID of the run containing the metric.
+       * </pre>
+       *
+       * <code>optional string run_id = 8 [(.mlflow.visibility) = PUBLIC_UNDOCUMENTED];</code>
+       * @return Whether the runId field is set.
+       */
+      public boolean hasRunId() {
+        return ((bitField0_ & 0x00000080) != 0);
+      }
+      /**
+       * <pre>
+       * The ID of the run containing the metric.
+       * </pre>
+       *
+       * <code>optional string run_id = 8 [(.mlflow.visibility) = PUBLIC_UNDOCUMENTED];</code>
+       * @return The runId.
+       */
+      public java.lang.String getRunId() {
+        java.lang.Object ref = runId_;
+        if (!(ref instanceof java.lang.String)) {
+          com.google.protobuf.ByteString bs =
+              (com.google.protobuf.ByteString) ref;
+          java.lang.String s = bs.toStringUtf8();
+          if (bs.isValidUtf8()) {
+            runId_ = s;
+          }
+          return s;
+        } else {
+          return (java.lang.String) ref;
+        }
+      }
+      /**
+       * <pre>
+       * The ID of the run containing the metric.
+       * </pre>
+       *
+       * <code>optional string run_id = 8 [(.mlflow.visibility) = PUBLIC_UNDOCUMENTED];</code>
+       * @return The bytes for runId.
+       */
+      public com.google.protobuf.ByteString
+          getRunIdBytes() {
+        java.lang.Object ref = runId_;
+        if (ref instanceof String) {
+          com.google.protobuf.ByteString b = 
+              com.google.protobuf.ByteString.copyFromUtf8(
+                  (java.lang.String) ref);
+          runId_ = b;
+          return b;
+        } else {
+          return (com.google.protobuf.ByteString) ref;
+        }
+      }
+      /**
+       * <pre>
+       * The ID of the run containing the metric.
+       * </pre>
+       *
+       * <code>optional string run_id = 8 [(.mlflow.visibility) = PUBLIC_UNDOCUMENTED];</code>
+       * @param value The runId to set.
+       * @return This builder for chaining.
+       */
+      public Builder setRunId(
+          java.lang.String value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  bitField0_ |= 0x00000080;
+        runId_ = value;
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * The ID of the run containing the metric.
+       * </pre>
+       *
+       * <code>optional string run_id = 8 [(.mlflow.visibility) = PUBLIC_UNDOCUMENTED];</code>
+       * @return This builder for chaining.
+       */
+      public Builder clearRunId() {
+        bitField0_ = (bitField0_ & ~0x00000080);
+        runId_ = getDefaultInstance().getRunId();
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * The ID of the run containing the metric.
+       * </pre>
+       *
+       * <code>optional string run_id = 8 [(.mlflow.visibility) = PUBLIC_UNDOCUMENTED];</code>
+       * @param value The bytes for runId to set.
+       * @return This builder for chaining.
+       */
+      public Builder setRunIdBytes(
+          com.google.protobuf.ByteString value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  bitField0_ |= 0x00000080;
+        runId_ = value;
         onChanged();
         return this;
       }
@@ -95804,349 +96772,352 @@ public final class Service {
   static {
     java.lang.String[] descriptorData = {
       "\n\rservice.proto\022\006mlflow\032\025scalapb/scalapb" +
-      ".proto\032\020databricks.proto\"H\n\006Metric\022\013\n\003ke" +
-      "y\030\001 \001(\t\022\r\n\005value\030\002 \001(\001\022\021\n\ttimestamp\030\003 \001(" +
-      "\003\022\017\n\004step\030\004 \001(\003:\0010\"#\n\005Param\022\013\n\003key\030\001 \001(\t" +
-      "\022\r\n\005value\030\002 \001(\t\"f\n\003Run\022\035\n\004info\030\001 \001(\0132\017.m" +
-      "lflow.RunInfo\022\035\n\004data\030\002 \001(\0132\017.mlflow.Run" +
-      "Data\022!\n\006inputs\030\003 \001(\0132\021.mlflow.RunInputs\"" +
-      "g\n\007RunData\022\037\n\007metrics\030\001 \003(\0132\016.mlflow.Met" +
-      "ric\022\035\n\006params\030\002 \003(\0132\r.mlflow.Param\022\034\n\004ta" +
-      "gs\030\003 \003(\0132\016.mlflow.RunTag\"9\n\tRunInputs\022,\n" +
-      "\016dataset_inputs\030\001 \003(\0132\024.mlflow.DatasetIn" +
-      "put\"$\n\006RunTag\022\013\n\003key\030\001 \001(\t\022\r\n\005value\030\002 \001(" +
-      "\t\"+\n\rExperimentTag\022\013\n\003key\030\001 \001(\t\022\r\n\005value" +
-      "\030\002 \001(\t\"\335\001\n\007RunInfo\022\016\n\006run_id\030\017 \001(\t\022\020\n\010ru" +
-      "n_uuid\030\001 \001(\t\022\020\n\010run_name\030\003 \001(\t\022\025\n\rexperi" +
-      "ment_id\030\002 \001(\t\022\017\n\007user_id\030\006 \001(\t\022!\n\006status" +
-      "\030\007 \001(\0162\021.mlflow.RunStatus\022\022\n\nstart_time\030" +
-      "\010 \001(\003\022\020\n\010end_time\030\t \001(\003\022\024\n\014artifact_uri\030" +
-      "\r \001(\t\022\027\n\017lifecycle_stage\030\016 \001(\t\"\273\001\n\nExper" +
-      "iment\022\025\n\rexperiment_id\030\001 \001(\t\022\014\n\004name\030\002 \001" +
-      "(\t\022\031\n\021artifact_location\030\003 \001(\t\022\027\n\017lifecyc" +
-      "le_stage\030\004 \001(\t\022\030\n\020last_update_time\030\005 \001(\003" +
-      "\022\025\n\rcreation_time\030\006 \001(\003\022#\n\004tags\030\007 \003(\0132\025." +
-      "mlflow.ExperimentTag\"V\n\014DatasetInput\022\036\n\004" +
-      "tags\030\001 \003(\0132\020.mlflow.InputTag\022&\n\007dataset\030" +
-      "\002 \001(\0132\017.mlflow.DatasetB\004\370\206\031\001\"2\n\010InputTag" +
-      "\022\021\n\003key\030\001 \001(\tB\004\370\206\031\001\022\023\n\005value\030\002 \001(\tB\004\370\206\031\001" +
-      "\"\205\001\n\007Dataset\022\022\n\004name\030\001 \001(\tB\004\370\206\031\001\022\024\n\006dige" +
-      "st\030\002 \001(\tB\004\370\206\031\001\022\031\n\013source_type\030\003 \001(\tB\004\370\206\031" +
-      "\001\022\024\n\006source\030\004 \001(\tB\004\370\206\031\001\022\016\n\006schema\030\005 \001(\t\022" +
-      "\017\n\007profile\030\006 \001(\t\"\266\001\n\020CreateExperiment\022\022\n" +
-      "\004name\030\001 \001(\tB\004\370\206\031\001\022\031\n\021artifact_location\030\002" +
-      " \001(\t\022#\n\004tags\030\003 \003(\0132\025.mlflow.ExperimentTa" +
-      "g\032!\n\010Response\022\025\n\rexperiment_id\030\001 \001(\t:+\342?" +
-      "(\n&com.databricks.rpc.RPC[$this.Response" +
-      "]\"\376\001\n\021SearchExperiments\022\023\n\013max_results\030\001" +
-      " \001(\003\022\022\n\npage_token\030\002 \001(\t\022\016\n\006filter\030\003 \001(\t" +
-      "\022\020\n\010order_by\030\004 \003(\t\022#\n\tview_type\030\005 \001(\0162\020." +
-      "mlflow.ViewType\032L\n\010Response\022\'\n\013experimen" +
-      "ts\030\001 \003(\0132\022.mlflow.Experiment\022\027\n\017next_pag" +
-      "e_token\030\002 \001(\t:+\342?(\n&com.databricks.rpc.R" +
-      "PC[$this.Response]\"\215\001\n\rGetExperiment\022\033\n\r" +
-      "experiment_id\030\001 \001(\tB\004\370\206\031\001\0322\n\010Response\022&\n" +
-      "\nexperiment\030\001 \001(\0132\022.mlflow.Experiment:+\342" +
-      "?(\n&com.databricks.rpc.RPC[$this.Respons" +
-      "e]\"h\n\020DeleteExperiment\022\033\n\rexperiment_id\030" +
-      "\001 \001(\tB\004\370\206\031\001\032\n\n\010Response:+\342?(\n&com.databr" +
-      "icks.rpc.RPC[$this.Response]\"i\n\021RestoreE" +
-      "xperiment\022\033\n\rexperiment_id\030\001 \001(\tB\004\370\206\031\001\032\n" +
-      "\n\010Response:+\342?(\n&com.databricks.rpc.RPC[" +
-      "$this.Response]\"z\n\020UpdateExperiment\022\033\n\re" +
-      "xperiment_id\030\001 \001(\tB\004\370\206\031\001\022\020\n\010new_name\030\002 \001" +
-      "(\t\032\n\n\010Response:+\342?(\n&com.databricks.rpc." +
-      "RPC[$this.Response]\"\312\001\n\tCreateRun\022\025\n\rexp" +
-      "eriment_id\030\001 \001(\t\022\017\n\007user_id\030\002 \001(\t\022\020\n\010run" +
-      "_name\030\003 \001(\t\022\022\n\nstart_time\030\007 \001(\003\022\034\n\004tags\030" +
-      "\t \003(\0132\016.mlflow.RunTag\032$\n\010Response\022\030\n\003run" +
-      "\030\001 \001(\0132\013.mlflow.Run:+\342?(\n&com.databricks" +
-      ".rpc.RPC[$this.Response]\"\320\001\n\tUpdateRun\022\016" +
-      "\n\006run_id\030\004 \001(\t\022\020\n\010run_uuid\030\001 \001(\t\022!\n\006stat" +
-      "us\030\002 \001(\0162\021.mlflow.RunStatus\022\020\n\010end_time\030" +
-      "\003 \001(\003\022\020\n\010run_name\030\005 \001(\t\032-\n\010Response\022!\n\010r" +
-      "un_info\030\001 \001(\0132\017.mlflow.RunInfo:+\342?(\n&com" +
-      ".databricks.rpc.RPC[$this.Response]\"Z\n\tD" +
-      "eleteRun\022\024\n\006run_id\030\001 \001(\tB\004\370\206\031\001\032\n\n\010Respon" +
-      "se:+\342?(\n&com.databricks.rpc.RPC[$this.Re" +
-      "sponse]\"[\n\nRestoreRun\022\024\n\006run_id\030\001 \001(\tB\004\370" +
-      "\206\031\001\032\n\n\010Response:+\342?(\n&com.databricks.rpc" +
-      ".RPC[$this.Response]\"\270\001\n\tLogMetric\022\016\n\006ru" +
-      "n_id\030\006 \001(\t\022\020\n\010run_uuid\030\001 \001(\t\022\021\n\003key\030\002 \001(" +
-      "\tB\004\370\206\031\001\022\023\n\005value\030\003 \001(\001B\004\370\206\031\001\022\027\n\ttimestam" +
-      "p\030\004 \001(\003B\004\370\206\031\001\022\017\n\004step\030\005 \001(\003:\0010\032\n\n\010Respon" +
-      "se:+\342?(\n&com.databricks.rpc.RPC[$this.Re" +
-      "sponse]\"\215\001\n\010LogParam\022\016\n\006run_id\030\004 \001(\t\022\020\n\010" +
-      "run_uuid\030\001 \001(\t\022\021\n\003key\030\002 \001(\tB\004\370\206\031\001\022\023\n\005val" +
-      "ue\030\003 \001(\tB\004\370\206\031\001\032\n\n\010Response:+\342?(\n&com.dat" +
-      "abricks.rpc.RPC[$this.Response]\"\220\001\n\020SetE" +
-      "xperimentTag\022\033\n\rexperiment_id\030\001 \001(\tB\004\370\206\031" +
-      "\001\022\021\n\003key\030\002 \001(\tB\004\370\206\031\001\022\023\n\005value\030\003 \001(\tB\004\370\206\031" +
-      "\001\032\n\n\010Response:+\342?(\n&com.databricks.rpc.R" +
-      "PC[$this.Response]\"\213\001\n\006SetTag\022\016\n\006run_id\030" +
-      "\004 \001(\t\022\020\n\010run_uuid\030\001 \001(\t\022\021\n\003key\030\002 \001(\tB\004\370\206" +
-      "\031\001\022\023\n\005value\030\003 \001(\tB\004\370\206\031\001\032\n\n\010Response:+\342?(" +
-      "\n&com.databricks.rpc.RPC[$this.Response]" +
-      "\"m\n\tDeleteTag\022\024\n\006run_id\030\001 \001(\tB\004\370\206\031\001\022\021\n\003k" +
-      "ey\030\002 \001(\tB\004\370\206\031\001\032\n\n\010Response:+\342?(\n&com.dat" +
-      "abricks.rpc.RPC[$this.Response]\"}\n\006GetRu" +
-      "n\022\016\n\006run_id\030\002 \001(\t\022\020\n\010run_uuid\030\001 \001(\t\032$\n\010R" +
-      "esponse\022\030\n\003run\030\001 \001(\0132\013.mlflow.Run:+\342?(\n&" +
-      "com.databricks.rpc.RPC[$this.Response]\"\230" +
-      "\002\n\nSearchRuns\022\026\n\016experiment_ids\030\001 \003(\t\022\016\n" +
-      "\006filter\030\004 \001(\t\0224\n\rrun_view_type\030\003 \001(\0162\020.m" +
-      "lflow.ViewType:\013ACTIVE_ONLY\022\031\n\013max_resul" +
-      "ts\030\005 \001(\005:\0041000\022\020\n\010order_by\030\006 \003(\t\022\022\n\npage" +
-      "_token\030\007 \001(\t\032>\n\010Response\022\031\n\004runs\030\001 \003(\0132\013" +
-      ".mlflow.Run\022\027\n\017next_page_token\030\002 \001(\t:+\342?" +
-      "(\n&com.databricks.rpc.RPC[$this.Response" +
-      "]\"\330\001\n\rListArtifacts\022\016\n\006run_id\030\003 \001(\t\022\020\n\010r" +
-      "un_uuid\030\001 \001(\t\022\014\n\004path\030\002 \001(\t\022\022\n\npage_toke" +
-      "n\030\004 \001(\t\032V\n\010Response\022\020\n\010root_uri\030\001 \001(\t\022\037\n" +
-      "\005files\030\002 \003(\0132\020.mlflow.FileInfo\022\027\n\017next_p" +
-      "age_token\030\003 \001(\t:+\342?(\n&com.databricks.rpc" +
-      ".RPC[$this.Response]\";\n\010FileInfo\022\014\n\004path" +
-      "\030\001 \001(\t\022\016\n\006is_dir\030\002 \001(\010\022\021\n\tfile_size\030\003 \001(" +
-      "\003\"\352\001\n\020GetMetricHistory\022\016\n\006run_id\030\003 \001(\t\022\020" +
-      "\n\010run_uuid\030\001 \001(\t\022\030\n\nmetric_key\030\002 \001(\tB\004\370\206" +
-      "\031\001\022\022\n\npage_token\030\004 \001(\t\022\023\n\013max_results\030\005 " +
-      "\001(\005\032D\n\010Response\022\037\n\007metrics\030\001 \003(\0132\016.mlflo" +
-      "w.Metric\022\027\n\017next_page_token\030\002 \001(\t:+\342?(\n&" +
-      "com.databricks.rpc.RPC[$this.Response]\"a" +
-      "\n\017MetricWithRunId\022\013\n\003key\030\001 \001(\t\022\r\n\005value\030" +
-      "\002 \001(\001\022\021\n\ttimestamp\030\003 \001(\003\022\017\n\004step\030\004 \001(\003:\001" +
-      "0\022\016\n\006run_id\030\005 \001(\t\"\233\002\n\034GetMetricHistoryBu" +
-      "lkInterval\022\017\n\007run_ids\030\001 \003(\t\022\030\n\nmetric_ke" +
-      "y\030\002 \001(\tB\004\370\206\031\001\022\022\n\nstart_step\030\003 \001(\005\022\020\n\010end" +
-      "_step\030\004 \001(\005\022\023\n\013max_results\030\005 \001(\005\0324\n\010Resp" +
-      "onse\022(\n\007metrics\030\001 \003(\0132\027.mlflow.MetricWit" +
-      "hRunId:_\342?(\n&com.databricks.rpc.RPC[$thi" +
-      "s.Response]\342?1\n/com.databricks.mlflow.ap" +
-      "i.MlflowTrackingMessage\"\261\001\n\010LogBatch\022\016\n\006" +
-      "run_id\030\001 \001(\t\022\037\n\007metrics\030\002 \003(\0132\016.mlflow.M" +
-      "etric\022\035\n\006params\030\003 \003(\0132\r.mlflow.Param\022\034\n\004" +
-      "tags\030\004 \003(\0132\016.mlflow.RunTag\032\n\n\010Response:+" +
+      ".proto\032\020databricks.proto\"\260\001\n\006Metric\022\013\n\003k" +
+      "ey\030\001 \001(\t\022\r\n\005value\030\002 \001(\001\022\021\n\ttimestamp\030\003 \001" +
+      "(\003\022\017\n\004step\030\004 \001(\003:\0010\022\032\n\014dataset_name\030\005 \001(" +
+      "\tB\004\360\206\031\003\022\034\n\016dataset_digest\030\006 \001(\tB\004\360\206\031\003\022\026\n" +
+      "\010model_id\030\007 \001(\tB\004\360\206\031\003\022\024\n\006run_id\030\010 \001(\tB\004\360" +
+      "\206\031\003\"#\n\005Param\022\013\n\003key\030\001 \001(\t\022\r\n\005value\030\002 \001(\t" +
+      "\"f\n\003Run\022\035\n\004info\030\001 \001(\0132\017.mlflow.RunInfo\022\035" +
+      "\n\004data\030\002 \001(\0132\017.mlflow.RunData\022!\n\006inputs\030" +
+      "\003 \001(\0132\021.mlflow.RunInputs\"g\n\007RunData\022\037\n\007m" +
+      "etrics\030\001 \003(\0132\016.mlflow.Metric\022\035\n\006params\030\002" +
+      " \003(\0132\r.mlflow.Param\022\034\n\004tags\030\003 \003(\0132\016.mlfl" +
+      "ow.RunTag\"9\n\tRunInputs\022,\n\016dataset_inputs" +
+      "\030\001 \003(\0132\024.mlflow.DatasetInput\"$\n\006RunTag\022\013" +
+      "\n\003key\030\001 \001(\t\022\r\n\005value\030\002 \001(\t\"+\n\rExperiment" +
+      "Tag\022\013\n\003key\030\001 \001(\t\022\r\n\005value\030\002 \001(\t\"\335\001\n\007RunI" +
+      "nfo\022\016\n\006run_id\030\017 \001(\t\022\020\n\010run_uuid\030\001 \001(\t\022\020\n" +
+      "\010run_name\030\003 \001(\t\022\025\n\rexperiment_id\030\002 \001(\t\022\017" +
+      "\n\007user_id\030\006 \001(\t\022!\n\006status\030\007 \001(\0162\021.mlflow" +
+      ".RunStatus\022\022\n\nstart_time\030\010 \001(\003\022\020\n\010end_ti" +
+      "me\030\t \001(\003\022\024\n\014artifact_uri\030\r \001(\t\022\027\n\017lifecy" +
+      "cle_stage\030\016 \001(\t\"\273\001\n\nExperiment\022\025\n\rexperi" +
+      "ment_id\030\001 \001(\t\022\014\n\004name\030\002 \001(\t\022\031\n\021artifact_" +
+      "location\030\003 \001(\t\022\027\n\017lifecycle_stage\030\004 \001(\t\022" +
+      "\030\n\020last_update_time\030\005 \001(\003\022\025\n\rcreation_ti" +
+      "me\030\006 \001(\003\022#\n\004tags\030\007 \003(\0132\025.mlflow.Experime" +
+      "ntTag\"V\n\014DatasetInput\022\036\n\004tags\030\001 \003(\0132\020.ml" +
+      "flow.InputTag\022&\n\007dataset\030\002 \001(\0132\017.mlflow." +
+      "DatasetB\004\370\206\031\001\"2\n\010InputTag\022\021\n\003key\030\001 \001(\tB\004" +
+      "\370\206\031\001\022\023\n\005value\030\002 \001(\tB\004\370\206\031\001\"\205\001\n\007Dataset\022\022\n" +
+      "\004name\030\001 \001(\tB\004\370\206\031\001\022\024\n\006digest\030\002 \001(\tB\004\370\206\031\001\022" +
+      "\031\n\013source_type\030\003 \001(\tB\004\370\206\031\001\022\024\n\006source\030\004 \001" +
+      "(\tB\004\370\206\031\001\022\016\n\006schema\030\005 \001(\t\022\017\n\007profile\030\006 \001(" +
+      "\t\"\266\001\n\020CreateExperiment\022\022\n\004name\030\001 \001(\tB\004\370\206" +
+      "\031\001\022\031\n\021artifact_location\030\002 \001(\t\022#\n\004tags\030\003 " +
+      "\003(\0132\025.mlflow.ExperimentTag\032!\n\010Response\022\025" +
+      "\n\rexperiment_id\030\001 \001(\t:+\342?(\n&com.databric" +
+      "ks.rpc.RPC[$this.Response]\"\376\001\n\021SearchExp" +
+      "eriments\022\023\n\013max_results\030\001 \001(\003\022\022\n\npage_to" +
+      "ken\030\002 \001(\t\022\016\n\006filter\030\003 \001(\t\022\020\n\010order_by\030\004 " +
+      "\003(\t\022#\n\tview_type\030\005 \001(\0162\020.mlflow.ViewType" +
+      "\032L\n\010Response\022\'\n\013experiments\030\001 \003(\0132\022.mlfl" +
+      "ow.Experiment\022\027\n\017next_page_token\030\002 \001(\t:+" +
       "\342?(\n&com.databricks.rpc.RPC[$this.Respon" +
-      "se]\"g\n\010LogModel\022\016\n\006run_id\030\001 \001(\t\022\022\n\nmodel" +
-      "_json\030\002 \001(\t\032\n\n\010Response:+\342?(\n&com.databr" +
-      "icks.rpc.RPC[$this.Response]\"\266\001\n\tLogInpu" +
-      "ts\022\024\n\006run_id\030\001 \001(\tB\004\370\206\031\001\022&\n\010datasets\030\002 \003" +
-      "(\0132\024.mlflow.DatasetInput\032\n\n\010Response:_\342?" +
-      "(\n&com.databricks.rpc.RPC[$this.Response" +
-      "]\342?1\n/com.databricks.mlflow.api.MlflowTr" +
-      "ackingMessage\"\225\001\n\023GetExperimentByName\022\035\n" +
-      "\017experiment_name\030\001 \001(\tB\004\370\206\031\001\0322\n\010Response" +
-      "\022&\n\nexperiment\030\001 \001(\0132\022.mlflow.Experiment" +
+      "se]\"\215\001\n\rGetExperiment\022\033\n\rexperiment_id\030\001" +
+      " \001(\tB\004\370\206\031\001\0322\n\010Response\022&\n\nexperiment\030\001 \001" +
+      "(\0132\022.mlflow.Experiment:+\342?(\n&com.databri" +
+      "cks.rpc.RPC[$this.Response]\"h\n\020DeleteExp" +
+      "eriment\022\033\n\rexperiment_id\030\001 \001(\tB\004\370\206\031\001\032\n\n\010" +
+      "Response:+\342?(\n&com.databricks.rpc.RPC[$t" +
+      "his.Response]\"i\n\021RestoreExperiment\022\033\n\rex" +
+      "periment_id\030\001 \001(\tB\004\370\206\031\001\032\n\n\010Response:+\342?(" +
+      "\n&com.databricks.rpc.RPC[$this.Response]" +
+      "\"z\n\020UpdateExperiment\022\033\n\rexperiment_id\030\001 " +
+      "\001(\tB\004\370\206\031\001\022\020\n\010new_name\030\002 \001(\t\032\n\n\010Response:" +
+      "+\342?(\n&com.databricks.rpc.RPC[$this.Respo" +
+      "nse]\"\312\001\n\tCreateRun\022\025\n\rexperiment_id\030\001 \001(" +
+      "\t\022\017\n\007user_id\030\002 \001(\t\022\020\n\010run_name\030\003 \001(\t\022\022\n\n" +
+      "start_time\030\007 \001(\003\022\034\n\004tags\030\t \003(\0132\016.mlflow." +
+      "RunTag\032$\n\010Response\022\030\n\003run\030\001 \001(\0132\013.mlflow" +
+      ".Run:+\342?(\n&com.databricks.rpc.RPC[$this." +
+      "Response]\"\320\001\n\tUpdateRun\022\016\n\006run_id\030\004 \001(\t\022" +
+      "\020\n\010run_uuid\030\001 \001(\t\022!\n\006status\030\002 \001(\0162\021.mlfl" +
+      "ow.RunStatus\022\020\n\010end_time\030\003 \001(\003\022\020\n\010run_na" +
+      "me\030\005 \001(\t\032-\n\010Response\022!\n\010run_info\030\001 \001(\0132\017" +
+      ".mlflow.RunInfo:+\342?(\n&com.databricks.rpc" +
+      ".RPC[$this.Response]\"Z\n\tDeleteRun\022\024\n\006run" +
+      "_id\030\001 \001(\tB\004\370\206\031\001\032\n\n\010Response:+\342?(\n&com.da" +
+      "tabricks.rpc.RPC[$this.Response]\"[\n\nRest" +
+      "oreRun\022\024\n\006run_id\030\001 \001(\tB\004\370\206\031\001\032\n\n\010Response" +
       ":+\342?(\n&com.databricks.rpc.RPC[$this.Resp" +
-      "onse]\"\344\001\n\tTraceInfo\022\022\n\nrequest_id\030\001 \001(\t\022" +
-      "\025\n\rexperiment_id\030\002 \001(\t\022\024\n\014timestamp_ms\030\003" +
-      " \001(\003\022\031\n\021execution_time_ms\030\004 \001(\003\022#\n\006statu" +
-      "s\030\005 \001(\0162\023.mlflow.TraceStatus\0226\n\020request_" +
-      "metadata\030\006 \003(\0132\034.mlflow.TraceRequestMeta" +
-      "data\022\036\n\004tags\030\007 \003(\0132\020.mlflow.TraceTag\"2\n\024" +
-      "TraceRequestMetadata\022\013\n\003key\030\001 \001(\t\022\r\n\005val" +
-      "ue\030\002 \001(\t\"&\n\010TraceTag\022\013\n\003key\030\001 \001(\t\022\r\n\005val" +
-      "ue\030\002 \001(\t\"\245\002\n\nStartTrace\022\025\n\rexperiment_id" +
-      "\030\001 \001(\t\022\024\n\014timestamp_ms\030\002 \001(\003\0226\n\020request_" +
-      "metadata\030\003 \003(\0132\034.mlflow.TraceRequestMeta" +
-      "data\022\036\n\004tags\030\004 \003(\0132\020.mlflow.TraceTag\0321\n\010" +
-      "Response\022%\n\ntrace_info\030\001 \001(\0132\021.mlflow.Tr" +
-      "aceInfo:_\342?(\n&com.databricks.rpc.RPC[$th" +
-      "is.Response]\342?1\n/com.databricks.mlflow.a" +
-      "pi.MlflowTrackingMessage\"\305\002\n\010EndTrace\022\022\n" +
-      "\nrequest_id\030\001 \001(\t\022\024\n\014timestamp_ms\030\002 \001(\003\022" +
-      "#\n\006status\030\003 \001(\0162\023.mlflow.TraceStatus\0226\n\020" +
-      "request_metadata\030\004 \003(\0132\034.mlflow.TraceReq" +
-      "uestMetadata\022\036\n\004tags\030\005 \003(\0132\020.mlflow.Trac" +
-      "eTag\0321\n\010Response\022%\n\ntrace_info\030\001 \001(\0132\021.m" +
-      "lflow.TraceInfo:_\342?(\n&com.databricks.rpc" +
-      ".RPC[$this.Response]\342?1\n/com.databricks." +
-      "mlflow.api.MlflowTrackingMessage\"\266\001\n\014Get" +
-      "TraceInfo\022\022\n\nrequest_id\030\001 \001(\t\0321\n\010Respons" +
+      "onse]\"\270\001\n\tLogMetric\022\016\n\006run_id\030\006 \001(\t\022\020\n\010r" +
+      "un_uuid\030\001 \001(\t\022\021\n\003key\030\002 \001(\tB\004\370\206\031\001\022\023\n\005valu" +
+      "e\030\003 \001(\001B\004\370\206\031\001\022\027\n\ttimestamp\030\004 \001(\003B\004\370\206\031\001\022\017" +
+      "\n\004step\030\005 \001(\003:\0010\032\n\n\010Response:+\342?(\n&com.da" +
+      "tabricks.rpc.RPC[$this.Response]\"\215\001\n\010Log" +
+      "Param\022\016\n\006run_id\030\004 \001(\t\022\020\n\010run_uuid\030\001 \001(\t\022" +
+      "\021\n\003key\030\002 \001(\tB\004\370\206\031\001\022\023\n\005value\030\003 \001(\tB\004\370\206\031\001\032" +
+      "\n\n\010Response:+\342?(\n&com.databricks.rpc.RPC" +
+      "[$this.Response]\"\220\001\n\020SetExperimentTag\022\033\n" +
+      "\rexperiment_id\030\001 \001(\tB\004\370\206\031\001\022\021\n\003key\030\002 \001(\tB" +
+      "\004\370\206\031\001\022\023\n\005value\030\003 \001(\tB\004\370\206\031\001\032\n\n\010Response:+" +
+      "\342?(\n&com.databricks.rpc.RPC[$this.Respon" +
+      "se]\"\213\001\n\006SetTag\022\016\n\006run_id\030\004 \001(\t\022\020\n\010run_uu" +
+      "id\030\001 \001(\t\022\021\n\003key\030\002 \001(\tB\004\370\206\031\001\022\023\n\005value\030\003 \001" +
+      "(\tB\004\370\206\031\001\032\n\n\010Response:+\342?(\n&com.databrick" +
+      "s.rpc.RPC[$this.Response]\"m\n\tDeleteTag\022\024" +
+      "\n\006run_id\030\001 \001(\tB\004\370\206\031\001\022\021\n\003key\030\002 \001(\tB\004\370\206\031\001\032" +
+      "\n\n\010Response:+\342?(\n&com.databricks.rpc.RPC" +
+      "[$this.Response]\"}\n\006GetRun\022\016\n\006run_id\030\002 \001" +
+      "(\t\022\020\n\010run_uuid\030\001 \001(\t\032$\n\010Response\022\030\n\003run\030" +
+      "\001 \001(\0132\013.mlflow.Run:+\342?(\n&com.databricks." +
+      "rpc.RPC[$this.Response]\"\230\002\n\nSearchRuns\022\026" +
+      "\n\016experiment_ids\030\001 \003(\t\022\016\n\006filter\030\004 \001(\t\0224" +
+      "\n\rrun_view_type\030\003 \001(\0162\020.mlflow.ViewType:" +
+      "\013ACTIVE_ONLY\022\031\n\013max_results\030\005 \001(\005:\0041000\022" +
+      "\020\n\010order_by\030\006 \003(\t\022\022\n\npage_token\030\007 \001(\t\032>\n" +
+      "\010Response\022\031\n\004runs\030\001 \003(\0132\013.mlflow.Run\022\027\n\017" +
+      "next_page_token\030\002 \001(\t:+\342?(\n&com.databric" +
+      "ks.rpc.RPC[$this.Response]\"\330\001\n\rListArtif" +
+      "acts\022\016\n\006run_id\030\003 \001(\t\022\020\n\010run_uuid\030\001 \001(\t\022\014" +
+      "\n\004path\030\002 \001(\t\022\022\n\npage_token\030\004 \001(\t\032V\n\010Resp" +
+      "onse\022\020\n\010root_uri\030\001 \001(\t\022\037\n\005files\030\002 \003(\0132\020." +
+      "mlflow.FileInfo\022\027\n\017next_page_token\030\003 \001(\t" +
+      ":+\342?(\n&com.databricks.rpc.RPC[$this.Resp" +
+      "onse]\";\n\010FileInfo\022\014\n\004path\030\001 \001(\t\022\016\n\006is_di" +
+      "r\030\002 \001(\010\022\021\n\tfile_size\030\003 \001(\003\"\352\001\n\020GetMetric" +
+      "History\022\016\n\006run_id\030\003 \001(\t\022\020\n\010run_uuid\030\001 \001(" +
+      "\t\022\030\n\nmetric_key\030\002 \001(\tB\004\370\206\031\001\022\022\n\npage_toke" +
+      "n\030\004 \001(\t\022\023\n\013max_results\030\005 \001(\005\032D\n\010Response" +
+      "\022\037\n\007metrics\030\001 \003(\0132\016.mlflow.Metric\022\027\n\017nex" +
+      "t_page_token\030\002 \001(\t:+\342?(\n&com.databricks." +
+      "rpc.RPC[$this.Response]\"a\n\017MetricWithRun" +
+      "Id\022\013\n\003key\030\001 \001(\t\022\r\n\005value\030\002 \001(\001\022\021\n\ttimest" +
+      "amp\030\003 \001(\003\022\017\n\004step\030\004 \001(\003:\0010\022\016\n\006run_id\030\005 \001" +
+      "(\t\"\233\002\n\034GetMetricHistoryBulkInterval\022\017\n\007r" +
+      "un_ids\030\001 \003(\t\022\030\n\nmetric_key\030\002 \001(\tB\004\370\206\031\001\022\022" +
+      "\n\nstart_step\030\003 \001(\005\022\020\n\010end_step\030\004 \001(\005\022\023\n\013" +
+      "max_results\030\005 \001(\005\0324\n\010Response\022(\n\007metrics" +
+      "\030\001 \003(\0132\027.mlflow.MetricWithRunId:_\342?(\n&co" +
+      "m.databricks.rpc.RPC[$this.Response]\342?1\n" +
+      "/com.databricks.mlflow.api.MlflowTrackin" +
+      "gMessage\"\261\001\n\010LogBatch\022\016\n\006run_id\030\001 \001(\t\022\037\n" +
+      "\007metrics\030\002 \003(\0132\016.mlflow.Metric\022\035\n\006params" +
+      "\030\003 \003(\0132\r.mlflow.Param\022\034\n\004tags\030\004 \003(\0132\016.ml" +
+      "flow.RunTag\032\n\n\010Response:+\342?(\n&com.databr" +
+      "icks.rpc.RPC[$this.Response]\"g\n\010LogModel" +
+      "\022\016\n\006run_id\030\001 \001(\t\022\022\n\nmodel_json\030\002 \001(\t\032\n\n\010" +
+      "Response:+\342?(\n&com.databricks.rpc.RPC[$t" +
+      "his.Response]\"\266\001\n\tLogInputs\022\024\n\006run_id\030\001 " +
+      "\001(\tB\004\370\206\031\001\022&\n\010datasets\030\002 \003(\0132\024.mlflow.Dat" +
+      "asetInput\032\n\n\010Response:_\342?(\n&com.databric" +
+      "ks.rpc.RPC[$this.Response]\342?1\n/com.datab" +
+      "ricks.mlflow.api.MlflowTrackingMessage\"\225" +
+      "\001\n\023GetExperimentByName\022\035\n\017experiment_nam" +
+      "e\030\001 \001(\tB\004\370\206\031\001\0322\n\010Response\022&\n\nexperiment\030" +
+      "\001 \001(\0132\022.mlflow.Experiment:+\342?(\n&com.data" +
+      "bricks.rpc.RPC[$this.Response]\"\344\001\n\tTrace" +
+      "Info\022\022\n\nrequest_id\030\001 \001(\t\022\025\n\rexperiment_i" +
+      "d\030\002 \001(\t\022\024\n\014timestamp_ms\030\003 \001(\003\022\031\n\021executi" +
+      "on_time_ms\030\004 \001(\003\022#\n\006status\030\005 \001(\0162\023.mlflo" +
+      "w.TraceStatus\0226\n\020request_metadata\030\006 \003(\0132" +
+      "\034.mlflow.TraceRequestMetadata\022\036\n\004tags\030\007 " +
+      "\003(\0132\020.mlflow.TraceTag\"2\n\024TraceRequestMet" +
+      "adata\022\013\n\003key\030\001 \001(\t\022\r\n\005value\030\002 \001(\t\"&\n\010Tra" +
+      "ceTag\022\013\n\003key\030\001 \001(\t\022\r\n\005value\030\002 \001(\t\"\245\002\n\nSt" +
+      "artTrace\022\025\n\rexperiment_id\030\001 \001(\t\022\024\n\014times" +
+      "tamp_ms\030\002 \001(\003\0226\n\020request_metadata\030\003 \003(\0132" +
+      "\034.mlflow.TraceRequestMetadata\022\036\n\004tags\030\004 " +
+      "\003(\0132\020.mlflow.TraceTag\0321\n\010Response\022%\n\ntra" +
+      "ce_info\030\001 \001(\0132\021.mlflow.TraceInfo:_\342?(\n&c" +
+      "om.databricks.rpc.RPC[$this.Response]\342?1" +
+      "\n/com.databricks.mlflow.api.MlflowTracki" +
+      "ngMessage\"\305\002\n\010EndTrace\022\022\n\nrequest_id\030\001 \001" +
+      "(\t\022\024\n\014timestamp_ms\030\002 \001(\003\022#\n\006status\030\003 \001(\016" +
+      "2\023.mlflow.TraceStatus\0226\n\020request_metadat" +
+      "a\030\004 \003(\0132\034.mlflow.TraceRequestMetadata\022\036\n" +
+      "\004tags\030\005 \003(\0132\020.mlflow.TraceTag\0321\n\010Respons" +
       "e\022%\n\ntrace_info\030\001 \001(\0132\021.mlflow.TraceInfo" +
       ":_\342?(\n&com.databricks.rpc.RPC[$this.Resp" +
       "onse]\342?1\n/com.databricks.mlflow.api.Mlfl" +
-      "owTrackingMessage\"\237\002\n\014SearchTraces\022\026\n\016ex" +
-      "periment_ids\030\001 \003(\t\022\016\n\006filter\030\002 \001(\t\022\030\n\013ma" +
-      "x_results\030\003 \001(\005:\003100\022\020\n\010order_by\030\004 \003(\t\022\022" +
-      "\n\npage_token\030\005 \001(\t\032F\n\010Response\022!\n\006traces" +
-      "\030\001 \003(\0132\021.mlflow.TraceInfo\022\027\n\017next_page_t" +
-      "oken\030\002 \001(\t:_\342?(\n&com.databricks.rpc.RPC[" +
-      "$this.Response]\342?1\n/com.databricks.mlflo" +
-      "w.api.MlflowTrackingMessage\"\367\001\n\014DeleteTr" +
-      "aces\022\033\n\rexperiment_id\030\001 \001(\tB\004\370\206\031\001\022\034\n\024max" +
-      "_timestamp_millis\030\002 \001(\003\022\022\n\nmax_traces\030\003 " +
-      "\001(\005\022\023\n\013request_ids\030\004 \003(\t\032\"\n\010Response\022\026\n\016" +
-      "traces_deleted\030\001 \001(\005:_\342?(\n&com.databrick" +
-      "s.rpc.RPC[$this.Response]\342?1\n/com.databr" +
-      "icks.mlflow.api.MlflowTrackingMessage\"\252\001" +
-      "\n\013SetTraceTag\022\022\n\nrequest_id\030\001 \001(\t\022\013\n\003key" +
-      "\030\002 \001(\t\022\r\n\005value\030\003 \001(\t\032\n\n\010Response:_\342?(\n&" +
-      "com.databricks.rpc.RPC[$this.Response]\342?" +
-      "1\n/com.databricks.mlflow.api.MlflowTrack" +
-      "ingMessage\"\236\001\n\016DeleteTraceTag\022\022\n\nrequest" +
-      "_id\030\001 \001(\t\022\013\n\003key\030\002 \001(\t\032\n\n\010Response:_\342?(\n" +
-      "&com.databricks.rpc.RPC[$this.Response]\342" +
-      "?1\n/com.databricks.mlflow.api.MlflowTrac" +
-      "kingMessage\"h\n\016DatasetSummary\022\033\n\rexperim" +
-      "ent_id\030\001 \001(\tB\004\370\206\031\001\022\022\n\004name\030\002 \001(\tB\004\370\206\031\001\022\024" +
-      "\n\006digest\030\003 \001(\tB\004\370\206\031\001\022\017\n\007context\030\004 \001(\t\"\310\001" +
-      "\n\016SearchDatasets\022\026\n\016experiment_ids\030\001 \003(\t" +
-      "\032=\n\010Response\0221\n\021dataset_summaries\030\001 \003(\0132" +
-      "\026.mlflow.DatasetSummary:_\342?(\n&com.databr" +
-      "icks.rpc.RPC[$this.Response]\342?1\n/com.dat" +
-      "abricks.mlflow.api.MlflowTrackingMessage" +
-      "\"\316\002\n\021CreateLoggedModel\022\033\n\rexperiment_id\030" +
-      "\001 \001(\tB\004\370\206\031\001\022\014\n\004name\030\002 \001(\t\022\022\n\nmodel_type\030" +
-      "\003 \001(\t\022\025\n\rsource_run_id\030\004 \001(\t\022,\n\006params\030\005" +
-      " \003(\0132\034.mlflow.LoggedModelParameter\022$\n\004ta" +
-      "gs\030\006 \003(\0132\026.mlflow.LoggedModelTag\032.\n\010Resp" +
-      "onse\022\"\n\005model\030\001 \001(\0132\023.mlflow.LoggedModel" +
-      ":_\342?(\n&com.databricks.rpc.RPC[$this.Resp" +
-      "onse]\342?1\n/com.databricks.mlflow.api.Mlfl" +
-      "owTrackingMessage\"[\n\013LoggedModel\022%\n\004info" +
-      "\030\001 \001(\0132\027.mlflow.LoggedModelInfo\022%\n\004data\030" +
-      "\002 \001(\0132\027.mlflow.LoggedModelData\"\204\003\n\017Logge" +
-      "dModelInfo\022\020\n\010model_id\030\001 \001(\t\022\025\n\rexperime" +
-      "nt_id\030\002 \001(\t\022\014\n\004name\030\003 \001(\t\022\035\n\025creation_ti" +
-      "mestamp_ms\030\004 \001(\003\022!\n\031last_updated_timesta" +
-      "mp_ms\030\005 \001(\003\022\024\n\014artifact_uri\030\006 \001(\t\022)\n\006sta" +
-      "tus\030\007 \001(\0162\031.mlflow.LoggedModelStatus\022\022\n\n" +
-      "creator_id\030\010 \001(\003\022\022\n\nmodel_type\030\t \001(\t\022\025\n\r" +
-      "source_run_id\030\n \001(\t\022\026\n\016status_message\030\013 " +
-      "\001(\t\022$\n\004tags\030\014 \003(\0132\026.mlflow.LoggedModelTa" +
-      "g\022:\n\rregistrations\030\r \003(\0132#.mlflow.Logged" +
-      "ModelRegistrationInfo\",\n\016LoggedModelTag\022" +
-      "\013\n\003key\030\001 \001(\t\022\r\n\005value\030\002 \001(\t\"<\n\033LoggedMod" +
-      "elRegistrationInfo\022\014\n\004name\030\001 \001(\t\022\017\n\007vers" +
-      "ion\030\002 \001(\t\"`\n\017LoggedModelData\022,\n\006params\030\001" +
-      " \003(\0132\034.mlflow.LoggedModelParameter\022\037\n\007me" +
-      "trics\030\002 \003(\0132\016.mlflow.Metric\"2\n\024LoggedMod" +
-      "elParameter\022\013\n\003key\030\001 \001(\t\022\r\n\005value\030\002 \001(\t*" +
-      "6\n\010ViewType\022\017\n\013ACTIVE_ONLY\020\001\022\020\n\014DELETED_" +
-      "ONLY\020\002\022\007\n\003ALL\020\003*I\n\nSourceType\022\014\n\010NOTEBOO" +
-      "K\020\001\022\007\n\003JOB\020\002\022\013\n\007PROJECT\020\003\022\t\n\005LOCAL\020\004\022\014\n\007" +
-      "UNKNOWN\020\350\007*M\n\tRunStatus\022\013\n\007RUNNING\020\001\022\r\n\t" +
-      "SCHEDULED\020\002\022\014\n\010FINISHED\020\003\022\n\n\006FAILED\020\004\022\n\n" +
-      "\006KILLED\020\005*O\n\013TraceStatus\022\034\n\030TRACE_STATUS" +
-      "_UNSPECIFIED\020\000\022\006\n\002OK\020\001\022\t\n\005ERROR\020\002\022\017\n\013IN_" +
-      "PROGRESS\020\003*\212\001\n\021LoggedModelStatus\022#\n\037LOGG" +
-      "ED_MODEL_STATUS_UNSPECIFIED\020\000\022\030\n\024LOGGED_" +
-      "MODEL_PENDING\020\001\022\026\n\022LOGGED_MODEL_READY\020\002\022" +
-      "\036\n\032LOGGED_MODEL_UPLOAD_FAILED\020\0032\376\"\n\rMlfl" +
-      "owService\022\246\001\n\023getExperimentByName\022\033.mlfl" +
-      "ow.GetExperimentByName\032$.mlflow.GetExper" +
-      "imentByName.Response\"L\362\206\031H\n,\n\003GET\022\037/mlfl" +
-      "ow/experiments/get-by-name\032\004\010\002\020\000\020\001*\026Get " +
-      "Experiment By Name\022\224\001\n\020createExperiment\022" +
-      "\030.mlflow.CreateExperiment\032!.mlflow.Creat" +
-      "eExperiment.Response\"C\362\206\031?\n(\n\004POST\022\032/mlf" +
-      "low/experiments/create\032\004\010\002\020\000\020\001*\021Create E" +
-      "xperiment\022\301\001\n\021searchExperiments\022\031.mlflow" +
-      ".SearchExperiments\032\".mlflow.SearchExperi" +
-      "ments.Response\"m\362\206\031i\n(\n\004POST\022\032/mlflow/ex" +
-      "periments/search\032\004\010\002\020\000\n\'\n\003GET\022\032/mlflow/e" +
-      "xperiments/search\032\004\010\002\020\000\020\001*\022Search Experi" +
-      "ments\022\210\001\n\rgetExperiment\022\025.mlflow.GetExpe" +
-      "riment\032\036.mlflow.GetExperiment.Response\"@" +
-      "\362\206\0318\n$\n\003GET\022\027/mlflow/experiments/get\032\004\010\002" +
-      "\020\000\020\001*\016Get Experiment\272\214\031\000\022\224\001\n\020deleteExper" +
-      "iment\022\030.mlflow.DeleteExperiment\032!.mlflow" +
-      ".DeleteExperiment.Response\"C\362\206\031?\n(\n\004POST" +
-      "\022\032/mlflow/experiments/delete\032\004\010\002\020\000\020\001*\021De" +
-      "lete Experiment\022\231\001\n\021restoreExperiment\022\031." +
-      "mlflow.RestoreExperiment\032\".mlflow.Restor" +
-      "eExperiment.Response\"E\362\206\031A\n)\n\004POST\022\033/mlf" +
-      "low/experiments/restore\032\004\010\002\020\000\020\001*\022Restore" +
-      " Experiment\022\224\001\n\020updateExperiment\022\030.mlflo" +
-      "w.UpdateExperiment\032!.mlflow.UpdateExperi" +
-      "ment.Response\"C\362\206\031?\n(\n\004POST\022\032/mlflow/exp" +
-      "eriments/update\032\004\010\002\020\000\020\001*\021Update Experime" +
-      "nt\022q\n\tcreateRun\022\021.mlflow.CreateRun\032\032.mlf" +
-      "low.CreateRun.Response\"5\362\206\0311\n!\n\004POST\022\023/m" +
-      "lflow/runs/create\032\004\010\002\020\000\020\001*\nCreate Run\022q\n" +
-      "\tupdateRun\022\021.mlflow.UpdateRun\032\032.mlflow.U" +
-      "pdateRun.Response\"5\362\206\0311\n!\n\004POST\022\023/mlflow" +
-      "/runs/update\032\004\010\002\020\000\020\001*\nUpdate Run\022q\n\tdele" +
-      "teRun\022\021.mlflow.DeleteRun\032\032.mlflow.Delete" +
-      "Run.Response\"5\362\206\0311\n!\n\004POST\022\023/mlflow/runs" +
-      "/delete\032\004\010\002\020\000\020\001*\nDelete Run\022v\n\nrestoreRu" +
-      "n\022\022.mlflow.RestoreRun\032\033.mlflow.RestoreRu" +
-      "n.Response\"7\362\206\0313\n\"\n\004POST\022\024/mlflow/runs/r" +
-      "estore\032\004\010\002\020\000\020\001*\013Restore Run\022u\n\tlogMetric" +
-      "\022\021.mlflow.LogMetric\032\032.mlflow.LogMetric.R" +
-      "esponse\"9\362\206\0315\n%\n\004POST\022\027/mlflow/runs/log-" +
-      "metric\032\004\010\002\020\000\020\001*\nLog Metric\022t\n\010logParam\022\020" +
-      ".mlflow.LogParam\032\031.mlflow.LogParam.Respo" +
-      "nse\";\362\206\0317\n(\n\004POST\022\032/mlflow/runs/log-para" +
-      "meter\032\004\010\002\020\000\020\001*\tLog Param\022\241\001\n\020setExperime" +
-      "ntTag\022\030.mlflow.SetExperimentTag\032!.mlflow" +
-      ".SetExperimentTag.Response\"P\362\206\031L\n4\n\004POST" +
-      "\022&/mlflow/experiments/set-experiment-tag" +
-      "\032\004\010\002\020\000\020\001*\022Set Experiment Tag\022f\n\006setTag\022\016" +
-      ".mlflow.SetTag\032\027.mlflow.SetTag.Response\"" +
-      "3\362\206\031/\n\"\n\004POST\022\024/mlflow/runs/set-tag\032\004\010\002\020" +
-      "\000\020\001*\007Set Tag\022\210\001\n\013setTraceTag\022\023.mlflow.Se" +
-      "tTraceTag\032\034.mlflow.SetTraceTag.Response\"" +
-      "F\362\206\031B\n/\n\005PATCH\022 /mlflow/traces/{request_" +
-      "id}/tags\032\004\010\002\020\000\020\003*\rSet Trace Tag\022\225\001\n\016dele" +
-      "teTraceTag\022\026.mlflow.DeleteTraceTag\032\037.mlf" +
-      "low.DeleteTraceTag.Response\"J\362\206\031F\n0\n\006DEL" +
-      "ETE\022 /mlflow/traces/{request_id}/tags\032\004\010" +
-      "\002\020\000\020\003*\020Delete Trace Tag\022u\n\tdeleteTag\022\021.m" +
-      "lflow.DeleteTag\032\032.mlflow.DeleteTag.Respo" +
-      "nse\"9\362\206\0315\n%\n\004POST\022\027/mlflow/runs/delete-t" +
-      "ag\032\004\010\002\020\000\020\001*\nDelete Tag\022e\n\006getRun\022\016.mlflo" +
-      "w.GetRun\032\027.mlflow.GetRun.Response\"2\362\206\031*\n" +
-      "\035\n\003GET\022\020/mlflow/runs/get\032\004\010\002\020\000\020\001*\007Get Ru" +
-      "n\272\214\031\000\022y\n\nsearchRuns\022\022.mlflow.SearchRuns\032" +
-      "\033.mlflow.SearchRuns.Response\":\362\206\0312\n!\n\004PO" +
-      "ST\022\023/mlflow/runs/search\032\004\010\002\020\000\020\001*\013Search " +
-      "Runs\272\214\031\000\022\207\001\n\rlistArtifacts\022\025.mlflow.List" +
-      "Artifacts\032\036.mlflow.ListArtifacts.Respons" +
-      "e\"?\362\206\0317\n#\n\003GET\022\026/mlflow/artifacts/list\032\004" +
-      "\010\002\020\000\020\001*\016List Artifacts\272\214\031\000\022\225\001\n\020getMetric" +
-      "History\022\030.mlflow.GetMetricHistory\032!.mlfl" +
-      "ow.GetMetricHistory.Response\"D\362\206\031@\n(\n\003GE" +
-      "T\022\033/mlflow/metrics/get-history\032\004\010\002\020\000\020\001*\022" +
-      "Get Metric History\022\267\001\n\034getMetricHistoryB" +
-      "ulkInterval\022$.mlflow.GetMetricHistoryBul" +
-      "kInterval\032-.mlflow.GetMetricHistoryBulkI" +
-      "nterval.Response\"B\362\206\031:\n6\n\003GET\022)/mlflow/m" +
-      "etrics/get-history-bulk-interval\032\004\010\002\020\013\020\003" +
-      "\272\214\031\000\022p\n\010logBatch\022\020.mlflow.LogBatch\032\031.mlf" +
-      "low.LogBatch.Response\"7\362\206\0313\n$\n\004POST\022\026/ml" +
-      "flow/runs/log-batch\032\004\010\002\020\000\020\001*\tLog Batch\022p" +
-      "\n\010logModel\022\020.mlflow.LogModel\032\031.mlflow.Lo" +
-      "gModel.Response\"7\362\206\0313\n$\n\004POST\022\026/mlflow/r" +
-      "uns/log-model\032\004\010\002\020\000\020\001*\tLog Model\022u\n\tlogI" +
-      "nputs\022\021.mlflow.LogInputs\032\032.mlflow.LogInp" +
-      "uts.Response\"9\362\206\0315\n%\n\004POST\022\027/mlflow/runs" +
-      "/log-inputs\032\004\010\002\020\000\020\001*\nLog Inputs\022\207\001\n\016sear" +
-      "chDatasets\022\026.mlflow.SearchDatasets\032\037.mlf" +
-      "low.SearchDatasets.Response\"<\362\206\0314\n0\n\004POS" +
-      "T\022\"mlflow/experiments/search-datasets\032\004\010" +
-      "\002\020\000\020\003\272\214\031\000\022p\n\nstartTrace\022\022.mlflow.StartTr" +
-      "ace\032\033.mlflow.StartTrace.Response\"1\362\206\031-\n\034" +
-      "\n\004POST\022\016/mlflow/traces\032\004\010\002\020\000\020\003*\013Start Tr" +
-      "ace\022v\n\010endTrace\022\020.mlflow.EndTrace\032\031.mlfl" +
-      "ow.EndTrace.Response\"=\362\206\0319\n*\n\005PATCH\022\033/ml" +
-      "flow/traces/{request_id}\032\004\010\002\020\000\020\003*\tEnd Tr" +
-      "ace\022\211\001\n\014getTraceInfo\022\024.mlflow.GetTraceIn" +
-      "fo\032\035.mlflow.GetTraceInfo.Response\"D\362\206\031@\n" +
-      "-\n\003GET\022 /mlflow/traces/{request_id}/info" +
-      "\032\004\010\002\020\000\020\003*\rGet TraceInfo\022w\n\014searchTraces\022" +
-      "\024.mlflow.SearchTraces\032\035.mlflow.SearchTra" +
-      "ces.Response\"2\362\206\031.\n\033\n\003GET\022\016/mlflow/trace" +
-      "s\032\004\010\002\020\000\020\003*\rSearch Traces\022\206\001\n\014deleteTrace" +
-      "s\022\024.mlflow.DeleteTraces\032\035.mlflow.DeleteT" +
-      "races.Response\"A\362\206\031=\n*\n\004POST\022\034/mlflow/tr" +
-      "aces/delete-traces\032\004\010\002\020\000\020\003*\rDelete Trace" +
-      "s\022\224\001\n\021createLoggedModel\022\031.mlflow.CreateL" +
-      "oggedModel\032\".mlflow.CreateLoggedModel.Re" +
-      "sponse\"@\362\206\031<\n#\n\004POST\022\025/mlflow/logged-mod" +
-      "els\032\004\010\002\020\000\020\003*\023Create Logged ModelB\036\n\024org." +
-      "mlflow.api.proto\220\001\001\342?\002\020\001"
+      "owTrackingMessage\"\266\001\n\014GetTraceInfo\022\022\n\nre" +
+      "quest_id\030\001 \001(\t\0321\n\010Response\022%\n\ntrace_info" +
+      "\030\001 \001(\0132\021.mlflow.TraceInfo:_\342?(\n&com.data" +
+      "bricks.rpc.RPC[$this.Response]\342?1\n/com.d" +
+      "atabricks.mlflow.api.MlflowTrackingMessa" +
+      "ge\"\237\002\n\014SearchTraces\022\026\n\016experiment_ids\030\001 " +
+      "\003(\t\022\016\n\006filter\030\002 \001(\t\022\030\n\013max_results\030\003 \001(\005" +
+      ":\003100\022\020\n\010order_by\030\004 \003(\t\022\022\n\npage_token\030\005 " +
+      "\001(\t\032F\n\010Response\022!\n\006traces\030\001 \003(\0132\021.mlflow" +
+      ".TraceInfo\022\027\n\017next_page_token\030\002 \001(\t:_\342?(" +
+      "\n&com.databricks.rpc.RPC[$this.Response]" +
+      "\342?1\n/com.databricks.mlflow.api.MlflowTra" +
+      "ckingMessage\"\367\001\n\014DeleteTraces\022\033\n\rexperim" +
+      "ent_id\030\001 \001(\tB\004\370\206\031\001\022\034\n\024max_timestamp_mill" +
+      "is\030\002 \001(\003\022\022\n\nmax_traces\030\003 \001(\005\022\023\n\013request_" +
+      "ids\030\004 \003(\t\032\"\n\010Response\022\026\n\016traces_deleted\030" +
+      "\001 \001(\005:_\342?(\n&com.databricks.rpc.RPC[$this" +
+      ".Response]\342?1\n/com.databricks.mlflow.api" +
+      ".MlflowTrackingMessage\"\252\001\n\013SetTraceTag\022\022" +
+      "\n\nrequest_id\030\001 \001(\t\022\013\n\003key\030\002 \001(\t\022\r\n\005value" +
+      "\030\003 \001(\t\032\n\n\010Response:_\342?(\n&com.databricks." +
+      "rpc.RPC[$this.Response]\342?1\n/com.databric" +
+      "ks.mlflow.api.MlflowTrackingMessage\"\236\001\n\016" +
+      "DeleteTraceTag\022\022\n\nrequest_id\030\001 \001(\t\022\013\n\003ke" +
+      "y\030\002 \001(\t\032\n\n\010Response:_\342?(\n&com.databricks" +
+      ".rpc.RPC[$this.Response]\342?1\n/com.databri" +
+      "cks.mlflow.api.MlflowTrackingMessage\"h\n\016" +
+      "DatasetSummary\022\033\n\rexperiment_id\030\001 \001(\tB\004\370" +
+      "\206\031\001\022\022\n\004name\030\002 \001(\tB\004\370\206\031\001\022\024\n\006digest\030\003 \001(\tB" +
+      "\004\370\206\031\001\022\017\n\007context\030\004 \001(\t\"\310\001\n\016SearchDataset" +
+      "s\022\026\n\016experiment_ids\030\001 \003(\t\032=\n\010Response\0221\n" +
+      "\021dataset_summaries\030\001 \003(\0132\026.mlflow.Datase" +
+      "tSummary:_\342?(\n&com.databricks.rpc.RPC[$t" +
+      "his.Response]\342?1\n/com.databricks.mlflow." +
+      "api.MlflowTrackingMessage\"\316\002\n\021CreateLogg" +
+      "edModel\022\033\n\rexperiment_id\030\001 \001(\tB\004\370\206\031\001\022\014\n\004" +
+      "name\030\002 \001(\t\022\022\n\nmodel_type\030\003 \001(\t\022\025\n\rsource" +
+      "_run_id\030\004 \001(\t\022,\n\006params\030\005 \003(\0132\034.mlflow.L" +
+      "oggedModelParameter\022$\n\004tags\030\006 \003(\0132\026.mlfl" +
+      "ow.LoggedModelTag\032.\n\010Response\022\"\n\005model\030\001" +
+      " \001(\0132\023.mlflow.LoggedModel:_\342?(\n&com.data" +
+      "bricks.rpc.RPC[$this.Response]\342?1\n/com.d" +
+      "atabricks.mlflow.api.MlflowTrackingMessa" +
+      "ge\"[\n\013LoggedModel\022%\n\004info\030\001 \001(\0132\027.mlflow" +
+      ".LoggedModelInfo\022%\n\004data\030\002 \001(\0132\027.mlflow." +
+      "LoggedModelData\"\204\003\n\017LoggedModelInfo\022\020\n\010m" +
+      "odel_id\030\001 \001(\t\022\025\n\rexperiment_id\030\002 \001(\t\022\014\n\004" +
+      "name\030\003 \001(\t\022\035\n\025creation_timestamp_ms\030\004 \001(" +
+      "\003\022!\n\031last_updated_timestamp_ms\030\005 \001(\003\022\024\n\014" +
+      "artifact_uri\030\006 \001(\t\022)\n\006status\030\007 \001(\0162\031.mlf" +
+      "low.LoggedModelStatus\022\022\n\ncreator_id\030\010 \001(" +
+      "\003\022\022\n\nmodel_type\030\t \001(\t\022\025\n\rsource_run_id\030\n" +
+      " \001(\t\022\026\n\016status_message\030\013 \001(\t\022$\n\004tags\030\014 \003" +
+      "(\0132\026.mlflow.LoggedModelTag\022:\n\rregistrati" +
+      "ons\030\r \003(\0132#.mlflow.LoggedModelRegistrati" +
+      "onInfo\",\n\016LoggedModelTag\022\013\n\003key\030\001 \001(\t\022\r\n" +
+      "\005value\030\002 \001(\t\"<\n\033LoggedModelRegistrationI" +
+      "nfo\022\014\n\004name\030\001 \001(\t\022\017\n\007version\030\002 \001(\t\"`\n\017Lo" +
+      "ggedModelData\022,\n\006params\030\001 \003(\0132\034.mlflow.L" +
+      "oggedModelParameter\022\037\n\007metrics\030\002 \003(\0132\016.m" +
+      "lflow.Metric\"2\n\024LoggedModelParameter\022\013\n\003" +
+      "key\030\001 \001(\t\022\r\n\005value\030\002 \001(\t*6\n\010ViewType\022\017\n\013" +
+      "ACTIVE_ONLY\020\001\022\020\n\014DELETED_ONLY\020\002\022\007\n\003ALL\020\003" +
+      "*I\n\nSourceType\022\014\n\010NOTEBOOK\020\001\022\007\n\003JOB\020\002\022\013\n" +
+      "\007PROJECT\020\003\022\t\n\005LOCAL\020\004\022\014\n\007UNKNOWN\020\350\007*M\n\tR" +
+      "unStatus\022\013\n\007RUNNING\020\001\022\r\n\tSCHEDULED\020\002\022\014\n\010" +
+      "FINISHED\020\003\022\n\n\006FAILED\020\004\022\n\n\006KILLED\020\005*O\n\013Tr" +
+      "aceStatus\022\034\n\030TRACE_STATUS_UNSPECIFIED\020\000\022" +
+      "\006\n\002OK\020\001\022\t\n\005ERROR\020\002\022\017\n\013IN_PROGRESS\020\003*\212\001\n\021" +
+      "LoggedModelStatus\022#\n\037LOGGED_MODEL_STATUS" +
+      "_UNSPECIFIED\020\000\022\030\n\024LOGGED_MODEL_PENDING\020\001" +
+      "\022\026\n\022LOGGED_MODEL_READY\020\002\022\036\n\032LOGGED_MODEL" +
+      "_UPLOAD_FAILED\020\0032\376\"\n\rMlflowService\022\246\001\n\023g" +
+      "etExperimentByName\022\033.mlflow.GetExperimen" +
+      "tByName\032$.mlflow.GetExperimentByName.Res" +
+      "ponse\"L\362\206\031H\n,\n\003GET\022\037/mlflow/experiments/" +
+      "get-by-name\032\004\010\002\020\000\020\001*\026Get Experiment By N" +
+      "ame\022\224\001\n\020createExperiment\022\030.mlflow.Create" +
+      "Experiment\032!.mlflow.CreateExperiment.Res" +
+      "ponse\"C\362\206\031?\n(\n\004POST\022\032/mlflow/experiments" +
+      "/create\032\004\010\002\020\000\020\001*\021Create Experiment\022\301\001\n\021s" +
+      "earchExperiments\022\031.mlflow.SearchExperime" +
+      "nts\032\".mlflow.SearchExperiments.Response\"" +
+      "m\362\206\031i\n(\n\004POST\022\032/mlflow/experiments/searc" +
+      "h\032\004\010\002\020\000\n\'\n\003GET\022\032/mlflow/experiments/sear" +
+      "ch\032\004\010\002\020\000\020\001*\022Search Experiments\022\210\001\n\rgetEx" +
+      "periment\022\025.mlflow.GetExperiment\032\036.mlflow" +
+      ".GetExperiment.Response\"@\362\206\0318\n$\n\003GET\022\027/m" +
+      "lflow/experiments/get\032\004\010\002\020\000\020\001*\016Get Exper" +
+      "iment\272\214\031\000\022\224\001\n\020deleteExperiment\022\030.mlflow." +
+      "DeleteExperiment\032!.mlflow.DeleteExperime" +
+      "nt.Response\"C\362\206\031?\n(\n\004POST\022\032/mlflow/exper" +
+      "iments/delete\032\004\010\002\020\000\020\001*\021Delete Experiment" +
+      "\022\231\001\n\021restoreExperiment\022\031.mlflow.RestoreE" +
+      "xperiment\032\".mlflow.RestoreExperiment.Res" +
+      "ponse\"E\362\206\031A\n)\n\004POST\022\033/mlflow/experiments" +
+      "/restore\032\004\010\002\020\000\020\001*\022Restore Experiment\022\224\001\n" +
+      "\020updateExperiment\022\030.mlflow.UpdateExperim" +
+      "ent\032!.mlflow.UpdateExperiment.Response\"C" +
+      "\362\206\031?\n(\n\004POST\022\032/mlflow/experiments/update" +
+      "\032\004\010\002\020\000\020\001*\021Update Experiment\022q\n\tcreateRun" +
+      "\022\021.mlflow.CreateRun\032\032.mlflow.CreateRun.R" +
+      "esponse\"5\362\206\0311\n!\n\004POST\022\023/mlflow/runs/crea" +
+      "te\032\004\010\002\020\000\020\001*\nCreate Run\022q\n\tupdateRun\022\021.ml" +
+      "flow.UpdateRun\032\032.mlflow.UpdateRun.Respon" +
+      "se\"5\362\206\0311\n!\n\004POST\022\023/mlflow/runs/update\032\004\010" +
+      "\002\020\000\020\001*\nUpdate Run\022q\n\tdeleteRun\022\021.mlflow." +
+      "DeleteRun\032\032.mlflow.DeleteRun.Response\"5\362" +
+      "\206\0311\n!\n\004POST\022\023/mlflow/runs/delete\032\004\010\002\020\000\020\001" +
+      "*\nDelete Run\022v\n\nrestoreRun\022\022.mlflow.Rest" +
+      "oreRun\032\033.mlflow.RestoreRun.Response\"7\362\206\031" +
+      "3\n\"\n\004POST\022\024/mlflow/runs/restore\032\004\010\002\020\000\020\001*" +
+      "\013Restore Run\022u\n\tlogMetric\022\021.mlflow.LogMe" +
+      "tric\032\032.mlflow.LogMetric.Response\"9\362\206\0315\n%" +
+      "\n\004POST\022\027/mlflow/runs/log-metric\032\004\010\002\020\000\020\001*" +
+      "\nLog Metric\022t\n\010logParam\022\020.mlflow.LogPara" +
+      "m\032\031.mlflow.LogParam.Response\";\362\206\0317\n(\n\004PO" +
+      "ST\022\032/mlflow/runs/log-parameter\032\004\010\002\020\000\020\001*\t" +
+      "Log Param\022\241\001\n\020setExperimentTag\022\030.mlflow." +
+      "SetExperimentTag\032!.mlflow.SetExperimentT" +
+      "ag.Response\"P\362\206\031L\n4\n\004POST\022&/mlflow/exper" +
+      "iments/set-experiment-tag\032\004\010\002\020\000\020\001*\022Set E" +
+      "xperiment Tag\022f\n\006setTag\022\016.mlflow.SetTag\032" +
+      "\027.mlflow.SetTag.Response\"3\362\206\031/\n\"\n\004POST\022\024" +
+      "/mlflow/runs/set-tag\032\004\010\002\020\000\020\001*\007Set Tag\022\210\001" +
+      "\n\013setTraceTag\022\023.mlflow.SetTraceTag\032\034.mlf" +
+      "low.SetTraceTag.Response\"F\362\206\031B\n/\n\005PATCH\022" +
+      " /mlflow/traces/{request_id}/tags\032\004\010\002\020\000\020" +
+      "\003*\rSet Trace Tag\022\225\001\n\016deleteTraceTag\022\026.ml" +
+      "flow.DeleteTraceTag\032\037.mlflow.DeleteTrace" +
+      "Tag.Response\"J\362\206\031F\n0\n\006DELETE\022 /mlflow/tr" +
+      "aces/{request_id}/tags\032\004\010\002\020\000\020\003*\020Delete T" +
+      "race Tag\022u\n\tdeleteTag\022\021.mlflow.DeleteTag" +
+      "\032\032.mlflow.DeleteTag.Response\"9\362\206\0315\n%\n\004PO" +
+      "ST\022\027/mlflow/runs/delete-tag\032\004\010\002\020\000\020\001*\nDel" +
+      "ete Tag\022e\n\006getRun\022\016.mlflow.GetRun\032\027.mlfl" +
+      "ow.GetRun.Response\"2\362\206\031*\n\035\n\003GET\022\020/mlflow" +
+      "/runs/get\032\004\010\002\020\000\020\001*\007Get Run\272\214\031\000\022y\n\nsearch" +
+      "Runs\022\022.mlflow.SearchRuns\032\033.mlflow.Search" +
+      "Runs.Response\":\362\206\0312\n!\n\004POST\022\023/mlflow/run" +
+      "s/search\032\004\010\002\020\000\020\001*\013Search Runs\272\214\031\000\022\207\001\n\rli" +
+      "stArtifacts\022\025.mlflow.ListArtifacts\032\036.mlf" +
+      "low.ListArtifacts.Response\"?\362\206\0317\n#\n\003GET\022" +
+      "\026/mlflow/artifacts/list\032\004\010\002\020\000\020\001*\016List Ar" +
+      "tifacts\272\214\031\000\022\225\001\n\020getMetricHistory\022\030.mlflo" +
+      "w.GetMetricHistory\032!.mlflow.GetMetricHis" +
+      "tory.Response\"D\362\206\031@\n(\n\003GET\022\033/mlflow/metr" +
+      "ics/get-history\032\004\010\002\020\000\020\001*\022Get Metric Hist" +
+      "ory\022\267\001\n\034getMetricHistoryBulkInterval\022$.m" +
+      "lflow.GetMetricHistoryBulkInterval\032-.mlf" +
+      "low.GetMetricHistoryBulkInterval.Respons" +
+      "e\"B\362\206\031:\n6\n\003GET\022)/mlflow/metrics/get-hist" +
+      "ory-bulk-interval\032\004\010\002\020\013\020\003\272\214\031\000\022p\n\010logBatc" +
+      "h\022\020.mlflow.LogBatch\032\031.mlflow.LogBatch.Re" +
+      "sponse\"7\362\206\0313\n$\n\004POST\022\026/mlflow/runs/log-b" +
+      "atch\032\004\010\002\020\000\020\001*\tLog Batch\022p\n\010logModel\022\020.ml" +
+      "flow.LogModel\032\031.mlflow.LogModel.Response" +
+      "\"7\362\206\0313\n$\n\004POST\022\026/mlflow/runs/log-model\032\004" +
+      "\010\002\020\000\020\001*\tLog Model\022u\n\tlogInputs\022\021.mlflow." +
+      "LogInputs\032\032.mlflow.LogInputs.Response\"9\362" +
+      "\206\0315\n%\n\004POST\022\027/mlflow/runs/log-inputs\032\004\010\002" +
+      "\020\000\020\001*\nLog Inputs\022\207\001\n\016searchDatasets\022\026.ml" +
+      "flow.SearchDatasets\032\037.mlflow.SearchDatas" +
+      "ets.Response\"<\362\206\0314\n0\n\004POST\022\"mlflow/exper" +
+      "iments/search-datasets\032\004\010\002\020\000\020\003\272\214\031\000\022p\n\nst" +
+      "artTrace\022\022.mlflow.StartTrace\032\033.mlflow.St" +
+      "artTrace.Response\"1\362\206\031-\n\034\n\004POST\022\016/mlflow" +
+      "/traces\032\004\010\002\020\000\020\003*\013Start Trace\022v\n\010endTrace" +
+      "\022\020.mlflow.EndTrace\032\031.mlflow.EndTrace.Res" +
+      "ponse\"=\362\206\0319\n*\n\005PATCH\022\033/mlflow/traces/{re" +
+      "quest_id}\032\004\010\002\020\000\020\003*\tEnd Trace\022\211\001\n\014getTrac" +
+      "eInfo\022\024.mlflow.GetTraceInfo\032\035.mlflow.Get" +
+      "TraceInfo.Response\"D\362\206\031@\n-\n\003GET\022 /mlflow" +
+      "/traces/{request_id}/info\032\004\010\002\020\000\020\003*\rGet T" +
+      "raceInfo\022w\n\014searchTraces\022\024.mlflow.Search" +
+      "Traces\032\035.mlflow.SearchTraces.Response\"2\362" +
+      "\206\031.\n\033\n\003GET\022\016/mlflow/traces\032\004\010\002\020\000\020\003*\rSear" +
+      "ch Traces\022\206\001\n\014deleteTraces\022\024.mlflow.Dele" +
+      "teTraces\032\035.mlflow.DeleteTraces.Response\"" +
+      "A\362\206\031=\n*\n\004POST\022\034/mlflow/traces/delete-tra" +
+      "ces\032\004\010\002\020\000\020\003*\rDelete Traces\022\224\001\n\021createLog" +
+      "gedModel\022\031.mlflow.CreateLoggedModel\032\".ml" +
+      "flow.CreateLoggedModel.Response\"@\362\206\031<\n#\n" +
+      "\004POST\022\025/mlflow/logged-models\032\004\010\002\020\000\020\003*\023Cr" +
+      "eate Logged ModelB\036\n\024org.mlflow.api.prot" +
+      "o\220\001\001\342?\002\020\001"
     };
     descriptor = com.google.protobuf.Descriptors.FileDescriptor
       .internalBuildGeneratedFileFrom(descriptorData,
@@ -96159,7 +97130,7 @@ public final class Service {
     internal_static_mlflow_Metric_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_Metric_descriptor,
-        new java.lang.String[] { "Key", "Value", "Timestamp", "Step", });
+        new java.lang.String[] { "Key", "Value", "Timestamp", "Step", "DatasetName", "DatasetDigest", "ModelId", "RunId", });
     internal_static_mlflow_Param_descriptor =
       getDescriptor().getMessageTypes().get(1);
     internal_static_mlflow_Param_fieldAccessorTable = new
@@ -96699,6 +97670,7 @@ public final class Service {
     registry.add(com.databricks.api.proto.databricks.Databricks.graphql);
     registry.add(com.databricks.api.proto.databricks.Databricks.rpc);
     registry.add(com.databricks.api.proto.databricks.Databricks.validateRequired);
+    registry.add(com.databricks.api.proto.databricks.Databricks.visibility);
     registry.add(org.mlflow.scalapb_interface.Scalapb.message);
     registry.add(org.mlflow.scalapb_interface.Scalapb.options);
     com.google.protobuf.Descriptors.FileDescriptor
