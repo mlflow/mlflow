@@ -13,8 +13,16 @@ const createCommitStatus = async (context, github, sha, state) => {
   });
 };
 
-const shouldAutoformat = (comment) => {
+const isNewCommand = (comment) => {
   return comment.body.trim() === "/autoformat";
+};
+
+const isOldCommand = (comment) => {
+  return /^@mlflow-automation\s+autoformat$/.test(comment.body.trim());
+};
+
+const shouldAutoformat = (comment) => {
+  return isNewCommand(comment) || isOldCommand(comment);
 };
 
 const getPullInformation = async (context, github) => {
@@ -54,6 +62,15 @@ const createStatus = async (context, github, core) => {
   const { head_sha, head_ref, repository } = await getPullInformation(context, github);
   if (repository === "mlflow/mlflow" && head_ref === "master") {
     core.setFailed("Running autoformat bot against master branch of mlflow/mlflow is not allowed.");
+  }
+
+  if (isOldCommand(context.payload.comment)) {
+    await github.rest.issues.createComment({
+      repo: context.repo.repo,
+      owner: context.repo.owner,
+      issue_number: context.issue.number,
+      body: "The command `@mlflow-automation autoformat` has been deprecated and will be removed soon. Please use `/autoformat` instead.",
+    });
   }
   await createCommitStatus(context, github, head_sha, "pending");
 };
