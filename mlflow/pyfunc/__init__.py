@@ -1667,7 +1667,9 @@ def prebuild_model_env(model_uri, save_path):
     if not os.path.isdir(save_path):
         raise RuntimeError(f"The saving path '{save_path}' must be a directory.")
 
-    runtime_version = get_databricks_runtime_version()
+    runtime_version_splits = get_databricks_runtime_version().split(".")
+    # full runtime version is like client.x.y, we only extract client.x part.
+    runtime_version = ".".join(runtime_version_splits[:2])
     local_model_path = _download_artifact_from_uri(
         artifact_uri=model_uri,
         output_path=_create_model_downloading_tmp_dir(should_use_nfs=False)
@@ -1696,6 +1698,8 @@ def prebuild_model_env(model_uri, save_path):
         pyfunc_backend.prepare_env(
             model_uri=local_model_path, capture_output=False
         )
+        # exclude pip cache from the archive file.
+        shutil.rmtree(os.path.join(env_root_dir, "pip_cache_pkgs"))
 
         # Archive the environment directory as a `tar.gz` format archive file,
         # and then move the archive file to the destination directory.
@@ -1712,9 +1716,9 @@ def prebuild_model_env(model_uri, save_path):
             shell=True,
         )
     finally:
-        #shutil.rmtree(local_model_path, ignore_errors=True)
-        #shutil.rmtree(env_root_dir, ignore_errors=True)
-        pass
+        shutil.rmtree(local_model_path, ignore_errors=True)
+        shutil.rmtree(env_root_dir, ignore_errors=True)
+
 
 def spark_udf(
     spark,
