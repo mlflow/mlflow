@@ -4,13 +4,9 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Dict, List, Optional
 
+from mlflow.exceptions import MlflowException
+from mlflow.protos.databricks_pb2 import ALREADY_EXISTS
 from mlflow.utils.annotations import experimental
-
-_RETRIEVER_PRIMARY_KEY = "__retriever_primary_key__"
-_RETRIEVER_TEXT_COLUMN = "__retriever_text_column__"
-_RETRIEVER_DOC_URI = "__retriever_doc_uri__"
-_RETRIEVER_OTHER_COLUMNS = "__retriever_other_columns__"
-_RETRIEVER_NAME = "__retriever_name__"
 
 
 class DependenciesSchemasType(Enum):
@@ -42,7 +38,7 @@ def set_retriever_schema(
         doc_uri: The name of the column that contains the document URI.
         other_columns: A list of other columns that are part of the vector index
                           that need to be retrieved during trace logging.
-        name: The name of the retriever or vector store.
+        name: The name of the retriever tool or vector store index.
 
     .. code-block:: Python
             :caption: Example
@@ -56,11 +52,27 @@ def set_retriever_schema(
                 other_columns=["title"],
             )
     """
-    globals()[_RETRIEVER_PRIMARY_KEY] = primary_key
-    globals()[_RETRIEVER_TEXT_COLUMN] = text_column
-    globals()[_RETRIEVER_DOC_URI] = doc_uri
-    globals()[_RETRIEVER_OTHER_COLUMNS] = other_columns or []
-    globals()[_RETRIEVER_NAME] = name
+    retriever_schema = globals().get(DependenciesSchemasType.RETRIEVERS.value, [])
+
+    # Check if a retriever schema with the same name already exists
+    if any(schema["name"] == name for schema in retriever_schema):
+        # reset if there is an error to clear the global state for next run
+        _clear_retriever_schema()
+        raise MlflowException(
+            f"A retriever schema with the name '{name}' already exists.",
+            error_code=ALREADY_EXISTS,
+        )
+
+    retriever_schema.append(
+        {
+            "primary_key": primary_key,
+            "text_column": text_column,
+            "doc_uri": doc_uri,
+            "other_columns": other_columns or [],
+            "name": name,
+        }
+    )
+    globals()[DependenciesSchemasType.RETRIEVERS.value] = retriever_schema
 
 
 def _get_retriever_schema():
@@ -70,19 +82,19 @@ def _get_retriever_schema():
     Returns:
         VectorSearchIndex: The vector search index schema.
     """
-    if not globals().get(_RETRIEVER_PRIMARY_KEY, None) or not globals().get(
-        _RETRIEVER_TEXT_COLUMN, None
-    ):
+    retriever_schema_list = globals().get(DependenciesSchemasType.RETRIEVERS.value, [])
+    if not retriever_schema_list:
         return []
 
     return [
         RetrieverSchema(
-            name=globals().get(_RETRIEVER_NAME, None),
-            primary_key=globals().get(_RETRIEVER_PRIMARY_KEY, None),
-            text_column=globals().get(_RETRIEVER_TEXT_COLUMN, None),
-            doc_uri=globals().get(_RETRIEVER_DOC_URI, None),
-            other_columns=globals().get(_RETRIEVER_OTHER_COLUMNS, None),
+            name=retriever.get("name"),
+            primary_key=retriever.get("primary_key"),
+            text_column=retriever.get("text_column"),
+            doc_uri=retriever.get("doc_uri"),
+            other_columns=retriever.get("other_columns"),
         )
+        for retriever in retriever_schema_list
     ]
 
 
@@ -90,11 +102,7 @@ def _clear_retriever_schema():
     """
     Clear the vector search schema defined by the user.
     """
-    globals().pop(_RETRIEVER_PRIMARY_KEY, None)
-    globals().pop(_RETRIEVER_TEXT_COLUMN, None)
-    globals().pop(_RETRIEVER_DOC_URI, None)
-    globals().pop(_RETRIEVER_OTHER_COLUMNS, None)
-    globals().pop(_RETRIEVER_NAME, None)
+    globals().pop(DependenciesSchemasType.RETRIEVERS.value, None)
 
 
 def _clear_dependencies_schemas():
