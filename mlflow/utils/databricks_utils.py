@@ -61,7 +61,7 @@ def _use_repl_context_if_available(
                 context = get_context()
                 if context is not None and hasattr(context, name):
                     attr = getattr(context, name)
-                    if ignore_none and attr is None:
+                    if attr is None and ignore_none:
                         # do nothing and continue to the original function
                         pass
                     else:
