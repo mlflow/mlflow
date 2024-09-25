@@ -1673,7 +1673,7 @@ def prebuild_model_env(model_uri, save_path):
         output_path=_create_model_downloading_tmp_dir(should_use_nfs=False)
     )
 
-    python_env = _get_python_env(local_model_path)
+    python_env = _get_python_env(Path(local_model_path))
     env_name = _get_virtualenv_name(python_env, local_model_path, env_id)
 
     env_name = f"{env_name}-{runtime_version}"
