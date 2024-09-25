@@ -16,7 +16,7 @@ jobs:
   check-comment:
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    if: ${{ github.event.issue.pull_request && contains(github.event.comment.body, '@mlflow-automation') && contains(github.event.comment.body, 'autoformat') }}
+    if: ${{ github.event.issue.pull_request && contains(github.event.comment.body, 'autoformat') }}
     permissions:
       statuses: write # autoformat.createStatus
       pull-requests: write # autoformat.createReaction on PRs
