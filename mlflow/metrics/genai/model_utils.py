@@ -176,7 +176,7 @@ def _call_deployments_api(deployment_uri, payload, eval_parameters, wrap_payload
         # as parsing the response.
         inputs = {**payload, **eval_parameters}
         try:
-            client.predict(endpoint=deployment_uri, inputs=inputs)
+            return client.predict(endpoint=deployment_uri, inputs=inputs)
         except Exception as e:
             raise MlflowException(
                 _PREDICT_ERROR_MSG.format(e=e, uri=deployment_uri, payload=inputs)
