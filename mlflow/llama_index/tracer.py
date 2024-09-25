@@ -4,7 +4,6 @@ import logging
 from functools import singledispatchmethod
 from typing import Any, Dict, Generator, Optional, Tuple, Union
 
-from mlflow.llama_index.utils import _convert_node_with_score_to_document
 import pydantic
 from llama_index.core.base.agent.types import BaseAgent, BaseAgentWorker, TaskStepOutput
 from llama_index.core.base.base_retriever import BaseRetriever
@@ -35,6 +34,7 @@ from packaging.version import Version
 
 from mlflow.entities import LiveSpan, SpanEvent, SpanType
 from mlflow.entities.span_status import SpanStatusCode
+from mlflow.llama_index.utils import _convert_node_with_score_to_document
 from mlflow.tracing.constant import SpanAttributeKey
 from mlflow.tracking.client import MlflowClient
 
@@ -96,13 +96,15 @@ def _end_span(span: LiveSpan, status=SpanStatusCode.OK, outputs=None):
             "Trying to record streaming response to the MLflow trace. This may consume "
             "the generator and result in an empty response."
         )
-    
+
     # for retriever spans, convert the outputs to Document objects
     # so they can be rendered in a more user-friendly way in the UI
-    if (span.span_type == SpanType.RETRIEVER
-        and isinstance(outputs, list) 
-        and all([isinstance(item, NodeWithScore) for item in outputs])):
-            outputs = [_convert_node_with_score_to_document(item) for item in outputs]
+    if (
+        span.span_type == SpanType.RETRIEVER
+        and isinstance(outputs, list)
+        and all(isinstance(item, NodeWithScore) for item in outputs)
+    ):
+        outputs = [_convert_node_with_score_to_document(item) for item in outputs]
 
     if outputs is None:
         outputs = span.outputs

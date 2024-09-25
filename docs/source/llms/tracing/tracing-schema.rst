@@ -323,4 +323,3 @@ documents from a vector store). The ``RETRIEVER`` span type has the following sc
     * - **Attributes**
       - There are no restrictions on the span attributes
       -
-
