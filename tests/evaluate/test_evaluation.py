@@ -2032,7 +2032,7 @@ def test_evaluate_on_chat_model_endpoint(mock_deploy_client, input_data, feature
             },
         ),
     ]
-    assert all(call in call_args_list for call in expected_calls)
+    assert call_args_list == expected_calls
 
     # Validate the evaluation metrics
     expected_metrics_subset = {"toxicity/v1/ratio", "ari_grade_level/v1/mean"}
@@ -2089,7 +2089,7 @@ def test_evaluate_on_completion_model_endpoint(mock_deploy_client, input_data, f
         mock.call(endpoint="completions", inputs={"prompt": "What is MLflow?", "max_tokens": 10}),
         mock.call(endpoint="completions", inputs={"prompt": "What is Spark?", "max_tokens": 10}),
     ]
-    assert all(call in call_args_list for call in expected_calls)
+    assert call_args_list == expected_calls
 
     # Validate the evaluation metrics
     expected_metrics_subset = {
@@ -2102,6 +2102,90 @@ def test_evaluate_on_completion_model_endpoint(mock_deploy_client, input_data, f
     # Validate the model output is passed to the evaluator in the correct format (string)
     eval_results_table = eval_result.tables["eval_results_table"]
     assert eval_results_table["outputs"].equals(pd.Series(["This is a response"] * 2))
+
+
+@mock.patch("mlflow.deployments.get_deploy_client")
+def test_evaluate_on_model_endpoint_without_type(mock_deploy_client):
+    # An endpoint that does not have endpoint type. For such endpoint, we simply
+    # pass the input data to the endpoint without any modification and return
+    # the response as is.
+    mock_deploy_client.return_value.get_endpoint.return_value = {}
+    mock_deploy_client.return_value.predict.return_value = "This is a response"
+
+    input_data = pd.DataFrame(
+        {
+            "inputs": [
+                {
+                    "messages": [{"content": q, "role": "user"}],
+                    "max_tokens": 10,
+                }
+                for q in _TEST_QUERY_LIST
+            ],
+            "ground_truth": _TEST_GT_LIST,
+        }
+    )
+
+    with mlflow.start_run():
+        eval_result = mlflow.evaluate(
+            model="endpoints:/random",
+            data=input_data,
+            model_type="question-answering",
+            targets="ground_truth",
+            inference_params={"max_tokens": 10, "temperature": 0.5},
+        )
+
+    # Validate the endpoint is called with correct payloads
+    call_args_list = mock_deploy_client.return_value.predict.call_args_list
+    expected_calls = [
+        mock.call(
+            endpoint="random",
+            inputs={
+                "messages": [{"content": "What is MLflow?", "role": "user"}],
+                "max_tokens": 10,
+                "temperature": 0.5,
+            },
+        ),
+        mock.call(
+            endpoint="random",
+            inputs={
+                "messages": [{"content": "What is Spark?", "role": "user"}],
+                "max_tokens": 10,
+                "temperature": 0.5,
+            },
+        ),
+    ]
+    assert call_args_list == expected_calls
+
+    # Validate the evaluation metrics
+    expected_metrics_subset = {"toxicity/v1/ratio", "ari_grade_level/v1/mean", "exact_match/v1"}
+    assert expected_metrics_subset.issubset(set(eval_result.metrics.keys()))
+
+    # Validate the model output is passed to the evaluator in the correct format (string)
+    eval_results_table = eval_result.tables["eval_results_table"]
+    assert eval_results_table["outputs"].equals(pd.Series(["This is a response"] * 2))
+
+
+@mock.patch("mlflow.deployments.get_deploy_client")
+def test_evaluate_on_model_endpoint_invalid_payload(mock_deploy_client):
+    # An endpoint that does not have endpoint type. For such endpoint, we simply
+    # pass the input data to the endpoint without any modification and return
+    # the response as is.
+    mock_deploy_client.return_value.get_endpoint.return_value = {}
+    mock_deploy_client.return_value.predict.side_effect = ValueError("Invalid payload")
+
+    input_data = pd.DataFrame(
+        {
+            "inputs": [{"invalid": "payload"}],
+        }
+    )
+
+    with pytest.raises(MlflowException, match="Failed to call the deployment endpoint"):
+        mlflow.evaluate(
+            model="endpoints:/random",
+            data=input_data,
+            model_type="question-answering",
+            inference_params={"max_tokens": 10, "temperature": 0.5},
+        )
 
 
 @pytest.mark.parametrize(

@@ -113,6 +113,14 @@ def _call_openai_api(openai_uri, payload, eval_parameters):
     return _parse_chat_response_format(resp)
 
 
+_PREDICT_ERROR_MSG = """\
+Failed to call the deployment endpoint. Please check the deployment URL\
+is set correctly and the input payload is valid.\n
+- Error: {e}\n
+- Deployment URI: {uri}\n
+- Input payload: {payload}"""
+
+
 def _call_deployments_api(deployment_uri, payload, eval_parameters, wrap_payload=True):
     """Call the deployment endpoint with the given payload and parameters.
 
@@ -142,19 +150,41 @@ def _call_deployments_api(deployment_uri, payload, eval_parameters, wrap_payload
         if wrap_payload:
             payload = {"prompt": payload}
         chat_inputs = {**payload, **eval_parameters}
-        response = client.predict(endpoint=deployment_uri, inputs=chat_inputs)
+        try:
+            response = client.predict(endpoint=deployment_uri, inputs=chat_inputs)
+        except Exception as e:
+            raise MlflowException(
+                _PREDICT_ERROR_MSG.format(e=e, uri=deployment_uri, payload=chat_inputs)
+            ) from e
         return _parse_completions_response_format(response)
     elif endpoint_type == "llm/v1/chat":
         if wrap_payload:
             payload = {"messages": [{"role": "user", "content": payload}]}
         completion_inputs = {**payload, **eval_parameters}
-        response = client.predict(endpoint=deployment_uri, inputs=completion_inputs)
+        try:
+            response = client.predict(endpoint=deployment_uri, inputs=completion_inputs)
+        except Exception as e:
+            raise MlflowException(
+                _PREDICT_ERROR_MSG.format(e=e, uri=deployment_uri, payload=completion_inputs)
+            ) from e
         return _parse_chat_response_format(response)
-
+    elif endpoint_type is None:
+        # If the endpoint type is not specified, we don't assume any format
+        # and directly send the payload to the endpoint. This is primary for Databricks
+        # Managed Agent Evaluation, where the endpoint type may not be specified but the
+        # eval harness ensures that the payload is formatted to the chat format, as well
+        # as parsing the response.
+        inputs = {**payload, **eval_parameters}
+        try:
+            return client.predict(endpoint=deployment_uri, inputs=inputs)
+        except Exception as e:
+            raise MlflowException(
+                _PREDICT_ERROR_MSG.format(e=e, uri=deployment_uri, payload=inputs)
+            ) from e
     else:
         raise MlflowException(
-            f"Unsupported endpoint type: {endpoint_type}. Use an "
-            "endpoint of type 'llm/v1/completions' or 'llm/v1/chat' instead.",
+            f"Unsupported endpoint type: {endpoint_type}. Endpoint type, if specified, "
+            "must be 'llm/v1/completions' or 'llm/v1/chat'.",
             error_code=INVALID_PARAMETER_VALUE,
         )
 
