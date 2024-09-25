@@ -1674,7 +1674,7 @@ def prebuild_model_env(model_uri, save_path):
     )
 
     python_env = _get_python_env(Path(local_model_path))
-    env_name = _get_virtualenv_name(python_env, local_model_path, env_id)
+    env_name = _get_virtualenv_name(python_env, local_model_path)
 
     env_name = f"{env_name}-{runtime_version}"
     env_root_dir = os.path.join(
