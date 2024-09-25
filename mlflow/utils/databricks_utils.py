@@ -60,9 +60,12 @@ def _use_repl_context_if_available(
 
                 context = get_context()
                 if context is not None and hasattr(context, name):
-                    res = getattr(context, name)
-                    if not ignore_none and res is not None:
-                        return res
+                    attr = getattr(context, name)
+                    if ignore_none and attr is None:
+                        # do nothing and continue to the original function
+                        pass
+                    else:
+                        return attr
             except Exception:
                 pass
             return f(*args, **kwargs)
