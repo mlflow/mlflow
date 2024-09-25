@@ -1540,28 +1540,6 @@ def _autolog(  # noqa: D417
 
             return infer_signature(input_example, model_output)
 
-        # log common metrics and artifacts for estimators (classifier, regressor)
-        context_tags = context_registry.resolve_tags()
-        source = CodeDatasetSource(context_tags)
-        dataset = _create_dataset(X, source, y)
-        logged_metrics = _log_estimator_content(
-            autologging_client=autologging_client,
-            estimator=estimator,
-            prefix=_TRAINING_PREFIX,
-            run_id=mlflow.active_run().info.run_id,
-            X=X,
-            y_true=y,
-            sample_weight=sample_weight,
-            pos_label=pos_label,
-            dataset=dataset,
-        )
-        if y is None and not logged_metrics:
-            _logger.warning(
-                "Training metrics will not be recorded because training labels were not specified."
-                " To automatically record training metrics, provide training labels as inputs to"
-                " the model training function."
-            )
-
         def _log_model_with_except_handling(*args, **kwargs):
             try:
                 return log_model(*args, **kwargs)
@@ -1590,6 +1568,29 @@ def _autolog(  # noqa: D417
                 registered_model_name=registered_model_name,
             )
             model_id = logged_model.model_id
+
+        # log common metrics and artifacts for estimators (classifier, regressor)
+        context_tags = context_registry.resolve_tags()
+        source = CodeDatasetSource(context_tags)
+        dataset = _create_dataset(X, source, y)
+        logged_metrics = _log_estimator_content(
+            autologging_client=autologging_client,
+            estimator=estimator,
+            prefix=_TRAINING_PREFIX,
+            run_id=mlflow.active_run().info.run_id,
+            X=X,
+            y_true=y,
+            sample_weight=sample_weight,
+            pos_label=pos_label,
+            dataset=dataset,
+            model_id=model_id,
+        )
+        if y is None and not logged_metrics:
+            _logger.warning(
+                "Training metrics will not be recorded because training labels were not specified."
+                " To automatically record training metrics, provide training labels as inputs to"
+                " the model training function."
+            )
 
         if _is_parameter_search_estimator(estimator):
             if hasattr(estimator, "best_estimator_") and log_models:
