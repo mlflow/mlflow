@@ -1757,7 +1757,7 @@ class MockDbutils:
         warnings.warn(
             (
                 "The model code uses dbutils, which isn't supported. "
-                "Please consider %%writefile command to isolate the model code in a separate file."
+                "Please consider using %%writefile command to isolate the model code in a separate file."
             ),
             UserWarning,
             stacklevel=2,
