@@ -1541,6 +1541,9 @@ def _autolog(  # noqa: D417
             return infer_signature(input_example, model_output)
 
         # log common metrics and artifacts for estimators (classifier, regressor)
+        context_tags = context_registry.resolve_tags()
+        source = CodeDatasetSource(context_tags)
+        dataset = _create_dataset(X, source, y)
         logged_metrics = _log_estimator_content(
             autologging_client=autologging_client,
             estimator=estimator,
@@ -1550,6 +1553,7 @@ def _autolog(  # noqa: D417
             y_true=y,
             sample_weight=sample_weight,
             pos_label=pos_label,
+            dataset=dataset,
         )
         if y is None and not logged_metrics:
             _logger.warning(
@@ -1564,6 +1568,7 @@ def _autolog(  # noqa: D417
             except _SklearnCustomModelPicklingError as e:
                 _logger.warning(str(e))
 
+        model_id = None
         if log_models:
             # Will only resolve `input_example` and `signature` if `log_models` is `True`.
             input_example, signature = resolve_input_example_and_signature(
@@ -1576,14 +1581,15 @@ def _autolog(  # noqa: D417
             registered_model_name = get_autologging_config(
                 FLAVOR_NAME, "registered_model_name", None
             )
-            _log_model_with_except_handling(
+            logged_model = _log_model_with_except_handling(
                 estimator,
-                artifact_path="model",
+                name="model",
                 signature=signature,
                 input_example=input_example,
                 serialization_format=serialization_format,
                 registered_model_name=registered_model_name,
             )
+            model_id = logged_model.model_id
 
         if _is_parameter_search_estimator(estimator):
             if hasattr(estimator, "best_estimator_") and log_models:
@@ -1623,6 +1629,8 @@ def _autolog(  # noqa: D417
                         parent_run=mlflow.active_run(),
                         max_tuning_runs=max_tuning_runs,
                         child_tags=child_tags,
+                        model_id=model_id,
+                        dataset=dataset,
                     )
                 except Exception as e:
                     _logger.warning(
