@@ -2,12 +2,22 @@ import json
 import logging
 from typing import Dict, List, Optional
 
-from mlflow.entities import DatasetInput, Experiment, Metric, Run, RunInfo, TraceInfo, ViewType
+from mlflow.entities import (
+    DatasetInput,
+    Experiment,
+    LoggedModel,
+    Metric,
+    Run,
+    RunInfo,
+    TraceInfo,
+    ViewType,
+)
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.exceptions import MlflowException
 from mlflow.protos import databricks_pb2
 from mlflow.protos.service_pb2 import (
     CreateExperiment,
+    CreateLoggedModel,
     CreateRun,
     DeleteExperiment,
     DeleteRun,
@@ -21,6 +31,8 @@ from mlflow.protos.service_pb2 import (
     GetRun,
     GetTraceInfo,
     LogBatch,
+    LoggedModelParameter,
+    LoggedModelTag,
     LogInputs,
     LogMetric,
     LogModel,
@@ -540,6 +552,42 @@ class RestStore(AbstractStore):
             LogModel(run_id=run_id, model_json=json.dumps(mlflow_model.get_tags_dict()))
         )
         self._call_endpoint(LogModel, req_body)
+
+    def create_logged_model(
+        self,
+        experiment_id: str,
+        name: str,
+        run_id: Optional[str] = None,
+        tags: Optional[Dict[str, str]] = None,
+        params: Optional[Dict[str, str]] = None,
+        model_type: Optional[str] = None,
+    ) -> LoggedModel:
+        """
+        Create a new logged model.
+
+        Args:
+            experiment_id: ID of the experiment to which the model belongs.
+            name: Name of the model.
+            run_id: ID of the run that produced the model.
+            tags: Tags to set on the model.
+            params: Parameters to set on the model.
+            model_type: Type of the model.
+
+        Returns:
+            The created model.
+        """
+        req_body = message_to_json(
+            CreateLoggedModel(
+                experiment_id=experiment_id,
+                name=name,
+                model_type=model_type,
+                source_run_id=run_id,
+                params=[LoggedModelParameter(key=k, value=v) for k, v in (params or {}).items()],
+                tags=[LoggedModelTag(key=k, value=v) for k, v in (tags or {}).items()],
+            )
+        )
+        response_proto = self._call_endpoint(DeleteTag, req_body)
+        return LoggedModel.from_proto(response_proto.model)
 
     def log_inputs(self, run_id: str, datasets: Optional[List[DatasetInput]] = None):
         """
