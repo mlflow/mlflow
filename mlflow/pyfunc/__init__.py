@@ -1707,8 +1707,8 @@ def prebuild_model_env(model_uri, save_path):
         #  destination directory.
         archive_file_name = f"{env_name}.tar.gz"
         subprocess.check_call(
-            cmd=f"cd {env_root_dir} && tar -czf {archive_file_name} ./* "
-                f"&& mv {archive_file_name} {save_path}/",
+            f"cd {env_root_dir} && tar -czf {archive_file_name} ./* "
+            f"&& mv {archive_file_name} {save_path}/",
             shell=True,
         )
     finally:
