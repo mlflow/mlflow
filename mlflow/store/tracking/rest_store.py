@@ -7,6 +7,8 @@ from mlflow.entities import (
     Experiment,
     LoggedModel,
     Metric,
+    ModelParam,
+    ModelTag,
     Run,
     RunInfo,
     TraceInfo,
@@ -31,8 +33,6 @@ from mlflow.protos.service_pb2 import (
     GetRun,
     GetTraceInfo,
     LogBatch,
-    LoggedModelParameter,
-    LoggedModelTag,
     LogInputs,
     LogMetric,
     LogModel,
@@ -558,8 +558,8 @@ class RestStore(AbstractStore):
         experiment_id: str,
         name: str,
         run_id: Optional[str] = None,
-        tags: Optional[Dict[str, str]] = None,
-        params: Optional[Dict[str, str]] = None,
+        tags: Optional[ModelTag] = None,
+        params: Optional[List[ModelParam]] = None,
         model_type: Optional[str] = None,
     ) -> LoggedModel:
         """
@@ -582,11 +582,11 @@ class RestStore(AbstractStore):
                 name=name,
                 model_type=model_type,
                 source_run_id=run_id,
-                params=[LoggedModelParameter(key=k, value=v) for k, v in (params or {}).items()],
-                tags=[LoggedModelTag(key=k, value=v) for k, v in (tags or {}).items()],
+                params=[p.to_proto() for p in params or []],
+                tags=[t.to_proto() for t in tags or []],
             )
         )
-        response_proto = self._call_endpoint(DeleteTag, req_body)
+        response_proto = self._call_endpoint(CreateLoggedModel, req_body)
         return LoggedModel.from_proto(response_proto.model)
 
     def log_inputs(self, run_id: str, datasets: Optional[List[DatasetInput]] = None):

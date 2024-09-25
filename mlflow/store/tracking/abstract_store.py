@@ -6,6 +6,7 @@ from mlflow.entities import (
     LoggedModel,
     ModelInput,
     ModelOutput,
+    ModelParam,
     ModelStatus,
     ModelTag,
     TraceInfo,
@@ -694,8 +695,8 @@ class AbstractStore:
         experiment_id: str,
         name: str,
         run_id: Optional[str] = None,
-        tags: Optional[Dict[str, str]] = None,
-        params: Optional[Dict[str, str]] = None,
+        tags: Optional[ModelTag] = None,
+        params: Optional[List[ModelParam]] = None,
         model_type: Optional[str] = None,
     ) -> LoggedModel:
         """
