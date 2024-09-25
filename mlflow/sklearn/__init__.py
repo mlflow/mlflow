@@ -1596,7 +1596,7 @@ def _autolog(  # noqa: D417
             if hasattr(estimator, "best_estimator_") and log_models:
                 _log_model_with_except_handling(
                     estimator.best_estimator_,
-                    artifact_path="best_estimator",
+                    name="best_estimator",
                     signature=signature,
                     input_example=input_example,
                     serialization_format=serialization_format,
