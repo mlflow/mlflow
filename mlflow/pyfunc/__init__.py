@@ -508,6 +508,9 @@ from mlflow.utils.annotations import deprecated, developer_stable, experimental
 from mlflow.utils.databricks_utils import (
     is_in_databricks_runtime,
     is_databricks_serverless,
+    is_databricks_connect,
+    is_in_databricks_serverless_runtime,
+    is_in_databricks_shared_cluster_runtime,
 )
 from mlflow.utils.docstring_utils import LOG_MODEL_PARAM_DOCS, format_docstring
 from mlflow.utils.environment import (
@@ -1657,12 +1660,16 @@ _DATABRICKS_SERVERLESS_PREBUILD_ENV_ROOT_LOCATION = "/tmp"
 
 
 def prebuild_model_env(model_uri, save_path):
-    from mlflow.utils.databricks_utils import is_in_databricks_serverless_notebook, get_databricks_runtime_version
+    from mlflow.utils.databricks_utils import get_databricks_runtime_version
     from mlflow.utils.virtualenv import _get_python_env, _get_virtualenv_name
 
-    if not is_in_databricks_serverless_notebook():
+    if not (
+        is_in_databricks_serverless_runtime() or
+        is_in_databricks_shared_cluster_runtime()
+    ):
         raise RuntimeError(
-            "'prebuild_model_env' only support running in Databricks serverless notebook."
+            "'prebuild_model_env' only support running in Databricks Serverless runtime or "
+            "in Databricks shared cluster runtime."
         )
 
     if not os.path.exists(save_path):
@@ -1671,8 +1678,12 @@ def prebuild_model_env(model_uri, save_path):
         raise RuntimeError(f"The saving path '{save_path}' must be a directory.")
 
     runtime_version_splits = get_databricks_runtime_version().split(".")
-    # full runtime version is like client.x.y, we only extract client.x part.
-    runtime_version = ".".join(runtime_version_splits[:2])
+    if is_in_databricks_serverless_runtime():
+        # full runtime version is like client.x.y, we only extract major version x.
+        runtime_version = f"serverless-{runtime_version_splits[1]}"
+    else:
+        # only extract major version.
+        runtime_version = f"dbruntime-{runtime_version_splits[0]}"
     local_model_path = _download_artifact_from_uri(
         artifact_uri=model_uri,
         output_path=_create_model_downloading_tmp_dir(should_use_nfs=False)
@@ -1886,18 +1897,25 @@ def spark_udf(
         # this case all executors and driver share the same filesystem
         is_spark_in_local_mode = spark.conf.get("spark.master").startswith("local")
 
-    databricks_serverless_mode = is_databricks_serverless()
-    if prebult_env is not None and not databricks_serverless_mode:
+    dbconnect_mode = is_databricks_connect()
+    if prebult_env is not None and not dbconnect_mode:
         raise RuntimeError(
-            "'prebuilt_env' param only support Databricks Serverless notebook or "
-            "Databricks Serverless client environment."
+            "'prebuilt_env' param can only be used in Databricks Serverless notebook REPL, "
+            "Databricks Shared cluster notebook REPL, and Databricks Connect client "
+            "environment."
         )
+
+    # Databricks connect can use `spark.addArtifact` to upload artifact to NFS.
+    # But for Databricks shared cluster runtime, it can directly write to NFS, so exclude it
+    # Note for Databricks Serverles runtime (notebook REPL), it runs on Servereless VM that
+    # can't access NFS, so it needs to use `spark.addArtifact`.
+    use_dbconnect_artifact = dbconnect_mode and not is_in_databricks_shared_cluster_runtime()
 
     nfs_root_dir = get_nfs_cache_root_dir()
     should_use_nfs = nfs_root_dir is not None
 
     should_use_spark_to_broadcast_file = not (
-        is_spark_in_local_mode or should_use_nfs or is_spark_connect
+        is_spark_in_local_mode or should_use_nfs or is_spark_connect or use_dbconenct_artifact
     )
 
     # For spark connect mode,
@@ -1907,14 +1925,12 @@ def spark_udf(
     should_spark_connect_use_nfs = is_in_databricks_runtime() and should_use_nfs
 
     if (
-        is_spark_connect
+        is_spark_connect and not dbconnect_mode
         and env_manager in (_EnvManager.VIRTUALENV, _EnvManager.CONDA)
-        and not should_spark_connect_use_nfs
-        and not databricks_serverless_mode
     ):
         raise MlflowException.invalid_parameter_value(
-            f"Environment manager {env_manager!r} is not supported in Spark connect mode "
-            "when either non-Databricks environment is in use or NFS is unavailable.",
+            f"Environment manager {env_manager!r} is not supported in Spark Connect "
+            "client environment if it connects to non-Databricks Spark cluster.",
         )
 
     local_model_path = _download_artifact_from_uri(
@@ -1955,13 +1971,10 @@ def spark_udf(
         create_env_root_dir=True,
     )
 
-    if databricks_serverless_mode:
-        # Upload model artifact to Databricks Serverless NFS
-        subprocess.check_call(
-            f"cd ${local_model_path} && tar -czf "
-        )
-        # Upload model python environment to Databricks Serverless NFS
-        spark.addArtifact(prebult_env, archive=True)
+    if use_dbconnect_artifact:
+        # Upload model artifacts and python environment to NFS as DBConncet artifacts.
+        # TODO
+        pass
 
     elif not should_use_spark_to_broadcast_file:
         # Prepare restored environment in driver side if possible.

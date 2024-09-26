@@ -245,28 +245,40 @@ def is_in_databricks_runtime():
     return get_databricks_runtime_version() is not None
 
 
-def is_in_databricks_serverless_notebook():
+def is_in_databricks_serverless_runtime():
     dbr_version = get_databricks_runtime_version()
     return dbr_version and dbr_version.startswith("client.")
 
 
-def is_databricks_connect_mode(spark):
+def is_in_databricks_shared_cluster_runtime():
     from mlflow.utils.spark_utils import is_spark_connect_mode
+    return is_spark_connect_mode() and not is_in_databricks_serverless_runtime()
+
+
+def is_databricks_connect(spark):
+    from mlflow.utils.spark_utils import is_spark_connect_mode
+    """
+    Return True if current Spark-connect client connects to Databricks cluster.
+    """
+    # TODO: Remove the `spark.client._builder._build` attribute access once
+    #  Spark-connect has public attribute for this information.
     return is_spark_connect_mode() and (
-        spark.client.host.endswith(".databricks.com") or
-        spark.client.host.endswith(".databricks.us") or
-        spark.client.host.endswith(".azuredatabricks.net") or
-        spark.client.host.endswith(".databricks.azure.us") or
-        spark.client.host.endswith(".databricks.azure.cn")
+        is_in_databricks_serverless_runtime() and
+        is_in_databricks_shared_cluster_runtime() and
+        "databricks-session" in spark.client._builder.userAgent
     )
 
 
 def is_databricks_serverless(spark):
+    from mlflow.utils.spark_utils import is_spark_connect_mode
     """
-    return True if running on Databricks Serverless notebook or
-    on Databricks Connect client that connets to Databricks Serverless.
+    Return True if running on Databricks Serverless notebook or
+    on Databricks Connect client that connects to Databricks Serverless.
     """
-    return 'x-databricks-session-id' in [k for k, v in spark.client.metadata()]
+    return (
+        is_spark_connect_mode() and
+        'x-databricks-session-id' in [k for k, v in spark.client.metadata()]
+    )
 
 
 def is_dbfs_fuse_available():

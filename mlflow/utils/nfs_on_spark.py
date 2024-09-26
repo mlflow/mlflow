@@ -6,7 +6,8 @@ from mlflow.utils._spark_utils import _get_active_spark_session
 from mlflow.utils.databricks_utils import (
     get_databricks_nfs_temp_dir,
     is_in_databricks_runtime,
-    is_in_databricks_serverless,
+    is_in_databricks_serverless_runtime,
+    is_databricks_connect,
 )
 from mlflow.utils.spark_utils import is_spark_connect_mode
 
@@ -28,8 +29,8 @@ _NFS_CACHE_ROOT_DIR = None
 def get_nfs_cache_root_dir():
     if is_in_databricks_runtime():
         spark_sess = _get_active_spark_session()
-        if is_in_databricks_serverless():
-            # Serverless client can't access NFS.
+        if is_in_databricks_serverless_runtime():
+            # Databricks Serverless runtime VM can't access NFS.
             nfs_enabled = False
         elif is_spark_connect_mode():
             # For testing.
@@ -57,9 +58,9 @@ def get_nfs_cache_root_dir():
         else:
             return None
     else:
-        if is_spark_connect_mode():
-            return False
-
         spark_session = _get_active_spark_session()
+        if is_databricks_connect(spark_session):
+            # Remote spark connect client can't access Databricks Serverless cluster NFS.
+            return False
         if spark_session is not None:
             return spark_session.conf.get("spark.mlflow.nfs.rootDir", None)
