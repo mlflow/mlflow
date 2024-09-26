@@ -521,6 +521,8 @@ def _infer_requirements(model_uri, flavor, raise_on_error=False):
         # Certain flavors (e.g. pytorch) import mlflow while loading a model, but mlflow should
         # not be counted as a model requirement.
         *_MODULES_TO_PACKAGES.get("mlflow", []),
+        # dspy's pypi name is dspy-ai, so we need to exclude "dspy" from requirement list.
+        "dspy",
     ]
     packages = packages - set(excluded_packages)
 

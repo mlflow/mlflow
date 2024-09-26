@@ -27,14 +27,14 @@ class CoT(dspy.Module):
         return self.prog(question=question)
 
 
-@pytest.fixture
-def cleanup_fixture():
+@pytest.fixture(autouse=True)
+def reset_dspy_settings():
     yield
 
     dspy.settings.configure(lm=None, rm=None)
 
 
-def test_basic_save(cleanup_fixture):
+def test_basic_save():
     dspy_model = CoT()
     dspy.settings.configure(lm=dspy.OpenAI(model="gpt-4o-mini", max_tokens=250))
 
@@ -53,7 +53,7 @@ def test_basic_save(cleanup_fixture):
     assert isinstance(loaded_model, CoT)
 
 
-def test_save_compiled_model(cleanup_fixture):
+def test_save_compiled_model():
     train_data = ["What is 2 + 2?", "What is 3 + 3?", "What is 4 + 4?", "What is 5 + 5?"]
     train_label = ["4", "6", "8", "10"]
     trainset = [
@@ -86,7 +86,7 @@ def test_save_compiled_model(cleanup_fixture):
     assert loaded_model.prog.predictors()[0].demos == optimized_cot.prog.predictors()[0].demos
 
 
-def test_dspy_save_preserves_object_state(cleanup_fixture):
+def test_dspy_save_preserves_object_state():
     class GenerateAnswer(dspy.Signature):
         """Answer questions with short factoid answers."""
 
@@ -171,7 +171,7 @@ def test_dspy_save_preserves_object_state(cleanup_fixture):
     assert original_settings == loaded_settings
 
 
-def test_load_logged_model_in_native_dspy(cleanup_fixture):
+def test_load_logged_model_in_native_dspy():
     dspy_model = CoT()
     # Arbitrary set the demo to test saving/loading has no data loss.
     dspy_model.prog.predictors()[0].demos = [
@@ -194,7 +194,7 @@ def test_load_logged_model_in_native_dspy(cleanup_fixture):
     assert loaded_dspy_model.prog.predictors()[0].demos == dspy_model.prog.predictors()[0].demos
 
 
-def test_serving_logged_model(cleanup_fixture):
+def test_serving_logged_model():
     # Need to redefine a CoT in the test case for cloudpickle to find the class.
     class CoT(dspy.Module):
         def __init__(self):
@@ -241,6 +241,54 @@ def test_serving_logged_model(cleanup_fixture):
     # Assert the required fields are in the response.
     assert "rationale" in json_response["predictions"]
     assert "answer" in json_response["predictions"]
+
+
+def test_serve_chat_model():
+    class CoT(dspy.Module):
+        def __init__(self):
+            super().__init__()
+            self.prog = dspy.ChainOfThought("question -> answer")
+
+        def forward(self, inputs):
+            # DSPy chat model's inputs is a list of dict with keys roles (optional) and content.
+            return self.prog(question=inputs[0]["content"])
+
+    dspy_model = CoT()
+    random_answers = ["4", "6", "8", "10"]
+    lm = dspy.utils.DummyLM(answers=random_answers)
+    dspy.settings.configure(lm=lm)
+
+    input_examples = {"messages": [{"role": "user", "content": "What is 2 + 2?"}]}
+
+    artifact_path = "model"
+    with mlflow.start_run():
+        mlflow.dspy.log_model(
+            dspy_model,
+            artifact_path,
+            task="llm/v1/chat",
+            input_example=input_examples,
+        )
+        model_uri = mlflow.get_artifact_uri(artifact_path)
+    # Clear the lm setting to test the loading logic.
+    dspy.settings.configure(lm=None)
+
+    # test that the model can be served
+    response = pyfunc_serve_and_score_model(
+        model_uri=model_uri,
+        data=json.dumps(input_examples),
+        content_type="application/json",
+        extra_args=["--env-manager", "local"],
+    )
+
+    expect_status_code(response, 200)
+
+    json_response = json.loads(response.content)
+
+    assert "choices" in json_response
+    assert len(json_response["choices"]) == 1
+    assert "message" in json_response["choices"][0]
+    assert "rationale" in json_response["choices"][0]["message"]["content"]
+    assert "answer" in json_response["choices"][0]["message"]["content"]
 
 
 def test_code_paths_is_used():

@@ -62,7 +62,7 @@ def get_default_pip_requirements():
         `save_model()` and `log_model()` produce a pip environment that, at minimum, contains these
         requirements.
     """
-    return [_get_pinned_requirement("dspy")]
+    return [_get_pinned_requirement("dspy-ai")]
 
 
 def get_default_conda_env():
@@ -118,15 +118,19 @@ def save_model(
 
     import dspy
 
-    if signature is None:
-        _logger.warning("You are saving a dspy model without specifying model signature.")
-    else:
+    if signature:
         num_inputs = len(signature.inputs.inputs)
         if num_inputs == 0:
             raise MlflowException(
                 "The model signature's input schema must contain at least one field.",
                 error_code=INVALID_PARAMETER_VALUE,
             )
+    if task and task not in SIGNATURE_FOR_LLM_INFERENCE_TASK:
+        raise MlflowException(
+            "Invalid task: {task} at `mlflow.dspy.save_model()` call. The task must be None or one "
+            f"of: {list(SIGNATURE_FOR_LLM_INFERENCE_TASK.keys())}",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
 
     if mlflow_model is None:
         mlflow_model = Model()
@@ -149,9 +153,9 @@ def save_model(
     model_path = os.path.join(path, model_subpath)
     # Dspy has a global context `dspy.settings`, and we need to save it along with the model.
     dspy_settings = dict(dspy.settings.config)
-    if "trace" in dspy_settings:
-        # Don't save the trace in the model, which is only useful during the training phase.
-        del dspy_settings["trace"]
+
+    # Don't save the trace in the model, which is only useful during the training phase.
+    dspy_settings.pop("trace", None)
 
     # Store both dspy model and settings in `DspyChatModelWrapper` or `DspyModelWrapper` for
     # serialization.
@@ -217,10 +221,6 @@ def save_model(
     else:
         conda_env, pip_requirements, pip_constraints = _process_conda_env(conda_env)
 
-    # dspy's pypi name is dspy-ai, so we need to remove "dspy" from the
-    # auto-generated pip_requirements.
-    pip_requirements = list(filter(lambda x: not x.startswith("dspy=="), pip_requirements))
-    conda_env["dependencies"][-1]["pip"] = pip_requirements
     with open(os.path.join(path, _CONDA_ENV_FILE_NAME), "w") as f:
         yaml.safe_dump(conda_env, stream=f, default_flow_style=False)
 

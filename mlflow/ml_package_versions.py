@@ -268,8 +268,8 @@ _ML_PACKAGE_VERSIONS = {
             "pip_release": "dspy-ai"
         },
         "models": {
-            "minimum": "2.4.0",
-            "maximum": "2.4.16"
+            "minimum": "2.4.16",
+            "maximum": "2.5.0"
         }
     },
     "langchain": {
