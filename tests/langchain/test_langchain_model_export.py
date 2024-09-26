@@ -397,7 +397,7 @@ def test_langchain_llm_chain():
 
     assert "langchain" in logged_model.flavors
     assert str(logged_model.signature.inputs) == "['product': string (required)]"
-    assert str(logged_model.signature.outputs) == "[string (required)]"
+    assert str(logged_model.signature.outputs) == "['text': string (required)]"
 
     assert type(loaded_model) == LLMChain
     assert type(loaded_model.llm) == OpenAI
