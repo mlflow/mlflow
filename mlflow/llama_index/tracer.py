@@ -4,6 +4,7 @@ import logging
 from functools import singledispatchmethod
 from typing import Any, Dict, Generator, Optional, Tuple, Union
 
+import llama_index.core
 import pydantic
 from llama_index.core.base.agent.types import BaseAgent, BaseAgentWorker, TaskStepOutput
 from llama_index.core.base.base_retriever import BaseRetriever
@@ -41,6 +42,7 @@ from mlflow.tracking.client import MlflowClient
 _logger = logging.getLogger(__name__)
 
 IS_PYDANTIC_V1 = Version(pydantic.__version__).major < 2
+LLAMA_INDEX_VERSION = Version(llama_index.core.__version__)
 
 
 def set_llama_index_tracer():
@@ -167,7 +169,8 @@ class MlflowSpanHandler(BaseSpanHandler[_LlamaSpan], extra="allow"):
                 )
             return _LlamaSpan(id_=id_, parent_id=parent_span_id, mlflow_span=span)
         except BaseException as e:
-            _logger.debug(f"Failed to create a new span: {e}", exc_info=True)
+            _logger.warning(f"Failed to create a new span: {e}", exc_info=True)
+            raise
 
     def prepare_to_exit_span(
         self,
@@ -175,6 +178,18 @@ class MlflowSpanHandler(BaseSpanHandler[_LlamaSpan], extra="allow"):
         result: Optional[Any] = None,
         **kwargs: Any,
     ) -> _LlamaSpan:
+        if (
+            LLAMA_INDEX_VERSION >= Version("0.11.10")
+            and isinstance(result, llama_index.core.workflow.handler.WorkflowHandler)
+            and not result.is_done()
+        ):
+            # In LlamaIndex >= 0.11.0, LlamaIndex workflow finishes with a pending
+            # WorkflowHandler as an output. Their base span handler does not handle it
+            # correctly and emit it immediately, instead of awaiting for the actual result.
+            # Until this problem is resolved, we simply records the pending workflow result
+            # as it is. Using str(result) for pending handler will raise an exception.
+            result = "<WorkflowHandler pending>"
+
         try:
             llama_span = self.open_spans.get(id_)
             if not llama_span:
@@ -194,7 +209,7 @@ class MlflowSpanHandler(BaseSpanHandler[_LlamaSpan], extra="allow"):
                 _end_span(span=span, outputs=result)
             return llama_span
         except BaseException as e:
-            _logger.debug(f"Failed to end a span: {e}", exc_info=True)
+            _logger.warning(f"Failed to end a span: {e}", exc_info=True)
 
     def resolve_pending_stream_span(self, span: LiveSpan, event: Any):
         """End the pending streaming span(s)"""
@@ -205,6 +220,15 @@ class MlflowSpanHandler(BaseSpanHandler[_LlamaSpan], extra="allow"):
         """Logic for handling errors during the model execution."""
         llama_span = self.open_spans.get(id_)
         span = llama_span._mlflow_span
+
+        if LLAMA_INDEX_VERSION >= Version("0.10.59"):
+            # LlamaIndex determines if a workflow is terminated or not by propagating an special
+            # exception WorkflowDone. We should treat this exception as a successful termination.
+            from llama_index.core.workflow.errors import WorkflowDone
+
+            if err and isinstance(err, WorkflowDone):
+                return _end_span(span=span, status=SpanStatusCode.OK)
+
         span.add_event(SpanEvent.from_exception(err))
         _end_span(span=span, status="ERROR")
         return llama_span

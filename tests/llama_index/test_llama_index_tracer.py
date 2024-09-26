@@ -21,6 +21,7 @@ from packaging.version import Version
 import mlflow
 import mlflow.tracking._tracking_service
 from mlflow.entities.span import SpanType
+from mlflow.entities.span_status import SpanStatusCode
 from mlflow.entities.trace import Trace
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.llama_index.tracer import remove_llama_index_tracer, set_llama_index_tracer
@@ -443,3 +444,31 @@ def test_tracer_handle_tracking_uri_update(tmp_path):
         # The new trace will be logged to the updated tracking URI
         OpenAI().complete("Hello")
         assert len(_get_all_traces()) == 1
+
+
+@pytest.mark.asyncio
+async def test_tracer_workflow():
+    from llama_index.core.workflow import (
+        StartEvent,
+        StopEvent,
+        Workflow,
+        step,
+    )
+
+    import mlflow
+
+    class MyWorkflow(Workflow):
+        @step
+        async def my_step(self, ev: StartEvent) -> StopEvent:
+            # do something here
+            return StopEvent(result="Hi, world!")
+
+    w = MyWorkflow(timeout=10, verbose=False)
+    await w.run()
+
+    trace = mlflow.get_last_active_trace()
+    assert trace is not None
+    assert trace.info.status == TraceStatus.OK
+    for s in trace.data.spans:
+        assert s.status.status_code == SpanStatusCode.OK
+    assert all(s.status.status_code == SpanStatusCode.OK for s in trace.data.spans)
