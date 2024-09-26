@@ -263,8 +263,8 @@ def is_databricks_connect(spark):
     # TODO: Remove the `spark.client._builder._build` attribute access once
     #  Spark-connect has public attribute for this information.
     return is_spark_connect_mode() and (
-        is_in_databricks_serverless_runtime() and
-        is_in_databricks_shared_cluster_runtime() and
+        is_in_databricks_serverless_runtime() or
+        is_in_databricks_shared_cluster_runtime() or
         "databricks-session" in spark.client._builder.userAgent
     )
 
