@@ -2,7 +2,6 @@ import inspect
 import logging
 from typing import Generator, List, Optional, Set
 
-import pydantic
 from packaging import version
 
 from mlflow.models.resources import (
@@ -12,8 +11,6 @@ from mlflow.models.resources import (
     DatabricksVectorSearchIndex,
     Resource,
 )
-
-IS_PYDANTIC_V2 = version.parse(pydantic.version.VERSION) >= version.parse("2.0")
 
 _logger = logging.getLogger(__name__)
 
@@ -232,6 +229,7 @@ def _traverse_runnable(
     by lc_model.get_graph().nodes.values().
     This function supports arbitrary LCEL chain.
     """
+    import pydantic
     from langchain_core.runnables import Runnable, RunnableLambda
 
     visited = visited or set()
@@ -245,7 +243,9 @@ def _traverse_runnable(
 
     if isinstance(lc_model, Runnable):
         # Visit the returned graph
-        if isinstance(lc_model, RunnableLambda) and IS_PYDANTIC_V2:
+        if isinstance(lc_model, RunnableLambda) and version.parse(
+            pydantic.version.VERSION
+        ) >= version.parse("2.0"):
             nodes = _get_nodes_from_runnable_lambda(lc_model)
         else:
             nodes = lc_model.get_graph().nodes.values()
