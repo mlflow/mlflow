@@ -1662,14 +1662,11 @@ _DATABRICKS_SERVERLESS_PREBUILD_ENV_ROOT_LOCATION = "/tmp"
 def prebuild_model_env(model_uri, save_path):
     from mlflow.utils.databricks_utils import get_databricks_runtime_version
     from mlflow.utils.virtualenv import _get_python_env, _get_virtualenv_name
+    from mlflow.pyfunc.dbconnect_artifact_cache import archive_directory
 
-    if not (
-        is_in_databricks_serverless_runtime() or
-        is_in_databricks_shared_cluster_runtime()
-    ):
+    if not is_in_databricks_runtime():
         raise RuntimeError(
-            "'prebuild_model_env' only support running in Databricks Serverless runtime or "
-            "in Databricks shared cluster runtime."
+            "'prebuild_model_env' only support running in Databricks runtime."
         )
 
     if not os.path.exists(save_path):
@@ -1677,13 +1674,6 @@ def prebuild_model_env(model_uri, save_path):
     if not os.path.isdir(save_path):
         raise RuntimeError(f"The saving path '{save_path}' must be a directory.")
 
-    runtime_version_splits = get_databricks_runtime_version().split(".")
-    if is_in_databricks_serverless_runtime():
-        # full runtime version is like client.x.y, we only extract major version x.
-        runtime_version = f"serverless-{runtime_version_splits[1]}"
-    else:
-        # only extract major version.
-        runtime_version = f"dbruntime-{runtime_version_splits[0]}"
     local_model_path = _download_artifact_from_uri(
         artifact_uri=model_uri,
         output_path=_create_model_downloading_tmp_dir(should_use_nfs=False)
@@ -1701,7 +1691,6 @@ def prebuild_model_env(model_uri, save_path):
             "the existing one first."
         )
 
-    env_name = f"{env_name}-{runtime_version}"
     env_root_dir = os.path.join(
         _DATABRICKS_SERVERLESS_PREBUILD_ENV_ROOT_LOCATION,
         env_name,
@@ -1726,12 +1715,16 @@ def prebuild_model_env(model_uri, save_path):
 
         # Archive the environment directory as a `tar.gz` format archive file,
         # and then move the archive file to the destination directory.
-        # note:
-        #  - `tar` command will keep symlink file as it is.
-        #  - the destination directory could be UC-volume fuse mounted directory
+        # Note:
+        # - all symlink files in the input directory are kept as it is in the
+        #  archive file.
+        # - the destination directory could be UC-volume fuse mounted directory
         #  which only supports limited filesystem operations, so to ensure it works,
         #  we generate the archive file under /tmp and then move it into the
         #  destination directory.
+        tmp_archive_path = os.path.join(env_root_dir, archive_file_name)
+        archive_directory(env_root_dir, tmp_archive_path)
+        shutil.move(tmp_archive_path, save_path)
         subprocess.check_call(
             f"cd {env_root_dir} && tar -czf {archive_file_name} ./* "
             f"&& mv {archive_file_name} {save_path}/",
