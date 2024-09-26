@@ -417,9 +417,11 @@ def search_traces(
 
         import mlflow
 
+
         @mlflow.trace
         def traced_func(x):
             return x + 1
+
 
         with mlflow.start_run() as run:
             traced_func(1)
