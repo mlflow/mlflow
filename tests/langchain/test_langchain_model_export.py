@@ -1384,7 +1384,7 @@ def test_save_load_complex_runnable_parallel():
             runnable, "model_path", input_example=[{"product": "MLflow"}]
         )
     loaded_model = mlflow.langchain.load_model(model_info.model_uri)
-    assert loaded_model.invoke("MLflow") == expected_result
+    assert loaded_model.invoke({"product": "MLflow"}) == expected_result
     pyfunc_loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
     assert pyfunc_loaded_model.predict([{"product": "MLflow"}]) == [expected_result]
 
@@ -3415,7 +3415,8 @@ def test_agent_executor_model_with_messages_input():
     # Test stream output
     response = pyfunc_model.predict_stream(question)
     assert inspect.isgenerator(response)
-    assert list(response) == [
+
+    expected_response = [
         {
             "output": "Databricks",
             "messages": [
@@ -3429,11 +3430,13 @@ def test_agent_executor_model_with_messages_input():
                     "response_metadata": {},
                     "tool_calls": [],
                     "type": "ai",
-                    "usage_metadata": None,
                 }
             ],
         }
     ]
+    if Version(langchain.__version__) >= Version("0.2.0"):
+        expected_response[0]["messages"][0]["usage_metadata"] = None
+    assert list(response) == expected_response
 
 
 def test_signature_inference_fails(monkeypatch: pytest.MonkeyPatch):

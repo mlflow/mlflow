@@ -54,8 +54,8 @@ Supported Elements in MLflow LangChain Integration
 - `Retrievers <https://python.langchain.com/docs/modules/data_connection/retrievers/>`_
 - `Runnables <https://python.langchain.com/v0.1/docs/expression_language/interface/>`_
 - `LangGraph Complied Graph <https://langchain-ai.github.io/langgraph/reference/graphs/>`_ (only supported via `Model-from-Code <#logging-models-from-code>`_)
-- `LLMChain <https://python.langchain.com/docs/modules/chains/foundational/llm_chain>`_ (deprecated, only support for ``< langchain 0.3.0``)
-- `RetrievalQA <https://js.langchain.com/docs/modules/chains/popular/vector_db_qa>`_ (deprecated, only support for ``< langchain 0.3.0``)
+- `LLMChain <https://python.langchain.com/docs/modules/chains/foundational/llm_chain>`_ (deprecated, only support for ``langchain<0.3.0``)
+- `RetrievalQA <https://js.langchain.com/docs/modules/chains/popular/vector_db_qa>`_ (deprecated, only support for ``langchain<0.3.0``)
 
 
 .. warning::
