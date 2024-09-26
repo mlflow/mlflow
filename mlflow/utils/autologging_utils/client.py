@@ -15,6 +15,7 @@ from concurrent.futures import ThreadPoolExecutor
 from itertools import zip_longest
 from typing import Any, Dict, List, Optional, Union
 
+from mlflow.data.dataset import Dataset
 from mlflow.entities import Metric, Param, RunTag
 from mlflow.entities.dataset_input import DatasetInput
 from mlflow.exceptions import MlflowException
@@ -207,8 +208,7 @@ class MlflowAutologgingQueueingClient:
         run_id: Union[str, PendingRunId],
         metrics: Dict[str, float],
         step: Optional[int] = None,
-        dataset_name: Optional[str] = None,
-        dataset_digest: Optional[str] = None,
+        dataset: Optional[Dataset] = None,
         model_id: Optional[str] = None,
     ) -> None:
         """
@@ -224,8 +224,8 @@ class MlflowAutologgingQueueingClient:
                 timestamp_ms,
                 step or 0,
                 model_id=model_id,
-                dataset_name=dataset_name,
-                dataset_digest=dataset_digest,
+                dataset_name=dataset and dataset.name,
+                dataset_digest=dataset and dataset.digest,
             )
             for key, value in metrics.items()
         ]
