@@ -330,6 +330,7 @@ def get_trace(request_id: str) -> Optional[Trace]:
 @experimental
 def search_traces(
     experiment_ids: Optional[List[str]] = None,
+    run_id: Optional[str] = None,
     filter_string: Optional[str] = None,
     max_results: Optional[int] = None,
     order_by: Optional[List[str]] = None,
@@ -348,6 +349,9 @@ def search_traces(
     Args:
         experiment_ids: List of experiment ids to scope the search. If not provided, the search
             will be performed across the current active experiment.
+        run_id: A run id to scope the search. When a trace is created under an active run,
+            it will be associated with the run and you can filter on the run id to retrieve the
+            trace. See the example below for how to filter traces by run id.
         filter_string: A search filter string.
         max_results: Maximum number of traces desired. If None, all traces matching the search
             expressions will be returned.
@@ -406,6 +410,21 @@ def search_traces(
         mlflow.search_traces(
             extract_fields=["non_dict_span.inputs", "non_dict_span.outputs"],
         )
+
+    .. code-block:: python
+        :test:
+        :caption: Search traces by run ID
+
+        @mlflow.trace
+        def traced_func(x):
+            return x + 1
+
+
+        with mlflow.start_run() as run:
+            traced_func(1)
+
+        mlflow.search_traces(run_id=run.info.run_id)
+
     """
     # Check if pandas is installed early to avoid unnecessary computation
     if importlib.util.find_spec("pandas") is None:
@@ -428,6 +447,7 @@ def search_traces(
     def pagination_wrapper_func(number_to_get, next_page_token):
         return MlflowClient().search_traces(
             experiment_ids=experiment_ids,
+            run_id=run_id,
             max_results=number_to_get,
             filter_string=filter_string,
             order_by=order_by,

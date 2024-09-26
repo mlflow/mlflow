@@ -41,6 +41,7 @@ from mlflow.store.tracking import (
 )
 from mlflow.store.tracking.rest_store import RestStore
 from mlflow.tracing.artifact_utils import get_artifact_uri_for_trace
+from mlflow.tracing.constant import TraceMetadataKey
 from mlflow.tracing.utils import TraceJSONEncoder, exclude_immutable_tags
 from mlflow.tracking._tracking_service import utils
 from mlflow.tracking.metric_value_conversion_utils import convert_metric_value_to_float_if_possible
@@ -308,6 +309,7 @@ class TrackingServiceClient:
     def search_traces(
         self,
         experiment_ids: List[str],
+        run_id: Optional[str] = None,
         filter_string: Optional[str] = None,
         max_results: int = SEARCH_TRACES_DEFAULT_MAX_RESULTS,
         order_by: Optional[List[str]] = None,
@@ -331,6 +333,21 @@ class TrackingServiceClient:
                 return None
             else:
                 return Trace(trace_info, trace_data)
+
+        # If run_id is provided, add it to the filter string
+        if run_id:
+            additional_filter = f"metadata.{TraceMetadataKey.SOURCE_RUN} = '{run_id}'"
+            if filter_string:
+                if TraceMetadataKey.SOURCE_RUN in filter_string:
+                    raise MlflowException(
+                        "You cannot filter by run_id when it is already part of the filter string."
+                        f"Please remove the {TraceMetadataKey.SOURCE_RUN} filter from the filter "
+                        "string and try again.",
+                        error_code=INVALID_PARAMETER_VALUE,
+                    )
+                filter_string += f" AND {additional_filter}"
+            else:
+                filter_string = additional_filter
 
         traces = []
         next_max_results = max_results

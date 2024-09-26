@@ -483,6 +483,7 @@ class MlflowClient:
     def search_traces(
         self,
         experiment_ids: List[str],
+        run_id: Optional[str] = None,
         filter_string: Optional[str] = None,
         max_results: int = SEARCH_TRACES_DEFAULT_MAX_RESULTS,
         order_by: Optional[List[str]] = None,
@@ -493,6 +494,9 @@ class MlflowClient:
 
         Args:
             experiment_ids: List of experiment ids to scope the search.
+            run_id: A run id to scope the search. When a trace is created under an active run,
+                it will be associated with the run and you can filter on the run id to retrieve
+                the trace.
             filter_string: A search filter string.
             max_results: Maximum number of traces desired.
             order_by: List of order_by clauses.
@@ -509,6 +513,7 @@ class MlflowClient:
         """
         traces = self._tracking_client.search_traces(
             experiment_ids=experiment_ids,
+            run_id=run_id,
             filter_string=filter_string,
             max_results=max_results,
             order_by=order_by,
