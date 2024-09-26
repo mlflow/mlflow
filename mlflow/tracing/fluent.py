@@ -415,10 +415,11 @@ def search_traces(
         :test:
         :caption: Search traces by run ID
 
+        import mlflow
+
         @mlflow.trace
         def traced_func(x):
             return x + 1
-
 
         with mlflow.start_run() as run:
             traced_func(1)
