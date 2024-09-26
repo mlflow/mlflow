@@ -1952,11 +1952,6 @@ def test_databricks_dependency_extraction_from_retrieval_qa_chain(tmp_path):
     Version(langchain.__version__) < Version("0.2.0"),
     reason="Langgraph are not supported the way we want in earlier versions",
 )
-@pytest.mark.skipif(
-    IS_LANGCHAIN_03,
-    reason="This fix is broken once https://github.com/langchain-ai/langchain/pull/26649 "
-    "is released in langchain-community package",
-)
 def test_databricks_dependency_extraction_from_langgraph_agent(monkeypatch):
     from langchain_community.chat_models import ChatDatabricks
     from langchain_core.runnables import RunnableLambda
@@ -2012,11 +2007,6 @@ def test_databricks_dependency_extraction_from_langgraph_agent(monkeypatch):
 @pytest.mark.skipif(
     Version(langchain.__version__) < Version("0.1.0"),
     reason="Tools are not supported the way we want in earlier versions",
-)
-@pytest.mark.skipif(
-    IS_LANGCHAIN_03,
-    reason="This fix is broken once https://github.com/langchain-ai/langchain/pull/26649 "
-    "is released in langchain-community package",
 )
 def test_databricks_dependency_extraction_from_agent_chain(monkeypatch):
     from langchain_community.chat_models import ChatDatabricks
