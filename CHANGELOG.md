@@ -1,5 +1,59 @@
 # CHANGELOG
 
+## 2.17.0 (2024-09-26)
+
+We are excited to announce the release candidate for MLflow 2.17.0. This release includes several enhancements to extend the
+functionality of MLflow's ChatModel interface to further extend its versatility for handling custom GenAI application use cases. 
+We're also starting the work on improving both the utility and the versatility of MLflow's evaluate functionality for GenAI,
+initially with support for callable GenAI evaluation metrics. 
+
+### Major Features and notifications:
+
+- **ChatModel enhancements** - As the GenAI-focused 'cousin' of `PythonModel`, `ChatModel` is getting some sizable functionality
+  extensions. From native support for tool calling (a requirement for creating a custom agent), simpler conversions to the
+  internal dataclass constructs needed to interface with `ChatModel` via the introduction of `from_dict` methods to all data structures,
+  the addition of a `metadata` field to allow for full input payload customization, handling of the new `refusal` response type, to the
+  inclusion of the interface type to the response structure to allow for greater integration compatibility.
+  (#13191, #13180, #13143, @daniellok-db, #13102, #13071, @BenWilson2)
+
+- **Callable GenAI Evaluation Metrics** - As the intial step in a much broader expansion of the functionalities of `mlflow.evaluate` for
+  GenAI use cases, we've converted the GenAI evaluation metrics to be callable. This allows you to use them directly in packages that support
+  callable GenAI evaluation metrics, as well as making it simpler to debug individual responses when prototyping solutions. (#13144, @serena-ruan)
+
+- **Audio file support in the MLflow UI** - You can now directly 'view' audio files that have been logged and listen to them from within the MLflow UI's
+  artifact viewer pane.
+
+- **MLflow AI Gateway is no longer deprecated** - We've decided to revert our deprecation for the AI Gateway feature. We had renamed it to the
+  MLflow Deployments Server, but have reconsidered and reverted the naming and namespace back to the original configuration.
+
+Features:
+
+- [Models] Add tool calling support for ChatModel (#13191, @daniellok-db)
+- [Models] Add `from_dict()` function to ChatModel dataclasses (#13180, @daniellok-db)
+- [Models] Add metadata field for ChatModel (#13143, @daniellok-db)
+- [Models] Update ChatCompletionResponse to populate object type (#13102, @BenWilson2)
+- [Models] Add support for LLM response refusal (#13071, @BenWilson2)
+- [Eval] Make Evaluation metrics callable (#13144, @serena-ruan)
+- [UI] Add audio support to artifact viewer UI (#13017, @sydneyw-spotify)
+- [Databricks] Add support for route_optimized parameter in databricks deployment client (#13222, @prabhatkgupta)
+
+Bug fixes:
+
+- [Tracking] Fix tracing for LangGraph (#13215, @B-Step62)
+- [Model Registry] Fix retry and credential refresh issues with artifact downloads from the model registry (#12935, @rohitarun-db)
+- [Tracking] Fix LangChain autologging so that langchain-community is not required for partner packages (#13172, @B-Step62)
+- [Artifacts] Fix issues with file removal for the local artifact repository (#13005, @rzalawad)
+
+Documentation updates:
+
+- [Docs] Add guide for building custom GenAI apps with ChatModel (#13207, @BenWilson2)
+- [Docs] Add updates to the MLflow AI Gateway documentation (#13217, @daniellok-db)
+- [Docs] Remove MLflow AI Gateway deprecation status (#13153, @BenWilson2)
+
+Small bug fixes and documentation updates:
+
+#13243, #13226, #13190, #13230, #13208, #13130, #13045, #13094, @B-Step62; #13238, #13234, #13205, #13200, #13196, #13198, #13193, #13192, #13194, #13189, #13184, #13182, #13161, #13179, #13178, #13110, #13162, #13173, #13171, #13169, #13168, #13167, #13156, #13127, #13133, #13089, #13073, #13057, #13058, #13067, #13062, #13061, #13052, @harupy; #13219, #13038, @serena-ruan; #13176, #13164, @WeichenXu123; #13163, @gabrielfu; #13186, @varshinimuthukumar1; #13128, #13115, @nojaf; #13120, @levscaut; #13152, #13075, @BenWilson2; #13138, @tanguylefloch-veesion; #13087, @SeanAverS; #13051, #13043, @daniellok-db; #13224, @levscaut;
+
 ## 2.16.2 (2024-09-17)
 
 MLflow 2.16.2 includes several major features and improvements
