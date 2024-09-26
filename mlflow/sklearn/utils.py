@@ -511,7 +511,16 @@ def _log_warning_for_artifacts(func_name, func_call, err):
 
 
 def _log_specialized_estimator_content(
-    autologging_client, fitted_estimator, run_id, prefix, X, y_true, sample_weight, pos_label
+    autologging_client,
+    fitted_estimator,
+    run_id,
+    prefix,
+    X,
+    y_true,
+    sample_weight,
+    pos_label,
+    model_id,
+    dataset,
 ):
     import sklearn
 
@@ -534,7 +543,13 @@ def _log_specialized_estimator_content(
             )
             _logger.warning(msg)
         else:
-            autologging_client.log_metrics(run_id=run_id, metrics=metrics)
+            autologging_client.log_metrics(
+                run_id=run_id,
+                metrics=metrics,
+                model_id=model_id,
+                dataset_name=dataset.name,
+                dataset_digest=dataset.digest,
+            )
 
     if sklearn.base.is_classifier(fitted_estimator):
         try:
@@ -616,6 +631,8 @@ def _log_estimator_content(
     y_true=None,
     sample_weight=None,
     pos_label=None,
+    model_id=None,
+    dataset=None,
 ):
     """
     Logs content for the given estimator, which includes metrics and artifacts that might be
@@ -636,6 +653,8 @@ def _log_estimator_content(
             precision, recall, f1, etc. This parameter is only used for classification metrics.
             If set to `None`, the function will calculate metrics for each label and find their
             average weighted by support (number of true instances for each label).
+        model_id: Model ID.
+        dataset: The dataset used to evaluate the model.
 
     Returns:
         A dict of the computed metrics.
@@ -649,6 +668,8 @@ def _log_estimator_content(
         y_true=y_true,
         sample_weight=sample_weight,
         pos_label=pos_label,
+        model_id=model_id,
+        dataset=dataset,
     )
 
     if hasattr(estimator, "score") and y_true is not None:
@@ -668,7 +689,13 @@ def _log_estimator_content(
             _logger.warning(msg)
         else:
             score_key = prefix + "score"
-            autologging_client.log_metrics(run_id=run_id, metrics={score_key: score})
+            autologging_client.log_metrics(
+                run_id=run_id,
+                metrics={score_key: score},
+                model_id=model_id,
+                dataset_name=dataset.name,
+                dataset_digest=dataset.digest,
+            )
             metrics[score_key] = score
     _log_estimator_html(run_id, estimator)
     return metrics
@@ -752,7 +779,13 @@ def _log_child_runs_info(max_tuning_runs, total_runs):
 
 
 def _create_child_runs_for_parameter_search(  # noqa: D417
-    autologging_client, cv_estimator, parent_run, max_tuning_runs, child_tags=None
+    autologging_client,
+    cv_estimator,
+    parent_run,
+    max_tuning_runs,
+    child_tags=None,
+    model_id=None,
+    dataset=None,
 ):
     """
     Creates a collection of child runs for a parameter search training session.
@@ -771,6 +804,8 @@ def _create_child_runs_for_parameter_search(  # noqa: D417
             parameter search run for which child runs should be created.
         child_tags: An optional dictionary of MLflow tag keys and values to log
             for each child run.
+        model_id: Model ID.
+        dataset: The dataset used to evaluate the model.
     """
     import pandas as pd
 
@@ -846,6 +881,9 @@ def _create_child_runs_for_parameter_search(  # noqa: D417
         autologging_client.log_metrics(
             run_id=pending_child_run_id,
             metrics=metrics_to_log,
+            model_id=model_id,
+            dataset_name=dataset.name,
+            dataset_digest=dataset.digest,
         )
 
         autologging_client.set_terminated(run_id=pending_child_run_id, end_time=child_run_end_time)

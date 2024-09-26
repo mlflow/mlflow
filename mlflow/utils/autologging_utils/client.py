@@ -207,6 +207,9 @@ class MlflowAutologgingQueueingClient:
         run_id: Union[str, PendingRunId],
         metrics: Dict[str, float],
         step: Optional[int] = None,
+        dataset_name: Optional[str] = None,
+        dataset_digest: Optional[str] = None,
+        model_id: Optional[str] = None,
     ) -> None:
         """
         Enqueues a collection of Metrics to be logged to the run specified by `run_id` at the
@@ -215,7 +218,16 @@ class MlflowAutologgingQueueingClient:
         metrics = _truncate_dict(metrics, max_key_length=MAX_ENTITY_KEY_LENGTH)
         timestamp_ms = get_current_time_millis()
         metrics_arr = [
-            Metric(key, value, timestamp_ms, step or 0) for key, value in metrics.items()
+            Metric(
+                key,
+                value,
+                timestamp_ms,
+                step or 0,
+                model_id=model_id,
+                dataset_name=dataset_name,
+                dataset_digest=dataset_digest,
+            )
+            for key, value in metrics.items()
         ]
         self._get_pending_operations(run_id).enqueue(metrics=metrics_arr)
 
