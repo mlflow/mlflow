@@ -6,7 +6,7 @@ if TYPE_CHECKING:
     from llama_index.core.schema import NodeWithScore
 
 
-def _convert_node_with_score_to_document(node: NodeWithScore):
+def _convert_node_with_score_to_document(node: "NodeWithScore"):
     metadata = {}
     metadata["score"] = node.get_score()
     metadata.update(node.metadata)
