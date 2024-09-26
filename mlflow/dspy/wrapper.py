@@ -1,17 +1,7 @@
 import json
-from dataclasses import asdict
 from typing import Any, Dict, Optional
 
-import numpy as np
-import pandas as pd
-
 from mlflow.exceptions import INVALID_PARAMETER_VALUE, MlflowException
-from mlflow.models.rag_signatures import (
-    ChainCompletionChoice,
-    ChatCompletionRequest,
-    ChatCompletionResponse,
-    Message,
-)
 from mlflow.protos.databricks_pb2 import (
     INVALID_PARAMETER_VALUE,
 )
@@ -39,6 +29,9 @@ class DspyModelWrapper(PythonModel):
         self.model_config = model_config or {}
 
     def predict(self, inputs: Any, params: Optional[Dict[str, Any]] = None):
+        import numpy as np
+        import pandas as pd
+
         supported_input_types = (np.ndarray, pd.DataFrame, str, dict)
         if not isinstance(inputs, supported_input_types):
             raise MlflowException(
@@ -67,34 +60,52 @@ class DspyModelWrapper(PythonModel):
 
 
 class DspyChatModelWrapper(DspyModelWrapper):
-    def predict(self, inputs: ChatCompletionRequest, params: Optional[Dict[str, Any]] = None):
+    def predict(self, inputs: Any, params: Optional[Dict[str, Any]] = None):
         import dspy
+        import pandas as pd
 
-        converted_inputs = [asdict(data) for data in inputs.messages]
+        if isinstance(inputs, dict):
+            converted_inputs = inputs["messages"]
+        elif isinstance(inputs, pd.DataFrame):
+            converted_inputs = inputs.messages[0]
+        else:
+            raise MlflowException(
+                f"Unsupported input type: {type(inputs)}. To log a DSPy model with task "
+                "'llm/v1/chat', the input must be a dict or a pandas DataFrame.",
+                INVALID_PARAMETER_VALUE,
+            )
+
         outputs = self.model(converted_inputs)
 
         choices = []
         if isinstance(outputs, dict):
             role = outputs.get("role", "assistant")
             choices.append(
-                ChainCompletionChoice(message=Message(role=role, content=json.dumps(outputs)))
+                {"message": {"role": role, "content": json.dumps(outputs)}, "finish_reason": "stop"}
             )
         elif isinstance(outputs, dspy.Prediction):
             choices.append(
-                ChainCompletionChoice(message=Message(content=json.dumps(outputs.toDict())))
+                {
+                    "message": {"role": "assistant", "content": json.dumps(outputs.toDict())},
+                    "finish_reason": "stop",
+                }
             )
         elif isinstance(outputs, list):
             for output in outputs:
                 if isinstance(output, dict):
                     role = output.get("role", "assistant")
                     choices.append(
-                        ChainCompletionChoice(
-                            message=Message(role=role, content=json.dumps(output))
-                        )
+                        {
+                            "message": {"role": role, "content": json.dumps(outputs)},
+                            "finish_reason": "stop",
+                        }
                     )
                 elif isinstance(output, dspy.Prediction):
                     choices.append(
-                        ChainCompletionChoice(message=Message(content=json.dumps(output.toDict())))
+                        {
+                            "message": {"role": role, "content": json.dumps(outputs.toDict())},
+                            "finish_reason": "stop",
+                        }
                     )
                 else:
                     raise MlflowException(
@@ -111,4 +122,4 @@ class DspyChatModelWrapper(DspyModelWrapper):
                 INVALID_PARAMETER_VALUE,
             )
 
-        return ChatCompletionResponse(choices=choices)
+        return {"choices": choices}

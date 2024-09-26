@@ -19,15 +19,14 @@ from mlflow.models import (
     infer_pip_requirements,
 )
 from mlflow.models.model import MLMODEL_FILE_NAME
+from mlflow.models.rag_signatures import SIGNATURE_FOR_LLM_INFERENCE_TASK
 from mlflow.models.signature import _infer_signature_from_input_example
 from mlflow.models.utils import _save_example
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.transformers.llm_inference_utils import (
-    _LLM_INFERENCE_TASK_CHAT,
     _LLM_INFERENCE_TASK_KEY,
     _METADATA_LLM_INFERENCE_TASK_KEY,
 )
-from mlflow.types.schema import Array, ColSpec, DataType, Object, Property, Schema
 from mlflow.utils.annotations import experimental
 from mlflow.utils.docstring_utils import LOG_MODEL_PARAM_DOCS, format_docstring
 from mlflow.utils.environment import (
@@ -52,53 +51,6 @@ FLAVOR_NAME = "dspy"
 _MODEL_SAVE_PATH = "model"
 _MODEL_DATA_PATH = "data"
 
-CHAT_MODEL_INPUT_SCHEMA = Schema(
-    [
-        ColSpec(
-            name="messages",
-            type=Array(
-                Object(
-                    [
-                        Property("role", DataType.string),
-                        Property("content", DataType.string),
-                    ]
-                )
-            ),
-        ),
-    ]
-)
-
-CHAT_MODEL_OUTPUT_SCHEMA = Schema(
-    [
-        ColSpec(
-            name="choices",
-            type=Array(
-                Object(
-                    [
-                        Property("index", DataType.long),
-                        Property(
-                            "message",
-                            Object(
-                                [
-                                    Property("role", DataType.string),
-                                    Property("content", DataType.string),
-                                ]
-                            ),
-                        ),
-                        Property("finish_reason", DataType.string),
-                    ]
-                )
-            ),
-        ),
-        ColSpec(name="object", type=DataType.string),
-    ]
-)
-
-_SIGNATURE_FOR_LLM_INFERENCE_TASK = {
-    _LLM_INFERENCE_TASK_CHAT: ModelSignature(
-        inputs=CHAT_MODEL_INPUT_SCHEMA, outputs=CHAT_MODEL_OUTPUT_SCHEMA
-    ),
-}
 
 _logger = logging.getLogger(__name__)
 
@@ -218,7 +170,7 @@ def save_model(
 
     if task:
         if mlflow_model.signature is None:
-            mlflow_model.signature = _SIGNATURE_FOR_LLM_INFERENCE_TASK[task]
+            mlflow_model.signature = SIGNATURE_FOR_LLM_INFERENCE_TASK[task]
         flavor_options.update({_LLM_INFERENCE_TASK_KEY: task})
         if mlflow_model.metadata:
             mlflow_model.metadata[_METADATA_LLM_INFERENCE_TASK_KEY] = task
