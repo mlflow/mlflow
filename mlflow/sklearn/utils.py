@@ -547,8 +547,7 @@ def _log_specialized_estimator_content(
                 run_id=run_id,
                 metrics=metrics,
                 model_id=model_id,
-                dataset_name=dataset.name,
-                dataset_digest=dataset.digest,
+                dataset=dataset,
             )
 
     if sklearn.base.is_classifier(fitted_estimator):

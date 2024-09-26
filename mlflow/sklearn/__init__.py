@@ -1606,6 +1606,8 @@ def _autolog(  # noqa: D417
                 autologging_client.log_metrics(
                     run_id=mlflow.active_run().info.run_id,
                     metrics={"best_cv_score": estimator.best_score_},
+                    dataset=dataset,
+                    model_id=model_id,
                 )
 
             if hasattr(estimator, "best_params_"):
