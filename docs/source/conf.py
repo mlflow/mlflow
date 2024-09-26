@@ -406,6 +406,7 @@ nitpick_ignore = [
     ("py:class", "array"),
     ("py:class", "boolean"),
     ("py:class", "null"),
+    ("py:class", "any"),
 ]
 
 
