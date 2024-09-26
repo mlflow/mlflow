@@ -553,7 +553,8 @@ def test_langchain_log_huggingface_hub_model_metadata(model_path):
 
     assert isinstance(loaded_model, RunnableSequence)
     assert loaded_model.steps[0] == prompt
-    assert isinstance(loaded_model.steps[1], HuggingFacePipeline)
+    # TODO: Check the type once https://github.com/langchain-ai/langchain/issues/22520 is resolved
+    assert type(loaded_model.steps[1]).__name__ == "HuggingFacePipeline"
 
 
 @pytest.mark.skipif(
@@ -920,7 +921,7 @@ def load_requests_wrapper(_):
     return TextRequestsWrapper(headers=None, aiosession=None)
 
 
-@pytest.mark.skipif(IS_LANGCHAIN_03, "APIChain is deprecated")
+@pytest.mark.skipif(IS_LANGCHAIN_03, reason="APIChain is deprecated")
 def test_log_and_load_api_chain():
     llm = OpenAI(temperature=0)
     apichain = APIChain.from_llm_and_api_docs(
@@ -943,7 +944,7 @@ def test_log_and_load_api_chain():
     assert loaded_model == apichain
 
 
-@pytest.mark.skipif(IS_LANGCHAIN_03, "LLMChain is deprecated")
+@pytest.mark.skipif(IS_LANGCHAIN_03, reason="LLMChain is deprecated")
 def test_log_and_load_subclass_of_specialized_chain():
     class APIChainSubclass(APIChain):
         pass
@@ -1951,6 +1952,11 @@ def test_databricks_dependency_extraction_from_retrieval_qa_chain(tmp_path):
     Version(langchain.__version__) < Version("0.2.0"),
     reason="Langgraph are not supported the way we want in earlier versions",
 )
+@pytest.mark.skipif(
+    IS_LANGCHAIN_03,
+    reason="This fix is broken once https://github.com/langchain-ai/langchain/pull/26649 "
+    "is released in langchain-community package",
+)
 def test_databricks_dependency_extraction_from_langgraph_agent(monkeypatch):
     from langchain_community.chat_models import ChatDatabricks
     from langchain_core.runnables import RunnableLambda
@@ -2006,6 +2012,11 @@ def test_databricks_dependency_extraction_from_langgraph_agent(monkeypatch):
 @pytest.mark.skipif(
     Version(langchain.__version__) < Version("0.1.0"),
     reason="Tools are not supported the way we want in earlier versions",
+)
+@pytest.mark.skipif(
+    IS_LANGCHAIN_03,
+    reason="This fix is broken once https://github.com/langchain-ai/langchain/pull/26649 "
+    "is released in langchain-community package",
 )
 def test_databricks_dependency_extraction_from_agent_chain(monkeypatch):
     from langchain_community.chat_models import ChatDatabricks
@@ -3417,7 +3428,20 @@ def test_agent_executor_model_with_messages_input():
     assert list(response) == [
         {
             "output": "Databricks",
-            "messages": [AIMessage(content="Databricks")],
+            "messages": [
+                {
+                    "additional_kwargs": {},
+                    "content": "Databricks",
+                    "example": False,
+                    "id": None,
+                    "invalid_tool_calls": [],
+                    "name": None,
+                    "response_metadata": {},
+                    "tool_calls": [],
+                    "type": "ai",
+                    "usage_metadata": None,
+                }
+            ],
         }
     ]
 
