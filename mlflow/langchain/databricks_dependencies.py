@@ -2,6 +2,8 @@ import inspect
 import logging
 from typing import Generator, List, Optional, Set
 
+from packaging import version
+
 from mlflow.models.resources import (
     DatabricksFunction,
     DatabricksServingEndpoint,
@@ -227,7 +229,8 @@ def _traverse_runnable(
     by lc_model.get_graph().nodes.values().
     This function supports arbitrary LCEL chain.
     """
-    from langchain_core.runnables import Runnable
+    import pydantic
+    from langchain_core.runnables import Runnable, RunnableLambda
 
     visited = visited or set()
     current_object_id = id(lc_model)
@@ -240,11 +243,51 @@ def _traverse_runnable(
 
     if isinstance(lc_model, Runnable):
         # Visit the returned graph
-        for node in lc_model.get_graph().nodes.values():
+        if isinstance(lc_model, RunnableLambda) and version.parse(
+            pydantic.version.VERSION
+        ) >= version.parse("2.0"):
+            nodes = _get_nodes_from_runnable_lambda(lc_model)
+        else:
+            nodes = lc_model.get_graph().nodes.values()
+
+        for node in nodes:
             yield from _traverse_runnable(node.data, visited)
     else:
         # No-op for non-runnable, if any
         pass
+
+
+def _get_nodes_from_runnable_lambda(lc_model):
+    """
+    This is a workaround for the LangGraph issue: https://github.com/langchain-ai/langgraph/issues/1856
+
+    For RunnableLambda, we calling lc_model.get_graph() to get the nodes, which inspect
+    the input and output schema using wrapped function's type annotation. However, the
+    prebuilt graph (e.g. create_react_agent) from LangGraph uses typing.TypeDict annotation,
+    which is not supported by Pydantic V2 on Python < 3.12. If we try to inspect such
+    function, it will raise the following error:
+
+        pydantic.errors.PydanticUserError: Please use `typing_extensions.TypedDict`
+        instead of`typing.TypedDict` on Python < 3.12. For further information visit
+        https://errors.pydantic.dev/2.9/u/typed-dict-version
+
+    Therefore, we cannot use get_graph() for RunnableLambda until LangGraph fixes this issue.
+    Luckily, we are not interested in the input/output nodes for extracting databricks
+    dependencies. We only care about lc_models.deps, which contains the components that
+    the RunnableLambda depends on. Therefore, this function extracts the necessary parts
+    from the original get_graph() function, dropping the input/output related logic.
+    https://github.com/langchain-ai/langchain/blob/2ea5f60cc5747a334550273a5dba1b70b11414c1/libs/core/langchain_core/runnables/base.py#L4493C1-L4512C46
+    """
+    if deps := lc_model.deps:
+        nodes = []
+        for dep in deps:
+            dep_graph = dep.get_graph()
+            dep_graph.trim_first_node()
+            dep_graph.trim_last_node()
+            nodes.extend(dep_graph.nodes.values())
+    else:
+        nodes = lc_model.get_graph().nodes.values()
+    return nodes
 
 
 def _detect_databricks_dependencies(lc_model, log_errors_as_warnings=True) -> List[Resource]:
