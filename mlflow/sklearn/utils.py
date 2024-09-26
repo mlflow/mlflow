@@ -692,8 +692,7 @@ def _log_estimator_content(
                 run_id=run_id,
                 metrics={score_key: score},
                 model_id=model_id,
-                dataset_name=dataset.name,
-                dataset_digest=dataset.digest,
+                dataset=dataset,
             )
             metrics[score_key] = score
     _log_estimator_html(run_id, estimator)
