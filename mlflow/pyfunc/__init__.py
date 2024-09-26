@@ -505,7 +505,10 @@ from mlflow.utils import (
 from mlflow.utils import env_manager as _EnvManager
 from mlflow.utils._spark_utils import modified_environ
 from mlflow.utils.annotations import deprecated, developer_stable, experimental
-from mlflow.utils.databricks_utils import is_in_databricks_runtime
+from mlflow.utils.databricks_utils import (
+    is_in_databricks_runtime,
+    is_databricks_serverless,
+)
 from mlflow.utils.docstring_utils import LOG_MODEL_PARAM_DOCS, format_docstring
 from mlflow.utils.environment import (
     _CONDA_ENV_FILE_NAME,
@@ -1654,10 +1657,10 @@ _DATABRICKS_SERVERLESS_PREBUILD_ENV_ROOT_LOCATION = "/tmp"
 
 
 def prebuild_model_env(model_uri, save_path):
-    from mlflow.utils.databricks_utils import is_in_databricks_serverless, get_databricks_runtime_version
+    from mlflow.utils.databricks_utils import is_in_databricks_serverless_notebook, get_databricks_runtime_version
     from mlflow.utils.virtualenv import _get_python_env, _get_virtualenv_name
 
-    if not is_in_databricks_serverless():
+    if not is_in_databricks_serverless_notebook():
         raise RuntimeError(
             "'prebuild_model_env' only support running in Databricks serverless notebook."
         )
@@ -1677,6 +1680,15 @@ def prebuild_model_env(model_uri, save_path):
 
     python_env = _get_python_env(Path(local_model_path))
     env_name = _get_virtualenv_name(python_env, local_model_path)
+    archive_file_name = f"{env_name}.tar.gz"
+
+    if os.path.exists(os.path.join(save_path, archive_file_name)):
+        raise RuntimeError(
+            "You have pre-built the model python environment and save "
+            f"it in the '{save_path}' directory as the archive file "
+            f"{archive_file_name}, if you want to rebuild it, please remove "
+            "the existing one first."
+        )
 
     env_name = f"{env_name}-{runtime_version}"
     env_root_dir = os.path.join(
@@ -1709,7 +1721,6 @@ def prebuild_model_env(model_uri, save_path):
         #  which only supports limited filesystem operations, so to ensure it works,
         #  we generate the archive file under /tmp and then move it into the
         #  destination directory.
-        archive_file_name = f"{env_name}.tar.gz"
         subprocess.check_call(
             f"cd {env_root_dir} && tar -czf {archive_file_name} ./* "
             f"&& mv {archive_file_name} {save_path}/",
@@ -1727,6 +1738,7 @@ def spark_udf(
     env_manager=_EnvManager.LOCAL,
     params: Optional[Dict[str, Any]] = None,
     extra_env: Optional[Dict[str, str]] = None,
+    prebult_env: Opional[str] = None,
 ):
     """
     A Spark UDF that can be used to invoke the Python function formatted model.
@@ -1874,8 +1886,16 @@ def spark_udf(
         # this case all executors and driver share the same filesystem
         is_spark_in_local_mode = spark.conf.get("spark.master").startswith("local")
 
+    databricks_serverless_mode = is_databricks_serverless()
+    if prebult_env is not None and not databricks_serverless_mode:
+        raise RuntimeError(
+            "'prebuilt_env' param only support Databricks Serverless notebook or "
+            "Databricks Serverless client environment."
+        )
+
     nfs_root_dir = get_nfs_cache_root_dir()
     should_use_nfs = nfs_root_dir is not None
+
     should_use_spark_to_broadcast_file = not (
         is_spark_in_local_mode or should_use_nfs or is_spark_connect
     )
@@ -1890,6 +1910,7 @@ def spark_udf(
         is_spark_connect
         and env_manager in (_EnvManager.VIRTUALENV, _EnvManager.CONDA)
         and not should_spark_connect_use_nfs
+        and not databricks_serverless_mode
     ):
         raise MlflowException.invalid_parameter_value(
             f"Environment manager {env_manager!r} is not supported in Spark connect mode "
@@ -1933,7 +1954,16 @@ def spark_udf(
         install_mlflow=os.environ.get("MLFLOW_HOME") is not None,
         create_env_root_dir=True,
     )
-    if not should_use_spark_to_broadcast_file:
+
+    if databricks_serverless_mode:
+        # Upload model artifact to Databricks Serverless NFS
+        subprocess.check_call(
+            f"cd ${local_model_path} && tar -czf "
+        )
+        # Upload model python environment to Databricks Serverless NFS
+        spark.addArtifact(prebult_env, archive=True)
+
+    elif not should_use_spark_to_broadcast_file:
         # Prepare restored environment in driver side if possible.
         # Note: In databricks runtime, because databricks notebook cell output cannot capture
         # child process output, so that set capture_output to be True so that when `conda prepare

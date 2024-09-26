@@ -245,9 +245,28 @@ def is_in_databricks_runtime():
     return get_databricks_runtime_version() is not None
 
 
-def is_in_databricks_serverless():
+def is_in_databricks_serverless_notebook():
     dbr_version = get_databricks_runtime_version()
     return dbr_version and dbr_version.startswith("client.")
+
+
+def is_databricks_connect_mode(spark):
+    from mlflow.utils.spark_utils import is_spark_connect_mode
+    return is_spark_connect_mode() and (
+        spark.client.host.endswith(".databricks.com") or
+        spark.client.host.endswith(".databricks.us") or
+        spark.client.host.endswith(".azuredatabricks.net") or
+        spark.client.host.endswith(".databricks.azure.us") or
+        spark.client.host.endswith(".databricks.azure.cn")
+    )
+
+
+def is_databricks_serverless(spark):
+    """
+    return True if running on Databricks Serverless notebook or
+    on Databricks Connect client that connets to Databricks Serverless.
+    """
+    return 'x-databricks-session-id' in [k for k, v in spark.client.metadata()]
 
 
 def is_dbfs_fuse_available():
