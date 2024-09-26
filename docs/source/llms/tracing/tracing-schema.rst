@@ -305,21 +305,24 @@ documents from a vector store). The ``RETRIEVER`` span type has the following sc
       -
     
     * - **Output**
-      - The output must be of type ``List[`` :py:class:`mlflow.entities.Document` ``]``. This is a dataclass containing the following properties:
+      - The output must be of type ``List[`` :py:class:`mlflow.entities.Document` ``]``, or a dict matching the structure of the dataclass\*. 
+        The dataclass contains the following properties:
 
         * **id** (``Optional[str]``) - An optional unique identifier for the document.
         * **page_content** (``str``) - The text content of the document.
-        * **metadata** (``Optional[Dict[str,any]]``) - The metadata associated with the document. There are two important metadata keys
-          that are used by the UI and evaluation metrics: 
-            * ``"doc_uri" (str)``: The URI for the document. This is used for rendering a link in the UI.
-            * ``"chunk_id" (str)``: If your document is broken up into chunks in your data store, this key can be used to
-              identify the chunk that the document is a part of. This is used by some evaluation metrics.
-      
+        * **metadata** (``Optional[Dict[str,any]]``) - The metadata associated with the document. There are two important metadata keys that are used by the UI and evaluation metrics: 
+
+          * ``"doc_uri" (str)``: The URI for the document. This is used for rendering a link in the UI.
+          * ``"chunk_id" (str)``: If your document is broken up into chunks in your data store, this key can be used to
+            identify the chunk that the document is a part of. This is used by some evaluation metrics.
+
       - This output structure is guaranteed to be provided if the traces are generated via MLflow autologging for the LangChain and LlamaIndex flavors.
         By conforming to this specification, ``RETRIEVER`` spans will be rendered in a more user-friendly manner in the MLflow UI, and downstream tasks
         such as evaluation will function as expected.
 
-    
     * - **Attributes**
       - There are no restrictions on the span attributes
       -
+
+\* For example, both ``[Document(page_content="Hello world", metadata={"doc_uri": "https://example.com"})]`` and
+``[{"page_content": "Hello world", "metadata": {"doc_uri": "https://example.com"}}]`` are valid outputs for a ``RETRIEVER`` span.
