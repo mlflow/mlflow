@@ -10,7 +10,7 @@ import yaml
 
 import mlflow
 from mlflow import pyfunc
-from mlflow.dspy.wrapper import DspyModelWrapper
+from mlflow.dspy.wrapper import DspyChatModelWrapper, DspyModelWrapper
 from mlflow.exceptions import INVALID_PARAMETER_VALUE, MlflowException
 from mlflow.models import (
     Model,
@@ -22,6 +22,12 @@ from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.signature import _infer_signature_from_input_example
 from mlflow.models.utils import _save_example
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
+from mlflow.transformers.llm_inference_utils import (
+    _LLM_INFERENCE_TASK_CHAT,
+    _LLM_INFERENCE_TASK_KEY,
+    _METADATA_LLM_INFERENCE_TASK_KEY,
+)
+from mlflow.types.schema import Array, ColSpec, DataType, Object, Property, Schema
 from mlflow.utils.annotations import experimental
 from mlflow.utils.docstring_utils import LOG_MODEL_PARAM_DOCS, format_docstring
 from mlflow.utils.environment import (
@@ -45,6 +51,54 @@ FLAVOR_NAME = "dspy"
 
 _MODEL_SAVE_PATH = "model"
 _MODEL_DATA_PATH = "data"
+
+CHAT_MODEL_INPUT_SCHEMA = Schema(
+    [
+        ColSpec(
+            name="messages",
+            type=Array(
+                Object(
+                    [
+                        Property("role", DataType.string),
+                        Property("content", DataType.string),
+                    ]
+                )
+            ),
+        ),
+    ]
+)
+
+CHAT_MODEL_OUTPUT_SCHEMA = Schema(
+    [
+        ColSpec(
+            name="choices",
+            type=Array(
+                Object(
+                    [
+                        Property("index", DataType.long),
+                        Property(
+                            "message",
+                            Object(
+                                [
+                                    Property("role", DataType.string),
+                                    Property("content", DataType.string),
+                                ]
+                            ),
+                        ),
+                        Property("finish_reason", DataType.string),
+                    ]
+                )
+            ),
+        ),
+        ColSpec(name="object", type=DataType.string),
+    ]
+)
+
+_SIGNATURE_FOR_LLM_INFERENCE_TASK = {
+    _LLM_INFERENCE_TASK_CHAT: ModelSignature(
+        inputs=CHAT_MODEL_INPUT_SCHEMA, outputs=CHAT_MODEL_OUTPUT_SCHEMA
+    ),
+}
 
 _logger = logging.getLogger(__name__)
 
@@ -73,6 +127,7 @@ def get_default_conda_env():
 def save_model(
     model,
     path,
+    task: Optional[str] = None,
     model_config: Optional[Dict[str, Any]] = None,
     code_paths: Optional[List[str]] = None,
     mlflow_model: Optional[Model] = None,
@@ -93,6 +148,8 @@ def save_model(
     Args:
         model: an instance of `dspy.Module`. The Dspy model/module to be saved.
         path: local path where the MLflow model is to be saved.
+        task: defaults to None. The task type of the model. Can only be `llm/v1/chat` or None for
+            now.
         model_config: keyword arguments to be passed to the Dspy Module at instantiation.
         code_paths: {{ code_paths }}
         mlflow_model: an instance of `mlflow.models.Model`, defaults to None. MLflow model
@@ -144,12 +201,13 @@ def save_model(
         # Don't save the trace in the model, which is only useful during the training phase.
         del dspy_settings["trace"]
 
-    # Store both dspy model and settings in `DspyModelWrapper` for serialization.
-    wrapped_dspy_model = DspyModelWrapper(model, dspy_settings)
+    # Store both dspy model and settings in `DspyChatModelWrapper` or `DspyModelWrapper` for
+    # serialization.
+    if task == "llm/v1/chat":
+        wrapped_dspy_model = DspyChatModelWrapper(model, dspy_settings, model_config)
+    else:
+        wrapped_dspy_model = DspyModelWrapper(model, dspy_settings, model_config)
 
-    if saved_example and signature is None:
-        signature = _infer_signature_from_input_example(saved_example, wrapped_dspy_model)
-        mlflow_model.signature = signature
     with open(model_path, "wb") as f:
         cloudpickle.dump(wrapped_dspy_model, f)
 
@@ -158,6 +216,18 @@ def save_model(
         "dspy_version": version("dspy-ai"),
     }
 
+    if task:
+        if mlflow_model.signature is None:
+            mlflow_model.signature = _SIGNATURE_FOR_LLM_INFERENCE_TASK[task]
+        flavor_options.update({_LLM_INFERENCE_TASK_KEY: task})
+        if mlflow_model.metadata:
+            mlflow_model.metadata[_METADATA_LLM_INFERENCE_TASK_KEY] = task
+        else:
+            mlflow_model.metadata = {_METADATA_LLM_INFERENCE_TASK_KEY: task}
+
+    if saved_example and mlflow_model.signature is None:
+        signature = _infer_signature_from_input_example(saved_example, wrapped_dspy_model)
+        mlflow_model.signature = signature
     code_dir_subpath = _validate_and_copy_code_paths(code_paths, path)
 
     # Add flavor info to `mlflow_model`.
@@ -217,6 +287,7 @@ def save_model(
 def log_model(
     dspy_model: "dspy.Module",  # noqa: F821
     artifact_path: str,
+    task: Optional[str] = None,
     model_config: Optional[Dict[str, Any]] = None,
     code_paths: Optional[List[str]] = None,
     conda_env: Optional[Union[List[str], str]] = None,
@@ -238,6 +309,8 @@ def log_model(
     Args:
         dspy_model: an instance of `dspy.module`. The Dspy model to be saved.
         artifact_path: the run-relative path to which to log model artifacts.
+        task: defaults to None. The task type of the model. Can only be `llm/v1/chat` or None for
+            now.
         model_config: keyword arguments to be passed to the Dspy Module at instantiation.
         code_paths: {{ code_paths }}
         conda_env: {{ conda_env }}
@@ -301,6 +374,7 @@ def log_model(
         artifact_path=artifact_path,
         flavor=mlflow.dspy,
         model=dspy_model,
+        task=task,
         model_config=model_config,
         code_paths=code_paths,
         conda_env=conda_env,
