@@ -104,7 +104,12 @@ def _end_span(span: LiveSpan, status=SpanStatusCode.OK, outputs=None):
         and isinstance(outputs, list)
         and all(isinstance(item, NodeWithScore) for item in outputs)
     ):
-        outputs = [Document.from_llama_index_node_with_score(node) for node in outputs]
+        try:
+            outputs = [Document.from_llama_index_node_with_score(node) for node in outputs]
+        except Exception as e:
+            _logger.debug(
+                f"Failed to convert NodeWithScore to Document objects: {e}", exc_info=True
+            )
 
     if outputs is None:
         outputs = span.outputs

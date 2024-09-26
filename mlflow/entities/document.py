@@ -20,10 +20,13 @@ class Document:
 
     @classmethod
     def from_langchain_document(cls, document):
+        # older versions of langchain do not have the id attribute
+        id = document.id if hasattr(document, "id") else None
+
         return cls(
             page_content=document.page_content,
             metadata=deepcopy(document.metadata),
-            id=document.id,
+            id=id,
         )
 
     @classmethod

@@ -429,10 +429,18 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
     def on_retriever_end(self, documents: Sequence[Document], *, run_id: UUID, **kwargs: Any):
         """Run when Retriever ends running."""
         retriever_span = self._get_span_by_run_id(run_id)
+        try:
+            # attempt to convert documents to MlflowDocument
+            documents = [MlflowDocument.from_langchain_document(doc) for doc in documents]
+        except Exception as e:
+            _logger.debug(
+                f"Failed to convert LangChain Document to MLflow Document: {e}",
+                exc_info=True,
+            )
         self._end_span(
             run_id,
             retriever_span,
-            outputs=[MlflowDocument.from_langchain_document(doc) for doc in documents],
+            outputs=documents,
         )
 
     def on_retriever_error(
