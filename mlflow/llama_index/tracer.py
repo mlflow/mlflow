@@ -33,8 +33,8 @@ from llama_index.core.tools import BaseTool
 from packaging.version import Version
 
 from mlflow.entities import LiveSpan, SpanEvent, SpanType
+from mlflow.entities.document import Document
 from mlflow.entities.span_status import SpanStatusCode
-from mlflow.llama_index.utils import _convert_node_with_score_to_document
 from mlflow.tracing.constant import SpanAttributeKey
 from mlflow.tracking.client import MlflowClient
 
@@ -104,7 +104,7 @@ def _end_span(span: LiveSpan, status=SpanStatusCode.OK, outputs=None):
         and isinstance(outputs, list)
         and all(isinstance(item, NodeWithScore) for item in outputs)
     ):
-        outputs = [_convert_node_with_score_to_document(item) for item in outputs]
+        outputs = [Document.from_llama_index_node_with_score(node) for node in outputs]
 
     if outputs is None:
         outputs = span.outputs
