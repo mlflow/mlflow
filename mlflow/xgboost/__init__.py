@@ -691,12 +691,13 @@ def autolog(
         dtrain = args[1] if len(args) > 1 else kwargs.get("dtrain")
 
         # Whether to automatically log the training dataset as a dataset artifact.
+        dataset = None
         if _log_datasets and dtrain is not None:
             try:
                 context_tags = context_registry.resolve_tags()
                 source = CodeDatasetSource(context_tags)
 
-                _log_xgboost_dataset(dtrain, source, "train", autologging_client)
+                dataset = _log_xgboost_dataset(dtrain, source, "train", autologging_client)
                 evals = kwargs.get("evals")
                 if evals is not None:
                     for d, name in evals:
@@ -722,6 +723,47 @@ def autolog(
             # training model
             model = original(*args, **kwargs)
 
+            # dtrain must exist as the original train function already ran successfully
+            # it is possible that the dataset was constructed before the patched
+            #   constructor was applied, so we cannot assume the input_example_info exists
+            input_example_info = getattr(dtrain, "input_example_info", None)
+
+            def get_input_example():
+                if input_example_info is None:
+                    raise Exception(ENSURE_AUTOLOGGING_ENABLED_TEXT)
+                if input_example_info.error_msg is not None:
+                    raise Exception(input_example_info.error_msg)
+                return input_example_info.input_example
+
+            def infer_model_signature(input_example):
+                model_output = model.predict(xgboost.DMatrix(input_example))
+                return infer_signature(input_example, model_output)
+
+            # Only log the model if the autolog() param log_models is set to True.
+            model_id = None
+            if _log_models:
+                # Will only resolve `input_example` and `signature` if `log_models` is `True`.
+                input_example, signature = resolve_input_example_and_signature(
+                    get_input_example,
+                    infer_model_signature,
+                    log_input_examples,
+                    log_model_signatures,
+                    _logger,
+                )
+
+                registered_model_name = get_autologging_config(
+                    FLAVOR_NAME, "registered_model_name", None
+                )
+                logged_model = log_model(
+                    model,
+                    name="model",
+                    signature=signature,
+                    input_example=input_example,
+                    registered_model_name=registered_model_name,
+                    model_format=model_format,
+                )
+                model_id = logged_model.model_id
+
             # If early_stopping_rounds is present, logging metrics at the best iteration
             # as extra metrics with the max step + 1.
             early_stopping_index = all_arg_names.index("early_stopping_rounds")
@@ -736,11 +778,15 @@ def autolog(
                         "stopped_iteration": extra_step - 1,
                         "best_iteration": model.best_iteration,
                     },
+                    dataset=dataset,
+                    model_id=model_id,
                 )
                 autologging_client.log_metrics(
                     run_id=mlflow.active_run().info.run_id,
                     metrics=eval_results[model.best_iteration],
                     step=extra_step,
+                    dataset=dataset,
+                    model_id=model_id,
                 )
                 early_stopping_logging_operations = autologging_client.flush(synchronous=False)
 
@@ -763,45 +809,6 @@ def autolog(
                     with open(filepath, "w") as f:
                         json.dump(imp, f)
                     mlflow.log_artifact(filepath)
-
-        # dtrain must exist as the original train function already ran successfully
-        # it is possible that the dataset was constructed before the patched
-        #   constructor was applied, so we cannot assume the input_example_info exists
-        input_example_info = getattr(dtrain, "input_example_info", None)
-
-        def get_input_example():
-            if input_example_info is None:
-                raise Exception(ENSURE_AUTOLOGGING_ENABLED_TEXT)
-            if input_example_info.error_msg is not None:
-                raise Exception(input_example_info.error_msg)
-            return input_example_info.input_example
-
-        def infer_model_signature(input_example):
-            model_output = model.predict(xgboost.DMatrix(input_example))
-            return infer_signature(input_example, model_output)
-
-        # Only log the model if the autolog() param log_models is set to True.
-        if _log_models:
-            # Will only resolve `input_example` and `signature` if `log_models` is `True`.
-            input_example, signature = resolve_input_example_and_signature(
-                get_input_example,
-                infer_model_signature,
-                log_input_examples,
-                log_model_signatures,
-                _logger,
-            )
-
-            registered_model_name = get_autologging_config(
-                FLAVOR_NAME, "registered_model_name", None
-            )
-            log_model(
-                model,
-                artifact_path="model",
-                signature=signature,
-                input_example=input_example,
-                registered_model_name=registered_model_name,
-                model_format=model_format,
-            )
 
         param_logging_operations.await_completion()
         if early_stopping:
@@ -884,6 +891,7 @@ def _log_xgboost_dataset(xgb_dataset, source, context, autologging_client, name=
         autologging_client.log_inputs(
             run_id=mlflow.active_run().info.run_id, datasets=[dataset_input]
         )
+        return dataset
     else:
         _logger.warning(
             "Unable to log dataset information to MLflow Tracking."
