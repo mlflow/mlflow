@@ -7,7 +7,7 @@ class Document:
     """
     An entity used in MLflow Tracing to represent retrieved documents in a RETRIEVER span.
 
-    Attributes:
+    Args:
         page_content: The content of the document.
         metadata: A dictionary of metadata associated with the document.
         id: The ID of the document.
