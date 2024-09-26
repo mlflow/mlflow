@@ -224,7 +224,9 @@ def test_retriever_success():
     assert retriever_span.name == "test_retriever"
     assert retriever_span.span_type == "RETRIEVER"
     assert retriever_span.inputs == "test query"
-    assert retriever_span.outputs == [MlflowDocument(doc).to_dict() for doc in documents]
+    assert retriever_span.outputs == [
+        MlflowDocument.from_langchain_document(doc).to_dict() for doc in documents
+    ]
     assert retriever_span.start_time_ns is not None
     assert retriever_span.end_time_ns is not None
     assert retriever_span.status.status_code == SpanStatusCode.OK
