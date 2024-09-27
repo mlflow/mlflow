@@ -1754,11 +1754,11 @@ def prebuild_model_env(model_uri, save_path):
         output_path=_create_model_downloading_tmp_dir(should_use_nfs=False)
     )
     archive_name = _gen_prebuilt_env_archive_name(local_model_path)
-    if os.path.exists(os.path.join(save_path, archive_name)):
+    if os.path.exists(os.path.join(save_path, archive_name + ".tar.gz")):
         raise RuntimeError(
             "You have pre-built the model python environment and save "
             f"it in the '{save_path}' directory as the archive file "
-            f"{archive_name}, if you want to rebuild it, please remove "
+            f"{archive_name}.tar.gz, if you want to rebuild it, please remove "
             "the existing one first."
         )
 
@@ -1772,7 +1772,7 @@ def prebuild_model_env(model_uri, save_path):
     #  we generate the archive file under /tmp and then move it into the
     #  destination directory.
     try:
-        tmp_archive_path = _prebuild_env_internal(local_model_path, _PREBUILD_ENV_ROOT_LOCATION)
+        tmp_archive_path = _prebuild_env_internal(local_model_path, archive_name, _PREBUILD_ENV_ROOT_LOCATION)
         shutil.move(tmp_archive_path, save_path)
     except:
         shutil.rmtree(local_model_path, ignore_errors=True)
@@ -2225,21 +2225,32 @@ Compound types:
             mlflow.set_tracking_uri(tracking_uri)
 
             if env_manager != _EnvManager.LOCAL:
-                if should_use_spark_to_broadcast_file:
+                if use_dbconnect_artifact:
+                    local_model_path_on_executor = dbconnect_artifact_cache.get_unpacked_artifact_dir(model_uri)
+                    env_dir = os.path.join(_PREBUILD_ENV_ROOT_LOCATION, env_cache_key)
+                    if not os.path.exists(env_dir):
+                        env_src_dir = dbconnect_artifact_cache.get_unpacked_artifact_dir(env_cache_key)
+                        os.symlink(env_src_dir, env_dir)
+                elif should_use_spark_to_broadcast_file:
                     local_model_path_on_executor = _SparkDirectoryDistributor.get_or_extract(
                         archive_path
                     )
-                    # Call "prepare_env" in advance in order to reduce scoring server launch time.
-                    # So that we can use a shorter timeout when call `client.wait_server_ready`,
-                    # otherwise we have to set a long timeout for `client.wait_server_ready` time,
-                    # this prevents spark UDF task failing fast if other exception raised
-                    # when scoring server launching.
-                    # Set "capture_output" so that if "conda env create" command failed, the command
-                    # stdout/stderr output will be attached to the exception message and included in
-                    # driver side exception.
-                    pyfunc_backend.prepare_env(
-                        model_uri=local_model_path_on_executor, capture_output=True
-                    )
+                    if prebuilt_env_path:
+                        env_dir = os.path.join(_PREBUILD_ENV_ROOT_LOCATION, env_cache_key)
+                        env_src_dir = prebuilt_env_nfs_dir
+                        os.symlink(env_src_dir, env_dir)
+                    else:
+                        # Call "prepare_env" in advance in order to reduce scoring server launch time.
+                        # So that we can use a shorter timeout when call `client.wait_server_ready`,
+                        # otherwise we have to set a long timeout for `client.wait_server_ready` time,
+                        # this prevents spark UDF task failing fast if other exception raised
+                        # when scoring server launching.
+                        # Set "capture_output" so that if "conda env create" command failed, the command
+                        # stdout/stderr output will be attached to the exception message and included in
+                        # driver side exception.
+                        pyfunc_backend.prepare_env(
+                            model_uri=local_model_path_on_executor, capture_output=True
+                        )
                 else:
                     local_model_path_on_executor = None
 
@@ -2309,7 +2320,9 @@ Compound types:
                     return client.invoke(pdf).get_predictions()
 
             elif env_manager == _EnvManager.LOCAL:
-                if is_spark_connect and not should_spark_connect_use_nfs:
+                if use_dbconnect_artifact:
+                    model_path = dbconnect_artifact_cache.get_unpacked_artifact_dir(model_uri)
+                elif is_spark_connect and not should_spark_connect_use_nfs:
                     model_path = os.path.join(
                         tempfile.gettempdir(),
                         "mlflow",
