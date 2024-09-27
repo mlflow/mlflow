@@ -1,8 +1,7 @@
-import { cleanup, waitFor } from '@testing-library/react';
 import { listArtifactsApi } from '../../../actions';
 import { useRunsArtifacts } from './useRunsArtifacts';
 import { ArtifactListFilesResponse } from '../../../types';
-import { renderHook } from '@testing-library/react-for-react-18';
+import { renderHook, cleanup, waitFor } from '@testing-library/react-for-react-18';
 
 const mockArtifactsData: Record<string, ArtifactListFilesResponse> = {
   'run-1': {
@@ -43,7 +42,8 @@ describe('useRunsArtifacts', () => {
   });
 
   test('fetches artifacts for given run UUIDs', async () => {
-    const { result } = renderHook(() => useRunsArtifacts(['run-1', 'run-2']));
+    const runUuids = ['run-1', 'run-2'];
+    const { result } = renderHook(() => useRunsArtifacts(runUuids));
 
     await waitFor(() => {
       expect(result.current.isLoading).toBe(false);
