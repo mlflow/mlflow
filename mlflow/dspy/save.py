@@ -3,13 +3,10 @@
 import logging
 import os
 from importlib.metadata import version
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Union
 
 import cloudpickle
 import yaml
-
-if TYPE_CHECKING:
-    pass
 
 import mlflow
 from mlflow import pyfunc
@@ -81,7 +78,7 @@ def get_default_conda_env():
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
 def save_model(
     model,
-    path,
+    path: str,
     task: Optional[str] = None,
     model_config: Optional[Dict[str, Any]] = None,
     code_paths: Optional[List[str]] = None,
@@ -259,7 +256,7 @@ def log_model(
     environments to MLflow.
 
     Args:
-        dspy_model: an instance of `dspy.module`. The Dspy model to be saved.
+        dspy_model: an instance of `dspy.Module`. The Dspy model to be saved.
         artifact_path: the run-relative path to which to log model artifacts.
         task: defaults to None. The task type of the model. Can only be `llm/v1/chat` or None for
             now.
