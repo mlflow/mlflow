@@ -884,7 +884,7 @@ For example, in the following code, the traces are generated within the ``start_
     mlflow.set_experiment("Run Associated Tracing")
 
     # Start a new MLflow Run
-    with mlflow.start_run():
+    with mlflow.start_run() as run:
         # Initiate a trace by starting a Span context from within the Run context
         with mlflow.start_span(name="Run Span") as parent_span:
             parent_span.set_inputs({"input": "a"})
@@ -903,6 +903,19 @@ well as providing a link to navigate to the run within the MLflow UI. See the be
     :alt: Tracing within a Run Context
     :width: 100%
     :align: center
+
+You can also programmatically retrieve the traces associated to a particular Run by using the :py:meth:`mlflow.client.MlflowClient.search_traces` method.
+
+.. code-block:: python
+
+    from mlflow import MlflowClient
+
+    client = MlflowClient()
+
+    # Retrieve traces associated with a specific Run
+    traces = client.search_traces(run_id=run.info.run_id)
+
+    print(traces)
 
 
 Q: Can I use the fluent API and the client API together?
