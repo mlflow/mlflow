@@ -65,7 +65,7 @@ use_temp_mlflow_env_root = pytest.mark.usefixtures(temp_mlflow_env_root.__name__
 @use_temp_mlflow_env_root
 def test_restore_environment_with_virtualenv(sklearn_model):
     with mlflow.start_run():
-        model_info = mlflow.sklearn.log_model(sklearn_model.model, artifact_path="model")
+        model_info = mlflow.sklearn.log_model(sklearn_model.model, "model")
 
     scores = serve_and_score(model_info.model_uri, sklearn_model.X_pred)
     np.testing.assert_array_almost_equal(scores, sklearn_model.y_pred)

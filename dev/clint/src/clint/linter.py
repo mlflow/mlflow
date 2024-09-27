@@ -86,6 +86,12 @@ TEST_NAME_TYPO = Rule(
     "This function looks like a test, but its name does not start with 'test_'.",
 )
 
+KEYWORD_ARTIFACT_PATH = Rule(
+    "MLF0005",
+    "keyword-artifact-path",
+    "artifact_path must be passed as a positional argument.",
+)
+
 
 class Linter(ast.NodeVisitor):
     def __init__(self, path: Path, ignore: dict[str, set[int]]):
@@ -162,6 +168,19 @@ class Linter(ast.NodeVisitor):
         if self._is_in_function() and node.module.split(".", 1)[0] in BUILTIN_MODULES:
             self._check(node, LAZY_BUILTIN_IMPORT)
         self.generic_visit(node)
+
+    def visit_Call(self, node: ast.Call) -> None:
+        # Find a log_model call with artifact_path as a keyword argument.
+        # mlflow.<flavor>.log_model(..., artifact_path="...", ...)
+        if (
+            isinstance(node.func, ast.Attribute)
+            and node.func.attr == "log_model"
+            and isinstance(node.func.value, ast.Attribute)
+            and isinstance(node.func.value.value, ast.Name)
+            and node.func.value.value.id == "mlflow"
+            and any(arg.arg == "artifact_path" for arg in node.keywords)
+        ):
+            self._check(node, KEYWORD_ARTIFACT_PATH)
 
 
 def lint_file(path: Path) -> list[Violation]:
