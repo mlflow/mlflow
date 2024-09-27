@@ -55,6 +55,8 @@ def save_or_log_tf_model_by_mlflow128(tmp_path, model_type, task_type, save_path
     exec_py_path = os.path.join(tf_tests_dir, "save_tf_estimator_model.py")
     mlflow_repo_path = os.path.dirname(os.path.dirname(tf_tests_dir))
 
+    conda_env.execute("pip install -U setuptools")
+
     conda_env.execute(
         f"python {exec_py_path} "
         f"--tracking_uri {tracking_uri} "
