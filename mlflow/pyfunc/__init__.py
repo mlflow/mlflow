@@ -551,7 +551,7 @@ from mlflow.utils.spark_utils import is_spark_connect_mode
 from mlflow.pyfunc.dbconnect_artifact_cache import archive_directory
 from mlflow.utils.databricks_utils import get_databricks_runtime_version
 from mlflow.utils.virtualenv import _get_python_env, _get_virtualenv_name
-from mlflow.pyfunc.dbconnect_artifact_cache import archive_directory
+from mlflow.pyfunc.dbconnect_artifact_cache import archive_directory, extract_archive_to_dir, DBConnectArtifactCache
 
 try:
     from pyspark.sql import DataFrame as SparkDataFrame
@@ -1787,7 +1787,7 @@ def spark_udf(
     env_manager=_EnvManager.LOCAL,
     params: Optional[Dict[str, Any]] = None,
     extra_env: Optional[Dict[str, str]] = None,
-    prebult_env: Opional[str] = None,
+    prebuilt_env_path: Opional[str] = None,
 ):
     """
     A Spark UDF that can be used to invoke the Python function formatted model.
@@ -1936,7 +1936,7 @@ def spark_udf(
         is_spark_in_local_mode = spark.conf.get("spark.master").startswith("local")
 
     dbconnect_mode = is_databricks_connect()
-    if prebult_env is not None and not dbconnect_mode:
+    if prebuilt_env_path is not None and not dbconnect_mode:
         raise RuntimeError(
             "'prebuilt_env' param can only be used in Databricks Serverless notebook REPL, "
             "Databricks Shared cluster notebook REPL, and Databricks Connect client "
@@ -1976,6 +1976,15 @@ def spark_udf(
         output_path=_create_model_downloading_tmp_dir(should_use_nfs),
     )
 
+    if prebuilt_env_path:
+        _verify_prebuilt_env(local_model_path, prebuilt_env_path)
+        env_manager = _EnvManager.VIRTUALENV
+    if use_dbconnect_artifact and env_manager == _EnvManager.LOCAL:
+        raise MlflowException(
+            "Databricks connect mode or Databricks Serverless python REPL doesn't "
+            "support env_manager 'conda'."
+        )
+
     if env_manager == _EnvManager.LOCAL:
         # Assume spark executor python environment is the same with spark driver side.
         model_requirements = _get_pip_requirements_from_model_path(local_model_path)
@@ -2008,26 +2017,52 @@ def spark_udf(
         install_mlflow=os.environ.get("MLFLOW_HOME") is not None,
         create_env_root_dir=True,
     )
+    dbconnect_artifact_cache = DBConnectArtifactCache.get_or_create(spark)
+
+    if prebuilt_env_path:
+        env_cache_key = os.path.basename(prebuilt_env_path)[:-7]
+    else:
+        env_cache_key = _gen_prebuilt_env_archive_name(local_model_path)
 
     if use_dbconnect_artifact:
         # Upload model artifacts and python environment to NFS as DBConncet artifacts.
-        # TODO
-        pass
+        if env_manager == _EnvManager.VIRTUALENV:
+            if not dbconnect_artifact_cache.has_cache_key(env_cache_key):
+                if prebuilt_env_path:
+                    env_archive_path = prebuilt_env_path
+                else:
+                    env_archive_path = _prebuild_env_internal(
+                        local_model_path, env_cache_key, get_or_create_tmp_dir()
+                    )
+                dbconnect_artifact_cache.add_artifact_archive(archive_name, env_archive_path)
+
+        if not dbconnect_artifact_cache.has_cache_key(model_uri):
+            model_archive_path = local_model_path + ".tar.gz"
+            archive_directory(local_model_path, model_archive_path)
+            dbconnect_artifact_cache.add_artifact_archive(model_uri, model_archive_path)
 
     elif not should_use_spark_to_broadcast_file:
-        # Prepare restored environment in driver side if possible.
-        # Note: In databricks runtime, because databricks notebook cell output cannot capture
-        # child process output, so that set capture_output to be True so that when `conda prepare
-        # env` command failed, the exception message will include command stdout/stderr output.
-        # Otherwise user have to check cluster driver log to find command stdout/stderr output.
-        # In non-databricks runtime, set capture_output to be False, because the benefit of
-        # "capture_output=False" is the output will be printed immediately, otherwise you have
-        # to wait conda command fail and suddenly get all output printed (included in error
-        # message).
-        if env_manager != _EnvManager.LOCAL:
-            pyfunc_backend.prepare_env(
-                model_uri=local_model_path, capture_output=is_in_databricks_runtime()
+        if prebuilt_env_path:
+            # Extract prebuilt env archive file to NFS directory.
+            prebuilt_env_nfs_dir = os.path.join(
+                get_or_create_nfs_tmp_dir(), "prebuilt_env", env_cache_key
             )
+            if not os.path.exists(prebuilt_env_nfs_dir):
+                extract_archive_to_dir(prebuilt_env_path, prebuilt_env_nfs_dir)
+        else:
+            # Prepare restored environment in driver side if possible.
+            # Note: In databricks runtime, because databricks notebook cell output cannot capture
+            # child process output, so that set capture_output to be True so that when `conda prepare
+            # env` command failed, the exception message will include command stdout/stderr output.
+            # Otherwise user have to check cluster driver log to find command stdout/stderr output.
+            # In non-databricks runtime, set capture_output to be False, because the benefit of
+            # "capture_output=False" is the output will be printed immediately, otherwise you have
+            # to wait conda command fail and suddenly get all output printed (included in error
+            # message).
+            if env_manager != _EnvManager.LOCAL:
+                pyfunc_backend.prepare_env(
+                    model_uri=local_model_path, capture_output=is_in_databricks_runtime()
+                )
     else:
         # Broadcast local model directory to remote worker if needed.
         archive_path = SparkModelCache.add_local_model(spark, local_model_path)

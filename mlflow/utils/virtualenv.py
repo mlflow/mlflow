@@ -369,13 +369,16 @@ def _get_or_create_virtualenv(  # noqa: D417
         pyenv_root_dir = None
 
     virtual_envs_root_path.mkdir(parents=True, exist_ok=True)
+    env_name = _get_virtualenv_name(python_env, local_model_path, env_id)
+    env_dir = virtual_envs_root_path / env_name
+    if env_dir.exists():
+        paths = ("bin", "activate") if not is_windows() else ("Scripts", "activate.bat")
+        return env_dir.joinpath(*paths)
 
     # Create an environment
     python_bin_path = _install_python(
         python_env.python, pyenv_root=pyenv_root_dir, capture_output=capture_output
     )
-    env_name = _get_virtualenv_name(python_env, local_model_path, env_id)
-    env_dir = virtual_envs_root_path / env_name
     try:
         activate_cmd = _create_virtualenv(
             local_model_path,

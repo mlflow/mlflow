@@ -56,6 +56,9 @@ class DBConnectArtifactCache:
         self.__dict__.update(state)
         self._spark = None
 
+    def has_cache_key(self, cache_key):
+        return cache_key in self._cache
+
     def add_artifact_archive(self, cache_key, artifact_archive_path):
         """
         Add an artifact archive file to Databricks connect cache.
@@ -101,3 +104,12 @@ def archive_directory(input_dir, archive_file_path):
         cwd=input_dir,
     )
     return archive_file_path
+
+
+def extract_archive_to_dir(archive_path, dest_dir):
+    os.makedirs(dest_dir, exist_ok=True)
+    subprocess.check_call(
+        ["tar", "-xf", archive_path, "-C", dest_dir]
+    )
+    return dest_dir
+
