@@ -270,38 +270,44 @@ def is_databricks_connect(spark):
     )
 
 
-def get_dbconnect_udf_sandbox_image_version(spark):
+_dbconnect_client = None
+_dbconnect_udf_sandbox_image_version = None
+_dbconnect_udf_sandbox_platform_machine = None
+
+
+def get_dbconnect_udf_sandbox_image_version_and_platform_machine(spark):
     """
-    Get UDF sandbox image version, format:
-    {major_version}.{minor_version} or client.{major_version}.{minor_version}
+    Get UDF sandbox image version like:
+    '{major_version}.{minor_version}' or 'client.{major_version}.{minor_version}'
+    and UDF sandbox platform machine like 'x86_64' or 'aarch64'
     """
+    global _dbconnect_client
+    global _dbconnect_udf_sandbox_image_version
+    global _dbconnect_udf_sandbox_platform_machine
+    from pyspark.sql.functions import pandas_udf
+
     # For Databricks Serverless python REPL,
     # the UDF sandbox runs on client image, which has version like 'client.1.1'
     # in other cases, UDF sandbox runs on databricks runtime with version like '15.4'
     if is_in_databricks_runtime():
-        return get_databricks_runtime_version()
-    # version is like '15.4.x-snapshot-scala2.12'
-    version = spark.sql("SELECT current_version().dbr_version").collect()[0][0]
-    version_splits = version.split(".")
-    return '.'.join(version_splits[:2])
+        return get_databricks_runtime_version(), platform.machine()
 
+    if spark is not _dbconnect_client:
+        _dbconnect_client = spark
+        # version is like '15.4.x-snapshot-scala2.12'
+        version = spark.sql("SELECT current_version().dbr_version").collect()[0][0]
+        version_splits = version.split(".")
+        _dbconnect_udf_sandbox_image_version = '.'.join(version_splits[:2])
 
-def get_dbconnect_udf_sandbox_platform_machine(spark):
-    """
-    Get UDF sandbox platform machine, 'x86_64' or 'aarch64'
-    """
-    from pyspark.sql.functions import pandas_udf
+        @pandas_udf("string")
+        def f(_):
+            import platform
+            import pandas as pd
+            return pd.Series([platform.machine()])
 
-    if is_in_databricks_runtime():
-        return platform.machine()
+        _dbconnect_udf_sandbox_platform_machine = spark.range(1).select(f('id')).collect()[0][0]
 
-    @pandas_udf("string")
-    def f(_):
-        import platform
-        import pandas as pd
-        return pd.Series([platform.machine()])
-
-    return spark.range(1).select(f('id')).collect()[0][0]
+    return _dbconnect_udf_sandbox_image_version, _dbconnect_udf_sandbox_platform_machine
 
 
 def is_databricks_serverless(spark):

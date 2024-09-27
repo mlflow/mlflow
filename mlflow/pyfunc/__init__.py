@@ -548,6 +548,10 @@ from mlflow.utils.requirements_utils import (
     warn_dependency_requirement_mismatches,
 )
 from mlflow.utils.spark_utils import is_spark_connect_mode
+from mlflow.pyfunc.dbconnect_artifact_cache import archive_directory
+from mlflow.utils.databricks_utils import get_databricks_runtime_version
+from mlflow.utils.virtualenv import _get_python_env, _get_virtualenv_name
+from mlflow.pyfunc.dbconnect_artifact_cache import archive_directory
 
 try:
     from pyspark.sql import DataFrame as SparkDataFrame
@@ -1678,14 +1682,37 @@ def _gen_prebuilt_env_archive_name(local_model_path):
     env_name = _get_virtualenv_name(python_env, local_model_path)
     runtime_version = get_databricks_runtime_version()
     platform_machine = platform.machine()
-    return f"{env_name}-{runtime_version}-{platform_machine}.tar.gz"
+    return f"{env_name}-{runtime_version}-{platform_machine}"
+
+
+def _verify_prebuilt_env(local_model_path, env_archive_path):
+    from mlflow.utils.databricks_utils import get_dbconnect_udf_sandbox_image_version_and_platform_machine
+    archive_name = os.path.basename(env_archive_path)[:-7]
+    prebuilt_env_sha, prebuilt_runtime_version, prebuilt_platform_machine = archive_name.split("-")[-3:]
+
+    python_env = _get_python_env(Path(local_model_path))
+    env_sha = _get_virtualenv_name(python_env, local_model_path).split("-")[-1]
+    runtime_version, platform_machine = get_dbconnect_udf_sandbox_image_version_and_platform_machine()
+
+    if prebuilt_env_sha != env_sha:
+        raise MlflowException(
+            f"The prebuilt env '{env_archive_path}' does not match the model required environment."
+        )
+    if prebuilt_runtime_version != runtime_version:
+        raise MlflowException(
+            f"The prebuilt env '{env_archive_path}' runtime version '{prebuilt_runtime_version}' "
+            f"does not match UDF sandbox runtime version {runtime_version}."
+        )
+    if prebuilt_runtime_version != runtime_version:
+        raise MlflowException(
+            f"The prebuilt env '{env_archive_path}' platform machine '{prebuilt_platform_machine}' "
+            f"does not match UDF sandbox platform machine {prebuilt_platform_machine}."
+        )
 
 
 def _prebuild_env_internal(local_model_path, archive_name, save_path):
-    from mlflow.pyfunc.dbconnect_artifact_cache import archive_directory
-
-    env_root_dir = os.path.join(_PREBUILD_ENV_ROOT_LOCATION, env_name)
-    archive_path = os.path.join(save_path, archive_name)
+    env_root_dir = os.path.join(_PREBUILD_ENV_ROOT_LOCATION, archive_name)
+    archive_path = os.path.join(save_path, archive_name + ".tar.gz")
     if os.path.exists(env_root_dir):
         shutil.rmtree(env_root_dir)
     if os.path.exists(archive_path):
@@ -1712,10 +1739,6 @@ def _prebuild_env_internal(local_model_path, archive_name, save_path):
 
 
 def prebuild_model_env(model_uri, save_path):
-    from mlflow.utils.databricks_utils import get_databricks_runtime_version
-    from mlflow.utils.virtualenv import _get_python_env, _get_virtualenv_name
-    from mlflow.pyfunc.dbconnect_artifact_cache import archive_directory
-
     if not is_in_databricks_runtime():
         raise RuntimeError(
             "'prebuild_model_env' only support running in Databricks runtime."
