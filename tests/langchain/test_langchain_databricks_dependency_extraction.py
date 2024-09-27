@@ -464,6 +464,9 @@ def test_parsing_multiple_dependency_from_agent(monkeypatch, use_partner_package
 
 @pytest.mark.parametrize("use_partner_package", [True, False])
 def test_parsing_dependency_from_databricks_chat(monkeypatch, use_partner_package):
+    if use_partner_package and not _is_partner_package_installed():
+        pytest.skip("`langchain-databricks` is not installed")
+
     if use_partner_package:
         from langchain_databricks import ChatDatabricks
 
