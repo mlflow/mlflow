@@ -283,6 +283,7 @@ def log_model(
         extra_pip_requirements: {{ extra_pip_requirements }}
         metadata: Custom metadata dictionary passed to the model and stored in the MLmodel
             file.
+        **kwargs: Additional kwargs.
 
     .. code-block:: python
         :caption: Example

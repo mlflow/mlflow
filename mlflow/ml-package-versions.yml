@@ -645,11 +645,11 @@ dspy:
     pip_release: "dspy-ai"
     install_dev: |
       pip install git+https://github.com/stanfordnlp/dspy.git
-  python:
-      ">= 0.0.0": "3.9"
   models:
     minimum: "2.4.16"
     maximum: "2.5.0"
+    python:
+      ">= 2.4.16": "3.9"
     requirements:
       ">= 0.0.0": ["openai"]
     run: |
