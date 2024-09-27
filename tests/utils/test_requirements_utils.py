@@ -254,7 +254,7 @@ def test_get_installed_version(tmp_path, monkeypatch):
 
 def test_package_with_mismatched_pypi_and_import_name():
     try:
-        import dspy
+        import dspy  # noqa: F401
 
         assert _get_installed_version("dspy") == version("dspy-ai")
     except ImportError:

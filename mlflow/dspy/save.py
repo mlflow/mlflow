@@ -3,10 +3,13 @@
 import logging
 import os
 from importlib.metadata import version
-from typing import Any, Dict, List, Optional, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
 
 import cloudpickle
 import yaml
+
+if TYPE_CHECKING:
+    import dspy
 
 import mlflow
 from mlflow import pyfunc
@@ -113,7 +116,7 @@ def save_model(
         pip_requirements: {{ pip_requirements }}
         extra_pip_requirements: {{ extra_pip_requirements }}
         metadata: {{ metadata }}
-        kwargs: Additional kwargs.
+        **kwargs: Additional kwargs.
     """
 
     import dspy
@@ -237,7 +240,7 @@ def save_model(
 @experimental
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
 def log_model(
-    dspy_model: "dspy.Module",  # noqa: F821
+    dspy_model: "dspy.Module",
     artifact_path: str,
     task: Optional[str] = None,
     model_config: Optional[Dict[str, Any]] = None,

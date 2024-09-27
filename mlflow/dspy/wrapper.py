@@ -2,7 +2,7 @@ import json
 from typing import TYPE_CHECKING, Any, Dict, Optional
 
 if TYPE_CHECKING:
-    pass
+    import dspy
 
 from mlflow.exceptions import INVALID_PARAMETER_VALUE, MlflowException
 from mlflow.protos.databricks_pb2 import (
@@ -23,7 +23,7 @@ class DspyModelWrapper(PythonModel):
 
     def __init__(
         self,
-        model: "dspy.Module",  # noqa: F821
+        model: "dspy.Module",
         dspy_settings: Dict[str, Any],
         model_config: Optional[Dict[str, Any]] = None,
     ):

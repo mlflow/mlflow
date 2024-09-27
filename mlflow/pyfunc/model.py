@@ -582,7 +582,6 @@ class _PythonModelPyfuncWrapper:
         import pandas as pd
 
         hints = self.python_model._get_type_hints()
-        print("GEEZ TYPE HINTS: ", hints)
         if hints.input == List[str]:
             if isinstance(model_input, pd.DataFrame):
                 first_string_column = _get_first_string_column(model_input)
@@ -634,9 +633,6 @@ class _PythonModelPyfuncWrapper:
             Model predictions as an iterator of chunks. The chunks in the iterator must be type of
             dict or string. Chunk dict fields are determined by the model implementation.
         """
-        import pdb
-
-        pdb.set_trace()
         if inspect.signature(self.python_model.predict).parameters.get("params"):
             return self.python_model.predict(
                 self.context, self._convert_input(model_input), params=params
