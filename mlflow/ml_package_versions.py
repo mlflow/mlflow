@@ -8,11 +8,11 @@ _ML_PACKAGE_VERSIONS = {
         },
         "models": {
             "minimum": "0.24.1",
-            "maximum": "1.5.1"
+            "maximum": "1.5.2"
         },
         "autologging": {
             "minimum": "0.24.1",
-            "maximum": "1.5.1"
+            "maximum": "1.5.2"
         }
     },
     "pytorch": {
@@ -22,11 +22,11 @@ _ML_PACKAGE_VERSIONS = {
         },
         "models": {
             "minimum": "1.9.0",
-            "maximum": "2.4.0"
+            "maximum": "2.4.1"
         },
         "autologging": {
             "minimum": "1.9.0",
-            "maximum": "2.4.0"
+            "maximum": "2.4.1"
         }
     },
     "pytorch-lightning": {
@@ -96,7 +96,7 @@ _ML_PACKAGE_VERSIONS = {
         },
         "models": {
             "minimum": "1.0.0",
-            "maximum": "1.2.5"
+            "maximum": "1.2.7"
         }
     },
     "gluon": {
@@ -149,11 +149,11 @@ _ML_PACKAGE_VERSIONS = {
         },
         "models": {
             "minimum": "0.11.1",
-            "maximum": "0.14.2"
+            "maximum": "0.14.3"
         },
         "autologging": {
             "minimum": "0.11.1",
-            "maximum": "0.14.2"
+            "maximum": "0.14.3"
         }
     },
     "spark": {
@@ -163,11 +163,11 @@ _ML_PACKAGE_VERSIONS = {
         },
         "models": {
             "minimum": "3.1.2",
-            "maximum": "3.5.2"
+            "maximum": "3.5.3"
         },
         "autologging": {
             "minimum": "3.1.2",
-            "maximum": "3.5.2"
+            "maximum": "3.5.3"
         }
     },
     "mleap": {
@@ -230,11 +230,11 @@ _ML_PACKAGE_VERSIONS = {
         },
         "models": {
             "minimum": "2.4.1",
-            "maximum": "2.6.1"
+            "maximum": "2.6.2"
         },
         "autologging": {
             "minimum": "2.4.1",
-            "maximum": "2.6.1"
+            "maximum": "2.6.2"
         }
     },
     "transformers": {
@@ -243,11 +243,11 @@ _ML_PACKAGE_VERSIONS = {
         },
         "models": {
             "minimum": "4.25.1",
-            "maximum": "4.44.2"
+            "maximum": "4.45.0"
         },
         "autologging": {
             "minimum": "4.25.1",
-            "maximum": "4.44.2"
+            "maximum": "4.45.0"
         }
     },
     "openai": {
@@ -256,11 +256,11 @@ _ML_PACKAGE_VERSIONS = {
         },
         "models": {
             "minimum": "1.0.1",
-            "maximum": "1.43.0"
+            "maximum": "1.49.0"
         },
         "autologging": {
             "minimum": "1.17.0",
-            "maximum": "1.43.0"
+            "maximum": "1.49.0"
         }
     },
     "langchain": {
@@ -269,11 +269,11 @@ _ML_PACKAGE_VERSIONS = {
         },
         "models": {
             "minimum": "0.0.354",
-            "maximum": "0.2.15"
+            "maximum": "0.3.1"
         },
         "autologging": {
             "minimum": "0.1.0",
-            "maximum": "0.2.15"
+            "maximum": "0.3.1"
         }
     },
     "llama_index": {
@@ -283,11 +283,11 @@ _ML_PACKAGE_VERSIONS = {
         },
         "models": {
             "minimum": "0.10.44",
-            "maximum": "0.11.2"
+            "maximum": "0.11.13"
         },
         "autologging": {
             "minimum": "0.10.44",
-            "maximum": "0.11.2"
+            "maximum": "0.11.13"
         }
     },
     "autogen": {
@@ -296,7 +296,7 @@ _ML_PACKAGE_VERSIONS = {
         },
         "autologging": {
             "minimum": "0.2.29",
-            "maximum": "0.2.35"
+            "maximum": "0.3.0"
         }
     },
     "sentence_transformers": {
@@ -305,7 +305,7 @@ _ML_PACKAGE_VERSIONS = {
         },
         "models": {
             "minimum": "2.2.2",
-            "maximum": "3.0.1"
+            "maximum": "3.1.1"
         }
     },
     "johnsnowlabs": {
@@ -314,7 +314,7 @@ _ML_PACKAGE_VERSIONS = {
         },
         "models": {
             "minimum": "4.4.6",
-            "maximum": "5.4.3"
+            "maximum": "5.4.4"
         }
     },
     "promptflow": {
@@ -323,7 +323,7 @@ _ML_PACKAGE_VERSIONS = {
         },
         "models": {
             "minimum": "1.3.0",
-            "maximum": "1.15.0"
+            "maximum": "1.15.1"
         }
     }
 }

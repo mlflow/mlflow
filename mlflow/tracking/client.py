@@ -491,6 +491,7 @@ class MlflowClient:
         max_results: int = SEARCH_TRACES_DEFAULT_MAX_RESULTS,
         order_by: Optional[List[str]] = None,
         page_token: Optional[str] = None,
+        run_id: Optional[str] = None,
         model_id: Optional[str] = None,
     ) -> PagedList[Trace]:
         """
@@ -498,11 +499,14 @@ class MlflowClient:
 
         Args:
             experiment_ids: List of experiment ids to scope the search.
+                it will be associated with the run and you can filter on the run id to retrieve
+                the trace.
             filter_string: A search filter string.
             max_results: Maximum number of traces desired.
             order_by: List of order_by clauses.
             page_token: Token specifying the next page of results. It should be obtained from
                 a ``search_traces`` call.
+            run_id: A run id to scope the search. When a trace is created under an active run,
 
         Returns:
             A :py:class:`PagedList <mlflow.store.entities.PagedList>` of
@@ -518,6 +522,7 @@ class MlflowClient:
             max_results=max_results,
             order_by=order_by,
             page_token=page_token,
+            run_id=run_id,
             model_id=model_id,
         )
 

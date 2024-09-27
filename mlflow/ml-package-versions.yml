@@ -6,7 +6,7 @@ sklearn:
 
   models:
     minimum: "0.24.1"
-    maximum: "1.5.1"
+    maximum: "1.5.2"
     requirements:
       "< 1.0": ["scipy==1.7.3"]
     python:
@@ -16,7 +16,7 @@ sklearn:
 
   autologging:
     minimum: "0.24.1"
-    maximum: "1.5.1"
+    maximum: "1.5.2"
     python:
       "== dev": "3.9"
     requirements:
@@ -38,7 +38,7 @@ pytorch:
 
   models:
     minimum: "1.9.0"
-    maximum: "2.4.0"
+    maximum: "2.4.1"
     requirements:
       ">= 0.0.0": ["torchvision", "scikit-learn"]
       ">= 1.8": ["transformers"]
@@ -48,7 +48,7 @@ pytorch:
 
   autologging:
     minimum: "1.9.0"
-    maximum: "2.4.0"
+    maximum: "2.4.1"
     requirements:
       ">= 0.0.0": ["tensorboard"]
     run: |
@@ -210,7 +210,7 @@ catboost:
 
   models:
     minimum: "1.0.0"
-    maximum: "1.2.5"
+    maximum: "1.2.7"
     requirements:
       ">= 0.0.0": ["scikit-learn"]
       "< 1.1": ["pandas<2"]
@@ -327,7 +327,7 @@ statsmodels:
 
   models:
     minimum: "0.11.1"
-    maximum: "0.14.2"
+    maximum: "0.14.3"
     python:
       "== dev": "3.9"
     requirements:
@@ -337,7 +337,7 @@ statsmodels:
 
   autologging:
     minimum: "0.11.1"
-    maximum: "0.14.2"
+    maximum: "0.14.3"
     python:
       "== dev": "3.9"
     requirements:
@@ -361,7 +361,7 @@ spark:
 
   models:
     minimum: "3.1.2"
-    maximum: "3.5.2"
+    maximum: "3.5.3"
     python:
       "== dev": "3.9"
     java:
@@ -392,7 +392,7 @@ spark:
 
   autologging:
     minimum: "3.1.2"
-    maximum: "3.5.2"
+    maximum: "3.5.3"
     python:
       "== dev": "3.9"
     java:
@@ -531,14 +531,14 @@ paddle:
     pip_release: "paddlepaddle"
   models:
     minimum: "2.4.1"
-    maximum: "2.6.1"
+    maximum: "2.6.2"
     requirements:
       "< 2.5.0": ["google-cloud-storage==2.14.0"]
     run: |
       pytest tests/paddle/test_paddle_model_export.py
   autologging:
     minimum: "2.4.1"
-    maximum: "2.6.1"
+    maximum: "2.6.2"
     run: |
       pytest tests/paddle/test_paddle_autolog.py
 
@@ -549,7 +549,7 @@ transformers:
       pip install git+https://github.com/huggingface/transformers
   models:
     minimum: "4.25.1"
-    maximum: "4.44.2"
+    maximum: "4.45.0"
     unsupported: [
         # Avoid this patch: https://github.com/huggingface/transformers/pull/29032
         "4.38.0",
@@ -590,7 +590,7 @@ transformers:
       pytest tests/transformers/test_transformers_model_export.py -k "test_transformers_tf_model_save_without_conda_env_uses_default_env_with_expected_dependencies or test_transformers_pt_model_save_dependencies_without_accelerate"
   autologging:
     minimum: "4.25.1"
-    maximum: "4.44.2"
+    maximum: "4.45.0"
     unsupported: [
         # Avoid this patch: https://github.com/huggingface/transformers/pull/29032
         "4.38.0",
@@ -631,7 +631,7 @@ openai:
       pip install git+https://github.com/openai/openai-python
   models:
     minimum: "1.0.1"
-    maximum: "1.43.0"
+    maximum: "1.49.0"
     requirements:
       ">= 0.0.0": [
           "pyspark",
@@ -646,7 +646,7 @@ openai:
       pytest tests/openai --ignore tests/openai/test_openai_autolog.py
   autologging:
     minimum: "1.17.0"
-    maximum: "1.43.0"
+    maximum: "1.49.0"
     requirements:
       ">= 0.0.0": [
           "pyspark",
@@ -668,7 +668,7 @@ langchain:
   models:
     # Where the large package update was made (langchain-core, community, ...)
     minimum: "0.0.354"
-    maximum: "0.2.15"
+    maximum: "0.3.1"
     python:
       "== dev": "3.9"
     requirements:
@@ -711,7 +711,7 @@ langchain:
       fi
   autologging:
     minimum: "0.1.0"
-    maximum: "0.2.15"
+    maximum: "0.3.1"
     python:
       "== dev": "3.9"
     requirements:
@@ -759,7 +759,7 @@ llama_index:
   models:
     # New event/span framework is fully implemented in 0.10.44
     minimum: "0.10.44"
-    maximum: "0.11.2"
+    maximum: "0.11.13"
     python:
       "== dev": "3.9"
     requirements:
@@ -777,7 +777,7 @@ llama_index:
     run: pytest tests/llama_index --ignore tests/llama_index/test_llama_index_autolog.py --ignore tests/llama_index/test_llama_index_tracer.py
   autologging:
     minimum: "0.10.44"
-    maximum: "0.11.2"
+    maximum: "0.11.13"
     python:
       "== dev": "3.9"
     requirements:
@@ -798,7 +798,7 @@ autogen:
   autologging:
     # Tool call logging is implemented in autogen 0.2.29
     minimum: "0.2.29"
-    maximum: "0.2.35"
+    maximum: "0.3.0"
     requirements:
       ">= 0.0.0": [
           # Required to run tests/openai/mock_openai.py
@@ -814,7 +814,7 @@ sentence_transformers:
       pip install git+https://github.com/UKPLab/sentence-transformers#egg=sentence-transformers
   models:
     minimum: "2.2.2"
-    maximum: "3.0.1"
+    maximum: "3.1.1"
     requirements:
       ">= 0.0.0": [
           "pyspark",
@@ -832,7 +832,7 @@ johnsnowlabs:
     pip_release: "johnsnowlabs"
   models:
     minimum: "4.4.6"
-    maximum: "5.4.3"
+    maximum: "5.4.4"
     requirements:
       ">= 0.0.0": ["pandas<=1.5.3"]
       "< 5.2.8": ["pyspark<3.4"]
@@ -851,7 +851,7 @@ promptflow:
       pip install git+https://github.com/microsoft/promptflow#subdirectory=src/promptflow
   models:
     minimum: "1.3.0"
-    maximum: "1.15.0"
+    maximum: "1.15.1"
     requirements:
       # Requirements to run sparkudf predict test
       ">= 0.0.0": ["pyspark", "jinja2"]
