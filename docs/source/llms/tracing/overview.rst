@@ -8,6 +8,9 @@ In this guide, you can learn about what tracing is as it applies to Generative A
     :width: 80%
     :align: center
 
+A good companion to the explanations in this guide is the `Tracing Schema <./tracing-schema.html>`_ guide which will show how MLflow Tracing constructs the 
+concepts discussed here.
+
 What is tracing?
 ----------------
 

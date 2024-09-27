@@ -10,6 +10,7 @@ Python (native) `pickle <https://scikit-learn.org/stable/modules/model_persisten
     NOTE: The `mlflow.pyfunc` flavor is only added for scikit-learn models that define `predict()`,
     since `predict()` is required for pyfunc model inference.
 """
+
 import functools
 import inspect
 import logging
@@ -244,18 +245,18 @@ def save_model(
     _validate_and_prepare_target_save_path(path)
     code_path_subdir = _validate_and_copy_code_paths(code_paths, path)
 
-    if signature is None and input_example is not None:
+    if mlflow_model is None:
+        mlflow_model = Model()
+    saved_example = _save_example(mlflow_model, input_example, path)
+
+    if signature is None and saved_example is not None:
         wrapped_model = _SklearnModelWrapper(sk_model)
-        signature = _infer_signature_from_input_example(input_example, wrapped_model)
+        signature = _infer_signature_from_input_example(saved_example, wrapped_model)
     elif signature is False:
         signature = None
 
-    if mlflow_model is None:
-        mlflow_model = Model()
     if signature is not None:
         mlflow_model.signature = signature
-    if input_example is not None:
-        _save_example(mlflow_model, input_example, path)
     if metadata is not None:
         mlflow_model.metadata = metadata
 
@@ -517,6 +518,12 @@ class _SklearnModelWrapper:
         for predict_fn in self._SUPPORTED_CUSTOM_PREDICT_FN:
             if fn := getattr(self.sklearn_model, predict_fn, None):
                 setattr(self, predict_fn, fn)
+
+    def get_raw_model(self):
+        """
+        Returns the underlying scikit-learn model.
+        """
+        return self.sklearn_model
 
     def predict(
         self,
@@ -1289,7 +1296,7 @@ def autolog(
     )
 
 
-def _autolog(
+def _autolog(  # noqa: D417
     flavor_name=FLAVOR_NAME,
     log_input_examples=False,
     log_model_signatures=True,
@@ -1425,7 +1432,7 @@ def _autolog(
         params_logging_future.await_completion()
         return fit_output
 
-    def _log_pretraining_metadata(autologging_client, estimator, X, y):
+    def _log_pretraining_metadata(autologging_client, estimator, X, y):  # noqa: D417
         """
         Records metadata (e.g., params and tags) for a scikit-learn estimator prior to training.
         This is intended to be invoked within a patched scikit-learn training routine

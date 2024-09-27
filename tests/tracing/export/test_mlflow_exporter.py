@@ -1,14 +1,17 @@
+import threading
+from concurrent.futures import ThreadPoolExecutor
+from unittest import mock
 from unittest.mock import MagicMock
 
 from mlflow.entities import LiveSpan
-from mlflow.tracing.export.mlflow import MlflowSpanExporter
+from mlflow.tracing.export.mlflow import AsyncTraceExportQueue, MlflowSpanExporter, Task
 from mlflow.tracing.fluent import TRACE_BUFFER
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 
 from tests.tracing.helper import create_mock_otel_span, create_test_trace_info
 
 
-def test_export():
+def test_export(async_logging_enabled):
     trace_id = 12345
     request_id = f"tr-{trace_id}"
     otel_span = create_mock_otel_span(
@@ -41,6 +44,9 @@ def test_export():
 
     exporter.export([otel_span, non_root_otel_span, invalid_otel_span])
 
+    if async_logging_enabled:
+        exporter._async_queue.flush(terminate=True)
+
     # Spans should be cleared from the trace manager
     assert len(exporter._trace_manager._traces) == 0
 
@@ -54,3 +60,60 @@ def test_export():
     assert trace_info == logged_trace_info
     assert len(logged_trace_data.spans) == 2
     mock_client._upload_ended_trace_info.assert_called_once_with(trace_info)
+
+
+def test_async_queue_handle_tasks():
+    mock_client = MagicMock()
+    queue = AsyncTraceExportQueue(mock_client)
+
+    counter = 0
+
+    def _increment(delta):
+        nonlocal counter
+        counter += delta
+
+    for _ in range(10):
+        task = Task(handler=_increment, args=(1,))
+        queue.put(task)
+
+    queue.flush(terminate=True)
+    assert counter == 10
+    assert len(queue._unprocessed_tasks) == 0
+
+
+@mock.patch("atexit.register")
+def test_async_queue_activate_thread_safe(mock_atexit):
+    mock_client = MagicMock()
+    queue = AsyncTraceExportQueue(mock_client)
+
+    def _count_threads():
+        main_thread = threading.main_thread()
+        return sum(
+            t.is_alive()
+            for t in threading.enumerate()
+            if t is not main_thread and t.getName().startswith("MLflowTraceLogging")
+        )
+
+    # 1. Validate activation
+    with ThreadPoolExecutor(max_workers=10) as executor:
+        for _ in range(10):
+            executor.submit(queue.activate)
+
+    assert queue.is_active()
+    assert _count_threads() > 0  # Logging thread + max 5 worker threads
+    mock_atexit.assert_called_once()
+    mock_atexit.reset_mock()
+
+    # 2. Validate flush (continue)
+    queue.flush(terminate=False)
+    assert queue.is_active()
+    assert _count_threads() > 0  # New threads should be created
+    mock_atexit.assert_not_called()  # Exit callback should not be registered again
+
+    # 3. Validate flush with termination
+    with ThreadPoolExecutor(max_workers=10) as executor:
+        for _ in range(10):
+            executor.submit(queue.flush(terminate=True))
+
+    assert not queue.is_active()
+    assert _count_threads() == 0

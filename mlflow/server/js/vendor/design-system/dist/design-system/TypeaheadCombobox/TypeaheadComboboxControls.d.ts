@@ -1,4 +1,3 @@
-/// <reference types="react" />
 import type { UseComboboxGetToggleButtonPropsOptions } from 'downshift';
 import { type DownshiftToggleButtonProps } from './TypeaheadComboboxToggleButton';
 export interface TypeaheadComboboxControlsProps {

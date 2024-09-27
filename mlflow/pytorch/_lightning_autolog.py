@@ -155,6 +155,7 @@ class __MlflowPLCallback(pl.Callback, metaclass=ExceptionSafeAbstractClass):
             Args:
                 trainer: pytorch lightning trainer instance
                 pl_module: pytorch lightning base module
+                args: additional positional arguments
             """
             # If validation loop is enabled (meaning `validation_step` is overridden),
             # log metrics in `on_validaion_epoch_end` to avoid logging the same metrics
@@ -194,6 +195,7 @@ class __MlflowPLCallback(pl.Callback, metaclass=ExceptionSafeAbstractClass):
         Args:
             trainer: pytorch lightning trainer instance
             pl_module: pytorch lightning base module
+            args: additional positional arguments
         """
         if not self.log_every_n_step:
             return

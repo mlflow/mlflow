@@ -18,6 +18,7 @@ Spark MLlib (native) format
     ``mlflow/java`` package. This flavor is produced only if you specify
     MLeap-compatible arguments.
 """
+
 import logging
 import os
 import posixpath
@@ -25,7 +26,6 @@ import re
 import shutil
 from typing import Any, Dict, Optional
 
-import pandas as pd
 import yaml
 from packaging.version import Version
 
@@ -33,7 +33,7 @@ import mlflow
 from mlflow import environment_variables, mleap, pyfunc
 from mlflow.environment_variables import MLFLOW_DFS_TMP
 from mlflow.exceptions import MlflowException
-from mlflow.models import Model, ModelInputExample, ModelSignature, infer_signature
+from mlflow.models import Model, ModelInputExample, ModelSignature
 from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.signature import _LOG_MODEL_INFER_SIGNATURE_WARNING_TEMPLATE
 from mlflow.models.utils import _Example, _save_example
@@ -44,6 +44,7 @@ from mlflow.tracking.artifact_utils import (
     _download_artifact_from_uri,
     _get_root_uri_and_artifact_path,
 )
+from mlflow.types.schema import SparkMLVector
 from mlflow.utils import _get_fully_qualified_class_name, databricks_utils
 from mlflow.utils.autologging_utils import autologging_integration, safe_patch
 from mlflow.utils.class_utils import _get_class_from_string
@@ -182,7 +183,62 @@ def log_model(
         registered_model_name: If given, create a model version under
             ``registered_model_name``, also creating a registered model if one
             with the given name does not exist.
-        signature: {{ signature }}
+        signature: A Model Signature object that describes the input and output Schema of the
+            model. The model signature can be inferred using `infer_signature` function
+            of `mlflow.models.signature`.
+            Note if your Spark model contains Spark ML vector type input or output column,
+            you should create ``SparkMLVector`` vector type for the column,
+            `infer_signature` function can also infer ``SparkMLVector`` vector type correctly
+            from Spark Dataframe input / output.
+            When loading a Spark ML model with ``SparkMLVector`` vector type input as MLflow
+            pyfunc model, it accepts ``Array[double]`` type input. MLflow internally converts
+            the array into Spark ML vector and then invoke Spark model for inference. Similarly,
+            if the model has vector type output, MLflow internally converts Spark ML vector
+            output data into ``Array[double]`` type inference result.
+
+            .. code-block:: python
+
+                from mlflow.models import infer_signature
+                from pyspark.sql.functions import col
+                from pyspark.ml.classification import LogisticRegression
+                from pyspark.ml.functions import array_to_vector
+                import pandas as pd
+                import mlflow
+
+                train_df = spark.createDataFrame(
+                    [([3.0, 4.0], 0), ([5.0, 6.0], 1)], schema="features array<double>, label long"
+                ).select(array_to_vector("features").alias("features"), col("label"))
+                lor = LogisticRegression(maxIter=2)
+                lor.setPredictionCol("").setProbabilityCol("prediction")
+                lor_model = lor.fit(train_df)
+
+                test_df = train_df.select("features")
+                prediction_df = lor_model.transform(train_df).select("prediction")
+
+                signature = infer_signature(test_df, prediction_df)
+
+                with mlflow.start_run() as run:
+                    model_info = mlflow.spark.log_model(
+                        lor_model,
+                        "model",
+                        signature=signature,
+                    )
+
+                # The following signature is outputed:
+                # inputs:
+                #   ['features': SparkML vector (required)]
+                # outputs:
+                #   ['prediction': SparkML vector (required)]
+                print(model_info.signature)
+
+                loaded = mlflow.pyfunc.load_model(model_info.model_uri)
+
+                test_dataset = pd.DataFrame({"features": [[1.0, 2.0]]})
+
+                # `loaded.predict` accepts `Array[double]` type input column,
+                # and generates `Array[double]` type output column.
+                print(loaded.predict(test_dataset))
+
         input_example: {{ input_example }}
         await_registration_for: Number of seconds to wait for the model version to finish
             being created and is in ``READY`` status. By default, the function
@@ -663,7 +719,7 @@ def save_model(
         sample_input: A sample input that is used to add the MLeap flavor to the model.
             This must be a PySpark DataFrame that the model can evaluate. If
             ``sample_input`` is ``None``, the MLeap flavor is not added.
-        signature: {{ signature }}
+        signature: See the document of argument ``signature`` in :py:func:`mlflow.spark.log_model`.
         input_example: {{ input_example }}
         pip_requirements: {{ pip_requirements }}
         extra_pip_requirements: {{ extra_pip_requirements }}
@@ -703,12 +759,10 @@ def save_model(
         try:
             spark = _get_active_spark_session()
             if spark is not None:
-                wrapped_model = _PyFuncModelWrapper(spark, spark_model)
-                # We cast the predictions to a Pandas series because the Spark _PyFuncModelWrapper
-                # returns predictions as a list, which the `infer_signature` API does not support
-                # (unless it is a list of strings).
-                prediction = pd.Series(wrapped_model.predict(input_ex))
-                signature = infer_signature(input_ex, prediction)
+                input_example_spark_df = spark.createDataFrame(input_ex)
+                signature = mlflow.pyspark.ml._infer_spark_model_signature(
+                    spark_model, input_example_spark_df
+                )
         except Exception as e:
             if environment_variables._MLFLOW_TESTING.get():
                 raise
@@ -899,7 +953,7 @@ def _load_pyfunc(path):
 
         spark_model = _load_model(model_uri=path)
 
-    return _PyFuncModelWrapper(spark, spark_model)
+    return _PyFuncModelWrapper(spark, spark_model, signature=model_meta.signature)
 
 
 def _find_and_set_features_col_as_vector_if_needed(spark_df, spark_model):
@@ -960,9 +1014,16 @@ class _PyFuncModelWrapper:
     Wrapper around Spark MLlib PipelineModel providing interface for scoring pandas DataFrame.
     """
 
-    def __init__(self, spark, spark_model):
+    def __init__(self, spark, spark_model, signature):
         self.spark = spark
         self.spark_model = spark_model
+        self.signature = signature
+
+    def get_raw_model(self):
+        """
+        Returns the underlying model.
+        """
+        return self.spark_model
 
     def predict(
         self,
@@ -979,8 +1040,6 @@ class _PyFuncModelWrapper:
         Returns:
             List with model predictions.
         """
-        from pyspark.ml import PipelineModel
-
         if _is_spark_connect_model(self.spark_model):
             # Spark connect ML model directly appends prediction result column to input pandas
             # dataframe. To make input dataframe intact, make a copy first.
@@ -992,27 +1051,50 @@ class _PyFuncModelWrapper:
             # Spark model uses "prediction" as default model inference output column name.
             return self.spark_model.transform(pandas_df)["prediction"]
 
-        spark_df = _find_and_set_features_col_as_vector_if_needed(
-            self.spark.createDataFrame(pandas_df), self.spark_model
-        )
-        prediction_column = "prediction"
-        if isinstance(self.spark_model, PipelineModel) and self.spark_model.stages[-1].hasParam(
-            "outputCol"
-        ):
-            from pyspark.sql import SparkSession
+        # Convert List[np.float64] / np.array[np.float64] type to List[float] type,
+        # otherwise it will break `spark.createDataFrame` column type inferring.
+        if self.signature and self.signature.inputs:
+            for col_spec in self.signature.inputs.inputs:
+                if isinstance(col_spec.type, SparkMLVector):
+                    col_name = col_spec.name or pandas_df.columns[0]
 
-            spark = SparkSession.builder.getOrCreate()
-            # do a transform with an empty input DataFrame
-            # to get the schema of the transformed DataFrame
-            transformed_df = self.spark_model.transform(spark.createDataFrame([], spark_df.schema))
-            # Ensure prediction column doesn't already exist
-            if prediction_column not in transformed_df.columns:
-                # make sure predict work by default for Transformers
-                self.spark_model.stages[-1].setOutputCol(prediction_column)
-        return [
-            x.prediction
-            for x in self.spark_model.transform(spark_df).select(prediction_column).collect()
-        ]
+                    pandas_df[col_name] = pandas_df[col_name].map(
+                        lambda array: [float(elem) for elem in array]
+                    )
+
+        spark_df = self.spark.createDataFrame(pandas_df)
+
+        # Convert Array[Double] column to spark ML vector type according to signature
+        if self.signature and self.signature.inputs:
+            for col_spec in self.signature.inputs.inputs:
+                if isinstance(col_spec.type, SparkMLVector):
+                    from pyspark.ml.functions import array_to_vector
+
+                    col_name = col_spec.name or spark_df.columns[0]
+                    spark_df = spark_df.withColumn(col_name, array_to_vector(col_name))
+
+        # For the case of no signature or signature logged by old version MLflow,
+        # the signature does not support spark ML vector type, in this case,
+        # automatically infer vector type input columns and do the conversion
+        # using `_find_and_set_features_col_as_vector_if_needed` utility function.
+        spark_df = _find_and_set_features_col_as_vector_if_needed(spark_df, self.spark_model)
+
+        prediction_column = mlflow.pyspark.ml._check_or_set_model_prediction_column(
+            self.spark_model, spark_df
+        )
+        prediction_df = self.spark_model.transform(spark_df).select(prediction_column)
+
+        # If signature output schema exists and it contains vector type columns,
+        # Convert spark ML vector type column to Array[Double] otherwise it will
+        # break enforce_schema checking
+        if self.signature and self.signature.outputs:
+            for col_spec in self.signature.outputs.inputs:
+                if isinstance(col_spec.type, SparkMLVector):
+                    from pyspark.ml.functions import vector_to_array
+
+                    col_name = col_spec.name or prediction_df.columns[0]
+                    prediction_df = prediction_df.withColumn(col_name, vector_to_array(col_name))
+        return [x.prediction for x in prediction_df.collect()]
 
 
 @autologging_integration(FLAVOR_NAME)

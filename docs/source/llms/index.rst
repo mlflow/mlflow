@@ -9,7 +9,74 @@ multiple providers to fine-tuning specific models to achieve desired outcomes.
 Such complexities can easily become a bottleneck for developers and data scientists aiming to integrate LLM 
 capabilities into their applications.
 
-**MLflow's Support for LLMs** aims to alleviate these challenges by introducing a suite of features and tools designed with the end-user in mind:
+**MLflow's Support for LLMs** aims to alleviate these challenges by introducing a suite of features and tools designed with the end-user in mind.
+
+Tutorials and Use Case Guides for GenAI applications in MLflow
+--------------------------------------------------------------
+
+Interested in learning how to leverage MLflow for your GenAI projects? 
+
+Look in the tutorials and guides below to learn more about interesting use cases that could help to make your journey into leveraging GenAI a bit easier!
+
+Note that there are additional tutorials within the `"Explore the Native LLM Flavors" section below <#explore-the-native-llm-flavors>`_, so be sure to check those out as well!
+
+.. toctree::
+    :maxdepth: 1
+    :hidden:
+  
+    rag/index
+    custom-pyfunc-for-llms/index
+    llm-evaluate/notebooks/index
+    chat-model-guide/index
+
+
+.. raw:: html
+
+    <section>
+        <article class="simple-grid">
+            <div class="simple-card">
+                <a href="chat-model-guide/index.html" >
+                    <div class="header">
+                        Simplified Custom GenAI Models
+                    </div>
+                    <p>
+                        Learn how to build a custom GenAI Agent with a simplified developer experience using MLflow's <code>ChatModel</code>.
+                    </p>
+                </a>
+            </div>
+            <div class="simple-card">
+                <a href="llm-evaluate/index.html" >
+                    <div class="header">
+                        Evaluating LLMs
+                    </div>
+                    <p>
+                        Learn how to evaluate LLMs with various metrics including LLM-as-a-Judge using <code>mlflow.evaluate()</code> API.
+                    </p>
+                </a>
+            </div>
+            <div class="simple-card">
+                <a href="custom-pyfunc-for-llms/index.html" >
+                    <div class="header">
+                        Using Custom PyFunc with LLMs
+                    </div>
+                    <p>
+                        Explore the nuances of packaging, customizing, and deploying advanced LLMs in MLflow using custom PyFuncs. 
+                    </p>
+                </a>
+            </div>
+            <div class="simple-card">
+                <a href="rag/notebooks/index.html" >
+                    <div class="header">
+                        Evaluation for RAG
+                    </div>
+                    <p>
+                        Learn how to evaluate Retrieval Augmented Generation applications by leveraging LLMs to generate a evaluation dataset and evaluate it using the built-in metrics in the MLflow Evaluate API.
+                    </p>
+                </a>
+            </div>
+        </article>
+    </section>
+
 
 `MLflow Tracing <tracing/index.html>`_
 --------------------------------------
@@ -17,13 +84,13 @@ capabilities into their applications.
 .. note::
     MLflow Tracing is currently in **Experimental Status** and is subject to change without deprecation warning or notification. 
 
-MLflow offers comprehensive tracing capabilities to monitor and analyze the execution of GenAI applications. This includes automated tracing with 
-LangChain integration, manual trace instrumentation using high-level fluent APIs, and low-level client APIs for fine-grained control. This functionality 
+MLflow offers comprehensive tracing capabilities to monitor and analyze the execution of GenAI applications. This includes automated tracing GenAI frameworks such as
+LangChain, OpenAI, LlamaIndex, manual trace instrumentation using high-level fluent APIs, and low-level client APIs for fine-grained control. This functionality 
 allows you to capture detailed trace data, enabling better debugging, performance monitoring, and insights into complex workflows. 
 Whether through decorators, context managers, or explicit API calls, MLflow provides the flexibility needed to trace and optimize the operations 
 of your GenAI models and retain your traced data within the tracking server for further analysis.
 
-- `Automated tracing with LangChain <tracing/index.html#langchain-automatic-tracing>`_: Seamless integration with LangChain for automatic trace data collection.
+- `Automated tracing with GenAI libraries <tracing/index.html#automatic-tracing>`_: Seamless integration with libraries such as LangChain, OpenAI, LlamaIndex, and AutoGen, for automatic trace data collection.
 - `Manual trace instrumentation with high-level fluent APIs <tracing/index.html#tracing-fluent-apis>`_: Easy-to-use decorators and context managers for adding tracing with minimal code changes.
 - `Low-level client APIs for tracing <tracing/index.html#tracing-client-apis>`_: Thread-safe methods for detailed and explicit control over trace data management.
 
@@ -33,10 +100,12 @@ of your GenAI models and retain your traced data within the tracking server for 
 
     tracing/index
     tracing/overview
+    tracing/tracing-schema
 
-To learn more about what tracing is, see our `Tracing Concepts Overview <tracing/overview.html>`_ guide. 
+To learn more about what tracing is, see our `Tracing Concepts Overview <tracing/overview.html>`_ guide. For an in-depth exploration into the structure of 
+MLflow traces and their schema, see the `Tracing Schema <tracing/tracing-schema.html>`_ guide.
 
-`MLflow Deployments Server for LLMs <deployments/index.html>`_
+`MLflow AI Gateway for LLMs <deployments/index.html>`_
 --------------------------------------------------------------
 
 .. toctree::
@@ -45,15 +114,15 @@ To learn more about what tracing is, see our `Tracing Concepts Overview <tracing
 
     deployments/index
 
-Serving as a unified interface, the `MLflow Deployments Server <deployments/index.html>`_ (previously known as "MLflow AI Gateway") 
-simplifies interactions with multiple LLM providers. In addition to supporting the most popular SaaS LLM providers, the MLflow Deployments Server 
+Serving as a unified interface, the `MLflow AI Gateway <deployments/index.html>`_ 
+simplifies interactions with multiple LLM providers. In addition to supporting the most popular SaaS LLM providers, the MLflow AI Gateway 
 provides an integration to MLflow model serving, allowing you to serve your own LLM or a fine-tuned foundation model within your own serving infrastructure.
 
 .. note:: 
-    The MLflow Deployments Server is in active development and has been marked as **Experimental**. 
+    The MLflow AI Gateway is in active development and has been marked as **Experimental**. 
     APIs may change as this new feature is refined and its functionality is expanded based on feedback.
 
-Benefits of the MLflow Deployments Server
+Benefits of the MLflow AI Gateway
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 - **Unified Endpoint**: No more juggling between multiple provider APIs.
@@ -76,15 +145,15 @@ Benefits of the MLflow Deployments Server
   - Zero downtime provider, model, or route swapping.
 
 
-Explore the Native Providers of the MLflow Deployments Server
+Explore the Native Providers of the MLflow AI Gateway
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-The MLflow Deployments Server supports a large range of foundational models from popular SaaS model vendors, as well as providing a means of self-hosting your 
+The MLflow AI Gateway supports a large range of foundational models from popular SaaS model vendors, as well as providing a means of self-hosting your 
 own open source model via an integration with MLflow model serving. 
 
 Please refer to `Supported Provider Models <deployments/index.html#providers>`_ for the full list of supported providers and models.
 
-If you're interested in learning about how to set up the MLflow Deployments Server for a specific provider, follow the links below for our up-to-date 
+If you're interested in learning about how to set up the MLflow AI Gateway for a specific provider, follow the links below for our up-to-date 
 documentation on GitHub. Each link will take you to a README file that will explain how to set up a route for the provider. In the same directory as 
 the README, you will find a runnable example of how to query the routes that the example creates, providing you with a quick reference for getting started 
 with your favorite provider!
@@ -233,6 +302,7 @@ Harnessing the power of LLMs becomes effortless with flavors designed specifical
 
   - Load models as PyFuncs for broad compatibility across serving infrastructures.
   - Strengthens the MLOps process for LLMs, ensuring smooth deployments.
+  - Utilize the `Models From Code feature <../model/models-from-code.html>`_ for simplified GenAI application development.
 
 - **Cohesive Ecosystem**: 
 
@@ -247,6 +317,7 @@ Harnessing the power of LLMs becomes effortless with flavors designed specifical
     openai/index
     sentence-transformers/index
     langchain/index
+    llama-index/index
 
 Explore the Native LLM Flavors
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -301,6 +372,17 @@ Select the integration below to read the documentation on how to leverage MLflow
                     </p>
                 </a>
             </div>
+            <div class="simple-card">
+                <a href="llama-index/index.html">
+                    <div class="header-with-image">
+                        <img src="../_static/images/logos/llamaindex-logo.svg" alt="LlamaIndex Logo" style="width: 90%"/>
+                    </div>
+                    <p>
+                        Learn about MLflow's native integration with LlamaIndex and see example notebooks that leverage 
+                        MLflow and LlamaIndex to build advanced QA systems, chatbots, and other AI-driven applications.
+                    </p>
+                </a>
+            </div>
         </article>
     </section>
 
@@ -337,61 +419,6 @@ Benefits of the MLflow LLM Tracking System
   - Ensures consistent and transparent tracking across all LLM interactions.
   - Facilitates informed decision-making and optimization in LLM deployment and utilization.
 
-
-Tutorials and Use Case Guides for LLMs in MLflow
-------------------------------------------------
-
-Interested in learning how to leverage MLflow for your LLM projects? 
-
-Look in the tutorials and guides below to learn more about interesting use cases that could help to make your journey into leveraging LLMs a bit easier!
-
-Note that there are additional tutorials within the `"Explore the Native LLM Flavors" section above <#explore-the-native-llm-flavors>`_, so be sure to check those out as well!
-
-.. toctree::
-    :maxdepth: 1
-    :hidden:
-  
-    rag/index
-    custom-pyfunc-for-llms/index
-    llm-evaluate/notebooks/index
-
-
-.. raw:: html
-
-    <section>
-        <article class="simple-grid">
-            <div class="simple-card">
-                <a href="llm-evaluate/index.html" >
-                    <div class="header">
-                        Evaluating LLMs
-                    </div>
-                    <p>
-                        Learn how to evaluate LLMs with various metrics including LLM-as-a-Judge using <code>mlflow.evaluate()</code> API.
-                    </p>
-                </a>
-            </div>
-            <div class="simple-card">
-                <a href="custom-pyfunc-for-llms/index.html" >
-                    <div class="header">
-                        Using Custom PyFunc with LLMs
-                    </div>
-                    <p>
-                        Explore the nuances of packaging, customizing, and deploying advanced LLMs in MLflow using custom PyFuncs. 
-                    </p>
-                </a>
-            </div>
-            <div class="simple-card">
-                <a href="rag/notebooks/index.html" >
-                    <div class="header">
-                        Evaluation for RAG
-                    </div>
-                    <p>
-                        Learn how to evaluate Retrieval Augmented Generation applications by leveraging LLMs to generate a evaluation dataset and evaluate it using the built-in metrics in the MLflow Evaluate API.
-                    </p>
-                </a>
-            </div>
-        </article>
-    </section>
 
 .. toctree::
     :maxdepth: 1

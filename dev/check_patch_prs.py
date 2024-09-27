@@ -88,7 +88,14 @@ def fetch_patch_prs(version):
 
 @click.command()
 @click.option("--version", required=True, help="The version to release")
-def main(version):
+@click.option(
+    "--dry-run/--no-dry-run",
+    "dry_run",
+    is_flag=True,
+    default=True,
+    envvar="DRY_RUN",
+)
+def main(version, dry_run):
     release_branch = get_release_branch(version)
     commits = get_commits(release_branch)
     patch_prs = fetch_patch_prs(version)
@@ -105,9 +112,16 @@ def main(version):
         master_commits = get_commits("master")
         cherry_picks = [c.sha for c in master_commits if c.pr_num in not_cherry_picked]
         # reverse the order of cherry-picks to maintain the order of PRs
-        print("\nTo cherry-pick the above commits, run:")
+        print("\n# Steps to cherry-pick the patch PRs:")
+        print(
+            f"1. Make sure your local master and {release_branch} branches are synced with "
+            "upstream."
+        )
+        print(f"2. Cut a new branch from {release_branch} (e.g. {release_branch}-cherry-picks).")
+        print("3. Run the following command on the new branch:\n")
         print("git cherry-pick " + " ".join(cherry_picks[::-1]))
-        sys.exit(1)
+        print(f"\n4. File a PR against {release_branch}.")
+        sys.exit(0 if dry_run else 1)
 
 
 if __name__ == "__main__":

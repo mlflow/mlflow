@@ -1,4 +1,3 @@
-/// <reference types="react" />
 import type { ArgsProps as AntDNotificationArgs, IconType as AntDIconType, NotificationInstance as AntDNotificationInstance } from 'antd/lib/notification';
 import type { DangerouslySetAntdProps } from '../types';
 export type NotificationType = AntDIconType;
@@ -38,5 +37,5 @@ export type WithNotificationsHOCProps<T> = T & {
  *
  * @deprecated Please migrate components to functional components and use useNotification() hook instead.
  */
-export declare const withNotifications: <P, T>(Component: import("react").ComponentType<WithNotificationsHOCProps<P>>) => import("react").ForwardRefExoticComponent<import("react").PropsWithoutRef<P> & import("react").RefAttributes<T>>;
+export declare const withNotifications: <P, T>(Component: React.ComponentType<WithNotificationsHOCProps<P>>) => import("react").ForwardRefExoticComponent<import("react").PropsWithoutRef<P> & import("react").RefAttributes<T>>;
 //# sourceMappingURL=LegacyNotification.d.ts.map

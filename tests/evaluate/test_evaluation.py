@@ -4,6 +4,7 @@ import json
 import os
 import re
 import signal
+import subprocess
 import uuid
 from collections import namedtuple
 from unittest import mock
@@ -18,8 +19,8 @@ import sklearn.impute
 import sklearn.linear_model
 import sklearn.pipeline
 import sklearn.preprocessing
-from langchain.llms import FakeListLLM
 from langchain.prompts import PromptTemplate
+from langchain_community.llms import FakeListLLM
 from mlflow_test_plugin.dummy_evaluator import Array2DEvaluationArtifact
 from PIL import Image, ImageChops
 from pyspark.ml.linalg import Vectors
@@ -46,6 +47,7 @@ from mlflow.models.evaluation import (
 )
 from mlflow.models.evaluation.artifacts import ImageEvaluationArtifact
 from mlflow.models.evaluation.base import (
+    _get_model_from_deployment_endpoint_uri,
     _is_model_deployment_endpoint_uri,
     _start_run_or_reuse_active_run,
 )
@@ -466,8 +468,6 @@ def test_langchain_evaluate_autologs_traces():
         assert len(trace.data.spans) == 3
     assert run.info.run_id == get_traces()[0].info.request_metadata[TraceMetadataKey.SOURCE_RUN]
 
-    TRACE_BUFFER.clear()
-
     # Test original langchain autolog configs is restored
     with mock.patch("mlflow.langchain.log_model") as log_model_mock:
         with mlflow.start_run() as run:
@@ -478,7 +478,7 @@ def test_langchain_evaluate_autologs_traces():
             assert len(loaded_dict) == 1
             assert loaded_dict[0]["input"] == "text"
         log_model_mock.assert_called_once()
-        assert len(get_traces()) == 1
+        assert len(get_traces()) == 3
         assert len(get_traces()[0].data.spans) == 3
 
 
@@ -926,6 +926,13 @@ def test_gen_md5_for_arraylike_obj():
 
     list4 = list0[:10] + [99] + list0[10:]
     assert get_md5(list3) == get_md5(list4)
+
+
+def test_gen_md5_for_arraylike_obj_with_pandas_df_using_float_idx_does_not_raise_keyerror():
+    float_indices = np.random.uniform(low=0.5, high=13.3, size=(10,))
+    df = pd.DataFrame(np.random.randn(10, 4), index=float_indices, columns=["A", "B", "C", "D"])
+    md5_gen = insecure_hash.md5()
+    assert _gen_md5_for_arraylike_obj(md5_gen, df) is None
 
 
 def test_dataset_hash(
@@ -1901,7 +1908,7 @@ _DUMMY_CHAT_RESPONSE = {
     "id": "1",
     "object": "text_completion",
     "created": "2021-10-01T00:00:00.000000Z",
-    "model": "gpt-3.5-turbo",
+    "model": "gpt-4o-mini",
     "choices": [
         {
             "index": 0,
@@ -2025,7 +2032,7 @@ def test_evaluate_on_chat_model_endpoint(mock_deploy_client, input_data, feature
             },
         ),
     ]
-    assert all(call in call_args_list for call in expected_calls)
+    assert call_args_list == expected_calls
 
     # Validate the evaluation metrics
     expected_metrics_subset = {"toxicity/v1/ratio", "ari_grade_level/v1/mean"}
@@ -2042,7 +2049,7 @@ _DUMMY_COMPLETION_RESPONSE = {
     "id": "1",
     "object": "text_completion",
     "created": "2021-10-01T00:00:00.000000Z",
-    "model": "gpt-3.5-turbo",
+    "model": "gpt-4o-mini",
     "choices": [{"index": 0, "text": "This is a response", "finish_reason": "length"}],
     "usage": {
         "prompt_tokens": 1,
@@ -2082,7 +2089,7 @@ def test_evaluate_on_completion_model_endpoint(mock_deploy_client, input_data, f
         mock.call(endpoint="completions", inputs={"prompt": "What is MLflow?", "max_tokens": 10}),
         mock.call(endpoint="completions", inputs={"prompt": "What is Spark?", "max_tokens": 10}),
     ]
-    assert all(call in call_args_list for call in expected_calls)
+    assert call_args_list == expected_calls
 
     # Validate the evaluation metrics
     expected_metrics_subset = {
@@ -2095,6 +2102,90 @@ def test_evaluate_on_completion_model_endpoint(mock_deploy_client, input_data, f
     # Validate the model output is passed to the evaluator in the correct format (string)
     eval_results_table = eval_result.tables["eval_results_table"]
     assert eval_results_table["outputs"].equals(pd.Series(["This is a response"] * 2))
+
+
+@mock.patch("mlflow.deployments.get_deploy_client")
+def test_evaluate_on_model_endpoint_without_type(mock_deploy_client):
+    # An endpoint that does not have endpoint type. For such endpoint, we simply
+    # pass the input data to the endpoint without any modification and return
+    # the response as is.
+    mock_deploy_client.return_value.get_endpoint.return_value = {}
+    mock_deploy_client.return_value.predict.return_value = "This is a response"
+
+    input_data = pd.DataFrame(
+        {
+            "inputs": [
+                {
+                    "messages": [{"content": q, "role": "user"}],
+                    "max_tokens": 10,
+                }
+                for q in _TEST_QUERY_LIST
+            ],
+            "ground_truth": _TEST_GT_LIST,
+        }
+    )
+
+    with mlflow.start_run():
+        eval_result = mlflow.evaluate(
+            model="endpoints:/random",
+            data=input_data,
+            model_type="question-answering",
+            targets="ground_truth",
+            inference_params={"max_tokens": 10, "temperature": 0.5},
+        )
+
+    # Validate the endpoint is called with correct payloads
+    call_args_list = mock_deploy_client.return_value.predict.call_args_list
+    expected_calls = [
+        mock.call(
+            endpoint="random",
+            inputs={
+                "messages": [{"content": "What is MLflow?", "role": "user"}],
+                "max_tokens": 10,
+                "temperature": 0.5,
+            },
+        ),
+        mock.call(
+            endpoint="random",
+            inputs={
+                "messages": [{"content": "What is Spark?", "role": "user"}],
+                "max_tokens": 10,
+                "temperature": 0.5,
+            },
+        ),
+    ]
+    assert call_args_list == expected_calls
+
+    # Validate the evaluation metrics
+    expected_metrics_subset = {"toxicity/v1/ratio", "ari_grade_level/v1/mean", "exact_match/v1"}
+    assert expected_metrics_subset.issubset(set(eval_result.metrics.keys()))
+
+    # Validate the model output is passed to the evaluator in the correct format (string)
+    eval_results_table = eval_result.tables["eval_results_table"]
+    assert eval_results_table["outputs"].equals(pd.Series(["This is a response"] * 2))
+
+
+@mock.patch("mlflow.deployments.get_deploy_client")
+def test_evaluate_on_model_endpoint_invalid_payload(mock_deploy_client):
+    # An endpoint that does not have endpoint type. For such endpoint, we simply
+    # pass the input data to the endpoint without any modification and return
+    # the response as is.
+    mock_deploy_client.return_value.get_endpoint.return_value = {}
+    mock_deploy_client.return_value.predict.side_effect = ValueError("Invalid payload")
+
+    input_data = pd.DataFrame(
+        {
+            "inputs": [{"invalid": "payload"}],
+        }
+    )
+
+    with pytest.raises(MlflowException, match="Failed to call the deployment endpoint"):
+        mlflow.evaluate(
+            model="endpoints:/random",
+            data=input_data,
+            model_type="question-answering",
+            inference_params={"max_tokens": 10, "temperature": 0.5},
+        )
 
 
 @pytest.mark.parametrize(
@@ -2119,7 +2210,7 @@ def test_evaluate_on_completion_model_endpoint(mock_deploy_client, input_data, f
         # Input column not str or dict
         (
             pd.DataFrame({"inputs": [1, 2], "ground_truth": _TEST_GT_LIST}),
-            "Invalid input column type",
+            "Invalid input data type",
         ),
     ],
 )
@@ -2135,7 +2226,94 @@ def test_evaluate_on_model_endpoint_invalid_input_data(input_data, error_message
             )
 
 
+@pytest.mark.parametrize(
+    "model_input",
+    [
+        # Case 1: Single chat dictionary.
+        # This is an expected input format from the Databricks RAG Evaluator.
+        {
+            "messages": [{"content": "What is MLflow?", "role": "user"}],
+            "max_tokens": 10,
+        },
+        # Case 2: List of chat dictionaries.
+        # This is not a typical input format from either default or Databricks RAG evaluators,
+        # but we support it for compatibility with the normal Pyfunc models.
+        [
+            {"messages": [{"content": "What is MLflow?", "role": "user"}]},
+            {"messages": [{"content": "What is Spark?", "role": "user"}]},
+        ],
+        # Case 3: DataFrame with a column of dictionaries
+        pd.DataFrame(
+            {
+                "inputs": [
+                    {
+                        "messages": [{"content": "What is MLflow?", "role": "user"}],
+                        "max_tokens": 10,
+                    },
+                    {
+                        "messages": [{"content": "What is Spark?", "role": "user"}],
+                    },
+                ]
+            }
+        ),
+        # Case 4: DataFrame with a column of strings
+        pd.DataFrame(
+            {
+                "inputs": ["What is MLflow?", "What is Spark?"],
+            }
+        ),
+    ],
+)
+@mock.patch("mlflow.deployments.get_deploy_client")
+def test_model_from_deployment_endpoint(mock_deploy_client, model_input):
+    mock_deploy_client.return_value.predict.return_value = _DUMMY_CHAT_RESPONSE
+    mock_deploy_client.return_value.get_endpoint.return_value = {"task": "llm/v1/chat"}
+
+    model = _get_model_from_deployment_endpoint_uri("endpoints:/chat")
+
+    response = model.predict(model_input)
+
+    if isinstance(model_input, dict):
+        assert mock_deploy_client.return_value.predict.call_count == 1
+        # Chat response should be unwrapped
+        assert response == "This is a response"
+    else:
+        assert mock_deploy_client.return_value.predict.call_count == 2
+        assert pd.Series(response).equals(pd.Series(["This is a response"] * 2))
+
+
 def test_import_evaluation_dataset():
     # This test is to validate both imports work at the same time
     from mlflow.models.evaluation import EvaluationDataset
     from mlflow.models.evaluation.base import EvaluationDataset  # noqa: F401
+
+
+def test_evaluate_shows_server_stdout_and_stderr_on_error(
+    linear_regressor_model_uri, diabetes_dataset
+):
+    with mlflow.start_run():
+        server_proc = subprocess.Popen(
+            ["echo", "test1324"], stdout=subprocess.PIPE, stderr=subprocess.STDOUT
+        )
+        with mock.patch(
+            "mlflow.pyfunc.backend.PyFuncBackend.serve",
+            return_value=server_proc,
+        ) as mock_serve:
+            with pytest.raises(MlflowException, match="test1324"):
+                evaluate(
+                    linear_regressor_model_uri,
+                    diabetes_dataset._constructor_args["data"],
+                    model_type="regressor",
+                    targets=diabetes_dataset._constructor_args["targets"],
+                    evaluators="dummy_evaluator",
+                    env_manager="virtualenv",
+                )
+            mock_serve.assert_called_once()
+
+
+def test_env_manager_set_on_served_pyfunc_model(multiclass_logistic_regressor_model_uri):
+    model = mlflow.pyfunc.load_model(multiclass_logistic_regressor_model_uri)
+    client = ScoringServerClient("127.0.0.1", "8080")
+    served_model_1 = _ServedPyFuncModel(model_meta=model.metadata, client=client, server_pid=1)
+    served_model_1.env_manager = "virtualenv"
+    assert served_model_1.env_manager == "virtualenv"

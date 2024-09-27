@@ -7,6 +7,7 @@ returned as a column with predicted class label, class id and probabilities for 
 as an array of strings.
 
 """
+
 import base64
 import os
 

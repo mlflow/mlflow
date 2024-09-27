@@ -1,4 +1,3 @@
-/// <reference types="react" />
 import type { TreeProps as AntDTreeProps } from 'antd';
 import type { DangerouslySetAntdProps, HTMLDataAttributes } from '../types';
 export type { TreeDataNode } from 'antd';

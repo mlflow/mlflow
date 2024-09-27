@@ -84,7 +84,7 @@ def login(backend: str = "databricks", interactive: bool = True) -> None:
         backend: string, the backend of the tracking server. Currently only "databricks" is
             supported.
 
-        interacive: bool, controls request for user input on missing credentials. If true, user
+        interactive: bool, controls request for user input on missing credentials. If true, user
             input will be requested if no credentials are found, otherwise an exception will be
             raised if no credentials are found.
 

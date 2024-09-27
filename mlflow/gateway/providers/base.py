@@ -1,12 +1,15 @@
 from abc import ABC, abstractmethod
-from typing import AsyncIterable, Tuple
+from typing import AsyncIterable, Tuple, Type
 
 from fastapi import HTTPException
 
+from mlflow.gateway.base_models import ConfigModel
 from mlflow.gateway.config import RouteConfig
 from mlflow.gateway.schemas import chat, completions, embeddings
+from mlflow.utils.annotations import developer_stable
 
 
+@developer_stable
 class BaseProvider(ABC):
     """
     Base class for MLflow Gateway providers.
@@ -14,12 +17,19 @@ class BaseProvider(ABC):
 
     NAME: str = ""
     SUPPORTED_ROUTE_TYPES: Tuple[str, ...]
+    CONFIG_TYPE: Type[ConfigModel]
 
     def __init__(self, config: RouteConfig):
         if self.NAME == "":
             raise ValueError(
                 f"{self.__class__.__name__} is a subclass of BaseProvider and must "
                 f"override 'NAME' attribute as a non-empty string."
+            )
+
+        if not hasattr(self, "CONFIG_TYPE") or not issubclass(self.CONFIG_TYPE, ConfigModel):
+            raise ValueError(
+                f"{self.__class__.__name__} is a subclass of BaseProvider and must "
+                f"override 'CONFIG_TYPE' attribute as a subclass of ConfigModel."
             )
 
         self.config = config

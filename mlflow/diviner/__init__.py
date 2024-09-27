@@ -15,6 +15,7 @@ Diviner format
 .. _Diviner:
     https://databricks-diviner.readthedocs.io/en/latest/index.html
 """
+
 import logging
 import os
 import pathlib
@@ -30,6 +31,7 @@ from mlflow.environment_variables import MLFLOW_DFS_TMP
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model, ModelInputExample, ModelSignature
 from mlflow.models.model import MLMODEL_FILE_NAME
+from mlflow.models.signature import _infer_signature_from_input_example
 from mlflow.models.utils import _save_example
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
@@ -157,10 +159,13 @@ def save_model(
 
     if mlflow_model is None:
         mlflow_model = Model()
+    saved_example = _save_example(mlflow_model, input_example, str(path))
+    if signature is None and saved_example is not None:
+        wrapped_model = _DivinerModelWrapper(diviner_model)
+        signature = _infer_signature_from_input_example(saved_example, wrapped_model)
+
     if signature is not None:
         mlflow_model.signature = signature
-    if input_example is not None:
-        _save_example(mlflow_model, input_example, str(path))
     if metadata is not None:
         mlflow_model.metadata = metadata
 
@@ -439,6 +444,12 @@ def log_model(
 class _DivinerModelWrapper:
     def __init__(self, diviner_model):
         self.diviner_model = diviner_model
+
+    def get_raw_model(self):
+        """
+        Returns the underlying model.
+        """
+        return self.diviner_model
 
     def predict(self, dataframe, params: Optional[Dict[str, Any]] = None) -> pd.DataFrame:
         """A method that allows a pyfunc implementation of this flavor to generate forecasted values

@@ -17,6 +17,7 @@ import re
 import shutil
 import string
 import sys
+from collections import namedtuple
 from types import MappingProxyType
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
 from urllib.parse import urlparse
@@ -32,6 +33,7 @@ from mlflow.environment_variables import (
     MLFLOW_HUGGINGFACE_DEVICE_MAP_STRATEGY,
     MLFLOW_HUGGINGFACE_USE_DEVICE_MAP,
     MLFLOW_HUGGINGFACE_USE_LOW_CPU_MEM_USAGE,
+    MLFLOW_INPUT_EXAMPLE_INFERENCE_TIMEOUT,
 )
 from mlflow.exceptions import MlflowException
 from mlflow.models import (
@@ -52,9 +54,12 @@ from mlflow.tracking.artifact_utils import _get_root_uri_and_artifact_path
 from mlflow.transformers.flavor_config import (
     FlavorKey,
     build_flavor_config,
+    build_flavor_config_from_local_checkpoint,
     update_flavor_conf_to_persist_pretrained_model,
 )
-from mlflow.transformers.hub_utils import is_valid_hf_repo_id
+from mlflow.transformers.hub_utils import (
+    is_valid_hf_repo_id,
+)
 from mlflow.transformers.llm_inference_utils import (
     _LLM_INFERENCE_TASK_CHAT,
     _LLM_INFERENCE_TASK_COMPLETIONS,
@@ -76,6 +81,7 @@ from mlflow.transformers.model_io import (
     _MODEL_BINARY_FILE_NAME,
     load_model_and_components_from_huggingface_hub,
     load_model_and_components_from_local,
+    save_local_checkpoint,
     save_pipeline_pretrained_weights,
 )
 from mlflow.transformers.peft import (
@@ -112,7 +118,7 @@ from mlflow.utils.environment import (
     _process_pip_requirements,
     _PythonEnv,
     _validate_env_arguments,
-    infer_pip_requirements_with_timeout,
+    infer_pip_requirements,
 )
 from mlflow.utils.file_utils import TempDir, get_total_file_size, write_to
 from mlflow.utils.logging_utils import suppress_logs
@@ -171,6 +177,13 @@ _PROMPT_TEMPLATE_RETURN_FULL_TEXT_INFO = (
     "`model_config` dict with `return_full_text` set to `True` when saving the model."
 )
 
+
+# Alias for the audio data types that Transformers pipeline (e.g. Whisper) expects.
+# It can be one of:
+#  1. A string representing the path or URL to an audio file.
+#  2. A bytes object representing the raw audio data.
+#  3. A float numpy array representing the audio time series.
+AudioInput = Union[str, bytes, np.ndarray]
 
 _logger = logging.getLogger(__name__)
 
@@ -274,7 +287,7 @@ def save_model(
     conda_env=None,
     metadata: Optional[Dict[str, Any]] = None,
     model_config: Optional[Dict[str, Any]] = None,
-    example_no_conversion: bool = False,
+    example_no_conversion: Optional[bool] = None,
     prompt_template: Optional[str] = None,
     save_pretrained: bool = True,
     **kwargs,  # pylint: disable=unused-argument
@@ -286,14 +299,35 @@ def save_model(
 
     Args:
         transformers_model:
-            A trained transformers `Pipeline` or a dictionary that maps required components of a
-            pipeline to the named keys of ["model", "image_processor", "tokenizer",
-            "feature_extractor"]. The `model` key in the dictionary must map to a value that
-            inherits from `PreTrainedModel`, `TFPreTrainedModel`, or `FlaxPreTrainedModel`.
-            All other component entries in the dictionary must support the defined task type that is
-            associated with the base model type configuration.
+            The transformers model to save. This can be one of the following format:
 
-            An example of supplying component-level parts of a transformers model is shown below:
+                1. A transformers `Pipeline` instance.
+                2. A dictionary that maps required components of a pipeline to the named keys
+                    of ["model", "image_processor", "tokenizer", "feature_extractor"].
+                    The `model` key in the dictionary must map to a value that inherits from
+                    `PreTrainedModel`, `TFPreTrainedModel`, or `FlaxPreTrainedModel`.
+                    All other component entries in the dictionary must support the defined task
+                    type that is associated with the base model type configuration.
+                3. A string that represents a path to a local/DBFS directory containing a model
+                    checkpoint. The directory must contain a `config.json` file that is required
+                    for loading the transformers model. This is particularly useful when logging
+                    a model that cannot be loaded into memory for serialization.
+
+            An example of specifying a `Pipeline` from a default pipeline instantiation:
+
+            .. code-block:: python
+
+                from transformers import pipeline
+
+                qa_pipe = pipeline("question-answering", "csarron/mobilebert-uncased-squad-v2")
+
+                with mlflow.start_run():
+                    mlflow.transformers.save_model(
+                        transformers_model=qa_pipe,
+                        path="path/to/save/model",
+                    )
+
+            An example of specifying component-level parts of a transformers model is shown below:
 
             .. code-block:: python
 
@@ -313,17 +347,13 @@ def save_model(
                         path="path/to/save/model",
                     )
 
-            An example of submitting a `Pipeline` from a default pipeline instantiation:
+            An example of specifying a local checkpoint path is shown below:
 
             .. code-block:: python
 
-                from transformers import pipeline
-
-                qa_pipe = pipeline("question-answering", "csarron/mobilebert-uncased-squad-v2")
-
                 with mlflow.start_run():
                     mlflow.transformers.save_model(
-                        transformers_model=qa_pipe,
+                        transformers_model="path/to/local/checkpoint",
                         path="path/to/save/model",
                     )
 
@@ -343,6 +373,10 @@ def save_model(
             pipeline utilities within the transformers library will be used to infer the
             correct task type. If the value specified is not a supported type,
             an Exception will be thrown.
+        torch_dtype: The Pytorch dtype applied to the model when loading back. This is useful
+            when you want to save the model with a specific dtype that is different from the
+            dtype of the model when it was trained. If not specified, the current dtype of the
+            model instance will be used.
         model_card: An Optional `ModelCard` instance from `huggingface-hub`. If provided, the
             contents of the model card will be saved along with the provided
             `transformers_model`. If not provided, an attempt will be made to fetch
@@ -415,9 +449,8 @@ def save_model(
             model. The model signature can be inferred using `infer_signature` function
             of `mlflow.models.signature`.
 
-            Example:
-
             .. code-block:: python
+                :caption: Example
 
                 from mlflow.models import infer_signature
                 from mlflow.transformers import generate_signature_output
@@ -467,15 +500,42 @@ def save_model(
 
     code_dir_subpath = _validate_and_copy_code_paths(code_paths, str(path))
 
-    _validate_transformers_model_dict(transformers_model)
-
     if isinstance(transformers_model, transformers.Pipeline):
+        _validate_transformers_model_dict(transformers_model)
         built_pipeline = transformers_model
     elif isinstance(transformers_model, dict):
+        _validate_transformers_model_dict(transformers_model)
         built_pipeline = _build_pipeline_from_model_input(transformers_model, task=task)
+    elif isinstance(transformers_model, str):
+        # When a string is passed, it should be a path to model checkpoint in local storage or DBFS
+        if transformers_model.startswith("dbfs:"):
+            # Replace the DBFS URI to the actual mount point
+            transformers_model = transformers_model.replace("dbfs:", "/dbfs", 1)
+
+        if task is None:
+            raise MlflowException(
+                "The `task` argument must be specified when logging a model from a local "
+                "checkpoint. Please provide the task type of the pipeline.",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+
+        if not save_pretrained:
+            raise MlflowException(
+                "The `save_pretrained` argument must be set to True when logging a model from a "
+                "local checkpoint. Please set `save_pretrained=True`.",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+
+        # Create a dummy pipeline object to be used for saving the model
+        DummyModel = namedtuple("DummyModel", ["name_or_path"])
+        DummyPipeline = namedtuple("DummyPipeline", ["task", "model"])
+        built_pipeline = DummyPipeline(task=task, model=DummyModel(name_or_path=transformers_model))
     else:
         raise MlflowException(
-            "The `transformers_model` must be a Transformers Pipeline or a dictionary, "
+            "The `transformers_model` must be one of the following types: \n"
+            " (1) a transformers Pipeline\n"
+            " (2) a dictionary of components for a transformers Pipeline\n"
+            " (3) a path to a local/DBFS directory containing a transformers model checkpoint.\n"
             f"received: {type(transformers_model)}",
             error_code=INVALID_PARAMETER_VALUE,
         )
@@ -501,7 +561,15 @@ def save_model(
 
     if task and task.startswith(_LLM_INFERENCE_TASK_PREFIX):
         llm_inference_task = task
-        _validate_llm_inference_task_type(llm_inference_task, built_pipeline)
+
+        # For local checkpoint saving, we set built_pipeline.task to the original `task`
+        # argument value earlier, which is LLM v1 task. Thereby here we update it to the
+        # corresponding Transformers task type.
+        if isinstance(transformers_model, str):
+            default_task = _get_default_task_for_llm_inference_task(llm_inference_task)
+            built_pipeline = built_pipeline._replace(task=default_task)
+
+        _validate_llm_inference_task_type(llm_inference_task, built_pipeline.task)
     else:
         llm_inference_task = None
 
@@ -509,9 +577,6 @@ def save_model(
         mlflow_model.signature = infer_signature_from_llm_inference_task(
             llm_inference_task, signature
         )
-        # The model with LLM inference task should accept a standard dictionary format
-        # alone so the example should not be converted to pandas DataFrame
-        example_no_conversion = True
     elif signature is not None:
         mlflow_model.signature = signature
 
@@ -573,7 +638,12 @@ def save_model(
         save_pretrained = True
 
     # Create the flavor configuration
-    flavor_conf = build_flavor_config(built_pipeline, processor, torch_dtype, save_pretrained)
+    if isinstance(transformers_model, str):
+        flavor_conf = build_flavor_config_from_local_checkpoint(
+            transformers_model, built_pipeline.task, processor, torch_dtype
+        )
+    else:
+        flavor_conf = build_flavor_config(built_pipeline, processor, torch_dtype, save_pretrained)
 
     if llm_inference_task:
         flavor_conf.update({_LLM_INFERENCE_TASK_KEY: llm_inference_task})
@@ -594,12 +664,16 @@ def save_model(
 
     # Save pipeline model and components weights
     if save_pretrained:
-        save_pipeline_pretrained_weights(path, built_pipeline, flavor_conf, processor)
+        if isinstance(transformers_model, str):
+            save_local_checkpoint(path, transformers_model, flavor_conf, processor)
+        else:
+            save_pipeline_pretrained_weights(path, built_pipeline, flavor_conf, processor)
     else:
         repo = built_pipeline.model.name_or_path
         _logger.info(
-            "Skipping saving pretrained model weights to disk as the save_pretrained is set to "
-            f"False. The reference to HuggingFace Hub repository {repo} will be logged instead."
+            "Skipping saving pretrained model weights to disk as the save_pretrained argument"
+            f"is set to False. The reference to the HuggingFace Hub repository {repo} "
+            "will be logged instead."
         )
 
     if inference_config:
@@ -625,7 +699,11 @@ def save_model(
     # Only allow a subset of task types to have a pyfunc definition.
     # Currently supported types are NLP-based language tasks which have a pipeline definition
     # consisting exclusively of a Model and a Tokenizer.
-    if _should_add_pyfunc_to_model(built_pipeline):
+    if (
+        # TODO: when a local checkpoint path is provided as a model, we assume it is eligible
+        # for pyfunc prediction. This may not be true for all cases, so we should revisit this.
+        isinstance(transformers_model, str) or _should_add_pyfunc_to_model(built_pipeline)
+    ):
         if mlflow_model.signature is None:
             mlflow_model.signature = infer_or_get_default_signature(
                 pipeline=built_pipeline,
@@ -673,14 +751,21 @@ def save_model(
     if conda_env is None:
         if pip_requirements is None:
             default_reqs = get_default_pip_requirements(built_pipeline.model)
-            # NB: Skip inferring requirements for PEFT models to avoid loading the full pretrained
-            # model into memory. PEFT is mainly designed for fine-tuning large models under limited
-            # computational resources, so loading the full model is not preferred and can even crash
-            # the process due to OOM.
-            if not is_peft_model(built_pipeline.model):
+            if isinstance(transformers_model, str) or is_peft_model(built_pipeline.model):
+                _logger.info(
+                    "A local checkpoint path or PEFT model is given as the `transformers_model`. "
+                    "To avoid loading the full model into memory, we don't infer the pip "
+                    "requirement for the model. Instead, we will use the default requirements, "
+                    "but it may not capture all required pip libraries for the model. Consider "
+                    "providing the pip requirements explicitly."
+                )
+            else:
                 # Infer the pip requirements with a timeout to avoid hanging at prediction
-                inferred_reqs = infer_pip_requirements_with_timeout(
-                    str(path), FLAVOR_NAME, fallback=default_reqs
+                inferred_reqs = infer_pip_requirements(
+                    model_uri=str(path),
+                    flavor=FLAVOR_NAME,
+                    fallback=default_reqs,
+                    timeout=MLFLOW_INPUT_EXAMPLE_INFERENCE_TIMEOUT.get(),
                 )
                 default_reqs = set(inferred_reqs).union(default_reqs)
             default_reqs = sorted(default_reqs)
@@ -724,7 +809,7 @@ def log_model(
     conda_env=None,
     metadata: Optional[Dict[str, Any]] = None,
     model_config: Optional[Dict[str, Any]] = None,
-    example_no_conversion: bool = False,
+    example_no_conversion: Optional[bool] = None,
     prompt_template: Optional[str] = None,
     save_pretrained: bool = True,
     **kwargs,
@@ -736,14 +821,35 @@ def log_model(
 
     Args:
         transformers_model:
-            A trained transformers `Pipeline` or a dictionary that maps required components of a
-            pipeline to the named keys of ["model", "image_processor", "tokenizer",
-            "feature_extractor"]. The `model` key in the dictionary must map to a value that
-            inherits from `PreTrainedModel`, `TFPreTrainedModel`, or `FlaxPreTrainedModel`.
-            All other component entries in the dictionary must support the defined task type that is
-            associated with the base model type configuration.
+            The transformers model to save. This can be one of the following format:
 
-            An example of supplying component-level parts of a transformers model is shown below:
+                1. A transformers `Pipeline` instance.
+                2. A dictionary that maps required components of a pipeline to the named keys
+                    of ["model", "image_processor", "tokenizer", "feature_extractor"].
+                    The `model` key in the dictionary must map to a value that inherits from
+                    `PreTrainedModel`, `TFPreTrainedModel`, or `FlaxPreTrainedModel`.
+                    All other component entries in the dictionary must support the defined task
+                    type that is associated with the base model type configuration.
+                3. A string that represents a path to a local/DBFS directory containing a model
+                    checkpoint. The directory must contain a `config.json` file that is required
+                    for loading the transformers model. This is particularly useful when logging
+                    a model that cannot be loaded into memory for serialization.
+
+            An example of specifying a `Pipeline` from a default pipeline instantiation:
+
+            .. code-block:: python
+
+                from transformers import pipeline
+
+                qa_pipe = pipeline("question-answering", "csarron/mobilebert-uncased-squad-v2")
+
+                with mlflow.start_run():
+                    mlflow.transformers.log_model(
+                        transformers_model=qa_pipe,
+                        artifact_path="model",
+                    )
+
+            An example of specifying component-level parts of a transformers model is shown below:
 
             .. code-block:: python
 
@@ -760,21 +866,17 @@ def log_model(
                     }
                     mlflow.transformers.log_model(
                         transformers_model=components,
-                        artifact_path="my_model",
+                        artifact_path="model",
                     )
 
-            An example of submitting a `Pipeline` from a default pipeline instantiation:
+            An example of specifying a local checkpoint path is shown below:
 
             .. code-block:: python
 
-                from transformers import pipeline
-
-                qa_pipe = pipeline("question-answering", "csarron/mobilebert-uncased-squad-v2")
-
                 with mlflow.start_run():
                     mlflow.transformers.log_model(
-                        transformers_model=qa_pipe,
-                        artifact_path="my_pipeline",
+                        transformers_model="path/to/local/checkpoint",
+                        artifact_path="model",
                     )
 
         artifact_path: Local path destination for the serialized model to be saved.
@@ -868,9 +970,8 @@ def log_model(
             model. The model signature can be inferred using `infer_signature` function
             of `mlflow.models.signature`.
 
-            Example:
-
             .. code-block:: python
+                :caption: Example
 
                 from mlflow.models import infer_signature
                 from mlflow.transformers import generate_signature_output
@@ -932,6 +1033,12 @@ def log_model(
         code_paths=code_paths,
         signature=signature,
         input_example=input_example,
+        # NB: We don't validate the serving input if the provided model is a path
+        # to a local checkpoint. This is because the purpose of supporting that
+        # input format is to avoid loading large model into memory. Serving input
+        # validation loads the model into memory and make prediction, which is
+        # expensive and can cause OOM errors.
+        validate_serving_input=not isinstance(transformers_model, str),
         pip_requirements=pip_requirements,
         extra_pip_requirements=extra_pip_requirements,
         model_config=model_config,
@@ -1159,14 +1266,6 @@ def _load_model(path: str, flavor_config, return_type: str, device=None, **kwarg
     if framework := flavor_config.get(FlavorKey.FRAMEWORK):
         conf["framework"] = framework
 
-    if device is None:
-        if MLFLOW_DEFAULT_PREDICTION_DEVICE.get():
-            try:
-                device = int(MLFLOW_DEFAULT_PREDICTION_DEVICE.get())
-            except ValueError:
-                device = _TRANSFORMERS_DEFAULT_CPU_DEVICE_ID
-        elif is_gpu_available():
-            device = _TRANSFORMERS_DEFAULT_GPU_DEVICE_ID
     # Note that we don't set the device in the conf yet because device is
     # incompatible with device_map.
     accelerate_model_conf = {}
@@ -1175,7 +1274,28 @@ def _load_model(path: str, flavor_config, return_type: str, device=None, **kwarg
         conf["device_map"] = device_map_strategy
         accelerate_model_conf["device_map"] = device_map_strategy
         # Cannot use device with device_map
+        if device is not None:
+            raise MlflowException.invalid_parameter_value(
+                "The environment variable MLFLOW_HUGGINGFACE_USE_DEVICE_MAP is set to True, but "
+                f"the `device` argument is provided with value {device}. The device_map and "
+                "`device` argument cannot be used together. Set MLFLOW_HUGGINGFACE_USE_DEVICE_MAP "
+                "to False to specify a particular device ID, or pass None for the `device` "
+                "argument to use device_map."
+            )
         device = None
+    elif device is None:
+        if device_value := MLFLOW_DEFAULT_PREDICTION_DEVICE.get():
+            try:
+                device = int(device_value)
+            except ValueError:
+                _logger.warning(
+                    f"Invalid value for {MLFLOW_DEFAULT_PREDICTION_DEVICE}: {device_value}. "
+                    f"{MLFLOW_DEFAULT_PREDICTION_DEVICE} value must be an integer. "
+                    f"Setting to: {_TRANSFORMERS_DEFAULT_CPU_DEVICE_ID}."
+                )
+                device = _TRANSFORMERS_DEFAULT_CPU_DEVICE_ID
+        elif is_gpu_available():
+            device = _TRANSFORMERS_DEFAULT_GPU_DEVICE_ID
 
     if device is not None:
         conf["device"] = device
@@ -1323,20 +1443,49 @@ def _write_license_information(model_name, card_data, path):
     path.joinpath(_LICENSE_FILE_NAME).write_text(fallback, encoding="utf-8")
 
 
+def _get_supported_pretrained_model_types():
+    """
+    Users might not have all the necessary libraries installed to determine the supported model
+    """
+
+    supported_model_types = ()
+
+    try:
+        from transformers import FlaxPreTrainedModel
+
+        supported_model_types += (FlaxPreTrainedModel,)
+    except Exception:
+        pass
+
+    try:
+        from transformers import PreTrainedModel
+
+        supported_model_types += (PreTrainedModel,)
+    except Exception:
+        pass
+
+    try:
+        from transformers import TFPreTrainedModel
+
+        supported_model_types += (TFPreTrainedModel,)
+    except Exception:
+        pass
+
+    return supported_model_types
+
+
 def _build_pipeline_from_model_input(model_dict: Dict[str, Any], task: Optional[str]) -> Pipeline:
     """
     Utility for generating a pipeline from component parts. If required components are not
     specified, use the transformers library pipeline component validation to force raising an
     exception. The underlying Exception thrown in transformers is verbose enough for diagnosis.
     """
-    from transformers import FlaxPreTrainedModel, PreTrainedModel, TFPreTrainedModel, pipeline
+
+    from transformers import pipeline
 
     model = model_dict[FlavorKey.MODEL]
 
-    if not (
-        isinstance(model, (TFPreTrainedModel, PreTrainedModel, FlaxPreTrainedModel))
-        or is_peft_model(model)
-    ):
+    if not (isinstance(model, _get_supported_pretrained_model_types()) or is_peft_model(model)):
         raise MlflowException(
             "The supplied model type is unsupported. The model must be one of: "
             "PreTrainedModel, TFPreTrainedModel, FlaxPreTrainedModel, or PeftModel",
@@ -1381,18 +1530,18 @@ def _get_task_for_model(model_name_or_path: str, default_task=None) -> str:
         ) from e
 
 
-def _validate_llm_inference_task_type(llm_inference_task: str, pipeline: Pipeline) -> None:
+def _validate_llm_inference_task_type(llm_inference_task: str, pipeline_task: str) -> None:
     """
     Validates that an ``inference_task`` type is supported by ``transformers`` pipeline type.
     """
     supported_llm_inference_tasks = _SUPPORTED_LLM_INFERENCE_TASK_TYPES_BY_PIPELINE_TASK.get(
-        pipeline.task, []
+        pipeline_task, []
     )
 
     if llm_inference_task not in supported_llm_inference_tasks:
         raise MlflowException(
             f"The task provided is invalid. '{llm_inference_task}' is not a supported task for "
-            f"the {pipeline.task} pipeline. Must be one of {supported_llm_inference_tasks}",
+            f"the {pipeline_task} pipeline. Must be one of {supported_llm_inference_tasks}",
             error_code=INVALID_PARAMETER_VALUE,
         )
 
@@ -1403,6 +1552,7 @@ def _get_engine_type(model):
     deep learning framework backends: ``tensorflow``, ``torch``, or ``flax``.
     """
     from transformers import FlaxPreTrainedModel, PreTrainedModel, TFPreTrainedModel
+    from transformers.utils import is_torch_available
 
     if is_peft_model(model):
         model = get_peft_base_model(model)
@@ -1414,6 +1564,9 @@ def _get_engine_type(model):
             return "torch"
         elif issubclass(cls, FlaxPreTrainedModel):
             return "flax"
+
+    # As a fallback, we check current environment to determine the engine type
+    return "torch" if is_torch_available() else "tensorflow"
 
 
 def _should_add_pyfunc_to_model(pipeline) -> bool:
@@ -1494,6 +1647,15 @@ def _load_pyfunc(path, model_config: Optional[Dict[str, Any]] = None):
     )
 
 
+def _is_conversational_pipeline(pipeline):
+    """
+    Checks if the pipeline is a ConversationalPipeline.
+    """
+    if cp := _try_import_conversational_pipeline():
+        return isinstance(pipeline, cp)
+    return False
+
+
 def _try_import_conversational_pipeline():
     """
     Try importing ConversationalPipeline because for version > 4.41.2
@@ -1560,6 +1722,12 @@ class _TransformersWrapper:
         self.llm_inference_task = (
             self.flavor_config.get(_LLM_INFERENCE_TASK_KEY) if self.flavor_config else None
         )
+
+    def get_raw_model(self):
+        """
+        Returns the underlying model.
+        """
+        return self.pipeline
 
     def _convert_pandas_to_dict(self, data):
         import transformers
@@ -1746,9 +1914,7 @@ class _TransformersWrapper:
             output_key = None
             data = self._parse_feature_extraction_input(data)
             data = self._format_prompt_template(data)
-        elif (conversational_pipeline := _try_import_conversational_pipeline()) and isinstance(
-            self.pipeline, conversational_pipeline
-        ):
+        elif _is_conversational_pipeline(self.pipeline):
             output_key = None
             if not self._conversation:
                 # this import is valid if conversational_pipeline is not None
@@ -1784,7 +1950,7 @@ class _TransformersWrapper:
         data = self._convert_cast_lists_from_np_back_to_list(data)
 
         # Generate inference data with the pipeline object
-        if (cp := _try_import_conversational_pipeline()) and isinstance(self.pipeline, cp):
+        if _is_conversational_pipeline(self.pipeline):
             conversation_output = self.pipeline(self._conversation)
             return conversation_output.generated_responses[-1]
         else:
@@ -1865,10 +2031,12 @@ class _TransformersWrapper:
         """
         import transformers
 
-        data = self._coerce_exploded_dict_to_single_dict(data)
-        data = self._parse_input_for_table_question_answering(data)
-        data = self._parse_conversation_input(data)
-        if (  # noqa: SIM114
+        if isinstance(self.pipeline, transformers.TableQuestionAnsweringPipeline):
+            data = self._coerce_exploded_dict_to_single_dict(data)
+            return self._parse_input_for_table_question_answering(data)
+        elif _is_conversational_pipeline(self.pipeline):
+            return self._parse_conversation_input(data)
+        elif (  # noqa: SIM114
             isinstance(
                 self.pipeline,
                 (
@@ -2003,14 +2171,8 @@ class _TransformersWrapper:
                 "Only str, list of str, dict, and list of dict are supported."
             )
 
-    def _parse_conversation_input(self, data):
-        conversational_pipeline = _try_import_conversational_pipeline()
-
-        if (
-            not conversational_pipeline
-            or not isinstance(self.pipeline, conversational_pipeline)
-            or isinstance(data, str)
-        ):
+    def _parse_conversation_input(self, data) -> str:
+        if isinstance(data, str):
             return data
         elif isinstance(data, list) and all(isinstance(elem, dict) for elem in data):
             return next(iter(data[0].values()))
@@ -2019,24 +2181,20 @@ class _TransformersWrapper:
             return next(iter(data.values()))
 
     def _parse_input_for_table_question_answering(self, data):
-        import transformers
-
-        if not isinstance(self.pipeline, transformers.TableQuestionAnsweringPipeline):
-            return data
-
         if "table" not in data:
             raise MlflowException(
                 "The input dictionary must have the 'table' key.",
                 error_code=INVALID_PARAMETER_VALUE,
             )
-
         elif isinstance(data["table"], dict):
             data["table"] = json.dumps(data["table"])
             return data
         else:
             return data
 
-    def _coerce_exploded_dict_to_single_dict(self, data):
+    def _coerce_exploded_dict_to_single_dict(
+        self, data: List[Dict[str, Any]]
+    ) -> Dict[str, List[Any]]:
         """
         Parses the result of Pandas DataFrame.to_dict(orient="records") from pyfunc
         signature validation to coerce the output to the required format for a
@@ -2051,20 +2209,14 @@ class _TransformersWrapper:
 
         Output:
 
-        [
-          "We should order more pizzas to meet the demand.",
-          "The venue size should be updated to handle the number of guests.",
-        ]
-
+        {
+          "answer": [
+              "We should order more pizzas to meet the demand.",
+              "The venue size should be updated to handle the number of guests.",
+          ]
+        }
         """
-        import transformers
-
-        if not isinstance(
-            self.pipeline,
-            transformers.TableQuestionAnsweringPipeline,
-        ):
-            return data
-        elif isinstance(data, list) and all(isinstance(item, dict) for item in data):
+        if isinstance(data, list) and all(isinstance(item, dict) for item in data):
             collection = data.copy()
             parsed = collection[0]
             for coll in collection:
@@ -2358,22 +2510,6 @@ class _TransformersWrapper:
         else:
             return [output_data[0][target_dict_key]]
 
-    def _parse_list_output_for_multiple_candidate_pipelines(self, output_data):
-        # NB: This will not continue to parse nested lists. Pipelines do not output complex
-        # types that are greater than 2 levels deep so there is no need for more complex
-        # traversal for outputs.
-        if isinstance(output_data, list) and len(output_data) < 1:
-            raise MlflowException(
-                "The output of the pipeline contains no data.", error_code=BAD_REQUEST
-            )
-
-        if isinstance(output_data[0], list):
-            return [
-                self._parse_list_output_for_multiple_candidate_pipelines(x) for x in output_data
-            ]
-        else:
-            return output_data[0]
-
     def _parse_question_answer_input(self, data):
         """
         Parses the single string input representation for a question answer pipeline into the
@@ -2629,94 +2765,65 @@ class _TransformersWrapper:
 
         return input_data
 
-    def _convert_audio_input(self, data):
+    def _convert_audio_input(
+        self, data: Union[AudioInput, List[Dict[int, List[AudioInput]]]]
+    ) -> Union[AudioInput, List[AudioInput]]:
         """
-        Conversion utility for decoding the base64 encoded bytes data of a raw soundfile when
-        parsed through model serving, if applicable. Direct usage of the pyfunc implementation
-        outside of model serving will treat this utility as a noop.
+        Convert the input data into the format that the Transformers pipeline expects.
 
-        For reference, the expected encoding for input to Model Serving will be:
+        Args:
+            data: The input data to be converted. This can be one of the following:
+                1. A single input audio data (bytes, numpy array, or a path or URI to an audio file)
+                2. List of dictionaries, derived from Pandas DataFrame with `orient="records"`.
+                   This is the outcome of the pyfunc signature validation for the audio input.
+                   E.g. [{[0]: <audio data>}, {[1]: <audio data>}]
 
-        import requests
-        import base64
-
-        response = requests.get("https://www.my.sound/a/sound/file.wav")
-        encoded_audio = base64.b64encode(response.content).decode("ascii")
-
-        inference_data = json.dumps({"inputs": [encoded_audio]})
-
-        or
-
-        inference_df = pd.DataFrame(
-        pd.Series([encoded_audio], name="audio_file")
-        )
-        split_dict = {"dataframe_split": inference_df.to_dict(orient="split")}
-        split_json = json.dumps(split_dict)
-
-        or
-
-        records_dict = {"dataframe_records": inference_df.to_dict(orient="records")}
-        records_json = json.dumps(records_dict)
-
-        This utility will convert this JSON encoded, base64 encoded text back into bytes for
-        input into the AutomaticSpeechRecognitionPipeline for inference.
+        Returns:
+            A single or list of audio data.
         """
+        if isinstance(data, list):
+            data = [list(element.values())[0] for element in data]
+            decoded = [self._decode_audio(audio) for audio in data]
+            # Signature validation converts a single audio data into a list (via Pandas Series).
+            # We have to unwrap it back not to confuse with batch processing.
+            return decoded if len(decoded) > 1 else decoded[0]
+        else:
+            return self._decode_audio(data)
 
-        def is_base64(s):
-            try:
-                return base64.b64encode(base64.b64decode(s)) == s
-            except binascii.Error:
-                return False
-
-        def decode_audio(encoded):
-            if isinstance(encoded, str):
-                # This is to support blob style passing of uri locations to process audio files
-                # on disk or object store. Note that if a uri is passed, a signature *must be*
-                # provided for serving to function as the default signature uses bytes.
-                return encoded
-            elif isinstance(encoded, bytes):
-                # For input types 'dataframe_split' and 'dataframe_records', the encoding
-                # conversion to bytes is handled.
-                if not is_base64(encoded):
-                    return encoded
-                else:
-                    # For input type 'inputs', explicit decoding of the b64encoded audio is needed.
-                    return base64.b64decode(encoded)
+    def _decode_audio(self, audio: AudioInput) -> AudioInput:
+        """
+        Decode the audio data if it is base64 encoded bytes, otherwise no-op.
+        """
+        if isinstance(audio, str):
+            # Input is an URI to the audio file to be processed.
+            self._validate_str_input_uri_or_file(audio)
+            return audio
+        elif isinstance(audio, np.ndarray):
+            # Input is a numpy array that contains floating point time series of the audio.
+            return audio
+        elif isinstance(audio, bytes):
+            # Input is a bytes object. In model serving, the input audio data is b64encoded.
+            # They are typically decoded before reaching here, but iff the inference payload
+            # contains raw bytes in the key 'inputs', the upstream code will not decode the
+            # bytes. Therefore, we need to decode the bytes here. For other cases like
+            # 'dataframe_records' or 'dataframe_split', the bytes should be already decoded.
+            if self.is_base64_audio(audio):
+                return base64.b64decode(audio)
             else:
-                try:
-                    return base64.b64decode(encoded)
-                except binascii.Error as e:
-                    raise MlflowException(
-                        "The encoded soundfile that was passed has not been properly base64 "
-                        "encoded. Please ensure that the raw sound bytes have been processed with "
-                        "`base64.b64encode(<audio data bytes>).decode('ascii')`"
-                    ) from e
+                return audio
+        else:
+            raise MlflowException(
+                "Invalid audio data. Must be either bytes, str, or np.ndarray.",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
 
-        # The example input data that is processed by this logic is from the pd.DataFrame
-        # conversion that happens within serving wherein the bytes input data is cast to
-        # a pd.DataFrame(pd.Series([raw_bytes])) and then cast to JSON serializable data in the
-        # format:
-        # {[0]: [{[0]: <audio data>}]}
-        # In the inputs format, due to the modification of how types are not enforced, the
-        # logic that is present in processing `records` and `split` format orientation when casting
-        # back to dictionary does not do the automatic decoding of the data from base64 encoded
-        # back to bytes. This is the reason for the conditional logic within `decode_audio` based
-        # on whether the bytes data is base64 encoded or standard bytes format.
-        # The output of the conversion present in the conditional structural validation below is
-        # to return the only input format that the audio transcription pipeline permits:
-        # a bytes input of a single element.
-        if isinstance(data, list) and all(isinstance(element, dict) for element in data):
-            encoded_audio = list(data[0].values())[0]
-            if isinstance(encoded_audio, str):
-                self._validate_str_input_uri_or_file(encoded_audio)
-            return decode_audio(encoded_audio)
-        elif isinstance(data, str):
-            self._validate_str_input_uri_or_file(data)
-        # For new schema, we extract the data field out when converting
-        # pandas DataFrame to dictionary.
-        elif isinstance(data, bytes):
-            return decode_audio(data)
-        return data
+    @staticmethod
+    def is_base64_audio(audio: bytes) -> bool:
+        """Check whether input audio is a base64 encoded"""
+        try:
+            return base64.b64encode(base64.b64decode(audio)) == audio
+        except binascii.Error:
+            return False
 
     @staticmethod
     def _validate_str_input_uri_or_file(input_str):

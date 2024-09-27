@@ -1,4 +1,3 @@
-/// <reference types="react" />
 import type { Step } from '../../development/Stepper';
 /**
  * Represents one step in the wizard

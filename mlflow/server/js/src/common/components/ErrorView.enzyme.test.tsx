@@ -1,6 +1,6 @@
 import React from 'react';
 import { ErrorView } from './ErrorView';
-import { mountWithIntl } from 'common/utils/TestUtils.enzyme';
+import { mountWithIntl } from '@mlflow/mlflow/src/common/utils/TestUtils.enzyme';
 import { MemoryRouter } from '../../common/utils/RoutingUtils';
 
 describe('ErrorView', () => {

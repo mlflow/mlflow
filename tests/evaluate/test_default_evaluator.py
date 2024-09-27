@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import io
 import json
+import os
 import re
 from os.path import join as path_join
 from pathlib import Path
@@ -27,9 +28,18 @@ import mlflow
 from mlflow.exceptions import MlflowException
 from mlflow.metrics import (
     MetricValue,
+    flesch_kincaid_grade_level,
     make_metric,
+    toxicity,
 )
 from mlflow.metrics.genai import model_utils
+from mlflow.metrics.genai.base import EvaluationExample
+from mlflow.metrics.genai.genai_metric import (
+    _GENAI_CUSTOM_METRICS_FILE_NAME,
+    make_genai_metric_from_prompt,
+    retrieve_custom_metrics,
+)
+from mlflow.metrics.genai.metric_definitions import answer_similarity
 from mlflow.models import Model
 from mlflow.models.evaluation.artifacts import (
     CsvEvaluationArtifact,
@@ -2131,14 +2141,16 @@ def test_make_metric_name_inference():
     def metric(_df, _metrics):
         return 1
 
-    metric = make_metric(eval_fn=metric, greater_is_better=True)
-    assert metric.name == "metric"
+    eval_metric = make_metric(eval_fn=metric, greater_is_better=True)
+    assert eval_metric.name == "metric"
 
-    metric = make_metric(eval_fn=metric, greater_is_better=True, name="my_metric")
-    assert metric.name == "my_metric"
+    eval_metric = make_metric(eval_fn=metric, greater_is_better=True, name="my_metric")
+    assert eval_metric.name == "my_metric"
 
-    metric = make_metric(eval_fn=lambda _df, _metrics: 0, greater_is_better=True, name="metric")
-    assert metric.name == "metric"
+    eval_metric = make_metric(
+        eval_fn=lambda _df, _metrics: 0, greater_is_better=True, name="metric"
+    )
+    assert eval_metric.name == "metric"
 
     with pytest.raises(
         MlflowException, match="`name` must be specified if `eval_fn` is a lambda function."
@@ -2344,7 +2356,9 @@ def question_classifier(inputs):
 def test_evaluate_question_answering_with_numerical_targets():
     with mlflow.start_run() as run:
         model_info = mlflow.pyfunc.log_model(
-            artifact_path="model", python_model=question_classifier, input_example=[0, 1]
+            artifact_path="model",
+            python_model=question_classifier,
+            input_example=pd.DataFrame({"question": ["a", "b"]}),
         )
         data = pd.DataFrame({"question": ["a", "b"], "answer": [0, 1]})
         results = mlflow.evaluate(
@@ -2488,7 +2502,9 @@ def test_evaluate_text_summarization_with_targets_no_type_hints():
 
     with mlflow.start_run() as run:
         model_info = mlflow.pyfunc.log_model(
-            artifact_path="model", python_model=another_language_model, input_example=["a", "b"]
+            artifact_path="model",
+            python_model=another_language_model,
+            input_example=pd.DataFrame({"text": ["a", "b"]}),
         )
         data = pd.DataFrame({"text": ["a", "b"], "summary": ["a", "b"]})
         results = evaluate(
@@ -3535,7 +3551,7 @@ def test_evaluate_with_correctness():
         ),
         examples=[],
         version="v1",
-        model="openai:/gpt-3.5-turbo-16k",
+        model="openai:/gpt-4o-mini",
         grading_context_columns=["ground_truth"],
         parameters={"temperature": 0.0},
         aggregations=["mean", "variance", "p90"],
@@ -4127,4 +4143,277 @@ def test_evaluate_custom_metric_with_string_type():
             results.tables["eval_results_table"]["word_count/score"],
             data["text"],
             check_names=False,
+        )
+
+
+def test_do_not_log_built_in_metrics_as_artifacts():
+    with mlflow.start_run() as run:
+        model_info = mlflow.pyfunc.log_model(
+            artifact_path="model", python_model=language_model, input_example=["a"]
+        )
+        data = pd.DataFrame(
+            {
+                "inputs": ["words random", "This is a sentence."],
+                "ground_truth": ["words random", "This is a sentence."],
+            }
+        )
+        evaluate(
+            model_info.model_uri,
+            data,
+            targets="ground_truth",
+            predictions="answer",
+            model_type="question-answering",
+            evaluators="default",
+            extra_metrics=[
+                toxicity(),
+                flesch_kincaid_grade_level(),
+            ],
+        )
+        client = mlflow.MlflowClient()
+        artifacts = [a.path for a in client.list_artifacts(run.info.run_id)]
+        assert _GENAI_CUSTOM_METRICS_FILE_NAME not in artifacts
+
+        results = retrieve_custom_metrics(run_id=run.info.run_id)
+        assert len(results) == 0
+
+
+def test_log_genai_custom_metrics_as_artifacts():
+    with mlflow.start_run() as run:
+        model_info = mlflow.pyfunc.log_model(
+            artifact_path="model", python_model=language_model, input_example=["a"]
+        )
+        data = pd.DataFrame(
+            {
+                "inputs": ["words random", "This is a sentence."],
+                "ground_truth": ["words random", "This is a sentence."],
+            }
+        )
+        example = EvaluationExample(
+            input="What is MLflow?",
+            output="MLflow is an open-source platform for managing machine learning workflows.",
+            score=4,
+            justification="test",
+            grading_context={"targets": "test"},
+        )
+        # This simulates the code path for metrics created from make_genai_metric
+        answer_similarity_metric = answer_similarity(
+            model="gateway:/gpt-4o-mini", examples=[example]
+        )
+        another_custom_metric = make_genai_metric_from_prompt(
+            name="another custom llm judge",
+            judge_prompt="This is another custom judge prompt.",
+            greater_is_better=False,
+            parameters={"temperature": 0.0},
+        )
+        result = evaluate(
+            model_info.model_uri,
+            data,
+            targets="ground_truth",
+            predictions="answer",
+            model_type="question-answering",
+            evaluators="default",
+            extra_metrics=[
+                answer_similarity_metric,
+                another_custom_metric,
+            ],
+        )
+
+    client = mlflow.MlflowClient()
+    artifacts = [a.path for a in client.list_artifacts(run.info.run_id)]
+    assert _GENAI_CUSTOM_METRICS_FILE_NAME in artifacts
+
+    table = result.tables[os.path.splitext(_GENAI_CUSTOM_METRICS_FILE_NAME)[0]]
+    assert table.loc[0, "name"] == "answer_similarity"
+    assert table.loc[0, "version"] == "v1"
+    assert table.loc[1, "name"] == "another custom llm judge"
+    assert table.loc[1, "version"] == ""
+    assert table["version"].dtype == "object"
+
+    results = retrieve_custom_metrics(run.info.run_id)
+    assert len(results) == 2
+    assert [r.name for r in results] == ["answer_similarity", "another custom llm judge"]
+
+    results = retrieve_custom_metrics(run_id=run.info.run_id, name="another custom llm judge")
+    assert len(results) == 1
+    assert results[0].name == "another custom llm judge"
+
+    results = retrieve_custom_metrics(run_id=run.info.run_id, version="v1")
+    assert len(results) == 1
+    assert results[0].name == "answer_similarity"
+
+    results = retrieve_custom_metrics(
+        run_id=run.info.run_id, name="answer_similarity", version="v1"
+    )
+    assert len(results) == 1
+    assert results[0].name == "answer_similarity"
+
+    results = retrieve_custom_metrics(run_id=run.info.run_id, name="do not match")
+    assert len(results) == 0
+
+    results = retrieve_custom_metrics(run_id=run.info.run_id, version="do not match")
+    assert len(results) == 0
+
+
+def test_all_genai_custom_metrics_are_from_user_prompt():
+    with mlflow.start_run() as run:
+        model_info = mlflow.pyfunc.log_model(
+            artifact_path="model", python_model=language_model, input_example=["a"]
+        )
+        data = pd.DataFrame(
+            {
+                "inputs": ["words random", "This is a sentence."],
+                "ground_truth": ["words random", "This is a sentence."],
+            }
+        )
+        custom_metric = make_genai_metric_from_prompt(
+            name="custom llm judge",
+            judge_prompt="This is a custom judge prompt.",
+            greater_is_better=False,
+            parameters={"temperature": 0.0},
+        )
+        another_custom_metric = make_genai_metric_from_prompt(
+            name="another custom llm judge",
+            judge_prompt="This is another custom judge prompt.",
+            greater_is_better=False,
+            parameters={"temperature": 0.7},
+        )
+        result = evaluate(
+            model_info.model_uri,
+            data,
+            targets="ground_truth",
+            predictions="answer",
+            model_type="question-answering",
+            evaluators="default",
+            extra_metrics=[
+                custom_metric,
+                another_custom_metric,
+            ],
+        )
+
+    client = mlflow.MlflowClient()
+    artifacts = [a.path for a in client.list_artifacts(run.info.run_id)]
+    assert _GENAI_CUSTOM_METRICS_FILE_NAME in artifacts
+
+    table = result.tables[os.path.splitext(_GENAI_CUSTOM_METRICS_FILE_NAME)[0]]
+    assert table.loc[0, "name"] == "custom llm judge"
+    assert table.loc[1, "name"] == "another custom llm judge"
+    assert table.loc[0, "version"] == ""
+    assert table.loc[1, "version"] == ""
+    assert table["version"].dtype == "object"
+
+
+def test_xgboost_model_evaluate_work_with_shap_explainer():
+    import shap
+    import xgboost
+    from sklearn.model_selection import train_test_split
+
+    mlflow.xgboost.autolog(log_input_examples=True)
+    X, y = shap.datasets.adult()
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.33, random_state=42)
+
+    xgb_model = xgboost.XGBClassifier()
+    with mlflow.start_run():
+        xgb_model.fit(X_train, y_train)
+
+        eval_data = X_test
+        eval_data["label"] = y_test
+
+        model_uri = mlflow.get_artifact_uri("model")
+        with mock.patch(
+            "mlflow.models.evaluation.default_evaluator._logger.warning"
+        ) as mock_warning:
+            mlflow.evaluate(
+                model_uri,
+                eval_data,
+                targets="label",
+                model_type="classifier",
+                evaluators=["default"],
+            )
+            assert not any(
+                "Shap evaluation failed." in call_arg[0]
+                for call_arg in mock_warning.call_args
+                if isinstance(call_arg, tuple)
+            )
+
+
+@pytest.mark.parametrize(
+    "evaluator_config",
+    [
+        None,
+        {"default": {"pos_label": 1}},
+        {"default": {"label_list": [0, 1]}},
+        {"default": {"label_list": [0, 1], "pos_label": 1}},
+    ],
+)
+def test_evaluate_binary_classifier_calculate_label_list_correctly(evaluator_config):
+    data = pd.DataFrame({"target": [0, 0, 1, 0], "prediction": [0, 1, 0, 0]})
+
+    result = mlflow.evaluate(
+        data=data,
+        model_type="classifier",
+        targets="target",
+        predictions="prediction",
+        evaluator_config=evaluator_config,
+    )
+    metrics_set = {
+        "true_negatives",
+        "false_positives",
+        "false_negatives",
+        "true_positives",
+        "example_count",
+        "accuracy_score",
+        "recall_score",
+        "precision_score",
+        "f1_score",
+    }
+    assert metrics_set.issubset(result.metrics)
+
+
+@pytest.mark.parametrize(
+    ("evaluator_config", "data"),
+    [
+        (None, {"target": [1, 0, 1, 1], "prediction": [1, 2, 0, 0]}),
+        (
+            {"default": {"label_list": [0, 1, 2]}},
+            {"target": [1, 0, 1, 1], "prediction": [1, 2, 0, 0]},
+        ),
+        (
+            {"default": {"label_list": [0, 1, 2], "pos_label": 1}},
+            {"target": [0, 0, 0, 0], "prediction": [0, 0, 0, 0]},
+        ),
+    ],
+)
+def test_evaluate_multi_classifier_calculate_label_list_correctly(
+    evaluator_config, data, monkeypatch
+):
+    monkeypatch.setenv("_MLFLOW_EVALUATE_SUPPRESS_CLASSIFICATION_ERRORS", "true")
+    result = mlflow.evaluate(
+        data=pd.DataFrame(data),
+        model_type="classifier",
+        targets="target",
+        predictions="prediction",
+        evaluator_config=evaluator_config,
+    )
+    metrics_set = {
+        "example_count",
+        "accuracy_score",
+        "recall_score",
+        "precision_score",
+        "f1_score",
+    }
+    assert metrics_set.issubset(result.metrics)
+    assert {"true_negatives", "false_positives", "false_negatives", "true_positives"}.isdisjoint(
+        result.metrics
+    )
+
+
+def test_evaluate_errors_invalid_pos_label():
+    data = pd.DataFrame({"target": [0, 0, 1, 0], "prediction": [0, 1, 0, 0]})
+    with pytest.raises(MlflowException, match=r"'pos_label' 1 must exist in 'label_list'"):
+        mlflow.evaluate(
+            data=data,
+            model_type="classifier",
+            targets="target",
+            predictions="prediction",
+            evaluator_config={"default": {"pos_label": 1, "label_list": [0]}},
         )

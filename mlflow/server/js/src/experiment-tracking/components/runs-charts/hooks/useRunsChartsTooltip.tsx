@@ -6,6 +6,8 @@ import type {
 } from '../components/RunsMetricsLinePlot';
 import { RunsMetricsBarPlotHoverData } from '../components/RunsMetricsBarPlot';
 import { shouldEnableDeepLearningUIPhase3 } from '../../../../common/utils/FeatureUtils';
+import { ChartsTraceHighlightSource, useRunsChartTraceHighlight } from './useRunsChartTraceHighlight';
+import { RUNS_CHARTS_UI_Z_INDEX } from '../utils/runsCharts.const';
 
 export interface RunsChartsTooltipBodyProps<TContext = any, TChartData = any, THoverData = any> {
   runUuid: string;
@@ -129,6 +131,9 @@ export const RunsChartsTooltipWrapper = <
   const mutableHoveredRunUuid = useRef(hoveredRunUuid);
   const mutableTooltipDisplayParams = useRef(tooltipDisplayParams);
   const mutableAdditionalAxisData = useRef(additionalAxisData);
+
+  // Get the higlighting function from the context
+  const { highlightDataTrace } = useRunsChartTraceHighlight();
 
   // This method applies the tooltip position basing on the mouse position
   const applyPositioning = useCallback(
@@ -416,6 +421,17 @@ export const RunsChartsTooltipWrapper = <
     return hoveredRunUuid;
   }, [contextMenuShown, hoveredRunUuid]);
 
+  // When the selected data trace changes, report the highlight event
+  useEffect(
+    () =>
+      highlightDataTrace(selectedRunUuid, {
+        source: ChartsTraceHighlightSource.CHART,
+        // Block the highlight event so it won't change as long as the tooltip is in selected mode
+        shouldBlock: Boolean(selectedRunUuid),
+      }),
+    [highlightDataTrace, selectedRunUuid],
+  );
+
   const contextValue = useMemo(
     () => ({ updateTooltip, resetTooltip, destroyTooltip, selectedRunUuid, closeContextMenu }),
     [updateTooltip, resetTooltip, destroyTooltip, selectedRunUuid, closeContextMenu],
@@ -493,15 +509,24 @@ export const useRunsChartsTooltip = <
   }
 
   const { updateTooltip, resetTooltip, selectedRunUuid, closeContextMenu, destroyTooltip } = contextValue;
+  const { highlightDataTrace } = useRunsChartTraceHighlight();
 
   const setTooltip = useCallback(
     (runUuid = '', event?: RunsChartsChartMouseEvent, additionalAxisData?: TAxisData) => {
       updateTooltip(runUuid, mode, chartData, event, additionalAxisData);
+      highlightDataTrace(runUuid, {
+        source: ChartsTraceHighlightSource.CHART,
+      });
     },
-    [updateTooltip, chartData, mode],
+    [updateTooltip, chartData, mode, highlightDataTrace],
   );
 
-  return { setTooltip, resetTooltip, selectedRunUuid, closeContextMenu, destroyTooltip };
+  const resetTooltipWithHighlight = useCallback(() => {
+    resetTooltip();
+    highlightDataTrace(null);
+  }, [resetTooltip, highlightDataTrace]);
+
+  return { setTooltip, resetTooltip: resetTooltipWithHighlight, selectedRunUuid, closeContextMenu, destroyTooltip };
 };
 
 const styles = {
@@ -513,9 +538,10 @@ const styles = {
     height: '100%',
     position: 'fixed',
     pointerEvents: 'none',
+    zIndex: RUNS_CHARTS_UI_Z_INDEX.TOOLTIP_CONTAINER,
   } as Interpolation<Theme>,
   contextMenuWrapper: (theme: Theme) => ({
-    zIndex: 1,
+    zIndex: RUNS_CHARTS_UI_Z_INDEX.TOOLTIP,
     position: 'absolute' as const,
     padding: theme.spacing.sm,
     backgroundColor: theme.colors.backgroundPrimary,

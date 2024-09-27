@@ -10,13 +10,14 @@ import {
 } from './experimentPage.row-types';
 import type { SingleRunData } from './experimentPage.row-utils';
 import type { MetricEntity, RunDatasetWithTags } from '../../../types';
-import type { SampledMetricsByRun } from 'experiment-tracking/components/runs-charts/hooks/useSampledMetricHistory';
+import type { SampledMetricsByRun } from '@mlflow/mlflow/src/experiment-tracking/components/runs-charts/hooks/useSampledMetricHistory';
 import { RUNS_VISIBILITY_MODE } from '../models/ExperimentPageUIState';
 import { shouldEnableToggleIndividualRunsInGroups } from '../../../../common/utils/FeatureUtils';
 import { determineIfRowIsHidden } from './experimentPage.common-row-utils';
+import { removeOutliersFromMetricHistory } from '../../runs-charts/components/RunsCharts.common';
 
 type AggregableParamEntity = { key: string; value: string };
-type AggregableMetricEntity = { key: string; value: number; step: number };
+type AggregableMetricEntity = { key: string; value: number; step: number; min?: number; max?: number };
 
 export type RunsGroupByConfig = {
   aggregateFunction: RunGroupingAggregateFunction;
@@ -252,24 +253,33 @@ const aggregateValues = <T extends AggregableParamEntity | AggregableMetricEntit
     const aggregateMathFunction = aggregateFunction === RunGroupingAggregateFunction.Min ? Math.min : Math.max;
 
     // Create a map of values by key, then reduce the values by key using the aggregate function
-    const valuesMap = valuesByRun.reduce<Record<string, { key: string; value: number; maxStep: number }>>(
-      (acc, entryList) => {
-        entryList.forEach((entry) => {
-          const { key, value } = entry;
+    const valuesMap = valuesByRun.reduce<
+      Record<
+        string,
+        {
+          key: string;
+          value: number;
+          maxStep: number;
+        }
+      >
+    >((acc, entryList) => {
+      entryList.forEach((entry) => {
+        const { key, value } = entry;
 
-          if (!acc[key]) {
-            acc[key] = { key, value: Number(value), maxStep: 0 };
-          } else {
-            acc[key] = { key, value: aggregateMathFunction(Number(acc[key].value), Number(value)), maxStep: 0 };
-          }
-          if ('step' in entry) {
-            acc[key].maxStep = Math.max(entry.step, acc[key].maxStep);
-          }
-        });
-        return acc;
-      },
-      {},
-    );
+        if (!acc[key]) {
+          acc[key] = { key, value: Number(value), maxStep: 0 };
+        } else {
+          acc[key] = {
+            ...acc[key],
+            value: aggregateMathFunction(Number(acc[key].value), Number(value)),
+          };
+        }
+        if ('step' in entry) {
+          acc[key].maxStep = Math.max(entry.step, acc[key].maxStep);
+        }
+      });
+      return acc;
+    }, {});
     return values(valuesMap).filter(({ value }) => !isNaN(value));
   } else if (aggregateFunction === RunGroupingAggregateFunction.Average) {
     // Create a list of all known metric/param values by key
@@ -427,15 +437,18 @@ export const createValueAggregatedMetricHistory = (
   metricsByRun: Dictionary<SampledMetricsByRun>,
   metricKey: string,
   selectedXAxisMetricKey: string,
+  ignoreOutliers: boolean,
 ) => {
   // create a { x : [y1, y2, ...] } map for each run
   const allXYMaps = compact(
     Object.keys(metricsByRun).map((runUuid) => {
       const xMetricHistory = metricsByRun[runUuid]?.[selectedXAxisMetricKey]?.metricsHistory;
-      const yMetricHistory = metricsByRun[runUuid]?.[metricKey]?.metricsHistory;
+      let yMetricHistory = metricsByRun[runUuid]?.[metricKey]?.metricsHistory;
       if (!xMetricHistory || !yMetricHistory) {
         return null;
       }
+
+      yMetricHistory = ignoreOutliers ? removeOutliersFromMetricHistory(yMetricHistory) : yMetricHistory;
 
       // create a step: x map to make it easy to associate x and y values
       const xByStep = xMetricHistory.reduce<Record<number, number>>((acc, metricEntity) => {
@@ -474,7 +487,9 @@ export const createValueAggregatedMetricHistory = (
     });
   });
 
-  const values = Object.keys(historyByValue).map(Number).sort();
+  const values = Object.keys(historyByValue)
+    .map(Number)
+    .sort((a, b) => a - b);
   const syntheticHistoryMaxValues = values.map((value, idx) => ({
     key: metricKey,
     value: Math.max(...reject(historyByValue[value] ?? [], isNil)),
@@ -700,3 +715,6 @@ export const getGroupedRowRenderMetadata = ({
 
   return result;
 };
+
+export const createSearchFilterFromRunGroupInfo = (groupInfo: RunGroupParentInfo) =>
+  `attributes.run_id IN (${groupInfo.runUuids.map((uuid) => `'${uuid}'`).join(', ')})`;

@@ -21,31 +21,37 @@ import { RunViewMetadataRow } from './overview/RunViewMetadataRow';
 import { RunViewRegisteredModelsBox } from './overview/RunViewRegisteredModelsBox';
 import { RunViewLoggedModelsBox } from './overview/RunViewLoggedModelsBox';
 import { RunViewSourceBox } from './overview/RunViewSourceBox';
-import { RunViewMetadataTable } from 'experiment-tracking/components/run-page/overview/RunViewMetadataTable';
+import { RunViewMetadataTable } from '@mlflow/mlflow/src/experiment-tracking/components/run-page/overview/RunViewMetadataTable';
 import { RunViewCopyableIdBox } from './overview/RunViewCopyableIdBox';
+import type { RunInfoEntity } from '../../types';
+import type { UseGetRunQueryResponseRunInfo } from './hooks/useGetRunQuery';
+import type { KeyValueEntity, MetricEntitiesByName, RunDatasetWithTags } from '../../types';
 
 const EmptyValue = () => <Typography.Hint>—</Typography.Hint>;
 
 export const RunViewOverview = ({
   runUuid,
   onRunDataUpdated,
+  tags,
+  runInfo,
+  datasets,
+  params,
+  latestMetrics,
 }: {
   runUuid: string;
   onRunDataUpdated: () => void | Promise<any>;
+  runInfo: RunInfoEntity | UseGetRunQueryResponseRunInfo;
+  tags: Record<string, KeyValueEntity>;
+  latestMetrics: MetricEntitiesByName;
+  datasets?: RunDatasetWithTags[];
+  params: Record<string, KeyValueEntity>;
 }) => {
   const { theme } = useDesignSystemTheme();
   const { search } = useLocation();
 
-  const { tags, runInfo, datasets, params, registeredModels, latestMetrics } = useSelector(
-    ({ entities }: ReduxState) => ({
-      tags: entities.tagsByRunUuid[runUuid],
-      runInfo: entities.runInfosByUuid[runUuid],
-      datasets: entities.runDatasetsByUuid[runUuid],
-      params: entities.paramsByRunUuid[runUuid],
-      latestMetrics: entities.latestMetricsByRunUuid[runUuid],
-      registeredModels: entities.modelVersionsByRunUuid[runUuid],
-    }),
-  );
+  const { registeredModels } = useSelector(({ entities }: ReduxState) => ({
+    registeredModels: entities.modelVersionsByRunUuid[runUuid],
+  }));
 
   const loggedModels = useMemo(() => Utils.getLoggedModelsFromTags(tags), [tags]);
   const parentRunIdTag = tags[EXPERIMENT_PARENT_ID_TAG];
@@ -78,7 +84,7 @@ export const RunViewOverview = ({
               description="Run page > Overview > experiment ID section label"
             />
           }
-          value={<RunViewCopyableIdBox value={runInfo.experimentId} />}
+          value={<RunViewCopyableIdBox value={runInfo?.experimentId ?? ''} />}
         />
         <RunViewMetadataRow
           title={
@@ -88,7 +94,7 @@ export const RunViewOverview = ({
         />
         <RunViewMetadataRow
           title={<FormattedMessage defaultMessage="Run ID" description="Run page > Overview > Run ID section label" />}
-          value={<RunViewCopyableIdBox value={runInfo.runUuid} />}
+          value={<RunViewCopyableIdBox value={runInfo.runUuid ?? ''} />}
         />
         <RunViewMetadataRow
           title={
@@ -118,7 +124,7 @@ export const RunViewOverview = ({
         />
         <RunViewMetadataRow
           title={<FormattedMessage defaultMessage="Tags" description="Run page > Overview > Run tags section label" />}
-          value={<RunViewTagsBox runUuid={runInfo.runUuid} tags={tags} onTagsUpdated={onRunDataUpdated} />}
+          value={<RunViewTagsBox runUuid={runInfo.runUuid ?? ''} tags={tags} onTagsUpdated={onRunDataUpdated} />}
         />
         <RunViewMetadataRow
           title={

@@ -7,7 +7,7 @@
 
 import React from 'react';
 import { Typography } from '@databricks/design-system';
-import { shallowWithIntl, mountWithIntl } from 'common/utils/TestUtils.enzyme';
+import { shallowWithIntl, mountWithIntl } from '@mlflow/mlflow/src/common/utils/TestUtils.enzyme';
 import { ArtifactView, ArtifactViewImpl } from './ArtifactView';
 import ShowArtifactTextView from './artifact-view-components/ShowArtifactTextView';
 import ShowArtifactImageView from './artifact-view-components/ShowArtifactImageView';

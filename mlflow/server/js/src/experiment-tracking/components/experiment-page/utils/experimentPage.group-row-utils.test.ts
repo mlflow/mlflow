@@ -110,7 +110,7 @@ describe('getGroupedRowRenderMetadata', () => {
         params: [
           { key: 'param3', value: 'param_3_value' },
           { key: 'param_number', value: '-80' },
-        ],
+        ] as any,
         tags: {},
       },
     ];
@@ -560,6 +560,7 @@ describe('metric history aggregation', () => {
       MOCK_RUN_UUIDS_TO_HISTORY_MAP,
       'metric', // metricKey
       'base', // selectedXAxisMetricKey
+      false, // ignoreOutliers
     );
     // for metric vs step plotting
     const metricsHistoryInGroup = flatMap(MOCK_RUN_UUIDS_TO_HISTORY_MAP, (obj) => {

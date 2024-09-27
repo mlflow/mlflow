@@ -15,7 +15,7 @@ import { ModelStageTransitionDropdown } from './ModelStageTransitionDropdown';
 import { message } from 'antd';
 import { Descriptions } from '../../common/components/Descriptions';
 import { modelStagesMigrationGuideLink } from '../../common/constants';
-import { Alert, Modal, Button, InfoIcon, Tooltip, Typography } from '@databricks/design-system';
+import { Alert, Modal, Button, InfoIcon, LegacyTooltip, Typography } from '@databricks/design-system';
 import {
   ModelVersionStatus,
   StageLabels,
@@ -228,7 +228,11 @@ export class ModelVersionViewImpl extends React.Component<ModelVersionViewImplPr
         description="Tooltip content for the disabled stage metadata in model version page"
         values={{
           link: (chunks: any) => (
-            <Typography.Link href={modelStagesMigrationGuideLink} openInNewTab>
+            <Typography.Link
+              componentId="codegen_mlflow_app_src_model-registry_components_modelversionview.tsx_301"
+              href={modelStagesMigrationGuideLink}
+              openInNewTab
+            >
               {chunks}
             </Typography.Link>
           ),
@@ -245,9 +249,9 @@ export class ModelVersionViewImpl extends React.Component<ModelVersionViewImplPr
       >
         <div css={{ display: 'flex', alignItems: 'center' }}>
           {StageLabels[modelVersion.current_stage]}
-          <Tooltip title={tooltipContent} placement="bottom">
+          <LegacyTooltip title={tooltipContent} placement="bottom">
             <InfoIcon css={{ paddingLeft: '4px' }} />
-          </Tooltip>
+          </LegacyTooltip>
         </div>
       </Descriptions.Item>
     );

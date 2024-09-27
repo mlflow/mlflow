@@ -108,6 +108,7 @@ def log_model(
     extra_pip_requirements=None,
     metadata=None,
     model_config: Optional[Dict[str, Any]] = None,
+    example_no_conversion=None,
 ):
     """
     Log a Promptflow model as an MLflow artifact for the current run.
@@ -169,6 +170,7 @@ def log_model(
                     logged_model = mlflow.promptflow.log_model(
                         flow, artifact_path="promptflow_model", model_config=model_config
                     )
+        example_no_conversion: {{ example_no_conversion }}
 
     Returns
         A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
@@ -189,6 +191,7 @@ def log_model(
         extra_pip_requirements=extra_pip_requirements,
         metadata=metadata,
         model_config=model_config,
+        example_no_conversion=example_no_conversion,
     )
 
 
@@ -206,6 +209,7 @@ def save_model(
     extra_pip_requirements=None,
     metadata=None,
     model_config: Optional[Dict[str, Any]] = None,
+    example_no_conversion=None,
 ):
     """
     Save a Promptflow model to a path on the local file system.
@@ -262,6 +266,7 @@ def save_model(
                     logged_model = mlflow.promptflow.log_model(
                         flow, artifact_path="promptflow_model", model_config=model_config
                     )
+        example_no_conversion: {{ example_no_conversion }}
     """
     import promptflow
     from promptflow._sdk._mlflow import (
@@ -300,17 +305,16 @@ def save_model(
     # Get flow env in flow dag
     flow_env = _resolve_env_from_flow(model.flow_dag_path)
 
-    if signature is None and input_example is not None:
-        wrapped_model = _PromptflowModelWrapper(model)
-        signature = _infer_signature_from_input_example(input_example, wrapped_model)
-
     if mlflow_model is None:
         mlflow_model = Model()
+    saved_example = _save_example(mlflow_model, input_example, path, example_no_conversion)
+
+    if signature is None and saved_example is not None:
+        wrapped_model = _PromptflowModelWrapper(model)
+        signature = _infer_signature_from_input_example(saved_example, wrapped_model)
+
     if signature is not None:
         mlflow_model.signature = signature
-
-    if input_example is not None:
-        _save_example(mlflow_model, input_example, path)
     if metadata is not None:
         mlflow_model.metadata = metadata
 
@@ -371,9 +375,9 @@ def _resolve_env_from_flow(flow_dag_path):
     environment = flow_dict.get("environment", {})
     if _FLOW_ENV_REQUIREMENTS in environment:
         # Append entry path to requirements
-        environment[
-            _FLOW_ENV_REQUIREMENTS
-        ] = f"{_MODEL_FLOW_DIRECTORY}/{environment[_FLOW_ENV_REQUIREMENTS]}"
+        environment[_FLOW_ENV_REQUIREMENTS] = (
+            f"{_MODEL_FLOW_DIRECTORY}/{environment[_FLOW_ENV_REQUIREMENTS]}"
+        )
     return environment
 
 
@@ -393,6 +397,12 @@ class _PromptflowModelWrapper:
             connection_provider=connection_provider,
             connections_name_overrides=connection_overrides,
         )
+
+    def get_raw_model(self):
+        """
+        Returns the underlying model.
+        """
+        return self.model
 
     def predict(  # pylint: disable=unused-argument
         self,
@@ -427,7 +437,7 @@ class _PromptflowModelWrapper:
         raise mlflow.MlflowException.invalid_parameter_value(_INVALID_PREDICT_INPUT_ERROR_MESSAGE)
 
 
-def _load_pyfunc(path, model_config: Optional[Dict[str, Any]] = None):
+def _load_pyfunc(path, model_config: Optional[Dict[str, Any]] = None):  # noqa: D417
     """
     Load PyFunc implementation for Promptflow. Called by ``pyfunc.load_model``.
 

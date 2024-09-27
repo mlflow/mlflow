@@ -1,6 +1,6 @@
 import {
   Icon,
-  Tooltip,
+  LegacyTooltip,
   VisibleIcon as VisibleHollowIcon,
   VisibleOffIcon,
   useDesignSystemTheme,
@@ -55,7 +55,7 @@ export const RunVisibilityControlButton = ({
     );
   }
   return (
-    <Tooltip dangerouslySetAntdProps={MOUSE_DELAYS} placement="right" title={label}>
+    <LegacyTooltip dangerouslySetAntdProps={MOUSE_DELAYS} placement="right" title={label}>
       <label className={className} css={styles.button(theme)}>
         <span css={visuallyHidden}>{label}</span>
         <input
@@ -74,7 +74,7 @@ export const RunVisibilityControlButton = ({
         />
         {!rowHidden ? <VisibleIcon /> : <VisibleOffIcon />}
       </label>
-    </Tooltip>
+    </LegacyTooltip>
   );
 };
 

@@ -172,7 +172,7 @@ html_favicon = "_static/favicon.ico"
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
 html_static_path = ["_static"]
-
+html_js_files = ["runllm.js"]
 # Add any extra paths that contain custom files (such as robots.txt or
 # .htaccess) here, relative to this directory. These files are copied
 # directly to the root of the documentation.
@@ -398,6 +398,14 @@ nitpick_ignore = [
     ("py:class", "pytorch_lightning.core.module.LightningModule"),
     ("py:class", "pytorch_lightning.core.LightningModule"),
     ("py:class", "torch.dtype"),
+    ("py:class", "function"),
+    ("py:class", "string"),
+    ("py:class", "number"),
+    ("py:class", "integer"),
+    ("py:class", "object"),
+    ("py:class", "array"),
+    ("py:class", "boolean"),
+    ("py:class", "null"),
 ]
 
 

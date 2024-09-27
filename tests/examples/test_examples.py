@@ -2,6 +2,7 @@ import os
 import re
 import shutil
 import sys
+import uuid
 from pathlib import Path
 
 import pytest
@@ -11,7 +12,7 @@ from mlflow import cli
 from mlflow.utils import process
 from mlflow.utils.virtualenv import _get_mlflow_virtualenv_root
 
-from tests.helper_functions import clear_hub_cache, flaky
+from tests.helper_functions import clear_hub_cache, flaky, start_mock_openai_server
 from tests.integration.utils import invoke_cli_runner
 
 EXAMPLES_DIR = "examples"
@@ -35,6 +36,16 @@ def clean_up_mlflow_virtual_environments():
     for path in Path(_get_mlflow_virtualenv_root()).iterdir():
         if path.is_dir():
             shutil.rmtree(path)
+
+
+@pytest.fixture(scope="module", autouse=True)
+def mock_openai():
+    # Some examples includes OpenAI API calls, so we start a mock server.
+    with start_mock_openai_server() as base_url:
+        with pytest.MonkeyPatch.context() as mp:
+            mp.setenv("OPENAI_API_BASE", base_url)
+            mp.setenv("OPENAI_API_KEY", "test")
+            yield
 
 
 @pytest.mark.notrackingurimock
@@ -83,9 +94,13 @@ def clean_up_mlflow_virtual_environments():
     ],
 )
 def test_mlflow_run_example(directory, params, tmp_path):
-    mlflow.set_tracking_uri(tmp_path.joinpath("mlruns").as_uri())
+    # Use tmp_path+uuid as tmp directory to avoid the same
+    # directory being reused when re-trying the test since
+    # tmp_path is named as the test name
+    random_tmp_path = tmp_path / str(uuid.uuid4())
+    mlflow.set_tracking_uri(random_tmp_path.joinpath("mlruns").as_uri())
     example_dir = Path(EXAMPLES_DIR, directory)
-    tmp_example_dir = tmp_path.joinpath(example_dir)
+    tmp_example_dir = random_tmp_path.joinpath(example_dir)
     shutil.copytree(example_dir, tmp_example_dir)
     python_env_path = find_python_env_yaml(tmp_example_dir)
     replace_mlflow_with_dev_version(python_env_path)
@@ -165,6 +180,8 @@ def test_mlflow_run_example(directory, params, tmp_path):
         ("tracing", [sys.executable, "fluent.py"]),
         ("tracing", [sys.executable, "client.py"]),
         ("tracing", [sys.executable, "multithreading.py"]),
+        ("llama_index", [sys.executable, "simple_index.py"]),
+        ("llama_index", [sys.executable, "autolog.py"]),
     ],
 )
 def test_command_example(directory, command):
@@ -173,4 +190,5 @@ def test_command_example(directory, command):
     if directory == "transformers":
         # NB: Clearing the huggingface_hub cache is to lower the disk storage pressure for CI
         clear_hub_cache()
+
     process._exec_cmd(command, cwd=cwd_dir, env=os.environ)

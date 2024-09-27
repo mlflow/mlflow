@@ -55,7 +55,7 @@ from mlflow.store.tracking.dbmodels.models import (
 
 _logger = logging.getLogger(__name__)
 
-MAX_RETRY_COUNT = 15
+MAX_RETRY_COUNT = 10
 
 
 def _get_package_dir():
@@ -196,7 +196,7 @@ def _get_alembic_config(db_url, alembic_dir=None):
     return config
 
 
-def _upgrade_db(engine):
+def _upgrade_db(engine):  # noqa: D417
     """
     Upgrade the schema of an MLflow tracking database to the latest supported version.
     Note that schema migrations can be slow and are not guaranteed to be transactional -

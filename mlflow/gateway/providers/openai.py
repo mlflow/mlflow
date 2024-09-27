@@ -41,6 +41,7 @@ def _get_workspace_client():
 
 class OpenAIProvider(BaseProvider):
     NAME = "OpenAI"
+    CONFIG_TYPE = OpenAIConfig
 
     def __init__(self, config: RouteConfig) -> None:
         super().__init__(config)
@@ -350,7 +351,7 @@ class OpenAIProvider(BaseProvider):
         #    "id":"chatcmpl-abc123",
         #    "object":"chat.completion",
         #    "created":1677858242,
-        #    "model":"gpt-3.5-turbo-0301",
+        #    "model":"gpt-4o-mini",
         #    "usage":{
         #       "prompt_tokens":13,
         #       "completion_tokens":7,

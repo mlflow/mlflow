@@ -181,7 +181,7 @@ def truncate_pandas_data_profile(title: str, data_frame) -> str:
     return (title, truncated_df)
 
 
-def validate_classification_config(
+def validate_classification_config(  # noqa: D417
     task: str, positive_class: str, input_df: pd.DataFrame, target_col: str
 ):
     """

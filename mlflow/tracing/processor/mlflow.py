@@ -28,6 +28,8 @@ from mlflow.tracing.utils import (
     maybe_get_request_id,
 )
 from mlflow.tracking.client import MlflowClient
+from mlflow.tracking.context.databricks_repo_context import DatabricksRepoRunContext
+from mlflow.tracking.context.git_context import GitRunContext
 from mlflow.tracking.context.registry import resolve_tags
 from mlflow.tracking.default_experiment import DEFAULT_EXPERIMENT_ID
 from mlflow.tracking.fluent import _get_experiment_id
@@ -67,17 +69,22 @@ class MlflowSpanProcessor(SimpleSpanProcessor):
         """
         request_id = self._trace_manager.get_request_id_from_trace_id(span.context.trace_id)
         if not request_id:
-            trace_info = self._start_trace(span)
+            # If the user started trace/span with fixed start time, this attribute is set
+            start_time_ns = get_otel_attribute(span, SpanAttributeKey.START_TIME_NS)
+
+            trace_info = self._start_trace(span, start_time_ns)
             self._trace_manager.register_trace(span.context.trace_id, trace_info)
             request_id = trace_info.request_id
+
+            # NB: This is a workaround to exclude the latency of backend StartTrace API call (within
+            #   _create_trace_info()) from the execution time of the span. The API call takes ~1 sec
+            #   and significantly skews the span duration.
+            if not start_time_ns:
+                span._start_time = time.time_ns()
+
         span.set_attribute(SpanAttributeKey.REQUEST_ID, json.dumps(request_id))
 
-        # NB: This is a workaround to exclude the latency of backend StartTrace API call (within
-        #   _create_trace_info()) from the execution time of the span. The API call takes ~1 sec
-        #   and significantly skews the span duration.
-        span._start_time = time.time_ns()
-
-    def _start_trace(self, span: OTelSpan) -> TraceInfo:
+    def _start_trace(self, span: OTelSpan, start_time_ns: Optional[int]) -> TraceInfo:
         experiment_id = get_otel_attribute(span, SpanAttributeKey.EXPERIMENT_ID)
         metadata = {TRACE_SCHEMA_VERSION_KEY: str(TRACE_SCHEMA_VERSION)}
         # If the span is started within an active MLflow run, we should record it as a trace tag
@@ -103,7 +110,8 @@ class MlflowSpanProcessor(SimpleSpanProcessor):
             )
             self._issued_default_exp_warning = True
 
-        unfiltered_tags = resolve_tags()
+        # Avoid running unnecessary context providers to avoid overhead
+        unfiltered_tags = resolve_tags(ignore=[DatabricksRepoRunContext, GitRunContext])
         tags = {
             key: value
             for key, value in unfiltered_tags.items()
@@ -125,7 +133,7 @@ class MlflowSpanProcessor(SimpleSpanProcessor):
             #   latency of the backend API call. We do this adjustment for span start time
             #   above, but can't do it for trace start time until the backend API supports
             #   updating the trace start time.
-            timestamp_ms=span.start_time // 1_000_000,  # nanosecond to millisecond
+            timestamp_ms=(start_time_ns or span.start_time) // 1_000_000,  # ns to ms
             request_metadata=metadata,
             tags=tags,
         )
@@ -154,7 +162,9 @@ class MlflowSpanProcessor(SimpleSpanProcessor):
 
     def _update_trace_info(self, trace: _Trace, root_span: OTelReadableSpan):
         """Update the trace info with the final values from the root span."""
-        # Q: Why do we need to update timestamp_ms here? We already saved it when start
+        # The trace/span start time needs adjustment to exclude the latency of
+        # the backend API call. We already adjusted the span start time in the
+        # on_start method, so we reflect the same to the trace start time here.
         trace.info.timestamp_ms = root_span.start_time // 1_000_000  # nanosecond to millisecond
         trace.info.execution_time_ms = (root_span.end_time - root_span.start_time) // 1_000_000
         trace.info.status = TraceStatus.from_otel_status(root_span.status)

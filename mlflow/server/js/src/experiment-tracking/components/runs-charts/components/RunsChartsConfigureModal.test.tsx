@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react-for-react-18';
+import { render, screen, waitFor } from '@testing-library/react';
 import { RunsChartsConfigureModal } from './RunsChartsConfigureModal';
 import { RunsChartType, RunsChartsLineCardConfig } from '../runs-charts.types';
 import { IntlProvider } from 'react-intl';
@@ -7,6 +7,7 @@ import { RunsMetricsLinePlot } from './RunsMetricsLinePlot';
 import { last } from 'lodash';
 import userEvent from '@testing-library/user-event-14';
 import { RunsChartsLineChartXAxisType } from './RunsCharts.common';
+import { DesignSystemProvider } from '@databricks/design-system';
 
 // Larger timeout for integration testing (form rendering)
 jest.setTimeout(15000);
@@ -55,15 +56,17 @@ describe('RunsChartsConfigureModal', () => {
       />,
       {
         wrapper: ({ children }) => (
-          <MockedReduxStoreProvider
-            state={{
-              entities: {
-                metricsByRunUuid: {},
-              },
-            }}
-          >
-            <IntlProvider locale="en">{children}</IntlProvider>
-          </MockedReduxStoreProvider>
+          <DesignSystemProvider>
+            <MockedReduxStoreProvider
+              state={{
+                entities: {
+                  metricsByRunUuid: {},
+                },
+              }}
+            >
+              <IntlProvider locale="en">{children}</IntlProvider>
+            </MockedReduxStoreProvider>
+          </DesignSystemProvider>
         ),
       },
     );

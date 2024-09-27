@@ -1,4 +1,3 @@
-/// <reference types="react" />
 import type { UseComboboxReturnValue } from 'downshift';
 import type { InputProps } from '../Input';
 export interface TypeaheadComboboxInputProps<T> extends Omit<InputProps, 'componentId' | 'analyticsEvents'> {

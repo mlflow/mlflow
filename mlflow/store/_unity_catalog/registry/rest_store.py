@@ -96,6 +96,7 @@ from mlflow.utils.rest_utils import (
     http_request,
     verify_rest_response,
 )
+from mlflow.utils.uri import is_fuse_or_uc_volumes_uri
 
 _TRACKING_METHOD_TO_INFO = extract_api_info_for_service(MlflowService, _REST_API_PATH_PREFIX)
 _METHOD_TO_INFO = extract_api_info_for_service(UcModelRegistryService, _REST_API_PATH_PREFIX)
@@ -183,16 +184,25 @@ def get_model_version_dependencies(model_dir):
 
     if databricks_resources:
         databricks_dependencies = databricks_resources.get("databricks", {})
-        index_names = _fetch_langchain_dependency_from_model_info(
-            databricks_dependencies, ResourceType.VECTOR_SEARCH_INDEX.value
+        dependencies.extend(
+            _fetch_langchain_dependency_from_model_resources(
+                databricks_dependencies,
+                ResourceType.VECTOR_SEARCH_INDEX.value,
+                "DATABRICKS_VECTOR_INDEX",
+            )
         )
-        for index_name in index_names:
-            dependencies.append({"type": "DATABRICKS_VECTOR_INDEX", **index_name})
-        endpoint_names = _fetch_langchain_dependency_from_model_info(
-            databricks_dependencies, ResourceType.SERVING_ENDPOINT.value
+        dependencies.extend(
+            _fetch_langchain_dependency_from_model_resources(
+                databricks_dependencies,
+                ResourceType.SERVING_ENDPOINT.value,
+                "DATABRICKS_MODEL_ENDPOINT",
+            )
         )
-        for endpoint_name in endpoint_names:
-            dependencies.append({"type": "DATABRICKS_MODEL_ENDPOINT", **endpoint_name})
+        dependencies.extend(
+            _fetch_langchain_dependency_from_model_resources(
+                databricks_dependencies, ResourceType.FUNCTION.value, "DATABRICKS_UC_FUNCTION"
+            )
+        )
     else:
         # These types of dependencies are required for old models that didn't use
         # resources so they can be registered correctly to UC
@@ -222,6 +232,14 @@ def get_model_version_dependencies(model_dir):
             for endpoint_name in endpoint_names:
                 dependencies.append({"type": "DATABRICKS_MODEL_ENDPOINT", "name": endpoint_name})
     return dependencies
+
+
+def _fetch_langchain_dependency_from_model_resources(databricks_dependencies, key, resource_type):
+    dependencies = databricks_dependencies.get(key, [])
+    deps = []
+    for depndency in dependencies:
+        deps.append({"type": resource_type, **depndency})
+    return deps
 
 
 def _fetch_langchain_dependency_from_model_info(databricks_dependencies, key):
@@ -605,8 +623,8 @@ class UcModelRegistryStore(BaseRestStore):
             "All models in the Unity Catalog must be logged with a "
             "model signature containing both input and output "
             "type specifications. See "
-            "https://mlflow.org/docs/latest/models.html#model-signature "
-            "for details on how to log a model with a signature"
+            "https://mlflow.org/docs/latest/model/signatures.html#how-to-log-models-with-signatures"
+            " for details on how to log a model with a signature"
         )
         if model.signature is None:
             raise MlflowException(
@@ -675,14 +693,20 @@ class UcModelRegistryStore(BaseRestStore):
                     f"the source artifact location exists and that you can download from "
                     f"it via mlflow.artifacts.download_artifacts()"
                 ) from e
-            # Clean up temporary model directory at end of block. We assume a temporary
-            # model directory was created if the `source` is not a local path (must be downloaded
-            # from remote to a temporary directory)
-            yield local_model_dir
-            if not os.path.exists(source):
-                shutil.rmtree(local_model_dir)
+            try:
+                yield local_model_dir
+            finally:
+                # Clean up temporary model directory at end of block. We assume a temporary
+                # model directory was created if the `source` is not a local path
+                # (must be downloaded from remote to a temporary directory) and
+                # `local_model_dir` is not a FUSE-mounted path. The check for FUSE-mounted
+                # paths is important as mlflow.artifacts.download_artifacts() can return
+                # a FUSE mounted path equivalent to the (remote) source path in some cases,
+                # e.g. return /dbfs/some/path for source dbfs:/some/path.
+                if not os.path.exists(source) and not is_fuse_or_uc_volumes_uri(local_model_dir):
+                    shutil.rmtree(local_model_dir)
 
-    def create_model_version(
+    def create_model_version(  # noqa: D417
         self,
         name,
         source,

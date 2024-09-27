@@ -1,5 +1,6 @@
 import json
 import os
+import pathlib
 import posixpath
 
 import pytest
@@ -181,7 +182,7 @@ def test_hidden_files_are_logged_correctly(local_artifact_repo):
             assert f.read() == "42"
 
 
-def test_delete_artifacts(local_artifact_repo):
+def test_delete_artifacts_folder(local_artifact_repo):
     with TempDir() as local_dir:
         os.mkdir(local_dir.path("subdir"))
         os.mkdir(local_dir.path("subdir", "nested"))
@@ -197,6 +198,30 @@ def test_delete_artifacts(local_artifact_repo):
         assert os.path.exists(os.path.join(local_artifact_repo._artifact_dir, "b.txt"))
         local_artifact_repo.delete_artifacts()
         assert not os.path.exists(os.path.join(local_artifact_repo._artifact_dir))
+
+
+def test_delete_artifacts_files(local_artifact_repo, tmp_path):
+    subdir = tmp_path / "subdir"
+    nested = subdir / "nested"
+    subdir.mkdir()
+    nested.mkdir()
+
+    (subdir / "a.txt").write_text("A")
+    (subdir / "b.txt").write_text("B")
+    (nested / "c.txt").write_text("C")
+
+    local_artifact_repo.log_artifacts(str(subdir))
+    artifact_dir = pathlib.Path(local_artifact_repo._artifact_dir)
+    assert (artifact_dir / "nested").exists()
+    assert (artifact_dir / "a.txt").exists()
+    assert (artifact_dir / "b.txt").exists()
+
+    local_artifact_repo.delete_artifacts(artifact_path="nested/c.txt")
+    local_artifact_repo.delete_artifacts(artifact_path="b.txt")
+
+    assert not (artifact_dir / "nested" / "c.txt").exists()
+    assert not (artifact_dir / "b.txt").exists()
+    assert (artifact_dir / "a.txt").exists()
 
 
 def test_delete_artifacts_with_nonexistent_path_succeeds(local_artifact_repo):

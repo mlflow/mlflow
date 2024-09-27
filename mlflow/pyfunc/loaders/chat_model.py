@@ -1,6 +1,7 @@
 from typing import Any, Dict, Iterator, Optional
 
 from mlflow.exceptions import MlflowException
+from mlflow.models.utils import _convert_llm_ndarray_to_list
 from mlflow.protos.databricks_pb2 import INTERNAL_ERROR
 from mlflow.pyfunc.model import (
     _load_context_model_and_signature,
@@ -32,6 +33,12 @@ class _ChatModelPyfuncWrapper:
         self.context = context
         self.signature = signature
 
+    def get_raw_model(self):
+        """
+        Returns the underlying model.
+        """
+        return self.chat_model
+
     def _convert_input(self, model_input):
         import pandas
 
@@ -39,7 +46,8 @@ class _ChatModelPyfuncWrapper:
             dict_input = model_input
         elif isinstance(model_input, pandas.DataFrame):
             dict_input = {
-                key: value[0] for key, value in model_input.to_dict(orient="list").items()
+                k: _convert_llm_ndarray_to_list(v[0])
+                for k, v in model_input.to_dict(orient="list").items()
             }
         else:
             raise MlflowException(
@@ -48,9 +56,8 @@ class _ChatModelPyfuncWrapper:
                 error_code=INTERNAL_ERROR,
             )
 
-        messages = [ChatMessage(**message) for message in dict_input.pop("messages", [])]
-        params = ChatParams(**dict_input)
-
+        messages = [ChatMessage.from_dict(message) for message in dict_input.pop("messages", [])]
+        params = ChatParams.from_dict(dict_input)
         return messages, params
 
     def predict(

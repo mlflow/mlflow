@@ -17,9 +17,11 @@ jobs:
       actions: write # to cancel workflow runs
     steps:
       - uses: actions/checkout@v4
+        with:
+          sparse-checkout: |
+            .github
       - uses: actions/github-script@v7
         with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             const script = require(
               `${process.env.GITHUB_WORKSPACE}/.github/workflows/cancel.js`

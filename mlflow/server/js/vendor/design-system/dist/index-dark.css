@@ -16418,3 +16418,25 @@ span.du-bois-dark-typography-ellipsis-single-line {
 /* stylelint-disable no-duplicate-selectors */
 /* stylelint-disable */
 /* stylelint-disable declaration-bang-space-before,no-duplicate-selectors,string-no-newline */
+
+.du-bois-light-typography a {
+  color: #2272b4;
+}
+.du-bois-light-typography a:hover {
+  color: #0e538b;
+}
+.du-bois-light-typography a:focus {
+  color: #04355d;
+}
+.du-bois-dark-typography a {
+  color: #4299e0;
+}
+.du-bois-dark-typography a:hover {
+  color: #8acaff;
+}
+.du-bois-dark-typography a:focus {
+  color: #bae1fc;
+}
+/* stylelint-disable no-duplicate-selectors */
+/* stylelint-disable */
+/* stylelint-disable declaration-bang-space-before,no-duplicate-selectors,string-no-newline */

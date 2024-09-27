@@ -11,7 +11,7 @@ import { ExperimentPageUIState } from '../../models/ExperimentPageUIState';
 import { ExperimentViewArtifactLocation } from '../ExperimentViewArtifactLocation';
 import { ExperimentViewCopyExperimentId } from './ExperimentViewCopyExperimentId';
 import { ExperimentViewCopyArtifactLocation } from './ExperimentViewCopyArtifactLocation';
-import { Tooltip } from '@databricks/design-system';
+import { LegacyTooltip } from '@databricks/design-system';
 import { InfoIcon } from '@databricks/design-system';
 import { Popover } from '@databricks/design-system';
 
@@ -81,7 +81,7 @@ export const ExperimentViewHeader = React.memo(
     const getInfoTooltip = () => {
       return (
         <div style={{ display: 'flex' }}>
-          <Tooltip
+          <LegacyTooltip
             placement="bottomLeft"
             dangerouslySetAntdProps={{ overlayStyle: { maxWidth: 'none' } }}
             arrowPointAtCenter
@@ -129,7 +129,7 @@ export const ExperimentViewHeader = React.memo(
               data-testid="experiment-view-header-info-tooltip"
               aria-label="Info"
             />
-          </Tooltip>
+          </LegacyTooltip>
         </div>
       );
     };
@@ -152,8 +152,6 @@ export const ExperimentViewHeader = React.memo(
       );
     };
 
-    const HEADER_MAX_WIDTH = '70%';
-
     return (
       <PageHeader
         title={
@@ -167,26 +165,42 @@ export const ExperimentViewHeader = React.memo(
                 display: 'inline-block',
                 whiteSpace: 'nowrap',
                 overflow: 'hidden',
-                maxWidth: HEADER_MAX_WIDTH,
                 textOverflow: 'ellipsis',
                 verticalAlign: 'middle',
               },
             }}
+            title={normalizedExperimentName}
           >
             {normalizedExperimentName}
           </div>
         }
         titleAddOns={
-          <>
+          <div css={{ display: 'flex', gap: theme.spacing.sm }}>
             {getInfoTooltip()}
             {feedbackFormUrl && renderFeedbackForm()}
             {showAddDescriptionButton && getAddDescriptionButton()}
-          </>
+          </div>
         }
         breadcrumbs={breadcrumbs}
         spacerSize="sm"
+        dangerouslyAppendEmotionCSS={{
+          [theme.responsive.mediaQueries.sm]: {
+            // Do not wrap the title and buttons on >= small screens
+            '& > div': {
+              flexWrap: 'nowrap',
+            },
+            // The title itself should display elements horizontally
+            h2: {
+              display: 'flex',
+              overflow: 'hidden',
+            },
+          },
+        }}
       >
-        {getShareButton()}
+        <div css={{ display: 'flex', gap: theme.spacing.sm }}>
+          {/* Wrap the buttons in a flex element */}
+          {getShareButton()}
+        </div>
       </PageHeader>
     );
   },

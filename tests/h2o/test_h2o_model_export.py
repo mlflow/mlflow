@@ -18,7 +18,7 @@ import mlflow.h2o
 import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 from mlflow import pyfunc
 from mlflow.models import Model, ModelSignature
-from mlflow.models.utils import _read_example
+from mlflow.models.utils import _read_example, load_serving_example
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.types import DataType
 from mlflow.types.schema import ColSpec, Schema
@@ -335,12 +335,14 @@ def test_pyfunc_serve_and_score(h2o_iris_model):
     model, inference_dataframe = h2o_iris_model
     artifact_path = "model"
     with mlflow.start_run():
-        mlflow.h2o.log_model(model, artifact_path)
-        model_uri = mlflow.get_artifact_uri(artifact_path)
+        model_info = mlflow.h2o.log_model(
+            model, artifact_path, input_example=inference_dataframe.as_data_frame()
+        )
 
+    inference_payload = load_serving_example(model_info.model_uri)
     resp = pyfunc_serve_and_score_model(
-        model_uri,
-        data=inference_dataframe.as_data_frame(),
+        model_info.model_uri,
+        data=inference_payload,
         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
     )
     decoded_json = json.loads(resp.content.decode("utf-8"))

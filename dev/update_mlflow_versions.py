@@ -12,6 +12,7 @@ _PYTHON_VERSION_FILES = [
 _PYPROJECT_TOML_FILES = [
     Path("pyproject.toml"),
     Path("pyproject.skinny.toml"),
+    Path("pyproject.release.toml"),
 ]
 
 _JAVA_VERSION_FILES = Path("mlflow", "java").rglob("*.java")
@@ -76,6 +77,11 @@ def replace_pyproject_toml(new_py_version: str, paths: List[Path]) -> None:
         files=paths,
         pattern=re.compile(r'^version\s+=\s+".+"$', re.MULTILINE),
         repl=f'version = "{new_py_version}"',
+    )
+    replace_occurrences(
+        files=paths,
+        pattern=re.compile(r"^\s*\"mlflow-skinny==.+\",$", re.MULTILINE),
+        repl=f'  "mlflow-skinny=={new_py_version}",',
     )
 
 

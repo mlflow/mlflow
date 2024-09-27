@@ -1,4 +1,5 @@
 """Chain for wrapping a retriever."""
+
 from __future__ import annotations
 
 import json
@@ -16,7 +17,6 @@ from mlflow.utils.annotations import experimental
 
 @experimental
 class _RetrieverChain(Chain):
-
     """
     Chain that wraps a retriever for use with MLflow.
 

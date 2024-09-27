@@ -3,6 +3,7 @@ This module provides a set of utilities for interpreting and creating requiremen
 (e.g. pip's `requirements.txt`), which is useful for managing ML software environments.
 """
 
+import importlib.metadata
 import json
 import logging
 import os
@@ -17,12 +18,12 @@ from threading import Timer
 from typing import List, NamedTuple, Optional
 
 import importlib_metadata
-import pkg_resources  # noqa: TID251
 from packaging.requirements import Requirement
 from packaging.version import InvalidVersion, Version
 
 import mlflow
 from mlflow.environment_variables import (
+    _MLFLOW_IN_CAPTURE_MODULE_PROCESS,
     MLFLOW_REQUIREMENTS_INFERENCE_RAISE_ERRORS,
     MLFLOW_REQUIREMENTS_INFERENCE_TIMEOUT,
 )
@@ -166,11 +167,42 @@ def _normalize_package_name(pkg_name):
     return _NORMALIZE_REGEX.sub("-", pkg_name).lower()
 
 
+def _iter_requires(name: str):
+    """
+    Iterates over the requirements of the specified package.
+
+    Args:
+        name: The name of the package.
+
+    Yields:
+        The names of the required packages.
+    """
+    try:
+        reqs = importlib.metadata.requires(name)
+    except importlib.metadata.PackageNotFoundError:
+        return
+
+    if reqs is None:
+        return
+
+    for req in reqs:
+        # Skip extra dependencies
+        semi_colon_idx = req.find(";")
+        if (semi_colon_idx != -1) and req[semi_colon_idx:].startswith("; extra =="):
+            continue
+
+        req = Requirement(req)
+        # Skip the requirement if the environment marker is not satisfied
+        if req.marker and not req.marker.evaluate():
+            continue
+
+        yield req.name
+
+
 def _get_requires(pkg_name):
     norm_pkg_name = _normalize_package_name(pkg_name)
-    if package := pkg_resources.working_set.by_key.get(norm_pkg_name):
-        for req in package.requires():
-            yield _normalize_package_name(req.name)
+    for req in _iter_requires(norm_pkg_name):
+        yield _normalize_package_name(req)
 
 
 def _get_requires_recursive(pkg_name, seen_before=None):
@@ -196,6 +228,15 @@ def _prune_packages(packages):
     """
     packages = set(packages)
     requires = set(_flatten(map(_get_requires_recursive, packages)))
+
+    # LlamaIndex have one root "llama-index" package that bundles many sub-packages such as
+    # llama-index-llms-openai. Many of those sub-packages are optional, but some are defined
+    # as dependencies of the root package. However, the root package does not pin the versions
+    # for those sub-packages, resulting in non-deterministic behavior when loading the model
+    # later. To address this issue, we keep all sub-packages within the requirements.
+    # Ref: https://github.com/run-llama/llama_index/issues/14788#issuecomment-2232107585
+    requires = {req for req in requires if not req.startswith("llama-index-")}
+
     # Do not exclude mlflow's dependencies
     return packages - (requires - set(_get_requires("mlflow")))
 
@@ -254,7 +295,7 @@ def _get_installed_version(package, module=None):
     return version
 
 
-def _capture_imported_modules(model_uri, flavor, record_full_module=False):
+def _capture_imported_modules(model_uri, flavor, record_full_module=False):  # noqa: D417
     """Runs `_capture_modules.py` in a subprocess and captures modules imported during the model
     loading procedure.
     If flavor is `transformers`, `_capture_transformers_modules.py` is run instead.
@@ -319,7 +360,11 @@ def _capture_imported_modules(model_uri, flavor, record_full_module=False):
                             *record_full_module_args,
                         ],
                         timeout_seconds=process_timeout,
-                        env={**main_env, **transformer_env},
+                        env={
+                            **main_env,
+                            **transformer_env,
+                            _MLFLOW_IN_CAPTURE_MODULE_PROCESS.name: "true",
+                        },
                     )
                     with open(output_file) as f:
                         return f.read().splitlines()
@@ -348,7 +393,10 @@ def _capture_imported_modules(model_uri, flavor, record_full_module=False):
                 *record_full_module_args,
             ],
             timeout_seconds=process_timeout,
-            env=main_env,
+            env={
+                **main_env,
+                _MLFLOW_IN_CAPTURE_MODULE_PROCESS.name: "true",
+            },
         )
 
         if os.path.exists(error_file):
@@ -433,19 +481,19 @@ def _load_pypi_package_index():
 _PYPI_PACKAGE_INDEX = None
 
 
-def _infer_requirements(model_uri, flavor):
+def _infer_requirements(model_uri, flavor, raise_on_error=False):
     """Infers the pip requirements of the specified model by creating a subprocess and loading
     the model in it to determine which packages are imported.
 
     Args:
         model_uri: The URI of the model.
         flavor: The flavor name of the model.
+        raise_on_error: If True, raise an exception if an unrecognized package is encountered.
 
     Returns:
         A list of inferred pip requirements.
 
     """
-    raise_on_error = MLFLOW_REQUIREMENTS_INFERENCE_RAISE_ERRORS.get()
     _init_modules_to_packages_map()
     global _PYPI_PACKAGE_INDEX
     if _PYPI_PACKAGE_INDEX is None:

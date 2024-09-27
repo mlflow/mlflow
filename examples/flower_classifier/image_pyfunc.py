@@ -2,7 +2,9 @@
 Example of a custom python function implementing image classifier with image preprocessing embedded
 in the model.
 """
+
 import base64
+import importlib.metadata
 import os
 from io import BytesIO
 from typing import Any, Dict, Optional
@@ -11,7 +13,6 @@ import keras
 import numpy as np
 import pandas as pd
 import PIL
-import pip
 import tensorflow as tf
 import yaml
 from PIL import Image
@@ -115,7 +116,7 @@ class KerasImageClassifierPyfunc:
                 return self._model.predict(x)
 
 
-def log_model(keras_model, signature, artifact_path, image_dims, domain):
+def log_model(keras_model, signature, artifact_path, image_dims, domain):  # noqa: D417
     """
     Log a KerasImageClassifierPyfunc model as an MLflow artifact for the current run.
 
@@ -142,7 +143,7 @@ def log_model(keras_model, signature, artifact_path, image_dims, domain):
                     keras_version=keras.__version__,
                     tf_name=tf.__name__,  # can have optional -gpu suffix
                     tf_version=tf.__version__,
-                    pip_version=pip.__version__,
+                    pip_version=importlib.metadata.version("pip"),
                     pillow_version=PIL.__version__,
                 )
             )

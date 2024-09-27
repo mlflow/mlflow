@@ -7,7 +7,7 @@ import { isSystemMetricKey } from '../../utils/MetricsUtils';
 import { useSampledMetricHistory } from '../runs-charts/hooks/useSampledMetricHistory';
 import { useSelector } from 'react-redux';
 import { ReduxState } from '../../../redux-types';
-import { isEqual } from 'lodash';
+import { compact, isEqual } from 'lodash';
 import { RunViewMetricHistoryChart } from './RunViewMetricHistoryChart';
 import { RunViewMetricSingleValueChart } from './RunViewMetricSingleValueChart';
 import { first } from 'lodash';
@@ -18,6 +18,7 @@ import { useDragAndDropElement } from '../../../common/hooks/useDragAndDropEleme
 import { RunViewMetricChartHeader } from './RunViewMetricChartHeader';
 import { useIsInViewport } from '../runs-charts/hooks/useIsInViewport';
 import { ChartRefreshManager } from './useChartRefreshManager';
+import type { UseGetRunQueryResponseRunInfo } from './hooks/useGetRunQuery';
 
 export interface RunViewMetricChartProps {
   /**
@@ -27,7 +28,7 @@ export interface RunViewMetricChartProps {
   /**
    * Run info for the run that this chart is displayed for.
    */
-  runInfo: RunInfoEntity;
+  runInfo: RunInfoEntity | UseGetRunQueryResponseRunInfo;
   /**
    * Key of the drag group that this chart belongs to.
    */
@@ -78,7 +79,7 @@ export const RunViewMetricChart = ({
     onDrop: onReorderWith,
   });
 
-  const runUuidsArray = useMemo(() => [runInfo.runUuid], [runInfo]);
+  const runUuidsArray = useMemo(() => compact([runInfo.runUuid]), [runInfo]);
   const metricKeys = useMemo(() => [metricKey], [metricKey]);
   const [xRange, setRange] = useState<[number | string, number | string] | undefined>(undefined);
   const { theme } = useDesignSystemTheme();
@@ -86,7 +87,7 @@ export const RunViewMetricChart = ({
   const [stepRange, setStepRange] = useState<[number, number] | undefined>(undefined);
 
   const fullMetricHistoryForRun = useSelector(
-    (state: ReduxState) => state.entities.sampledMetricsByRunUuid[runInfo.runUuid]?.[metricKey],
+    (state: ReduxState) => state.entities.sampledMetricsByRunUuid[runInfo.runUuid ?? '']?.[metricKey],
   );
 
   const { elementRef, isInViewport } = useIsInViewport();
@@ -99,7 +100,7 @@ export const RunViewMetricChart = ({
     maxResults: 320,
   });
 
-  const { metricsHistory, error } = resultsByRunUuid[runInfo.runUuid]?.[metricKey] || {};
+  const { metricsHistory, error } = resultsByRunUuid[runInfo.runUuid ?? '']?.[metricKey] || {};
 
   const isSingleMetricEntry = !isLoading && metricsHistory?.length === 1;
 

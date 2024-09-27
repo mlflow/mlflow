@@ -6,7 +6,7 @@ import {
   PlayIcon,
   StopIcon,
   TableSkeleton,
-  Tooltip,
+  LegacyTooltip,
   Typography,
   WarningIcon,
   useDesignSystemTheme,
@@ -81,7 +81,7 @@ export const EvaluationCreatePromptRunOutput = ({
   return (
     <>
       <div css={{ marginBottom: theme.spacing.md }}>
-        <Tooltip title={evaluateButtonTooltip}>
+        <LegacyTooltip title={evaluateButtonTooltip}>
           <Button
             componentId="codegen_mlflow_app_src_experiment-tracking_components_evaluation-artifacts-compare_components_evaluationcreatepromptrunoutput.tsx_85"
             data-testid="button-evaluate"
@@ -95,7 +95,7 @@ export const EvaluationCreatePromptRunOutput = ({
               description='Experiment page > new run modal > "evaluate" button label'
             />
           </Button>
-        </Tooltip>
+        </LegacyTooltip>
         {isEvaluating && (
           <Button
             componentId="codegen_mlflow_app_src_experiment-tracking_components_evaluation-artifacts-compare_components_evaluationcreatepromptrunoutput.tsx_99"
@@ -117,7 +117,7 @@ export const EvaluationCreatePromptRunOutput = ({
           description="Experiment page > new run modal > evaluation output field label"
         />
         {isOutputDirty && (
-          <Tooltip
+          <LegacyTooltip
             title={
               <FormattedMessage
                 defaultMessage="Model, input data or prompt have changed since last evaluation of the output"
@@ -126,7 +126,7 @@ export const EvaluationCreatePromptRunOutput = ({
             }
           >
             <WarningIcon css={{ marginLeft: theme.spacing.xs }} />
-          </Tooltip>
+          </LegacyTooltip>
         )}
       </FormUI.Label>
       <FormUI.Hint>
@@ -141,7 +141,14 @@ export const EvaluationCreatePromptRunOutput = ({
         </div>
       )}
       {!isEvaluating && (
-        <TextArea rows={5} css={{ cursor: 'default' }} data-testid="prompt-output" value={evaluationOutput} readOnly />
+        <TextArea
+          componentId="codegen_mlflow_app_src_experiment-tracking_components_evaluation-artifacts-compare_components_evaluationcreatepromptrunoutput.tsx_144"
+          rows={5}
+          css={{ cursor: 'default' }}
+          data-testid="prompt-output"
+          value={evaluationOutput}
+          readOnly
+        />
       )}
       {!isEvaluating && evaluationError && <FormUI.Message message={evaluationError} type="error" />}
       <div css={{ marginTop: theme.spacing.sm }}>{metadataOutput}</div>

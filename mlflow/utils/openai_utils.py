@@ -1,32 +1,9 @@
-import json
 import os
 import time
-from contextlib import contextmanager
 from enum import Enum
 from typing import NamedTuple, Optional
-from unittest import mock
-from unittest.mock import AsyncMock
 
 import mlflow
-
-TEST_CONTENT = "test"
-
-TEST_SOURCE_DOCUMENTS = [
-    {
-        "page_content": "We see the unity among leaders ...",
-        "metadata": {"source": "tests/langchain/state_of_the_union.txt"},
-    },
-]
-TEST_INTERMEDIATE_STEPS = (
-    [
-        {
-            "tool": "Search",
-            "tool_input": "High temperature in SF yesterday",
-            "log": " I need to find the temperature first...",
-            "result": "San Francisco...",
-        },
-    ],
-)
 
 REQUEST_URL_CHAT = "https://api.openai.com/v1/chat/completions"
 REQUEST_URL_COMPLETIONS = "https://api.openai.com/v1/completions"
@@ -73,67 +50,6 @@ REQUEST_FIELDS_COMPLETIONS = {
 }
 REQUEST_FIELDS_EMBEDDINGS = {"input", "model", "encoding_format", "user"}
 REQUEST_FIELDS = REQUEST_FIELDS_CHAT | REQUEST_FIELDS_COMPLETIONS | REQUEST_FIELDS_EMBEDDINGS
-
-
-class _MockResponse:
-    def __init__(self, status_code, json_data):
-        self.status_code = status_code
-        self.content = json.dumps(json_data).encode()
-        self.headers = {"Content-Type": "application/json"}
-        self.text = mlflow.__version__
-        self.json_data = json_data
-
-    def json(self):
-        return self.json_data
-
-
-def _chat_completion_json_sample(content):
-    # https://platform.openai.com/docs/api-reference/chat/create
-    return {
-        "id": "chatcmpl-123",
-        "object": "chat.completion",
-        "created": 1677652288,
-        "choices": [
-            {
-                "index": 0,
-                "message": {"role": "assistant", "content": content},
-                "finish_reason": "stop",
-                "text": content,
-            }
-        ],
-        "usage": {"prompt_tokens": 9, "completion_tokens": 12, "total_tokens": 21},
-    }
-
-
-def _mock_chat_completion_response(content=TEST_CONTENT):
-    return _MockResponse(200, _chat_completion_json_sample(content))
-
-
-@contextmanager
-def _mock_request(**kwargs):
-    with mock.patch("requests.Session.request", **kwargs) as m:
-        yield m
-
-
-@contextmanager
-def _mock_openai_arequest():
-    with mock.patch(
-        "aiohttp.ClientSession.request", side_effect=_mock_async_chat_completion_response
-    ) as mock_request:
-        yield mock_request
-
-
-async def _mock_async_chat_completion_response(content=TEST_CONTENT, **kwargs):
-    resp = AsyncMock()
-    json_data = _chat_completion_json_sample(content)
-    resp.status = 200
-    resp.content = json.dumps(json_data).encode()
-    resp.headers = {"Content-Type": "application/json"}
-    resp.text = mlflow.__version__
-    resp.json_data = json_data
-    resp.json.return_value = json_data
-    resp.read.return_value = resp.content
-    return resp
 
 
 def _validate_model_params(task, model, params):

@@ -11,7 +11,7 @@ import {
   TableHeader,
   TableRow,
   TableSkeleton,
-  Tooltip,
+  LegacyTooltip,
   useDesignSystemTheme,
 } from '@databricks/design-system';
 import { isUndefined } from 'lodash';
@@ -27,13 +27,13 @@ import {
   useReactTable,
 } from '@tanstack/react-table';
 import React from 'react';
-import { parseJSONSafe } from 'common/utils/TagUtils';
-import { ArtifactLogTableImageObject } from 'experiment-tracking/types';
-import { LOG_TABLE_IMAGE_COLUMN_TYPE } from 'experiment-tracking/constants';
+import { parseJSONSafe } from '@mlflow/mlflow/src/common/utils/TagUtils';
+import { ArtifactLogTableImageObject } from '@mlflow/mlflow/src/experiment-tracking/types';
+import { LOG_TABLE_IMAGE_COLUMN_TYPE } from '@mlflow/mlflow/src/experiment-tracking/constants';
 import { ImagePlot } from '../runs-charts/components/charts/ImageGridPlot.common';
 import { ToggleIconButton } from '../../../common/components/ToggleIconButton';
 import { ShowArtifactLoggedTableViewDataPreview } from './ShowArtifactLoggedTableViewDataPreview';
-import Utils from 'common/utils/Utils';
+import Utils from '@mlflow/mlflow/src/common/utils/Utils';
 
 const MAX_ROW_HEIGHT = 160;
 const MIN_COLUMN_WIDTH = 100;
@@ -178,6 +178,7 @@ const LoggedTable = ({ data, runUuid }: { data: { columns: string[]; data: any[]
 
   const paginationComponent = (
     <Pagination
+      componentId="codegen_mlflow_app_src_experiment-tracking_components_artifact-view-components_showartifactloggedtableview.tsx_181"
       currentPageIndex={pagination.pageIndex + 1}
       numTotal={rows.length}
       onChange={(page, pageSize) => {
@@ -292,7 +293,7 @@ const LoggedTable = ({ data, runUuid }: { data: { columns: string[]; data: any[]
         }}
       >
         <DropdownMenu.Root modal={false}>
-          <Tooltip
+          <LegacyTooltip
             title={intl.formatMessage({
               defaultMessage: 'Table settings',
               description: 'Run view > artifact view > logged table > table settings tooltip',
@@ -308,10 +309,14 @@ const LoggedTable = ({ data, runUuid }: { data: { columns: string[]; data: any[]
             >
               <Button componentId="mlflow.run.artifact_view.table_settings" icon={<GearIcon />} />
             </DropdownMenu.Trigger>
-          </Tooltip>
+          </LegacyTooltip>
           <DropdownMenu.Content side="left">
             <DropdownMenu.Arrow />
-            <DropdownMenu.CheckboxItem checked={isCompactView} onCheckedChange={setIsCompactView}>
+            <DropdownMenu.CheckboxItem
+              componentId="codegen_mlflow_app_src_experiment-tracking_components_artifact-view-components_showartifactloggedtableview.tsx_315"
+              checked={isCompactView}
+              onCheckedChange={setIsCompactView}
+            >
               <DropdownMenu.ItemIndicator />
               <FormattedMessage
                 defaultMessage="Compact view"
@@ -328,6 +333,7 @@ const LoggedTable = ({ data, runUuid }: { data: { columns: string[]; data: any[]
               </DropdownMenu.Label>
               {columns.map((column) => (
                 <DropdownMenu.CheckboxItem
+                  componentId="codegen_mlflow_app_src_experiment-tracking_components_artifact-view-components_showartifactloggedtableview.tsx_331"
                   onSelect={(event) => event.preventDefault()}
                   checked={!hiddenColumns.includes(column)}
                   key={column}

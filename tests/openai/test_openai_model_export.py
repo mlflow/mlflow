@@ -13,6 +13,7 @@ import mlflow
 import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 from mlflow.exceptions import MlflowException
 from mlflow.models.signature import ModelSignature
+from mlflow.models.utils import load_serving_example
 from mlflow.types.schema import ColSpec, ParamSchema, ParamSpec, Schema, TensorSpec
 
 from tests.helper_functions import pyfunc_serve_and_score_model
@@ -55,7 +56,7 @@ def set_envs(monkeypatch, mock_openai):
 def test_log_model():
     with mlflow.start_run():
         model_info = mlflow.openai.log_model(
-            model="gpt-3.5-turbo",
+            model="gpt-4o-mini",
             task="chat.completions",
             artifact_path="model",
             temperature=0.9,
@@ -63,7 +64,7 @@ def test_log_model():
         )
 
     loaded_model = mlflow.openai.load_model(model_info.model_uri)
-    assert loaded_model["model"] == "gpt-3.5-turbo"
+    assert loaded_model["model"] == "gpt-4o-mini"
     assert loaded_model["task"] == "chat.completions"
     assert loaded_model["temperature"] == 0.9
     assert loaded_model["messages"] == [{"role": "system", "content": "You are an MLflow expert."}]
@@ -71,7 +72,7 @@ def test_log_model():
 
 def test_chat_single_variable(tmp_path):
     mlflow.openai.save_model(
-        model="gpt-3.5-turbo",
+        model="gpt-4o-mini",
         task=chat_completions(),
         path=tmp_path,
         messages=[{"role": "user", "content": "{x}"}],
@@ -140,7 +141,7 @@ def test_completion_single_variable(tmp_path):
 
 def test_chat_multiple_variables(tmp_path):
     mlflow.openai.save_model(
-        model="gpt-3.5-turbo",
+        model="gpt-4o-mini",
         task=chat_completions(),
         path=tmp_path,
         messages=[{"role": "user", "content": "{x} {y}"}],
@@ -182,7 +183,7 @@ def test_chat_multiple_variables(tmp_path):
 
 def test_chat_role_content(tmp_path):
     mlflow.openai.save_model(
-        model="gpt-3.5-turbo",
+        model="gpt-4o-mini",
         task=chat_completions(),
         path=tmp_path,
         messages=[{"role": "{role}", "content": "{content}"}],
@@ -257,7 +258,7 @@ def test_completion_multiple_variables(tmp_path):
 
 def test_chat_multiple_messages(tmp_path):
     mlflow.openai.save_model(
-        model="gpt-3.5-turbo",
+        model="gpt-4o-mini",
         task=chat_completions(),
         path=tmp_path,
         messages=[
@@ -302,7 +303,7 @@ def test_chat_multiple_messages(tmp_path):
 
 def test_chat_no_variables(tmp_path):
     mlflow.openai.save_model(
-        model="gpt-3.5-turbo",
+        model="gpt-4o-mini",
         task=chat_completions(),
         path=tmp_path,
         messages=[{"role": "user", "content": "a"}],
@@ -374,7 +375,7 @@ def test_completion_no_variable(tmp_path):
 
 def test_chat_no_messages(tmp_path):
     mlflow.openai.save_model(
-        model="gpt-3.5-turbo",
+        model="gpt-4o-mini",
         task=chat_completions(),
         path=tmp_path,
     )
@@ -424,7 +425,7 @@ def test_invalid_messages(tmp_path, messages):
         match="it must be a list of dictionaries with keys 'role' and 'content'",
     ):
         mlflow.openai.save_model(
-            model="gpt-3.5-turbo",
+            model="gpt-4o-mini",
             task=chat_completions(),
             path=tmp_path,
             messages=messages,
@@ -432,17 +433,17 @@ def test_invalid_messages(tmp_path, messages):
 
 
 def test_task_argument_accepts_class(tmp_path):
-    mlflow.openai.save_model(model="gpt-3.5-turbo", task=chat_completions(), path=tmp_path)
+    mlflow.openai.save_model(model="gpt-4o-mini", task=chat_completions(), path=tmp_path)
     loaded_model = mlflow.openai.load_model(tmp_path)
     assert loaded_model["task"] == "chat.completions"
 
 
 @pytest.mark.skipif(is_v1, reason="Requires OpenAI SDK v0")
 def test_model_argument_accepts_retrieved_model(tmp_path):
-    model = openai.Model.retrieve("gpt-3.5-turbo")
+    model = openai.Model.retrieve("gpt-4o-mini")
     mlflow.openai.save_model(model=model, task=chat_completions(), path=tmp_path)
     loaded_model = mlflow.openai.load_model(tmp_path)
-    assert loaded_model["model"] == "gpt-3.5-turbo"
+    assert loaded_model["model"] == "gpt-4o-mini"
 
 
 def test_save_model_with_secret_scope(tmp_path, monkeypatch):
@@ -452,7 +453,7 @@ def test_save_model_with_secret_scope(tmp_path, monkeypatch):
         "mlflow.openai.check_databricks_secret_scope_access"
     ):
         with pytest.warns(FutureWarning, match="MLFLOW_OPENAI_SECRET_SCOPE.+deprecated"):
-            mlflow.openai.save_model(model="gpt-3.5-turbo", task="chat.completions", path=tmp_path)
+            mlflow.openai.save_model(model="gpt-4o-mini", task="chat.completions", path=tmp_path)
     with tmp_path.joinpath("openai.yaml").open() as f:
         creds = yaml.safe_load(f)
         assert creds == {
@@ -469,7 +470,7 @@ def test_save_model_with_secret_scope(tmp_path, monkeypatch):
 
 def test_spark_udf_chat(tmp_path, spark):
     mlflow.openai.save_model(
-        model="gpt-3.5-turbo",
+        model="gpt-4o-mini",
         task="chat.completions",
         path=tmp_path,
         messages=[
@@ -495,7 +496,7 @@ def test_spark_udf_chat(tmp_path, spark):
 class ChatCompletionModel(mlflow.pyfunc.PythonModel):
     def predict(self, context, model_input, params=None):
         completion = chat_completions.create(
-            model="gpt-3.5-turbo",
+            model="gpt-4o-mini",
             messages=[{"role": "user", "content": "What is MLflow?"}],
         )
         return completion.choices[0].message.content
@@ -537,20 +538,23 @@ def test_embeddings_batch_size_azure(tmp_path, monkeypatch):
     assert model._model_impl.api_config.batch_size == 16
 
 
-def test_embeddings_pyfunc_server_and_score(tmp_path):
-    mlflow.openai.save_model(
-        model="text-embedding-ada-002",
-        task=embeddings(),
-        path=tmp_path,
-    )
+def test_embeddings_pyfunc_server_and_score():
     df = pd.DataFrame({"text": ["a", "b"]})
+    with mlflow.start_run():
+        model_info = mlflow.openai.log_model(
+            model="text-embedding-ada-002",
+            task=embeddings(),
+            artifact_path="model",
+            input_example=df,
+        )
+    inference_payload = load_serving_example(model_info.model_uri)
     resp = pyfunc_serve_and_score_model(
-        tmp_path,
-        data=pd.DataFrame(df),
+        model_info.model_uri,
+        data=inference_payload,
         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
         extra_args=["--env-manager", "local"],
     )
-    expected = mlflow.pyfunc.load_model(tmp_path).predict(df)
+    expected = mlflow.pyfunc.load_model(model_info.model_uri).predict(df)
     actual = pd.DataFrame(data=json.loads(resp.content.decode("utf-8")))
     pd.testing.assert_frame_equal(actual, pd.DataFrame({"predictions": expected}))
 

@@ -4,6 +4,7 @@ import inspect
 import json
 import logging
 import math
+import os
 import pathlib
 import pickle
 import shutil
@@ -13,8 +14,7 @@ import traceback
 import warnings
 from collections import namedtuple
 from contextlib import contextmanager
-from functools import partial
-from typing import Any, Callable, List, NamedTuple, Optional, Tuple, Union
+from typing import Any, Callable, Dict, List, NamedTuple, Optional, Tuple, Union
 
 import numpy as np
 import pandas as pd
@@ -43,6 +43,7 @@ from mlflow.metrics import (
     token_count,
     toxicity,
 )
+from mlflow.metrics.genai.genai_metric import _GENAI_CUSTOM_METRICS_FILE_NAME
 from mlflow.models.evaluation.artifacts import (
     CsvEvaluationArtifact,
     ImageEvaluationArtifact,
@@ -58,7 +59,6 @@ from mlflow.models.evaluation.base import (
 from mlflow.models.utils import plot_lines
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.pyfunc import _ServedPyFuncModel
-from mlflow.sklearn import _SklearnModelWrapper
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.proto_json_utils import NumpyEncoder
 from mlflow.utils.time import get_current_time_millis
@@ -129,11 +129,14 @@ def _infer_model_type_by_labels(labels):
 
 def _extract_raw_model(model):
     model_loader_module = model.metadata.flavors["python_function"]["loader_module"]
-    if model_loader_module == "mlflow.sklearn" and not isinstance(model, _ServedPyFuncModel):
-        # If we load a sklearn model with mlflow.pyfunc.load_model, the model will be wrapped
-        # with _SklearnModelWrapper, we need to extract the raw model from it.
-        if isinstance(model._model_impl, _SklearnModelWrapper):
-            return model_loader_module, model._model_impl.sklearn_model
+    # If we load a model with mlflow.pyfunc.load_model, the model will be wrapped
+    # with a pyfunc wrapper. We need to extract the raw model so that shap
+    # explainer uses the raw model instead of the wrapper and skips data schema validation.
+    if model_loader_module in ["mlflow.sklearn", "mlflow.xgboost"] and not isinstance(
+        model, _ServedPyFuncModel
+    ):
+        if hasattr(model._model_impl, "get_raw_model"):
+            return model_loader_module, model._model_impl.get_raw_model()
         return model_loader_module, model._model_impl
     else:
         return model_loader_module, None
@@ -167,14 +170,17 @@ def _extract_predict_fn(
         predict_fn = raw_model.predict
         predict_proba_fn = getattr(raw_model, "predict_proba", None)
         try:
-            import xgboost
+            from mlflow.xgboost import (
+                _wrapped_xgboost_model_predict_fn,
+                _wrapped_xgboost_model_predict_proba_fn,
+            )
 
-            if isinstance(raw_model, xgboost.XGBModel):
-                # Because shap evaluation will pass evaluation data in ndarray format
-                # (without feature names), if set validate_features=True it will raise error.
-                predict_fn = partial(predict_fn, validate_features=False)
-                if predict_proba_fn is not None:
-                    predict_proba_fn = partial(predict_proba_fn, validate_features=False)
+            # Because shap evaluation will pass evaluation data in ndarray format
+            # (without feature names), if set validate_features=True it will raise error.
+            predict_fn = _wrapped_xgboost_model_predict_fn(raw_model, validate_features=False)
+            predict_proba_fn = _wrapped_xgboost_model_predict_proba_fn(
+                raw_model, validate_features=False
+            )
         except ImportError:
             pass
     elif model is not None:
@@ -338,14 +344,14 @@ def _get_classifier_per_class_metrics_collection_df(y, y_pred, labels, sample_we
             positive_class_index, positive_class, y, y_pred, None
         )
         per_class_metrics = {"positive_class": positive_class}
-        per_class_metrics.update(
-            _get_binary_classifier_metrics(
-                y_true=y_bin,
-                y_pred=y_pred_bin,
-                pos_label=1,
-                sample_weights=sample_weights,
-            )
+        binary_classifier_metrics = _get_binary_classifier_metrics(
+            y_true=y_bin,
+            y_pred=y_pred_bin,
+            pos_label=1,
+            sample_weights=sample_weights,
         )
+        if binary_classifier_metrics:
+            per_class_metrics.update(binary_classifier_metrics)
         per_class_metrics_list.append(per_class_metrics)
 
     return pd.DataFrame(per_class_metrics_list)
@@ -612,6 +618,7 @@ class _Metric(NamedTuple):
     name: str
     index: int
     version: Optional[str] = None
+    genai_metric_args: Optional[Dict] = None
 
 
 class _CustomArtifact(NamedTuple):
@@ -645,7 +652,7 @@ def _evaluate_metric(metric_tuple, eval_fn_args):
     that are in the wrong format.
 
     Args:
-        extra_metric_tuple: Containing a user provided function and its index in the
+        metric_tuple: Containing a user provided function and its index in the
             ``extra_metrics`` parameter of ``mlflow.evaluate``
         eval_fn_args: A dictionary of args needed to compute the eval metrics.
 
@@ -1470,6 +1477,8 @@ class DefaultEvaluator(ModelEvaluator):
                 return sum(y_pred_list, [])
             elif isinstance(sample_pred, pd.Series):
                 return pd.concat(y_pred_list, ignore_index=True)
+            elif isinstance(sample_pred, str):
+                return y_pred_list
             else:
                 raise MlflowException(
                     message=f"Unsupported prediction type {type(sample_pred)} for model type "
@@ -1504,23 +1513,32 @@ class DefaultEvaluator(ModelEvaluator):
             model_predictions = self.dataset.predictions_data
 
         if self.model_type == _ModelType.CLASSIFIER:
-            self.label_list = np.unique(self.y)
-            self.num_classes = len(self.label_list)
-
             if self.predict_fn is not None:
                 self.y_pred = self.predict_fn(self.X.copy_to_avoid_mutation())
             else:
                 self.y_pred = self.dataset.predictions_data
+
+            if self.label_list is None:
+                self.label_list = np.unique(np.concatenate([self.y, self.y_pred]))
+            # sort label_list ASC, for binary classification it makes sure the last one is pos label
+            self.label_list.sort()
+            self.num_classes = len(self.label_list)
             self.is_binomial = self.num_classes <= 2
 
             if self.is_binomial:
-                if self.pos_label in self.label_list:
-                    self.label_list = np.delete(
-                        self.label_list, np.where(self.label_list == self.pos_label)
-                    )
-                    self.label_list = np.append(self.label_list, self.pos_label)
-                elif self.pos_label is None:
+                if self.pos_label is None:
                     self.pos_label = self.label_list[-1]
+                else:
+                    if self.pos_label in self.label_list:
+                        self.label_list = np.delete(
+                            self.label_list, np.where(self.label_list == self.pos_label)
+                        )
+                    self.label_list = np.append(self.label_list, self.pos_label)
+                if len(self.label_list) < 2:
+                    raise MlflowException(
+                        "Evaluation dataset for classification must contain at least two unique "
+                        f"labels, but only {len(self.label_list)} unique labels were found.",
+                    )
                 with _suppress_class_imbalance_errors(IndexError, log_warning=False):
                     _logger.info(
                         "The evaluation dataset is inferred as binary dataset, positive label is "
@@ -1529,7 +1547,8 @@ class DefaultEvaluator(ModelEvaluator):
             else:
                 _logger.info(
                     "The evaluation dataset is inferred as multiclass dataset, number of classes "
-                    f"is inferred as {self.num_classes}"
+                    f"is inferred as {self.num_classes}. If this is incorrect, please specify the "
+                    "`label_list` parameter in `evaluator_config`."
                 )
 
             if self.predict_proba_fn is not None:
@@ -1712,7 +1731,11 @@ class DefaultEvaluator(ModelEvaluator):
 
     def _metric_to_metric_tuple(self, index, metric):
         return _Metric(
-            function=metric.eval_fn, index=index, name=metric.name, version=metric.version
+            function=metric.eval_fn,
+            index=index,
+            name=metric.name,
+            version=metric.version,
+            genai_metric_args=metric.genai_metric_args,
         )
 
     def _evaluate_metrics(self, eval_df):
@@ -1818,6 +1841,29 @@ class DefaultEvaluator(ModelEvaluator):
             uri=mlflow.get_artifact_uri(artifact_file_name)
         )
 
+    def _log_genai_custom_metrics(self, genai_custom_metrics):
+        if len(genai_custom_metrics) == 0:
+            return
+
+        names = []
+        versions = []
+        metric_args_list = []
+
+        for metric_args in genai_custom_metrics:
+            names.append(metric_args["name"])
+            # Custom metrics created from make_genai_metric_from_prompt don't have version
+            versions.append(metric_args.get("version", ""))
+            metric_args_list.append(metric_args)
+
+        data = {"name": names, "version": versions, "metric_args": metric_args_list}
+
+        mlflow.log_table(data, artifact_file=_GENAI_CUSTOM_METRICS_FILE_NAME)
+
+        artifact_name = os.path.splitext(_GENAI_CUSTOM_METRICS_FILE_NAME)[0]
+        self.artifacts[artifact_name] = JsonEvaluationArtifact(
+            uri=mlflow.get_artifact_uri(_GENAI_CUSTOM_METRICS_FILE_NAME)
+        )
+
     def _update_aggregate_metrics(self):
         self.aggregate_metrics = {}
         for metric_name, metric_value in self.metrics_values.items():
@@ -1915,6 +1961,7 @@ class DefaultEvaluator(ModelEvaluator):
                 exemptions=[mlflow.langchain.FLAVOR_NAME]
             ):
                 compute_latency = False
+                genai_custom_metrics = []
                 for extra_metric in self.extra_metrics:
                     # If latency metric is specified, we will compute latency for the model
                     # during prediction, and we will remove the metric from the list of extra
@@ -1922,7 +1969,10 @@ class DefaultEvaluator(ModelEvaluator):
                     if extra_metric.name == _LATENCY_METRIC_NAME:
                         compute_latency = True
                         self.extra_metrics.remove(extra_metric)
-                        break
+                    # When the field is present, the metric is created from either make_genai_metric
+                    # or make_genai_metric_from_prompt. We will log the metric definition.
+                    if extra_metric.genai_metric_args is not None:
+                        genai_custom_metrics.append(extra_metric.genai_metric_args)
                 self._generate_model_predictions(compute_latency=compute_latency)
                 self._handle_builtin_metrics_by_model_type()
 
@@ -1940,6 +1990,7 @@ class DefaultEvaluator(ModelEvaluator):
                     self._log_artifacts()
                     self._log_metrics()
                     self._log_eval_table()
+                    self._log_genai_custom_metrics(genai_custom_metrics)
                 return EvaluationResult(
                     metrics=self.aggregate_metrics, artifacts=self.artifacts, run_id=self.run_id
                 )
@@ -1985,6 +2036,11 @@ class DefaultEvaluator(ModelEvaluator):
         self.sample_weights = self.evaluator_config.get("sample_weights")
         self.eval_results_path = self.evaluator_config.get("eval_results_path")
         self.eval_results_mode = self.evaluator_config.get("eval_results_mode", "overwrite")
+        self.label_list = self.evaluator_config.get("label_list")
+        if self.pos_label and self.label_list and self.pos_label not in self.label_list:
+            raise MlflowException.invalid_parameter_value(
+                f"'pos_label' {self.pos_label} must exist in 'label_list' {self.label_list}."
+            )
 
         if self.eval_results_path:
             from mlflow.utils._spark_utils import _get_active_spark_session

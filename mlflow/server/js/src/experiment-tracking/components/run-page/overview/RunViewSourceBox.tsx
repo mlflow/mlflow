@@ -3,14 +3,14 @@ import {
   CopyIcon,
   GitCommitIcon,
   Tag,
-  Tooltip,
+  LegacyTooltip,
   Typography,
   useDesignSystemTheme,
 } from '@databricks/design-system';
 import Utils from '../../../../common/utils/Utils';
 import type { KeyValueEntity } from '../../../types';
 import { MLFLOW_RUN_GIT_SOURCE_BRANCH_TAG } from '../../../constants';
-import { CopyButton } from 'shared/building_blocks/CopyButton';
+import { CopyButton } from '@mlflow/mlflow/src/shared/building_blocks/CopyButton';
 import { ExperimentSourceTypeIcon } from '../../ExperimentSourceTypeIcon';
 
 export const RunViewSourceBox = ({
@@ -44,16 +44,19 @@ export const RunViewSourceBox = ({
       />
       {runSource}{' '}
       {branchName && (
-        <Tooltip title={branchName}>
-          <Tag css={{ marginRight: 0 }}>
+        <LegacyTooltip title={branchName}>
+          <Tag
+            componentId="codegen_mlflow_app_src_experiment-tracking_components_run-page_overview_runviewsourcebox.tsx_48"
+            css={{ marginRight: 0 }}
+          >
             <div css={{ display: 'flex', gap: 4, whiteSpace: 'nowrap' }}>
               <BranchIcon /> {branchName}
             </div>
           </Tag>
-        </Tooltip>
+        </LegacyTooltip>
       )}
       {commitHash && (
-        <Tooltip
+        <LegacyTooltip
           dangerouslySetAntdProps={{ overlayStyle: { maxWidth: 'none' } }}
           title={
             <div css={{ display: 'flex', gap: 4, alignItems: 'center' }}>
@@ -69,12 +72,15 @@ export const RunViewSourceBox = ({
             </div>
           }
         >
-          <Tag css={{ marginRight: 0 }}>
+          <Tag
+            componentId="codegen_mlflow_app_src_experiment-tracking_components_run-page_overview_runviewsourcebox.tsx_72"
+            css={{ marginRight: 0 }}
+          >
             <div css={{ display: 'flex', gap: 4, whiteSpace: 'nowrap' }}>
               <GitCommitIcon /> {commitHash.slice(0, 7)}
             </div>
           </Tag>
-        </Tooltip>
+        </LegacyTooltip>
       )}
     </div>
   ) : (

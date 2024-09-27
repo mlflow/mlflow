@@ -23,7 +23,7 @@ from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking._tracking_service.utils import _resolve_tracking_uri
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri, _upload_artifact_to_uri
 from mlflow.utils.annotations import experimental
-from mlflow.utils.databricks_utils import get_databricks_runtime_version
+from mlflow.utils.databricks_utils import get_databricks_runtime_version, is_in_databricks_runtime
 from mlflow.utils.docstring_utils import LOG_MODEL_PARAM_DOCS, format_docstring
 from mlflow.utils.environment import (
     _CONDA_ENV_FILE_NAME,
@@ -51,11 +51,15 @@ _LOG_MODEL_METADATA_WARNING_TEMPLATE = (
     '`logging.getLogger("mlflow").setLevel(logging.DEBUG)` to see the full traceback.'
 )
 _LOG_MODEL_MISSING_SIGNATURE_WARNING = (
-    "Model logged without a signature. Signatures will be required for upcoming model registry "
-    "features as they validate model inputs and denote the expected schema of model outputs. "
+    "Model logged without a signature. Signatures are required for Databricks UC model registry "
+    "as they validate model inputs and denote the expected schema of model outputs. "
     f"Please visit https://www.mlflow.org/docs/{mlflow.__version__.replace('.dev0', '')}/"
-    "models.html#set-signature-on-logged-model for instructions on setting a model signature on "
-    "your logged model."
+    "model/signatures.html#how-to-set-signatures-on-models for instructions on setting "
+    "signature on models."
+)
+_LOG_MODEL_MISSING_INPUT_EXAMPLE_WARNING = (
+    "Model logged without a signature and input example. Please set `input_example` parameter "
+    "when logging the model to auto infer the model signature."
 )
 # NOTE: The _MLFLOW_VERSION_KEY constant is considered @developer_stable
 _MLFLOW_VERSION_KEY = "mlflow_version"
@@ -67,6 +71,9 @@ METADATA_FILES = [
 ]
 MODEL_CONFIG = "config"
 MODEL_CODE_PATH = "model_code_path"
+SET_MODEL_ERROR = (
+    "Model should either be an instance of PyFuncModel, Langchain type, or LlamaIndex index."
+)
 
 
 class ModelInfo:
@@ -353,6 +360,21 @@ class Model:
         """
         return getattr(self.signature, "params", None)
 
+    def get_serving_input(self, path: str):
+        """
+        Load serving input example from a model directory. Returns None if there is no serving input
+        example.
+
+        Args:
+            path: Path to the model directory.
+
+        Returns:
+            Serving input example or None if the model has no serving input example.
+        """
+        from mlflow.models.utils import _load_serving_input_example
+
+        return _load_serving_input_example(self, path)
+
     def load_input_example(self, path: str):
         """
         Load the input example saved along a model. Returns None if there is no example metadata
@@ -533,6 +555,26 @@ class Model:
             metadata=self.metadata,
         )
 
+    def get_tags_dict(self):
+        result = self.to_dict()
+
+        tags = {
+            key: value
+            for key, value in result.items()
+            if key in ["run_id", "utc_time_created", "artifact_path", "model_uuid"]
+        }
+
+        tags["flavors"] = {
+            flavor: (
+                {k: v for k, v in config.items() if k != "config"}
+                if isinstance(config, dict)
+                else config
+            )
+            for flavor, config in result.get("flavors", {}).items()
+        }
+
+        return tags
+
     def to_dict(self):
         """Serialize the model to a dictionary."""
         res = {k: v for k, v in self.__dict__.items() if not k.startswith("_")}
@@ -633,7 +675,7 @@ class Model:
 
     @format_docstring(LOG_MODEL_PARAM_DOCS)
     @classmethod
-    def log(
+    def log(  # noqa: D417
         cls,
         artifact_path,
         flavor,
@@ -670,7 +712,6 @@ class Model:
             A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
             metadata of the logged model.
         """
-        from mlflow.models.wheeled_model import _ORIGINAL_REQ_FILE_NAME, WheeledModel
         from mlflow.utils.model_utils import _validate_and_get_model_config_from_file
 
         registered_model = None
@@ -687,35 +728,18 @@ class Model:
             for pycache in Path(local_path).rglob("__pycache__"):
                 shutil.rmtree(pycache, ignore_errors=True)
 
-            # Copy model metadata files to a sub-directory 'metadata',
-            # For UC sharing use-cases.
-            metadata_path = os.path.join(local_path, "metadata")
-            if isinstance(flavor, WheeledModel):
-                # wheeled model updates several metadata files in original model directory
-                # copy these updated metadata files to the 'metadata' subdirectory
-                os.makedirs(metadata_path, exist_ok=True)
-                for file_name in METADATA_FILES + [
-                    _ORIGINAL_REQ_FILE_NAME,
-                ]:
-                    src_file_path = os.path.join(local_path, file_name)
-                    if os.path.exists(src_file_path):
-                        dest_file_path = os.path.join(metadata_path, file_name)
-                        shutil.copyfile(src_file_path, dest_file_path)
-            else:
-                os.makedirs(metadata_path, exist_ok=True)
-                for file_name in METADATA_FILES:
-                    src_file_path = os.path.join(local_path, file_name)
-                    if os.path.exists(src_file_path):
-                        dest_file_path = os.path.join(metadata_path, file_name)
-                        shutil.copyfile(src_file_path, dest_file_path)
+            if is_in_databricks_runtime():
+                _copy_model_metadata_for_uc_sharing(local_path, flavor)
 
             tracking_uri = _resolve_tracking_uri()
+            serving_input = mlflow_model.get_serving_input(local_path)
             # We check signature presence here as some flavors have a default signature as a
             # fallback when not provided by user, which is set during flavor's save_model() call.
-            if mlflow_model.signature is None and (
-                tracking_uri == "databricks" or get_uri_scheme(tracking_uri) == "databricks"
-            ):
-                _logger.warning(_LOG_MODEL_MISSING_SIGNATURE_WARNING)
+            if mlflow_model.signature is None:
+                if serving_input is None:
+                    _logger.warning(_LOG_MODEL_MISSING_INPUT_EXAMPLE_WARNING)
+                elif tracking_uri == "databricks" or get_uri_scheme(tracking_uri) == "databricks":
+                    _logger.warning(_LOG_MODEL_MISSING_SIGNATURE_WARNING)
             mlflow.tracking.fluent.log_artifacts(local_path, mlflow_model.artifact_path, run_id)
 
             # if the model_config kwarg is passed in, then log the model config as an params
@@ -767,10 +791,63 @@ class Model:
                     await_registration_for=await_registration_for,
                     local_model_path=local_path,
                 )
-        model_info = mlflow_model.get_model_info()
-        if registered_model is not None:
-            model_info.registered_model_version = registered_model.version
+            model_info = mlflow_model.get_model_info()
+            if registered_model is not None:
+                model_info.registered_model_version = registered_model.version
+
+            # validate input example works for serving when logging the model
+            if serving_input and kwargs.get("validate_serving_input", True):
+                from mlflow.models import validate_serving_input
+
+                try:
+                    validate_serving_input(model_info.model_uri, serving_input)
+                except Exception as e:
+                    _logger.warning(
+                        f"Failed to validate serving input example {serving_input}. "
+                        "Alternatively, you can avoid passing input example and pass model "
+                        "signature instead when logging the model. To ensure the input example "
+                        "is valid prior to serving, please try calling "
+                        "`mlflow.models.validate_serving_input` on the model uri and serving "
+                        "input example. A serving input example can be generated from model "
+                        "input example using "
+                        "`mlflow.models.convert_input_example_to_serving_input` function.\n"
+                        f"Got error: {e}",
+                        exc_info=_logger.isEnabledFor(logging.DEBUG),
+                    )
+
         return model_info
+
+
+def _copy_model_metadata_for_uc_sharing(local_path, flavor):
+    """
+    Copy model metadata files to a sub-directory 'metadata',
+    For Databricks Unity Catalog sharing use-cases.
+
+    Args:
+        local_path: Local path to the model directory.
+        flavor: Flavor module to save the model with.
+    """
+    from mlflow.models.wheeled_model import _ORIGINAL_REQ_FILE_NAME, WheeledModel
+
+    metadata_path = os.path.join(local_path, "metadata")
+    if isinstance(flavor, WheeledModel):
+        # wheeled model updates several metadata files in original model directory
+        # copy these updated metadata files to the 'metadata' subdirectory
+        os.makedirs(metadata_path, exist_ok=True)
+        for file_name in METADATA_FILES + [
+            _ORIGINAL_REQ_FILE_NAME,
+        ]:
+            src_file_path = os.path.join(local_path, file_name)
+            if os.path.exists(src_file_path):
+                dest_file_path = os.path.join(metadata_path, file_name)
+                shutil.copyfile(src_file_path, dest_file_path)
+    else:
+        os.makedirs(metadata_path, exist_ok=True)
+        for file_name in METADATA_FILES:
+            src_file_path = os.path.join(local_path, file_name)
+            if os.path.exists(src_file_path):
+                dest_file_path = os.path.join(metadata_path, file_name)
+                shutil.copyfile(src_file_path, dest_file_path)
 
 
 def get_model_info(model_uri: str) -> ModelInfo:
@@ -820,8 +897,9 @@ def get_model_info(model_uri: str) -> ModelInfo:
     """
     from mlflow.pyfunc import _download_artifact_from_uri
 
-    local_path = _download_artifact_from_uri(artifact_uri=model_uri, output_path=None)
-    model_meta = Model.load(os.path.join(local_path, MLMODEL_FILE_NAME))
+    meta_file_uri = model_uri.rstrip("/") + "/" + MLMODEL_FILE_NAME
+    meta_local_path = _download_artifact_from_uri(artifact_uri=meta_file_uri)
+    model_meta = Model.load(meta_local_path)
     return ModelInfo(
         artifact_path=model_meta.artifact_path,
         flavors=model_meta.flavors,
@@ -946,6 +1024,18 @@ def update_model_requirements(
 __mlflow_model__ = None
 
 
+def _validate_langchain_model(model):
+    from mlflow.langchain import _validate_and_prepare_lc_model_or_path
+
+    return _validate_and_prepare_lc_model_or_path(model, None)
+
+
+def _validate_llama_index_model(model):
+    from mlflow.llama_index import _validate_and_prepare_llama_index_model_or_path
+
+    return _validate_and_prepare_llama_index_model_or_path(model, None)
+
+
 @experimental
 def set_model(model):
     """
@@ -953,24 +1043,26 @@ def set_model(model):
     to be logged.
 
     Args:
-        model: The model object to be logged.
+        model: The model object to be logged. Supported model types are:
+
+                - A Python function or callable object.
+                - A Langchain model or path to a Langchain model.
+                - A Llama Index model or path to a Llama Index model.
     """
     from mlflow.pyfunc import PythonModel
 
-    if not (isinstance(model, PythonModel) or callable(model)):
+    if isinstance(model, str):
+        raise mlflow.MlflowException(SET_MODEL_ERROR)
+
+    if isinstance(model, PythonModel) or callable(model):
+        globals()["__mlflow_model__"] = model
+        return
+
+    for validate_function in [_validate_langchain_model, _validate_llama_index_model]:
         try:
-            from mlflow.langchain import _validate_and_prepare_lc_model_or_path
+            globals()["__mlflow_model__"] = validate_function(model)
+            return
+        except Exception:
+            pass
 
-            # If its not a PyFuncModel, then it should be a Langchain model (not a path)
-            # Check this since the validation function does not
-            if isinstance(model, str):
-                raise mlflow.MlflowException(
-                    "Model should either be an instance of PyFuncModel or Langchain type."
-                )
-            model = _validate_and_prepare_lc_model_or_path(model, None)
-        except Exception as e:
-            raise mlflow.MlflowException(
-                "Model should either be an instance of PyFuncModel or Langchain type."
-            ) from e
-
-    globals()["__mlflow_model__"] = model
+    raise mlflow.MlflowException(SET_MODEL_ERROR)

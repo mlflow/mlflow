@@ -46,7 +46,6 @@ properly_formatted_openai_response1 = f"""\
   "justification": "{openai_justification1}"
 }}"""
 
-
 properly_formatted_openai_response2 = (
     '{\n  "score": 2,\n  "justification": "The provided output gives a correct '
     "and adequate explanation of what Apache Spark is, covering its main functions and "
@@ -142,20 +141,23 @@ example_definition = (
 )
 
 
-def test_make_genai_metric_correct_response():
-    custom_metric = make_genai_metric(
+@pytest.fixture
+def custom_metric():
+    return make_genai_metric(
         name="correctness",
         version="v1",
         definition=example_definition,
         grading_prompt=example_grading_prompt,
         examples=[mlflow_example],
-        model="gateway:/gpt-3.5-turbo",
+        model="gateway:/gpt-4o-mini",
         grading_context_columns=["targets"],
         parameters={"temperature": 0.0},
         greater_is_better=True,
         aggregations=["mean", "variance", "p90"],
     )
 
+
+def test_make_genai_metric_correct_response(custom_metric):
     assert [
         param.name for param in inspect.signature(custom_metric.eval_fn).parameters.values()
     ] == ["predictions", "metrics", "inputs", "targets"]
@@ -195,7 +197,7 @@ def test_make_genai_metric_correct_response():
                 grading_context={"targets": "example-ground_truth"},
             )
         ],
-        model="openai:/gpt-3.5-turbo",
+        model="openai:/gpt-4o-mini",
         grading_context_columns=["targets"],
         greater_is_better=True,
     )
@@ -211,7 +213,7 @@ def test_make_genai_metric_correct_response():
             pd.Series(["ground_truth"]),
         )
         assert mock_predict_function.call_count == 1
-        assert mock_predict_function.call_args[0][0] == "openai:/gpt-3.5-turbo"
+        assert mock_predict_function.call_args[0][0] == "openai:/gpt-4o-mini"
         assert mock_predict_function.call_args[0][1] == (
             "\nTask:\nYou must return the following fields in your response in two "
             "lines, one below the other:\nscore: Your numerical score for the model's "
@@ -257,7 +259,7 @@ def test_make_genai_metric_supports_string_value_for_grading_context_columns():
         version="v1",
         definition="Fake metric definition",
         grading_prompt="Fake metric grading prompt",
-        model="openai:/gpt-3.5-turbo",
+        model="openai:/gpt-4o-mini",
         grading_context_columns="targets",
         greater_is_better=True,
         examples=[
@@ -287,7 +289,7 @@ def test_make_genai_metric_supports_string_value_for_grading_context_columns():
             pd.Series(["ground_truth"]),
         )
         assert mock_predict_function.call_count == 1
-        assert mock_predict_function.call_args[0][0] == "openai:/gpt-3.5-turbo"
+        assert mock_predict_function.call_args[0][0] == "openai:/gpt-4o-mini"
         assert mock_predict_function.call_args[0][1] == (
             "\nTask:\nYou must return the following fields in your response in two "
             "lines, one below the other:\nscore: Your numerical score for the model's "
@@ -334,7 +336,7 @@ def test_make_genai_metric_incorrect_response():
         definition=example_definition,
         grading_prompt=example_grading_prompt,
         examples=[mlflow_example],
-        model="gateway:/gpt-3.5-turbo",
+        model="gateway:/gpt-4o-mini",
         grading_context_columns=["targets"],
         parameters={"temperature": 0.0},
         greater_is_better=True,
@@ -408,7 +410,7 @@ def test_make_genai_metric_multiple():
         definition=example_definition,
         grading_prompt=example_grading_prompt,
         examples=[mlflow_example],
-        model="gateway:/gpt-3.5-turbo",
+        model="gateway:/gpt-4o-mini",
         grading_context_columns=["targets"],
         parameters={"temperature": 0.0},
         greater_is_better=True,
@@ -507,7 +509,7 @@ def test_make_genai_metric_failure():
             definition="definition",
             grading_prompt="grading_prompt",
             examples=[example],
-            model="openai:/gpt-3.5-turbo",
+            model="openai:/gpt-4o-mini",
             grading_context_columns=["targets"],
             parameters={"temperature": 0.0},
             greater_is_better=True,
@@ -633,7 +635,7 @@ def test_extract_score_and_justification():
 
 def test_similarity_metric():
     similarity_metric = answer_similarity(
-        model="gateway:/gpt-3.5-turbo", metric_version="v1", examples=[mlflow_example]
+        model="gateway:/gpt-4o-mini", metric_version="v1", examples=[mlflow_example]
     )
 
     input = "What is MLflow?"
@@ -648,7 +650,7 @@ def test_similarity_metric():
         )
 
         assert mock_predict_function.call_count == 1
-        assert mock_predict_function.call_args[0][0] == "gateway:/gpt-3.5-turbo"
+        assert mock_predict_function.call_args[0][0] == "gateway:/gpt-4o-mini"
         assert mock_predict_function.call_args[0][1] == (
             "\nTask:\nYou must return the following fields in your response in two "
             "lines, one below the other:\nscore: Your numerical score for the model's "
@@ -701,14 +703,14 @@ def test_similarity_metric():
         match="Failed to find answer similarity metric for version non-existent-version",
     ):
         answer_similarity(
-            model="gateway:/gpt-3.5-turbo",
+            model="gateway:/gpt-4o-mini",
             metric_version="non-existent-version",
             examples=[mlflow_example],
         )
 
 
 def test_faithfulness_metric():
-    faithfulness_metric = faithfulness(model="gateway:/gpt-3.5-turbo", examples=[])
+    faithfulness_metric = faithfulness(model="gateway:/gpt-4o-mini", examples=[])
     input = "What is MLflow?"
 
     with mock.patch.object(
@@ -723,7 +725,7 @@ def test_faithfulness_metric():
             pd.Series([mlflow_ground_truth]),
         )
         assert mock_predict_function.call_count == 1
-        assert mock_predict_function.call_args[0][0] == "gateway:/gpt-3.5-turbo"
+        assert mock_predict_function.call_args[0][0] == "gateway:/gpt-4o-mini"
         assert mock_predict_function.call_args[0][1] == (
             "\nTask:\nYou must return the following fields in your response in two "
             "lines, one below the other:\nscore: Your numerical score for the model's "
@@ -770,7 +772,7 @@ def test_faithfulness_metric():
         MlflowException, match="Failed to find faithfulness metric for version non-existent-version"
     ):
         faithfulness_metric = faithfulness(
-            model="gateway:/gpt-3.5-turbo",
+            model="gateway:/gpt-4o-mini",
             metric_version="non-existent-version",
             examples=[mlflow_example],
         )
@@ -854,7 +856,7 @@ def test_answer_correctness_metric():
 
 
 def test_answer_relevance_metric():
-    answer_relevance_metric = answer_relevance(model="gateway:/gpt-3.5-turbo", examples=[])
+    answer_relevance_metric = answer_relevance(model="gateway:/gpt-4o-mini", examples=[])
     input = "What is MLflow?"
 
     with mock.patch.object(
@@ -869,7 +871,7 @@ def test_answer_relevance_metric():
             pd.Series([mlflow_ground_truth]),
         )
         assert mock_predict_function.call_count == 1
-        assert mock_predict_function.call_args[0][0] == "gateway:/gpt-3.5-turbo"
+        assert mock_predict_function.call_args[0][0] == "gateway:/gpt-4o-mini"
         assert mock_predict_function.call_args[0][1] == (
             "\nTask:\nYou must return the following fields in your response in two "
             "lines, one below the other:\nscore: Your numerical score for the model's "
@@ -917,14 +919,14 @@ def test_answer_relevance_metric():
         match="Failed to find answer relevance metric for version non-existent-version",
     ):
         answer_relevance(
-            model="gateway:/gpt-3.5-turbo",
+            model="gateway:/gpt-4o-mini",
             metric_version="non-existent-version",
             examples=[mlflow_example],
         )
 
 
 def test_relevance_metric():
-    relevance_metric = relevance(model="gateway:/gpt-3.5-turbo", examples=[])
+    relevance_metric = relevance(model="gateway:/gpt-4o-mini", examples=[])
 
     input = "What is MLflow?"
     pd.DataFrame(
@@ -947,7 +949,7 @@ def test_relevance_metric():
             pd.Series([mlflow_ground_truth]),
         )
         assert mock_predict_function.call_count == 1
-        assert mock_predict_function.call_args[0][0] == "gateway:/gpt-3.5-turbo"
+        assert mock_predict_function.call_args[0][0] == "gateway:/gpt-4o-mini"
         assert mock_predict_function.call_args[0][1] == (
             "\nTask:\nYou must return the following fields in your response in two "
             "lines, one below the other:\nscore: Your numerical score for the model's "
@@ -995,7 +997,7 @@ def test_relevance_metric():
         MlflowException, match="Failed to find relevance metric for version non-existent-version"
     ):
         relevance_metric = relevance(
-            model="gateway:/gpt-3.5-turbo",
+            model="gateway:/gpt-4o-mini",
             metric_version="non-existent-version",
             examples=[mlflow_example],
         )
@@ -1008,7 +1010,7 @@ def test_make_genai_metric_metric_details():
         definition=example_definition,
         grading_prompt=example_grading_prompt,
         examples=[mlflow_example],
-        model="gateway:/gpt-3.5-turbo",
+        model="gateway:/gpt-4o-mini",
         grading_context_columns=["targets"],
         parameters={"temperature": 0.0},
         greater_is_better=True,
@@ -1031,7 +1033,7 @@ def test_make_genai_metric_without_example():
         version="v1",
         definition=example_definition,
         grading_prompt=example_grading_prompt,
-        model="gateway:/gpt-3.5-turbo",
+        model="gateway:/gpt-4o-mini",
         grading_context_columns=["targets"],
         parameters={"temperature": 0.0},
         greater_is_better=True,
@@ -1048,7 +1050,7 @@ def test_make_genai_metric_metric_metadata():
         definition=example_definition,
         grading_prompt=example_grading_prompt,
         examples=[mlflow_example],
-        model="gateway:/gpt-3.5-turbo",
+        model="gateway:/gpt-4o-mini",
         grading_context_columns=["targets"],
         parameters={"temperature": 0.0},
         greater_is_better=True,
@@ -1145,7 +1147,7 @@ def test_log_make_genai_metric_from_prompt_fn_args():
     )
 
     expected_keys = set(inspect.signature(make_genai_metric_from_prompt).parameters.keys())
-    expected_keys.add("mlflow_version")
+    expected_keys.update(["mlflow_version", "fn_name"])
     # When updating the function signature of make_genai_metric_from_prompt, please update
     # the genai_metric_args dict construction inside the function as well.
     assert set(custom_metric.genai_metric_args.keys()) == expected_keys
@@ -1160,27 +1162,15 @@ def test_log_make_genai_metric_from_prompt_fn_args():
         "max_workers": 10,
         "metric_metadata": None,
         "mlflow_version": VERSION,
+        "fn_name": make_genai_metric_from_prompt.__name__,
     }
 
     assert custom_metric.genai_metric_args == expected_genai_metric_args
 
 
-def test_log_make_genai_metric_fn_args():
-    custom_metric = make_genai_metric(
-        name="correctness",
-        version="v1",
-        definition=example_definition,
-        grading_prompt=example_grading_prompt,
-        examples=[mlflow_example],
-        model="gateway:/gpt-3.5-turbo",
-        grading_context_columns=["targets"],
-        parameters={"temperature": 0.0},
-        greater_is_better=True,
-        aggregations=["mean", "variance", "p90"],
-    )
-
+def test_log_make_genai_metric_fn_args(custom_metric):
     expected_keys = set(inspect.signature(make_genai_metric).parameters.keys())
-    expected_keys.add("mlflow_version")
+    expected_keys.update(["mlflow_version", "fn_name"])
     # When updating the function signature of make_genai_metric, please update
     # the genai_metric_args dict construction inside the function as well.
     assert set(custom_metric.genai_metric_args.keys()) == expected_keys
@@ -1191,7 +1181,7 @@ def test_log_make_genai_metric_fn_args():
         "grading_prompt": example_grading_prompt,
         "examples": [mlflow_example],
         "version": "v1",
-        "model": "gateway:/gpt-3.5-turbo",
+        "model": "gateway:/gpt-4o-mini",
         "grading_context_columns": ["targets"],
         "include_input": True,
         "parameters": {"temperature": 0.0},
@@ -1200,6 +1190,116 @@ def test_log_make_genai_metric_fn_args():
         "max_workers": 10,
         "metric_metadata": None,
         "mlflow_version": VERSION,
+        "fn_name": make_genai_metric.__name__,
     }
 
     assert custom_metric.genai_metric_args == expected_genai_metric_args
+
+
+@pytest.mark.parametrize(
+    "metric_fn",
+    [
+        answer_similarity,
+        answer_correctness,
+        faithfulness,
+        answer_relevance,
+        relevance,
+    ],
+)
+def test_metric_metadata_on_prebuilt_genai_metrics(metric_fn):
+    metric = metric_fn(metric_metadata={"metadata_field": "metadata_value"})
+    assert metric.metric_metadata == {"metadata_field": "metadata_value"}
+
+
+def test_genai_metrics_callable(custom_metric):
+    data = {
+        "predictions": mlflow_prediction,
+        "inputs": "What is MLflow?",
+        "targets": mlflow_ground_truth,
+    }
+    with mock.patch.object(
+        model_utils,
+        "score_model_on_payload",
+        return_value=properly_formatted_openai_response1,
+    ):
+        expected_result = custom_metric.eval_fn(
+            pd.Series([mlflow_prediction]),
+            {},
+            pd.Series(["What is MLflow?"]),
+            pd.Series([mlflow_ground_truth]),
+        )
+        metric_value = custom_metric(**data)
+
+    assert metric_value == expected_result
+    assert metric_value.scores == [3]
+    assert metric_value.justifications == [openai_justification1]
+    assert metric_value.aggregate_results == {
+        "mean": 3,
+        "variance": 0,
+        "p90": 3,
+    }
+    assert set(inspect.signature(custom_metric).parameters.keys()) == {
+        "predictions",
+        "inputs",
+        "metrics",
+        "targets",
+    }
+
+
+def test_genai_metrics_callable_errors(custom_metric):
+    with pytest.raises(TypeError, match=r"missing 1 required keyword-only argument: 'inputs'"):
+        custom_metric(predictions=mlflow_prediction)
+
+    data = {
+        "predictions": mlflow_prediction,
+        "inputs": "What is MLflow?",
+    }
+    with pytest.raises(MlflowException, match=r"Missing required arguments: {'targets'}"):
+        custom_metric(**data)
+
+    with pytest.raises(MlflowException, match=r"Unexpected arguments: {'data'}"):
+        custom_metric(**data, targets=mlflow_ground_truth, data="data")
+
+    with pytest.raises(
+        TypeError, match=r"Expected predictions to be a string, list, or Pandas Series"
+    ):
+        custom_metric(predictions=1, inputs="What is MLflow?", targets=mlflow_ground_truth)
+
+
+def test_genai_metrics_with_llm_judge_callable():
+    custom_judge_prompt = "This is a custom judge prompt that uses {input} and {output}"
+
+    custom_judge_prompt_metric = make_genai_metric_from_prompt(
+        name="custom",
+        judge_prompt=custom_judge_prompt,
+        metric_metadata={"metadata_field": "metadata_value"},
+    )
+
+    inputs = "What is MLflow?"
+    outputs = "MLflow is an open-source platform"
+
+    with mock.patch.object(
+        model_utils,
+        "score_model_on_payload",
+        return_value=properly_formatted_openai_response1,
+    ):
+        expected_result = custom_judge_prompt_metric.eval_fn(
+            input=pd.Series([inputs]), output=pd.Series([outputs])
+        )
+        metric_value = custom_judge_prompt_metric(
+            input=inputs,
+            output=outputs,
+        )
+
+    assert metric_value == expected_result
+    assert metric_value.scores == [3]
+    assert metric_value.justifications == [openai_justification1]
+    assert metric_value.aggregate_results == {
+        "mean": 3,
+        "variance": 0,
+        "p90": 3,
+    }
+    assert set(inspect.signature(custom_judge_prompt_metric).parameters.keys()) == {
+        "input",
+        "output",
+    }

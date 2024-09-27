@@ -1538,3 +1538,37 @@ def test_spark_udf_infer_return_type(spark, tmp_path):
     pdf = df.toPandas()
     assert pdf["output"][0] == ("a", [0], (True, ("some_string",)), [(0.1,)])
     assert pdf["output"][1] == ("b", [1], (False, ("another_string",)), [(0.2,), (0.3,)])
+
+
+def test_spark_udf_env_manager_with_invalid_pythonpath(
+    spark, sklearn_model, model_path, tmp_path, monkeypatch
+):
+    # create an unreadable file
+    unreadable_file = tmp_path / "unreadable_file"
+    unreadable_file.write_text("unreadable file content")
+    unreadable_file.chmod(0o000)
+    with pytest.raises(PermissionError, match="Permission denied"):
+        with unreadable_file.open():
+            pass
+    non_exist_file = tmp_path / "does_not_exist"
+    origin_python_path = os.environ.get("PYTHONPATH", "")
+    monkeypatch.setenv("PYTHONPATH", f"{origin_python_path}:{non_exist_file}:{unreadable_file}")
+
+    model, inference_data = sklearn_model
+
+    mlflow.sklearn.save_model(model, model_path)
+    expected_pred_result = model.predict(inference_data)
+
+    infer_data = pd.DataFrame(inference_data, columns=["a", "b"])
+    infer_spark_df = spark.createDataFrame(infer_data)
+
+    with mock.patch("mlflow.utils.databricks_utils.is_in_databricks_runtime", return_value=True):
+        pyfunc_udf = spark_udf(spark, model_path, env_manager="virtualenv")
+
+    result = (
+        infer_spark_df.select(pyfunc_udf("a", "b").alias("predictions"))
+        .toPandas()
+        .predictions.to_numpy()
+    )
+
+    np.testing.assert_allclose(result, expected_pred_result, rtol=1e-5)

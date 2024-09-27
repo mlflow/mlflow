@@ -1,4 +1,3 @@
-/// <reference types="react" />
 import type { HTMLDataAttributes } from '../types';
 type validSpacerOptions = 'xs' | 'sm' | 'md' | 'lg';
 export interface SpacerProps extends HTMLDataAttributes {

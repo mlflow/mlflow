@@ -17,6 +17,7 @@ import Routes from '../../../routes';
 import { FormattedMessage, defineMessages, useIntl } from 'react-intl';
 import { isSystemMetricKey } from '../../../utils/MetricsUtils';
 import { Table as TableDef, flexRender, getCoreRowModel, useReactTable } from '@tanstack/react-table';
+import type { UseGetRunQueryResponseRunInfo } from '../hooks/useGetRunQuery';
 
 const { systemMetricsLabel, modelMetricsLabel } = defineMessages({
   systemMetricsLabel: {
@@ -40,7 +41,7 @@ const RunViewMetricsTableSection = ({
   header,
   table,
 }: {
-  runInfo: RunInfoEntity;
+  runInfo: RunInfoEntity | UseGetRunQueryResponseRunInfo;
   metricsList: MetricEntity[];
   header?: React.ReactNode;
   table: TableDef<MetricEntity>;
@@ -58,39 +59,46 @@ const RunViewMetricsTableSection = ({
           </TableCell>
         </TableRow>
       )}
-      {metricsList.map(({ key, value }) => (
-        <TableRow key={key}>
-          <TableCell
-            style={{
-              flexGrow: 0,
-              flexBasis: keyColumn.getSize(),
-            }}
-          >
-            <Link to={Routes.getMetricPageRoute([runInfo.runUuid], key, [runInfo.experimentId])}>{key}</Link>
-          </TableCell>
-          <TableCell
-            css={{
-              flexGrow: 1,
-            }}
-          >
-            {value.toString()}
-          </TableCell>
-        </TableRow>
-      ))}
+      {metricsList.map(
+        ({
+          // Get metric key and value to display in table
+          key,
+          value,
+        }) => (
+          <TableRow key={key}>
+            <TableCell
+              style={{
+                flexGrow: 0,
+                flexBasis: keyColumn.getSize(),
+              }}
+            >
+              <Link to={Routes.getMetricPageRoute([runInfo.runUuid ?? ''], key, [runInfo.experimentId ?? ''])}>
+                {key}
+              </Link>
+            </TableCell>
+            <TableCell
+              css={{
+                flexGrow: 1,
+              }}
+            >
+              {value.toString()}
+            </TableCell>
+          </TableRow>
+        ),
+      )}
     </>
   ) : null;
 };
 
 /**
  * Displays table with metrics key/values in run detail overview.
- * TODO: implement min/max/last values after backend discussion is settled.
  */
 export const RunViewMetricsTable = ({
   latestMetrics,
   runInfo,
 }: {
   latestMetrics: MetricEntitiesByName;
-  runInfo: RunInfoEntity;
+  runInfo: RunInfoEntity | UseGetRunQueryResponseRunInfo;
 }) => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
@@ -179,6 +187,7 @@ export const RunViewMetricsTable = ({
       <>
         <div css={{ marginBottom: theme.spacing.sm }}>
           <Input
+            componentId="codegen_mlflow_app_src_experiment-tracking_components_run-page_overview_runviewmetricstable.tsx_186"
             prefix={<SearchIcon />}
             placeholder={intl.formatMessage({
               defaultMessage: 'Search metrics',

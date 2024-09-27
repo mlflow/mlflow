@@ -596,7 +596,7 @@ class FileStore(AbstractStore):
                 model_version_dict,
             )
 
-    def create_model_version(
+    def create_model_version(  # noqa: D417
         self,
         name,
         source,

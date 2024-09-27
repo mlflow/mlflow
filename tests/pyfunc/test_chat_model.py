@@ -1,6 +1,8 @@
 import json
 import pathlib
 import pickle
+import uuid
+from dataclasses import asdict
 from typing import List
 
 import pytest
@@ -9,18 +11,27 @@ import mlflow
 from mlflow.exceptions import MlflowException
 from mlflow.models.model import Model
 from mlflow.models.signature import ModelSignature
+from mlflow.models.utils import load_serving_example
 from mlflow.pyfunc.loaders.chat_model import _ChatModelPyfuncWrapper
 from mlflow.tracing.constant import TraceTagKey
+from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.types.llm import (
     CHAT_MODEL_INPUT_SCHEMA,
     CHAT_MODEL_OUTPUT_SCHEMA,
+    ChatChoice,
     ChatMessage,
     ChatParams,
     ChatResponse,
+    FunctionToolCallArguments,
+    FunctionToolDefinition,
+    ToolParamsSchema,
 )
 from mlflow.types.schema import ColSpec, DataType, Schema
 
-from tests.helper_functions import expect_status_code, pyfunc_serve_and_score_model
+from tests.helper_functions import (
+    expect_status_code,
+    pyfunc_serve_and_score_model,
+)
 from tests.tracing.helper import get_traces
 
 # `None`s (`max_tokens` and `stop`) are excluded
@@ -64,7 +75,7 @@ def get_mock_response(messages, params):
 class TestChatModel(mlflow.pyfunc.ChatModel):
     def predict(self, context, messages: List[ChatMessage], params: ChatParams) -> ChatResponse:
         mock_response = get_mock_response(messages, params)
-        return ChatResponse(**mock_response)
+        return ChatResponse.from_dict(mock_response)
 
 
 class ChatModelWithContext(mlflow.pyfunc.ChatModel):
@@ -74,14 +85,56 @@ class ChatModelWithContext(mlflow.pyfunc.ChatModel):
 
     def predict(self, context, messages: List[ChatMessage], params: ChatParams) -> ChatResponse:
         message = ChatMessage(role="assistant", content=self.predict_fn())
-        return ChatResponse(**get_mock_response([message], params))
+        return ChatResponse.from_dict(get_mock_response([message], params))
 
 
 class ChatModelWithTrace(mlflow.pyfunc.ChatModel):
     @mlflow.trace
     def predict(self, context, messages: List[ChatMessage], params: ChatParams) -> ChatResponse:
         mock_response = get_mock_response(messages, params)
-        return ChatResponse(**mock_response)
+        return ChatResponse.from_dict(mock_response)
+
+
+class ChatModelWithMetadata(mlflow.pyfunc.ChatModel):
+    def predict(self, context, messages: List[ChatMessage], params: ChatParams) -> ChatResponse:
+        mock_response = get_mock_response(messages, params)
+        return ChatResponse(
+            **mock_response,
+            metadata=params.metadata,
+        )
+
+
+class ChatModelWithToolCalling(mlflow.pyfunc.ChatModel):
+    def predict(self, context, messages: List[ChatMessage], params: ChatParams) -> ChatResponse:
+        tools = params.tools
+
+        # call the first tool with some value for all the required params
+        tool_name = tools[0].function.name
+        tool_params = tools[0].function.parameters
+        arguments = {}
+        for param in tool_params.required:
+            param_type = tool_params.properties[param].type
+            if param_type == "string":
+                arguments[param] = "some_value"
+            elif param_type == "number":
+                arguments[param] = 123
+            elif param_type == "boolean":
+                arguments[param] = True
+            else:
+                # keep the test example simple
+                raise ValueError(f"Unsupported param type: {param_type}")
+
+        tool_call = FunctionToolCallArguments(
+            name=tool_name,
+            arguments=json.dumps(arguments),
+        ).to_tool_call(id=uuid.uuid4().hex)
+
+        tool_message = ChatMessage(
+            role="assistant",
+            tool_calls=[tool_call],
+        )
+
+        return ChatResponse(choices=[ChatChoice(index=0, message=tool_message)])
 
 
 def test_chat_model_save_load(tmp_path):
@@ -114,7 +167,7 @@ def test_chat_model_with_trace(tmp_path):
     assert len(traces) == 1
     assert traces[0].info.tags[TraceTagKey.TRACE_NAME] == "predict"
     request = json.loads(traces[0].data.request)
-    assert request["messages"] == [str(ChatMessage(**msg)) for msg in messages]
+    assert request["messages"] == [asdict(ChatMessage.from_dict(msg)) for msg in messages]
 
 
 def test_chat_model_save_throws_with_signature(tmp_path):
@@ -211,6 +264,10 @@ def test_chat_model_predict(tmp_path):
         "stop": ["\n"],
         "n": 2,
         "stream": True,
+        "top_p": 0.1,
+        "top_k": 20,
+        "frequency_penalty": 0.5,
+        "presence_penalty": -0.5,
     }
     response = loaded_model.predict({"messages": messages, **params_override})
     assert response["choices"][0]["message"]["content"] == json.dumps(messages)
@@ -228,10 +285,8 @@ def test_chat_model_predict(tmp_path):
     }
 
 
-def test_chat_model_works_in_serving(tmp_path):
+def test_chat_model_works_in_serving():
     model = TestChatModel()
-    mlflow.pyfunc.save_model(python_model=model, path=tmp_path)
-
     messages = [
         {"role": "system", "content": "You are a helpful assistant"},
         {"role": "user", "content": "Hello!"},
@@ -239,10 +294,17 @@ def test_chat_model_works_in_serving(tmp_path):
     params_subset = {
         "max_tokens": 100,
     }
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model(
+            "model",
+            python_model=model,
+            input_example=(messages, params_subset),
+        )
 
+    inference_payload = load_serving_example(model_info.model_uri)
     response = pyfunc_serve_and_score_model(
-        model_uri=tmp_path,
-        data=json.dumps({"messages": messages, **params_subset}),
+        model_uri=model_info.model_uri,
+        data=inference_payload,
         content_type="application/json",
         extra_args=["--env-manager", "local"],
     )
@@ -270,18 +332,24 @@ def test_chat_model_works_with_infer_signature_input_example(tmp_path):
         ],
         **params_subset,
     }
-    mlflow.pyfunc.save_model(python_model=model, path=tmp_path, input_example=input_example)
-    loaded_model = mlflow.pyfunc.load_model(tmp_path)
-    input_schema = loaded_model.metadata.get_input_schema()
-    output_schema = loaded_model.metadata.get_output_schema()
-    assert input_schema == CHAT_MODEL_INPUT_SCHEMA
-    assert output_schema == CHAT_MODEL_OUTPUT_SCHEMA
-    mlflow_model = Model.load(tmp_path)
-    assert mlflow_model.load_input_example(tmp_path).to_dict(orient="records")[0] == input_example
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model(
+            "model", python_model=model, input_example=input_example
+        )
+    assert model_info.signature.inputs == CHAT_MODEL_INPUT_SCHEMA
+    assert model_info.signature.outputs == CHAT_MODEL_OUTPUT_SCHEMA
+    mlflow_model = Model.load(model_info.model_uri)
+    local_path = _download_artifact_from_uri(model_info.model_uri)
+    assert mlflow_model.load_input_example(local_path) == {
+        "messages": input_example["messages"],
+        **DEFAULT_PARAMS,
+        **params_subset,
+    }
 
+    inference_payload = load_serving_example(model_info.model_uri)
     response = pyfunc_serve_and_score_model(
-        model_uri=tmp_path,
-        data=json.dumps(input_example),
+        model_uri=model_info.model_uri,
+        data=inference_payload,
         content_type="application/json",
         extra_args=["--env-manager", "local"],
     )
@@ -300,29 +368,30 @@ def test_chat_model_works_with_chat_message_input_example(tmp_path):
     input_example = [
         ChatMessage(role="user", content="What is Retrieval-augmented Generation?", name="chat")
     ]
-    mlflow.pyfunc.save_model(python_model=model, path=tmp_path, input_example=input_example)
-    loaded_model = mlflow.pyfunc.load_model(tmp_path)
-    input_schema = loaded_model.metadata.get_input_schema()
-    output_schema = loaded_model.metadata.get_output_schema()
-    assert input_schema == CHAT_MODEL_INPUT_SCHEMA
-    assert output_schema == CHAT_MODEL_OUTPUT_SCHEMA
-    mlflow_model = Model.load(tmp_path)
-    assert (
-        mlflow_model.load_input_example(tmp_path).to_dict(orient="records")[0]
-        == input_example[0].to_dict()
-    )
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model(
+            "model", python_model=model, input_example=input_example
+        )
+    assert model_info.signature.inputs == CHAT_MODEL_INPUT_SCHEMA
+    assert model_info.signature.outputs == CHAT_MODEL_OUTPUT_SCHEMA
+    mlflow_model = Model.load(model_info.model_uri)
+    local_path = _download_artifact_from_uri(model_info.model_uri)
+    assert mlflow_model.load_input_example(local_path) == {
+        "messages": [message.to_dict() for message in input_example],
+        **DEFAULT_PARAMS,
+    }
 
-    convert_input_example = {"messages": [each_message.to_dict() for each_message in input_example]}
+    inference_payload = load_serving_example(model_info.model_uri)
     response = pyfunc_serve_and_score_model(
-        model_uri=tmp_path,
-        data=json.dumps(convert_input_example),
+        model_uri=model_info.model_uri,
+        data=inference_payload,
         content_type="application/json",
         extra_args=["--env-manager", "local"],
     )
 
     expect_status_code(response, 200)
     choices = json.loads(response.content)["choices"]
-    assert choices[0]["message"]["content"] == json.dumps(convert_input_example["messages"])
+    assert choices[0]["message"]["content"] == json.dumps(json.loads(inference_payload)["messages"])
 
 
 def test_chat_model_works_with_infer_signature_multi_input_example(tmp_path):
@@ -343,18 +412,24 @@ def test_chat_model_works_with_infer_signature_multi_input_example(tmp_path):
         ],
         **params_subset,
     }
-    mlflow.pyfunc.save_model(python_model=model, path=tmp_path, input_example=input_example)
-    loaded_model = mlflow.pyfunc.load_model(tmp_path)
-    input_schema = loaded_model.metadata.get_input_schema()
-    output_schema = loaded_model.metadata.get_output_schema()
-    assert input_schema == CHAT_MODEL_INPUT_SCHEMA
-    assert output_schema == CHAT_MODEL_OUTPUT_SCHEMA
-    mlflow_model = Model.load(tmp_path)
-    assert mlflow_model.load_input_example(tmp_path).to_dict(orient="records")[0] == input_example
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model(
+            "model", python_model=model, input_example=input_example
+        )
+    assert model_info.signature.inputs == CHAT_MODEL_INPUT_SCHEMA
+    assert model_info.signature.outputs == CHAT_MODEL_OUTPUT_SCHEMA
+    mlflow_model = Model.load(model_info.model_uri)
+    local_path = _download_artifact_from_uri(model_info.model_uri)
+    assert mlflow_model.load_input_example(local_path) == {
+        "messages": input_example["messages"],
+        **DEFAULT_PARAMS,
+        **params_subset,
+    }
 
+    inference_payload = load_serving_example(model_info.model_uri)
     response = pyfunc_serve_and_score_model(
-        model_uri=tmp_path,
-        data=json.dumps(input_example),
+        model_uri=model_info.model_uri,
+        data=inference_payload,
         content_type="application/json",
         extra_args=["--env-manager", "local"],
     )
@@ -382,26 +457,86 @@ def test_chat_model_predict_stream(tmp_path):
     assert response["choices"][0]["message"]["content"] == json.dumps(messages)
 
 
-# test that users cannot overwrite the 'object' field in ChatResponse
-def test_chat_model_response_cannot_overwrite_object():
-    message = ChatMessage(role="user", content="Hello!")
-    params = ChatParams(**DEFAULT_PARAMS)
-    mock_response = get_mock_response([message], params)
+def test_chat_model_can_receive_and_return_metadata():
+    messages = [{"role": "user", "content": "Hello!"}]
+    params = {
+        "metadata": {
+            "image_url": "example",
+            "detail": "high",
+        },
+    }
+    input_example = {
+        "messages": messages,
+        **params,
+    }
 
-    # test initialization without setting the property 'object'
-    response = ChatResponse(**mock_response)
-    assert response.object == "chat.completion"
-    with pytest.raises(ValueError, match="`object` field must be 'chat.completion'"):
-        response.object = "other"
+    model = ChatModelWithMetadata()
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model(
+            "model",
+            python_model=model,
+            input_example=input_example,
+        )
 
-    # test to set correct value for 'object' when initializing ChatResponse
-    mock_response["object"] = "chat.completion"
-    response = ChatResponse(**mock_response)
-    assert response.object == "chat.completion"
-    with pytest.raises(ValueError, match="`object` field must be 'chat.completion'"):
-        response.object = "other"
+    loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
 
-    # test to set incorrect value for 'object' when initializing ChatResponse
-    mock_response["object"] = "invalid.value"
-    with pytest.raises(ValueError, match="`object` field must be 'chat.completion'"):
-        response = ChatResponse(**mock_response)
+    # test that it works for normal pyfunc predict
+    response = loaded_model.predict({"messages": messages, **params})
+    assert response["metadata"] == params["metadata"]
+
+    # test that it works in serving
+    inference_payload = load_serving_example(model_info.model_uri)
+    response = pyfunc_serve_and_score_model(
+        model_uri=model_info.model_uri,
+        data=inference_payload,
+        content_type="application/json",
+        extra_args=["--env-manager", "local"],
+    )
+
+    serving_response = json.loads(response.content)
+    assert serving_response["metadata"] == params["metadata"]
+
+
+def test_chat_model_can_use_tool_calls():
+    messages = [{"role": "user", "content": "What's the weather?"}]
+
+    weather_tool = (
+        FunctionToolDefinition(
+            name="get_weather",
+            description="Get the weather for your current location",
+            parameters=ToolParamsSchema(
+                {
+                    "city": {
+                        "type": "string",
+                        "description": "The city to get the weather for",
+                    },
+                    "unit": {"type": "string", "enum": ["F", "C"]},
+                },
+                required=["city", "unit"],
+            ),
+        )
+        .to_tool_definition()
+        .to_dict()
+    )
+
+    example = {
+        "messages": messages,
+        "tools": [weather_tool],
+    }
+
+    model = ChatModelWithToolCalling()
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model(
+            "model",
+            python_model=model,
+            input_example=example,
+        )
+
+    loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
+    response = loaded_model.predict(example)
+
+    model_tool_calls = response["choices"][0]["message"]["tool_calls"]
+    assert json.loads(model_tool_calls[0]["function"]["arguments"]) == {
+        "city": "some_value",
+        "unit": "some_value",
+    }

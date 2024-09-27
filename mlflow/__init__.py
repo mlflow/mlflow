@@ -26,6 +26,7 @@ implement mutual exclusion manually.
 
 For a lower level API, see the :py:mod:`mlflow.client` module.
 """
+
 import contextlib
 
 from mlflow.version import VERSION
@@ -46,6 +47,7 @@ from mlflow.utils.lazy_load import LazyLoader
 from mlflow.utils.logging_utils import _configure_mlflow_loggers
 
 # Lazily load mlflow flavors to avoid excessive dependencies.
+autogen = LazyLoader("mlflow.autogen", globals(), "mlflow.autogen")
 catboost = LazyLoader("mlflow.catboost", globals(), "mlflow.catboost")
 diviner = LazyLoader("mlflow.diviner", globals(), "mlflow.diviner")
 fastai = LazyLoader("mlflow.fastai", globals(), "mlflow.fastai")
@@ -55,6 +57,7 @@ johnsnowlabs = LazyLoader("mlflow.johnsnowlabs", globals(), "mlflow.johnsnowlabs
 keras = LazyLoader("mlflow.keras", globals(), "mlflow.keras")
 langchain = LazyLoader("mlflow.langchain", globals(), "mlflow.langchain")
 lightgbm = LazyLoader("mlflow.lightgbm", globals(), "mlflow.lightgbm")
+llama_index = LazyLoader("mlflow.llama_index", globals(), "mlflow.llama_index")
 llm = LazyLoader("mlflow.llm", globals(), "mlflow.llm")
 metrics = LazyLoader("mlflow.metrics", globals(), "mlflow.metrics")
 mleap = LazyLoader("mlflow.mleap", globals(), "mlflow.mleap")
@@ -107,6 +110,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.models import evaluate
 from mlflow.projects import run
 from mlflow.tracing.fluent import (
+    add_trace,
     get_current_active_span,
     get_last_active_trace,
     get_trace,
@@ -130,6 +134,7 @@ from mlflow.tracking.fluent import (
     end_run,
     flush_artifact_async_logging,
     flush_async_logging,
+    flush_trace_async_logging,
     get_artifact_uri,
     get_experiment,
     get_experiment_by_name,
@@ -180,6 +185,7 @@ __all__ = [
     "evaluate",
     "flush_async_logging",
     "flush_artifact_async_logging",
+    "flush_trace_async_logging",
     "get_artifact_uri",
     "get_experiment",
     "get_experiment_by_name",
@@ -229,6 +235,7 @@ __all__ = [
     "search_traces",
     "start_span",
     "trace",
+    "add_trace",
 ]
 
 

@@ -13,7 +13,7 @@ import {
   Modal,
   PlusIcon,
   Spinner,
-  Tooltip,
+  LegacyTooltip,
   Typography,
   useDesignSystemTheme,
 } from '@databricks/design-system';
@@ -266,10 +266,6 @@ export const EvaluationCreatePromptRunModal = ({
       });
   }, [inputVariableValues, modelRoutesUnified, parameters, promptTemplate, selectedModel, intl]);
 
-  const getEvaluateButtonHandler = () => {
-    return handleEvaluate;
-  };
-
   // create a handleCancel function to terminate the evaluation if it is in progress
   const handleCancel = useCallback(() => {
     if (cancelTokenRef.current) {
@@ -431,6 +427,7 @@ export const EvaluationCreatePromptRunModal = ({
 
   return (
     <Modal
+      componentId="codegen_mlflow_app_src_experiment-tracking_components_evaluation-artifacts-compare_evaluationcreatepromptrunmodal.tsx_541"
       verticalSizing="maxed_out"
       visible={isOpen}
       onCancel={closeModal}
@@ -446,7 +443,7 @@ export const EvaluationCreatePromptRunModal = ({
               description="Experiment page > new run modal > cancel button label"
             />
           </Button>
-          <Tooltip title={createRunButtonTooltip}>
+          <LegacyTooltip title={createRunButtonTooltip}>
             <Button
               componentId="codegen_mlflow_app_src_experiment-tracking_components_evaluation-artifacts-compare_evaluationcreatepromptrunmodal.tsx_596"
               onClick={onHandleSubmit}
@@ -459,7 +456,7 @@ export const EvaluationCreatePromptRunModal = ({
                 description='Experiment page > new run modal > "Create run" confirm button label'
               />
             </Button>
-          </Tooltip>
+          </LegacyTooltip>
         </div>
       }
       title={
@@ -487,6 +484,7 @@ export const EvaluationCreatePromptRunModal = ({
           </FormUI.Label>
           <div css={{ marginBottom: theme.spacing.lg, display: 'flex', alignItems: 'center' }}>
             <DialogCombobox
+              componentId="codegen_mlflow_app_src_experiment-tracking_components_evaluation-artifacts-compare_evaluationcreatepromptrunmodal.tsx_597"
               label={selectModelLabel}
               modal={false}
               value={selectedModel ? [formatVisibleRouteName(selectedModel)] : undefined}
@@ -528,6 +526,7 @@ export const EvaluationCreatePromptRunModal = ({
                 )}
               </FormUI.Label>
               <Input
+                componentId="codegen_mlflow_app_src_experiment-tracking_components_evaluation-artifacts-compare_evaluationcreatepromptrunmodal.tsx_638"
                 id="new_run_name"
                 data-testid="run-name-input"
                 required
@@ -568,6 +567,7 @@ export const EvaluationCreatePromptRunModal = ({
             </>
 
             <TextArea
+              componentId="codegen_mlflow_app_src_experiment-tracking_components_evaluation-artifacts-compare_evaluationcreatepromptrunmodal.tsx_678"
               id="prompt_template"
               autoSize={{ minRows: 3 }}
               data-testid="prompt-template-input"
@@ -584,6 +584,7 @@ export const EvaluationCreatePromptRunModal = ({
                   <span>{inputVariable}</span>
                 </FormUI.Label>
                 <TextArea
+                  componentId="codegen_mlflow_app_src_experiment-tracking_components_evaluation-artifacts-compare_evaluationcreatepromptrunmodal.tsx_694"
                   id={inputVariable}
                   autoSize
                   value={inputVariableValues[inputVariable] ? inputVariableValues[inputVariable] : ''}
@@ -612,7 +613,7 @@ export const EvaluationCreatePromptRunModal = ({
             isEvaluating={isEvaluating}
             isOutputDirty={outputDirty}
             onCancelClick={handleCancel}
-            onEvaluateClick={getEvaluateButtonHandler()}
+            onEvaluateClick={handleEvaluate}
             evaluationError={lastEvaluationError}
           />
         </div>

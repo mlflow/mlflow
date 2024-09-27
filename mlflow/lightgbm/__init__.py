@@ -17,6 +17,7 @@ LightGBM (native) format
 .. _scikit-learn API:
     https://lightgbm.readthedocs.io/en/latest/Python-API.html#scikit-learn-api
 """
+
 import functools
 import json
 import logging
@@ -178,18 +179,18 @@ def save_model(
     model_data_path = os.path.join(path, model_data_subpath)
     code_dir_subpath = _validate_and_copy_code_paths(code_paths, path)
 
-    if signature is None and input_example is not None:
+    if mlflow_model is None:
+        mlflow_model = Model()
+    saved_example = _save_example(mlflow_model, input_example, path)
+
+    if signature is None and saved_example is not None:
         wrapped_model = _LGBModelWrapper(lgb_model)
-        signature = _infer_signature_from_input_example(input_example, wrapped_model)
+        signature = _infer_signature_from_input_example(saved_example, wrapped_model)
     elif signature is False:
         signature = None
 
-    if mlflow_model is None:
-        mlflow_model = Model()
     if signature is not None:
         mlflow_model.signature = signature
-    if input_example is not None:
-        _save_example(mlflow_model, input_example, path)
     if metadata is not None:
         mlflow_model.metadata = metadata
 
@@ -470,6 +471,12 @@ def load_model(model_uri, dst_path=None):
 class _LGBModelWrapper:
     def __init__(self, lgb_model):
         self.lgb_model = lgb_model
+
+    def get_raw_model(self):
+        """
+        Returns the underlying model.
+        """
+        return self.lgb_model
 
     def predict(self, dataframe, params: Optional[Dict[str, Any]] = None):
         """

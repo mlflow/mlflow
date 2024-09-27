@@ -9,6 +9,7 @@ from unittest.mock import ANY
 import pandas as pd
 import pytest
 import yaml
+from botocore.client import BaseClient
 from google.cloud.storage import Client
 from requests import Response
 
@@ -36,6 +37,7 @@ from mlflow.protos.databricks_uc_registry_messages_pb2 import (
     DeleteRegisteredModelAliasRequest,
     DeleteRegisteredModelRequest,
     DeleteRegisteredModelTagRequest,
+    EncryptionDetails,
     Entity,
     FinalizeModelVersionRequest,
     FinalizeModelVersionResponse,
@@ -55,6 +57,8 @@ from mlflow.protos.databricks_uc_registry_messages_pb2 import (
     SetModelVersionTagRequest,
     SetRegisteredModelAliasRequest,
     SetRegisteredModelTagRequest,
+    SseEncryptionAlgorithm,
+    SseEncryptionDetails,
     StorageMode,
     TemporaryCredentials,
     UpdateModelVersionRequest,
@@ -239,6 +243,10 @@ def langchain_local_model_dir_with_resources(tmp_path):
                     {"name": "chat_endpoint"},
                 ],
                 "vector_search_index": [{"name": "index1"}, {"name": "index2"}],
+                "function": [
+                    {"name": "test.schema.test_function"},
+                    {"name": "test.schema.test_function_2"},
+                ],
             }
         },
     }
@@ -314,6 +322,7 @@ def test_create_model_version_with_langchain_dependencies(store, langchain_local
             secret_access_key=secret_access_key,
             session_token=session_token,
             credential_refresh_def=ANY,
+            s3_upload_extra_args={},
         )
         mock_artifact_repo.log_artifacts.assert_called_once_with(local_dir=ANY, artifact_path="")
         _assert_create_model_version_endpoints_called(
@@ -351,6 +360,8 @@ def test_create_model_version_with_resources(store, langchain_local_model_dir_wi
         {"type": "DATABRICKS_MODEL_ENDPOINT", "name": "embedding_endpoint"},
         {"type": "DATABRICKS_MODEL_ENDPOINT", "name": "llm_endpoint"},
         {"type": "DATABRICKS_MODEL_ENDPOINT", "name": "chat_endpoint"},
+        {"type": "DATABRICKS_UC_FUNCTION", "name": "test.schema.test_function"},
+        {"type": "DATABRICKS_UC_FUNCTION", "name": "test.schema.test_function_2"},
     ]
 
     mock_artifact_repo = mock.MagicMock(autospec=OptimizedS3ArtifactRepository)
@@ -377,6 +388,7 @@ def test_create_model_version_with_resources(store, langchain_local_model_dir_wi
             secret_access_key=secret_access_key,
             session_token=session_token,
             credential_refresh_def=ANY,
+            s3_upload_extra_args={},
         )
         mock_artifact_repo.log_artifacts.assert_called_once_with(local_dir=ANY, artifact_path="")
         _assert_create_model_version_endpoints_called(
@@ -434,6 +446,7 @@ def test_create_model_version_with_langchain_no_dependencies(
             secret_access_key=secret_access_key,
             session_token=session_token,
             credential_refresh_def=ANY,
+            s3_upload_extra_args={},
         )
         mock_artifact_repo.log_artifacts.assert_called_once_with(local_dir=ANY, artifact_path="")
         _assert_create_model_version_endpoints_called(
@@ -541,6 +554,136 @@ def test_create_model_version_missing_output_signature(store, tmp_path):
         match="Model passed for registration contained a signature that includes only inputs",
     ):
         store.create_model_version(name="mymodel", source=str(tmp_path))
+
+
+def test_create_model_version_with_sse_kms_client(store, langchain_local_model_dir):
+    access_key_id = "fake-key"
+    secret_access_key = "secret-key"
+    session_token = "session-token"
+    aws_temp_creds = TemporaryCredentials(
+        aws_temp_credentials=AwsCredentials(
+            access_key_id=access_key_id,
+            secret_access_key=secret_access_key,
+            session_token=session_token,
+        ),
+        encryption_details=EncryptionDetails(
+            sse_encryption_details=SseEncryptionDetails(
+                algorithm=SseEncryptionAlgorithm.AWS_SSE_KMS,
+                aws_kms_key_arn="some:arn:test:key/key_id",
+            )
+        ),
+    )
+    storage_location = "s3://blah"
+    source = str(langchain_local_model_dir)
+    model_name = "model_1"
+    version = "1"
+    tags = [
+        ModelVersionTag(key="key", value="value"),
+        ModelVersionTag(key="anotherKey", value="some other value"),
+    ]
+    model_version_dependencies = [
+        {"type": "DATABRICKS_VECTOR_INDEX", "name": "index1"},
+        {"type": "DATABRICKS_VECTOR_INDEX", "name": "index2"},
+        {"type": "DATABRICKS_MODEL_ENDPOINT", "name": "embedding_endpoint"},
+        {"type": "DATABRICKS_MODEL_ENDPOINT", "name": "llm_endpoint"},
+        {"type": "DATABRICKS_MODEL_ENDPOINT", "name": "chat_endpoint"},
+    ]
+
+    optimized_s3_repo_package = "mlflow.store.artifact.optimized_s3_artifact_repo"
+    mock_s3_client = mock.MagicMock(autospec=BaseClient)
+    with mock.patch(
+        "mlflow.utils.rest_utils.http_request",
+        side_effect=get_request_mock(
+            name=model_name,
+            version=version,
+            temp_credentials=aws_temp_creds,
+            storage_location=storage_location,
+            source=source,
+            tags=tags,
+            model_version_dependencies=model_version_dependencies,
+        ),
+    ), mock.patch(
+        f"{optimized_s3_repo_package}.OptimizedS3ArtifactRepository._get_s3_client",
+        return_value=mock_s3_client,
+    ), mock.patch(
+        f"{optimized_s3_repo_package}.OptimizedS3ArtifactRepository._get_region_name",
+        return_value="us-east-1",
+    ), mock.patch.dict("sys.modules", {"boto3": {}}):
+        store.create_model_version(name=model_name, source=source, tags=tags)
+
+        mock_s3_client.upload_file.assert_called_once_with(
+            Filename=ANY,
+            Bucket=ANY,
+            Key=ANY,
+            ExtraArgs={
+                "ServerSideEncryption": "aws:kms",
+                "SSEKMSKeyId": "key_id",
+            },
+        )
+
+
+def test_create_model_version_with_sse_kms_store(store, langchain_local_model_dir):
+    access_key_id = "fake-key"
+    secret_access_key = "secret-key"
+    session_token = "session-token"
+    aws_temp_creds = TemporaryCredentials(
+        aws_temp_credentials=AwsCredentials(
+            access_key_id=access_key_id,
+            secret_access_key=secret_access_key,
+            session_token=session_token,
+        ),
+        encryption_details=EncryptionDetails(
+            sse_encryption_details=SseEncryptionDetails(
+                algorithm=SseEncryptionAlgorithm.AWS_SSE_KMS,
+                aws_kms_key_arn="some:arn:test:key/key_id",
+            )
+        ),
+    )
+    storage_location = "s3://blah"
+    source = str(langchain_local_model_dir)
+    model_name = "model_1"
+    version = "1"
+    tags = [
+        ModelVersionTag(key="key", value="value"),
+        ModelVersionTag(key="anotherKey", value="some other value"),
+    ]
+    model_version_dependencies = [
+        {"type": "DATABRICKS_VECTOR_INDEX", "name": "index1"},
+        {"type": "DATABRICKS_VECTOR_INDEX", "name": "index2"},
+        {"type": "DATABRICKS_MODEL_ENDPOINT", "name": "embedding_endpoint"},
+        {"type": "DATABRICKS_MODEL_ENDPOINT", "name": "llm_endpoint"},
+        {"type": "DATABRICKS_MODEL_ENDPOINT", "name": "chat_endpoint"},
+    ]
+
+    mock_artifact_repo = mock.MagicMock(autospec=OptimizedS3ArtifactRepository)
+    with mock.patch(
+        "mlflow.utils.rest_utils.http_request",
+        side_effect=get_request_mock(
+            name=model_name,
+            version=version,
+            temp_credentials=aws_temp_creds,
+            storage_location=storage_location,
+            source=source,
+            tags=tags,
+            model_version_dependencies=model_version_dependencies,
+        ),
+    ), mock.patch(
+        "mlflow.store.artifact.optimized_s3_artifact_repo.OptimizedS3ArtifactRepository",
+        return_value=mock_artifact_repo,
+    ) as optimized_s3_artifact_repo_class_mock, mock.patch.dict("sys.modules", {"boto3": {}}):
+        store.create_model_version(name=model_name, source=source, tags=tags)
+        # Verify that s3 artifact repo mock was called with expected args
+        optimized_s3_artifact_repo_class_mock.assert_called_once_with(
+            artifact_uri=storage_location,
+            access_key_id=access_key_id,
+            secret_access_key=secret_access_key,
+            session_token=session_token,
+            credential_refresh_def=ANY,
+            s3_upload_extra_args={
+                "ServerSideEncryption": "aws:kms",
+                "SSEKMSKeyId": "key_id",
+            },
+        )
 
 
 @pytest.mark.parametrize(
@@ -1019,6 +1162,7 @@ def test_create_model_version_aws(store, local_model_dir):
             secret_access_key=secret_access_key,
             session_token=session_token,
             credential_refresh_def=ANY,
+            s3_upload_extra_args={},
         )
         mock_artifact_repo.log_artifacts.assert_called_once_with(local_dir=ANY, artifact_path="")
         _assert_create_model_version_endpoints_called(
@@ -1330,6 +1474,22 @@ def test_create_model_version_gcp(store, local_model_dir, create_args):
         _assert_create_model_version_endpoints_called(
             request_mock=request_mock, version=version, **create_kwargs
         )
+
+
+def test_local_model_dir_preserves_uc_volumes_path(tmp_path):
+    store = UcModelRegistryStore(store_uri="databricks-uc", tracking_uri="databricks-uc")
+    with mock.patch(
+        "mlflow.artifacts.download_artifacts", return_value=str(tmp_path)
+    ) as mock_download_artifacts, mock.patch(
+        # Pretend that `tmp_path` is a UC Volumes path
+        "mlflow.store._unity_catalog.registry.rest_store.is_fuse_or_uc_volumes_uri",
+        return_value=True,
+    ) as mock_is_fuse_or_uc_volumes_uri:
+        with store._local_model_dir(source=f"dbfs:{tmp_path}", local_model_path=None):
+            pass
+        mock_download_artifacts.assert_called_once()
+        mock_is_fuse_or_uc_volumes_uri.assert_called_once()
+        assert tmp_path.exists()
 
 
 @pytest.mark.parametrize(

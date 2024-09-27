@@ -14,7 +14,7 @@ import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 from mlflow import pyfunc
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model, ModelSignature, infer_signature
-from mlflow.models.utils import _read_example
+from mlflow.models.utils import _read_example, load_serving_example
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.types import DataType
@@ -352,18 +352,17 @@ def test_pmdarima_model_log_without_conda_env_uses_default_env_with_expected_dep
 def test_pmdarima_pyfunc_serve_and_score(auto_arima_model):
     artifact_path = "model"
     with mlflow.start_run():
-        mlflow.pmdarima.log_model(
+        model_info = mlflow.pmdarima.log_model(
             auto_arima_model,
             artifact_path,
+            input_example=pd.DataFrame({"n_periods": 30}, index=[0]),
         )
-        model_uri = mlflow.get_artifact_uri(artifact_path)
     local_predict = auto_arima_model.predict(30)
 
-    inference_data = pd.DataFrame({"n_periods": 30}, index=[0])
-
+    inference_payload = load_serving_example(model_info.model_uri)
     resp = pyfunc_serve_and_score_model(
-        model_uri,
-        data=inference_data,
+        model_info.model_uri,
+        data=inference_payload,
         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
         extra_args=EXTRA_PYFUNC_SERVING_TEST_ARGS,
     )

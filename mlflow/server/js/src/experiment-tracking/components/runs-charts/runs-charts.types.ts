@@ -10,6 +10,8 @@ import {
   DEFAULT_IMAGE_GRID_CHART_NAME,
 } from '../../constants';
 import { isNil, uniq } from 'lodash';
+import { customMetricBehaviorDefs } from '../experiment-page/utils/customMetricBehaviorUtils';
+import { shouldEnableGlobalLineChartConfig } from '../../../common/utils/FeatureUtils';
 
 /**
  * Enum for all recognized chart types used in runs charts
@@ -135,7 +137,9 @@ export abstract class RunsChartsCardConfig {
 
   // Extract chart section from metric key
   static extractChartSectionName = (metricKey: string, delimiter = '/') => {
-    const parts = metricKey.split(delimiter);
+    const displayMetricName = customMetricBehaviorDefs[metricKey]?.displayName ?? metricKey;
+
+    const parts = displayMetricName.split(delimiter);
     const section = parts.slice(0, -1).join(delimiter);
     if (section === MLFLOW_MODEL_METRIC_PREFIX) {
       return MLFLOW_MODEL_METRIC_NAME;
@@ -446,6 +450,27 @@ export class RunsChartsScatterCardConfig extends RunsChartsCardConfig {
   runsCountToCompare = 100;
 }
 
+export interface ChartRange {
+  xMin?: number;
+  xMax?: number;
+  yMin?: number;
+  yMax?: number;
+}
+
+export enum RunsChartsLineChartYAxisType {
+  METRIC = 'metric',
+  EXPRESSION = 'expression',
+}
+
+export interface RunsChartsLineChartExpression {
+  // The expression parsed in Reverse Polish Notation
+  rpn: (string | number)[];
+  // The parsed variables in the expression
+  variables: string[];
+  // The original input expression
+  expression: string;
+}
+
 // TODO: add configuration fields relevant to line chart
 export class RunsChartsLineCardConfig extends RunsChartsCardConfig {
   type: RunsChartType.LINE = RunsChartType.LINE;
@@ -477,6 +502,16 @@ export class RunsChartsLineCardConfig extends RunsChartsCardConfig {
   scaleType: 'linear' | 'log' = 'linear';
 
   /**
+   * Range of Y axis, X axis.
+   */
+  range?: ChartRange = {
+    xMin: undefined,
+    xMax: undefined,
+    yMin: undefined,
+    yMax: undefined,
+  };
+
+  /**
    * Choose X axis mode - numeric step, relative time in seconds or absolute time value
    */
   xAxisKey: RunsChartsLineChartXAxisType = RunsChartsLineChartXAxisType.STEP;
@@ -491,6 +526,32 @@ export class RunsChartsLineCardConfig extends RunsChartsCardConfig {
    * there are fewer than 60 datapoints on the chart.
    */
   displayPoints?: boolean = undefined;
+
+  /**
+   * Show metrics directly or custom expressions on metrics
+   */
+  yAxisKey?: RunsChartsLineChartYAxisType = RunsChartsLineChartYAxisType.METRIC;
+
+  /**
+   * Custom expressions for Y axis
+   */
+  yAxisExpressions?: RunsChartsLineChartExpression[] = [];
+
+  /**
+   * Whether or not to ignore outliers. If true, the data will be clipped
+   * to the 5th and 95th percentiles.
+   */
+  ignoreOutliers?: boolean = false;
+
+  /**
+   * Whether or not to use global X axis settings.
+   */
+  useGlobalXaxisKey?: boolean = shouldEnableGlobalLineChartConfig();
+
+  /**
+   * Whether or not to use global line smoothing setting.
+   */
+  useGlobalLineSmoothing?: boolean = shouldEnableGlobalLineChartConfig();
 }
 
 // TODO: add configuration fields relevant to bar chart

@@ -225,8 +225,8 @@ def _convert_chat_request_or_throw(chat_request: Dict):
 
 def _get_lc_model_input_fields(lc_model) -> Set[str]:
     try:
-        if hasattr(lc_model, "input_schema") and callable(lc_model.input_schema):
-            return set(lc_model.input_schema().__fields__)
+        if hasattr(lc_model, "input_schema"):
+            return set(lc_model.input_schema.__fields__)
     except Exception as e:
         _logger.debug(
             f"Unexpected exception while checking LangChain input schema for"

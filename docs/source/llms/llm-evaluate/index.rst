@@ -1,7 +1,10 @@
+.. meta::
+  :description: LLM evaluation involves assessing how well a model performs on a task. MLflow provides a simple API to evaluate your LLMs with popular metrics.
+
 .. _llm-eval:
 
-MLflow LLM Evaluate
-===================
+MLflow LLM Evaluation
+=====================
 
 With the emerging of ChatGPT, LLMs have shown its power of text generation in various fields, such as 
 question answering, translating and text summarization. Evaluating LLMs' performance is slightly different 
@@ -166,14 +169,22 @@ The supported LLM model types and associated metrics are listed below:
     * `ari_grade_level <https://en.wikipedia.org/wiki/Automated_readability_index>`_ :sup:`2`
     * `flesch_kincaid_grade_level <https://en.wikipedia.org/wiki/Flesch%E2%80%93Kincaid_readability_tests#Flesch%E2%80%93Kincaid_grade_level>`_ :sup:`2`
 
+* **retrievers**: ``model_type="retriever"``:
 
-:sup:`1` Requires package `evaluate <https://pypi.org/project/evaluate>`_, `torch <https://pytorch.org/get-started/locally/>`_, and 
+    * `precision_at_k <https://en.wikipedia.org/wiki/Evaluation_measures_(information_retrieval)#Precision_at_k>`_  :sup:`4`
+    * `recall_at_k <https://en.wikipedia.org/wiki/Evaluation_measures_(information_retrieval)#Recall>`_ :sup:`4`
+    * `ndcg_at_k <https://en.wikipedia.org/wiki/Discounted_cumulative_gain#Normalized_DCG>`_ :sup:`4`
+
+
+:sup:`1` Requires packages `evaluate <https://pypi.org/project/evaluate>`_, `torch <https://pytorch.org/get-started/locally/>`_, and 
 `transformers <https://huggingface.co/docs/transformers/installation>`_
 
 :sup:`2` Requires package `textstat <https://pypi.org/project/textstat>`_
 
-:sup:`3` Requires package `evaluate <https://pypi.org/project/evaluate>`_, `nltk <https://pypi.org/project/nltk>`_, and 
+:sup:`3` Requires packages `evaluate <https://pypi.org/project/evaluate>`_, `nltk <https://pypi.org/project/nltk>`_, and 
 `rouge-score <https://pypi.org/project/rouge-score>`_
+
+:sup:`4` All retriever metrics have a default ``retriever_k`` value of ``3`` that can be overridden by specifying ``retriever_k`` in the ``evaluator_config`` argument. 
 
 .. _llm-eval-custom-metrics:
 
@@ -229,7 +240,7 @@ Selecting the LLM-as-judge Model
 
 By default, llm-as-judge metrics use ``openai:/gpt-4`` as the judge. You can change the default judge model by passing an override to the ``model`` argument within the metric definition, as shown below. In addition to OpenAI models, you can also use any endpoint via MLflow Deployments. Use :py:func:`mlflow.deployments.set_deployments_target` to set the target deployment client.
 
-To use an endpoint hosted by a local MLflow Deployments Server, you can use the following code.
+To use an endpoint hosted by a local MLflow AI Gateway, you can use the following code.
 
 .. code-block:: python
 
@@ -267,7 +278,7 @@ needs the following information:
 * ``grading_prompt``: describe the scoring critieria. 
 * ``examples``: a few input/output examples with score, they are used as a reference for LLM judge.
 * ``model``: the identifier of LLM judge, in the format of "openai:/gpt-4" or "endpoints:/databricks-llama-2-70b-chat".  
-* ``parameters``: the extra parameters to send to LLM judge, e.g., ``temperature`` for ``"openai:/gpt-3.5-turbo-16k"``.
+* ``parameters``: the extra parameters to send to LLM judge, e.g., ``temperature`` for ``"openai:/gpt-4o-mini"``.
 * ``aggregations``: The list of options to aggregate the per-row scores using numpy functions.
 * ``greater_is_better``: indicates if a higher score means your model is better.
 
@@ -336,7 +347,7 @@ Now let's define the ``professionalism`` metric, you will see how each field is 
             "business or academic settings. "
         ),
         examples=[professionalism_example_score_2, professionalism_example_score_4],
-        model="openai:/gpt-3.5-turbo-16k",
+        model="openai:/gpt-4o-mini",
         parameters={"temperature": 0.0},
         aggregations=["mean", "variance"],
         greater_is_better=True,
@@ -410,7 +421,7 @@ In order to evaluate your LLM with ``mlflow.evaluate()``, your LLM has to be one
 
    * Has ``data`` as the only argument, which can be a ``pandas.Dataframe``, ``numpy.ndarray``, python list, dictionary or scipy matrix.
    * Returns one of ``pandas.DataFrame``, ``pandas.Series``, ``numpy.ndarray`` or list. 
-3. An MLflow Deployments endpoint URI pointing to a local `MLflow Deployments Server <../deployments/index.html>`_, `Databricks Foundation Models API <https://docs.databricks.com/en/machine-learning/model-serving/score-foundation-models.html>`_, and `External Models in Databricks Model Serving <https://docs.databricks.com/en/generative-ai/external-models/index.html>`_. 
+3. An MLflow Deployments endpoint URI pointing to a local `MLflow AI Gateway <../deployments/index.html>`_, `Databricks Foundation Models API <https://docs.databricks.com/en/machine-learning/model-serving/score-foundation-models.html>`_, and `External Models in Databricks Model Serving <https://docs.databricks.com/en/generative-ai/external-models/index.html>`_. 
 4. Set ``model=None``, and put model outputs in ``data``. Only applicable when the data is a Pandas dataframe.
 
 Evaluating with an MLflow Model
@@ -427,9 +438,9 @@ to evaluate your model as an MLflow model, we recommend following the steps belo
 
         with mlflow.start_run():
             system_prompt = "Answer the following question in two sentences"
-            # Wrap "gpt-3.5-turbo" as an MLflow model.
+            # Wrap "gpt-4o-mini" as an MLflow model.
             logged_model_info = mlflow.openai.log_model(
-                model="gpt-3.5-turbo",
+                model="gpt-4o-mini",
                 task=openai.chat.completions,
                 artifact_path="model",
                 messages=[
@@ -479,7 +490,7 @@ up OpenAI authentication to run the code below.
         system_prompt = "Please answer the following question in formal language."
         for index, row in inputs.iterrows():
             completion = openai.chat.completions.create(
-                model="gpt-3.5-turbo",
+                model="gpt-4o-mini",
                 messages=[
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": "{row}"},
@@ -503,13 +514,13 @@ Evaluating with an MLflow Deployments Endpoint
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 For MLflow >= 2.11.0, :py:func:`mlflow.evaluate()` supports evaluating a model endpoint by directly passing the MLflow Deployments endpoint URI to the ``model`` argument.
-This is particularly useful when you want to evaluate a deployed model hosted by a local `MLflow Deployments Server <../deployments/index.html>`_,  `Databricks Foundation Models API <https://docs.databricks.com/en/machine-learning/model-serving/score-foundation-models.html>`_, and `External Models in Databricks Model Serving <https://docs.databricks.com/en/generative-ai/external-models/index.html>`_, without implementing custom prediction logic to wrap it as an MLflow model or a python function.
+This is particularly useful when you want to evaluate a deployed model hosted by a local `MLflow AI Gateway <../deployments/index.html>`_,  `Databricks Foundation Models API <https://docs.databricks.com/en/machine-learning/model-serving/score-foundation-models.html>`_, and `External Models in Databricks Model Serving <https://docs.databricks.com/en/generative-ai/external-models/index.html>`_, without implementing custom prediction logic to wrap it as an MLflow model or a python function.
 
 Please don't forget to set the target deployment client by using :py:func:`mlflow.deployments.set_deployments_target` before calling :py:func:`mlflow.evaluate()` with the endpoint URI, as shown in the example below. Otherwise, you will see an error message like ``MlflowException: No deployments target has been set...``.
 
 .. hint::
 
-    When you want to use an endpoint **not** hosted by an MLflow Deployments Server or Databricks, you can create a custom Python function following the :ref:`Evaluating with a Custom Function <llm-eval-custom-function>` guide and use it as the ``model`` argument.
+    When you want to use an endpoint **not** hosted by an MLflow AI Gateway or Databricks, you can create a custom Python function following the :ref:`Evaluating with a Custom Function <llm-eval-custom-function>` guide and use it as the ``model`` argument.
 
 Supported Input Data Formats
 ****************************
@@ -603,7 +614,7 @@ You can pass additional inference parameters such as ``max_tokens``, ``temperatu
 Examples
 ********
 
-**Chat Endpoint hosted by a local** `MLflow Deployments Server <../deployments/index.html>`_
+**Chat Endpoint hosted by a local** `MLflow AI Gateway <../deployments/index.html>`_
 
 .. code-block:: python
 
@@ -611,7 +622,7 @@ Examples
     from mlflow.deployments import set_deployments_target
     import pandas as pd
 
-    # Point the client to the local MLflow Deployments Server
+    # Point the client to the local MLflow AI Gateway
     set_deployments_target("http://localhost:5000")
 
     eval_data = pd.DataFrame(

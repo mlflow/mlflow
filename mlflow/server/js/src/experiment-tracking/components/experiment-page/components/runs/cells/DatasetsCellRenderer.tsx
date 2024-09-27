@@ -72,7 +72,10 @@ const SingleDataset = ({
         )}
       </span>
       {contextTag && (
-        <Tag css={{ textTransform: 'capitalize', marginRight: theme.spacing.xs }}>
+        <Tag
+          componentId="codegen_mlflow_app_src_experiment-tracking_components_experiment-page_components_runs_cells_datasetscellrenderer.tsx_75"
+          css={{ textTransform: 'capitalize', marginRight: theme.spacing.xs }}
+        >
           <span css={{ fontSize: 12 }}>{contextTag.value}</span>
         </Tag>
       )}
