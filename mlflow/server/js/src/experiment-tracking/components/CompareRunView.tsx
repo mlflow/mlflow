@@ -58,7 +58,6 @@ export class CompareRunView extends Component<CompareRunViewProps, CompareRunVie
       onlyShowParamDiff: false,
       onlyShowTagDiff: false,
       onlyShowMetricDiff: false,
-      onlyShowArtifactDiff: false,
     };
     this.onResizeHandler = this.onResizeHandler.bind(this);
     this.onCompareRunTableScrollHandler = this.onCompareRunTableScrollHandler.bind(this);
