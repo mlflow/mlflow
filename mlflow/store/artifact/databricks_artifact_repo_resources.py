@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from enum import Enum
-from typing import Any, List, Optional, Tuple
+from typing import Any, Callable, List, Optional, Tuple
 
 from mlflow.protos.databricks_artifacts_pb2 import (
     ArtifactCredentialInfo,
@@ -24,8 +24,11 @@ class _CredentialType(Enum):
 
 
 class _Resource(ABC):
-    def __init__(self, id: str, creds: Any, call_endpoint: Any):
-        self.creds = creds
+    """
+    Represents a resource that `DatabricksArtifactRepository` interacts with.
+    """
+
+    def __init__(self, id: str, call_endpoint: Callable[..., Any]):
         self.id = id
         self.artifact_root = self.get_artifact_root()
         self.call_endpoint = call_endpoint
@@ -35,13 +38,13 @@ class _Resource(ABC):
         self, cred_type: _CredentialType, paths: List[str], page_token: Optional[str] = None
     ) -> Tuple[List[ArtifactCredentialInfo], Optional[str]]:
         """
-        Issue one or more requests for artifact credentials, providing read or write.
+        Fetches read/write credentials for the specified paths.
         """
 
     @abstractmethod
     def get_artifact_root(self) -> str:
         """
-        Get the artifact root for this resource.
+        Get the artifact root URI of this resource.
         """
 
 

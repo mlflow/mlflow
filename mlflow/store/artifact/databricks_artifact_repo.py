@@ -156,11 +156,10 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
         artifact_path = extract_and_normalize_path(artifact_uri)
         parts = artifact_path.split("/")
 
-        creds = get_databricks_host_creds(self.databricks_profile_uri)
         if parts[3] == "models":
-            return _Model(id=parts[4], creds=creds)
+            return _Model(id=parts[4], call_endpoint=self._call_endpoint)
 
-        return _Run(id=parts[3], creds=creds)
+        return _Run(id=parts[3], call_endpoint=self._call_endpoint)
 
     def _call_endpoint(self, service, api, json_body=None, path_params=None):
         """
