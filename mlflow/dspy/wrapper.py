@@ -63,6 +63,8 @@ class DspyModelWrapper(PythonModel):
 
 
 class DspyChatModelWrapper(DspyModelWrapper):
+    """MLflow PyFunc wrapper class for Dspy chat models."""
+
     def predict(self, inputs: Any, params: Optional[Dict[str, Any]] = None):
         import dspy
         import pandas as pd

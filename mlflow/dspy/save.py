@@ -1,6 +1,5 @@
 """Functions for saving DSPY models to MLflow."""
 
-import logging
 import os
 from importlib.metadata import version
 from typing import Any, Dict, List, Optional, Union
@@ -50,9 +49,6 @@ FLAVOR_NAME = "dspy"
 
 _MODEL_SAVE_PATH = "model"
 _MODEL_DATA_PATH = "data"
-
-
-_logger = logging.getLogger(__name__)
 
 
 def get_default_pip_requirements():
@@ -287,7 +283,7 @@ def log_model(
         from mlflow.types.schema import ColSpec, Schema
 
         # Set up the LM.
-        lm = dspy.OpenAI(model="gpt-4o-mini", max_tokens=250)
+        lm = dspy.LM(model="openai/gpt-4o-mini", max_tokens=250)
         dspy.settings.configure(lm=lm)
 
 
