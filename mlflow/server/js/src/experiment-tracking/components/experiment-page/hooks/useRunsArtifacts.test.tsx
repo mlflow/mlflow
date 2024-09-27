@@ -56,4 +56,18 @@ describe('useRunsArtifacts', () => {
 
     expect(result.current.artifactsKeyedByRun).toEqual(mockArtifactsData);
   });
+
+  test('returns empty object when no run UUIDs are provided', () => {
+    const runUuids: string[] = [];
+    const { result } = renderHook(() => useRunsArtifacts(runUuids));
+
+    expect(result.current.artifactsKeyedByRun).toEqual({});
+  });
+
+  test('returns empty object when no artifacts are found', () => {
+    const runUuids = ['run-3'];
+    const { result } = renderHook(() => useRunsArtifacts(runUuids));
+
+    expect(result.current.artifactsKeyedByRun).toEqual({});
+  });
 });
