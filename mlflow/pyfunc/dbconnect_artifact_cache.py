@@ -2,6 +2,9 @@ import os
 import subprocess
 
 
+_global_dbconnect_artifact_cache = None
+
+
 class DBConnectArtifactCache:
     """
     This class is designed for managing Databricks Connect artifacts cache.
@@ -25,14 +28,13 @@ class DBConnectArtifactCache:
            # we can get the unpacked archive files in `archive1_unpacked_dir`
            archive1_unpacked_dir = db_artifact_cache.get("archive1")
     """
-    _spark_cache_map = {}
 
     @classmethod
     def get_or_create(cls, spark):
-        # Each Databricks connect client session should have an individual artifact cache.
-        if spark not in cls._spark_cache_map:
-            cls._spark_cache_map[spark] = DBConnectArtifactCache(spark)
-        return cls._spark_cache_map[spark]
+        global _global_dbconnect_artifact_cache
+        if _global_dbconnect_artifact_cache is None or spark is not _global_dbconnect_artifact_cache._spark:
+            _global_dbconnect_artifact_cache = DBConnectArtifactCache(spark)
+        return _global_dbconnect_artifact_cache
 
     def __init__(self, spark):
         self._spark = spark

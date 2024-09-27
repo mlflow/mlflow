@@ -3,6 +3,7 @@ import getpass
 import json
 import logging
 import os
+import platform
 import subprocess
 import time
 from typing import NamedTuple, Optional, TypeVar
@@ -267,6 +268,40 @@ def is_databricks_connect(spark):
         is_in_databricks_shared_cluster_runtime() or
         "databricks-session" in spark.client._builder.userAgent
     )
+
+
+def get_dbconnect_udf_sandbox_image_version(spark):
+    """
+    Get UDF sandbox image version, format:
+    {major_version}.{minor_version} or client.{major_version}.{minor_version}
+    """
+    # For Databricks Serverless python REPL,
+    # the UDF sandbox runs on client image, which has version like 'client.1.1'
+    # in other cases, UDF sandbox runs on databricks runtime with version like '15.4'
+    if is_in_databricks_runtime():
+        return get_databricks_runtime_version()
+    # version is like '15.4.x-snapshot-scala2.12'
+    version = spark.sql("SELECT current_version().dbr_version").collect()[0][0]
+    version_splits = version.split(".")
+    return '.'.join(version_splits[:2])
+
+
+def get_dbconnect_udf_sandbox_platform_machine(spark):
+    """
+    Get UDF sandbox platform machine, 'x86_64' or 'aarch64'
+    """
+    from pyspark.sql.functions import pandas_udf
+
+    if is_in_databricks_runtime():
+        return platform.machine()
+
+    @pandas_udf("string")
+    def f(_):
+        import platform
+        import pandas as pd
+        return pd.Series([platform.machine()])
+
+    return spark.range(1).select(f('id')).collect()[0][0]
 
 
 def is_databricks_serverless(spark):

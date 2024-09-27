@@ -403,6 +403,7 @@ import inspect
 import json
 import logging
 import os
+import platform
 import shutil
 import signal
 import subprocess
@@ -1656,7 +1657,58 @@ def _convert_struct_values(
     return result_dict
 
 
-_DATABRICKS_SERVERLESS_PREBUILD_ENV_ROOT_LOCATION = "/tmp"
+# This location is used to prebuild python environment in Databricks runtime.
+# The location for prebuilding env should be located under /local_disk0
+# because the python env will be uploaded to NFS and mounted to Serverless UDF sandbox,
+# for serverless client image case, it doesn't have "/local_disk0" directory
+_PREBUILD_ENV_ROOT_LOCATION = "/tmp"
+
+
+
+def _gen_prebuilt_env_archive_name(local_model_path):
+    """
+    Generate prebuilt env archive file name.
+    The format is:
+    'mlflow-env-{sha of python env config and dependencies}-{runtime version}-{platform machine}'
+    Note: The runtime version and platform machine information are included in the
+     archive name because the prebuilt env might not be compatible across different
+     runtime version or platform machine.
+    """
+    python_env = _get_python_env(Path(local_model_path))
+    env_name = _get_virtualenv_name(python_env, local_model_path)
+    runtime_version = get_databricks_runtime_version()
+    platform_machine = platform.machine()
+    return f"{env_name}-{runtime_version}-{platform_machine}.tar.gz"
+
+
+def _prebuild_env_internal(local_model_path, archive_name, save_path):
+    from mlflow.pyfunc.dbconnect_artifact_cache import archive_directory
+
+    env_root_dir = os.path.join(_PREBUILD_ENV_ROOT_LOCATION, env_name)
+    archive_path = os.path.join(save_path, archive_name)
+    if os.path.exists(env_root_dir):
+        shutil.rmtree(env_root_dir)
+    if os.path.exists(archive_path):
+        os.remove(archive_path)
+
+    try:
+        pyfunc_backend = get_flavor_backend(
+            local_model_path,
+            env_manager="virtualenv",
+            install_mlflow=False,
+            create_env_root_dir=False,
+            env_root_dir=env_root_dir,
+        )
+
+        pyfunc_backend.prepare_env(
+            model_uri=local_model_path, capture_output=False
+        )
+        # exclude pip cache from the archive file.
+        shutil.rmtree(os.path.join(env_root_dir, "pip_cache_pkgs"))
+
+        return archive_directory(env_root_dir, archive_path)
+    finally:
+        shutil.rmtree(env_root_dir, ignore_errors=True)
 
 
 def prebuild_model_env(model_uri, save_path):
@@ -1678,61 +1730,31 @@ def prebuild_model_env(model_uri, save_path):
         artifact_uri=model_uri,
         output_path=_create_model_downloading_tmp_dir(should_use_nfs=False)
     )
-
-    python_env = _get_python_env(Path(local_model_path))
-    env_name = _get_virtualenv_name(python_env, local_model_path)
-    archive_file_name = f"{env_name}.tar.gz"
-
-    if os.path.exists(os.path.join(save_path, archive_file_name)):
+    archive_name = _gen_prebuilt_env_archive_name(local_model_path)
+    if os.path.exists(os.path.join(save_path, archive_name)):
         raise RuntimeError(
             "You have pre-built the model python environment and save "
             f"it in the '{save_path}' directory as the archive file "
-            f"{archive_file_name}, if you want to rebuild it, please remove "
+            f"{archive_name}, if you want to rebuild it, please remove "
             "the existing one first."
         )
 
-    env_root_dir = os.path.join(
-        _DATABRICKS_SERVERLESS_PREBUILD_ENV_ROOT_LOCATION,
-        env_name,
-    )
-    if os.path.exists(env_root_dir):
-        shutil.rmtree(env_root_dir)
-
+    # Archive the environment directory as a `tar.gz` format archive file,
+    # and then move the archive file to the destination directory.
+    # Note:
+    # - all symlink files in the input directory are kept as it is in the
+    #  archive file.
+    # - the destination directory could be UC-volume fuse mounted directory
+    #  which only supports limited filesystem operations, so to ensure it works,
+    #  we generate the archive file under /tmp and then move it into the
+    #  destination directory.
     try:
-        pyfunc_backend = get_flavor_backend(
-            local_model_path,
-            env_manager="virtualenv",
-            install_mlflow=False,
-            create_env_root_dir=False,
-            env_root_dir=env_root_dir,
-        )
-
-        pyfunc_backend.prepare_env(
-            model_uri=local_model_path, capture_output=False
-        )
-        # exclude pip cache from the archive file.
-        shutil.rmtree(os.path.join(env_root_dir, "pip_cache_pkgs"))
-
-        # Archive the environment directory as a `tar.gz` format archive file,
-        # and then move the archive file to the destination directory.
-        # Note:
-        # - all symlink files in the input directory are kept as it is in the
-        #  archive file.
-        # - the destination directory could be UC-volume fuse mounted directory
-        #  which only supports limited filesystem operations, so to ensure it works,
-        #  we generate the archive file under /tmp and then move it into the
-        #  destination directory.
-        tmp_archive_path = os.path.join(env_root_dir, archive_file_name)
-        archive_directory(env_root_dir, tmp_archive_path)
+        tmp_archive_path = _prebuild_env_internal(local_model_path, _PREBUILD_ENV_ROOT_LOCATION)
         shutil.move(tmp_archive_path, save_path)
-        subprocess.check_call(
-            f"cd {env_root_dir} && tar -czf {archive_file_name} ./* "
-            f"&& mv {archive_file_name} {save_path}/",
-            shell=True,
-        )
-    finally:
+    except:
         shutil.rmtree(local_model_path, ignore_errors=True)
-        shutil.rmtree(env_root_dir, ignore_errors=True)
+        if os.path.exists(tmp_archive_path):
+            os.remove(tmp_archive_path)
 
 
 def spark_udf(
