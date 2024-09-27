@@ -483,18 +483,17 @@ class MlflowClient:
     def search_traces(
         self,
         experiment_ids: List[str],
-        run_id: Optional[str] = None,
         filter_string: Optional[str] = None,
         max_results: int = SEARCH_TRACES_DEFAULT_MAX_RESULTS,
         order_by: Optional[List[str]] = None,
         page_token: Optional[str] = None,
+        run_id: Optional[str] = None,
     ) -> PagedList[Trace]:
         """
         Return traces that match the given list of search expressions within the experiments.
 
         Args:
             experiment_ids: List of experiment ids to scope the search.
-            run_id: A run id to scope the search. When a trace is created under an active run,
                 it will be associated with the run and you can filter on the run id to retrieve
                 the trace.
             filter_string: A search filter string.
@@ -502,6 +501,7 @@ class MlflowClient:
             order_by: List of order_by clauses.
             page_token: Token specifying the next page of results. It should be obtained from
                 a ``search_traces`` call.
+            run_id: A run id to scope the search. When a trace is created under an active run,
 
         Returns:
             A :py:class:`PagedList <mlflow.store.entities.PagedList>` of
@@ -513,11 +513,11 @@ class MlflowClient:
         """
         traces = self._tracking_client.search_traces(
             experiment_ids=experiment_ids,
-            run_id=run_id,
             filter_string=filter_string,
             max_results=max_results,
             order_by=order_by,
             page_token=page_token,
+            run_id=run_id,
         )
 
         get_display_handler().display_traces(traces)

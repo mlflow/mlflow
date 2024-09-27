@@ -330,11 +330,11 @@ def get_trace(request_id: str) -> Optional[Trace]:
 @experimental
 def search_traces(
     experiment_ids: Optional[List[str]] = None,
-    run_id: Optional[str] = None,
     filter_string: Optional[str] = None,
     max_results: Optional[int] = None,
     order_by: Optional[List[str]] = None,
     extract_fields: Optional[List[str]] = None,
+    run_id: Optional[str] = None,
 ) -> "pandas.DataFrame":
     """
     Return traces that match the given list of search expressions within the experiments.
@@ -349,9 +349,6 @@ def search_traces(
     Args:
         experiment_ids: List of experiment ids to scope the search. If not provided, the search
             will be performed across the current active experiment.
-        run_id: A run id to scope the search. When a trace is created under an active run,
-            it will be associated with the run and you can filter on the run id to retrieve the
-            trace. See the example below for how to filter traces by run id.
         filter_string: A search filter string.
         max_results: Maximum number of traces desired. If None, all traces matching the search
             expressions will be returned.
@@ -378,6 +375,9 @@ def search_traces(
 
                 # span name and field name contain a dot
                 extract_fields = ["`span.name`.inputs.`field.name`"]
+        run_id: A run id to scope the search. When a trace is created under an active run,
+            it will be associated with the run and you can filter on the run id to retrieve the
+            trace. See the example below for how to filter traces by run id.
 
     Returns:
         A Pandas DataFrame containing information about traces that satisfy the search expressions.

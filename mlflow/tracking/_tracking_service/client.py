@@ -309,11 +309,11 @@ class TrackingServiceClient:
     def search_traces(
         self,
         experiment_ids: List[str],
-        run_id: Optional[str] = None,
         filter_string: Optional[str] = None,
         max_results: int = SEARCH_TRACES_DEFAULT_MAX_RESULTS,
         order_by: Optional[List[str]] = None,
         page_token: Optional[str] = None,
+        run_id: Optional[str] = None,
     ) -> PagedList[Trace]:
         def download_trace_data(trace_info: TraceInfo) -> Optional[Trace]:
             """
