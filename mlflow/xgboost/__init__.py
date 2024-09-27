@@ -761,6 +761,7 @@ def autolog(
                     input_example=input_example,
                     registered_model_name=registered_model_name,
                     model_format=model_format,
+                    params=params_to_log_for_fn,
                 )
                 model_id = logged_model.model_id
 
