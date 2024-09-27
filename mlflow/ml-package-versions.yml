@@ -690,6 +690,8 @@ langchain:
           # Required to run tests/openai/mock_openai.py
           "fastapi",
           "uvicorn",
+          # Required for testing Databricks dependency extraction
+          "databricks-vectorsearch",
         ]
       # langchain-openai 0.1.22 is imcomptible with earlier langchain-core due to
       # https://github.com/langchain-ai/langchain/commit/b83f1eb0d56dbf99605a1fce93953ee09d77aabf

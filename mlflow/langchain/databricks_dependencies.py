@@ -169,7 +169,7 @@ def _isinstance_with_multiple_modules(
 
                 if cls is not None and isinstance(object, cls):
                     return True
-            except ImportError:
+            except (ImportError, AttributeError):
                 pass
 
     return False
