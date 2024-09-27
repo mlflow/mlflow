@@ -588,17 +588,7 @@ export class CompareRunView extends Component<CompareRunViewProps, CompareRunVie
           <Spacer size="lg" />
           {this.renderMetricTable(colWidth, experimentIds)}
         </CollapsibleSection>
-        <CollapsibleSection title={artifactsLabel}>
-          <Switch
-            label={diffOnlyLabel}
-            aria-label={[artifactsLabel, diffOnlyLabel].join(' - ')}
-            // @ts-expect-error TS(4111): Property 'onlyShowArtifactDiff' comes from an index ... Remove this comment to see the full error message
-            checked={this.state.onlyShowArtifactDiff}
-            onChange={(checked, e) => this.setState({ onlyShowArtifactDiff: checked })}
-          />
-          <Spacer size="lg" />
-          {this.renderArtifactTable(colWidth)}
-        </CollapsibleSection>
+        <CollapsibleSection title={artifactsLabel}>{this.renderArtifactTable(colWidth)}</CollapsibleSection>
         <CollapsibleSection title={tagsLabel}>
           <Switch
             label={diffOnlyLabel}
