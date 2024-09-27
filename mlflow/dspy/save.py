@@ -9,7 +9,7 @@ import cloudpickle
 import yaml
 
 if TYPE_CHECKING:
-    import dspy
+    pass
 
 import mlflow
 from mlflow import pyfunc
@@ -92,7 +92,6 @@ def save_model(
     pip_requirements: Optional[Union[List[str], str]] = None,
     extra_pip_requirements: Optional[Union[List[str], str]] = None,
     metadata: Optional[Dict[str, Any]] = None,
-    **kwargs,
 ):
     """
     Save a Dspy model.
@@ -116,7 +115,6 @@ def save_model(
         pip_requirements: {{ pip_requirements }}
         extra_pip_requirements: {{ extra_pip_requirements }}
         metadata: {{ metadata }}
-        **kwargs: Additional kwargs.
     """
 
     import dspy
@@ -240,7 +238,7 @@ def save_model(
 @experimental
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
 def log_model(
-    dspy_model: "dspy.Module",
+    dspy_model,
     artifact_path: str,
     task: Optional[str] = None,
     model_config: Optional[Dict[str, Any]] = None,
@@ -253,7 +251,6 @@ def log_model(
     pip_requirements: Optional[Union[List[str], str]] = None,
     extra_pip_requirements: Optional[Union[List[str], str]] = None,
     metadata: Optional[Dict[str, Any]] = None,
-    **kwargs,
 ):
     """
     Log a Dspy model along with metadata to MLflow.
@@ -283,7 +280,6 @@ def log_model(
         extra_pip_requirements: {{ extra_pip_requirements }}
         metadata: Custom metadata dictionary passed to the model and stored in the MLmodel
             file.
-        **kwargs: Additional kwargs.
 
     .. code-block:: python
         :caption: Example
