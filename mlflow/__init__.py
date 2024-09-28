@@ -50,6 +50,7 @@ from mlflow.utils.logging_utils import _configure_mlflow_loggers
 autogen = LazyLoader("mlflow.autogen", globals(), "mlflow.autogen")
 catboost = LazyLoader("mlflow.catboost", globals(), "mlflow.catboost")
 diviner = LazyLoader("mlflow.diviner", globals(), "mlflow.diviner")
+dspy = LazyLoader("mlflow.dspy", globals(), "mlflow.dspy")
 fastai = LazyLoader("mlflow.fastai", globals(), "mlflow.fastai")
 gluon = LazyLoader("mlflow.gluon", globals(), "mlflow.gluon")
 h2o = LazyLoader("mlflow.h2o", globals(), "mlflow.h2o")
