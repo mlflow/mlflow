@@ -1,6 +1,7 @@
 import importlib
 import os
 import sys
+from importlib.metadata import version
 from unittest import mock
 
 import cloudpickle
@@ -249,6 +250,15 @@ def test_get_installed_version(tmp_path, monkeypatch):
     with pytest.raises(importlib_metadata.PackageNotFoundError, match=r".+"):
         importlib_metadata.version("not_found")
     assert _get_installed_version("not_found") == "1.2.3"
+
+
+def test_package_with_mismatched_pypi_and_import_name():
+    try:
+        import dspy  # noqa: F401
+
+        assert _get_installed_version("dspy") == version("dspy-ai")
+    except ImportError:
+        pytest.skip("Skipping test because 'dspy' package is not installed")
 
 
 def test_get_pinned_requirement(tmp_path, monkeypatch):
