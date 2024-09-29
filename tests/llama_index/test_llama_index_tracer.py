@@ -455,8 +455,6 @@ async def test_tracer_workflow():
         step,
     )
 
-    import mlflow
-
     class MyWorkflow(Workflow):
         @step
         async def my_step(self, ev: StartEvent) -> StopEvent:
@@ -466,9 +464,9 @@ async def test_tracer_workflow():
     w = MyWorkflow(timeout=10, verbose=False)
     await w.run()
 
-    trace = mlflow.get_last_active_trace()
-    assert trace is not None
-    assert trace.info.status == TraceStatus.OK
-    for s in trace.data.spans:
+    traces = _get_all_traces()
+    assert len(traces) == 1
+    assert traces[0].info.status == TraceStatus.OK
+    for s in traces[0].data.spans:
         assert s.status.status_code == SpanStatusCode.OK
-    assert all(s.status.status_code == SpanStatusCode.OK for s in trace.data.spans)
+    assert all(s.status.status_code == SpanStatusCode.OK for s in traces[0].data.spans)

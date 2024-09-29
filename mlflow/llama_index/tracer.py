@@ -145,11 +145,14 @@ class MlflowSpanHandler(BaseSpanHandler[_LlamaSpan], extra="allow"):
         parent_span_id: Optional[str] = None,
         **kwargs: Any,
     ) -> _LlamaSpan:
+        with self.lock:
+            parent = self.open_spans.get(parent_span_id) if parent_span_id else None
+
         try:
             input_args = bound_args.arguments
             attributes = self._get_instance_attributes(instance)
             span_type = self._get_span_type(instance) or SpanType.UNKNOWN
-            if parent_span_id and (parent := self.open_spans.get(parent_span_id)):
+            if parent:
                 parent_span = parent._mlflow_span
                 # NB: Initiate the new client every time to handle tracking URI updates.
                 span = MlflowClient().start_span(
@@ -178,22 +181,23 @@ class MlflowSpanHandler(BaseSpanHandler[_LlamaSpan], extra="allow"):
         result: Optional[Any] = None,
         **kwargs: Any,
     ) -> _LlamaSpan:
-        if (
-            LLAMA_INDEX_VERSION >= Version("0.11.10")
-            and isinstance(result, llama_index.core.workflow.handler.WorkflowHandler)
-            and not result.is_done()
-        ):
+        if LLAMA_INDEX_VERSION >= Version("0.11.10"):
             # In LlamaIndex >= 0.11.0, LlamaIndex workflow finishes with a pending
             # WorkflowHandler as an output. Their base span handler does not handle it
             # correctly and emit it immediately, instead of awaiting for the actual result.
             # Until this problem is resolved, we simply records the pending workflow result
             # as it is. Using str(result) for pending handler will raise an exception.
-            result = "<WorkflowHandler pending>"
+            from llama_index.core.workflow.handler import WorkflowHandler
+
+            if isinstance(result, WorkflowHandler) and not result.is_done():
+                result = "<WorkflowHandler pending>"
 
         try:
-            llama_span = self.open_spans.get(id_)
+            with self.lock:
+                llama_span = self.open_spans.get(id_)
             if not llama_span:
                 return
+
             span = llama_span._mlflow_span
 
             if self._stream_resolver.is_streaming_result(result):
@@ -218,7 +222,9 @@ class MlflowSpanHandler(BaseSpanHandler[_LlamaSpan], extra="allow"):
 
     def prepare_to_drop_span(self, id_: str, err: Optional[Exception], **kwargs) -> _LlamaSpan:
         """Logic for handling errors during the model execution."""
-        llama_span = self.open_spans.get(id_)
+        with self.lock:
+            llama_span = self.open_spans.get(id_)
+
         span = llama_span._mlflow_span
 
         if LLAMA_INDEX_VERSION >= Version("0.10.59"):
