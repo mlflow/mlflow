@@ -125,12 +125,23 @@ def save_model(
     Save a LlamaIndex model to a path on the local file system.
 
     Args:
-        llama_index_model: An LlamaIndex object to be saved, or a string representing the path to
-            a script contains LlamaIndex index/engine definition.
+        llama_index_model: An LlamaIndex object to be saved. Supported model types are:
+            1. An Index object.
+            2. An Engine object e.g. ChatEngine, QueryEngine, Retriever.
+            3. A `Workflow <https://docs.llamaindex.ai/en/stable/module_guides/workflow/>`_ object.
+            4. A string representing the path to a script contains LlamaIndex model definition
+                of the one of the above types.
+
+            .. attention::
+
+                Saving a non-index object is only supported in the 'Model-from-Code' saving mode.
+                Please refer to the `Models From Code Guide <https://www.mlflow.org/docs/latest/model/models-from-code.html>`_
+                for more information.
+
         path: Local path where the serialized model (as YAML) is to be saved.
-        engine_type: Required when saving an index object to determine the inference interface
+        engine_type: Required when saving an Index object to determine the inference interface
             for the index when loaded as a pyfunc model. This field is **not** required when
-            saving an engine directly. The supported types are as follows:
+            saving other LlamaIndex objects. The supported values are as follows:
 
             - ``"chat"``: load the index as an instance of the LlamaIndex
               `ChatEngine <https://docs.llamaindex.ai/en/stable/module_guides/deploying/chat_engines/>`_.
@@ -178,7 +189,9 @@ def save_model(
 
             # Warn when user provides `engine_type` argument while saving an engine directly
             if not isinstance(llama_index_model, BaseIndex) and engine_type is not None:
-                _logger.warning("The `engine_type` argument is ignored when saving an engine.")
+                _logger.warning(
+                    "The `engine_type` argument is ignored when saving a non-index object."
+                )
 
         elif isinstance(model_or_code_path, BaseIndex):
             _validate_engine_type(engine_type)
@@ -186,9 +199,9 @@ def save_model(
 
         elif isinstance(model_or_code_path, _supported_classes()):
             raise MlflowException.invalid_parameter_value(
-                "Saving an engine object is only supported in the 'Model-from-Code' saving mode. "
+                "Saving a non-index object is only supported in the 'Model-from-Code' saving mode. "
                 "The legacy serialization method is exclusively for saving index objects. Please "
-                "pass the path to the script containing the engine definition to save an engine "
+                "pass the path to the script containing the model definition to save a non-index "
                 "object. For more information, see "
                 "https://www.mlflow.org/docs/latest/model/models-from-code.html",
             )
@@ -294,12 +307,23 @@ def log_model(
     Log a LlamaIndex model as an MLflow artifact for the current run.
 
     Args:
-        llama_index_model: An LlamaIndex object to be saved, or a string representing the path to
-            a script contains LlamaIndex index/engine definition.
+        llama_index_model: An LlamaIndex object to be saved. Supported model types are:
+            1. An Index object.
+            2. An Engine object e.g. ChatEngine, QueryEngine, Retriever.
+            3. A `Workflow <https://docs.llamaindex.ai/en/stable/module_guides/workflow/>`_ object.
+            4. A string representing the path to a script contains LlamaIndex model definition
+                of the one of the above types.
+
+            .. attention::
+
+                Logging a non-index object is only supported in the 'Model-from-Code' saving mode.
+                Please refer to the `Models From Code Guide <https://www.mlflow.org/docs/latest/model/models-from-code.html>`_
+                for more information.
+
         artifact_path: Local path where the serialized model (as YAML) is to be saved.
-        engine_type: Required when saving an index object to determine the inference interface
+        engine_type: Required when saving an Index object to determine the inference interface
             for the index when loaded as a pyfunc model. This field is **not** required when
-            saving an engine directly. The supported types are as follows:
+            saving other LlamaIndex objects. The supported values are as follows:
 
             - ``"chat"``: load the index as an instance of the LlamaIndex
               `ChatEngine <https://docs.llamaindex.ai/en/stable/module_guides/deploying/chat_engines/>`_.
@@ -373,7 +397,7 @@ def _save_index(index, path):
 
 
 def _load_llama_model(path, flavor_conf):
-    """Load the LlamaIndex index or engine from either model code or serialized index."""
+    """Load the LlamaIndex index/engine/workflow from either model code or serialized index."""
     from llama_index.core import StorageContext, load_index_from_storage
 
     _add_code_from_conf_to_system_path(path, flavor_conf)
@@ -399,7 +423,7 @@ def _load_llama_model(path, flavor_conf):
 @trace_disabled  # Suppress traces while loading model
 def load_model(model_uri, dst_path=None):
     """
-    Load a LlamaIndex index or engine from a local file or a run.
+    Load a LlamaIndex index/engine/workflow from a local file or a run.
 
     Args:
         model_uri: The location, in URI format, of the MLflow model. For example:
@@ -436,7 +460,9 @@ def _load_pyfunc(path, model_config: Optional[Dict[str, Any]] = None):
 
     index = load_model(path)
     flavor_conf = _get_flavor_configuration(model_path=path, flavor_name=FLAVOR_NAME)
-    engine_type = flavor_conf.pop("engine_type", None)  # Not present when saving an engine object
+    engine_type = flavor_conf.pop(
+        "engine_type", None
+    )  # Not present when saving an non-index object
     return create_pyfunc_wrapper(index, engine_type, model_config)
 
 
