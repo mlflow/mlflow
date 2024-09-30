@@ -1754,7 +1754,8 @@ def prebuild_model_env(model_uri, save_path):
         output_path=_create_model_downloading_tmp_dir(should_use_nfs=False)
     )
     archive_name = _gen_prebuilt_env_archive_name(local_model_path)
-    if os.path.exists(os.path.join(save_path, archive_name + ".tar.gz")):
+    dest_path = os.path.join(save_path, archive_name + ".tar.gz")
+    if os.path.exists(dest_path):
         raise RuntimeError(
             "You have pre-built the model python environment and save "
             f"it in the '{save_path}' directory as the archive file "
@@ -1774,6 +1775,7 @@ def prebuild_model_env(model_uri, save_path):
     try:
         tmp_archive_path = _prebuild_env_internal(local_model_path, archive_name, _PREBUILD_ENV_ROOT_LOCATION)
         shutil.move(tmp_archive_path, save_path)
+        return dest_path
     except:
         shutil.rmtree(local_model_path, ignore_errors=True)
         if os.path.exists(tmp_archive_path):
