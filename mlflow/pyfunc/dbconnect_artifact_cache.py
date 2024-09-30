@@ -100,8 +100,9 @@ def archive_directory(input_dir, archive_file_path):
     #  We need to pack the python and virtualenv environment, which contains a bunch of
     #  symlink files.
     subprocess.check_call(
-        ["tar", "-czf", archive_file_path, "./*"],
+        "tar -czf /tmp/tx.tar.gz ./*",
         cwd=input_dir,
+        shell=True
     )
     return archive_file_path
 

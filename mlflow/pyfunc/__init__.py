@@ -1787,7 +1787,7 @@ def spark_udf(
     env_manager=_EnvManager.LOCAL,
     params: Optional[Dict[str, Any]] = None,
     extra_env: Optional[Dict[str, str]] = None,
-    prebuilt_env_path: Opional[str] = None,
+    prebuilt_env_path: Optional[str] = None,
 ):
     """
     A Spark UDF that can be used to invoke the Python function formatted model.
