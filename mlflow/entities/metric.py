@@ -41,7 +41,7 @@ class Metric(_MlflowObject):
         metric.key = self.key
         metric.value = self.value
         metric.timestamp = self.timestamp
-        metric.step = self.step
+        metric.step = int(self.step) if self.step is not None else None
         return metric
 
     @classmethod
