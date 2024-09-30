@@ -512,6 +512,7 @@ from mlflow.utils.databricks_utils import (
     is_databricks_connect,
     is_in_databricks_serverless_runtime,
     is_in_databricks_shared_cluster_runtime,
+    get_dbconnect_udf_sandbox_image_version_and_platform_machine,
 )
 from mlflow.utils.docstring_utils import LOG_MODEL_PARAM_DOCS, format_docstring
 from mlflow.utils.environment import (
@@ -1669,7 +1670,7 @@ _PREBUILD_ENV_ROOT_LOCATION = "/tmp"
 
 
 
-def _gen_prebuilt_env_archive_name(local_model_path):
+def _gen_prebuilt_env_archive_name(spark, local_model_path):
     """
     Generate prebuilt env archive file name.
     The format is:
@@ -1680,8 +1681,7 @@ def _gen_prebuilt_env_archive_name(local_model_path):
     """
     python_env = _get_python_env(Path(local_model_path))
     env_name = _get_virtualenv_name(python_env, local_model_path)
-    runtime_version = get_databricks_runtime_version()
-    platform_machine = platform.machine()
+    runtime_version, platform_machine = get_dbconnect_udf_sandbox_image_version_and_platform_machine(spark)
     return f"{env_name}-{runtime_version}-{platform_machine}"
 
 
@@ -1739,6 +1739,8 @@ def _prebuild_env_internal(local_model_path, archive_name, save_path):
 
 
 def prebuild_model_env(model_uri, save_path):
+    global spark
+
     if not is_in_databricks_runtime():
         raise RuntimeError(
             "'prebuild_model_env' only support running in Databricks runtime."
@@ -1753,7 +1755,7 @@ def prebuild_model_env(model_uri, save_path):
         artifact_uri=model_uri,
         output_path=_create_model_downloading_tmp_dir(should_use_nfs=False)
     )
-    archive_name = _gen_prebuilt_env_archive_name(local_model_path)
+    archive_name = _gen_prebuilt_env_archive_name(spark, local_model_path)
     dest_path = os.path.join(save_path, archive_name + ".tar.gz")
     if os.path.exists(dest_path):
         raise RuntimeError(
@@ -1781,6 +1783,11 @@ def prebuild_model_env(model_uri, save_path):
         shutil.rmtree(local_model_path, ignore_errors=True)
         if tmp_archive_path and os.path.exists(tmp_archive_path):
             os.remove(tmp_archive_path)
+
+
+##DBG
+def _udf_log(key, value):
+    pass
 
 
 def spark_udf(
@@ -1950,7 +1957,7 @@ def spark_udf(
     # But for Databricks shared cluster runtime, it can directly write to NFS, so exclude it
     # Note for Databricks Serverles runtime (notebook REPL), it runs on Servereless VM that
     # can't access NFS, so it needs to use `spark.addArtifact`.
-    use_dbconnect_artifact = dbconnect_mode # and not is_in_databricks_shared_cluster_runtime()
+    use_dbconnect_artifact = dbconnect_mode ##DBG and not is_in_databricks_shared_cluster_runtime()
 
     nfs_root_dir = get_nfs_cache_root_dir()
     should_use_nfs = nfs_root_dir is not None
@@ -2014,18 +2021,27 @@ def spark_udf(
                 "limitations with handling SIGKILL signals, these MLflow Model server child "
                 "processes cannot be cleaned up if the Spark Job is canceled."
             )
-    pyfunc_backend = get_flavor_backend(
-        local_model_path,
-        env_manager=env_manager,
-        install_mlflow=os.environ.get("MLFLOW_HOME") is not None,
-        create_env_root_dir=True,
-    )
-    dbconnect_artifact_cache = DBConnectArtifactCache.get_or_create(spark)
 
     if prebuilt_env_path:
         env_cache_key = os.path.basename(prebuilt_env_path)[:-7]
     else:
-        env_cache_key = _gen_prebuilt_env_archive_name(local_model_path)
+        env_cache_key = _gen_prebuilt_env_archive_name(spark, local_model_path)
+
+    if use_dbconnect_artifact or prebuilt_env_path is not None:
+        prebuilt_env_root_dir = os.path.join(_PREBUILD_ENV_ROOT_LOCATION, env_cache_key)
+        pyfunc_backend_env_root_config = {
+            "create_env_root_dir": False,
+            "env_root_dir": prebuilt_env_root_dir
+        }
+    else:
+        pyfunc_backend_env_root_config = {"create_env_root_dir": True}
+    pyfunc_backend = get_flavor_backend(
+        local_model_path,
+        env_manager=env_manager,
+        install_mlflow=os.environ.get("MLFLOW_HOME") is not None,
+        **pyfunc_backend_env_root_config,
+    )
+    dbconnect_artifact_cache = DBConnectArtifactCache.get_or_create(spark)
 
     if use_dbconnect_artifact:
         # Upload model artifacts and python environment to NFS as DBConncet artifacts.
@@ -2230,18 +2246,16 @@ Compound types:
             if env_manager != _EnvManager.LOCAL:
                 if use_dbconnect_artifact:
                     local_model_path_on_executor = dbconnect_artifact_cache.get_unpacked_artifact_dir(model_uri)
-                    env_dir = os.path.join(_PREBUILD_ENV_ROOT_LOCATION, env_cache_key)
                     if not os.path.exists(env_dir):
                         env_src_dir = dbconnect_artifact_cache.get_unpacked_artifact_dir(env_cache_key)
-                        os.symlink(env_src_dir, env_dir)
+                        os.symlink(env_src_dir, prebuilt_env_root_dir)
                 elif should_use_spark_to_broadcast_file:
                     local_model_path_on_executor = _SparkDirectoryDistributor.get_or_extract(
                         archive_path
                     )
                     if prebuilt_env_path:
-                        env_dir = os.path.join(_PREBUILD_ENV_ROOT_LOCATION, env_cache_key)
                         env_src_dir = prebuilt_env_nfs_dir
-                        os.symlink(env_src_dir, env_dir)
+                        os.symlink(env_src_dir, prebuilt_env_root_dir)
                     else:
                         # Call "prepare_env" in advance in order to reduce scoring server launch time.
                         # So that we can use a shorter timeout when call `client.wait_server_ready`,
