@@ -39,8 +39,9 @@ class DBConnectArtifactCache:
         global _global_dbconnect_artifact_cache
         if _global_dbconnect_artifact_cache is None or spark is not _global_dbconnect_artifact_cache._spark:
             _global_dbconnect_artifact_cache = DBConnectArtifactCache(spark)
-            if is_in_databricks_runtime():
-                with open(os.path.join(get_or_create_tmp_dir(), _CACHE_MAP_FILE_NAME), "r") as f:
+            cache_file = os.path.join(get_or_create_tmp_dir(), _CACHE_MAP_FILE_NAME)
+            if is_in_databricks_runtime() and os.path.exists(cache_file):
+                with open(cache_file, "r") as f:
                     _global_dbconnect_artifact_cache._cache = json.load(f)
         return _global_dbconnect_artifact_cache
 
