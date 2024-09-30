@@ -373,7 +373,8 @@ def _get_or_create_virtualenv(  # noqa: D417
     env_dir = virtual_envs_root_path / env_name
     if env_dir.exists():
         paths = ("bin", "activate") if not is_windows() else ("Scripts", "activate.bat")
-        return env_dir.joinpath(*paths)
+        activate_cmd = env_dir.joinpath(*paths)
+        return f"source {activate_cmd}" if not is_windows() else str(activate_cmd)
 
     # Create an environment
     python_bin_path = _install_python(

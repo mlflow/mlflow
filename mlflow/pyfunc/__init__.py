@@ -410,6 +410,7 @@ import subprocess
 import sys
 import tempfile
 import threading
+import uuid
 import warnings
 from contextlib import contextmanager
 from copy import deepcopy
@@ -2056,7 +2057,7 @@ def spark_udf(
                 dbconnect_artifact_cache.add_artifact_archive(env_cache_key, env_archive_path)
 
         if not dbconnect_artifact_cache.has_cache_key(model_uri):
-            model_archive_path = local_model_path + ".tar.gz"
+            model_archive_path = os.path.join(os.path.dirname(local_model_path), f"model-{uuid.uuid4()}.tar.gz")
             archive_directory(local_model_path, model_archive_path)
             dbconnect_artifact_cache.add_artifact_archive(model_uri, model_archive_path)
 
