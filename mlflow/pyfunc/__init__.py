@@ -1959,7 +1959,7 @@ def spark_udf(
     should_use_nfs = nfs_root_dir is not None
 
     should_use_spark_to_broadcast_file = not (
-        is_spark_in_local_mode or should_use_nfs or is_spark_connect or use_dbconenct_artifact
+        is_spark_in_local_mode or should_use_nfs or is_spark_connect or use_dbconnect_artifact
     )
 
     # For spark connect mode,
@@ -2249,9 +2249,9 @@ Compound types:
                     local_model_path_on_executor = _SparkDirectoryDistributor.get_or_extract(
                         archive_path
                     )
-                    if prebuilt_env_path and not os.path.exists(prebuilt_env_root_dir):
-                        env_src_dir = prebuilt_env_nfs_dir
-                        os.symlink(env_src_dir, prebuilt_env_root_dir)
+                    if prebuilt_env_path:
+                        if not os.path.exists(prebuilt_env_root_dir):
+                            os.symlink(prebuilt_env_nfs_dir, prebuilt_env_root_dir)
                     else:
                         # Call "prepare_env" in advance in order to reduce scoring server launch time.
                         # So that we can use a shorter timeout when call `client.wait_server_ready`,
