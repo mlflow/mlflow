@@ -1,8 +1,13 @@
+import json
 import os
 import subprocess
+from mlflow.utils.databricks_utils import is_in_databricks_runtime
+from mlflow.utils.file_utils import get_or_create_tmp_dir
 
 
 _global_dbconnect_artifact_cache = None
+
+_CACHE_MAP_FILE_NAME = "db_connect_artifact_cache.json"
 
 
 class DBConnectArtifactCache:
@@ -34,6 +39,9 @@ class DBConnectArtifactCache:
         global _global_dbconnect_artifact_cache
         if _global_dbconnect_artifact_cache is None or spark is not _global_dbconnect_artifact_cache._spark:
             _global_dbconnect_artifact_cache = DBConnectArtifactCache(spark)
+            if is_in_databricks_runtime():
+                with open(os.path.join(get_or_create_tmp_dir(), _CACHE_MAP_FILE_NAME), "r") as f:
+                    _global_dbconnect_artifact_cache._cache = json.load(f)
         return _global_dbconnect_artifact_cache
 
     def __init__(self, spark):
@@ -74,6 +82,10 @@ class DBConnectArtifactCache:
         if cache_key not in self._cache:
             self._spark.addArtifact(artifact_archive_path, archive=True)
             self._cache[cache_key] = archive_file_name
+
+        if is_in_databricks_runtime():
+            with open(os.path.join(get_or_create_tmp_dir(), _CACHE_MAP_FILE_NAME), "w") as f:
+                json.dump(self._cache, f)
 
     def get_unpacked_artifact_dir(self, cache_key):
         """
