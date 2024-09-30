@@ -14,7 +14,6 @@ class FakeOpenAI(ChatOpenAI, extra="allow"):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        # Use cycle to loop responses indefinitely
         self._responses = cycle(
             [
                 AIMessage(
