@@ -1,18 +1,11 @@
 from typing import Any, Dict, List, Optional, Union
 
+import mlflow.protos.service_pb2 as pb2
 from mlflow.entities._mlflow_object import _MlflowObject
 from mlflow.entities.metric import Metric
 from mlflow.entities.model_param import ModelParam
 from mlflow.entities.model_status import ModelStatus
 from mlflow.entities.model_tag import ModelTag
-from mlflow.protos.service_pb2 import (
-    LoggedModel,
-    LoggedModelData,
-    LoggedModelInfo,
-    LoggedModelParameter,
-    LoggedModelTag,
-    Metric,
-)
 
 
 class LoggedModel(_MlflowObject):
@@ -170,8 +163,8 @@ class LoggedModel(_MlflowObject):
         return model_dict
 
     def to_proto(self):
-        return LoggedModel(
-            info=LoggedModelInfo(
+        return pb2.LoggedModel(
+            info=pb2.LoggedModelInfo(
                 experiment_id=self.experiment_id,
                 model_id=self.model_id,
                 name=self.name,
@@ -181,10 +174,10 @@ class LoggedModel(_MlflowObject):
                 model_type=self.model_type,
                 source_run_id=self.run_id,
                 status=self.status.to_proto(),
-                tags=[LoggedModelTag(key=k, value=v) for k, v in self.tags.items()],
+                tags=[pb2.LoggedModelTag(key=k, value=v) for k, v in self.tags.items()],
             ),
-            data=LoggedModelData(
-                params=[LoggedModelParameter(key=k, value=v) for (k, v) in self.params.items()],
+            data=pb2.LoggedModelData(
+                params=[pb2.LoggedModelParameter(key=k, value=v) for (k, v) in self.params.items()],
                 metrics=[m.to_proto() for m in self.metrics] if self.metrics else [],
             ),
         )

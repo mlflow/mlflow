@@ -24,6 +24,7 @@ class ModelStatus(str, Enum):
 
         raise MlflowException.invalid_parameter_value(f"Unknown model status: {self}")
 
+    @classmethod
     def from_proto(cls, proto):
         if proto == LoggedModelStatus.LOGGED_MODEL_STATUS_UNSPECIFIED:
             return ModelStatus.UNSPECIFIED
