@@ -277,3 +277,52 @@ The sections below provide a detailed view of the structure of a span.
     * - **end_time_ns**
       - The unix timestamp (in nanoseconds) when the span was ended.
       - This precision is higher than the trace timestamps, similar to the ``start_time_ns`` timestamp above.
+
+Schema for specific span types
+------------------------------
+
+MLflow has a set of 10 predefined types of spans (see :py:class:`mlflow.entities.SpanType`), and
+certain span types have properties that are required in order to enable additional functionality
+within the UI and downstream tasks such as evaluation.
+
+Retriever Spans
+^^^^^^^^^^^^^^^
+
+The ``RETRIEVER`` span type is used for operations involving retrieving data from a data store (for example, querying 
+documents from a vector store). The ``RETRIEVER`` span type has the following schema:
+
+.. list-table::
+    :widths: 20 40 40
+    :header-rows: 1
+    :class: wrap-table
+
+    * - **Property**
+      - **Description**
+      - **Note**
+
+    * - **Input**
+      - There are no restrictions on the span inputs
+      -
+    
+    * - **Output**
+      - The output must be of type ``List[`` :py:class:`mlflow.entities.Document` ``]``, or a dict matching the structure of the dataclass\*. 
+        The dataclass contains the following properties:
+
+        * **id** (``Optional[str]``) - An optional unique identifier for the document.
+        * **page_content** (``str``) - The text content of the document.
+        * **metadata** (``Optional[Dict[str,any]]``) - The metadata associated with the document. There are two important metadata keys that are reserved for the MLflow UI and evaluation metrics: 
+
+          * ``"doc_uri" (str)``: The URI for the document. This is used for rendering a link in the UI.
+          * ``"chunk_id" (str)``: If your document is broken up into chunks in your data store, this key can be used to
+            identify the chunk that the document is a part of. This is used by some evaluation metrics.
+
+      - This output structure is guaranteed to be provided if the traces are generated via MLflow autologging for the LangChain and LlamaIndex flavors.
+        By conforming to this specification, ``RETRIEVER`` spans will be rendered in a more user-friendly manner in the MLflow UI, and downstream tasks
+        such as evaluation will function as expected.
+
+    * - **Attributes**
+      - There are no restrictions on the span attributes
+      -
+
+\* For example, both ``[Document(page_content="Hello world", metadata={"doc_uri": "https://example.com"})]`` and
+``[{"page_content": "Hello world", "metadata": {"doc_uri": "https://example.com"}}]`` are valid outputs for a ``RETRIEVER`` span.

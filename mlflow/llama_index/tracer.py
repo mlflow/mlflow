@@ -28,10 +28,12 @@ from llama_index.core.instrumentation.events.rerank import ReRankStartEvent
 from llama_index.core.instrumentation.span.base import BaseSpan
 from llama_index.core.instrumentation.span_handlers import BaseSpanHandler
 from llama_index.core.multi_modal_llms import MultiModalLLM
+from llama_index.core.schema import NodeWithScore
 from llama_index.core.tools import BaseTool
 from packaging.version import Version
 
 from mlflow.entities import LiveSpan, SpanEvent, SpanType
+from mlflow.entities.document import Document
 from mlflow.entities.span_status import SpanStatusCode
 from mlflow.tracing.constant import SpanAttributeKey
 from mlflow.tracking.client import MlflowClient
@@ -94,6 +96,20 @@ def _end_span(span: LiveSpan, status=SpanStatusCode.OK, outputs=None):
             "Trying to record streaming response to the MLflow trace. This may consume "
             "the generator and result in an empty response."
         )
+
+    # for retriever spans, convert the outputs to Document objects
+    # so they can be rendered in a more user-friendly way in the UI
+    if (
+        span.span_type == SpanType.RETRIEVER
+        and isinstance(outputs, list)
+        and all(isinstance(item, NodeWithScore) for item in outputs)
+    ):
+        try:
+            outputs = [Document.from_llama_index_node_with_score(node) for node in outputs]
+        except Exception as e:
+            _logger.debug(
+                f"Failed to convert NodeWithScore to Document objects: {e}", exc_info=True
+            )
 
     if outputs is None:
         outputs = span.outputs

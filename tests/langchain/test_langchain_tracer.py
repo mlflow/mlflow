@@ -24,6 +24,7 @@ from langchain_core.tools import tool
 from packaging.version import Version
 
 import mlflow
+from mlflow.entities import Document as MlflowDocument
 from mlflow.entities import Trace
 from mlflow.entities.span_event import SpanEvent
 from mlflow.entities.span_status import SpanStatus, SpanStatusCode
@@ -223,7 +224,9 @@ def test_retriever_success():
     assert retriever_span.name == "test_retriever"
     assert retriever_span.span_type == "RETRIEVER"
     assert retriever_span.inputs == "test query"
-    assert retriever_span.outputs == [doc.dict() for doc in documents]
+    assert retriever_span.outputs == [
+        MlflowDocument.from_langchain_document(doc).to_dict() for doc in documents
+    ]
     assert retriever_span.start_time_ns is not None
     assert retriever_span.end_time_ns is not None
     assert retriever_span.status.status_code == SpanStatusCode.OK
@@ -346,13 +349,13 @@ def test_multiple_components():
         assert retriever_span.inputs == f"test query {i}"
         assert (
             retriever_span.outputs[0]
-            == Document(
+            == MlflowDocument(
                 page_content=f"document content {i}",
                 metadata={
                     "chunk_id": str(i),
                     "doc_uri": f"https://mock_uri.com/{i}",
                 },
-            ).dict()
+            ).to_dict()
         )
 
     _validate_trace_json_serialization(trace)
