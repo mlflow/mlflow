@@ -547,6 +547,31 @@ service MlflowService {
       rpc_doc_title: "Create Logged Model",
     };
   }
+
+  rpc finalizeLoggedModel(FinalizeLoggedModel) returns (FinalizeLoggedModel.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "PATCH",
+        path: "/mlflow/logged-models/{model_id}"
+        since { major: 2, minor: 0 },
+      }],
+      visibility: PUBLIC_UNDOCUMENTED,
+      rpc_doc_title: "Finalize Logged Model",
+    };
+  }
+
+  rpc getLoggedModel(GetLoggedModel) returns (GetLoggedModel.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "GET",
+        path: "/mlflow/logged-models/{model_id}"
+        since { major: 2, minor: 0 },
+      }],
+      visibility: PUBLIC_UNDOCUMENTED,
+      rpc_doc_title: "Get Logged Model",
+    };
+  }
+
 }
 
 // View type for ListExperiments query.
@@ -1562,6 +1587,38 @@ message CreateLoggedModel {
 
   message Response {
     // The newly created LoggedModel.
+    optional LoggedModel model = 1;
+  }
+}
+
+message FinalizeLoggedModel {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+  option (scalapb.message).extends = "com.databricks.mlflow.api.MlflowTrackingMessage";
+
+  // The ID of the LoggedModel to finalize
+  optional string model_id = 1 [(validate_required) = true];
+
+  // Whether or not the model is ready for use.
+  // Valid values in this message: ENUM<LOGGED_MODEL_READY, LOGGED_MODEL_UPLOAD_FAILED>
+  // ("LOGGED_MODEL_UPLOAD_FAILED" indicates that something went wrong when logging
+  // the model weights / agent code)
+  optional LoggedModelStatus status = 2 [(validate_required) = true];
+
+  message Response {
+    // The updated LoggedModel.
+    optional LoggedModel model = 1;
+  }
+}
+
+message GetLoggedModel {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+  option (scalapb.message).extends = "com.databricks.mlflow.api.MlflowTrackingMessage";
+
+  // The ID of the LoggedModel to retrieve.
+  optional string model_id = 1 [(validate_required) = true];
+
+  message Response {
+    // The retrieved LoggedModel.
     optional LoggedModel model = 1;
   }
 }
