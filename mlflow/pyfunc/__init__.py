@@ -2246,14 +2246,14 @@ Compound types:
             if env_manager != _EnvManager.LOCAL:
                 if use_dbconnect_artifact:
                     local_model_path_on_executor = dbconnect_artifact_cache.get_unpacked_artifact_dir(model_uri)
-                    if not os.path.exists(env_dir):
+                    if not os.path.exists(prebuilt_env_root_dir):
                         env_src_dir = dbconnect_artifact_cache.get_unpacked_artifact_dir(env_cache_key)
                         os.symlink(env_src_dir, prebuilt_env_root_dir)
                 elif should_use_spark_to_broadcast_file:
                     local_model_path_on_executor = _SparkDirectoryDistributor.get_or_extract(
                         archive_path
                     )
-                    if prebuilt_env_path:
+                    if prebuilt_env_path and not os.path.exists(prebuilt_env_root_dir):
                         env_src_dir = prebuilt_env_nfs_dir
                         os.symlink(env_src_dir, prebuilt_env_root_dir)
                     else:
