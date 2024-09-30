@@ -156,6 +156,7 @@ class LoggedModel(_MlflowObject):
     def _add_tag(self, tag):
         self._tags[tag.key] = tag.value
 
+
     def to_dictionary(self) -> Dict[str, Any]:
         model_dict = dict(self)
         model_dict["status"] = str(self.status)
