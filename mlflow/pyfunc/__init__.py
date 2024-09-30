@@ -1802,14 +1802,6 @@ def prebuild_model_env(model_uri, save_path):
             os.remove(tmp_archive_path)
 
 
-def _dbg_output(key, value=""):
-    ##DBG
-    uc_dir = "/Volumes/ml/weichen/ray_test/udfout01"
-    with open(f"{uc_dir}/{key}", "w") as f:
-        f.write(value)
-        f.write("\n")
-
-
 def _setup_model_env_symlink_in_udf_sandbox(env_src_dir, env_dest_dir):
     """
     This function is used when the prebuilt python env is built under a different path
