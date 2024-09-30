@@ -1,6 +1,7 @@
 import json
 
 import langchain
+import pandas as pd
 import pytest
 from packaging.version import Version
 
@@ -102,3 +103,35 @@ def test_langgraph_tracing():
     for msg, (type, expected_content) in zip(messages, expected_messages):
         assert msg["type"] == type
         assert msg["content"] == expected_content
+
+
+@pytest.mark.skipif(
+    Version(langchain.__version__) < Version("0.2.0"),
+    reason="Agent behavior is not stable across minor versions",
+)
+def test_langgraph_evaluate():
+    input_example = {"messages": [{"role": "user", "content": "what is the weather in sf?"}]}
+
+    with mlflow.start_run():
+        model_info = mlflow.langchain.log_model(
+            lc_model="tests/langchain/sample_code/langgraph.py",
+            artifact_path="langgraph",
+            input_example=input_example,
+        )
+
+    eval_data = pd.DataFrame(
+        {
+            "messages": [
+                input_example["messages"],
+                input_example["messages"],
+            ],
+            "ground_truth": ["dummy text", "dummy text"],
+        }
+    )
+    _ = mlflow.evaluate(
+        model_info.model_uri,
+        eval_data,
+        targets="ground_truth",
+        predictions="messages",
+        extra_metrics=[mlflow.metrics.exact_match()],
+    )

@@ -522,6 +522,18 @@ _matplotlib_config = {
 }
 
 
+def _extract_chat_message_response_or_prediction(prediction: list) -> str:
+    # Handle case when ChatMessage sequence is returned by the predict func
+    if (
+        prediction is not None
+        and isinstance(prediction, list)
+        and all(isinstance(_p, dict) for _p in prediction)
+    ):
+        return prediction[-1].get("content")
+    else:
+        return prediction
+
+
 def _extract_output_and_other_columns(model_predictions, output_column_name):
     y_pred = None
     other_output_columns = None
@@ -533,11 +545,15 @@ def _extract_output_and_other_columns(model_predictions, output_column_name):
     if isinstance(model_predictions, list) and all(isinstance(p, dict) for p in model_predictions):
         # Extract 'y_pred' and 'other_output_columns' from list of dictionaries
         if output_column_name in model_predictions[0]:
-            y_pred = pd.Series(
-                [p.get(output_column_name) for p in model_predictions], name=output_column_name
-            )
+            y_pred_list = []
+            for p in model_predictions:
+                prediction = p.get(output_column_name)
+                prediction_parsed = _extract_chat_message_response_or_prediction(prediction)
+                y_pred_list.append(prediction_parsed)
+
+            y_pred = pd.Series(y_pred_list, name=output_column_name)
             other_output_columns = pd.DataFrame(
-                [{k: v for k, v in p.items() if k != output_column_name} for p in model_predictions]
+                [{k for k in p.keys() if k != output_column_name} for p in model_predictions]
             )
         elif len(model_predictions[0]) == 1:
             # Set the only key as self.predictions and its value as self.y_pred
@@ -1456,7 +1472,7 @@ class DefaultEvaluator(ModelEvaluator):
             is_dataframe = isinstance(X_copy, pd.DataFrame)
 
             for row in X_copy.iterrows() if is_dataframe else enumerate(X_copy):
-                i, row_data = row
+                _, row_data = row
                 single_input = row_data.to_frame().T if is_dataframe else row_data
                 start_time = time.time()
                 y_pred = self.predict_fn(single_input)
