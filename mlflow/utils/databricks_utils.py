@@ -253,7 +253,11 @@ def is_in_databricks_serverless_runtime():
 
 def is_in_databricks_shared_cluster_runtime():
     from mlflow.utils.spark_utils import is_spark_connect_mode
-    return is_spark_connect_mode() and not is_in_databricks_serverless_runtime()
+    return (
+        is_in_databricks_runtime()
+        and is_spark_connect_mode()
+        and not is_in_databricks_serverless_runtime()
+    )
 
 
 def is_databricks_connect(spark):
