@@ -32,9 +32,6 @@ def get_nfs_cache_root_dir():
         if is_in_databricks_serverless_runtime():
             # Databricks Serverless runtime VM can't access NFS.
             nfs_enabled = False
-        elif is_spark_connect_mode():
-            # For testing.
-            nfs_enabled = False
         else:
             nfs_enabled = spark_sess and (
                 spark_sess.conf.get("spark.databricks.mlflow.nfs.enabled", "true").lower() == "true"
