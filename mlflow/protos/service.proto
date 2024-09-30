@@ -1655,6 +1655,7 @@ message LoggedModelInfo {
   optional string experiment_id = 2;
   // Name of the model.
   optional string name = 3;
+
   // Timestamp when the model was created, in milliseconds since the UNIX epoch.
   optional int64 creation_timestamp_ms = 4;
   // Timestamp when the model was last updated, in milliseconds since the UNIX epoch
