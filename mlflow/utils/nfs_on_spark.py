@@ -58,6 +58,6 @@ def get_nfs_cache_root_dir():
         spark_session = _get_active_spark_session()
         if is_databricks_connect(spark_session):
             # Remote spark connect client can't access Databricks Serverless cluster NFS.
-            return False
+            return None
         if spark_session is not None:
             return spark_session.conf.get("spark.mlflow.nfs.rootDir", None)
