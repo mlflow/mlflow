@@ -90,7 +90,7 @@ def test_llama_index_save_invalid_object_raise(single_index):
     with pytest.raises(MlflowException, match="The provided object of type "):
         mlflow.llama_index.save_model(llama_index_model=OpenAI(), path="model", engine_type="query")
 
-    with pytest.raises(MlflowException, match="Saving an engine object is only supported"):
+    with pytest.raises(MlflowException, match="Saving a non-index object is only supported"):
         mlflow.llama_index.save_model(
             llama_index_model=single_index.as_query_engine(),
             path="model",
@@ -504,8 +504,8 @@ async def test_save_load_workflow_as_code():
     pyfunc_loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
     assert isinstance(pyfunc_loaded_model.get_raw_model(), Workflow)
     result = pyfunc_loaded_model.predict({"topic": "pirates"})
-    assert isinstance(result[0], str)
-    assert "pirates" in result[0]
+    assert isinstance(result, str)
+    assert "pirates" in result
 
     # Batch inference
     batch_result = pyfunc_loaded_model.predict(
@@ -527,7 +527,7 @@ async def test_save_load_workflow_as_code():
     ) as endpoint:
         # Single input
         response = endpoint.invoke(inference_payload, content_type=CONTENT_TYPE_JSON)
-        assert response.status_code == 200
+        assert response.status_code == 200, response.text
         assert response.json()["predictions"] == result
 
         # Batch input
@@ -536,5 +536,5 @@ async def test_save_load_workflow_as_code():
             json.dumps({"dataframe_split": df.to_dict(orient="split")}),
             content_type=CONTENT_TYPE_JSON,
         )
-        assert response.status_code == 200
+        assert response.status_code == 200, response.text
         assert response.json()["predictions"] == batch_result

@@ -1,7 +1,8 @@
 import asyncio
+import threading
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
 
-from mlflow import MlflowException
+import pandas as pd
 
 if TYPE_CHECKING:
     from llama_index.core import QueryBundle
@@ -177,47 +178,76 @@ class WorkflowWrapper(_LlamaIndexModelWrapperBase):
         raise NotImplementedError("LlamaIndex Workflow is not an engine")
 
     def predict(self, data, params: Optional[Dict[str, Any]] = None) -> Union[List[str], str]:
-        data = _convert_llm_input_data_with_unwrapping(data)
-        params = params or {}
-        inputs = [{**data, **params}] if isinstance(data, dict) else [{**x, **params} for x in data]
+        inputs = self._format_predict_input(data, params)
 
-        # NB: LlamaIndex Workflow runs asynchronusly but MLflow doesn't support async inference
-        # in pyfunc. As a workaround, we run an event loop and block until the result is available.
+        # LlamaIndex Workflow runs async but MLflow pyfunc doesn't support async inference yet.
+        predictions = self._wait_async_task(self._run_predictions(inputs))
+
+        # Even if the input is single instance, the signature enforcement convert it to a Pandas
+        # DataFrame with a single row. In this case, we should unwrap the result (list) so it
+        # won't be inconsistent with the output without signature enforcement.
+        should_unwrap = (
+            isinstance(data, pd.DataFrame) and len(data) == 1 and isinstance(predictions, list)
+        )
+        return predictions[0] if should_unwrap else predictions
+
+    def _format_predict_input(self, data, params: Optional[Dict[str, Any]] = None) -> List[Dict]:
+        inputs = _convert_llm_input_data_with_unwrapping(data)
+        params = params or {}
+        if isinstance(inputs, dict):
+            return [{**inputs, **params}]
+        return [{**x, **params} for x in inputs]
+
+    async def _run_predictions(self, inputs: List[Dict[str, Any]]) -> asyncio.Future:
         tasks = [self._predict_single(x) for x in inputs]
-        return self._run_async_task(tasks)
+        return await asyncio.gather(*tasks)
 
     async def _predict_single(self, x: Dict[str, Any]) -> Any:
         if not isinstance(x, dict):
             raise ValueError(f"Unsupported input type: {type(x)}. It must be a dictionary.")
         return await self._llama_model.run(**x)
 
-    def _run_async_task(self, tasks: List[asyncio.Future]) -> List[Any]:
+    def _wait_async_task(self, task: asyncio.Future) -> Any:
         """
         An utility function to run async tasks in a blocking manner.
+
+        If there is no event loop running already, for example, in a model serving endpoint,
+        we can simply create a new event loop and run the task there. However, in a notebook
+        environment (or pytest with asyncio decoration), there is already an event loop running
+        at the root level and we cannot start a new one.
         """
-        try:
-            asyncio.get_event_loop()
-            is_loop_running = True
-        except RuntimeError:
-            is_loop_running = False
-
-        # In notebook environment, the event loop is already running so we cannot create
-        # a new one. Instead, use nest_asyncio to allow running tasks in the existing loop.
-        if is_loop_running:
-            try:
-                import nest_asyncio
-            except ImportError:
-                raise MlflowException(
-                    "Running LlamaIndex Workflow as a pyfunc model in your "
-                    "environment requires the nest_asyncio package. Please "
-                    "install it using `pip install nest_asyncio`."
-                )
-
-            nest_asyncio.apply()
-            return asyncio.run(asyncio.gather(*tasks))
+        if not self._is_event_loop_running():
+            return asyncio.new_event_loop().run_until_complete(task)
         else:
-            loop = asyncio.new_event_loop()
-            return loop.run_until_complete(*tasks)
+            # NB: The popular way to run async task where an event loop is already running is to
+            # use nest_asyncio. However, nest_asyncio.apply() breaks the async OpenAI client
+            # somehow, which is used for the most of LLM calls in LlamaIndex including Databricks
+            # LLMs. Therefore, we use a hacky workaround that creates a new thread and run the
+            # new event loop there. This may degrade the performance compared to the native
+            # asyncio, but it should be fine because this is only used in the notebook env.
+            results = None
+
+            def _run(tasks):
+                nonlocal results
+
+                try:
+                    loop = asyncio.new_event_loop()
+                    asyncio.set_event_loop(loop)
+                    results = loop.run_until_complete(task)
+                finally:
+                    loop.close()
+
+            thread = threading.Thread(target=_run, args=(task,))
+            thread.start()
+            thread.join()
+            return results
+
+    def _is_event_loop_running(self) -> bool:
+        try:
+            loop = asyncio.get_running_loop()
+            return loop is not None
+        except Exception:
+            return False
 
 
 def create_pyfunc_wrapper(

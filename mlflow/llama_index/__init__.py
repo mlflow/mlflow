@@ -124,19 +124,20 @@ def save_model(
     """
     Save a LlamaIndex model to a path on the local file system.
 
+    .. attention::
+
+        Saving a non-index object is only supported in the 'Model-from-Code' saving mode.
+        Please refer to the `Models From Code Guide <https://www.mlflow.org/docs/latest/model/models-from-code.html>`_
+        for more information.
+
     Args:
         llama_index_model: An LlamaIndex object to be saved. Supported model types are:
+
             1. An Index object.
             2. An Engine object e.g. ChatEngine, QueryEngine, Retriever.
             3. A `Workflow <https://docs.llamaindex.ai/en/stable/module_guides/workflow/>`_ object.
             4. A string representing the path to a script contains LlamaIndex model definition
                 of the one of the above types.
-
-            .. attention::
-
-                Saving a non-index object is only supported in the 'Model-from-Code' saving mode.
-                Please refer to the `Models From Code Guide <https://www.mlflow.org/docs/latest/model/models-from-code.html>`_
-                for more information.
 
         path: Local path where the serialized model (as YAML) is to be saved.
         engine_type: Required when saving an Index object to determine the inference interface
@@ -306,19 +307,20 @@ def log_model(
     """
     Log a LlamaIndex model as an MLflow artifact for the current run.
 
+    .. attention::
+
+        Saving a non-index object is only supported in the 'Model-from-Code' saving mode.
+        Please refer to the `Models From Code Guide <https://www.mlflow.org/docs/latest/model/models-from-code.html>`_
+        for more information.
+
     Args:
         llama_index_model: An LlamaIndex object to be saved. Supported model types are:
+
             1. An Index object.
             2. An Engine object e.g. ChatEngine, QueryEngine, Retriever.
             3. A `Workflow <https://docs.llamaindex.ai/en/stable/module_guides/workflow/>`_ object.
             4. A string representing the path to a script contains LlamaIndex model definition
                 of the one of the above types.
-
-            .. attention::
-
-                Logging a non-index object is only supported in the 'Model-from-Code' saving mode.
-                Please refer to the `Models From Code Guide <https://www.mlflow.org/docs/latest/model/models-from-code.html>`_
-                for more information.
 
         artifact_path: Local path where the serialized model (as YAML) is to be saved.
         engine_type: Required when saving an Index object to determine the inference interface
