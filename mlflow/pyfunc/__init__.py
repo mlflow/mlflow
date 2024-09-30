@@ -1740,7 +1740,7 @@ def _prebuild_env_internal(local_model_path, archive_name, save_path):
 
 
 def prebuild_model_env(model_uri, save_path):
-    global spark
+    from mlflow.utils._spark_utils import _get_active_spark_session
 
     if not is_in_databricks_runtime():
         raise RuntimeError(
@@ -1756,7 +1756,7 @@ def prebuild_model_env(model_uri, save_path):
         artifact_uri=model_uri,
         output_path=_create_model_downloading_tmp_dir(should_use_nfs=False)
     )
-    archive_name = _gen_prebuilt_env_archive_name(spark, local_model_path)
+    archive_name = _gen_prebuilt_env_archive_name(_get_active_spark_session(), local_model_path)
     dest_path = os.path.join(save_path, archive_name + ".tar.gz")
     if os.path.exists(dest_path):
         raise RuntimeError(
