@@ -1794,6 +1794,15 @@ def _dbg_output(key, value=""):
         f.write("\n")
 
 
+def _setup_model_env_symlink_in_udf_sandbox(env_src_dir, env_dest_dir):
+    """
+    This function is used when the prebuilt python env is built under a different path
+    from the env archive extracting path in the NFS.
+    """
+    # In shared cluster, UDF sandbox might be reused, so the `env_dest_dir` might already exist.
+    if not os.path.exists(env_dest_dir):
+        os.symlink(env_src_dir, env_dest_dir)
+
 def spark_udf(
     spark,
     model_uri,
@@ -2249,20 +2258,15 @@ Compound types:
 
             if env_manager != _EnvManager.LOCAL:
                 if use_dbconnect_artifact:
-                    _dbg_output("dbg-1")
                     local_model_path_on_executor = dbconnect_artifact_cache.get_unpacked_artifact_dir(model_uri)
-                    if not os.path.exists(prebuilt_env_root_dir):
-                        env_src_dir = dbconnect_artifact_cache.get_unpacked_artifact_dir(env_cache_key)
-                        os.symlink(env_src_dir, prebuilt_env_root_dir)
+                    env_src_dir = dbconnect_artifact_cache.get_unpacked_artifact_dir(env_cache_key)
+                    _setup_model_env_symlink_in_udf_sandbox(env_src_dir, prebuilt_env_root_dir)
                 elif prebuilt_env_path is not None:
                     # prebuilt env is extracted to `prebuilt_env_nfs_dir` directory,
                     # and model is downloaded to `local_model_path` which points to an NFS directory too.
                     local_model_path_on_executor = None
-                    if not os.path.exists(prebuilt_env_root_dir):
-                        _dbg_output("dbg-4")
-                        os.symlink(prebuilt_env_nfs_dir, prebuilt_env_root_dir)
+                    _setup_model_env_symlink_in_udf_sandbox(prebuilt_env_nfs_dir, prebuilt_env_root_dir)
                 elif should_use_spark_to_broadcast_file:
-                    _dbg_output("dbg-2", f"prebuilt_env_path={prebuilt_env_path}, prebuilt_env_root_dir={prebuilt_env_root_dir}")
                     local_model_path_on_executor = _SparkDirectoryDistributor.get_or_extract(
                         archive_path
                     )
@@ -2274,12 +2278,10 @@ Compound types:
                     # Set "capture_output" so that if "conda env create" command failed, the command
                     # stdout/stderr output will be attached to the exception message and included in
                     # driver side exception.
-                    _dbg_output("dbg-5")
                     pyfunc_backend.prepare_env(
                         model_uri=local_model_path_on_executor, capture_output=True
                     )
                 else:
-                    _dbg_output("dbg-6")
                     local_model_path_on_executor = None
 
                 if check_port_connectivity():
