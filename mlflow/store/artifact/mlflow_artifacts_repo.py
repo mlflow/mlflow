@@ -29,12 +29,12 @@ def _validate_port_mapped_to_hostname(uri_parse):
         )
 
 
-def _validate_uri_scheme(track_parse):
+def _validate_uri_scheme(parsed_uri):
     allowable_schemes = {"http", "https"}
-    if track_parse.scheme not in allowable_schemes:
+    if parsed_uri.scheme not in allowable_schemes:
         raise MlflowException(
             "When an mlflow-artifacts URI was supplied, the tracking URI must be a valid "
-            f"http or https URI, but it was currently set to {track_parse.geturl()}. "
+            f"http or https URI, but it was currently set to {parsed_uri.geturl()}. "
             "Perhaps you forgot to set the tracking URI to the running MLflow server. "
             "To set the tracking URI, use either of the following methods:\n"
             "1. Set the MLFLOW_TRACKING_URI environment variable to the desired tracking URI. "
