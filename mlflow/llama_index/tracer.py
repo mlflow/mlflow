@@ -181,17 +181,6 @@ class MlflowSpanHandler(BaseSpanHandler[_LlamaSpan], extra="allow"):
         result: Optional[Any] = None,
         **kwargs: Any,
     ) -> _LlamaSpan:
-        if LLAMA_INDEX_VERSION >= Version("0.11.10"):
-            # In LlamaIndex >= 0.11.0, LlamaIndex workflow finishes with a pending
-            # WorkflowHandler as an output. Their base span handler does not handle it
-            # correctly and emit it immediately, instead of awaiting for the actual result.
-            # Until this problem is resolved, we simply records the pending workflow result
-            # as it is. Using str(result) for pending handler will raise an exception.
-            from llama_index.core.workflow.handler import WorkflowHandler
-
-            if isinstance(result, WorkflowHandler) and not result.is_done():
-                result = "<WorkflowHandler pending>"
-
         try:
             with self.lock:
                 llama_span = self.open_spans.get(id_)

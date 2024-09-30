@@ -28,6 +28,7 @@ from mlflow.llama_index.tracer import remove_llama_index_tracer, set_llama_index
 from mlflow.tracking._tracking_service.utils import _use_tracking_uri
 from mlflow.tracking.default_experiment import DEFAULT_EXPERIMENT_ID
 
+llama_core_version = Version(importlib_metadata.version("llama-index-core"))
 llama_oai_version = Version(importlib_metadata.version("llama-index-llms-openai"))
 
 
@@ -446,14 +447,14 @@ def test_tracer_handle_tracking_uri_update(tmp_path):
         assert len(_get_all_traces()) == 1
 
 
+@pytest.mark.skipif(
+    llama_core_version <= Version("0.11.13"),
+    reason="Workflow tracing does not work correctly in <= 0.11.14 due to "
+    "https://github.com/run-llama/llama_index/issues/16283",
+)
 @pytest.mark.asyncio
-async def test_tracer_workflow():
-    from llama_index.core.workflow import (
-        StartEvent,
-        StopEvent,
-        Workflow,
-        step,
-    )
+async def test_tracer_simple_workflow():
+    from llama_index.core.workflow import StartEvent, StopEvent, Workflow, step
 
     class MyWorkflow(Workflow):
         @step
@@ -470,3 +471,66 @@ async def test_tracer_workflow():
     for s in traces[0].data.spans:
         assert s.status.status_code == SpanStatusCode.OK
     assert all(s.status.status_code == SpanStatusCode.OK for s in traces[0].data.spans)
+
+
+@pytest.mark.skipif(
+    llama_core_version <= Version("0.11.13"),
+    reason="Workflow tracing does not work correctly in <= 0.11.14 due to "
+    "https://github.com/run-llama/llama_index/issues/16283",
+)
+@pytest.mark.asyncio
+async def test_tracer_parallel_workflow():
+    import random
+
+    from llama_index.core.workflow import (
+        Context,
+        Event,
+        StartEvent,
+        StopEvent,
+        Workflow,
+        step,
+    )
+
+    class ProcessEvent(Event):
+        data: str
+
+    class ResultEvent(Event):
+        result: str
+
+    class ParallelWorkflow(Workflow):
+        @step
+        async def start(self, ctx: Context, ev: StartEvent) -> ProcessEvent:
+            await ctx.set("num_to_collect", len(ev.inputs))
+            for item in ev.inputs:
+                ctx.send_event(ProcessEvent(data=item))
+            return None
+
+        @step(num_workers=3)
+        async def process_data(self, ev: ProcessEvent) -> ResultEvent:
+            # Simulate some time-consuming processing
+            await asyncio.sleep(random.randint(1, 2))
+            return ResultEvent(result=ev.data)
+
+        @step
+        async def combine_results(self, ctx: Context, ev: ResultEvent) -> StopEvent:
+            num_to_collect = await ctx.get("num_to_collect")
+            results = ctx.collect_events(ev, [ResultEvent] * num_to_collect)
+            if results is None:
+                return None
+
+            combined_result = ", ".join(sorted([event.result for event in results]))
+            return StopEvent(result=combined_result)
+
+    w = ParallelWorkflow()
+    result = await w.run(inputs=["apple", "grape", "orange", "banana"])
+    assert result == "apple, banana, grape, orange"
+
+    traces = _get_all_traces()
+    assert len(traces) == 1
+    assert traces[0].info.status == TraceStatus.OK
+    for s in traces[0].data.spans:
+        assert s.status.status_code == SpanStatusCode.OK
+
+    root_span = traces[0].data.spans[0]
+    assert root_span.inputs == {"kwargs": {"inputs": ["apple", "grape", "orange", "banana"]}}
+    assert root_span.outputs == "apple, banana, grape, orange"
