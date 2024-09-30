@@ -3,6 +3,7 @@ import pandas as pd
 import pytest
 from llama_index.core import QueryBundle
 from llama_index.core.llms import ChatMessage
+from llama_index.core.workflow import StartEvent, StopEvent, Workflow, step
 
 import mlflow
 from mlflow.llama_index.pyfunc_wrapper import (
@@ -10,19 +11,19 @@ from mlflow.llama_index.pyfunc_wrapper import (
     CHAT_ENGINE_NAME,
     QUERY_ENGINE_NAME,
     RETRIEVER_ENGINE_NAME,
-    create_engine_wrapper,
+    create_pyfunc_wrapper,
 )
 
 
 ################## Inferece Input #################
 def test_format_predict_input_str_chat(single_index):
-    wrapped_model = create_engine_wrapper(single_index, CHAT_ENGINE_NAME)
+    wrapped_model = create_pyfunc_wrapper(single_index, CHAT_ENGINE_NAME)
     formatted_data = wrapped_model._format_predict_input("string")
     assert formatted_data == "string"
 
 
 def test_format_predict_input_dict_chat(single_index):
-    wrapped_model = create_engine_wrapper(single_index, CHAT_ENGINE_NAME)
+    wrapped_model = create_pyfunc_wrapper(single_index, CHAT_ENGINE_NAME)
     formatted_data = wrapped_model._format_predict_input({"query": "string"})
     assert isinstance(formatted_data, dict)
 
@@ -32,7 +33,7 @@ def test_format_predict_input_message_history_chat(single_index):
         "message": "string",
         _CHAT_MESSAGE_HISTORY_PARAMETER_NAME: [{"role": "user", "content": "hi"}] * 3,
     }
-    wrapped_model = create_engine_wrapper(single_index, CHAT_ENGINE_NAME)
+    wrapped_model = create_pyfunc_wrapper(single_index, CHAT_ENGINE_NAME)
     formatted_data = wrapped_model._format_predict_input(payload)
 
     assert isinstance(formatted_data, dict)
@@ -65,7 +66,7 @@ def test_format_predict_input_message_history_chat(single_index):
     ],
 )
 def test_format_predict_input_message_history_chat_iterable(single_index, data):
-    wrapped_model = create_engine_wrapper(single_index, CHAT_ENGINE_NAME)
+    wrapped_model = create_pyfunc_wrapper(single_index, CHAT_ENGINE_NAME)
     formatted_data = wrapped_model._format_predict_input(data)
 
     if isinstance(data, pd.DataFrame):
@@ -84,7 +85,7 @@ def test_format_predict_input_message_history_chat_invalid_type(single_index):
         "message": "string",
         _CHAT_MESSAGE_HISTORY_PARAMETER_NAME: ["invalid history string", "user: hi"],
     }
-    wrapped_model = create_engine_wrapper(single_index, CHAT_ENGINE_NAME)
+    wrapped_model = create_pyfunc_wrapper(single_index, CHAT_ENGINE_NAME)
     with pytest.raises(ValueError, match="It must be a list of dicts"):
         _ = wrapped_model._format_predict_input(payload)
 
@@ -102,7 +103,7 @@ def test_format_predict_input_message_history_chat_invalid_type(single_index):
     ],
 )
 def test_format_predict_input_no_iterable_query(single_index, data):
-    wrapped_model = create_engine_wrapper(single_index, QUERY_ENGINE_NAME)
+    wrapped_model = create_pyfunc_wrapper(single_index, QUERY_ENGINE_NAME)
     formatted_data = wrapped_model._format_predict_input(data)
     assert isinstance(formatted_data, QueryBundle)
 
@@ -126,7 +127,7 @@ def test_format_predict_input_no_iterable_query(single_index, data):
     ],
 )
 def test_format_predict_input_iterable_query(single_index, data):
-    wrapped_model = create_engine_wrapper(single_index, QUERY_ENGINE_NAME)
+    wrapped_model = create_pyfunc_wrapper(single_index, QUERY_ENGINE_NAME)
     formatted_data = wrapped_model._format_predict_input(data)
 
     assert isinstance(formatted_data, list)
@@ -146,7 +147,7 @@ def test_format_predict_input_iterable_query(single_index, data):
     ],
 )
 def test_format_predict_input_no_iterable_retriever(single_index, data):
-    wrapped_model = create_engine_wrapper(single_index, RETRIEVER_ENGINE_NAME)
+    wrapped_model = create_pyfunc_wrapper(single_index, RETRIEVER_ENGINE_NAME)
     formatted_data = wrapped_model._format_predict_input(data)
     assert isinstance(formatted_data, QueryBundle)
 
@@ -170,7 +171,7 @@ def test_format_predict_input_no_iterable_retriever(single_index, data):
     ],
 )
 def test_format_predict_input_iterable_retriever(single_index, data):
-    wrapped_model = create_engine_wrapper(single_index, RETRIEVER_ENGINE_NAME)
+    wrapped_model = create_pyfunc_wrapper(single_index, RETRIEVER_ENGINE_NAME)
     formatted_data = wrapped_model._format_predict_input(data)
     assert isinstance(formatted_data, list)
     assert all(isinstance(x, QueryBundle) for x in formatted_data)
@@ -181,7 +182,7 @@ def test_format_predict_input_iterable_retriever(single_index, data):
     ["query", "retriever"],
 )
 def test_format_predict_input_correct(single_index, engine_type):
-    wrapped_model = create_engine_wrapper(single_index, engine_type)
+    wrapped_model = create_pyfunc_wrapper(single_index, engine_type)
 
     assert isinstance(
         wrapped_model._format_predict_input(pd.DataFrame({"query_str": ["hi"]})), QueryBundle
@@ -198,7 +199,7 @@ def test_format_predict_input_correct(single_index, engine_type):
     ["query", "retriever"],
 )
 def test_format_predict_input_correct_schema_complex(single_index, engine_type):
-    wrapped_model = create_engine_wrapper(single_index, engine_type)
+    wrapped_model = create_pyfunc_wrapper(single_index, engine_type)
 
     payload = {
         "query_str": "hi",
@@ -258,3 +259,16 @@ def test_spark_udf_chat(model_path, spark, single_index):
     pdf = df.toPandas()
     assert len(pdf["predictions"].tolist()) == 1
     assert isinstance(pdf["predictions"].tolist()[0], str)
+
+
+@pytest.mark.asyncio
+async def test_wrap_workflow():
+    class MyWorkflow(Workflow):
+        @step
+        async def my_step(self, ev: StartEvent) -> StopEvent:
+            # do something here
+            return StopEvent(result="Hi, world!")
+
+    w = MyWorkflow(timeout=10, verbose=False)
+    wrapper = create_pyfunc_wrapper(w)
+    assert wrapper.get_raw_model() == w

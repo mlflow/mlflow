@@ -1,3 +1,4 @@
+import json
 import os
 from pathlib import Path
 from typing import Any
@@ -12,6 +13,7 @@ from llama_index.core.base.base_query_engine import BaseQueryEngine
 from llama_index.core.chat_engine import SimpleChatEngine
 from llama_index.core.llms import ChatMessage
 from llama_index.core.vector_stores.simple import SimpleVectorStore
+from llama_index.core.workflow import Workflow
 from llama_index.embeddings.databricks import DatabricksEmbedding
 from llama_index.embeddings.openai import OpenAIEmbedding
 from llama_index.llms.databricks import Databricks
@@ -27,10 +29,14 @@ from mlflow.llama_index.pyfunc_wrapper import (
     _CHAT_MESSAGE_HISTORY_PARAMETER_NAME,
     ChatEngineWrapper,
     QueryEngineWrapper,
-    create_engine_wrapper,
+    create_pyfunc_wrapper,
 )
+from mlflow.models.utils import load_serving_example
+from mlflow.pyfunc.scoring_server import CONTENT_TYPE_JSON
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.types.schema import ColSpec, DataType, Schema
+
+from tests.helper_functions import pyfunc_scoring_endpoint
 
 _EMBEDDING_DIM = 1536
 _TEST_QUERY = "Spell llamaindex"
@@ -96,7 +102,7 @@ def test_llama_index_save_invalid_object_raise(single_index):
     ["query", "retriever"],
 )
 def test_format_predict_input_correct(single_index, engine_type):
-    wrapped_model = create_engine_wrapper(single_index, engine_type)
+    wrapped_model = create_pyfunc_wrapper(single_index, engine_type)
 
     assert isinstance(
         wrapped_model._format_predict_input(pd.DataFrame({"query_str": ["hi"]})), QueryBundle
@@ -113,7 +119,7 @@ def test_format_predict_input_correct(single_index, engine_type):
     ["query", "retriever"],
 )
 def test_format_predict_input_incorrect_schema(single_index, engine_type):
-    wrapped_model = create_engine_wrapper(single_index, engine_type)
+    wrapped_model = create_pyfunc_wrapper(single_index, engine_type)
 
     exception_error = (
         r"__init__\(\) got an unexpected keyword argument 'incorrect'"
@@ -132,7 +138,7 @@ def test_format_predict_input_incorrect_schema(single_index, engine_type):
     ["query", "retriever"],
 )
 def test_format_predict_input_correct_schema_complex(single_index, engine_type):
-    wrapped_model = create_engine_wrapper(single_index, engine_type)
+    wrapped_model = create_pyfunc_wrapper(single_index, engine_type)
 
     payload = {
         "query_str": "hi",
@@ -471,3 +477,64 @@ def test_save_engine_with_engine_type_issues_warning(model_path):
 
     assert mock_logger.warning.call_count == 1
     assert "The `engine_type` argument" in mock_logger.warning.call_args[0][0]
+
+
+@pytest.mark.asyncio
+async def test_save_load_workflow_as_code():
+    index_code_path = "tests/llama_index/sample_code/simple_workflow.py"
+    with mlflow.start_run():
+        model_info = mlflow.llama_index.log_model(
+            llama_index_model=index_code_path,
+            artifact_path="model",
+            input_example={"topic": "pirates"},
+        )
+
+    # Signature
+    assert model_info.signature.inputs == Schema([ColSpec(type=DataType.string, name="topic")])
+    assert model_info.signature.outputs == Schema([ColSpec(DataType.string)])
+
+    # Native inference
+    loaded_workflow = mlflow.llama_index.load_model(model_info.model_uri)
+    assert isinstance(loaded_workflow, Workflow)
+    result = await loaded_workflow.run(topic="pirates")
+    assert isinstance(result, str)
+    assert "pirates" in result
+
+    # Pyfunc inference
+    pyfunc_loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
+    assert isinstance(pyfunc_loaded_model.get_raw_model(), Workflow)
+    result = pyfunc_loaded_model.predict({"topic": "pirates"})
+    assert isinstance(result[0], str)
+    assert "pirates" in result[0]
+
+    # Batch inference
+    batch_result = pyfunc_loaded_model.predict(
+        [
+            {"topic": "pirates"},
+            {"topic": "ninjas"},
+            {"topic": "robots"},
+        ]
+    )
+    assert len(batch_result) == 3
+    assert all(isinstance(r, str) for r in batch_result)
+
+    # Serve
+    inference_payload = load_serving_example(model_info.model_uri)
+
+    with pyfunc_scoring_endpoint(
+        model_uri=model_info.model_uri,
+        extra_args=["--env-manager", "local"],
+    ) as endpoint:
+        # Single input
+        response = endpoint.invoke(inference_payload, content_type=CONTENT_TYPE_JSON)
+        assert response.status_code == 200
+        assert response.json()["predictions"] == result
+
+        # Batch input
+        df = pd.DataFrame({"topic": ["pirates", "ninjas", "robots"]})
+        response = endpoint.invoke(
+            json.dumps({"dataframe_split": df.to_dict(orient="split")}),
+            content_type=CONTENT_TYPE_JSON,
+        )
+        assert response.status_code == 200
+        assert response.json()["predictions"] == batch_result

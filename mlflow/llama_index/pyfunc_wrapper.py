@@ -1,4 +1,7 @@
+import asyncio
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
+
+from mlflow import MlflowException
 
 if TYPE_CHECKING:
     from llama_index.core import QueryBundle
@@ -56,18 +59,18 @@ def _format_predict_input_query_engine_and_retriever(data) -> "QueryBundle":
 class _LlamaIndexModelWrapperBase:
     def __init__(
         self,
-        engine,
+        llama_model,  # Engine or Workflow
         model_config: Optional[Dict[str, Any]] = None,
     ):
-        self.engine = engine
+        self._llama_model = llama_model
         self.model_config = model_config or {}
 
     @property
     def index(self):
-        return self.engine.index
+        return self._llama_model.index
 
     def get_raw_model(self):
-        return self.engine
+        return self._llama_model
 
     def _predict_single(self, *args, **kwargs) -> Any:
         raise NotImplementedError
@@ -101,7 +104,7 @@ class ChatEngineWrapper(_LlamaIndexModelWrapperBase):
         return CHAT_ENGINE_NAME
 
     def _predict_single(self, *args, **kwargs) -> str:
-        return self.engine.chat(*args, **kwargs).response
+        return self._llama_model.chat(*args, **kwargs).response
 
     @staticmethod
     def _convert_chat_message_history_to_chat_message_objects(data: Dict) -> Dict:
@@ -145,7 +148,7 @@ class QueryEngineWrapper(_LlamaIndexModelWrapperBase):
         return QUERY_ENGINE_NAME
 
     def _predict_single(self, *args, **kwargs) -> str:
-        return self.engine.query(*args, **kwargs).response
+        return self._llama_model.query(*args, **kwargs).response
 
     def _format_predict_input(self, data) -> "QueryBundle":
         return _format_predict_input_query_engine_and_retriever(data)
@@ -157,27 +160,91 @@ class RetrieverEngineWrapper(_LlamaIndexModelWrapperBase):
         return RETRIEVER_ENGINE_NAME
 
     def _predict_single(self, *args, **kwargs) -> List[Dict]:
-        response = self.engine.retrieve(*args, **kwargs)
+        response = self._llama_model.retrieve(*args, **kwargs)
         return [node.dict() for node in response]
 
     def _format_predict_input(self, data) -> "QueryBundle":
         return _format_predict_input_query_engine_and_retriever(data)
 
 
-def create_engine_wrapper(
-    index_or_engine: Any,
+class WorkflowWrapper(_LlamaIndexModelWrapperBase):
+    @property
+    def index(self):
+        raise NotImplementedError("LlamaIndex Workflow does not have an index")
+
+    @property
+    def engine_type(self):
+        raise NotImplementedError("LlamaIndex Workflow is not an engine")
+
+    def predict(self, data, params: Optional[Dict[str, Any]] = None) -> Union[List[str], str]:
+        data = _convert_llm_input_data_with_unwrapping(data)
+        params = params or {}
+        inputs = [{**data, **params}] if isinstance(data, dict) else [{**x, **params} for x in data]
+
+        # NB: LlamaIndex Workflow runs asynchronusly but MLflow doesn't support async inference
+        # in pyfunc. As a workaround, we run an event loop and block until the result is available.
+        tasks = [self._predict_single(x) for x in inputs]
+        return self._run_async_task(tasks)
+
+    async def _predict_single(self, x: Dict[str, Any]) -> Any:
+        if not isinstance(x, dict):
+            raise ValueError(f"Unsupported input type: {type(x)}. It must be a dictionary.")
+        return await self._llama_model.run(**x)
+
+    def _run_async_task(self, tasks: List[asyncio.Future]) -> List[Any]:
+        """
+        An utility function to run async tasks in a blocking manner.
+        """
+        try:
+            asyncio.get_event_loop()
+            is_loop_running = True
+        except RuntimeError:
+            is_loop_running = False
+
+        # In notebook environment, the event loop is already running so we cannot create
+        # a new one. Instead, use nest_asyncio to allow running tasks in the existing loop.
+        if is_loop_running:
+            try:
+                import nest_asyncio
+            except ImportError:
+                raise MlflowException(
+                    "Running LlamaIndex Workflow as a pyfunc model in your "
+                    "environment requires the nest_asyncio package. Please "
+                    "install it using `pip install nest_asyncio`."
+                )
+
+            nest_asyncio.apply()
+            return asyncio.run(asyncio.gather(*tasks))
+        else:
+            loop = asyncio.new_event_loop()
+            return loop.run_until_complete(*tasks)
+
+
+def create_pyfunc_wrapper(
+    model: Any,
     engine_type: Optional[str] = None,
     model_config: Optional[Dict[str, Any]] = None,
 ):
     """
-    A factory function that creates a Pyfunc wrapper around a LlamaIndex index or engine.
+    A factory function that creates a Pyfunc wrapper around a LlamaIndex index/engine/workflow.
+
+    Args:
+        model: A LlamaIndex index/engine/workflow.
+        engine_type: The type of the engine. Only required if `model` is an index
+            and must be one of [chat, query, retriever].
+        model_config: A dictionary of model configuration parameters.
     """
     from llama_index.core.indices.base import BaseIndex
+    from llama_index.core.workflow import Workflow
 
-    if isinstance(index_or_engine, BaseIndex):
-        return _create_wrapper_from_index(index_or_engine, engine_type, model_config)
+    if isinstance(model, BaseIndex):
+        return _create_wrapper_from_index(model, engine_type, model_config)
+    elif isinstance(model, Workflow):
+        return _create_wrapper_from_workflow(model, model_config)
     else:
-        return _create_wrapper_from_engine(index_or_engine, model_config)
+        # Engine does not have a common base class so we assume
+        # everything else is an engine
+        return _create_wrapper_from_engine(model, model_config)
 
 
 def _create_wrapper_from_index(
@@ -214,3 +281,7 @@ def _create_wrapper_from_engine(engine: Any, model_config: Optional[Dict[str, An
         raise ValueError(
             f"Unsupported engine type: {type(engine)}. It must be one of {SUPPORTED_ENGINES}"
         )
+
+
+def _create_wrapper_from_workflow(workflow: Any, model_config: Optional[Dict[str, Any]] = None):
+    return WorkflowWrapper(workflow, model_config)

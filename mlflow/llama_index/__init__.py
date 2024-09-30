@@ -8,7 +8,7 @@ import yaml
 import mlflow
 from mlflow import pyfunc
 from mlflow.exceptions import MlflowException
-from mlflow.llama_index.pyfunc_wrapper import create_engine_wrapper
+from mlflow.llama_index.pyfunc_wrapper import create_pyfunc_wrapper
 from mlflow.models import Model, ModelInputExample, ModelSignature
 from mlflow.models.model import MLMODEL_FILE_NAME, MODEL_CODE_PATH
 from mlflow.models.signature import _infer_signature_from_input_example
@@ -99,8 +99,9 @@ def _supported_classes():
     from llama_index.core.chat_engine.types import BaseChatEngine
     from llama_index.core.indices.base import BaseIndex
     from llama_index.core.retrievers import BaseRetriever
+    from llama_index.core.workflow import Workflow
 
-    return BaseIndex, BaseChatEngine, BaseQueryEngine, BaseRetriever
+    return BaseIndex, BaseChatEngine, BaseQueryEngine, BaseRetriever, Workflow
 
 
 @experimental
@@ -199,7 +200,7 @@ def save_model(
     saved_example = _save_example(mlflow_model, input_example, path)
 
     if signature is None and saved_example is not None:
-        wrapped_model = create_engine_wrapper(llama_index_model, engine_type, model_config)
+        wrapped_model = create_pyfunc_wrapper(llama_index_model, engine_type, model_config)
         signature = _infer_signature_from_input_example(saved_example, wrapped_model)
     elif signature is False:
         signature = None
@@ -431,12 +432,12 @@ def load_model(model_uri, dst_path=None):
 
 
 def _load_pyfunc(path, model_config: Optional[Dict[str, Any]] = None):
-    from mlflow.llama_index.pyfunc_wrapper import create_engine_wrapper
+    from mlflow.llama_index.pyfunc_wrapper import create_pyfunc_wrapper
 
     index = load_model(path)
     flavor_conf = _get_flavor_configuration(model_path=path, flavor_name=FLAVOR_NAME)
     engine_type = flavor_conf.pop("engine_type", None)  # Not present when saving an engine object
-    return create_engine_wrapper(index, engine_type, model_config)
+    return create_pyfunc_wrapper(index, engine_type, model_config)
 
 
 @experimental
