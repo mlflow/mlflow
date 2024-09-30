@@ -1685,14 +1685,14 @@ def _gen_prebuilt_env_archive_name(local_model_path):
     return f"{env_name}-{runtime_version}-{platform_machine}"
 
 
-def _verify_prebuilt_env(local_model_path, env_archive_path):
+def _verify_prebuilt_env(spark, local_model_path, env_archive_path):
     from mlflow.utils.databricks_utils import get_dbconnect_udf_sandbox_image_version_and_platform_machine
     archive_name = os.path.basename(env_archive_path)[:-7]
     prebuilt_env_sha, prebuilt_runtime_version, prebuilt_platform_machine = archive_name.split("-")[-3:]
 
     python_env = _get_python_env(Path(local_model_path))
     env_sha = _get_virtualenv_name(python_env, local_model_path).split("-")[-1]
-    runtime_version, platform_machine = get_dbconnect_udf_sandbox_image_version_and_platform_machine()
+    runtime_version, platform_machine = get_dbconnect_udf_sandbox_image_version_and_platform_machine(spark)
 
     if prebuilt_env_sha != env_sha:
         raise MlflowException(
@@ -1938,7 +1938,7 @@ def spark_udf(
         # this case all executors and driver share the same filesystem
         is_spark_in_local_mode = spark.conf.get("spark.master").startswith("local")
 
-    dbconnect_mode = is_databricks_connect()
+    dbconnect_mode = is_databricks_connect(spark)
     if prebuilt_env_path is not None and not dbconnect_mode:
         raise RuntimeError(
             "'prebuilt_env' param can only be used in Databricks Serverless notebook REPL, "
@@ -1950,7 +1950,7 @@ def spark_udf(
     # But for Databricks shared cluster runtime, it can directly write to NFS, so exclude it
     # Note for Databricks Serverles runtime (notebook REPL), it runs on Servereless VM that
     # can't access NFS, so it needs to use `spark.addArtifact`.
-    use_dbconnect_artifact = dbconnect_mode and not is_in_databricks_shared_cluster_runtime()
+    use_dbconnect_artifact = dbconnect_mode # and not is_in_databricks_shared_cluster_runtime()
 
     nfs_root_dir = get_nfs_cache_root_dir()
     should_use_nfs = nfs_root_dir is not None
@@ -1980,7 +1980,7 @@ def spark_udf(
     )
 
     if prebuilt_env_path:
-        _verify_prebuilt_env(local_model_path, prebuilt_env_path)
+        _verify_prebuilt_env(spark, local_model_path, prebuilt_env_path)
         env_manager = _EnvManager.VIRTUALENV
     if use_dbconnect_artifact and env_manager == _EnvManager.LOCAL:
         raise MlflowException(
@@ -2037,7 +2037,7 @@ def spark_udf(
                     env_archive_path = _prebuild_env_internal(
                         local_model_path, env_cache_key, get_or_create_tmp_dir()
                     )
-                dbconnect_artifact_cache.add_artifact_archive(archive_name, env_archive_path)
+                dbconnect_artifact_cache.add_artifact_archive(env_cache_key, env_archive_path)
 
         if not dbconnect_artifact_cache.has_cache_key(model_uri):
             model_archive_path = local_model_path + ".tar.gz"

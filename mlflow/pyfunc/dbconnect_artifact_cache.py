@@ -72,7 +72,7 @@ class DBConnectArtifactCache:
 
         archive_file_name = os.path.basename(artifact_archive_path)
         if cache_key not in self._cache:
-            self._spark.addArtfact(artifact_archive_path, archive=True)
+            self._spark.addArtifact(artifact_archive_path, archive=True)
             self._cache[cache_key] = archive_file_name
 
     def get_unpacked_artifact_dir(self, cache_key):
