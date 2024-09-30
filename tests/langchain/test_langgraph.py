@@ -128,10 +128,13 @@ def test_langgraph_evaluate():
             "ground_truth": ["dummy text", "dummy text"],
         }
     )
-    _ = mlflow.evaluate(
+    results = mlflow.evaluate(
         model_info.model_uri,
         eval_data,
         targets="ground_truth",
         predictions="messages",
         extra_metrics=[mlflow.metrics.exact_match()],
     )
+
+    assert results
+    assert results.metrics.get("exact_match/v1") == 0
