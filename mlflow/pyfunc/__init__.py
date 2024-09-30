@@ -1772,13 +1772,14 @@ def prebuild_model_env(model_uri, save_path):
     #  which only supports limited filesystem operations, so to ensure it works,
     #  we generate the archive file under /tmp and then move it into the
     #  destination directory.
+    tmp_archive_path = None
     try:
         tmp_archive_path = _prebuild_env_internal(local_model_path, archive_name, _PREBUILD_ENV_ROOT_LOCATION)
         shutil.move(tmp_archive_path, save_path)
         return dest_path
-    except:
+    finally:
         shutil.rmtree(local_model_path, ignore_errors=True)
-        if os.path.exists(tmp_archive_path):
+        if tmp_archive_path and os.path.exists(tmp_archive_path):
             os.remove(tmp_archive_path)
 
 
