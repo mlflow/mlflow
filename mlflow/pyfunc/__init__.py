@@ -1786,11 +1786,6 @@ def prebuild_model_env(model_uri, save_path):
             os.remove(tmp_archive_path)
 
 
-##DBG
-def _udf_log(key, value):
-    pass
-
-
 def spark_udf(
     spark,
     model_uri,
@@ -1958,7 +1953,7 @@ def spark_udf(
     # But for Databricks shared cluster runtime, it can directly write to NFS, so exclude it
     # Note for Databricks Serverles runtime (notebook REPL), it runs on Servereless VM that
     # can't access NFS, so it needs to use `spark.addArtifact`.
-    use_dbconnect_artifact = dbconnect_mode ##DBG and not is_in_databricks_shared_cluster_runtime()
+    use_dbconnect_artifact = dbconnect_mode and not is_in_databricks_shared_cluster_runtime()
 
     nfs_root_dir = get_nfs_cache_root_dir()
     should_use_nfs = nfs_root_dir is not None
