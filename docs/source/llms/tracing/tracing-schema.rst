@@ -310,7 +310,7 @@ documents from a vector store). The ``RETRIEVER`` span type has the following sc
 
         * **id** (``Optional[str]``) - An optional unique identifier for the document.
         * **page_content** (``str``) - The text content of the document.
-        * **metadata** (``Optional[Dict[str,any]]``) - The metadata associated with the document. There are two important metadata keys that are reserved for the MLflow and evaluation metrics: 
+        * **metadata** (``Optional[Dict[str,any]]``) - The metadata associated with the document. There are two important metadata keys that are reserved for the MLflow UI and evaluation metrics: 
 
           * ``"doc_uri" (str)``: The URI for the document. This is used for rendering a link in the UI.
           * ``"chunk_id" (str)``: If your document is broken up into chunks in your data store, this key can be used to
