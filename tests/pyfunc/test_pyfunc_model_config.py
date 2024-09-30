@@ -8,11 +8,6 @@ from mlflow.models import Model
 
 
 @pytest.fixture
-def model_path(tmp_path):
-    return os.path.join(tmp_path, "model")
-
-
-@pytest.fixture
 def model_config():
     return {
         "use_gpu": True,

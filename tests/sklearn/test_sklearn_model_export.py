@@ -120,11 +120,6 @@ def sklearn_custom_transformer_model(sklearn_knn_model, iris_df):
 
 
 @pytest.fixture
-def model_path(tmp_path):
-    return os.path.join(tmp_path, "model")
-
-
-@pytest.fixture
 def sklearn_custom_env(tmp_path):
     conda_env = os.path.join(tmp_path, "conda_env.yml")
     _mlflow_conda_env(conda_env, additional_pip_deps=["scikit-learn", "pytest"])

@@ -104,11 +104,6 @@ IS_LANGCHAIN_03 = version.parse(langchain.__version__) >= version.parse("0.3.0")
 TEST_CONTENT = '[{"role": "user", "content": "What is MLflow?"}]'
 
 
-@pytest.fixture
-def model_path(tmp_path):
-    return tmp_path / "model"
-
-
 @pytest.fixture(scope="module")
 def spark():
     with SparkSession.builder.master("local[*]").getOrCreate() as s:

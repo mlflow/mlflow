@@ -84,11 +84,6 @@ def lgb_sklearn_model():
 
 
 @pytest.fixture
-def model_path(tmp_path):
-    return os.path.join(tmp_path, "model")
-
-
-@pytest.fixture
 def lgb_custom_env(tmp_path):
     conda_env = os.path.join(tmp_path, "conda_env.yml")
     _mlflow_conda_env(conda_env, additional_pip_deps=["lightgbm", "pytest"])

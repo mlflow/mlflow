@@ -33,12 +33,6 @@ ALPHA = [0.1, 0.5, 0.9]
 COV = False
 
 
-@pytest.fixture
-def model_path(tmp_path):
-    """Create a temporary path to save/log model."""
-    return tmp_path.joinpath("model")
-
-
 @pytest.fixture(scope="module")
 def mock_s3_bucket():
     """Create a mock S3 bucket using moto.
