@@ -1,6 +1,8 @@
+import importlib
 import inspect
 import logging
-from typing import Generator, List, Optional, Set
+import warnings
+from typing import Any, Generator, List, Optional, Set
 
 from packaging import version
 
@@ -28,60 +30,33 @@ def _get_embedding_model_endpoint_names(index):
 
 
 def _get_vectorstore_from_retriever(retriever) -> Generator[Resource, None, None]:
-    try:
-        from langchain.embeddings import DatabricksEmbeddings as LegacyDatabricksEmbeddings
-        from langchain.vectorstores import (
-            DatabricksVectorSearch as LegacyDatabricksVectorSearch,
-        )
-    except ImportError:
-        from langchain_community.embeddings import (
-            DatabricksEmbeddings as LegacyDatabricksEmbeddings,
-        )
-        from langchain_community.vectorstores import (
-            DatabricksVectorSearch as LegacyDatabricksVectorSearch,
-        )
-
-    from langchain_community.embeddings import DatabricksEmbeddings
-    from langchain_community.vectorstores import DatabricksVectorSearch
-
     vectorstore = getattr(retriever, "vectorstore", None)
-    if vectorstore:
-        if isinstance(vectorstore, (DatabricksVectorSearch, LegacyDatabricksVectorSearch)):
-            index = vectorstore.index
-            yield DatabricksVectorSearchIndex(index_name=index.name)
-            for embedding_endpoint in _get_embedding_model_endpoint_names(index):
-                yield DatabricksServingEndpoint(endpoint_name=embedding_endpoint)
+    if _isinstance_with_multiple_modules(
+        vectorstore,
+        "DatabricksVectorSearch",
+        ["langchain_databricks", "langchain_community.vectorstores", "langchain.vectorstores"],
+    ):
+        index = vectorstore.index
+        yield DatabricksVectorSearchIndex(index_name=index.name)
+        for embedding_endpoint in _get_embedding_model_endpoint_names(index):
+            yield DatabricksServingEndpoint(endpoint_name=embedding_endpoint)
 
-        embeddings = getattr(vectorstore, "embeddings", None)
-        if isinstance(embeddings, (DatabricksEmbeddings, LegacyDatabricksEmbeddings)):
-            yield DatabricksServingEndpoint(endpoint_name=embeddings.endpoint)
-
-
-def _is_langgraph_tool_node_supported() -> bool:
-    try:
-        from langgraph.prebuilt.tool_node import ToolNode  # noqa: F401
-
-        return True
-    except ImportError:
-        return False
-
-
-def _is_langchain_tools_supported() -> bool:
-    try:
-        from langchain_community.tools import BaseTool  # noqa: F401
-
-        return True
-    except ImportError:
-        return False
+    embeddings = getattr(vectorstore, "embeddings", None)
+    if _isinstance_with_multiple_modules(
+        embeddings,
+        "DatabricksEmbeddings",
+        ["langchain_databricks", "langchain_community.embeddings", "langchain.embeddings"],
+    ):
+        yield DatabricksServingEndpoint(endpoint_name=embeddings.endpoint)
 
 
 def _extract_databricks_dependencies_from_tools(tools) -> Generator[Resource, None, None]:
     if isinstance(tools, list):
-        from langchain_community.tools import BaseTool
-
         warehouse_ids = set()
         for tool in tools:
-            if isinstance(tool, BaseTool):
+            if _isinstance_with_multiple_modules(
+                tool, "BaseTool", ["langchain_core.tools", "langchain_community.tools"]
+            ):
                 # Handle Retriever tools
                 if hasattr(tool.func, "keywords") and "retriever" in tool.func.keywords:
                     retriever = tool.func.keywords.get("retriever")
@@ -144,38 +119,62 @@ def _extract_databricks_dependencies_from_retriever(retriever) -> Generator[Reso
 
 
 def _extract_databricks_dependencies_from_llm(llm) -> Generator[Resource, None, None]:
-    try:
-        from langchain.llms import Databricks as LegacyDatabricks
-    except ImportError:
-        from langchain_community.llms import Databricks as LegacyDatabricks
-
-    from langchain_community.llms import Databricks
-
-    if isinstance(llm, (LegacyDatabricks, Databricks)):
+    if _isinstance_with_multiple_modules(
+        llm, "Databricks", ["langchain.llms", "langchain_community.llms"]
+    ):
         yield DatabricksServingEndpoint(endpoint_name=llm.endpoint_name)
 
 
 def _extract_databricks_dependencies_from_chat_model(chat_model) -> Generator[Resource, None, None]:
-    try:
-        from langchain.chat_models import ChatDatabricks as LegacyChatDatabricks
-    except ImportError:
-        from langchain_community.chat_models import (
-            ChatDatabricks as LegacyChatDatabricks,
-        )
-
-    from langchain_community.chat_models import ChatDatabricks
-
-    if isinstance(chat_model, (LegacyChatDatabricks, ChatDatabricks)):
+    if _isinstance_with_multiple_modules(
+        chat_model,
+        "ChatDatabricks",
+        ["langchain_databricks", "langchain.chat_models", "langchain_community.chat_models"],
+    ):
         yield DatabricksServingEndpoint(endpoint_name=chat_model.endpoint)
 
 
 def _extract_databricks_dependencies_from_tool_nodes(tool_node) -> Generator[Resource, None, None]:
-    from langgraph.prebuilt.tool_node import ToolNode
+    try:
+        from langgraph.prebuilt.tool_node import ToolNode
 
-    if isinstance(tool_node, ToolNode):
-        yield from _extract_databricks_dependencies_from_tools(
-            list(tool_node.tools_by_name.values())
-        )
+        if isinstance(tool_node, ToolNode):
+            yield from _extract_databricks_dependencies_from_tools(
+                list(tool_node.tools_by_name.values())
+            )
+    except ImportError:
+        pass
+
+
+def _isinstance_with_multiple_modules(
+    object: Any, class_name: str, from_modules: List[str]
+) -> bool:
+    """
+    Databricks components are defined in different modules in LangChain e.g.
+    langchain, langchain_community, langchain_databricks due to historical migrations.
+    To keep backward compatibility, we need to check if the object is an instance of the
+    class defined in any of those different modules.
+
+    Args:
+        object: The object to check
+        class_name: The name of the class to check
+        from_modules: The list of modules to import the class from.
+    """
+    # Suppress LangChainDeprecationWarning for old imports
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", DeprecationWarning)
+
+        for module_path in from_modules:
+            try:
+                module = importlib.import_module(module_path)
+                cls = getattr(module, class_name)
+
+                if cls is not None and isinstance(object, cls):
+                    return True
+            except (ImportError, AttributeError):
+                pass
+
+    return False
 
 
 _LEGACY_MODEL_ATTR_SET = {
@@ -206,12 +205,8 @@ def _extract_dependency_list_from_lc_model(lc_model) -> Generator[Resource, None
     yield from _extract_databricks_dependencies_from_chat_model(lc_model)
     yield from _extract_databricks_dependencies_from_retriever(lc_model)
     yield from _extract_databricks_dependencies_from_llm(lc_model)
-
-    if _is_langchain_tools_supported():
-        yield from _extract_databricks_dependencies_from_tools(lc_model)
-
-    if _is_langgraph_tool_node_supported():
-        yield from _extract_databricks_dependencies_from_tool_nodes(lc_model)
+    yield from _extract_databricks_dependencies_from_tools(lc_model)
+    yield from _extract_databricks_dependencies_from_tool_nodes(lc_model)
 
     # recursively inspect legacy chain
     for attr_name in _LEGACY_MODEL_ATTR_SET:

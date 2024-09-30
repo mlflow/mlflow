@@ -37,6 +37,11 @@ from mlflow.utils.databricks_utils import (
 
 _logger = logging.getLogger(__name__)
 
+# Some packages have different PyPI package names compared to their importable module names.
+PACKAGE_MAPPING = {
+    "dspy": "dspy-ai",
+}
+
 
 def _is_comment(line):
     return line.startswith("#")
@@ -273,6 +278,9 @@ def _get_installed_version(package, module=None):
     `__import__(module or package).__version__`.
     """
     try:
+        # If `package` exists in PACKAGE_MAPPING, it means the package name on pypi is different
+        # from the imported name, and we should use the pipy name to get the version.
+        package = PACKAGE_MAPPING.get(package) or package
         version = importlib_metadata.version(package)
     except importlib_metadata.PackageNotFoundError:
         # Note `importlib_metadata.version(package)` is not necessarily equal to
@@ -513,6 +521,8 @@ def _infer_requirements(model_uri, flavor, raise_on_error=False):
         # Certain flavors (e.g. pytorch) import mlflow while loading a model, but mlflow should
         # not be counted as a model requirement.
         *_MODULES_TO_PACKAGES.get("mlflow", []),
+        # dspy's pypi name is dspy-ai, so we need to exclude "dspy" from requirement list.
+        "dspy",
     ]
     packages = packages - set(excluded_packages)
 

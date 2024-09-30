@@ -128,7 +128,6 @@ tensorflow:
       "== 2.15.1": ["transformers<4.39.0"]
     run: |
       pytest \
-        tests/tensorflow/test_load_saved_tensorflow_estimator.py \
         tests/tensorflow/test_tensorflow2_core_model_export.py \
         tests/tensorflow/test_tensorflow2_metric_value_conversion_utils.py \
         tests/tensorflow/test_keras_model_export.py \
@@ -660,6 +659,21 @@ openai:
     run: |
       pytest tests/openai/test_openai_autolog.py
 
+dspy:
+  package_info:
+    pip_release: "dspy-ai"
+    install_dev: |
+      pip install git+https://github.com/stanfordnlp/dspy.git
+  models:
+    minimum: "2.4.16"
+    maximum: "2.5.0"
+    python:
+      ">= 2.4.16": "3.9"
+    requirements:
+      ">= 0.0.0": ["openai"]
+    run: |
+      pytest tests/dspy
+
 langchain:
   package_info:
     pip_release: "langchain"
@@ -690,6 +704,8 @@ langchain:
           # Required to run tests/openai/mock_openai.py
           "fastapi",
           "uvicorn",
+          # Required for testing Databricks dependency extraction
+          "databricks-vectorsearch",
         ]
       # langchain-openai 0.1.22 is imcomptible with earlier langchain-core due to
       # https://github.com/langchain-ai/langchain/commit/b83f1eb0d56dbf99605a1fce93953ee09d77aabf

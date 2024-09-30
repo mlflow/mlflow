@@ -16,6 +16,7 @@ from tenacity import RetryCallState
 
 import mlflow
 from mlflow import MlflowClient
+from mlflow.entities import Document as MlflowDocument
 from mlflow.entities import LiveSpan, SpanEvent, SpanStatus, SpanStatusCode, SpanType
 from mlflow.exceptions import MlflowException
 from mlflow.pyfunc.context import Context, maybe_set_prediction_context
@@ -428,7 +429,19 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
     def on_retriever_end(self, documents: Sequence[Document], *, run_id: UUID, **kwargs: Any):
         """Run when Retriever ends running."""
         retriever_span = self._get_span_by_run_id(run_id)
-        self._end_span(run_id, retriever_span, outputs=documents)
+        try:
+            # attempt to convert documents to MlflowDocument
+            documents = [MlflowDocument.from_langchain_document(doc) for doc in documents]
+        except Exception as e:
+            _logger.debug(
+                f"Failed to convert LangChain Document to MLflow Document: {e}",
+                exc_info=True,
+            )
+        self._end_span(
+            run_id,
+            retriever_span,
+            outputs=documents,
+        )
 
     def on_retriever_error(
         self,
