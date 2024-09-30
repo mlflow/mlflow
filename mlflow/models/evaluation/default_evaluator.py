@@ -527,7 +527,7 @@ def _extract_chat_message_response_or_prediction(prediction: list) -> str:
     if (
         prediction is not None
         and isinstance(prediction, list)
-        and all(isinstance(_p, dict) for _p in prediction)
+        and all(isinstance(message, dict) for message in prediction)
     ):
         return prediction[-1].get("content")
     else:
