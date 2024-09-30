@@ -41,6 +41,12 @@ class DBConnectArtifactCache:
             _global_dbconnect_artifact_cache = DBConnectArtifactCache(spark)
             cache_file = os.path.join(get_or_create_tmp_dir(), _CACHE_MAP_FILE_NAME)
             if is_in_databricks_runtime() and os.path.exists(cache_file):
+                # In databricks runtime (shared cluster or Serverless), when you restart the notebook
+                # REPL by %restart_python or dbutils.library.restartPython(), the DBConnect session is
+                # still preserved. So in this case, we can reuse the cached artifact files.
+                # So that when adding artifact, the cache map is serialized to local disk file
+                # `db_connect_artifact_cache.json` and after REPL restarts, `DBConnectArtifactCache`
+                # restores the cache map by loading data from the file.
                 with open(cache_file, "r") as f:
                     _global_dbconnect_artifact_cache._cache = json.load(f)
         return _global_dbconnect_artifact_cache
