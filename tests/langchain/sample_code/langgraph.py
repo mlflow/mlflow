@@ -1,3 +1,4 @@
+from itertools import cycle
 from typing import Literal
 
 from langchain_core.messages import AIMessage, ToolCall
@@ -13,7 +14,8 @@ class FakeOpenAI(ChatOpenAI, extra="allow"):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        self._responses = iter(
+        # Use cycle to loop responses indefinitely
+        self._responses = cycle(
             [
                 AIMessage(
                     content="",
