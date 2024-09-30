@@ -1740,6 +1740,22 @@ def _prebuild_env_internal(local_model_path, archive_name, save_path):
 
 
 def prebuild_model_env(model_uri, save_path):
+    """
+    Prebuild model python environment and generate an archive file saved to provided
+    `save_path`.
+
+    Note:
+    You can only call `prebuild_model_env` in Databricks runtime,
+    and you can use the generated prebuilt env file in `mlflow.pyfunc.spark_udf` in
+    Databricks runtime or Databricks Connect client.
+    The generated model env file is named by:
+    'mlflow-env-{sha of python env config and dependencies}-{runtime version}-{platform machine}.tar.gz'
+    the file name shouldn't be modified,
+    and the prebuilt env can't be used across different Databricks runtime version or
+    different platform machine.
+    When you use the prebuilt env in other execution environment, MLflow will verify whether the
+    spark UDF sandbox environment matches the prebuilt env requirements.
+    """
     from mlflow.utils._spark_utils import _get_active_spark_session
 
     if not is_in_databricks_runtime():
@@ -1917,10 +1933,18 @@ def spark_udf(
               may differ from the environment used to train the model and may lead to
               errors or invalid predictions.
 
+            This param is ignored if you set `prebuilt_env_path` param.
+
         params: Additional parameters to pass to the model for inference.
 
         extra_env: Extra environment variables to pass to the UDF executors.
 
+        prebuilt_env_path: The path of the prebuilt env archive file created by
+              `mlflow.pyfunc.prebuild_model_env` API.
+              This param can only be used in Databricks Serverless notebook REPL,
+              Databricks Shared cluster notebook REPL, and Databricks Connect client
+              environment.
+              If you set this param, `env_manager` param is ignored.
     Returns:
         Spark UDF that applies the model's ``predict`` method to the data and returns a
         type specified by ``result_type``, which by default is a double.
