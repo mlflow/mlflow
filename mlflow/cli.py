@@ -501,6 +501,14 @@ def gc(older_than, backend_store_uri, artifacts_destination, run_ids, experiment
     This command deletes all artifacts and metadata associated with the specified runs.
     If the provided artifact URL is invalid, the artifact deletion will be bypassed,
     and the gc process will continue.
+
+    .. attention::
+
+        If you are running an MLflow tracking server with artifact proxying enabled,
+        you **must** set the ``MLFLOW_TRACKING_URI`` environment variable before running
+        this command. Otherwise, the ``gc`` command will not be able to resolve
+        artifact URIs and will not be able to delete the associated artifacts.
+
     """
     from mlflow.utils.time import get_current_time_millis
 
