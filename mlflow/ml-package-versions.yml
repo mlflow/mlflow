@@ -95,6 +95,7 @@ keras:
     run: |
       export KERAS_BACKEND=jax
       pytest tests/keras/test_callback.py
+
   autologging:
     minimum: "3.0.2"
     maximum: "3.5.0"
