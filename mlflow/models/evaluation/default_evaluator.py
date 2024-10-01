@@ -524,12 +524,10 @@ _matplotlib_config = {
 
 def _extract_chat_message_response_or_prediction(prediction: list) -> str:
     # Handle case when ChatMessage sequence is returned by the predict func
-    if (
-        prediction is not None
-        and isinstance(prediction, list)
-        and all(isinstance(message, dict) for message in prediction)
+    if isinstance(prediction, list) and all(
+        (isinstance(message, dict) and "content" in message.keys()) for message in prediction
     ):
-        return prediction[-1].get("content")
+        return prediction[-1]["content"]
     else:
         return prediction
 
