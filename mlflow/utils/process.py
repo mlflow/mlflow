@@ -55,6 +55,9 @@ def _exec_cmd(
         stream_output: If True, stream the command's stdout and stderr to `sys.stdout`
             as a unified stream during execution.
             If False, do not stream the command's stdout and stderr to `sys.stdout`.
+        terminate_signals: A list of signals whose handlers will be overridden to terminate the
+            child process when received. This is useful for ensuring that the child process is
+            terminated when the parent process is terminated.
         kwargs: Keyword arguments (except `text`) passed to `subprocess.Popen`.
 
     Returns:
