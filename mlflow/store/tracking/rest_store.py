@@ -8,6 +8,7 @@ from mlflow.entities import (
     LoggedModel,
     Metric,
     ModelParam,
+    ModelStatus,
     ModelTag,
     Run,
     RunInfo,
@@ -27,6 +28,7 @@ from mlflow.protos.service_pb2 import (
     DeleteTraces,
     DeleteTraceTag,
     EndTrace,
+    FinalizeLoggedModel,
     GetExperiment,
     GetExperimentByName,
     GetLoggedModel,
@@ -604,6 +606,23 @@ class RestStore(AbstractStore):
         endpoint = get_logged_model_endpoint(model_id)
         response_proto = self._call_endpoint(GetLoggedModel, endpoint=endpoint)
         return LoggedModel.from_proto(response_proto.model)
+
+    def finalize_logged_model(self, model_id: str, status: ModelStatus) -> LoggedModel:
+        """
+        Finalize a model by updating its status.
+
+        Args:
+            model_id: ID of the model to finalize.
+            status: Final status to set on the model.
+
+        Returns:
+            The updated model.
+        """
+        endpoint = get_logged_model_endpoint(model_id)
+        json_body = message_to_json(
+            FinalizeLoggedModel(model_id=model_id, status=status.to_proto())
+        )
+        self._call_endpoint(FinalizeLoggedModel, json_body=json_body, endpoint=endpoint)
 
     def log_inputs(self, run_id: str, datasets: Optional[List[DatasetInput]] = None):
         """
