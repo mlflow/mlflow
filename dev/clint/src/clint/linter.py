@@ -32,9 +32,9 @@ def ignore_map(code: str) -> dict[str, set[int]]:
     return mapping
 
 
-def _ends_with_log_model(node: ast.AST) -> bool:
+def _is_log_model(node: ast.AST) -> bool:
     """
-    Does this node end with `log_model`?
+    Is this node a call to `log_model`?
     """
     if isinstance(node, ast.Name):
         return node.id == "log_model"
@@ -183,9 +183,7 @@ class Linter(ast.NodeVisitor):
         self.generic_visit(node)
 
     def visit_Call(self, node: ast.Call) -> None:
-        if _ends_with_log_model(node.func) and any(
-            arg.arg == "artifact_path" for arg in node.keywords
-        ):
+        if _is_log_model(node.func) and any(arg.arg == "artifact_path" for arg in node.keywords):
             self._check(node, KEYWORD_ARTIFACT_PATH)
 
 
