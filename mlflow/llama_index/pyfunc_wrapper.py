@@ -264,13 +264,18 @@ def create_pyfunc_wrapper(
             and must be one of [chat, query, retriever].
         model_config: A dictionary of model configuration parameters.
     """
+    try:
+        from llama_index.core.workflow import Workflow
+
+        if isinstance(model, Workflow):
+            return _create_wrapper_from_workflow(model, model_config)
+    except ImportError:
+        pass
+
     from llama_index.core.indices.base import BaseIndex
-    from llama_index.core.workflow import Workflow
 
     if isinstance(model, BaseIndex):
         return _create_wrapper_from_index(model, engine_type, model_config)
-    elif isinstance(model, Workflow):
-        return _create_wrapper_from_workflow(model, model_config)
     else:
         # Engine does not have a common base class so we assume
         # everything else is an engine

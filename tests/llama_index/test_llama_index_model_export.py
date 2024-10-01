@@ -479,6 +479,10 @@ def test_save_engine_with_engine_type_issues_warning(model_path):
     assert "The `engine_type` argument" in mock_logger.warning.call_args[0][0]
 
 
+@pytest.mark.skipif(
+    Version(llama_index.core.__version__) < Version("0.11.0"),
+    reason="Workflow was introduced in 0.11.0",
+)
 @pytest.mark.asyncio
 async def test_save_load_workflow_as_code():
     index_code_path = "tests/llama_index/sample_code/simple_workflow.py"
