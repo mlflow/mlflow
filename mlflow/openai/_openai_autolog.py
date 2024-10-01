@@ -13,7 +13,7 @@ from mlflow.entities import RunTag, SpanType
 from mlflow.entities.span_event import SpanEvent
 from mlflow.entities.span_status import SpanStatusCode
 from mlflow.ml_package_versions import _ML_PACKAGE_VERSIONS
-from mlflow.tracing.constant import TraceMetadataKey
+from mlflow.tracing.constant import SpanAttributeKey, TraceMetadataKey
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracking.context import registry as context_registry
 from mlflow.tracking.fluent import _get_experiment_id
@@ -160,7 +160,7 @@ def patched_call(original, self, *args, **kwargs):
         root_span = mlflow_client.start_trace(
             name=self.__class__.__name__,
             span_type=_get_span_type(self.__class__),
-            attributes={"model_id": model_id} if model_id else None,
+            attributes={SpanAttributeKey.MODEL_ID: model_id} if model_id else None,
         )
         request_id = root_span.request_id
         # If a new autolog run is created, associate the trace with the run
