@@ -1,8 +1,10 @@
+import llama_index.core
 import numpy as np
 import pandas as pd
 import pytest
 from llama_index.core import QueryBundle
 from llama_index.core.llms import ChatMessage
+from packaging.version import Version
 
 import mlflow
 from mlflow.llama_index.pyfunc_wrapper import (
@@ -260,6 +262,10 @@ def test_spark_udf_chat(model_path, spark, single_index):
     assert isinstance(pdf["predictions"].tolist()[0], str)
 
 
+@pytest.mark.skipif(
+    Version(llama_index.core.__version__) < Version("0.11.0"),
+    reason="Workflow was introduced in 0.11.0",
+)
 @pytest.mark.asyncio
 async def test_wrap_workflow():
     from llama_index.core.workflow import StartEvent, StopEvent, Workflow, step
