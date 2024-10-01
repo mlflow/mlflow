@@ -86,6 +86,63 @@ TEST_NAME_TYPO = Rule(
     "This function looks like a test, but its name does not start with 'test_'.",
 )
 
+UNDOCUMENTED_PARAMS = Rule(
+    "MLF0006",
+    "undocumented-params",
+    "This function has undocumented parameters.",
+)
+
+
+def _get_indent_level(s: str) -> int | None:
+    if not s.strip():
+        return None
+    return len(s) - len(s.lstrip())
+
+
+import re
+
+_PARAM_NAME_REGEX = re.compile(r"\w+", re.MULTILINE)
+
+
+def _parse_args_from_docstring(docstring: str) -> list[str]:
+    in_args_section = False
+    args_header_indent: int | None = None
+    args: set[str] = set()
+    for line in docstring.splitlines():
+        if in_args_section:
+            # Are we still in the args section?
+            indent = _get_indent_level(line)
+            if indent is not None and indent <= args_header_indent:
+                break
+
+            if m := _PARAM_NAME_REGEX.match(line.lstrip()):
+                args.add(m.group(0))
+        else:
+            if line.lstrip().startswith("Args:"):
+                in_args_section = True
+                args_header_indent = _get_indent_level(line)
+
+    return args
+
+
+def _parse_args_from_node(node: ast.FunctionDef | ast.AsyncFunctionDef) -> set[str]:
+    args = {a.arg for a in node.args.args}.union({a.arg for a in node.args.kwonlyargs})
+
+    if node.args.vararg:
+        args.add(node.args.vararg.arg)
+    if node.args.kwarg:
+        args.add(node.args.kwarg.arg)
+
+    args = args.difference({"self", "cls"})
+
+
+def _undocumented_params(node: ast.FunctionDef | ast.AsyncFunctionDef) -> set[str] | None:
+    if (ds := ast.get_docstring(node)) and (doc_args := _parse_args_from_docstring(ds)):
+        if func_args := _parse_args_from_node(node):
+            if diff := (func_args.difference(doc_args)):
+                return diff
+    return None
+
 
 class Linter(ast.NodeVisitor):
     def __init__(self, path: Path, ignore: dict[str, set[int]]):
@@ -139,6 +196,9 @@ class Linter(ast.NodeVisitor):
 
     def visit_FunctionDef(self, node: ast.FunctionDef) -> None:
         self._test_name_typo(node)
+        if args := _undocumented_params(node):
+            self._check(node, UNDOCUMENTED_PARAMS)
+
         self.stack.append(node)
         self._no_rst(node)
         self.generic_visit(node)
