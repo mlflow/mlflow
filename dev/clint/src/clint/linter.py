@@ -103,7 +103,10 @@ TEST_NAME_TYPO = Rule(
 KEYWORD_ARTIFACT_PATH = Rule(
     "MLF0005",
     "keyword-artifact-path",
-    "artifact_path must be passed as a positional argument.",
+    (
+        "artifact_path must be passed as a positional argument. "
+        "See https://github.com/mlflow/mlflow/pull/13268 for why this is necessary."
+    ),
 )
 
 
