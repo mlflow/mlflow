@@ -97,8 +97,7 @@ def _register_model(
             ErrorCode.Name(ALREADY_EXISTS),
         ):
             eprint(
-                "Registered model '%s' already exists. Creating a new version of this model..."
-                % name
+                f"Registered model {name!r} already exists. Creating a new version of this model..."
             )
         else:
             raise e

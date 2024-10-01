@@ -102,12 +102,13 @@ def score_model_in_sagemaker_docker_container(
         cmd=scoring_cmd.split(" "),
         env=env,
     )
-    return _evaluate_scoring_proc(
-        proc, port, data, content_type, activity_polling_timeout_seconds, False
-    )
+    with RestEndpoint(
+        proc, port, activity_polling_timeout_seconds, validate_version=False
+    ) as endpoint:
+        return endpoint.invoke(data, content_type)
 
 
-def pyfunc_generate_dockerfile(output_directory, model_uri=None, extra_args=None, env=None):
+def pyfunc_generate_dockerfile(output_directory, model_uri=None, extra_args=None, env=None):  # noqa: D417
     """
     Builds a dockerfile for the specified model.
 
@@ -132,7 +133,7 @@ def pyfunc_generate_dockerfile(output_directory, model_uri=None, extra_args=None
     subprocess.run(cmd, check=True, env=env)
 
 
-def pyfunc_build_image(model_uri=None, extra_args=None, env=None):
+def pyfunc_build_image(model_uri=None, extra_args=None, env=None):  # noqa: D417
     """
     Builds a docker image containing the specified model, returning the name of the image.
 
@@ -212,6 +213,19 @@ def pyfunc_serve_and_score_model(
     extra_args=None,
     stdout=sys.stdout,
 ):
+    with pyfunc_scoring_endpoint(
+        model_uri,
+        extra_args=extra_args,
+        activity_polling_timeout_seconds=activity_polling_timeout_seconds,
+        stdout=stdout,
+    ) as endpoint:
+        return endpoint.invoke(data, content_type)
+
+
+@contextmanager
+def pyfunc_scoring_endpoint(  # noqa: D417
+    model_uri, activity_polling_timeout_seconds=500, extra_args=None, stdout=sys.stdout
+):
     """
     Args:
         model_uri: URI to the model to be served.
@@ -242,16 +256,15 @@ def pyfunc_serve_and_score_model(
         "-p",
         str(port),
         "--install-mlflow",
-    ]
-    validate_version = True
-    if extra_args is not None:
-        scoring_cmd += extra_args
-        validate_version = "--enable-mlserver" not in extra_args
+    ] + (extra_args or [])
+
     with _start_scoring_proc(cmd=scoring_cmd, env=env, stdout=stdout, stderr=stdout) as proc:
+        validate_version = "--enable-mlserver" not in (extra_args or [])
         try:
-            return _evaluate_scoring_proc(
-                proc, port, data, content_type, activity_polling_timeout_seconds, validate_version
-            )
+            with RestEndpoint(
+                proc, port, activity_polling_timeout_seconds, validate_version=validate_version
+            ) as endpoint:
+                yield endpoint
         finally:
             proc.terminate()
 
@@ -354,20 +367,6 @@ class RestEndpoint:
             data=data,
             headers={"Content-Type": content_type},
         )
-
-
-def _evaluate_scoring_proc(
-    proc, port, data, content_type, activity_polling_timeout_seconds=250, validate_version=True
-):
-    """
-    Args:
-        activity_polling_timeout_seconds: The amount of time, in seconds, to wait before
-            declaring the scoring process to have failed.
-    """
-    with RestEndpoint(
-        proc, port, activity_polling_timeout_seconds, validate_version=validate_version
-    ) as endpoint:
-        return endpoint.invoke(data, content_type)
 
 
 @pytest.fixture(autouse=True)
@@ -691,3 +690,44 @@ def flaky(max_tries=3):
         return decorated_func
 
     return flaky_test_func
+
+
+@contextmanager
+def start_mock_openai_server():
+    """
+    Start a fake service that mimics the OpenAI endpoints such as /chat/completions.
+
+    Yields:
+        The base URL of the mock OpenAI server.
+    """
+    port = get_safe_port()
+    with subprocess.Popen(
+        [
+            sys.executable,
+            "-m",
+            "uvicorn",
+            "tests.openai.mock_openai:app",
+            "--host",
+            "localhost",
+            "--port",
+            str(port),
+        ]
+    ) as proc:
+        try:
+            base_url = f"http://localhost:{port}"
+            for _ in range(10):
+                try:
+                    resp = requests.get(f"{base_url}/health")
+                except requests.ConnectionError:
+                    time.sleep(2)
+                    continue
+                if resp.ok:
+                    break
+            else:
+                proc.kill()
+                proc.wait()
+                raise RuntimeError("Failed to start mock OpenAI server")
+
+            yield base_url
+        finally:
+            proc.kill()

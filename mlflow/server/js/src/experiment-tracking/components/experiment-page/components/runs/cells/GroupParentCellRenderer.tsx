@@ -1,23 +1,29 @@
 import { ICellRendererParams } from '@ag-grid-community/core';
-import { RunGroupParentInfo, RunGroupingMode, RunRowType } from '../../../utils/experimentPage.row-types';
+import { RunRowType } from '../../../utils/experimentPage.row-types';
 import {
   Button,
   ChevronDownIcon,
   ChevronRightIcon,
-  TableIcon,
+  NewWindowIcon,
   Tag,
+  Tooltip,
   useDesignSystemTheme,
 } from '@databricks/design-system';
-import { getRunGroupDisplayName, isRemainingRunsGroup } from '../../../utils/experimentPage.group-row-utils';
+import {
+  createSearchFilterFromRunGroupInfo,
+  getRunGroupDisplayName,
+  isRemainingRunsGroup,
+} from '../../../utils/experimentPage.group-row-utils';
 import { useUpdateExperimentViewUIState } from '../../../contexts/ExperimentPageUIStateContext';
 import { useCallback, useMemo } from 'react';
 import { RunColorPill } from '../../RunColorPill';
-import { isObject } from 'lodash';
 import invariant from 'invariant';
 import { FormattedMessage } from 'react-intl';
 import { useGetExperimentRunColor, useSaveExperimentRunColor } from '../../../hooks/useExperimentRunColor';
 import { useExperimentViewRunsTableHeaderContext } from '../ExperimentViewRunsTableHeaderContext';
 import { shouldEnableToggleIndividualRunsInGroups } from '../../../../../../common/utils/FeatureUtils';
+import { Link, To, useLocation } from '../../../../../../common/utils/RoutingUtils';
+import { EXPERIMENT_PAGE_QUERY_PARAM_IS_PREVIEW } from '../../../hooks/useExperimentPageSearchFacets';
 
 export interface GroupParentCellRendererProps extends ICellRendererParams {
   data: RunRowType;
@@ -29,6 +35,7 @@ export const GroupParentCellRenderer = ({ data, isComparingRuns }: GroupParentCe
   const hidden = data.hidden;
   invariant(groupParentInfo, 'groupParentInfo should be defined');
   const { theme } = useDesignSystemTheme();
+  const location = useLocation();
 
   const { useGroupedValuesInCharts } = useExperimentViewRunsTableHeaderContext();
   const getRunColor = useGetExperimentRunColor();
@@ -55,6 +62,20 @@ export const GroupParentCellRenderer = ({ data, isComparingRuns }: GroupParentCe
 
     return !isRemainingRunsGroup(groupParentInfo);
   }, [groupParentInfo, useGroupedValuesInCharts]);
+
+  const urlToRunUuidsFilter = useMemo(() => {
+    const filter = createSearchFilterFromRunGroupInfo(groupParentInfo);
+
+    const searchParams = new URLSearchParams(location.search);
+    searchParams.set('searchFilter', filter);
+    searchParams.set(EXPERIMENT_PAGE_QUERY_PARAM_IS_PREVIEW, 'true');
+    const destination: To = {
+      ...location,
+      search: searchParams.toString(),
+    };
+
+    return destination;
+  }, [groupParentInfo, location]);
 
   return (
     <div css={{ display: 'flex', gap: theme.spacing.sm, alignItems: 'center' }}>
@@ -106,7 +127,39 @@ export const GroupParentCellRenderer = ({ data, isComparingRuns }: GroupParentCe
             />
           </span>
         )}
-        <Tag css={{ marginLeft: 0, marginRight: 0 }}>{groupParentInfo.runUuids.length}</Tag>
+        <Tag
+          componentId="codegen_mlflow_app_src_experiment-tracking_components_experiment-page_components_runs_cells_groupparentcellrenderer.tsx_109"
+          css={{ marginLeft: 0, marginRight: 0 }}
+        >
+          {groupParentInfo.runUuids.length}
+        </Tag>
+        <Tooltip
+          content={
+            <FormattedMessage
+              defaultMessage="Open runs in this group in the new tab"
+              description="Experiment page > grouped runs table > tooltip for a button that opens runs in a group in a new tab"
+            />
+          }
+        >
+          <Link
+            to={urlToRunUuidsFilter}
+            target="_blank"
+            css={{
+              marginLeft: -theme.spacing.xs,
+              display: 'none',
+              '.ag-row-hover &': {
+                display: 'inline-flex',
+              },
+            }}
+          >
+            <Button
+              type="link"
+              componentId="mlflow.experiment_page.grouped_runs.open_runs_in_new_tab"
+              size="small"
+              icon={<NewWindowIcon css={{ svg: { width: 12, height: 12 } }} />}
+            />
+          </Link>
+        </Tooltip>
       </div>
     </div>
   );

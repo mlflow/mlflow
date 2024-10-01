@@ -1,6 +1,6 @@
-import { renderHook } from '@testing-library/react-hooks';
+import { renderHook } from '@testing-library/react';
 import { useBrowserKeyShortcutListener } from './useBrowserKeyShortcutListener';
-import userEvent from '@testing-library/user-event';
+import userEvent from '@testing-library/user-event-14';
 
 describe('useBrowserKeyShortcutListener', () => {
   const callback = jest.fn();
@@ -12,28 +12,28 @@ describe('useBrowserKeyShortcutListener', () => {
   it('listens to a single CTRL/CMD+S key combination', async () => {
     renderHook(() => useBrowserKeyShortcutListener('s', { ctrlOrCmdKey: true }, callback));
     expect(callback).not.toBeCalled();
-    userEvent.keyboard('{Control>}s{/Control}');
+    await userEvent.keyboard('{Control>}s{/Control}');
     expect(callback).toBeCalled();
   });
 
   it('listens to a single ALT/OPT+S key combination', async () => {
     renderHook(() => useBrowserKeyShortcutListener('s', { altOrOptKey: true }, callback));
     expect(callback).not.toBeCalled();
-    userEvent.keyboard('{Alt>}s{/Alt}');
+    await userEvent.keyboard('{Alt>}s{/Alt}');
     expect(callback).toBeCalled();
   });
 
   it('listens to a single SHIFT+S key combination', async () => {
     renderHook(() => useBrowserKeyShortcutListener('s', { shiftKey: true }, callback));
     expect(callback).not.toBeCalled();
-    userEvent.keyboard('{Shift>}s{/Shift}');
+    await userEvent.keyboard('{Shift>}s{/Shift}');
     expect(callback).toBeCalled();
   });
 
   it('listens to a complex key combination with two modifiers', async () => {
     renderHook(() => useBrowserKeyShortcutListener('s', { altOrOptKey: true, ctrlOrCmdKey: true }, callback));
     expect(callback).not.toBeCalled();
-    userEvent.keyboard('{Control>}{Alt>}s{/Control}{/Alt}');
+    await userEvent.keyboard('{Control>}{Alt>}s{/Control}{/Alt}');
     expect(callback).toBeCalled();
   });
 
@@ -41,13 +41,13 @@ describe('useBrowserKeyShortcutListener', () => {
     renderHook(() =>
       useBrowserKeyShortcutListener('s', { altOrOptKey: true, ctrlOrCmdKey: true, shiftKey: true }, callback),
     );
-    userEvent.keyboard('{Shift>}{Alt>}s{/Alt}{/Shift}');
+    await userEvent.keyboard('{Shift>}{Alt>}s{/Alt}{/Shift}');
     expect(callback).not.toBeCalled();
-    userEvent.keyboard('{Shift>}{Control>}s{/Control}{/Shift}');
+    await userEvent.keyboard('{Shift>}{Control>}s{/Control}{/Shift}');
     expect(callback).not.toBeCalled();
-    userEvent.keyboard('{Alt>}{Control>}s{/Control}{/Alt}');
+    await userEvent.keyboard('{Alt>}{Control>}s{/Control}{/Alt}');
     expect(callback).not.toBeCalled();
-    userEvent.keyboard('{Shift>}{Control>}{Alt>}s{/Control}{/Alt}{/Shift}');
+    await userEvent.keyboard('{Shift>}{Control>}{Alt>}s{/Control}{/Alt}{/Shift}');
     expect(callback).toBeCalled();
   });
 
@@ -56,7 +56,7 @@ describe('useBrowserKeyShortcutListener', () => {
       useBrowserKeyShortcutListener('s', { altOrOptKey: true, ctrlOrCmdKey: true, shiftKey: true }, callback),
     );
     expect(callback).not.toBeCalled();
-    userEvent.keyboard('{Shift>}{Alt>}s{/Alt}{/Shift}');
+    await userEvent.keyboard('{Shift>}{Alt>}s{/Alt}{/Shift}');
     expect(callback).not.toBeCalled();
   });
 });

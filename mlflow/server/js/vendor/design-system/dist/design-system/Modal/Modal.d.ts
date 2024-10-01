@@ -1,9 +1,8 @@
-/// <reference types="react" />
 import type { ModalProps as AntDModalProps } from 'antd';
 import type { ButtonProps } from '../Button';
 import { DesignSystemEventProviderAnalyticsEventTypes } from '../DesignSystemEventProvider/DesignSystemEventProvider';
-import type { AnalyticsEventOptionalPropsWithStartInteraction, DangerouslySetAntdProps, HTMLDataAttributes } from '../types';
-export interface ModalProps extends HTMLDataAttributes, DangerouslySetAntdProps<AntDModalProps>, AnalyticsEventOptionalPropsWithStartInteraction<DesignSystemEventProviderAnalyticsEventTypes.OnView> {
+import type { AnalyticsEventPropsWithStartInteraction, DangerouslySetAntdProps, HTMLDataAttributes } from '../types';
+export interface ModalProps extends HTMLDataAttributes, DangerouslySetAntdProps<AntDModalProps>, AnalyticsEventPropsWithStartInteraction<DesignSystemEventProviderAnalyticsEventTypes.OnView> {
     /** Whether or not the modal is currently open. Use together with onOk and onCancel to control the modal state. */
     visible?: AntDModalProps['visible'];
     /** Function called when the primary button is clicked */
@@ -14,7 +13,7 @@ export interface ModalProps extends HTMLDataAttributes, DangerouslySetAntdProps<
     title?: AntDModalProps['title'];
     /** Contents displayed in the body of the modal */
     children?: React.ReactNode;
-    /** A custom JSX element to render in place of the default footer */
+    /** A custom JSX element to render in place of the default footer. If `footer` is not provided or is set to `undefined`, the default footer will be rendered. `footer` must be explicitly set to `null` to hide the footer. */
     footer?: AntDModalProps['footer'];
     /** Sets the horizontal size according to the size presets */
     size?: 'normal' | 'wide';

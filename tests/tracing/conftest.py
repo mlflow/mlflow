@@ -1,3 +1,6 @@
+import subprocess
+import tempfile
+import time
 from typing import Dict
 from unittest import mock
 
@@ -6,6 +9,7 @@ import pytest
 import mlflow
 from mlflow.entities import TraceInfo
 from mlflow.entities.trace_status import TraceStatus
+from mlflow.environment_variables import MLFLOW_ENABLE_ASYNC_LOGGING
 
 from tests.tracing.helper import create_test_trace_info
 
@@ -50,7 +54,7 @@ def mock_store(monkeypatch):
 
         def _mock_start_trace(experiment_id, timestamp_ms, request_metadata, tags):
             trace_info = create_test_trace_info(
-                request_id="tr-12345",
+                request_id=f"tr-{len(_traces)}",
                 experiment_id=experiment_id,
                 timestamp_ms=timestamp_ms,
                 execution_time_ms=None,
@@ -84,3 +88,40 @@ def databricks_tracking_uri():
         "mlflow.tracking._tracking_service.utils.get_tracking_uri", return_value="databricks"
     ):
         yield
+
+
+# Fixture to run the test case with and without async logging enabled
+@pytest.fixture(params=[True, False])
+def async_logging_enabled(request, monkeypatch):
+    monkeypatch.setenv(MLFLOW_ENABLE_ASYNC_LOGGING.name, str(request.param))
+    return request.param
+
+
+@pytest.fixture
+def otel_collector():
+    """Start an OpenTelemetry collector in a Docker container."""
+    subprocess.run(["docker", "pull", "otel/opentelemetry-collector-contrib"], check=True)
+
+    with tempfile.NamedTemporaryFile() as output_file, subprocess.Popen(
+        [
+            "docker",
+            "run",
+            "-p",
+            "127.0.0.1:4317:4317",
+            "otel/opentelemetry-collector",
+        ],
+        stdout=output_file,
+        stderr=subprocess.STDOUT,
+        text=True,
+    ) as process:
+        # Wait for the collector to start
+        time.sleep(5)
+
+        yield process, output_file.name
+
+        # Stop the collector
+        container_id = subprocess.check_output(
+            ["docker", "ps", "-q", "--filter", "ancestor=otel/opentelemetry-collector"],
+            text=True,
+        ).strip()
+        subprocess.check_call(["docker", "stop", container_id])

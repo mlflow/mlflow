@@ -53,7 +53,7 @@ def get_released_mlflow_version():
     return str(sorted(versions, reverse=True)[0])
 
 
-def save_model_with_latest_mlflow_version(flavor, **kwargs):
+def save_model_with_latest_mlflow_version(flavor, extra_pip_requirements=None, **kwargs):
     """
     Save a model with overriding MLflow version from dev version to the latest released version.
     By default a model is saved with the dev version of MLflow, which is not available on PyPI.
@@ -65,6 +65,8 @@ def save_model_with_latest_mlflow_version(flavor, **kwargs):
     if flavor == "langchain":
         kwargs["pip_requirements"] = [f"mlflow[gateway]=={latest_mlflow_version}", "langchain"]
     else:
-        kwargs["extra_pip_requirements"] = [f"mlflow=={latest_mlflow_version}"]
+        extra_pip_requirements = extra_pip_requirements or []
+        extra_pip_requirements.append(f"mlflow=={latest_mlflow_version}")
+        kwargs["extra_pip_requirements"] = extra_pip_requirements
     flavor_module = getattr(mlflow, flavor)
     flavor_module.save_model(**kwargs)

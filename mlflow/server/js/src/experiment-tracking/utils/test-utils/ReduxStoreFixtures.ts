@@ -11,6 +11,7 @@ export const emptyState = {
   apis: {},
   entities: {
     runInfosByUuid: {},
+    runInfoOrderByUuid: [],
     experimentsById: {},
     experimentTagsByExperimentId: {},
     tagsByRunUuid: {},

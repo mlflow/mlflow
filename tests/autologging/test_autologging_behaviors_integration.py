@@ -237,7 +237,10 @@ def test_autolog_respects_disable_flag_across_import_orders():
 
 
 @pytest.mark.usefixtures(test_mode_off.__name__)
-def test_autolog_respects_silent_mode(tmp_path):
+def test_autolog_respects_silent_mode(tmp_path, monkeypatch):
+    # disable progress bar as it is not controlled by `silent` flag
+    monkeypatch.setenv("MLFLOW_ENABLE_ARTIFACTS_PROGRESS_BAR", "false")
+
     # Use file-based experiment storage for this test. Otherwise, concurrent experiment creation in
     # multithreaded contexts may fail for other storage backends (e.g. SQLAlchemy)
     mlflow.set_tracking_uri(str(tmp_path))

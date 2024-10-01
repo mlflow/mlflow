@@ -10,6 +10,7 @@ export declare const simpleSelectTestUtils: {
     expectSelectToBeOpen: () => void;
     expectSelectToBeClosed: () => void;
     getOptionsLength: () => number;
+    getAllOptions: () => (string | null)[];
     expectOptionsLengthToBe: (length: number) => void;
     getUnselectedOption: (label: string | RegExp) => HTMLElement;
     getSelectedOption: (label: string | RegExp) => HTMLElement;

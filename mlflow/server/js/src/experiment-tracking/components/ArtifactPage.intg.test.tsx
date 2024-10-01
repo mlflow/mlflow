@@ -1,5 +1,5 @@
 import { last } from 'lodash';
-import { render, screen, waitFor } from '@testing-library/react-for-react-18';
+import { render, screen, waitFor } from '@testing-library/react';
 import ArtifactPage from './ArtifactPage';
 import { MockedReduxStoreProvider } from '../../common/utils/TestUtils';
 import { MlflowService } from '../sdk/MlflowService';
@@ -117,7 +117,7 @@ describe('Artifact page, artifact files rendering integration test', () => {
   });
   it.each(artifactTestCases)('renders artifact file: %s', async (fileName) => {
     const fileContents = loadLocalArtifactFixtureFile(fileName);
-    const baseFilename = last(fileName.split('/'))!;
+    const baseFilename = last(fileName.split('/')) ?? '';
 
     const runTags = createRunTagsForFile(baseFilename);
 

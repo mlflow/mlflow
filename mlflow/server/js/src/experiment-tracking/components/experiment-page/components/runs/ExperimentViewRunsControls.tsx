@@ -20,6 +20,7 @@ import { ExperimentViewRunsGroupBySelector } from './ExperimentViewRunsGroupBySe
 import { useUpdateExperimentViewUIState } from '../../contexts/ExperimentPageUIStateContext';
 import { ExperimentPageSearchFacetsState } from '../../models/ExperimentPageSearchFacetsState';
 import { ExperimentViewRunsSortSelectorV2 } from './ExperimentViewRunsSortSelectorV2';
+import { useShouldShowCombinedRunsTab } from '../../hooks/useShouldShowCombinedRunsTab';
 
 type ExperimentViewRunsControlsProps = {
   viewState: ExperimentPageViewState;
@@ -60,6 +61,7 @@ export const ExperimentViewRunsControls = React.memo(
     isLoading,
   }: ExperimentViewRunsControlsProps) => {
     const [compareRunsMode, setCompareRunsMode] = useExperimentPageViewMode();
+    const showCombinedRuns = useShouldShowCombinedRunsTab();
 
     const { paramKeyList, metricKeyList, tagsList } = runsData;
     const { orderByAsc, orderByKey } = searchFacetsState;
@@ -110,8 +112,17 @@ export const ExperimentViewRunsControls = React.memo(
           gap: theme.spacing.sm,
           flexDirection: 'column' as const,
           marginTop: uiState.viewMaximized ? undefined : theme.spacing.md,
+          marginBottom: showCombinedRuns ? theme.spacing.sm : 0,
         }}
       >
+        {showCombinedRuns && (
+          <ExperimentViewRunsModeSwitch
+            hideBorder={false}
+            viewState={viewState}
+            runsAreGrouped={Boolean(uiState.groupBy)}
+          />
+        )}
+
         {showActionButtons && (
           <ExperimentViewRunsControlsActions
             runsData={runsData}
@@ -133,6 +144,7 @@ export const ExperimentViewRunsControls = React.memo(
             refreshRuns={refreshRuns}
             viewMaximized={uiState.viewMaximized}
             autoRefreshEnabled={uiState.autoRefreshEnabled}
+            hideEmptyCharts={uiState.hideEmptyCharts}
             additionalControls={
               <>
                 {shouldUseNewExperimentPageSortSelector() ? (
@@ -160,7 +172,10 @@ export const ExperimentViewRunsControls = React.memo(
                 )}
 
                 {!isComparingRuns && multipleDatasetsArePresent && (
-                  <ToggleButton onClick={toggleExpandedRows}>
+                  <ToggleButton
+                    componentId="codegen_mlflow_app_src_experiment-tracking_components_experiment-page_components_runs_experimentviewrunscontrols.tsx_175"
+                    onClick={toggleExpandedRows}
+                  >
                     <FormattedMessage
                       defaultMessage="Expand rows"
                       description="Label for the expand rows button above the experiment runs table"
@@ -185,9 +200,9 @@ export const ExperimentViewRunsControls = React.memo(
             }
           />
         )}
-        <div>
+        {!showCombinedRuns && (
           <ExperimentViewRunsModeSwitch viewState={viewState} runsAreGrouped={Boolean(uiState.groupBy)} />
-        </div>
+        )}
       </div>
     );
   },

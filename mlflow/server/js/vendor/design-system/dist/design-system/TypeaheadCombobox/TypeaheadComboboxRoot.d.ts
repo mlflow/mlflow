@@ -2,8 +2,8 @@ import { type ExtendedRefs } from '@floating-ui/react';
 import type { UseComboboxReturnValue } from 'downshift';
 import React from 'react';
 import type { DesignSystemEventProviderAnalyticsEventTypes } from '../DesignSystemEventProvider';
-import type { AnalyticsEventOptionalProps } from '../types';
-export interface TypeaheadComboboxRootProps<T> extends React.HTMLAttributes<HTMLDivElement>, AnalyticsEventOptionalProps<DesignSystemEventProviderAnalyticsEventTypes.OnValueChange> {
+import type { AnalyticsEventProps } from '../types';
+export interface TypeaheadComboboxRootProps<T> extends React.HTMLAttributes<HTMLDivElement>, AnalyticsEventProps<DesignSystemEventProviderAnalyticsEventTypes.OnValueChange> {
     comboboxState: UseComboboxReturnValue<T>;
     multiSelect?: boolean;
     floatingUiRefs?: ExtendedRefs<Element>;

@@ -51,7 +51,7 @@ class InferenceTableSpanExporter(SpanExporter):
 
     def export(self, root_spans: Sequence[ReadableSpan]):
         """
-        Export the spans to MLflow backend.
+        Export the spans to Inference Table via the TTLCache buffer.
 
         Args:
             root_spans: A sequence of OpenTelemetry ReadableSpan objects to be exported.

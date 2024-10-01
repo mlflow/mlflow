@@ -61,10 +61,6 @@ export interface ModelVersionInfoEntity {
 /**
  * A run entity as seen in the API response
  */
-
-export interface RunInfoInputsEntity {
-  datasetInputs?: RunDatasetWithTags[];
-}
 export interface RunEntity {
   data: {
     params: KeyValueEntity[];
@@ -73,6 +69,10 @@ export interface RunEntity {
   };
   info: RunInfoEntity;
   inputs?: RunInfoInputsEntity;
+}
+
+export interface RunInfoInputsEntity {
+  datasetInputs?: RunDatasetWithTags[];
 }
 
 export interface RunInfoEntity {
@@ -150,6 +150,16 @@ export interface ExperimentStoreEntities {
    * Dictionary with run UUID as key and run info object as a value
    */
   runInfosByUuid: Record<string, RunInfoEntity>;
+
+  /**
+   * Array to ensure order of returned values is maintained.
+   *
+   * Run Info is stored as an object in the order that the backend responds
+   * with, BUT order is not guaranteed to be preserved when reading
+   * Object.values(runInfosByUuid). This array is used to ensure that the order
+   * is respected.
+   */
+  runInfoOrderByUuid: string[];
 
   /**
    * Dictionary of recorded input datasets by run UUIDs
@@ -346,6 +356,8 @@ export type ChartSectionConfig = {
   uuid: string; // Unique section ID of the section
   display: boolean; // Whether the section is displayed
   isReordered: boolean; // Whether the charts in the section has been reordered
+  columns?: number;
+  cardHeight?: number;
 };
 
 export type RunViewMetricConfig = {

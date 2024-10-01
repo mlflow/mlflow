@@ -9,5 +9,5 @@ export interface DialogComboboxOptionListSearchProps extends Omit<InputProps, 'c
     controlledValue?: string;
     setControlledValue?: (value: string) => void;
 }
-export declare const DialogComboboxOptionListSearch: React.ForwardRefExoticComponent<DialogComboboxOptionListSearchProps & React.RefAttributes<import("antd/lib/input/Input").default>>;
+export declare const DialogComboboxOptionListSearch: React.ForwardRefExoticComponent<DialogComboboxOptionListSearchProps & React.RefAttributes<import("antd").Input>>;
 //# sourceMappingURL=DialogComboboxOptionListSearch.d.ts.map

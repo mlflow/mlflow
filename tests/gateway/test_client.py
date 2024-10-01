@@ -36,7 +36,7 @@ def basic_config_dict():
                 "name": "chat",
                 "route_type": "llm/v1/chat",
                 "model": {
-                    "name": "gpt-3.5-turbo",
+                    "name": "gpt-4o-mini",
                     "provider": "openai",
                     "config": {"openai_api_key": "mykey"},
                 },
@@ -65,7 +65,7 @@ def mixed_config_dict():
                 "name": "chat",
                 "route_type": "llm/v1/chat",
                 "model": {
-                    "name": "gpt-3.5-turbo",
+                    "name": "gpt-4o-mini",
                     "provider": "openai",
                     "config": {"openai_api_key": "mykey"},
                 },
@@ -247,7 +247,7 @@ def test_get_individual_routes(gateway, monkeypatch):
     route2 = gateway_client.get_route(name="chat")
     assert isinstance(route2, Route)
     assert route2.dict() == {
-        "model": {"name": "gpt-3.5-turbo", "provider": "openai"},
+        "model": {"name": "gpt-4o-mini", "provider": "openai"},
         "name": "chat",
         "route_type": "llm/v1/chat",
         "route_url": resolve_route_url(gateway.url, "gateway/chat/invocations"),
@@ -262,7 +262,7 @@ def test_get_mixed_routes(mixed_gateway, monkeypatch):
     chat_route = gateway_client.get_route(name="chat")
     assert chat_route.route_type == "llm/v1/chat"
     assert chat_route.name == "chat"
-    assert chat_route.model.name == "gpt-3.5-turbo"
+    assert chat_route.model.name == "gpt-4o-mini"
     assert chat_route.model.provider == "openai"
     assert chat_route.route_url == resolve_route_url(mixed_gateway.url, "gateway/chat/invocations")
 
@@ -353,7 +353,7 @@ def test_list_all_configured_routes(gateway):
         "limit": None,
     }
     assert routes[1].dict() == {
-        "model": {"name": "gpt-3.5-turbo", "provider": "openai"},
+        "model": {"name": "gpt-4o-mini", "provider": "openai"},
         "name": "chat",
         "route_type": "llm/v1/chat",
         "route_url": resolve_route_url(gateway.url, "gateway/chat/invocations"),
@@ -372,7 +372,7 @@ def test_client_query_chat(gateway):
         "id": "chatcmpl-abc123",
         "object": "chat.completion",
         "created": 1677858242,
-        "model": "gpt-3.5-turbo-0301",
+        "model": "gpt-4o-mini",
         "choices": [
             {
                 "message": {

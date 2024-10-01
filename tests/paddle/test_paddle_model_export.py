@@ -19,7 +19,7 @@ import mlflow.paddle
 import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 from mlflow import pyfunc
 from mlflow.models import Model, ModelSignature
-from mlflow.models.utils import _read_example
+from mlflow.models.utils import _read_example, load_serving_example
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.types import DataType
@@ -561,18 +561,19 @@ def test_pyfunc_serve_and_score(pd_model):
     model, inference_dataframe = pd_model
     artifact_path = "model"
     with mlflow.start_run():
-        mlflow.paddle.log_model(
+        model_info = mlflow.paddle.log_model(
             model,
             artifact_path,
             extra_pip_requirements=[PROTOBUF_REQUIREMENT]
             if Version(paddle.__version__) < Version("2.5.0")
             else None,
+            input_example=pd.DataFrame(inference_dataframe),
         )
-        model_uri = mlflow.get_artifact_uri(artifact_path)
 
+    inference_payload = load_serving_example(model_info.model_uri)
     resp = pyfunc_serve_and_score_model(
-        model_uri,
-        data=pd.DataFrame(inference_dataframe),
+        model_info.model_uri,
+        data=inference_payload,
         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
     )
     scores = pd.DataFrame(

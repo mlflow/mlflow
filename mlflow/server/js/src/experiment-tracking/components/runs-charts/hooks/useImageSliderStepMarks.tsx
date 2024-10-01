@@ -1,4 +1,4 @@
-import { ImageEntity } from 'experiment-tracking/types';
+import { ImageEntity } from '@mlflow/mlflow/src/experiment-tracking/types';
 import { RunsChartsRunData } from '../components/RunsCharts.common';
 
 export const useImageSliderStepMarks = ({

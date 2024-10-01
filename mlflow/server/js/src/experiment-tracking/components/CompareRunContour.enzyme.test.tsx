@@ -8,7 +8,7 @@
 import React from 'react';
 import { shallow } from 'enzyme';
 import { CompareRunContour } from './CompareRunContour';
-import { shallowWithIntl } from 'common/utils/TestUtils.enzyme';
+import { shallowWithIntl } from '@mlflow/mlflow/src/common/utils/TestUtils.enzyme';
 
 describe('unit tests', () => {
   let wrapper: any;

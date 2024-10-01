@@ -28,7 +28,7 @@ import {
   DesignSystemHocProps,
   Empty,
   LayerIcon,
-  Tooltip,
+  LegacyTooltip,
   Typography,
   WithDesignSystemThemeHoc,
 } from '@databricks/design-system';
@@ -45,7 +45,7 @@ import { Button } from '@databricks/design-system';
 import { CopyIcon } from '@databricks/design-system';
 import { DownloadIcon } from '@databricks/design-system';
 import { Checkbox } from '@databricks/design-system';
-import { getLoggedTablesFromTags } from 'common/utils/TagUtils';
+import { getLoggedTablesFromTags } from '@mlflow/mlflow/src/common/utils/TagUtils';
 import { CopyButton } from '../../shared/building_blocks/CopyButton';
 
 const { Text } = Typography;
@@ -221,6 +221,7 @@ export class ArtifactViewImpl extends Component<ArtifactViewImplProps, ArtifactV
         <div style={{ display: 'inline-flex', alignItems: 'center' }}>
           {this.shouldShowViewAsTableCheckbox && (
             <Checkbox
+              componentId="codegen_mlflow_app_src_experiment-tracking_components_artifactview.tsx_288"
               isChecked={this.state.viewAsTable}
               onChange={() =>
                 this.setState({
@@ -234,7 +235,7 @@ export class ArtifactViewImpl extends Component<ArtifactViewImplProps, ArtifactV
               />
             </Checkbox>
           )}
-          <Tooltip
+          <LegacyTooltip
             arrowPointAtCenter
             placement="topLeft"
             title={this.props.intl.formatMessage({
@@ -247,7 +248,7 @@ export class ArtifactViewImpl extends Component<ArtifactViewImplProps, ArtifactV
               icon={<DownloadIcon />}
               onClick={() => this.onDownloadClick(runUuid, activeNodeId)}
             />
-          </Tooltip>
+          </LegacyTooltip>
         </div>
       </div>
     );
@@ -503,7 +504,7 @@ const mapStateToProps = (state: any, ownProps: any) => {
   const { runUuid } = ownProps;
   const { apis } = state;
   const artifactNode = getArtifacts(runUuid, state);
-  const artifactRootUri = getArtifactRootUri(runUuid, state);
+  const artifactRootUri = ownProps?.artifactRootUri ?? getArtifactRootUri(runUuid, state);
   const modelVersions = getAllModelVersions(state);
   const modelVersionsWithNormalizedSource = _.flatMap(modelVersions, (version) => {
     // @ts-expect-error TS(2698): Spread types may only be created from object types... Remove this comment to see the full error message
@@ -534,21 +535,21 @@ function ModelVersionInfoSection(props: ModelVersionInfoSectionProps) {
   // eslint-disable-next-line prefer-const
   let mvPageRoute = ModelRegistryRoutes.getModelVersionPageRoute(name, version);
   const modelVersionLink = (
-    <Tooltip title={`${name} version ${version}`}>
+    <LegacyTooltip title={`${name} version ${version}`}>
       <Link to={mvPageRoute} className="model-version-link" target="_blank" rel="noreferrer">
         <span className="model-name">{name}</span>
         <span>,&nbsp;v{version}&nbsp;</span>
         <i className="fas fa-external-link-o" />
       </Link>
-    </Tooltip>
+    </LegacyTooltip>
   );
 
   return (
     <div className="model-version-info">
       <div className="model-version-link-section">
-        <Tooltip title={status_message || modelVersionStatusIconTooltips[status]}>
+        <LegacyTooltip title={status_message || modelVersionStatusIconTooltips[status]}>
           <div>{ModelVersionStatusIcons[status]}</div>
-        </Tooltip>
+        </LegacyTooltip>
         {modelVersionLink}
       </div>
       <div className="model-version-status-text">

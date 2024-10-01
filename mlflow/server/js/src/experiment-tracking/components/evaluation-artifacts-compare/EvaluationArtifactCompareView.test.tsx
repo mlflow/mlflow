@@ -4,7 +4,8 @@ import { EvaluationArtifactCompareView } from './EvaluationArtifactCompareView';
 import configureStore from 'redux-mock-store';
 import { RunRowType } from '../experiment-page/utils/experimentPage.row-types';
 import { ExperimentPageViewState } from '../experiment-page/models/ExperimentPageViewState';
-import { renderWithIntl, act, within, screen } from 'common/utils/TestUtils.react18';
+import { renderWithIntl, act, within, screen } from '@mlflow/mlflow/src/common/utils/TestUtils.react18';
+
 import { getEvaluationTableArtifact } from '../../actions';
 import { MLFLOW_LOGGED_ARTIFACTS_TAG, MLFLOW_RUN_SOURCE_TYPE_TAG, MLflowRunSourceType } from '../../constants';
 import { EvaluationArtifactCompareTableProps } from './components/EvaluationArtifactCompareTable';
@@ -113,6 +114,44 @@ const SAMPLE_STATE = {
         entries: [
           { col_group: 'question_1', col_output: 'answer_1_run_c' },
           { col_group: 'question_2', col_output: 'answer_2_run_c' },
+        ],
+      },
+    },
+  },
+
+  evaluationDraftInputValues: [],
+  evaluationPendingDataByRunUuid: {},
+  evaluationPendingDataLoadingByRunUuid: {},
+  evaluationArtifactsErrorByRunUuid: {},
+  evaluationArtifactsLoadingByRunUuid: {},
+};
+
+const IMAGE_JSON = {
+  type: 'image',
+  filepath: 'fakePathUncompressed',
+  compressed_filepath: 'fakePath',
+};
+
+const SAMPLE_STATE_WITH_IMAGES = {
+  evaluationArtifactsBeingUploaded: {},
+  evaluationArtifactsByRunUuid: {
+    run_a: {
+      '/table.json': {
+        columns: ['col_group', 'col_group_2', 'col_output'],
+        path: '/table.json',
+        entries: [
+          { col_group: 'question_1', col_group_2: 'question_1', col_output: IMAGE_JSON },
+          { col_group: 'question_2', col_group_2: 'question_2', col_output: IMAGE_JSON },
+        ],
+      },
+    },
+    run_b: {
+      '/table.json': {
+        columns: ['col_group', 'col_output'],
+        path: '/table.json',
+        entries: [
+          { col_group: 'question_1', col_group_2: 'question_1', col_output: IMAGE_JSON },
+          { col_group: 'question_2', col_group_2: 'question_2', col_output: IMAGE_JSON },
         ],
       },
     },
@@ -490,5 +529,21 @@ describe('EvaluationArtifactCompareView', () => {
 
     expect(renderResult.getByTestId('dropdown-tables')).toBeDisabled();
     expect(renderResult.getByText(/No evaluation tables logged/)).toBeInTheDocument();
+  });
+
+  test('checks that image columns are correctly assigned to only be output columns', async () => {
+    mountTestComponent({ mockState: SAMPLE_STATE_WITH_IMAGES });
+
+    expect(getEvaluationTableArtifact).toBeCalledWith('run_a', '/table.json', false);
+    expect(getEvaluationTableArtifact).toBeCalledWith('run_b', '/table.json', false);
+
+    await userEvent.click(screen.getByLabelText('Select "group by" columns'));
+
+    // Check that the group by columns are properly populated and recognizes image columns as non-groupable
+    expect(within(screen.getByRole('listbox')).queryByLabelText('col_group')).toBeChecked();
+    expect(within(screen.getByRole('listbox')).queryByLabelText('col_group')).toBeInTheDocument();
+    expect(within(screen.getByRole('listbox')).queryByLabelText('col_group_2')).toBeInTheDocument();
+    expect(within(screen.getByRole('listbox')).queryByLabelText('col_group_2')).not.toBeChecked();
+    expect(within(screen.getByRole('listbox')).queryByLabelText('col_output')).not.toBeInTheDocument();
   });
 });

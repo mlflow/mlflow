@@ -14,6 +14,7 @@ Features:
 - Makes requests concurrently, to maximize throughput
 - Logs errors, to diagnose problems with requests
 """
+
 from __future__ import annotations
 
 import logging
@@ -27,7 +28,6 @@ from typing import Any, Dict, List, Optional, Union
 
 import langchain.chains
 from langchain.callbacks.base import BaseCallbackHandler
-from langchain.schema import AgentAction
 
 import mlflow
 from mlflow.exceptions import MlflowException
@@ -36,6 +36,7 @@ from mlflow.langchain.utils.chat import (
     try_transform_response_iter_to_chat_format,
     try_transform_response_to_chat_format,
 )
+from mlflow.langchain.utils.serialization import convert_to_serializable
 from mlflow.pyfunc.context import (
     Context,
     get_prediction_context,
@@ -104,56 +105,19 @@ class APIRequest:
     convert_chat_responses: bool
     did_perform_chat_conversion: bool
     stream: bool
+    params: Dict[str, Any]
     prediction_context: Optional[Context] = None
 
-    def _prepare_to_serialize(self, response: dict):
-        """
-        Converts LangChain objects to JSON-serializable formats.
-        """
-        from langchain.load.dump import dumps
-
-        if "intermediate_steps" in response:
-            steps = response["intermediate_steps"]
-            if (
-                isinstance(steps, tuple)
-                and len(steps) == 2
-                and isinstance(steps[0], AgentAction)
-                and isinstance(steps[1], str)
-            ):
-                response["intermediate_steps"] = [
-                    {
-                        "tool": agent.tool,
-                        "tool_input": agent.tool_input,
-                        "log": agent.log,
-                        "result": result,
-                    }
-                    for agent, result in response["intermediate_steps"]
-                ]
-            else:
-                try:
-                    # `AgentAction` objects are not yet implemented for serialization in `dumps`
-                    # https://github.com/langchain-ai/langchain/issues/8815#issuecomment-1666763710
-                    response["intermediate_steps"] = dumps(steps)
-                except Exception as e:
-                    _logger.warning(f"Failed to serialize intermediate steps: {e!r}")
-        # The `dumps` format for `Document` objects is noisy, so we will still have custom logic
-        if "source_documents" in response:
-            response["source_documents"] = [
-                {"page_content": doc.page_content, "metadata": doc.metadata}
-                for doc in response["source_documents"]
-            ]
-
     def _predict_single_input(self, single_input, callback_handlers, **kwargs):
+        config = kwargs.pop("config", {})
+        config["callbacks"] = config.get("callbacks", []) + (callback_handlers or [])
         if self.stream:
-            return self.lc_model.stream(
-                single_input, config={"callbacks": callback_handlers}, **kwargs
-            )
+            return self.lc_model.stream(single_input, config=config, **kwargs)
         if hasattr(self.lc_model, "invoke"):
-            return self.lc_model.invoke(
-                single_input, config={"callbacks": callback_handlers}, **kwargs
-            )
+            return self.lc_model.invoke(single_input, config=config, **kwargs)
         else:
             # for backwards compatibility, __call__ is deprecated and will be removed in 0.3.0
+            # kwargs shouldn't have config field if invoking with __call__
             return self.lc_model(single_input, callbacks=callback_handlers, **kwargs)
 
     def _try_convert_response(self, response):
@@ -165,24 +129,23 @@ class APIRequest:
     def single_call_api(self, callback_handlers: Optional[List[BaseCallbackHandler]]):
         from langchain.schema import BaseRetriever
 
-        from mlflow.langchain.utils import lc_runnables_types
+        from mlflow.langchain.utils import langgraph_types, lc_runnables_types
 
         if isinstance(self.lc_model, BaseRetriever):
             # Retrievers are invoked differently than Chains
-            docs = self.lc_model.get_relevant_documents(
-                **self.request_json, callbacks=callback_handlers
+            response = self.lc_model.get_relevant_documents(
+                **self.request_json, callbacks=callback_handlers, **self.params
             )
-            response = [
-                {"page_content": doc.page_content, "metadata": doc.metadata} for doc in docs
-            ]
-        elif isinstance(self.lc_model, lc_runnables_types()):
+        elif isinstance(self.lc_model, lc_runnables_types() + langgraph_types()):
             if isinstance(self.request_json, dict):
                 # This is a temporary fix for the case when spark_udf converts
                 # input into pandas dataframe with column name, while the model
                 # does not accept dictionaries as input, it leads to errors like
                 # Expected Scalar value for String field 'query_text'
                 try:
-                    response = self._predict_single_input(self.request_json, callback_handlers)
+                    response = self._predict_single_input(
+                        self.request_json, callback_handlers, **self.params
+                    )
                 except TypeError as e:
                     _logger.warning(
                         f"Failed to invoke {self.lc_model.__class__.__name__} "
@@ -198,9 +161,13 @@ class APIRequest:
                     )
                     self.did_perform_chat_conversion = did_perform_chat_conversion
 
-                    response = self._predict_single_input(prepared_request_json, callback_handlers)
+                    response = self._predict_single_input(
+                        prepared_request_json, callback_handlers, **self.params
+                    )
             else:
-                response = self._predict_single_input(self.request_json, callback_handlers)
+                response = self._predict_single_input(
+                    self.request_json, callback_handlers, **self.params
+                )
 
             if self.did_perform_chat_conversion or self.convert_chat_responses:
                 response = self._try_convert_response(response)
@@ -210,6 +177,7 @@ class APIRequest:
                 kwargs = {"return_only_outputs": True}
             else:
                 kwargs = {}
+            kwargs.update(**self.params)
             response = self._predict_single_input(self.request_json, callback_handlers, **kwargs)
 
             if self.did_perform_chat_conversion or self.convert_chat_responses:
@@ -218,10 +186,8 @@ class APIRequest:
                 # to maintain existing code, single output chains will still return
                 # only the result
                 response = response.popitem()[1]
-            else:
-                self._prepare_to_serialize(response)
 
-        return response
+        return convert_to_serializable(response)
 
     def call_api(
         self, status_tracker: StatusTracker, callback_handlers: Optional[List[BaseCallbackHandler]]
@@ -238,9 +204,9 @@ class APIRequest:
             self.results.append((self.index, response))
             status_tracker.complete_task(success=True)
         except Exception as e:
-            self.errors[
-                self.index
-            ] = f"error: {e!r} {traceback.format_exc()}\n request payload: {self.request_json}"
+            self.errors[self.index] = (
+                f"error: {e!r} {traceback.format_exc()}\n request payload: {self.request_json}"
+            )
             status_tracker.increment_num_api_errors()
             status_tracker.complete_task(success=False)
 
@@ -251,6 +217,7 @@ def process_api_requests(
     max_workers: int = 10,
     callback_handlers: Optional[List[BaseCallbackHandler]] = None,
     convert_chat_responses: bool = False,
+    params: Optional[Dict[str, Any]] = None,
 ):
     """
     Processes API requests in parallel.
@@ -293,6 +260,7 @@ def process_api_requests(
                     did_perform_chat_conversion=did_perform_chat_conversion,
                     stream=False,
                     prediction_context=get_prediction_context(),
+                    params=params,
                 )
                 status_tracker.start_task()
             else:
@@ -329,6 +297,7 @@ def process_stream_request(
     request_json: Union[Any, Dict[str, Any]],
     callback_handlers: Optional[List[BaseCallbackHandler]] = None,
     convert_chat_responses: bool = False,
+    params: Optional[Dict[str, Any]] = None,
 ):
     """
     Process single stream request.
@@ -354,6 +323,7 @@ def process_stream_request(
         did_perform_chat_conversion=did_perform_chat_conversion,
         stream=True,
         prediction_context=get_prediction_context(),
+        params=params,
     )
     with maybe_set_prediction_context(api_request.prediction_context):
         return api_request.single_call_api(callback_handlers)

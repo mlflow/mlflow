@@ -26,6 +26,7 @@ def process_method(method_descriptor, state):
             state.queries.add(method_descriptor)
         else:
             state.mutations.add(method_descriptor)
+        state.outputs.add(method_descriptor.output_type)
         populate_message_types(method_descriptor.input_type, state, True, set())
         populate_message_types(method_descriptor.output_type, state, False, set())
 

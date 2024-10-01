@@ -7,7 +7,7 @@
 
 import React from 'react';
 import _ from 'lodash';
-import { Button, LegacySelect, Switch, Tooltip, Radio, QuestionMarkIcon } from '@databricks/design-system';
+import { Button, LegacySelect, Switch, LegacyTooltip, Radio, QuestionMarkIcon } from '@databricks/design-system';
 import { Progress } from '../../common/components/Progress';
 import { CHART_TYPE_LINE, METRICS_PLOT_POLLING_INTERVAL_MS } from './MetricsPlotPanel';
 
@@ -100,9 +100,9 @@ export class MetricsPlotControlsImpl extends React.Component<Props> {
                   defaultMessage="Completed Runs"
                   description="Label for the progress bar to show the number of completed runs"
                 />{' '}
-                <Tooltip title={completedRunsTooltipText}>
+                <LegacyTooltip title={completedRunsTooltipText}>
                   <QuestionMarkIcon />
-                </Tooltip>
+                </LegacyTooltip>
                 <Progress
                   percent={Math.round((100 * numCompletedRuns) / numRuns)}
                   format={() => `${numCompletedRuns}/${numRuns}`}
@@ -118,6 +118,7 @@ export class MetricsPlotControlsImpl extends React.Component<Props> {
                 />
               </div>
               <Switch
+                componentId="codegen_mlflow_app_src_experiment-tracking_components_metricsplotcontrols.tsx_120"
                 data-testid="show-point-toggle"
                 defaultChecked={showPoint}
                 onChange={this.props.handleShowPointChange}
@@ -130,9 +131,9 @@ export class MetricsPlotControlsImpl extends React.Component<Props> {
                     defaultMessage="Line Smoothness"
                     description="Label for the smoothness slider for the graph plot for metrics"
                   />{' '}
-                  <Tooltip title={lineSmoothnessTooltipText}>
+                  <LegacyTooltip title={lineSmoothnessTooltipText}>
                     <QuestionMarkIcon />
-                  </Tooltip>
+                  </LegacyTooltip>
                 </div>
                 <LineSmoothSlider
                   data-testid="smoothness-toggle"
@@ -152,6 +153,7 @@ export class MetricsPlotControlsImpl extends React.Component<Props> {
                 />
               </div>
               <RadioGroup
+                componentId="codegen_mlflow_app_src_experiment-tracking_components_metricsplotcontrols.tsx_154"
                 name="metrics-plot-x-axis-radio-group"
                 css={styles.xAxisControls}
                 onChange={this.props.handleXAxisChange}
@@ -217,7 +219,11 @@ export class MetricsPlotControlsImpl extends React.Component<Props> {
               description="Label for the radio button to toggle the Log scale on the Y-axis of the metric graph for the experiment"
             />
           </div>
-          <Switch defaultChecked={yAxisLogScale} onChange={this.props.handleYAxisLogScaleChange} />
+          <Switch
+            componentId="codegen_mlflow_app_src_experiment-tracking_components_metricsplotcontrols.tsx_220"
+            defaultChecked={yAxisLogScale}
+            onChange={this.props.handleYAxisLogScaleChange}
+          />
         </div>
         <div className="inline-control">
           <Button

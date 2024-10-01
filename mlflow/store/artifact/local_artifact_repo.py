@@ -122,7 +122,10 @@ class LocalArtifactRepository(ArtifactRepository):
         )
 
         if os.path.exists(artifact_path):
-            shutil.rmtree(artifact_path)
+            if os.path.isfile(artifact_path):
+                os.remove(artifact_path)
+            else:
+                shutil.rmtree(artifact_path)
 
     def download_trace_data(self) -> Dict[str, Any]:
         """

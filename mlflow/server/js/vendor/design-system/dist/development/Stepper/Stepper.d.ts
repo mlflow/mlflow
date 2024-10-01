@@ -1,4 +1,3 @@
-/// <reference types="react" />
 export interface Step {
     /**
      * Title of the step

@@ -81,7 +81,7 @@ export type EndpointModelGatewayResponseType = EndpointModelCompletionsResponseT
 
 export interface ModelGatewayModelInfo {
   /**
-   * "Original" name of the model (e.g. "gpt-3.5-turbo")
+   * "Original" name of the model (e.g. "gpt-4o-mini")
    */
   name: string;
   /**

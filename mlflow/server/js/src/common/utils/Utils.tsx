@@ -64,7 +64,7 @@ class Utils {
   /**
    * Displays the error notification in the UI.
    */
-  static displayGlobalErrorNotification(content: any, duration: any) {
+  static displayGlobalErrorNotification(content: any, duration?: any) {
     if (!Utils.#notificationsApi) {
       return;
     }

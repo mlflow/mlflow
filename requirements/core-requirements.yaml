@@ -21,7 +21,7 @@ flask:
 
 numpy:
   pip_release: numpy
-  max_major_version: 1
+  max_major_version: 2
 
 scipy:
   pip_release: scipy
@@ -31,10 +31,6 @@ pandas:
   pip_release: pandas
   max_major_version: 2
 
-querystring_parser:
-  pip_release: querystring_parser
-  max_major_version: 1
-
 sqlalchemy:
   pip_release: sqlalchemy
   minimum: "1.4.0"
@@ -42,7 +38,7 @@ sqlalchemy:
 
 gunicorn:
   pip_release: gunicorn
-  max_major_version: 22
+  max_major_version: 23
   markers: "platform_system != 'Windows'"
 
 waitress:
@@ -57,7 +53,7 @@ scikit-learn:
 pyarrow:
   pip_release: pyarrow
   minimum: "4.0.0"
-  max_major_version: 15
+  max_major_version: 17
 
 markdown:
   pip_release: markdown

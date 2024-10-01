@@ -37,7 +37,7 @@ def train(training_data, max_runs, epochs, metric, algo, seed):
     # create random file to store run ids of the training tasks
     tracking_client = MlflowClient()
 
-    def new_eval(
+    def new_eval(  # noqa: D417
         nepochs, experiment_id, null_train_loss, null_valid_loss, null_test_loss, return_all=False
     ):
         """

@@ -12,7 +12,7 @@ import promiseMiddleware from 'redux-promise-middleware';
 import configureStore from 'redux-mock-store';
 import { Provider } from 'react-redux';
 import { MemoryRouter } from '../../common/utils/RoutingUtils';
-import { mountWithIntl } from 'common/utils/TestUtils.enzyme';
+import { mountWithIntl } from '@mlflow/mlflow/src/common/utils/TestUtils.enzyme';
 
 describe('unconnected tests', () => {
   let wrapper;

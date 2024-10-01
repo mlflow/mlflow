@@ -1,6 +1,6 @@
 import type { ReactWrapper } from 'enzyme';
 import { MockedReduxStoreProvider } from '../../../../../common/utils/TestUtils';
-import { mountWithIntl } from 'common/utils/TestUtils.enzyme';
+import { mountWithIntl } from '@mlflow/mlflow/src/common/utils/TestUtils.enzyme';
 import { EXPERIMENT_RUNS_MOCK_STORE } from '../../fixtures/experiment-runs.fixtures';
 import { ExperimentViewRuns, ExperimentViewRunsProps } from './ExperimentViewRuns';
 import { MemoryRouter } from '../../../../../common/utils/RoutingUtils';

@@ -14,10 +14,6 @@ const JEST_REACT_VERSIONS_FILE = '.jestreactversions';
 
 const userJestReact17FilePath = path.join(userDir, JEST_REACT_VERSIONS_FILE);
 
-if (!fs.existsSync(userJestReact17FilePath)) {
-  throw new Error(`${JEST_REACT_VERSIONS_FILE} does not exist`);
-}
-
 interface JestReactVersionModifiers {
   reactVersion: 17 | 18;
   rtlVersion: 12 | 14;
@@ -60,12 +56,8 @@ function getPatternFromLine(line: string): string {
   return line.split(',')[0];
 }
 
-const userJestReactVersionsLines = fs
-  .readFileSync(path.join(userDir, JEST_REACT_VERSIONS_FILE), 'utf8')
-  .replace(/^#.*$/gm, '')
-  .split('\n')
-  .map((line) => line.trim())
-  .filter(Boolean);
+// TODO: Clean this up, .jestreactversions file does not exist anymore
+const userJestReactVersionsLines = [];
 
 // Check if the current file fits any of the patterns in the .jestreactversions file
 const currentTestLine = relativeTestPath

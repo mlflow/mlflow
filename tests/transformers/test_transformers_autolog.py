@@ -3,11 +3,13 @@ import random
 import numpy as np
 import optuna
 import pytest
+import setfit
 import sklearn
 import sklearn.cluster
 import sklearn.datasets
 import torch
 from datasets import load_dataset
+from packaging.version import Version
 from sentence_transformers.losses import CosineSimilarityLoss
 from setfit import SetFitModel, sample_dataset
 from setfit import Trainer as SetFitTrainer
@@ -51,7 +53,7 @@ def setfit_trainer():
     #   evaluation_strategy argument is being addressed in the SetFit library.
     training_args.eval_strategy = training_args.evaluation_strategy
 
-    return SetFitTrainer(
+    trainer = SetFitTrainer(
         model=model,
         train_dataset=train_dataset,
         eval_dataset=eval_dataset,
@@ -59,6 +61,18 @@ def setfit_trainer():
         column_mapping={"sentence": "text", "label": "label"},
         args=training_args,
     )
+
+    # setfit >= 1.1.0 defines an internal BCSentenceTransformersTrainer
+    # which directly uses transformers.Trainer, and the default callbacks
+    # include MLflowCallback, so it produces extra runs no matter autologging
+    # is on or off
+    # ref: https://github.com/huggingface/transformers/blob/11c27dd331151e7d2ac20016cce11d9d7c4b1756/src/transformers/integrations/integration_utils.py#L2138
+    if Version(setfit.__version__) >= Version("1.1.0"):
+        from transformers.integrations.integration_utils import MLflowCallback
+
+        trainer.remove_callback(MLflowCallback)
+
+    return trainer
 
 
 @pytest.fixture
@@ -450,7 +464,7 @@ def test_disabled_sklearn_autologging_does_not_revert_to_enabled_with_setfit(
     client = mlflow.MlflowClient()
     runs = client.search_runs([exp.experiment_id])
 
-    assert len(runs) == 1  # SetFit should not create a run in the experiment
+    assert len(runs) == 1
     assert runs[0].info == logged_sklearn_data.info
 
 

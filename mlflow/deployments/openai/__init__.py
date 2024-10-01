@@ -41,7 +41,7 @@ class OpenAIDeploymentClient(BaseDeploymentClient):
 
         client = get_deploy_client("openai")
         client.predict(
-            endpoint="gpt-3.5-turbo",
+            endpoint="gpt-4o-mini",
             inputs={
                 "messages": [
                     {"role": "user", "content": "Hello!"},

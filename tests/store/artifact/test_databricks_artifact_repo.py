@@ -722,7 +722,7 @@ def test_list_artifacts_handles_pagination(databricks_artifact_repo):
             mock.call(ListArtifacts(run_id=MOCK_RUN_ID, path="", page_token="4")),
             mock.call(ListArtifacts(run_id=MOCK_RUN_ID, path="", page_token="6")),
         ]
-        message_mock.assert_has_calls(calls)
+        assert message_mock.mock_calls == calls
 
 
 def test_get_read_credential_infos_handles_pagination(databricks_artifact_repo):

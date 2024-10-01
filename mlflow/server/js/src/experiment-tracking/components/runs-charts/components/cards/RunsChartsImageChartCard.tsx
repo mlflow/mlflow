@@ -19,9 +19,9 @@ import {
   DEFAULT_IMAGE_GRID_CHART_NAME,
   LOG_IMAGE_TAG_INDICATOR,
   NUM_RUNS_TO_SUPPORT_FOR_LOG_IMAGE,
-} from 'experiment-tracking/constants';
-import { LineSmoothSlider } from 'experiment-tracking/components/LineSmoothSlider';
-import { RunsGroupByConfig } from 'experiment-tracking/components/experiment-page/utils/experimentPage.group-row-utils';
+} from '@mlflow/mlflow/src/experiment-tracking/constants';
+import { LineSmoothSlider } from '@mlflow/mlflow/src/experiment-tracking/components/LineSmoothSlider';
+import { RunsGroupByConfig } from '@mlflow/mlflow/src/experiment-tracking/components/experiment-page/utils/experimentPage.group-row-utils';
 
 export interface RunsChartsImageChartCardProps extends RunsChartCardReorderProps, RunsChartCardFullScreenProps {
   config: RunsChartsImageCardConfig;
@@ -37,14 +37,10 @@ export const RunsChartsImageChartCard = ({
   chartRunData,
   onDelete,
   onEdit,
-  onReorderWith,
-  canMoveDown,
-  canMoveUp,
-  onMoveDown,
-  onMoveUp,
   groupBy,
   fullScreen,
   setFullScreenChart,
+  ...reorderProps
 }: RunsChartsImageChartCardProps) => {
   const { theme } = useDesignSystemTheme();
   const containerRef = useRef(null);
@@ -180,12 +176,8 @@ export const RunsChartsImageChartCard = ({
       }
       uuid={config.uuid}
       dragGroupKey={RunsChartsChartsDragGroup.GENERAL_AREA}
-      onReorderWith={onReorderWith}
-      canMoveDown={canMoveDown}
-      canMoveUp={canMoveUp}
-      onMoveDown={onMoveDown}
-      onMoveUp={onMoveUp}
       toggleFullScreenChart={toggleFullScreenChart}
+      {...reorderProps}
     >
       {chartBody}
     </RunsChartCardWrapper>

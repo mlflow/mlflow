@@ -8,9 +8,10 @@ import Routes from '../../../../routes';
 import { CopyButton } from '../../../../../shared/building_blocks/CopyButton';
 import { ExperimentPageSearchFacetsState } from '../../models/ExperimentPageSearchFacetsState';
 import { ExperimentPageUIState } from '../../models/ExperimentPageUIState';
-import { getStringSHA256 } from '../../../../../common/utils/StringUtils';
+import { getStringSHA256, textCompressDeflate } from '../../../../../common/utils/StringUtils';
 import Utils from '../../../../../common/utils/Utils';
 import { EXPERIMENT_PAGE_VIEW_STATE_SHARE_TAG_PREFIX } from '../../../../constants';
+import { shouldUseCompressedExperimentViewSharedState } from '../../../../../common/utils/FeatureUtils';
 
 type GetShareLinkModalProps = {
   onCancel: () => void;
@@ -21,6 +22,19 @@ type GetShareLinkModalProps = {
 };
 
 type ShareableViewState = ExperimentPageSearchFacetsState & ExperimentPageUIState;
+
+// Typescript-based test to ensure that the keys of the two states are disjoint.
+// If they are not disjoint, the state serialization will not work as expected.
+const _arePersistedStatesDisjoint: [
+  keyof ExperimentPageSearchFacetsState & keyof ExperimentPageUIState extends never ? true : false,
+] = [true];
+
+const serializePersistedState = async (state: ShareableViewState) => {
+  if (shouldUseCompressedExperimentViewSharedState()) {
+    return textCompressDeflate(JSON.stringify(state));
+  }
+  return JSON.stringify(state);
+};
 
 /**
  * Modal that displays shareable link for the experiment page.
@@ -52,23 +66,23 @@ export const ExperimentGetShareLinkModal = ({
       }
       setLinkInProgress(true);
       const [experimentId] = experimentIds;
-      const data = JSON.stringify(state);
-      const hash = await getStringSHA256(data);
+      try {
+        const data = await serializePersistedState(state);
+        const hash = await getStringSHA256(data);
 
-      const tagName = `${EXPERIMENT_PAGE_VIEW_STATE_SHARE_TAG_PREFIX}${hash}`;
+        const tagName = `${EXPERIMENT_PAGE_VIEW_STATE_SHARE_TAG_PREFIX}${hash}`;
 
-      dispatch(setExperimentTagApi(experimentId, tagName, data))
-        .then(() => {
-          setLinkInProgress(false);
-          setGeneratedState(state);
-          const pageRoute = Routes.getExperimentPageRoute(experimentId, false, hash);
-          const shareURL = `${window.location.origin}${window.location.pathname}#${pageRoute}`;
-          setSharedStateUrl(shareURL);
-        })
-        .catch((e) => {
-          Utils.logErrorAndNotifyUser('Failed to create shareable link for experiment');
-          throw e;
-        });
+        await dispatch(setExperimentTagApi(experimentId, tagName, data));
+
+        setLinkInProgress(false);
+        setGeneratedState(state);
+        const pageRoute = Routes.getExperimentPageRoute(experimentId, false, hash);
+        const shareURL = `${window.location.origin}${window.location.pathname}#${pageRoute}`;
+        setSharedStateUrl(shareURL);
+      } catch (e) {
+        Utils.logErrorAndNotifyUser('Failed to create shareable link for experiment');
+        throw e;
+      }
     },
     [dispatch, experimentIds],
   );
@@ -82,6 +96,7 @@ export const ExperimentGetShareLinkModal = ({
 
   return (
     <Modal
+      componentId="codegen_mlflow_app_src_experiment-tracking_components_experiment-page_components_header_experimentgetsharelinkmodal.tsx_101"
       title={
         <FormattedMessage
           defaultMessage="Get shareable link"
@@ -95,7 +110,12 @@ export const ExperimentGetShareLinkModal = ({
         {linkInProgress ? (
           <GenericSkeleton css={{ flex: 1 }} />
         ) : (
-          <Input placeholder="Click button on the right to create shareable state" value={sharedStateUrl} readOnly />
+          <Input
+            componentId="codegen_mlflow_app_src_experiment-tracking_components_experiment-page_components_header_experimentgetsharelinkmodal.tsx_115"
+            placeholder="Click button on the right to create shareable state"
+            value={sharedStateUrl}
+            readOnly
+          />
         )}
         <CopyButton loading={linkInProgress} copyText={sharedStateUrl} />
       </div>

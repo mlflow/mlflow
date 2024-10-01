@@ -4,7 +4,7 @@ import {
   TableCell,
   TableHeader,
   TableRow,
-  Tooltip,
+  LegacyTooltip,
   Empty,
   PlusIcon,
   TableSkeletonRows,
@@ -83,7 +83,7 @@ export const ModelListTable = ({
         accessorKey: 'name',
         cell: ({ getValue }) => (
           <Link to={ModelRegistryRoutes.getModelPageRoute(String(getValue()))}>
-            <Tooltip title={getValue()}>{getValue()}</Tooltip>
+            <LegacyTooltip title={getValue()}>{getValue()}</LegacyTooltip>
           </Link>
         ),
         meta: { styles: { minWidth: 200, flex: 1 } },

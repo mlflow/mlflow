@@ -122,6 +122,7 @@ export const useEditRegisteredModelAliasesModal = ({
 
   const EditAliasesModal = (
     <Modal
+      componentId="codegen_mlflow_app_src_model-registry_hooks_useeditregisteredmodelaliasesmodal.tsx_127"
       visible={showModal}
       footer={
         <div>
@@ -187,6 +188,7 @@ export const useEditRegisteredModelAliasesModal = ({
         <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
           {isExceedingLimit && (
             <Alert
+              componentId="codegen_mlflow_app_src_model-registry_hooks_useeditregisteredmodelaliasesmodal.tsx_192"
               role="alert"
               message={
                 <FormattedMessage
@@ -201,6 +203,7 @@ export const useEditRegisteredModelAliasesModal = ({
           )}
           {conflictedAliases.map(({ alias, otherVersion }) => (
             <Alert
+              componentId="codegen_mlflow_app_src_model-registry_hooks_useeditregisteredmodelaliasesmodal.tsx_206"
               role="alert"
               key={alias}
               message={
@@ -214,7 +217,15 @@ export const useEditRegisteredModelAliasesModal = ({
               closable={false}
             />
           ))}
-          {errorMessage && <Alert role="alert" message={errorMessage} type="error" closable={false} />}
+          {errorMessage && (
+            <Alert
+              componentId="codegen_mlflow_app_src_model-registry_hooks_useeditregisteredmodelaliasesmodal.tsx_220"
+              role="alert"
+              message={errorMessage}
+              type="error"
+              closable={false}
+            />
+          )}
         </div>
       </Form>
     </Modal>

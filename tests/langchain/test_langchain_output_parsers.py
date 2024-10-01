@@ -13,7 +13,8 @@ def test_chatcompletions_output_parser_parse_response():
                 "index": 0,
                 "message": {"content": "The weather today is", "role": "assistant"},
             }
-        ]
+        ],
+        "object": "chat.completion",
     }
 
 

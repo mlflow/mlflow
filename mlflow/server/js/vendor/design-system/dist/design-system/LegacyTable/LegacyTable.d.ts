@@ -1,4 +1,3 @@
-/// <reference types="react" />
 import type { TableColumnGroupType as AntDTableColumnGroupType, TableColumnProps as AntDTableColumnProps, TableColumnsType as AntDTableColumnsType, TableColumnType as AntDTableColumnType, TablePaginationConfig as AntDTablePaginationConfig, TableProps as AntDTableProps } from 'antd';
 /**
  * `LegacyTable` is deprecated in favor of the new `Table` component

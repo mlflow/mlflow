@@ -343,6 +343,7 @@ export class ModelViewImpl extends React.Component<ModelViewImplProps, ModelView
                 </span>
                 {!this.props.usingNextModelsUI && (
                   <SegmentedControlGroup
+                    componentId="codegen_mlflow_app_src_model-registry_components_modelview.tsx_600"
                     name="stage-filter"
                     value={this.state.stageFilter}
                     onChange={(e) => this.handleStageFilterChange(e)}
@@ -405,6 +406,7 @@ export class ModelViewImpl extends React.Component<ModelViewImplProps, ModelView
 
         {/* Delete Model Dialog */}
         <DangerModal
+          componentId="codegen_mlflow_app_src_model-registry_components_modelview.tsx_662"
           data-testid="mlflow-input-modal"
           title={this.props.intl.formatMessage({
             defaultMessage: 'Delete Model',

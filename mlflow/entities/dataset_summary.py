@@ -1,3 +1,6 @@
+from mlflow.protos.service_pb2 import DatasetSummary
+
+
 class _DatasetSummary:
     """
     DatasetSummary object.
@@ -39,3 +42,21 @@ class _DatasetSummary:
             "digest": self.digest,
             "context": self.context,
         }
+
+    def to_proto(self):
+        dataset_summary = DatasetSummary()
+        dataset_summary.experiment_id = self.experiment_id
+        dataset_summary.name = self.name
+        dataset_summary.digest = self.digest
+        if self.context:
+            dataset_summary.context = self.context
+        return dataset_summary
+
+    @classmethod
+    def from_proto(cls, proto):
+        return cls(
+            experiment_id=proto.experiment_id,
+            name=proto.name,
+            digest=proto.digest,
+            context=proto.context,
+        )

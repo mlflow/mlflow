@@ -1,7 +1,6 @@
-/// <reference types="react" />
 import type { DesignSystemEventProviderAnalyticsEventTypes } from '../../DesignSystemEventProvider/DesignSystemEventProvider';
-import type { AnalyticsEventOptionalProps } from '../../types';
-export interface DialogComboboxContextType extends AnalyticsEventOptionalProps<DesignSystemEventProviderAnalyticsEventTypes.OnValueChange> {
+import type { AnalyticsEventValueChangeNoPiiFlagProps } from '../../types';
+export interface DialogComboboxContextType extends AnalyticsEventValueChangeNoPiiFlagProps<DesignSystemEventProviderAnalyticsEventTypes.OnValueChange> {
     id?: string;
     label?: string | React.ReactNode;
     value: string[];

@@ -27,7 +27,7 @@ import { ArtifactViewErrorState } from './artifact-view-components/ArtifactViewE
 type ArtifactPageImplProps = {
   runUuid: string;
   initialSelectedArtifactPath?: string;
-  artifactRootUri: string;
+  artifactRootUri?: string;
   apis: any;
   listArtifactsApi: (...args: any[]) => any;
   searchModelVersionsApi: (...args: any[]) => any;
@@ -180,7 +180,6 @@ export class ArtifactPageImpl extends Component<ArtifactPageImplProps, ArtifactP
 type ArtifactPageOwnProps = Omit<
   ArtifactPageImplProps,
   | 'apis'
-  | 'artifactRootUri'
   | 'initialSelectedArtifactPath'
   | 'listArtifactsApi'
   | 'searchModelVersionsApi'
@@ -200,7 +199,7 @@ const mapStateToProps = (state: any, ownProps: ArtifactPageOwnProps & WithRouter
   const initialSelectedArtifactPath = initialSelectedArtifactPathMatch?.[1] || undefined;
 
   const { apis } = state;
-  const artifactRootUri = getArtifactRootUri(runUuid, state);
+  const artifactRootUri = ownProps.artifactRootUri ?? getArtifactRootUri(runUuid, state);
 
   // Autoselect most recently created logged model
   let selectedPath = initialSelectedArtifactPath;

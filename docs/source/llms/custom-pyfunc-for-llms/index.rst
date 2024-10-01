@@ -4,6 +4,18 @@ Deploying Advanced LLMs with Custom PyFuncs in MLflow
 Advanced Large Language Models (LLMs) such as the MPT-7B instruct transformer are intricate and have requirements that don't align with 
 traditional MLflow flavors. This demands a deeper understanding and the need for custom solutions.
 
+.. note::
+
+    This tutorial utilizes the :py:class:`mlflow.pyfunc.PythonModel` class to create a custom PyFunc model for building custom GenAI solutions. 
+    It is recommended to utilize the newer :py:class:`mlflow.pyfunc.ChatModel` class for building custom implementations due to a simplified 
+    development experience and an easier approach to deployment. To learn more, see `the guide to building GenAI applications with ChatModel <../chat-model-guide/index.html>`_.
+
+.. tip::
+
+    MLflow 2.12.2 introduced the feature "models from code", which greatly simplifies the process of serializing and deploying custom models through the use 
+    of script serialization. While the tutorial here is valuable as a point of reference, we strongly recommend migrating custom model implementations to this 
+    new paradigm. You can learn more about models from code within the `Models From Code Guide <../../model/models-from-code.html>`_.
+
 What's in this tutorial?
 
 This guide is designed to provide insights into the deployment of advanced LLMs with MLflow, with a focus on using custom PyFuncs to address challenges:

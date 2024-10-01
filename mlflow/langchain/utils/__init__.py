@@ -1,6 +1,7 @@
 """Utility functions for mlflow.langchain."""
 
 import contextlib
+import functools
 import importlib
 import json
 import logging
@@ -45,28 +46,14 @@ _BASE_LOAD_KEY = "base_load"
 _CONFIG_LOAD_KEY = "config_load"
 _PICKLE_LOAD_KEY = "pickle_load"
 _MODEL_LOAD_KEY = "model_load"
-_UNSUPPORTED_MODEL_ERROR_MESSAGE = (
-    "MLflow langchain flavor only supports subclasses of "
-    "langchain.chains.base.Chain, langchain.agents.agent.AgentExecutor, "
-    "langchain.schema.BaseRetriever, langchain.schema.runnable.RunnableSequence, "
-    "langchain.schema.runnable.RunnableLambda, "
-    "langchain.schema.runnable.RunnableParallel, "
-    "langchain.schema.runnable.RunnablePassthrough, "
-    "langchain.schema.runnable.passthrough.RunnableAssign instances, "
-    "found {instance_type}"
-)
 _UNSUPPORTED_MODEL_WARNING_MESSAGE = (
     "MLflow does not guarantee support for Chains outside of the subclasses of LLMChain, found %s"
 )
 _UNSUPPORTED_LLM_WARNING_MESSAGE = (
-    "MLflow does not guarantee support for LLMs outside of HuggingFaceHub and OpenAI, found %s"
+    "MLflow does not guarantee support for LLMs outside of HuggingFacePipeline and OpenAI, found %s"
 )
 
-# Minimum version of langchain required to support ChatOpenAI and AzureChatOpenAI in MLflow
-# Before this version, our hacky patching to support loading ChatOpenAI and AzureChatOpenAI
-# will not work.
-_LC_MIN_VERSION_SUPPORT_CHAT_OPEN_AI = Version("0.0.307")
-_LC_MIN_VERSION_SUPPORT_RUNNABLE = Version("0.0.311")
+
 _CHAT_MODELS_ERROR_MSG = re.compile("Loading (openai-chat|azure-openai-chat) LLM not supported")
 
 
@@ -104,71 +91,39 @@ def picklable_runnable_types():
     """
     from langchain.chat_models.base import SimpleChatModel
     from langchain.prompts import ChatPromptTemplate
+    from langchain.schema.runnable import RunnableLambda, RunnablePassthrough
 
-    types = (
+    return (
         SimpleChatModel,
         ChatPromptTemplate,
+        RunnablePassthrough,
+        RunnableLambda,
     )
-
-    try:
-        from langchain.schema.runnable import (
-            RunnableLambda,
-            RunnablePassthrough,
-        )
-
-        types += (RunnableLambda, RunnablePassthrough)
-    except ImportError:
-        pass
-
-    return types
 
 
 @lru_cache
 def lc_runnable_with_steps_types():
-    # import them separately because they are added
-    # in different versions of langchain
-    try:
-        from langchain.schema.runnable import RunnableSequence
+    from langchain.schema.runnable import RunnableParallel, RunnableSequence
 
-        types = (RunnableSequence,)
-    except ImportError:
-        types = ()
-
-    try:
-        from langchain.schema.runnable import RunnableParallel
-
-        types += (RunnableParallel,)
-    except ImportError:
-        pass
-
-    return types
+    return (RunnableParallel, RunnableSequence)
 
 
 def lc_runnable_assign_types():
-    try:
-        from langchain.schema.runnable.passthrough import RunnableAssign
+    from langchain.schema.runnable.passthrough import RunnableAssign
 
-        return (RunnableAssign,)
-    except ImportError:
-        return ()
+    return (RunnableAssign,)
 
 
 def lc_runnable_branch_types():
-    try:
-        from langchain.schema.runnable import RunnableBranch
+    from langchain.schema.runnable import RunnableBranch
 
-        return (RunnableBranch,)
-    except ImportError:
-        return ()
+    return (RunnableBranch,)
 
 
 def lc_runnable_binding_types():
-    try:
-        from langchain.schema.runnable import RunnableBinding
+    from langchain.schema.runnable import RunnableBinding
 
-        return (RunnableBinding,)
-    except ImportError:
-        return ()
+    return (RunnableBinding,)
 
 
 def lc_runnables_types():
@@ -181,8 +136,25 @@ def lc_runnables_types():
     )
 
 
+def langgraph_types():
+    try:
+        from langgraph.graph.graph import CompiledGraph
+
+        return (CompiledGraph,)
+    except ImportError:
+        return ()
+
+
 def supported_lc_types():
-    return base_lc_types() + lc_runnables_types()
+    return base_lc_types() + lc_runnables_types() + langgraph_types()
+
+
+# Wrapping as a function to avoid callign supported_lc_types() at import time
+def get_unsupported_model_message(model_type):
+    return (
+        "MLflow langchain flavor only supports subclasses of "
+        f"{supported_lc_types()}, found {model_type}."
+    )
 
 
 @lru_cache
@@ -253,9 +225,6 @@ def _get_map_of_special_chain_class_to_loader_arg():
 
 @lru_cache
 def _get_supported_llms():
-    import langchain.chat_models
-    import langchain.llms
-
     supported_llms = set()
 
     def try_adding_llm(module, class_name):
@@ -271,11 +240,14 @@ def _get_supported_llms():
             pass
 
     safe_import_and_add("langchain.llms.openai", "OpenAI")
-    safe_import_and_add("langchain.llms.huggingface_hub", "HuggingFaceHub")
+    # HuggingFacePipeline is moved to langchain_huggingface since langchain 0.2.0
+    safe_import_and_add("langchain.llms", "HuggingFacePipeline")
+    safe_import_and_add("langchain.langchain_huggingface", "HuggingFacePipeline")
     safe_import_and_add("langchain_openai", "OpenAI")
+    safe_import_and_add("langchain_databricks", "ChatDatabricks")
 
     for llm_name in ["Databricks", "Mlflow"]:
-        try_adding_llm(langchain.llms, llm_name)
+        safe_import_and_add("langchain.llms", llm_name)
 
     for chat_model_name in [
         "ChatDatabricks",
@@ -283,7 +255,7 @@ def _get_supported_llms():
         "ChatOpenAI",
         "AzureChatOpenAI",
     ]:
-        try_adding_llm(langchain.chat_models, chat_model_name)
+        safe_import_and_add("langchain.chat_models", chat_model_name)
 
     return supported_llms
 
@@ -317,7 +289,7 @@ def _validate_and_prepare_lc_model_or_path(lc_model, loader_fn, temp_dir=None):
 
     if not isinstance(lc_model, supported_lc_types()):
         raise mlflow.MlflowException.invalid_parameter_value(
-            _UNSUPPORTED_MODEL_ERROR_MESSAGE.format(instance_type=type(lc_model).__name__)
+            get_unsupported_model_message(type(lc_model).__name__)
         )
 
     _SUPPORTED_LLMS = _get_supported_llms()
@@ -434,14 +406,11 @@ def _save_base_lcs(model, path, loader_fn=None, persist_dir=None):
         # Save model
         model.save(model_data_path)
     elif isinstance(model, Chain):
-        logger.warning(
-            _UNSUPPORTED_MODEL_WARNING_MESSAGE,
-            type(model).__name__,
-        )
+        logger.warning(get_unsupported_model_message(type(model).__name__))
         model.save(model_data_path)
     else:
         raise mlflow.MlflowException.invalid_parameter_value(
-            _UNSUPPORTED_MODEL_ERROR_MESSAGE.format(instance_type=type(model).__name__)
+            get_unsupported_model_message(type(model).__name__)
         )
 
     return model_data_kwargs
@@ -572,73 +541,64 @@ def _load_base_lcs(
     return model
 
 
-@contextlib.contextmanager
-def patch_langchain_type_to_cls_dict():
-    """Patch LangChain's type_to_cls_dict config to handle unsupported types like ChatOpenAI.
+def patch_langchain_type_to_cls_dict(func):
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        def _load_chat_openai():
+            from langchain_community.chat_models import ChatOpenAI
 
-    The type_to_cls_dict is a hard-coded dictionary in LangChain code base that defines the mapping
-    between the LLM type e.g. "openai" to the loader function for the corresponding LLM class.
-    However, this dictionary doesn't contain some chat models like ChatOpenAI, AzureChatOpenAI,
-    which makes it unable to save and load chains with these models. Ideally, the config should
-    be updated in the LangChain code base, but similar requests have been rejected multiple times
-    in the past, because they consider this serde method to be deprecated, and instead prompt
-    users to use their new serde method https://github.com/langchain-ai/langchain/pull/8164#issuecomment-1659723157.
-    However, we can't simply migrate to the new method because it doesn't support common chains
-    like RetrievalQA, AgentExecutor, etc.
-    Therefore, we apply a hacky solution to patch the type_to_cls_dict from our side to support
-    these models, until a better solution is provided by LangChain.
-    """
+            return ChatOpenAI
 
-    def _load_chat_openai():
-        from langchain.chat_models import ChatOpenAI
+        def _load_azure_chat_openai():
+            from langchain_community.chat_models import AzureChatOpenAI
 
-        return ChatOpenAI
+            return AzureChatOpenAI
 
-    def _load_azure_chat_openai():
-        from langchain.chat_models import AzureChatOpenAI
+        def _load_chat_databricks():
+            from langchain_databricks import ChatDatabricks
 
-        return AzureChatOpenAI
+            return ChatDatabricks
 
-    def _patched_get_type_to_cls_dict(original):
-        def _wrapped():
-            return {
-                **original(),
-                "openai-chat": _load_chat_openai,
-                "azure-openai-chat": _load_azure_chat_openai,
-            }
+        def _patched_get_type_to_cls_dict(original):
+            def _wrapped():
+                return {
+                    **original(),
+                    "openai-chat": _load_chat_openai,
+                    "azure-openai-chat": _load_azure_chat_openai,
+                    "chat-databricks": _load_chat_databricks,
+                }
 
-        return _wrapped
+            return _wrapped
 
-    # NB: get_type_to_cls_dict() method is defined in the following two modules with the same
-    # name but with slight different elements. This is most likely just a mistake in the
-    # LangChain codebase, but we patch them separately to avoid any potential issues.
-    modules_to_patch = ["langchain.llms", "langchain_community.llms.loading"]
-    originals = {}
-    for module_name in modules_to_patch:
+        modules_to_patch = ["langchain.llms", "langchain_community.llms.loading"]
+        originals = {}
+        for name in modules_to_patch:
+            try:
+                module = importlib.import_module(name)
+                originals[name] = module.get_type_to_cls_dict  # Record original impl for cleanup
+            except (ImportError, AttributeError):
+                continue
+            module.get_type_to_cls_dict = _patched_get_type_to_cls_dict(originals[name])
+
         try:
-            module = importlib.import_module(module_name)
-            originals[module_name] = module.get_type_to_cls_dict  # Record original impl for cleanup
-        except (ImportError, AttributeError):
-            continue
-        module.get_type_to_cls_dict = _patched_get_type_to_cls_dict(originals[module_name])
+            return func(*args, **kwargs)
+        except ValueError as e:
+            if m := _CHAT_MODELS_ERROR_MSG.search(str(e)):
+                model_name = "ChatOpenAI" if m.group(1) == "openai-chat" else "AzureChatOpenAI"
+                raise mlflow.MlflowException(
+                    f"Loading {model_name} chat model is not supported in MLflow with the "
+                    "current version of LangChain. Please upgrade LangChain to 0.0.307 or above "
+                    "by running `pip install langchain>=0.0.307`."
+                ) from e
+            else:
+                raise
+        finally:
+            # Clean up the patch
+            for module_name, original_impl in originals.items():
+                module = importlib.import_module(module_name)
+                module.get_type_to_cls_dict = original_impl
 
-    try:
-        yield
-    except ValueError as e:
-        if m := _CHAT_MODELS_ERROR_MSG.search(str(e)):
-            model_name = "ChatOpenAI" if m.group(1) == "openai-chat" else "AzureChatOpenAI"
-            raise mlflow.MlflowException(
-                f"Loading {model_name} chat model is not supported in MLflow with the "
-                "current version of LangChain. Please upgrade LangChain to 0.0.307 or above "
-                "by running `pip install langchain>=0.0.307`."
-            ) from e
-        else:
-            raise
-    finally:
-        # Clean up the patch
-        for module_name, original_impl in originals.items():
-            module = importlib.import_module(module_name)
-            module.get_type_to_cls_dict = original_impl
+    return wrapper
 
 
 def register_pydantic_serializer():

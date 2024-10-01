@@ -18,7 +18,7 @@ import mlflow.spacy
 from mlflow import pyfunc
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model, infer_signature
-from mlflow.models.utils import _read_example
+from mlflow.models.utils import _read_example, load_serving_example
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.file_utils import TempDir
@@ -125,7 +125,11 @@ def test_model_export_with_schema_and_examples(spacy_model_with_data):
                     spacy_model, path=path, signature=signature, input_example=example
                 )
                 mlflow_model = Model.load(path)
-                assert signature == mlflow_model.signature
+                if signature is not None or example is None:
+                    assert signature == mlflow_model.signature
+                else:
+                    # signature is inferred from input_example
+                    assert mlflow_model.signature is not None
                 if example is None:
                     assert mlflow_model.saved_input_example_info is None
                 else:
@@ -391,12 +395,17 @@ def test_pyfunc_serve_and_score(spacy_model_with_data):
             extra_pip_requirements = ["click<8.1.0"]
         else:
             extra_pip_requirements = None
-        mlflow.spacy.log_model(model, artifact_path, extra_pip_requirements=extra_pip_requirements)
-        model_uri = mlflow.get_artifact_uri(artifact_path)
+        model_info = mlflow.spacy.log_model(
+            model,
+            artifact_path,
+            extra_pip_requirements=extra_pip_requirements,
+            input_example=inference_dataframe,
+        )
 
+    inference_payload = load_serving_example(model_info.model_uri)
     resp = pyfunc_serve_and_score_model(
-        model_uri,
-        data=inference_dataframe,
+        model_info.model_uri,
+        data=inference_payload,
         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
         extra_args=EXTRA_PYFUNC_SERVING_TEST_ARGS,
     )

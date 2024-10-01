@@ -280,7 +280,7 @@ def log_code_snapshot(
     Logs a recipe code snapshot as mlflow artifacts.
 
     Args:
-        recipe_root_path: String file path to the directory where the recipe is defined.
+        recipe_root: String file path to the directory where the recipe is defined.
         run_id: Run ID to which the code snapshot is logged.
         artifact_path: Directory within the run's artifact director (default: "snapshots").
         recipe_config: Dict containing the full recipe configuration at runtime.

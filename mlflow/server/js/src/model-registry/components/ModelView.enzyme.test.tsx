@@ -18,8 +18,8 @@ import thunk from 'redux-thunk';
 import promiseMiddleware from 'redux-promise-middleware';
 import { RegisteredModelTag } from '../sdk/ModelRegistryMessages';
 import { Provider } from 'react-redux';
-import { mountWithIntl } from 'common/utils/TestUtils.enzyme';
-import { renderWithIntl, screen } from 'common/utils/TestUtils.react17';
+import { mountWithIntl } from '@mlflow/mlflow/src/common/utils/TestUtils.enzyme';
+import { renderWithIntl, screen } from '@mlflow/mlflow/src/common/utils/TestUtils.react17';
 import { DesignSystemProvider } from '@databricks/design-system';
 describe('ModelView', () => {
   let wrapper: any;

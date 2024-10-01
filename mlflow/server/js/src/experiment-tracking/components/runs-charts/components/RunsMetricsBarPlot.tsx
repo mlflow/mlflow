@@ -4,7 +4,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useIntl } from 'react-intl';
 import { LazyPlot } from '../../LazyPlot';
 import { useMutableChartHoverCallback } from '../hooks/useMutableHoverCallback';
-import { highlightBarTraces, useRunsChartTraceHighlight } from '../hooks/useRunsChartTraceHighlight';
+import { highlightBarTraces, useRenderRunsChartTraceHighlight } from '../hooks/useRunsChartTraceHighlight';
 import {
   commonRunsChartStyles,
   RunsChartsRunData,
@@ -19,6 +19,7 @@ import {
 import type { MetricEntity } from '../../../types';
 import RunsMetricsLegendWrapper from './RunsMetricsLegendWrapper';
 import { createChartImageDownloadHandler } from '../hooks/useChartImageDownloadHandler';
+import { customMetricBehaviorDefs } from '../../experiment-page/utils/customMetricBehaviorUtils';
 
 // We're not using params in bar plot
 export type BarPlotRunData = Omit<RunsChartsRunData, 'params' | 'tags' | 'images'>;
@@ -107,7 +108,14 @@ export const RunsMetricsBarPlot = React.memo(
       const values = runsData.map((d) => normalizeChartValue(d.metrics[metricKey]?.value));
 
       // Displayed metric values
-      const textValues = runsData.map((d) => getFixedPointValue(d.metrics[metricKey]?.value));
+      const textValues = runsData.map((d) => {
+        const customMetricBehaviorDef = customMetricBehaviorDefs[metricKey];
+        if (customMetricBehaviorDef) {
+          return customMetricBehaviorDef.valueFormatter({ value: d.metrics[metricKey]?.value });
+        }
+
+        return getFixedPointValue(d.metrics[metricKey]?.value);
+      });
 
       // Colors corresponding to each run
       const colors = runsData.map((d) => d.color);
@@ -148,10 +156,12 @@ export const RunsMetricsBarPlot = React.memo(
     const [layout, setLayout] = useState<Partial<Layout>>({
       width: width || layoutWidth,
       height: height || layoutHeight,
+      hovermode: 'y',
       margin,
       xaxis: {
         title: displayMetricKey ? metricKey : undefined,
         tickfont: { size: 11, color: theme.colors.textSecondary },
+        tickformat: customMetricBehaviorDefs[metricKey]?.chartAxisTickFormat ?? undefined,
       },
       yaxis: {
         showticklabels: displayRunNames,
@@ -180,7 +190,7 @@ export const RunsMetricsBarPlot = React.memo(
       }));
     }, [layoutWidth, layoutHeight, margin, metricKey, width, height, displayMetricKey]);
 
-    const { setHoveredPointIndex } = useRunsChartTraceHighlight(
+    const { setHoveredPointIndex } = useRenderRunsChartTraceHighlight(
       containerDiv,
       selectedRunUuid,
       runsData,

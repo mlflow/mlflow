@@ -267,6 +267,7 @@ def test_refresh_credentials():
                 "access_key_id": "my-id-2",
                 "secret_access_key": "my-key-2",
                 "session_token": "my-session-2",
+                "s3_upload_extra_args": {},
             }
 
         repo = OptimizedS3ArtifactRepository(

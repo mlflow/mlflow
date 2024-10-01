@@ -193,7 +193,7 @@ class SqlAlchemyStore(AbstractStore):
                 )
 
     @classmethod
-    def _get_registered_model(cls, session, name, eager=False):
+    def _get_registered_model(cls, session, name, eager=False):  # noqa: D417
         """
         Args:
             eager: If ``True``, eagerly loads the registered model's tags. If ``False``, these
@@ -629,7 +629,7 @@ class SqlAlchemyStore(AbstractStore):
 
     # CRUD API for ModelVersion objects
 
-    def create_model_version(
+    def create_model_version(  # noqa: D417
         self,
         name,
         source,
@@ -748,7 +748,7 @@ class SqlAlchemyStore(AbstractStore):
         return versions[0]
 
     @classmethod
-    def _get_sql_model_version(cls, session, name, version, eager=False):
+    def _get_sql_model_version(cls, session, name, version, eager=False):  # noqa: D417
         """
         Args:
             eager: If ``True``, eagerly loads the model version's tags.

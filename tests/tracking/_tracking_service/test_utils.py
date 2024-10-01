@@ -233,7 +233,7 @@ def test_standard_store_registry_with_mocked_entrypoint():
     mock_entrypoint = mock.Mock()
     mock_entrypoint.name = "mock-scheme"
 
-    with mock.patch("entrypoints.get_group_all", return_value=[mock_entrypoint]):
+    with mock.patch("mlflow.utils.plugins._get_entry_points", return_value=[mock_entrypoint]):
         # Entrypoints are registered at import time, so we need to reload the
         # module to register the entrypoint given by the mocked
         # entrypoints.get_group_all
@@ -291,7 +291,7 @@ def test_plugin_registration_via_entrypoints():
     mock_entrypoint.name = "mock-scheme"
 
     with mock.patch(
-        "entrypoints.get_group_all", return_value=[mock_entrypoint]
+        "mlflow.utils.plugins._get_entry_points", return_value=[mock_entrypoint]
     ) as mock_get_group_all:
         tracking_store = TrackingStoreRegistry()
         tracking_store.register_entrypoints()
@@ -310,7 +310,7 @@ def test_handle_plugin_registration_failure_via_entrypoints(exception):
     mock_entrypoint.name = "mock-scheme"
 
     with mock.patch(
-        "entrypoints.get_group_all", return_value=[mock_entrypoint]
+        "mlflow.utils.plugins._get_entry_points", return_value=[mock_entrypoint]
     ) as mock_get_group_all:
         tracking_store = TrackingStoreRegistry()
 

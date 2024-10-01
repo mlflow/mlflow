@@ -129,7 +129,7 @@ class BaseIngestStep(BaseStep, metaclass=abc.ABCMeta):
             dataset_sql=getattr(self.dataset, "sql", None),
         )
 
-    def _build_step_card(
+    def _build_step_card(  # noqa: D417
         self,
         ingested_dataset_profile: str,
         ingested_rows: int,

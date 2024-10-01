@@ -36,6 +36,7 @@ jobs:
         arch: [amd64, arm64]
     steps:
       - uses: actions/checkout@v4
+      - uses: ./.github/actions/free-disk-space
       - name: Get image name
         id: image
         run: |

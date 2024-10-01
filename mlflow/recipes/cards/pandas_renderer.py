@@ -1,6 +1,7 @@
 """
 Renders the statistics of logged data in a HTML format.
 """
+
 import base64
 import sys
 from typing import Iterable, Tuple, Union

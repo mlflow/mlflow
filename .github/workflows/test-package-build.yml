@@ -39,9 +39,7 @@ jobs:
           submodules: recursive
       - uses: ./.github/actions/untracked
       - uses: ./.github/actions/setup-python
-      - uses: actions/setup-node@v3
-        with:
-          node-version: "16"
+      - uses: ./.github/actions/setup-node
 
       - name: Build UI
         working-directory: mlflow/server/js
@@ -117,7 +115,6 @@ jobs:
         env:
           WHEEL_SIZE: ${{ steps.build-dist.outputs.wheel-size }}
         with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             const { owner, repo } = context.repo;
 

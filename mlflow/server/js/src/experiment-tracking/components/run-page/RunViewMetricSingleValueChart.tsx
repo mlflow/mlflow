@@ -3,10 +3,11 @@ import { RunsMetricsBarPlot } from '../runs-charts/components/RunsMetricsBarPlot
 import { useDesignSystemTheme } from '@databricks/design-system';
 import { useRunsChartsTooltip } from '../runs-charts/hooks/useRunsChartsTooltip';
 import { MetricEntity, RunInfoEntity } from '../../types';
+import type { UseGetRunQueryResponseRunInfo } from './hooks/useGetRunQuery';
 
 export interface RunViewSingleMetricChartProps {
   metricKey: string;
-  runInfo: RunInfoEntity;
+  runInfo: RunInfoEntity | UseGetRunQueryResponseRunInfo;
   metricEntry?: MetricEntity;
 }
 
@@ -23,8 +24,8 @@ export const RunViewMetricSingleValueChart = ({ runInfo, metricKey, metricEntry 
       metricEntry
         ? [
             {
-              uuid: runInfo.runUuid,
-              displayName: runInfo.runName,
+              uuid: runInfo.runUuid ?? '',
+              displayName: runInfo.runName ?? '',
               runInfo,
               metrics: { [metricKey]: metricEntry },
               color: theme.colors.primary,

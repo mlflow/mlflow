@@ -81,6 +81,7 @@ jobs:
           python -m venv .venv
           source .venv/bin/activate
           source ./dev/install-common-deps.sh --ml
+      - uses: ./.github/actions/show-versions
       - uses: ./.github/actions/pipdeptree
       - name: Import check
         run: |
@@ -106,6 +107,7 @@ jobs:
       - name: Build
         run: |
           ./tests/db/compose.sh pull -q postgresql mysql mssql
+          docker images
           ./tests/db/compose.sh build --build-arg DEPENDENCIES="$(cat requirements/skinny-requirements.txt requirements/core-requirements.txt | grep -Ev '^(#|$)')"
       - name: Run tests
         run: |
@@ -113,7 +115,7 @@ jobs:
           err=0
           trap 'err=1' ERR
 
-          for service in $(./tests/db/compose.sh config --services | grep '^mlflow-')
+          for service in $(./tests/db/compose.sh config --services | grep '^mlflow-' | sort)
           do
             # Set `--no-TTY` to show container logs on GitHub Actions:
             # https://github.com/actions/virtual-environments/issues/5022
@@ -157,6 +159,7 @@ jobs:
       - name: Install dependencies
         run: |
           source ./dev/install-common-deps.sh
+      - uses: ./.github/actions/show-versions
       - uses: ./.github/actions/pipdeptree
       - name: Run tests
         run: |
@@ -181,6 +184,7 @@ jobs:
           python -m venv .venv
           source .venv/bin/activate
           source ./dev/install-common-deps.sh --ml
+      - uses: ./.github/actions/show-versions
       - uses: ./.github/actions/pipdeptree
       - name: Run tests
         run: |
@@ -215,7 +219,8 @@ jobs:
       - name: Install dependencies
         run: |
           source ./dev/install-common-deps.sh
-          pip install pyspark langchain langchain-community
+          pip install pyspark langchain langchain-community '.[mlserver]'
+      - uses: ./.github/actions/show-versions
       - uses: ./.github/actions/pipdeptree
       - name: Run tests
         run: |
@@ -240,7 +245,8 @@ jobs:
       - name: Install dependencies
         run: |
           source ./dev/install-common-deps.sh
-          pip install pyspark torch transformers langchain langchain-experimental
+          pip install pyspark torch transformers langchain langchain-experimental '.[genai]'
+      - uses: ./.github/actions/show-versions
       - uses: ./.github/actions/pipdeptree
       - name: Run tests
         run: |
@@ -273,6 +279,7 @@ jobs:
           source ./dev/install-common-deps.sh
           pip install tensorflow 'pyspark[connect]'
           pip install typing_extensions -U
+      - uses: ./.github/actions/show-versions
       - uses: ./.github/actions/pipdeptree
       - name: Run tests
         run: |
@@ -296,6 +303,7 @@ jobs:
       - name: Install dependencies
         run: |
           source ./dev/install-common-deps.sh --ml
+      - uses: ./.github/actions/show-versions
       - uses: ./.github/actions/pipdeptree
       - name: Run tests
         run: |
@@ -326,7 +334,7 @@ jobs:
           source .venv/Scripts/activate
           python -m pip install -U pip
           pip install --no-dependencies tests/resources/mlflow-test-plugin
-          pip install .[extras]
+          pip install '.[extras,genai]'
           pip install pyspark
           pip install mleap
           # Install Hugging Face datasets to test Hugging Face usage with MLflow dataset tracking
@@ -336,6 +344,7 @@ jobs:
           # Install torch and transformers to test metrics
           pip install torch transformers
           pip install -r requirements/test-requirements.txt
+      - uses: ./.github/actions/show-versions
       - uses: ./.github/actions/pipdeptree
       - name: Download Hadoop winutils for Spark
         run: |

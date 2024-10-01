@@ -1,4 +1,4 @@
-import { renderHook } from '@testing-library/react-hooks';
+import { renderHook } from '@testing-library/react';
 import { useEvaluationArtifactTableData } from './useEvaluationArtifactTableData';
 import { fromPairs } from 'lodash';
 import { EvaluationArtifactTable, PendingEvaluationArtifactTableEntry } from '../../../types';

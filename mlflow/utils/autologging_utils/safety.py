@@ -691,6 +691,15 @@ def revert_patches(autologging_integration):
     _AUTOLOGGING_PATCHES.pop(autologging_integration, None)
 
 
+def is_langchain_callbacks_manager(callbacks):
+    try:
+        from langchain_core.callbacks.base import BaseCallbackManager
+    except ImportError:
+        return False
+
+    return isinstance(callbacks, BaseCallbackManager)
+
+
 # Represents an active autologging session using two fields:
 # - integration: the name of the autologging integration corresponding to the session
 # - id: a unique session identifier (e.g., a UUID)
@@ -1020,6 +1029,15 @@ def _validate_args(
             _assert_autologging_input_kwargs_are_superset(autologging_call_input, user_call_input)
             for key in autologging_call_input.keys():
                 _validate(autologging_call_input[key], user_call_input.get(key, None))
+        # NB: For LangChain autologging, we replace the callback manager that is passed by
+        # the user with the one we copied and injected our callbacks into. We cannot do this
+        # in-place to avoid side-effects, so create a new callback manager instance. It will
+        # fail at the strict equality check below, so we instead check that their handlers
+        # are effectively the compatible.
+        elif is_langchain_callbacks_manager(
+            autologging_call_input
+        ) and is_langchain_callbacks_manager(user_call_input):
+            _validate(autologging_call_input.handlers, user_call_input.handlers)
         else:
             assert (
                 autologging_call_input is user_call_input

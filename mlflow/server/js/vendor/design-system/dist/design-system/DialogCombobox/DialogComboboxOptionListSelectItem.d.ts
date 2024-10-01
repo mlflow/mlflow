@@ -1,4 +1,3 @@
-/// <reference types="react" />
 import type { HTMLDataAttributes } from '../types';
 export interface DialogComboboxOptionListSelectItemProps extends HTMLDataAttributes, Omit<React.HTMLAttributes<HTMLDivElement>, 'onChange'> {
     value: string;

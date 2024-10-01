@@ -46,6 +46,7 @@ export const useRunsMultipleTracesTooltipData = ({
   disabled,
   setHoveredPointIndex,
   xAxisScaleType = 'linear',
+  positionInSection = 0,
 }: Pick<RunsMetricsLinePlotProps, 'runsData' | 'onHover' | 'onUnhover'> & {
   plotData: LineChartTraceData[];
   legendLabelData: LegendLabelData[];
@@ -55,6 +56,7 @@ export const useRunsMultipleTracesTooltipData = ({
   xAxisKey: RunsChartsLineChartXAxisType;
   setHoveredPointIndex: (value: number) => void;
   xAxisScaleType?: 'linear' | 'log';
+  positionInSection?: number;
 }) => {
   // Save current boundaries/dimensions of the plot in the mutable ref object
   const chartBoundaries = useRef<{
@@ -99,12 +101,14 @@ export const useRunsMultipleTracesTooltipData = ({
   const immediateRunsData = useRef(runsData);
   const immediatePlotData = useRef(plotData);
   const immediateXValuesData = useRef(visibleXValues);
+  const immediateFigure = useRef(initializedFigure);
 
   // Update the mutable ref objects when the input data changes
   immediateLegendLabelData.current = legendLabelData;
   immediateRunsData.current = runsData;
   immediatePlotData.current = plotData;
   immediateXValuesData.current = visibleXValues;
+  immediateFigure.current = initializedFigure;
 
   // Setup the boundaries of the plot
   const setupBoundaries = useCallback((figure: Readonly<Figure>) => {
@@ -162,6 +166,16 @@ export const useRunsMultipleTracesTooltipData = ({
     },
     [onUpdatePlotHandler],
   );
+
+  useEffect(() => {
+    // Recalculate positions after chart has been moved
+    requestAnimationFrame(() => {
+      if (!immediateFigure.current) {
+        return;
+      }
+      onUpdatePlotHandler(immediateFigure.current.figure, immediateFigure.current.graphDiv);
+    });
+  }, [positionInSection, onUpdatePlotHandler]);
 
   // Hides the scanline when the mouse leaves the plot
   const pointerLeavePlotCallback = useCallback(

@@ -44,12 +44,22 @@ from mlflow.store.tracking.file_store import FileStore
 from mlflow.tracing.constant import TraceMetadataKey, TraceTagKey
 from mlflow.tracking._tracking_service.utils import _use_tracking_uri
 from mlflow.utils import insecure_hash
-from mlflow.utils.file_utils import TempDir, path_to_local_file_uri, read_yaml, write_yaml
-from mlflow.utils.mlflow_tags import MLFLOW_DATASET_CONTEXT, MLFLOW_LOGGED_MODELS, MLFLOW_RUN_NAME
+from mlflow.utils.file_utils import (
+    TempDir,
+    path_to_local_file_uri,
+    read_yaml,
+    write_yaml,
+)
+from mlflow.utils.mlflow_tags import (
+    MLFLOW_DATASET_CONTEXT,
+    MLFLOW_LOGGED_MODELS,
+    MLFLOW_RUN_NAME,
+)
 from mlflow.utils.name_utils import _EXPERIMENT_ID_FIXED_WIDTH, _GENERATOR_PREDICATES
 from mlflow.utils.os import is_windows
 from mlflow.utils.time import get_current_time_millis
 from mlflow.utils.uri import append_to_uri_path
+from mlflow.utils.validation import MAX_EXPERIMENT_NAME_LENGTH
 
 from tests.helper_functions import random_int, random_str, safe_edit_yaml
 
@@ -176,13 +186,19 @@ def test_search_experiments_filter_by_time_attribute(store):
     assert [e.experiment_id for e in experiments] == [exp_id1]
 
     experiments = store.search_experiments(filter_string=f"creation_time != {exp1.creation_time}")
-    assert [e.experiment_id for e in experiments] == [exp_id2, store.DEFAULT_EXPERIMENT_ID]
+    assert [e.experiment_id for e in experiments] == [
+        exp_id2,
+        store.DEFAULT_EXPERIMENT_ID,
+    ]
 
     experiments = store.search_experiments(filter_string=f"creation_time >= {time_before_create1}")
     assert [e.experiment_id for e in experiments] == [exp_id2, exp_id1]
 
     experiments = store.search_experiments(filter_string=f"creation_time < {time_before_create2}")
-    assert [e.experiment_id for e in experiments] == [exp_id1, store.DEFAULT_EXPERIMENT_ID]
+    assert [e.experiment_id for e in experiments] == [
+        exp_id1,
+        store.DEFAULT_EXPERIMENT_ID,
+    ]
 
     now = get_current_time_millis()
     experiments = store.search_experiments(filter_string=f"creation_time > {now}")
@@ -333,11 +349,23 @@ def test_search_experiments_max_results(store):
 
 
 def test_search_experiments_max_results_validation(store):
-    with pytest.raises(MlflowException, match=r"It must be a positive integer, but got None"):
+    with pytest.raises(
+        MlflowException,
+        match=r"Invalid value None for parameter 'max_results' supplied. "
+        r"It must be a positive integer",
+    ):
         store.search_experiments(max_results=None)
-    with pytest.raises(MlflowException, match=r"It must be a positive integer, but got 0"):
+    with pytest.raises(
+        MlflowException,
+        match=r"Invalid value 0 for parameter 'max_results' supplied. "
+        r"It must be a positive integer",
+    ):
         store.search_experiments(max_results=0)
-    with pytest.raises(MlflowException, match=r"It must be at most \d+, but got 1000000"):
+    with pytest.raises(
+        MlflowException,
+        match=r"Invalid value 1000000 for parameter 'max_results' supplied. "
+        r"It must be at most 50000",
+    ):
         store.search_experiments(max_results=1_000_000)
 
 
@@ -483,19 +511,30 @@ def test_record_logged_model(store):
         run_id=run_id,
         params=[],
         metrics=[],
-        tags=[RunTag(MLFLOW_LOGGED_MODELS, json.dumps([m.to_dict()]))],
+        tags=[RunTag(MLFLOW_LOGGED_MODELS, json.dumps([m.get_tags_dict()]))],
     )
-    m2 = Model(artifact_path="some/other/path", run_id=run_id, flavors={"R": {"property": "value"}})
+    m2 = Model(
+        artifact_path="some/other/path",
+        run_id=run_id,
+        flavors={"R": {"property": "value"}},
+    )
     store.record_logged_model(run_id, m2)
     _verify_logged(
         store,
         run_id,
         params=[],
         metrics=[],
-        tags=[RunTag(MLFLOW_LOGGED_MODELS, json.dumps([m.to_dict(), m2.to_dict()]))],
+        tags=[
+            RunTag(
+                MLFLOW_LOGGED_MODELS,
+                json.dumps([m.get_tags_dict(), m2.get_tags_dict()]),
+            )
+        ],
     )
     m3 = Model(
-        artifact_path="some/other/path2", run_id=run_id, flavors={"R2": {"property": "value"}}
+        artifact_path="some/other/path2",
+        run_id=run_id,
+        flavors={"R2": {"property": "value"}},
     )
     store.record_logged_model(run_id, m3)
     _verify_logged(
@@ -503,13 +542,44 @@ def test_record_logged_model(store):
         run_id,
         params=[],
         metrics=[],
-        tags=[RunTag(MLFLOW_LOGGED_MODELS, json.dumps([m.to_dict(), m2.to_dict(), m3.to_dict()]))],
+        tags=[
+            RunTag(
+                MLFLOW_LOGGED_MODELS,
+                json.dumps([m.get_tags_dict(), m2.get_tags_dict(), m3.get_tags_dict()]),
+            )
+        ],
+    )
+    m4 = Model(
+        artifact_path="some/other/path3",
+        run_id=run_id,
+        flavors={"python_function": {"config": {"a": 1}, "code": "code"}},
+    )
+    store.record_logged_model(run_id, m4)
+    assert all("config" not in v for v in m4.get_tags_dict().get("flavors", {}).values())
+    _verify_logged(
+        store,
+        run_id,
+        params=[],
+        metrics=[],
+        tags=[
+            RunTag(
+                MLFLOW_LOGGED_MODELS,
+                json.dumps(
+                    [
+                        m.get_tags_dict(),
+                        m2.get_tags_dict(),
+                        m3.get_tags_dict(),
+                        m4.get_tags_dict(),
+                    ]
+                ),
+            )
+        ],
     )
     with pytest.raises(
         TypeError,
         match="Argument 'mlflow_model' should be mlflow.models.Model, got '<class 'dict'>'",
     ):
-        store.record_logged_model(run_id, m.to_dict())
+        store.record_logged_model(run_id, m.get_tags_dict())
 
 
 def test_get_experiment(store):
@@ -570,6 +640,10 @@ def test_get_experiment_by_name(store):
         exp = store.get_experiment_by_name(exp_names)
         assert exp is None
 
+    exp_id = experiments[0]
+    store.delete_experiment(exp_id)
+    assert store.get_experiment_by_name(exp_data[exp_id]["name"]).experiment_id == exp_id
+
 
 def test_create_additional_experiment_generates_random_fixed_length_id(store):
     store._get_active_experiments = mock.Mock(return_value=[])
@@ -589,6 +663,8 @@ def test_create_experiment(store):
         store.create_experiment(None)
     with pytest.raises(Exception, match="Invalid experiment name: ''"):
         store.create_experiment("")
+    with pytest.raises(MlflowException, match=r"'name' exceeds the maximum length"):
+        store.create_experiment(name="x" * (MAX_EXPERIMENT_NAME_LENGTH + 1))
     name = random_str(25)  # since existing experiments are 10 chars long
     time_before_create = get_current_time_millis()
     created_id = store.create_experiment(name)
@@ -981,7 +1057,9 @@ def test_update_run_does_not_rename_run_with_none_name(store):
     assert get_run.info.run_name == "first name"
 
 
-def test_log_metric_allows_multiple_values_at_same_step_and_run_data_uses_max_step_value(store):
+def test_log_metric_allows_multiple_values_at_same_step_and_run_data_uses_max_step_value(
+    store,
+):
     run_id = store.create_run(
         experiment_id=FileStore.DEFAULT_EXPERIMENT_ID,
         user_id="user",
@@ -1028,7 +1106,10 @@ def test_log_metric_with_non_numeric_value_raises_exception(store):
         tags=[],
         run_name="first name",
     ).info.run_id
-    with pytest.raises(MlflowException, match=r"Got invalid value string for metric"):
+    with pytest.raises(
+        MlflowException,
+        match=r"Invalid value \"string\" for parameter \'value\' supplied",
+    ):
         store.log_metric(run_id, Metric("test", "string", 0, 0))
 
 
@@ -2032,7 +2113,10 @@ def test_log_batch_with_duplicate_params_errors_no_partial_write(store):
     )
     with pytest.raises(MlflowException, match="Duplicate parameter keys have been submitted") as e:
         store.log_batch(
-            run.info.run_id, metrics=[], params=[Param("a", "1"), Param("a", "2")], tags=[]
+            run.info.run_id,
+            metrics=[],
+            params=[Param("a", "1"), Param("a", "2")],
+            tags=[],
         )
     assert e.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
     _verify_logged(store, run.info.run_id, metrics=[], params=[], tags=[])
@@ -2146,8 +2230,14 @@ def _assert_create_run_appends_to_artifact_uri_path_correctly(
             "file:///{drive}my_server/my_path/my_sub_path/{e}/{r}/artifacts",
         ),
         ("path/to/local/folder", "file://{cwd}/path/to/local/folder/{e}/{r}/artifacts"),
-        ("/path/to/local/folder", "file:///{drive}path/to/local/folder/{e}/{r}/artifacts"),
-        ("#path/to/local/folder?", "file://{cwd}/{e}/{r}/artifacts#path/to/local/folder?"),
+        (
+            "/path/to/local/folder",
+            "file:///{drive}path/to/local/folder/{e}/{r}/artifacts",
+        ),
+        (
+            "#path/to/local/folder?",
+            "file://{cwd}/{e}/{r}/artifacts#path/to/local/folder?",
+        ),
         (
             "file:///path/to/local/folder",
             "file:///{drive}path/to/local/folder/{e}/{r}/artifacts",
@@ -2156,7 +2246,10 @@ def _assert_create_run_appends_to_artifact_uri_path_correctly(
             "file:///path/to/local/folder?param=value#fragment",
             "file:///{drive}path/to/local/folder/{e}/{r}/artifacts?param=value#fragment",
         ),
-        ("file:path/to/local/folder", "file://{cwd}/path/to/local/folder/{e}/{r}/artifacts"),
+        (
+            "file:path/to/local/folder",
+            "file://{cwd}/path/to/local/folder/{e}/{r}/artifacts",
+        ),
         (
             "file:path/to/local/folder?param=value",
             "file://{cwd}/path/to/local/folder/{e}/{r}/artifacts?param=value",
@@ -2184,7 +2277,10 @@ def test_create_run_appends_to_artifact_local_path_file_uri_correctly_on_windows
             "file:///path/to/local/folder?param=value#fragment",
             "file:///path/to/local/folder/{e}/{r}/artifacts?param=value#fragment",
         ),
-        ("file:path/to/local/folder", "file://{cwd}/path/to/local/folder/{e}/{r}/artifacts"),
+        (
+            "file:path/to/local/folder",
+            "file://{cwd}/path/to/local/folder/{e}/{r}/artifacts",
+        ),
         (
             "file:path/to/local/folder?param=value",
             "file://{cwd}/path/to/local/folder/{e}/{r}/artifacts?param=value",
@@ -2245,7 +2341,10 @@ def _assert_create_experiment_appends_to_artifact_uri_path_correctly(
 @pytest.mark.parametrize(
     ("input_uri", "expected_uri"),
     [
-        ("\\my_server/my_path/my_sub_path", "file:///{drive}my_server/my_path/my_sub_path/{e}"),
+        (
+            "\\my_server/my_path/my_sub_path",
+            "file:///{drive}my_server/my_path/my_sub_path/{e}",
+        ),
         ("path/to/local/folder", "file://{cwd}/path/to/local/folder/{e}"),
         ("/path/to/local/folder", "file:///{drive}path/to/local/folder/{e}"),
         ("#path/to/local/folder?", "file://{cwd}/{e}#path/to/local/folder?"),
@@ -2329,7 +2428,7 @@ def assert_dataset_inputs_equal(inputs1: List[DatasetInput], inputs2: List[Datas
         tags2 = sorted(inp2.tags, key=lambda tag: tag.key)
         for idx, tag1 in enumerate(tags1):
             tag2 = tags2[idx]
-            assert tag1.key == tag1.key
+            assert tag1.key == tag2.key
             assert tag1.value == tag2.value
 
 
@@ -2608,11 +2707,19 @@ def test_log_inputs_uses_expected_input_and_dataset_ids_for_storage(store):
         [DatasetInput(dataset1), DatasetInput(dataset2), DatasetInput(dataset3, tags)],
     )
     assert_expected_dataset_storage_ids_present(
-        [expected_dataset1_storage_id, expected_dataset2_storage_id, expected_dataset3_storage_id]
+        [
+            expected_dataset1_storage_id,
+            expected_dataset2_storage_id,
+            expected_dataset3_storage_id,
+        ]
     )
     assert_expected_input_storage_ids_present(
         run2,
-        [expected_dataset1_storage_id, expected_dataset2_storage_id, expected_dataset3_storage_id],
+        [
+            expected_dataset1_storage_id,
+            expected_dataset2_storage_id,
+            expected_dataset3_storage_id,
+        ],
     )
 
 
@@ -2842,7 +2949,7 @@ def test_set_trace_tag(store_and_trace_info):
     trace_info = store.get_trace_info(trace.request_id)
     assert trace_info.tags["int_key"] == "1234"
 
-    with pytest.raises(MlflowException, match=r"Tag name cannot be None."):
+    with pytest.raises(MlflowException, match=r"Missing value for required parameter \'key\'"):
         store.set_trace_tag(trace.request_id, None, "test")
 
 
@@ -2885,7 +2992,8 @@ def test_delete_traces(store):
     assert len(store.search_traces([exp_id])[0]) == 0
 
     with pytest.raises(
-        MlflowException, match=r"Either `max_timestamp_millis` or `request_ids` must be specified."
+        MlflowException,
+        match=r"Either `max_timestamp_millis` or `request_ids` must be specified.",
     ):
         store.delete_traces(exp_id)
     with pytest.raises(
@@ -2894,7 +3002,8 @@ def test_delete_traces(store):
     ):
         store.delete_traces(exp_id, max_timestamp_millis=100, request_ids=request_ids)
     with pytest.raises(
-        MlflowException, match=r"`max_traces` can't be specified if `request_ids` is specified."
+        MlflowException,
+        match=r"`max_traces` can't be specified if `request_ids` is specified.",
     ):
         store.delete_traces(exp_id, max_traces=2, request_ids=request_ids)
     with pytest.raises(
@@ -2981,7 +3090,10 @@ def test_search_traces_filter(generate_trace_infos):
         store, [exp_id], f"request_id IN ('{request_ids[0]}')", [trace_infos[0]]
     )
     _validate_search_traces(
-        store, [exp_id], f"request_id NOT IN ('{request_ids[0]}')", trace_infos[1:][::-1]
+        store,
+        [exp_id],
+        f"request_id NOT IN ('{request_ids[0]}')",
+        trace_infos[1:][::-1],
     )
 
     # filter by execution_time
@@ -3022,7 +3134,10 @@ def test_search_traces_filter(generate_trace_infos):
             store, [exp_id], f"{tag_identifier}.test_tag = 'tag_0'", [trace_infos[0]]
         )
         _validate_search_traces(
-            store, [exp_id], f"{tag_identifier}.test_tag != 'tag_0'", trace_infos[1:][::-1]
+            store,
+            [exp_id],
+            f"{tag_identifier}.test_tag != 'tag_0'",
+            trace_infos[1:][::-1],
         )
         _validate_search_traces(store, [exp_id], f"{tag_identifier}.test_tag = '123'", [])
 
@@ -3148,7 +3263,11 @@ def test_search_traces_order(generate_trace_infos):
         )
     for execution_time_key in ["execution_time", "execution_time_ms"]:
         _validate_search_traces(
-            store, [exp_id], "", trace_infos[::-1], order_by=[f"{execution_time_key} DESC"]
+            store,
+            [exp_id],
+            "",
+            trace_infos[::-1],
+            order_by=[f"{execution_time_key} DESC"],
         )
         _validate_search_traces(
             store,
@@ -3160,7 +3279,11 @@ def test_search_traces_order(generate_trace_infos):
 
     # order by status
     _validate_search_traces(
-        store, [exp_id], "", trace_infos[:5][::-1] + trace_infos[5:][::-1], order_by=["status DESC"]
+        store,
+        [exp_id],
+        "",
+        trace_infos[:5][::-1] + trace_infos[5:][::-1],
+        order_by=["status DESC"],
     )
     _validate_search_traces(store, [exp_id], "", trace_infos[::-1], order_by=["status ASC"])
 
@@ -3207,7 +3330,8 @@ def test_search_traces_raise_errors(generate_trace_infos):
 
     # unsupported order_by keys
     with pytest.raises(
-        MlflowException, match=r"Invalid order_by entity `tag` with key `mlflow.traceName`"
+        MlflowException,
+        match=r"Invalid order_by entity `tag` with key `mlflow.traceName`",
     ):
         store.search_traces([exp_id], "", order_by=["name DESC"])
     with pytest.raises(

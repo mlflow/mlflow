@@ -184,3 +184,11 @@ def tmp_sqlite_uri(tmp_path):
 def mock_databricks_serving_with_tracing_env(monkeypatch):
     monkeypatch.setenv("IS_IN_DB_MODEL_SERVING_ENV", "true")
     monkeypatch.setenv("ENABLE_MLFLOW_TRACING", "true")
+
+
+@pytest.fixture(params=[True, False])
+def mock_is_in_databricks(request):
+    with mock.patch(
+        "mlflow.models.model.is_in_databricks_runtime", return_value=request.param
+    ) as mock_databricks:
+        yield mock_databricks

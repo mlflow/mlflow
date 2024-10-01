@@ -1,10 +1,10 @@
-import { Tooltip, useDesignSystemTheme } from '@databricks/design-system';
-import { RunColorPill } from 'experiment-tracking/components/experiment-page/components/RunColorPill';
+import { LegacyTooltip, useDesignSystemTheme } from '@databricks/design-system';
+import { RunColorPill } from '@mlflow/mlflow/src/experiment-tracking/components/experiment-page/components/RunColorPill';
 import { useMemo } from 'react';
 import { RunsChartsImageCardConfig, RunsChartsCardConfig } from '../../runs-charts.types';
 import { RunsChartsRunData } from '../RunsCharts.common';
 import { EmptyImageGridPlot, IMAGE_GAP_SIZE, ImagePlotWithHistory, getImageSize } from './ImageGridPlot.common';
-import { ImageEntity } from 'experiment-tracking/types';
+import { ImageEntity } from '@mlflow/mlflow/src/experiment-tracking/types';
 
 export const ImageGridSingleKeyPlot = ({
   previewData,
@@ -46,7 +46,7 @@ export const ImageGridSingleKeyPlot = ({
         );
         return (
           <div key={run.uuid} css={{ padding: `${IMAGE_GAP_SIZE / 2}px` }}>
-            <Tooltip title={run.displayName}>
+            <LegacyTooltip title={run.displayName}>
               <div
                 css={{
                   width: imageSize,
@@ -61,7 +61,7 @@ export const ImageGridSingleKeyPlot = ({
                 <RunColorPill color={run.color} />
                 {run.displayName}
               </div>
-            </Tooltip>
+            </LegacyTooltip>
             <ImagePlotWithHistory
               key={run.uuid}
               step={cardConfig.step}

@@ -1,7 +1,7 @@
 import { DesignSystemProvider } from '@databricks/design-system';
 import { IntlProvider } from 'react-intl';
 import { BrowserRouter } from '../../../../../common/utils/RoutingUtils';
-import { mountWithIntl } from 'common/utils/TestUtils.enzyme';
+import { mountWithIntl } from '@mlflow/mlflow/src/common/utils/TestUtils.enzyme';
 import { EXPERIMENT_RUNS_MOCK_STORE } from '../../fixtures/experiment-runs.fixtures';
 import { experimentRunsSelector } from '../../utils/experimentRuns.selector';
 import {

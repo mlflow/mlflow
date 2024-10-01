@@ -218,6 +218,21 @@ Autologging captures the following information:
 |           |             |                |               | - Input example                                                                 |
 +-----------+-------------+----------------+---------------+---------------------------------------------------------------------------------+
 
+.. _autolog-llamaindex:
+
+LlamaIndex
+----------
+
+Call the generic autolog function :py:func:`mlflow.llama_index.autolog` before your training code to enable automatic logging of traces. 
+
+Autologging captures the following information:
+
++-----------+-------------+----------------+---------------+---------------------------------------------------------------------------------+
+| Framework | Metrics     | Parameters     | Tags          | Artifacts                                                                       |
++-----------+-------------+----------------+---------------+---------------------------------------------------------------------------------+
+| LlamaIndex| --          | --             |  --           | - Traces                                                                        |
++-----------+-------------+----------------+---------------+---------------------------------------------------------------------------------+
+
 .. _autolog-lightgbm:
 
 LightGBM

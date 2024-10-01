@@ -1,5 +1,5 @@
 import { keyBy } from 'lodash';
-import { renderWithIntl, fastFillInput, act, screen } from 'common/utils/TestUtils.react17';
+import { renderWithIntl, fastFillInput, act, screen } from '@mlflow/mlflow/src/common/utils/TestUtils.react17';
 import { MetricEntitiesByName, RunInfoEntity } from '../../../types';
 import { RunViewMetricsTable } from './RunViewMetricsTable';
 import { MemoryRouter } from '../../../../common/utils/RoutingUtils';

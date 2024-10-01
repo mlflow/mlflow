@@ -173,7 +173,11 @@ export class ModelListViewImpl extends React.Component<ModelListViewImplProps, M
                   description="Learn more link on the model list page with cloud-specific link"
                   values={{
                     link: (chunks) => (
-                      <Typography.Link href={ModelListViewImpl.getLearnMoreLinkUrl()} openInNewTab>
+                      <Typography.Link
+                        componentId="codegen_mlflow_app_src_model-registry_components_modellistview.tsx_244"
+                        href={ModelListViewImpl.getLearnMoreLinkUrl()}
+                        openInNewTab
+                      >
                         {chunks}
                       </Typography.Link>
                     ),
@@ -206,6 +210,7 @@ export class ModelListViewImpl extends React.Component<ModelListViewImplProps, M
               <div css={{ flex: 1 }}>{shouldShowModelsNextUI() && <ModelsNextUIToggleSwitch />}</div>
               <div>
                 <CursorPagination
+                  componentId="codegen_mlflow_app_src_model-registry_components_modellistview.tsx_305"
                   hasNextPage={Boolean(nextPageToken)}
                   hasPreviousPage={currentPage > 1}
                   onNextPage={this.handleClickNext}

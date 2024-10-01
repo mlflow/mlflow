@@ -5,11 +5,12 @@ import { RunsChartType } from '../runs-charts.types';
 import { useDesignSystemTheme } from '@databricks/design-system';
 import { getGridColumnSetup } from '../../../../common/utils/CssGrid.utils';
 import { RunsChartCardSetFullscreenFn, RunsChartsChartsDragGroup } from './cards/ChartCard.common';
-import { useDragAndDropElement } from 'common/hooks/useDragAndDropElement';
+import { useDragAndDropElement } from '@mlflow/mlflow/src/common/hooks/useDragAndDropElement';
 import { FormattedMessage } from 'react-intl';
 import { Empty } from '@databricks/design-system';
 import { RunsChartsCard } from './cards/RunsChartsCard';
 import type { RunsGroupByConfig } from '../../experiment-page/utils/experimentPage.group-row-utils';
+import type { RunsChartsGlobalLineChartConfig } from '../../experiment-page/models/ExperimentPageUIState';
 
 export interface RunsChartsProps {
   sectionId: string;
@@ -24,6 +25,8 @@ export interface RunsChartsProps {
   sectionIndex: number;
   setFullScreenChart: RunsChartCardSetFullscreenFn;
   autoRefreshEnabled?: boolean;
+  hideEmptyCharts?: boolean;
+  globalLineChartConfig?: RunsChartsGlobalLineChartConfig;
 }
 
 export const RunsCharts = ({
@@ -39,6 +42,8 @@ export const RunsCharts = ({
   sectionIndex,
   setFullScreenChart,
   autoRefreshEnabled,
+  hideEmptyCharts,
+  globalLineChartConfig,
 }: RunsChartsProps) => {
   const { theme } = useDesignSystemTheme();
 
@@ -157,11 +162,11 @@ export const RunsCharts = ({
                     onStartEditChart={onStartEditChart}
                     onRemoveChart={onRemoveChart}
                     setFullScreenChart={setFullScreenChart}
-                    onReorderCharts={onReorderCharts}
                     index={index}
                     sectionIndex={sectionIndex}
                     groupBy={groupBy}
                     autoRefreshEnabled={autoRefreshEnabled}
+                    hideEmptyCharts={hideEmptyCharts}
                     key={`${cardConfig.uuid}-${index}-${sectionIndex}`}
                     {...reorderProps}
                   />
@@ -178,8 +183,8 @@ export const RunsCharts = ({
             onReorderWith: onReorderCharts,
             canMoveDown: index < remainingChartCards.length - 1,
             canMoveUp: index > 0,
-            onMoveDown: () => onReorderCharts(cardConfig.uuid || '', remainingChartCards[index + 1]?.uuid || ''),
-            onMoveUp: () => onReorderCharts(cardConfig.uuid || '', remainingChartCards[index - 1]?.uuid || ''),
+            previousChartUuid: remainingChartCards[index - 1]?.uuid,
+            nextChartUuid: remainingChartCards[index + 1]?.uuid,
           };
 
           return (
@@ -189,12 +194,13 @@ export const RunsCharts = ({
               onStartEditChart={onStartEditChart}
               onRemoveChart={onRemoveChart}
               setFullScreenChart={setFullScreenChart}
-              onReorderCharts={onReorderCharts}
               index={index}
               sectionIndex={sectionIndex}
               groupBy={groupBy}
               autoRefreshEnabled={autoRefreshEnabled}
+              hideEmptyCharts={hideEmptyCharts}
               key={`${cardConfig.uuid}-${index}-${sectionIndex}`}
+              globalLineChartConfig={globalLineChartConfig}
               {...reorderProps}
             />
           );

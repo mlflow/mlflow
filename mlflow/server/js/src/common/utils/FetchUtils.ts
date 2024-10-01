@@ -52,8 +52,8 @@ export const getDefaultHeaders = (cookieStr: any) => {
 };
 
 export const getAjaxUrl = (relativeUrl: any) => {
-  // @ts-expect-error TS(4111): Property 'USE_ABSOLUTE_AJAX_URLS' comes from an in... Remove this comment to see the full error message
-  if (process.env.USE_ABSOLUTE_AJAX_URLS === 'true' && !relativeUrl.startsWith('/')) {
+  // @ts-expect-error TS(4111): Property 'MLFLOW_USE_ABSOLUTE_AJAX_URLS' comes from an in... Remove this comment to see the full error message
+  if (process.env.MLFLOW_USE_ABSOLUTE_AJAX_URLS === 'true' && !relativeUrl.startsWith('/')) {
     return '/' + relativeUrl;
   }
   return relativeUrl;

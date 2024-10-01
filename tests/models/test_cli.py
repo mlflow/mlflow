@@ -24,6 +24,7 @@ from mlflow.environment_variables import MLFLOW_DISABLE_ENV_MANAGER_CONDA_WARNIN
 from mlflow.exceptions import MlflowException
 from mlflow.models.flavor_backend_registry import get_flavor_backend
 from mlflow.models.model import get_model_requirements_files
+from mlflow.models.utils import load_serving_example
 from mlflow.protos.databricks_pb2 import BAD_REQUEST, ErrorCode
 from mlflow.pyfunc.backend import PyFuncBackend
 from mlflow.pyfunc.scoring_server import (
@@ -143,7 +144,10 @@ def test_serve_gunicorn_opts(iris_data, sk_model):
     if sys.platform == "win32":
         pytest.skip("This test requires gunicorn which is not available on windows.")
     with mlflow.start_run() as active_run:
-        mlflow.sklearn.log_model(sk_model, "model", registered_model_name="imlegit")
+        x, _ = iris_data
+        mlflow.sklearn.log_model(
+            sk_model, "model", registered_model_name="imlegit", input_example=pd.DataFrame(x)
+        )
         run_id = active_run.info.run_id
 
     model_uris = [
@@ -153,11 +157,11 @@ def test_serve_gunicorn_opts(iris_data, sk_model):
     for model_uri in model_uris:
         with TempDir() as tpm:
             output_file_path = tpm.path("stoudt")
+            inference_payload = load_serving_example(model_uri)
             with open(output_file_path, "w") as output_file:
-                x, _ = iris_data
                 scoring_response = pyfunc_serve_and_score_model(
                     model_uri,
-                    pd.DataFrame(x),
+                    inference_payload,
                     content_type=CONTENT_TYPE_JSON,
                     stdout=output_file,
                     extra_args=["-w", "3"],

@@ -1,4 +1,3 @@
-/// <reference types="react" />
 import * as Popover from '@radix-ui/react-popover';
 import type { WithLoadingState } from '../LoadingState/LoadingState';
 import type { HTMLDataAttributes } from '../types';

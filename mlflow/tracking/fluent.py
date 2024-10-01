@@ -2,6 +2,7 @@
 Internal module implementing the fluent API, allowing management of an active
 MLflow run. This module is exposed to users at the top-level :py:mod:`mlflow` module.
 """
+
 import atexit
 import contextlib
 import importlib
@@ -38,6 +39,7 @@ from mlflow.protos.databricks_pb2 import (
     RESOURCE_DOES_NOT_EXIST,
 )
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
+from mlflow.tracing.provider import _get_trace_exporter
 from mlflow.tracking import _get_artifact_repo, _get_store, artifact_utils
 from mlflow.tracking.client import MlflowClient
 from mlflow.tracking.context import registry as context_registry
@@ -162,9 +164,9 @@ def set_experiment(
     if experiment.lifecycle_stage != LifecycleStage.ACTIVE:
         raise MlflowException(
             message=(
-                "Cannot set a deleted experiment '%s' as the active experiment. "
+                f"Cannot set a deleted experiment {experiment.name!r} as the active experiment. "
                 "You can restore the experiment, or permanently delete the "
-                "experiment to create a new one." % experiment.name
+                "experiment to create a new one."
             ),
             error_code=INVALID_PARAMETER_VALUE,
         )
@@ -204,6 +206,7 @@ def start_run(
     experiment_id: Optional[str] = None,
     run_name: Optional[str] = None,
     nested: bool = False,
+    parent_run_id: Optional[str] = None,
     tags: Optional[Dict[str, Any]] = None,
     description: Optional[str] = None,
     log_system_metrics: Optional[bool] = None,
@@ -236,6 +239,8 @@ def start_run(
         run_name: Name of new run. Used only when ``run_id`` is unspecified. If a new run is
             created and ``run_name`` is not specified, a random name will be generated for the run.
         nested: Controls whether run is nested in parent run. ``True`` creates a nested run.
+        parent_run_id: If specified, the current run will be nested under the the run with
+            the specified UUID. The parent run must be in the ACTIVE state.
         tags: An optional dictionary of string keys and values to set as tags on the run.
             If a run is being resumed, these tags are set on the resumed run. If a new run is
             being created, these tags are set on the new run.
@@ -279,11 +284,21 @@ def start_run(
         print("version tag value: {}".format(parent_run.data.tags.get("version")))
         print("priority tag value: {}".format(parent_run.data.tags.get("priority")))
         print("--")
+
         # Search all child runs with a parent id
         query = f"tags.mlflow.parentRunId = '{parent_run.info.run_id}'"
         results = mlflow.search_runs(experiment_ids=[experiment_id], filter_string=query)
         print("child runs:")
         print(results[["run_id", "params.child", "tags.mlflow.runName"]])
+
+        # Create a nested run under the existing parent run
+        with mlflow.start_run(
+            run_name="NEW_CHILD_RUN",
+            experiment_id=experiment_id,
+            description="new child",
+            parent_run_id=parent_run.info.run_id,
+        ) as child_run:
+            mlflow.log_param("new-child", "yes")
 
     .. code-block:: text
         :caption: Output
@@ -359,7 +374,28 @@ def start_run(
             )
         active_run_obj = client.get_run(existing_run_id)
     else:
-        parent_run_id = _active_run_stack[-1].info.run_id if len(_active_run_stack) > 0 else None
+        if parent_run_id:
+            _validate_run_id(parent_run_id)
+            # Make sure parent_run_id matches the current run id, if there is an active run
+            if len(_active_run_stack) > 0 and parent_run_id != _active_run_stack[-1].info.run_id:
+                current_run_id = _active_run_stack[-1].info.run_id
+                raise MlflowException(
+                    f"Current run with UUID {current_run_id} does not match the specified "
+                    f"parent_run_id {parent_run_id}. To start a new nested run under "
+                    f"the parent run with UUID {current_run_id}, first end the current run "
+                    "with mlflow.end_run()."
+                )
+            parent_run_obj = client.get_run(parent_run_id)
+            # Check if the specified parent_run has been deleted.
+            if parent_run_obj.info.lifecycle_stage == LifecycleStage.DELETED:
+                raise MlflowException(
+                    f"Cannot start run under parent run with ID {parent_run_id} "
+                    f"because it is in the deleted state."
+                )
+        else:
+            parent_run_id = (
+                _active_run_stack[-1].info.run_id if len(_active_run_stack) > 0 else None
+            )
 
         exp_id_for_run = experiment_id if experiment_id is not None else _get_experiment_id()
 
@@ -667,12 +703,30 @@ def flush_async_logging() -> None:
     _get_store().flush_async_logging()
 
 
+def _shut_down_async_logging() -> None:
+    """Shutdown the async logging and flush all pending data."""
+    _get_store().shut_down_async_logging()
+
+
 def flush_artifact_async_logging() -> None:
     """Flush all pending artifact async logging."""
     run_id = _get_or_start_run().info.run_id
     _artifact_repo = _get_artifact_repo(run_id)
     if _artifact_repo:
         _artifact_repo.flush_async_logging()
+
+
+def flush_trace_async_logging(terminate=False) -> None:
+    """
+    Flush all pending trace async logging.
+
+    Args:
+        terminate: If True, shut down the logging threads after flushing.
+    """
+    try:
+        _get_trace_exporter()._async_queue.flush(terminate=terminate)
+    except Exception as e:
+        _logger.error(f"Failed to flush trace async logging: {e}")
 
 
 def set_experiment_tag(key: str, value: Any) -> None:
@@ -793,6 +847,8 @@ def log_metric(
             successfully. If False, logs the metric asynchronously and
             returns a future representing the logging operation. If None, read from environment
             variable `MLFLOW_ENABLE_ASYNC_LOGGING`, which defaults to False if not set.
+        run_id: If specified, log the metric to the specified run. If not specified, log the metric
+            to the currently active run.
 
     Returns:
         When `synchronous=True`, returns None.
@@ -830,6 +886,7 @@ def log_metrics(
     step: Optional[int] = None,
     synchronous: Optional[bool] = None,
     run_id: Optional[str] = None,
+    timestamp: Optional[int] = None,
 ) -> Optional[RunOperations]:
     """
     Log multiple metrics for the current run. If no run is active, this method will create a new
@@ -846,6 +903,9 @@ def log_metrics(
             successfully. If False, logs the metrics asynchronously and
             returns a future representing the logging operation. If None, read from environment
             variable `MLFLOW_ENABLE_ASYNC_LOGGING`, which defaults to False if not set.
+        run_id: Run ID. If specified, log metrics to the specified run. If not specified, log
+            metrics to the currently active run.
+        timestamp: Time when these metrics were calculated. Defaults to the current system time.
 
     Returns:
         When `synchronous=True`, returns None. When `synchronous=False`, returns an
@@ -869,7 +929,7 @@ def log_metrics(
             mlflow.log_metrics(metrics, synchronous=False)
     """
     run_id = run_id or _get_or_start_run().info.run_id
-    timestamp = get_current_time_millis()
+    timestamp = timestamp or get_current_time_millis()
     metrics_arr = [Metric(key, value, timestamp, step or 0) for key, value in metrics.items()]
     synchronous = synchronous if synchronous is not None else not MLFLOW_ENABLE_ASYNC_LOGGING.get()
     return MlflowClient().log_batch(
@@ -1044,6 +1104,8 @@ def log_artifact(
     Args:
         local_path: Path to the file to write.
         artifact_path: If provided, the directory in ``artifact_uri`` to write to.
+        run_id: If specified, log the artifact to the specified run. If not specified, log the
+            artifact to the currently active run.
 
     .. code-block:: python
         :test:
@@ -1078,6 +1140,8 @@ def log_artifacts(
     Args:
         local_dir: Path to the directory of files to write.
         artifact_path: If provided, the directory in ``artifact_uri`` to write to.
+        run_id: If specified, log the artifacts to the specified run. If not specified, log the
+            artifacts to the currently active run.
 
     .. code-block:: python
         :test:
@@ -1114,6 +1178,8 @@ def log_text(text: str, artifact_file: str, run_id: Optional[str] = None) -> Non
         text: String containing text to log.
         artifact_file: The run-relative artifact file path in posixpath format to which
             the text is saved (e.g. "dir/file.txt").
+        run_id: If specified, log the artifact to the specified run. If not specified, log the
+            artifact to the currently active run.
 
     .. code-block:: python
         :test:
@@ -1147,6 +1213,8 @@ def log_dict(dictionary: Dict[str, Any], artifact_file: str, run_id: Optional[st
         dictionary: Dictionary to log.
         artifact_file: The run-relative artifact file path in posixpath format to which
             the dictionary is saved (e.g. "dir/data.json").
+        run_id: If specified, log the dictionary to the specified run. If not specified, log the
+            dictionary to the currently active run.
 
     .. code-block:: python
         :test:
@@ -1272,7 +1340,7 @@ def log_image(
             .. warning::
 
                 - Out-of-range integer values will raise ValueError.
-                - Out-of-range float values will raise ValueError.
+                - Out-of-range float values will auto-scale with min/max and warn.
 
         - shape (H: height, W: width):
 
@@ -1371,6 +1439,8 @@ def log_table(
         data: Dictionary or pandas.DataFrame to log.
         artifact_file: The run-relative artifact file path in posixpath format to which
             the table is saved (e.g. "dir/file.json").
+        run_id: If specified, log the table to the specified run. If not specified, log the
+            table to the currently active run.
 
     .. code-block:: python
         :test:
@@ -1683,7 +1753,7 @@ def create_experiment(
     Create an experiment.
 
     Args:
-        name: The experiment name, which must be unique and is case sensitive.
+        name: The experiment name, which must be a unique string.
         artifact_location: The location to store run artifacts. If not provided, the server picks
             an appropriate default.
         tags: An optional dictionary of string keys and values to set as tags on the experiment.
@@ -2054,8 +2124,8 @@ def search_runs(
         return pd.DataFrame(data)
     else:
         raise ValueError(
-            "Unsupported output format: %s. Supported string values are 'pandas' or 'list'"
-            % output_format
+            f"Unsupported output format: {output_format}. Supported string values are 'pandas' "
+            "or 'list'"
         )
 
 

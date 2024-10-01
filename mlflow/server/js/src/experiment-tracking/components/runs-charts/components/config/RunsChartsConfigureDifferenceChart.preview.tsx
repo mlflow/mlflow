@@ -6,7 +6,10 @@ import {
 } from '../../runs-charts.types';
 import { RunsChartsRunData } from '../RunsCharts.common';
 import { DifferenceViewPlot } from '../charts/DifferenceViewPlot';
+import { DifferenceViewPlotV2 } from '../charts/DifferenceViewPlotV2';
+
 import type { RunsGroupByConfig } from '../../../experiment-page/utils/experimentPage.group-row-utils';
+import { shouldEnableNewDifferenceViewCharts } from '@mlflow/mlflow/src/common/utils/FeatureUtils';
 
 export const RunsChartsConfigureDifferenceChartPreview = ({
   previewData,
@@ -19,14 +22,22 @@ export const RunsChartsConfigureDifferenceChartPreview = ({
   cardConfig: RunsChartsDifferenceCardConfig;
   setCardConfig: (setter: (current: RunsChartsCardConfig) => RunsChartsDifferenceCardConfig) => void;
 }) => {
-  return (
-    <div css={{ width: '100%', overflow: 'auto hidden', height: '100%' }}>
-      <DifferenceViewPlot
+  if (shouldEnableNewDifferenceViewCharts()) {
+    return (
+      <DifferenceViewPlotV2
         previewData={previewData}
         groupBy={groupBy}
         cardConfig={cardConfig}
         setCardConfig={setCardConfig}
       />
-    </div>
+    );
+  }
+  return (
+    <DifferenceViewPlot
+      previewData={previewData}
+      groupBy={groupBy}
+      cardConfig={cardConfig}
+      setCardConfig={setCardConfig}
+    />
   );
 };

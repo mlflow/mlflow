@@ -1,4 +1,4 @@
-import { Button, SyncIcon, Tooltip, useDesignSystemTheme } from '@databricks/design-system';
+import { Button, SyncIcon, LegacyTooltip, useDesignSystemTheme } from '@databricks/design-system';
 import React, { useEffect, useState } from 'react';
 import { FormattedMessage } from 'react-intl';
 import { connect } from 'react-redux';
@@ -93,7 +93,7 @@ export const ExperimentViewRefreshButtonImpl = React.memo(
             {MAX_DETECT_NEW_RUNS_RESULTS > newRunsCount ? newRunsCount : `${MAX_DETECT_NEW_RUNS_RESULTS - 1}+`}
           </div>
         )}
-        <Tooltip
+        <LegacyTooltip
           title={
             <FormattedMessage
               defaultMessage="Refresh"
@@ -108,7 +108,7 @@ export const ExperimentViewRefreshButtonImpl = React.memo(
             data-testid="runs-refresh-button"
             icon={<SyncIcon />}
           />
-        </Tooltip>
+        </LegacyTooltip>
       </div>
     );
   },

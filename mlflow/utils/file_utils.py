@@ -63,9 +63,6 @@ _PROGRESS_BAR_DISPLAY_THRESHOLD = 500_000_000  # 500 MB
 _logger = logging.getLogger(__name__)
 
 
-_logger = logging.getLogger(__name__)
-
-
 class ArtifactProgressBar:
     def __init__(self, desc, total, step, **kwargs) -> None:
         self.desc = desc
@@ -225,7 +222,7 @@ def make_containing_dirs(path):
         os.makedirs(dir_name)
 
 
-def write_yaml(root, file_name, data, overwrite=False, sort_keys=True, ensure_yaml_extension=True):
+def write_yaml(root, file_name, data, overwrite=False, sort_keys=True, ensure_yaml_extension=True):  # noqa: D417
     """Write dictionary data in yaml format.
 
     Args:
@@ -425,7 +422,6 @@ class TempDir:
             shutil.rmtree(self._path)
 
         assert not self._remove or not os.path.exists(self._path)
-        assert os.path.exists(os.getcwd())
 
     def path(self, *path):
         return os.path.join("./", *path) if self._chdr else os.path.join(self._path, *path)
@@ -463,7 +459,7 @@ def read_file(parent_path, file_name):
         return f.read()
 
 
-def get_file_info(path, rel_path):
+def get_file_info(path, rel_path):  # noqa: D417
     """Returns file meta data : location, size, ... etc
 
     Args:
@@ -535,6 +531,7 @@ def _copy_project(src_path, dst_path=""):
     The MLflow is assumed to be accessible as a local directory in this case.
 
     Args:
+        src_path: Path to the original MLflow project
         dst_path: MLflow will be copied here
 
     Returns:

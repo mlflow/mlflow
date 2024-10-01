@@ -17,6 +17,7 @@ import yaml
 from packaging.version import Version
 from sklearn import datasets
 from sklearn.pipeline import Pipeline as SKPipeline
+from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import FunctionTransformer as SKFunctionTransformer
 
 import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
@@ -26,7 +27,7 @@ from mlflow import pyfunc
 from mlflow.entities.model_registry.model_version import ModelVersion, ModelVersionStatus
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model, ModelSignature
-from mlflow.models.utils import _read_example
+from mlflow.models.utils import _read_example, load_serving_example
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, ErrorCode
 from mlflow.store._unity_catalog.registry.rest_store import UcModelRegistryStore
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
@@ -664,12 +665,14 @@ def test_pyfunc_serve_and_score(sklearn_knn_model):
     model, inference_dataframe = sklearn_knn_model
     artifact_path = "model"
     with mlflow.start_run():
-        mlflow.sklearn.log_model(model, artifact_path)
-        model_uri = mlflow.get_artifact_uri(artifact_path)
+        model_info = mlflow.sklearn.log_model(
+            model, artifact_path, input_example=inference_dataframe
+        )
 
+    inference_payload = load_serving_example(model_info.model_uri)
     resp = pyfunc_serve_and_score_model(
-        model_uri,
-        data=pd.DataFrame(inference_dataframe),
+        model_info.model_uri,
+        data=inference_payload,
         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
         extra_args=EXTRA_PYFUNC_SERVING_TEST_ARGS,
     )
@@ -874,3 +877,30 @@ def test_model_registration_metadata_handling(sklearn_knn_model, tmp_path):
     # This validates that the models artifact repo will not attempt to create a
     # "registered model metadata" file if the source of an artifact download is a file.
     assert os.listdir(dst_full) == ["MLmodel"]
+
+
+def test_pipeline_predict_proba(sklearn_knn_model, model_path):
+    knn_model = sklearn_knn_model.model
+    pipeline = make_pipeline(knn_model)
+
+    mlflow.sklearn.save_model(sk_model=pipeline, path=model_path, pyfunc_predict_fn="predict_proba")
+    reloaded_knn_pyfunc = pyfunc.load_model(model_uri=model_path)
+
+    np.testing.assert_array_equal(
+        knn_model.predict_proba(sklearn_knn_model.inference_data),
+        reloaded_knn_pyfunc.predict(sklearn_knn_model.inference_data),
+    )
+
+
+def test_get_raw_model(sklearn_knn_model):
+    with mlflow.start_run():
+        model_info = mlflow.sklearn.log_model(
+            sklearn_knn_model.model, "model", input_example=sklearn_knn_model.inference_data
+        )
+    pyfunc_model = pyfunc.load_model(model_info.model_uri)
+    raw_model = pyfunc_model.get_raw_model()
+    assert type(raw_model) == type(sklearn_knn_model.model)
+    np.testing.assert_array_equal(
+        raw_model.predict(sklearn_knn_model.inference_data),
+        sklearn_knn_model.model.predict(sklearn_knn_model.inference_data),
+    )

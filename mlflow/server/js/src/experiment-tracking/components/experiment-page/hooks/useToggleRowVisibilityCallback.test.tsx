@@ -1,4 +1,4 @@
-import { renderHook, act } from '@testing-library/react-for-react-18';
+import { renderHook, act } from '@testing-library/react';
 import { useToggleRowVisibilityCallback } from './useToggleRowVisibilityCallback';
 import { ExperimentPageUIStateContextProvider } from '../contexts/ExperimentPageUIStateContext';
 import { RUNS_VISIBILITY_MODE, createExperimentPageUIState } from '../models/ExperimentPageUIState';

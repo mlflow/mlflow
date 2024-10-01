@@ -66,7 +66,7 @@ class PyFuncBackend(FlavorBackend):
     Flavor backend implementation for the generic python models.
     """
 
-    def __init__(
+    def __init__(  # noqa: D417
         self,
         config,
         env_manager,

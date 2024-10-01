@@ -59,10 +59,10 @@ ENTRYPOINT ["python", "-c", "{entrypoint}"]
 
 
 SETUP_MINICONDA = """# Setup miniconda
-RUN curl -L https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh >> miniconda.sh
+RUN curl --fail -L https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh > miniconda.sh
 RUN bash ./miniconda.sh -b -p /miniconda && rm ./miniconda.sh
 ENV PATH="/miniconda/bin:$PATH"
-"""
+"""  # noqa: E501
 
 
 def generate_dockerfile(

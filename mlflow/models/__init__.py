@@ -30,6 +30,7 @@ The built-in flavors are:
 
 For details, see `MLflow Models <../models.html>`_.
 """
+
 from mlflow.models.dependencies_schemas import set_retriever_schema
 from mlflow.models.evaluation import (
     EvaluationArtifact,
@@ -73,7 +74,13 @@ __all__ = [
 try:
     from mlflow.models.python_api import predict
     from mlflow.models.signature import ModelSignature, infer_signature, set_signature
-    from mlflow.models.utils import ModelInputExample, add_libraries_to_model, validate_schema
+    from mlflow.models.utils import (
+        ModelInputExample,
+        add_libraries_to_model,
+        convert_input_example_to_serving_input,
+        validate_schema,
+        validate_serving_input,
+    )
 
     __all__ += [
         "ModelSignature",
@@ -81,8 +88,10 @@ try:
         "infer_signature",
         "validate_schema",
         "add_libraries_to_model",
+        "convert_input_example_to_serving_input",
         "set_signature",
         "predict",
+        "validate_serving_input",
     ]
 except ImportError:
     pass

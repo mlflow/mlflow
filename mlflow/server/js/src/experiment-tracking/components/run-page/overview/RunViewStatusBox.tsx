@@ -2,11 +2,12 @@ import { Tag, Typography, useDesignSystemTheme } from '@databricks/design-system
 import { RunInfoEntity } from '../../../types';
 import { RunStatusIcon } from '../../RunStatusIcon';
 import { FormattedMessage } from 'react-intl';
+import type { MlflowRunStatus } from '../../../../graphql/__generated__/graphql';
 
 /**
  * Displays run status cell in run detail overview.
  */
-export const RunViewStatusBox = ({ status }: { status: RunInfoEntity['status'] }) => {
+export const RunViewStatusBox = ({ status }: { status: RunInfoEntity['status'] | MlflowRunStatus | null }) => {
   const { theme } = useDesignSystemTheme();
   const getTagColor = () => {
     if (status === 'FINISHED') {
@@ -77,8 +78,11 @@ export const RunViewStatusBox = ({ status }: { status: RunInfoEntity['status'] }
   };
 
   return (
-    <Tag css={{ backgroundColor: getTagColor() }}>
-      <RunStatusIcon status={status} />{' '}
+    <Tag
+      componentId="codegen_mlflow_app_src_experiment-tracking_components_run-page_overview_runviewstatusbox.tsx_81"
+      css={{ backgroundColor: getTagColor() }}
+    >
+      {status && <RunStatusIcon status={status} />}{' '}
       <Typography.Text css={{ marginLeft: theme.spacing.sm }}>{getStatusLabel()}</Typography.Text>
     </Tag>
   );

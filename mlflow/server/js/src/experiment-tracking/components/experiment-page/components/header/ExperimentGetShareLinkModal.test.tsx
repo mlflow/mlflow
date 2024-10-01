@@ -5,16 +5,24 @@ import {
 import { ExperimentPageUIState, createExperimentPageUIState } from '../../models/ExperimentPageUIState';
 import { ExperimentGetShareLinkModal } from './ExperimentGetShareLinkModal';
 import { MockedReduxStoreProvider } from '../../../../../common/utils/TestUtils';
-import { renderWithIntl, act, screen, waitFor } from 'common/utils/TestUtils.react17';
-import userEvent from '@testing-library/user-event';
+import { renderWithIntl, act, screen, waitFor } from '@mlflow/mlflow/src/common/utils/TestUtils.react18';
+import userEvent from '@testing-library/user-event-14';
 import { useState } from 'react';
 import { setExperimentTagApi } from '../../../../actions';
+import { shouldUseCompressedExperimentViewSharedState } from '../../../../../common/utils/FeatureUtils';
+import { textDecompressDeflate } from '../../../../../common/utils/StringUtils';
+
+jest.mock('../../../../../common/utils/FeatureUtils', () => ({
+  ...jest.requireActual('../../../../../common/utils/FeatureUtils'),
+  shouldUseCompressedExperimentViewSharedState: jest.fn(),
+}));
 
 jest.mock('../../../../../common/utils/StringUtils', () => {
   const windowCryptoSupported = Boolean(global.crypto?.subtle);
   // If window.crypto is not supported, provide a simple hex hashing function instead of SHA256
   if (!windowCryptoSupported) {
     return {
+      ...jest.requireActual('../../../../../common/utils/StringUtils'),
       getStringSHA256: (val: string) =>
         val.split('').reduce((hex, c) => hex + c.charCodeAt(0).toString(16).padStart(2, '0'), ''),
     };
@@ -80,42 +88,49 @@ describe('ExperimentGetShareLinkModal', () => {
     };
   };
 
-  test('copies the shareable URL and expects to reuse the same tag for identical view state', async () => {
-    // Initial facets and UI state
-    const initialSearchState = { ...createExperimentPageSearchFacetsState(), searchFilter: 'metrics.m1 = 2' };
-    const initialUIState = { ...createExperimentPageUIState(), viewMaximized: true };
+  test.each([true, false])(
+    'copies the shareable URL and expects to reuse the same tag for identical view state when compression enabled: %s',
+    async (isCompressionEnabled) => {
+      jest.mocked(shouldUseCompressedExperimentViewSharedState).mockImplementation(() => isCompressionEnabled);
 
-    // Render the modal and open it
-    renderExperimentGetShareLinkModal(initialSearchState, initialUIState);
-    await act(async () => {
-      userEvent.click(screen.getByText('get link'));
-    });
+      // Initial facets and UI state
+      const initialSearchState = { ...createExperimentPageSearchFacetsState(), searchFilter: 'metrics.m1 = 2' };
+      const initialUIState = { ...createExperimentPageUIState(), viewMaximized: true };
 
-    // Wait for the link and tag to be processed and copy button to be visible
-    await waitFor(() => {
-      expect(screen.getByRole('button', { name: 'Copy' })).toBeInTheDocument();
-    });
+      // Render the modal and open it
+      renderExperimentGetShareLinkModal(initialSearchState, initialUIState);
+      await userEvent.click(screen.getByText('get link'));
 
-    // Click the copy button and assert that the URL was copied to the clipboard
-    userEvent.click(screen.getByRole('button', { name: 'Copy' }));
-    expect(navigator.clipboard.writeText).toHaveBeenCalledWith(
-      expect.stringMatching(/\/experiments\/experiment-1\?viewStateShareKey=([0-9a-f]+)/i),
-    );
+      // Wait for the link and tag to be processed and copy button to be visible
+      await waitFor(() => {
+        expect(screen.getByRole('button', { name: 'Copy' })).toBeInTheDocument();
+      });
 
-    // Assert that the tag was created with the correct name and serialized state
-    expect(setExperimentTagApi).toHaveBeenCalledWith(
-      'experiment-1',
-      expect.stringMatching(/mlflow\.sharedViewState\.([0-9a-f]+)/),
-      // Assert serialized state in the next step
-      expect.anything(),
-    );
-    const serializedTagValue = jest.mocked(setExperimentTagApi).mock.calls[0]?.[2];
-    const serializedState = JSON.parse(serializedTagValue);
-    expect(serializedState).toEqual({
-      ...initialSearchState,
-      ...initialUIState,
-    });
-  });
+      // Click the copy button and assert that the URL was copied to the clipboard
+      await userEvent.click(screen.getByRole('button', { name: 'Copy' }));
+      expect(navigator.clipboard.writeText).toHaveBeenCalledWith(
+        expect.stringMatching(/\/experiments\/experiment-1\?viewStateShareKey=([0-9a-f]+)/i),
+      );
+
+      // Assert that the tag was created with the correct name and serialized state
+      expect(setExperimentTagApi).toHaveBeenCalledWith(
+        'experiment-1',
+        expect.stringMatching(/mlflow\.sharedViewState\.([0-9a-f]+)/),
+        // Assert serialized state in the next step
+        expect.anything(),
+      );
+      const serializedTagValue = jest.mocked(setExperimentTagApi).mock.lastCall?.[2];
+
+      const serializedState = isCompressionEnabled
+        ? JSON.parse(await textDecompressDeflate(serializedTagValue))
+        : JSON.parse(serializedTagValue);
+
+      expect(serializedState).toEqual({
+        ...initialSearchState,
+        ...initialUIState,
+      });
+    },
+  );
 
   test('reuse the same tag for identical view state', async () => {
     // Initial facets and UI state
@@ -124,15 +139,13 @@ describe('ExperimentGetShareLinkModal', () => {
 
     // Render the modal and open it
     const { rerender } = renderExperimentGetShareLinkModal(initialSearchState, initialUIState);
-    await act(async () => {
-      userEvent.click(screen.getByText('get link'));
-    });
+    await userEvent.click(screen.getByText('get link'));
 
     // Wait for the link and tag to be processed and copy button to be visible
     await waitFor(() => {
       expect(screen.getByRole('button', { name: 'Copy' })).toBeInTheDocument();
     });
-    userEvent.click(screen.getByRole('button', { name: 'Copy' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Copy' }));
 
     // Save the first persisted tag name (containing serialized state hash)
     const firstSavedTagName = jest.mocked(setExperimentTagApi).mock.lastCall?.[1];
@@ -146,7 +159,7 @@ describe('ExperimentGetShareLinkModal', () => {
     await waitFor(() => {
       expect(screen.getByRole('button', { name: 'Copy' })).toBeInTheDocument();
     });
-    userEvent.click(screen.getByRole('button', { name: 'Copy' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Copy' }));
 
     // Save the second persisted tag name (containing serialized state hash), should be different from the first one
     const secondSavedTagName = jest.mocked(setExperimentTagApi).mock.lastCall?.[1];
@@ -161,7 +174,7 @@ describe('ExperimentGetShareLinkModal', () => {
       expect(screen.getByRole('button', { name: 'Copy' })).toBeInTheDocument();
     });
 
-    userEvent.click(screen.getByRole('button', { name: 'Copy' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Copy' }));
 
     // Assert the third persisted tag name, should be the same as the first one
     const lastSavedTagName = jest.mocked(setExperimentTagApi).mock.lastCall?.[1];

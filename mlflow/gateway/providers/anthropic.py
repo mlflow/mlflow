@@ -215,6 +215,7 @@ class AnthropicAdapter(ProviderAdapter):
 
 class AnthropicProvider(BaseProvider, AnthropicAdapter):
     NAME = "Anthropic"
+    CONFIG_TYPE = AnthropicConfig
 
     def __init__(self, config: RouteConfig) -> None:
         super().__init__(config)

@@ -1,15 +1,8 @@
 import textwrap
 import warnings
-from functools import wraps
 from typing import Dict
 
-import importlib_metadata
-from packaging.version import Version
-
 from mlflow.ml_package_versions import _ML_PACKAGE_VERSIONS
-from mlflow.utils.autologging_utils.versioning import (
-    FLAVOR_TO_MODULE_NAME_AND_VERSION_INFO_KEY,
-)
 
 
 def _create_placeholder(key: str):
@@ -99,8 +92,8 @@ class ParamDocs(dict):
         Formats placeholders in `docstring`.
 
         Args:
-            p1: {{ p1 }}
-            p2: {{ p2 }}
+            docstring: A docstring with placeholders to be replaced.
+                If provided with None, will return None.
 
         .. code-block:: text
             :caption: Example
@@ -258,10 +251,8 @@ by converting it to a list. Bytes are base64-encoded. When the ``signature`` par
 """
         ),
         "example_no_conversion": (
-            """If ``True``, the input example will not be converted to a Pandas DataFrame
-format when saving. This is useful when the model expects a non-DataFrame input and the
-input example could be passed directly to the model. Defaults to ``False`` for backwards
-compatibility.
+            """This parameter is deprecated and will be removed in a future release.
+It's no longer used and can be safely removed. Input examples are not converted anymore.
 """
         ),
         "prompt_template": (
@@ -279,6 +270,19 @@ Currently, only the following pipeline types are supported:
 """
         ),
         "code_paths": (
+            """A list of local filesystem paths to Python file dependencies (or directories
+containing file dependencies). These files are *prepended* to the system path when the model
+is loaded. Files declared as dependencies for a given model should have relative
+imports declared from a common root path if multiple files are defined with import dependencies
+between them to avoid import errors when loading the model.
+
+For a detailed explanation of ``code_paths`` functionality, recommended usage patterns and
+limitations, see the
+`code_paths usage guide <https://mlflow.org/docs/latest/model/dependencies.html?highlight=code_paths#saving-extra-code-with-an-mlflow-model>`_.
+"""
+        ),
+        # Only pyfunc flavor supports `infer_code_paths`.
+        "code_paths_pyfunc": (
             """A list of local filesystem paths to Python file dependencies (or directories
 containing file dependencies). These files are *prepended* to the system path when the model
 is loaded. Files declared as dependencies for a given model should have relative
@@ -355,7 +359,7 @@ it to MLflow without modifying the model weights. In such case, specifying this 
 )
 
 
-def get_module_min_and_max_supported_ranges(module_name):
+def get_module_min_and_max_supported_ranges(flavor_name):
     """
     Extracts the minimum and maximum supported package versions from the provided module name.
     The version information is provided via the yaml-to-python-script generation script in
@@ -363,24 +367,38 @@ def get_module_min_and_max_supported_ranges(module_name):
     mlflow.ml_package_versions
 
     Args:
-        module_name: The string name of the module as it is registered in ml_package_versions.py
+        flavor_name: The flavor name registered in ml_package_versions.py
 
     Returns:
-        tuple of minimum supported version, maximum supported version as strings.
+        tuple of module name, minimum supported version, maximum supported version as strings.
     """
-    versions = _ML_PACKAGE_VERSIONS[module_name]["models"]
+    if flavor_name == "pyspark.ml":
+        # pyspark.ml is a special case of spark flavor
+        flavor_name = "spark"
+
+    module_name = _ML_PACKAGE_VERSIONS[flavor_name]["package_info"].get("module_name", flavor_name)
+    versions = _ML_PACKAGE_VERSIONS[flavor_name]["models"]
     min_version = versions["minimum"]
     max_version = versions["maximum"]
-    return min_version, max_version
+    return module_name, min_version, max_version
+
+
+def _do_version_compatibility_warning(msg: str):
+    """
+    Isolate the warn call to show the warning only once.
+    """
+    warnings.warn(msg, category=UserWarning, stacklevel=2)
 
 
 def docstring_version_compatibility_warning(integration_name):
     """
     Generates a docstring that can be applied as a note stating a version compatibility range for
-    a given flavor.
+    a given flavor and optionally raises a warning if the installed version is outside of the
+    supported range.
 
     Args:
         integration_name: The name of the module as stored within ml-package-versions.yml
+        warn: If True, raise a warning if the installed version is outside of the supported range.
 
     Returns:
         The wrapped function with the additional docstring header applied
@@ -388,10 +406,9 @@ def docstring_version_compatibility_warning(integration_name):
 
     def annotated_func(func):
         # NB: if using this decorator, ensure the package name to module name reference is
-        # updated with the flavor's `save` and `load` functions being used within the dictionary
-        # mlflow.utils.autologging_utils.versioning.FLAVOR_TO_MODULE_NAME_AND_VERSION_INFO_KEY
-        _, module_key = FLAVOR_TO_MODULE_NAME_AND_VERSION_INFO_KEY[integration_name]
-        min_ver, max_ver = get_module_min_and_max_supported_ranges(module_key)
+        # updated with the flavor's `save` and `load` functions being used within
+        # ml-package-version.yml file.
+        _, min_ver, max_ver = get_module_min_and_max_supported_ranges(integration_name)
         required_pkg_versions = f"``{min_ver}`` -  ``{max_ver}``"
 
         notice = (
@@ -401,17 +418,10 @@ def docstring_version_compatibility_warning(integration_name):
             "package versions outside of this range."
         )
 
-        @wraps(func)
-        def version_func(*args, **kwargs):
-            installed_version = Version(importlib_metadata.version(module_key))
-            if installed_version < Version(min_ver) or installed_version > Version(max_ver):
-                warnings.warn(notice, category=FutureWarning, stacklevel=2)
-            return func(*args, **kwargs)
-
-        version_func.__doc__ = (
+        func.__doc__ = (
             "    .. Note:: " + notice + "\n" * 2 + func.__doc__ if func.__doc__ else notice
         )
 
-        return version_func
+        return func
 
     return annotated_func

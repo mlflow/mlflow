@@ -294,7 +294,7 @@ def _validate_onnx_session_options(onnx_session_options):
     """Validates that the specified onnx_session_options dict is valid.
 
     Args:
-        ort_session_options: The onnx_session_options dict to validate.
+        onnx_session_options: The onnx_session_options dict to validate.
     """
     import onnxruntime as ort
 

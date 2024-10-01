@@ -1,7 +1,7 @@
 import userEvent from '@testing-library/user-event-14';
 
 import { ModelVersionViewAliasEditor } from './ModelVersionViewAliasEditor';
-import { renderWithIntl, act, screen, within, findAntdOption } from 'common/utils/TestUtils.react18';
+import { renderWithIntl, act, screen, within, findAntdOption } from '@mlflow/mlflow/src/common/utils/TestUtils.react18';
 import { Provider } from 'react-redux';
 
 import configureStore from 'redux-mock-store';
@@ -250,6 +250,6 @@ describe('useEditRegisteredModelAliasesModal integration', () => {
     expect(screen.queryByRole('status')).not.toBeInTheDocument();
 
     // Confirm a button with "Add aliases" title is displayed now
-    expect(screen.queryByRole('button', { name: 'Add aliases' })).toBeInTheDocument();
+    expect(screen.queryByTitle('Add aliases')).toBeInTheDocument();
   });
 });

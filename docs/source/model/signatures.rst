@@ -156,13 +156,13 @@ Column-based signatures support data primitives defined within the :py:class:`ML
 Column-based signature also support composite data types of these primitives.
 
 - Array (list, numpy arrays)
+- Spark ML vector (it inherits ``Array[double]`` type)
 - Object (dictionary)
 
 .. warning::
 
-    Support for Array and Object types was introduced in MLflow version **2.10.0**. These types will not be recognized in previous versions of MLflow. 
-    If you are saving a model that uses these signature types, you should ensure that any other environment that attempts to load these models 
-    has a version of MLflow installed that is at least 2.10.0.
+    * Support for Array and Object types was introduced in MLflow version **2.10.0**. These types will not be recognized in previous versions of MLflow.  If you are saving a model that uses these signature types, you should ensure that any other environment that attempts to load these models  has a version of MLflow installed that is at least 2.10.0.
+    * Support for Spark ML vector type was introduced in MLflow version **2.15.0**, These type will not be recognized in previous versions of MLflow.
 
 Additional examples for composite data types can be seen by viewing the `signature examples notebook <notebooks/signature_examples.html>`_.
 
@@ -749,10 +749,65 @@ model signatures in log_model calls when signatures aren't specified.
     using the model that is about to be logged, thereby enhancing the accuracy in identifying model requirement dependencies.
     It is **highly recommended** to always include an input example along with your models when you log them.
 
+Since MLflow 2.16.0, when logging a model with an input example, there are two files saved into the model's artifacts directory:
 
-By default, if input example is a dictionary, we convert it to pandas DataFrame format when saving.
-Note that for langchain, openai, pyfunc and transformers flavors, input example could be saved without
-conversion by setting ``example_no_conversion`` to ``False``.
+- ``input_example.json``: The input example in JSON format.
+- ``serving_input_example.json``: The input example in JSON format, with additional transformation to have compatible schema for querying a deployed model REST endpoint.
+
+The following example demonstrates the difference between the two files:
+
+.. code-block:: python
+
+    import mlflow
+
+
+    class MyModel(mlflow.pyfunc.PythonModel):
+        def predict(self, context, model_input, params=None):
+            return model_input
+
+
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model(
+            python_model=MyModel(),
+            artifact_path="model",
+            input_example={"question": "What is MLflow?"},
+        )
+
+Example files logged by MLflow:
+
+.. list-table::
+   :header-rows: 1
+   :class: wrap-table
+
+   * - File name
+     - Content
+     - Explanation
+   * - input_example.json
+     - 
+        .. code-block:: json
+
+            {
+              "question": "What is MLflow?"
+            }
+
+     - The input example in its original format.
+   * - serving_input_example.json
+     - 
+        .. code-block:: json
+
+            {
+              "inputs": {
+                "question": "What is MLflow?"
+              }
+            }
+
+     - JSON-serialized version of the input example with one of the predefined keys (``dataframe_split``, ``instances``, ``inputs`` or ``dataframe_records``) that mlflow scoring server requires when `querying a deployed model endpoint <../../deployment/deploy-model-locally.html#local-inference-server-spec>`_.
+
+.. note::
+    Prior to MLflow 2.16.0, dictionary input example was converted to Pandas DataFrame format when saving. In later versions, the input
+    example is simply saved in its JSON serialized format. For pandas DataFrame, it is converted to dictionary format 
+    with ``to_dict(orient='split')`` and saved into json format. ``example_no_conversion`` parameter for langchain, openai, pyfunc and
+    transformers flavors is no longer used and safe to be removed, it will be dropped in a future release.
 
 Similar to model signatures, model inputs can be column-based (i.e DataFrames), tensor-based
 (i.e numpy.ndarrays) or json object (i.e python dictionary). We offer support for input_example 
@@ -764,23 +819,25 @@ For models accepting column-based inputs, an example can be a single record or a
 sample input can be in the following formats:
 
 * Pandas DataFrame
-* ``dict`` (of scalars, strings, or lists of scalar values)
-* ``list``
-* ``str``
-* ``bytes``
 
-The given example will be converted to a Pandas DataFrame and then serialized to json using the Pandas split-oriented
+The given example will be serialized to json using the Pandas split-oriented
 format. Bytes are base64-encoded. The following example demonstrates how you can log a column-based
 input example with your model:
 
 .. code-block:: python
 
-    input_example = {
-        "sepal length (cm)": 5.1,
-        "sepal width (cm)": 3.5,
-        "petal length (cm)": 1.4,
-        "petal width (cm)": 0.2,
-    }
+    import pandas as pd
+
+    input_example = pd.DataFrame(
+        [
+            {
+                "sepal length (cm)": 5.1,
+                "sepal width (cm)": 3.5,
+                "petal length (cm)": 1.4,
+                "petal width (cm)": 0.2,
+            }
+        ]
+    )
     mlflow.sklearn.log_model(..., input_example=input_example)
 
 How To Log Models With a Tensor-based Example
@@ -810,11 +867,12 @@ The following example demonstrates how you can log a tensor-based input example 
 
 How To Log Models Using a JSON Object Example
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-For models accepting python dictionary inputs instead of pandas DataFrame, we support saving the example
-directly as it is. To enable this, ``example_no_conversion`` should be set to ``True`` when logging the model. 
-This feature is only supported for langchain, openai, pyfunc and transformers flavors, where saving the example
-directly is useful for inference and model serving.
-By default, ``example_no_conversion`` is set to ``False`` for backwards compatibility.
+We support saving input example as it is if it's a json-serializable format. The input example can be
+in the following formats:
+
+* ``dict`` (of scalars, strings, or lists of scalar values)
+* ``list``
+* ``scalars``
 
 The following example demonstrates how you can log a json object input example with your model:
 
@@ -827,7 +885,7 @@ The following example demonstrates how you can log a json object input example w
             {"role": "user", "content": "Who owns MLflow?"},
         ]
     }
-    mlflow.langchain.log_model(..., input_example=input_example, example_no_conversion=True)
+    mlflow.langchain.log_model(..., input_example=input_example)
 
 How To Log Model With an Example that Contains Params
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -850,3 +908,52 @@ The following example demonstrates how to log a model with an example containing
     params = {"temperature": 0.5, "top_k": 1}
     input_example = (input_data, params)
     mlflow.transformers.log_model(..., input_example=input_example)
+
+
+Model Serving Payload Example
+-----------------------------
+Once an MLflow model is deployed to a REST endpoint for inference, the request payload will be
+JSON serialized and may have subtle difference from in-memory representation.
+To validate your model works for inference, you can use the ``serving_input_example.json`` file.
+It is automatically logged along with the model when an ``input_example`` is provided and contains
+a json format of the given input example for querying a deployed model endpoint.
+
+The following example demonstrates how to load the serving payload from a logged model:
+
+.. code-block:: python
+
+    import mlflow
+    from mlflow.models.utils import load_serving_example
+
+    input_example = {
+        "messages": [
+            {"role": "system", "content": "You are a helpful assistant."},
+            {"role": "assistant", "content": "What would you like to ask?"},
+            {"role": "user", "content": "Who owns MLflow?"},
+        ]
+    }
+    model_info = mlflow.langchain.log_model(..., input_example=input_example)
+    print(f"model_uri: {model_info.model_uri}")
+    serving_example = load_serving_example(model_info.model_uri)
+    print(f"serving_example: {serving_example}")
+
+You can validate the input example works prior to serving:
+
+.. code-block:: python
+
+    from mlflow.models import validate_serving_input
+
+    result = validate_serving_input(model_info.model_uri, serving_example)
+    print(f"prediction result: {result}")
+
+Serve the model locally
+
+.. code-block:: bash
+
+    mlflow models serve --model-uri "<YOUR_MODEL_URI>"
+
+Validate model inference with the serving payload example
+
+.. code-block:: bash
+
+    curl http://127.0.0.1:5000/invocations -H 'Content-Type: application/json' -d 'YOUR_SERVING_EXAMPLE'

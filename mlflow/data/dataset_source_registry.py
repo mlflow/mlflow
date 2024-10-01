@@ -1,13 +1,12 @@
 import warnings
 from typing import Any, List, Optional
 
-import entrypoints
-
 from mlflow.data.artifact_dataset_sources import register_artifact_dataset_sources
 from mlflow.data.dataset_source import DatasetSource
 from mlflow.data.http_dataset_source import HTTPDatasetSource
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
+from mlflow.utils.plugins import get_entry_points
 
 
 class DatasetSourceRegistry:
@@ -27,7 +26,7 @@ class DatasetSourceRegistry:
         Registers dataset sources defined as Python entrypoints. For reference, see
         https://mlflow.org/docs/latest/plugins.html#defining-a-plugin.
         """
-        for entrypoint in entrypoints.get_group_all("mlflow.dataset_source"):
+        for entrypoint in get_entry_points("mlflow.dataset_source"):
             try:
                 self.register(entrypoint.load())
             except (AttributeError, ImportError) as exc:

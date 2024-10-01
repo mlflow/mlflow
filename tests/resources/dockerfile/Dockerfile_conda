@@ -4,7 +4,7 @@ FROM ubuntu:20.04
 RUN apt-get -y update && DEBIAN_FRONTEND=noninteractive TZ=Etc/UTC apt-get install -y --no-install-recommends wget curl nginx ca-certificates bzip2 build-essential cmake git-core
 
 # Setup miniconda
-RUN curl -L https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh >> miniconda.sh
+RUN curl --fail -L https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh > miniconda.sh
 RUN bash ./miniconda.sh -b -p /miniconda && rm ./miniconda.sh
 ENV PATH="/miniconda/bin:$PATH"
 

@@ -1,4 +1,3 @@
-/// <reference types="react" />
 export interface SelectContextType {
     isSelect: boolean;
     placeholder?: string;

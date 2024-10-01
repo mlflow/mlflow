@@ -72,6 +72,7 @@ jobs:
           pip install -r requirements/test-requirements.txt
           # Test the latest minor version in protobuf_major_version
           pip install "protobuf==${{ matrix.protobuf_major_version }}.*"
+      - uses: ./.github/actions/show-versions
       - uses: ./.github/actions/pipdeptree
       - name: Run tests
         run: |

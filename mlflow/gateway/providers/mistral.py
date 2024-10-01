@@ -116,6 +116,7 @@ class MistralAdapter(ProviderAdapter):
 
 class MistralProvider(BaseProvider):
     NAME = "Mistral"
+    CONFIG_TYPE = MistralConfig
 
     def __init__(self, config: RouteConfig) -> None:
         super().__init__(config)

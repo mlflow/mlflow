@@ -7,7 +7,7 @@
 
 import React from 'react';
 import { EditableNote, EditableNoteImpl } from './EditableNote';
-import { mountWithIntl } from 'common/utils/TestUtils.enzyme';
+import { mountWithIntl } from '@mlflow/mlflow/src/common/utils/TestUtils.enzyme';
 import { BrowserRouter } from '../../common/utils/RoutingUtils';
 
 describe('EditableNote', () => {

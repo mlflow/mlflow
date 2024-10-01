@@ -3,6 +3,7 @@ Internal module implementing multi-media objects and utilities in MLflow. Multi-
 exposed to users at the top-level :py:mod:`mlflow` module.
 """
 
+import warnings
 from typing import TYPE_CHECKING, Optional, Tuple, Union
 
 if TYPE_CHECKING:
@@ -57,11 +58,14 @@ def convert_to_pil_image(image: Union["numpy.ndarray", list]) -> "PIL.Image.Imag
                     "Ensure all pixel values are within the specified range."
                 )
             else:
-                raise ValueError(
+                warnings.warn(
                     "Float pixel values out of acceptable range [0.0, 1.0]. "
                     f"Found minimum value {x.min()} and maximum value {x.max()}. "
-                    "Ensure all pixel values are within the specified range."
+                    "Rescaling values to [0.0, 1.0] with min/max scaler.",
+                    stacklevel=2,
                 )
+                # Min-max scaling
+                x = (x - x.min()) / (x.max() - x.min())
 
         # float or bool
         if not is_int:

@@ -1,7 +1,10 @@
 import { useMemo } from 'react';
 import type { RunGroupingAggregateFunction } from '../../experiment-page/utils/experimentPage.row-types';
 import invariant from 'invariant';
-import type { RunsChartsRunData } from '../../runs-charts/components/RunsCharts.common';
+import {
+  removeOutliersFromMetricHistory,
+  type RunsChartsRunData,
+} from '../../runs-charts/components/RunsCharts.common';
 import {
   createAggregatedMetricHistory,
   createValueAggregatedMetricHistory,
@@ -18,6 +21,7 @@ export interface UseGroupedChartRunDataParams {
   metricKeys: string[];
   sampledDataResultsByRunUuid: Dictionary<SampledMetricsByRun>;
   selectedXAxisMetricKey?: string;
+  ignoreOutliers: boolean;
 }
 
 /**
@@ -32,6 +36,7 @@ export const useGroupedChartRunData = ({
   metricKeys,
   sampledDataResultsByRunUuid,
   selectedXAxisMetricKey,
+  ignoreOutliers,
 }: UseGroupedChartRunDataParams) => {
   return useMemo(() => {
     if (!enabled || !aggregateFunction) {
@@ -55,17 +60,21 @@ export const useGroupedChartRunData = ({
               pick(sampledDataResultsByRunUuid, aggregatedRunUuidsInGroup),
               metricKey,
               selectedXAxisMetricKey,
+              ignoreOutliers,
             );
           } else {
             const metricsHistoryInGroup = compact(
               aggregatedRunUuidsInGroup.flatMap((runUuid) => {
                 const metricsHistory = sampledDataResultsByRunUuid[runUuid]?.[metricKey]?.metricsHistory;
+                if (ignoreOutliers) {
+                  return metricsHistory ? removeOutliersFromMetricHistory(metricsHistory) : undefined;
+                }
                 return metricsHistory;
               }),
             );
 
             // Get all step numbers from all runs in the group
-            const steps = uniq(metricsHistoryInGroup.map((h) => h.step));
+            const steps = uniq(metricsHistoryInGroup.map((h) => h.step)).sort((a, b) => a - b);
 
             aggregatedMetricsHistoryForMetric = createAggregatedMetricHistory(steps, metricKey, metricsHistoryInGroup);
           }
@@ -90,5 +99,13 @@ export const useGroupedChartRunData = ({
     const ungroupedRuns = ungroupedRunsData.filter(({ belongsToGroup }) => belongsToGroup === false);
 
     return [...perGroupData, ...ungroupedRuns];
-  }, [metricKeys, sampledDataResultsByRunUuid, ungroupedRunsData, enabled, aggregateFunction, selectedXAxisMetricKey]);
+  }, [
+    metricKeys,
+    sampledDataResultsByRunUuid,
+    ungroupedRunsData,
+    enabled,
+    aggregateFunction,
+    selectedXAxisMetricKey,
+    ignoreOutliers,
+  ]);
 };

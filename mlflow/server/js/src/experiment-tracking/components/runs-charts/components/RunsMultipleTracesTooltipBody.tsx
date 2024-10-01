@@ -6,7 +6,7 @@ import { TraceLabelColorIndicator } from './RunsMetricsLegend';
 import { FormattedDate, FormattedTime, useIntl } from 'react-intl';
 import { getChartAxisLabelDescriptor, RunsChartsLineChartXAxisType } from './RunsCharts.common';
 import { useDesignSystemTheme } from '@databricks/design-system';
-import { shouldEnableRelativeTimeDateAxis } from 'common/utils/FeatureUtils';
+import { shouldEnableRelativeTimeDateAxis } from '@mlflow/mlflow/src/common/utils/FeatureUtils';
 
 // Sadly when hovering outside data point, we can't get the date-time value from Plotly chart
 // so we have to format it ourselves in a way that resembles Plotly's logic

@@ -105,6 +105,7 @@ export class EditableTagsTableViewImpl extends Component<Props> {
               ]}
             >
               <Input
+                componentId="codegen_mlflow_app_src_common_components_editabletagstableview.tsx_107"
                 aria-label="tag name"
                 data-testid="tags-form-input-name"
                 placeholder={this.props.intl.formatMessage({
@@ -115,6 +116,7 @@ export class EditableTagsTableViewImpl extends Component<Props> {
             </Form.Item>
             <Form.Item name="value" rules={[]}>
               <Input
+                componentId="codegen_mlflow_app_src_common_components_editabletagstableview.tsx_117"
                 aria-label="tag value"
                 data-testid="tags-form-input-value"
                 placeholder={this.props.intl.formatMessage({

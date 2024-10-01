@@ -1,4 +1,4 @@
-import { RunsGroupByConfig } from 'experiment-tracking/components/experiment-page/utils/experimentPage.group-row-utils';
+import { RunsGroupByConfig } from '@mlflow/mlflow/src/experiment-tracking/components/experiment-page/utils/experimentPage.group-row-utils';
 import { RunsChartsCardConfig, RunsChartsImageCardConfig } from '../../runs-charts.types';
 import { RunsChartsRunData } from '../RunsCharts.common';
 import { ImageGridPlot } from '../charts/ImageGridPlot';

@@ -3,6 +3,7 @@ from collections import namedtuple
 from unittest import mock
 
 import numpy as np
+import pandas as pd
 import pytest
 import sklearn.neighbors as knn
 from sklearn import datasets
@@ -14,6 +15,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.models import add_libraries_to_model
 from mlflow.models.utils import (
     _config_context,
+    _convert_llm_input_data,
     _enforce_array,
     _enforce_datatype,
     _enforce_object,
@@ -570,3 +572,20 @@ def test_flatten_nested_params():
     }
 
     assert _flatten_nested_params(rag_params) == expected_rag_flattened_params
+
+
+@pytest.mark.parametrize(
+    ("data", "target", "target_type"),
+    [
+        (pd.DataFrame([{"a": [1, 2, 3]}]), [{"a": [1, 2, 3]}], list),
+        (pd.DataFrame([{"a": np.array([1, 2, 3])}]), [{"a": [1, 2, 3]}], list),
+        (pd.DataFrame([{0: np.array(["abc"])[0]}]), ["abc"], list),
+        (np.array([1, 2, 3]), [1, 2, 3], list),
+        (np.array([123])[0], 123, int),
+        (np.array(["abc"])[0], "abc", str),
+    ],
+)
+def test_convert_llm_input_data(data, target, target_type):
+    result = _convert_llm_input_data(data)
+    assert result == target
+    assert type(result) == target_type

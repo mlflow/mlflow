@@ -15,7 +15,9 @@ import {
   Header,
   OverflowIcon,
   useDesignSystemTheme,
+  type HeaderProps,
 } from '@databricks/design-system';
+import { useIntl } from 'react-intl';
 
 import { PreviewBadge } from './PreviewBadge';
 
@@ -54,7 +56,7 @@ export function OverflowMenu({ menu }: OverflowMenuProps) {
   ) : null;
 }
 
-type PageHeaderProps = {
+type PageHeaderProps = Pick<HeaderProps, 'dangerouslyAppendEmotionCSS'> & {
   title: React.ReactNode;
   breadcrumbs?: React.ReactNode[];
   preview?: boolean;
@@ -81,8 +83,11 @@ export function PageHeader(props: PageHeaderProps) {
     preview,
     children,
     spacerSize,
+    dangerouslyAppendEmotionCSS,
   } = props;
   const { theme } = useDesignSystemTheme();
+  const intl = useIntl();
+
   return (
     <>
       <Header
@@ -104,6 +109,7 @@ export function PageHeader(props: PageHeaderProps) {
             {titleAddOns}
           </>
         }
+        dangerouslyAppendEmotionCSS={dangerouslyAppendEmotionCSS}
       />
       <Spacer
         // @ts-expect-error TS(2322): Type '{ css: { flexShrink: number; }; }' is not as... Remove this comment to see the full error message

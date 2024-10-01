@@ -1,6 +1,7 @@
 """
 The ``mlflow.projects`` module provides an API for running MLflow projects locally or remotely.
 """
+
 import json
 import logging
 import os
@@ -146,7 +147,9 @@ def _run(
                 work_dir=work_dir,
                 experiment_id=experiment_id,
                 cluster_spec=backend_config,
-                databricks_spark_job_spec=project.databricks_spark_job_spec,
+                project_spec=project,
+                entry_point=entry_point,
+                parameters=parameters,
             )
 
         return run_databricks(

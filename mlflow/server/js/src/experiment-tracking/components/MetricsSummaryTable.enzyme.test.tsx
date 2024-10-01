@@ -14,7 +14,7 @@ import promiseMiddleware from 'redux-promise-middleware';
 import MetricsSummaryTable from './MetricsSummaryTable';
 import { HtmlTableView } from './HtmlTableView';
 import { Metric } from '../sdk/MlflowMessages';
-import { mountWithIntl } from 'common/utils/TestUtils.enzyme';
+import { mountWithIntl } from '@mlflow/mlflow/src/common/utils/TestUtils.enzyme';
 
 describe('MetricsSummaryTable', () => {
   let wrapper;

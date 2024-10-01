@@ -31,3 +31,5 @@ yarn-debug.log*
 yarn-error.log*
 
 /.swc
+
+/src/lang/compiled/*.json

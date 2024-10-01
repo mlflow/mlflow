@@ -10,7 +10,7 @@ import {
   within,
   selectAntdOption,
   renderWithIntl,
-} from 'common/utils/TestUtils.react18';
+} from '@mlflow/mlflow/src/common/utils/TestUtils.react18';
 
 describe('useEditKeyValueTagsModal', () => {
   function renderTestComponent(

@@ -17,7 +17,7 @@ def build_and_evalute_model_with_prompt(system_prompt):
     # Create a question answering model using prompt engineering with OpenAI. Log the model
     # to MLflow Tracking
     logged_model = mlflow.openai.log_model(
-        model="gpt-3.5-turbo",
+        model="gpt-4o-mini",
         task=openai.chat.completions,
         artifact_path="model",
         messages=[

@@ -1,6 +1,6 @@
 import React from 'react';
 import { FormattedMessage } from 'react-intl';
-import { shallowWithIntl, mountWithIntl } from 'common/utils/TestUtils.enzyme';
+import { shallowWithIntl, mountWithIntl } from '@mlflow/mlflow/src/common/utils/TestUtils.enzyme';
 
 function TestComponent() {
   return (

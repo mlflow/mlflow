@@ -32,8 +32,10 @@ runs:
           fi
         elif [[ "$python_version" == "3.9" ]]; then
           python_version="3.9.18"
+        elif [[ "$python_version" == "3.10" ]]; then
+          python_version="3.10.14"
         else
-          echo "Invalid python version: '$python_version'. Must be '3.8'"
+          echo "Invalid python version: '$python_version'. Must be '3.8', '3.9', or '3.10'."
           exit 1
         fi
         echo "version=$python_version" >> $GITHUB_OUTPUT

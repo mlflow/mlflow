@@ -9,10 +9,14 @@ from mlflow.store.artifact.models_artifact_repo import ModelsArtifactRepository
 from mlflow.store.artifact.unity_catalog_models_artifact_repo import (
     UnityCatalogModelsArtifactRepository,
 )
+from mlflow.store.artifact.unity_catalog_oss_models_artifact_repo import (
+    UnityCatalogOSSModelsArtifactRepository,
+)
 from mlflow.utils.os import is_windows
 
 from tests.store.artifact.constants import (
     UC_MODELS_ARTIFACT_REPOSITORY,
+    UC_OSS_MODELS_ARTIFACT_REPOSITORY,
     WORKSPACE_MODELS_ARTIFACT_REPOSITORY,
 )
 
@@ -63,6 +67,20 @@ def test_models_artifact_repo_init_with_uc_registry_db_profile_inferred_from_con
         models_repo = ModelsArtifactRepository(model_uri)
         assert models_repo.artifact_uri == model_uri
         assert isinstance(models_repo.repo, UnityCatalogModelsArtifactRepository)
+        mock_repo.assert_called_once_with(model_uri, registry_uri=uc_registry_uri)
+
+
+def test_models_artifact_repo_init_with_uc_oss_profile_inferred_from_context():
+    model_uri = "models:/MyModel/12"
+    uc_registry_uri = "uc://getRegistryUriDefault"
+    with mock.patch(UC_OSS_MODELS_ARTIFACT_REPOSITORY, autospec=True) as mock_repo, mock.patch(
+        "mlflow.get_registry_uri", return_value=uc_registry_uri
+    ):
+        mock_repo.return_value.model_name = "MyModel"
+        mock_repo.return_value.model_version = "12"
+        models_repo = ModelsArtifactRepository(model_uri)
+        assert models_repo.artifact_uri == model_uri
+        assert isinstance(models_repo.repo, UnityCatalogOSSModelsArtifactRepository)
         mock_repo.assert_called_once_with(model_uri, registry_uri=uc_registry_uri)
 
 

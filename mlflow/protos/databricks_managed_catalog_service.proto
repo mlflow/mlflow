@@ -13,7 +13,7 @@ option (scalapb.options) = {
   flat_package: true,
 };
 
-service UnityCatalogService {
+service DatabricksUnityCatalogService {
   rpc getTable (GetTable) returns (GetTableResponse) {
     option (rpc) = {
       endpoints: {

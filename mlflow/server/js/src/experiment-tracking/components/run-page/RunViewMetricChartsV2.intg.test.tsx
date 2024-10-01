@@ -13,7 +13,7 @@ import thunk from 'redux-thunk';
 import promiseMiddleware from 'redux-promise-middleware';
 import { latestMetricsByRunUuid, metricsByRunUuid } from '../../reducers/MetricReducer';
 import { paramsByRunUuid, tagsByRunUuid } from '../../reducers/Reducers';
-import { imagesByRunUuid } from 'experiment-tracking/reducers/ImageReducer';
+import { imagesByRunUuid } from '@mlflow/mlflow/src/experiment-tracking/reducers/ImageReducer';
 import { fetchEndpoint } from '../../../common/utils/FetchUtils';
 import { DesignSystemProvider } from '@databricks/design-system';
 
@@ -30,7 +30,9 @@ jest.mock('../runs-charts/components/RunsMetricsLinePlot', () => ({
 }));
 
 jest.mock('../runs-charts/hooks/useIsInViewport', () => ({
-  useIsInViewport: jest.fn().mockImplementation(() => ({ isInViewport: true, elementRef: undefined })),
+  useIsInViewport: jest
+    .fn()
+    .mockImplementation(() => ({ isInViewport: true, isInViewportDeferred: true, elementRef: undefined })),
 }));
 
 jest.mock('../../../common/utils/FetchUtils', () => ({
@@ -117,6 +119,13 @@ describe('RunViewMetricChartsV2 - autorefresh', () => {
                   metricKey: 'metric_2',
                   scaleType: 'linear',
                   xAxisKey: 'step',
+                  xAxisScaleType: 'linear',
+                  range: {
+                    xMin: undefined,
+                    xMax: undefined,
+                    yMin: undefined,
+                    yMax: undefined,
+                  },
                 },
               ],
               compareRunSections: [

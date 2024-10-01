@@ -22,6 +22,7 @@ import {
   makeCanonicalSortKey,
 } from '../../utils/experimentPage.common-utils';
 import { ExperimentRunsSelectorResult } from '../../utils/experimentRuns.selector';
+import { customMetricBehaviorDefs } from '../../utils/customMetricBehaviorUtils';
 
 /**
  * We need to recreate antd's tree check callback signature since it's not importable
@@ -170,10 +171,13 @@ export const ExperimentViewRunsColumnSelector = React.memo(
         result.push({
           key: GROUP_KEY_METRICS,
           title: `Metrics (${filteredMetrics.length})`,
-          children: filteredMetrics.map((metricKey) => ({
-            key: makeCanonicalSortKey(COLUMN_TYPES.METRICS, metricKey),
-            title: createHighlightedNode(metricKey, filter),
-          })),
+          children: filteredMetrics.map((metricKey) => {
+            const customColumnDef = customMetricBehaviorDefs[metricKey];
+            return {
+              key: makeCanonicalSortKey(COLUMN_TYPES.METRICS, metricKey),
+              title: createHighlightedNode(customColumnDef?.displayName ?? metricKey, filter),
+            };
+          }),
         });
       }
       if (filteredParams.length) {
@@ -294,6 +298,7 @@ export const ExperimentViewRunsColumnSelector = React.memo(
       >
         <div css={(theme) => ({ padding: theme.spacing.md })}>
           <Input
+            componentId="codegen_mlflow_app_src_experiment-tracking_components_experiment-page_components_runs_experimentviewrunscolumnselector.tsx_300"
             value={filter}
             prefix={<SearchIcon />}
             placeholder="Search columns"

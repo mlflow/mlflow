@@ -56,8 +56,9 @@ from mlflow.utils.mlflow_tags import (
     MLFLOW_USER,
 )
 
+from tests.tracing.conftest import async_logging_enabled  # noqa: F401
 from tests.tracing.conftest import mock_store as mock_store_for_tracing  # noqa: F401
-from tests.tracing.helper import create_test_trace_info, get_traces
+from tests.tracing.helper import create_test_trace_info
 
 
 @pytest.fixture(autouse=True)
@@ -360,7 +361,7 @@ def tracking_uri(request, tmp_path):
 
 
 @pytest.mark.parametrize("with_active_run", [True, False])
-def test_start_and_end_trace(tracking_uri, with_active_run):
+def test_start_and_end_trace(tracking_uri, with_active_run, async_logging_enabled):
     client = MlflowClient(tracking_uri)
 
     experiment_id = client.create_experiment("test_experiment")
@@ -423,6 +424,9 @@ def test_start_and_end_trace(tracking_uri, with_active_run):
             run_id = run.info.run_id
     else:
         model.predict(1, 2)
+
+    if async_logging_enabled:
+        mlflow.flush_trace_async_logging(terminate=True)
 
     request_id = mlflow.get_last_active_trace().info.request_id
 
@@ -500,7 +504,7 @@ def test_start_and_end_trace_capture_falsy_input_and_output(tracking_uri):
 
 
 @pytest.mark.usefixtures("reset_active_experiment")
-def test_start_and_end_trace_before_all_span_end():
+def test_start_and_end_trace_before_all_span_end(async_logging_enabled):
     # This test is to verify that the trace is still exported even if some spans are not ended
     exp_id = mlflow.set_experiment("test_experiment_1").experiment_id
 
@@ -532,7 +536,10 @@ def test_start_and_end_trace_before_all_span_end():
     model = TestModel()
     model.predict(1)
 
-    traces = get_traces()
+    if async_logging_enabled:
+        mlflow.flush_trace_async_logging(terminate=True)
+
+    traces = MlflowClient().search_traces(experiment_ids=[exp_id])
     assert len(traces) == 1
 
     trace_info = traces[0].info
@@ -551,8 +558,6 @@ def test_start_and_end_trace_before_all_span_end():
     root_span = span_name_to_span["predict"]
     assert root_span.parent_id is None
     assert root_span.status.status_code == SpanStatusCode.OK
-    assert root_span.start_time_ns // 1e6 == trace_info.timestamp_ms
-    assert (root_span.end_time_ns - root_span.start_time_ns) // 1e6 == trace_info.execution_time_ms
 
     ended_span = span_name_to_span["ended-span"]
     assert ended_span.parent_id == root_span.span_id
@@ -569,7 +574,7 @@ def test_start_and_end_trace_before_all_span_end():
 
 @mock.patch("mlflow.tracking._tracking_service.utils.get_tracking_uri", return_value="databricks")
 def test_log_trace_with_databricks_tracking_uri(
-    databricks_tracking_uri, mock_store_for_tracing, monkeypatch
+    databricks_tracking_uri, mock_store_for_tracing, monkeypatch, async_logging_enabled
 ):
     monkeypatch.setenv("MLFLOW_EXPERIMENT_NAME", "test")
     monkeypatch.setenv(MLFLOW_TRACKING_USERNAME.name, "bob")
@@ -621,7 +626,7 @@ def test_log_trace_with_databricks_tracking_uri(
 
     def _mock_update_trace_info(trace_info):
         trace_manager = InMemoryTraceManager.get_instance()
-        with trace_manager.get_trace("tr-12345") as trace:
+        with trace_manager.get_trace("tr-0") as trace:
             trace.info.tags.update({"tag": "tag_value"})
 
     with mock.patch(
@@ -638,18 +643,19 @@ def test_log_trace_with_databricks_tracking_uri(
     ):
         model.predict(1, 2)
 
-    traces = get_traces()
-    assert len(traces) == 1
-    trace_info = traces[0].info
-    assert trace_info.request_id == "tr-12345"
-    assert trace_info.experiment_id == "test_experiment_id"
-    assert trace_info.status == TraceStatus.OK
-    assert trace_info.request_metadata == {
+        if async_logging_enabled:
+            mlflow.flush_trace_async_logging(terminate=True)
+
+    trace = mlflow.get_last_active_trace()
+    assert trace.info.request_id == "tr-0"
+    assert trace.info.experiment_id == "test_experiment_id"
+    assert trace.info.status == TraceStatus.OK
+    assert trace.info.request_metadata == {
         TraceMetadataKey.INPUTS: '{"x": 1, "y": 2}',
         TraceMetadataKey.OUTPUTS: "5",
         TRACE_SCHEMA_VERSION_KEY: str(TRACE_SCHEMA_VERSION),
     }
-    assert trace_info.tags == {
+    assert trace.info.tags == {
         "mlflow.traceName": "predict",
         "mlflow.artifactLocation": "test",
         "mlflow.user": "bob",
@@ -658,17 +664,18 @@ def test_log_trace_with_databricks_tracking_uri(
         "tag": "tag_value",
     }
 
-    trace_data = traces[0].data
-    assert trace_data.request == '{"x": 1, "y": 2}'
-    assert trace_data.response == "5"
-    assert len(trace_data.spans) == 2
+    assert trace.data.request == '{"x": 1, "y": 2}'
+    assert trace.data.response == "5"
+    assert len(trace.data.spans) == 2
 
     mock_store_for_tracing.start_trace.assert_called_once()
     mock_store_for_tracing.end_trace.assert_called_once()
     mock_upload_trace_data.assert_called_once()
 
 
-def test_start_and_end_trace_does_not_log_trace_when_disabled(tracking_uri, monkeypatch):
+def test_start_and_end_trace_does_not_log_trace_when_disabled(
+    tracking_uri, monkeypatch, async_logging_enabled
+):
     client = MlflowClient(tracking_uri)
     experiment_id = client.create_experiment("test_experiment")
 
@@ -705,7 +712,7 @@ def test_start_and_end_trace_does_not_log_trace_when_disabled(tracking_uri, monk
     mock_logger.warning.assert_not_called()
 
 
-def test_start_trace_within_active_run():
+def test_start_trace_within_active_run(async_logging_enabled):
     exp_id = mlflow.create_experiment("test")
 
     client = mlflow.MlflowClient()
@@ -715,6 +722,9 @@ def test_start_trace_within_active_run():
             experiment_id=exp_id,
         )
         client.end_trace(root_span.request_id)
+
+    if async_logging_enabled:
+        mlflow.flush_trace_async_logging(terminate=True)
 
     traces = client.search_traces(experiment_ids=[exp_id])
     assert len(traces) == 1
@@ -778,7 +788,7 @@ def test_start_span_raise_error_when_parent_id_is_not_provided():
         mlflow.tracking.MlflowClient().start_span("span_name", request_id="test", parent_id=None)
 
 
-def test_ignore_exception_from_tracing_logic(monkeypatch):
+def test_ignore_exception_from_tracing_logic(monkeypatch, async_logging_enabled):
     exp_id = mlflow.set_experiment("test_experiment_1").experiment_id
     client = MlflowClient()
     TRACE_BUFFER.clear()

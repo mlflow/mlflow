@@ -11,7 +11,7 @@ import { ModelStageTransitionDropdown } from './ModelStageTransitionDropdown';
 import { Stages } from '../constants';
 import { Dropdown } from '@databricks/design-system';
 import { mockGetFieldValue } from '../test-utils';
-import { mountWithIntl } from 'common/utils/TestUtils.enzyme';
+import { mountWithIntl } from '@mlflow/mlflow/src/common/utils/TestUtils.enzyme';
 
 describe('ModelStageTransitionDropdown', () => {
   let wrapper: any;

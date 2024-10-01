@@ -130,7 +130,7 @@ def save_model(
     extra_pip_requirements: Optional[Union[List[str], str]] = None,
     conda_env=None,
     metadata: Optional[Dict[str, Any]] = None,
-    example_no_conversion: bool = False,
+    example_no_conversion: Optional[bool] = None,
 ) -> None:
     """
     .. note::
@@ -183,26 +183,26 @@ def save_model(
 
     code_dir_subpath = _validate_and_copy_code_paths(code_paths, str(path))
 
+    if mlflow_model is None:
+        mlflow_model = Model()
+    saved_example = _save_example(
+        mlflow_model, input_example, path, no_conversion=example_no_conversion
+    )
+
     if task is not None:
         signature = ModelSignature(
             inputs=EMBEDDING_MODEL_INPUT_SCHEMA, outputs=EMBEDDING_MODEL_OUTPUT_SCHEMA
         )
-    elif signature is None and input_example is not None:
+    elif signature is None and saved_example is not None:
         wrapped_model = _SentenceTransformerModelWrapper(model)
-        signature = _infer_signature_from_input_example(
-            input_example, wrapped_model, no_conversion=example_no_conversion
-        )
+        signature = _infer_signature_from_input_example(saved_example, wrapped_model)
     elif signature is None:
         signature = _get_default_signature()
     elif signature is False:
         signature = None
 
-    if mlflow_model is None:
-        mlflow_model = Model()
     if signature is not None:
         mlflow_model.signature = signature
-    if input_example is not None:
-        _save_example(mlflow_model, input_example, str(path), no_conversion=example_no_conversion)
     if metadata is not None:
         mlflow_model.metadata = metadata
     model_config = None
@@ -302,7 +302,7 @@ def _get_transformers_model_name(model_name_or_path):
 @experimental
 @docstring_version_compatibility_warning(integration_name=FLAVOR_NAME)
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
-def log_model(
+def log_model(  # noqa: D417
     model,
     artifact_path: str,
     task: Optional[str] = None,
@@ -316,7 +316,7 @@ def log_model(
     extra_pip_requirements: Optional[Union[List[str], str]] = None,
     conda_env=None,
     metadata: Optional[Dict[str, Any]] = None,
-    example_no_conversion: bool = False,
+    example_no_conversion: Optional[bool] = None,
 ):
     """
     .. note::
@@ -418,7 +418,7 @@ def _get_load_kwargs():
     return load_kwargs
 
 
-def _load_pyfunc(path, model_config: Optional[Dict[str, Any]] = None):
+def _load_pyfunc(path, model_config: Optional[Dict[str, Any]] = None):  # noqa: D417
     """
     Load PyFunc implementation for SentenceTransformer. Called by ``pyfunc.load_model``.
 
@@ -491,6 +491,12 @@ class _SentenceTransformerModelWrapper:
     def __init__(self, model, task=None):
         self.model = model
         self.task = task
+
+    def get_raw_model(self):
+        """
+        Returns the underlying model.
+        """
+        return self.model
 
     def predict(self, sentences, params: Optional[Dict[str, Any]] = None):
         """

@@ -32,6 +32,7 @@ corresponding environment variable. See https://docs.databricks.com/security/sec
 for how to set up secrets on Databricks.
 """
 
+import importlib.metadata
 import itertools
 import logging
 import os
@@ -48,6 +49,7 @@ from mlflow.environment_variables import MLFLOW_OPENAI_SECRET_SCOPE
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model, ModelInputExample, ModelSignature
 from mlflow.models.model import MLMODEL_FILE_NAME
+from mlflow.models.signature import _infer_signature_from_input_example
 from mlflow.models.utils import _save_example
 from mlflow.openai._openai_autolog import patched_call
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
@@ -119,38 +121,20 @@ def get_default_conda_env():
 
 
 def _get_obj_to_task_mapping():
-    if Version(_get_openai_package_version()).major < 1:
-        from openai import api_resources as ar
+    from openai import resources as r
 
-        return {
-            ar.Audio: ar.Audio.OBJECT_NAME,
-            ar.ChatCompletion: ar.ChatCompletion.OBJECT_NAME,
-            ar.Completion: ar.Completion.OBJECT_NAME,
-            ar.Edit: ar.Edit.OBJECT_NAME,
-            ar.Deployment: ar.Deployment.OBJECT_NAME,
-            ar.Embedding: ar.Embedding.OBJECT_NAME,
-            ar.Engine: ar.Engine.OBJECT_NAME,
-            ar.File: ar.File.OBJECT_NAME,
-            ar.Image: ar.Image.OBJECT_NAME,
-            ar.FineTune: ar.FineTune.OBJECT_NAME,
-            ar.Model: ar.Model.OBJECT_NAME,
-            ar.Moderation: "moderations",
-        }
-    else:
-        from openai import resources as r
-
-        return {
-            r.Audio: "audio",
-            r.chat.Completions: "chat.completions",
-            r.Completions: "completions",
-            r.Images.edit: "images.edit",
-            r.Embeddings: "embeddings",
-            r.Files: "files",
-            r.Images: "images",
-            r.FineTuning: "fine_tuning",
-            r.Moderations: "moderations",
-            r.Models: "models",
-        }
+    return {
+        r.Audio: "audio",
+        r.chat.Completions: "chat.completions",
+        r.Completions: "completions",
+        r.Images.edit: "images.edit",
+        r.Embeddings: "embeddings",
+        r.Files: "files",
+        r.Images: "images",
+        r.FineTuning: "fine_tuning",
+        r.Moderations: "moderations",
+        r.Models: "models",
+    }
 
 
 def _get_model_name(model):
@@ -219,13 +203,7 @@ def _get_api_config() -> _OpenAIApiConfig:
 
 
 def _get_openai_package_version():
-    import openai
-
-    try:
-        return openai.__version__
-    except AttributeError:
-        # openai < 0.27.5 doesn't have a __version__ attribute
-        return openai.version.VERSION
+    return importlib.metadata.version("openai")
 
 
 def _log_secrets_yaml(local_model_dir, scope):
@@ -266,7 +244,7 @@ def save_model(
     pip_requirements=None,
     extra_pip_requirements=None,
     metadata=None,
-    example_no_conversion=False,
+    example_no_conversion=None,
     **kwargs,
 ):
     """
@@ -310,7 +288,7 @@ def save_model(
 
         # Chat
         mlflow.openai.save_model(
-            model="gpt-3.5-turbo",
+            model="gpt-4o-mini",
             task=openai.chat.completions,
             messages=[{"role": "user", "content": "Tell me a joke."}],
             path="model",
@@ -331,6 +309,9 @@ def save_model(
             path="model",
         )
     """
+    if Version(_get_openai_package_version()).major < 1:
+        raise MlflowException("Only openai>=1.0 is supported.")
+
     import numpy as np
 
     _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
@@ -347,7 +328,6 @@ def save_model(
             _validate_model_params(
                 task, kwargs, {p.name: p.default for p in signature.params.params}
             )
-        mlflow_model.signature = signature
     elif task == "chat.completions":
         messages = kwargs.get("messages", [])
         if messages and not (
@@ -358,24 +338,30 @@ def save_model(
                 "'role' and 'content'."
             )
 
-        mlflow_model.signature = ModelSignature(
+        signature = ModelSignature(
             inputs=_get_input_schema(task, messages),
             outputs=Schema([ColSpec(type="string", name=None)]),
         )
     elif task == "completions":
         prompt = kwargs.get("prompt")
-        mlflow_model.signature = ModelSignature(
+        signature = ModelSignature(
             inputs=_get_input_schema(task, prompt),
             outputs=Schema([ColSpec(type="string", name=None)]),
         )
     elif task == "embeddings":
-        mlflow_model.signature = ModelSignature(
+        signature = ModelSignature(
             inputs=Schema([ColSpec(type="string", name=None)]),
             outputs=Schema([TensorSpec(type=np.dtype("float64"), shape=(-1,))]),
         )
 
-    if input_example is not None:
-        _save_example(mlflow_model, input_example, path, example_no_conversion)
+    saved_example = _save_example(mlflow_model, input_example, path, example_no_conversion)
+    if signature is None and saved_example is not None:
+        wrapped_model = _OpenAIWrapper(model)
+        signature = _infer_signature_from_input_example(saved_example, wrapped_model)
+
+    if signature is not None:
+        mlflow_model.signature = signature
+
     if metadata is not None:
         mlflow_model.metadata = metadata
     model_data_path = os.path.join(path, MODEL_FILENAME)
@@ -460,7 +446,7 @@ def log_model(
     pip_requirements=None,
     extra_pip_requirements=None,
     metadata=None,
-    example_no_conversion=False,
+    example_no_conversion=None,
     **kwargs,
 ):
     """
@@ -468,7 +454,7 @@ def log_model(
 
     Args:
         model: The OpenAI model name or reference instance, e.g.,
-            ``openai.Model.retrieve("gpt-3.5-turbo")``.
+            ``openai.Model.retrieve("gpt-4o-mini")``.
         task: The task the model is performing, e.g., ``openai.chat.completions`` or
             ``'chat.completions'``.
         artifact_path: Run-relative artifact path.
@@ -516,7 +502,7 @@ def log_model(
         # Chat
         with mlflow.start_run():
             info = mlflow.openai.log_model(
-                model="gpt-3.5-turbo",
+                model="gpt-4o-mini",
                 task=openai.chat.completions,
                 messages=[{"role": "user", "content": "Tell me a joke about {animal}."}],
                 artifact_path="model",
@@ -678,6 +664,12 @@ class _OpenAIWrapper:
 
         if self.task != "embeddings":
             self._setup_completions()
+
+    def get_raw_model(self):
+        """
+        Returns the underlying model.
+        """
+        return self.model
 
     def _setup_completions(self):
         if self.task == "chat.completions":
@@ -853,7 +845,7 @@ def autolog(
     log_datasets=False,
     disable=False,
     exclusive=False,
-    disable_for_unsupported_versions=True,
+    disable_for_unsupported_versions=False,
     silent=False,
     registered_model_name=None,
     extra_tags=None,

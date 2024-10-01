@@ -29,7 +29,15 @@ export const LineSmoothSlider = ({
   const sliderColor = disabled ? theme.colors.actionDisabledText : theme.colors.primary;
 
   return (
-    <div css={{ display: 'flex', flexWrap: 'nowrap', height: '32px', gap: theme.spacing.md }}>
+    <div
+      css={{
+        display: 'flex',
+        flexWrap: 'nowrap',
+        height: '32px',
+        gap: theme.spacing.md,
+        paddingLeft: theme.spacing.xs, // Prevent slider from being cut off
+      }}
+    >
       <Slider
         css={{
           '& .ant-slider-dot': {

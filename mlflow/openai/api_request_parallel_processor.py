@@ -18,6 +18,7 @@ Features:
 - Retries failed requests up to {max_attempts} times, to avoid missing data
 - Logs errors, to diagnose problems with requests
 """
+
 from __future__ import annotations
 
 import logging

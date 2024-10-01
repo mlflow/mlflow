@@ -1,12 +1,13 @@
-import { Button, Popover, Tabs, Tag, Tooltip, Typography, useDesignSystemTheme } from '@databricks/design-system';
+import { Button, Popover, Tabs, Tag, LegacyTooltip, Typography, useDesignSystemTheme } from '@databricks/design-system';
 import React, { useState, useEffect, useCallback } from 'react';
 import { FormattedMessage } from 'react-intl';
 import { ExperimentPageViewState } from '../../models/ExperimentPageViewState';
 import { useExperimentViewLocalStore } from '../../hooks/useExperimentViewLocalStore';
 import type { ExperimentViewRunsCompareMode } from '../../../../types';
-import { PreviewBadge } from 'shared/building_blocks/PreviewBadge';
+import { PreviewBadge } from '@mlflow/mlflow/src/shared/building_blocks/PreviewBadge';
 import { getExperimentPageDefaultViewMode, useExperimentPageViewMode } from '../../hooks/useExperimentPageViewMode';
 import { shouldEnableTracingUI } from '../../../../../common/utils/FeatureUtils';
+import { useShouldShowCombinedRunsTab } from '../../hooks/useShouldShowCombinedRunsTab';
 
 const COMPARE_RUNS_TOOLTIP_STORAGE_KEY = 'compareRunsTooltip';
 const COMPARE_RUNS_TOOLTIP_STORAGE_ITEM = 'seenBefore';
@@ -84,7 +85,9 @@ export const ExperimentViewRunsModeSwitch = ({
 }: ExperimentViewRunsModeSwitchProps) => {
   const [viewMode, setViewModeInURL] = useExperimentPageViewMode();
   const { classNamePrefix } = useDesignSystemTheme();
-  const activeTab = viewMode || getExperimentPageDefaultViewMode();
+  const currentViewMode = viewMode || getExperimentPageDefaultViewMode();
+  const showCombinedRuns = useShouldShowCombinedRunsTab();
+  const activeTab = showCombinedRuns && ['TABLE', 'CHART'].includes(currentViewMode) ? 'RUNS' : currentViewMode;
 
   return (
     <Tabs
@@ -98,48 +101,68 @@ export const ExperimentViewRunsModeSwitch = ({
       }}
       activeKey={activeTab}
       onChange={(tabKey) => {
-        const newValue = tabKey as ExperimentViewRunsCompareMode;
+        const newValue = tabKey as ExperimentViewRunsCompareMode | 'RUNS';
 
         if (activeTab === newValue) {
           return;
         }
 
+        if (newValue === 'RUNS') {
+          return setViewModeInURL('TABLE');
+        }
+
         setViewModeInURL(newValue);
       }}
     >
-      <Tabs.TabPane
-        tab={
-          <span data-testid="experiment-runs-mode-switch-list">
-            <FormattedMessage
-              defaultMessage="Table"
-              description="A button enabling table mode on the experiment page"
-            />
-          </span>
-        }
-        key="TABLE"
-      />
-      <Tabs.TabPane
-        tab={
-          <>
-            <span data-testid="experiment-runs-mode-switch-compare">
+      {showCombinedRuns ? (
+        <Tabs.TabPane
+          tab={
+            <span data-testid="experiment-runs-mode-switch-combined">
               <FormattedMessage
-                defaultMessage="Chart"
-                description="A button enabling compare runs (chart) mode on the experiment page"
+                defaultMessage="Runs"
+                description="A button enabling combined runs table and charts mode on the experiment page"
               />
             </span>
-            <ChartViewButtonTooltip
-              isTableMode={viewMode === 'TABLE'}
-              multipleRunsSelected={viewState ? Object.keys(viewState.runsSelected).length > 1 : false}
-            />
-          </>
-        }
-        key="CHART"
-      />
+          }
+          key="RUNS"
+        />
+      ) : (
+        <>
+          <Tabs.TabPane
+            tab={
+              <span data-testid="experiment-runs-mode-switch-list">
+                <FormattedMessage
+                  defaultMessage="Table"
+                  description="A button enabling table mode on the experiment page"
+                />
+              </span>
+            }
+            key="TABLE"
+          />
+          <Tabs.TabPane
+            tab={
+              <>
+                <span data-testid="experiment-runs-mode-switch-compare">
+                  <FormattedMessage
+                    defaultMessage="Chart"
+                    description="A button enabling compare runs (chart) mode on the experiment page"
+                  />
+                </span>
+                <ChartViewButtonTooltip
+                  isTableMode={viewMode === 'TABLE'}
+                  multipleRunsSelected={viewState ? Object.keys(viewState.runsSelected).length > 1 : false}
+                />
+              </>
+            }
+            key="CHART"
+          />
+        </>
+      )}
 
       <Tabs.TabPane
         disabled={runsAreGrouped}
         tab={
-          <Tooltip
+          <LegacyTooltip
             title={
               runsAreGrouped ? (
                 <FormattedMessage
@@ -156,7 +179,7 @@ export const ExperimentViewRunsModeSwitch = ({
               />
               <PreviewBadge />
             </span>
-          </Tooltip>
+          </LegacyTooltip>
         }
         key="ARTIFACT"
       />

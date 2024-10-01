@@ -193,6 +193,12 @@ Explore the guides and tutorials below to start your journey!
                 <p>LangChain</p>
             </div>
             <div class="icon-box">
+                <a href="llms/llama-index/index.html">
+                    <img src="_static/images/logos/llamaindex-logo.svg" alt="LlamaIndex"/>
+                </a>
+                <p>LlamaIndex</p>
+            </div>
+            <div class="icon-box">
                 <a href="llms/sentence-transformers/index.html">
                     <img src="_static/images/logos/sentence-transformers-logo.png" alt="Sentence Transformers"/>
                 </a>
@@ -208,12 +214,20 @@ Explore the guides and tutorials below to start your journey!
         <div class="sub-container-two-columns">
             <div class="text-box">
                 <h4>Guides</h4>
-                <p>
-                    Learn how to leverage <a href="llms/tracing/index.html">Tracing</a> in MLflow
-                </p>
-                <p>
-                    View the <a href="llms/tracing/overview.html">Tracing Guide</a> for more information on tracing
-                </p>
+                <ul>
+                    <li>
+                        Learn how to leverage <a href="llms/tracing/index.html">Tracing</a> in MLflow
+                    </li>
+                    <li>
+                        View the <a href="llms/tracing/overview.html">Tracing Guide</a> for more information on tracing
+                    </li>
+                    <li>
+                        Learn how to use MLflow autologging with <a href="llms/openai/autologging.html">OpenAI</a> for automated trace logging
+                    </li>
+                    <li>
+                        Discover the automated <a href="llms/langchain/autologging.html">LangChain trace logging</a> with MLflow autologging
+                    </li>
+                </ul>
             </div>
             <div class="image-box">
                 <img src="_static/images/intro/tracing-ui.gif" alt="MLflow Tracing">
@@ -242,19 +256,19 @@ Explore the guides and tutorials below to start your journey!
 .. |deployments-server| raw:: html
     
     <div class="main-container">
-        <h3>Learn about managed access to GenAI services with the MLflow Deployments Server</h3>
+        <h3>Learn about managed access to GenAI services with the MLflow AI Gateway</h3>
         <div class="sub-container-two-columns">
             <div class="text-box">
                 <h4>Guides</h4>
                 <p>
-                    Learn how to use the <a href="llms/deployments/guides/index.html">MLflow Deployments Server</a>
+                    Learn how to use the <a href="llms/deployments/guides/index.html">MLflow AI Gateway</a>
                 </p>
                 <p>
-                    View the <a href="llms/deployments/index.html">in-depth Guide for the MLflow Deployments Server</a>
+                    View the <a href="llms/deployments/index.html">in-depth Guide for the MLflow AI Gateway</a>
                 </p>
             </div>
             <div class="image-box">
-                <img src="_static/images/intro/deployments-server.png" alt="MLflow Deployments Server">
+                <img src="_static/images/intro/deployments-server.png" alt="MLflow AI Gateway">
             </div>
         </div>
     </div>
@@ -320,7 +334,7 @@ Explore the guides and tutorials below to start your journey!
 
             |prompt-engineering-ui|
 
-        .. tab:: Deployments Server
+        .. tab:: MLflow AI Gatway
 
             |deployments-server|
         
@@ -341,6 +355,7 @@ Explore the guides and tutorials below to start your journey!
     getting-started/index
     new-features/index
     llms/index
+    MLflow Tracing<llms/tracing/index>
     model-evaluation/index
     deep-learning/index
     traditional-ml/index

@@ -1,9 +1,8 @@
 import warnings
 
-import entrypoints
-
 from mlflow.exceptions import MlflowException
 from mlflow.utils.import_hooks import register_post_import_hook
+from mlflow.utils.plugins import get_entry_points
 
 
 class ModelEvaluatorRegistry:
@@ -20,7 +19,7 @@ class ModelEvaluatorRegistry:
 
     def register_entrypoints(self):
         # Register ModelEvaluator implementation provided by other packages
-        for entrypoint in entrypoints.get_group_all("mlflow.model_evaluator"):
+        for entrypoint in get_entry_points("mlflow.model_evaluator"):
             try:
                 self.register(entrypoint.name, entrypoint.load())
             except (AttributeError, ImportError) as exc:

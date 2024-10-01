@@ -19,9 +19,9 @@ const DarkModeStylesComponent = () => <Global styles={darkModeCSSStyles} />;
 export const useMLflowDarkTheme = (): [boolean, React.Dispatch<React.SetStateAction<boolean>>, React.ComponentType] => {
   const [isDarkTheme, setIsDarkTheme] = useState(() => {
     // If the user has explicitly set a preference, use that.
-    const darModePref = localStorage.getItem(darkModePrefLocalStorageKey);
-    if (darModePref !== null) {
-      return darModePref === 'true';
+    const darkModePref = localStorage.getItem(darkModePrefLocalStorageKey);
+    if (darkModePref !== null) {
+      return darkModePref === 'true';
     }
     // Otherwise, use the system preference as a default.
     return window.matchMedia('(prefers-color-scheme: dark)').matches || false;

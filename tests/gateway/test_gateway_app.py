@@ -139,7 +139,7 @@ def test_dynamic_route():
         "id": "chatcmpl-abc123",
         "object": "chat.completion",
         "created": 1677858242,
-        "model": "gpt-3.5-turbo-0301",
+        "model": "gpt-4o-mini",
         "usage": {
             "prompt_tokens": 13,
             "completion_tokens": 7,
@@ -170,7 +170,7 @@ def test_dynamic_route():
             "id": "chatcmpl-abc123",
             "object": "chat.completion",
             "created": 1677858242,
-            "model": "gpt-3.5-turbo-0301",
+            "model": "gpt-4o-mini",
             "usage": {
                 "prompt_tokens": 13,
                 "completion_tokens": 7,

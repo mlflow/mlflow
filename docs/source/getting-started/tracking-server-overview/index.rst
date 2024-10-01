@@ -88,7 +88,7 @@ Next, let's try logging some dummy metrics. We can view these test metrics on th
 
 .. code-block:: python
 
-  mlflow.set_experiment("/check-localhost-connection")
+  mlflow.set_experiment("check-localhost-connection")
 
   with mlflow.start_run():
       mlflow.log_metric("foo", 1)

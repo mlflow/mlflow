@@ -7,6 +7,7 @@ ONNX (native) format
 :py:mod:`mlflow.pyfunc`
     Produced for use by generic pyfunc-based deployment tools and batch inference.
 """
+
 import logging
 import os
 from pathlib import Path
@@ -309,6 +310,12 @@ class _OnnxModelWrapper:
         assert len(self.rt.get_inputs()) >= 1
         self.inputs = [(inp.name, inp.type) for inp in self.rt.get_inputs()]
         self.output_names = [outp.name for outp in self.rt.get_outputs()]
+
+    def get_raw_model(self):
+        """
+        Returns the underlying model.
+        """
+        return self.rt
 
     def _cast_float64_to_float32(self, feeds):
         for input_name, input_type in self.inputs:

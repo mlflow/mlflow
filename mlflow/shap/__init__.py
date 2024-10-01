@@ -166,8 +166,7 @@ def log_explanation(predict_function, features, artifact_path=None):
 
             .. code-block:: python
 
-                def predict_function(X) -> pred:
-                    ...
+                def predict_function(X) -> pred: ...
 
             - ``X``: An array-like object whose shape should be (# samples, # features).
             - ``pred``: An array-like object whose shape should be (# samples) for a regressor or
@@ -651,6 +650,12 @@ class _SHAPWrapper:
                 model = mlflow.pytorch._load_model(os.path.join(underlying_model_path, "data"))
 
         self.explainer = _load_explainer(explainer_file=shap_explainer_artifacts_path, model=model)
+
+    def get_raw_model(self):
+        """
+        Returns the underlying model.
+        """
+        return self.explainer
 
     def predict(
         self,

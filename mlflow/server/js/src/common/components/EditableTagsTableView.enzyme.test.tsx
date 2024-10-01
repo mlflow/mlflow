@@ -7,7 +7,7 @@
 
 import React from 'react';
 import { EditableTagsTableView, EditableTagsTableViewImpl } from './EditableTagsTableView';
-import { mountWithIntl } from 'common/utils/TestUtils.enzyme';
+import { mountWithIntl } from '@mlflow/mlflow/src/common/utils/TestUtils.enzyme';
 import { BrowserRouter } from '../../common/utils/RoutingUtils';
 import { DesignSystemProvider } from '@databricks/design-system';
 

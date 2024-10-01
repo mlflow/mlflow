@@ -265,7 +265,7 @@ a single search condition, you must assemble an inequality using the following c
 
     .. code-block:: sql
 
-      params.model = "GPT-3"
+      params.model = "GPT-4o"
       params.model LIKE "GPT%"
       params.model ILIKE "gpt%"
 

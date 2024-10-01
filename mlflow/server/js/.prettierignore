@@ -8,10 +8,10 @@ __generated__
 **/OWNERS
 /I18nCompileLoader
 /yarn
-/src/i18n/default
-/src/i18n/lang
+/src/lang
 /src/data-profiles/sample-data
 /src/experiment-tracking/components/run-page/artifact-fixtures
+/src/graphql/generated_graphql.ts
 /vendor
 /tsconfig.json
 

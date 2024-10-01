@@ -273,6 +273,7 @@ module.exports = function () {
         const moduleNameMapper = {
           ...jestConfig.moduleNameMapper,
           '@databricks/web-shared/(.*)': '<rootDir>/src/shared/web-shared/$1',
+          '@mlflow/mlflow/(.*)': '<rootDir>/$1',
         };
 
         jestConfig.moduleNameMapper = moduleNameMapper;
@@ -310,11 +311,8 @@ module.exports = function () {
       },
       plugins: [
         new webpack.EnvironmentPlugin({
-          HIDE_HEADER: process.env.HIDE_HEADER ? 'true' : 'false',
-          HIDE_EXPERIMENT_LIST: process.env.HIDE_EXPERIMENT_LIST ? 'true' : 'false',
-          SHOW_GDPR_PURGING_MESSAGES: process.env.SHOW_GDPR_PURGING_MESSAGES ? 'true' : 'false',
-          USE_ABSOLUTE_AJAX_URLS: process.env.USE_ABSOLUTE_AJAX_URLS ? 'true' : 'false',
-          SHOULD_REDIRECT_IFRAME: process.env.SHOULD_REDIRECT_IFRAME ? 'true' : 'false',
+          MLFLOW_SHOW_GDPR_PURGING_MESSAGES: process.env.MLFLOW_SHOW_GDPR_PURGING_MESSAGES ? 'true' : 'false',
+          MLFLOW_USE_ABSOLUTE_AJAX_URLS: process.env.MLFLOW_USE_ABSOLUTE_AJAX_URLS ? 'true' : 'false',
         }),
       ],
     },

@@ -6,6 +6,7 @@ import { ExperimentEntity, KeyValueEntity } from '../../types';
 import { RunViewModeSwitch } from './RunViewModeSwitch';
 import Utils from '../../../common/utils/Utils';
 import { RunViewHeaderRegisterModelButton } from './RunViewHeaderRegisterModelButton';
+import type { UseGetRunQueryResponseExperiment } from './hooks/useGetRunQuery';
 
 /**
  * Run details page header component, common for all page view modes
@@ -20,6 +21,7 @@ export const RunViewHeader = ({
   runUuid,
   handleRenameRunClick,
   handleDeleteRunClick,
+  artifactRootUri,
 }: {
   hasComparedExperimentsBefore?: boolean;
   comparedExperimentIds?: string[];
@@ -27,9 +29,10 @@ export const RunViewHeader = ({
   runUuid: string;
   runTags: Record<string, KeyValueEntity>;
   runParams: Record<string, KeyValueEntity>;
-  experiment: ExperimentEntity;
+  experiment: ExperimentEntity | UseGetRunQueryResponseExperiment;
   handleRenameRunClick: () => void;
   handleDeleteRunClick?: () => void;
+  artifactRootUri?: string;
 }) => {
   function getExperimentPageLink() {
     return hasComparedExperimentsBefore && comparedExperimentIds ? (
@@ -44,7 +47,7 @@ export const RunViewHeader = ({
         />
       </Link>
     ) : (
-      <Link to={Routes.getExperimentPageRoute(experiment.experimentId)} data-test-id="experiment-runs-link">
+      <Link to={Routes.getExperimentPageRoute(experiment?.experimentId ?? '')} data-test-id="experiment-runs-link">
         {experiment.name}
       </Link>
     );
@@ -82,7 +85,12 @@ export const RunViewHeader = ({
           ]}
         />
 
-        <RunViewHeaderRegisterModelButton runUuid={runUuid} experimentId={experiment.experimentId} />
+        <RunViewHeaderRegisterModelButton
+          runUuid={runUuid}
+          experimentId={experiment?.experimentId ?? ''}
+          runTags={runTags}
+          artifactRootUri={artifactRootUri}
+        />
       </PageHeader>
       <RunViewModeSwitch />
     </div>

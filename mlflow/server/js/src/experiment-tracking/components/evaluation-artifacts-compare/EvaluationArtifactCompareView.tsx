@@ -13,7 +13,7 @@ import {
   LegacySkeleton,
   Spinner,
   ToggleButton,
-  Tooltip,
+  LegacyTooltip,
   Typography,
   useDesignSystemTheme,
 } from '@databricks/design-system';
@@ -41,7 +41,7 @@ import {
   extractRequiredInputParamsForRun,
 } from '../prompt-engineering/PromptEngineering.utils';
 import { searchAllPromptLabAvailableEndpoints } from '../../actions/PromptEngineeringActions';
-import { shouldEnablePromptLab } from 'common/utils/FeatureUtils';
+import { shouldEnablePromptLab } from '@mlflow/mlflow/src/common/utils/FeatureUtils';
 import {
   EvaluationArtifactViewEmptyState,
   shouldDisplayEvaluationArtifactEmptyState,
@@ -49,7 +49,7 @@ import {
 import { useUpdateExperimentViewUIState } from '../experiment-page/contexts/ExperimentPageUIStateContext';
 import { useToggleRowVisibilityCallback } from '../experiment-page/hooks/useToggleRowVisibilityCallback';
 import { RUNS_VISIBILITY_MODE } from '../experiment-page/models/ExperimentPageUIState';
-import { FormattedJsonDisplay } from 'common/components/JsonFormatting';
+import { FormattedJsonDisplay } from '@mlflow/mlflow/src/common/components/JsonFormatting';
 
 const MAX_RUNS_TO_COMPARE = 10;
 
@@ -356,6 +356,7 @@ export const EvaluationArtifactCompareViewImpl = ({
           }}
         >
           <DialogCombobox
+            componentId="codegen_mlflow_app_src_experiment-tracking_components_evaluation-artifacts-compare_evaluationartifactcompareview.tsx_358"
             label={
               <FormattedMessage
                 defaultMessage="Table"
@@ -387,7 +388,7 @@ export const EvaluationArtifactCompareViewImpl = ({
               </DialogComboboxOptionList>
             </DialogComboboxContent>
           </DialogCombobox>
-          <Tooltip
+          <LegacyTooltip
             title={
               <FormattedMessage
                 defaultMessage="Using the list of logged table artifacts, select at least one to start comparing results."
@@ -396,7 +397,7 @@ export const EvaluationArtifactCompareViewImpl = ({
             }
           >
             <InfoIcon />
-          </Tooltip>
+          </LegacyTooltip>
         </div>
         {isLoading ? (
           <LegacySkeleton />
@@ -412,6 +413,7 @@ export const EvaluationArtifactCompareViewImpl = ({
               }}
             >
               <Input
+                componentId="codegen_mlflow_app_src_experiment-tracking_components_evaluation-artifacts-compare_evaluationartifactcompareview.tsx_414"
                 prefix={<SearchIcon />}
                 suffix={showSearchSpinner && <Spinner size="small" />}
                 css={{ width: 300, minWidth: 300 }}
@@ -430,6 +432,7 @@ export const EvaluationArtifactCompareViewImpl = ({
                 disabled={!isViewConfigured || isSyncingArtifacts}
               />
               <DialogCombobox
+                componentId="codegen_mlflow_app_src_experiment-tracking_components_evaluation-artifacts-compare_evaluationartifactcompareview.tsx_433"
                 value={groupByCols}
                 multiSelect
                 label={
@@ -462,6 +465,7 @@ export const EvaluationArtifactCompareViewImpl = ({
                 </DialogComboboxContent>
               </DialogCombobox>
               <DialogCombobox
+                componentId="codegen_mlflow_app_src_experiment-tracking_components_evaluation-artifacts-compare_evaluationartifactcompareview.tsx_465"
                 value={[outputColumn]}
                 label={
                   <FormattedMessage

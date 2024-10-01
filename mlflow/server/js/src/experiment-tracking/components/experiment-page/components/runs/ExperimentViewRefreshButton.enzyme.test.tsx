@@ -1,5 +1,5 @@
-import { mountWithIntl } from 'common/utils/TestUtils.enzyme';
-import { renderWithIntl, act, screen } from 'common/utils/TestUtils.react17';
+import { mountWithIntl } from '@mlflow/mlflow/src/common/utils/TestUtils.enzyme';
+import { renderWithIntl, act, screen } from '@mlflow/mlflow/src/common/utils/TestUtils.react17';
 import { searchRunsPayload } from '../../../../actions';
 import { POLL_INTERVAL } from '../../../../constants';
 import { ExperimentViewRefreshButtonImpl } from './ExperimentViewRefreshButton';

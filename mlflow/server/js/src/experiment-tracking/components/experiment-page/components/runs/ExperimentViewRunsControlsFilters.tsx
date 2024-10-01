@@ -15,14 +15,22 @@ import {
   OverflowIcon,
   PlusIcon,
   SidebarIcon,
-  Tooltip,
+  LegacyTooltip,
   useDesignSystemTheme,
   DropdownMenu,
   ToggleButton,
+  SegmentedControlGroup,
+  SegmentedControlButton,
+  ListIcon,
+  ChartLineIcon,
 } from '@databricks/design-system';
 import { Theme } from '@emotion/react';
 
-import { shouldEnableExperimentPageAutoRefresh, shouldEnablePromptLab } from 'common/utils/FeatureUtils';
+import {
+  shouldEnableExperimentPageAutoRefresh,
+  shouldEnableHidingChartsWithNoData,
+  shouldEnablePromptLab,
+} from '@mlflow/mlflow/src/common/utils/FeatureUtils';
 import React, { useMemo, useState } from 'react';
 import { useSelector } from 'react-redux';
 import { FormattedMessage, useIntl } from 'react-intl';
@@ -36,10 +44,10 @@ import { getStartTimeColumnDisplayName } from '../../utils/experimentPage.common
 import { ExperimentRunsSelectorResult } from '../../utils/experimentRuns.selector';
 import { ExperimentViewRefreshButton } from './ExperimentViewRefreshButton';
 import { RunsSearchAutoComplete } from './RunsSearchAutoComplete';
-import type { ExperimentStoreEntities, DatasetSummary } from '../../../../types';
+import type { ExperimentStoreEntities, DatasetSummary, ExperimentViewRunsCompareMode } from '../../../../types';
 import { datasetSummariesEqual } from '../../../../utils/DatasetUtils';
-import { CreateNotebookRunModal } from 'experiment-tracking/components/evaluation-artifacts-compare/CreateNotebookRunModal';
-import { PreviewBadge } from 'shared/building_blocks/PreviewBadge';
+import { CreateNotebookRunModal } from '@mlflow/mlflow/src/experiment-tracking/components/evaluation-artifacts-compare/CreateNotebookRunModal';
+import { PreviewBadge } from '@mlflow/mlflow/src/shared/building_blocks/PreviewBadge';
 import { useCreateNewRun } from '../../hooks/useCreateNewRun';
 import { useExperimentPageViewMode } from '../../hooks/useExperimentPageViewMode';
 import { useUpdateExperimentPageSearchFacets } from '../../hooks/useExperimentPageSearchFacets';
@@ -48,6 +56,7 @@ import {
   createExperimentPageSearchFacetsState,
 } from '../../models/ExperimentPageSearchFacetsState';
 import { useUpdateExperimentViewUIState } from '../../contexts/ExperimentPageUIStateContext';
+import { useShouldShowCombinedRunsTab } from '../../hooks/useShouldShowCombinedRunsTab';
 
 export type ExperimentViewRunsControlsFiltersProps = {
   searchFacetsState: ExperimentPageSearchFacetsState;
@@ -61,6 +70,7 @@ export type ExperimentViewRunsControlsFiltersProps = {
   refreshRuns: () => void;
   viewMaximized: boolean;
   autoRefreshEnabled?: boolean;
+  hideEmptyCharts?: boolean;
 };
 
 export const ExperimentViewRunsControlsFilters = React.memo(
@@ -76,10 +86,12 @@ export const ExperimentViewRunsControlsFilters = React.memo(
     refreshRuns,
     viewMaximized,
     autoRefreshEnabled = false,
+    hideEmptyCharts = false,
   }: ExperimentViewRunsControlsFiltersProps) => {
     const setUrlSearchFacets = useUpdateExperimentPageSearchFacets();
+    const showCombinedRuns = useShouldShowCombinedRunsTab();
 
-    const [pageViewMode] = useExperimentPageViewMode();
+    const [pageViewMode, setViewModeInURL] = useExperimentPageViewMode();
     const updateUIState = useUpdateExperimentViewUIState();
 
     const isComparingExperiments = useExperimentIds().length > 1;
@@ -154,6 +166,31 @@ export const ExperimentViewRunsControlsFilters = React.memo(
             flexWrap: 'wrap' as const,
           }}
         >
+          {showCombinedRuns && pageViewMode !== 'ARTIFACT' && (
+            <SegmentedControlGroup
+              componentId="codegen_mlflow_app_src_experiment-tracking_components_experiment-page_components_runs_experimentviewrunscontrolsfilters.tsx_184"
+              name="runs-view-mode"
+              value={pageViewMode}
+              onChange={({ target }) => {
+                const { value } = target;
+                const newValue = value as ExperimentViewRunsCompareMode;
+
+                if (pageViewMode === newValue) {
+                  return;
+                }
+
+                setViewModeInURL(newValue);
+              }}
+            >
+              <SegmentedControlButton value="TABLE">
+                <ListIcon />
+              </SegmentedControlButton>
+              <SegmentedControlButton value="CHART">
+                <ChartLineIcon />
+              </SegmentedControlButton>
+            </SegmentedControlGroup>
+          )}
+
           <RunsSearchAutoComplete
             runsData={runsData}
             searchFilter={searchFilter}
@@ -165,6 +202,7 @@ export const ExperimentViewRunsControlsFilters = React.memo(
           />
 
           <DialogCombobox
+            componentId="codegen_mlflow_app_src_experiment-tracking_components_experiment-page_components_runs_experimentviewrunscontrolsfilters.tsx_217"
             label={currentStartTimeFilterLabel}
             value={startTime !== 'ALL' ? [startTimeColumnLabels[startTime]] : []}
           >
@@ -196,6 +234,7 @@ export const ExperimentViewRunsControlsFilters = React.memo(
           </DialogCombobox>
 
           <DialogCombobox
+            componentId="codegen_mlflow_app_src_experiment-tracking_components_experiment-page_components_runs_experimentviewrunscontrolsfilters.tsx_248"
             label={intl.formatMessage({
               defaultMessage: 'State',
               description: 'Filtering label to filter experiments based on state of active or deleted',
@@ -237,6 +276,7 @@ export const ExperimentViewRunsControlsFilters = React.memo(
             </DialogComboboxContent>
           </DialogCombobox>
           <DialogCombobox
+            componentId="codegen_mlflow_app_src_experiment-tracking_components_experiment-page_components_runs_experimentviewrunscontrolsfilters.tsx_289"
             label={intl.formatMessage({
               defaultMessage: 'Datasets',
               description: 'Filtering label to filter runs based on datasets used',
@@ -244,7 +284,7 @@ export const ExperimentViewRunsControlsFilters = React.memo(
             value={datasetsFilter.map((datasetSummary) => datasetSummary.name)}
             multiSelect
           >
-            <Tooltip
+            <LegacyTooltip
               title={
                 !hasDatasets && (
                   <FormattedMessage
@@ -276,7 +316,10 @@ export const ExperimentViewRunsControlsFilters = React.memo(
                         >
                           {summary.name} ({summary.digest}){' '}
                           {summary.context && (
-                            <Tag css={{ textTransform: 'capitalize', marginRight: theme.spacing.xs }}>
+                            <Tag
+                              componentId="codegen_mlflow_app_src_experiment-tracking_components_experiment-page_components_runs_experimentviewrunscontrolsfilters.tsx_329"
+                              css={{ textTransform: 'capitalize', marginRight: theme.spacing.xs }}
+                            >
                               {summary.context}
                             </Tag>
                           )}
@@ -286,7 +329,7 @@ export const ExperimentViewRunsControlsFilters = React.memo(
                   </DialogComboboxOptionList>
                 </DialogComboboxContent>
               )}
-            </Tooltip>
+            </LegacyTooltip>
           </DialogCombobox>
           {additionalControls}
         </div>
@@ -297,7 +340,7 @@ export const ExperimentViewRunsControlsFilters = React.memo(
             alignItems: 'flex-start',
           }}
         >
-          <DropdownMenu.Root>
+          <DropdownMenu.Root modal={false}>
             <DropdownMenu.Trigger asChild>
               <Button
                 componentId="codegen_mlflow_app_src_experiment-tracking_components_experiment-page_components_runs_experimentviewrunscontrolsfilters.tsx_338"
@@ -309,16 +352,42 @@ export const ExperimentViewRunsControlsFilters = React.memo(
               />
             </DropdownMenu.Trigger>
             <DropdownMenu.Content>
-              <DropdownMenu.Item className="csv-button" onClick={onDownloadCsv}>
+              <DropdownMenu.Item
+                componentId="codegen_mlflow_app_src_experiment-tracking_components_experiment-page_components_runs_experimentviewrunscontrolsfilters.tsx_362"
+                className="csv-button"
+                onClick={onDownloadCsv}
+              >
                 <DropdownMenu.IconWrapper>
                   <DownloadIcon />
                 </DropdownMenu.IconWrapper>
                 {`Download ${runsData.runInfos.length} runs`}
               </DropdownMenu.Item>
+              {shouldEnableHidingChartsWithNoData() && (
+                <>
+                  <DropdownMenu.Separator />
+                  <DropdownMenu.CheckboxItem
+                    componentId="codegen_mlflow_app_src_experiment-tracking_components_experiment-page_components_runs_experimentviewrunscontrolsfilters.tsx_382"
+                    checked={hideEmptyCharts}
+                    onClick={() =>
+                      updateUIState((state) => ({
+                        ...state,
+                        hideEmptyCharts: !state.hideEmptyCharts,
+                      }))
+                    }
+                  >
+                    <DropdownMenu.ItemIndicator />
+                    <FormattedMessage
+                      defaultMessage="Hide charts with no data"
+                      description="Experiment page > control bar > label for a checkbox toggle button that hides chart cards with no corresponding data"
+                    />
+                  </DropdownMenu.CheckboxItem>
+                </>
+              )}
               {shouldEnableExperimentPageAutoRefresh() && (
                 <>
                   <DropdownMenu.Separator />
                   <DropdownMenu.CheckboxItem
+                    componentId="codegen_mlflow_app_src_experiment-tracking_components_experiment-page_components_runs_experimentviewrunscontrolsfilters.tsx_402"
                     checked={autoRefreshEnabled}
                     onClick={() =>
                       updateUIState((state) => ({
@@ -345,7 +414,7 @@ export const ExperimentViewRunsControlsFilters = React.memo(
           />
 
           {displaySidebarToggleButton && (
-            <Tooltip
+            <LegacyTooltip
               title={intl.formatMessage({
                 defaultMessage: 'Toggle the preview sidepane',
                 description: 'Experiment page > control bar > expanded view toggle button tooltip',
@@ -358,16 +427,16 @@ export const ExperimentViewRunsControlsFilters = React.memo(
                 icon={<SidebarIcon />}
                 onClick={() => updateViewState({ previewPaneVisible: !viewState.previewPaneVisible })}
               />
-            </Tooltip>
+            </LegacyTooltip>
           )}
           {!shouldEnableExperimentPageAutoRefresh() && <ExperimentViewRefreshButton refreshRuns={refreshRuns} />}
           {/* TODO: Add tooltip to guide users to this button */}
-          {shouldEnablePromptLab() && !isComparingExperiments && (
+          {!isComparingExperiments && (
             <DropdownMenu.Root>
               <DropdownMenu.Trigger asChild>
                 <Button
                   componentId="codegen_mlflow_app_src_experiment-tracking_components_experiment-page_components_runs_experimentviewrunscontrolsfilters.tsx_415"
-                  type="primary"
+                  type={showCombinedRuns ? undefined : 'primary'}
                   icon={<PlusIcon />}
                 >
                   <FormattedMessage
@@ -377,15 +446,23 @@ export const ExperimentViewRunsControlsFilters = React.memo(
                 </Button>
               </DropdownMenu.Trigger>
               <DropdownMenu.Content>
-                <DropdownMenu.Item onSelect={() => createNewRun()}>
-                  {' '}
-                  <FormattedMessage
-                    defaultMessage="using Prompt Engineering"
-                    description="String for creating a new run with prompt engineering modal"
-                  />
-                  <PreviewBadge />
-                </DropdownMenu.Item>
-                <DropdownMenu.Item onSelect={() => setCreateRunWithNotebookModalOpenValue(true)}>
+                {shouldEnablePromptLab() && (
+                  <DropdownMenu.Item
+                    componentId="codegen_mlflow_app_src_experiment-tracking_components_experiment-page_components_runs_experimentviewrunscontrolsfilters.tsx_461"
+                    onSelect={() => createNewRun()}
+                  >
+                    {' '}
+                    <FormattedMessage
+                      defaultMessage="using Prompt Engineering"
+                      description="String for creating a new run with prompt engineering modal"
+                    />
+                    <PreviewBadge />
+                  </DropdownMenu.Item>
+                )}
+                <DropdownMenu.Item
+                  componentId="codegen_mlflow_app_src_experiment-tracking_components_experiment-page_components_runs_experimentviewrunscontrolsfilters.tsx_469"
+                  onSelect={() => setCreateRunWithNotebookModalOpenValue(true)}
+                >
                   {' '}
                   <FormattedMessage
                     defaultMessage="using Notebook"
