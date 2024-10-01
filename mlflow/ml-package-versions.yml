@@ -52,7 +52,7 @@ pytorch:
     requirements:
       ">= 0.0.0": ["tensorboard"]
     run: |
-      pytest tests/pytorch/test_tensorboard_autolog.py
+      pytest tests/pytorch/test_tensorboard_autolog.py tests/pytorch/test_pytorch_autolog.py
 
 pytorch-lightning:
   package_info:
@@ -131,7 +131,8 @@ tensorflow:
         tests/tensorflow/test_tensorflow2_core_model_export.py \
         tests/tensorflow/test_tensorflow2_metric_value_conversion_utils.py \
         tests/tensorflow/test_keras_model_export.py \
-        tests/tensorflow/test_keras_pyfunc_model_works_with_all_input_types.py
+        tests/tensorflow/test_keras_pyfunc_model_works_with_all_input_types.py \
+        tests/keras/test_save.py
 
   autologging:
     minimum: "2.7.4"
@@ -145,7 +146,7 @@ tensorflow:
       # `cannot import name 'TypeAliasType' from 'typing_extensions'`
       ">= 2.12.1, <= 2.13.1": ["sqlalchemy<2.0.25"]
     run: |
-      pytest tests/tensorflow/test_tensorflow2_autolog.py
+      pytest tests/tensorflow/test_tensorflow2_autolog.py tests/tensorflow/test_mlflow_callback.py
 
 xgboost:
   package_info:
