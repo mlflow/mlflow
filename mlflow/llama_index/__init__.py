@@ -99,9 +99,17 @@ def _supported_classes():
     from llama_index.core.chat_engine.types import BaseChatEngine
     from llama_index.core.indices.base import BaseIndex
     from llama_index.core.retrievers import BaseRetriever
-    from llama_index.core.workflow import Workflow
 
-    return BaseIndex, BaseChatEngine, BaseQueryEngine, BaseRetriever, Workflow
+    supported = (BaseIndex, BaseChatEngine, BaseQueryEngine, BaseRetriever)
+
+    try:
+        from llama_index.core.workflow import Workflow
+
+        supported += (Workflow,)
+    except ImportError:
+        pass
+
+    return supported
 
 
 @experimental
