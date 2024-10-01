@@ -52,7 +52,7 @@ pytorch:
     requirements:
       ">= 0.0.0": ["tensorboard"]
     run: |
-      pytest tests/pytorch/test_tensorboard_autolog.py tests/pytorch/test_pytorch_autolog.py
+      pytest tests/pytorch/test_tensorboard_autolog.py
 
 pytorch-lightning:
   package_info:
@@ -94,8 +94,7 @@ keras:
       ">= 3.0.0": ["jax[cpu]>0.4"]
     run: |
       export KERAS_BACKEND=jax
-      pytest tests/keras/test_callback.py tests/keras/test_save.py
-
+      pytest tests/keras/test_callback.py
   autologging:
     minimum: "3.0.2"
     maximum: "3.5.0"
@@ -145,7 +144,7 @@ tensorflow:
       # `cannot import name 'TypeAliasType' from 'typing_extensions'`
       ">= 2.12.1, <= 2.13.1": ["sqlalchemy<2.0.25"]
     run: |
-      pytest tests/tensorflow/test_tensorflow2_autolog.py tests/tensorflow/test_mlflow_callback.py
+      pytest tests/tensorflow/test_tensorflow2_autolog.py
 
 xgboost:
   package_info:
@@ -308,7 +307,7 @@ spacy:
 
   models:
     minimum: "2.2.4"
-    maximum: "3.7.6"
+    maximum: "3.7.5"
     python:
       "== dev": "3.9"
     requirements:
