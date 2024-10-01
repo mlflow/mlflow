@@ -172,7 +172,7 @@ class LoggedModel(_MlflowObject):
                 creation_timestamp_ms=self.creation_timestamp,
                 last_updated_timestamp_ms=self.last_updated_timestamp,
                 model_type=self.model_type,
-                source_run_id=self.run_id,
+                source_run_id=self.source_run_id,
                 status=self.status.to_proto(),
                 tags=[pb2.LoggedModelTag(key=k, value=v) for k, v in self.tags.items()],
             ),
