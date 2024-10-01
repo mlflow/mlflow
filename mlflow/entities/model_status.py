@@ -20,7 +20,7 @@ class ModelStatus(str, Enum):
         elif self == ModelStatus.READY:
             return LoggedModelStatus.LOGGED_MODEL_READY
         elif self == ModelStatus.FAILED:
-            return LoggedModelStatus.LOGGED_MODEL_FAILED
+            return LoggedModelStatus.LOGGED_MODEL_UPLOAD_FAILED
 
         raise MlflowException.invalid_parameter_value(f"Unknown model status: {self}")
 
