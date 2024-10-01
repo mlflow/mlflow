@@ -29,6 +29,7 @@ from mlflow.protos.service_pb2 import (
     EndTrace,
     GetExperiment,
     GetExperimentByName,
+    GetLoggedModel,
     GetMetricHistory,
     GetRun,
     GetTraceInfo,
@@ -60,6 +61,7 @@ from mlflow.utils.rest_utils import (
     _REST_API_PATH_PREFIX,
     call_endpoint,
     extract_api_info_for_service,
+    get_logged_model_endpoint,
     get_set_trace_tag_endpoint,
     get_single_trace_endpoint,
     get_trace_info_endpoint,
@@ -83,7 +85,7 @@ class RestStore(AbstractStore):
         super().__init__()
         self.get_host_creds = get_host_creds
 
-    def _call_endpoint(self, api, json_body, endpoint=None):
+    def _call_endpoint(self, api, json_body=None, endpoint=None):
         if endpoint:
             # Allow customizing the endpoint for compatibility with dynamic endpoints, such as
             # /mlflow/traces/{request_id}/info.
@@ -587,6 +589,20 @@ class RestStore(AbstractStore):
             )
         )
         response_proto = self._call_endpoint(CreateLoggedModel, req_body)
+        return LoggedModel.from_proto(response_proto.model)
+
+    def get_logged_model(self, model_id: str) -> LoggedModel:
+        """
+        Fetch the logged model with the specified ID.
+
+        Args:
+            model_id: ID of the model to fetch.
+
+        Returns:
+            The fetched model.
+        """
+        endpoint = get_logged_model_endpoint(model_id)
+        response_proto = self._call_endpoint(GetLoggedModel, endpoint=endpoint)
         return LoggedModel.from_proto(response_proto.model)
 
     def log_inputs(self, run_id: str, datasets: Optional[List[DatasetInput]] = None):
