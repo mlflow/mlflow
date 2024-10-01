@@ -99,6 +99,7 @@ TEST_NAME_TYPO = Rule(
     "This function looks like a test, but its name does not start with 'test_'.",
 )
 
+# TODO: Remove this rule after merging mlflow-3 branch into master
 KEYWORD_ARTIFACT_PATH = Rule(
     "MLF0005",
     "keyword-artifact-path",
