@@ -1,5 +1,6 @@
 from typing import Any, Dict, List, Optional, Union
 
+import mlflow.protos.service_pb2 as pb2
 from mlflow.entities._mlflow_object import _MlflowObject
 from mlflow.entities.metric import Metric
 from mlflow.entities.model_param import ModelParam
@@ -21,7 +22,7 @@ class LoggedModel(_MlflowObject):
         creation_timestamp: int,
         last_updated_timestamp: int,
         model_type: Optional[str] = None,
-        run_id: Optional[str] = None,
+        source_run_id: Optional[str] = None,
         status: ModelStatus = ModelStatus.READY,
         status_message: Optional[str] = None,
         tags: Optional[Union[List[ModelTag], Dict[str, str]]] = None,
@@ -36,7 +37,7 @@ class LoggedModel(_MlflowObject):
         self._creation_time: int = creation_timestamp
         self._last_updated_timestamp: int = last_updated_timestamp
         self._model_type: Optional[str] = model_type
-        self._run_id: Optional[str] = run_id
+        self._source_run_id: Optional[str] = source_run_id
         self._status: ModelStatus = status
         self._status_message: Optional[str] = status_message
         self._tags: Dict[str, str] = (
@@ -111,9 +112,9 @@ class LoggedModel(_MlflowObject):
         self._model_type = new_model_type
 
     @property
-    def run_id(self) -> Optional[str]:
+    def source_run_id(self) -> Optional[str]:
         """String. MLflow run ID that generated this model."""
-        return self._run_id
+        return self._source_run_id
 
     @property
     def status(self) -> ModelStatus:
@@ -160,3 +161,40 @@ class LoggedModel(_MlflowObject):
         model_dict = dict(self)
         model_dict["status"] = str(self.status)
         return model_dict
+
+    def to_proto(self):
+        return pb2.LoggedModel(
+            info=pb2.LoggedModelInfo(
+                experiment_id=self.experiment_id,
+                model_id=self.model_id,
+                name=self.name,
+                artifact_uri=self.artifact_location,
+                creation_timestamp_ms=self.creation_timestamp,
+                last_updated_timestamp_ms=self.last_updated_timestamp,
+                model_type=self.model_type,
+                source_run_id=self.source_run_id,
+                status=self.status.to_proto(),
+                tags=[pb2.LoggedModelTag(key=k, value=v) for k, v in self.tags.items()],
+            ),
+            data=pb2.LoggedModelData(
+                params=[pb2.LoggedModelParameter(key=k, value=v) for (k, v) in self.params.items()],
+                metrics=[m.to_proto() for m in self.metrics] if self.metrics else [],
+            ),
+        )
+
+    @classmethod
+    def from_proto(cls, proto):
+        return cls(
+            experiment_id=proto.info.experiment_id,
+            model_id=proto.info.model_id,
+            name=proto.info.name,
+            artifact_location=proto.info.artifact_uri,
+            creation_timestamp=proto.info.creation_timestamp_ms,
+            last_updated_timestamp=proto.info.last_updated_timestamp_ms,
+            model_type=proto.info.model_type,
+            source_run_id=proto.info.source_run_id,
+            status=ModelStatus.from_proto(proto.info.status),
+            status_message=proto.info.status_message,
+            tags=[ModelTag.from_proto(tag) for tag in proto.info.tags],
+            params=[ModelParam.from_proto(param) for param in proto.data.params],
+        )

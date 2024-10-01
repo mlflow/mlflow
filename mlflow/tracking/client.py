@@ -4779,7 +4779,7 @@ class MlflowClient:
         self,
         experiment_id: str,
         name: str,
-        run_id: Optional[str] = None,
+        source_run_id: Optional[str] = None,
         tags: Optional[Dict[str, str]] = None,
         params: Optional[Dict[str, str]] = None,
         model_type: Optional[str] = None,
@@ -4790,7 +4790,7 @@ class MlflowClient:
         Args:
             experiment_id: ID of the experiment to which the model belongs.
             name: Name of the model.
-            run_id: ID of the run that produced the model.
+            source_run_id: ID of the run that produced the model.
             tags: Tags to set on the model.
             params: Parameters to set on the model.
             model_type: Type of the model.
@@ -4799,7 +4799,7 @@ class MlflowClient:
             The created model.
         """
         return self._tracking_client.create_logged_model(
-            experiment_id, name, run_id, tags, params, model_type
+            experiment_id, name, source_run_id, tags, params, model_type
         )
 
     def finalize_logged_model(self, model_id: str, status: ModelStatus) -> LoggedModel:

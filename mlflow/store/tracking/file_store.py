@@ -1936,7 +1936,7 @@ class FileStore(AbstractStore):
         self,
         experiment_id: str,
         name: str,
-        run_id: Optional[str] = None,
+        source_run_id: Optional[str] = None,
         tags: Optional[List[ModelTag]] = None,
         params: Optional[List[ModelParam]] = None,
         model_type: Optional[str] = None,
@@ -1947,7 +1947,7 @@ class FileStore(AbstractStore):
         Args:
             experiment_id: ID of the experiment to which the model belongs.
             name: Name of the model.
-            run_id: ID of the run that produced the model.
+            source_run_id: ID of the run that produced the model.
             tags: Tags to set on the model.
             params: Parameters to set on the model.
             model_type: Type of the model.
@@ -1981,7 +1981,7 @@ class FileStore(AbstractStore):
             artifact_location=artifact_location,
             creation_timestamp=creation_timestamp,
             last_updated_timestamp=creation_timestamp,
-            run_id=run_id,
+            source_run_id=source_run_id,
             status=ModelStatus.PENDING,
             tags=tags,
             params=params,

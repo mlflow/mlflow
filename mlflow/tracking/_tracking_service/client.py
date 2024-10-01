@@ -1055,7 +1055,7 @@ class TrackingServiceClient:
         self,
         experiment_id: str,
         name: str,
-        run_id: Optional[str] = None,
+        source_run_id: Optional[str] = None,
         tags: Optional[Dict[str, str]] = None,
         params: Optional[Dict[str, str]] = None,
         model_type: Optional[str] = None,
@@ -1063,7 +1063,7 @@ class TrackingServiceClient:
         return self.store.create_logged_model(
             experiment_id=experiment_id,
             name=name,
-            run_id=run_id,
+            source_run_id=source_run_id,
             tags=[ModelTag(str(key), str(value)) for key, value in tags.items()]
             if tags is not None
             else tags,

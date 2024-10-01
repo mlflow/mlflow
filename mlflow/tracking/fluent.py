@@ -1943,7 +1943,7 @@ def delete_experiment(experiment_id: str) -> None:
 
 def create_logged_model(
     name: str,
-    run_id: Optional[str] = None,
+    source_run_id: Optional[str] = None,
     tags: Optional[Dict[str, str]] = None,
     params: Optional[Dict[str, str]] = None,
     model_type: Optional[str] = None,
@@ -1954,7 +1954,7 @@ def create_logged_model(
 
     Args:
         name: The name of the model.
-        run_id: The ID of the run that the model is associated with.
+        source_run_id: The ID of the run that the model is associated with.
         tags: A dictionary of string keys and values to set as tags on the model.
         params: A dictionary of string keys and values to set as parameters on the model.
         model_type: The type of the model.
@@ -1963,13 +1963,13 @@ def create_logged_model(
     Returns:
         The created logged model.
     """
-    if run_id is None and (run := active_run()):
-        run_id = run.info.run_id
+    if source_run_id is None and (run := active_run()):
+        source_run_id = run.info.run_id
     experiment_id = experiment_id if experiment_id is not None else _get_experiment_id()
     return MlflowClient().create_logged_model(
         experiment_id=experiment_id,
         name=name,
-        run_id=run_id,
+        source_run_id=source_run_id,
         tags=tags,
         params=params,
         model_type=model_type,

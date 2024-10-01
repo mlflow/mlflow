@@ -1,6 +1,7 @@
 import sys
 
 from mlflow.entities._mlflow_object import _MlflowObject
+from mlflow.protos.service_pb2 import LoggedModelParameter
 
 
 class ModelParam(_MlflowObject):
@@ -36,3 +37,10 @@ class ModelParam(_MlflowObject):
 
     def __hash__(self):
         return hash(self._key)
+
+    def to_proto(self):
+        return LoggedModelParameter(key=self._key, value=self._value)
+
+    @classmethod
+    def from_proto(cls, proto):
+        return cls(key=proto.key, value=proto.value)
