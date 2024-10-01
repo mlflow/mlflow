@@ -32,6 +32,8 @@ import contextlib
 from mlflow.version import VERSION
 
 __version__ = VERSION
+import logging
+
 from mlflow import (
     artifacts,  # noqa: F401
     client,  # noqa: F401
@@ -42,7 +44,7 @@ from mlflow import (
     projects,  # noqa: F401
     tracking,  # noqa: F401
 )
-from mlflow.environment_variables import MLFLOW_CONFIGURE_LOGGING
+from mlflow.environment_variables import MLFLOW_CONFIGURE_LOGGING, MLFLOW_LOGGING_LEVEL
 from mlflow.utils.lazy_load import LazyLoader
 from mlflow.utils.logging_utils import _configure_mlflow_loggers
 
@@ -247,3 +249,15 @@ with contextlib.suppress(Exception):
     from mlflow import gateway  # noqa: F401
 
     __all__.append("gateway")
+
+
+def _configure_mlflow_loggers():
+    log_level = MLFLOW_LOGGING_LEVEL.get().upper()
+    numeric_level = getattr(logging, log_level, None)
+    if not isinstance(numeric_level, int):
+        raise ValueError(f"Invalid log level: {log_level}")
+    logging.getLogger("mlflow").setLevel(numeric_level)
+
+
+# Call this function during MLflow initialization
+_configure_mlflow_loggers()

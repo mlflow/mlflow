@@ -81,6 +81,9 @@ class _BooleanEnvironmentVariable(_EnvironmentVariable):
 #: (default: ``None``)
 MLFLOW_TRACKING_URI = _EnvironmentVariable("MLFLOW_TRACKING_URI", str, None)
 
+# Add this near other environment variable definitions
+MLFLOW_LOGGING_LEVEL = _EnvironmentVariable("MLFLOW_LOGGING_LEVEL", str, "INFO")
+
 #: Specifies the registry URI.
 #: (default: ``None``)
 MLFLOW_REGISTRY_URI = _EnvironmentVariable("MLFLOW_REGISTRY_URI", str, None)
