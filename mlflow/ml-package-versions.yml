@@ -94,7 +94,7 @@ keras:
       ">= 3.0.0": ["jax[cpu]>0.4"]
     run: |
       export KERAS_BACKEND=jax
-      pytest tests/keras/test_callback.py
+      pytest tests/keras/test_callback.py tests/keras/test_save.py
 
   autologging:
     minimum: "3.0.2"
@@ -131,8 +131,7 @@ tensorflow:
         tests/tensorflow/test_tensorflow2_core_model_export.py \
         tests/tensorflow/test_tensorflow2_metric_value_conversion_utils.py \
         tests/tensorflow/test_keras_model_export.py \
-        tests/tensorflow/test_keras_pyfunc_model_works_with_all_input_types.py \
-        tests/keras/test_save.py
+        tests/tensorflow/test_keras_pyfunc_model_works_with_all_input_types.py
 
   autologging:
     minimum: "2.7.4"
