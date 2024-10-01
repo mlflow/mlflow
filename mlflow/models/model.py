@@ -776,7 +776,7 @@ class Model:
                     experiment_id=mlflow.tracking.fluent._get_experiment_id(),
                     # TODO: Update model name
                     name=name,
-                    run_id=active_run.info.run_id if active_run is not None else None,
+                    source_run_id=active_run.info.run_id if active_run is not None else None,
                     model_type=model_type,
                     params={key: str(value) for key, value in params.items()},
                     tags={key: str(value) for key, value in tags.items()}
