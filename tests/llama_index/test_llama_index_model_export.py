@@ -13,7 +13,6 @@ from llama_index.core.base.base_query_engine import BaseQueryEngine
 from llama_index.core.chat_engine import SimpleChatEngine
 from llama_index.core.llms import ChatMessage
 from llama_index.core.vector_stores.simple import SimpleVectorStore
-from llama_index.core.workflow import Workflow
 from llama_index.embeddings.databricks import DatabricksEmbedding
 from llama_index.embeddings.openai import OpenAIEmbedding
 from llama_index.llms.databricks import Databricks
@@ -485,6 +484,8 @@ def test_save_engine_with_engine_type_issues_warning(model_path):
 )
 @pytest.mark.asyncio
 async def test_save_load_workflow_as_code():
+    from llama_index.core.workflow import Workflow
+
     index_code_path = "tests/llama_index/sample_code/simple_workflow.py"
     with mlflow.start_run():
         model_info = mlflow.llama_index.log_model(
