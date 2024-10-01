@@ -308,7 +308,7 @@ spacy:
 
   models:
     minimum: "2.2.4"
-    maximum: "3.7.6"
+    maximum: "3.7.5"
     python:
       "== dev": "3.9"
     requirements:
