@@ -4,7 +4,7 @@ import logging.config
 import re
 import sys
 
-from mlflow.environment_variables import MLFLOW_LOGGING_LEVEL
+from mlflow.environment_variables import MLFLOW_LOGGING_LEVEL, LogLevel
 
 # Logging format example:
 # 2018/11/20 12:36:37 INFO mlflow.sagemaker: Creating new SageMaker endpoint
@@ -122,8 +122,6 @@ def suppress_logs(module: str, filter_regex: re.Pattern):
 
 
 def set_mlflow_log_level():
-    log_level = MLFLOW_LOGGING_LEVEL.get().upper()
-    numeric_level = getattr(logging, log_level, None)
-    if not isinstance(numeric_level, int):
-        raise ValueError(f"Invalid log level: {log_level}")
+    log_level: LogLevel = MLFLOW_LOGGING_LEVEL.get().upper()
+    numeric_level = getattr(logging, log_level)
     logging.getLogger("mlflow").setLevel(numeric_level)
