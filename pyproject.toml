@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "mlflow"
-version = "2.16.3.dev0"
+version = "2.17.1.dev0"
 description = "MLflow is an open source platform for the complete machine learning lifecycle"
 readme = "README.rst"
 keywords = ["mlflow", "ai", "databricks"]
