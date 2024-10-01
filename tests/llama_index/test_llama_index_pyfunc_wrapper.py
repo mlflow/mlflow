@@ -3,7 +3,6 @@ import pandas as pd
 import pytest
 from llama_index.core import QueryBundle
 from llama_index.core.llms import ChatMessage
-from llama_index.core.workflow import StartEvent, StopEvent, Workflow, step
 
 import mlflow
 from mlflow.llama_index.pyfunc_wrapper import (
@@ -263,6 +262,8 @@ def test_spark_udf_chat(model_path, spark, single_index):
 
 @pytest.mark.asyncio
 async def test_wrap_workflow():
+    from llama_index.core.workflow import StartEvent, StopEvent, Workflow, step
+
     class MyWorkflow(Workflow):
         @step
         async def my_step(self, ev: StartEvent) -> StopEvent:
