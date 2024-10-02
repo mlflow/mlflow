@@ -71,6 +71,7 @@ from mlflow.utils.autologging_utils import (
 )
 from mlflow.utils.databricks_utils import (
     is_in_databricks_model_serving_environment,
+    is_in_databricks_notebook,
     is_mlflow_tracing_enabled_in_model_serving,
 )
 from mlflow.utils.docstring_utils import (
@@ -127,7 +128,27 @@ def get_default_conda_env():
     return _mlflow_conda_env(additional_pip_deps=get_default_pip_requirements())
 
 
+def _try_set_databricks_auth_env_vars():
+    try:
+        from databricks.sdk import WorkspaceClient
+
+        w = WorkspaceClient()
+        if "DATABRICKS_HOST" not in os.environ:
+            os.environ["DATABRICKS_HOST"] = w.config.as_dict()["host"]
+        if "DATABRICKS_TOKEN" not in os.environ:
+            os.environ["DATABRICKS_TOKEN"] = w.config.authenticate()["Authorization"][7:]
+    except Exception as e:
+        logger.debug(f"Failed to set Databricks environment variables: {e}")
+
+
 def _check_env_vars_for_function_execution_in_subprocess():
+    """
+    To initialize WorkspaceClient correctly in a subprocess in databricks, we need to set
+    some environment variables and pass them to the subprocess. This function checks if
+    the required environment variables are set and tries to set them if they are not.
+    """
+    if is_in_databricks_notebook():
+        _try_set_databricks_auth_env_vars()
     missing_env_vars = set()
     for required_env_var in ["DATABRICKS_HOST", "DATABRICKS_TOKEN"]:
         if required_env_var not in os.environ:
