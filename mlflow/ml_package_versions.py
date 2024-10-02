@@ -140,7 +140,7 @@ _ML_PACKAGE_VERSIONS = {
         },
         "models": {
             "minimum": "2.2.4",
-            "maximum": "3.7.6"
+            "maximum": "3.7.5"
         }
     },
     "statsmodels": {
