@@ -1,5 +1,6 @@
 import asyncio
 import inspect
+import random
 from dataclasses import asdict
 from typing import List
 from unittest.mock import ANY
@@ -448,9 +449,9 @@ def test_tracer_handle_tracking_uri_update(tmp_path):
 
 
 @pytest.mark.skipif(
-    llama_core_version <= Version("0.11.13"),
-    reason="Workflow tracing does not work correctly in <= 0.11.14 due to "
-    "https://github.com/run-llama/llama_index/issues/16283",
+    llama_core_version >= Version("0.11.10"),
+    reason="Workflow tracing does not work correctly in >= 0.11.10 until "
+    "https://github.com/run-llama/llama_index/issues/16283 is fixed",
 )
 @pytest.mark.asyncio
 async def test_tracer_simple_workflow():
@@ -474,14 +475,12 @@ async def test_tracer_simple_workflow():
 
 
 @pytest.mark.skipif(
-    llama_core_version <= Version("0.11.13"),
-    reason="Workflow tracing does not work correctly in <= 0.11.14 due to "
-    "https://github.com/run-llama/llama_index/issues/16283",
+    llama_core_version >= Version("0.11.10"),
+    reason="Workflow tracing does not work correctly in >= 0.11.10 until "
+    "https://github.com/run-llama/llama_index/issues/16283 is fixed",
 )
 @pytest.mark.asyncio
 async def test_tracer_parallel_workflow():
-    import random
-
     from llama_index.core.workflow import (
         Context,
         Event,

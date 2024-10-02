@@ -172,8 +172,7 @@ class MlflowSpanHandler(BaseSpanHandler[_LlamaSpan], extra="allow"):
                 )
             return _LlamaSpan(id_=id_, parent_id=parent_span_id, mlflow_span=span)
         except BaseException as e:
-            _logger.warning(f"Failed to create a new span: {e}", exc_info=True)
-            raise
+            _logger.debug(f"Failed to create a new span: {e}", exc_info=True)
 
     def prepare_to_exit_span(
         self,
@@ -202,7 +201,7 @@ class MlflowSpanHandler(BaseSpanHandler[_LlamaSpan], extra="allow"):
                 _end_span(span=span, outputs=result)
             return llama_span
         except BaseException as e:
-            _logger.warning(f"Failed to end a span: {e}", exc_info=True)
+            _logger.debug(f"Failed to end a span: {e}", exc_info=True)
 
     def resolve_pending_stream_span(self, span: LiveSpan, event: Any):
         """End the pending streaming span(s)"""
@@ -213,7 +212,6 @@ class MlflowSpanHandler(BaseSpanHandler[_LlamaSpan], extra="allow"):
         """Logic for handling errors during the model execution."""
         with self.lock:
             llama_span = self.open_spans.get(id_)
-
         span = llama_span._mlflow_span
 
         if LLAMA_INDEX_VERSION >= Version("0.10.59"):
