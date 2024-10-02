@@ -149,7 +149,7 @@ def log_model(keras_model, signature, artifact_path, image_dims, domain):  # noq
             )
 
         mlflow.pyfunc.log_model(
-            artifact_path=artifact_path,
+            artifact_path,
             signature=signature,
             loader_module=__name__,
             code_paths=[__file__],

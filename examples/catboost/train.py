@@ -28,7 +28,7 @@ model.fit(train_data, train_labels)
 with mlflow.start_run() as run:
     signature = infer_signature(eval_data, model.predict(eval_data))
     mlflow.log_params(params)
-    mlflow.catboost.log_model(model, artifact_path="model", signature=signature)
+    mlflow.catboost.log_model(model, "model", signature=signature)
     model_uri = mlflow.get_artifact_uri("model")
 
 # Load model

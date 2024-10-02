@@ -20,7 +20,7 @@ def build_and_evalute_model_with_prompt(prompt_template):
     llm = OpenAI(temperature=0.9)
     prompt = PromptTemplate(input_variables=["article"], template=prompt_template)
     chain = LLMChain(llm=llm, prompt=prompt)
-    logged_model = mlflow.langchain.log_model(chain, artifact_path="model")
+    logged_model = mlflow.langchain.log_model(chain, "model")
 
     # Evaluate the model on a small sample dataset
     sample_data = pd.read_csv("summarization_example_data.csv")

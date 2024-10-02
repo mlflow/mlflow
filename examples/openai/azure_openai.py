@@ -18,9 +18,9 @@ export OPENAI_DEPLOYMENT_NAME="<AZURE OPENAI DEPLOYMENT ID OR NAME>"
 with mlflow.start_run():
     model_info = mlflow.openai.log_model(
         # Your Azure OpenAI model e.g. gpt-4o-mini
-        model="<YOUR AZURE OPENAI MODEL>",
-        task=openai.chat.completions,
-        artifact_path="model",
+        "<YOUR AZURE OPENAI MODEL>",
+        openai.chat.completions,
+        "model",
         messages=[{"role": "user", "content": "Tell me a joke about {animal}."}],
     )
 

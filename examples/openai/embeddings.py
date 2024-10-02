@@ -20,9 +20,9 @@ print(
 
 with mlflow.start_run():
     model_info = mlflow.openai.log_model(
-        model="text-embedding-ada-002",
-        task=openai.embeddings,
-        artifact_path="model",
+        "text-embedding-ada-002",
+        openai.embeddings,
+        "model",
     )
 
 model = mlflow.pyfunc.load_model(model_info.model_uri)
@@ -39,9 +39,9 @@ print(
 
 with mlflow.start_run():
     mlflow.openai.log_model(
-        model="text-embedding-ada-002",
-        task=openai.embeddings,
-        artifact_path="model",
+        "text-embedding-ada-002",
+        openai.embeddings,
+        "model",
         signature=ModelSignature(
             inputs=Schema([ColSpec(type="string", name=None)]),
             outputs=Schema([TensorSpec(type=np.dtype("float64"), shape=(-1,))]),

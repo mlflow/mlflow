@@ -11,8 +11,8 @@ signature = mlflow.models.infer_signature(
 
 with mlflow.start_run():
     model_info = mlflow.transformers.log_model(
-        transformers_model=conversational_pipeline,
-        artifact_path="chatbot",
+        conversational_pipeline,
+        "chatbot",
         task="conversational",
         signature=signature,
         input_example="A clever and witty question",

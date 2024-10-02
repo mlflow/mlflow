@@ -93,7 +93,7 @@ if __name__ == "__main__":
 
         mlflow.sklearn.log_model(
             model,
-            artifact_path=artifact_path,
+            artifact_path,
             registered_model_name="rapids_mlflow_cli",
             conda_env="conda.yaml",
             signature=signature,

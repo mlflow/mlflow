@@ -16,8 +16,8 @@ signature = mlflow.models.infer_signature(
 # Log the model using mlflow
 with mlflow.start_run():
     logged_model = mlflow.sentence_transformers.log_model(
-        model=model,
-        artifact_path="sbert_model",
+        model,
+        "sbert_model",
         signature=signature,
         input_example=example_sentences,
     )

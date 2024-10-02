@@ -222,7 +222,7 @@ with mlflow.start_run():
 
     # Log the model as an artifact of the MLflow run.
     print("\nLogging the trained model as a run artifact...")
-    mlflow.pytorch.log_model(model, artifact_path="pytorch-model", pickle_module=pickle)
+    mlflow.pytorch.log_model(model, "pytorch-model", pickle_module=pickle)
     print(
         "\nThe model is logged at:\n{}".format(
             os.path.join(mlflow.get_artifact_uri(), "pytorch-model")
