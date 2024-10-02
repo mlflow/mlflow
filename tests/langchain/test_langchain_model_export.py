@@ -1962,6 +1962,7 @@ def test_databricks_dependency_extraction_from_langgraph_agent(monkeypatch):
 
     # Mocking Cloudpickle because serialization in this setup is failing
     monkeypatch.setattr("cloudpickle.dump", mock.MagicMock())
+    monkeypatch.setenv("SPARK_LOCAL_REMOTE", "true")
 
     uc_functions = ["rag.studio.test_function_a", "rag.studio.test_function_b"]
     uc_function_tools = create_uc_tools(
@@ -2016,6 +2017,7 @@ def test_databricks_dependency_extraction_from_agent_chain(monkeypatch):
 
     # Mocking Cloudpickle because serialization in this setup is failing
     monkeypatch.setattr("cloudpickle.dump", mock.MagicMock())
+    monkeypatch.setenv("SPARK_LOCAL_REMOTE", "true")
 
     uc_functions = ["rag.studio.test_function_a", "rag.studio.test_function_b"]
     uc_function_tools = create_uc_tools(
