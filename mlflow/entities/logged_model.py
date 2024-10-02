@@ -2,10 +2,10 @@ from typing import Any, Dict, List, Optional, Union
 
 import mlflow.protos.service_pb2 as pb2
 from mlflow.entities._mlflow_object import _MlflowObject
+from mlflow.entities.logged_model_parameter import LoggedModelParameter
+from mlflow.entities.logged_model_tag import LoggedModelTag
 from mlflow.entities.metric import Metric
-from mlflow.entities.model_param import ModelParam
 from mlflow.entities.model_status import ModelStatus
-from mlflow.entities.model_tag import ModelTag
 
 
 class LoggedModel(_MlflowObject):
@@ -25,8 +25,8 @@ class LoggedModel(_MlflowObject):
         source_run_id: Optional[str] = None,
         status: ModelStatus = ModelStatus.READY,
         status_message: Optional[str] = None,
-        tags: Optional[Union[List[ModelTag], Dict[str, str]]] = None,
-        params: Optional[Union[List[ModelParam], Dict[str, str]]] = None,
+        tags: Optional[Union[List[LoggedModelTag], Dict[str, str]]] = None,
+        params: Optional[Union[List[LoggedModelParameter], Dict[str, str]]] = None,
         metrics: Optional[List[Metric]] = None,
     ):
         super().__init__()
@@ -195,6 +195,6 @@ class LoggedModel(_MlflowObject):
             source_run_id=proto.info.source_run_id,
             status=ModelStatus.from_proto(proto.info.status),
             status_message=proto.info.status_message,
-            tags=[ModelTag.from_proto(tag) for tag in proto.info.tags],
-            params=[ModelParam.from_proto(param) for param in proto.data.params],
+            tags=[LoggedModelTag.from_proto(tag) for tag in proto.info.tags],
+            params=[LoggedModelParameter.from_proto(param) for param in proto.data.params],
         )
