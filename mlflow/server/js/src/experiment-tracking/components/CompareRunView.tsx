@@ -25,6 +25,7 @@ import { PageHeader } from '../../shared/building_blocks/PageHeader';
 import { CollapsibleSection } from '../../common/components/CollapsibleSection';
 import { shouldDisableLegacyRunCompareCharts } from '../../common/utils/FeatureUtils';
 import { RunInfoEntity } from '../types';
+import { CompareRunArtifactView } from './CompareRunArtifactView';
 
 const { TabPane } = Tabs;
 
@@ -274,6 +275,10 @@ export class CompareRunView extends Component<CompareRunViewProps, CompareRunVie
     );
   }
 
+  renderArtifactTable(colWidth: any) {
+    return <CompareRunArtifactView runUuids={this.props.runUuids} runInfos={this.props.runInfos} colWidth={colWidth} />;
+  }
+
   renderTagTable(colWidth: any) {
     const dataRows = this.renderDataRows(
       this.props.tagLists,
@@ -396,6 +401,11 @@ export class CompareRunView extends Component<CompareRunViewProps, CompareRunVie
     const metricsLabel = this.props.intl.formatMessage({
       defaultMessage: 'Metrics',
       description: 'Row group title for metrics of runs on the experiment compare runs page',
+    });
+
+    const artifactsLabel = this.props.intl.formatMessage({
+      defaultMessage: 'Artifacts',
+      description: 'Row group title for artifacts of runs on the experiment compare runs page',
     });
 
     const tagsLabel = this.props.intl.formatMessage({
@@ -577,6 +587,7 @@ export class CompareRunView extends Component<CompareRunViewProps, CompareRunVie
           <Spacer size="lg" />
           {this.renderMetricTable(colWidth, experimentIds)}
         </CollapsibleSection>
+        <CollapsibleSection title={artifactsLabel}>{this.renderArtifactTable(colWidth)}</CollapsibleSection>
         <CollapsibleSection title={tagsLabel}>
           <Switch
             componentId="codegen_mlflow_app_src_experiment-tracking_components_comparerunview.tsx_592"
