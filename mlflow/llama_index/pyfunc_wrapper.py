@@ -2,8 +2,6 @@ import asyncio
 import threading
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
 
-import pandas as pd
-
 if TYPE_CHECKING:
     from llama_index.core import QueryBundle
 
@@ -186,9 +184,7 @@ class WorkflowWrapper(_LlamaIndexModelWrapperBase):
         # Even if the input is single instance, the signature enforcement convert it to a Pandas
         # DataFrame with a single row. In this case, we should unwrap the result (list) so it
         # won't be inconsistent with the output without signature enforcement.
-        should_unwrap = (
-            isinstance(data, pd.DataFrame) and len(data) == 1 and isinstance(predictions, list)
-        )
+        should_unwrap = len(data) == 1 and isinstance(predictions, list)
         return predictions[0] if should_unwrap else predictions
 
     def _format_predict_input(self, data, params: Optional[Dict[str, Any]] = None) -> List[Dict]:
@@ -209,7 +205,7 @@ class WorkflowWrapper(_LlamaIndexModelWrapperBase):
 
     def _wait_async_task(self, task: asyncio.Future) -> Any:
         """
-        An utility function to run async tasks in a blocking manner.
+        A utility function to run async tasks in a blocking manner.
 
         If there is no event loop running already, for example, in a model serving endpoint,
         we can simply create a new event loop and run the task there. However, in a notebook
@@ -226,20 +222,27 @@ class WorkflowWrapper(_LlamaIndexModelWrapperBase):
             # new event loop there. This may degrade the performance compared to the native
             # asyncio, but it should be fine because this is only used in the notebook env.
             results = None
+            exception = None
 
-            def _run(tasks):
-                nonlocal results
+            def _run():
+                nonlocal results, exception
 
                 try:
                     loop = asyncio.new_event_loop()
                     asyncio.set_event_loop(loop)
                     results = loop.run_until_complete(task)
+                except Exception as e:
+                    exception = e
                 finally:
                     loop.close()
 
-            thread = threading.Thread(target=_run, args=(task,))
+            thread = threading.Thread(target=_run)
             thread.start()
             thread.join()
+
+            if exception:
+                raise exception
+
             return results
 
     def _is_event_loop_running(self) -> bool:

@@ -139,7 +139,7 @@ def save_model(
         for more information.
 
     Args:
-        llama_index_model: An LlamaIndex object to be saved. Supported model types are:
+        llama_index_model: A LlamaIndex object to be saved. Supported model types are:
 
             1. An Index object.
             2. An Engine object e.g. ChatEngine, QueryEngine, Retriever.
@@ -322,7 +322,7 @@ def log_model(
         for more information.
 
     Args:
-        llama_index_model: An LlamaIndex object to be saved. Supported model types are:
+        llama_index_model: A LlamaIndex object to be saved. Supported model types are:
 
             1. An Index object.
             2. An Engine object e.g. ChatEngine, QueryEngine, Retriever.

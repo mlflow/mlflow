@@ -273,9 +273,45 @@ async def test_wrap_workflow():
     class MyWorkflow(Workflow):
         @step
         async def my_step(self, ev: StartEvent) -> StopEvent:
-            # do something here
-            return StopEvent(result="Hi, world!")
+            return StopEvent(result=f"Hi, {ev.name}!")
 
     w = MyWorkflow(timeout=10, verbose=False)
     wrapper = create_pyfunc_wrapper(w)
     assert wrapper.get_raw_model() == w
+
+    result = wrapper.predict({"name": "Alice"})
+    assert result == "Hi, Alice!"
+
+    results = wrapper.predict(
+        [
+            {"name": "Bob"},
+            {"name": "Charlie"},
+        ]
+    )
+    assert results == ["Hi, Bob!", "Hi, Charlie!"]
+
+    results = wrapper.predict(pd.DataFrame({"name": ["David"]}))
+    assert results == "Hi, David!"
+
+    results = wrapper.predict(pd.DataFrame({"name": ["Eve", "Frank"]}))
+    assert results == ["Hi, Eve!", "Hi, Frank!"]
+
+
+@pytest.mark.skipif(
+    Version(llama_index.core.__version__) < Version("0.11.0"),
+    reason="Workflow was introduced in 0.11.0",
+)
+@pytest.mark.asyncio
+async def test_wrap_workflow_raise_exception():
+    from llama_index.core.workflow import StartEvent, StopEvent, Workflow, step
+
+    class MyWorkflow(Workflow):
+        @step
+        async def my_step(self, ev: StartEvent) -> StopEvent:
+            raise ValueError("Expected error")
+
+    w = MyWorkflow(timeout=10, verbose=False)
+    wrapper = create_pyfunc_wrapper(w)
+
+    with pytest.raises(ValueError, match="Expected error"):
+        wrapper.predict({"name": "Alice"})
