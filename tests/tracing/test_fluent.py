@@ -1419,8 +1419,8 @@ def test_add_trace_in_databricks_model_serving(mock_databricks_serving_with_trac
 def test_add_trace_logging_model_from_code():
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
+            "model",
             python_model="tests/tracing/sample_code/model_with_add_trace.py",
-            artifact_path="model",
             input_example=[1, 2],
         )
 

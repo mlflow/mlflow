@@ -1231,8 +1231,8 @@ def autolog(
         )
 
         log_model(
-            model=history.model,
-            artifact_path="model",
+            history.model,
+            "model",
             input_example=input_example,
             signature=signature,
             registered_model_name=get_autologging_config(
