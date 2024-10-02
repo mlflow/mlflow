@@ -71,6 +71,7 @@ def test_trace_llm_complete(is_async):
         "completion_tokens": 7,
         "total_tokens": 12,
         "completion_tokens_details": None,
+        "prompt_tokens_details": None,
     }
     assert attr["prompt"] == "Hello"
     assert attr["invocation_params"]["model_name"] == model_name
@@ -106,6 +107,7 @@ def test_trace_llm_complete_stream():
         "completion_tokens": 12,
         "total_tokens": 21,
         "completion_tokens_details": None,
+        "prompt_tokens_details": None,
     }
     assert attr["prompt"] == "Hello"
     assert attr["invocation_params"]["model_name"] == model_name
@@ -156,6 +158,7 @@ def test_trace_llm_chat(is_async):
         "completion_tokens": 12,
         "total_tokens": 21,
         "completion_tokens_details": None,
+        "prompt_tokens_details": None,
     }
     assert attr["invocation_params"]["model_name"] == llm.metadata.model_name
     assert attr["model_dict"]["model"] == llm.metadata.model_name
@@ -210,6 +213,7 @@ def test_trace_llm_chat_stream():
         "completion_tokens": 12,
         "total_tokens": 21,
         "completion_tokens_details": None,
+        "prompt_tokens_details": None,
     }
     assert attr["invocation_params"]["model_name"] == llm.metadata.model_name
     assert attr["model_dict"]["model"] == llm.metadata.model_name
