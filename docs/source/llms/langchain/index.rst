@@ -534,4 +534,4 @@ string response, which can be compared to the `"ground_truth"` column.
     }
 
 For a complete example of a LangGraph model that works with this evaluation example, see the 
-[MLflow LangGraph blog](https://mlflow.org/blog/langgraph-model-from-code).
+`MLflow LangGraph blog <https://mlflow.org/blog/langgraph-model-from-code>`_.
