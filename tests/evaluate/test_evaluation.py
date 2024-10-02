@@ -416,7 +416,7 @@ def test_pyfunc_evaluate_logs_traces():
     )
 
     with mlflow.start_run() as run:
-        model_info = mlflow.pyfunc.log_model(artifact_path="model", python_model=Model())
+        model_info = mlflow.pyfunc.log_model("model", python_model=Model())
         evaluate(
             model_info.model_uri,
             eval_data,
@@ -498,7 +498,7 @@ def test_langchain_pyfunc_autologs_traces():
     )
 
     with mlflow.start_run() as run:
-        model_info = mlflow.langchain.log_model(chain, artifact_path="model")
+        model_info = mlflow.langchain.log_model(chain, "model")
         evaluate(
             model_info.model_uri,
             eval_data,

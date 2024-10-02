@@ -161,9 +161,7 @@ def test_model_log(pd_model, model_path, tmp_path):
         conda_env = os.path.join(tmp_path, "conda_env.yaml")
         _mlflow_conda_env(conda_env, additional_pip_deps=["paddle"])
 
-        model_info = mlflow.paddle.log_model(
-            pd_model=model, artifact_path=artifact_path, conda_env=conda_env
-        )
+        model_info = mlflow.paddle.log_model(model, artifact_path, conda_env=conda_env)
         model_uri = f"runs:/{mlflow.active_run().info.run_id}/{artifact_path}"
         assert model_info.model_uri == model_uri
 
@@ -189,8 +187,8 @@ def test_log_model_calls_register_model(pd_model):
     register_model_patch = mock.patch("mlflow.tracking._model_registry.fluent._register_model")
     with mlflow.start_run(), register_model_patch:
         mlflow.paddle.log_model(
-            pd_model=pd_model.model,
-            artifact_path=artifact_path,
+            pd_model.model,
+            artifact_path,
             registered_model_name="AdsModel1",
         )
         model_uri = f"runs:/{mlflow.active_run().info.run_id}/{artifact_path}"
@@ -205,7 +203,7 @@ def test_log_model_no_registered_model_name(pd_model):
     artifact_path = "model"
     register_model_patch = mock.patch("mlflow.tracking._model_registry.fluent._register_model")
     with mlflow.start_run(), register_model_patch:
-        mlflow.paddle.log_model(pd_model=pd_model.model, artifact_path=artifact_path)
+        mlflow.paddle.log_model(pd_model.model, artifact_path)
         mlflow.tracking._model_registry.fluent._register_model.assert_not_called()
 
 
@@ -264,9 +262,7 @@ def test_signature_and_examples_are_saved_correctly(pd_model, pd_model_signature
 def test_model_log_persists_specified_conda_env_in_mlflow_model_directory(pd_model, pd_custom_env):
     artifact_path = "model"
     with mlflow.start_run():
-        mlflow.paddle.log_model(
-            pd_model=pd_model.model, artifact_path=artifact_path, conda_env=pd_custom_env
-        )
+        mlflow.paddle.log_model(pd_model.model, artifact_path, conda_env=pd_custom_env)
         model_uri = f"runs:/{mlflow.active_run().info.run_id}/{artifact_path}"
 
     model_path = _download_artifact_from_uri(artifact_uri=model_uri)
@@ -294,7 +290,7 @@ def test_model_log_without_specified_conda_env_uses_default_env_with_expected_de
 ):
     artifact_path = "model"
     with mlflow.start_run():
-        mlflow.paddle.log_model(pd_model=pd_model.model, artifact_path=artifact_path)
+        mlflow.paddle.log_model(pd_model.model, artifact_path)
         model_uri = mlflow.get_artifact_uri(artifact_path)
     _assert_pip_requirements(model_uri, mlflow.paddle.get_default_pip_requirements())
 
@@ -383,7 +379,7 @@ def test_model_built_in_high_level_api_log(pd_model_built_in_high_level_api, mod
         conda_env = os.path.join(tmp_path, "conda_env.yaml")
         _mlflow_conda_env(conda_env, additional_pip_deps=["paddle"])
 
-        mlflow.paddle.log_model(pd_model=model, artifact_path=artifact_path, conda_env=conda_env)
+        mlflow.paddle.log_model(model, artifact_path, conda_env=conda_env)
         model_uri = f"runs:/{mlflow.active_run().info.run_id}/{artifact_path}"
 
         reloaded_pd_model = mlflow.paddle.load_model(model_uri=model_uri)
@@ -469,9 +465,7 @@ def test_log_model_built_in_high_level_api(
         conda_env = os.path.join(tmp_path, "conda_env.yaml")
         _mlflow_conda_env(conda_env, additional_pip_deps=["paddle"])
 
-        mlflow.paddle.log_model(
-            pd_model=model, artifact_path=artifact_path, conda_env=conda_env, training=True
-        )
+        mlflow.paddle.log_model(model, artifact_path, conda_env=conda_env, training=True)
         model_uri = f"runs:/{mlflow.active_run().info.run_id}/{artifact_path}"
 
         model_retrain = paddle.Model(UCIHousing())
@@ -610,7 +604,7 @@ def test_model_log_with_metadata(pd_model):
 
     with mlflow.start_run():
         mlflow.paddle.log_model(
-            pd_model.model, artifact_path=artifact_path, metadata={"metadata_key": "metadata_value"}
+            pd_model.model, artifact_path, metadata={"metadata_key": "metadata_value"}
         )
         model_uri = mlflow.get_artifact_uri(artifact_path)
 
@@ -624,7 +618,7 @@ def test_model_log_with_signature_inference(pd_model, pd_model_signature):
     example = test_dataset[:3, :]
 
     with mlflow.start_run():
-        mlflow.paddle.log_model(pd_model.model, artifact_path=artifact_path, input_example=example)
+        mlflow.paddle.log_model(pd_model.model, artifact_path, input_example=example)
         model_uri = mlflow.get_artifact_uri(artifact_path)
 
     mlflow_model = Model.load(model_uri)

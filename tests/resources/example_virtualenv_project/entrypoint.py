@@ -30,4 +30,4 @@ clf = make_pipeline(StandardScaler(), SVC(gamma="auto"))
 clf.fit(X, y)
 
 with mlflow.start_run():
-    mlflow.sklearn.log_model(clf, artifact_path="model")
+    mlflow.sklearn.log_model(clf, "model")

@@ -32,6 +32,19 @@ def ignore_map(code: str) -> dict[str, set[int]]:
     return mapping
 
 
+def _is_log_model(node: ast.AST) -> bool:
+    """
+    Is this node a call to `log_model`?
+    """
+    if isinstance(node, ast.Name):
+        return node.id == "log_model"
+
+    elif isinstance(node, ast.Attribute):
+        return node.attr == "log_model"
+
+    return False
+
+
 @dataclass
 class Rule:
     id: str
@@ -84,6 +97,16 @@ TEST_NAME_TYPO = Rule(
     "MLF0004",
     "test-name-typo",
     "This function looks like a test, but its name does not start with 'test_'.",
+)
+
+# TODO: Remove this rule after merging mlflow-3 branch into master
+KEYWORD_ARTIFACT_PATH = Rule(
+    "MLF0005",
+    "keyword-artifact-path",
+    (
+        "artifact_path must be passed as a positional argument. "
+        "See https://github.com/mlflow/mlflow/pull/13268 for why this is necessary."
+    ),
 )
 
 
@@ -162,6 +185,14 @@ class Linter(ast.NodeVisitor):
         if self._is_in_function() and node.module.split(".", 1)[0] in BUILTIN_MODULES:
             self._check(node, LAZY_BUILTIN_IMPORT)
         self.generic_visit(node)
+
+    def visit_Call(self, node: ast.Call) -> None:
+        if (
+            self.path.parts[0] in ["tests", "mlflow"]
+            and _is_log_model(node.func)
+            and any(arg.arg == "artifact_path" for arg in node.keywords)
+        ):
+            self._check(node, KEYWORD_ARTIFACT_PATH)
 
 
 def lint_file(path: Path) -> list[Violation]:

@@ -493,8 +493,8 @@ def test_save_load_input_example_without_conversion(tmp_path):
     }
     with mlflow.start_run() as run:
         mlflow.pyfunc.log_model(
+            "test_model",
             python_model=MyModel(),
-            artifact_path="test_model",
             input_example=input_example,
         )
         local_path = _download_artifact_from_uri(
