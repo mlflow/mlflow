@@ -503,8 +503,7 @@ up OpenAI authentication to run the code below.
             )
             predictions.append(completion.choices[0].message.content)
 
-        inputs["inputs"] = predictions
-        return inputs["inputs"]
+        return predictions
 
 
     with mlflow.start_run():
