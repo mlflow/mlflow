@@ -46,7 +46,7 @@ from mlflow.store.artifact.cloud_artifact_repo import (
 )
 from mlflow.store.artifact.databricks_artifact_repo_resources import (
     _CredentialType,
-    _Model,
+    _LoggedModel,
     _Resource,
     _Run,
 )
@@ -131,8 +131,7 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
             # (the `relative_artifact_repo_root_path`). All operations performed on this
             # artifact repository will be performed relative to this computed location
             artifact_repo_root_path = extract_and_normalize_path(self.artifact_uri)
-            artifact_root_uri = self._get_artifact_root(self.resource.id)
-            artifact_root_path = extract_and_normalize_path(artifact_root_uri)
+            artifact_root_path = extract_and_normalize_path(self.resource.artifact_root)
             relative_root_path = posixpath.relpath(
                 path=artifact_repo_root_path, start=artifact_root_path
             )
@@ -148,7 +147,7 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
         The artifact_uri is expected to be in one of the following formats:
         - dbfs:/databricks/mlflow-tracking/<EXP_ID>/<RUN_ID>/artifacts/<path>
         - databricks/mlflow-tracking/<EXP_ID>/<RUN_ID>/artifacts/<path>
-        - databricks/mlflow-tracking/<EXP_ID>/models/<MODEL_ID>/artifacts/<path>
+        - databricks/mlflow-tracking/<EXP_ID>/logged_models/<MODEL_ID>/artifacts/<path>
 
         Returns:
             _Resource
@@ -156,8 +155,8 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
         artifact_path = extract_and_normalize_path(artifact_uri)
         parts = artifact_path.split("/")
 
-        if parts[3] == "models":
-            return _Model(id=parts[4], call_endpoint=self._call_endpoint)
+        if parts[3] == "logged_models":
+            return _LoggedModel(id=parts[4], call_endpoint=self._call_endpoint)
 
         return _Run(id=parts[3], call_endpoint=self._call_endpoint)
 
