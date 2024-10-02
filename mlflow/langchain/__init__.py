@@ -50,7 +50,7 @@ from mlflow.models.dependencies_schemas import (
     _get_dependencies_schemas,
 )
 from mlflow.models.model import MLMODEL_FILE_NAME, MODEL_CODE_PATH, MODEL_CONFIG
-from mlflow.models.resources import _ResourceBuilder
+from mlflow.models.resources import DatabricksFunction, _ResourceBuilder
 from mlflow.models.signature import _infer_signature_from_input_example
 from mlflow.models.utils import (
     _convert_llm_input_data,
@@ -125,6 +125,24 @@ def get_default_conda_env():
         :func:`save_model()` and :func:`log_model()`.
     """
     return _mlflow_conda_env(additional_pip_deps=get_default_pip_requirements())
+
+
+def _check_env_vars_for_function_execution_in_subprocess():
+    missing_env_vars = set()
+    for required_env_var in ["DATABRICKS_HOST", "DATABRICKS_TOKEN"]:
+        if required_env_var not in os.environ:
+            missing_env_vars.add(required_env_var)
+    if "SPARK_LOCAL_REMOTE" not in os.environ:
+        if "SPARK_REMOTE" in os.environ:
+            os.environ["SPARK_LOCAL_REMOTE"] = os.environ["SPARK_REMOTE"]
+        else:
+            missing_env_vars.add("SPARK_LOCAL_REMOTE")
+    if missing_env_vars:
+        raise MlflowException(
+            "Missing required environment variables for inferring pip requirements: "
+            f"{missing_env_vars}. These environment variables are required to execute "
+            "the model tools in the subprocess to infer pip requirements. "
+        )
 
 
 @experimental
@@ -359,10 +377,14 @@ def save_model(
         **model_data_kwargs,
     )
 
+    needs_databricks_auth = False
     if Version(langchain.__version__) >= Version("0.0.311") and mlflow_model.resources is None:
         if databricks_resources := _detect_databricks_dependencies(lc_model):
             serialized_databricks_resources = _ResourceBuilder.from_resources(databricks_resources)
             mlflow_model.resources = serialized_databricks_resources
+            needs_databricks_auth = any(
+                isinstance(r, DatabricksFunction) for r in databricks_resources
+            )
 
     mlflow_model.add_flavor(
         FLAVOR_NAME,
@@ -378,6 +400,8 @@ def save_model(
     if conda_env is None:
         if pip_requirements is None:
             default_reqs = get_default_pip_requirements()
+            if needs_databricks_auth:
+                _check_env_vars_for_function_execution_in_subprocess()
             inferred_reqs = mlflow.models.infer_pip_requirements(
                 str(path), FLAVOR_NAME, fallback=default_reqs
             )
