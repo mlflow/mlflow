@@ -1,7 +1,7 @@
 from mlflow.entities._mlflow_object import _MlflowObject
 
 
-class ModelInput(_MlflowObject):
+class LoggedModelInput(_MlflowObject):
     """ModelInput object associated with a Run."""
 
     def __init__(self, model_id: str):

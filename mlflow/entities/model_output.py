@@ -1,7 +1,7 @@
 from mlflow.entities._mlflow_object import _MlflowObject
 
 
-class ModelOutput(_MlflowObject):
+class LoggedModelOutput(_MlflowObject):
     """ModelOutput object associated with a Run."""
 
     def __init__(self, model_id: str, step: int) -> None:

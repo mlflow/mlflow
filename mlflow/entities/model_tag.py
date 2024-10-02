@@ -1,8 +1,8 @@
 from mlflow.entities._mlflow_object import _MlflowObject
-from mlflow.protos.service_pb2 import LoggedModelTag
+from mlflow.protos import service_pb2 as pb2
 
 
-class ModelTag(_MlflowObject):
+class LoggedModelTag(_MlflowObject):
     """Tag object associated with a Model."""
 
     def __init__(self, key, value):
@@ -26,7 +26,7 @@ class ModelTag(_MlflowObject):
         return self._value
 
     def to_proto(self):
-        return LoggedModelTag(key=self._key, value=self._value)
+        return pb2.LoggedModelTag(key=self._key, value=self._value)
 
     @classmethod
     def from_proto(cls, proto):
