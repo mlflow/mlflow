@@ -5,14 +5,13 @@ from typing import Any, Callable, List, Optional, Tuple
 
 from mlflow.protos.databricks_artifacts_pb2 import (
     DatabricksMlflowArtifactsService,
+    GetCredentialsForLoggedModelDownload,
     GetCredentialsForLoggedModelUpload,
     GetCredentialsForRead,
     GetCredentialsForWrite,
 )
 from mlflow.protos.service_pb2 import GetLoggedModel, GetRun, MlflowService
 from mlflow.utils.proto_json_utils import message_to_json
-
-GetCredentialsForLoggedModelDownload = None
 
 
 class _CredentialType(Enum):
@@ -71,7 +70,7 @@ class _LoggedModel(_Resource):
             if cred_type == _CredentialType.READ
             else GetCredentialsForLoggedModelUpload
         )
-        payload = api(model_id=self.id, paths=paths, page_token=page_token)
+        payload = api(paths=paths, page_token=page_token)
         response = self.call_endpoint(
             DatabricksMlflowArtifactsService,
             api,
