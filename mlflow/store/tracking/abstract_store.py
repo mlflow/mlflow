@@ -4,11 +4,11 @@ from typing import Dict, List, Optional, Tuple
 from mlflow.entities import (
     DatasetInput,
     LoggedModel,
-    ModelInput,
-    ModelOutput,
-    ModelParam,
-    ModelStatus,
-    ModelTag,
+    LoggedModelInput,
+    LoggedModelOutput,
+    LoggedModelParameter,
+    LoggedModelStatus,
+    LoggedModelTag,
     TraceInfo,
     ViewType,
 )
@@ -657,7 +657,7 @@ class AbstractStore:
         self,
         run_id: str,
         datasets: Optional[List[DatasetInput]] = None,
-        models: Optional[List[ModelInput]] = None,
+        models: Optional[List[LoggedModelInput]] = None,
     ):
         """
         Log inputs, such as datasets, to the specified run.
@@ -666,20 +666,20 @@ class AbstractStore:
             run_id: String id for the run
             datasets: List of :py:class:`mlflow.entities.DatasetInput` instances to log
                 as inputs to the run.
-            models: List of :py:class:`mlflow.entities.ModelInput` instances to log
+            models: List of :py:class:`mlflow.entities.LoggedModelInput` instances to log
                 as inputs to the run.
 
         Returns:
             None.
         """
 
-    def log_outputs(self, run_id, models: Optional[List[ModelOutput]] = None):
+    def log_outputs(self, run_id, models: Optional[List[LoggedModelOutput]] = None):
         """
         Log outputs, such as models, to the specified run.
 
         Args:
             run_id: String id for the run
-            models: List of :py:class:`mlflow.entities.ModelOutput` instances to log
+            models: List of :py:class:`mlflow.entities.LoggedModelOutput` instances to log
                 as outputs of the run.
 
         Returns:
@@ -695,8 +695,8 @@ class AbstractStore:
         experiment_id: str,
         name: str,
         source_run_id: Optional[str] = None,
-        tags: Optional[List[ModelTag]] = None,
-        params: Optional[List[ModelParam]] = None,
+        tags: Optional[List[LoggedModelTag]] = None,
+        params: Optional[List[LoggedModelParameter]] = None,
         model_type: Optional[str] = None,
     ) -> LoggedModel:
         """
@@ -740,7 +740,7 @@ class AbstractStore:
 
         raise NotImplementedError
 
-    def finalize_logged_model(self, model_id: str, status: ModelStatus) -> LoggedModel:
+    def finalize_logged_model(self, model_id: str, status: LoggedModelStatus) -> LoggedModel:
         """
         Finalize a model by updating its status.
 
@@ -753,7 +753,7 @@ class AbstractStore:
         """
         raise NotImplementedError
 
-    def set_logged_model_tag(self, model_id: str, tag: ModelTag):
+    def set_logged_model_tag(self, model_id: str, tag: LoggedModelTag):
         """
         Set a tag on the specified logged model.
 

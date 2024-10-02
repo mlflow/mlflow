@@ -19,9 +19,9 @@ from mlflow.entities import (
     Experiment,
     InputTag,
     LoggedModel,
+    LoggedModelInput,
+    LoggedModelOutput,
     Metric,
-    ModelInput,
-    ModelOutput,
     Param,
     Run,
     RunStatus,
@@ -925,7 +925,7 @@ def _log_inputs_for_metrics_if_necessary(
         if metric.model_id is not None and metric.model_id not in [
             inp.model_id for inp in run.inputs.model_inputs
         ] + [output.model_id for output in run.outputs.model_outputs]:
-            client.log_inputs(run_id, models=[ModelInput(model_id=metric.model_id)])
+            client.log_inputs(run_id, models=[LoggedModelInput(model_id=metric.model_id)])
         if (metric.dataset_name, metric.dataset_digest) not in [
             (inp.dataset.name, inp.dataset.digest) for inp in run.inputs.dataset_inputs
         ]:
@@ -1090,7 +1090,7 @@ def log_input(
     dataset: Optional[Dataset] = None,
     context: Optional[str] = None,
     tags: Optional[Dict[str, str]] = None,
-    model: Optional[ModelInput] = None,
+    model: Optional[LoggedModelInput] = None,
 ) -> None:
     """
     Log a dataset used in the current run.
@@ -1100,7 +1100,8 @@ def log_input(
         context: Context in which the dataset is used. For example: "training", "testing".
             This will be set as an input tag with key `mlflow.data.context`.
         tags: Tags to be associated with the dataset. Dictionary of tag_key -> tag_value.
-        model: A :py:class:`mlflow.entities.ModelInput` instance to log as as input to the run.
+        model: A :py:class:`mlflow.entities.LoggedModelInput` instance to log as as input to the
+            run.
 
     .. code-block:: python
         :test:
@@ -2034,13 +2035,13 @@ def search_logged_models(
         )
 
 
-def log_outputs(models: Optional[List[ModelOutput]] = None):
+def log_outputs(models: Optional[List[LoggedModelOutput]] = None):
     """
     Log outputs, such as models, to the active run. If there is no active run, a new run will be
     created.
 
     Args:
-        models: List of :py:class:`mlflow.entities.ModelOutput` instances to log
+        models: List of :py:class:`mlflow.entities.LoggedModelOutput` instances to log
             as outputs to the run.
 
     Returns:

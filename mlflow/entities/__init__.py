@@ -15,7 +15,7 @@ from mlflow.entities.lifecycle_stage import LifecycleStage
 from mlflow.entities.logged_model import LoggedModel
 from mlflow.entities.logged_model_input import LoggedModelInput
 from mlflow.entities.logged_model_output import LoggedModelOutput
-from mlflow.entities.logged_model_param import LoggedModelParam
+from mlflow.entities.logged_model_param import LoggedModelParameter
 from mlflow.entities.logged_model_status import LoggedModelStatus
 from mlflow.entities.logged_model_tag import LoggedModelTag
 from mlflow.entities.metric import Metric
@@ -71,6 +71,6 @@ __all__ = [
     "LoggedModelOutput",
     "LoggedModelStatus",
     "LoggedModelTag",
-    "LoggedModelParam",
+    "LoggedModelParameter",
     "Document",
 ]

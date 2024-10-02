@@ -14,12 +14,12 @@ from typing import Dict, List, Optional
 from mlflow.entities import (
     ExperimentTag,
     LoggedModel,
+    LoggedModelInput,
+    LoggedModelOutput,
+    LoggedModelParameter,
+    LoggedModelStatus,
+    LoggedModelTag,
     Metric,
-    ModelInput,
-    ModelOutput,
-    ModelParam,
-    ModelStatus,
-    ModelTag,
     Param,
     RunStatus,
     RunTag,
@@ -820,14 +820,14 @@ class TrackingServiceClient:
         self,
         run_id: str,
         datasets: Optional[List[DatasetInput]] = None,
-        models: Optional[List[ModelInput]] = None,
+        models: Optional[List[LoggedModelInput]] = None,
     ):
         """Log one or more dataset inputs to a run.
 
         Args:
             run_id: String ID of the run.
             datasets: List of :py:class:`mlflow.entities.DatasetInput` instances to log.
-            models: List of :py:class:`mlflow.entities.ModelInput` instances to log.
+            models: List of :py:class:`mlflow.entities.LoggedModelInput` instances to log.
 
         Raises:
             MlflowException: If any errors occur.
@@ -837,7 +837,7 @@ class TrackingServiceClient:
         """
         self.store.log_inputs(run_id=run_id, datasets=datasets, models=models)
 
-    def log_outputs(self, run_id: str, models: List[ModelOutput]):
+    def log_outputs(self, run_id: str, models: List[LoggedModelOutput]):
         self.store.log_outputs(run_id=run_id, models=models)
 
     def _record_logged_model(self, run_id, mlflow_model):
@@ -1064,23 +1064,23 @@ class TrackingServiceClient:
             experiment_id=experiment_id,
             name=name,
             source_run_id=source_run_id,
-            tags=[ModelTag(str(key), str(value)) for key, value in tags.items()]
+            tags=[LoggedModelTag(str(key), str(value)) for key, value in tags.items()]
             if tags is not None
             else tags,
-            params=[ModelParam(str(key), str(value)) for key, value in params.items()]
+            params=[LoggedModelParameter(str(key), str(value)) for key, value in params.items()]
             if params is not None
             else params,
             model_type=model_type,
         )
 
-    def finalize_logged_model(self, model_id: str, status: ModelStatus) -> LoggedModel:
+    def finalize_logged_model(self, model_id: str, status: LoggedModelStatus) -> LoggedModel:
         return self.store.finalize_logged_model(model_id, status)
 
     def get_logged_model(self, model_id: str) -> LoggedModel:
         return self.store.get_logged_model(model_id)
 
     def set_logged_model_tag(self, model_id: str, key: str, value: str):
-        return self.store.set_logged_model_tag(model_id, ModelTag(key, value))
+        return self.store.set_logged_model_tag(model_id, LoggedModelTag(key, value))
 
     def log_model_artifacts(self, model_id: str, local_dir: str) -> None:
         self._get_artifact_repo_for_logged_model(model_id).log_artifacts(local_dir)
