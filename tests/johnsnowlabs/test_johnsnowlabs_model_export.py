@@ -217,7 +217,7 @@ def test_log_model_with_signature_and_examples(jsl_model):
             with mlflow.start_run():
                 mlflow.johnsnowlabs.log_model(
                     jsl_model,
-                    artifact_path=artifact_path,
+                    artifact_path,
                     signature=signature,
                     input_example=example,
                 )

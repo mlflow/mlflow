@@ -841,7 +841,7 @@ def test_signature_enforcement_with_model_serving(input_schema, output_schema, p
 
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
-            artifact_path="test_model", python_model=MyModel(), signature=signature
+            "test_model", python_model=MyModel(), signature=signature
         )
 
     inference_payload = json.dumps({"inputs": ["test"]})
@@ -872,7 +872,7 @@ def assert_base_model_reqs():
             return ["test"]
 
     with mlflow.start_run():
-        model_info = mlflow.pyfunc.log_model(artifact_path="model", python_model=MyModel())
+        model_info = mlflow.pyfunc.log_model("model", python_model=MyModel())
 
     resolved_uri = RunsArtifactRepository.get_underlying_uri(model_info.model_uri)
     local_paths = get_model_requirements_files(resolved_uri)

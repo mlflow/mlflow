@@ -573,8 +573,8 @@ def test_langchain_agent_model_predict(return_intermediate_steps, monkeypatch):
             # OpenAI Client since 1.0 contains thread lock object that cannot be
             # pickled. Therefore, AgentExecutor cannot be saved with the legacy
             # object-based logging and we need to use Model-from-Code logging.
-            lc_model="tests/langchain/sample_code/openai_agent.py",
-            artifact_path="langchain_model",
+            "tests/langchain/sample_code/openai_agent.py",
+            "langchain_model",
             input_example=input_example,
         )
 
@@ -637,8 +637,8 @@ def test_langchain_agent_model_predict_stream():
             # OpenAI Client since 1.0 contains thread lock object that cannot be
             # pickled. Therefore, AgentExecutor cannot be saved with the legacy
             # object-based logging and we need to use Model-from-Code logging.
-            lc_model="tests/langchain/sample_code/openai_agent.py",
-            artifact_path="langchain_model",
+            "tests/langchain/sample_code/openai_agent.py",
+            "langchain_model",
             input_example=input_example,
         )
 
@@ -1544,9 +1544,7 @@ def test_save_load_chain_with_model_paths():
     with mlflow.start_run(), mock.patch(
         "mlflow.langchain._add_code_from_conf_to_system_path"
     ) as add_mock:
-        model_info = mlflow.langchain.log_model(
-            lc_model=model, artifact_path=artifact_path, code_paths=[__file__]
-        )
+        model_info = mlflow.langchain.log_model(model, artifact_path, code_paths=[__file__])
         mlflow.langchain.load_model(model_info.model_uri)
         model_uri = mlflow.get_artifact_uri(artifact_path=artifact_path)
         _compare_logged_code_paths(__file__, model_uri, mlflow.langchain.FLAVOR_NAME)
@@ -2488,8 +2486,8 @@ def test_save_load_chain_as_code(chain_model_signature, chain_path, model_config
     artifact_path = "model_path"
     with mlflow.start_run() as run:
         model_info = mlflow.langchain.log_model(
-            lc_model=chain_path,
-            artifact_path=artifact_path,
+            chain_path,
+            artifact_path,
             signature=chain_model_signature,
             input_example=input_example,
             model_config=model_config,
@@ -2593,8 +2591,8 @@ def test_save_load_chain_as_code_model_config_dict(chain_model_signature, chain_
     }
     with mlflow.start_run():
         model_info = mlflow.langchain.log_model(
-            lc_model=chain_path,
-            artifact_path="model_path",
+            chain_path,
+            "model_path",
             signature=chain_model_signature,
             input_example=input_example,
             model_config={
@@ -2639,8 +2637,8 @@ def test_save_load_chain_as_code_with_different_names(
 
     with mlflow.start_run():
         model_info = mlflow.langchain.log_model(
-            lc_model=str(temp_file),
-            artifact_path="model_path",
+            str(temp_file),
+            "model_path",
             signature=chain_model_signature,
             input_example=input_example,
             model_config=model_config,
@@ -2680,8 +2678,8 @@ def test_save_load_chain_as_code_multiple_times(
     }
     with mlflow.start_run():
         model_info = mlflow.langchain.log_model(
-            lc_model=chain_path,
-            artifact_path="model_path",
+            chain_path,
+            "model_path",
             signature=chain_model_signature,
             input_example=input_example,
             model_config=model_config,
@@ -2703,8 +2701,8 @@ def test_save_load_chain_as_code_multiple_times(
 
     with mlflow.start_run():
         model_info = mlflow.langchain.log_model(
-            lc_model=chain_path,
-            artifact_path="model_path",
+            chain_path,
+            "model_path",
             signature=chain_model_signature,
             input_example=input_example,
             model_config=new_config_file,
@@ -2735,8 +2733,8 @@ def test_save_load_chain_as_code_with_model_paths(chain_model_signature, chain_p
         "mlflow.langchain._add_code_from_conf_to_system_path"
     ) as add_mock:
         model_info = mlflow.langchain.log_model(
-            lc_model=chain_path,
-            artifact_path=artifact_path,
+            chain_path,
+            artifact_path,
             signature=chain_model_signature,
             input_example=input_example,
             code_paths=[__file__],
@@ -2772,8 +2770,8 @@ def test_save_load_chain_errors(chain_model_signature, chain_path):
             "Ensure the file path is valid and try again.",
         ):
             mlflow.langchain.log_model(
-                lc_model=chain_path,
-                artifact_path="model_path",
+                chain_path,
+                "model_path",
                 signature=chain_model_signature,
                 input_example=input_example,
                 model_config="tests/langchain/state_of_the_union.txt",
@@ -2799,8 +2797,8 @@ def test_save_load_chain_as_code_optional_code_path(chain_model_signature, chain
     artifact_path = "new_model_path"
     with mlflow.start_run() as run:
         model_info = mlflow.langchain.log_model(
-            lc_model=chain_path,
-            artifact_path=artifact_path,
+            chain_path,
+            artifact_path,
             signature=chain_model_signature,
             input_example=input_example,
         )
@@ -3144,8 +3142,8 @@ def test_save_model_as_code_correct_streamable(chain_model_signature, chain_path
     artifact_path = "model_path"
     with mlflow.start_run() as run:
         model_info = mlflow.langchain.log_model(
-            lc_model=chain_path,
-            artifact_path=artifact_path,
+            chain_path,
+            artifact_path,
             signature=chain_model_signature,
             input_example=input_example,
         )
@@ -3309,8 +3307,8 @@ def test_load_chain_with_model_config_overrides_saved_config(
     artifact_path = "model_path"
     with mlflow.start_run():
         model_info = mlflow.langchain.log_model(
-            lc_model=chain_path,
-            artifact_path=artifact_path,
+            chain_path,
+            artifact_path,
             signature=chain_model_signature,
             input_example=input_example,
             model_config=model_config,
@@ -3345,8 +3343,8 @@ def test_langchain_model_streamable_param_in_log_model(streamable, fake_chat_mod
     for model in [chain, runnable, llm_chain]:
         with mock.patch("mlflow.langchain._save_model"), mlflow.start_run():
             model_info = mlflow.langchain.log_model(
-                lc_model=model,
-                artifact_path="model",
+                model,
+                "model",
                 streamable=streamable,
                 pip_requirements=[],
             )
@@ -3369,8 +3367,8 @@ def test_langchain_model_streamable_param_in_log_model_for_lc_runnable_types(
         model = mock.MagicMock(spec=model_type)
         assert hasattr(model, "stream") is True
         model_info = mlflow.langchain.log_model(
-            lc_model=model,
-            artifact_path="model",
+            model,
+            "model",
             streamable=streamable,
             pip_requirements=[],
         )
@@ -3381,8 +3379,8 @@ def test_langchain_model_streamable_param_in_log_model_for_lc_runnable_types(
         del model.stream
         assert hasattr(model, "stream") is False
         model_info = mlflow.langchain.log_model(
-            lc_model=model,
-            artifact_path="model",
+            model,
+            "model",
             streamable=streamable,
             pip_requirements=[],
         )
@@ -3397,8 +3395,8 @@ def test_agent_executor_model_with_messages_input():
 
     with mlflow.start_run():
         model_info = mlflow.langchain.log_model(
-            lc_model=os.path.abspath("tests/langchain/agent_executor/chain.py"),
-            artifact_path="model_path",
+            os.path.abspath("tests/langchain/agent_executor/chain.py"),
+            "model_path",
             input_example=question,
             model_config=os.path.abspath("tests/langchain/agent_executor/config.yml"),
         )
@@ -3461,8 +3459,8 @@ def test_signature_inference_fails(monkeypatch: pytest.MonkeyPatch):
 def test_invoking_model_with_params():
     with mlflow.start_run():
         model_info = mlflow.langchain.log_model(
-            lc_model=os.path.abspath("tests/langchain/sample_code/model_with_config.py"),
-            artifact_path="model",
+            os.path.abspath("tests/langchain/sample_code/model_with_config.py"),
+            "model",
         )
     pyfunc_model = mlflow.pyfunc.load_model(model_info.model_uri)
     data = {"x": 0}

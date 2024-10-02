@@ -187,7 +187,11 @@ class Linter(ast.NodeVisitor):
         self.generic_visit(node)
 
     def visit_Call(self, node: ast.Call) -> None:
-        if _is_log_model(node.func) and any(arg.arg == "artifact_path" for arg in node.keywords):
+        if (
+            self.path.parts[0] in ["tests"]
+            and _is_log_model(node.func)
+            and any(arg.arg == "artifact_path" for arg in node.keywords)
+        ):
             self._check(node, KEYWORD_ARTIFACT_PATH)
 
 

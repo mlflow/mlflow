@@ -167,8 +167,8 @@ def test_format_predict_input_correct_schema_complex(single_index, engine_type):
 def test_query_engine_predict(single_index, with_input_example, payload):
     with mlflow.start_run():
         model_info = mlflow.llama_index.log_model(
-            llama_index_model=single_index,
-            artifact_path="model",
+            single_index,
+            "model",
             input_example=payload if with_input_example else None,
             engine_type="query",
         )
@@ -203,8 +203,8 @@ def test_query_engine_predict(single_index, with_input_example, payload):
 def test_query_engine_predict_list(single_index, with_input_example, payload):
     with mlflow.start_run():
         model_info = mlflow.llama_index.log_model(
-            llama_index_model=single_index,
-            artifact_path="model",
+            single_index,
+            "model",
             input_example=payload if with_input_example else None,
             engine_type="query",
         )
@@ -264,8 +264,8 @@ def test_query_engine_predict_numeric(model_path, single_index, with_input_examp
 def test_chat_engine_predict(single_index, with_input_example, payload):
     with mlflow.start_run():
         model_info = mlflow.llama_index.log_model(
-            llama_index_model=single_index,
-            artifact_path="model",
+            single_index,
+            "model",
             input_example=payload if with_input_example else None,
             engine_type="chat",
         )
@@ -314,8 +314,8 @@ def test_retriever_engine_predict(single_index, with_input_example):
     payload = "string"
     with mlflow.start_run():
         model_info = mlflow.llama_index.log_model(
-            llama_index_model=single_index,
-            artifact_path="model",
+            single_index,
+            "model",
             input_example=payload if with_input_example else None,
             engine_type="retriever",
         )
@@ -420,8 +420,8 @@ def test_save_load_query_engine_as_code():
     index_code_path = "tests/llama_index/sample_code/query_engine_with_reranker.py"
     with mlflow.start_run():
         model_info = mlflow.llama_index.log_model(
-            llama_index_model=index_code_path,
-            artifact_path="model",
+            index_code_path,
+            "model",
             input_example="hi",
         )
 
@@ -444,8 +444,8 @@ def test_save_load_chat_engine_as_code():
     index_code_path = "tests/llama_index/sample_code/basic_chat_engine.py"
     with mlflow.start_run():
         model_info = mlflow.llama_index.log_model(
-            llama_index_model=index_code_path,
-            artifact_path="model",
+            index_code_path,
+            "model",
             input_example="hi",
         )
 

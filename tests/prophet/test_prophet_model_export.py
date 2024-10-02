@@ -223,7 +223,7 @@ def test_prophet_log_model(prophet_model, tmp_path, should_start_run):
         _mlflow_conda_env(conda_env, additional_pip_deps=["pystan", "prophet"])
 
         model_info = mlflow.prophet.log_model(
-            pr_model=prophet_model.model, artifact_path=artifact_path, conda_env=str(conda_env)
+            prophet_model.model, artifact_path, conda_env=str(conda_env)
         )
         model_uri = f"runs:/{mlflow.active_run().info.run_id}/{artifact_path}"
         assert model_info.model_uri == model_uri
@@ -252,8 +252,8 @@ def test_log_model_calls_register_model(prophet_model, tmp_path):
         conda_env = tmp_path.joinpath("conda_env.yaml")
         _mlflow_conda_env(conda_env, additional_pip_deps=["pystan", "prophet"])
         mlflow.prophet.log_model(
-            pr_model=prophet_model.model,
-            artifact_path=artifact_path,
+            prophet_model.model,
+            artifact_path,
             conda_env=str(conda_env),
             registered_model_name="ProphetModel1",
         )
@@ -271,9 +271,7 @@ def test_log_model_no_registered_model_name(prophet_model, tmp_path):
     with mlflow.start_run(), register_model_patch:
         conda_env = tmp_path.joinpath("conda_env.yaml")
         _mlflow_conda_env(conda_env, additional_pip_deps=["pystan", "prophet"])
-        mlflow.prophet.log_model(
-            pr_model=prophet_model.model, artifact_path=artifact_path, conda_env=str(conda_env)
-        )
+        mlflow.prophet.log_model(prophet_model.model, artifact_path, conda_env=str(conda_env))
         mlflow.tracking._model_registry.fluent._register_model.assert_not_called()
 
 
@@ -464,7 +462,7 @@ def test_model_log_with_metadata(prophet_model):
     with mlflow.start_run():
         mlflow.prophet.log_model(
             prophet_model.model,
-            artifact_path=artifact_path,
+            artifact_path,
             metadata={"metadata_key": "metadata_value"},
         )
         model_uri = mlflow.get_artifact_uri(artifact_path)
@@ -480,7 +478,7 @@ def test_model_log_with_signature_inference(prophet_model):
     signature = infer_signature(horizon_df, model.predict(horizon_df))
 
     with mlflow.start_run():
-        mlflow.prophet.log_model(model, artifact_path=artifact_path, input_example=horizon_df)
+        mlflow.prophet.log_model(model, artifact_path, input_example=horizon_df)
         model_uri = mlflow.get_artifact_uri(artifact_path)
 
     model_info = Model.load(model_uri)
