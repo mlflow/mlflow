@@ -38,8 +38,12 @@ class Rule:
     name: str
     message: str
 
-    def format(self, **kwargs) -> str:
-        return self.message.format(**kwargs)
+    def format(self, **kwargs: str) -> str:
+        return Rule(
+            self.id,
+            self.name,
+            self.message.format(**kwargs),
+        )
 
 
 @dataclass
@@ -92,12 +96,12 @@ TEST_NAME_TYPO = Rule(
 MISSING_PARAMS = Rule(
     "MLF0006",
     "missing-params",
-    "This function has undocumented parameters.",
+    "Missing parameters in docstring: {params}",
 )
-EXTRA_PARAMS = Rule(
+EXTRANEOUS_PARAMS = Rule(
     "MLF0007",
     "extra-params",
-    "This function has extra parameters in the docstring.",
+    "Extraneous parameters in docstring: {params}",
 )
 
 
@@ -112,7 +116,7 @@ import re
 _PARAM_NAME_REGEX = re.compile(r"\w+", re.MULTILINE)
 
 
-def _parse_args_from_docstring(docstring: str) -> list[str]:
+def _parse_params_from_docstring(docstring: str) -> list[str]:
     in_args_section = False
     args_header_indent: int | None = None
     args: set[str] = set()
@@ -123,7 +127,7 @@ def _parse_args_from_docstring(docstring: str) -> list[str]:
             if indent is not None and indent <= args_header_indent:
                 break
 
-            if m := _PARAM_NAME_REGEX.match(line.lstrip()):
+            if m := _PARAM_NAME_REGEX.match(line[args_header_indent + 4 :]):
                 args.add(m.group(0))
         else:
             if line.lstrip().startswith("Args:"):
@@ -133,28 +137,17 @@ def _parse_args_from_docstring(docstring: str) -> list[str]:
     return args
 
 
-def _parse_args_from_node(node: ast.FunctionDef | ast.AsyncFunctionDef) -> set[str]:
+def _parse_params_from_node(node: ast.FunctionDef | ast.AsyncFunctionDef) -> set[str]:
     args = {a.arg for a in node.args.args}.union({a.arg for a in node.args.kwonlyargs})
-
     if node.args.vararg:
         args.add(node.args.vararg.arg)
     if node.args.kwarg:
         args.add(node.args.kwarg.arg)
-
-    args = args.difference({"self", "cls"})
-
-
-def _undocumented_params(node: ast.FunctionDef | ast.AsyncFunctionDef) -> set[str] | None:
-    if (ds := ast.get_docstring(node)) and (doc_args := _parse_args_from_docstring(ds)):
-        if func_args := _parse_args_from_node(node):
-            if diff := (func_args.difference(doc_args)):
-                return diff
-    return None
+    return args
 
 
 class Linter(ast.NodeVisitor):
     def __init__(self, path: Path, ignore: dict[str, set[int]]):
-        self.stack: list[ast.FunctionDef | ast.AsyncFunctionDef] = []
         self.path = path
         self.ignore = ignore
         self.violations: list[Violation] = []
@@ -183,7 +176,12 @@ class Linter(ast.NodeVisitor):
             self._check(nd, NO_RST)
 
     def _is_in_function(self) -> bool:
-        return bool(self.stack)
+        return self.parents and isinstance(
+            self.parents[-1], (ast.FunctionDef, ast.AsyncFunctionDef)
+        )
+
+    def _is_in_class(self) -> bool:
+        return self.parents and isinstance(self.parents[-1], ast.ClassDef)
 
     def _test_name_typo(self, node: ast.FunctionDef | ast.AsyncFunctionDef) -> None:
         if not self.path.name.startswith("test_") or self._is_in_function():
@@ -197,29 +195,56 @@ class Linter(ast.NodeVisitor):
             self._check(node, MLFLOW_CLASS_NAME)
 
     def visit_ClassDef(self, node: ast.ClassDef) -> None:
-        self.stack.append(node)
         self.parents.append(node)
         self._no_rst(node)
         self._mlflow_class_name(node)
         self.generic_visit(node)
-        self.stack.pop()
+        self.parents.pop()
+
+    def _check_params(self, node: ast.FunctionDef | ast.AsyncFunctionDef) -> set[str] | None:
+        if docstring := ast.get_docstring(node):
+            if doc_params := _parse_params_from_docstring(docstring):
+                if func_params := _parse_params_from_node(node):
+                    is_in_class = self._is_in_class()
+                    if is_in_class:
+                        if (
+                            any(
+                                isinstance(d, ast.Name) and d.id == "classmethod"
+                                for d in node.decorator_list
+                            )
+                            or node.name == "__new__"
+                        ):
+                            func_params.discard("cls")
+                        elif any(
+                            isinstance(d, ast.Name) and d.id == "staticmethod"
+                            for d in node.decorator_list
+                        ):
+                            pass
+                        # Instance method
+                        else:
+                            func_params.discard("self")
+
+                    if extraneous_params := doc_params.difference(func_params):
+                        self._check(node, EXTRANEOUS_PARAMS.format(params=repr(extraneous_params)))
+
+                    if missing_params := func_params.difference(doc_params):
+                        self._check(node, MISSING_PARAMS.format(params=repr(missing_params)))
 
     def visit_FunctionDef(self, node: ast.FunctionDef) -> None:
         self._test_name_typo(node)
-        if args := _undocumented_params(node):
-            self._check(node, UNDOCUMENTED_PARAMS)
-
-        self.stack.append(node)
+        self._check_params(node)
+        self.parents.append(node)
         self._no_rst(node)
         self.generic_visit(node)
-        self.stack.pop()
+        self.parents.pop()
 
     def visit_AsyncFunctionDef(self, node: ast.AsyncFunctionDef) -> None:
         self._test_name_typo(node)
-        self.stack.append(node)
+        self._check_params(node)
+        self.parents.append(node)
         self._no_rst(node)
         self.generic_visit(node)
-        self.stack.pop()
+        self.parents.pop()
 
     def visit_Import(self, node: ast.Import) -> None:
         if self._is_in_function():
