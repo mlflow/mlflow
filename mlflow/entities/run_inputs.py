@@ -1,4 +1,4 @@
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 from mlflow.entities._mlflow_object import _MlflowObject
 from mlflow.entities.dataset_input import DatasetInput
@@ -10,10 +10,12 @@ class RunInputs(_MlflowObject):
     """RunInputs object."""
 
     def __init__(
-        self, dataset_inputs: List[DatasetInput], model_inputs: List[LoggedModelInput]
+        self,
+        dataset_inputs: List[DatasetInput],
+        model_inputs: Optional[List[LoggedModelInput]] = None,
     ) -> None:
         self._dataset_inputs = dataset_inputs
-        self._model_inputs = model_inputs
+        self._model_inputs = model_inputs or []
 
     def __eq__(self, other: _MlflowObject) -> bool:
         if type(other) is type(self):
