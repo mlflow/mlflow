@@ -197,7 +197,7 @@ The following example demonstrates how to log a simple chain with this method:
 
     .. code-block:: python
 
-        %%writefile chain.py
+        # Save the below code as chain.py
 
         import os
         from operator import itemgetter
@@ -461,3 +461,77 @@ The agent can be loaded and used for inference as follows:
         ]
     }
     agent.invoke(query)
+
+How can I evaluate a LangGraph Agent?
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The [mlflow.evaluate](https://mlflow.org/docs/latest/model-evaluation/index.html) function provides 
+a robust way to evaluate model performance. 
+
+LangGraph agents, especially those with chat functionality, can return multiple messages in one 
+inference call. Given ``mlflow.evaluate`` performs naive comparisons between raw predictions and a specified
+ground truth value, it is the user's responsibility to reconcile potential differences prediction output
+and ground truth.
+
+Often, the best approach is to use a [custom function](https://mlflow.org/docs/latest/llms/llm-evaluate/index.html#evaluating-with-a-custom-function)
+to process the response. Below we provide an example of a custom function that extracts the last chat 
+message from a LangGraph model. This function is then used in mlflow.evaluate to return a single 
+string response, which can be compared to the `"ground_truth"`` column.
+
+.. code-block:: python
+
+    # Note that we assume the `model_uri` variable is present
+    loaded_model = mlflow.langchain.load_model(model_uri)
+
+    eval_data = pd.DataFrame(
+        {
+            "inputs": [
+                "What is MLflow?",
+                "What is Spark?",
+            ],
+            "ground_truth": [
+                "MLflow is an open-source platform for managing the end-to-end machine learning (ML) lifecycle. It was developed by Databricks, a company that specializes in big data and machine learning solutions. MLflow is designed to address the challenges that data scientists and machine learning engineers face when developing, training, and deploying machine learning models.",
+                "Apache Spark is an open-source, distributed computing system designed for big data processing and analytics. It was developed in response to limitations of the Hadoop MapReduce computing model, offering improvements in speed and ease of use. Spark provides libraries for various tasks such as data ingestion, processing, and analysis through its components like Spark SQL for structured data, Spark Streaming for real-time data processing, and MLlib for machine learning tasks",
+            ],
+        }
+    )
+
+
+    def custom_langgraph_wrapper(inputs: pd.DataFrame) -> list[str]:
+        """Extract the predictions from a chat message sequence."""
+        answers = []
+        for content in inputs["inputs"]:
+            prediction = loaded_model.invoke(
+                {"messages": [{"role": "user", "content": content}]}
+            )
+            last_message_content = prediction["messages"][-1].content
+            answers.append(last_message_content)
+
+        return answers
+
+
+    with mlflow.start_run() as run:
+        results = mlflow.evaluate(
+            custom_langgraph_wrapper,  # Pass our function defined above
+            data=eval_data,
+            targets="ground_truth",
+            model_type="question-answering",
+        )
+
+    print(results.metrics)
+
+.. code-block:: python
+    :caption: Output
+
+    {
+        "flesch_kincaid_grade_level/v1/mean": 13.399999999999999,
+        "flesch_kincaid_grade_level/v1/variance": 0.6399999999999997,
+        "flesch_kincaid_grade_level/v1/p90": 14.04,
+        "ari_grade_level/v1/mean": 17.35,
+        "ari_grade_level/v1/variance": 4.202499999999995,
+        "ari_grade_level/v1/p90": 18.99,
+        "exact_match/v1": 0.0,
+    }
+
+For a complete example of a LangGraph model that works with this evaluation example, see the 
+[MLflow LangGraph blog](https://mlflow.org/blog/langgraph-model-from-code).
