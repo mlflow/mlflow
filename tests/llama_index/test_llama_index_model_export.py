@@ -489,8 +489,8 @@ async def test_save_load_workflow_as_code():
     index_code_path = "tests/llama_index/sample_code/simple_workflow.py"
     with mlflow.start_run():
         model_info = mlflow.llama_index.log_model(
-            llama_index_model=index_code_path,
-            artifact_path="model",
+            index_code_path,
+            "model",
             input_example={"topic": "pirates"},
         )
 
