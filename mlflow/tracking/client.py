@@ -25,10 +25,10 @@ from mlflow.entities import (
     Experiment,
     FileInfo,
     LoggedModel,
+    LoggedModelInput,
+    LoggedModelOutput,
+    LoggedModelStatus,
     Metric,
-    ModelInput,
-    ModelOutput,
-    ModelStatus,
     Param,
     Run,
     RunTag,
@@ -1890,7 +1890,7 @@ class MlflowClient:
         self,
         run_id: str,
         datasets: Optional[Sequence[DatasetInput]] = None,
-        models: Optional[Sequence[ModelInput]] = None,
+        models: Optional[Sequence[LoggedModelInput]] = None,
     ) -> None:
         """
         Log one or more dataset inputs to a run.
@@ -1898,14 +1898,14 @@ class MlflowClient:
         Args:
             run_id: String ID of the run.
             datasets: List of :py:class:`mlflow.entities.DatasetInput` instances to log.
-            models: List of :py:class:`mlflow.entities.ModelInput` instances to log.
+            models: List of :py:class:`mlflow.entities.LoggedModelInput` instances to log.
 
         Raises:
             mlflow.MlflowException: If any errors occur.
         """
         self._tracking_client.log_inputs(run_id, datasets, models)
 
-    def log_outputs(self, run_id: str, models: Sequence[ModelOutput]):
+    def log_outputs(self, run_id: str, models: Sequence[LoggedModelOutput]):
         self._tracking_client.log_outputs(run_id, models)
 
     def log_artifact(self, run_id, local_path, artifact_path=None) -> None:
@@ -4802,7 +4802,7 @@ class MlflowClient:
             experiment_id, name, source_run_id, tags, params, model_type
         )
 
-    def finalize_logged_model(self, model_id: str, status: ModelStatus) -> LoggedModel:
+    def finalize_logged_model(self, model_id: str, status: LoggedModelStatus) -> LoggedModel:
         """
         Finalize a model by updating its status.
 

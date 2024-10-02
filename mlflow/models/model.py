@@ -14,7 +14,7 @@ import yaml
 
 import mlflow
 from mlflow.artifacts import download_artifacts
-from mlflow.entities import Metric, ModelOutput, ModelStatus
+from mlflow.entities import LoggedModelOutput, LoggedModelStatus, Metric
 from mlflow.exceptions import MlflowException
 from mlflow.models.resources import Resource, ResourceType, _ResourceBuilder
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, RESOURCE_DOES_NOT_EXIST
@@ -786,7 +786,9 @@ class Model:
 
             if active_run is not None:
                 run_id = active_run.info.run_id
-                client.log_outputs(run_id=run_id, models=[ModelOutput(model.model_id, step=step)])
+                client.log_outputs(
+                    run_id=run_id, models=[LoggedModelOutput(model.model_id, step=step)]
+                )
                 log_model_metrics_for_step(
                     client=client, model_id=model.model_id, run_id=run_id, step=step
                 )
@@ -817,7 +819,7 @@ class Model:
                     _logger.warning(_LOG_MODEL_MISSING_SIGNATURE_WARNING)
 
             client.log_model_artifacts(model.model_id, local_path)
-            client.finalize_logged_model(model.model_id, status=ModelStatus.READY)
+            client.finalize_logged_model(model.model_id, status=LoggedModelStatus.READY)
 
             # # if the model_config kwarg is passed in, then log the model config as an params
             # if model_config := kwargs.get("model_config"):

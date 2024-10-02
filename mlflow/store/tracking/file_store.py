@@ -16,12 +16,12 @@ from mlflow.entities import (
     ExperimentTag,
     InputTag,
     LoggedModel,
+    LoggedModelInput,
+    LoggedModelOutput,
+    LoggedModelParameter,
+    LoggedModelStatus,
+    LoggedModelTag,
     Metric,
-    ModelInput,
-    ModelOutput,
-    ModelParam,
-    ModelStatus,
-    ModelTag,
     Param,
     Run,
     RunData,
@@ -1210,7 +1210,7 @@ class FileStore(AbstractStore):
         self,
         run_id: str,
         datasets: Optional[List[DatasetInput]] = None,
-        models: Optional[List[ModelInput]] = None,
+        models: Optional[List[LoggedModelInput]] = None,
     ):
         """
         Log inputs, such as datasets and models, to the specified run.
@@ -1219,7 +1219,7 @@ class FileStore(AbstractStore):
             run_id: String id for the run
             datasets: List of :py:class:`mlflow.entities.DatasetInput` instances to log
                 as inputs to the run.
-            models: List of :py:class:`mlflow.entities.ModelInput` instances to log
+            models: List of :py:class:`mlflow.entities.LoggedModelInput` instances to log
                 as inputs to the run.
 
         Returns:
@@ -1273,13 +1273,13 @@ class FileStore(AbstractStore):
                 )
                 fs_input.write_yaml(input_dir, FileStore.META_DATA_FILE_NAME)
 
-    def log_outputs(self, run_id, models: Optional[List[ModelOutput]] = None):
+    def log_outputs(self, run_id, models: Optional[List[LoggedModelOutput]] = None):
         """
         Log outputs, such as models, to the specified run.
 
         Args:
             run_id: String id for the run
-            models: List of :py:class:`mlflow.entities.ModelOutput` instances to log
+            models: List of :py:class:`mlflow.entities.LoggedModelOutput` instances to log
                 as outputs of the run.
 
         Returns:
@@ -1438,7 +1438,7 @@ class FileStore(AbstractStore):
 
     def _get_model_inputs(
         self, inputs_parent_path: str, experiment_dir_path: str
-    ) -> List[ModelInput]:
+    ) -> List[LoggedModelInput]:
         model_inputs = []
         for input_dir in os.listdir(inputs_parent_path):
             input_dir_full_path = os.path.join(inputs_parent_path, input_dir)
@@ -1448,7 +1448,7 @@ class FileStore(AbstractStore):
             if fs_input.source_type != InputVertexType.MODEL:
                 continue
 
-            model_input = ModelInput(model_id=fs_input.source_id)
+            model_input = LoggedModelInput(model_id=fs_input.source_id)
             model_inputs.append(model_input)
 
         return model_inputs
@@ -1465,7 +1465,7 @@ class FileStore(AbstractStore):
 
     def _get_model_outputs(
         self, outputs_parent_path: str, experiment_dir: str
-    ) -> List[ModelOutput]:
+    ) -> List[LoggedModelOutput]:
         model_outputs = []
         for output_dir in os.listdir(outputs_parent_path):
             output_dir_full_path = os.path.join(outputs_parent_path, output_dir)
@@ -1475,7 +1475,7 @@ class FileStore(AbstractStore):
             if fs_output.destination_type != OutputVertexType.MODEL_OUTPUT:
                 continue
 
-            model_output = ModelOutput(model_id=fs_output.destination_id, step=fs_output.step)
+            model_output = LoggedModelOutput(model_id=fs_output.destination_id, step=fs_output.step)
             model_outputs.append(model_output)
 
         return model_outputs
@@ -1937,8 +1937,8 @@ class FileStore(AbstractStore):
         experiment_id: str,
         name: str,
         source_run_id: Optional[str] = None,
-        tags: Optional[List[ModelTag]] = None,
-        params: Optional[List[ModelParam]] = None,
+        tags: Optional[List[LoggedModelTag]] = None,
+        params: Optional[List[LoggedModelParameter]] = None,
         model_type: Optional[str] = None,
     ) -> LoggedModel:
         """
@@ -1982,7 +1982,7 @@ class FileStore(AbstractStore):
             creation_timestamp=creation_timestamp,
             last_updated_timestamp=creation_timestamp,
             source_run_id=source_run_id,
-            status=ModelStatus.PENDING,
+            status=LoggedModelStatus.PENDING,
             tags=tags,
             params=params,
             model_type=model_type,
@@ -1999,7 +1999,7 @@ class FileStore(AbstractStore):
 
         return self.get_logged_model(model_id=model_id)
 
-    def finalize_logged_model(self, model_id: str, status: ModelStatus) -> LoggedModel:
+    def finalize_logged_model(self, model_id: str, status: LoggedModelStatus) -> LoggedModel:
         """
         Finalize a model by updating its status.
 
@@ -2010,9 +2010,9 @@ class FileStore(AbstractStore):
         Returns:
             The updated model.
         """
-        if status != ModelStatus.READY:
+        if status != LoggedModelStatus.READY:
             raise MlflowException(
-                f"Invalid model status: {status}. Expected statuses: [{ModelStatus.READY}]",
+                f"Invalid model status: {status}. Expected statuses: [{LoggedModelStatus.READY}]",
                 databricks_pb2.INVALID_PARAMETER_VALUE,
             )
         model_dict = self._get_model_dict(model_id)
@@ -2024,7 +2024,7 @@ class FileStore(AbstractStore):
         write_yaml(model_dir, FileStore.META_DATA_FILE_NAME, model_info_dict, overwrite=True)
         return self.get_logged_model(model_id)
 
-    def set_logged_model_tag(self, model_id: str, tag: ModelTag):
+    def set_logged_model_tag(self, model_id: str, tag: LoggedModelTag):
         """
         Set a tag on the specified logged model.
 
@@ -2118,7 +2118,7 @@ class FileStore(AbstractStore):
         )
         return model_dict
 
-    def _get_all_model_tags(self, model_dir: str) -> List[ModelTag]:
+    def _get_all_model_tags(self, model_dir: str) -> List[LoggedModelTag]:
         parent_path, tag_files = self._get_resource_files(model_dir, FileStore.TAGS_FOLDER_NAME)
         tags = []
         for tag_file in tag_files:

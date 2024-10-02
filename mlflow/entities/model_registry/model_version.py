@@ -1,7 +1,7 @@
 from typing import Dict, List, Optional
 
+from mlflow.entities.logged_model_parameter import LoggedModelParameter as ModelParam
 from mlflow.entities.metric import Metric
-from mlflow.entities.model_param import ModelParam
 from mlflow.entities.model_registry._model_registry_entity import _ModelRegistryEntity
 from mlflow.entities.model_registry.model_version_status import ModelVersionStatus
 from mlflow.entities.model_registry.model_version_tag import ModelVersionTag

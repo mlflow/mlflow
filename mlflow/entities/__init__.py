@@ -13,12 +13,12 @@ from mlflow.entities.file_info import FileInfo
 from mlflow.entities.input_tag import InputTag
 from mlflow.entities.lifecycle_stage import LifecycleStage
 from mlflow.entities.logged_model import LoggedModel
+from mlflow.entities.logged_model_input import LoggedModelInput
+from mlflow.entities.logged_model_output import LoggedModelOutput
+from mlflow.entities.logged_model_parameter import LoggedModelParameter
+from mlflow.entities.logged_model_status import LoggedModelStatus
+from mlflow.entities.logged_model_tag import LoggedModelTag
 from mlflow.entities.metric import Metric
-from mlflow.entities.model_input import ModelInput
-from mlflow.entities.model_output import ModelOutput
-from mlflow.entities.model_param import ModelParam
-from mlflow.entities.model_status import ModelStatus
-from mlflow.entities.model_tag import ModelTag
 from mlflow.entities.param import Param
 from mlflow.entities.run import Run
 from mlflow.entities.run_data import RunData
@@ -67,10 +67,10 @@ __all__ = [
     "SpanStatusCode",
     "_DatasetSummary",
     "LoggedModel",
-    "ModelInput",
-    "ModelOutput",
-    "ModelStatus",
-    "ModelTag",
-    "ModelParam",
+    "LoggedModelInput",
+    "LoggedModelOutput",
+    "LoggedModelStatus",
+    "LoggedModelTag",
+    "LoggedModelParameter",
     "Document",
 ]

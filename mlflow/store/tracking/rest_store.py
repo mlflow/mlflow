@@ -6,10 +6,10 @@ from mlflow.entities import (
     DatasetInput,
     Experiment,
     LoggedModel,
+    LoggedModelParameter,
+    LoggedModelStatus,
+    LoggedModelTag,
     Metric,
-    ModelParam,
-    ModelStatus,
-    ModelTag,
     Run,
     RunInfo,
     TraceInfo,
@@ -562,8 +562,8 @@ class RestStore(AbstractStore):
         experiment_id: str,
         name: str,
         source_run_id: Optional[str] = None,
-        tags: Optional[List[ModelTag]] = None,
-        params: Optional[List[ModelParam]] = None,
+        tags: Optional[List[LoggedModelTag]] = None,
+        params: Optional[List[LoggedModelParameter]] = None,
         model_type: Optional[str] = None,
     ) -> LoggedModel:
         """
@@ -607,7 +607,7 @@ class RestStore(AbstractStore):
         response_proto = self._call_endpoint(GetLoggedModel, endpoint=endpoint)
         return LoggedModel.from_proto(response_proto.model)
 
-    def finalize_logged_model(self, model_id: str, status: ModelStatus) -> LoggedModel:
+    def finalize_logged_model(self, model_id: str, status: LoggedModelStatus) -> LoggedModel:
         """
         Finalize a model by updating its status.
 

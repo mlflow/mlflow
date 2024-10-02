@@ -2,14 +2,16 @@ from typing import Any, Dict, List
 
 from mlflow.entities._mlflow_object import _MlflowObject
 from mlflow.entities.dataset_input import DatasetInput
-from mlflow.entities.model_input import ModelInput
+from mlflow.entities.logged_model_input import LoggedModelInput
 from mlflow.protos.service_pb2 import RunInputs as ProtoRunInputs
 
 
 class RunInputs(_MlflowObject):
     """RunInputs object."""
 
-    def __init__(self, dataset_inputs: List[DatasetInput], model_inputs: List[ModelInput]) -> None:
+    def __init__(
+        self, dataset_inputs: List[DatasetInput], model_inputs: List[LoggedModelInput]
+    ) -> None:
         self._dataset_inputs = dataset_inputs
         self._model_inputs = model_inputs
 
@@ -24,7 +26,7 @@ class RunInputs(_MlflowObject):
         return self._dataset_inputs
 
     @property
-    def model_inputs(self) -> List[ModelInput]:
+    def model_inputs(self) -> List[LoggedModelInput]:
         """Array of model inputs."""
         return self._model_inputs
 

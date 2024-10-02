@@ -1,10 +1,10 @@
 import sys
 
 from mlflow.entities._mlflow_object import _MlflowObject
-from mlflow.protos.service_pb2 import LoggedModelParameter
+from mlflow.protos import service_pb2 as pb2
 
 
-class ModelParam(_MlflowObject):
+class LoggedModelParameter(_MlflowObject):
     """
     MLflow entity representing a parameter of a Model.
     """
@@ -39,7 +39,7 @@ class ModelParam(_MlflowObject):
         return hash(self._key)
 
     def to_proto(self):
-        return LoggedModelParameter(key=self._key, value=self._value)
+        return pb2.LoggedModelParameter(key=self._key, value=self._value)
 
     @classmethod
     def from_proto(cls, proto):
