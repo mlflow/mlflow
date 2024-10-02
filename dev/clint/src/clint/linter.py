@@ -38,6 +38,9 @@ class Rule:
     name: str
     message: str
 
+    def format(self, **kwargs) -> str:
+        return self.message.format(**kwargs)
+
 
 @dataclass
 class Violation:
@@ -86,10 +89,15 @@ TEST_NAME_TYPO = Rule(
     "This function looks like a test, but its name does not start with 'test_'.",
 )
 
-UNDOCUMENTED_PARAMS = Rule(
+MISSING_PARAMS = Rule(
     "MLF0006",
-    "undocumented-params",
+    "missing-params",
     "This function has undocumented parameters.",
+)
+EXTRA_PARAMS = Rule(
+    "MLF0007",
+    "extra-params",
+    "This function has extra parameters in the docstring.",
 )
 
 
@@ -150,6 +158,7 @@ class Linter(ast.NodeVisitor):
         self.path = path
         self.ignore = ignore
         self.violations: list[Violation] = []
+        self.parents: list[ast.AST] = []
 
     def _check(self, node: ast.AST, rule: Rule) -> None:
         if (lines := self.ignore.get(rule.name)) and node.lineno in lines:
@@ -189,6 +198,7 @@ class Linter(ast.NodeVisitor):
 
     def visit_ClassDef(self, node: ast.ClassDef) -> None:
         self.stack.append(node)
+        self.parents.append(node)
         self._no_rst(node)
         self._mlflow_class_name(node)
         self.generic_visit(node)
