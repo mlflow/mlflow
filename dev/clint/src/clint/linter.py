@@ -188,7 +188,7 @@ class Linter(ast.NodeVisitor):
 
     def visit_Call(self, node: ast.Call) -> None:
         if (
-            self.path.parts[0] in ["tests", "mlflow"]
+            self.path.parts[0] in ["tests", "mlflow", "examples"]
             and _is_log_model(node.func)
             and any(arg.arg == "artifact_path" for arg in node.keywords)
         ):
