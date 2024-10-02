@@ -67,26 +67,3 @@
 .compare-table > tbody > tr:hover:not(.diff-row) > td:not(.highlight-data) {
   background-color: rgb(250, 250, 250);
 }
-.json-table {
-  width: 100%;
-  border-collapse: collapse;
-  margin: 4px 0;
-}
-.json-table td {
-  padding: 4px 8px;
-  border: 1px solid #ccc;
-  vertical-align: top;
-}
-.json-table td:first-child {
-  width: 20%; /* Fixed width for key cells */
-  white-space: nowrap;
-}
-
-.json-table td:nth-child(2) {
-  width: 80%; /* Value cells take up the rest of the space */
-  white-space: pre-wrap;
-  word-wrap: break-word;
-}
-.truncate-text.single-line {
-  display: inline-block;
-}

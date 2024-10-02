@@ -212,15 +212,13 @@ export class CompareRunView extends Component<CompareRunViewProps, CompareRunVie
         try {
           const jsonValue = parsePythonDictString(value);
 
-          // Render JSON as a nested table if the parsed value is an object or array
+          // Pretty print if parsed value is an object or array
           if (typeof jsonValue === 'object' && jsonValue !== null) {
-            return this.renderJsonTable(jsonValue);
+            return this.renderPrettyJson(jsonValue);
           } else {
-            // If it's a simple value (e.g. a number), return the original string
             return value;
           }
         } catch (e) {
-          // If parsing fails, return the original string
           return value;
         }
       },
@@ -246,33 +244,8 @@ export class CompareRunView extends Component<CompareRunViewProps, CompareRunVie
     );
   }
 
-  renderJsonTable(jsonValue: any) {
-    return (
-      <table className="json-table">
-        <tbody>
-          {Object.keys(jsonValue).map((key) => {
-            const value = jsonValue[key];
-            if (typeof value === 'object' && value !== null) {
-              // Recursive call for nested objects/arrays
-              return (
-                <tr key={key}>
-                  <td>{key}</td>
-                  <td>{this.renderJsonTable(value)}</td>
-                </tr>
-              );
-            } else {
-              // Render simple values
-              return (
-                <tr key={key}>
-                  <td>{key}</td>
-                  <td>{JSON.stringify(value, null, 2)}</td>
-                </tr>
-              );
-            }
-          })}
-        </tbody>
-      </table>
-    );
+  renderPrettyJson(jsonValue: any) {
+    return <pre>{JSON.stringify(jsonValue, null, 2)}</pre>;
   }
 
   renderMetricTable(colWidth: any, experimentIds: any) {
@@ -764,5 +737,4 @@ const parsePythonDictString = (value: string) => {
   }
 };
 
-// @ts-expect-error TS(2769): No overload matches this call.
 export default connect(mapStateToProps)(injectIntl(CompareRunView));
