@@ -397,9 +397,9 @@ def test_llama_index_databricks_integration(monkeypatch, document, model_path, m
 def test_save_load_index_as_code_index(index_code_path, vector_store_class):
     with mlflow.start_run():
         model_info = mlflow.llama_index.log_model(
-            llama_index_model=index_code_path,
+            index_code_path,
+            "model",
             engine_type="query",
-            artifact_path="model",
             input_example="hi",
         )
 

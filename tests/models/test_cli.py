@@ -760,7 +760,7 @@ def test_host_invalid_value():
 
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
-            python_model=MyModel(), artifact_path="test_model", registered_model_name="model"
+            "test_model", python_model=MyModel(), registered_model_name="model"
         )
 
     with mock.patch(

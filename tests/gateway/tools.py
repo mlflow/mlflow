@@ -271,8 +271,8 @@ def log_completions_transformers_model():
     with mlflow.start_run():
         mlflow.transformers.log_model(
             pipe,
+            artifact_path,
             signature=signature,
-            artifact_path=artifact_path,
         )
         return mlflow.get_artifact_uri(artifact_path)
 

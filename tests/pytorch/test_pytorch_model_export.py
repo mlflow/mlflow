@@ -242,8 +242,8 @@ def test_log_model_calls_register_model(module_scoped_subclassed_model):
     register_model_patch = mock.patch("mlflow.tracking._model_registry.fluent._register_model")
     with mlflow.start_run(), register_model_patch:
         mlflow.pytorch.log_model(
-            artifact_path=artifact_path,
-            pytorch_model=module_scoped_subclassed_model,
+            module_scoped_subclassed_model,
+            artifact_path,
             pickle_module=custom_pickle_module,
             registered_model_name="AdsModel1",
         )
@@ -261,8 +261,8 @@ def test_log_model_no_registered_model_name(module_scoped_subclassed_model):
     register_model_patch = mock.patch("mlflow.tracking._model_registry.fluent._register_model")
     with mlflow.start_run(), register_model_patch:
         mlflow.pytorch.log_model(
-            artifact_path=artifact_path,
-            pytorch_model=module_scoped_subclassed_model,
+            module_scoped_subclassed_model,
+            artifact_path,
             pickle_module=custom_pickle_module,
         )
         mlflow.tracking._model_registry.fluent._register_model.assert_not_called()
@@ -643,7 +643,7 @@ def test_load_model_succeeds_with_dependencies_specified_via_code_paths(
     pyfunc_artifact_path = "pyfunc_model"
     with mlflow.start_run():
         model_info = pyfunc.log_model(
-            artifact_path=pyfunc_artifact_path,
+            pyfunc_artifact_path,
             python_model=TorchValidatorModel(),
             artifacts={"pytorch_model": model_path},
             input_example=data[0],
@@ -707,8 +707,8 @@ def test_load_model_loads_torch_model_using_pickle_module_specified_at_save_time
     artifact_path = "pytorch_model"
     with mlflow.start_run():
         mlflow.pytorch.log_model(
-            artifact_path=artifact_path,
-            pytorch_model=module_scoped_subclassed_model,
+            module_scoped_subclassed_model,
+            artifact_path,
             pickle_module=custom_pickle_module,
         )
         model_uri = f"runs:/{mlflow.active_run().info.run_id}/{artifact_path}"
@@ -773,9 +773,7 @@ def test_load_model_succeeds_when_data_is_model_file_instead_of_directory(
     """
     artifact_path = "pytorch_model"
     with mlflow.start_run():
-        mlflow.pytorch.log_model(
-            artifact_path=artifact_path, pytorch_model=module_scoped_subclassed_model
-        )
+        mlflow.pytorch.log_model(module_scoped_subclassed_model, artifact_path)
         model_path = _download_artifact_from_uri(
             f"runs:/{mlflow.active_run().info.run_id}/{artifact_path}"
         )

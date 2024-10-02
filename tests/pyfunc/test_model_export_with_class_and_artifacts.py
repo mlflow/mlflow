@@ -1481,8 +1481,8 @@ def test_python_model_predict_with_params():
 
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
+            "test_model",
             python_model=AnnotatedPythonModel(),
-            artifact_path="test_model",
             signature=signature,
         )
 
@@ -1542,8 +1542,8 @@ def test_pyfunc_model_infer_signature_from_type_hints(model_path):
 
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
+            "test_model",
             python_model=TestModel(),
-            artifact_path="test_model",
             input_example=["a"],
         )
     pyfunc_model = mlflow.pyfunc.load_model(model_info.model_uri)
@@ -1740,8 +1740,8 @@ def test_model_log_with_resources(tmp_path):
 def test_pyfunc_as_code_log_and_load():
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
+            "model",
             python_model="tests/pyfunc/sample_code/python_model.py",
-            artifact_path="model",
         )
 
     loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
@@ -1753,8 +1753,8 @@ def test_pyfunc_as_code_log_and_load():
 def test_pyfunc_as_code_log_and_load_with_path():
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
+            "model",
             python_model=Path("tests/pyfunc/sample_code/python_model.py"),
-            artifact_path="model",
         )
 
     loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
@@ -1769,8 +1769,8 @@ def test_pyfunc_as_code_with_config(tmp_path):
 
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
+            "model",
             python_model="tests/pyfunc/sample_code/python_model_with_config.py",
-            artifact_path="model",
             model_config=str(temp_file),
         )
 
@@ -1786,8 +1786,8 @@ def test_pyfunc_as_code_with_path_config(tmp_path):
 
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
+            "model",
             python_model="tests/pyfunc/sample_code/python_model_with_config.py",
-            artifact_path="model",
             model_config=temp_file,
         )
 
@@ -1800,8 +1800,8 @@ def test_pyfunc_as_code_with_path_config(tmp_path):
 def test_pyfunc_as_code_with_dict_config():
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
+            "model",
             python_model="tests/pyfunc/sample_code/python_model_with_config.py",
-            artifact_path="model",
             model_config={"timeout": 400},
         )
 
@@ -1814,8 +1814,8 @@ def test_pyfunc_as_code_with_dict_config():
 def test_pyfunc_as_code_log_and_load_with_code_paths():
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
+            "model",
             python_model="tests/pyfunc/sample_code/python_model_with_utils.py",
-            artifact_path="model",
             code_paths=["tests/pyfunc/sample_code/utils.py"],
         )
 
@@ -1828,8 +1828,8 @@ def test_pyfunc_as_code_log_and_load_with_code_paths():
 def test_pyfunc_as_code_with_dependencies():
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
+            "model",
             python_model="tests/pyfunc/sample_code/code_with_dependencies.py",
-            artifact_path="model",
             pip_requirements=["pandas"],
         )
 
@@ -1863,8 +1863,8 @@ def test_pyfunc_as_code_with_dependencies_store_dependencies_schemas_in_trace(
     is_in_db_model_serving = is_in_db_model_serving == "true"
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
+            "model",
             python_model="tests/pyfunc/sample_code/code_with_dependencies.py",
-            artifact_path="model",
             pip_requirements=["pandas"],
         )
 
@@ -1916,8 +1916,8 @@ def test_no_traces_collected_for_pyfunc_as_code_with_dependencies_if_no_tracing_
     monkeypatch.setenv("TEST_TRACE", "false")
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
+            "model",
             python_model="tests/pyfunc/sample_code/code_with_dependencies.py",
-            artifact_path="model",
             pip_requirements=["pandas"],
         )
 
@@ -1956,16 +1956,16 @@ def test_pyfunc_as_code_log_and_load_wrong_path():
     ):
         with mlflow.start_run():
             mlflow.pyfunc.log_model(
+                "model",
                 python_model="asdf",
-                artifact_path="model",
             )
 
 
 def test_predict_as_code():
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
+            "model",
             python_model="tests/pyfunc/sample_code/func_code.py",
-            artifact_path="model",
             input_example="string",
         )
 
@@ -1978,8 +1978,8 @@ def test_predict_as_code():
 def test_predict_as_code_with_config():
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
+            "model",
             python_model="tests/pyfunc/sample_code/func_code_with_config.py",
-            artifact_path="model",
             input_example="string",
             model_config="tests/pyfunc/sample_code/config.yml",
         )
@@ -1993,8 +1993,8 @@ def test_predict_as_code_with_config():
 def test_model_as_code_pycache_cleaned_up():
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
+            "model",
             python_model="tests/pyfunc/sample_code/python_model.py",
-            artifact_path="model",
         )
 
     path = _download_artifact_from_uri(model_info.model_uri)

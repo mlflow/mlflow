@@ -393,8 +393,8 @@ def test_sparkml_model_log(tmp_path, spark_model_iris, should_start_run, use_dfs
             mlflow.start_run()
         artifact_path = "model"
         mlflow.spark.log_model(
-            artifact_path=artifact_path,
-            spark_model=spark_model_iris.model,
+            spark_model_iris.model,
+            artifact_path,
             dfs_tmpdir=dfs_tmpdir,
         )
         model_uri = f"runs:/{mlflow.active_run().info.run_id}/{artifact_path}"
@@ -472,8 +472,8 @@ def test_sparkml_estimator_model_log(
             mlflow.start_run()
         artifact_path = "model"
         mlflow.spark.log_model(
-            artifact_path=artifact_path,
-            spark_model=spark_model_estimator.model,
+            spark_model_estimator.model,
+            artifact_path,
             dfs_tmpdir=dfs_tmpdir,
         )
         model_uri = f"runs:/{mlflow.active_run().info.run_id}/{artifact_path}"
@@ -493,8 +493,8 @@ def test_log_model_calls_register_model(tmp_path, spark_model_iris):
     register_model_patch = mock.patch("mlflow.tracking._model_registry.fluent._register_model")
     with mlflow.start_run(), register_model_patch:
         mlflow.spark.log_model(
-            artifact_path=artifact_path,
-            spark_model=spark_model_iris.model,
+            spark_model_iris.model,
+            artifact_path,
             dfs_tmpdir=dfs_tmp_dir,
             registered_model_name="AdsModel1",
         )
@@ -512,8 +512,8 @@ def test_log_model_no_registered_model_name(tmp_path, spark_model_iris):
     register_model_patch = mock.patch("mlflow.tracking._model_registry.fluent._register_model")
     with mlflow.start_run(), register_model_patch:
         mlflow.spark.log_model(
-            artifact_path=artifact_path,
-            spark_model=spark_model_iris.model,
+            spark_model_iris.model,
+            artifact_path,
             dfs_tmpdir=dfs_tmp_dir,
         )
         mlflow.tracking._model_registry.fluent._register_model.assert_not_called()

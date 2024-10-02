@@ -407,8 +407,8 @@ def test_capture_imported_modules_include_deps_by_params():
 
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
+            "test_model",
             python_model=MyModel(),
-            artifact_path="test_model",
             input_example=(["input1"], params),
         )
 
@@ -437,8 +437,8 @@ def test_capture_imported_modules_includes_gateway_extra(module_to_import, shoul
 
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
+            "test_model",
             python_model=MyModel(),
-            artifact_path="test_model",
             input_example=([1, 2, 3]),
         )
 
@@ -458,8 +458,8 @@ def test_gateway_extra_not_captured_when_importing_deployment_client_only():
 
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
+            "test_model",
             python_model=MyModel(),
-            artifact_path="test_model",
             input_example=([1, 2, 3]),
         )
 
