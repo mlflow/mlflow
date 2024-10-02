@@ -339,8 +339,8 @@ def test_log_model(auto_arima_model, tmp_path, should_start_run, serialization_f
         conda_env = tmp_path.joinpath("conda_env.yaml")
         _mlflow_conda_env(conda_env, additional_pip_deps=["sktime"])
         model_info = flavor.log_model(
-            sktime_model=auto_arima_model,
-            artifact_path=artifact_path,
+            auto_arima_model,
+            artifact_path,
             conda_env=str(conda_env),
             serialization_format=serialization_format,
         )
@@ -365,8 +365,8 @@ def test_log_model_calls_register_model(auto_arima_model, tmp_path):
         conda_env = tmp_path.joinpath("conda_env.yaml")
         _mlflow_conda_env(conda_env, additional_pip_deps=["sktime"])
         flavor.log_model(
-            sktime_model=auto_arima_model,
-            artifact_path=artifact_path,
+            auto_arima_model,
+            artifact_path,
             conda_env=str(conda_env),
             registered_model_name="SktimeModel",
         )
@@ -386,8 +386,8 @@ def test_log_model_no_registered_model_name(auto_arima_model, tmp_path):
         conda_env = tmp_path.joinpath("conda_env.yaml")
         _mlflow_conda_env(conda_env, additional_pip_deps=["sktime"])
         flavor.log_model(
-            sktime_model=auto_arima_model,
-            artifact_path=artifact_path,
+            auto_arima_model,
+            artifact_path,
             conda_env=str(conda_env),
         )
         mlflow.register_model.assert_not_called()

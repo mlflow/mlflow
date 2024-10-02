@@ -47,8 +47,8 @@ with mlflow.start_run() as run:
     # inference to ensure that the model will load with appropriate version of
     # pickle.
     flavor.log_model(
-        sktime_model=forecaster,
-        artifact_path=ARTIFACT_PATH,
+        forecaster,
+        ARTIFACT_PATH,
         serialization_format="pickle",
     )
     model_uri = mlflow.get_artifact_uri(ARTIFACT_PATH)
