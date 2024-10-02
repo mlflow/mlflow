@@ -140,7 +140,7 @@ _ML_PACKAGE_VERSIONS = {
         },
         "models": {
             "minimum": "2.2.4",
-            "maximum": "3.7.6"
+            "maximum": "3.7.5"
         }
     },
     "statsmodels": {
@@ -261,6 +261,15 @@ _ML_PACKAGE_VERSIONS = {
         "autologging": {
             "minimum": "1.17.0",
             "maximum": "1.49.0"
+        }
+    },
+    "dspy": {
+        "package_info": {
+            "pip_release": "dspy-ai"
+        },
+        "models": {
+            "minimum": "2.4.16",
+            "maximum": "2.5.0"
         }
     },
     "langchain": {

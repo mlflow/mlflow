@@ -187,7 +187,7 @@ def get_latest_micro_versions(versions):
 
 
 def filter_versions(
-    versions, min_ver, max_ver, unsupported=None, allow_unreleased_max_version=False
+    flavor, versions, min_ver, max_ver, unsupported=None, allow_unreleased_max_version=False
 ):
     """
     Returns the versions that satisfy the following conditions:
@@ -197,9 +197,15 @@ def filter_versions(
     """
     unsupported = unsupported or []
     # Prevent specifying non-existent versions
-    assert min_ver in versions
-    assert max_ver in versions or allow_unreleased_max_version
-    assert all(v in versions for v in unsupported)
+    assert (
+        min_ver in versions
+    ), f"Minimum version {min_ver} is not in the list of versions for {flavor}"
+    assert (
+        max_ver in versions or allow_unreleased_max_version
+    ), f"Minimum version {max_ver} is not in the list of versions for {flavor}"
+    assert all(
+        v in versions for v in unsupported
+    ), f"Unsupported versions {unsupported} are not in the list of versions for {flavor}"
 
     def _is_not_unsupported(v):
         return v not in unsupported
@@ -477,6 +483,7 @@ def expand_config(config):
         validate_test_coverage(name, flavor_config)
         for category, cfg in flavor_config.categories:
             versions = filter_versions(
+                flavor,
                 all_versions,
                 cfg.minimum,
                 cfg.maximum,
