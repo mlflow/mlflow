@@ -1,7 +1,7 @@
 import { listArtifactsApi } from '../../../actions';
 import { useRunsArtifacts } from './useRunsArtifacts';
 import { ArtifactListFilesResponse } from '../../../types';
-import { renderHook, cleanup, waitFor } from '@testing-library/react-for-react-18';
+import { renderHook, cleanup, waitFor } from '@testing-library/react';
 
 const mockArtifactsData: Record<string, ArtifactListFilesResponse> = {
   'run-1': {
