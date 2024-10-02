@@ -852,7 +852,7 @@ class DefaultEvaluator(ModelEvaluator):
         self.artifacts[artifact_name] = artifact
 
     def _log_model_explainability(self):
-        if not self.evaluator_config.get("log_model_explainability", True):
+        if not self.evaluator_config.get("log_model_explainability", False):
             return
 
         if self.is_model_server and not self.evaluator_config.get(
