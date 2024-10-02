@@ -191,8 +191,8 @@ def test_pmdarima_log_model(auto_arima_model, tmp_path, should_start_run):
         conda_env = tmp_path.joinpath("conda_env.yaml")
         _mlflow_conda_env(conda_env, additional_pip_deps=["pmdarima"])
         model_info = mlflow.pmdarima.log_model(
-            pmdarima_model=auto_arima_model,
-            artifact_path=artifact_path,
+            auto_arima_model,
+            artifact_path,
             conda_env=str(conda_env),
         )
         model_uri = f"runs:/{mlflow.active_run().info.run_id}/{artifact_path}"
@@ -216,8 +216,8 @@ def test_pmdarima_log_model_calls_register_model(auto_arima_object_model, tmp_pa
         conda_env = tmp_path.joinpath("conda_env.yaml")
         _mlflow_conda_env(conda_env, additional_pip_deps=["pmdarima"])
         mlflow.pmdarima.log_model(
-            pmdarima_model=auto_arima_object_model,
-            artifact_path=artifact_path,
+            auto_arima_object_model,
+            artifact_path,
             conda_env=str(conda_env),
             registered_model_name="PmdarimaModel",
         )
@@ -233,9 +233,7 @@ def test_pmdarima_log_model_no_registered_model_name(auto_arima_model, tmp_path)
     with mlflow.start_run(), register_model_patch:
         conda_env = tmp_path.joinpath("conda_env.yaml")
         _mlflow_conda_env(conda_env, additional_pip_deps=["pmdarima"])
-        mlflow.pmdarima.log_model(
-            pmdarima_model=auto_arima_model, artifact_path=artifact_path, conda_env=str(conda_env)
-        )
+        mlflow.pmdarima.log_model(auto_arima_model, artifact_path, conda_env=str(conda_env))
         mlflow.tracking._model_registry.fluent._register_model.assert_not_called()
 
 
@@ -442,7 +440,7 @@ def test_model_log_with_metadata(auto_arima_model):
     with mlflow.start_run():
         mlflow.pmdarima.log_model(
             auto_arima_model,
-            artifact_path=artifact_path,
+            artifact_path,
             metadata={"metadata_key": "metadata_value"},
         )
         model_uri = mlflow.get_artifact_uri(artifact_path)
@@ -456,9 +454,7 @@ def test_model_log_with_signature_inference(auto_arima_model):
     example = pd.DataFrame({"n_periods": 60, "return_conf_int": True, "alpha": 0.1}, index=[0])
 
     with mlflow.start_run():
-        mlflow.pmdarima.log_model(
-            auto_arima_model, artifact_path=artifact_path, input_example=example
-        )
+        mlflow.pmdarima.log_model(auto_arima_model, artifact_path, input_example=example)
         model_uri = mlflow.get_artifact_uri(artifact_path)
 
     model_info = Model.load(model_uri)

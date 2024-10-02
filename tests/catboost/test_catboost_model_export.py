@@ -452,7 +452,7 @@ def test_pyfunc_serve_and_score_sklearn(reg_model):
 
     with mlflow.start_run():
         model_info = mlflow.sklearn.log_model(
-            model, artifact_path="model", input_example=inference_dataframe.head(3)
+            model, "model", input_example=inference_dataframe.head(3)
         )
 
     inference_payload = load_serving_example(model_info.model_uri)
@@ -502,7 +502,7 @@ def test_model_log_with_metadata(cb_model):
 
     with mlflow.start_run():
         mlflow.catboost.log_model(
-            cb_model.model, artifact_path=artifact_path, metadata={"metadata_key": "metadata_value"}
+            cb_model.model, artifact_path, metadata={"metadata_key": "metadata_value"}
         )
         model_uri = mlflow.get_artifact_uri(artifact_path)
 
@@ -515,9 +515,7 @@ def test_model_log_with_signature_inference(cb_model):
     example = cb_model.inference_dataframe.head(3)
 
     with mlflow.start_run():
-        mlflow.catboost.log_model(
-            cb_model.model, artifact_path=artifact_path, input_example=example
-        )
+        mlflow.catboost.log_model(cb_model.model, artifact_path, input_example=example)
         model_uri = mlflow.get_artifact_uri(artifact_path)
 
     model_info = Model.load(model_uri)

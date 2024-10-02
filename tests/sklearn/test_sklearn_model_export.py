@@ -211,8 +211,8 @@ def test_model_log(sklearn_logreg_model, model_path):
                 _mlflow_conda_env(conda_env, additional_pip_deps=["scikit-learn"])
 
                 model_info = mlflow.sklearn.log_model(
-                    sk_model=sklearn_logreg_model.model,
-                    artifact_path=artifact_path,
+                    sklearn_logreg_model.model,
+                    artifact_path,
                     conda_env=conda_env,
                 )
                 model_uri = f"runs:/{mlflow.active_run().info.run_id}/{artifact_path}"
@@ -242,8 +242,8 @@ def test_log_model_calls_register_model(sklearn_logreg_model):
         conda_env = os.path.join(tmp.path(), "conda_env.yaml")
         _mlflow_conda_env(conda_env, additional_pip_deps=["scikit-learn"])
         mlflow.sklearn.log_model(
-            sk_model=sklearn_logreg_model.model,
-            artifact_path=artifact_path,
+            sklearn_logreg_model.model,
+            artifact_path,
             conda_env=conda_env,
             registered_model_name="AdsModel1",
         )
@@ -270,8 +270,8 @@ def test_log_model_call_register_model_to_uc(configure_client_for_uc, sklearn_lo
             conda_env = os.path.join(tmp.path(), "conda_env.yaml")
             _mlflow_conda_env(conda_env, additional_pip_deps=["scikit-learn"])
             mlflow.sklearn.log_model(
-                sk_model=sklearn_logreg_model.model,
-                artifact_path=artifact_path,
+                sklearn_logreg_model.model,
+                artifact_path,
                 conda_env=conda_env,
                 registered_model_name="AdsModel1",
             )
@@ -290,8 +290,8 @@ def test_log_model_no_registered_model_name(sklearn_logreg_model):
         conda_env = os.path.join(tmp.path(), "conda_env.yaml")
         _mlflow_conda_env(conda_env, additional_pip_deps=["scikit-learn"])
         mlflow.sklearn.log_model(
-            sk_model=sklearn_logreg_model.model,
-            artifact_path=artifact_path,
+            sklearn_logreg_model.model,
+            artifact_path,
             conda_env=conda_env,
         )
         mlflow.tracking._model_registry.fluent._register_model.assert_not_called()
@@ -452,8 +452,8 @@ def test_model_log_persists_specified_conda_env_in_mlflow_model_directory(
     artifact_path = "model"
     with mlflow.start_run():
         mlflow.sklearn.log_model(
-            sk_model=sklearn_knn_model.model,
-            artifact_path=artifact_path,
+            sklearn_knn_model.model,
+            artifact_path,
             conda_env=sklearn_custom_env,
         )
         model_uri = f"runs:/{mlflow.active_run().info.run_id}/{artifact_path}"
@@ -477,8 +477,8 @@ def test_model_log_persists_requirements_in_mlflow_model_directory(
     artifact_path = "model"
     with mlflow.start_run():
         mlflow.sklearn.log_model(
-            sk_model=sklearn_knn_model.model,
-            artifact_path=artifact_path,
+            sklearn_knn_model.model,
+            artifact_path,
             conda_env=sklearn_custom_env,
         )
         model_uri = f"runs:/{mlflow.active_run().info.run_id}/{artifact_path}"
@@ -520,7 +520,7 @@ def test_model_log_without_specified_conda_env_uses_default_env_with_expected_de
 ):
     artifact_path = "model"
     with mlflow.start_run():
-        mlflow.sklearn.log_model(sk_model=sklearn_knn_model.model, artifact_path=artifact_path)
+        mlflow.sklearn.log_model(sklearn_knn_model.model, artifact_path)
         model_uri = mlflow.get_artifact_uri(artifact_path)
 
     _assert_pip_requirements(
@@ -541,7 +541,7 @@ def test_model_save_uses_cloudpickle_serialization_format_by_default(sklearn_knn
 def test_model_log_uses_cloudpickle_serialization_format_by_default(sklearn_knn_model):
     artifact_path = "model"
     with mlflow.start_run():
-        mlflow.sklearn.log_model(sk_model=sklearn_knn_model.model, artifact_path=artifact_path)
+        mlflow.sklearn.log_model(sklearn_knn_model.model, artifact_path)
         model_uri = f"runs:/{mlflow.active_run().info.run_id}/{artifact_path}"
 
     model_path = _download_artifact_from_uri(artifact_uri=model_uri)
@@ -822,7 +822,7 @@ def test_model_log_with_metadata(sklearn_knn_model):
     with mlflow.start_run():
         mlflow.sklearn.log_model(
             sklearn_knn_model.model,
-            artifact_path=artifact_path,
+            artifact_path,
             metadata={"metadata_key": "metadata_value"},
         )
         model_uri = mlflow.get_artifact_uri(artifact_path)
@@ -837,9 +837,7 @@ def test_model_log_with_signature_inference(sklearn_knn_model, iris_signature):
     example = X.iloc[[0]]
 
     with mlflow.start_run():
-        mlflow.sklearn.log_model(
-            sklearn_knn_model.model, artifact_path=artifact_path, input_example=example
-        )
+        mlflow.sklearn.log_model(sklearn_knn_model.model, artifact_path, input_example=example)
         model_uri = mlflow.get_artifact_uri(artifact_path)
 
     mlflow_model = Model.load(model_uri)
@@ -862,8 +860,8 @@ def test_model_registration_metadata_handling(sklearn_knn_model, tmp_path):
     artifact_path = "model"
     with mlflow.start_run():
         mlflow.sklearn.log_model(
-            sk_model=sklearn_knn_model.model,
-            artifact_path=artifact_path,
+            sklearn_knn_model.model,
+            artifact_path,
             registered_model_name="test",
         )
         model_uri = "models:/test/1"

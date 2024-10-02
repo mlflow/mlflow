@@ -147,9 +147,7 @@ def test_get_transformers_model_name(model_name, expected):
 def test_model_logging_and_inference(basic_model):
     artifact_path = "sentence_transformer"
     with mlflow.start_run():
-        model_info = mlflow.sentence_transformers.log_model(
-            model=basic_model, artifact_path=artifact_path
-        )
+        model_info = mlflow.sentence_transformers.log_model(basic_model, artifact_path)
 
     model = mlflow.sentence_transformers.load_model(model_info.model_uri)
 
@@ -197,8 +195,8 @@ def test_log_model_calls_register_model(tmp_path, basic_model):
             conda_env, additional_pip_deps=["transformers", "torch", "sentence-transformers"]
         )
         mlflow.sentence_transformers.log_model(
-            model=basic_model,
-            artifact_path=artifact_path,
+            basic_model,
+            artifact_path,
             conda_env=str(conda_env),
             registered_model_name="My super cool encoder",
         )
@@ -219,8 +217,8 @@ def test_log_model_with_no_registered_model_name(tmp_path, basic_model):
             conda_env, additional_pip_deps=["transformers", "torch", "sentence-transformers"]
         )
         mlflow.sentence_transformers.log_model(
-            model=basic_model,
-            artifact_path=artifact_path,
+            basic_model,
+            artifact_path,
             conda_env=str(conda_env),
         )
         mlflow.tracking._model_registry.fluent._register_model.assert_not_called()
@@ -536,9 +534,7 @@ def test_model_log_with_signature_inference(basic_model):
     artifact_path = "model"
 
     with mlflow.start_run():
-        mlflow.sentence_transformers.log_model(
-            basic_model, artifact_path=artifact_path, input_example=SENTENCES
-        )
+        mlflow.sentence_transformers.log_model(basic_model, artifact_path, input_example=SENTENCES)
         model_uri = mlflow.get_artifact_uri(artifact_path)
 
     model_info = Model.load(model_uri)

@@ -214,7 +214,7 @@ def test_pyfunc_serve_and_score(data):
     x, _ = data
     model = get_model(data)
     with mlflow.start_run():
-        model_info = mlflow.tensorflow.log_model(model, artifact_path="model", input_example=x)
+        model_info = mlflow.tensorflow.log_model(model, "model", input_example=x)
     expected = model.predict(x)
     inference_payload = load_serving_example(model_info.model_uri)
     scoring_response = pyfunc_serve_and_score_model(
@@ -235,7 +235,7 @@ def test_score_model_as_spark_udf(data):
     x, _ = data
     model = get_model(data)
     with mlflow.start_run():
-        model_info = mlflow.tensorflow.log_model(model, artifact_path="model")
+        model_info = mlflow.tensorflow.log_model(model, "model")
     expected = model.predict(x)
     x_df = pd.DataFrame(x, columns=["0", "1", "2", "3"])
     spark_udf_preds = score_model_as_udf(
@@ -338,7 +338,7 @@ def test_model_log(model, data, predicted):
             if should_start_run:
                 mlflow.start_run()
             artifact_path = "keras_model"
-            model_info = mlflow.tensorflow.log_model(model, artifact_path=artifact_path)
+            model_info = mlflow.tensorflow.log_model(model, artifact_path)
             model_uri = f"runs:/{mlflow.active_run().info.run_id}/{artifact_path}"
             assert model_info.model_uri == model_uri
 
@@ -357,9 +357,7 @@ def test_log_model_calls_register_model(model):
     artifact_path = "model"
     register_model_patch = mock.patch("mlflow.tracking._model_registry.fluent._register_model")
     with mlflow.start_run(), register_model_patch:
-        mlflow.tensorflow.log_model(
-            model, artifact_path=artifact_path, registered_model_name="AdsModel1"
-        )
+        mlflow.tensorflow.log_model(model, artifact_path, registered_model_name="AdsModel1")
         model_uri = f"runs:/{mlflow.active_run().info.run_id}/{artifact_path}"
         assert_register_model_called_with_local_model_path(
             register_model_mock=mlflow.tracking._model_registry.fluent._register_model,
@@ -372,7 +370,7 @@ def test_log_model_no_registered_model_name(model):
     artifact_path = "model"
     register_model_patch = mock.patch("mlflow.tracking._model_registry.fluent._register_model")
     with mlflow.start_run(), register_model_patch:
-        mlflow.tensorflow.log_model(model, artifact_path=artifact_path)
+        mlflow.tensorflow.log_model(model, artifact_path)
         mlflow.tracking._model_registry.fluent._register_model.assert_not_called()
 
 
@@ -422,7 +420,7 @@ def test_log_model_with_pip_requirements(model, tmp_path):
     req_file = tmp_path.joinpath("requirements.txt")
     req_file.write_text("a")
     with mlflow.start_run():
-        mlflow.tensorflow.log_model(model, artifact_path="model", pip_requirements=str(req_file))
+        mlflow.tensorflow.log_model(model, "model", pip_requirements=str(req_file))
         _assert_pip_requirements(
             mlflow.get_artifact_uri("model"), [expected_mlflow_version, "a"], strict=True
         )
@@ -431,7 +429,7 @@ def test_log_model_with_pip_requirements(model, tmp_path):
     with mlflow.start_run():
         mlflow.tensorflow.log_model(
             model,
-            artifact_path="model",
+            "model",
             pip_requirements=[f"-r {req_file}", "b"],
         )
         _assert_pip_requirements(
@@ -442,7 +440,7 @@ def test_log_model_with_pip_requirements(model, tmp_path):
     with mlflow.start_run():
         mlflow.tensorflow.log_model(
             model,
-            artifact_path="model",
+            "model",
             pip_requirements=[f"-c {req_file}", "b"],
         )
         _assert_pip_requirements(
@@ -460,9 +458,7 @@ def test_log_model_with_extra_pip_requirements(model, tmp_path):
     req_file = tmp_path.joinpath("requirements.txt")
     req_file.write_text("a")
     with mlflow.start_run():
-        mlflow.tensorflow.log_model(
-            model, artifact_path="model", extra_pip_requirements=str(req_file)
-        )
+        mlflow.tensorflow.log_model(model, "model", extra_pip_requirements=str(req_file))
         _assert_pip_requirements(
             mlflow.get_artifact_uri("model"), [expected_mlflow_version, *default_reqs, "a"]
         )
@@ -471,7 +467,7 @@ def test_log_model_with_extra_pip_requirements(model, tmp_path):
     with mlflow.start_run():
         mlflow.tensorflow.log_model(
             model,
-            artifact_path="model",
+            "model",
             extra_pip_requirements=[f"-r {req_file}", "b"],
         )
         _assert_pip_requirements(
@@ -482,7 +478,7 @@ def test_log_model_with_extra_pip_requirements(model, tmp_path):
     with mlflow.start_run():
         mlflow.tensorflow.log_model(
             model,
-            artifact_path="model",
+            "model",
             extra_pip_requirements=[f"-c {req_file}", "b"],
         )
         _assert_pip_requirements(
@@ -495,7 +491,7 @@ def test_log_model_with_extra_pip_requirements(model, tmp_path):
 def test_model_log_persists_requirements_in_mlflow_model_directory(model, keras_custom_env):
     artifact_path = "model"
     with mlflow.start_run():
-        mlflow.tensorflow.log_model(model, artifact_path=artifact_path, conda_env=keras_custom_env)
+        mlflow.tensorflow.log_model(model, artifact_path, conda_env=keras_custom_env)
         model_path = _download_artifact_from_uri(
             f"runs:/{mlflow.active_run().info.run_id}/{artifact_path}"
         )
@@ -507,7 +503,7 @@ def test_model_log_persists_requirements_in_mlflow_model_directory(model, keras_
 def test_model_log_persists_specified_conda_env_in_mlflow_model_directory(model, keras_custom_env):
     artifact_path = "model"
     with mlflow.start_run():
-        mlflow.tensorflow.log_model(model, artifact_path=artifact_path, conda_env=keras_custom_env)
+        mlflow.tensorflow.log_model(model, artifact_path, conda_env=keras_custom_env)
         model_path = _download_artifact_from_uri(
             f"runs:/{mlflow.active_run().info.run_id}/{artifact_path}"
         )
@@ -534,7 +530,7 @@ def test_model_save_without_specified_conda_env_uses_default_env_with_expected_d
 def test_model_log_without_specified_conda_env_uses_default_env_with_expected_dependencies(model):
     artifact_path = "model"
     with mlflow.start_run():
-        mlflow.tensorflow.log_model(model, artifact_path=artifact_path)
+        mlflow.tensorflow.log_model(model, artifact_path)
         model_uri = mlflow.get_artifact_uri(artifact_path)
     _assert_pip_requirements(model_uri, mlflow.tensorflow.get_default_pip_requirements())
 
@@ -654,7 +650,7 @@ def test_pyfunc_serve_and_score_transformers():
     with mlflow.start_run():
         model_info = mlflow.tensorflow.log_model(
             model,
-            artifact_path="model",
+            "model",
             extra_pip_requirements=extra_pip_requirements,
             input_example=dummy_inputs,
         )
@@ -678,7 +674,7 @@ def test_log_model_with_code_paths(model):
     with mlflow.start_run(), mock.patch(
         "mlflow.tensorflow._add_code_from_conf_to_system_path"
     ) as add_mock:
-        mlflow.tensorflow.log_model(model, artifact_path=artifact_path, code_paths=[__file__])
+        mlflow.tensorflow.log_model(model, artifact_path, code_paths=[__file__])
         model_uri = mlflow.get_artifact_uri(artifact_path)
         _compare_logged_code_paths(__file__, model_uri, mlflow.tensorflow.FLAVOR_NAME)
         mlflow.tensorflow.load_model(model_uri)
@@ -720,7 +716,7 @@ def test_model_log_with_metadata(tf_keras_model):
 
     with mlflow.start_run():
         mlflow.tensorflow.log_model(
-            tf_keras_model, artifact_path=artifact_path, metadata={"metadata_key": "metadata_value"}
+            tf_keras_model, artifact_path, metadata={"metadata_key": "metadata_value"}
         )
         model_uri = mlflow.get_artifact_uri(artifact_path)
 
@@ -733,9 +729,7 @@ def test_model_log_with_signature_inference(tf_keras_model, data, model_signatur
     example = data[0][:3, :]
 
     with mlflow.start_run():
-        mlflow.tensorflow.log_model(
-            tf_keras_model, artifact_path=artifact_path, input_example=example
-        )
+        mlflow.tensorflow.log_model(tf_keras_model, artifact_path, input_example=example)
         model_uri = mlflow.get_artifact_uri(artifact_path)
 
     mlflow_model = Model.load(model_uri)

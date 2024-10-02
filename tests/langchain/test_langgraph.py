@@ -18,8 +18,8 @@ def test_langgraph_save_as_code():
 
     with mlflow.start_run():
         model_info = mlflow.langchain.log_model(
-            lc_model="tests/langchain/sample_code/langgraph.py",
-            artifact_path="langgraph",
+            "tests/langchain/sample_code/langgraph.py",
+            "langgraph",
             input_example=input_example,
         )
 
@@ -71,8 +71,8 @@ def test_langgraph_tracing():
 
     with mlflow.start_run():
         model_info = mlflow.langchain.log_model(
-            lc_model="tests/langchain/sample_code/langgraph.py",
-            artifact_path="langgraph",
+            "tests/langchain/sample_code/langgraph.py",
+            "langgraph",
             input_example=input_example,
         )
 

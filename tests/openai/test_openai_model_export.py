@@ -56,9 +56,9 @@ def set_envs(monkeypatch, mock_openai):
 def test_log_model():
     with mlflow.start_run():
         model_info = mlflow.openai.log_model(
-            model="gpt-4o-mini",
-            task="chat.completions",
-            artifact_path="model",
+            "gpt-4o-mini",
+            "chat.completions",
+            "model",
             temperature=0.9,
             messages=[{"role": "system", "content": "You are an MLflow expert."}],
         )
@@ -542,9 +542,9 @@ def test_embeddings_pyfunc_server_and_score():
     df = pd.DataFrame({"text": ["a", "b"]})
     with mlflow.start_run():
         model_info = mlflow.openai.log_model(
-            model="text-embedding-ada-002",
-            task=embeddings(),
-            artifact_path="model",
+            "text-embedding-ada-002",
+            embeddings(),
+            "model",
             input_example=df,
         )
     inference_payload = load_serving_example(model_info.model_uri)

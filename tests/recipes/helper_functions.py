@@ -55,7 +55,7 @@ def train_and_log_model(is_dummy=False):
         X, y = load_diabetes(as_frame=True, return_X_y=True)
         model = DummyRegressor(strategy="constant", constant=42) if is_dummy else LinearRegression()
         fitted_model = model.fit(X, y)
-        mlflow.sklearn.log_model(fitted_model, artifact_path="train/model")
+        mlflow.sklearn.log_model(fitted_model, "train/model")
         return run.info.run_id, fitted_model
 
 
@@ -68,7 +68,7 @@ def train_and_log_classification_model(is_dummy=False):
         else:
             model = LogisticRegression()
         fitted_model = model.fit(X, y)
-        mlflow.sklearn.log_model(fitted_model, artifact_path="train/model")
+        mlflow.sklearn.log_model(fitted_model, "train/model")
         return run.info.run_id, fitted_model
 
 

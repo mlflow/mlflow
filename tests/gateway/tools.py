@@ -246,7 +246,7 @@ def log_sentence_transformers_model():
     with mlflow.start_run():
         mlflow.sentence_transformers.log_model(
             model,
-            artifact_path=artifact_path,
+            artifact_path,
         )
         return mlflow.get_artifact_uri(artifact_path)
 
@@ -271,8 +271,8 @@ def log_completions_transformers_model():
     with mlflow.start_run():
         mlflow.transformers.log_model(
             pipe,
+            artifact_path,
             signature=signature,
-            artifact_path=artifact_path,
         )
         return mlflow.get_artifact_uri(artifact_path)
 

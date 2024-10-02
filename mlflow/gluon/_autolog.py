@@ -40,5 +40,5 @@ class __MlflowGluonCallback(EpochEnd, TrainEnd, TrainBegin, metaclass=ExceptionS
                 mlflow.gluon.FLAVOR_NAME, "registered_model_name", None
             )
             mlflow.gluon.log_model(
-                estimator.net, artifact_path="model", registered_model_name=registered_model_name
+                estimator.net, "model", registered_model_name=registered_model_name
             )
