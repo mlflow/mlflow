@@ -576,7 +576,7 @@ def autolog(
                     try:
                         log_model(
                             model,
-                            artifact_path="model",
+                            "model",
                             registered_model_name=registered_model_name,
                         )
                     finally:

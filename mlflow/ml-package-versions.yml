@@ -577,8 +577,8 @@ transformers:
       # See: https://github.com/huggingface/transformers/issues/23352 for discussion
       "< 4.30.0": ["tensorflow<2.13.0"]
       # Installing `transformers==4.34.1` with `datasets` results in installing `huggingface_hub==0.17.3`.
-      # `accelerate>=0.32.0` is incompatible with `huggingface_hub==0.17.3`.
-      "== 4.34.1": ["accelerate<0.32.0"]
+      # `accelerate>=0.32.0` and `peft>=0.13.0` are incompatible with `huggingface_hub==0.17.3`.
+      "== 4.34.1": ["accelerate<0.32.0", "peft<0.13.0"]
     pre_test: |
       export PYTHONPATH=./
       python tests/transformers/helper.py
@@ -789,6 +789,8 @@ llama_index:
           # Required to run tests/openai/mock_openai.py
           "fastapi",
           "uvicorn",
+          # Required for testing LlamaIndex workflow
+          "pytest-asyncio",
         ]
     run: pytest tests/llama_index --ignore tests/llama_index/test_llama_index_autolog.py --ignore tests/llama_index/test_llama_index_tracer.py
   autologging:

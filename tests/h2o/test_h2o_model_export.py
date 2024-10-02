@@ -130,7 +130,7 @@ def test_model_log(h2o_iris_model):
     h2o_model = h2o_iris_model.model
     try:
         artifact_path = "gbm_model"
-        model_info = mlflow.h2o.log_model(h2o_model=h2o_model, artifact_path=artifact_path)
+        model_info = mlflow.h2o.log_model(h2o_model, artifact_path)
         model_uri = f"runs:/{mlflow.active_run().info.run_id}/{artifact_path}"
         assert model_info.model_uri == model_uri
         # Load model
@@ -281,9 +281,7 @@ def test_model_log_persists_specified_conda_env_in_mlflow_model_directory(
 ):
     artifact_path = "model"
     with mlflow.start_run():
-        mlflow.h2o.log_model(
-            h2o_model=h2o_iris_model.model, artifact_path=artifact_path, conda_env=h2o_custom_env
-        )
+        mlflow.h2o.log_model(h2o_iris_model.model, artifact_path, conda_env=h2o_custom_env)
         model_path = _download_artifact_from_uri(
             f"runs:/{mlflow.active_run().info.run_id}/{artifact_path}"
         )
@@ -303,9 +301,7 @@ def test_model_log_persists_specified_conda_env_in_mlflow_model_directory(
 def test_model_log_persists_requirements_in_mlflow_model_directory(h2o_iris_model, h2o_custom_env):
     artifact_path = "model"
     with mlflow.start_run():
-        mlflow.h2o.log_model(
-            h2o_model=h2o_iris_model.model, artifact_path=artifact_path, conda_env=h2o_custom_env
-        )
+        mlflow.h2o.log_model(h2o_iris_model.model, artifact_path, conda_env=h2o_custom_env)
         model_path = _download_artifact_from_uri(
             f"runs:/{mlflow.active_run().info.run_id}/{artifact_path}"
         )
@@ -326,7 +322,7 @@ def test_model_log_without_specified_conda_env_uses_default_env_with_expected_de
 ):
     artifact_path = "model"
     with mlflow.start_run():
-        mlflow.h2o.log_model(h2o_model=h2o_iris_model.model, artifact_path=artifact_path)
+        mlflow.h2o.log_model(h2o_iris_model.model, artifact_path)
         model_uri = mlflow.get_artifact_uri(artifact_path)
     _assert_pip_requirements(model_uri, mlflow.h2o.get_default_pip_requirements())
 
@@ -378,7 +374,7 @@ def test_model_log_with_metadata(h2o_iris_model):
     with mlflow.start_run():
         mlflow.h2o.log_model(
             h2o_iris_model.model,
-            artifact_path=artifact_path,
+            artifact_path,
             metadata={"metadata_key": "metadata_value"},
         )
         model_uri = mlflow.get_artifact_uri(artifact_path)
@@ -392,9 +388,7 @@ def test_model_log_with_signature_inference(h2o_iris_model, h2o_iris_model_signa
     example = h2o_iris_model.inference_data.as_data_frame().head(3)
 
     with mlflow.start_run():
-        mlflow.h2o.log_model(
-            h2o_iris_model.model, artifact_path=artifact_path, input_example=example
-        )
+        mlflow.h2o.log_model(h2o_iris_model.model, artifact_path, input_example=example)
         model_uri = mlflow.get_artifact_uri(artifact_path)
 
     mlflow_model = Model.load(model_uri)

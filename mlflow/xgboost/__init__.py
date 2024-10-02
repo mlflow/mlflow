@@ -756,7 +756,7 @@ def autolog(
                 )
                 logged_model = log_model(
                     model,
-                    name="model",
+                    "model",
                     signature=signature,
                     input_example=input_example,
                     registered_model_name=registered_model_name,

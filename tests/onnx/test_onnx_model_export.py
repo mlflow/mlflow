@@ -262,7 +262,7 @@ def test_model_log_load(onnx_model, save_as_external_data):
 
     with mlflow.start_run():
         model_info = mlflow.onnx.log_model(
-            onnx_model, artifact_path="model", save_as_external_data=save_as_external_data
+            onnx_model, "model", save_as_external_data=save_as_external_data
         )
 
     if save_as_external_data:
@@ -445,7 +445,7 @@ def test_model_log(onnx_model):
             if should_start_run:
                 mlflow.start_run()
             artifact_path = "onnx_model"
-            model_info = mlflow.onnx.log_model(onnx_model=onnx_model, artifact_path=artifact_path)
+            model_info = mlflow.onnx.log_model(onnx_model, artifact_path)
             model_uri = f"runs:/{mlflow.active_run().info.run_id}/{artifact_path}"
             assert model_info.model_uri == model_uri
 
@@ -462,8 +462,8 @@ def test_log_model_calls_register_model(onnx_model, onnx_custom_env):
     register_model_patch = mock.patch("mlflow.tracking._model_registry.fluent._register_model")
     with mlflow.start_run(), register_model_patch:
         mlflow.onnx.log_model(
-            onnx_model=onnx_model,
-            artifact_path=artifact_path,
+            onnx_model,
+            artifact_path,
             conda_env=onnx_custom_env,
             registered_model_name="AdsModel1",
         )
@@ -479,9 +479,7 @@ def test_log_model_no_registered_model_name(onnx_model, onnx_custom_env):
     artifact_path = "model"
     register_model_patch = mock.patch("mlflow.tracking._model_registry.fluent._register_model")
     with mlflow.start_run(), register_model_patch:
-        mlflow.onnx.log_model(
-            onnx_model=onnx_model, artifact_path=artifact_path, conda_env=onnx_custom_env
-        )
+        mlflow.onnx.log_model(onnx_model, artifact_path, conda_env=onnx_custom_env)
         mlflow.tracking._model_registry.fluent._register_model.assert_not_called()
 
 
@@ -490,7 +488,7 @@ def test_model_log_evaluate_pyfunc_format(onnx_model, data, predicted):
 
     with mlflow.start_run() as run:
         artifact_path = "onnx_model"
-        mlflow.onnx.log_model(onnx_model=onnx_model, artifact_path=artifact_path)
+        mlflow.onnx.log_model(onnx_model, artifact_path)
         model_uri = f"runs:/{run.info.run_id}/{artifact_path}"
 
         # Loading pyfunc model
@@ -638,9 +636,7 @@ def test_model_log_persists_specified_conda_env_in_mlflow_model_directory(
 ):
     artifact_path = "model"
     with mlflow.start_run():
-        mlflow.onnx.log_model(
-            onnx_model=onnx_model, artifact_path=artifact_path, conda_env=onnx_custom_env
-        )
+        mlflow.onnx.log_model(onnx_model, artifact_path, conda_env=onnx_custom_env)
         model_path = _download_artifact_from_uri(
             f"runs:/{mlflow.active_run().info.run_id}/{artifact_path}"
         )
@@ -660,9 +656,7 @@ def test_model_log_persists_specified_conda_env_in_mlflow_model_directory(
 def test_model_log_persists_requirements_in_mlflow_model_directory(onnx_model, onnx_custom_env):
     artifact_path = "model"
     with mlflow.start_run():
-        mlflow.onnx.log_model(
-            onnx_model=onnx_model, artifact_path=artifact_path, conda_env=onnx_custom_env
-        )
+        mlflow.onnx.log_model(onnx_model, artifact_path, conda_env=onnx_custom_env)
         model_path = _download_artifact_from_uri(
             f"runs:/{mlflow.active_run().info.run_id}/{artifact_path}"
         )
@@ -683,7 +677,7 @@ def test_model_log_without_specified_conda_env_uses_default_env_with_expected_de
 ):
     artifact_path = "model"
     with mlflow.start_run():
-        mlflow.onnx.log_model(onnx_model=onnx_model, artifact_path=artifact_path)
+        mlflow.onnx.log_model(onnx_model, artifact_path)
         model_uri = mlflow.get_artifact_uri(artifact_path)
     _assert_pip_requirements(model_uri, mlflow.onnx.get_default_pip_requirements())
 
@@ -733,7 +727,7 @@ def test_model_log_with_metadata(onnx_model):
 
     with mlflow.start_run():
         mlflow.onnx.log_model(
-            onnx_model, artifact_path=artifact_path, metadata={"metadata_key": "metadata_value"}
+            onnx_model, artifact_path, metadata={"metadata_key": "metadata_value"}
         )
         model_uri = mlflow.get_artifact_uri(artifact_path)
 

@@ -1311,7 +1311,7 @@ def test_update_deployment_in_replace_mode_with_archiving_does_not_delete_resour
     sk_model = mlflow.sklearn.load_model(model_uri=model_uri)
     new_artifact_path = "model"
     with mlflow.start_run():
-        mlflow.sklearn.log_model(sk_model=sk_model, artifact_path=new_artifact_path)
+        mlflow.sklearn.log_model(sk_model, new_artifact_path)
         new_model_uri = f"runs:/{mlflow.active_run().info.run_id}/{new_artifact_path}"
     sagemaker_deployment_client.update_deployment(
         name=name,
