@@ -465,7 +465,7 @@ The agent can be loaded and used for inference as follows:
 How can I evaluate a LangGraph Agent?
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-The [mlflow.evaluate](https://mlflow.org/docs/latest/model-evaluation/index.html) function provides 
+The `mlflow.evaluate <https://mlflow.org/docs/latest/model-evaluation/index.html>`_ function provides 
 a robust way to evaluate model performance. 
 
 LangGraph agents, especially those with chat functionality, can return multiple messages in one 
@@ -473,10 +473,10 @@ inference call. Given ``mlflow.evaluate`` performs naive comparisons between raw
 ground truth value, it is the user's responsibility to reconcile potential differences prediction output
 and ground truth.
 
-Often, the best approach is to use a [custom function](https://mlflow.org/docs/latest/llms/llm-evaluate/index.html#evaluating-with-a-custom-function)
+Often, the best approach is to use a `custom function <https://mlflow.org/docs/latest/llms/llm-evaluate/index.html#evaluating-with-a-custom-function>`_ 
 to process the response. Below we provide an example of a custom function that extracts the last chat 
 message from a LangGraph model. This function is then used in mlflow.evaluate to return a single 
-string response, which can be compared to the `"ground_truth"`` column.
+string response, which can be compared to the `"ground_truth"` column.
 
 .. code-block:: python
 
