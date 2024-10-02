@@ -1,19 +1,17 @@
 from abc import ABC, abstractmethod
 from enum import Enum
 from typing import Any, Callable, List, Optional, Tuple
+from dataclasses import dataclass
 
 from mlflow.protos.databricks_artifacts_pb2 import (
-    ArtifactCredentialInfo,
+    ArtifactCredentialInfo as RunArtifactCredential,
+    LoggedModelArtifactCredential,
     DatabricksMlflowArtifactsService,
-    ModelGetCredentialsForRead,
-    ModelGetCredentialsForWrite,
+    GetCredentialsForLoggedModelUpload,
+    GetCredentialsForLoggedModelDownload,
 )
-from mlflow.protos.databricks_artifacts_pb2 import (
-    GetCredentialsForRead as RunGetCredentialsForRead,
-)
-from mlflow.protos.databricks_artifacts_pb2 import (
-    GetCredentialsForWrite as RunGetCredentialsForWrite,
-)
+from mlflow.protos.databricks_artifacts_pb2 import GetCredentialsForRead
+from mlflow.protos.databricks_artifacts_pb2 import GetCredentialsForWrite
 from mlflow.protos.service_pb2 import GetLoggedModel, GetRun, MlflowService
 from mlflow.utils.proto_json_utils import message_to_json
 
@@ -23,6 +21,7 @@ class _CredentialType(Enum):
     WRITE = 2
 
 
+@dataclass
 class _Resource(ABC):
     """
     Represents a resource that `DatabricksArtifactRepository` interacts with.
