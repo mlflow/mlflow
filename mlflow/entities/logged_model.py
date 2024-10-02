@@ -3,9 +3,9 @@ from typing import Any, Dict, List, Optional, Union
 import mlflow.protos.service_pb2 as pb2
 from mlflow.entities._mlflow_object import _MlflowObject
 from mlflow.entities.logged_model_parameter import LoggedModelParameter
+from mlflow.entities.logged_model_status import LoggedModelStatus
 from mlflow.entities.logged_model_tag import LoggedModelTag
 from mlflow.entities.metric import Metric
-from mlflow.entities.model_status import ModelStatus
 
 
 class LoggedModel(_MlflowObject):
@@ -23,7 +23,7 @@ class LoggedModel(_MlflowObject):
         last_updated_timestamp: int,
         model_type: Optional[str] = None,
         source_run_id: Optional[str] = None,
-        status: ModelStatus = ModelStatus.READY,
+        status: LoggedModelStatus = LoggedModelStatus.READY,
         status_message: Optional[str] = None,
         tags: Optional[Union[List[LoggedModelTag], Dict[str, str]]] = None,
         params: Optional[Union[List[LoggedModelParameter], Dict[str, str]]] = None,
@@ -38,7 +38,7 @@ class LoggedModel(_MlflowObject):
         self._last_updated_timestamp: int = last_updated_timestamp
         self._model_type: Optional[str] = model_type
         self._source_run_id: Optional[str] = source_run_id
-        self._status: ModelStatus = status
+        self._status: LoggedModelStatus = status
         self._status_message: Optional[str] = status_message
         self._tags: Dict[str, str] = (
             {tag.key: tag.value for tag in (tags or [])} if isinstance(tags, list) else (tags or {})
@@ -117,7 +117,7 @@ class LoggedModel(_MlflowObject):
         return self._source_run_id
 
     @property
-    def status(self) -> ModelStatus:
+    def status(self) -> LoggedModelStatus:
         """String. Current status of this Model."""
         return self._status
 
@@ -193,7 +193,7 @@ class LoggedModel(_MlflowObject):
             last_updated_timestamp=proto.info.last_updated_timestamp_ms,
             model_type=proto.info.model_type,
             source_run_id=proto.info.source_run_id,
-            status=ModelStatus.from_proto(proto.info.status),
+            status=LoggedModelStatus.from_proto(proto.info.status),
             status_message=proto.info.status_message,
             tags=[LoggedModelTag.from_proto(tag) for tag in proto.info.tags],
             params=[LoggedModelParameter.from_proto(param) for param in proto.data.params],

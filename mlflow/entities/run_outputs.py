@@ -1,13 +1,13 @@
 from typing import Any, Dict, List
 
 from mlflow.entities._mlflow_object import _MlflowObject
-from mlflow.entities.model_output import ModelOutput
+from mlflow.entities.logged_model_output import LoggedModelOutput
 
 
 class RunOutputs(_MlflowObject):
     """RunOutputs object."""
 
-    def __init__(self, model_outputs: List[ModelOutput]) -> None:
+    def __init__(self, model_outputs: List[LoggedModelOutput]) -> None:
         self._model_outputs = model_outputs
 
     def __eq__(self, other: _MlflowObject) -> bool:
@@ -16,7 +16,7 @@ class RunOutputs(_MlflowObject):
         return False
 
     @property
-    def model_outputs(self) -> List[ModelOutput]:
+    def model_outputs(self) -> List[LoggedModelOutput]:
         """Array of model outputs."""
         return self._model_outputs
 
