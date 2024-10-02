@@ -1,19 +1,18 @@
 from abc import ABC, abstractmethod
+from dataclasses import dataclass
 from enum import Enum
 from typing import Any, Callable, List, Optional, Tuple
-from dataclasses import dataclass
 
 from mlflow.protos.databricks_artifacts_pb2 import (
-    ArtifactCredentialInfo as RunArtifactCredential,
-    LoggedModelArtifactCredential,
     DatabricksMlflowArtifactsService,
     GetCredentialsForLoggedModelUpload,
-    GetCredentialsForLoggedModelDownload,
+    GetCredentialsForRead,
+    GetCredentialsForWrite,
 )
-from mlflow.protos.databricks_artifacts_pb2 import GetCredentialsForRead
-from mlflow.protos.databricks_artifacts_pb2 import GetCredentialsForWrite
 from mlflow.protos.service_pb2 import GetLoggedModel, GetRun, MlflowService
 from mlflow.utils.proto_json_utils import message_to_json
+
+GetCredentialsForLoggedModelDownload = None
 
 
 class _CredentialType(Enum):
@@ -22,6 +21,22 @@ class _CredentialType(Enum):
 
 
 @dataclass
+class HttpHeader:
+    name: str
+    value: str
+
+
+@dataclass
+class ArtifactCredentialInfo:
+    """
+    Represents the credentials needed to access an artifact.
+    """
+
+    signed_uri: str
+    type: Any
+    headers: List[HttpHeader]
+
+
 class _Resource(ABC):
     """
     Represents a resource that `DatabricksArtifactRepository` interacts with.
@@ -52,15 +67,23 @@ class _Model(_Resource):
         self, cred_type: _CredentialType, paths: List[str], page_token: Optional[str] = None
     ) -> Tuple[List[Any], Optional[str]]:
         api = (
-            ModelGetCredentialsForWrite
-            if cred_type == _CredentialType.WRITE
-            else ModelGetCredentialsForRead
+            GetCredentialsForLoggedModelDownload
+            if cred_type == _CredentialType.READ
+            else GetCredentialsForLoggedModelUpload
         )
         payload = api(model_id=self.id, paths=paths, page_token=page_token)
         response = self._call_endpoint(
             DatabricksMlflowArtifactsService, api, message_to_json(payload)
         )
-        return response.credential_infos, response.next_page_token
+        credential_infos = [
+            ArtifactCredentialInfo(
+                signed_uri=c.credential_info.signed_uri,
+                type=c.credential_info.type,
+                headers=[HttpHeader(name=h.name, value=h.value) for h in c.credential_info.headers],
+            )
+            for c in response.credential_infos
+        ]
+        return credential_infos, response.next_page_token
 
     def get_artifact_root(self) -> str:
         json_body = message_to_json(GetLoggedModel(model_id=self.model_id))
@@ -72,16 +95,20 @@ class _Run(_Resource):
     def get_credentials(
         self, cred_type: _CredentialType, paths: List[str], page_token: Optional[str] = None
     ) -> List[ArtifactCredentialInfo]:
-        api = (
-            RunGetCredentialsForWrite
-            if cred_type == _CredentialType.WRITE
-            else RunGetCredentialsForRead
-        )
+        api = GetCredentialsForRead if cred_type == _CredentialType.READ else GetCredentialsForWrite
         json_body = api(run_id=self.id, path=paths, page_token=page_token)
         response = self._call_endpoint(
             DatabricksMlflowArtifactsService, api, message_to_json(json_body)
         )
-        return response.credential_infos, response.next_page_token
+        credential_infos = [
+            ArtifactCredentialInfo(
+                signed_uri=c.signed_uri,
+                type=c.type,
+                headers=[HttpHeader(name=h.name, value=h.value) for h in c.headers],
+            )
+            for c in response.credential_infos
+        ]
+        return credential_infos, response.next_page_token
 
     def get_artifact_root(self) -> str:
         json_body = message_to_json(GetRun(run_id=self.id))
