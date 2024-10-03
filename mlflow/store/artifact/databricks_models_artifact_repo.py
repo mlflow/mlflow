@@ -193,7 +193,7 @@ class DatabricksModelsArtifactRepository(ArtifactRepository):
             if raw_headers is not None:
                 # Don't send None to _extract_headers_from_signed_url
                 headers = self._extract_headers_from_signed_url(raw_headers)
-            if file_size is not None and file_size <= MLFLOW_MULTIPART_DOWNLOAD_CHUNK_SIZE.get():
+            if not file_size or file_size <= MLFLOW_MULTIPART_DOWNLOAD_CHUNK_SIZE.get():
                 download_file_using_http_uri(
                     signed_uri, local_path, MLFLOW_MULTIPART_DOWNLOAD_CHUNK_SIZE.get(), headers
                 )

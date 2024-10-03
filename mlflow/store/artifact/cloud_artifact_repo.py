@@ -315,7 +315,7 @@ class CloudArtifactRepository(ArtifactRepository):
         else:
             file_size = None
 
-        if file_size is not None and file_size < MLFLOW_MULTIPART_DOWNLOAD_MINIMUM_FILE_SIZE.get():
+        if not file_size or file_size < MLFLOW_MULTIPART_DOWNLOAD_MINIMUM_FILE_SIZE.get():
             self._download_from_cloud(remote_file_path, local_path)
         else:
             self._parallelized_download_from_cloud(file_size, remote_file_path, local_path)
