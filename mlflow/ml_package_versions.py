@@ -139,7 +139,7 @@ _ML_PACKAGE_VERSIONS = {
             "pip_release": "spacy"
         },
         "models": {
-            "minimum": "2.2.4",
+            "minimum": "3.0.9",
             "maximum": "3.7.5"
         }
     },
@@ -148,11 +148,11 @@ _ML_PACKAGE_VERSIONS = {
             "pip_release": "statsmodels"
         },
         "models": {
-            "minimum": "0.11.1",
+            "minimum": "0.12.2",
             "maximum": "0.14.3"
         },
         "autologging": {
-            "minimum": "0.11.1",
+            "minimum": "0.12.2",
             "maximum": "0.14.3"
         }
     },
@@ -220,7 +220,7 @@ _ML_PACKAGE_VERSIONS = {
             "pip_release": "shap"
         },
         "models": {
-            "minimum": "0.41.0",
+            "minimum": "0.42.1",
             "maximum": "0.46.0"
         }
     },

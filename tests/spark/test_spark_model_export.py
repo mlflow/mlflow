@@ -340,6 +340,7 @@ def test_model_deployment(spark_model_iris, model_path, spark_custom_env):
         spark_model_iris.model,
         path=model_path,
         conda_env=spark_custom_env,
+        extra_pip_requirements=["numpy<2"],
     )
     scoring_response = score_model_in_sagemaker_docker_container(
         model_uri=model_path,

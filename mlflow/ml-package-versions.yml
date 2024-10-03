@@ -307,7 +307,7 @@ spacy:
       pip install git+https://github.com/explosion/spaCy.git
 
   models:
-    minimum: "2.2.4"
+    minimum: "3.0.9"
     maximum: "3.7.5"
     python:
       "== dev": "3.9"
@@ -325,7 +325,7 @@ statsmodels:
       pip install git+https://github.com/statsmodels/statsmodels.git
 
   models:
-    minimum: "0.11.1"
+    minimum: "0.12.2"
     maximum: "0.14.3"
     python:
       "== dev": "3.9"
@@ -335,7 +335,7 @@ statsmodels:
       pytest tests/statsmodels/test_statsmodels_model_export.py
 
   autologging:
-    minimum: "0.11.1"
+    minimum: "0.12.2"
     maximum: "0.14.3"
     python:
       "== dev": "3.9"
@@ -518,7 +518,7 @@ shap:
   package_info:
     pip_release: "shap"
   models:
-    minimum: "0.41.0"
+    minimum: "0.42.1"
     maximum: "0.46.0"
     requirements:
       "< 0.46.0": ["numpy<1.24.0"]
