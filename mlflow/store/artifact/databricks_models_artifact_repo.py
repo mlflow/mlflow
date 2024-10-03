@@ -176,8 +176,8 @@ class DatabricksModelsArtifactRepository(ArtifactRepository):
 
     def _download_file(self, remote_file_path, local_path):
         try:
-            parent_dir, _ = posixpath.split(remote_file_path)
             if MLFLOW_ENABLE_MULTIPART_DOWNLOAD.get():
+                parent_dir, _ = posixpath.split(remote_file_path)
                 file_size = next(
                     (
                         info.file_size

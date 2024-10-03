@@ -291,24 +291,27 @@ class CloudArtifactRepository(ArtifactRepository):
                 )
 
     def _download_file(self, remote_file_path, local_path):
-        # list_artifacts API only returns a list of FileInfos at the specified path
-        # if it's a directory. To get file size, we need to iterate over FileInfos
-        # contained by the parent directory. A bad path could result in there being
-        # no matching FileInfos (by path), so fall back to None size to prevent
-        # parallelized download.
-        parent_dir = posixpath.dirname(remote_file_path)
-        file_infos = self.list_artifacts(parent_dir)
-        file_info = [info for info in file_infos if info.path == remote_file_path]
-        file_size = file_info[0].file_size if len(file_info) == 1 else None
+        if MLFLOW_ENABLE_MULTIPART_DOWNLOAD.get() and is_fuse_or_uc_volumes_uri(local_path):
+            # list_artifacts API only returns a list of FileInfos at the specified path
+            # if it's a directory. To get file size, we need to iterate over FileInfos
+            # contained by the parent directory. A bad path could result in there being
+            # no matching FileInfos (by path), so fall back to None size to prevent
+            # parallelized download.
+            parent_dir, _ = posixpath.split(remote_file_path)
+            file_size = next(
+                (
+                    info.file_size
+                    for info in self.list_artifacts(parent_dir)
+                    if info.path == remote_file_path
+                ),
+                None,
+            )
+        else:
+            file_size = None
         # NB: FUSE mounts do not support file write from a non-0th index seek position.
         # Due to this limitation (writes must start at the beginning of a file),
         # offset writes are disabled if FUSE is the local_path destination.
-        if (
-            not MLFLOW_ENABLE_MULTIPART_DOWNLOAD.get()
-            or not file_size
-            or file_size < MLFLOW_MULTIPART_DOWNLOAD_MINIMUM_FILE_SIZE.get()
-            or is_fuse_or_uc_volumes_uri(local_path)
-        ):
+        if file_size is not None or file_size < MLFLOW_MULTIPART_DOWNLOAD_MINIMUM_FILE_SIZE.get():
             self._download_from_cloud(remote_file_path, local_path)
         else:
             self._parallelized_download_from_cloud(file_size, remote_file_path, local_path)
