@@ -475,7 +475,7 @@ pmdarima:
       pip install git+https://github.com/alkaline-ml/pmdarima.git
 
   models:
-    minimum: "1.8.0"
+    minimum: "1.8.5"
     maximum: "2.0.4"
     requirements:
       "< 1.9": ["scikit-learn<1.3"]

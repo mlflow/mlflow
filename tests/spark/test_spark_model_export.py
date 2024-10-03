@@ -59,9 +59,10 @@ _logger = logging.getLogger(__name__)
 def spark_custom_env(tmp_path):
     conda_env = os.path.join(tmp_path, "conda_env.yml")
     additional_pip_deps = ["/opt/mlflow", "pyspark", "pytest"]
-    if Version(pyspark.__version__) <= Version("3.3.2"):
+    if Version(pyspark.__version__) <= Version("3.3.4"):
         # Versions of PySpark <= 3.3.2 are incompatible with pandas >= 2
         additional_pip_deps.append("pandas<2")
+        additional_pip_deps.append("numpy<2")
     _mlflow_conda_env(conda_env, additional_pip_deps=additional_pip_deps)
     return conda_env
 
@@ -340,7 +341,6 @@ def test_model_deployment(spark_model_iris, model_path, spark_custom_env):
         spark_model_iris.model,
         path=model_path,
         conda_env=spark_custom_env,
-        extra_pip_requirements=["numpy<2"],
     )
     scoring_response = score_model_in_sagemaker_docker_container(
         model_uri=model_path,

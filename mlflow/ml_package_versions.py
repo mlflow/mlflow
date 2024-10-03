@@ -193,7 +193,7 @@ _ML_PACKAGE_VERSIONS = {
             "pip_release": "pmdarima"
         },
         "models": {
-            "minimum": "1.8.0",
+            "minimum": "1.8.5",
             "maximum": "2.0.4"
         }
     },
