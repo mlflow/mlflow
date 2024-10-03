@@ -291,7 +291,13 @@ class CloudArtifactRepository(ArtifactRepository):
                 )
 
     def _download_file(self, remote_file_path, local_path):
-        if MLFLOW_ENABLE_MULTIPART_DOWNLOAD.get() and is_fuse_or_uc_volumes_uri(local_path):
+        if (
+            MLFLOW_ENABLE_MULTIPART_DOWNLOAD.get()
+            # NB: FUSE mounts do not support file write from a non-0th index seek position.
+            # Due to this limitation (writes must start at the beginning of a file),
+            # offset writes are disabled if FUSE is the local_path destination.
+            and is_fuse_or_uc_volumes_uri(local_path)
+        ):
             # list_artifacts API only returns a list of FileInfos at the specified path
             # if it's a directory. To get file size, we need to iterate over FileInfos
             # contained by the parent directory. A bad path could result in there being
@@ -308,9 +314,7 @@ class CloudArtifactRepository(ArtifactRepository):
             )
         else:
             file_size = None
-        # NB: FUSE mounts do not support file write from a non-0th index seek position.
-        # Due to this limitation (writes must start at the beginning of a file),
-        # offset writes are disabled if FUSE is the local_path destination.
+
         if file_size is not None and file_size < MLFLOW_MULTIPART_DOWNLOAD_MINIMUM_FILE_SIZE.get():
             self._download_from_cloud(remote_file_path, local_path)
         else:
