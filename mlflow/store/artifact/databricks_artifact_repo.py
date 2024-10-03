@@ -150,15 +150,16 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
         - databricks/mlflow-tracking/<EXP_ID>/logged_models/<MODEL_ID>/artifacts/<path>
 
         Returns:
-            _Resource
+            A `_Resource` object representing the MLflow resource associated with the specified
+            artifact URI.
         """
         artifact_path = extract_and_normalize_path(artifact_uri)
         parts = artifact_path.split("/")
 
         if parts[3] == "logged_models":
-            return _LoggedModel(id=parts[4], call_endpoint=self._call_endpoint)
+            return _LoggedModel(id_=parts[4], call_endpoint=self._call_endpoint)
 
-        return _Run(id=parts[3], call_endpoint=self._call_endpoint)
+        return _Run(id_=parts[3], call_endpoint=self._call_endpoint)
 
     def _call_endpoint(self, service, api, json_body=None, path_params=None):
         """

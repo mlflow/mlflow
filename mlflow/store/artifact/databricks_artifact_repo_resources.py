@@ -27,10 +27,6 @@ class HttpHeader:
 
 @dataclass
 class ArtifactCredentialInfo:
-    """
-    Represents the credentials needed to access an artifact.
-    """
-
     signed_uri: str
     type: Any
     headers: List[HttpHeader]
@@ -41,8 +37,8 @@ class _Resource(ABC):
     Represents a resource that `DatabricksArtifactRepository` interacts with.
     """
 
-    def __init__(self, id: str, call_endpoint: Callable[..., Any]):
-        self.id = id
+    def __init__(self, id_: str, call_endpoint: Callable[..., Any]):
+        self.id = id_
         self.call_endpoint = call_endpoint
         self.artifact_root = self.get_artifact_root()
 
