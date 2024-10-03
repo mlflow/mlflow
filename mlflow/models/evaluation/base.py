@@ -720,7 +720,7 @@ class ModelEvaluator(metaclass=ABCMeta):
         raise NotImplementedError()
 
     @abstractmethod
-    def evaluate(  # noqa: D417
+    def evaluate(
         self,
         *,
         model_type,
@@ -750,6 +750,7 @@ class ModelEvaluator(metaclass=ABCMeta):
                 to be compared with baseline_model (specified by the `baseline_model` param)
                 for model validation. If None, the model output is supposed to be found in
                 ``dataset.predictions_data``.
+            custom_metrics: Deprecated. Use ``extra_metrics`` instead.
             extra_metrics: A list of :py:class:`EvaluationMetric` objects.
             custom_artifacts: A list of callable custom artifact functions.
             kwargs: For forwards compatibility, a placeholder for additional arguments that
@@ -1123,7 +1124,7 @@ def _get_model_from_deployment_endpoint_uri(
     return _PythonModelPyfuncWrapper(python_model, None, None)
 
 
-def evaluate(  # noqa: D417
+def evaluate(
     model=None,
     data=None,
     *,
@@ -1486,6 +1487,7 @@ def evaluate(  # noqa: D417
             If multiple evaluators are specified, each configuration should be
             supplied as a nested dictionary whose key is the evaluator name.
 
+        custom_metrics: Deprecated. Use ``extra_metrics`` instead.
         extra_metrics:
             (Optional) A list of :py:class:`EvaluationMetric <mlflow.models.EvaluationMetric>`
             objects.  These metrics are computed in addition to the default metrics associated with
