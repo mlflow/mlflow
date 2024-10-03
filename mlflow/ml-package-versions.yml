@@ -120,7 +120,8 @@ tensorflow:
       "== dev": "3.9"
     requirements:
       # Requirements to run tests for keras
-      ">= 0.0.0": ["scikit-learn", "pyspark", "pyarrow", "transformers!=4.38.0,!=4.38.1"]
+      ">= 0.0.0":
+        ["scikit-learn", "pyspark", "pyarrow", "transformers!=4.38.0,!=4.38.1", "tf-keras"]
       # TensorFlow 2.12.1 and 2.13.1 requires typing_extensions < 4.6.0, which is
       # incompatible with SQLAlchemy 2.0.25 with error
       # `cannot import name 'TypeAliasType' from 'typing_extensions'`
@@ -139,6 +140,7 @@ tensorflow:
     python:
       "== dev": "3.9"
     requirements:
+      ">= 0.0.0": ["tf-keras"]
       "== dev": ["scikit-learn"]
       # TensorFlow 2.12.1 and 2.13.1 requires typing_extensions < 4.6.0, which is
       # incompatible with SQLAlchemy 2.0.25 with error
