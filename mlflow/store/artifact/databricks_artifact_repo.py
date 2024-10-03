@@ -169,9 +169,7 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
             The response from the REST endpoint.
         """
         db_creds = get_databricks_host_creds(self.databricks_profile_uri)
-
         endpoint, method = _SERVICE_AND_METHOD_TO_INFO[service][api]
-
         # If `endpoint` has path parameters (e.g. '/mlflow/traces/{request_id}'),
         # replace them with the corresponding values in `params`.
         replacements: Dict[str, str] = {}
