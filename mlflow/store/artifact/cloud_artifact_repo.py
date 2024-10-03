@@ -296,10 +296,11 @@ class CloudArtifactRepository(ArtifactRepository):
         # contained by the parent directory. A bad path could result in there being
         # no matching FileInfos (by path), so fall back to None size to prevent
         # parallelized download.
-        parent_dir = posixpath.dirname(remote_file_path)
-        file_infos = self.list_artifacts(parent_dir)
-        file_info = [info for info in file_infos if info.path == remote_file_path]
-        file_size = file_info[0].file_size if len(file_info) == 1 else None
+        # parent_dir = posixpath.dirname(remote_file_path)
+        # file_infos = self.list_artifacts(parent_dir)
+        # file_info = [info for info in file_infos if info.path == remote_file_path]
+        # file_size = file_info[0].file_size if len(file_info) == 1 else None
+        file_size = None
         # NB: FUSE mounts do not support file write from a non-0th index seek position.
         # Due to this limitation (writes must start at the beginning of a file),
         # offset writes are disabled if FUSE is the local_path destination.

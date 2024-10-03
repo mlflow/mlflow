@@ -48,7 +48,10 @@ class _Resource(ABC):
 
     @abstractmethod
     def get_credentials(
-        self, cred_type: _CredentialType, paths: List[str], page_token: Optional[str] = None
+        self,
+        cred_type: _CredentialType,
+        paths: List[str],
+        page_token: Optional[str] = None,
     ) -> Tuple[List[ArtifactCredentialInfo], Optional[str]]:
         """
         Fetches read/write credentials for the specified paths.
@@ -63,7 +66,10 @@ class _Resource(ABC):
 
 class _LoggedModel(_Resource):
     def get_credentials(
-        self, cred_type: _CredentialType, paths: List[str], page_token: Optional[str] = None
+        self,
+        cred_type: _CredentialType,
+        paths: List[str],
+        page_token: Optional[str] = None,
     ) -> Tuple[List[Any], Optional[str]]:
         api = (
             GetCredentialsForLoggedModelDownload
@@ -97,7 +103,10 @@ class _LoggedModel(_Resource):
 
 class _Run(_Resource):
     def get_credentials(
-        self, cred_type: _CredentialType, paths: List[str], page_token: Optional[str] = None
+        self,
+        cred_type: _CredentialType,
+        paths: List[str],
+        page_token: Optional[str] = None,
     ) -> List[ArtifactCredentialInfo]:
         api = GetCredentialsForRead if cred_type == _CredentialType.READ else GetCredentialsForWrite
         json_body = api(run_id=self.id, path=paths, page_token=page_token)
