@@ -361,10 +361,12 @@ def call_endpoint(host_creds, endpoint, method, json_body, response_proto, extra
     if extra_headers is not None:
         call_kwargs["extra_headers"] = extra_headers
     if method == "GET":
-        call_kwargs["params"] = json_body
+        if json_body:
+            call_kwargs["params"] = json_body
         response = http_request(**call_kwargs)
     else:
-        call_kwargs["json"] = json_body
+        if json_body:
+            call_kwargs["json"] = json_body
         response = http_request(**call_kwargs)
 
     response = verify_rest_response(response, endpoint)

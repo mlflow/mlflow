@@ -3,6 +3,7 @@ import json
 import logging
 import os
 import posixpath
+import string
 import uuid
 from typing import Any, Dict
 
@@ -52,7 +53,7 @@ from mlflow.utils.file_utils import (
     download_file_using_http_uri,
     read_chunk,
 )
-from mlflow.utils.proto_json_utils import message_to_json
+from mlflow.utils.proto_json_utils import message_to_dict
 from mlflow.utils.request_utils import cloud_storage_http_request
 from mlflow.utils.rest_utils import (
     _REST_API_PATH_PREFIX,
@@ -155,29 +156,38 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
         artifact_path = extract_and_normalize_path(artifact_uri)
         return artifact_path.split("/")[3]
 
-    def _call_endpoint(self, service, api, json_body=None, path_params=None):
+    def _call_endpoint(self, service, api, params=None):
         """
         Calls the specified REST endpoint with the specified JSON body and path parameters.
 
         Args:
             service: The service to call.
             api: The API to call.
-            json_body: The JSON body of the request.
-            path_params: The path parameters to substitute into the endpoint URI.
+            params: The request parameters.
 
         Returns:
             The response from the REST endpoint.
         """
         db_creds = get_databricks_host_creds(self.databricks_profile_uri)
+
         endpoint, method = _SERVICE_AND_METHOD_TO_INFO[service][api]
-        if path_params:
-            endpoint = endpoint.format(**path_params)
+
+        # If `endpoint` has path parameters (e.g. '/mlflow/traces/{request_id}'),
+        # replace them with the corresponding values in `params`.
+        replacements: Dict[str, str] = {}
+        for _, name, _, _ in string.Formatter().parse(endpoint):
+            if name in params:
+                replacements[name] = params.pop(name)
+        if replacements:
+            endpoint = endpoint.format(**replacements)
         response_proto = api.Response()
-        return call_endpoint(db_creds, endpoint, method, json_body, response_proto)
+        return call_endpoint(
+            db_creds, endpoint, method, params and json.dumps(params), response_proto
+        )
 
     def _get_run_artifact_root(self, run_id):
-        json_body = message_to_json(GetRun(run_id=run_id))
-        run_response = self._call_endpoint(MlflowService, GetRun, json_body)
+        params = message_to_dict(GetRun(run_id=run_id))
+        run_response = self._call_endpoint(MlflowService, GetRun, params)
         return run_response.run.info.artifact_uri
 
     def _get_credential_infos(self, request_message_class, run_id, paths):
@@ -201,7 +211,7 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
         for paths_chunk in chunk_list(paths, _MAX_CREDENTIALS_REQUEST_SIZE):
             page_token = None
             while True:
-                json_body = message_to_json(
+                json_body = message_to_dict(
                     request_message_class(run_id=run_id, path=paths_chunk, page_token=page_token)
                 )
                 response = self._call_endpoint(
@@ -231,7 +241,7 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
         cred = self._call_endpoint(
             DatabricksMlflowArtifactsService,
             GetCredentialsForTraceDataDownload,
-            path_params={"request_id": self.run_id},
+            message_to_dict(GetCredentialsForTraceDataDownload(request_id=self.run_id)),
         )
         signed_uri = cred.credential_info.signed_uri
         headers = self._extract_headers_from_credentials(cred.credential_info.headers)
@@ -252,7 +262,7 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
         res = self._call_endpoint(
             DatabricksMlflowArtifactsService,
             GetCredentialsForTraceDataUpload,
-            path_params={"request_id": self.run_id},
+            params=message_to_dict(GetCredentialsForTraceDataUpload(request_id=self.run_id)),
         )
         return res.credential_info
 
@@ -596,14 +606,14 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
         return self._call_endpoint(
             DatabricksMlflowArtifactsService,
             CreateMultipartUpload,
-            message_to_json(CreateMultipartUpload(run_id=run_id, path=path, num_parts=num_parts)),
+            message_to_dict(CreateMultipartUpload(run_id=run_id, path=path, num_parts=num_parts)),
         )
 
     def _get_presigned_upload_part_url(self, run_id, path, upload_id, part_number):
         return self._call_endpoint(
             DatabricksMlflowArtifactsService,
             GetPresignedUploadPartUrl,
-            message_to_json(
+            message_to_dict(
                 GetPresignedUploadPartUrl(
                     run_id=run_id, path=path, upload_id=upload_id, part_number=part_number
                 )
@@ -668,7 +678,7 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
         return self._call_endpoint(
             DatabricksMlflowArtifactsService,
             CompleteMultipartUpload,
-            message_to_json(
+            message_to_dict(
                 CompleteMultipartUpload(
                     run_id=run_id,
                     path=path,
@@ -727,10 +737,10 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
         infos = []
         page_token = None
         while True:
-            json_body = message_to_json(
+            params = message_to_dict(
                 ListArtifacts(run_id=self.run_id, path=run_relative_path, page_token=page_token)
             )
-            response = self._call_endpoint(MlflowService, ListArtifacts, json_body)
+            response = self._call_endpoint(MlflowService, ListArtifacts, params)
             artifact_list = response.files
             # If `path` is a file, ListArtifacts returns a single list element with the
             # same name as `path`. The list_artifacts API expects us to return an empty list in this

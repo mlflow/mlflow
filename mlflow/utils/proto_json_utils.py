@@ -103,9 +103,8 @@ def _merge_json_dicts(from_dict, to_dict):
     return to_dict
 
 
-def message_to_json(message):
-    """Converts a message to JSON, using snake_case for field names."""
-
+def message_to_dict(message):
+    """Converts a proto message to a JSON dict, preserving int64 proto fields."""
     # Google's MessageToJson API converts int64 proto fields to JSON strings.
     # For more info, see https://github.com/protocolbuffers/protobuf/issues/2954
     json_dict_with_int64_as_str = json.loads(
@@ -117,10 +116,12 @@ def message_to_json(message):
     # By merging these two JSON dicts, we end up with a JSON dict where int64 proto fields are not
     # converted to JSON strings. Int64 keys in proto maps will always be converted to JSON strings
     # because JSON doesn't support non-string keys.
-    json_dict_with_int64_as_numbers = _merge_json_dicts(
-        json_dict_with_int64_fields_only, json_dict_with_int64_as_str
-    )
-    return json.dumps(json_dict_with_int64_as_numbers, indent=2)
+    return _merge_json_dicts(json_dict_with_int64_fields_only, json_dict_with_int64_as_str)
+
+
+def message_to_json(message):
+    """Converts a message to JSON, using snake_case for field names."""
+    return json.dumps(message_to_dict(message), indent=2)
 
 
 def _stringify_all_experiment_ids(x):
