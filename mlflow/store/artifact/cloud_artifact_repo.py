@@ -311,7 +311,7 @@ class CloudArtifactRepository(ArtifactRepository):
         # NB: FUSE mounts do not support file write from a non-0th index seek position.
         # Due to this limitation (writes must start at the beginning of a file),
         # offset writes are disabled if FUSE is the local_path destination.
-        if file_size is not None or file_size < MLFLOW_MULTIPART_DOWNLOAD_MINIMUM_FILE_SIZE.get():
+        if file_size is not None and file_size < MLFLOW_MULTIPART_DOWNLOAD_MINIMUM_FILE_SIZE.get():
             self._download_from_cloud(remote_file_path, local_path)
         else:
             self._parallelized_download_from_cloud(file_size, remote_file_path, local_path)
