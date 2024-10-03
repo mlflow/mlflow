@@ -70,3 +70,6 @@ RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | s
 RUN curl https://github.com/jgm/pandoc/releases/download/3.1.9/pandoc-3.1.9-1-${TARGETPLATFORM#*/}.deb -L -o /tmp/pandoc.deb \
     && sudo dpkg -i /tmp/pandoc.deb \
     && rm /tmp/pandoc.deb
+
+# Install taplo
+RUN npm install -g @taplo/cli
