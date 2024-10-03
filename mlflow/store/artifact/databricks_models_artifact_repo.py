@@ -177,19 +177,23 @@ class DatabricksModelsArtifactRepository(ArtifactRepository):
     def _download_file(self, remote_file_path, local_path):
         try:
             parent_dir, _ = posixpath.split(remote_file_path)
-            file_infos = self.list_artifacts(parent_dir)
-            file_info = [info for info in file_infos if info.path == remote_file_path]
-            file_size = file_info[0].file_size if len(file_info) == 1 else None
+            if MLFLOW_ENABLE_MULTIPART_DOWNLOAD.get():
+                file_size = next(
+                    (
+                        info.file_size
+                        for info in self.list_artifacts(parent_dir)
+                        if info.path == remote_file_path
+                    ),
+                    None,
+                )
+            else:
+                file_size = None
             signed_uri, raw_headers = self._get_signed_download_uri(remote_file_path)
             headers = {}
             if raw_headers is not None:
                 # Don't send None to _extract_headers_from_signed_url
                 headers = self._extract_headers_from_signed_url(raw_headers)
-            if (
-                not file_size
-                or file_size <= MLFLOW_MULTIPART_DOWNLOAD_CHUNK_SIZE.get()
-                or not MLFLOW_ENABLE_MULTIPART_DOWNLOAD.get()
-            ):
+            if file_size is not None and file_size <= MLFLOW_MULTIPART_DOWNLOAD_CHUNK_SIZE.get():
                 download_file_using_http_uri(
                     signed_uri, local_path, MLFLOW_MULTIPART_DOWNLOAD_CHUNK_SIZE.get(), headers
                 )
