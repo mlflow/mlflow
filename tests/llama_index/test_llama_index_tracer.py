@@ -454,7 +454,7 @@ def test_tracer_handle_tracking_uri_update(tmp_path):
     "https://github.com/run-llama/llama_index/issues/16283 is fixed",
 )
 @pytest.mark.skipif(
-    Version(llama_core_version) < Version("0.11.0"),
+    llama_core_version < Version("0.11.0"),
     reason="Workflow was introduced in 0.11.0",
 )
 @pytest.mark.asyncio
@@ -464,7 +464,6 @@ async def test_tracer_simple_workflow():
     class MyWorkflow(Workflow):
         @step
         async def my_step(self, ev: StartEvent) -> StopEvent:
-            # do something here
             return StopEvent(result="Hi, world!")
 
     w = MyWorkflow(timeout=10, verbose=False)
@@ -473,8 +472,6 @@ async def test_tracer_simple_workflow():
     traces = _get_all_traces()
     assert len(traces) == 1
     assert traces[0].info.status == TraceStatus.OK
-    for s in traces[0].data.spans:
-        assert s.status.status_code == SpanStatusCode.OK
     assert all(s.status.status_code == SpanStatusCode.OK for s in traces[0].data.spans)
 
 
@@ -484,7 +481,7 @@ async def test_tracer_simple_workflow():
     "https://github.com/run-llama/llama_index/issues/16283 is fixed",
 )
 @pytest.mark.skipif(
-    Version(llama_core_version) < Version("0.11.0"),
+    llama_core_version < Version("0.11.0"),
     reason="Workflow was introduced in 0.11.0",
 )
 @pytest.mark.asyncio
