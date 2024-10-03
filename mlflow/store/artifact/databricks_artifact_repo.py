@@ -146,6 +146,7 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
         """
         The artifact_uri is expected to be in one of the following formats:
         - dbfs:/databricks/mlflow-tracking/<EXP_ID>/<RUN_ID>/artifacts/<path>
+        - dbfs:/databricks/mlflow-tracking/<EXP_ID>/logged_models/<MODEL_ID>/artifacts/<path>
         - databricks/mlflow-tracking/<EXP_ID>/<RUN_ID>/artifacts/<path>
         - databricks/mlflow-tracking/<EXP_ID>/logged_models/<MODEL_ID>/artifacts/<path>
 
