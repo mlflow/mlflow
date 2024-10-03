@@ -1944,6 +1944,7 @@ def delete_experiment(experiment_id: str) -> None:
 
 def create_logged_model(
     name: str,
+    *,
     source_run_id: Optional[str] = None,
     tags: Optional[Dict[str, str]] = None,
     params: Optional[Dict[str, str]] = None,
@@ -1991,6 +1992,7 @@ def get_logged_model(model_id: str) -> LoggedModel:
 
 
 def search_logged_models(
+    *,
     experiment_ids: Optional[List[str]] = None,
     filter_string: Optional[str] = None,
     max_results: Optional[int] = None,

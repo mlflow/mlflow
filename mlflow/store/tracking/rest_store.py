@@ -561,6 +561,7 @@ class RestStore(AbstractStore):
         self,
         experiment_id: str,
         name: str,
+        *,
         source_run_id: Optional[str] = None,
         tags: Optional[List[LoggedModelTag]] = None,
         params: Optional[List[LoggedModelParameter]] = None,

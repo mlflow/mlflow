@@ -4779,6 +4779,7 @@ class MlflowClient:
         self,
         experiment_id: str,
         name: str,
+        *,
         source_run_id: Optional[str] = None,
         tags: Optional[Dict[str, str]] = None,
         params: Optional[Dict[str, str]] = None,
@@ -4846,6 +4847,7 @@ class MlflowClient:
 
     def search_logged_models(
         self,
+        *,
         experiment_ids: List[str],
         filter_string: Optional[str] = None,
         max_results: Optional[int] = None,
