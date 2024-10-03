@@ -120,8 +120,7 @@ tensorflow:
       "== dev": "3.9"
     requirements:
       # Requirements to run tests for keras
-      ">= 0.0.0":
-        ["scikit-learn", "pyspark", "pyarrow", "transformers!=4.38.0,!=4.38.1", "tf-keras"]
+      ">= 0.0.0": ["scikit-learn", "pyspark", "pyarrow", "transformers!=4.38.0,!=4.38.1"]
       # TensorFlow 2.12.1 and 2.13.1 requires typing_extensions < 4.6.0, which is
       # incompatible with SQLAlchemy 2.0.25 with error
       # `cannot import name 'TypeAliasType' from 'typing_extensions'`
@@ -140,7 +139,6 @@ tensorflow:
     python:
       "== dev": "3.9"
     requirements:
-      ">= 0.0.0": ["tf-keras"]
       "== dev": ["scikit-learn"]
       # TensorFlow 2.12.1 and 2.13.1 requires typing_extensions < 4.6.0, which is
       # incompatible with SQLAlchemy 2.0.25 with error
@@ -573,6 +571,7 @@ transformers:
           "sentencepiece", # required for transformers text2text generation pipeline
           "protobuf<=3.20.3", # fix error `Couldn't build proto file into descriptor pool: duplicate file name sentencepiece_model.proto`
           "typing_extensions>=4.6.0", # fix error for SqlAlchemy == 2.0.25 cannot import name 'TypeAliasType' from 'typing_extensions'
+          "tf-keras",
         ]
       # tensorflow 2.13.0 made all Keras private functions inaccessible. transformers versions
       # prior to 4.30.0 are incompatible with this breaking change in Keras.
@@ -611,6 +610,7 @@ transformers:
           "accelerate",
           "setfit",
           "optuna",
+          "tf-keras",
         ]
       # sentence-transformers >= 2.4.0 relies on `transformers.utils.import_utils.is_nltk_available`
       # to check nltk availability. This function is only available in transformers>=4.34.0.
