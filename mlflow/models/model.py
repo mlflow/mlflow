@@ -1058,7 +1058,7 @@ def set_model(model):
         globals()["__mlflow_model__"] = model
         return
 
-    for validate_function in [_validate_llama_index_model, _validate_llama_index_model]:
+    for validate_function in [_validate_langchain_model, _validate_llama_index_model]:
         try:
             globals()["__mlflow_model__"] = validate_function(model)
             return

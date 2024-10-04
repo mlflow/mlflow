@@ -79,7 +79,12 @@ from mlflow.langchain.utils import (
 from mlflow.langchain.utils.chat import try_transform_response_to_chat_format
 from mlflow.models import Model
 from mlflow.models.dependencies_schemas import DependenciesSchemasType
-from mlflow.models.resources import DatabricksServingEndpoint, DatabricksVectorSearchIndex
+from mlflow.models.resources import (
+    DatabricksFunction,
+    DatabricksServingEndpoint,
+    DatabricksSQLWarehouse,
+    DatabricksVectorSearchIndex,
+)
 from mlflow.models.signature import ModelSignature, Schema, infer_signature
 from mlflow.models.utils import load_serving_example
 from mlflow.pyfunc.context import Context
@@ -3470,3 +3475,90 @@ def test_invoking_model_with_params():
         # This proves the temperature is passed to the model
         with pytest.raises(MlflowException, match=r"Temperature must be between 0.0 and 2.0"):
             pyfunc_model.predict(data=data, params=params)
+
+
+def test_custom_resources(chain_model_signature, tmp_path):
+    input_example = {
+        "messages": [
+            {
+                "role": "user",
+                "content": "What is a good name for a company that makes MLflow?",
+            }
+        ]
+    }
+    expected_resources = {
+        "api_version": "1",
+        "databricks": {
+            "serving_endpoint": [
+                {"name": "databricks-mixtral-8x7b-instruct"},
+                {"name": "databricks-bge-large-en"},
+                {"name": "azure-eastus-model-serving-2_vs_endpoint"},
+            ],
+            "vector_search_index": [{"name": "rag.studio_bugbash.databricks_docs_index"}],
+            "sql_warehouse": [{"name": "testid"}],
+            "function": [
+                {"name": "rag.studio.test_function_a"},
+                {"name": "rag.studio.test_function_b"},
+            ],
+        },
+    }
+    artifact_path = "model_path"
+    chain_path = "tests/langchain/sample_code/chain.py"
+    with mlflow.start_run() as run:
+        mlflow.langchain.log_model(
+            chain_path,
+            artifact_path,
+            signature=chain_model_signature,
+            input_example=input_example,
+            model_config="tests/langchain/sample_code/config.yml",
+            resources=[
+                DatabricksServingEndpoint(endpoint_name="databricks-mixtral-8x7b-instruct"),
+                DatabricksServingEndpoint(endpoint_name="databricks-bge-large-en"),
+                DatabricksServingEndpoint(endpoint_name="azure-eastus-model-serving-2_vs_endpoint"),
+                DatabricksVectorSearchIndex(index_name="rag.studio_bugbash.databricks_docs_index"),
+                DatabricksSQLWarehouse(warehouse_id="testid"),
+                DatabricksFunction(function_name="rag.studio.test_function_a"),
+                DatabricksFunction(function_name="rag.studio.test_function_b"),
+            ],
+        )
+
+        model_uri = f"runs:/{run.info.run_id}/{artifact_path}"
+        model_path = _download_artifact_from_uri(model_uri)
+        reloaded_model = Model.load(os.path.join(model_path, "MLmodel"))
+        assert reloaded_model.resources == expected_resources
+
+    yaml_file = tmp_path.joinpath("resources.yaml")
+    with open(yaml_file, "w") as f:
+        f.write(
+            """
+            api_version: "1"
+            databricks:
+                vector_search_index:
+                - name: rag.studio_bugbash.databricks_docs_index
+                serving_endpoint:
+                - name: databricks-mixtral-8x7b-instruct
+                - name: databricks-bge-large-en
+                - name: azure-eastus-model-serving-2_vs_endpoint
+                sql_warehouse:
+                - name: testid
+                function:
+                - name: rag.studio.test_function_a
+                - name: rag.studio.test_function_b
+            """
+        )
+
+    artifact_path_2 = "model_path_2"
+    with mlflow.start_run() as run:
+        mlflow.langchain.log_model(
+            chain_path,
+            artifact_path_2,
+            signature=chain_model_signature,
+            input_example=input_example,
+            model_config="tests/langchain/sample_code/config.yml",
+            resources=yaml_file,
+        )
+
+        model_uri = f"runs:/{run.info.run_id}/{artifact_path_2}"
+        model_path = _download_artifact_from_uri(model_uri)
+        reloaded_model = Model.load(os.path.join(model_path, "MLmodel"))
+        assert reloaded_model.resources == expected_resources
