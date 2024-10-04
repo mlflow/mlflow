@@ -359,7 +359,7 @@ def save_model(
         **model_data_kwargs,
     )
 
-    if Version(langchain.__version__) >= Version("0.0.311"):
+    if Version(langchain.__version__) >= Version("0.0.311") and mlflow_model.resources is None:
         if databricks_resources := _detect_databricks_dependencies(lc_model):
             serialized_databricks_resources = _ResourceBuilder.from_resources(databricks_resources)
             mlflow_model.resources = serialized_databricks_resources
@@ -423,6 +423,7 @@ def log_model(
     run_id=None,
     model_config=None,
     streamable=None,
+    resources=None,
     params: Optional[Dict[str, Any]] = None,
     tags: Optional[Dict[str, Any]] = None,
     model_type: Optional[str] = None,
@@ -547,6 +548,12 @@ def log_model(
         streamable: A boolean value indicating if the model supports streaming prediction. If
             True, the model must implement `stream` method. If None, If None, streamable is
             set to True if the model implements `stream` method. Default to `None`.
+        resources: A list of model resources or a resources.yaml file containing a list of
+                    resources required to serve the model.
+
+            .. Note:: Experimental: This parameter may change or be removed in a future
+                                    release without warning.
+
         params: {{ params }}
         tags: {{ tags }}
         model_type: {{ model_type }}
@@ -576,6 +583,7 @@ def log_model(
         run_id=run_id,
         model_config=model_config,
         streamable=streamable,
+        resources=resources,
         params=params,
         tags=tags,
         model_type=model_type,
