@@ -471,6 +471,11 @@ up OpenAI authentication to run the code below.
 
 .. code-block:: python
 
+    import mlflow
+    import openai
+    import pandas as pd
+    from typing import List
+
     eval_data = pd.DataFrame(
         {
             "inputs": [
@@ -485,28 +490,46 @@ up OpenAI authentication to run the code below.
     )
 
 
-    def openai_qa(inputs):
-        answers = []
+    def openai_qa(inputs: pd.DataFrame) -> List[str]:
+        predictions = []
         system_prompt = "Please answer the following question in formal language."
-        for index, row in inputs.iterrows():
+
+        for _, row in inputs.iterrows():
             completion = openai.chat.completions.create(
                 model="gpt-4o-mini",
                 messages=[
                     {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": "{row}"},
+                    {"role": "user", "content": row["inputs"]},
                 ],
             )
-            answers.append(completion.choices[0].message.content)
+            predictions.append(completion.choices[0].message.content)
 
-        return answers
+        return predictions
 
 
-    with mlflow.start_run() as run:
+    with mlflow.start_run():
         results = mlflow.evaluate(
-            openai_qa,
-            eval_data,
+            model=openai_qa,
+            data=eval_data,
+            targets="ground_truth",
             model_type="question-answering",
         )
+
+    print(results.metrics)
+
+.. code-block:: python
+    :caption: Output
+
+    {
+        "flesch_kincaid_grade_level/v1/mean": 14.75,
+        "flesch_kincaid_grade_level/v1/variance": 0.5625,
+        "flesch_kincaid_grade_level/v1/p90": 15.35,
+        "ari_grade_level/v1/mean": 18.15,
+        "ari_grade_level/v1/variance": 0.5625,
+        "ari_grade_level/v1/p90": 18.75,
+        "exact_match/v1": 0.0,
+    }
+
 
 .. _llm-eval-model-endpoint:
 
