@@ -479,6 +479,8 @@ message from a LangGraph model. This function is then used in mlflow.evaluate to
 string response, which can be compared to the `"ground_truth"` column.
 
 .. code-block:: python
+import mlflow
+import pandas as pd
 
     # Note that we assume the `model_uri` variable is present
     loaded_model = mlflow.langchain.load_model(model_uri)
