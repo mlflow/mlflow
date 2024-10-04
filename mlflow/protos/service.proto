@@ -572,6 +572,17 @@ service MlflowService {
     };
   }
 
+  rpc setLoggedModelTags(SetLoggedModelTags) returns (SetLoggedModelTags.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "PATCH",
+        path: "/mlflow/logged-models/{model_id}/tags"
+        since {major: 2, minor: 0},
+      }],
+      visibility: PUBLIC_UNDOCUMENTED,
+      rpc_doc_title: "Set Logged Model Tag",
+    };
+  }
 }
 
 // View type for ListExperiments query.
@@ -1606,6 +1617,21 @@ message GetLoggedModel {
 
   message Response {
     // The retrieved LoggedModel.
+    optional LoggedModel model = 1;
+  }
+}
+
+message SetLoggedModelTags {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // The ID of the LoggedModel to set the tag on.
+  optional string model_id = 1 [(validate_required) = true];
+
+  // The tag key.
+  repeated LoggedModelTag tags = 2;
+
+  message Response {
+    // The updated LoggedModel.
     optional LoggedModel model = 1;
   }
 }
