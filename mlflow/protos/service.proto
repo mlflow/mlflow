@@ -1615,6 +1615,7 @@ message GetLoggedModel {
 message LoggedModel {
   // LoggedModel attributes such as model ID, status, tags, etc.
   optional LoggedModelInfo info = 1;
+
   // LoggedModel params and metrics.
   optional LoggedModelData data = 2;
 }

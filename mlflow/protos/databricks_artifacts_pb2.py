@@ -20,11 +20,7 @@ if Version(google.protobuf.__version__).major >= 5:
   from . import databricks_pb2 as databricks__pb2
 
 
-<<<<<<< HEAD
-  DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x1a\x64\x61tabricks_artifacts.proto\x12\x06mlflow\x1a\x15scalapb/scalapb.proto\x1a\x10\x64\x61tabricks.proto\"\xdf\x01\n\x16\x41rtifactCredentialInfo\x12\x0e\n\x06run_id\x18\x01 \x01(\t\x12\x0c\n\x04path\x18\x02 \x01(\t\x12\x12\n\nsigned_uri\x18\x03 \x01(\t\x12:\n\x07headers\x18\x04 \x03(\x0b\x32).mlflow.ArtifactCredentialInfo.HttpHeader\x12,\n\x04type\x18\x05 \x01(\x0e\x32\x1e.mlflow.ArtifactCredentialType\x1a)\n\nHttpHeader\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t\"j\n\x1dLoggedModelArtifactCredential\x12\x10\n\x08model_id\x18\x01 \x01(\t\x12\x37\n\x0f\x63redential_info\x18\x02 \x01(\x0b\x32\x1e.mlflow.ArtifactCredentialInfo\"\x92\x02\n\x15GetCredentialsForRead\x12\x14\n\x06run_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x0c\n\x04path\x18\x02 \x03(\t\x12\x12\n\npage_token\x18\x03 \x01(\t\x1a\x63\n\x08Response\x12\x38\n\x10\x63redential_infos\x18\x02 \x03(\x0b\x32\x1e.mlflow.ArtifactCredentialInfo\x12\x17\n\x0fnext_page_token\x18\x03 \x01(\tJ\x04\x08\x01\x10\x02:\\\xe2?Y\n&com.databricks.rpc.RPC[$this.Response]\n/com.databricks.mlflow.api.MlflowTrackingMessage\"\x93\x02\n\x16GetCredentialsForWrite\x12\x14\n\x06run_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x0c\n\x04path\x18\x02 \x03(\t\x12\x12\n\npage_token\x18\x03 \x01(\t\x1a\x63\n\x08Response\x12\x38\n\x10\x63redential_infos\x18\x02 \x03(\x0b\x32\x1e.mlflow.ArtifactCredentialInfo\x12\x17\n\x0fnext_page_token\x18\x03 \x01(\tJ\x04\x08\x01\x10\x02:\\\xe2?Y\n&com.databricks.rpc.RPC[$this.Response]\n/com.databricks.mlflow.api.MlflowTrackingMessage\"\xd2\x02\n\x15\x43reateMultipartUpload\x12\x14\n\x06run_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x0c\n\x04path\x18\x02 \x01(\t\x12\x17\n\tnum_parts\x18\x03 \x01(\x03\x42\x04\xf8\x86\x19\x01\x1a\x9d\x01\n\x08Response\x12\x11\n\tupload_id\x18\x01 \x01(\t\x12?\n\x17upload_credential_infos\x18\x02 \x03(\x0b\x32\x1e.mlflow.ArtifactCredentialInfo\x12=\n\x15\x61\x62ort_credential_info\x18\x03 \x01(\x0b\x32\x1e.mlflow.ArtifactCredentialInfo:\\\xe2?Y\n&com.databricks.rpc.RPC[$this.Response]\n/com.databricks.mlflow.api.MlflowTrackingMessage\"-\n\x08PartEtag\x12\x13\n\x0bpart_number\x18\x01 \x01(\x03\x12\x0c\n\x04\x65tag\x18\x02 \x01(\t\"\xe6\x01\n\x17\x43ompleteMultipartUpload\x12\x14\n\x06run_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x0c\n\x04path\x18\x02 \x01(\t\x12\x17\n\tupload_id\x18\x03 \x01(\tB\x04\xf8\x86\x19\x01\x12$\n\npart_etags\x18\x04 \x03(\x0b\x32\x10.mlflow.PartEtag\x1a\n\n\x08Response:\\\xe2?Y\n&com.databricks.rpc.RPC[$this.Response]\n/com.databricks.mlflow.api.MlflowTrackingMessage\"\x9d\x02\n\x19GetPresignedUploadPartUrl\x12\x14\n\x06run_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x0c\n\x04path\x18\x02 \x01(\t\x12\x17\n\tupload_id\x18\x03 \x01(\tB\x04\xf8\x86\x19\x01\x12\x19\n\x0bpart_number\x18\x04 \x01(\x03\x42\x04\xf8\x86\x19\x01\x1aJ\n\x08Response\x12>\n\x16upload_credential_info\x18\x01 \x01(\x0b\x32\x1e.mlflow.ArtifactCredentialInfo:\\\xe2?Y\n&com.databricks.rpc.RPC[$this.Response]\n/com.databricks.mlflow.api.MlflowTrackingMessage\"\xe1\x01\n\"GetCredentialsForTraceDataDownload\x12\x18\n\nrequest_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x1a\x43\n\x08Response\x12\x37\n\x0f\x63redential_info\x18\x01 \x01(\x0b\x32\x1e.mlflow.ArtifactCredentialInfo:\\\xe2?Y\n&com.databricks.rpc.RPC[$this.Response]\n/com.databricks.mlflow.api.MlflowTrackingMessage\"\xdf\x01\n GetCredentialsForTraceDataUpload\x12\x18\n\nrequest_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x1a\x43\n\x08Response\x12\x37\n\x0f\x63redential_info\x18\x01 \x01(\x0b\x32\x1e.mlflow.ArtifactCredentialInfo:\\\xe2?Y\n&com.databricks.rpc.RPC[$this.Response]\n/com.databricks.mlflow.api.MlflowTrackingMessage\"\x9e\x02\n\"GetCredentialsForLoggedModelUpload\x12\x16\n\x08model_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\r\n\x05paths\x18\x02 \x03(\t\x12\x12\n\npage_token\x18\x03 \x01(\t\x1a_\n\x08Response\x12:\n\x0b\x63redentials\x18\x01 \x03(\x0b\x32%.mlflow.LoggedModelArtifactCredential\x12\x17\n\x0fnext_page_token\x18\x02 \x01(\t:\\\xe2?Y\n&com.databricks.rpc.RPC[$this.Response]\n/com.databricks.mlflow.api.MlflowTrackingMessage\"\xa0\x02\n$GetCredentialsForLoggedModelDownload\x12\x16\n\x08model_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\r\n\x05paths\x18\x02 \x03(\t\x12\x12\n\npage_token\x18\x03 \x01(\t\x1a_\n\x08Response\x12:\n\x0b\x63redentials\x18\x01 \x03(\x0b\x32%.mlflow.LoggedModelArtifactCredential\x12\x17\n\x0fnext_page_token\x18\x02 \x01(\t:\\\xe2?Y\n&com.databricks.rpc.RPC[$this.Response]\n/com.databricks.mlflow.api.MlflowTrackingMessage*s\n\x16\x41rtifactCredentialType\x12\x11\n\rAZURE_SAS_URI\x10\x01\x12\x15\n\x11\x41WS_PRESIGNED_URL\x10\x02\x12\x12\n\x0eGCP_SIGNED_URL\x10\x03\x12\x1b\n\x17\x41ZURE_ADLS_GEN2_SAS_URI\x10\x04\x32\xc1\r\n DatabricksMlflowArtifactsService\x12\x9c\x01\n\x15getCredentialsForRead\x12\x1d.mlflow.GetCredentialsForRead\x1a&.mlflow.GetCredentialsForRead.Response\"<\xf2\x86\x19\x38\n4\n\x04POST\x12&/mlflow/artifacts/credentials-for-read\x1a\x04\x08\x02\x10\x00\x10\x03\x12\xa0\x01\n\x16getCredentialsForWrite\x12\x1e.mlflow.GetCredentialsForWrite\x1a\'.mlflow.GetCredentialsForWrite.Response\"=\xf2\x86\x19\x39\n5\n\x04POST\x12\'/mlflow/artifacts/credentials-for-write\x1a\x04\x08\x02\x10\x00\x10\x03\x12\x9f\x01\n\x15\x63reateMultipartUpload\x12\x1d.mlflow.CreateMultipartUpload\x1a&.mlflow.CreateMultipartUpload.Response\"?\xf2\x86\x19;\n7\n\x04POST\x12)/mlflow/artifacts/create-multipart-upload\x1a\x04\x08\x02\x10\x00\x10\x03\x12\xa7\x01\n\x17\x63ompleteMultipartUpload\x12\x1f.mlflow.CompleteMultipartUpload\x1a(.mlflow.CompleteMultipartUpload.Response\"A\xf2\x86\x19=\n9\n\x04POST\x12+/mlflow/artifacts/complete-multipart-upload\x1a\x04\x08\x02\x10\x00\x10\x03\x12\xb0\x01\n\x19getPresignedUploadPartUrl\x12!.mlflow.GetPresignedUploadPartUrl\x1a*.mlflow.GetPresignedUploadPartUrl.Response\"D\xf2\x86\x19@\n<\n\x03GET\x12//mlflow/artifacts/get-presigned-upload-part-url\x1a\x04\x08\x02\x10\x00\x10\x03\x12\xd5\x01\n\"getCredentialsForTraceDataDownload\x12*.mlflow.GetCredentialsForTraceDataDownload\x1a\x33.mlflow.GetCredentialsForTraceDataDownload.Response\"N\xf2\x86\x19J\nF\n\x03GET\x12\x39/mlflow/traces/{request_id}/credentials-for-data-download\x1a\x04\x08\x02\x10\x00\x10\x03\x12\xcd\x01\n getCredentialsForTraceDataUpload\x12(.mlflow.GetCredentialsForTraceDataUpload\x1a\x31.mlflow.GetCredentialsForTraceDataUpload.Response\"L\xf2\x86\x19H\nD\n\x03GET\x12\x37/mlflow/traces/{request_id}/credentials-for-data-upload\x1a\x04\x08\x02\x10\x00\x10\x03\x12\xd4\x01\n\"getCredentialsForLoggedModelUpload\x12*.mlflow.GetCredentialsForLoggedModelUpload\x1a\x33.mlflow.GetCredentialsForLoggedModelUpload.Response\"M\xf2\x86\x19I\nE\n\x04POST\x12\x37/mlflow/logged-models/{model_id}/credentials-for-upload\x1a\x04\x08\x02\x10\x00\x10\x03\x12\xdc\x01\n$getCredentialsForLoggedModelDownload\x12,.mlflow.GetCredentialsForLoggedModelDownload\x1a\x35.mlflow.GetCredentialsForLoggedModelDownload.Response\"O\xf2\x86\x19K\nG\n\x04POST\x12\x39/mlflow/logged-models/{model_id}/credentials-for-download\x1a\x04\x08\x02\x10\x00\x10\x03\x42,\n\x1f\x63om.databricks.api.proto.mlflow\x90\x01\x01\xa0\x01\x01\xe2?\x02\x10\x01')
-=======
-  DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x1a\x64\x61tabricks_artifacts.proto\x12\x06mlflow\x1a\x15scalapb/scalapb.proto\x1a\x10\x64\x61tabricks.proto\"\xdf\x01\n\x16\x41rtifactCredentialInfo\x12\x0e\n\x06run_id\x18\x01 \x01(\t\x12\x0c\n\x04path\x18\x02 \x01(\t\x12\x12\n\nsigned_uri\x18\x03 \x01(\t\x12:\n\x07headers\x18\x04 \x03(\x0b\x32).mlflow.ArtifactCredentialInfo.HttpHeader\x12,\n\x04type\x18\x05 \x01(\x0e\x32\x1e.mlflow.ArtifactCredentialType\x1a)\n\nHttpHeader\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t\"\xe1\x01\n\x15GetCredentialsForRead\x12\x14\n\x06run_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x0c\n\x04path\x18\x02 \x03(\t\x12\x12\n\npage_token\x18\x03 \x01(\t\x1a\x63\n\x08Response\x12\x38\n\x10\x63redential_infos\x18\x02 \x03(\x0b\x32\x1e.mlflow.ArtifactCredentialInfo\x12\x17\n\x0fnext_page_token\x18\x03 \x01(\tJ\x04\x08\x01\x10\x02:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\xe2\x01\n\x16GetCredentialsForWrite\x12\x14\n\x06run_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x0c\n\x04path\x18\x02 \x03(\t\x12\x12\n\npage_token\x18\x03 \x01(\t\x1a\x63\n\x08Response\x12\x38\n\x10\x63redential_infos\x18\x02 \x03(\x0b\x32\x1e.mlflow.ArtifactCredentialInfo\x12\x17\n\x0fnext_page_token\x18\x03 \x01(\tJ\x04\x08\x01\x10\x02:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\xa1\x02\n\x15\x43reateMultipartUpload\x12\x14\n\x06run_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x0c\n\x04path\x18\x02 \x01(\t\x12\x17\n\tnum_parts\x18\x03 \x01(\x03\x42\x04\xf8\x86\x19\x01\x1a\x9d\x01\n\x08Response\x12\x11\n\tupload_id\x18\x01 \x01(\t\x12?\n\x17upload_credential_infos\x18\x02 \x03(\x0b\x32\x1e.mlflow.ArtifactCredentialInfo\x12=\n\x15\x61\x62ort_credential_info\x18\x03 \x01(\x0b\x32\x1e.mlflow.ArtifactCredentialInfo:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"-\n\x08PartEtag\x12\x13\n\x0bpart_number\x18\x01 \x01(\x03\x12\x0c\n\x04\x65tag\x18\x02 \x01(\t\"\xb5\x01\n\x17\x43ompleteMultipartUpload\x12\x14\n\x06run_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x0c\n\x04path\x18\x02 \x01(\t\x12\x17\n\tupload_id\x18\x03 \x01(\tB\x04\xf8\x86\x19\x01\x12$\n\npart_etags\x18\x04 \x03(\x0b\x32\x10.mlflow.PartEtag\x1a\n\n\x08Response:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\xec\x01\n\x19GetPresignedUploadPartUrl\x12\x14\n\x06run_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x0c\n\x04path\x18\x02 \x01(\t\x12\x17\n\tupload_id\x18\x03 \x01(\tB\x04\xf8\x86\x19\x01\x12\x19\n\x0bpart_number\x18\x04 \x01(\x03\x42\x04\xf8\x86\x19\x01\x1aJ\n\x08Response\x12>\n\x16upload_credential_info\x18\x01 \x01(\x0b\x32\x1e.mlflow.ArtifactCredentialInfo:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\xb0\x01\n\"GetCredentialsForTraceDataDownload\x12\x18\n\nrequest_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x1a\x43\n\x08Response\x12\x37\n\x0f\x63redential_info\x18\x01 \x01(\x0b\x32\x1e.mlflow.ArtifactCredentialInfo:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\xae\x01\n GetCredentialsForTraceDataUpload\x12\x18\n\nrequest_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x1a\x43\n\x08Response\x12\x37\n\x0f\x63redential_info\x18\x01 \x01(\x0b\x32\x1e.mlflow.ArtifactCredentialInfo:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]*s\n\x16\x41rtifactCredentialType\x12\x11\n\rAZURE_SAS_URI\x10\x01\x12\x15\n\x11\x41WS_PRESIGNED_URL\x10\x02\x12\x12\n\x0eGCP_SIGNED_URL\x10\x03\x12\x1b\n\x17\x41ZURE_ADLS_GEN2_SAS_URI\x10\x04\x32\x8b\n\n DatabricksMlflowArtifactsService\x12\x9c\x01\n\x15getCredentialsForRead\x12\x1d.mlflow.GetCredentialsForRead\x1a&.mlflow.GetCredentialsForRead.Response\"<\xf2\x86\x19\x38\n4\n\x04POST\x12&/mlflow/artifacts/credentials-for-read\x1a\x04\x08\x02\x10\x00\x10\x03\x12\xa0\x01\n\x16getCredentialsForWrite\x12\x1e.mlflow.GetCredentialsForWrite\x1a\'.mlflow.GetCredentialsForWrite.Response\"=\xf2\x86\x19\x39\n5\n\x04POST\x12\'/mlflow/artifacts/credentials-for-write\x1a\x04\x08\x02\x10\x00\x10\x03\x12\x9f\x01\n\x15\x63reateMultipartUpload\x12\x1d.mlflow.CreateMultipartUpload\x1a&.mlflow.CreateMultipartUpload.Response\"?\xf2\x86\x19;\n7\n\x04POST\x12)/mlflow/artifacts/create-multipart-upload\x1a\x04\x08\x02\x10\x00\x10\x03\x12\xa7\x01\n\x17\x63ompleteMultipartUpload\x12\x1f.mlflow.CompleteMultipartUpload\x1a(.mlflow.CompleteMultipartUpload.Response\"A\xf2\x86\x19=\n9\n\x04POST\x12+/mlflow/artifacts/complete-multipart-upload\x1a\x04\x08\x02\x10\x00\x10\x03\x12\xb0\x01\n\x19getPresignedUploadPartUrl\x12!.mlflow.GetPresignedUploadPartUrl\x1a*.mlflow.GetPresignedUploadPartUrl.Response\"D\xf2\x86\x19@\n<\n\x03GET\x12//mlflow/artifacts/get-presigned-upload-part-url\x1a\x04\x08\x02\x10\x00\x10\x03\x12\xd5\x01\n\"getCredentialsForTraceDataDownload\x12*.mlflow.GetCredentialsForTraceDataDownload\x1a\x33.mlflow.GetCredentialsForTraceDataDownload.Response\"N\xf2\x86\x19J\nF\n\x03GET\x12\x39/mlflow/traces/{request_id}/credentials-for-data-download\x1a\x04\x08\x02\x10\x00\x10\x03\x12\xcd\x01\n getCredentialsForTraceDataUpload\x12(.mlflow.GetCredentialsForTraceDataUpload\x1a\x31.mlflow.GetCredentialsForTraceDataUpload.Response\"L\xf2\x86\x19H\nD\n\x03GET\x12\x37/mlflow/traces/{request_id}/credentials-for-data-upload\x1a\x04\x08\x02\x10\x00\x10\x03\x42,\n\x1f\x63om.databricks.api.proto.mlflow\x90\x01\x01\xa0\x01\x01\xe2?\x02\x10\x01')
->>>>>>> master
+  DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x1a\x64\x61tabricks_artifacts.proto\x12\x06mlflow\x1a\x15scalapb/scalapb.proto\x1a\x10\x64\x61tabricks.proto\"\xdf\x01\n\x16\x41rtifactCredentialInfo\x12\x0e\n\x06run_id\x18\x01 \x01(\t\x12\x0c\n\x04path\x18\x02 \x01(\t\x12\x12\n\nsigned_uri\x18\x03 \x01(\t\x12:\n\x07headers\x18\x04 \x03(\x0b\x32).mlflow.ArtifactCredentialInfo.HttpHeader\x12,\n\x04type\x18\x05 \x01(\x0e\x32\x1e.mlflow.ArtifactCredentialType\x1a)\n\nHttpHeader\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t\"j\n\x1dLoggedModelArtifactCredential\x12\x10\n\x08model_id\x18\x01 \x01(\t\x12\x37\n\x0f\x63redential_info\x18\x02 \x01(\x0b\x32\x1e.mlflow.ArtifactCredentialInfo\"\xe1\x01\n\x15GetCredentialsForRead\x12\x14\n\x06run_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x0c\n\x04path\x18\x02 \x03(\t\x12\x12\n\npage_token\x18\x03 \x01(\t\x1a\x63\n\x08Response\x12\x38\n\x10\x63redential_infos\x18\x02 \x03(\x0b\x32\x1e.mlflow.ArtifactCredentialInfo\x12\x17\n\x0fnext_page_token\x18\x03 \x01(\tJ\x04\x08\x01\x10\x02:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\xe2\x01\n\x16GetCredentialsForWrite\x12\x14\n\x06run_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x0c\n\x04path\x18\x02 \x03(\t\x12\x12\n\npage_token\x18\x03 \x01(\t\x1a\x63\n\x08Response\x12\x38\n\x10\x63redential_infos\x18\x02 \x03(\x0b\x32\x1e.mlflow.ArtifactCredentialInfo\x12\x17\n\x0fnext_page_token\x18\x03 \x01(\tJ\x04\x08\x01\x10\x02:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\xa1\x02\n\x15\x43reateMultipartUpload\x12\x14\n\x06run_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x0c\n\x04path\x18\x02 \x01(\t\x12\x17\n\tnum_parts\x18\x03 \x01(\x03\x42\x04\xf8\x86\x19\x01\x1a\x9d\x01\n\x08Response\x12\x11\n\tupload_id\x18\x01 \x01(\t\x12?\n\x17upload_credential_infos\x18\x02 \x03(\x0b\x32\x1e.mlflow.ArtifactCredentialInfo\x12=\n\x15\x61\x62ort_credential_info\x18\x03 \x01(\x0b\x32\x1e.mlflow.ArtifactCredentialInfo:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"-\n\x08PartEtag\x12\x13\n\x0bpart_number\x18\x01 \x01(\x03\x12\x0c\n\x04\x65tag\x18\x02 \x01(\t\"\xb5\x01\n\x17\x43ompleteMultipartUpload\x12\x14\n\x06run_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x0c\n\x04path\x18\x02 \x01(\t\x12\x17\n\tupload_id\x18\x03 \x01(\tB\x04\xf8\x86\x19\x01\x12$\n\npart_etags\x18\x04 \x03(\x0b\x32\x10.mlflow.PartEtag\x1a\n\n\x08Response:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\xec\x01\n\x19GetPresignedUploadPartUrl\x12\x14\n\x06run_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x0c\n\x04path\x18\x02 \x01(\t\x12\x17\n\tupload_id\x18\x03 \x01(\tB\x04\xf8\x86\x19\x01\x12\x19\n\x0bpart_number\x18\x04 \x01(\x03\x42\x04\xf8\x86\x19\x01\x1aJ\n\x08Response\x12>\n\x16upload_credential_info\x18\x01 \x01(\x0b\x32\x1e.mlflow.ArtifactCredentialInfo:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\xb0\x01\n\"GetCredentialsForTraceDataDownload\x12\x18\n\nrequest_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x1a\x43\n\x08Response\x12\x37\n\x0f\x63redential_info\x18\x01 \x01(\x0b\x32\x1e.mlflow.ArtifactCredentialInfo:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\xae\x01\n GetCredentialsForTraceDataUpload\x12\x18\n\nrequest_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x1a\x43\n\x08Response\x12\x37\n\x0f\x63redential_info\x18\x01 \x01(\x0b\x32\x1e.mlflow.ArtifactCredentialInfo:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\xed\x01\n\"GetCredentialsForLoggedModelUpload\x12\x16\n\x08model_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\r\n\x05paths\x18\x02 \x03(\t\x12\x12\n\npage_token\x18\x03 \x01(\t\x1a_\n\x08Response\x12:\n\x0b\x63redentials\x18\x01 \x03(\x0b\x32%.mlflow.LoggedModelArtifactCredential\x12\x17\n\x0fnext_page_token\x18\x02 \x01(\t:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\xef\x01\n$GetCredentialsForLoggedModelDownload\x12\x16\n\x08model_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\r\n\x05paths\x18\x02 \x03(\t\x12\x12\n\npage_token\x18\x03 \x01(\t\x1a_\n\x08Response\x12:\n\x0b\x63redentials\x18\x01 \x03(\x0b\x32%.mlflow.LoggedModelArtifactCredential\x12\x17\n\x0fnext_page_token\x18\x02 \x01(\t:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]*s\n\x16\x41rtifactCredentialType\x12\x11\n\rAZURE_SAS_URI\x10\x01\x12\x15\n\x11\x41WS_PRESIGNED_URL\x10\x02\x12\x12\n\x0eGCP_SIGNED_URL\x10\x03\x12\x1b\n\x17\x41ZURE_ADLS_GEN2_SAS_URI\x10\x04\x32\xc1\r\n DatabricksMlflowArtifactsService\x12\x9c\x01\n\x15getCredentialsForRead\x12\x1d.mlflow.GetCredentialsForRead\x1a&.mlflow.GetCredentialsForRead.Response\"<\xf2\x86\x19\x38\n4\n\x04POST\x12&/mlflow/artifacts/credentials-for-read\x1a\x04\x08\x02\x10\x00\x10\x03\x12\xa0\x01\n\x16getCredentialsForWrite\x12\x1e.mlflow.GetCredentialsForWrite\x1a\'.mlflow.GetCredentialsForWrite.Response\"=\xf2\x86\x19\x39\n5\n\x04POST\x12\'/mlflow/artifacts/credentials-for-write\x1a\x04\x08\x02\x10\x00\x10\x03\x12\x9f\x01\n\x15\x63reateMultipartUpload\x12\x1d.mlflow.CreateMultipartUpload\x1a&.mlflow.CreateMultipartUpload.Response\"?\xf2\x86\x19;\n7\n\x04POST\x12)/mlflow/artifacts/create-multipart-upload\x1a\x04\x08\x02\x10\x00\x10\x03\x12\xa7\x01\n\x17\x63ompleteMultipartUpload\x12\x1f.mlflow.CompleteMultipartUpload\x1a(.mlflow.CompleteMultipartUpload.Response\"A\xf2\x86\x19=\n9\n\x04POST\x12+/mlflow/artifacts/complete-multipart-upload\x1a\x04\x08\x02\x10\x00\x10\x03\x12\xb0\x01\n\x19getPresignedUploadPartUrl\x12!.mlflow.GetPresignedUploadPartUrl\x1a*.mlflow.GetPresignedUploadPartUrl.Response\"D\xf2\x86\x19@\n<\n\x03GET\x12//mlflow/artifacts/get-presigned-upload-part-url\x1a\x04\x08\x02\x10\x00\x10\x03\x12\xd5\x01\n\"getCredentialsForTraceDataDownload\x12*.mlflow.GetCredentialsForTraceDataDownload\x1a\x33.mlflow.GetCredentialsForTraceDataDownload.Response\"N\xf2\x86\x19J\nF\n\x03GET\x12\x39/mlflow/traces/{request_id}/credentials-for-data-download\x1a\x04\x08\x02\x10\x00\x10\x03\x12\xcd\x01\n getCredentialsForTraceDataUpload\x12(.mlflow.GetCredentialsForTraceDataUpload\x1a\x31.mlflow.GetCredentialsForTraceDataUpload.Response\"L\xf2\x86\x19H\nD\n\x03GET\x12\x37/mlflow/traces/{request_id}/credentials-for-data-upload\x1a\x04\x08\x02\x10\x00\x10\x03\x12\xd4\x01\n\"getCredentialsForLoggedModelUpload\x12*.mlflow.GetCredentialsForLoggedModelUpload\x1a\x33.mlflow.GetCredentialsForLoggedModelUpload.Response\"M\xf2\x86\x19I\nE\n\x04POST\x12\x37/mlflow/logged-models/{model_id}/credentials-for-upload\x1a\x04\x08\x02\x10\x00\x10\x03\x12\xdc\x01\n$getCredentialsForLoggedModelDownload\x12,.mlflow.GetCredentialsForLoggedModelDownload\x1a\x35.mlflow.GetCredentialsForLoggedModelDownload.Response\"O\xf2\x86\x19K\nG\n\x04POST\x12\x39/mlflow/logged-models/{model_id}/credentials-for-download\x1a\x04\x08\x02\x10\x00\x10\x03\x42,\n\x1f\x63om.databricks.api.proto.mlflow\x90\x01\x01\xa0\x01\x01\xe2?\x02\x10\x01')
 
   _globals = globals()
   _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -67,19 +63,15 @@ if Version(google.protobuf.__version__).major >= 5:
     _globals['_GETCREDENTIALSFORTRACEDATAUPLOAD'].fields_by_name['request_id']._loaded_options = None
     _globals['_GETCREDENTIALSFORTRACEDATAUPLOAD'].fields_by_name['request_id']._serialized_options = b'\370\206\031\001'
     _globals['_GETCREDENTIALSFORTRACEDATAUPLOAD']._loaded_options = None
-<<<<<<< HEAD
-    _globals['_GETCREDENTIALSFORTRACEDATAUPLOAD']._serialized_options = b'\342?Y\n&com.databricks.rpc.RPC[$this.Response]\n/com.databricks.mlflow.api.MlflowTrackingMessage'
+    _globals['_GETCREDENTIALSFORTRACEDATAUPLOAD']._serialized_options = b'\342?(\n&com.databricks.rpc.RPC[$this.Response]'
     _globals['_GETCREDENTIALSFORLOGGEDMODELUPLOAD'].fields_by_name['model_id']._loaded_options = None
     _globals['_GETCREDENTIALSFORLOGGEDMODELUPLOAD'].fields_by_name['model_id']._serialized_options = b'\370\206\031\001'
     _globals['_GETCREDENTIALSFORLOGGEDMODELUPLOAD']._loaded_options = None
-    _globals['_GETCREDENTIALSFORLOGGEDMODELUPLOAD']._serialized_options = b'\342?Y\n&com.databricks.rpc.RPC[$this.Response]\n/com.databricks.mlflow.api.MlflowTrackingMessage'
+    _globals['_GETCREDENTIALSFORLOGGEDMODELUPLOAD']._serialized_options = b'\342?(\n&com.databricks.rpc.RPC[$this.Response]'
     _globals['_GETCREDENTIALSFORLOGGEDMODELDOWNLOAD'].fields_by_name['model_id']._loaded_options = None
     _globals['_GETCREDENTIALSFORLOGGEDMODELDOWNLOAD'].fields_by_name['model_id']._serialized_options = b'\370\206\031\001'
     _globals['_GETCREDENTIALSFORLOGGEDMODELDOWNLOAD']._loaded_options = None
-    _globals['_GETCREDENTIALSFORLOGGEDMODELDOWNLOAD']._serialized_options = b'\342?Y\n&com.databricks.rpc.RPC[$this.Response]\n/com.databricks.mlflow.api.MlflowTrackingMessage'
-=======
-    _globals['_GETCREDENTIALSFORTRACEDATAUPLOAD']._serialized_options = b'\342?(\n&com.databricks.rpc.RPC[$this.Response]'
->>>>>>> master
+    _globals['_GETCREDENTIALSFORLOGGEDMODELDOWNLOAD']._serialized_options = b'\342?(\n&com.databricks.rpc.RPC[$this.Response]'
     _globals['_DATABRICKSMLFLOWARTIFACTSSERVICE'].methods_by_name['getCredentialsForRead']._loaded_options = None
     _globals['_DATABRICKSMLFLOWARTIFACTSSERVICE'].methods_by_name['getCredentialsForRead']._serialized_options = b'\362\206\0318\n4\n\004POST\022&/mlflow/artifacts/credentials-for-read\032\004\010\002\020\000\020\003'
     _globals['_DATABRICKSMLFLOWARTIFACTSSERVICE'].methods_by_name['getCredentialsForWrite']._loaded_options = None
@@ -94,98 +86,58 @@ if Version(google.protobuf.__version__).major >= 5:
     _globals['_DATABRICKSMLFLOWARTIFACTSSERVICE'].methods_by_name['getCredentialsForTraceDataDownload']._serialized_options = b'\362\206\031J\nF\n\003GET\0229/mlflow/traces/{request_id}/credentials-for-data-download\032\004\010\002\020\000\020\003'
     _globals['_DATABRICKSMLFLOWARTIFACTSSERVICE'].methods_by_name['getCredentialsForTraceDataUpload']._loaded_options = None
     _globals['_DATABRICKSMLFLOWARTIFACTSSERVICE'].methods_by_name['getCredentialsForTraceDataUpload']._serialized_options = b'\362\206\031H\nD\n\003GET\0227/mlflow/traces/{request_id}/credentials-for-data-upload\032\004\010\002\020\000\020\003'
-<<<<<<< HEAD
     _globals['_DATABRICKSMLFLOWARTIFACTSSERVICE'].methods_by_name['getCredentialsForLoggedModelUpload']._loaded_options = None
     _globals['_DATABRICKSMLFLOWARTIFACTSSERVICE'].methods_by_name['getCredentialsForLoggedModelUpload']._serialized_options = b'\362\206\031I\nE\n\004POST\0227/mlflow/logged-models/{model_id}/credentials-for-upload\032\004\010\002\020\000\020\003'
     _globals['_DATABRICKSMLFLOWARTIFACTSSERVICE'].methods_by_name['getCredentialsForLoggedModelDownload']._loaded_options = None
     _globals['_DATABRICKSMLFLOWARTIFACTSSERVICE'].methods_by_name['getCredentialsForLoggedModelDownload']._serialized_options = b'\362\206\031K\nG\n\004POST\0229/mlflow/logged-models/{model_id}/credentials-for-download\032\004\010\002\020\000\020\003'
-    _globals['_ARTIFACTCREDENTIALTYPE']._serialized_start=2911
-    _globals['_ARTIFACTCREDENTIALTYPE']._serialized_end=3026
-=======
-    _globals['_ARTIFACTCREDENTIALTYPE']._serialized_start=1880
-    _globals['_ARTIFACTCREDENTIALTYPE']._serialized_end=1995
->>>>>>> master
+    _globals['_ARTIFACTCREDENTIALTYPE']._serialized_start=2470
+    _globals['_ARTIFACTCREDENTIALTYPE']._serialized_end=2585
     _globals['_ARTIFACTCREDENTIALINFO']._serialized_start=80
     _globals['_ARTIFACTCREDENTIALINFO']._serialized_end=303
     _globals['_ARTIFACTCREDENTIALINFO_HTTPHEADER']._serialized_start=262
     _globals['_ARTIFACTCREDENTIALINFO_HTTPHEADER']._serialized_end=303
-<<<<<<< HEAD
     _globals['_LOGGEDMODELARTIFACTCREDENTIAL']._serialized_start=305
     _globals['_LOGGEDMODELARTIFACTCREDENTIAL']._serialized_end=411
     _globals['_GETCREDENTIALSFORREAD']._serialized_start=414
-    _globals['_GETCREDENTIALSFORREAD']._serialized_end=688
+    _globals['_GETCREDENTIALSFORREAD']._serialized_end=639
     _globals['_GETCREDENTIALSFORREAD_RESPONSE']._serialized_start=495
     _globals['_GETCREDENTIALSFORREAD_RESPONSE']._serialized_end=594
-    _globals['_GETCREDENTIALSFORWRITE']._serialized_start=691
-    _globals['_GETCREDENTIALSFORWRITE']._serialized_end=966
+    _globals['_GETCREDENTIALSFORWRITE']._serialized_start=642
+    _globals['_GETCREDENTIALSFORWRITE']._serialized_end=868
     _globals['_GETCREDENTIALSFORWRITE_RESPONSE']._serialized_start=495
     _globals['_GETCREDENTIALSFORWRITE_RESPONSE']._serialized_end=594
-    _globals['_CREATEMULTIPARTUPLOAD']._serialized_start=969
-    _globals['_CREATEMULTIPARTUPLOAD']._serialized_end=1307
-    _globals['_CREATEMULTIPARTUPLOAD_RESPONSE']._serialized_start=1056
-    _globals['_CREATEMULTIPARTUPLOAD_RESPONSE']._serialized_end=1213
-    _globals['_PARTETAG']._serialized_start=1309
-    _globals['_PARTETAG']._serialized_end=1354
-    _globals['_COMPLETEMULTIPARTUPLOAD']._serialized_start=1357
-    _globals['_COMPLETEMULTIPARTUPLOAD']._serialized_end=1587
+    _globals['_CREATEMULTIPARTUPLOAD']._serialized_start=871
+    _globals['_CREATEMULTIPARTUPLOAD']._serialized_end=1160
+    _globals['_CREATEMULTIPARTUPLOAD_RESPONSE']._serialized_start=958
+    _globals['_CREATEMULTIPARTUPLOAD_RESPONSE']._serialized_end=1115
+    _globals['_PARTETAG']._serialized_start=1162
+    _globals['_PARTETAG']._serialized_end=1207
+    _globals['_COMPLETEMULTIPARTUPLOAD']._serialized_start=1210
+    _globals['_COMPLETEMULTIPARTUPLOAD']._serialized_end=1391
     _globals['_COMPLETEMULTIPARTUPLOAD_RESPONSE']._serialized_start=495
     _globals['_COMPLETEMULTIPARTUPLOAD_RESPONSE']._serialized_end=505
-    _globals['_GETPRESIGNEDUPLOADPARTURL']._serialized_start=1590
-    _globals['_GETPRESIGNEDUPLOADPARTURL']._serialized_end=1875
-    _globals['_GETPRESIGNEDUPLOADPARTURL_RESPONSE']._serialized_start=1707
-    _globals['_GETPRESIGNEDUPLOADPARTURL_RESPONSE']._serialized_end=1781
-    _globals['_GETCREDENTIALSFORTRACEDATADOWNLOAD']._serialized_start=1878
-    _globals['_GETCREDENTIALSFORTRACEDATADOWNLOAD']._serialized_end=2103
-    _globals['_GETCREDENTIALSFORTRACEDATADOWNLOAD_RESPONSE']._serialized_start=1942
-    _globals['_GETCREDENTIALSFORTRACEDATADOWNLOAD_RESPONSE']._serialized_end=2009
-    _globals['_GETCREDENTIALSFORTRACEDATAUPLOAD']._serialized_start=2106
-    _globals['_GETCREDENTIALSFORTRACEDATAUPLOAD']._serialized_end=2329
-    _globals['_GETCREDENTIALSFORTRACEDATAUPLOAD_RESPONSE']._serialized_start=1942
-    _globals['_GETCREDENTIALSFORTRACEDATAUPLOAD_RESPONSE']._serialized_end=2009
-    _globals['_GETCREDENTIALSFORLOGGEDMODELUPLOAD']._serialized_start=2332
-    _globals['_GETCREDENTIALSFORLOGGEDMODELUPLOAD']._serialized_end=2618
-    _globals['_GETCREDENTIALSFORLOGGEDMODELUPLOAD_RESPONSE']._serialized_start=2429
-    _globals['_GETCREDENTIALSFORLOGGEDMODELUPLOAD_RESPONSE']._serialized_end=2524
-    _globals['_GETCREDENTIALSFORLOGGEDMODELDOWNLOAD']._serialized_start=2621
-    _globals['_GETCREDENTIALSFORLOGGEDMODELDOWNLOAD']._serialized_end=2909
-    _globals['_GETCREDENTIALSFORLOGGEDMODELDOWNLOAD_RESPONSE']._serialized_start=2429
-    _globals['_GETCREDENTIALSFORLOGGEDMODELDOWNLOAD_RESPONSE']._serialized_end=2524
-    _globals['_DATABRICKSMLFLOWARTIFACTSSERVICE']._serialized_start=3029
-    _globals['_DATABRICKSMLFLOWARTIFACTSSERVICE']._serialized_end=4758
-=======
-    _globals['_GETCREDENTIALSFORREAD']._serialized_start=306
-    _globals['_GETCREDENTIALSFORREAD']._serialized_end=531
-    _globals['_GETCREDENTIALSFORREAD_RESPONSE']._serialized_start=387
-    _globals['_GETCREDENTIALSFORREAD_RESPONSE']._serialized_end=486
-    _globals['_GETCREDENTIALSFORWRITE']._serialized_start=534
-    _globals['_GETCREDENTIALSFORWRITE']._serialized_end=760
-    _globals['_GETCREDENTIALSFORWRITE_RESPONSE']._serialized_start=387
-    _globals['_GETCREDENTIALSFORWRITE_RESPONSE']._serialized_end=486
-    _globals['_CREATEMULTIPARTUPLOAD']._serialized_start=763
-    _globals['_CREATEMULTIPARTUPLOAD']._serialized_end=1052
-    _globals['_CREATEMULTIPARTUPLOAD_RESPONSE']._serialized_start=850
-    _globals['_CREATEMULTIPARTUPLOAD_RESPONSE']._serialized_end=1007
-    _globals['_PARTETAG']._serialized_start=1054
-    _globals['_PARTETAG']._serialized_end=1099
-    _globals['_COMPLETEMULTIPARTUPLOAD']._serialized_start=1102
-    _globals['_COMPLETEMULTIPARTUPLOAD']._serialized_end=1283
-    _globals['_COMPLETEMULTIPARTUPLOAD_RESPONSE']._serialized_start=387
-    _globals['_COMPLETEMULTIPARTUPLOAD_RESPONSE']._serialized_end=397
-    _globals['_GETPRESIGNEDUPLOADPARTURL']._serialized_start=1286
-    _globals['_GETPRESIGNEDUPLOADPARTURL']._serialized_end=1522
-    _globals['_GETPRESIGNEDUPLOADPARTURL_RESPONSE']._serialized_start=1403
-    _globals['_GETPRESIGNEDUPLOADPARTURL_RESPONSE']._serialized_end=1477
-    _globals['_GETCREDENTIALSFORTRACEDATADOWNLOAD']._serialized_start=1525
-    _globals['_GETCREDENTIALSFORTRACEDATADOWNLOAD']._serialized_end=1701
-    _globals['_GETCREDENTIALSFORTRACEDATADOWNLOAD_RESPONSE']._serialized_start=1589
-    _globals['_GETCREDENTIALSFORTRACEDATADOWNLOAD_RESPONSE']._serialized_end=1656
-    _globals['_GETCREDENTIALSFORTRACEDATAUPLOAD']._serialized_start=1704
-    _globals['_GETCREDENTIALSFORTRACEDATAUPLOAD']._serialized_end=1878
-    _globals['_GETCREDENTIALSFORTRACEDATAUPLOAD_RESPONSE']._serialized_start=1589
-    _globals['_GETCREDENTIALSFORTRACEDATAUPLOAD_RESPONSE']._serialized_end=1656
-    _globals['_DATABRICKSMLFLOWARTIFACTSSERVICE']._serialized_start=1998
-    _globals['_DATABRICKSMLFLOWARTIFACTSSERVICE']._serialized_end=3289
->>>>>>> master
+    _globals['_GETPRESIGNEDUPLOADPARTURL']._serialized_start=1394
+    _globals['_GETPRESIGNEDUPLOADPARTURL']._serialized_end=1630
+    _globals['_GETPRESIGNEDUPLOADPARTURL_RESPONSE']._serialized_start=1511
+    _globals['_GETPRESIGNEDUPLOADPARTURL_RESPONSE']._serialized_end=1585
+    _globals['_GETCREDENTIALSFORTRACEDATADOWNLOAD']._serialized_start=1633
+    _globals['_GETCREDENTIALSFORTRACEDATADOWNLOAD']._serialized_end=1809
+    _globals['_GETCREDENTIALSFORTRACEDATADOWNLOAD_RESPONSE']._serialized_start=1697
+    _globals['_GETCREDENTIALSFORTRACEDATADOWNLOAD_RESPONSE']._serialized_end=1764
+    _globals['_GETCREDENTIALSFORTRACEDATAUPLOAD']._serialized_start=1812
+    _globals['_GETCREDENTIALSFORTRACEDATAUPLOAD']._serialized_end=1986
+    _globals['_GETCREDENTIALSFORTRACEDATAUPLOAD_RESPONSE']._serialized_start=1697
+    _globals['_GETCREDENTIALSFORTRACEDATAUPLOAD_RESPONSE']._serialized_end=1764
+    _globals['_GETCREDENTIALSFORLOGGEDMODELUPLOAD']._serialized_start=1989
+    _globals['_GETCREDENTIALSFORLOGGEDMODELUPLOAD']._serialized_end=2226
+    _globals['_GETCREDENTIALSFORLOGGEDMODELUPLOAD_RESPONSE']._serialized_start=2086
+    _globals['_GETCREDENTIALSFORLOGGEDMODELUPLOAD_RESPONSE']._serialized_end=2181
+    _globals['_GETCREDENTIALSFORLOGGEDMODELDOWNLOAD']._serialized_start=2229
+    _globals['_GETCREDENTIALSFORLOGGEDMODELDOWNLOAD']._serialized_end=2468
+    _globals['_GETCREDENTIALSFORLOGGEDMODELDOWNLOAD_RESPONSE']._serialized_start=2086
+    _globals['_GETCREDENTIALSFORLOGGEDMODELDOWNLOAD_RESPONSE']._serialized_end=2181
+    _globals['_DATABRICKSMLFLOWARTIFACTSSERVICE']._serialized_start=2588
+    _globals['_DATABRICKSMLFLOWARTIFACTSSERVICE']._serialized_end=4317
   _builder.BuildServices(DESCRIPTOR, 'databricks_artifacts_pb2', _globals)
   # @@protoc_insertion_point(module_scope)
 
@@ -211,11 +163,7 @@ else:
   from . import databricks_pb2 as databricks__pb2
 
 
-<<<<<<< HEAD
-  DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x1a\x64\x61tabricks_artifacts.proto\x12\x06mlflow\x1a\x15scalapb/scalapb.proto\x1a\x10\x64\x61tabricks.proto\"\xdf\x01\n\x16\x41rtifactCredentialInfo\x12\x0e\n\x06run_id\x18\x01 \x01(\t\x12\x0c\n\x04path\x18\x02 \x01(\t\x12\x12\n\nsigned_uri\x18\x03 \x01(\t\x12:\n\x07headers\x18\x04 \x03(\x0b\x32).mlflow.ArtifactCredentialInfo.HttpHeader\x12,\n\x04type\x18\x05 \x01(\x0e\x32\x1e.mlflow.ArtifactCredentialType\x1a)\n\nHttpHeader\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t\"j\n\x1dLoggedModelArtifactCredential\x12\x10\n\x08model_id\x18\x01 \x01(\t\x12\x37\n\x0f\x63redential_info\x18\x02 \x01(\x0b\x32\x1e.mlflow.ArtifactCredentialInfo\"\x95\x02\n\x15GetCredentialsForRead\x12\x14\n\x06run_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x0c\n\x04path\x18\x02 \x03(\t\x12\x12\n\npage_token\x18\x03 \x01(\t\x1a\x63\n\x08Response\x12\x38\n\x10\x63redential_infos\x18\x02 \x03(\x0b\x32\x1e.mlflow.ArtifactCredentialInfo\x12\x17\n\x0fnext_page_token\x18\x03 \x01(\tJ\x04\x08\x01\x10\x02:_\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\xe2?1\n/com.databricks.mlflow.api.MlflowTrackingMessage\"\x96\x02\n\x16GetCredentialsForWrite\x12\x14\n\x06run_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x0c\n\x04path\x18\x02 \x03(\t\x12\x12\n\npage_token\x18\x03 \x01(\t\x1a\x63\n\x08Response\x12\x38\n\x10\x63redential_infos\x18\x02 \x03(\x0b\x32\x1e.mlflow.ArtifactCredentialInfo\x12\x17\n\x0fnext_page_token\x18\x03 \x01(\tJ\x04\x08\x01\x10\x02:_\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\xe2?1\n/com.databricks.mlflow.api.MlflowTrackingMessage\"\xd5\x02\n\x15\x43reateMultipartUpload\x12\x14\n\x06run_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x0c\n\x04path\x18\x02 \x01(\t\x12\x17\n\tnum_parts\x18\x03 \x01(\x03\x42\x04\xf8\x86\x19\x01\x1a\x9d\x01\n\x08Response\x12\x11\n\tupload_id\x18\x01 \x01(\t\x12?\n\x17upload_credential_infos\x18\x02 \x03(\x0b\x32\x1e.mlflow.ArtifactCredentialInfo\x12=\n\x15\x61\x62ort_credential_info\x18\x03 \x01(\x0b\x32\x1e.mlflow.ArtifactCredentialInfo:_\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\xe2?1\n/com.databricks.mlflow.api.MlflowTrackingMessage\"-\n\x08PartEtag\x12\x13\n\x0bpart_number\x18\x01 \x01(\x03\x12\x0c\n\x04\x65tag\x18\x02 \x01(\t\"\xe9\x01\n\x17\x43ompleteMultipartUpload\x12\x14\n\x06run_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x0c\n\x04path\x18\x02 \x01(\t\x12\x17\n\tupload_id\x18\x03 \x01(\tB\x04\xf8\x86\x19\x01\x12$\n\npart_etags\x18\x04 \x03(\x0b\x32\x10.mlflow.PartEtag\x1a\n\n\x08Response:_\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\xe2?1\n/com.databricks.mlflow.api.MlflowTrackingMessage\"\xa0\x02\n\x19GetPresignedUploadPartUrl\x12\x14\n\x06run_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x0c\n\x04path\x18\x02 \x01(\t\x12\x17\n\tupload_id\x18\x03 \x01(\tB\x04\xf8\x86\x19\x01\x12\x19\n\x0bpart_number\x18\x04 \x01(\x03\x42\x04\xf8\x86\x19\x01\x1aJ\n\x08Response\x12>\n\x16upload_credential_info\x18\x01 \x01(\x0b\x32\x1e.mlflow.ArtifactCredentialInfo:_\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\xe2?1\n/com.databricks.mlflow.api.MlflowTrackingMessage\"\xe4\x01\n\"GetCredentialsForTraceDataDownload\x12\x18\n\nrequest_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x1a\x43\n\x08Response\x12\x37\n\x0f\x63redential_info\x18\x01 \x01(\x0b\x32\x1e.mlflow.ArtifactCredentialInfo:_\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\xe2?1\n/com.databricks.mlflow.api.MlflowTrackingMessage\"\xe2\x01\n GetCredentialsForTraceDataUpload\x12\x18\n\nrequest_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x1a\x43\n\x08Response\x12\x37\n\x0f\x63redential_info\x18\x01 \x01(\x0b\x32\x1e.mlflow.ArtifactCredentialInfo:_\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\xe2?1\n/com.databricks.mlflow.api.MlflowTrackingMessage\"\xa1\x02\n\"GetCredentialsForLoggedModelUpload\x12\x16\n\x08model_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\r\n\x05paths\x18\x02 \x03(\t\x12\x12\n\npage_token\x18\x03 \x01(\t\x1a_\n\x08Response\x12:\n\x0b\x63redentials\x18\x01 \x03(\x0b\x32%.mlflow.LoggedModelArtifactCredential\x12\x17\n\x0fnext_page_token\x18\x02 \x01(\t:_\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\xe2?1\n/com.databricks.mlflow.api.MlflowTrackingMessage\"\xa3\x02\n$GetCredentialsForLoggedModelDownload\x12\x16\n\x08model_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\r\n\x05paths\x18\x02 \x03(\t\x12\x12\n\npage_token\x18\x03 \x01(\t\x1a_\n\x08Response\x12:\n\x0b\x63redentials\x18\x01 \x03(\x0b\x32%.mlflow.LoggedModelArtifactCredential\x12\x17\n\x0fnext_page_token\x18\x02 \x01(\t:_\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\xe2?1\n/com.databricks.mlflow.api.MlflowTrackingMessage*s\n\x16\x41rtifactCredentialType\x12\x11\n\rAZURE_SAS_URI\x10\x01\x12\x15\n\x11\x41WS_PRESIGNED_URL\x10\x02\x12\x12\n\x0eGCP_SIGNED_URL\x10\x03\x12\x1b\n\x17\x41ZURE_ADLS_GEN2_SAS_URI\x10\x04\x32\xc1\r\n DatabricksMlflowArtifactsService\x12\x9c\x01\n\x15getCredentialsForRead\x12\x1d.mlflow.GetCredentialsForRead\x1a&.mlflow.GetCredentialsForRead.Response\"<\xf2\x86\x19\x38\n4\n\x04POST\x12&/mlflow/artifacts/credentials-for-read\x1a\x04\x08\x02\x10\x00\x10\x03\x12\xa0\x01\n\x16getCredentialsForWrite\x12\x1e.mlflow.GetCredentialsForWrite\x1a\'.mlflow.GetCredentialsForWrite.Response\"=\xf2\x86\x19\x39\n5\n\x04POST\x12\'/mlflow/artifacts/credentials-for-write\x1a\x04\x08\x02\x10\x00\x10\x03\x12\x9f\x01\n\x15\x63reateMultipartUpload\x12\x1d.mlflow.CreateMultipartUpload\x1a&.mlflow.CreateMultipartUpload.Response\"?\xf2\x86\x19;\n7\n\x04POST\x12)/mlflow/artifacts/create-multipart-upload\x1a\x04\x08\x02\x10\x00\x10\x03\x12\xa7\x01\n\x17\x63ompleteMultipartUpload\x12\x1f.mlflow.CompleteMultipartUpload\x1a(.mlflow.CompleteMultipartUpload.Response\"A\xf2\x86\x19=\n9\n\x04POST\x12+/mlflow/artifacts/complete-multipart-upload\x1a\x04\x08\x02\x10\x00\x10\x03\x12\xb0\x01\n\x19getPresignedUploadPartUrl\x12!.mlflow.GetPresignedUploadPartUrl\x1a*.mlflow.GetPresignedUploadPartUrl.Response\"D\xf2\x86\x19@\n<\n\x03GET\x12//mlflow/artifacts/get-presigned-upload-part-url\x1a\x04\x08\x02\x10\x00\x10\x03\x12\xd5\x01\n\"getCredentialsForTraceDataDownload\x12*.mlflow.GetCredentialsForTraceDataDownload\x1a\x33.mlflow.GetCredentialsForTraceDataDownload.Response\"N\xf2\x86\x19J\nF\n\x03GET\x12\x39/mlflow/traces/{request_id}/credentials-for-data-download\x1a\x04\x08\x02\x10\x00\x10\x03\x12\xcd\x01\n getCredentialsForTraceDataUpload\x12(.mlflow.GetCredentialsForTraceDataUpload\x1a\x31.mlflow.GetCredentialsForTraceDataUpload.Response\"L\xf2\x86\x19H\nD\n\x03GET\x12\x37/mlflow/traces/{request_id}/credentials-for-data-upload\x1a\x04\x08\x02\x10\x00\x10\x03\x12\xd4\x01\n\"getCredentialsForLoggedModelUpload\x12*.mlflow.GetCredentialsForLoggedModelUpload\x1a\x33.mlflow.GetCredentialsForLoggedModelUpload.Response\"M\xf2\x86\x19I\nE\n\x04POST\x12\x37/mlflow/logged-models/{model_id}/credentials-for-upload\x1a\x04\x08\x02\x10\x00\x10\x03\x12\xdc\x01\n$getCredentialsForLoggedModelDownload\x12,.mlflow.GetCredentialsForLoggedModelDownload\x1a\x35.mlflow.GetCredentialsForLoggedModelDownload.Response\"O\xf2\x86\x19K\nG\n\x04POST\x12\x39/mlflow/logged-models/{model_id}/credentials-for-download\x1a\x04\x08\x02\x10\x00\x10\x03\x42,\n\x1f\x63om.databricks.api.proto.mlflow\x90\x01\x01\xa0\x01\x01\xe2?\x02\x10\x01')
-=======
-  DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x1a\x64\x61tabricks_artifacts.proto\x12\x06mlflow\x1a\x15scalapb/scalapb.proto\x1a\x10\x64\x61tabricks.proto\"\xdf\x01\n\x16\x41rtifactCredentialInfo\x12\x0e\n\x06run_id\x18\x01 \x01(\t\x12\x0c\n\x04path\x18\x02 \x01(\t\x12\x12\n\nsigned_uri\x18\x03 \x01(\t\x12:\n\x07headers\x18\x04 \x03(\x0b\x32).mlflow.ArtifactCredentialInfo.HttpHeader\x12,\n\x04type\x18\x05 \x01(\x0e\x32\x1e.mlflow.ArtifactCredentialType\x1a)\n\nHttpHeader\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t\"\xe1\x01\n\x15GetCredentialsForRead\x12\x14\n\x06run_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x0c\n\x04path\x18\x02 \x03(\t\x12\x12\n\npage_token\x18\x03 \x01(\t\x1a\x63\n\x08Response\x12\x38\n\x10\x63redential_infos\x18\x02 \x03(\x0b\x32\x1e.mlflow.ArtifactCredentialInfo\x12\x17\n\x0fnext_page_token\x18\x03 \x01(\tJ\x04\x08\x01\x10\x02:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\xe2\x01\n\x16GetCredentialsForWrite\x12\x14\n\x06run_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x0c\n\x04path\x18\x02 \x03(\t\x12\x12\n\npage_token\x18\x03 \x01(\t\x1a\x63\n\x08Response\x12\x38\n\x10\x63redential_infos\x18\x02 \x03(\x0b\x32\x1e.mlflow.ArtifactCredentialInfo\x12\x17\n\x0fnext_page_token\x18\x03 \x01(\tJ\x04\x08\x01\x10\x02:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\xa1\x02\n\x15\x43reateMultipartUpload\x12\x14\n\x06run_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x0c\n\x04path\x18\x02 \x01(\t\x12\x17\n\tnum_parts\x18\x03 \x01(\x03\x42\x04\xf8\x86\x19\x01\x1a\x9d\x01\n\x08Response\x12\x11\n\tupload_id\x18\x01 \x01(\t\x12?\n\x17upload_credential_infos\x18\x02 \x03(\x0b\x32\x1e.mlflow.ArtifactCredentialInfo\x12=\n\x15\x61\x62ort_credential_info\x18\x03 \x01(\x0b\x32\x1e.mlflow.ArtifactCredentialInfo:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"-\n\x08PartEtag\x12\x13\n\x0bpart_number\x18\x01 \x01(\x03\x12\x0c\n\x04\x65tag\x18\x02 \x01(\t\"\xb5\x01\n\x17\x43ompleteMultipartUpload\x12\x14\n\x06run_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x0c\n\x04path\x18\x02 \x01(\t\x12\x17\n\tupload_id\x18\x03 \x01(\tB\x04\xf8\x86\x19\x01\x12$\n\npart_etags\x18\x04 \x03(\x0b\x32\x10.mlflow.PartEtag\x1a\n\n\x08Response:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\xec\x01\n\x19GetPresignedUploadPartUrl\x12\x14\n\x06run_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x0c\n\x04path\x18\x02 \x01(\t\x12\x17\n\tupload_id\x18\x03 \x01(\tB\x04\xf8\x86\x19\x01\x12\x19\n\x0bpart_number\x18\x04 \x01(\x03\x42\x04\xf8\x86\x19\x01\x1aJ\n\x08Response\x12>\n\x16upload_credential_info\x18\x01 \x01(\x0b\x32\x1e.mlflow.ArtifactCredentialInfo:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\xb0\x01\n\"GetCredentialsForTraceDataDownload\x12\x18\n\nrequest_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x1a\x43\n\x08Response\x12\x37\n\x0f\x63redential_info\x18\x01 \x01(\x0b\x32\x1e.mlflow.ArtifactCredentialInfo:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\xae\x01\n GetCredentialsForTraceDataUpload\x12\x18\n\nrequest_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x1a\x43\n\x08Response\x12\x37\n\x0f\x63redential_info\x18\x01 \x01(\x0b\x32\x1e.mlflow.ArtifactCredentialInfo:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]*s\n\x16\x41rtifactCredentialType\x12\x11\n\rAZURE_SAS_URI\x10\x01\x12\x15\n\x11\x41WS_PRESIGNED_URL\x10\x02\x12\x12\n\x0eGCP_SIGNED_URL\x10\x03\x12\x1b\n\x17\x41ZURE_ADLS_GEN2_SAS_URI\x10\x04\x32\x8b\n\n DatabricksMlflowArtifactsService\x12\x9c\x01\n\x15getCredentialsForRead\x12\x1d.mlflow.GetCredentialsForRead\x1a&.mlflow.GetCredentialsForRead.Response\"<\xf2\x86\x19\x38\n4\n\x04POST\x12&/mlflow/artifacts/credentials-for-read\x1a\x04\x08\x02\x10\x00\x10\x03\x12\xa0\x01\n\x16getCredentialsForWrite\x12\x1e.mlflow.GetCredentialsForWrite\x1a\'.mlflow.GetCredentialsForWrite.Response\"=\xf2\x86\x19\x39\n5\n\x04POST\x12\'/mlflow/artifacts/credentials-for-write\x1a\x04\x08\x02\x10\x00\x10\x03\x12\x9f\x01\n\x15\x63reateMultipartUpload\x12\x1d.mlflow.CreateMultipartUpload\x1a&.mlflow.CreateMultipartUpload.Response\"?\xf2\x86\x19;\n7\n\x04POST\x12)/mlflow/artifacts/create-multipart-upload\x1a\x04\x08\x02\x10\x00\x10\x03\x12\xa7\x01\n\x17\x63ompleteMultipartUpload\x12\x1f.mlflow.CompleteMultipartUpload\x1a(.mlflow.CompleteMultipartUpload.Response\"A\xf2\x86\x19=\n9\n\x04POST\x12+/mlflow/artifacts/complete-multipart-upload\x1a\x04\x08\x02\x10\x00\x10\x03\x12\xb0\x01\n\x19getPresignedUploadPartUrl\x12!.mlflow.GetPresignedUploadPartUrl\x1a*.mlflow.GetPresignedUploadPartUrl.Response\"D\xf2\x86\x19@\n<\n\x03GET\x12//mlflow/artifacts/get-presigned-upload-part-url\x1a\x04\x08\x02\x10\x00\x10\x03\x12\xd5\x01\n\"getCredentialsForTraceDataDownload\x12*.mlflow.GetCredentialsForTraceDataDownload\x1a\x33.mlflow.GetCredentialsForTraceDataDownload.Response\"N\xf2\x86\x19J\nF\n\x03GET\x12\x39/mlflow/traces/{request_id}/credentials-for-data-download\x1a\x04\x08\x02\x10\x00\x10\x03\x12\xcd\x01\n getCredentialsForTraceDataUpload\x12(.mlflow.GetCredentialsForTraceDataUpload\x1a\x31.mlflow.GetCredentialsForTraceDataUpload.Response\"L\xf2\x86\x19H\nD\n\x03GET\x12\x37/mlflow/traces/{request_id}/credentials-for-data-upload\x1a\x04\x08\x02\x10\x00\x10\x03\x42,\n\x1f\x63om.databricks.api.proto.mlflow\x90\x01\x01\xa0\x01\x01\xe2?\x02\x10\x01')
->>>>>>> master
+  DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x1a\x64\x61tabricks_artifacts.proto\x12\x06mlflow\x1a\x15scalapb/scalapb.proto\x1a\x10\x64\x61tabricks.proto\"\xdf\x01\n\x16\x41rtifactCredentialInfo\x12\x0e\n\x06run_id\x18\x01 \x01(\t\x12\x0c\n\x04path\x18\x02 \x01(\t\x12\x12\n\nsigned_uri\x18\x03 \x01(\t\x12:\n\x07headers\x18\x04 \x03(\x0b\x32).mlflow.ArtifactCredentialInfo.HttpHeader\x12,\n\x04type\x18\x05 \x01(\x0e\x32\x1e.mlflow.ArtifactCredentialType\x1a)\n\nHttpHeader\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t\"j\n\x1dLoggedModelArtifactCredential\x12\x10\n\x08model_id\x18\x01 \x01(\t\x12\x37\n\x0f\x63redential_info\x18\x02 \x01(\x0b\x32\x1e.mlflow.ArtifactCredentialInfo\"\xe1\x01\n\x15GetCredentialsForRead\x12\x14\n\x06run_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x0c\n\x04path\x18\x02 \x03(\t\x12\x12\n\npage_token\x18\x03 \x01(\t\x1a\x63\n\x08Response\x12\x38\n\x10\x63redential_infos\x18\x02 \x03(\x0b\x32\x1e.mlflow.ArtifactCredentialInfo\x12\x17\n\x0fnext_page_token\x18\x03 \x01(\tJ\x04\x08\x01\x10\x02:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\xe2\x01\n\x16GetCredentialsForWrite\x12\x14\n\x06run_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x0c\n\x04path\x18\x02 \x03(\t\x12\x12\n\npage_token\x18\x03 \x01(\t\x1a\x63\n\x08Response\x12\x38\n\x10\x63redential_infos\x18\x02 \x03(\x0b\x32\x1e.mlflow.ArtifactCredentialInfo\x12\x17\n\x0fnext_page_token\x18\x03 \x01(\tJ\x04\x08\x01\x10\x02:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\xa1\x02\n\x15\x43reateMultipartUpload\x12\x14\n\x06run_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x0c\n\x04path\x18\x02 \x01(\t\x12\x17\n\tnum_parts\x18\x03 \x01(\x03\x42\x04\xf8\x86\x19\x01\x1a\x9d\x01\n\x08Response\x12\x11\n\tupload_id\x18\x01 \x01(\t\x12?\n\x17upload_credential_infos\x18\x02 \x03(\x0b\x32\x1e.mlflow.ArtifactCredentialInfo\x12=\n\x15\x61\x62ort_credential_info\x18\x03 \x01(\x0b\x32\x1e.mlflow.ArtifactCredentialInfo:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"-\n\x08PartEtag\x12\x13\n\x0bpart_number\x18\x01 \x01(\x03\x12\x0c\n\x04\x65tag\x18\x02 \x01(\t\"\xb5\x01\n\x17\x43ompleteMultipartUpload\x12\x14\n\x06run_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x0c\n\x04path\x18\x02 \x01(\t\x12\x17\n\tupload_id\x18\x03 \x01(\tB\x04\xf8\x86\x19\x01\x12$\n\npart_etags\x18\x04 \x03(\x0b\x32\x10.mlflow.PartEtag\x1a\n\n\x08Response:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\xec\x01\n\x19GetPresignedUploadPartUrl\x12\x14\n\x06run_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x0c\n\x04path\x18\x02 \x01(\t\x12\x17\n\tupload_id\x18\x03 \x01(\tB\x04\xf8\x86\x19\x01\x12\x19\n\x0bpart_number\x18\x04 \x01(\x03\x42\x04\xf8\x86\x19\x01\x1aJ\n\x08Response\x12>\n\x16upload_credential_info\x18\x01 \x01(\x0b\x32\x1e.mlflow.ArtifactCredentialInfo:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\xb0\x01\n\"GetCredentialsForTraceDataDownload\x12\x18\n\nrequest_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x1a\x43\n\x08Response\x12\x37\n\x0f\x63redential_info\x18\x01 \x01(\x0b\x32\x1e.mlflow.ArtifactCredentialInfo:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\xae\x01\n GetCredentialsForTraceDataUpload\x12\x18\n\nrequest_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x1a\x43\n\x08Response\x12\x37\n\x0f\x63redential_info\x18\x01 \x01(\x0b\x32\x1e.mlflow.ArtifactCredentialInfo:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\xed\x01\n\"GetCredentialsForLoggedModelUpload\x12\x16\n\x08model_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\r\n\x05paths\x18\x02 \x03(\t\x12\x12\n\npage_token\x18\x03 \x01(\t\x1a_\n\x08Response\x12:\n\x0b\x63redentials\x18\x01 \x03(\x0b\x32%.mlflow.LoggedModelArtifactCredential\x12\x17\n\x0fnext_page_token\x18\x02 \x01(\t:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\xef\x01\n$GetCredentialsForLoggedModelDownload\x12\x16\n\x08model_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\r\n\x05paths\x18\x02 \x03(\t\x12\x12\n\npage_token\x18\x03 \x01(\t\x1a_\n\x08Response\x12:\n\x0b\x63redentials\x18\x01 \x03(\x0b\x32%.mlflow.LoggedModelArtifactCredential\x12\x17\n\x0fnext_page_token\x18\x02 \x01(\t:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]*s\n\x16\x41rtifactCredentialType\x12\x11\n\rAZURE_SAS_URI\x10\x01\x12\x15\n\x11\x41WS_PRESIGNED_URL\x10\x02\x12\x12\n\x0eGCP_SIGNED_URL\x10\x03\x12\x1b\n\x17\x41ZURE_ADLS_GEN2_SAS_URI\x10\x04\x32\xc1\r\n DatabricksMlflowArtifactsService\x12\x9c\x01\n\x15getCredentialsForRead\x12\x1d.mlflow.GetCredentialsForRead\x1a&.mlflow.GetCredentialsForRead.Response\"<\xf2\x86\x19\x38\n4\n\x04POST\x12&/mlflow/artifacts/credentials-for-read\x1a\x04\x08\x02\x10\x00\x10\x03\x12\xa0\x01\n\x16getCredentialsForWrite\x12\x1e.mlflow.GetCredentialsForWrite\x1a\'.mlflow.GetCredentialsForWrite.Response\"=\xf2\x86\x19\x39\n5\n\x04POST\x12\'/mlflow/artifacts/credentials-for-write\x1a\x04\x08\x02\x10\x00\x10\x03\x12\x9f\x01\n\x15\x63reateMultipartUpload\x12\x1d.mlflow.CreateMultipartUpload\x1a&.mlflow.CreateMultipartUpload.Response\"?\xf2\x86\x19;\n7\n\x04POST\x12)/mlflow/artifacts/create-multipart-upload\x1a\x04\x08\x02\x10\x00\x10\x03\x12\xa7\x01\n\x17\x63ompleteMultipartUpload\x12\x1f.mlflow.CompleteMultipartUpload\x1a(.mlflow.CompleteMultipartUpload.Response\"A\xf2\x86\x19=\n9\n\x04POST\x12+/mlflow/artifacts/complete-multipart-upload\x1a\x04\x08\x02\x10\x00\x10\x03\x12\xb0\x01\n\x19getPresignedUploadPartUrl\x12!.mlflow.GetPresignedUploadPartUrl\x1a*.mlflow.GetPresignedUploadPartUrl.Response\"D\xf2\x86\x19@\n<\n\x03GET\x12//mlflow/artifacts/get-presigned-upload-part-url\x1a\x04\x08\x02\x10\x00\x10\x03\x12\xd5\x01\n\"getCredentialsForTraceDataDownload\x12*.mlflow.GetCredentialsForTraceDataDownload\x1a\x33.mlflow.GetCredentialsForTraceDataDownload.Response\"N\xf2\x86\x19J\nF\n\x03GET\x12\x39/mlflow/traces/{request_id}/credentials-for-data-download\x1a\x04\x08\x02\x10\x00\x10\x03\x12\xcd\x01\n getCredentialsForTraceDataUpload\x12(.mlflow.GetCredentialsForTraceDataUpload\x1a\x31.mlflow.GetCredentialsForTraceDataUpload.Response\"L\xf2\x86\x19H\nD\n\x03GET\x12\x37/mlflow/traces/{request_id}/credentials-for-data-upload\x1a\x04\x08\x02\x10\x00\x10\x03\x12\xd4\x01\n\"getCredentialsForLoggedModelUpload\x12*.mlflow.GetCredentialsForLoggedModelUpload\x1a\x33.mlflow.GetCredentialsForLoggedModelUpload.Response\"M\xf2\x86\x19I\nE\n\x04POST\x12\x37/mlflow/logged-models/{model_id}/credentials-for-upload\x1a\x04\x08\x02\x10\x00\x10\x03\x12\xdc\x01\n$getCredentialsForLoggedModelDownload\x12,.mlflow.GetCredentialsForLoggedModelDownload\x1a\x35.mlflow.GetCredentialsForLoggedModelDownload.Response\"O\xf2\x86\x19K\nG\n\x04POST\x12\x39/mlflow/logged-models/{model_id}/credentials-for-download\x1a\x04\x08\x02\x10\x00\x10\x03\x42,\n\x1f\x63om.databricks.api.proto.mlflow\x90\x01\x01\xa0\x01\x01\xe2?\x02\x10\x01')
 
   _ARTIFACTCREDENTIALTYPE = DESCRIPTOR.enum_types_by_name['ArtifactCredentialType']
   ArtifactCredentialType = enum_type_wrapper.EnumTypeWrapper(_ARTIFACTCREDENTIALTYPE)
@@ -451,19 +399,15 @@ else:
     _GETCREDENTIALSFORTRACEDATAUPLOAD.fields_by_name['request_id']._options = None
     _GETCREDENTIALSFORTRACEDATAUPLOAD.fields_by_name['request_id']._serialized_options = b'\370\206\031\001'
     _GETCREDENTIALSFORTRACEDATAUPLOAD._options = None
-<<<<<<< HEAD
-    _GETCREDENTIALSFORTRACEDATAUPLOAD._serialized_options = b'\342?(\n&com.databricks.rpc.RPC[$this.Response]\342?1\n/com.databricks.mlflow.api.MlflowTrackingMessage'
+    _GETCREDENTIALSFORTRACEDATAUPLOAD._serialized_options = b'\342?(\n&com.databricks.rpc.RPC[$this.Response]'
     _GETCREDENTIALSFORLOGGEDMODELUPLOAD.fields_by_name['model_id']._options = None
     _GETCREDENTIALSFORLOGGEDMODELUPLOAD.fields_by_name['model_id']._serialized_options = b'\370\206\031\001'
     _GETCREDENTIALSFORLOGGEDMODELUPLOAD._options = None
-    _GETCREDENTIALSFORLOGGEDMODELUPLOAD._serialized_options = b'\342?(\n&com.databricks.rpc.RPC[$this.Response]\342?1\n/com.databricks.mlflow.api.MlflowTrackingMessage'
+    _GETCREDENTIALSFORLOGGEDMODELUPLOAD._serialized_options = b'\342?(\n&com.databricks.rpc.RPC[$this.Response]'
     _GETCREDENTIALSFORLOGGEDMODELDOWNLOAD.fields_by_name['model_id']._options = None
     _GETCREDENTIALSFORLOGGEDMODELDOWNLOAD.fields_by_name['model_id']._serialized_options = b'\370\206\031\001'
     _GETCREDENTIALSFORLOGGEDMODELDOWNLOAD._options = None
-    _GETCREDENTIALSFORLOGGEDMODELDOWNLOAD._serialized_options = b'\342?(\n&com.databricks.rpc.RPC[$this.Response]\342?1\n/com.databricks.mlflow.api.MlflowTrackingMessage'
-=======
-    _GETCREDENTIALSFORTRACEDATAUPLOAD._serialized_options = b'\342?(\n&com.databricks.rpc.RPC[$this.Response]'
->>>>>>> master
+    _GETCREDENTIALSFORLOGGEDMODELDOWNLOAD._serialized_options = b'\342?(\n&com.databricks.rpc.RPC[$this.Response]'
     _DATABRICKSMLFLOWARTIFACTSSERVICE.methods_by_name['getCredentialsForRead']._options = None
     _DATABRICKSMLFLOWARTIFACTSSERVICE.methods_by_name['getCredentialsForRead']._serialized_options = b'\362\206\0318\n4\n\004POST\022&/mlflow/artifacts/credentials-for-read\032\004\010\002\020\000\020\003'
     _DATABRICKSMLFLOWARTIFACTSSERVICE.methods_by_name['getCredentialsForWrite']._options = None
@@ -478,98 +422,58 @@ else:
     _DATABRICKSMLFLOWARTIFACTSSERVICE.methods_by_name['getCredentialsForTraceDataDownload']._serialized_options = b'\362\206\031J\nF\n\003GET\0229/mlflow/traces/{request_id}/credentials-for-data-download\032\004\010\002\020\000\020\003'
     _DATABRICKSMLFLOWARTIFACTSSERVICE.methods_by_name['getCredentialsForTraceDataUpload']._options = None
     _DATABRICKSMLFLOWARTIFACTSSERVICE.methods_by_name['getCredentialsForTraceDataUpload']._serialized_options = b'\362\206\031H\nD\n\003GET\0227/mlflow/traces/{request_id}/credentials-for-data-upload\032\004\010\002\020\000\020\003'
-<<<<<<< HEAD
     _DATABRICKSMLFLOWARTIFACTSSERVICE.methods_by_name['getCredentialsForLoggedModelUpload']._options = None
     _DATABRICKSMLFLOWARTIFACTSSERVICE.methods_by_name['getCredentialsForLoggedModelUpload']._serialized_options = b'\362\206\031I\nE\n\004POST\0227/mlflow/logged-models/{model_id}/credentials-for-upload\032\004\010\002\020\000\020\003'
     _DATABRICKSMLFLOWARTIFACTSSERVICE.methods_by_name['getCredentialsForLoggedModelDownload']._options = None
     _DATABRICKSMLFLOWARTIFACTSSERVICE.methods_by_name['getCredentialsForLoggedModelDownload']._serialized_options = b'\362\206\031K\nG\n\004POST\0229/mlflow/logged-models/{model_id}/credentials-for-download\032\004\010\002\020\000\020\003'
-    _ARTIFACTCREDENTIALTYPE._serialized_start=2938
-    _ARTIFACTCREDENTIALTYPE._serialized_end=3053
-=======
-    _ARTIFACTCREDENTIALTYPE._serialized_start=1880
-    _ARTIFACTCREDENTIALTYPE._serialized_end=1995
->>>>>>> master
+    _ARTIFACTCREDENTIALTYPE._serialized_start=2470
+    _ARTIFACTCREDENTIALTYPE._serialized_end=2585
     _ARTIFACTCREDENTIALINFO._serialized_start=80
     _ARTIFACTCREDENTIALINFO._serialized_end=303
     _ARTIFACTCREDENTIALINFO_HTTPHEADER._serialized_start=262
     _ARTIFACTCREDENTIALINFO_HTTPHEADER._serialized_end=303
-<<<<<<< HEAD
     _LOGGEDMODELARTIFACTCREDENTIAL._serialized_start=305
     _LOGGEDMODELARTIFACTCREDENTIAL._serialized_end=411
     _GETCREDENTIALSFORREAD._serialized_start=414
-    _GETCREDENTIALSFORREAD._serialized_end=691
+    _GETCREDENTIALSFORREAD._serialized_end=639
     _GETCREDENTIALSFORREAD_RESPONSE._serialized_start=495
     _GETCREDENTIALSFORREAD_RESPONSE._serialized_end=594
-    _GETCREDENTIALSFORWRITE._serialized_start=694
-    _GETCREDENTIALSFORWRITE._serialized_end=972
+    _GETCREDENTIALSFORWRITE._serialized_start=642
+    _GETCREDENTIALSFORWRITE._serialized_end=868
     _GETCREDENTIALSFORWRITE_RESPONSE._serialized_start=495
     _GETCREDENTIALSFORWRITE_RESPONSE._serialized_end=594
-    _CREATEMULTIPARTUPLOAD._serialized_start=975
-    _CREATEMULTIPARTUPLOAD._serialized_end=1316
-    _CREATEMULTIPARTUPLOAD_RESPONSE._serialized_start=1062
-    _CREATEMULTIPARTUPLOAD_RESPONSE._serialized_end=1219
-    _PARTETAG._serialized_start=1318
-    _PARTETAG._serialized_end=1363
-    _COMPLETEMULTIPARTUPLOAD._serialized_start=1366
-    _COMPLETEMULTIPARTUPLOAD._serialized_end=1599
+    _CREATEMULTIPARTUPLOAD._serialized_start=871
+    _CREATEMULTIPARTUPLOAD._serialized_end=1160
+    _CREATEMULTIPARTUPLOAD_RESPONSE._serialized_start=958
+    _CREATEMULTIPARTUPLOAD_RESPONSE._serialized_end=1115
+    _PARTETAG._serialized_start=1162
+    _PARTETAG._serialized_end=1207
+    _COMPLETEMULTIPARTUPLOAD._serialized_start=1210
+    _COMPLETEMULTIPARTUPLOAD._serialized_end=1391
     _COMPLETEMULTIPARTUPLOAD_RESPONSE._serialized_start=495
     _COMPLETEMULTIPARTUPLOAD_RESPONSE._serialized_end=505
-    _GETPRESIGNEDUPLOADPARTURL._serialized_start=1602
-    _GETPRESIGNEDUPLOADPARTURL._serialized_end=1890
-    _GETPRESIGNEDUPLOADPARTURL_RESPONSE._serialized_start=1719
-    _GETPRESIGNEDUPLOADPARTURL_RESPONSE._serialized_end=1793
-    _GETCREDENTIALSFORTRACEDATADOWNLOAD._serialized_start=1893
-    _GETCREDENTIALSFORTRACEDATADOWNLOAD._serialized_end=2121
-    _GETCREDENTIALSFORTRACEDATADOWNLOAD_RESPONSE._serialized_start=1957
-    _GETCREDENTIALSFORTRACEDATADOWNLOAD_RESPONSE._serialized_end=2024
-    _GETCREDENTIALSFORTRACEDATAUPLOAD._serialized_start=2124
-    _GETCREDENTIALSFORTRACEDATAUPLOAD._serialized_end=2350
-    _GETCREDENTIALSFORTRACEDATAUPLOAD_RESPONSE._serialized_start=1957
-    _GETCREDENTIALSFORTRACEDATAUPLOAD_RESPONSE._serialized_end=2024
-    _GETCREDENTIALSFORLOGGEDMODELUPLOAD._serialized_start=2353
-    _GETCREDENTIALSFORLOGGEDMODELUPLOAD._serialized_end=2642
-    _GETCREDENTIALSFORLOGGEDMODELUPLOAD_RESPONSE._serialized_start=2450
-    _GETCREDENTIALSFORLOGGEDMODELUPLOAD_RESPONSE._serialized_end=2545
-    _GETCREDENTIALSFORLOGGEDMODELDOWNLOAD._serialized_start=2645
-    _GETCREDENTIALSFORLOGGEDMODELDOWNLOAD._serialized_end=2936
-    _GETCREDENTIALSFORLOGGEDMODELDOWNLOAD_RESPONSE._serialized_start=2450
-    _GETCREDENTIALSFORLOGGEDMODELDOWNLOAD_RESPONSE._serialized_end=2545
-    _DATABRICKSMLFLOWARTIFACTSSERVICE._serialized_start=3056
-    _DATABRICKSMLFLOWARTIFACTSSERVICE._serialized_end=4785
-=======
-    _GETCREDENTIALSFORREAD._serialized_start=306
-    _GETCREDENTIALSFORREAD._serialized_end=531
-    _GETCREDENTIALSFORREAD_RESPONSE._serialized_start=387
-    _GETCREDENTIALSFORREAD_RESPONSE._serialized_end=486
-    _GETCREDENTIALSFORWRITE._serialized_start=534
-    _GETCREDENTIALSFORWRITE._serialized_end=760
-    _GETCREDENTIALSFORWRITE_RESPONSE._serialized_start=387
-    _GETCREDENTIALSFORWRITE_RESPONSE._serialized_end=486
-    _CREATEMULTIPARTUPLOAD._serialized_start=763
-    _CREATEMULTIPARTUPLOAD._serialized_end=1052
-    _CREATEMULTIPARTUPLOAD_RESPONSE._serialized_start=850
-    _CREATEMULTIPARTUPLOAD_RESPONSE._serialized_end=1007
-    _PARTETAG._serialized_start=1054
-    _PARTETAG._serialized_end=1099
-    _COMPLETEMULTIPARTUPLOAD._serialized_start=1102
-    _COMPLETEMULTIPARTUPLOAD._serialized_end=1283
-    _COMPLETEMULTIPARTUPLOAD_RESPONSE._serialized_start=387
-    _COMPLETEMULTIPARTUPLOAD_RESPONSE._serialized_end=397
-    _GETPRESIGNEDUPLOADPARTURL._serialized_start=1286
-    _GETPRESIGNEDUPLOADPARTURL._serialized_end=1522
-    _GETPRESIGNEDUPLOADPARTURL_RESPONSE._serialized_start=1403
-    _GETPRESIGNEDUPLOADPARTURL_RESPONSE._serialized_end=1477
-    _GETCREDENTIALSFORTRACEDATADOWNLOAD._serialized_start=1525
-    _GETCREDENTIALSFORTRACEDATADOWNLOAD._serialized_end=1701
-    _GETCREDENTIALSFORTRACEDATADOWNLOAD_RESPONSE._serialized_start=1589
-    _GETCREDENTIALSFORTRACEDATADOWNLOAD_RESPONSE._serialized_end=1656
-    _GETCREDENTIALSFORTRACEDATAUPLOAD._serialized_start=1704
-    _GETCREDENTIALSFORTRACEDATAUPLOAD._serialized_end=1878
-    _GETCREDENTIALSFORTRACEDATAUPLOAD_RESPONSE._serialized_start=1589
-    _GETCREDENTIALSFORTRACEDATAUPLOAD_RESPONSE._serialized_end=1656
-    _DATABRICKSMLFLOWARTIFACTSSERVICE._serialized_start=1998
-    _DATABRICKSMLFLOWARTIFACTSSERVICE._serialized_end=3289
->>>>>>> master
+    _GETPRESIGNEDUPLOADPARTURL._serialized_start=1394
+    _GETPRESIGNEDUPLOADPARTURL._serialized_end=1630
+    _GETPRESIGNEDUPLOADPARTURL_RESPONSE._serialized_start=1511
+    _GETPRESIGNEDUPLOADPARTURL_RESPONSE._serialized_end=1585
+    _GETCREDENTIALSFORTRACEDATADOWNLOAD._serialized_start=1633
+    _GETCREDENTIALSFORTRACEDATADOWNLOAD._serialized_end=1809
+    _GETCREDENTIALSFORTRACEDATADOWNLOAD_RESPONSE._serialized_start=1697
+    _GETCREDENTIALSFORTRACEDATADOWNLOAD_RESPONSE._serialized_end=1764
+    _GETCREDENTIALSFORTRACEDATAUPLOAD._serialized_start=1812
+    _GETCREDENTIALSFORTRACEDATAUPLOAD._serialized_end=1986
+    _GETCREDENTIALSFORTRACEDATAUPLOAD_RESPONSE._serialized_start=1697
+    _GETCREDENTIALSFORTRACEDATAUPLOAD_RESPONSE._serialized_end=1764
+    _GETCREDENTIALSFORLOGGEDMODELUPLOAD._serialized_start=1989
+    _GETCREDENTIALSFORLOGGEDMODELUPLOAD._serialized_end=2226
+    _GETCREDENTIALSFORLOGGEDMODELUPLOAD_RESPONSE._serialized_start=2086
+    _GETCREDENTIALSFORLOGGEDMODELUPLOAD_RESPONSE._serialized_end=2181
+    _GETCREDENTIALSFORLOGGEDMODELDOWNLOAD._serialized_start=2229
+    _GETCREDENTIALSFORLOGGEDMODELDOWNLOAD._serialized_end=2468
+    _GETCREDENTIALSFORLOGGEDMODELDOWNLOAD_RESPONSE._serialized_start=2086
+    _GETCREDENTIALSFORLOGGEDMODELDOWNLOAD_RESPONSE._serialized_end=2181
+    _DATABRICKSMLFLOWARTIFACTSSERVICE._serialized_start=2588
+    _DATABRICKSMLFLOWARTIFACTSSERVICE._serialized_end=4317
   DatabricksMlflowArtifactsService = service_reflection.GeneratedServiceType('DatabricksMlflowArtifactsService', (_service.Service,), dict(
     DESCRIPTOR = _DATABRICKSMLFLOWARTIFACTSSERVICE,
     __module__ = 'databricks_artifacts_pb2'
