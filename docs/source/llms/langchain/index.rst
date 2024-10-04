@@ -516,8 +516,11 @@ string response, which can be compared to the `"ground_truth"` column.
             data=eval_data,
             targets="ground_truth",
             model_type="question-answering",
+            extra_metrics=[
+                 mlflow.metric.latency(),
+                 mlflow.metric.genai.answer_correctness("openai:gpt-4o)
+            ]
         )
-
     print(results.metrics)
 
 .. code-block:: python
