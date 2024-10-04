@@ -4827,19 +4827,18 @@ class MlflowClient:
         """
         return self._tracking_client.get_logged_model(model_id)
 
-    def set_logged_model_tag(self, model_id: str, key: str, value: str):
+    def set_logged_model_tags(self, model_id: str, tags: Dict[str, Any]) -> LoggedModel:
         """
         Set a tag on the specified logged model.
 
         Args:
             model_id: ID of the model.
-            key: Key of the tag.
-            value: Value of the tag.
+            tags: Tags to set on the model.
 
         Returns:
-            None.
+            The model with the updated tags.
         """
-        return self._tracking_client.set_logged_model_tag(model_id, key, value)
+        return self._tracking_client.set_logged_model_tags(model_id, tags)
 
     def log_model_artifacts(self, model_id: str, local_dir: str) -> None:
         return self._tracking_client.log_model_artifacts(model_id, local_dir)

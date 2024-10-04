@@ -753,16 +753,16 @@ class AbstractStore:
         """
         raise NotImplementedError
 
-    def set_logged_model_tag(self, model_id: str, tag: LoggedModelTag):
+    def set_logged_model_tags(self, model_id: str, tags: List[LoggedModelTag]) -> LoggedModel:
         """
         Set a tag on the specified logged model.
 
         Args:
             model_id: ID of the model.
-            tag: Tag to set on the model.
+            tags: A list of tags to set on the model.
 
         Returns:
-            None.
+            The model with the updated tags.
         """
         raise NotImplementedError
 

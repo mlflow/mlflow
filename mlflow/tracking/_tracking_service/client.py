@@ -9,7 +9,7 @@ import logging
 import os
 from concurrent.futures import ThreadPoolExecutor
 from itertools import zip_longest
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 from mlflow.entities import (
     ExperimentTag,
@@ -1079,8 +1079,10 @@ class TrackingServiceClient:
     def get_logged_model(self, model_id: str) -> LoggedModel:
         return self.store.get_logged_model(model_id)
 
-    def set_logged_model_tag(self, model_id: str, key: str, value: str):
-        return self.store.set_logged_model_tag(model_id, LoggedModelTag(key, value))
+    def set_logged_model_tags(self, model_id: str, tags: Dict[str, Any]) -> LoggedModel:
+        return self.store.set_logged_model_tags(
+            model_id, [LoggedModelTag(str(key), str(value)) for key, value in tags.items()]
+        )
 
     def log_model_artifacts(self, model_id: str, local_dir: str) -> None:
         self._get_artifact_repo_for_logged_model(model_id).log_artifacts(local_dir)
