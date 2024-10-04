@@ -717,6 +717,10 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
         )
 
     def list_artifacts(self, path=None):
+        # TODO: Support list_artifacts for logged models
+        if isinstance(self.resource, _LoggedModel):
+            return []
+
         if path:
             relative_path = posixpath.join(self.relative_artifact_repo_root_path, path)
         else:
