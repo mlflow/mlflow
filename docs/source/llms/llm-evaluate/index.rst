@@ -474,6 +474,7 @@ up OpenAI authentication to run the code below.
     import mlflow
     import openai
     import pandas as pd
+    from typing import List
 
     eval_data = pd.DataFrame(
         {
@@ -489,7 +490,7 @@ up OpenAI authentication to run the code below.
     )
 
 
-    def openai_qa(inputs: pd.DataFrame) -> list[str]:
+    def openai_qa(inputs: pd.DataFrame) -> List[str]:
         predictions = []
         system_prompt = "Please answer the following question in formal language."
 

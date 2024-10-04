@@ -197,7 +197,7 @@ The following example demonstrates how to log a simple chain with this method:
 
     .. code-block:: python
 
-        # Save the below code as chain.py
+        %%writefile chain.py
 
         import os
         from operator import itemgetter
@@ -479,10 +479,14 @@ message from a LangGraph model. This function is then used in mlflow.evaluate to
 string response, which can be compared to the `"ground_truth"` column.
 
 .. code-block:: python
-import mlflow
-import pandas as pd
+
+    import mlflow
+    import pandas as pd
+    from typing import List
 
     # Note that we assume the `model_uri` variable is present
+    # Also note that registering and loading the model is optional and you
+    # can simply leverage your langgraph object in the custom function.
     loaded_model = mlflow.langchain.load_model(model_uri)
 
     eval_data = pd.DataFrame(
@@ -499,7 +503,7 @@ import pandas as pd
     )
 
 
-    def custom_langgraph_wrapper(inputs: pd.DataFrame) -> list[str]:
+    def custom_langgraph_wrapper(inputs: pd.DataFrame) -> List[str]:
         """Extract the predictions from a chat message sequence."""
         answers = []
         for content in inputs["inputs"]:
@@ -519,9 +523,9 @@ import pandas as pd
             targets="ground_truth",
             model_type="question-answering",
             extra_metrics=[
-                 mlflow.metric.latency(),
-                 mlflow.metric.genai.answer_correctness("openai:gpt-4o)
-            ]
+                mlflow.metrics.latency(),
+                mlflow.metrics.genai.answer_correctness("openai:/gpt-4o"),
+            ],
         )
     print(results.metrics)
 
@@ -529,13 +533,19 @@ import pandas as pd
     :caption: Output
 
     {
-        "flesch_kincaid_grade_level/v1/mean": 13.399999999999999,
-        "flesch_kincaid_grade_level/v1/variance": 0.6399999999999997,
-        "flesch_kincaid_grade_level/v1/p90": 14.04,
-        "ari_grade_level/v1/mean": 17.35,
-        "ari_grade_level/v1/variance": 4.202499999999995,
-        "ari_grade_level/v1/p90": 18.99,
+        "latency/mean": 1.8976624011993408,
+        "latency/variance": 0.10328687906900313,
+        "latency/p90": 2.1547686100006103,
+        "flesch_kincaid_grade_level/v1/mean": 12.1,
+        "flesch_kincaid_grade_level/v1/variance": 0.25,
+        "flesch_kincaid_grade_level/v1/p90": 12.5,
+        "ari_grade_level/v1/mean": 15.850000000000001,
+        "ari_grade_level/v1/variance": 0.06250000000000044,
+        "ari_grade_level/v1/p90": 16.05,
         "exact_match/v1": 0.0,
+        "answer_correctness/v1/mean": 5.0,
+        "answer_correctness/v1/variance": 0.0,
+        "answer_correctness/v1/p90": 5.0,
     }
 
 For a complete example of a LangGraph model that works with this evaluation example, see the 
