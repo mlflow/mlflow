@@ -156,7 +156,7 @@ jobs:
       - name: Install ${{ matrix.package }} ${{ matrix.version }}
         run: |
           ${{ matrix.install }}
-          pip install 'numpy<2'
+          # pip install 'numpy<2'
       - uses: ./.github/actions/show-versions
       - uses: ./.github/actions/pipdeptree
       - name: Pre-test
@@ -203,7 +203,7 @@ jobs:
       - name: Install ${{ matrix.package }} ${{ matrix.version }}
         run: |
           ${{ matrix.install }}
-          pip install 'numpy<2'
+          # pip install 'numpy<2'
       - uses: ./.github/actions/show-versions
       - uses: ./.github/actions/pipdeptree
       - name: Pre-test
