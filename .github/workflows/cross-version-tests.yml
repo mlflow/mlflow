@@ -156,7 +156,10 @@ jobs:
       - name: Install ${{ matrix.package }} ${{ matrix.version }}
         run: |
           ${{ matrix.install }}
-          # pip install 'numpy<2'
+          PANDAS_MAJOR_VERSION=$(pip show pandas | grep Version | cut -d ' ' -f 2 | cut -d '.' -f 1)
+          if [ "$PANDAS_MAJOR_VERSION" -lt 2 ]; then
+            pip install 'numpy<2'
+          fi
       - uses: ./.github/actions/show-versions
       - uses: ./.github/actions/pipdeptree
       - name: Pre-test
@@ -203,7 +206,10 @@ jobs:
       - name: Install ${{ matrix.package }} ${{ matrix.version }}
         run: |
           ${{ matrix.install }}
-          # pip install 'numpy<2'
+          PANDAS_MAJOR_VERSION=$(pip show pandas | grep Version | cut -d ' ' -f 2 | cut -d '.' -f 1)
+          if [ "$PANDAS_MAJOR_VERSION" -lt 2 ]; then
+            pip install 'numpy<2'
+          fi
       - uses: ./.github/actions/show-versions
       - uses: ./.github/actions/pipdeptree
       - name: Pre-test
