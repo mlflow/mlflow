@@ -1623,7 +1623,6 @@ message GetLoggedModel {
 
 message SetLoggedModelTags {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
-  option (scalapb.message).extends = "com.databricks.mlflow.api.MlflowTrackingMessage";
 
   // The ID of the LoggedModel to set the tag on.
   optional string model_id = 1 [(validate_required) = true];
