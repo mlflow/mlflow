@@ -1610,6 +1610,22 @@ message GetLoggedModel {
   }
 }
 
+message SetLoggedModelTags {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+  option (scalapb.message).extends = "com.databricks.mlflow.api.MlflowTrackingMessage";
+
+  // The ID of the LoggedModel to set the tag on.
+  optional string model_id = 1 [(validate_required) = true];
+
+  // The tag key.
+  repeated LoggedModelTag tags = 2;
+
+  message Response {
+    // The updated LoggedModel.
+    optional LoggedModel model = 1;
+  }
+}
+
 // A LoggedModel message includes logged model attributes,
 // tags, registration info, params, and linked run metrics.
 message LoggedModel {
