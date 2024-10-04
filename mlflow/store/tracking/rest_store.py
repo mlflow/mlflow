@@ -631,7 +631,7 @@ class RestStore(AbstractStore):
 
         Args:
             model_id: ID of the model.
-            tags: A list of tags to set on the model.
+            tags: Tags to set on the model.
 
         Returns:
             The model with the updated tags.

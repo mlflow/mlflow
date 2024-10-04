@@ -2029,7 +2029,7 @@ class FileStore(AbstractStore):
 
         Args:
             model_id: ID of the model.
-            tags: Tag to set on the model.
+            tags: Tags to set on the model.
 
         Returns:
             The model with the updated tags
