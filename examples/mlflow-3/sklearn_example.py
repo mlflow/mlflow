@@ -123,5 +123,4 @@ print(evaluation_run.inputs)
 
 print(f"models:/{model_id}")
 mlflow.register_model(model_uri=f"models:/{model_id}", name="registered_elasticnet")
-
 mlflow.MlflowClient().get_model_version("registered_elasticnet", 1)
