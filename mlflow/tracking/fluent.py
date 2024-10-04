@@ -1089,6 +1089,7 @@ def log_params(
 def log_input(
     dataset: Optional[Dataset] = None,
     context: Optional[str] = None,
+    *,
     tags: Optional[Dict[str, str]] = None,
     model: Optional[LoggedModelInput] = None,
 ) -> None:
@@ -2037,7 +2038,7 @@ def search_logged_models(
         )
 
 
-def log_outputs(models: Optional[List[LoggedModelOutput]] = None):
+def log_outputs(models: List[LoggedModelOutput]):
     """
     Log outputs, such as models, to the active run. If there is no active run, a new run will be
     created.
