@@ -6,7 +6,6 @@ wget -q -O - 'https://github.com/tamasfe/taplo/releases/download/0.9.3/taplo-lin
 if [[ $? -eq 0 ]]; then
   chmod +x $DST/taplo
   echo $DST >> $GITHUB_PATH
-  export PATH=$DST:$PATH
 else
   # Fall back to cargo install if binary download fails
   cargo install taplo-cli@0.9.3 --locked
