@@ -2,7 +2,14 @@ from dataclasses import dataclass, field
 from typing import List, Optional
 
 from mlflow.models import ModelSignature
-from mlflow.types.schema import Array, ColSpec, DataType, Object, Property, Schema
+from mlflow.types.schema import (
+    Array,
+    ColSpec,
+    DataType,
+    Object,
+    Property,
+    Schema,
+)
 from mlflow.utils.annotations import deprecated, experimental
 
 
@@ -81,7 +88,7 @@ CHAT_COMPLETION_REQUEST_SCHEMA = Schema(
             type=Array(
                 Object(
                     [
-                        Property("role", DataType.string, required=False),
+                        Property("role", DataType.string),
                         Property("content", DataType.string),
                     ]
                 )
@@ -97,17 +104,17 @@ CHAT_COMPLETION_RESPONSE_SCHEMA = Schema(
             type=Array(
                 Object(
                     [
-                        Property("index", DataType.long, required=False),
+                        Property("index", DataType.long),
                         Property(
                             "message",
                             Object(
                                 [
-                                    Property("role", DataType.string, required=False),
+                                    Property("role", DataType.string),
                                     Property("content", DataType.string),
                                 ]
                             ),
                         ),
-                        Property("finish_reason", DataType.string, required=False),
+                        Property("finish_reason", DataType.string),
                     ]
                 )
             ),
