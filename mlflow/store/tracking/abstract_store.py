@@ -766,13 +766,13 @@ class AbstractStore:
         """
         raise NotImplementedError
 
-    def delete_logged_model_tag(self, model_id: str, tag_key: str) -> None:
+    def delete_logged_model_tag(self, model_id: str, key: str) -> None:
         """
         Delete a tag from the specified logged model.
 
         Args:
             model_id: ID of the model.
-            tag_key: Key of the tag to delete.
+            key: Key of the tag to delete.
         """
         raise NotImplementedError
 
