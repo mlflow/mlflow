@@ -274,7 +274,7 @@ def is_databricks_connect(spark):
     )
 
 
-_dbconnect_client = None
+_cached_dbconnect_client = None
 _dbconnect_udf_sandbox_image_version = None
 _dbconnect_udf_sandbox_platform_machine = None
 
@@ -285,7 +285,7 @@ def get_dbconnect_udf_sandbox_image_version_and_platform_machine(spark):
     '{major_version}.{minor_version}' or 'client.{major_version}.{minor_version}'
     and UDF sandbox platform machine like 'x86_64' or 'aarch64'
     """
-    global _dbconnect_client
+    global _cached_dbconnect_client
     global _dbconnect_udf_sandbox_image_version
     global _dbconnect_udf_sandbox_platform_machine
     from pyspark.sql.functions import pandas_udf
@@ -296,8 +296,8 @@ def get_dbconnect_udf_sandbox_image_version_and_platform_machine(spark):
     if is_in_databricks_runtime():
         return get_databricks_runtime_version(), platform.machine()
 
-    if spark is not _dbconnect_client:
-        _dbconnect_client = spark
+    if spark is not _cached_dbconnect_client:
+        _cached_dbconnect_client = spark
         # version is like '15.4.x-snapshot-scala2.12'
         version = spark.sql("SELECT current_version().dbr_version").collect()[0][0]
         version_splits = version.split(".")
