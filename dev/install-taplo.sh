@@ -5,7 +5,9 @@ mkdir -p $DST
 wget -q -O - 'https://github.com/tamasfe/taplo/releases/download/0.9.3/taplo-linux-x86_64.gz' | gunzip -c > $DST/taplo
 if [[ $? -eq 0 ]]; then
   chmod +x $DST/taplo
-  echo $DST >> $GITHUB_PATH
+  if [[ $GITHUB_ACTIONS == 'true' ]]; then
+    echo $DST >> $GITHUB_PATH
+  fi
   export PATH=$DST:$PATH
 else
   # Fall back to cargo install if binary download fails
