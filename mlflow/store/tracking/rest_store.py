@@ -23,6 +23,7 @@ from mlflow.protos.service_pb2 import (
     CreateLoggedModel,
     CreateRun,
     DeleteExperiment,
+    DeleteLoggedModelTag,
     DeleteRun,
     DeleteTag,
     DeleteTraces,
@@ -644,6 +645,20 @@ class RestStore(AbstractStore):
             SetLoggedModelTags, json_body=json_body, endpoint=f"{endpoint}/tags"
         )
         return LoggedModel.from_proto(response_proto.model)
+
+    def delete_logged_model_tag(self, model_id: str, key: str) -> None:
+        """
+        Delete a tag from the specified logged model.
+
+        Args:
+            model_id: ID of the model.
+            key: Key of the tag to delete.
+
+        Returns:
+            The model with the specified tag removed.
+        """
+        endpoint = get_logged_model_endpoint(model_id)
+        self._call_endpoint(DeleteLoggedModelTag, endpoint=f"{endpoint}/tags/{key}")
 
     def log_inputs(self, run_id: str, datasets: Optional[List[DatasetInput]] = None):
         """
