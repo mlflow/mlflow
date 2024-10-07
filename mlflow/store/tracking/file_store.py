@@ -1994,8 +1994,7 @@ class FileStore(AbstractStore):
         model_info_dict: Dict[str, Any] = self._make_persisted_model_dict(model)
         write_yaml(model_dir, FileStore.META_DATA_FILE_NAME, model_info_dict)
         mkdir(model_dir, FileStore.METRICS_FOLDER_NAME)
-        for tag in tags or []:
-            self.set_logged_model_tag(model_id=model_id, tag=tag)
+        self.set_logged_model_tags(model_id=model_id, tags=tags or [])
 
         return self.get_logged_model(model_id=model_id)
 
@@ -2024,27 +2023,28 @@ class FileStore(AbstractStore):
         write_yaml(model_dir, FileStore.META_DATA_FILE_NAME, model_info_dict, overwrite=True)
         return self.get_logged_model(model_id)
 
-    def set_logged_model_tag(self, model_id: str, tag: LoggedModelTag):
+    def set_logged_model_tags(self, model_id: str, tags: List[LoggedModelTag]) -> LoggedModel:
         """
-        Set a tag on the specified logged model.
+        Set tags on the specified logged model.
 
         Args:
             model_id: ID of the model.
-            tag: Tag to set on the model.
+            tags: Tags to set on the model.
 
         Returns:
-            None.
+            The model with the updated tags
         """
-        _validate_tag_name(tag.key)
         model = self.get_logged_model(model_id)
-        tag_path = os.path.join(
-            self._get_model_dir(model.experiment_id, model.model_id),
-            FileStore.TAGS_FOLDER_NAME,
-            tag.key,
-        )
-        make_containing_dirs(tag_path)
-        # Don't add trailing newline
-        write_to(tag_path, self._writeable_value(tag.value))
+        for tag in tags:
+            _validate_tag_name(tag.key)
+            tag_path = os.path.join(
+                self._get_model_dir(model.experiment_id, model.model_id),
+                FileStore.TAGS_FOLDER_NAME,
+                tag.key,
+            )
+            make_containing_dirs(tag_path)
+            # Don't add trailing newline
+            write_to(tag_path, self._writeable_value(tag.value))
 
     def get_logged_model(self, model_id: str) -> LoggedModel:
         """

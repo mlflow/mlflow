@@ -47,6 +47,7 @@ from mlflow.protos.service_pb2 import (
     SearchRuns,
     SearchTraces,
     SetExperimentTag,
+    SetLoggedModelTags,
     SetTag,
     SetTraceTag,
     StartTrace,
@@ -623,6 +624,26 @@ class RestStore(AbstractStore):
             FinalizeLoggedModel(model_id=model_id, status=status.to_proto())
         )
         self._call_endpoint(FinalizeLoggedModel, json_body=json_body, endpoint=endpoint)
+
+    def set_logged_model_tags(self, model_id: str, tags: List[LoggedModelTag]) -> LoggedModel:
+        """
+        Set tags on the specified logged model.
+
+        Args:
+            model_id: ID of the model.
+            tags: Tags to set on the model.
+
+        Returns:
+            The model with the updated tags.
+        """
+        endpoint = get_logged_model_endpoint(model_id)
+        json_body = message_to_json(
+            SetLoggedModelTags(model_id=model_id, tags=[tag.to_proto() for tag in tags])
+        )
+        response_proto = self._call_endpoint(
+            SetLoggedModelTags, json_body=json_body, endpoint=f"{endpoint}/tags"
+        )
+        return LoggedModel.from_proto(response_proto.model)
 
     def log_inputs(self, run_id: str, datasets: Optional[List[DatasetInput]] = None):
         """
