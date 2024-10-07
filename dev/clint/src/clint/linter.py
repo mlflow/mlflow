@@ -121,6 +121,8 @@ KEYWORD_ARTIFACT_PATH = Rule(
     ),
 )
 
+# TODO: Consider dropping this rule once https://github.com/astral-sh/ruff/discussions/13622
+#       is supported.
 SYNTAX_ERROR_EXAMPLE = Rule(
     "MLF0006",
     "syntax-error-example",
