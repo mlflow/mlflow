@@ -331,22 +331,28 @@ def _deploy(
             on the sagemaker endpoint.
             .. code-block:: python
                 :caption: Example
+
+                {
                     "AsyncInferenceConfig": {
-                        "ClientConfig": {
-                            "MaxConcurrentInvocationsPerInstance": 4
-                        },
+                        "ClientConfig": {"MaxConcurrentInvocationsPerInstance": 4},
                         "OutputConfig": {
                             "S3OutputPath": "s3://<path-to-output-bucket>",
                             "NotificationConfig": {},
                         },
                     }
+                }
+
         serverless_config: An optional dictionary specifying the serverless configuration
             .. code-block:: python
                 :caption: Example
+
+                {
                     "ServerlessConfig": {
                         "MemorySizeInMB": 2048,
                         "MaxConcurrency": 20,
                     }
+                }
+
         env: An optional dictionary of environment variables to set for the model.
         tags: An optional dictionary of tags to apply to the endpoint.
     """
