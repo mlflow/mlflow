@@ -31,6 +31,9 @@ jobs:
       pull_number: ${{ fromJSON(steps.judge.outputs.result).pull_number }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          sparse-checkout: |
+            .github
       - name: judge
         id: judge
         uses: actions/github-script@v7
@@ -196,6 +199,9 @@ jobs:
       statuses: write # autoformat.updateStatus
     steps:
       - uses: actions/checkout@v4
+        with:
+          sparse-checkout: |
+            .github
       - name: Update status
         uses: actions/github-script@v7
         with:
