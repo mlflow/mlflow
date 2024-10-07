@@ -152,7 +152,7 @@ def _iter_code_blocks(docstring: str) -> Iterator[CodeBlock]:
             # Are we still in the code block?
             if 0 < indent <= code_block_loc.col_offset:
                 code = textwrap.dedent("\n".join(code_lines))
-                yield (CodeBlock(code=code, loc=code_block_loc))
+                yield CodeBlock(code=code, loc=code_block_loc)
 
                 code_block_loc = None
                 code_lines.clear()
