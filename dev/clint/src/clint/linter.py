@@ -123,9 +123,9 @@ KEYWORD_ARTIFACT_PATH = Rule(
 
 # TODO: Consider dropping this rule once https://github.com/astral-sh/ruff/discussions/13622
 #       is supported.
-SYNTAX_ERROR_EXAMPLE = Rule(
+EXAMPLE_SYNTAX_ERROR = Rule(
     "MLF0006",
-    "syntax-error-example",
+    "example-syntax-error",
     "This example has a syntax error.",
 )
 
@@ -246,7 +246,7 @@ class Linter(ast.NodeVisitor):
                         docstring_node.lineno + code_block.loc.lineno,
                         code_block.loc.col_offset,
                     )
-                    self._check(loc, SYNTAX_ERROR_EXAMPLE)
+                    self._check(loc, EXAMPLE_SYNTAX_ERROR)
 
     def visit_FunctionDef(self, node: ast.FunctionDef) -> None:
         self._test_name_typo(node)
