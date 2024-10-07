@@ -549,6 +549,8 @@ transformers:
   models:
     minimum: "4.25.1"
     maximum: "4.45.0"
+    python:
+      "== dev": "3.9"
     unsupported: [
         # Avoid this patch: https://github.com/huggingface/transformers/pull/29032
         "4.38.0",
@@ -590,6 +592,8 @@ transformers:
   autologging:
     minimum: "4.25.1"
     maximum: "4.45.0"
+    python:
+      "== dev": "3.9"
     unsupported: [
         # Avoid this patch: https://github.com/huggingface/transformers/pull/29032
         "4.38.0",
