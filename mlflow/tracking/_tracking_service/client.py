@@ -1084,6 +1084,9 @@ class TrackingServiceClient:
             model_id, [LoggedModelTag(str(key), str(value)) for key, value in tags.items()]
         )
 
+    def delete_logged_model_tag(self, model_id: str, key: str) -> None:
+        return self.store.delete_logged_model_tag(model_id, key)
+
     def log_model_artifacts(self, model_id: str, local_dir: str) -> None:
         self._get_artifact_repo_for_logged_model(model_id).log_artifacts(local_dir)
 
