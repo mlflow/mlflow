@@ -6,26 +6,6 @@ import type { ChartSectionConfig } from '@mlflow/mlflow/src/experiment-tracking/
 import type { RunsGroupByConfig } from '../utils/experimentPage.group-row-utils';
 import { RunsChartsLineChartXAxisType } from '../../runs-charts/components/RunsCharts.common';
 
-export const EXPERIMENT_PAGE_UI_STATE_FIELDS = [
-  'selectedColumns',
-  'runsExpanded',
-  'runsPinned',
-  'runsHidden',
-  'runsVisibilityMap',
-  'runsHiddenMode',
-  'compareRunCharts',
-  'compareRunSections',
-  'viewMaximized',
-  'runListHidden',
-  'isAccordionReordered',
-  'groupBy',
-  'groupsExpanded',
-  'autoRefreshEnabled',
-  'useGroupedValuesInCharts',
-  'hideEmptyCharts',
-  'globalLineChartConfig',
-  'chartsSearchFilter',
-];
 
 const getDefaultSelectedColumns = () => {
   const result = [
@@ -129,6 +109,11 @@ export interface ExperimentPageUIState extends ExperimentRunsChartsUIConfigurati
   viewMaximized: boolean;
 
   /**
+   * Determines if the experiment list is hidden
+   */
+  experimentListHidden: boolean;
+
+  /**
    * Determines if the run list is hidden
    */
   runListHidden: boolean;
@@ -167,6 +152,7 @@ export const createExperimentPageUIState = (): ExperimentPageUIState => ({
   compareRunCharts: undefined,
   compareRunSections: undefined,
   viewMaximized: false,
+  experimentListHidden: false,
   runListHidden: false,
   isAccordionReordered: false,
   useGroupedValuesInCharts: true,

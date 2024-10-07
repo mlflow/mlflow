@@ -5,7 +5,7 @@
  * annotations are already looking good, please remove this comment.
  */
 
-import React, { Component } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import { css, Theme } from '@emotion/react';
 import {
   Checkbox,
@@ -25,6 +25,7 @@ import Routes from '../routes';
 import { CreateExperimentModal } from './modals/CreateExperimentModal';
 import { DeleteExperimentModal } from './modals/DeleteExperimentModal';
 import { RenameExperimentModal } from './modals/RenameExperimentModal';
+import { ExperimentPageUIState } from './experiment-page/models/ExperimentPageUIState';
 import { IconButton } from '../../common/components/IconButton';
 import { withRouterNext } from '../../common/utils/withRouterNext';
 import { ExperimentEntity } from '../types';
@@ -33,138 +34,149 @@ type Props = {
   activeExperimentIds: string[];
   experiments: ExperimentEntity[];
   navigate: NavigateFunction;
+  uiState: ExperimentPageUIState;
+  setUIState: React.Dispatch<React.SetStateAction<ExperimentPageUIState>>;
 } & DesignSystemHocProps;
 
-type State = any;
+export const ExperimentListViewInner = ({
+  activeExperimentIds,
+  experiments,
+  navigate,
+  designSystemThemeApi,
+  uiState,
+  setUIState,
+}: Props) => {
+  const list = useRef(null);
 
-export class ExperimentListView extends Component<Props, State> {
-  list: any;
-
-  state = {
-    checkedKeys: this.props.activeExperimentIds,
-    hidden: false,
+  const [state, setState] = useState({
+    checkedKeys: activeExperimentIds,
     searchInput: '',
     showCreateExperimentModal: false,
     showDeleteExperimentModal: false,
     showRenameExperimentModal: false,
     selectedExperimentId: '0',
     selectedExperimentName: '',
-  };
+  });
 
-  bindListRef = (ref: any) => {
-    this.list = ref;
-  };
+  // useEffect(() => {
+  //   // Ensure the filter is applied
+  //   if (list.current) {
+  //     list.forceUpdateGrid();
+  //   }
+  // }, [list]);
 
-  componentDidUpdate = () => {
-    // Ensure the filter is applied
-    if (this.list) {
-      this.list.forceUpdateGrid();
-    }
-  };
-
-  filterExperiments = (searchInput: any) => {
-    const { experiments } = this.props;
+  const filterExperiments = (searchInput: any) => {
     const lowerCasedSearchInput = searchInput.toLowerCase();
     return lowerCasedSearchInput === ''
-      ? this.props.experiments
+      ? experiments
       : experiments.filter(({ name }) => name.toLowerCase().includes(lowerCasedSearchInput));
   };
 
-  handleSearchInputChange = (event: any) => {
-    this.setState({
+  const handleSearchInputChange = (event: any) => {
+    setState((state) => ({
+      ...state,
       searchInput: event.target.value,
-    });
+    }));
   };
 
-  updateSelectedExperiment = (experimentId: any, experimentName: any) => {
-    this.setState({
+  const updateSelectedExperiment = (experimentId: any, experimentName: any) => {
+    setState((state) => ({
+      ...state,
       selectedExperimentId: experimentId,
       selectedExperimentName: experimentName,
-    });
+    }));
   };
 
-  handleCreateExperiment = () => {
-    this.setState({
+  const handleCreateExperiment = () => {
+    setState((state) => ({
+      ...state,
       showCreateExperimentModal: true,
-    });
+    }));
   };
 
-  handleDeleteExperiment = (experimentId: any, experimentName: any) => () => {
-    this.setState({
+  const handleDeleteExperiment = (experimentId: any, experimentName: any) => () => {
+    setState((state) => ({
+      ...state,
       showDeleteExperimentModal: true,
-    });
-    this.updateSelectedExperiment(experimentId, experimentName);
+    }));
+    console.log(state.showDeleteExperimentModal)
+    updateSelectedExperiment(experimentId, experimentName);
   };
 
-  handleRenameExperiment = (experimentId: any, experimentName: any) => () => {
-    this.setState({
+  const handleRenameExperiment = (experimentId: any, experimentName: any) => () => {
+    setState((state) => ({
+      ...state,
       showRenameExperimentModal: true,
-    });
-    this.updateSelectedExperiment(experimentId, experimentName);
+    }));
+    updateSelectedExperiment(experimentId, experimentName);
   };
 
-  handleCloseCreateExperimentModal = () => {
-    this.setState({
+  const handleCloseCreateExperimentModal = () => {
+    setState((state) => ({
+      ...state,
       showCreateExperimentModal: false,
-    });
+    }));
   };
 
-  handleCloseDeleteExperimentModal = () => {
-    this.setState({
+  const handleCloseDeleteExperimentModal = () => {
+    setState((state) => ({
+      ...state,
       showDeleteExperimentModal: false,
-    });
+    }));
     // reset
-    this.updateSelectedExperiment('0', '');
+    updateSelectedExperiment('0', '');
   };
 
-  handleCloseRenameExperimentModal = () => {
-    this.setState({
+  const handleCloseRenameExperimentModal = () => {
+    setState((state) => ({
+      ...state,
       showRenameExperimentModal: false,
-    });
+    }));
     // reset
-    this.updateSelectedExperiment('0', '');
+    updateSelectedExperiment('0', '');
+  };
+
+  const pushExperimentRoute = () => {
+    if (state.checkedKeys.length > 0) {
+      const route =
+        state.checkedKeys.length === 1
+          ? Routes.getExperimentPageRoute(state.checkedKeys[0])
+          : Routes.getCompareExperimentsPageRoute(state.checkedKeys);
+      navigate(route);
+    }
   };
 
   // Add a key if it does not exist, remove it if it does
   // Always keep at least one experiment checked if it is only the active one.
-  handleCheck = (isChecked: any, key: any) => {
-    this.setState((prevState: any, props: any) => {
+  const handleCheck = (isChecked: any, key: any) => {
+    setState((prevState) => {
       let { checkedKeys } = prevState;
-      if (isChecked === true && !props.activeExperimentIds.includes(key)) {
-        checkedKeys = [key, ...props.activeExperimentIds];
+      if (isChecked === true && !activeExperimentIds.includes(key)) {
+        checkedKeys = [key, ...activeExperimentIds];
       }
-      if (isChecked === false && props.activeExperimentIds.length !== 1) {
-        checkedKeys = props.activeExperimentIds.filter((i: any) => i !== key);
+      if (isChecked === false && activeExperimentIds.length !== 1) {
+        checkedKeys = activeExperimentIds.filter((i: any) => i !== key);
       }
-      return { checkedKeys: checkedKeys };
-    }, this.pushExperimentRoute);
-  };
-
-  pushExperimentRoute = () => {
-    if (this.state.checkedKeys.length > 0) {
-      const route =
-        this.state.checkedKeys.length === 1
-          ? Routes.getExperimentPageRoute(this.state.checkedKeys[0])
-          : Routes.getCompareExperimentsPageRoute(this.state.checkedKeys);
-      this.props.navigate(route);
-    }
+      const new_state = { ...prevState, checkedKeys: checkedKeys }
+      pushExperimentRoute()
+      return new_state
+    });
   };
 
   // Avoid calling emotion for every list item
-  activeExperimentListItem = classNames.getExperimentListItemContainer(true, this.props.designSystemThemeApi.theme);
-  inactiveExperimentListItem = classNames.getExperimentListItemContainer(false, this.props.designSystemThemeApi.theme);
+  const activeExperimentListItem = classNames.getExperimentListItemContainer(true, designSystemThemeApi.theme);
+  const inactiveExperimentListItem = classNames.getExperimentListItemContainer(false, designSystemThemeApi.theme);
 
-  renderListItem = ({ index, key, style, isScrolling, parent }: any) => {
+  const renderListItem = ({ index, key, style, isScrolling, parent }: any) => {
     // Use the parents props to index.
     const item = parent.props.data[index];
-    const { activeExperimentIds } = this.props;
     const isActive = activeExperimentIds.includes(item.experimentId);
     const dataTestId = isActive ? 'active-experiment-list-item' : 'experiment-list-item';
     // Clicking the link removes all checks and marks other experiments
     // as not active.
     return (
       <div
-        css={isActive ? this.activeExperimentListItem : this.inactiveExperimentListItem}
+        css={isActive ? activeExperimentListItem : inactiveExperimentListItem}
         data-testid={dataTestId}
         key={key}
         style={style}
@@ -180,14 +192,14 @@ export class ExperimentListView extends Component<Props, State> {
               componentId="codegen_mlflow_app_src_experiment-tracking_components_experimentlistview.tsx_180"
               id={item.experimentId}
               key={item.experimentId}
-              onChange={(isChecked) => this.handleCheck(isChecked, item.experimentId)}
+              onChange={(isChecked) => handleCheck(isChecked, item.experimentId)}
               isChecked={isActive}
               data-testid={`${dataTestId}-check-box`}
             ></Checkbox>,
             <Link
               className="experiment-link"
               to={Routes.getExperimentPageRoute(item.experimentId)}
-              onClick={() => this.setState({ checkedKeys: [item.experimentId] })}
+              onClick={() => setState((state) => ({ ...state, checkedKeys: [item.experimentId] }))}
               title={item.name}
               data-testid={`${dataTestId}-link`}
             >
@@ -196,14 +208,14 @@ export class ExperimentListView extends Component<Props, State> {
             <IconButton
               icon={<PencilIcon />}
               // @ts-expect-error TS(2322): Type '{ icon: Element; onClick: () => void; "data-... Remove this comment to see the full error message
-              onClick={this.handleRenameExperiment(item.experimentId, item.name)}
+              onClick={handleRenameExperiment(item.experimentId, item.name)}
               data-testid="rename-experiment-button"
               css={classNames.renameExperiment}
             />,
             <IconButton
               icon={<i className="far fa-trash-o" />}
               // @ts-expect-error TS(2322): Type '{ icon: Element; onClick: () => void; css: {... Remove this comment to see the full error message
-              onClick={this.handleDeleteExperiment(item.experimentId, item.name)}
+              onClick={handleDeleteExperiment(item.experimentId, item.name)}
               css={classNames.deleteExperiment}
               data-testid="delete-experiment-button"
             />,
@@ -211,100 +223,87 @@ export class ExperimentListView extends Component<Props, State> {
         ></List.Item>
       </div>
     );
-  };
+  }
 
-  isRowLoaded = ({ index }: any) => {
-    return !!this.props.experiments[index];
-  };
-
-  unHide = () => this.setState({ hidden: false });
-  hide = () => this.setState({ hidden: true });
-
-  render() {
-    const { hidden } = this.state;
-    const { activeExperimentIds, designSystemThemeApi } = this.props;
-    const { theme } = designSystemThemeApi;
-
-    if (hidden) {
-      return (
-        <CaretDownSquareIcon
-          rotate={-90}
-          onClick={this.unHide}
-          css={classNames.icon(theme)}
-          title="Show experiment list"
-        />
-      );
-    }
-
-    const { searchInput } = this.state;
-    const filteredExperiments = this.filterExperiments(searchInput);
-
+  if (uiState.experimentListHidden) {
     return (
-      <div id="experiment-list-outer-container" css={classNames.experimentListOuterContainer}>
-        <CreateExperimentModal
-          isOpen={this.state.showCreateExperimentModal}
-          onClose={this.handleCloseCreateExperimentModal}
-        />
-        <DeleteExperimentModal
-          isOpen={this.state.showDeleteExperimentModal}
-          onClose={this.handleCloseDeleteExperimentModal}
-          activeExperimentIds={activeExperimentIds}
-          experimentId={this.state.selectedExperimentId}
-          experimentName={this.state.selectedExperimentName}
-        />
-        <RenameExperimentModal
-          isOpen={this.state.showRenameExperimentModal}
-          onClose={this.handleCloseRenameExperimentModal}
-          experimentId={this.state.selectedExperimentId}
-          experimentName={this.state.selectedExperimentName}
-        />
-        <div css={classNames.experimentTitleContainer}>
-          <Typography.Title level={2} style={{ margin: 0 }}>
-            Experiments
-          </Typography.Title>
-          <div>
-            <PlusCircleIcon
-              onClick={this.handleCreateExperiment}
-              css={classNames.icon(theme)}
-              title="New Experiment"
-              data-testid="create-experiment-button"
-            />
-            <CaretDownSquareIcon
-              onClick={this.hide}
-              rotate={90}
-              css={classNames.icon(theme)}
-              title="Hide experiment list"
-            />
-          </div>
-        </div>
-        <Input
-          componentId="codegen_mlflow_app_src_experiment-tracking_components_experimentlistview.tsx_280"
-          placeholder="Search Experiments"
-          aria-label="search experiments"
-          value={searchInput}
-          onChange={this.handleSearchInputChange}
-          data-testid="search-experiment-input"
-        />
-        <div>
-          <AutoSizer>
-            {({ width, height }) => (
-              <VList
-                rowRenderer={this.renderListItem}
-                data={filteredExperiments}
-                ref={this.bindListRef}
-                rowHeight={32}
-                overscanRowCount={10}
-                height={height}
-                width={width}
-                rowCount={filteredExperiments.length}
-              />
-            )}
-          </AutoSizer>
-        </div>
-      </div>
+      <CaretDownSquareIcon
+        rotate={-90}
+        onClick={() => setUIState((uiState) => ({...uiState, experimentListHidden: false }))}
+        css={classNames.icon(designSystemThemeApi.theme)}
+        title="Show experiment list"
+      />
     );
   }
+
+  const filteredExperiments = filterExperiments(state.searchInput);
+
+  return (
+    <div id="experiment-list-outer-container" css={classNames.experimentListOuterContainer}>
+      <CreateExperimentModal
+        isOpen={state.showCreateExperimentModal}
+        onClose={handleCloseCreateExperimentModal}
+      />
+      <DeleteExperimentModal
+        isOpen={state.showDeleteExperimentModal}
+        onClose={handleCloseDeleteExperimentModal}
+        activeExperimentIds={activeExperimentIds}
+        experimentId={state.selectedExperimentId}
+        experimentName={state.selectedExperimentName}
+      />
+      <RenameExperimentModal
+        isOpen={state.showRenameExperimentModal}
+        onClose={handleCloseRenameExperimentModal}
+        experimentId={state.selectedExperimentId}
+        experimentName={state.selectedExperimentName}
+      />
+      <div css={classNames.experimentTitleContainer}>
+        <Typography.Title level={2} style={{ margin: 0 }}>
+          Experiments
+        </Typography.Title>
+        <div>
+          <PlusCircleIcon
+            onClick={handleCreateExperiment}
+            css={classNames.icon(designSystemThemeApi.theme)}
+            title="New Experiment"
+            data-testid="create-experiment-button"
+          />
+          <CaretDownSquareIcon
+            onClick={() => setUIState((uiState) => ({...uiState, experimentListHidden: true }))}
+            rotate={90}
+            css={classNames.icon(designSystemThemeApi.theme)}
+            title="Hide experiment list"
+          />
+        </div>
+      </div>
+      <Input
+        componentId="codegen_mlflow_app_src_experiment-tracking_components_experimentlistview.tsx_280"
+        placeholder="Search Experiments"
+        aria-label="search experiments"
+        value={state.searchInput}
+        onChange={handleSearchInputChange}
+        data-testid="search-experiment-input"
+      />
+      <div>
+        <AutoSizer>
+          {({ width, height }) => (
+            <VList
+              rowRenderer={renderListItem}
+              data={filteredExperiments}
+              ref={list}
+              rowHeight={32}
+              overscanRowCount={10}
+              height={height}
+              width={width}
+              rowCount={filteredExperiments.length}
+            />
+          )}
+        </AutoSizer>
+      </div>
+    </div>
+  );
 }
+export const ExperimentListView = React.memo(ExperimentListViewInner)
 
 const classNames = {
   experimentListOuterContainer: css({
