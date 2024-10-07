@@ -2,7 +2,7 @@ import logging
 import operator
 import os
 from decimal import Decimal
-from typing import Any, Dict, Optional
+from typing import Dict, Optional
 
 from mlflow.exceptions import MlflowException
 from mlflow.models.evaluation import EvaluationResult
@@ -255,9 +255,9 @@ class ModelValidationFailedException(MlflowException):
 
 
 def validate_evaluation_results(
-    candidate_result: EvaluationResult,
-    baseline_result: Optional[EvaluationResult],
     validation_thresholds: Dict[str, MetricThreshold],
+    candidate_result: EvaluationResult,
+    baseline_result: Optional[EvaluationResult] = None,
 ):
     """
     Validate the evaluation result from one model (candidate) against another
@@ -270,16 +270,16 @@ def validate_evaluation_results(
         functionality in the :py:func:`mlflow.evaluate` API.
 
     Args:
+        validation_thresholds: A dictionary of metric name to
+            :py:class:`mlflow.models.MetricThreshold` used for model validation.
+            Each metric name must either be the name of a builtin metric or the
+            name of a metric defined in the ``extra_metrics`` parameter.
         candidate_result: The evaluation result of the candidate model.
             Returned by the :py:func:`mlflow.evaluate` API.
         baseline_result: The evaluation result of the baseline model.
             Returned by the :py:func:`mlflow.evaluate` API.
             If set to None, the candidate model result will be
             compared against the threshold values directly.
-        validation_thresholds: A dictionary of metric name to
-            :py:class:`mlflow.models.MetricThreshold` used for model validation.
-            Each metric name must either be the name of a builtin metric or the
-            name of a metric defined in the ``extra_metrics`` parameter.
 
     Code Example:
 
@@ -319,9 +319,9 @@ def validate_evaluation_results(
 
             # Validate the results
             mlflow.validate_evaluation_results(
+                thresholds,
                 candidate_result,
                 baseline_result,
-                validation_thresholds=thresholds,
             )
 
         See :ref:`the Model Validation documentation <model-validation>` for more details.
@@ -350,8 +350,8 @@ def validate_evaluation_results(
 
 def _validate(
     validation_thresholds: MetricThreshold,
-    candidate_metrics: Dict[str, Any],
-    baseline_metrics: Dict[str, Any],
+    candidate_metrics: Dict[str, float],
+    baseline_metrics: Dict[str, float],
 ):
     """
     Validate the model based on validation_thresholds by metrics value and
@@ -377,19 +377,15 @@ def _validate(
     }
 
     for metric_name in validation_thresholds.keys():
-        metric_threshold, validation_result = (
-            validation_thresholds[metric_name],
-            validation_results[metric_name],
-        )
+        metric_threshold = validation_thresholds[metric_name]
+        validation_result = validation_results[metric_name]
 
         if metric_name not in candidate_metrics:
             validation_result.missing_candidate = True
             continue
 
-        candidate_metric_value, baseline_metric_value = (
-            candidate_metrics[metric_name],
-            baseline_metrics[metric_name] if baseline_metrics else None,
-        )
+        candidate_metric_value = candidate_metrics[metric_name]
+        baseline_metric_value = baseline_metrics[metric_name] if baseline_metrics else None
 
         # If metric is higher is better, >= is used, otherwise <= is used
         # for thresholding metric value and model comparsion

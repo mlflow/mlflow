@@ -2100,12 +2100,7 @@ class DefaultEvaluator(ModelEvaluator):
                     f"verify that you set the `model_type` and `dataset` arguments correctly."
                 )
 
-        if evaluator_config.get("_disable_candidate_model", False):
-            evaluation_result = EvaluationResult(metrics={}, artifacts={})
-        else:
-            evaluation_result = self._evaluate(model)
-
-        return evaluation_result
+        return self._evaluate(model)
 
     @property
     def X(self) -> pd.DataFrame:
