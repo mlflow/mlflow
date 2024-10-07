@@ -755,7 +755,7 @@ class AbstractStore:
 
     def set_logged_model_tags(self, model_id: str, tags: List[LoggedModelTag]) -> LoggedModel:
         """
-        Set a tag on the specified logged model.
+        Set tags on the specified logged model.
 
         Args:
             model_id: ID of the model.
