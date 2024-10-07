@@ -1435,11 +1435,11 @@ def evaluate(  # noqa: D417
                     return pd.DataFrame({"answer": ["bar"], "source": ["baz"]})
 
 
-                results = evaluate(model=model, data=data, predictions="answer", ...)
+                results = evaluate(model=model, data=data, predictions="answer")
 
                 # Evaluate a static dataset
                 data = pd.DataFrame({"question": ["foo"], "answer": ["bar"], "source": ["baz"]})
-                results = evaluate(data=data, predictions="answer", ...)
+                results = evaluate(data=data, predictions="answer")
 
         model_type: (Optional) A string describing the model type. The default evaluator
             supports the following model types:
