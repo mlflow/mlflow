@@ -106,7 +106,7 @@ service DatabricksMlflowArtifactsService {
     option (rpc) = {
       endpoints: [{
         method: "POST",
-        path: "/mlflow/logged-models/{model_id}/credentials-for-upload"
+        path: "/mlflow/logged-models/{model_id}/artifacts/credentials-for-upload"
         since {major: 2, minor: 0},
       }],
       visibility: PUBLIC_UNDOCUMENTED,
@@ -117,7 +117,7 @@ service DatabricksMlflowArtifactsService {
     option (rpc) = {
       endpoints: [{
         method: "POST",
-        path: "/mlflow/logged-models/{model_id}/credentials-for-download"
+        path: "/mlflow/logged-models/{model_id}/artifacts/credentials-for-download"
         since {major: 2, minor: 0},
       }],
       visibility: PUBLIC_UNDOCUMENTED,

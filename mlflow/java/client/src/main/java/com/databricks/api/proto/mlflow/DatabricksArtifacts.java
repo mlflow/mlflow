@@ -22829,7 +22829,7 @@ public final class DatabricksArtifacts {
       "icks.rpc.RPC[$this.Response]*s\n\026Artifact" +
       "CredentialType\022\021\n\rAZURE_SAS_URI\020\001\022\025\n\021AWS" +
       "_PRESIGNED_URL\020\002\022\022\n\016GCP_SIGNED_URL\020\003\022\033\n\027" +
-      "AZURE_ADLS_GEN2_SAS_URI\020\0042\301\r\n Databricks" +
+      "AZURE_ADLS_GEN2_SAS_URI\020\0042\325\r\n Databricks" +
       "MlflowArtifactsService\022\234\001\n\025getCredential" +
       "sForRead\022\035.mlflow.GetCredentialsForRead\032" +
       "&.mlflow.GetCredentialsForRead.Response\"" +
@@ -22862,19 +22862,19 @@ public final class DatabricksArtifacts {
       "GetCredentialsForTraceDataUpload.Respons" +
       "e\"L\362\206\031H\nD\n\003GET\0227/mlflow/traces/{request_" +
       "id}/credentials-for-data-upload\032\004\010\002\020\000\020\003\022" +
-      "\324\001\n\"getCredentialsForLoggedModelUpload\022*" +
+      "\336\001\n\"getCredentialsForLoggedModelUpload\022*" +
       ".mlflow.GetCredentialsForLoggedModelUplo" +
       "ad\0323.mlflow.GetCredentialsForLoggedModel" +
-      "Upload.Response\"M\362\206\031I\nE\n\004POST\0227/mlflow/l" +
-      "ogged-models/{model_id}/credentials-for-" +
-      "upload\032\004\010\002\020\000\020\003\022\334\001\n$getCredentialsForLogg" +
-      "edModelDownload\022,.mlflow.GetCredentialsF" +
-      "orLoggedModelDownload\0325.mlflow.GetCreden" +
-      "tialsForLoggedModelDownload.Response\"O\362\206" +
-      "\031K\nG\n\004POST\0229/mlflow/logged-models/{model" +
-      "_id}/credentials-for-download\032\004\010\002\020\000\020\003B,\n" +
-      "\037com.databricks.api.proto.mlflow\220\001\001\240\001\001\342?" +
-      "\002\020\001"
+      "Upload.Response\"W\362\206\031S\nO\n\004POST\022A/mlflow/l" +
+      "ogged-models/{model_id}/artifacts/creden" +
+      "tials-for-upload\032\004\010\002\020\000\020\003\022\346\001\n$getCredenti" +
+      "alsForLoggedModelDownload\022,.mlflow.GetCr" +
+      "edentialsForLoggedModelDownload\0325.mlflow" +
+      ".GetCredentialsForLoggedModelDownload.Re" +
+      "sponse\"Y\362\206\031U\nQ\n\004POST\022C/mlflow/logged-mod" +
+      "els/{model_id}/artifacts/credentials-for" +
+      "-download\032\004\010\002\020\000\020\003B,\n\037com.databricks.api." +
+      "proto.mlflow\220\001\001\240\001\001\342?\002\020\001"
     };
     descriptor = com.google.protobuf.Descriptors.FileDescriptor
       .internalBuildGeneratedFileFrom(descriptorData,
