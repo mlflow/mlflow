@@ -172,35 +172,8 @@ $(window).scroll(function() {
 fetch('/docs/versions.json')
   .then((response) => response.json())
   .then((data) => {
-    var versions =  data.versions
-      // Sort versions
-      // https://stackoverflow.com/a/40201629
-      .map((a) =>
-        a
-          .split('.')
-          .map((n) => +n + 100000)
-          .join('.'),
-      )
-      .sort()
-      .map((a) =>
-        a
-          .split('.')
-          .map((n) => +n - 100000)
-          .join('.'),
-      )
-      .reverse();
-
-    var seenMinorVersions = [];
-    var latestMicroVersions = [];
-    versions.forEach(function (version) {
-      var minor = version.split('.').slice(0, 2).join('.');
-      if (!seenMinorVersions.includes(minor)) {
-        seenMinorVersions.push(minor);
-        latestMicroVersions.push(version);
-      }
-    });
-
-    var latestVersion = latestMicroVersions[0];
+    var versions =  data.versions;
+    var latestVersion = versions[0];
     var docRegex = /\/docs\/(?<version>[^/]+)\//;
     var currentVersion = docRegex.exec(window.location.pathname).groups.version;
     var dropDown = document.createElement('select');
@@ -209,7 +182,7 @@ fetch('/docs/versions.json')
       var newUrl = window.location.href.replace(docRegex, `/docs/${this.value}/`);
       window.location.assign(newUrl);
     };
-    latestMicroVersions.forEach(function (version) {
+    versions.forEach(function (version) {
       var option = document.createElement('option');
       option.value = version;
       option.selected = version === currentVersion;
