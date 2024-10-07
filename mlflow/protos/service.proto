@@ -583,6 +583,33 @@ service MlflowService {
       rpc_doc_title: "Set Logged Model Tag",
     };
   }
+
+  rpc deleteLoggedModelTag(DeleteLoggedModelTag) returns (DeleteLoggedModelTag.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "DELETE",
+        path: "/mlflow/logged-models/{model_id}/tags/{tag_key}"
+        since {major: 2, minor: 0},
+      }],
+      visibility: PUBLIC_UNDOCUMENTED,
+      rpc_doc_title: "Delete Logged Model Tag",
+    };
+  }
+
+  // List artifacts for a LoggedModel. Takes an optional ``artifact_path`` prefix which if specified,
+  // the response contains only artifacts with the specified prefix.
+  rpc listLoggedModelArtifacts (ListLoggedModelArtifacts) returns (ListLoggedModelArtifacts.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "GET",
+        path: "/mlflow/logged-models/{model_id}/artifacts/directories"
+        since { major: 2, minor: 0 },
+      }],
+      visibility: PUBLIC_UNDOCUMENTED,
+      rpc_doc_title: "List Artifacts for Logged Models",
+    };
+    option (graphql) = {};
+  }
 }
 
 // View type for ListExperiments query.
@@ -1633,6 +1660,43 @@ message SetLoggedModelTags {
   message Response {
     // The updated LoggedModel.
     optional LoggedModel model = 1;
+  }
+}
+
+message DeleteLoggedModelTag {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // The ID of the LoggedModel to delete the tag from.
+  optional string model_id = 1 [(validate_required) = true];
+
+  // The tag key.
+  optional string tag_key = 2 [(validate_required) = true];
+
+  message Response {
+  }
+}
+
+message ListLoggedModelArtifacts {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // The ID of the LoggedModel for which to list the artifacts
+  optional string model_id = 1 [(validate_required) = true];
+
+  // Filter artifacts matching this path (a relative path from the root artifact directory).
+  optional string file_path = 2;
+
+  // Token indicating the page of artifact results to fetch
+  optional string page_token = 3;
+
+  message Response {
+    // Root artifact directory for the logged model.
+    optional string root_uri = 1;
+
+    // File location and metadata for artifacts.
+    repeated FileInfo files = 2;
+
+    // Token that can be used to retrieve the next page of artifact results
+    optional string next_page_token = 3;
   }
 }
 
