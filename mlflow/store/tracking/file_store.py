@@ -2034,9 +2034,9 @@ class FileStore(AbstractStore):
         Returns:
             The model with the updated tags
         """
+        model = self.get_logged_model(model_id)
         for tag in tags:
             _validate_tag_name(tag.key)
-            model = self.get_logged_model(model_id)
             tag_path = os.path.join(
                 self._get_model_dir(model.experiment_id, model.model_id),
                 FileStore.TAGS_FOLDER_NAME,
