@@ -4,7 +4,7 @@ import logging
 import os
 import posixpath
 import uuid
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 import requests
 
@@ -719,7 +719,7 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
     def list_artifacts(self, path=None):
         # TODO: Support list_artifacts for logged models
         if isinstance(self.resource, _LoggedModel):
-            return []
+            return self.resource.list_artifacts(path)
 
         if path:
             relative_path = posixpath.join(self.relative_artifact_repo_root_path, path)
@@ -752,6 +752,20 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
                 break
             page_token = response.next_page_token
         return infos
+
+    def list_logged_model_artifacts(self, path: Optional[str] = None) -> List[FileInfo]:
+        if path:
+            relative_path = posixpath.join(self.relative_artifact_repo_root_path, path)
+        else:
+            relative_path = self.relative_artifact_repo_root_path
+        return [
+            FileInfo(
+                posixpath.relpath(path=f.path, start=self.relative_artifact_repo_root_path),
+                f.is_dir,
+                f.file_size,
+            )
+            for f in self.resource.list_artifacts(relative_path)
+        ]
 
     def delete_artifacts(self, artifact_path=None):
         raise MlflowException("Not implemented yet")

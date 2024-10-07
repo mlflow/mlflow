@@ -3,6 +3,7 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Any, Callable, List, Optional, Tuple
 
+from mlflow.entities.file_info import FileInfo
 from mlflow.protos.databricks_artifacts_pb2 import (
     DatabricksMlflowArtifactsService,
     GetCredentialsForLoggedModelDownload,
@@ -10,7 +11,13 @@ from mlflow.protos.databricks_artifacts_pb2 import (
     GetCredentialsForRead,
     GetCredentialsForWrite,
 )
-from mlflow.protos.service_pb2 import GetLoggedModel, GetRun, MlflowService
+from mlflow.protos.service_pb2 import (
+    GetLoggedModel,
+    GetRun,
+    ListArtifacts,
+    ListLoggedModelArtifacts,
+    MlflowService,
+)
 from mlflow.utils.proto_json_utils import message_to_json
 
 
@@ -30,6 +37,12 @@ class ArtifactCredentialInfo:
     signed_uri: str
     type: Any
     headers: List[HttpHeader]
+
+
+@dataclass
+class ListArtifactsPage:
+    file_infos: List[FileInfo]
+    next_page_token: Optional[str] = None
 
 
 class _Resource(ABC):
@@ -58,6 +71,24 @@ class _Resource(ABC):
         """
         Get the artifact root URI of this resource.
         """
+
+    @abstractmethod
+    def _list_artifacts(self, path: str, page_token: Optional[str]) -> ListArtifactsPage:
+        """
+        List artifacts under the specified path.
+        """
+
+    def list_artifacts(self, path: Optional[str] = None) -> List[FileInfo]:
+        file_infos: List[FileInfo] = []
+        page_token = None
+        while True:
+            files, next_page_token = self._list_artifacts(path, page_token)
+            files.extend(files)
+            if len(files) == 0 or not next_page_token:
+                break
+            page_token = next_page_token
+
+        return file_infos
 
 
 class _LoggedModel(_Resource):
@@ -96,6 +127,29 @@ class _LoggedModel(_Resource):
         )
         return response.model.info.artifact_uri
 
+    def _list_artifacts(
+        self, path: str, page_token: Optional[str]
+    ) -> Tuple[List[FileInfo], Optional[str]]:
+        json_body = message_to_json(
+            ListLoggedModelArtifacts(model_id=self.id, file_path=path, page_token=page_token)
+        )
+        response = self.call_endpoint(
+            MlflowService, ListLoggedModelArtifacts, json_body, path_params={"model_id": self.id}
+        )
+        files = response.files
+        # If `path` is a file, ListArtifacts returns a single list element with the
+        # same name as `path`. The list_artifacts API expects us to return an empty list in this
+        # case, so we do so here.
+        if len(files) == 1 and files[0].path == path and not files[0].is_dir:
+            return []
+
+        return ListArtifactsPage(
+            file_infos=[
+                FileInfo(f.path, f.is_dir, None if f.is_dir else f.file_size) for f in files
+            ],
+            next_page_token=response.next_page_token,
+        )
+
 
 class _Run(_Resource):
     def get_credentials(
@@ -123,3 +177,22 @@ class _Run(_Resource):
         json_body = message_to_json(GetRun(run_id=self.id))
         run_response = self.call_endpoint(MlflowService, GetRun, json_body)
         return run_response.run.info.artifact_uri
+
+    def _list_artifacts(self, path: str, page_token: Optional[str]) -> ListArtifactsPage:
+        json_body = message_to_json(
+            ListArtifacts(run_id=self.resource.id, path=path, page_token=page_token)
+        )
+        response = self._call_endpoint(MlflowService, ListArtifacts, json_body)
+        files = response.files
+        # If `path` is a file, ListArtifacts returns a single list element with the
+        # same name as `path`. The list_artifacts API expects us to return an empty list in this
+        # case, so we do so here.
+        if len(files) == 1 and files[0].path == path and not files[0].is_dir:
+            return ListArtifactsPage(file_infos=[], next_page_token=None)
+
+        return ListArtifactsPage(
+            file_infos=[
+                FileInfo(f.path, f.is_dir, None if f.is_dir else f.file_size) for f in files
+            ],
+            next_page_token=response.next_page_token,
+        )
