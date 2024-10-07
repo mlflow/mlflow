@@ -25,27 +25,26 @@ import Routes from '../routes';
 import { CreateExperimentModal } from './modals/CreateExperimentModal';
 import { DeleteExperimentModal } from './modals/DeleteExperimentModal';
 import { RenameExperimentModal } from './modals/RenameExperimentModal';
+import { ExperimentPageUIState } from './experiment-page/models/ExperimentPageUIState';
 import { IconButton } from '../../common/components/IconButton';
 import { withRouterNext } from '../../common/utils/withRouterNext';
-import { useInitializeUIState } from './experiment-page/hooks/useInitializeUIState';
-import { useExperimentPageSearchFacets } from './experiment-page/hooks/useExperimentPageSearchFacets';
-import { useSharedExperimentViewState } from './experiment-page/hooks/useSharedExperimentViewState';
-import { usePersistExperimentPageViewState } from './experiment-page/hooks/usePersistExperimentPageViewState';
 import { ExperimentEntity } from '../types';
 
 type Props = {
   activeExperimentIds: string[];
   experiments: ExperimentEntity[];
   navigate: NavigateFunction;
+  uiState: ExperimentPageUIState;
+  setUIState: React.Dispatch<React.SetStateAction<ExperimentPageUIState>>;
 } & DesignSystemHocProps;
 
-type State = any;
-
-export const ExperimentListView = ({
+export const ExperimentListViewInner = ({
   activeExperimentIds,
   experiments,
   navigate,
   designSystemThemeApi,
+  uiState,
+  setUIState,
 }: Props) => {
   const list = useRef(null);
 
@@ -74,66 +73,77 @@ export const ExperimentListView = ({
   };
 
   const handleSearchInputChange = (event: any) => {
-    setState({
+    setState((state) => ({
       ...state,
       searchInput: event.target.value,
-    });
+    }));
   };
 
   const updateSelectedExperiment = (experimentId: any, experimentName: any) => {
-    setState({
+    setState((state) => ({
       ...state,
       selectedExperimentId: experimentId,
       selectedExperimentName: experimentName,
-    });
+    }));
   };
 
   const handleCreateExperiment = () => {
-    setState({
+    setState((state) => ({
       ...state,
       showCreateExperimentModal: true,
-    });
+    }));
   };
 
   const handleDeleteExperiment = (experimentId: any, experimentName: any) => () => {
-    setState({
+    setState((state) => ({
       ...state,
       showDeleteExperimentModal: true,
-    });
+    }));
+    console.log(state.showDeleteExperimentModal)
     updateSelectedExperiment(experimentId, experimentName);
   };
 
   const handleRenameExperiment = (experimentId: any, experimentName: any) => () => {
-    setState({
+    setState((state) => ({
       ...state,
       showRenameExperimentModal: true,
-    });
+    }));
     updateSelectedExperiment(experimentId, experimentName);
   };
 
   const handleCloseCreateExperimentModal = () => {
-    setState({
+    setState((state) => ({
       ...state,
       showCreateExperimentModal: false,
-    });
+    }));
   };
 
   const handleCloseDeleteExperimentModal = () => {
-    setState({
+    setState((state) => ({
       ...state,
       showDeleteExperimentModal: false,
-    });
+    }));
     // reset
     updateSelectedExperiment('0', '');
   };
 
   const handleCloseRenameExperimentModal = () => {
-    setState({
+    setState((state) => ({
       ...state,
       showRenameExperimentModal: false,
-    });
+    }));
     // reset
     updateSelectedExperiment('0', '');
+  };
+
+  const pushExperimentRoute = () => {
+    if (state.checkedKeys.length > 0) {
+      const route =
+        state.checkedKeys.length === 1
+          ? Routes.getExperimentPageRoute(state.checkedKeys[0])
+          : Routes.getCompareExperimentsPageRoute(state.checkedKeys);
+      navigate(route);
+    }
   };
 
   // Add a key if it does not exist, remove it if it does
@@ -147,20 +157,11 @@ export const ExperimentListView = ({
       if (isChecked === false && activeExperimentIds.length !== 1) {
         checkedKeys = activeExperimentIds.filter((i: any) => i !== key);
       }
-      return { ...prevState, checkedKeys: checkedKeys }
+      const new_state = { ...prevState, checkedKeys: checkedKeys }
+      pushExperimentRoute()
+      return new_state
     });
   };
-
-  const pushExperimentRoute = () => {
-    if (state.checkedKeys.length > 0) {
-      const route =
-        state.checkedKeys.length === 1
-          ? Routes.getExperimentPageRoute(state.checkedKeys[0])
-          : Routes.getCompareExperimentsPageRoute(state.checkedKeys);
-      navigate(route);
-    }
-  };
-  useEffect(pushExperimentRoute, [state.checkedKeys])
 
   // Avoid calling emotion for every list item
   const activeExperimentListItem = classNames.getExperimentListItemContainer(true, designSystemThemeApi.theme);
@@ -198,7 +199,7 @@ export const ExperimentListView = ({
             <Link
               className="experiment-link"
               to={Routes.getExperimentPageRoute(item.experimentId)}
-              onClick={() => setState({ ...state, checkedKeys: [item.experimentId] })}
+              onClick={() => setState((state) => ({ ...state, checkedKeys: [item.experimentId] }))}
               title={item.name}
               data-testid={`${dataTestId}-link`}
             >
@@ -224,11 +225,6 @@ export const ExperimentListView = ({
     );
   }
 
-  const [searchFacets, experimentIds, isPreview] = useExperimentPageSearchFacets();
-  const [uiState, setUIState] = useInitializeUIState(experimentIds);
-  const [firstExperiment] = experiments;
-  const { isViewStateShared } = useSharedExperimentViewState(setUIState, firstExperiment);
-  usePersistExperimentPageViewState(uiState, searchFacets, experimentIds, isViewStateShared || isPreview);
   if (uiState.experimentListHidden) {
     return (
       <CaretDownSquareIcon
@@ -307,6 +303,7 @@ export const ExperimentListView = ({
     </div>
   );
 }
+export const ExperimentListView = React.memo(ExperimentListViewInner)
 
 const classNames = {
   experimentListOuterContainer: css({

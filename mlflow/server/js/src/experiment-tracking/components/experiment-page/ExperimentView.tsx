@@ -22,14 +22,22 @@ import { ThunkDispatch } from '../../../redux-types';
 import { useExperimentRuns } from './hooks/useExperimentRuns';
 import { ExperimentRunsSelectorResult } from './utils/experimentRuns.selector';
 import { useSharedExperimentViewState } from './hooks/useSharedExperimentViewState';
-import { useInitializeUIState } from './hooks/useInitializeUIState';
 import { ExperimentViewDescriptionNotes } from './components/ExperimentViewDescriptionNotes';
 import { ExperimentViewHeader } from './components/header/ExperimentViewHeader';
 import invariant from 'invariant';
 import { useExperimentPageViewMode } from './hooks/useExperimentPageViewMode';
 import { ExperimentViewTraces } from './components/ExperimentViewTraces';
+import { ExperimentPageUIState } from './models/ExperimentPageUIState';
+import { UseExperimentsResult } from './hooks/useExperiments';
 
-export const ExperimentView = () => {
+
+type Props = {
+  uiState: ExperimentPageUIState;
+  setUIState: React.Dispatch<React.SetStateAction<ExperimentPageUIState>>;
+  seedInitialUIState: (experiments: UseExperimentsResult, runs: ExperimentRunsSelectorResult) => void;
+}
+
+export const ExperimentView = ({uiState, setUIState, seedInitialUIState}: Props) => {
   const dispatch = useDispatch<ThunkDispatch>();
 
   const [searchFacets, experimentIds, isPreview] = useExperimentPageSearchFacets();
@@ -46,9 +54,6 @@ export const ExperimentView = () => {
   const [editing, setEditing] = useState(false);
 
   const [showAddDescriptionButton, setShowAddDescriptionButton] = useState(true);
-
-  // Create new version of the UI state for the experiment page on this level
-  const [uiState, setUIState, seedInitialUIState] = useInitializeUIState(experimentIds);
 
   const { isViewStateShared } = useSharedExperimentViewState(setUIState, first(experiments));
 

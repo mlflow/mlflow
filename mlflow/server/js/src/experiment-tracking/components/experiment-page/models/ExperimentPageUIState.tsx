@@ -6,26 +6,6 @@ import type { ChartSectionConfig } from '@mlflow/mlflow/src/experiment-tracking/
 import type { RunsGroupByConfig } from '../utils/experimentPage.group-row-utils';
 import { RunsChartsLineChartXAxisType } from '../../runs-charts/components/RunsCharts.common';
 
-export const EXPERIMENT_PAGE_UI_STATE_FIELDS = [
-  'selectedColumns',
-  'runsExpanded',
-  'runsPinned',
-  'runsHidden',
-  'runsHiddenMode',
-  'compareRunCharts',
-  'compareRunSections',
-  'viewMaximized',
-  'runListHidden',
-  'isAccordionReordered',
-  'groupBy',
-  'groupsExpanded',
-  'autoRefreshEnabled',
-  'useGroupedValuesInCharts',
-  'hideEmptyCharts',
-  'globalLineChartConfig',
-  'chartsSearchFilter',
-];
-
 const getDefaultSelectedColumns = () => {
   const result = [
     // "Source" and "Model" columns are visible by default
