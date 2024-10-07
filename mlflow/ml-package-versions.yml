@@ -307,7 +307,7 @@ spacy:
       pip install git+https://github.com/explosion/spaCy.git
 
   models:
-    minimum: "2.2.4"
+    minimum: "3.0.9"
     maximum: "3.7.5"
     python:
       "== dev": "3.9"
@@ -325,7 +325,7 @@ statsmodels:
       pip install git+https://github.com/statsmodels/statsmodels.git
 
   models:
-    minimum: "0.11.1"
+    minimum: "0.12.2"
     maximum: "0.14.3"
     python:
       "== dev": "3.9"
@@ -335,7 +335,7 @@ statsmodels:
       pytest tests/statsmodels/test_statsmodels_model_export.py
 
   autologging:
-    minimum: "0.11.1"
+    minimum: "0.12.2"
     maximum: "0.14.3"
     python:
       "== dev": "3.9"
@@ -475,7 +475,7 @@ pmdarima:
       pip install git+https://github.com/alkaline-ml/pmdarima.git
 
   models:
-    minimum: "1.8.0"
+    minimum: "1.8.5"
     maximum: "2.0.4"
     requirements:
       "< 1.9": ["scikit-learn<1.3"]
@@ -518,7 +518,7 @@ shap:
   package_info:
     pip_release: "shap"
   models:
-    minimum: "0.41.0"
+    minimum: "0.42.1"
     maximum: "0.46.0"
     requirements:
       "< 0.46.0": ["numpy<1.24.0"]
@@ -571,6 +571,7 @@ transformers:
           "sentencepiece", # required for transformers text2text generation pipeline
           "protobuf<=3.20.3", # fix error `Couldn't build proto file into descriptor pool: duplicate file name sentencepiece_model.proto`
           "typing_extensions>=4.6.0", # fix error for SqlAlchemy == 2.0.25 cannot import name 'TypeAliasType' from 'typing_extensions'
+          "keras<3",
         ]
       # tensorflow 2.13.0 made all Keras private functions inaccessible. transformers versions
       # prior to 4.30.0 are incompatible with this breaking change in Keras.
@@ -609,6 +610,7 @@ transformers:
           "accelerate",
           "setfit",
           "optuna",
+          "keras<3",
         ]
       # sentence-transformers >= 2.4.0 relies on `transformers.utils.import_utils.is_nltk_available`
       # to check nltk availability. This function is only available in transformers>=4.34.0.

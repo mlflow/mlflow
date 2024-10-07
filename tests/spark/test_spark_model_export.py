@@ -59,9 +59,10 @@ _logger = logging.getLogger(__name__)
 def spark_custom_env(tmp_path):
     conda_env = os.path.join(tmp_path, "conda_env.yml")
     additional_pip_deps = ["/opt/mlflow", "pyspark", "pytest"]
-    if Version(pyspark.__version__) <= Version("3.3.2"):
+    if Version(pyspark.__version__) <= Version("3.3.4"):
         # Versions of PySpark <= 3.3.2 are incompatible with pandas >= 2
         additional_pip_deps.append("pandas<2")
+        additional_pip_deps.append("numpy<2")
     _mlflow_conda_env(conda_env, additional_pip_deps=additional_pip_deps)
     return conda_env
 
