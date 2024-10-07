@@ -109,8 +109,8 @@ def test_model_export(spark_model, model_path):
 def test_sparkml_model_log(spark_model):
     with mlflow.start_run():
         model_info = mlflow.spark.log_model(
-            artifact_path="model",
-            spark_model=spark_model.model,
+            spark_model.model,
+            "model",
         )
     model_uri = model_info.model_uri
 

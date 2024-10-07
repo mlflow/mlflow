@@ -208,6 +208,21 @@ export class CompareRunView extends Component<CompareRunViewProps, CompareRunVie
       // @ts-expect-error TS(4111): Property 'onlyShowParamDiff' comes from an index s... Remove this comment to see the full error message
       this.state.onlyShowParamDiff,
       true,
+      (key: any, data: any) => key,
+      (value) => {
+        try {
+          const jsonValue = parsePythonDictString(value);
+
+          // Pretty print if parsed value is an object or array
+          if (typeof jsonValue === 'object' && jsonValue !== null) {
+            return this.renderPrettyJson(jsonValue);
+          } else {
+            return value;
+          }
+        } catch (e) {
+          return value;
+        }
+      },
     );
     if (dataRows.length === 0) {
       return (
@@ -228,6 +243,10 @@ export class CompareRunView extends Component<CompareRunViewProps, CompareRunVie
         <tbody>{dataRows}</tbody>
       </table>
     );
+  }
+
+  renderPrettyJson(jsonValue: any) {
+    return <pre>{JSON.stringify(jsonValue, null, 2)}</pre>;
   }
 
   renderMetricTable(colWidth: any, experimentIds: any) {
@@ -712,6 +731,21 @@ const mapStateToProps = (state: any, ownProps: any) => {
     comparedExperimentIds,
     hasComparedExperimentsBefore,
   };
+};
+
+/**
+ * Parse a Python dictionary in string format into a JSON object.
+ * @param value The Python dictionary string to parse
+ * @returns The parsed JSON object, or null if parsing fails
+ */
+const parsePythonDictString = (value: string) => {
+  try {
+    const jsonString = value.replace(/'/g, '"');
+    return JSON.parse(jsonString);
+  } catch (e) {
+    console.error('Failed to parse string to JSON:', e);
+    return null;
+  }
 };
 
 export default connect(mapStateToProps)(injectIntl(CompareRunView));

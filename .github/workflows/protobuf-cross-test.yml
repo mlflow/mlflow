@@ -61,7 +61,7 @@ jobs:
       - name: Install dependencies
         run: |
           pip install --no-dependencies tests/resources/mlflow-test-plugin
-          pip install .[extras]
+          pip install .[extras,genai]
           pip install pyspark
           # Install Hugging Face datasets to test Hugging Face usage with MLflow dataset tracking
           pip install datasets
