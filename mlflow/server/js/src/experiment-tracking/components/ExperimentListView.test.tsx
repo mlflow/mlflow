@@ -18,6 +18,7 @@ import Fixtures from '../utils/test-utils/Fixtures';
 import { DeleteExperimentModal } from './modals/DeleteExperimentModal';
 import { RenameExperimentModal } from './modals/RenameExperimentModal';
 import { CreateExperimentModal } from './modals/CreateExperimentModal';
+import { createExperimentPageUIState } from './experiment-page/models/ExperimentPageUIState';
 import { DesignSystemProvider } from '@databricks/design-system';
 
 // Make the autosizer render items.
@@ -41,17 +42,23 @@ afterAll(() => {
   jest.restoreAllMocks();
 });
 
-// Need to mock this since the hoc doesn't pick up theme
-const designSystemThemeApi = {
-  theme: {
-    colors: { primary: 'solid', actionDefaultBackgroundPress: `solid` },
-    general: { iconSize: 24 },
-    spacing: { xs: 4 },
+const defaultProps = {
+  // Need to mock this since the hoc doesn't pick up theme
+  designSystemThemeApi: {
+    theme: {
+      colors: { primary: 'solid', actionDefaultBackgroundPress: `solid` },
+      general: { iconSize: 24 },
+      spacing: { xs: 4 },
+    },
   },
-};
+  history: [],
+  uiState: createExperimentPageUIState(),
+}
 
 const mountComponent = (props: any) => {
   const mockStore = configureStore([thunk, promiseMiddleware()]);
+  props = {...defaultProps, ...props}
+  props.setUIState = (callback: ((state: Object) => Object)) => {props.uiState = callback(props.uiState)}
   return renderWithIntl(
     <DesignSystemProvider>
       <Provider
@@ -62,7 +69,7 @@ const mountComponent = (props: any) => {
         })}
       >
         <BrowserRouter>
-          <ExperimentListView {...props} history={[]} designSystemThemeApi={designSystemThemeApi} />,
+          <ExperimentListView {...props} />,
         </BrowserRouter>
         ,
       </Provider>

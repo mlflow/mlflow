@@ -17,7 +17,6 @@ import { NoExperimentView } from './NoExperimentView';
 import Utils from '../../common/utils/Utils';
 import { ExperimentEntity } from '../types';
 import Routes from '../routes';
-import { ExperimentPage } from './experiment-page/ExperimentPage';
 
 const getExperimentActions = {
   setExperimentTagApi,

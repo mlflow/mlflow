@@ -30,7 +30,7 @@ import { IconButton } from '../../common/components/IconButton';
 import { withRouterNext } from '../../common/utils/withRouterNext';
 import { ExperimentEntity } from '../types';
 
-type Props = {
+export type ExperimentListViewProps = {
   activeExperimentIds: string[];
   experiments: ExperimentEntity[];
   navigate: NavigateFunction;
@@ -45,7 +45,7 @@ export const ExperimentListViewInner = ({
   designSystemThemeApi,
   uiState,
   setUIState,
-}: Props) => {
+}: ExperimentListViewProps) => {
   const list = useRef(null);
 
   const [state, setState] = useState({
