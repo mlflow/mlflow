@@ -1606,7 +1606,7 @@ def evaluate(  # noqa: D417
 
                 with mlflow.start_run():
                     mlflow.evaluate(
-                        model=your_candidate_model,
+                        your_candidate_model,
                         data,
                         targets,
                         model_type,
