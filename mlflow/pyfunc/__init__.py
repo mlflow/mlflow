@@ -1675,7 +1675,7 @@ def _gen_prebuilt_env_archive_name(spark, local_model_path):
     """
     Generate prebuilt env archive file name.
     The format is:
-    'mlflow-env-{sha of python env config and dependencies}-{runtime version}-{platform machine}'
+    'mlflow-{sha of python env config and dependencies}-{runtime version}-{platform machine}'
     Note: The runtime version and platform machine information are included in the
      archive name because the prebuilt env might not be compatible across different
      runtime version or platform machine.
@@ -1749,7 +1749,7 @@ def prebuild_model_env(model_uri, save_path):
     and you can use the generated prebuilt env file in `mlflow.pyfunc.spark_udf` in
     Databricks runtime or Databricks Connect client.
     The generated model env file is named by:
-    'mlflow-env-{sha of python env config and dependencies}-{runtime version}-{platform machine}.tar.gz'
+    'mlflow-{sha of python env config and dependencies}-{runtime version}-{platform machine}.tar.gz'
     the file name shouldn't be modified,
     and the prebuilt env can't be used across different Databricks runtime version or
     different platform machine.
@@ -1980,6 +1980,12 @@ def spark_udf(
             "'prebuilt_env' param can only be used in Databricks Serverless notebook REPL, "
             "Databricks Shared cluster notebook REPL, and Databricks Connect client "
             "environment."
+        )
+
+    if prebuilt_env_path is None and dbconnect_mode and not is_in_databricks_runtime():
+        raise RuntimeError(
+            "If using Databricks Connect to connect to Databricks cluster from your "
+            "own machine, the 'prebuilt_env_path' param is required."
         )
 
     # Databricks connect can use `spark.addArtifact` to upload artifact to NFS.

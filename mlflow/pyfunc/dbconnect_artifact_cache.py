@@ -1,11 +1,10 @@
 import json
 import os
 import subprocess
+import tarfile
 from mlflow.utils.databricks_utils import is_in_databricks_runtime
 from mlflow.utils.file_utils import get_or_create_tmp_dir
 
-
-_global_dbconnect_artifact_cache = None
 
 _CACHE_MAP_FILE_NAME = "db_connect_artifact_cache.json"
 
@@ -34,11 +33,12 @@ class DBConnectArtifactCache:
            archive1_unpacked_dir = db_artifact_cache.get("archive1")
     """
 
-    @classmethod
-    def get_or_create(cls, spark):
-        global _global_dbconnect_artifact_cache
-        if _global_dbconnect_artifact_cache is None or spark is not _global_dbconnect_artifact_cache._spark:
-            _global_dbconnect_artifact_cache = DBConnectArtifactCache(spark)
+    _global_dbconnect_artifact_cache = None
+
+    @staticmethod
+    def get_or_create(spark):
+        if DBConnectArtifactCache._global_dbconnect_artifact_cache is None or spark is not DBConnectArtifactCache._global_dbconnect_artifact_cache._spark:
+            DBConnectArtifactCache._global_dbconnect_artifact_cache = DBConnectArtifactCache(spark)
             cache_file = os.path.join(get_or_create_tmp_dir(), _CACHE_MAP_FILE_NAME)
             if is_in_databricks_runtime() and os.path.exists(cache_file):
                 # In databricks runtime (shared cluster or Serverless), when you restart the notebook
@@ -48,8 +48,8 @@ class DBConnectArtifactCache:
                 # `db_connect_artifact_cache.json` and after REPL restarts, `DBConnectArtifactCache`
                 # restores the cache map by loading data from the file.
                 with open(cache_file, "r") as f:
-                    _global_dbconnect_artifact_cache._cache = json.load(f)
-        return _global_dbconnect_artifact_cache
+                    DBConnectArtifactCache._global_dbconnect_artifact_cache._cache = json.load(f)
+        return DBConnectArtifactCache._global_dbconnect_artifact_cache
 
     def __init__(self, spark):
         self._spark = spark
@@ -100,7 +100,8 @@ class DBConnectArtifactCache:
         inside Databricks Connect spark UDF sandbox.
         """
         if cache_key not in self._cache:
-            raise RuntimeError(f"You haven't uploaded artifact '{cache_key}'.")
+            raise RuntimeError(
+                f"The artifact '{cache_key}' does not exist.")
         archive_file_name = self._cache[cache_key]
         session_id = os.environ["DB_SESSION_UUID"]
         return f"/local_disk0/.ephemeral_nfs/artifacts/{session_id}/archives/{archive_file_name}"
@@ -119,17 +120,15 @@ def archive_directory(input_dir, archive_file_path):
     #  We need to pack the python and virtualenv environment, which contains a bunch of
     #  symlink files.
     subprocess.check_call(
-        f"tar -czf {archive_file_path} ./*",
+        ["tar", "-czf", archive_file_path, *os.listdir(input_dir)],
         cwd=input_dir,
-        shell=True
     )
     return archive_file_path
 
 
 def extract_archive_to_dir(archive_path, dest_dir):
     os.makedirs(dest_dir, exist_ok=True)
-    subprocess.check_call(
-        ["tar", "-xf", archive_path, "-C", dest_dir]
-    )
+    with tarfile.open(archive_path, 'r') as tar:
+        tar.extractall(path=dest_dir)
     return dest_dir
 

@@ -261,10 +261,10 @@ def is_in_databricks_shared_cluster_runtime():
 
 
 def is_databricks_connect(spark):
-    from mlflow.utils.spark_utils import is_spark_connect_mode
     """
     Return True if current Spark-connect client connects to Databricks cluster.
     """
+    from mlflow.utils.spark_utils import is_spark_connect_mode
     # TODO: Remove the `spark.client._builder._build` attribute access once
     #  Spark-connect has public attribute for this information.
     return is_spark_connect_mode() and (
@@ -315,11 +315,11 @@ def get_dbconnect_udf_sandbox_image_version_and_platform_machine(spark):
 
 
 def is_databricks_serverless(spark):
-    from mlflow.utils.spark_utils import is_spark_connect_mode
     """
     Return True if running on Databricks Serverless notebook or
     on Databricks Connect client that connects to Databricks Serverless.
     """
+    from mlflow.utils.spark_utils import is_spark_connect_mode
     return (
         is_spark_connect_mode() and
         'x-databricks-session-id' in [k for k, v in spark.client.metadata()]
