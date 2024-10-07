@@ -8,7 +8,6 @@ if [[ $? -eq 0 ]]; then
   if [[ $GITHUB_ACTIONS == 'true' ]]; then
     echo $DST >> $GITHUB_PATH
   fi
-  export PATH=$DST:$PATH
 else
   # Fall back to cargo install if binary download fails
   cargo install taplo-cli@0.9.3 --locked
