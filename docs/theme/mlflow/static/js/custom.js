@@ -169,16 +169,8 @@ $(window).scroll(function() {
     }
 });
 
-fetch('/')
-  .then((response) => ({
-    "versions": [
-        "2.17.0rc0",
-        "2.16.2",
-        "2.15.1",
-        "2.14.3",
-        "2.13.2",
-    ]
-  }))
+fetch('/docs/versions.json')
+  .then((response) => response.json())
   .then((data) => {
     var versions =  data.versions;
     var latestVersion = versions[0];
