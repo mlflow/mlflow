@@ -171,7 +171,7 @@ def _iter_code_blocks(docstring: str) -> Iterator[CodeBlock]:
             if _CODE_BLOCK_HEADER_REGEX.match(line.lstrip()):
                 code_block_loc = Location(idx, _get_indent(line) + 1)
 
-    # This docstring ends with a code block
+    # The docstring ends with a code block
     if code_lines:
         code = textwrap.dedent("\n".join(code_lines))
         yield CodeBlock(code=code, loc=code_block_loc)
