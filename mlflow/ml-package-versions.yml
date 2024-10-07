@@ -472,6 +472,7 @@ pmdarima:
     pip_release: "pmdarima"
     install_dev: |
       pip install Cython
+      pip install setuptools<65
       pip install git+https://github.com/alkaline-ml/pmdarima.git
 
   models:
