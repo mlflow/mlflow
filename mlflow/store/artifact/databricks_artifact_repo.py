@@ -3,7 +3,6 @@ import json
 import logging
 import os
 import posixpath
-import string
 import uuid
 from typing import Any, Dict
 
@@ -53,7 +52,7 @@ from mlflow.utils.file_utils import (
     download_file_using_http_uri,
     read_chunk,
 )
-from mlflow.utils.proto_json_utils import message_to_dict
+from mlflow.utils.proto_json_utils import format_endpoint, message_to_dict
 from mlflow.utils.request_utils import cloud_storage_http_request
 from mlflow.utils.rest_utils import (
     _REST_API_PATH_PREFIX,
@@ -170,14 +169,7 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
         """
         db_creds = get_databricks_host_creds(self.databricks_profile_uri)
         endpoint, method = _SERVICE_AND_METHOD_TO_INFO[service][api]
-        # If `endpoint` has path parameters (e.g. '/mlflow/traces/{request_id}'),
-        # replace them with the corresponding values in `params`.
-        replacements: Dict[str, str] = {}
-        for _, name, _, _ in string.Formatter().parse(endpoint):
-            if name in params:
-                replacements[name] = params.pop(name)
-        if replacements:
-            endpoint = endpoint.format(**replacements)
+        endpoint, params = format_endpoint(endpoint, params)
         response_proto = api.Response()
         return call_endpoint(
             db_creds, endpoint, method, params and json.dumps(params), response_proto

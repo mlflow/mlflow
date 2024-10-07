@@ -3,11 +3,12 @@ import datetime
 import importlib
 import json
 import os
+import string
 from collections import defaultdict
 from copy import deepcopy
 from functools import partial
 from json import JSONEncoder
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Tuple
 
 from google.protobuf.descriptor import FieldDescriptor
 from google.protobuf.json_format import MessageToJson, ParseDict
@@ -122,6 +123,29 @@ def message_to_dict(message):
 def message_to_json(message):
     """Converts a message to JSON, using snake_case for field names."""
     return json.dumps(message_to_dict(message), indent=2)
+
+
+def format_endpoint(endpoint: str, params: Dict[str, Any]) -> Tuple[str, Dict[str, Any]]:
+    """
+    Format the endpoint string with the given parameters.
+
+    Args:
+        endpoint: The endpoint string with placeholders for parameters. For example,
+            "/api/2.0/mlflow/experiments/{experiment_id}".
+        params: The parameters to be formatted into the endpoint string. For example,
+            {"experiment_id": "1", "param": "value"}.
+
+    Returns:
+        The formatted endpoint string and the parameters that were not used in the endpoint string.
+    """
+    replacements: Dict[str, Any] = {}
+    for _, name, _, _ in string.Formatter().parse(endpoint):
+        if name in params:
+            replacements[name] = params.pop(name)
+    if replacements:
+        endpoint = endpoint.format(**replacements)
+
+    return endpoint, params
 
 
 def _stringify_all_experiment_ids(x):
