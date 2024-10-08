@@ -786,7 +786,7 @@ def _resolve_default_evaluator(model_type, evaluator_config):
             evaluator_name != "default"
             and _model_evaluation_registry.is_builtin(evaluator_name)
             and (evaluator := _model_evaluation_registry.get_evaluator(evaluator_name))
-            and evaluator.can_evaluate(model_type=model_type, evaluator_config=evaluator_config)
+            and evaluator.can_evaluate(model_type=model_type, evaluator_config=evaluator_config or {})
         ):
             builtin_evaluators.append(evaluator_name)
 

@@ -22,18 +22,18 @@ class RegressorEvaluator(BuiltInEvaluator):
         custom_artifacts = None,
         **kwargs,
     ) -> EvaluationResult:
-        y_true = self.dataset.labels_data
-        sample_weights = self.evaluator_config.get("sample_weights", None)
+        self.y_true = self.dataset.labels_data
+        self.sample_weights = self.evaluator_config.get("sample_weights", None)
 
         input_df = self.X.copy_to_avoid_mutation()
-        y_pred = self._generate_model_predictions(model, input_df)
-        self._compute_buildin_metrics(model, y_true, y_pred, sample_weights)
+        self.y_pred = self._generate_model_predictions(model, input_df)
+        self._compute_buildin_metrics(model)
 
-        self.evaluate_metrics(extra_metrics, prediction=y_pred, target=y_true)
-        self.evaluate_and_log_custom_artifacts(custom_artifacts, prediction=y_pred, target=y_true)
+        self.evaluate_metrics(extra_metrics, prediction=self.y_pred, target=self.y_true)
+        self.evaluate_and_log_custom_artifacts(custom_artifacts, prediction=self.y_pred, target=self.y_true)
 
         self.log_metrics()
-        self.log_eval_table(y_pred)
+        self.log_eval_table(self.y_pred)
 
         return EvaluationResult(
             metrics=self.aggregate_metrics, artifacts=self.artifacts, run_id=self.run_id
@@ -48,12 +48,12 @@ class RegressorEvaluator(BuiltInEvaluator):
             y_pred = self.dataset.predictions_data
         return y_pred
 
-    def _compute_buildin_metrics(self, model, y_true, y_pred, sample_weights):
-        self._evaluate_sklearn_model_score_if_scorable(model, y_true, sample_weights)
+    def _compute_buildin_metrics(self, model):
+        self._evaluate_sklearn_model_score_if_scorable(model, self.y_true, self.sample_weights)
 
         self.metrics_values.update(
             _get_aggregate_metrics_values(
-                _get_regressor_metrics(y_true, y_pred, sample_weights)
+                _get_regressor_metrics(self.y_true, self.y_pred, self.sample_weights)
             )
         )
 

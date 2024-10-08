@@ -1,6 +1,7 @@
 from collections import namedtuple
 from contextlib import contextmanager
 import logging
+import math
 from typing import List, Optional
 
 import numpy as np
@@ -14,6 +15,7 @@ from mlflow.environment_variables import _MLFLOW_EVALUATE_SUPPRESS_CLASSIFICATIO
 from mlflow.models.evaluation.artifacts import CsvEvaluationArtifact
 from mlflow.models.evaluation.base import _ModelType, EvaluationMetric, EvaluationResult
 from mlflow.models.evaluation.default_evaluator import BuiltInEvaluator, _extract_raw_model, _get_aggregate_metrics_values
+from mlflow.models.utils import plot_lines
 
 _logger = logging.getLogger(__name__)
 
@@ -57,11 +59,11 @@ class ClassifierEvaluator(BuiltInEvaluator):
 
         # Run model prediction
         input_df = self.X.copy_to_avoid_mutation()
-        self.y_pred, self.y_probs = self._generate_model_predictions(input_df)
+        self.y_pred, self.y_probs = self._generate_model_predictions(model, input_df)
 
         self._validate_label_list()
 
-        self._compute_builtin_metrics()
+        self._compute_builtin_metrics(model)
         self.evaluate_metrics(extra_metrics, prediction=self.y_pred, target=self.y_true)
         self.evaluate_and_log_custom_artifacts(custom_artifacts, prediction=self.y_pred, target=self.y_true)
 
@@ -89,7 +91,7 @@ class ClassifierEvaluator(BuiltInEvaluator):
             y_pred = self.dataset.predictions_data
 
         # Predict class probabilities if the model supports it
-        if self.predict_proba_fn is not None:
+        if predict_proba_fn is not None:
             y_probs = predict_proba_fn(input_df)
         else:
             y_probs = None
@@ -110,7 +112,7 @@ class ClassifierEvaluator(BuiltInEvaluator):
                 self.pos_label = self.label_list[-1]
             else:
                 if self.pos_label in self.label_list:
-                    label_list = np.delete(self.label_list, np.where(self.label_list == self.pos_label))
+                    self.label_list = np.delete(self.label_list, np.where(self.label_list == self.pos_label))
                 self.label_list = np.append(self.label_list, self.pos_label)
             if len(self.label_list) < 2:
                 raise MlflowException(
@@ -130,10 +132,10 @@ class ClassifierEvaluator(BuiltInEvaluator):
             )
 
 
-    def _compute_builtin_metrics(self):
-        self._evaluate_sklearn_model_score_if_scorable()
+    def _compute_builtin_metrics(self, model):
+        self._evaluate_sklearn_model_score_if_scorable(model, self.y_true, self.sample_weights)
 
-        if len(self.label_list) == 2:
+        if len(self.label_list) <= 2:
             metrics = _get_binary_classifier_metrics(
                 y_true=self.y_true,
                 y_pred=self.y_pred,
@@ -204,16 +206,16 @@ class ClassifierEvaluator(BuiltInEvaluator):
         self.artifacts[artifact_name] = artifact
 
 
-    def _log_multiclass_classifier_artifacts(self, y_true, y_pred, y_probs):
+    def _log_multiclass_classifier_artifacts(self):
         per_class_metrics_collection_df = _get_classifier_per_class_metrics_collection_df(
-            y=y_true,
-            y_pred=y_pred,
+            y=self.y_true,
+            y_pred=self.y_pred,
             labels=self.label_list,
             sample_weights=self.sample_weights,
         )
 
         log_roc_pr_curve = False
-        if y_probs is not None:
+        if self.y_probs is not None:
             max_classes_for_multiclass_roc_pr = self.evaluator_config.get(
                 "max_classes_for_multiclass_roc_pr", 10
             )
@@ -229,8 +231,8 @@ class ClassifierEvaluator(BuiltInEvaluator):
         if log_roc_pr_curve:
             roc_curve = _gen_classifier_curve(
                 is_binomial=False,
-                y=y_true,
-                y_probs=y_probs,
+                y=self.y_true,
+                y_probs=self.y_probs,
                 labels=self.label_list,
                 pos_label=self.pos_label,
                 curve_type="roc",
@@ -245,8 +247,8 @@ class ClassifierEvaluator(BuiltInEvaluator):
 
             pr_curve = _gen_classifier_curve(
                 is_binomial=False,
-                y=y_true,
-                y_probs=y_probs,
+                y=self.y_true,
+                y_probs=self.y_probs,
                 labels=self.label_list,
                 pos_label=self.pos_label,
                 curve_type="pr",
@@ -258,6 +260,8 @@ class ClassifierEvaluator(BuiltInEvaluator):
 
             self._log_image_artifact(plot_pr_curve, "precision_recall_curve_plot")
             per_class_metrics_collection_df["precision_recall_auc"] = pr_curve.auc
+
+        self._log_pandas_df_artifact(per_class_metrics_collection_df, "per_class_metrics")
 
     def _log_roc_curve(self):
         def _plot_roc_curve():
@@ -275,7 +279,7 @@ class ClassifierEvaluator(BuiltInEvaluator):
         from mlflow.models.evaluation.lift_curve import plot_lift_curve
 
         def _plot_lift_curve():
-            return plot_lift_curve(self.y, self.y_probs, pos_label=self.pos_label)
+            return plot_lift_curve(self.y_true, self.y_probs, pos_label=self.pos_label)
 
         self._log_image_artifact(_plot_lift_curve, "lift_curve_plot")
 
@@ -296,7 +300,7 @@ class ClassifierEvaluator(BuiltInEvaluator):
         """
         # normalize the confusion matrix, keep consistent with sklearn autologging.
         confusion_matrix = sk_metrics.confusion_matrix(
-            self.y,
+            self.y_true,
             self.y_pred,
             labels=self.label_list,
             normalize="true",
@@ -309,7 +313,7 @@ class ClassifierEvaluator(BuiltInEvaluator):
 
             with matplotlib.rc_context(
                 {
-                    "font.size": min(8, math.ceil(50.0 / self.num_classes)),
+                    "font.size": min(8, math.ceil(50.0 / len(self.label_list))),
                     "axes.labelsize": 8,
                 }
             ):

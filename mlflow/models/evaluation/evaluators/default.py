@@ -61,22 +61,19 @@ class DefaultEvaluator(BuiltInEvaluator):
         self._log_genai_custom_metrics(extra_metrics)
 
         # Generate model predictions and evaluate metrics
-        with mlflow.utils.autologging_utils.disable_autologging(
-            exemptions=[mlflow.langchain.FLAVOR_NAME]
-        ):
-            y_pred, other_model_outputs = self._generate_model_predictions(
-                model,
-                input_df=self.X.copy_to_avoid_mutation(),
-                compute_latency=compute_latency)
-            y_true = self.dataset.labels_data
+        y_pred, other_model_outputs, self.predictions = self._generate_model_predictions(
+            model,
+            input_df=self.X.copy_to_avoid_mutation(),
+            compute_latency=compute_latency)
+        y_true = self.dataset.labels_data
 
-            metrics = self._builtin_metrics() + extra_metrics
-            self.evaluate_metrics(metrics, prediction=y_pred, target=self.dataset.labels_data, other_output_df=other_model_outputs)
-            self.evaluate_and_log_custom_artifacts(custom_artifacts, prediction=y_pred, target=y_true)
+        metrics = self._builtin_metrics() + extra_metrics
+        self.evaluate_metrics(metrics, prediction=y_pred, target=self.dataset.labels_data, other_output_df=other_model_outputs)
+        self.evaluate_and_log_custom_artifacts(custom_artifacts, prediction=y_pred, target=y_true)
 
         # Log metrics and artifacts
         self.log_metrics()
-        self.log_eval_table(y_pred)
+        self.log_eval_table(y_pred, other_model_outputs)
         return EvaluationResult(
             metrics=self.aggregate_metrics, artifacts=self.artifacts, run_id=self.run_id
         )
@@ -248,7 +245,33 @@ def _extract_output_and_other_columns(model_predictions, output_column_name):
         "Please set the correct output column name using the `predictions` parameter."
     )
 
-    if isinstance(model_predictions, pd.DataFrame):
+    if isinstance(model_predictions, list) and all(isinstance(p, dict) for p in model_predictions):
+        # Extract 'y_pred' and 'other_output_columns' from list of dictionaries
+        if output_column_name in model_predictions[0]:
+            y_pred = pd.Series(
+                [p.get(output_column_name) for p in model_predictions], name=output_column_name
+            )
+            other_output_columns = pd.DataFrame(
+                [{k: v for k, v in p.items() if k != output_column_name} for p in model_predictions]
+            )
+        elif len(model_predictions[0]) == 1:
+            # Set the only key as self.predictions and its value as self.y_pred
+            key, value = list(model_predictions[0].items())[0]
+            y_pred = pd.Series(value, name=key)
+            output_column_name = key
+        elif output_column_name is None:
+            raise MlflowException(
+                ERROR_MISSING_OUTPUT_COLUMN_NAME,
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+        else:
+            raise MlflowException(
+                f"Output column name '{output_column_name}' is not found in the model "
+                f"predictions list: {model_predictions}. Please set the correct output column "
+                "name using the `predictions` parameter.",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+    elif isinstance(model_predictions, pd.DataFrame):
         if output_column_name in model_predictions.columns:
             y_pred = model_predictions[output_column_name]
             other_output_columns = model_predictions.drop(columns=output_column_name)
