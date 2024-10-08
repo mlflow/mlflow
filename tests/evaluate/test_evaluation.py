@@ -21,7 +21,7 @@ import sklearn.pipeline
 import sklearn.preprocessing
 from langchain.prompts import PromptTemplate
 from langchain_community.llms import FakeListLLM
-from mlflow_test_plugin.dummy_evaluator import Array2DEvaluationArtifact
+# from mlflow_test_plugin.dummy_evaluator import Array2DEvaluationArtifact
 from PIL import Image, ImageChops
 from pyspark.ml.linalg import Vectors
 from pyspark.ml.regression import LinearRegression as SparkLinearRegression
@@ -54,10 +54,8 @@ from mlflow.models.evaluation.base import (
 from mlflow.models.evaluation.base import (
     _logger as _base_logger,
 )
-from mlflow.models.evaluation.base import (
-    _normalize_evaluators_and_evaluator_config_args as _normalize_config,
-)
-from mlflow.models.evaluation.default_evaluator import DefaultEvaluator
+from mlflow.models.evaluation.base import resolve_evaluators_and_configs
+from mlflow.models.evaluation.evaluators.default import DefaultEvaluator
 from mlflow.models.evaluation.evaluator_registry import _model_evaluation_registry
 from mlflow.pyfunc import _ServedPyFuncModel
 from mlflow.pyfunc.scoring_server.client import ScoringServerClient
@@ -1258,53 +1256,37 @@ def test_start_run_or_reuse_active_run():
             assert run_id == active_run_id
 
 
-def test_normalize_evaluators_and_evaluator_config_args():
-    from mlflow.models.evaluation.default_evaluator import DefaultEvaluator
+def test_resolve_evaluators_and_configs():
+    from mlflow.models.evaluation.evaluators.default import DefaultEvaluator
 
     with mock.patch.object(
         _model_evaluation_registry,
         "_registry",
         {"default": DefaultEvaluator},
     ):
-        assert _normalize_config(None, None) == (["default"], {})
-        assert _normalize_config(None, {"a": 3}) == (["default"], {"default": {"a": 3}})
-        assert _normalize_config(None, {"default": {"a": 3}}) == (
-            ["default"],
-            {"default": {"a": 3}},
-        )
+        assert resolve_evaluators_and_configs(None, None) == {"default": {}}
+        assert resolve_evaluators_and_configs(None, {"a": 3}) == {"default": {"a": 3}}
+        assert resolve_evaluators_and_configs(None, {"default": {"a": 3}}) == {"default": {"a": 3}}
 
-    assert _normalize_config(None, None) == (["default", "dummy_evaluator"], {})
-    with pytest.raises(
-        MlflowException,
-        match="`evaluator_config` argument must be a dictionary mapping each evaluator",
+    with mock.patch.object(FakeEvaluator1, "can_evaluate", return_value=True), mock.patch.object(
+        _model_evaluation_registry,
+        "_registry",
+        {"default": DefaultEvaluator, "dummy_evaluator": FakeEvaluator1},
     ):
-        assert _normalize_config(None, {"a": 3}) == (["default", "dummy_evaluator"], {})
+        assert resolve_evaluators_and_configs(None, None) == {"default": {}, "dummy_evaluator": {}}
+        assert resolve_evaluators_and_configs(None, {"a": 3}) == {"default": {"a": 3}, "dummy_evaluator": {"a": 3}}
 
-    assert _normalize_config(None, {"default": {"a": 3}}) == (
-        ["default", "dummy_evaluator"],
-        {"default": {"a": 3}},
-    )
+        assert resolve_evaluators_and_configs(None, {"default": {"a": 3}}) == {"default": {"a": 3}, "dummy_evaluator": {}}
 
-    with mock.patch.object(_base_logger, "debug") as patched_debug_fn:
-        _normalize_config(None, None)
-        patched_debug_fn.assert_called_once()
-        assert "Multiple registered evaluators have been" in patched_debug_fn.call_args[0][0]
+        assert resolve_evaluators_and_configs("dummy_evaluator", {"a": 3}) == {"dummy_evaluator": {"a": 3}}
 
-    assert _normalize_config("dummy_evaluator", {"a": 3}) == (
-        ["dummy_evaluator"],
-        {"dummy_evaluator": {"a": 3}},
-    )
+        assert resolve_evaluators_and_configs(["default", "dummy_evaluator"], {"dummy_evaluator": {"a": 3}}) == {"default": {}, "dummy_evaluator": {"a": 3}}
 
-    assert _normalize_config(["default", "dummy_evaluator"], {"dummy_evaluator": {"a": 3}}) == (
-        ["default", "dummy_evaluator"],
-        {"dummy_evaluator": {"a": 3}},
-    )
-
-    with pytest.raises(
-        MlflowException,
-        match="evaluator_config must be a dict contains mapping from evaluator name to",
-    ):
-        _normalize_config(["default", "dummy_evaluator"], {"abc": {"a": 3}})
+        with pytest.raises(
+            MlflowException,
+            match="evaluator_config must be a dict contains mapping from evaluator name to",
+        ):
+            resolve_evaluators_and_configs(["default", "dummy_evaluator"], {"abc": {"a": 3}})
 
 
 def test_evaluate_env_manager_params(multiclass_logistic_regressor_model_uri, iris_dataset):
