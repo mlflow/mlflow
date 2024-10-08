@@ -41,8 +41,12 @@ class ArtifactCredentialInfo:
 
 @dataclass
 class ListArtifactsPage:
-    file_infos: List[FileInfo]
+    files: List[FileInfo]
     next_page_token: Optional[str] = None
+
+    @classmethod
+    def empty(cls):
+        return cls(files=[], next_page_token=None)
 
 
 class _Resource(ABC):
@@ -81,16 +85,16 @@ class _Resource(ABC):
         """
 
     def list_artifacts(self, path: Optional[str] = None) -> List[FileInfo]:
-        file_infos: List[FileInfo] = []
-        page_token = None
+        files: List[FileInfo] = []
+        page_token: Optional[str] = None
         while True:
             page = self._list_artifacts(path, page_token)
-            file_infos.extend(page.file_infos)
-            if len(page.file_infos) == 0 or not page.next_page_token:
+            files.extend(page.files)
+            if len(page.files) == 0 or not page.next_page_token:
                 break
             page_token = page.next_page_token
 
-        return file_infos
+        return files
 
 
 class _LoggedModel(_Resource):
@@ -130,25 +134,24 @@ class _LoggedModel(_Resource):
         return response.model.info.artifact_uri
 
     def _list_artifacts(
-        self, path: str, page_token: Optional[str]
+        self, path: Optional[str] = None, page_token: Optional[str] = None
     ) -> Tuple[List[FileInfo], Optional[str]]:
-        json_body = message_to_json(
-            ListLoggedModelArtifacts(model_id=self.id, file_path=path, page_token=page_token)
-        )
+        json_body = message_to_json(ListLoggedModelArtifacts(page_token=page_token))
         response = self.call_endpoint(
-            MlflowService, ListLoggedModelArtifacts, json_body, path_params={"model_id": self.id}
+            MlflowService,
+            ListLoggedModelArtifacts,
+            json_body,
+            path_params={"model_id": self.id, "artifact_directory_path": path},
         )
         files = response.files
         # If `path` is a file, ListArtifacts returns a single list element with the
         # same name as `path`. The list_artifacts API expects us to return an empty list in this
         # case, so we do so here.
         if len(files) == 1 and files[0].path == path and not files[0].is_dir:
-            return []
+            return ListArtifactsPage.empty()
 
         return ListArtifactsPage(
-            file_infos=[
-                FileInfo(f.path, f.is_dir, None if f.is_dir else f.file_size) for f in files
-            ],
+            files=[FileInfo(f.path, f.is_dir, None if f.is_dir else f.file_size) for f in files],
             next_page_token=response.next_page_token,
         )
 
@@ -180,7 +183,9 @@ class _Run(_Resource):
         run_response = self.call_endpoint(MlflowService, GetRun, json_body)
         return run_response.run.info.artifact_uri
 
-    def _list_artifacts(self, path: str, page_token: Optional[str]) -> ListArtifactsPage:
+    def _list_artifacts(
+        self, path: Optional[str] = None, page_token: Optional[str] = None
+    ) -> ListArtifactsPage:
         json_body = message_to_json(
             ListArtifacts(run_id=self.resource.id, path=path, page_token=page_token)
         )
@@ -190,11 +195,9 @@ class _Run(_Resource):
         # same name as `path`. The list_artifacts API expects us to return an empty list in this
         # case, so we do so here.
         if len(files) == 1 and files[0].path == path and not files[0].is_dir:
-            return ListArtifactsPage(file_infos=[], next_page_token=None)
+            return ListArtifactsPage.empty()
 
         return ListArtifactsPage(
-            file_infos=[
-                FileInfo(f.path, f.is_dir, None if f.is_dir else f.file_size) for f in files
-            ],
+            files=[FileInfo(f.path, f.is_dir, None if f.is_dir else f.file_size) for f in files],
             next_page_token=response.next_page_token,
         )
