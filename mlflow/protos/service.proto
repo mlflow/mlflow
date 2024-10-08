@@ -608,7 +608,6 @@ service MlflowService {
       visibility: PUBLIC_UNDOCUMENTED,
       rpc_doc_title: "List Artifacts for Logged Models",
     };
-    option (graphql) = {};
   }
 }
 
