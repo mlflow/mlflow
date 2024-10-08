@@ -83,7 +83,15 @@ class DspyChatModelWrapper(DspyModelWrapper):
         outputs = self.model(converted_inputs)
 
         choices = []
-        if isinstance(outputs, dict):
+        if isinstance(outputs, str):
+            choices.append(
+                {
+                    "index": 0,
+                    "message": {"role": "assistant", "content": outputs},
+                    "finish_reason": "stop",
+                }
+            )
+        elif isinstance(outputs, dict):
             role = outputs.get("role", "assistant")
             choices.append(
                 {

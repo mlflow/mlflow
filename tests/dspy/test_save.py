@@ -247,6 +247,42 @@ def test_serving_logged_model():
     assert "answer" in json_response["predictions"]
 
 
+def test_save_chat_model_with_string_output():
+    class CoT(dspy.Module):
+        def __init__(self):
+            super().__init__()
+            self.prog = dspy.ChainOfThought("question -> answer")
+
+        def forward(self, inputs):
+            # DSPy chat model's inputs is a list of dict with keys roles (optional) and content.
+            # And here we output a single string.
+            return self.prog(question=inputs[0]["content"]).answer
+
+    dspy_model = CoT()
+    random_answers = ["4", "4", "4", "4"]
+    lm = dspy.utils.DummyLM(answers=random_answers)
+    dspy.settings.configure(lm=lm)
+
+    input_examples = {"messages": [{"role": "user", "content": "What is 2 + 2?"}]}
+
+    artifact_path = "model"
+    with mlflow.start_run():
+        model_info = mlflow.dspy.log_model(
+            dspy_model,
+            artifact_path,
+            task="llm/v1/chat",
+            input_example=input_examples,
+        )
+    loaded_pyfunc = mlflow.pyfunc.load_model(model_info.model_uri)
+    response = loaded_pyfunc.predict(input_examples)
+
+    assert "choices" in response
+    assert len(response["choices"]) == 1
+    assert "message" in response["choices"][0]
+    # The content should just be a string.
+    assert response["choices"][0]["message"]["content"] == "4"
+
+
 def test_serve_chat_model():
     class CoT(dspy.Module):
         def __init__(self):
