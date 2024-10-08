@@ -143,7 +143,7 @@ def _get_databricks_serverless_env_vars():
     else:
         logger.warning(
             "Missing required environment variable `SPARK_LOCAL_REMOTE` or `SPARK_REMOTE`."
-            "This is required to initialize the WorkspaceClient with serverless compute in "
+            "These are necessary to initialize the WorkspaceClient with serverless compute in "
             "a subprocess in Databricks for UC function execution. Setting the value to 'true'."
         )
         envs["SPARK_LOCAL_REMOTE"] = "true"
