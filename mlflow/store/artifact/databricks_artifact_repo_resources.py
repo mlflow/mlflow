@@ -73,7 +73,9 @@ class _Resource(ABC):
         """
 
     @abstractmethod
-    def _list_artifacts(self, path: str, page_token: Optional[str]) -> ListArtifactsPage:
+    def _list_artifacts(
+        self, path: Optional[str] = None, page_token: Optional[str] = None
+    ) -> ListArtifactsPage:
         """
         List artifacts under the specified path.
         """
@@ -82,11 +84,11 @@ class _Resource(ABC):
         file_infos: List[FileInfo] = []
         page_token = None
         while True:
-            files, next_page_token = self._list_artifacts(path, page_token)
-            files.extend(files)
-            if len(files) == 0 or not next_page_token:
+            page = self._list_artifacts(path, page_token)
+            file_infos.extend(page.file_infos)
+            if len(page.file_infos) == 0 or not page.next_page_token:
                 break
-            page_token = next_page_token
+            page_token = page.next_page_token
 
         return file_infos
 
