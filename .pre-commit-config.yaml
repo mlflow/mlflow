@@ -49,7 +49,7 @@ repos:
         name: custom-python-lint
         entry: clint
         language: system
-        types: [python]
+        types_or: [python, jupyter]
         stages: [commit]
         require_serial: true
 

@@ -261,7 +261,6 @@ convention = "google"
 
 [tool.clint]
 exclude = [
-  "docs",
   "mlflow/protos",
   "mlflow/ml_package_versions.py",
   "mlflow/server/js",
