@@ -55,12 +55,10 @@ def get_titanic():
     titanic_data["fare"] = titanic_data["fare"].fillna(titanic_data["fare"].mean())
     return titanic_data.drop(
         [
+            "passengerid",
             "name",
             "ticket",
             "cabin",
-            "boat",
-            "body",
-            "home.dest",
             "sex",
             "embarked",
             "pclass",
