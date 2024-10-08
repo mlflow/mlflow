@@ -128,38 +128,25 @@ def get_default_conda_env():
     return _mlflow_conda_env(additional_pip_deps=get_default_pip_requirements())
 
 
-def _get_databricks_auth_env_vars():
+def _get_databricks_serverless_env_vars():
     """
-    To initialize WorkspaceClient correctly in a subprocess in databricks, we need to pass
-    some environment variables to the subprocess. This function tries to fetch the required
-    environment variables locally and raises an exception if they are not found.
+    To initialize WorkspaceClient correctly in a subprocess in databricks, some
+    environment variables need to be set.
 
     Note:
-        Currently we only support PAT auth and OAuth service principal.
+        Databricks authentication related environment variables are set in the
+        _capture_imported_modules function.
     """
     envs = {}
-    from databricks.sdk import WorkspaceClient
-
-    w = WorkspaceClient()
-    auth_type = w.config.auth_type
-    if "DATABRICKS_HOST" not in os.environ:
-        envs["DATABRICKS_HOST"] = w.config.host
-    if auth_type == "pat":
-        if "DATABRICKS_TOKEN" not in os.environ:
-            envs["DATABRICKS_TOKEN"] = w.config.token
-    elif auth_type == "oauth-m2m":
-        if "DATABRICKS_CLIENT_ID" not in os.environ:
-            envs["DATABRICKS_CLIENT_ID"] = w.config.client_id
-        if "DATABRICKS_CLIENT_SECRET" not in os.environ:
-            envs["DATABRICKS_CLIENT_SECRET"] = w.config.client_secret
-    else:
-        raise MlflowException(
-            "Currently we only support PAT auth and OAuth service principal "
-            "for UC functions execution in Databricks. Please use one of them "
-            "or open an issue on GitHub if you need other auth types."
-        )
-    if is_in_databricks_serverless():
+    if "SPARK_REMOTE" in os.environ:
         envs["SPARK_LOCAL_REMOTE"] = os.environ["SPARK_REMOTE"]
+    else:
+        logger.warning(
+            "Failed to find the required environment variable SPARK_REMOTE. "
+            "This is required to initialize the WorkspaceClient in a subprocess in Databricks "
+            "for UC function execution. Setting the value to 'true'."
+        )
+        envs["SPARK_LOCAL_REMOTE"] = "true"
     return envs
 
 
@@ -418,7 +405,11 @@ def save_model(
     if conda_env is None:
         if pip_requirements is None:
             default_reqs = get_default_pip_requirements()
-            extra_env_vars = _get_databricks_auth_env_vars() if needs_databricks_auth else None
+            extra_env_vars = (
+                _get_databricks_serverless_env_vars()
+                if needs_databricks_auth and is_in_databricks_serverless()
+                else None
+            )
             inferred_reqs = mlflow.models.infer_pip_requirements(
                 str(path), FLAVOR_NAME, fallback=default_reqs, extra_env_vars=extra_env_vars
             )
