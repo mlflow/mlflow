@@ -364,7 +364,9 @@ def test_pyfunc_serve_and_score(fastai_model):
     artifact_path = "model"
     with mlflow.start_run():
         model_info = mlflow.fastai.log_model(
-            model, artifact_path, input_example=inference_dataframe,
+            model,
+            artifact_path,
+            input_example=inference_dataframe,
             extra_pip_requirements=["spacy<3.8.2"],
         )
 
