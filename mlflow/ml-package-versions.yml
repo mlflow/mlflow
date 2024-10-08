@@ -255,6 +255,12 @@ fastai:
     minimum: "2.4.1"
     maximum: "2.7.17"
     requirements:
+      # TODO: fastai depends on spacy, but spacy>=3.8.2 requires python>=3.9
+      #  Once migrating fastai tests to python 3.9, we should remove spacy<3.8.2
+      #  To migrate fastai tests to python 3.9, we need to address error
+      #  when installing old version scipy: "No module named 'distutils.msvccompiler'"
+      #  similar issue link: https://github.com/numpy/numpy/issues/27405
+      "> 0.0.0": ["spacy<3.8.2"]
       "< 2.8.0": ["torch<1.13.0", "torchvision<0.14.0"]
       ">= 2.8.0": ["torch", "torchvision"]
     run: |
@@ -264,6 +270,7 @@ fastai:
     minimum: "2.4.1"
     maximum: "2.7.17"
     requirements:
+      "> 0.0.0": ["spacy<3.8.2"]
       "< 2.8.0": ["torch<1.13.0", "torchvision<0.14.0"]
       ">= 2.8.0": ["torch", "torchvision"]
     run: |
@@ -311,6 +318,7 @@ spacy:
     maximum: "3.7.5"
     python:
       "== dev": "3.9"
+      ">= 3.8.2": "3.9"
     requirements:
       ">= 0.0.0": ["scikit-learn", "click<8.1.0"]
       "<= 3.0.9": ["flask<2.1.0", "werkzeug<3"]
