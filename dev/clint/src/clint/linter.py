@@ -39,10 +39,10 @@ def _is_log_model(node: ast.AST) -> bool:
     Is this node a call to `log_model`?
     """
     if isinstance(node, ast.Name):
-        return node.id == "log_model"
+        return "log_model" in node.id
 
     elif isinstance(node, ast.Attribute):
-        return node.attr == "log_model"
+        return "log_model" in node.attr
 
     return False
 
