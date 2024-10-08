@@ -20,6 +20,7 @@ _INVALID_DB_URI_MSG = (
 _DBFS_FUSE_PREFIX = "/dbfs/"
 _DBFS_HDFS_URI_PREFIX = "dbfs:/"
 _uc_volume_URI_PREFIX = "/Volumes/"
+_uc_model_URI_PREFIX = "/Models/"
 _UC_DBFS_SYMLINK_PREFIX = "/.fuse-mounts/"
 _DATABRICKS_UNITY_CATALOG_SCHEME = "databricks-uc"
 _OSS_UNITY_CATALOG_SCHEME = "uc"
@@ -101,6 +102,7 @@ def is_fuse_or_uc_volumes_uri(uri):
             _DBFS_FUSE_PREFIX,
             _DBFS_HDFS_URI_PREFIX,
             _uc_volume_URI_PREFIX,
+            _uc_model_URI_PREFIX,
             _UC_DBFS_SYMLINK_PREFIX,
         ]
     )

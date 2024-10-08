@@ -7,6 +7,7 @@ from contextlib import contextmanager
 
 import mlflow
 from mlflow.entities import Run
+from mlflow.environment_variables import MLFLOW_USE_DATABRICKS_SDK_MODEL_ARTIFACTS_REPO_FOR_UC
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INTERNAL_ERROR
 from mlflow.protos.databricks_uc_registry_messages_pb2 import (
@@ -66,6 +67,9 @@ from mlflow.protos.service_pb2 import GetRun, MlflowService
 from mlflow.store._unity_catalog.lineage.constants import (
     _DATABRICKS_LINEAGE_ID_HEADER,
     _DATABRICKS_ORG_ID_HEADER,
+)
+from mlflow.store.artifact.databricks_sdk_models_artifact_repo import (
+    DatabricksSDKModelsArtifactRepository,
 )
 from mlflow.store.artifact.presigned_url_artifact_repo import PresignedUrlArtifactRepository
 from mlflow.store.entities.paged_list import PagedList
@@ -779,18 +783,21 @@ class UcModelRegistryStore(BaseRestStore):
                 CreateModelVersionRequest, req_body, extra_headers=extra_headers
             ).model_version
 
-            store = self._get_artifact_repo(model_version)
+            store = self._get_artifact_repo(model_version, full_name)
             store.log_artifacts(local_dir=local_model_dir, artifact_path="")
             finalized_mv = self._finalize_model_version(
                 name=full_name, version=model_version.version
             )
             return model_version_from_uc_proto(finalized_mv)
 
-    def _get_artifact_repo(self, model_version):
+    def _get_artifact_repo(self, model_version, model_name=None):
         def base_credential_refresh_def():
             return self._get_temporary_model_version_write_credentials(
                 name=model_version.name, version=model_version.version
             )
+
+        if MLFLOW_USE_DATABRICKS_SDK_MODEL_ARTIFACTS_REPO_FOR_UC.get():
+            return DatabricksSDKModelsArtifactRepository(model_name, model_version.version)
 
         scoped_token = base_credential_refresh_def()
         if scoped_token.storage_mode == StorageMode.DEFAULT_STORAGE:
