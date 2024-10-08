@@ -398,6 +398,14 @@ nitpick_ignore = [
     ("py:class", "pytorch_lightning.core.module.LightningModule"),
     ("py:class", "pytorch_lightning.core.LightningModule"),
     ("py:class", "torch.dtype"),
+    ("py:class", "function"),
+    ("py:class", "string"),
+    ("py:class", "number"),
+    ("py:class", "integer"),
+    ("py:class", "object"),
+    ("py:class", "array"),
+    ("py:class", "boolean"),
+    ("py:class", "null"),
 ]
 
 

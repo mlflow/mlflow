@@ -38,12 +38,12 @@ class EvaluationTag(_MlflowObject):
         }
 
     @classmethod
-    def from_dictionary(cls, evaluation_tag_dict: Dict[str, str]):  # noqa: D417
+    def from_dictionary(cls, evaluation_tag_dict: Dict[str, str]):
         """
         Create an EvaluationTag object from a dictionary.
 
         Args:
-            evaluation_dict (dict): Dictionary containing evaluation tag information.
+            evaluation_tag_dict (dict): Dictionary containing evaluation tag information.
 
         Returns:
             Evaluation: The EvaluationTag object created from the dictionary.

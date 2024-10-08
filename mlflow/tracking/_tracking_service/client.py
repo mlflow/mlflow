@@ -41,6 +41,7 @@ from mlflow.store.tracking import (
 )
 from mlflow.store.tracking.rest_store import RestStore
 from mlflow.tracing.artifact_utils import get_artifact_uri_for_trace
+from mlflow.tracing.constant import TraceMetadataKey
 from mlflow.tracing.utils import TraceJSONEncoder, exclude_immutable_tags
 from mlflow.tracking._tracking_service import utils
 from mlflow.tracking.metric_value_conversion_utils import convert_metric_value_to_float_if_possible
@@ -312,6 +313,7 @@ class TrackingServiceClient:
         max_results: int = SEARCH_TRACES_DEFAULT_MAX_RESULTS,
         order_by: Optional[List[str]] = None,
         page_token: Optional[str] = None,
+        run_id: Optional[str] = None,
     ) -> PagedList[Trace]:
         def download_trace_data(trace_info: TraceInfo) -> Optional[Trace]:
             """
@@ -331,6 +333,21 @@ class TrackingServiceClient:
                 return None
             else:
                 return Trace(trace_info, trace_data)
+
+        # If run_id is provided, add it to the filter string
+        if run_id:
+            additional_filter = f"metadata.{TraceMetadataKey.SOURCE_RUN} = '{run_id}'"
+            if filter_string:
+                if TraceMetadataKey.SOURCE_RUN in filter_string:
+                    raise MlflowException(
+                        "You cannot filter by run_id when it is already part of the filter string."
+                        f"Please remove the {TraceMetadataKey.SOURCE_RUN} filter from the filter "
+                        "string and try again.",
+                        error_code=INVALID_PARAMETER_VALUE,
+                    )
+                filter_string += f" AND {additional_filter}"
+            else:
+                filter_string = additional_filter
 
         traces = []
         next_max_results = max_results
@@ -522,11 +539,12 @@ class TrackingServiceClient:
         """
         self.store.restore_experiment(experiment_id)
 
-    def rename_experiment(self, experiment_id, new_name):  # noqa: D417
+    def rename_experiment(self, experiment_id, new_name):
         """Update an experiment's name. The new name must be unique.
 
         Args:
             experiment_id: The experiment ID returned from ``create_experiment``.
+            new_name: New name for the experiment.
 
         """
         self.store.rename_experiment(experiment_id, new_name)
@@ -756,7 +774,7 @@ class TrackingServiceClient:
         """Log one or more dataset inputs to a run.
 
         Args:
-            run_id: String ID of the run
+            run_id: String ID of the run.
             datasets: List of :py:class:`mlflow.entities.DatasetInput` instances to log.
 
         Raises:
@@ -803,11 +821,12 @@ class TrackingServiceClient:
             utils._artifact_repos_cache[run_id] = artifact_repo
             return artifact_repo
 
-    def log_artifact(self, run_id, local_path, artifact_path=None):  # noqa: D417
+    def log_artifact(self, run_id, local_path, artifact_path=None):
         """
         Write a local file or directory to the remote ``artifact_uri``.
 
         Args:
+            run_id: String ID of the run.
             local_path: Path to the file or directory to write.
             artifact_path: If provided, the directory in ``artifact_uri`` to write to.
         """
@@ -830,11 +849,12 @@ class TrackingServiceClient:
         trace_data_json = json.dumps(trace_data.to_dict(), cls=TraceJSONEncoder, ensure_ascii=False)
         return artifact_repo.upload_trace_data(trace_data_json)
 
-    def _log_artifact_async(self, run_id, filename, artifact_path=None, artifact=None):  # noqa: D417
+    def _log_artifact_async(self, run_id, filename, artifact_path=None, artifact=None):
         """
         Write an artifact to the remote ``artifact_uri`` asynchronously.
 
         Args:
+            run_id: String ID of the run.
             filename: Filename of the artifact to be logged.
             artifact_path: If provided, the directory in ``artifact_uri`` to write to.
             artifact: The artifact to be logged.
@@ -842,10 +862,11 @@ class TrackingServiceClient:
         artifact_repo = self._get_artifact_repo(run_id)
         artifact_repo._log_artifact_async(filename, artifact_path, artifact)
 
-    def log_artifacts(self, run_id, local_dir, artifact_path=None):  # noqa: D417
+    def log_artifacts(self, run_id, local_dir, artifact_path=None):
         """Write a directory of files to the remote ``artifact_uri``.
 
         Args:
+            run_id: String ID of the run.
             local_dir: Path to the directory of files to write.
             artifact_path: If provided, the directory in ``artifact_uri`` to write to.
 
@@ -895,18 +916,19 @@ class TrackingServiceClient:
         experiment_id = run_info.experiment_id
         run_name = run_info.run_name
         if is_databricks_uri(self.tracking_uri):
-            experment_url = f"{host_url}/ml/experiments/{experiment_id}"
+            experiment_url = f"{host_url}/ml/experiments/{experiment_id}"
         else:
-            experment_url = f"{host_url}/#/experiments/{experiment_id}"
-        run_url = f"{experment_url}/runs/{run_id}"
+            experiment_url = f"{host_url}/#/experiments/{experiment_id}"
+        run_url = f"{experiment_url}/runs/{run_id}"
 
         _logger.info(f"🏃 View run {run_name} at: {run_url}.")
-        _logger.info(f"🧪 View experiment at: {experment_url}.")
+        _logger.info(f"🧪 View experiment at: {experiment_url}.")
 
-    def set_terminated(self, run_id, status=None, end_time=None):  # noqa: D417
+    def set_terminated(self, run_id, status=None, end_time=None):
         """Set a run's status to terminated.
 
         Args:
+            run_id: String ID of the run.
             status: A string value of :py:class:`mlflow.entities.RunStatus`. Defaults to "FINISHED".
             end_time: If not provided, defaults to the current time.
         """

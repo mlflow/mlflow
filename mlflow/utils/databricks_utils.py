@@ -36,12 +36,18 @@ _logger = logging.getLogger(__name__)
 _MODEL_DEPENDENCY_OAUTH_TOKEN_FILE_PATH = "/var/credentials-secret/model-dependencies-oauth-token"
 
 
-def _use_repl_context_if_available(name):
+def _use_repl_context_if_available(
+    name: str,
+    *,
+    ignore_none: bool = False,
+):
     """Creates a decorator to insert a short circuit that returns the specified REPL context
     attribute if it's available.
 
     Args:
         name: Attribute name (e.g. "apiUrl").
+        ignore_none: If True, use the original function if the REPL context attribute exists but
+            is None.
 
     Returns:
         Decorator to insert the short circuit.
@@ -55,7 +61,12 @@ def _use_repl_context_if_available(name):
 
                 context = get_context()
                 if context is not None and hasattr(context, name):
-                    return getattr(context, name)
+                    attr = getattr(context, name)
+                    if attr is None and ignore_none:
+                        # do nothing and continue to the original function
+                        pass
+                    else:
+                        return attr
             except Exception:
                 pass
             return f(*args, **kwargs)
@@ -539,7 +550,7 @@ def get_workspace_info_from_dbutils():
     return None, None
 
 
-@_use_repl_context_if_available("workspaceUrl")
+@_use_repl_context_if_available("workspaceUrl", ignore_none=True)
 def _get_workspace_url():
     try:
         if spark_session := _get_active_spark_session():
@@ -849,11 +860,11 @@ def get_databricks_run_url(tracking_uri: str, run_id: str, artifact_path=None) -
         return None
 
 
-def get_databricks_model_version_url(registry_uri: str, name: str, version: str) -> Optional[str]:  # noqa: D417
+def get_databricks_model_version_url(registry_uri: str, name: str, version: str) -> Optional[str]:
     """Obtains a Databricks URL corresponding to the specified Model Version.
 
     Args:
-        tracking_uri: The URI of the Model Registry server containing the Model Version.
+        registry_uri: The URI of the Model Registry server containing the Model Version.
         name: The name of the registered model containing the Model Version.
         version: Version number of the Model Version.
 

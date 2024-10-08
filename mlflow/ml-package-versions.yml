@@ -6,7 +6,7 @@ sklearn:
 
   models:
     minimum: "0.24.1"
-    maximum: "1.5.1"
+    maximum: "1.5.2"
     requirements:
       "< 1.0": ["scipy==1.7.3"]
     python:
@@ -16,7 +16,7 @@ sklearn:
 
   autologging:
     minimum: "0.24.1"
-    maximum: "1.5.1"
+    maximum: "1.5.2"
     python:
       "== dev": "3.9"
     requirements:
@@ -38,7 +38,7 @@ pytorch:
 
   models:
     minimum: "1.9.0"
-    maximum: "2.4.0"
+    maximum: "2.4.1"
     requirements:
       ">= 0.0.0": ["torchvision", "scikit-learn"]
       ">= 1.8": ["transformers"]
@@ -48,7 +48,7 @@ pytorch:
 
   autologging:
     minimum: "1.9.0"
-    maximum: "2.4.0"
+    maximum: "2.4.1"
     requirements:
       ">= 0.0.0": ["tensorboard"]
     run: |
@@ -128,7 +128,6 @@ tensorflow:
       "== 2.15.1": ["transformers<4.39.0"]
     run: |
       pytest \
-        tests/tensorflow/test_load_saved_tensorflow_estimator.py \
         tests/tensorflow/test_tensorflow2_core_model_export.py \
         tests/tensorflow/test_tensorflow2_metric_value_conversion_utils.py \
         tests/tensorflow/test_keras_model_export.py \
@@ -210,7 +209,7 @@ catboost:
 
   models:
     minimum: "1.0.0"
-    maximum: "1.2.5"
+    maximum: "1.2.7"
     requirements:
       ">= 0.0.0": ["scikit-learn"]
       "< 1.1": ["pandas<2"]
@@ -256,6 +255,12 @@ fastai:
     minimum: "2.4.1"
     maximum: "2.7.17"
     requirements:
+      # TODO: fastai depends on spacy, but spacy>=3.8.2 requires python>=3.9
+      #  Once migrating fastai tests to python 3.9, we should remove spacy<3.8.2
+      #  To migrate fastai tests to python 3.9, we need to address error
+      #  when installing old version scipy: "No module named 'distutils.msvccompiler'"
+      #  similar issue link: https://github.com/numpy/numpy/issues/27405
+      "> 0.0.0": ["spacy<3.8.2"]
       "< 2.8.0": ["torch<1.13.0", "torchvision<0.14.0"]
       ">= 2.8.0": ["torch", "torchvision"]
     run: |
@@ -265,6 +270,7 @@ fastai:
     minimum: "2.4.1"
     maximum: "2.7.17"
     requirements:
+      "> 0.0.0": ["spacy<3.8.2"]
       "< 2.8.0": ["torch<1.13.0", "torchvision<0.14.0"]
       ">= 2.8.0": ["torch", "torchvision"]
     run: |
@@ -309,9 +315,10 @@ spacy:
 
   models:
     minimum: "2.2.4"
-    maximum: "3.7.6"
+    maximum: "3.7.5"
     python:
       "== dev": "3.9"
+      ">= 3.8.2": "3.9"
     requirements:
       ">= 0.0.0": ["scikit-learn", "click<8.1.0"]
       "<= 3.0.9": ["flask<2.1.0", "werkzeug<3"]
@@ -327,7 +334,7 @@ statsmodels:
 
   models:
     minimum: "0.11.1"
-    maximum: "0.14.2"
+    maximum: "0.14.3"
     python:
       "== dev": "3.9"
     requirements:
@@ -337,7 +344,7 @@ statsmodels:
 
   autologging:
     minimum: "0.11.1"
-    maximum: "0.14.2"
+    maximum: "0.14.3"
     python:
       "== dev": "3.9"
     requirements:
@@ -361,7 +368,7 @@ spark:
 
   models:
     minimum: "3.1.2"
-    maximum: "3.5.2"
+    maximum: "3.5.3"
     python:
       "== dev": "3.9"
     java:
@@ -392,7 +399,7 @@ spark:
 
   autologging:
     minimum: "3.1.2"
-    maximum: "3.5.2"
+    maximum: "3.5.3"
     python:
       "== dev": "3.9"
     java:
@@ -531,14 +538,14 @@ paddle:
     pip_release: "paddlepaddle"
   models:
     minimum: "2.4.1"
-    maximum: "2.6.1"
+    maximum: "2.6.2"
     requirements:
       "< 2.5.0": ["google-cloud-storage==2.14.0"]
     run: |
       pytest tests/paddle/test_paddle_model_export.py
   autologging:
     minimum: "2.4.1"
-    maximum: "2.6.1"
+    maximum: "2.6.2"
     run: |
       pytest tests/paddle/test_paddle_autolog.py
 
@@ -549,7 +556,9 @@ transformers:
       pip install git+https://github.com/huggingface/transformers
   models:
     minimum: "4.25.1"
-    maximum: "4.44.2"
+    maximum: "4.45.0"
+    python:
+      "== dev": "3.9"
     unsupported: [
         # Avoid this patch: https://github.com/huggingface/transformers/pull/29032
         "4.38.0",
@@ -572,14 +581,16 @@ transformers:
           "sentencepiece", # required for transformers text2text generation pipeline
           "protobuf<=3.20.3", # fix error `Couldn't build proto file into descriptor pool: duplicate file name sentencepiece_model.proto`
           "typing_extensions>=4.6.0", # fix error for SqlAlchemy == 2.0.25 cannot import name 'TypeAliasType' from 'typing_extensions'
+          "accelerate<1",
         ]
       # tensorflow 2.13.0 made all Keras private functions inaccessible. transformers versions
       # prior to 4.30.0 are incompatible with this breaking change in Keras.
       # See: https://github.com/huggingface/transformers/issues/23352 for discussion
       "< 4.30.0": ["tensorflow<2.13.0"]
       # Installing `transformers==4.34.1` with `datasets` results in installing `huggingface_hub==0.17.3`.
-      # `accelerate>=0.32.0` is incompatible with `huggingface_hub==0.17.3`.
-      "== 4.34.1": ["accelerate<0.32.0"]
+      # `accelerate>=0.32.0` and `peft>=0.13.0` are incompatible with `huggingface_hub==0.17.3`.
+      "== 4.34.1": ["accelerate<0.32.0", "peft<0.13.0"]
+      "== dev": ["tf-keras"]
     pre_test: |
       export PYTHONPATH=./
       python tests/transformers/helper.py
@@ -590,7 +601,9 @@ transformers:
       pytest tests/transformers/test_transformers_model_export.py -k "test_transformers_tf_model_save_without_conda_env_uses_default_env_with_expected_dependencies or test_transformers_pt_model_save_dependencies_without_accelerate"
   autologging:
     minimum: "4.25.1"
-    maximum: "4.44.2"
+    maximum: "4.45.0"
+    python:
+      "== dev": "3.9"
     unsupported: [
         # Avoid this patch: https://github.com/huggingface/transformers/pull/29032
         "4.38.0",
@@ -610,6 +623,7 @@ transformers:
           "accelerate",
           "setfit",
           "optuna",
+          "accelerate<1",
         ]
       # sentence-transformers >= 2.4.0 relies on `transformers.utils.import_utils.is_nltk_available`
       # to check nltk availability. This function is only available in transformers>=4.34.0.
@@ -621,6 +635,7 @@ transformers:
       # Installing `transformers==4.34.1` with `datasets` results in installing `huggingface_hub==0.17.3`.
       # `accelerate>=0.32.0` is incompatible with `huggingface_hub==0.17.3`.
       "== 4.34.1": ["accelerate<0.32.0", "sentence-transformers<3.1.0"]
+      "== dev": ["tf-keras"]
     run: |
       pytest tests/transformers/test_transformers_autolog.py
 
@@ -631,7 +646,7 @@ openai:
       pip install git+https://github.com/openai/openai-python
   models:
     minimum: "1.0.1"
-    maximum: "1.43.0"
+    maximum: "1.49.0"
     requirements:
       ">= 0.0.0": [
           "pyspark",
@@ -646,7 +661,7 @@ openai:
       pytest tests/openai --ignore tests/openai/test_openai_autolog.py
   autologging:
     minimum: "1.17.0"
-    maximum: "1.43.0"
+    maximum: "1.49.0"
     requirements:
       ">= 0.0.0": [
           "pyspark",
@@ -660,6 +675,21 @@ openai:
     run: |
       pytest tests/openai/test_openai_autolog.py
 
+dspy:
+  package_info:
+    pip_release: "dspy-ai"
+    install_dev: |
+      pip install git+https://github.com/stanfordnlp/dspy.git
+  models:
+    minimum: "2.4.16"
+    maximum: "2.5.0"
+    python:
+      ">= 2.4.16": "3.9"
+    requirements:
+      ">= 0.0.0": ["openai"]
+    run: |
+      pytest tests/dspy
+
 langchain:
   package_info:
     pip_release: "langchain"
@@ -668,7 +698,7 @@ langchain:
   models:
     # Where the large package update was made (langchain-core, community, ...)
     minimum: "0.0.354"
-    maximum: "0.2.15"
+    maximum: "0.3.1"
     python:
       "== dev": "3.9"
     requirements:
@@ -690,6 +720,8 @@ langchain:
           # Required to run tests/openai/mock_openai.py
           "fastapi",
           "uvicorn",
+          # Required for testing Databricks dependency extraction
+          "databricks-vectorsearch",
         ]
       # langchain-openai 0.1.22 is imcomptible with earlier langchain-core due to
       # https://github.com/langchain-ai/langchain/commit/b83f1eb0d56dbf99605a1fce93953ee09d77aabf
@@ -711,7 +743,7 @@ langchain:
       fi
   autologging:
     minimum: "0.1.0"
-    maximum: "0.2.15"
+    maximum: "0.3.1"
     python:
       "== dev": "3.9"
     requirements:
@@ -759,7 +791,7 @@ llama_index:
   models:
     # New event/span framework is fully implemented in 0.10.44
     minimum: "0.10.44"
-    maximum: "0.11.2"
+    maximum: "0.11.13"
     python:
       "== dev": "3.9"
     requirements:
@@ -773,11 +805,13 @@ llama_index:
           # Required to run tests/openai/mock_openai.py
           "fastapi",
           "uvicorn",
+          # Required for testing LlamaIndex workflow
+          "pytest-asyncio",
         ]
     run: pytest tests/llama_index --ignore tests/llama_index/test_llama_index_autolog.py --ignore tests/llama_index/test_llama_index_tracer.py
   autologging:
     minimum: "0.10.44"
-    maximum: "0.11.2"
+    maximum: "0.11.13"
     python:
       "== dev": "3.9"
     requirements:
@@ -786,6 +820,8 @@ llama_index:
           # Required to run tests/openai/mock_openai.py
           "fastapi",
           "uvicorn",
+          # Required for testing LlamaIndex workflow
+          "pytest-asyncio",
         ]
       "< 0.11.0": ["pydantic<2"]
     run: pytest tests/llama_index/test_llama_index_autolog.py tests/llama_index/test_llama_index_tracer.py
@@ -798,7 +834,7 @@ autogen:
   autologging:
     # Tool call logging is implemented in autogen 0.2.29
     minimum: "0.2.29"
-    maximum: "0.2.35"
+    maximum: "0.3.0"
     requirements:
       ">= 0.0.0": [
           # Required to run tests/openai/mock_openai.py
@@ -814,7 +850,7 @@ sentence_transformers:
       pip install git+https://github.com/UKPLab/sentence-transformers#egg=sentence-transformers
   models:
     minimum: "2.2.2"
-    maximum: "3.0.1"
+    maximum: "3.1.1"
     requirements:
       ">= 0.0.0": [
           "pyspark",
@@ -832,7 +868,7 @@ johnsnowlabs:
     pip_release: "johnsnowlabs"
   models:
     minimum: "4.4.6"
-    maximum: "5.4.3"
+    maximum: "5.4.4"
     requirements:
       ">= 0.0.0": ["pandas<=1.5.3"]
       "< 5.2.8": ["pyspark<3.4"]
@@ -851,7 +887,7 @@ promptflow:
       pip install git+https://github.com/microsoft/promptflow#subdirectory=src/promptflow
   models:
     minimum: "1.3.0"
-    maximum: "1.15.0"
+    maximum: "1.15.1"
     requirements:
       # Requirements to run sparkudf predict test
       ">= 0.0.0": ["pyspark", "jinja2"]

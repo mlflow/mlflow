@@ -17,14 +17,14 @@ _COMPONENTS_BINARY_DIR_NAME = "components"
 _PROCESSOR_BINARY_DIR_NAME = "processor"
 
 
-def save_pipeline_pretrained_weights(path, pipeline, flavor_conf, processor=None):  # noqa: D417
+def save_pipeline_pretrained_weights(path, pipeline, flavor_conf, processor=None):
     """
     Save the binary artifacts of the pipeline to the specified local path.
 
     Args:
         path: The local path to save the pipeline
         pipeline: Transformers pipeline instance
-        flavor_config: The flavor configuration constructed for the pipeline
+        flavor_conf: The flavor configuration constructed for the pipeline
         processor: Optional processor instance to save alongside the pipeline
     """
     model = get_peft_base_model(pipeline.model) if is_peft_model(pipeline.model) else pipeline.model
@@ -42,14 +42,14 @@ def save_pipeline_pretrained_weights(path, pipeline, flavor_conf, processor=None
         processor.save_pretrained(component_dir.joinpath(_PROCESSOR_BINARY_DIR_NAME))
 
 
-def save_local_checkpoint(path, checkpoint_dir, flavor_conf, processor=None):  # noqa: D417
+def save_local_checkpoint(path, checkpoint_dir, flavor_conf, processor=None):
     """
     Save the local checkpoint of the model and other components to the specified local path.
 
     Args:
         path: The local path to save the pipeline
         checkpoint_dir: The local path to the checkpoint directory
-        flavor_config: The flavor configuration constructed for the pipeline
+        flavor_conf: The flavor configuration constructed for the pipeline
         processor: Optional processor instance to save alongside the pipeline
     """
     # Copy files within checkpoint dir to the model path

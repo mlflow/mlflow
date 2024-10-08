@@ -1,6 +1,7 @@
 import json
 import pathlib
 import pickle
+import uuid
 from dataclasses import asdict
 from typing import List
 
@@ -17,9 +18,13 @@ from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.types.llm import (
     CHAT_MODEL_INPUT_SCHEMA,
     CHAT_MODEL_OUTPUT_SCHEMA,
+    ChatChoice,
     ChatMessage,
     ChatParams,
     ChatResponse,
+    FunctionToolCallArguments,
+    FunctionToolDefinition,
+    ToolParamsSchema,
 )
 from mlflow.types.schema import ColSpec, DataType, Schema
 
@@ -97,6 +102,39 @@ class ChatModelWithMetadata(mlflow.pyfunc.ChatModel):
             **mock_response,
             metadata=params.metadata,
         )
+
+
+class ChatModelWithToolCalling(mlflow.pyfunc.ChatModel):
+    def predict(self, context, messages: List[ChatMessage], params: ChatParams) -> ChatResponse:
+        tools = params.tools
+
+        # call the first tool with some value for all the required params
+        tool_name = tools[0].function.name
+        tool_params = tools[0].function.parameters
+        arguments = {}
+        for param in tool_params.required:
+            param_type = tool_params.properties[param].type
+            if param_type == "string":
+                arguments[param] = "some_value"
+            elif param_type == "number":
+                arguments[param] = 123
+            elif param_type == "boolean":
+                arguments[param] = True
+            else:
+                # keep the test example simple
+                raise ValueError(f"Unsupported param type: {param_type}")
+
+        tool_call = FunctionToolCallArguments(
+            name=tool_name,
+            arguments=json.dumps(arguments),
+        ).to_tool_call(id=uuid.uuid4().hex)
+
+        tool_message = ChatMessage(
+            role="assistant",
+            tool_calls=[tool_call],
+        )
+
+        return ChatResponse(choices=[ChatChoice(index=0, message=tool_message)])
 
 
 def test_chat_model_save_load(tmp_path):
@@ -457,3 +495,48 @@ def test_chat_model_can_receive_and_return_metadata():
 
     serving_response = json.loads(response.content)
     assert serving_response["metadata"] == params["metadata"]
+
+
+def test_chat_model_can_use_tool_calls():
+    messages = [{"role": "user", "content": "What's the weather?"}]
+
+    weather_tool = (
+        FunctionToolDefinition(
+            name="get_weather",
+            description="Get the weather for your current location",
+            parameters=ToolParamsSchema(
+                {
+                    "city": {
+                        "type": "string",
+                        "description": "The city to get the weather for",
+                    },
+                    "unit": {"type": "string", "enum": ["F", "C"]},
+                },
+                required=["city", "unit"],
+            ),
+        )
+        .to_tool_definition()
+        .to_dict()
+    )
+
+    example = {
+        "messages": messages,
+        "tools": [weather_tool],
+    }
+
+    model = ChatModelWithToolCalling()
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model(
+            "model",
+            python_model=model,
+            input_example=example,
+        )
+
+    loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
+    response = loaded_model.predict(example)
+
+    model_tool_calls = response["choices"][0]["message"]["tool_calls"]
+    assert json.loads(model_tool_calls[0]["function"]["arguments"]) == {
+        "city": "some_value",
+        "unit": "some_value",
+    }

@@ -43,7 +43,7 @@ _request_header_provider_registry.register(DefaultRequestHeaderProvider)
 _request_header_provider_registry.register_entrypoints()
 
 
-def resolve_request_headers(request_headers=None):  # noqa: D417
+def resolve_request_headers(request_headers=None):
     """Generate a set of request headers from registered providers.
 
     Request headers are resolved in the order that providers are registered. Argument headers are
@@ -52,8 +52,8 @@ def resolve_request_headers(request_headers=None):  # noqa: D417
     :py:class:`mlflow.tracking.request_header.RequestHeaderProvider`.
 
     Args:
-        tags: A dictionary of request headers to override. If specified, headers passed in this
-            argument will override those inferred from the context.
+        request_headers: A dictionary of request headers to override. If specified, headers passed
+            in this argument will override those inferred from the context.
 
     Returns:
         A dictionary of resolved headers.

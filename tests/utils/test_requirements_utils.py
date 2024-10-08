@@ -1,6 +1,7 @@
 import importlib
 import os
 import sys
+from importlib.metadata import version
 from unittest import mock
 
 import cloudpickle
@@ -251,6 +252,15 @@ def test_get_installed_version(tmp_path, monkeypatch):
     assert _get_installed_version("not_found") == "1.2.3"
 
 
+def test_package_with_mismatched_pypi_and_import_name():
+    try:
+        import dspy  # noqa: F401
+
+        assert _get_installed_version("dspy") == version("dspy-ai")
+    except ImportError:
+        pytest.skip("Skipping test because 'dspy' package is not installed")
+
+
 def test_get_pinned_requirement(tmp_path, monkeypatch):
     assert _get_pinned_requirement("mlflow") == f"mlflow=={mlflow.__version__}"
     assert _get_pinned_requirement("mlflow", version="1.2.3") == "mlflow==1.2.3"
@@ -407,8 +417,8 @@ def test_capture_imported_modules_include_deps_by_params():
 
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
+            "test_model",
             python_model=MyModel(),
-            artifact_path="test_model",
             input_example=(["input1"], params),
         )
 
@@ -437,8 +447,8 @@ def test_capture_imported_modules_includes_gateway_extra(module_to_import, shoul
 
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
+            "test_model",
             python_model=MyModel(),
-            artifact_path="test_model",
             input_example=([1, 2, 3]),
         )
 
@@ -458,8 +468,8 @@ def test_gateway_extra_not_captured_when_importing_deployment_client_only():
 
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
+            "test_model",
             python_model=MyModel(),
-            artifact_path="test_model",
             input_example=([1, 2, 3]),
         )
 

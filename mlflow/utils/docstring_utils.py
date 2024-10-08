@@ -87,13 +87,13 @@ class ParamDocs(dict):
         replacements = _replace_keys_with_placeholders(kwargs)
         return ParamDocs({k: _replace_all(v, replacements) for k, v in self.items()})
 
-    def format_docstring(self, docstring: str) -> str:  # noqa: D417
+    def format_docstring(self, docstring: str) -> str:
         """
         Formats placeholders in `docstring`.
 
         Args:
-            p1: {{ p1 }}
-            p2: {{ p2 }}
+            docstring: A docstring with placeholders to be replaced.
+                If provided with None, will return None.
 
         .. code-block:: text
             :caption: Example

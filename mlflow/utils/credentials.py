@@ -73,7 +73,7 @@ def get_default_host_creds(store_uri):
     )
 
 
-def login(backend: str = "databricks", interactive: bool = True) -> None:  # noqa: D417
+def login(backend: str = "databricks", interactive: bool = True) -> None:
     """Configure MLflow server authentication and connect MLflow to tracking server.
 
     This method provides a simple way to connect MLflow to its tracking server. Currently only
@@ -84,7 +84,7 @@ def login(backend: str = "databricks", interactive: bool = True) -> None:  # noq
         backend: string, the backend of the tracking server. Currently only "databricks" is
             supported.
 
-        interacive: bool, controls request for user input on missing credentials. If true, user
+        interactive: bool, controls request for user input on missing credentials. If true, user
             input will be requested if no credentials are found, otherwise an exception will be
             raised if no credentials are found.
 

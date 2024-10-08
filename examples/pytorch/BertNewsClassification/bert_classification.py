@@ -176,13 +176,13 @@ class BertDataModule(L.LightningDataModule):
             print(f"Number of samples used for validation: {self.val_count}")
             print(f"Number of samples used for test: {self.test_count}")
 
-    def create_data_loader(self, source, count):  # noqa: D417
+    def create_data_loader(self, source, count):
         """
         Generic data loader function
 
         Args:
-            df: Input dataframe.
-            tokenizer: bert tokenizer.
+            source: Input dataframe.
+            count: Number of samples to load.
 
         Returns:
             Returns the constructed dataloader.

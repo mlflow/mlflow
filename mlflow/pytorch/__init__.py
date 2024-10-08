@@ -572,10 +572,11 @@ def save_model(
     _PythonEnv.current().to_yaml(os.path.join(path, _PYTHON_ENV_FILE_NAME))
 
 
-def _load_model(path, device=None, **kwargs):  # noqa: D417
+def _load_model(path, device=None, **kwargs):
     """
     Args:
         path: The path to a serialized PyTorch model.
+        device: If specified, load the model on the specified device.
         kwargs: Additional kwargs to pass to the PyTorch ``torch.load`` function.
     """
     import torch

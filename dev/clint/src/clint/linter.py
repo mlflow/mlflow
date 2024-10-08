@@ -2,9 +2,11 @@ from __future__ import annotations
 
 import ast
 import re
+import textwrap
 import tokenize
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Iterator
 
 from clint.builtin import BUILTIN_MODULES
 
@@ -30,6 +32,19 @@ def ignore_map(code: str) -> dict[str, set[int]]:
         if m := DISABLE_COMMENT_REGEX.search(tok.string):
             mapping.setdefault(m.group(1), set()).add(tok.start[0])
     return mapping
+
+
+def _is_log_model(node: ast.AST) -> bool:
+    """
+    Is this node a call to `log_model`?
+    """
+    if isinstance(node, ast.Name):
+        return node.id == "log_model"
+
+    elif isinstance(node, ast.Attribute):
+        return node.attr == "log_model"
+
+    return False
 
 
 @dataclass
@@ -65,6 +80,16 @@ class Violation:
         }
 
 
+@dataclass
+class Location:
+    lineno: int
+    col_offset: int
+
+    @classmethod
+    def from_node(cls, node: ast.AST) -> "Location":
+        return cls(node.lineno, node.col_offset)
+
+
 NO_RST = Rule(
     "MLF0001",
     "no-rst",
@@ -86,6 +111,73 @@ TEST_NAME_TYPO = Rule(
     "This function looks like a test, but its name does not start with 'test_'.",
 )
 
+# TODO: Remove this rule after merging mlflow-3 branch into master
+KEYWORD_ARTIFACT_PATH = Rule(
+    "MLF0005",
+    "keyword-artifact-path",
+    (
+        "artifact_path must be passed as a positional argument. "
+        "See https://github.com/mlflow/mlflow/pull/13268 for why this is necessary."
+    ),
+)
+
+# TODO: Consider dropping this rule once https://github.com/astral-sh/ruff/discussions/13622
+#       is supported.
+EXAMPLE_SYNTAX_ERROR = Rule(
+    "MLF0006",
+    "example-syntax-error",
+    "This example has a syntax error.",
+)
+
+
+@dataclass
+class CodeBlock:
+    code: str
+    loc: Location
+
+
+def _get_indent(s: str) -> int:
+    return len(s) - len(s.lstrip())
+
+
+_CODE_BLOCK_HEADER_REGEX = re.compile(r"^\.\.\s+code-block::\s*py(thon)?")
+_CODE_BLOCK_OPTION_REGEX = re.compile(r"^:\w+:")
+
+
+def _iter_code_blocks(docstring: str) -> Iterator[CodeBlock]:
+    code_block_loc: Location | None = None
+    code_lines: list[str] = []
+
+    for idx, line in enumerate(docstring.split("\n")):
+        if code_block_loc:
+            indent = _get_indent(line)
+            # Are we still in the code block?
+            if 0 < indent <= code_block_loc.col_offset:
+                code = textwrap.dedent("\n".join(code_lines))
+                yield CodeBlock(code=code, loc=code_block_loc)
+
+                code_block_loc = None
+                code_lines.clear()
+                continue
+
+            # .. code-block:: python
+            #     :option:           <- code block may have options
+            #     :another-option:   <-
+            #
+            #     import mlflow      <- code body starts from here
+            #     ...
+            if not _CODE_BLOCK_OPTION_REGEX.match(line.lstrip()):
+                code_lines.append(line)
+
+        else:
+            if _CODE_BLOCK_HEADER_REGEX.match(line.lstrip()):
+                code_block_loc = Location(idx, _get_indent(line) + 1)
+
+    # The docstring ends with a code block
+    if code_lines:
+        code = textwrap.dedent("\n".join(code_lines))
+        yield CodeBlock(code=code, loc=code_block_loc)
+
 
 class Linter(ast.NodeVisitor):
     def __init__(self, path: Path, ignore: dict[str, set[int]]):
@@ -94,10 +186,17 @@ class Linter(ast.NodeVisitor):
         self.ignore = ignore
         self.violations: list[Violation] = []
 
-    def _check(self, node: ast.AST, rule: Rule) -> None:
-        if (lines := self.ignore.get(rule.name)) and node.lineno in lines:
+    def _check(self, loc: Location, rule: Rule) -> None:
+        if (lines := self.ignore.get(rule.name)) and loc.lineno in lines:
             return
-        self.violations.append(Violation(rule, self.path, node.lineno, node.col_offset))
+        self.violations.append(
+            Violation(
+                rule,
+                self.path,
+                loc.lineno,
+                loc.col_offset,
+            )
+        )
 
     def _docstring(
         self, node: ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef
@@ -124,11 +223,11 @@ class Linter(ast.NodeVisitor):
             return
 
         if node.name.startswith("test") and not node.name.startswith("test_"):
-            self._check(node, TEST_NAME_TYPO)
+            self._check(Location.from_node(node), TEST_NAME_TYPO)
 
     def _mlflow_class_name(self, node: ast.ClassDef) -> None:
         if "MLflow" in node.name or "MLFlow" in node.name:
-            self._check(node, MLFLOW_CLASS_NAME)
+            self._check(Location.from_node(node), MLFLOW_CLASS_NAME)
 
     def visit_ClassDef(self, node: ast.ClassDef) -> None:
         self.stack.append(node)
@@ -137,8 +236,21 @@ class Linter(ast.NodeVisitor):
         self.generic_visit(node)
         self.stack.pop()
 
+    def _syntax_error_example(self, node: ast.FunctionDef | ast.AsyncFunctionDef) -> None:
+        if docstring_node := self._docstring(node):
+            for code_block in _iter_code_blocks(docstring_node.value):
+                try:
+                    ast.parse(code_block.code)
+                except SyntaxError:
+                    loc = Location(
+                        docstring_node.lineno + code_block.loc.lineno,
+                        code_block.loc.col_offset,
+                    )
+                    self._check(loc, EXAMPLE_SYNTAX_ERROR)
+
     def visit_FunctionDef(self, node: ast.FunctionDef) -> None:
         self._test_name_typo(node)
+        self._syntax_error_example(node)
         self.stack.append(node)
         self._no_rst(node)
         self.generic_visit(node)
@@ -146,6 +258,7 @@ class Linter(ast.NodeVisitor):
 
     def visit_AsyncFunctionDef(self, node: ast.AsyncFunctionDef) -> None:
         self._test_name_typo(node)
+        self._syntax_error_example(node)
         self.stack.append(node)
         self._no_rst(node)
         self.generic_visit(node)
@@ -155,13 +268,21 @@ class Linter(ast.NodeVisitor):
         if self._is_in_function():
             for alias in node.names:
                 if alias.name.split(".", 1)[0] in BUILTIN_MODULES:
-                    self._check(node, LAZY_BUILTIN_IMPORT)
+                    self._check(Location.from_node(node), LAZY_BUILTIN_IMPORT)
         self.generic_visit(node)
 
     def visit_ImportFrom(self, node: ast.ImportFrom) -> None:
         if self._is_in_function() and node.module.split(".", 1)[0] in BUILTIN_MODULES:
-            self._check(node, LAZY_BUILTIN_IMPORT)
+            self._check(Location.from_node(node), LAZY_BUILTIN_IMPORT)
         self.generic_visit(node)
+
+    def visit_Call(self, node: ast.Call) -> None:
+        if (
+            self.path.parts[0] in ["tests", "mlflow"]
+            and _is_log_model(node.func)
+            and any(arg.arg == "artifact_path" for arg in node.keywords)
+        ):
+            self._check(Location.from_node(node), KEYWORD_ARTIFACT_PATH)
 
 
 def lint_file(path: Path) -> list[Violation]:

@@ -270,7 +270,7 @@ def get_run_tags_env_vars(recipe_root_path: str) -> Dict[str, str]:
     return {MLFLOW_RUN_CONTEXT.name: json.dumps({**run_context_tags, **git_tags})}
 
 
-def log_code_snapshot(  # noqa: D417
+def log_code_snapshot(
     recipe_root: str,
     run_id: str,
     artifact_path: str = "recipe_snapshot",
@@ -280,7 +280,7 @@ def log_code_snapshot(  # noqa: D417
     Logs a recipe code snapshot as mlflow artifacts.
 
     Args:
-        recipe_root_path: String file path to the directory where the recipe is defined.
+        recipe_root: String file path to the directory where the recipe is defined.
         run_id: Run ID to which the code snapshot is logged.
         artifact_path: Directory within the run's artifact director (default: "snapshots").
         recipe_config: Dict containing the full recipe configuration at runtime.
