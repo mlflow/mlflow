@@ -14,7 +14,6 @@ from mlflow.environment_variables import MLFLOW_ENV_ROOT
 from mlflow.exceptions import MlflowException
 from mlflow.models.model import MLMODEL_FILE_NAME, Model
 from mlflow.utils.conda import _PIP_CACHE_DIR
-from mlflow.utils.databricks_utils import is_in_databricks_runtime
 from mlflow.utils.environment import (
     _CONDA_ENV_FILE_NAME,
     _PYTHON_ENV_FILE_NAME,

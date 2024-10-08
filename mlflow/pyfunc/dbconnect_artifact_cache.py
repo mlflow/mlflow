@@ -2,9 +2,9 @@ import json
 import os
 import subprocess
 import tarfile
+
 from mlflow.utils.databricks_utils import is_in_databricks_runtime
 from mlflow.utils.file_utils import get_or_create_tmp_dir
-
 
 _CACHE_MAP_FILE_NAME = "db_connect_artifact_cache.json"
 
@@ -37,17 +37,21 @@ class DBConnectArtifactCache:
 
     @staticmethod
     def get_or_create(spark):
-        if DBConnectArtifactCache._global_dbconnect_artifact_cache is None or spark is not DBConnectArtifactCache._global_dbconnect_artifact_cache._spark:
+        if (
+            DBConnectArtifactCache._global_dbconnect_artifact_cache is None
+            or spark is not DBConnectArtifactCache._global_dbconnect_artifact_cache._spark
+        ):
             DBConnectArtifactCache._global_dbconnect_artifact_cache = DBConnectArtifactCache(spark)
             cache_file = os.path.join(get_or_create_tmp_dir(), _CACHE_MAP_FILE_NAME)
             if is_in_databricks_runtime() and os.path.exists(cache_file):
-                # In databricks runtime (shared cluster or Serverless), when you restart the notebook
-                # REPL by %restart_python or dbutils.library.restartPython(), the DBConnect session is
-                # still preserved. So in this case, we can reuse the cached artifact files.
+                # In databricks runtime (shared cluster or Serverless), when you restart the
+                # notebook REPL by %restart_python or dbutils.library.restartPython(), the
+                # DBConnect session is still preserved. So in this case, we can reuse the cached
+                # artifact files.
                 # So that when adding artifact, the cache map is serialized to local disk file
-                # `db_connect_artifact_cache.json` and after REPL restarts, `DBConnectArtifactCache`
-                # restores the cache map by loading data from the file.
-                with open(cache_file, "r") as f:
+                # `db_connect_artifact_cache.json` and after REPL restarts,
+                # `DBConnectArtifactCache` restores the cache map by loading data from the file.
+                with open(cache_file) as f:
                     DBConnectArtifactCache._global_dbconnect_artifact_cache._cache = json.load(f)
         return DBConnectArtifactCache._global_dbconnect_artifact_cache
 
@@ -100,8 +104,7 @@ class DBConnectArtifactCache:
         inside Databricks Connect spark UDF sandbox.
         """
         if cache_key not in self._cache:
-            raise RuntimeError(
-                f"The artifact '{cache_key}' does not exist.")
+            raise RuntimeError(f"The artifact '{cache_key}' does not exist.")
         archive_file_name = self._cache[cache_key]
         session_id = os.environ["DB_SESSION_UUID"]
         return f"/local_disk0/.ephemeral_nfs/artifacts/{session_id}/archives/{archive_file_name}"
@@ -128,7 +131,6 @@ def archive_directory(input_dir, archive_file_path):
 
 def extract_archive_to_dir(archive_path, dest_dir):
     os.makedirs(dest_dir, exist_ok=True)
-    with tarfile.open(archive_path, 'r') as tar:
+    with tarfile.open(archive_path, "r") as tar:
         tar.extractall(path=dest_dir)
     return dest_dir
-

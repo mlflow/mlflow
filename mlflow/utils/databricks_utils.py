@@ -264,6 +264,7 @@ def is_in_databricks_serverless_runtime():
 
 def is_in_databricks_shared_cluster_runtime():
     from mlflow.utils.spark_utils import is_spark_connect_mode
+
     return (
         is_in_databricks_runtime()
         and is_spark_connect_mode()
@@ -276,12 +277,13 @@ def is_databricks_connect(spark):
     Return True if current Spark-connect client connects to Databricks cluster.
     """
     from mlflow.utils.spark_utils import is_spark_connect_mode
+
     # TODO: Remove the `spark.client._builder._build` attribute access once
     #  Spark-connect has public attribute for this information.
     return is_spark_connect_mode() and (
-        is_in_databricks_serverless_runtime() or
-        is_in_databricks_shared_cluster_runtime() or
-        "databricks-session" in spark.client._builder.userAgent
+        is_in_databricks_serverless_runtime()
+        or is_in_databricks_shared_cluster_runtime()
+        or "databricks-session" in spark.client._builder.userAgent
     )
 
 
@@ -312,15 +314,15 @@ def get_dbconnect_udf_sandbox_image_version_and_platform_machine(spark):
         # version is like '15.4.x-snapshot-scala2.12'
         version = spark.sql("SELECT current_version().dbr_version").collect()[0][0]
         version_splits = version.split(".")
-        _dbconnect_udf_sandbox_image_version = '.'.join(version_splits[:2])
+        _dbconnect_udf_sandbox_image_version = ".".join(version_splits[:2])
 
         @pandas_udf("string")
         def f(_):
-            import platform
             import pandas as pd
+
             return pd.Series([platform.machine()])
 
-        _dbconnect_udf_sandbox_platform_machine = spark.range(1).select(f('id')).collect()[0][0]
+        _dbconnect_udf_sandbox_platform_machine = spark.range(1).select(f("id")).collect()[0][0]
 
     return _dbconnect_udf_sandbox_image_version, _dbconnect_udf_sandbox_platform_machine
 
@@ -331,10 +333,10 @@ def is_databricks_serverless(spark):
     on Databricks Connect client that connects to Databricks Serverless.
     """
     from mlflow.utils.spark_utils import is_spark_connect_mode
-    return (
-        is_spark_connect_mode() and
-        'x-databricks-session-id' in [k for k, v in spark.client.metadata()]
-    )
+
+    return is_spark_connect_mode() and "x-databricks-session-id" in [
+        k for k, v in spark.client.metadata()
+    ]
 
 
 def is_dbfs_fuse_available():

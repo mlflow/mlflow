@@ -5,11 +5,10 @@ import uuid
 from mlflow.utils._spark_utils import _get_active_spark_session
 from mlflow.utils.databricks_utils import (
     get_databricks_nfs_temp_dir,
+    is_databricks_connect,
     is_in_databricks_runtime,
     is_in_databricks_serverless_runtime,
-    is_databricks_connect,
 )
-from mlflow.utils.spark_utils import is_spark_connect_mode
 
 # Set spark config "spark.mlflow.nfs.rootDir" to specify a NFS (network file system) directory
 # which is shared with all spark cluster nodes.
