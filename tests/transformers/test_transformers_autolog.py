@@ -283,7 +283,7 @@ def transformers_hyperparameter_functional(tmp_path):
     )
 
 
-skip_transformer_dev_setfit_test = @pytest.mark.skipif(
+skip_transformer_dev_setfit_test = pytest.mark.skipif(
     Version(transformers.__version__).is_devrelease,
     reason="fails due to issue: https://github.com/huggingface/setfit/issues/564",
 )
