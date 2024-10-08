@@ -254,8 +254,10 @@ fastai:
   models:
     minimum: "2.4.1"
     maximum: "2.7.17"
+    python:
+      "== dev": "3.9"
+      ">= 0.0.0": "3.9"
     requirements:
-      ">= 0.0.0": ["spacy<3.8.2"]
       "< 2.8.0": ["torch<1.13.0", "torchvision<0.14.0"]
       ">= 2.8.0": ["torch", "torchvision"]
     run: |
@@ -264,8 +266,10 @@ fastai:
   autologging:
     minimum: "2.4.1"
     maximum: "2.7.17"
+    python:
+      "== dev": "3.9"
+      ">= 0.0.0": "3.9"
     requirements:
-      ">= 0.0.0": ["spacy<3.8.2"]
       "< 2.8.0": ["torch<1.13.0", "torchvision<0.14.0"]
       ">= 2.8.0": ["torch", "torchvision"]
     run: |
