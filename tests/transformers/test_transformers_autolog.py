@@ -282,8 +282,10 @@ def transformers_hyperparameter_functional(tmp_path):
         train_dataset=train_dataset,
     )
 
-
-
+@pytest.mark.skipif(
+    Version(transformers.__version__).is_devrelease,
+    reason="fails with error: 'CallbackHandler' object has no attribute 'tokenizer'"
+)
 def test_setfit_does_not_autolog(setfit_trainer):
     mlflow.autolog()
 
