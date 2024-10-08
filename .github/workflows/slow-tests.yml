@@ -50,9 +50,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        group: [1, 2, 3, 4]
+        group: [1, 2, 3]
         include:
-          - splits: 4
+          - splits: 3
     steps:
       - uses: actions/checkout@v4
         with:
