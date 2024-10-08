@@ -602,7 +602,7 @@ service MlflowService {
     option (rpc) = {
       endpoints: [{
         method: "GET",
-        path: "/mlflow/logged-models/{model_id}/artifacts/directories"
+        path: "/mlflow/logged-models/{model_id}/artifacts/directories/{artifact_directory_path}"
         since { major: 2, minor: 0 },
       }],
       visibility: PUBLIC_UNDOCUMENTED,
@@ -1683,7 +1683,7 @@ message ListLoggedModelArtifacts {
   optional string model_id = 1 [(validate_required) = true];
 
   // Filter artifacts matching this path (a relative path from the root artifact directory).
-  optional string file_path = 2;
+  optional string artifact_directory_path = 2;
 
   // Token indicating the page of artifact results to fetch
   optional string page_token = 3;
