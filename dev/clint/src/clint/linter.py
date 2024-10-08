@@ -211,6 +211,7 @@ class Linter(ast.NodeVisitor):
                 self.path,
                 loc.lineno,
                 loc.col_offset,
+                self.cell,
             )
         )
 
