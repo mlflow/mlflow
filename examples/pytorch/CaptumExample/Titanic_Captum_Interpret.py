@@ -39,8 +39,8 @@ def get_titanic():
     Class3 : Binary var indicating whether passenger was in third class
     url = "https://biostat.app.vumc.org/wiki/pub/Main/DataSets/titanic3.csv"
     """
-    url = "https://biostat.app.vumc.org/wiki/pub/Main/DataSets/titanic3.csv"
-    titanic_data = pd.read_csv(url)
+    data_path = "titanic3.csv"
+    titanic_data = pd.read_csv(data_path)
     titanic_data = pd.concat(
         [
             titanic_data,
