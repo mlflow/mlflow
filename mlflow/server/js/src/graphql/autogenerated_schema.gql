@@ -8,7 +8,6 @@ type Query {
   mlflowGetMetricHistoryBulkInterval(input: MlflowGetMetricHistoryBulkIntervalInput): MlflowGetMetricHistoryBulkIntervalResponse
   mlflowGetRun(input: MlflowGetRunInput): MlflowGetRunResponse
   mlflowListArtifacts(input: MlflowListArtifactsInput): MlflowListArtifactsResponse
-  mlflowListLoggedModelArtifacts(input: MlflowListLoggedModelArtifactsInput): MlflowListLoggedModelArtifactsResponse
   mlflowSearchModelVersions(input: MlflowSearchModelVersionsInput): MlflowSearchModelVersionsResponse
 
   """Simple echoing field"""
@@ -212,19 +211,6 @@ input MlflowListArtifactsInput {
   runId: String
   runUuid: String
   path: String
-  pageToken: String
-}
-
-type MlflowListLoggedModelArtifactsResponse {
-  rootUri: String
-  files: [MlflowFileInfo!]
-  nextPageToken: String
-  apiError: ApiError
-}
-
-input MlflowListLoggedModelArtifactsInput {
-  modelId: String
-  filePath: String
   pageToken: String
 }
 
