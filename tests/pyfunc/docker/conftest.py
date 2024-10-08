@@ -64,6 +64,17 @@ def save_model_with_latest_mlflow_version(flavor, extra_pip_requirements=None, *
     latest_mlflow_version = get_released_mlflow_version()
     if flavor == "langchain":
         kwargs["pip_requirements"] = [f"mlflow[gateway]=={latest_mlflow_version}", "langchain"]
+    elif flavor == "fastai":
+        import fastai
+
+        # pip dependency resolution works badly with auto-inferred fastai model dependencies
+        # and it ends up with downloading many versions of toch package, and makes CI container
+        # runs out of disk space.
+        # So set `pip_requirements` explicitly as a workaround.
+        kwargs["pip_requirements"] = [
+            f"mlflow=={latest_mlflow_version}",
+            f"fastai=={fastai.__version__}",
+        ]
     else:
         extra_pip_requirements = extra_pip_requirements or []
         extra_pip_requirements.append(f"mlflow=={latest_mlflow_version}")
