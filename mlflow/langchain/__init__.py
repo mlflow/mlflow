@@ -130,8 +130,8 @@ def get_default_conda_env():
 
 def _get_databricks_serverless_env_vars():
     """
-    To initialize WorkspaceClient correctly in a subprocess in databricks, some
-    environment variables need to be set.
+    Returns the environment variables required to to initialize WorkspaceClient in a subprocess
+    with serverless compute.
 
     Note:
         Databricks authentication related environment variables are set in the
@@ -142,9 +142,9 @@ def _get_databricks_serverless_env_vars():
         envs["SPARK_LOCAL_REMOTE"] = os.environ["SPARK_REMOTE"]
     else:
         logger.warning(
-            "Failed to find the required environment variable SPARK_REMOTE. "
-            "This is required to initialize the WorkspaceClient in a subprocess in Databricks "
-            "for UC function execution. Setting the value to 'true'."
+            "Missing required environment variable `SPARK_LOCAL_REMOTE` or `SPARK_REMOTE`."
+            "This is required to initialize the WorkspaceClient with serverless compute in "
+            "a subprocess in Databricks for UC function execution. Setting the value to 'true'."
         )
         envs["SPARK_LOCAL_REMOTE"] = "true"
     return envs
