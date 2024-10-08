@@ -78,12 +78,16 @@ In these introductory tutorials, you will learn the most fundamental components 
 Concepts
 --------
 
+.. note::
+
+    Workflow integration is only available in LlamaIndex >= 0.11.0 and MLflow >= 2.17.0.
+
 ``Workflow`` 🆕
 ^^^^^^^^^^^^^^^
 
-The ``Workflow`` is LlamaIndex's new event-driven orchestration framework. It is designed
-as a highly flexible and interpretable framework for building arbitrary LLM applications such as an agent, a RAG flow, an data extraction pipeline, etc.
-MLflow supports tracking, evaluating, and tracing the ``Workflow`` objects, adding strong observability and maintainability values.
+The ``Workflow`` is LlamaIndex's event-driven orchestration framework. It is designed
+as a flexible and interpretable framework for building arbitrary LLM applications such as an agent, a RAG flow, a data extraction pipeline, etc.
+MLflow supports tracking, evaluating, and tracing the ``Workflow`` objects, which makes them more observable and maintainable.
 
 ``Index``
 ^^^^^^^^^
@@ -101,8 +105,8 @@ query and returns a response based on the index. The ``ChatEngine`` is designed 
 ``Settings``
 ^^^^^^^^^^^^
 
-The ``Settings`` is a global configuration object in LlamaIndex that bundles commonly used resources throughout the
-LlamaIndex application. It includes settings such as the LLM model, embedding model, callbacks, and more. MLflow tracks 
+The ``Settings`` object is a global service context that bundles commonly used resources throughout the
+LlamaIndex application. It includes settings such as the LLM model, embedding model, callbacks, and more. When logging a LlamaIndex index/engine/workflow, MLflow tracks 
 the state of the ``Settings`` object so that you can easily reproduce the same result when loading the model back for inference.
 
 
@@ -310,7 +314,7 @@ The logged index can be loaded back using the :py:func:`mlflow.llama_index.load_
 How to log and load a LlamaIndex Workflow?
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Mlflow support logging and loading a LlamaIndex Workflow via the `Model-from-Code <../../../models.html#models-from-code>`_ logging. For the detailed example of logging and loading a LlamaIndex Workflow, see the `LlamaIndex Workflows with MLflow <notebooks/llama_index_workflow_tutorial.html>`_ notebook.
+Mlflow supports logging and loading a LlamaIndex Workflow via the `Model-from-Code <../../../models.html#models-from-code>`_ feature. For a detailed example of logging and loading a LlamaIndex Workflow, see the `LlamaIndex Workflows with MLflow <notebooks/llama_index_workflow_tutorial.html>`_ notebook.
 
 .. code-block:: python
 
@@ -338,7 +342,7 @@ The logged workflow can be loaded back using the :py:func:`mlflow.llama_index.lo
 
 .. warning::
 
-    The MLflow Pyfunc Model does not support async inference. When you load the workflow with :py:func:`mlflow.pyfunc.load_model`, the ``predict`` method becomes **synchronous** and will block until the workflow execution is completed. This also applies when deploying the logged LlamaIndex workflow to a production endpoint using `MLflow Deployment <https://mlflow.org/docs/latest/deployment/index.html>`_ or Databricks `Model Serving <https://docs.databricks.com/en/machine-learning/model-serving/index.html>`_.
+    The MLflow PyFunc Model does not support async inference. When you load the workflow with :py:func:`mlflow.pyfunc.load_model`, the ``predict`` method becomes **synchronous** and will block until the workflow execution is completed. This also applies when deploying the logged LlamaIndex workflow to a production endpoint using `MLflow Deployment <https://mlflow.org/docs/latest/deployment/index.html>`_ or Databricks `Model Serving <https://docs.databricks.com/en/machine-learning/model-serving/index.html>`_.
 
 
 I have an index logged with ``query`` engine type. Can I load it back a ``chat`` engine?
