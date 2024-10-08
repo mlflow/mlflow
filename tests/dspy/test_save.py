@@ -259,7 +259,7 @@ def test_save_chat_model_with_string_output():
             return self.prog(question=inputs[0]["content"]).answer
 
     dspy_model = CoT()
-    random_answers = ["4", "6", "8", "10"]
+    random_answers = ["4", "4", "4", "4"]
     lm = dspy.utils.DummyLM(answers=random_answers)
     dspy.settings.configure(lm=lm)
 
@@ -267,22 +267,20 @@ def test_save_chat_model_with_string_output():
 
     artifact_path = "model"
     with mlflow.start_run():
-        mlflow.dspy.log_model(
+        model_info = mlflow.dspy.log_model(
             dspy_model,
             artifact_path,
             task="llm/v1/chat",
             input_example=input_examples,
         )
-        model_uri = mlflow.get_artifact_uri(artifact_path)
-
-    loaded_pyfunc = mlflow.pyfunc.load_model(model_uri)
+    loaded_pyfunc = mlflow.pyfunc.load_model(model_info.model_uri)
     response = loaded_pyfunc.predict(input_examples)
 
     assert "choices" in response
     assert len(response["choices"]) == 1
     assert "message" in response["choices"][0]
     # The content should just be a string.
-    assert response["choices"][0]["message"]["content"] in random_answers
+    assert response["choices"][0]["message"]["content"] == "4"
 
 
 def test_serve_chat_model():
