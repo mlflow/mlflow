@@ -55,19 +55,6 @@ class MlflowSearchModelVersionsResponse(graphene.ObjectType):
     apiError = graphene.Field(ApiError)
 
 
-class MlflowFileInfo(graphene.ObjectType):
-    path = graphene.String()
-    is_dir = graphene.Boolean()
-    file_size = LongString()
-
-
-class MlflowListLoggedModelArtifactsResponse(graphene.ObjectType):
-    root_uri = graphene.String()
-    files = graphene.List(graphene.NonNull(MlflowFileInfo))
-    next_page_token = graphene.String()
-    apiError = graphene.Field(ApiError)
-
-
 class MlflowDatasetSummary(graphene.ObjectType):
     experiment_id = graphene.String()
     name = graphene.String()
@@ -91,6 +78,12 @@ class MlflowMetricWithRunId(graphene.ObjectType):
 class MlflowGetMetricHistoryBulkIntervalResponse(graphene.ObjectType):
     metrics = graphene.List(graphene.NonNull(MlflowMetricWithRunId))
     apiError = graphene.Field(ApiError)
+
+
+class MlflowFileInfo(graphene.ObjectType):
+    path = graphene.String()
+    is_dir = graphene.Boolean()
+    file_size = LongString()
 
 
 class MlflowListArtifactsResponse(graphene.ObjectType):
@@ -207,12 +200,6 @@ class MlflowSearchModelVersionsInput(graphene.InputObjectType):
     page_token = graphene.String()
 
 
-class MlflowListLoggedModelArtifactsInput(graphene.InputObjectType):
-    model_id = graphene.String()
-    file_path = graphene.String()
-    page_token = graphene.String()
-
-
 class MlflowSearchDatasetsInput(graphene.InputObjectType):
     experiment_ids = graphene.List(graphene.String)
 
@@ -255,7 +242,6 @@ class QueryType(graphene.ObjectType):
     mlflow_get_metric_history_bulk_interval = graphene.Field(MlflowGetMetricHistoryBulkIntervalResponse, input=MlflowGetMetricHistoryBulkIntervalInput())
     mlflow_get_run = graphene.Field(MlflowGetRunResponse, input=MlflowGetRunInput())
     mlflow_list_artifacts = graphene.Field(MlflowListArtifactsResponse, input=MlflowListArtifactsInput())
-    mlflow_list_logged_model_artifacts = graphene.Field(MlflowListLoggedModelArtifactsResponse, input=MlflowListLoggedModelArtifactsInput())
     mlflow_search_model_versions = graphene.Field(MlflowSearchModelVersionsResponse, input=MlflowSearchModelVersionsInput())
 
     def resolve_mlflow_get_experiment(self, info, input):
@@ -281,12 +267,6 @@ class QueryType(graphene.ObjectType):
         request_message = mlflow.protos.service_pb2.ListArtifacts()
         parse_dict(input_dict, request_message)
         return mlflow.server.handlers.list_artifacts_impl(request_message)
-
-    def resolve_mlflow_list_logged_model_artifacts(self, info, input):
-        input_dict = vars(input)
-        request_message = mlflow.protos.service_pb2.ListLoggedModelArtifacts()
-        parse_dict(input_dict, request_message)
-        return mlflow.server.handlers.list_logged_model_artifacts_impl(request_message)
 
     def resolve_mlflow_search_model_versions(self, info, input):
         input_dict = vars(input)
