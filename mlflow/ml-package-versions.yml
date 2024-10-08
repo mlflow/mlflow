@@ -258,7 +258,8 @@ fastai:
       "== dev": "3.9"
       ">= 0.0.0": "3.9"
     requirements:
-      "< 2.8.0": ["torch<1.13.0", "torchvision<0.14.0"]
+      # torch < 1.13 is incompatible with numpy>=2
+      "< 2.8.0": ["torch<1.13.0", "torchvision<0.14.0", "numpy<2"]
       ">= 2.8.0": ["torch", "torchvision"]
     run: |
       pytest tests/fastai/test_fastai_model_export.py
