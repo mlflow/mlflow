@@ -4840,6 +4840,17 @@ class MlflowClient:
         """
         return self._tracking_client.set_logged_model_tags(model_id, tags)
 
+    def delete_logged_model_tag(self, model_id: str, key: str) -> None:
+        """
+        Delete a tag from the specified logged model.
+
+        Args:
+            model_id: ID of the model.
+            key: Tag key to delete.
+
+        """
+        return self._tracking_client.delete_logged_model_tag(model_id, key)
+
     def log_model_artifacts(self, model_id: str, local_dir: str) -> None:
         return self._tracking_client.log_model_artifacts(model_id, local_dir)
 
