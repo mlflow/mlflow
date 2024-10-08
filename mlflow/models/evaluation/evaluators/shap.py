@@ -78,7 +78,6 @@ class ShapEvaluator(BuiltInEvaluator):
             )
             return
 
-
         algorithm = self.evaluator_config.get("explainability_algorithm", None)
         if algorithm is not None and algorithm not in _SUPPORTED_SHAP_ALGORITHMS:
             raise MlflowException(
@@ -114,8 +113,6 @@ class ShapEvaluator(BuiltInEvaluator):
             )
             return
 
-        is_multinomial_classifier = self.model_type == _ModelType.CLASSIFIER and len(self.label_list) > 2
-
         sample_rows = self.evaluator_config.get(
             "explainability_nsamples", _DEFAULT_SAMPLE_ROWS_FOR_SHAP
         )
@@ -138,6 +135,11 @@ class ShapEvaluator(BuiltInEvaluator):
         shap_predict_fn = functools.partial(
             _shap_predict_fn, predict_fn=predict_fn, feature_names=self.dataset.feature_names
         )
+
+        if self.label_list is None:
+            # If label list is not specified, infer label list from model output
+            y_pred = predict_fn(X_df) if predict_fn else self.dataset.predictions_data
+            self.label_list = np.unique(np.concatenate([self.y_true, y_pred]))
 
         try:
             if algorithm:
@@ -169,7 +171,7 @@ class ShapEvaluator(BuiltInEvaluator):
             else:
                 if (
                     raw_model
-                    and not is_multinomial_classifier
+                    and not len(self.label_list) > 2
                     and not isinstance(raw_model, sk_Pipeline)
                 ):
                     # For mulitnomial classifier, shap.Explainer may choose Tree/Linear explainer
@@ -204,7 +206,7 @@ class ShapEvaluator(BuiltInEvaluator):
                 f"Shap evaluation failed. Reason: {e!r}. "
                 "Set logging level to DEBUG to see the full traceback."
             )
-            _logger.debug("", exc_info=True)
+            _logger.warning("", exc_info=True)
             return
         try:
             mlflow.shap.log_explainer(explainer, artifact_path="explainer")
@@ -258,6 +260,11 @@ class ShapEvaluator(BuiltInEvaluator):
                 "shap_feature_importance_plot",
             )
 
+        return EvaluationResult(
+            metrics=self.aggregate_metrics,
+            artifacts=self.artifacts,
+            run_id=self.run_id,
+        )
 
 def _compute_df_mode_or_mean(df):
     """

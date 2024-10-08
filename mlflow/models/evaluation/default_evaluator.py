@@ -35,6 +35,9 @@ _LATENCY_METRIC_NAME = "latency"
 
 
 def _extract_raw_model(model):
+    if not getattr(model, "metadata", None):
+        return None, None
+
     model_loader_module = model.metadata.flavors["python_function"]["loader_module"]
     # If we load a model with mlflow.pyfunc.load_model, the model will be wrapped
     # with a pyfunc wrapper. We need to extract the raw model so that shap
@@ -68,6 +71,15 @@ def _extract_predict_fn(model: Any) -> Optional[Callable]:
 
     if raw_model is not None:
         predict_fn = raw_model.predict
+        try:
+            from mlflow.xgboost import _wrapped_xgboost_model_predict_fn
+
+            # Because shap evaluation will pass evaluation data in ndarray format
+            # (without feature names), if set validate_features=True it will raise error.
+            predict_fn = _wrapped_xgboost_model_predict_fn(raw_model, validate_features=False)
+        except ImportError:
+            pass
+
     elif model is not None:
         predict_fn = model.predict
 
@@ -456,8 +468,7 @@ class BuiltInEvaluator(ModelEvaluator):
                 )
                 artifact_results = _evaluate_custom_artifacts(
                     custom_artifact_tuple,
-                    prediction,
-                    target,
+                    eval_df.copy(),
                     copy.deepcopy(self.metrics_values),
                 )
                 if artifact_results:
@@ -637,6 +648,7 @@ class BuiltInEvaluator(ModelEvaluator):
         """
 
         eval_df = self._get_eval_df(prediction, target)
+        metrics = [MetricDefinition.from_index_and_metric(i, metric) for i, metric in enumerate(metrics)]
         metrics = self._order_metrics(metrics, eval_df, other_output_df)
 
         self._test_first_row(metrics, eval_df, other_output_df)
@@ -644,7 +656,7 @@ class BuiltInEvaluator(ModelEvaluator):
         # calculate metrics for the full eval_df
         input_df = self.X.copy_to_avoid_mutation()
         for metric in metrics:
-            _, eval_fn_args = self._get_args_for_metrics(metric, metrics, eval_df, input_df, other_output_df)
+            _, eval_fn_args = self._get_args_for_metrics(metric, eval_df, input_df, other_output_df)
             metric_value = metric.evaluate(eval_fn_args)
 
             if metric_value:
@@ -656,7 +668,7 @@ class BuiltInEvaluator(ModelEvaluator):
                 self.metrics_values.update({name: metric_value})
 
 
-    def log_eval_table(self, y_pred):
+    def log_eval_table(self, y_pred, other_output_columns=None):
         # only log eval table if there are per row metrics recorded
         if not any(
             metric_value.scores is not None or metric_value.justifications is not None
@@ -692,9 +704,9 @@ class BuiltInEvaluator(ModelEvaluator):
                 data = data.assign(outputs=y_pred)
 
         # Include other_output_columns used in evaluation to the eval table
-        if self.other_output_columns is not None and len(self.other_output_columns_for_eval) > 0:
+        if other_output_columns is not None and len(self.other_output_columns_for_eval) > 0:
             for column in self.other_output_columns_for_eval:
-                data[column] = self.other_output_columns[column]
+                data[column] = other_output_columns[column]
 
         columns = {}
         for metric_name, metric_value in self.metrics_values.items():
@@ -846,14 +858,12 @@ class BuiltInEvaluator(ModelEvaluator):
                 f"mlflow.metrics.EvaluationMetric."
             )
 
-        self.extra_metrics = [
-            self._metric_to_metric_tuple(index, metric)
-            for index, metric in enumerate(extra_metrics)
-        ]
-
         import matplotlib
 
-        with TempDir() as temp_dir, matplotlib.rc_context(_matplotlib_config):
+        with TempDir() as temp_dir, matplotlib.rc_context(_matplotlib_config), \
+            mlflow.utils.autologging_utils.disable_autologging(
+            exemptions=[mlflow.langchain.FLAVOR_NAME]
+        ):
             self.temp_dir = temp_dir
             return self._evaluate(model, extra_metrics, custom_artifacts)
 

@@ -25,8 +25,9 @@ class MetricDefinition:
     version: Optional[str] = None
     genai_metric_args: Optional[Dict] = None
 
-    def from_index_and_metric(self, index: int, metric: EvaluationMetric):
-        return MetricDefinition(
+    @classmethod
+    def from_index_and_metric(cls, index: int, metric: EvaluationMetric):
+        return cls(
             function=metric.eval_fn,
             index=index,
             name=metric.name,

@@ -100,14 +100,25 @@ def assert_metrics_equal(actual, expected):
 
 
 @pytest.mark.parametrize("use_sample_weights", [False, True])
+@pytest.mark.parametrize("evaluators", [
+    "default",
+    ["regressor", "shap"],
+    None
+])
 def test_regressor_evaluation(
     linear_regressor_model_uri,
     diabetes_dataset,
     use_sample_weights,
+    evaluators,
 ):
     sample_weights = (
         np.random.rand(len(diabetes_dataset.labels_data)) if use_sample_weights else None
     )
+
+    evaluator_config = {"sample_weights": sample_weights} if use_sample_weights else {}
+
+    if isinstance(evaluators, list):
+        evaluator_config = {evaluator: evaluator_config for evaluator in evaluators}
 
     with mlflow.start_run() as run:
         result = evaluate(
@@ -115,10 +126,8 @@ def test_regressor_evaluation(
             diabetes_dataset._constructor_args["data"],
             model_type="regressor",
             targets=diabetes_dataset._constructor_args["targets"],
-            evaluators="default",
-            evaluator_config={
-                "sample_weights": sample_weights,
-            },
+            evaluators=evaluators,
+            evaluator_config=evaluator_config
         )
 
     _, metrics, tags, artifacts = get_run_data(run.info.run_id)
@@ -150,6 +159,7 @@ def test_regressor_evaluation(
     ]
 
     assert set(artifacts) == {
+        "explainer",
         "shap_beeswarm_plot.png",
         "shap_feature_importance_plot.png",
         "shap_summary_plot.png",
@@ -206,12 +216,19 @@ def test_regressor_evaluation_with_int_targets(
 
 
 @pytest.mark.parametrize("use_sample_weights", [True, False])
+@pytest.mark.parametrize("evaluators", [
+    "default",
+    ["classifier", "shap"],
+    None
+])
 def test_multi_classifier_evaluation(
     multiclass_logistic_regressor_model_uri,
     iris_dataset,
     use_sample_weights,
+    evaluators,
 ):
     sample_weights = np.random.rand(len(iris_dataset.labels_data)) if use_sample_weights else None
+    evaluator_config = {"sample_weights": sample_weights} if use_sample_weights else {}
 
     with mlflow.start_run() as run:
         result = evaluate(
@@ -220,9 +237,7 @@ def test_multi_classifier_evaluation(
             model_type="classifier",
             targets=iris_dataset._constructor_args["targets"],
             evaluators="default",
-            evaluator_config={
-                "sample_weights": sample_weights,
-            },
+            evaluator_config=evaluator_config,
         )
 
     _, metrics, tags, artifacts = get_run_data(run.info.run_id)
@@ -1181,7 +1196,7 @@ def test_evaluate_metric_backwards_compatible():
         return builtin_metrics["mean_absolute_error"] * 1.5
 
     eval_fn_args = [eval_df, builtin_metrics]
-    res_metric = MetricDefinition("old_fn", old_fn, 0).evaluate(eval_fn_args)
+    res_metric = MetricDefinition(old_fn, "old_fn", 0).evaluate(eval_fn_args)
     assert res_metric.scores is None
     assert res_metric.justifications is None
     assert res_metric.aggregate_results["old_fn"] == builtin_metrics["mean_absolute_error"] * 1.5
@@ -1207,7 +1222,7 @@ def test_evaluate_custom_metric_incorrect_return_formats():
     def dummy_fn(*_):
         pass
 
-    with mock.patch("mlflow.models.evaluation.default_evaluator._logger.warning") as mock_warning:
+    with mock.patch("mlflow.models.evaluation.utils.metric._logger.warning") as mock_warning:
         MetricDefinition(dummy_fn, "dummy_fn", 0, None).evaluate(eval_fn_args)
         mock_warning.assert_called_once_with(
             "Did not log metric 'dummy_fn' at index 0 in the `extra_metrics` parameter"
@@ -1217,7 +1232,7 @@ def test_evaluate_custom_metric_incorrect_return_formats():
     def incorrect_return_type(*_):
         return ["stuff"], 3
 
-    with mock.patch("mlflow.models.evaluation.default_evaluator._logger.warning") as mock_warning:
+    with mock.patch("mlflow.models.evaluation.utils.metric._logger.warning") as mock_warning:
         MetricDefinition(incorrect_return_type, incorrect_return_type.__name__, 0).evaluate(eval_fn_args)
         mock_warning.assert_called_once_with(
             f"Did not log metric '{incorrect_return_type.__name__}' at index 0 in the "
@@ -1227,7 +1242,7 @@ def test_evaluate_custom_metric_incorrect_return_formats():
     def non_list_scores(*_):
         return MetricValue(scores=5)
 
-    with mock.patch("mlflow.models.evaluation.default_evaluator._logger.warning") as mock_warning:
+    with mock.patch("mlflow.models.evaluation.utils.metric._logger.warning") as mock_warning:
         MetricDefinition(non_list_scores, non_list_scores.__name__, 0).evaluate(eval_fn_args)
         mock_warning.assert_called_once_with(
             f"Did not log metric '{non_list_scores.__name__}' at index 0 in the "
@@ -1237,7 +1252,7 @@ def test_evaluate_custom_metric_incorrect_return_formats():
     def non_numeric_scores(*_):
         return MetricValue(scores=[{"val": "string"}])
 
-    with mock.patch("mlflow.models.evaluation.default_evaluator._logger.warning") as mock_warning:
+    with mock.patch("mlflow.models.evaluation.utils.metric._logger.warning") as mock_warning:
         MetricDefinition(non_numeric_scores, non_numeric_scores.__name__, 0).evaluate(eval_fn_args)
         mock_warning.assert_called_once_with(
             f"Did not log metric '{non_numeric_scores.__name__}' at index 0 in the `extra_metrics`"
@@ -1247,7 +1262,7 @@ def test_evaluate_custom_metric_incorrect_return_formats():
     def non_list_justifications(*_):
         return MetricValue(justifications="string")
 
-    with mock.patch("mlflow.models.evaluation.default_evaluator._logger.warning") as mock_warning:
+    with mock.patch("mlflow.models.evaluation.utils.metric._logger.warning") as mock_warning:
         MetricDefinition(non_list_justifications, non_list_justifications.__name__, 0).evaluate(eval_fn_args)
         mock_warning.assert_called_once_with(
             f"Did not log metric '{non_list_justifications.__name__}' at index 0 in the "
@@ -1258,7 +1273,7 @@ def test_evaluate_custom_metric_incorrect_return_formats():
     def non_str_justifications(*_):
         return MetricValue(justifications=[3, 4])
 
-    with mock.patch("mlflow.models.evaluation.default_evaluator._logger.warning") as mock_warning:
+    with mock.patch("mlflow.models.evaluation.utils.metric._logger.warning") as mock_warning:
         MetricDefinition(non_str_justifications, non_str_justifications.__name__, 0).evaluate(eval_fn_args)
         mock_warning.assert_called_once_with(
             f"Did not log metric '{non_str_justifications.__name__}' at index 0 in the "
@@ -1269,7 +1284,7 @@ def test_evaluate_custom_metric_incorrect_return_formats():
     def non_dict_aggregates(*_):
         return MetricValue(aggregate_results=[5.0, 4.0])
 
-    with mock.patch("mlflow.models.evaluation.default_evaluator._logger.warning") as mock_warning:
+    with mock.patch("mlflow.models.evaluation.utils.metric._logger.warning") as mock_warning:
         MetricDefinition(non_dict_aggregates, non_dict_aggregates.__name__, 0).evaluate(eval_fn_args)
         mock_warning.assert_called_once_with(
             f"Did not log metric '{non_dict_aggregates.__name__}' at index 0 in the "
@@ -1280,7 +1295,7 @@ def test_evaluate_custom_metric_incorrect_return_formats():
     def wrong_type_aggregates(*_):
         return MetricValue(aggregate_results={"toxicity": 0.0, "hi": "hi"})
 
-    with mock.patch("mlflow.models.evaluation.default_evaluator._logger.warning") as mock_warning:
+    with mock.patch("mlflow.models.evaluation.utils.metric._logger.warning") as mock_warning:
         MetricDefinition(wrong_type_aggregates, wrong_type_aggregates.__name__, 0).evaluate(eval_fn_args)
         mock_warning.assert_called_once_with(
             f"Did not log metric '{wrong_type_aggregates.__name__}' at index 0 in the "
@@ -1441,8 +1456,7 @@ def test_custom_metric_mixed(binary_logistic_regressor_model_uri, breast_cancer_
 
     model = mlflow.pyfunc.load_model(binary_logistic_regressor_model_uri)
 
-    _, raw_model = _extract_raw_model(model)
-    predict_fn, _ = _extract_predict_fn(model, raw_model)
+    predict_fn = _extract_predict_fn(model)
     y = breast_cancer_dataset.labels_data
     y_pred = predict_fn(breast_cancer_dataset.features_data)
 
