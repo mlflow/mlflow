@@ -1852,6 +1852,14 @@ def spark_udf(
     NOTE: Inputs of type ``pyspark.sql.types.DateType`` are not supported on earlier versions of
     Spark (2.4 and below).
 
+    NOTE: If using Databricks Connect to connect to remote Databricks cluster, and 'spark_udf'
+       param'env_manager' to 'virtualenv', the 'prebuilt_env_path' param is required too.
+
+    NOTE: If running in Databricks Serverless, the spark tasks are executed inside Databricks
+       Serverless UDF sandbox, which has limitation of 1GB size in total for available memory
+       plus local disk capacity, and no GPU device available. So deep-learning model containing
+       large weight or requiring GPU does not fit Databricks Serverless.
+
     .. code-block:: python
         :caption: Example
 
@@ -1937,11 +1945,11 @@ def spark_udf(
         extra_env: Extra environment variables to pass to the UDF executors.
 
         prebuilt_env_path: The path of the prebuilt env archive file created by
-              `mlflow.pyfunc.prebuild_model_env` API.
-              This param can only be used in Databricks Serverless notebook REPL,
-              Databricks Shared cluster notebook REPL, and Databricks Connect client
-              environment.
-              If you set this param, `env_manager` param is ignored.
+            `mlflow.pyfunc.prebuild_model_env` API.
+            This param can only be used in Databricks Serverless notebook REPL,
+            Databricks Shared cluster notebook REPL, and Databricks Connect client
+            environment.
+            If you set this param, `env_manager` param is ignored.
 
     Returns:
         Spark UDF that applies the model's ``predict`` method to the data and returns a
@@ -1988,10 +1996,16 @@ def spark_udf(
             "environment."
         )
 
-    if prebuilt_env_path is None and dbconnect_mode and not is_in_databricks_runtime():
+    if (
+        prebuilt_env_path is None
+        and env_manager != _EnvManager.LOCAL
+        and dbconnect_mode
+        and not is_in_databricks_runtime()
+    ):
         raise RuntimeError(
             "If using Databricks Connect to connect to Databricks cluster from your "
-            "own machine, the 'prebuilt_env_path' param is required."
+            "own machine, and 'env_manager' is set to 'virtualenv', "
+            "the 'prebuilt_env_path' param is required."
         )
 
     # Databricks connect can use `spark.addArtifact` to upload artifact to NFS.
@@ -2031,7 +2045,7 @@ def spark_udf(
     if prebuilt_env_path:
         _verify_prebuilt_env(spark, local_model_path, prebuilt_env_path)
         env_manager = _EnvManager.VIRTUALENV
-    if use_dbconnect_artifact and env_manager == _EnvManager.LOCAL:
+    if use_dbconnect_artifact and env_manager == _EnvManager.CONDA:
         raise MlflowException(
             "Databricks connect mode or Databricks Serverless python REPL doesn't "
             "support env_manager 'conda'."
