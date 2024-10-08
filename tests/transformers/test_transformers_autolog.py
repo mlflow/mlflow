@@ -8,6 +8,7 @@ import sklearn
 import sklearn.cluster
 import sklearn.datasets
 import torch
+import transformers
 from datasets import load_dataset
 from packaging.version import Version
 from sentence_transformers.losses import CosineSimilarityLoss
@@ -282,6 +283,13 @@ def transformers_hyperparameter_functional(tmp_path):
     )
 
 
+skip_transformer_dev_setfit_test = pytest.mark.skipif(
+    Version(transformers.__version__).is_devrelease,
+    reason="fails due to issue: https://github.com/huggingface/setfit/issues/564",
+)
+
+
+@skip_transformer_dev_setfit_test
 def test_setfit_does_not_autolog(setfit_trainer):
     mlflow.autolog()
 
@@ -295,6 +303,7 @@ def test_setfit_does_not_autolog(setfit_trainer):
     assert len(preds) == 3
 
 
+@skip_transformer_dev_setfit_test
 def test_transformers_trainer_does_not_autolog_sklearn(transformers_trainer):
     mlflow.sklearn.autolog()
 
@@ -318,6 +327,7 @@ def test_transformers_trainer_does_not_autolog_sklearn(transformers_trainer):
     assert len(runs) == 1
 
 
+@skip_transformer_dev_setfit_test
 def test_transformers_autolog_adheres_to_global_behavior_using_setfit(setfit_trainer):
     mlflow.transformers.autolog(disable=False)
 
@@ -352,6 +362,7 @@ def test_transformers_autolog_adheres_to_global_behavior_using_trainer(transform
     assert len(runs) == 1
 
 
+@skip_transformer_dev_setfit_test
 def test_active_autolog_no_setfit_logging_followed_by_successful_sklearn_autolog(
     iris_data, setfit_trainer
 ):
@@ -427,6 +438,7 @@ def test_active_autolog_allows_subsequent_sklearn_autolog(iris_data, transformer
     assert sklearn_run[0].info == logged_sklearn_data.info
 
 
+@skip_transformer_dev_setfit_test
 def test_disabled_sklearn_autologging_does_not_revert_to_enabled_with_setfit(
     iris_data, setfit_trainer
 ):

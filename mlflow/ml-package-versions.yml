@@ -557,6 +557,8 @@ transformers:
   models:
     minimum: "4.25.1"
     maximum: "4.45.0"
+    python:
+      "== dev": "3.9"
     unsupported: [
         # Avoid this patch: https://github.com/huggingface/transformers/pull/29032
         "4.38.0",
@@ -579,6 +581,7 @@ transformers:
           "sentencepiece", # required for transformers text2text generation pipeline
           "protobuf<=3.20.3", # fix error `Couldn't build proto file into descriptor pool: duplicate file name sentencepiece_model.proto`
           "typing_extensions>=4.6.0", # fix error for SqlAlchemy == 2.0.25 cannot import name 'TypeAliasType' from 'typing_extensions'
+          "accelerate<1",
         ]
       # tensorflow 2.13.0 made all Keras private functions inaccessible. transformers versions
       # prior to 4.30.0 are incompatible with this breaking change in Keras.
@@ -587,6 +590,7 @@ transformers:
       # Installing `transformers==4.34.1` with `datasets` results in installing `huggingface_hub==0.17.3`.
       # `accelerate>=0.32.0` and `peft>=0.13.0` are incompatible with `huggingface_hub==0.17.3`.
       "== 4.34.1": ["accelerate<0.32.0", "peft<0.13.0"]
+      "== dev": ["tf-keras"]
     pre_test: |
       export PYTHONPATH=./
       python tests/transformers/helper.py
@@ -598,6 +602,8 @@ transformers:
   autologging:
     minimum: "4.25.1"
     maximum: "4.45.0"
+    python:
+      "== dev": "3.9"
     unsupported: [
         # Avoid this patch: https://github.com/huggingface/transformers/pull/29032
         "4.38.0",
@@ -617,6 +623,7 @@ transformers:
           "accelerate",
           "setfit",
           "optuna",
+          "accelerate<1",
         ]
       # sentence-transformers >= 2.4.0 relies on `transformers.utils.import_utils.is_nltk_available`
       # to check nltk availability. This function is only available in transformers>=4.34.0.
@@ -628,6 +635,7 @@ transformers:
       # Installing `transformers==4.34.1` with `datasets` results in installing `huggingface_hub==0.17.3`.
       # `accelerate>=0.32.0` is incompatible with `huggingface_hub==0.17.3`.
       "== 4.34.1": ["accelerate<0.32.0", "sentence-transformers<3.1.0"]
+      "== dev": ["tf-keras"]
     run: |
       pytest tests/transformers/test_transformers_autolog.py
 
