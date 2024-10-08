@@ -697,3 +697,24 @@ def test_capture_imported_modules_correct():
         mock_warning.assert_not_called()
         assert "pandas" in modules
         assert "sklearn" in modules
+
+
+def test_capture_imported_modules_extra_env_vars():
+    class TestModel(mlflow.pyfunc.PythonModel):
+        def predict(self, context, model_input, params=None):
+            assert os.environ["TEST"] == "test"
+            import sklearn  # noqa: F401
+
+            return model_input
+
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model(
+            "model", python_model=TestModel(), input_example="test"
+        )
+
+    with mock.patch("mlflow.utils.requirements_utils._logger.warning") as mock_warning:
+        modules = _capture_imported_modules(
+            model_info.model_uri, mlflow.pyfunc.FLAVOR_NAME, extra_env_vars={"TEST": "test"}
+        )
+        mock_warning.assert_not_called()
+        assert "sklearn" in modules

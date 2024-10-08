@@ -71,7 +71,7 @@ from mlflow.utils.autologging_utils import (
 )
 from mlflow.utils.databricks_utils import (
     is_in_databricks_model_serving_environment,
-    is_in_databricks_notebook,
+    is_in_databricks_serverless,
     is_mlflow_tracing_enabled_in_model_serving,
 )
 from mlflow.utils.docstring_utils import (
@@ -128,42 +128,39 @@ def get_default_conda_env():
     return _mlflow_conda_env(additional_pip_deps=get_default_pip_requirements())
 
 
-def _try_set_databricks_auth_env_vars():
-    try:
-        from databricks.sdk import WorkspaceClient
+def _get_databricks_auth_env_vars():
+    """
+    To initialize WorkspaceClient correctly in a subprocess in databricks, we need to pass
+    some environment variables to the subprocess. This function tries to fetch the required
+    environment variables locally and raises an exception if they are not found.
 
-        w = WorkspaceClient()
-        if "DATABRICKS_HOST" not in os.environ:
-            os.environ["DATABRICKS_HOST"] = w.config.as_dict()["host"]
+    Note:
+        Currently we only support PAT auth and OAuth service principal.
+    """
+    envs = {}
+    from databricks.sdk import WorkspaceClient
+
+    w = WorkspaceClient()
+    auth_type = w.config.auth_type
+    if "DATABRICKS_HOST" not in os.environ:
+        envs["DATABRICKS_HOST"] = w.config.host
+    if auth_type == "pat":
         if "DATABRICKS_TOKEN" not in os.environ:
-            os.environ["DATABRICKS_TOKEN"] = w.config.authenticate()["Authorization"][7:]
-    except Exception as e:
-        logger.debug(f"Failed to set Databricks environment variables: {e}")
-
-
-def _check_env_vars_for_function_execution_in_subprocess():
-    """
-    To initialize WorkspaceClient correctly in a subprocess in databricks, we need to set
-    some environment variables and pass them to the subprocess. This function checks if
-    the required environment variables are set and tries to set them if they are not.
-    """
-    if is_in_databricks_notebook():
-        _try_set_databricks_auth_env_vars()
-    missing_env_vars = set()
-    for required_env_var in ["DATABRICKS_HOST", "DATABRICKS_TOKEN"]:
-        if required_env_var not in os.environ:
-            missing_env_vars.add(required_env_var)
-    if "SPARK_LOCAL_REMOTE" not in os.environ:
-        if "SPARK_REMOTE" in os.environ:
-            os.environ["SPARK_LOCAL_REMOTE"] = os.environ["SPARK_REMOTE"]
-        else:
-            missing_env_vars.add("SPARK_LOCAL_REMOTE")
-    if missing_env_vars:
+            envs["DATABRICKS_TOKEN"] = w.config.token
+    elif auth_type == "oauth-m2m":
+        if "DATABRICKS_CLIENT_ID" not in os.environ:
+            envs["DATABRICKS_CLIENT_ID"] = w.config.client_id
+        if "DATABRICKS_CLIENT_SECRET" not in os.environ:
+            envs["DATABRICKS_CLIENT_SECRET"] = w.config.client_secret
+    else:
         raise MlflowException(
-            "Missing required environment variables for inferring pip requirements: "
-            f"{missing_env_vars}. These environment variables are required to execute "
-            "the model tools in the subprocess to infer pip requirements. "
+            "Currently we only support PAT auth and OAuth service principal "
+            "for UC functions execution in Databricks. Please use one of them "
+            "or open an issue on GitHub if you need other auth types."
         )
+    if is_in_databricks_serverless():
+        envs["SPARK_LOCAL_REMOTE"] = os.environ["SPARK_REMOTE"]
+    return envs
 
 
 @experimental
@@ -421,10 +418,9 @@ def save_model(
     if conda_env is None:
         if pip_requirements is None:
             default_reqs = get_default_pip_requirements()
-            if needs_databricks_auth:
-                _check_env_vars_for_function_execution_in_subprocess()
+            extra_env_vars = _get_databricks_auth_env_vars() if needs_databricks_auth else None
             inferred_reqs = mlflow.models.infer_pip_requirements(
-                str(path), FLAVOR_NAME, fallback=default_reqs
+                str(path), FLAVOR_NAME, fallback=default_reqs, extra_env_vars=extra_env_vars
             )
             default_reqs = sorted(set(inferred_reqs).union(default_reqs))
         else:
