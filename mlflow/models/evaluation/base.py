@@ -1689,9 +1689,9 @@ def evaluate(  # noqa: D417
             predictions=predictions_expected_in_model_output,
         )
         return validate_evaluation_results(
-            evaluate_result,
-            baseline_result,
-            validation_thresholds,
+            validation_thresholds=validation_thresholds,
+            candidate_result=evaluate_result,
+            baseline_result=baseline_result,
         )
 
     return evaluate_result
