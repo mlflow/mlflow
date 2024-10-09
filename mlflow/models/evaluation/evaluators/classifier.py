@@ -27,6 +27,10 @@ _Curve = namedtuple("_Curve", ["plot_fn", "plot_fn_args", "auc"])
 
 
 class ClassifierEvaluator(BuiltInEvaluator):
+    """
+    A built-in evaluator for classifier models.
+    """
+
     name = "classifier"
 
     def can_evaluate(self, *, model_type, evaluator_config, **kwargs):
@@ -91,10 +95,7 @@ class ClassifierEvaluator(BuiltInEvaluator):
         y_pred = self.dataset.predictions_data if model is None else predict_fn(input_df)
 
         # Predict class probabilities if the model supports it
-        if predict_proba_fn is not None:
-            y_probs = predict_proba_fn(input_df)
-        else:
-            y_probs = None
+        y_probs = predict_proba_fn(input_df) if predict_proba_fn is not None else None
         return y_pred, y_probs
 
     def _validate_label_list(self):

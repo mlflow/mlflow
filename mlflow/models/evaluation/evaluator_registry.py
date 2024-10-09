@@ -48,6 +48,9 @@ class ModelEvaluatorRegistry:
     def is_builtin(self, name):
         return name in self._builtin_evaluators
 
+    def is_registered(self, name):
+        return name in self._registry
+
 
 _model_evaluation_registry = ModelEvaluatorRegistry()
 

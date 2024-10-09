@@ -13,6 +13,10 @@ from mlflow.models.evaluation.default_evaluator import (
 
 
 class RegressorEvaluator(BuiltInEvaluator):
+    """
+    A built-in evaluator for regressor models.
+    """
+
     name = "regressor"
 
     def can_evaluate(self, *, model_type, evaluator_config, **kwargs):
@@ -52,7 +56,6 @@ class RegressorEvaluator(BuiltInEvaluator):
 
     def _compute_buildin_metrics(self, model):
         self._evaluate_sklearn_model_score_if_scorable(model, self.y_true, self.sample_weights)
-
         self.metrics_values.update(
             _get_aggregate_metrics_values(
                 _get_regressor_metrics(self.y_true, self.y_pred, self.sample_weights)

@@ -184,6 +184,7 @@ def _evaluate_custom_artifacts(custom_artifact_tuple, eval_df, builtin_metrics):
     return artifacts
 
 
+# TODO: Move this to the /evaluators directory
 class BuiltInEvaluator(ModelEvaluator):
     """
     The base class for all evaluators that are built-in to MLflow.
@@ -365,6 +366,7 @@ class BuiltInEvaluator(ModelEvaluator):
                 in the ``extra_metrics`` parameter of ``mlflow.evaluate``.
             eval_df: The evaluation dataframe containing the prediction and target columns.
             input_df: The input dataframe containing the features used to make predictions.
+            other_output_df: A dataframe containing all model output columns but the predictions.
 
         Returns:
             tuple: A tuple of (bool, list) where the bool indicates if the given metric can
@@ -526,9 +528,7 @@ class BuiltInEvaluator(ModelEvaluator):
 
         return "\n".join(l.lstrip() for l in full_message.splitlines())
 
-    def _raise_exception_for_malformed_metrics(
-            self, malformed_results, eval_df, other_output_df
-        ):
+    def _raise_exception_for_malformed_metrics(self, malformed_results, eval_df, other_output_df):
         output_columns = [] if other_output_df is None else list(other_output_df.columns)
         if self.predictions:
             output_columns.append(self.predictions)
