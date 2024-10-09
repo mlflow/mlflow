@@ -109811,7 +109811,7 @@ public final class Service {
       "\020\003*\212\001\n\021LoggedModelStatus\022#\n\037LOGGED_MODEL" +
       "_STATUS_UNSPECIFIED\020\000\022\030\n\024LOGGED_MODEL_PE" +
       "NDING\020\001\022\026\n\022LOGGED_MODEL_READY\020\002\022\036\n\032LOGGE" +
-      "D_MODEL_UPLOAD_FAILED\020\0032\270+\n\rMlflowServic" +
+      "D_MODEL_UPLOAD_FAILED\020\0032\300+\n\rMlflowServic" +
       "e\022\246\001\n\023getExperimentByName\022\033.mlflow.GetEx" +
       "perimentByName\032$.mlflow.GetExperimentByN" +
       "ame.Response\"L\362\206\031H\n,\n\003GET\022\037/mlflow/exper" +
@@ -109931,27 +109931,27 @@ public final class Service {
       "getLoggedModel\022\026.mlflow.GetLoggedModel\032\037" +
       ".mlflow.GetLoggedModel.Response\"G\362\206\031C\n-\n" +
       "\003GET\022 /mlflow/logged-models/{model_id}\032\004" +
-      "\010\002\020\000\020\003*\020Get Logged Model\022\226\001\n\022searchLogge" +
+      "\010\002\020\000\020\003*\020Get Logged Model\022\236\001\n\022searchLogge" +
       "dModels\022\032.mlflow.SearchLoggedModels\032#.ml" +
-      "flow.SearchLoggedModels.Response\"?\362\206\031;\n\"" +
-      "\n\003GET\022\025/mlflow/logged-models\032\004\010\002\020\000\020\003*\023Se" +
-      "arch LoggedModels\022\251\001\n\022setLoggedModelTags" +
-      "\022\032.mlflow.SetLoggedModelTags\032#.mlflow.Se" +
-      "tLoggedModelTags.Response\"R\362\206\031N\n4\n\005PATCH" +
-      "\022%/mlflow/logged-models/{model_id}/tags\032" +
-      "\004\010\002\020\000\020\003*\024Set Logged Model Tag\022\275\001\n\024delete" +
-      "LoggedModelTag\022\034.mlflow.DeleteLoggedMode" +
-      "lTag\032%.mlflow.DeleteLoggedModelTag.Respo" +
-      "nse\"`\362\206\031\\\n?\n\006DELETE\022//mlflow/logged-mode" +
-      "ls/{model_id}/tags/{tag_key}\032\004\010\002\020\000\020\003*\027De" +
-      "lete Logged Model Tag\022\362\001\n\030listLoggedMode" +
-      "lArtifacts\022 .mlflow.ListLoggedModelArtif" +
-      "acts\032).mlflow.ListLoggedModelArtifacts.R" +
-      "esponse\"\210\001\362\206\031\203\001\n]\n\003GET\022P/mlflow/logged-m" +
-      "odels/{model_id}/artifacts/directories/{" +
-      "artifact_directory_path}\032\004\010\002\020\000\020\003* List A" +
-      "rtifacts for Logged ModelsB\036\n\024org.mlflow" +
-      ".api.proto\220\001\001\342?\002\020\001"
+      "flow.SearchLoggedModels.Response\"G\362\206\031C\n*" +
+      "\n\004POST\022\034/mlflow/logged-models/search\032\004\010\002" +
+      "\020\000\020\003*\023Search LoggedModels\022\251\001\n\022setLoggedM" +
+      "odelTags\022\032.mlflow.SetLoggedModelTags\032#.m" +
+      "lflow.SetLoggedModelTags.Response\"R\362\206\031N\n" +
+      "4\n\005PATCH\022%/mlflow/logged-models/{model_i" +
+      "d}/tags\032\004\010\002\020\000\020\003*\024Set Logged Model Tag\022\275\001" +
+      "\n\024deleteLoggedModelTag\022\034.mlflow.DeleteLo" +
+      "ggedModelTag\032%.mlflow.DeleteLoggedModelT" +
+      "ag.Response\"`\362\206\031\\\n?\n\006DELETE\022//mlflow/log" +
+      "ged-models/{model_id}/tags/{tag_key}\032\004\010\002" +
+      "\020\000\020\003*\027Delete Logged Model Tag\022\362\001\n\030listLo" +
+      "ggedModelArtifacts\022 .mlflow.ListLoggedMo" +
+      "delArtifacts\032).mlflow.ListLoggedModelArt" +
+      "ifacts.Response\"\210\001\362\206\031\203\001\n]\n\003GET\022P/mlflow/" +
+      "logged-models/{model_id}/artifacts/direc" +
+      "tories/{artifact_directory_path}\032\004\010\002\020\000\020\003" +
+      "* List Artifacts for Logged ModelsB\036\n\024or" +
+      "g.mlflow.api.proto\220\001\001\342?\002\020\001"
     };
     descriptor = com.google.protobuf.Descriptors.FileDescriptor
       .internalBuildGeneratedFileFrom(descriptorData,
