@@ -1930,7 +1930,6 @@ class DefaultEvaluator(ModelEvaluator):
     def _evaluate(
         self,
         model: "mlflow.pyfunc.PyFuncModel" = None,
-        is_baseline_model=False,
         **kwargs,
     ):
         import matplotlib
@@ -1981,16 +1980,14 @@ class DefaultEvaluator(ModelEvaluator):
                     eval_df["target"] = self.y
 
                 self._evaluate_metrics(eval_df)
-                if not is_baseline_model:
-                    self._log_custom_artifacts(eval_df)
+                self._log_custom_artifacts(eval_df)
 
                 self._add_prefix_to_metrics()
 
-                if not is_baseline_model:
-                    self._log_artifacts()
-                    self._log_metrics()
-                    self._log_eval_table()
-                    self._log_genai_custom_metrics(genai_custom_metrics)
+                self._log_artifacts()
+                self._log_metrics()
+                self._log_eval_table()
+                self._log_genai_custom_metrics(genai_custom_metrics)
                 return EvaluationResult(
                     metrics=self.aggregate_metrics, artifacts=self.artifacts, run_id=self.run_id
                 )
@@ -2006,7 +2003,6 @@ class DefaultEvaluator(ModelEvaluator):
         custom_metrics=None,
         extra_metrics=None,
         custom_artifacts=None,
-        baseline_model=None,
         predictions=None,
         **kwargs,
     ):
@@ -2104,25 +2100,7 @@ class DefaultEvaluator(ModelEvaluator):
                     f"verify that you set the `model_type` and `dataset` arguments correctly."
                 )
 
-        if evaluator_config.get("_disable_candidate_model", False):
-            evaluation_result = EvaluationResult(metrics={}, artifacts={})
-        else:
-            if baseline_model:
-                _logger.info("Evaluating candidate model:")
-            evaluation_result = self._evaluate(model, is_baseline_model=False)
-
-        if not baseline_model:
-            return evaluation_result
-
-        _logger.info("Evaluating baseline model:")
-        baseline_evaluation_result = self._evaluate(baseline_model, is_baseline_model=True)
-
-        return EvaluationResult(
-            metrics=evaluation_result.metrics,
-            artifacts=evaluation_result.artifacts,
-            baseline_model_metrics=baseline_evaluation_result.metrics,
-            run_id=self.run_id,
-        )
+        return self._evaluate(model)
 
     @property
     def X(self) -> pd.DataFrame:
