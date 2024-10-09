@@ -4,7 +4,7 @@ name: build-wheel
 on:
   pull_request:
     paths:
-      - ".github/workflows/build-wheel.yml"
+      - ".github/workflows/wheel.yml"
       - "dev/build.py"
   workflow_dispatch:
     inputs:
