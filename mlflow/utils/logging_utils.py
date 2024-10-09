@@ -81,7 +81,7 @@ def _configure_mlflow_loggers(root_module_name):
             "loggers": {
                 root_module_name: {
                     "handlers": ["mlflow_handler"],
-                    "level": "INFO",
+                    "level": MLFLOW_LOGGING_LEVEL,
                     "propagate": False,
                 },
             },

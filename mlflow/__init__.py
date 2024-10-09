@@ -44,7 +44,7 @@ from mlflow import (
     projects,  # noqa: F401
     tracking,  # noqa: F401
 )
-from mlflow.utils.logging_utils import set_mlflow_log_level
+from mlflow.environment_variables import MLFLOW_CONFIGURE_LOGGING
 from mlflow.utils.lazy_load import LazyLoader
 from mlflow.utils.logging_utils import _configure_mlflow_loggers
 
@@ -250,6 +250,3 @@ with contextlib.suppress(Exception):
 
     __all__.append("gateway")
 
-
-# Configure MLflow loggers
-set_mlflow_log_level()
