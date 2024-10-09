@@ -55,4 +55,4 @@ jobs:
       - name: ⬇️ Download wheel here ⬇️
         run: |
           echo "Make sure to unzip the wheel after downloading!"
-          echo "Artifact download URL: ${{ steps.upload-wheel.outputs.artifact_url }}"
+          echo "Artifact download URL: ${{ steps.upload-wheel.outputs.artifact-url }}"
