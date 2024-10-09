@@ -4141,7 +4141,7 @@ def test_xgboost_model_evaluate_work_with_shap_explainer():
             )
             assert not any(
                 "Shap evaluation failed." in call_arg[0]
-                for call_arg in mock_warning.call_args
+                for call_arg in mock_warning.call_args or []
                 if isinstance(call_arg, tuple)
             )
 
