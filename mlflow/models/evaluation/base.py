@@ -2,16 +2,15 @@ import inspect
 import json
 import keyword
 import logging
-import operator
 import os
 import pathlib
 import signal
 import urllib
 import urllib.parse
+import warnings
 from abc import ABCMeta, abstractmethod
 from collections import OrderedDict
 from contextlib import contextmanager
-from decimal import Decimal
 from inspect import Parameter, Signature
 from types import FunctionType
 from typing import Any, Dict, List, Optional, Union
@@ -25,11 +24,6 @@ from mlflow.data.evaluation_dataset import (
 from mlflow.entities.dataset_input import DatasetInput
 from mlflow.entities.input_tag import InputTag
 from mlflow.exceptions import MlflowException
-from mlflow.models.evaluation.validation import (
-    MetricThreshold,
-    ModelValidationFailedException,
-    _MetricValidationResult,
-)
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.tracking.client import MlflowClient
@@ -600,10 +594,9 @@ class EvaluationResult:
     both scalar metrics and output artifacts such as performance plots.
     """
 
-    def __init__(self, metrics, artifacts, baseline_model_metrics=None, run_id=None):
+    def __init__(self, metrics, artifacts, run_id=None):
         self._metrics = metrics
         self._artifacts = artifacts
-        self._baseline_model_metrics = baseline_model_metrics if baseline_model_metrics else {}
         self._run_id = (
             run_id
             if run_id is not None
@@ -671,13 +664,6 @@ class EvaluationResult:
         """
         return self._artifacts
 
-    @property
-    def baseline_model_metrics(self) -> Dict[str, Any]:
-        """
-        A dictionary mapping scalar metric names to scalar metric values for the baseline model
-        """
-        return self._baseline_model_metrics
-
     @experimental
     @property
     def tables(self) -> Dict[str, "pd.DataFrame"]:
@@ -731,7 +717,6 @@ class ModelEvaluator(metaclass=ABCMeta):
         custom_metrics=None,
         extra_metrics=None,
         custom_artifacts=None,
-        baseline_model=None,
         predictions=None,
         **kwargs,
     ):
@@ -746,26 +731,19 @@ class ModelEvaluator(metaclass=ABCMeta):
             run_id: The ID of the MLflow Run to which to log results.
             evaluator_config: A dictionary of additional configurations for
                 the evaluator.
-            model: A pyfunc model instance, used as the candidate_model
-                to be compared with baseline_model (specified by the `baseline_model` param)
-                for model validation. If None, the model output is supposed to be found in
+            model: A pyfunc model instance. If None, the model output is supposed to be found in
                 ``dataset.predictions_data``.
             extra_metrics: A list of :py:class:`EvaluationMetric` objects.
             custom_artifacts: A list of callable custom artifact functions.
             kwargs: For forwards compatibility, a placeholder for additional arguments that
                 may be added to the evaluation interface in the future.
-            baseline_model: (Optional) A string URI referring to a MLflow model with the pyfunc
-                flavor as a baseline model to be compared with the
-                candidate model (specified by the `model` param) for model
-                validation. (pyfunc model instance is not allowed)
             predictions: The column name of the model output column that is used for evaluation.
                 This is only used when a model returns a pandas dataframe that contains
                 multiple columns.
 
         Returns:
             A :py:class:`mlflow.models.EvaluationResult` instance containing
-            evaluation metrics for candidate model and baseline model and
-            artifacts for candidate model.
+            evaluation metrics and artifacts for the model.
         """
         raise NotImplementedError()
 
@@ -897,115 +875,6 @@ def _get_last_failed_evaluator():
     return _last_failed_evaluator
 
 
-def _validate(validation_thresholds, candidate_metrics, baseline_metrics=None):
-    """
-    Validate the model based on validation_thresholds by metrics value and
-    metrics comparison between candidate model's metrics (candidate_metrics) and
-    baseline model's metrics (baseline_metrics).
-
-    Args:
-        validation_thresholds: A dictionary from metric_name to MetricThreshold.
-        candidate_metrics: The metric evaluation result of the candidate model.
-        baseline_metrics: The metric evaluation result of the baseline model.
-            If the validation does not pass, raise an MlflowException with detail failure message.
-    """
-    if not baseline_metrics:
-        baseline_metrics = {}
-
-    validation_results = {
-        metric_name: _MetricValidationResult(
-            metric_name,
-            candidate_metrics.get(metric_name, None),
-            threshold,
-            baseline_metrics.get(metric_name, None),
-        )
-        for (metric_name, threshold) in validation_thresholds.items()
-    }
-
-    for metric_name in validation_thresholds.keys():
-        metric_threshold, validation_result = (
-            validation_thresholds[metric_name],
-            validation_results[metric_name],
-        )
-
-        if metric_name not in candidate_metrics:
-            validation_result.missing_candidate = True
-            continue
-
-        candidate_metric_value, baseline_metric_value = (
-            candidate_metrics[metric_name],
-            baseline_metrics[metric_name] if baseline_metrics else None,
-        )
-
-        # If metric is higher is better, >= is used, otherwise <= is used
-        # for thresholding metric value and model comparsion
-        comparator_fn = operator.__ge__ if metric_threshold.greater_is_better else operator.__le__
-        operator_fn = operator.add if metric_threshold.greater_is_better else operator.sub
-
-        if metric_threshold.threshold is not None:
-            # metric threshold fails
-            # - if not (metric_value >= threshold) for higher is better
-            # - if not (metric_value <= threshold) for lower is better
-            validation_result.threshold_failed = not comparator_fn(
-                candidate_metric_value, metric_threshold.threshold
-            )
-
-        if (
-            metric_threshold.min_relative_change or metric_threshold.min_absolute_change
-        ) and metric_name not in baseline_metrics:
-            validation_result.missing_baseline = True
-            continue
-
-        if metric_threshold.min_absolute_change is not None:
-            # metric comparsion aboslute change fails
-            # - if not (metric_value >= baseline + min_absolute_change) for higher is better
-            # - if not (metric_value <= baseline - min_absolute_change) for lower is better
-            validation_result.min_absolute_change_failed = not comparator_fn(
-                Decimal(candidate_metric_value),
-                Decimal(operator_fn(baseline_metric_value, metric_threshold.min_absolute_change)),
-            )
-
-        if metric_threshold.min_relative_change is not None:
-            # If baseline metric value equals 0, fallback to simple comparison check
-            if baseline_metric_value == 0:
-                _logger.warning(
-                    f"Cannot perform relative model comparison for metric {metric_name} as "
-                    "baseline metric value is 0. Falling back to simple comparison: verifying "
-                    "that candidate metric value is better than the baseline metric value."
-                )
-                validation_result.min_relative_change_failed = not comparator_fn(
-                    Decimal(candidate_metric_value),
-                    Decimal(operator_fn(baseline_metric_value, 1e-10)),
-                )
-                continue
-            # metric comparsion relative change fails
-            # - if (metric_value - baseline) / baseline < min_relative_change for higher is better
-            # - if (baseline - metric_value) / baseline < min_relative_change for lower is better
-            if metric_threshold.greater_is_better:
-                relative_change = (
-                    candidate_metric_value - baseline_metric_value
-                ) / baseline_metric_value
-            else:
-                relative_change = (
-                    baseline_metric_value - candidate_metric_value
-                ) / baseline_metric_value
-            validation_result.min_relative_change_failed = (
-                relative_change < metric_threshold.min_relative_change
-            )
-
-    failure_messages = []
-
-    for metric_validation_result in validation_results.values():
-        if metric_validation_result.is_success():
-            continue
-        failure_messages.append(str(metric_validation_result))
-
-    if not failure_messages:
-        return
-
-    raise ModelValidationFailedException(message=os.linesep.join(failure_messages))
-
-
 def _evaluate(
     *,
     model,
@@ -1017,7 +886,6 @@ def _evaluate(
     custom_metrics,
     extra_metrics,
     custom_artifacts,
-    baseline_model,
     predictions,
 ):
     """
@@ -1059,7 +927,6 @@ def _evaluate(
                 custom_metrics=custom_metrics,
                 extra_metrics=extra_metrics,
                 custom_artifacts=custom_artifacts,
-                baseline_model=baseline_model,
                 predictions=predictions,
             )
             eval_results.append(eval_result)
@@ -1073,15 +940,13 @@ def _evaluate(
             error_code=INVALID_PARAMETER_VALUE,
         )
 
-    merged_eval_result = EvaluationResult({}, {}, {}, None)
+    merged_eval_result = EvaluationResult({}, {}, None)
 
     for eval_result in eval_results:
         if not eval_result:
             continue
         merged_eval_result.metrics.update(eval_result.metrics)
         merged_eval_result.artifacts.update(eval_result.artifacts)
-        if baseline_model and eval_result.baseline_model_metrics:
-            merged_eval_result.baseline_model_metrics.update(eval_result.baseline_model_metrics)
 
     return merged_eval_result
 
@@ -1286,7 +1151,7 @@ def evaluate(  # noqa: D417
 
      - The metrics/artifacts listed above are logged to the active MLflow run.
        If no active run exists, a new MLflow run is created for logging these metrics and
-       artifacts. Note that no metrics/artifacts are logged for the ``baseline_model``.
+       artifacts.
 
      - Additionally, information about the specified dataset - hash, name (if specified), path
        (if specified), and the UUID of the model that evaluated it - is logged to the
@@ -1591,49 +1456,17 @@ def evaluate(  # noqa: D417
 
                 mlflow.evaluate(..., custom_artifacts=[scatter_plot, pred_sample])
 
-        validation_thresholds: (Optional) A dictionary of metric name to
-            :py:class:`mlflow.models.MetricThreshold` used for model validation. Each metric name
-            must either be the name of a builtin metric or the name of a metric defined in the
-            ``extra_metrics`` parameter.
+        validation_thresholds: DEPRECATED. Please use :py:func:`mlflow.validate_evaluation_results`
+            API instead for running model validation against baseline.
 
-            .. code-block:: python
-                :caption: Example of Model Validation
+        baseline_model: DEPRECATED. Please use :py:func:`mlflow.validate_evaluation_results`
+            API instead for running model validation against baseline.
 
-                from mlflow.models import MetricThreshold
+        baseline_config: DEPRECATED. Please use :py:func:`mlflow.validate_evaluation_results`
+            API instead for running model validation against baseline.
 
-                thresholds = {
-                    "accuracy_score": MetricThreshold(
-                        # accuracy should be >=0.8
-                        threshold=0.8,
-                        # accuracy should be at least 5 percent greater than baseline model accuracy
-                        min_absolute_change=0.05,
-                        # accuracy should be at least 0.05 greater than baseline model accuracy
-                        min_relative_change=0.05,
-                        greater_is_better=True,
-                    ),
-                }
-
-                with mlflow.start_run():
-                    mlflow.evaluate(
-                        your_candidate_model,
-                        data,
-                        targets,
-                        model_type,
-                        dataset_name,
-                        evaluators,
-                        validation_thresholds=thresholds,
-                        baseline_model=your_baseline_model,
-                    )
-
-            See :ref:`the Model Validation documentation <model-validation>`
-            for more details.
-
-        baseline_model: (Optional) A string URI referring to an MLflow model with the pyfunc
-            flavor. If specified, the candidate ``model`` is compared to this
-            baseline for model validation purposes.
-
-        env_manager: Specify an environment manager to load the candidate ``model`` and
-            ``baseline_model`` in isolated Python environments and restore their
+        env_manager: Specify an environment manager to load the candidate ``model`` in
+            isolated Python environments and restore their
             dependencies. Default value is ``local``, and the following values are
             supported:
 
@@ -1649,13 +1482,10 @@ def evaluate(  # noqa: D417
             the model's pyfunc flavor to know which keys are supported for your
             specific model. If not indicated, the default model configuration
             from the model is used (if any).
-        baseline_config: the model configuration to use for loading the baseline
-            model. If not indicated, the default model configuration
-            from the baseline model is used (if any).
 
     Returns:
         An :py:class:`mlflow.models.EvaluationResult` instance containing
-        metrics of candidate model and baseline model, and artifacts of candidate model.
+        metrics of evaluating the model with the given dataset.
     '''
     from mlflow.pyfunc import PyFuncModel, _load_model_or_server, _ServedPyFuncModel
     from mlflow.utils import env_manager as _EnvManager
@@ -1774,38 +1604,6 @@ def evaluate(  # noqa: D417
             error_code=INVALID_PARAMETER_VALUE,
         )
 
-    if validation_thresholds:
-        try:
-            assert type(validation_thresholds) is dict
-            for key in validation_thresholds.keys():
-                assert type(key) is str
-            for threshold in validation_thresholds.values():
-                assert isinstance(threshold, MetricThreshold)
-        except AssertionError:
-            raise MlflowException(
-                message="The validation thresholds argument must be a dictionary that maps strings "
-                "to MetricThreshold objects.",
-                error_code=INVALID_PARAMETER_VALUE,
-            )
-
-    if isinstance(baseline_model, str):
-        baseline_model = _load_model_or_server(
-            baseline_model, env_manager, model_config=baseline_config
-        )
-    elif baseline_model is not None:
-        raise MlflowException(
-            message="The baseline model argument must be a string URI referring to an "
-            "MLflow model.",
-            error_code=INVALID_PARAMETER_VALUE,
-        )
-    elif _model_validation_contains_model_comparison(validation_thresholds):
-        raise MlflowException(
-            message="The baseline model argument is None. The baseline model must be specified "
-            "when model comparison thresholds (min_absolute_change, min_relative_change) "
-            "are specified.",
-            error_code=INVALID_PARAMETER_VALUE,
-        )
-
     (
         evaluator_name_list,
         evaluator_name_to_conf_map,
@@ -1854,24 +1652,46 @@ def evaluate(  # noqa: D417
                 custom_metrics=custom_metrics,
                 extra_metrics=extra_metrics,
                 custom_artifacts=custom_artifacts,
-                baseline_model=baseline_model,
                 predictions=predictions_expected_in_model_output,
             )
         finally:
             if isinstance(model, _ServedPyFuncModel):
                 os.kill(model.pid, signal.SIGTERM)
-            if isinstance(baseline_model, _ServedPyFuncModel):
-                os.kill(baseline_model.pid, signal.SIGTERM)
 
-        if not validation_thresholds:
-            return evaluate_result
+    # TODO: Remove this block in a future release when we
+    # remove the deprecated arguments.
+    if baseline_model is not None and validation_thresholds is not None:
+        from mlflow.models.evaluation.validation import validate_evaluation_results
 
-        _logger.info("Validating generated model metrics")
-        _validate(
-            validation_thresholds,
-            evaluate_result.metrics,
-            evaluate_result.baseline_model_metrics,
+        warnings.warn(
+            "Model validation functionality is moved from `mlflow.evaluate` to the "
+            "`mlflow.validate_evaluation_results()` API. The "
+            "`baseline_model` argument will be removed in a future release.",
+            category=FutureWarning,
+            stacklevel=2,
         )
-        _logger.info("Model validation passed!")
 
-        return evaluate_result
+        if isinstance(baseline_model, str):
+            baseline_model = _load_model_or_server(
+                baseline_model, env_manager, model_config=baseline_config
+            )
+
+        baseline_result = _evaluate(
+            model=baseline_model,
+            model_type=model_type,
+            dataset=dataset,
+            run_id=run_id,
+            evaluator_name_list=evaluator_name_list,
+            evaluator_name_to_conf_map=evaluator_name_to_conf_map,
+            custom_metrics=custom_metrics,
+            extra_metrics=extra_metrics,
+            custom_artifacts=custom_artifacts,
+            predictions=predictions_expected_in_model_output,
+        )
+        return validate_evaluation_results(
+            validation_thresholds=validation_thresholds,
+            candidate_result=evaluate_result,
+            baseline_result=baseline_result,
+        )
+
+    return evaluate_result
