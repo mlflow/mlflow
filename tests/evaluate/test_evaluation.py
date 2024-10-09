@@ -1152,8 +1152,12 @@ def test_evaluate_with_multi_evaluators(
         # evaluators=["test_evaluator1", "test_evaluator2"]
         for evaluators in [None, ["test_evaluator1", "test_evaluator2"]]:
             with mock.patch.object(
+                FakeEvaluator1, "can_evaluate", return_value=True
+            ) as mock_can_evaluate1, mock.patch.object(
                 FakeEvaluator1, "evaluate", return_value=evaluator1_return_value
             ) as mock_evaluate1, mock.patch.object(
+                FakeEvaluator2, "can_evaluate", return_value=True
+            ) as mock_can_evaluate2, mock.patch.object(
                 FakeEvaluator2, "evaluate", return_value=evaluator2_return_value
             ) as mock_evaluate2:
                 with mlflow.start_run() as run:
