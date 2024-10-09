@@ -4456,7 +4456,7 @@ def test_set_and_delete_tags(store: SqlAlchemyStore):
             "Invalid value \"/\\.:\\\\\\\\.\" for parameter 'key' supplied",
         ),
         ("../", "value", "Invalid value \"\\.\\./\" for parameter 'key' supplied"),
-        ("a" * 251, "value", "'tag.key' exceeds the maximum length of 250 characters"),
+        ("a" * 251, "value", "'key' exceeds the maximum length of 250 characters"),
     ],
     # Name each test case too avoid including the long string arguments in the test name
     ids=["null-key", "bad-key-1", "bad-key-2", "bad-key-3", "too-long-key"],
