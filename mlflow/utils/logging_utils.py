@@ -123,5 +123,10 @@ def suppress_logs(module: str, filter_regex: re.Pattern):
 
 def set_mlflow_log_level():
     log_level: LogLevel = MLFLOW_LOGGING_LEVEL.get().upper()
-    numeric_level = getattr(logging, log_level)
-    logging.getLogger("mlflow").setLevel(numeric_level)
+    try:
+        numeric_level = getattr(logging, log_level)
+        if not isinstance(numeric_level, int):
+            raise ValueError(f"Invalid log level: {log_level}")
+        logging.getLogger("mlflow").setLevel(numeric_level)
+    except AttributeError:
+        raise ValueError(f"Invalid log level: {log_level}")
