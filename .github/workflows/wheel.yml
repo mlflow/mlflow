@@ -3,6 +3,8 @@ name: wheel
 
 on:
   pull_request:
+    paths:
+      - ".github/workflows/wheel.yml"
   workflow_dispatch:
     inputs:
       ref:
@@ -39,3 +41,4 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           path: dist/*.whl
+          retention-days: 7
