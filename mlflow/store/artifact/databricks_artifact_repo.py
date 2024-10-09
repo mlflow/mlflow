@@ -177,8 +177,8 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
         )
 
     def _get_run_artifact_root(self, run_id):
-        params = message_to_dict(GetRun(run_id=run_id))
-        run_response = self._call_endpoint(MlflowService, GetRun, params)
+        payload = message_to_dict(GetRun(run_id=run_id))
+        run_response = self._call_endpoint(MlflowService, GetRun, payload)
         return run_response.run.info.artifact_uri
 
     def _get_credential_infos(self, request_message_class, run_id, paths):
@@ -728,10 +728,10 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
         infos = []
         page_token = None
         while True:
-            params = message_to_dict(
+            payload = message_to_dict(
                 ListArtifacts(run_id=self.run_id, path=run_relative_path, page_token=page_token)
             )
-            response = self._call_endpoint(MlflowService, ListArtifacts, params)
+            response = self._call_endpoint(MlflowService, ListArtifacts, payload)
             artifact_list = response.files
             # If `path` is a file, ListArtifacts returns a single list element with the
             # same name as `path`. The list_artifacts API expects us to return an empty list in this
