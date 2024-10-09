@@ -163,8 +163,6 @@ model inputs and outputs, ensuring consistency and correctness during model infe
             signature=signature,
         )
 
-
-TODO image
 .. figure:: ../../_static/images/llms/dspy/dspy-artifacts.png
     :alt: MLflow artifacts for the DSPy index
     :width: 80%
@@ -172,7 +170,6 @@ TODO image
 
 Loading the Module for inference
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
 The saved module can be loaded back for inference using the :py:func:`mlflow.pyfunc.load_model` function. This function
 gives an MLflow Python Model backed by the DSPy module.
 
@@ -222,6 +219,26 @@ FAQ
 ---
 
 
-How to log and load an index with external vector stores?
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+How can I save a compiled vs. uncompiled model?
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 TODO
+* DSPy compiling effectively training the model, a variety of LLM parameters such as prompts, hyperparameters, and model weights are updated
+* You can log both a compiled and uncompiled model - it doesn't matte to MLflow
+* Pratically, you'll usually want to leverage a compiled model because it will theroetically perform better
+
+What can be serialized by MLflow?
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+TODO
+* When running a :py:func:`mlflow.dspy.log_model` or :py:func:`mlflow.dspy.save_model` command in MLflow, the DSPy program is serialized meaning it's saved to the tracking server as a file
+* By wiritng to disk, we support easy productionzation
+* On the backend, MLflow uses cloudpickle for the DSPy flavor
+* Not all DSPy artifacts are seialiZABLE by MLflow
+* Notable things that are serialized include: a pkl fil containing the DSPy program artifact, a MLflow model signature, pip dependencies, the DSPy settings (service context which is stored in the pkl file)
+* Notable things that are not serialized include: API tokens (this should be set as environment variables and managed securely), the DSpy trace (it's only useful during training)
+
+How is the DSPy ``settings`` object saved?
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+TODO: check if tokens are dropped
+* To ensure reproducibility of the program, we store the service context
+* In short, we convert to a dict then pickle it with the model artifact
+* All this is managed behind the scenes
