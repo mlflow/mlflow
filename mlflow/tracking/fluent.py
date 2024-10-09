@@ -1994,7 +1994,7 @@ def search_logged_models(
     experiment_ids: Optional[List[str]] = None,
     filter_string: Optional[str] = None,
     max_results: Optional[int] = None,
-    order_by: Optional[List[str]] = None,
+    order_by: Optional[List[Dict[str, Any]]] = None,
     output_format: str = "pandas",
 ) -> Union[List[LoggedModel], "pandas.DataFrame"]:
     """
@@ -2005,8 +2005,20 @@ def search_logged_models(
             the active experiment will be used.
         filter_string: Filter query string, defaults to searching all logged models.
         max_results: The maximum number of logged models to return.
-        order_by: List of column names with ASC|DESC annotation, to be used for ordering
-            matching search results.
+        order_by: List of dictionaries to specify the ordering of the search results. The following
+            fields are supported:
+
+            field_name (str): Required. The name of the field to order by.
+            ascending: (bool): Optional. Sorting order. If True, sort in ascending order; if False,
+                sort in descending order. The default is True.
+            dataset_name: (str): Optional. If ``field_name`` refers to a metric, this field
+                specifies the name of the dataset associated with the metric. Only metrics
+                associated with the specified dataset name will be considered for ordering.
+                This field may only be set if ``field_name`` refers to a metric.
+            dataset_digest (str): Optional. If ``field_name`` refers to a metric, this field
+                specifies the digest of the dataset associated with the metric. Only metrics
+                associated with the specified dataset name and digest will be considered for
+                ordering. This field may only be set if ``dataset_name`` is also set.
         output_format: The output format of the search results. Supported values are 'pandas'
             and 'list'.
 

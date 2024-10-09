@@ -4859,7 +4859,7 @@ class MlflowClient:
         experiment_ids: List[str],
         filter_string: Optional[str] = None,
         max_results: Optional[int] = None,
-        order_by: Optional[List[str]] = None,
+        order_by: Optional[List[Dict[str, Any]]] = None,
         page_token: Optional[str] = None,
     ):
         """

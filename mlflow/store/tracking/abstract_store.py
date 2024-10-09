@@ -1,5 +1,5 @@
 from abc import ABCMeta, abstractmethod
-from typing import Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 from mlflow.entities import (
     DatasetInput,
@@ -720,7 +720,7 @@ class AbstractStore:
         experiment_ids: List[str],
         filter_string: Optional[str] = None,
         max_results: Optional[int] = None,
-        order_by: Optional[List[str]] = None,
+        order_by: Optional[List[Dict[str, Any]]] = None,
         page_token: Optional[str] = None,
     ) -> PagedList[LoggedModel]:
         """
