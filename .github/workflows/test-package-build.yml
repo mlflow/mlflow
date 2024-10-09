@@ -123,6 +123,8 @@ jobs:
         with:
           name: ${{ steps.build-dist.outputs.wheel-name }}
           path: ${{ steps.build-dist.outputs.wheel-path }}
+          retention-days: 7
+          if-no-files-found: error
 
       - name: ⬇️ Download wheel here ⬇️
         if: github.event_name == 'workflow_dispatch'
