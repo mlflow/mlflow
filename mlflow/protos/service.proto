@@ -572,6 +572,19 @@ service MlflowService {
     };
   }
 
+  // Search for Logged Models that satisfy specified search criteria.
+  rpc searchLoggedModels (SearchLoggedModels) returns (SearchLoggedModels.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "POST",
+        path: "/mlflow/logged-models/search"
+        since { major: 2, minor: 0 },
+      }],
+      visibility: PUBLIC_UNDOCUMENTED,
+      rpc_doc_title: "Search LoggedModels",
+    };
+  }
+
   rpc setLoggedModelTags(SetLoggedModelTags) returns (SetLoggedModelTags.Response) {
     option (rpc) = {
       endpoints: [{
@@ -1644,6 +1657,54 @@ message GetLoggedModel {
   message Response {
     // The retrieved LoggedModel.
     optional LoggedModel model = 1;
+  }
+}
+
+message SearchLoggedModels {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // IDs of the Experiments in which to search for Logged Models.
+  repeated string experiment_ids = 1;
+
+  // A filter expression over Logged Model info and data that allows returning a subset of
+  // Logged Models. The syntax is a subset of SQL that supports ANDing together binary operations
+  // Example: ``params.alpha < 0.3 AND metrics.accuracy > 0.9``.
+  optional string filter = 2;
+
+  // Maximum number of Logged Models to return. Max threshold is 500.
+  optional int32 max_results = 3 [default = 100];
+
+  // List of columns for ordering the results, with additional fields for sorting criteria.
+  repeated OrderBy order_by = 4;
+
+  // Token indicating the page of Logged Models to fetch.
+  optional string page_token = 5;
+
+  message OrderBy {
+      // Name of the field to order by, e.g. "metrics.accuracy".
+      optional string field_name = 1 [(validate_required) = true];
+
+      // Whether the order is ascending or not.
+      optional bool ascending = 2 [default = true];
+
+      // If ``field_name`` refers to a metric, this field specifies the name of the dataset
+      // associated with the metric. Only metrics associated with the specified dataset name will be
+      // considered for ordering. This field may only be set if ``field_name`` refers to a metric.
+      optional string dataset_name = 3;
+
+      // If ``field_name`` refers to a metric, this field specifies the digest of the dataset
+      // associated with the metric. Only metrics associated with the specified dataset name
+      // and digest will be considered for ordering. This field may only be set if ``dataset_name``
+      // is also set.
+      optional string dataset_digest = 4;
+  }
+
+  message Response {
+    // Logged Models that match the search criteria.
+    repeated LoggedModel models = 1;
+
+    // Token that can be used to retrieve the next page of Logged Models.
+    optional string next_page_token = 2;
   }
 }
 
