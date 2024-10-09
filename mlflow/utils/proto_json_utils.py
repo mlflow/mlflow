@@ -120,7 +120,7 @@ def message_to_dict(message) -> Dict[str, Any]:
     return _merge_json_dicts(json_dict_with_int64_fields_only, json_dict_with_int64_as_str)
 
 
-def message_to_json(message):
+def message_to_json(message) -> str:
     """Converts a message to JSON, using snake_case for field names."""
     return json.dumps(message_to_dict(message), indent=2)
 
