@@ -35,8 +35,6 @@ jobs:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    permissions:
-      actions: write # deleteArtifact
     strategy:
       matrix:
         type: ["full", "skinny"]
