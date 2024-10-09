@@ -16,10 +16,6 @@ on:
 permissions:
   contents: read
 
-defaults:
-  run:
-    shell: bash --noprofile --norc -exo pipefail {0}
-
 jobs:
   build:
     runs-on: ubuntu-latest
