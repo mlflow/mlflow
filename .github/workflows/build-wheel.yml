@@ -129,7 +129,10 @@ jobs:
       - name: ⬇️ Download wheel here ⬇️
         # if: github.event_name == 'workflow_dispatch'
         run: |
-          echo -e "\033[1;33mNotes:\033[0m"
-          echo -e "\033[1;33m- The artifact will be deleted after 7 days.\033[0m"
-          echo -e "\033[1;33m- Unzip the downloaded artifact to get the wheel.\033[0m"
-          echo "Download URL: ${{ steps.upload-wheel.outputs.artifact-url }}"
+          echo "# Download URL" >> $GITHUB_STEP_SUMMARY
+          echo "${{ steps.upload-wheel.outputs.artifact-url }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "# Notes" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- The artifact will be deleted after 7 days." >> $GITHUB_STEP_SUMMARY
+          echo "- Unzip the downloaded artifact to get the wheel." >> $GITHUB_STEP_SUMMARY
