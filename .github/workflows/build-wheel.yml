@@ -127,7 +127,7 @@ jobs:
           if-no-files-found: error
 
       - name: Generate summary
-        # if: github.event_name == 'workflow_dispatch'
+        if: github.event_name == 'workflow_dispatch'
         run: |
           echo "### Download URL" >> $GITHUB_STEP_SUMMARY
           echo "${{ steps.upload-wheel.outputs.artifact-url }}" >> $GITHUB_STEP_SUMMARY
