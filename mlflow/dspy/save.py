@@ -44,6 +44,7 @@ from mlflow.utils.model_utils import (
     _validate_and_prepare_target_save_path,
 )
 from mlflow.utils.requirements_utils import _get_pinned_requirement
+from mlflow.models.resources import Resource, _ResourceBuilder
 
 FLAVOR_NAME = "dspy"
 
