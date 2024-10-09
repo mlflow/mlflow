@@ -384,7 +384,7 @@ _INFER_PIP_REQUIREMENTS_GENERAL_ERROR_MESSAGE = (
 )
 
 
-def infer_pip_requirements(model_uri, flavor, fallback=None, timeout=None):
+def infer_pip_requirements(model_uri, flavor, fallback=None, timeout=None, extra_env_vars=None):
     """Infers the pip requirements of the specified model by creating a subprocess and loading
     the model in it to determine which packages are imported.
 
@@ -394,6 +394,8 @@ def infer_pip_requirements(model_uri, flavor, fallback=None, timeout=None):
         fallback: If provided, an unexpected error during the inference procedure is swallowed
             and the value of ``fallback`` is returned. Otherwise, the error is raised.
         timeout: If specified, the inference operation is bound by the timeout (in seconds).
+        extra_env_vars: A dictionary of extra environment variables to pass to the subprocess.
+            Default to None.
 
     Returns:
         A list of inferred pip requirements (e.g. ``["scikit-learn==0.24.2", ...]``).
@@ -412,9 +414,13 @@ def infer_pip_requirements(model_uri, flavor, fallback=None, timeout=None):
     try:
         if timeout:
             with run_with_timeout(timeout):
-                return _infer_requirements(model_uri, flavor, raise_on_error=raise_on_error)
+                return _infer_requirements(
+                    model_uri, flavor, raise_on_error=raise_on_error, extra_env_vars=extra_env_vars
+                )
         else:
-            return _infer_requirements(model_uri, flavor, raise_on_error=raise_on_error)
+            return _infer_requirements(
+                model_uri, flavor, raise_on_error=raise_on_error, extra_env_vars=extra_env_vars
+            )
     except Exception as e:
         if raise_on_error or (fallback is None):
             raise

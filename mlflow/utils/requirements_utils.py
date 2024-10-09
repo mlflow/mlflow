@@ -303,7 +303,7 @@ def _get_installed_version(package, module=None):
     return version
 
 
-def _capture_imported_modules(model_uri, flavor, record_full_module=False):  # noqa: D417
+def _capture_imported_modules(model_uri, flavor, record_full_module=False, extra_env_vars=None):
     """Runs `_capture_modules.py` in a subprocess and captures modules imported during the model
     loading procedure.
     If flavor is `transformers`, `_capture_transformers_modules.py` is run instead.
@@ -311,6 +311,10 @@ def _capture_imported_modules(model_uri, flavor, record_full_module=False):  # n
     Args:
         model_uri: The URI of the model.
         flavor: The flavor name of the model.
+        record_full_module: Whether to capture top level modules for inferring python
+            package purpose. Default to False.
+        extra_env_vars: A dictionary of extra environment variables to pass to the subprocess.
+            Default to None.
 
     Returns:
         A list of captured modules.
@@ -320,6 +324,7 @@ def _capture_imported_modules(model_uri, flavor, record_full_module=False):  # n
 
     process_timeout = MLFLOW_REQUIREMENTS_INFERENCE_TIMEOUT.get()
     raise_on_error = MLFLOW_REQUIREMENTS_INFERENCE_RAISE_ERRORS.get()
+    extra_env_vars = extra_env_vars or {}
 
     # Run `_capture_modules.py` to capture modules imported during the loading procedure
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -372,6 +377,7 @@ def _capture_imported_modules(model_uri, flavor, record_full_module=False):  # n
                             **main_env,
                             **transformer_env,
                             _MLFLOW_IN_CAPTURE_MODULE_PROCESS.name: "true",
+                            **extra_env_vars,
                         },
                     )
                     with open(output_file) as f:
@@ -404,6 +410,7 @@ def _capture_imported_modules(model_uri, flavor, record_full_module=False):  # n
             env={
                 **main_env,
                 _MLFLOW_IN_CAPTURE_MODULE_PROCESS.name: "true",
+                **extra_env_vars,
             },
         )
 
@@ -489,7 +496,7 @@ def _load_pypi_package_index():
 _PYPI_PACKAGE_INDEX = None
 
 
-def _infer_requirements(model_uri, flavor, raise_on_error=False):
+def _infer_requirements(model_uri, flavor, raise_on_error=False, extra_env_vars=None):
     """Infers the pip requirements of the specified model by creating a subprocess and loading
     the model in it to determine which packages are imported.
 
@@ -497,6 +504,8 @@ def _infer_requirements(model_uri, flavor, raise_on_error=False):
         model_uri: The URI of the model.
         flavor: The flavor name of the model.
         raise_on_error: If True, raise an exception if an unrecognized package is encountered.
+        extra_env_vars: A dictionary of extra environment variables to pass to the subprocess.
+            Default to None.
 
     Returns:
         A list of inferred pip requirements.
@@ -507,7 +516,7 @@ def _infer_requirements(model_uri, flavor, raise_on_error=False):
     if _PYPI_PACKAGE_INDEX is None:
         _PYPI_PACKAGE_INDEX = _load_pypi_package_index()
 
-    modules = _capture_imported_modules(model_uri, flavor)
+    modules = _capture_imported_modules(model_uri, flavor, extra_env_vars=extra_env_vars)
     packages = _flatten([_MODULES_TO_PACKAGES.get(module, []) for module in modules])
     packages = map(_normalize_package_name, packages)
     packages = _prune_packages(packages)
