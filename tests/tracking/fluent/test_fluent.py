@@ -943,6 +943,48 @@ def test_get_run():
         assert run.info.user_id == "my_user_id"
 
 
+@pytest.mark.usefixtures(empty_active_run_stack.__name__)
+def test_start_run_by_name_run_resume():
+    run = mlflow.start_run()
+    mlflow.end_run()
+    restarted_run = mlflow.start_run_by_name(run.info.run_name)
+    assert run.info.run_id == restarted_run.info.run_id
+    assert run.info.run_name == restarted_run.info.run_name
+
+
+@pytest.mark.usefixtures(empty_active_run_stack.__name__)
+def test_start_run_by_name_run_resume_add_description():
+    run = mlflow.start_run()
+    mlflow.end_run()
+    description = "Description"
+    restarted_run = mlflow.start_run_by_name(run.info.run_name, description=description)
+    assert run.info.run_id == restarted_run.info.run_id
+    assert run.info.run_name == restarted_run.info.run_name
+    assert mlflow_tags.MLFLOW_RUN_NOTE in restarted_run.data.tags
+
+
+@pytest.mark.usefixtures(empty_active_run_stack.__name__)
+def test_start_run_by_name_new_run():
+    run_name = "Test Run"
+    run = mlflow.start_run_by_name(run_name)
+    assert run.info.run_name == run_name
+
+
+@pytest.mark.usefixtures(empty_active_run_stack.__name__)
+def test_start_run_by_name_duplicated_runs():
+    run_name = "Test Run"
+    mlflow.start_run(run_name=run_name)
+    mlflow.end_run()
+    mlflow.start_run(run_name=run_name)
+    mlflow.end_run()
+    match = (
+        f"More than one run_id with {run_name} run_name. "
+        "start_run_by_name can only be used for runs with unique run_names"
+    )
+    with pytest.raises(MlflowException, match=match):
+        mlflow.start_run_by_name(run_name=run_name)
+
+
 def validate_search_runs(results, data, output_format):
     if output_format == "list":
         keys = ["status", "artifact_uri", "experiment_id", "run_id", "start_time", "end_time"]

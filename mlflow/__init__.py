@@ -163,6 +163,7 @@ from mlflow.tracking.fluent import (
     set_tag,
     set_tags,
     start_run,
+    start_run_by_name,
 )
 from mlflow.tracking.multimedia import Image
 from mlflow.utils.async_logging.run_operations import RunOperations  # noqa: F401
@@ -229,6 +230,7 @@ __all__ = [
     "set_tags",
     "set_tracking_uri",
     "start_run",
+    "start_run_by_name",
     "Image",
     # Tracing Fluent APIs
     "get_current_active_span",
