@@ -118,7 +118,7 @@ jobs:
       # Anyone with read access can download the uploaded wheel on GitHub.
       - name: Upload wheel
         uses: actions/upload-artifact@v4
-        if: github.event_name == 'workflow_dispatch'
+        # if: github.event_name == 'workflow_dispatch'
         id: upload-wheel
         with:
           name: ${{ steps.build-dist.outputs.wheel-name }}
@@ -127,7 +127,7 @@ jobs:
           if-no-files-found: error
 
       - name: ⬇️ Download wheel here ⬇️
-        if: github.event_name == 'workflow_dispatch'
+        # if: github.event_name == 'workflow_dispatch'
         run: |
           echo -e "\033[1;33mNotes:\033[0m"
           echo -e "\033[1;33m- The artifact will be deleted after 7 days.\033[0m"
