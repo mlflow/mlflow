@@ -1,14 +1,19 @@
 MLflow Tracing Schema
 =====================
 
+This document provides a detailed view of the schema for traces and its ingredients. MLflow traces are **compatible to OpenTelemetry specs**, but we also define a few additional layers of structure upon the OpenTelemetry Spans to provide additional metadata about the trace.
+
+
 Structure of Traces
 -------------------
 
-.. |trace-architecture| raw:: html
+**TL;DR**: ``Trace = TraceInfo + TraceData`` where ``TraceData = List[Span]``
+
+.. |trace-structure| raw:: html
 
         <div class=""main-container"">
             <div>
-                <h4>Trace Architecture</h4>
+                <h4>Trace Structure</h4>
                 <p>A <a href="../../python_api/mlflow.entities.html#mlflow.entities.Trace">Trace</a> in MLflow consists of two components: 
                    <a href="../../python_api/mlflow.entities.html#mlflow.entities.TraceInfo">Trace Info</a> and 
                    <a href="../../python_api/mlflow.entities.html#mlflow.entities.TraceData">Trace Data</a>. 
@@ -56,12 +61,12 @@ Structure of Traces
             </div>
         </div>
 
-.. |span-architecture| raw:: html
+.. |span-structure| raw:: html
 
         <div class=""main-container"">
             <div>
               <h4>Span Structure</h4>
-              <p> The Span object within MLflow's tracing feature provides detailed information about the individual steps of the trace. 
+              <p> The Span object within MLflow's tracing feature provides detailed information about the individual steps of the trace. It complies to the <a href="https://opentelemetry.io/docs/concepts/signals/traces/#spans">OpenTelemetry Span spec</a>.
                 Each Span object contains information about the step being instrumented, including the span_id, name, start_time, parent_id, status, 
                 inputs, outputs, attributes, and events.
               </p>
@@ -76,9 +81,9 @@ Structure of Traces
 
     .. tabs::
 
-        .. tab:: Trace Architecture
+        .. tab:: Trace
 
-            |trace-architecture|
+            |trace-structure|
 
         .. tab:: Trace Info
 
@@ -88,15 +93,15 @@ Structure of Traces
 
             |trace-data|
 
-        .. tab:: Span Architecture
+        .. tab:: Span
 
-            |span-architecture|
+            |span-structure|
 
 
-Trace Schema
-------------
+Trace
+-----
 
-A trace is composed of two components:
+A trace is a root object composed of two components:
 
 - :py:func:`mlflow.entities.trace_info.TraceInfo`
 
