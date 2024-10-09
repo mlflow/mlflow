@@ -1,7 +1,7 @@
 MLflow Tracing Schema
 =====================
 
-This document provides a detailed view of the schema for traces and its ingredients. MLflow traces are **compatible to OpenTelemetry specs**, but we also defines a few additional layers of structure upon the OpenTelemetry Spans to provide additional metadata about the trace.
+This document provides a detailed view of the schema for traces and its ingredients. MLflow traces are **compatible to OpenTelemetry specs**, but we also define a few additional layers of structure upon the OpenTelemetry Spans to provide additional metadata about the trace.
 
 
 Structure of Traces

@@ -66,7 +66,7 @@ Automatic Tracing
 
 .. hint::
 
-    Is your favorite library missing from the list? Consider `contributing to the MLflow Tracing <contribute.html>`_ or `submitting a feature request <https://github.com/mlflow/mlflow/issues/new?assignees=&labels=enhancement&projects=&template=feature_request_template.yaml&title=%5BFR%5D>`_ to our Github repository.
+Is your favorite library missing from the list? Consider `contributing to MLflow Tracing <contribute.html>`_ or `submitting a feature request <https://github.com/mlflow/mlflow/issues/new?assignees=&labels=enhancement&projects=&template=feature_request_template.yaml&title=%5BFR%5D>`_ to our Github repository.
 
 The easiest way to get started with MLflow Tracing is to leverage the built-in capabilities with MLflow's integrated libraries. MLflow provides automatic tracing capabilities for some of the integrated libraries such as
 LangChain, OpenAI, LlamaIndex, and AutoGen. For these libraries, you can instrument your code with
