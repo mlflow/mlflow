@@ -577,7 +577,7 @@ service MlflowService {
     option (rpc) = {
       endpoints: [{
         method: "POST",
-        path: "/mlflow/logged-models"
+        path: "/mlflow/logged-models/search"
         since { major: 2, minor: 0 },
       }],
       visibility: PUBLIC_UNDOCUMENTED,
