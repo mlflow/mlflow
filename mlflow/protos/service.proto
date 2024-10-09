@@ -583,7 +583,6 @@ service MlflowService {
       visibility: PUBLIC_UNDOCUMENTED,
       rpc_doc_title: "Search LoggedModels",
     };
-    option (graphql) = {};
   }
 
   rpc setLoggedModelTags(SetLoggedModelTags) returns (SetLoggedModelTags.Response) {
