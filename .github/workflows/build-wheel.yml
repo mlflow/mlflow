@@ -1,4 +1,5 @@
-name: Test package build
+# Build a wheel for MLflow and upload it as an artifact.
+name: build-wheel
 
 on:
   push:
@@ -11,6 +12,12 @@ on:
       - synchronize
       - reopened
       - ready_for_review
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "The branch, tag or SHA to build the wheel from."
+        required: true
+        default: "master"
 
 permissions:
   contents: read
@@ -28,14 +35,13 @@ jobs:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    permissions:
-      actions: write # deleteArtifact
     strategy:
       matrix:
         type: ["full", "skinny"]
     steps:
       - uses: actions/checkout@v4
         with:
+          ref: ${{ github.event.inputs.ref }}
           submodules: recursive
       - uses: ./.github/actions/untracked
       - uses: ./.github/actions/setup-python
@@ -54,11 +60,19 @@ jobs:
       - name: Build distribution files
         id: build-dist
         run: |
-          if [ "${{ matrix.type }}" == "skinny" ]; then
-            python dev/build.py --package-type skinny
+          # if workflow_dispatch is triggered, use the specified ref
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            SHA_OPT="--sha $(git rev-parse HEAD)"
           else
-            python dev/build.py
+            SHA_OPT=""
           fi
+
+          if [ "${{ matrix.type }}" == "skinny" ]; then
+            PACKAGE_TYPE_OPT="--package-type skinny"
+          else
+            PACKAGE_TYPE_OPT=""
+          fi
+          python dev/build.py $PACKAGE_TYPE_OPT $SHA_OPT
 
           # List distribution files and check their file sizes
           ls -lh dist
@@ -102,53 +116,23 @@ jobs:
           python -c "import mlflow; print(mlflow.__version__)"
 
       # Anyone with read access can download the uploaded wheel on GitHub.
-      - name: Store wheel
+      - name: Upload wheel
         uses: actions/upload-artifact@v4
-        if: github.event_name == 'push'
+        if: github.event_name == 'workflow_dispatch'
+        id: upload-wheel
         with:
           name: ${{ steps.build-dist.outputs.wheel-name }}
           path: ${{ steps.build-dist.outputs.wheel-path }}
+          retention-days: 7
+          if-no-files-found: error
 
-      - name: Remove old wheels
-        uses: actions/github-script@v7
-        if: github.event_name == 'push'
-        env:
-          WHEEL_SIZE: ${{ steps.build-dist.outputs.wheel-size }}
-        with:
-          script: |
-            const { owner, repo } = context.repo;
-
-            // For some reason, the newly-uploaded wheel in the previous step is not included.
-            const artifactsResp = await github.rest.actions.listArtifactsForRepo({
-              owner,
-              repo,
-            });
-            const wheels = artifactsResp.data.artifacts.filter(({ name }) => name.endsWith(".whl"));
-
-            // The storage usage limit for a free github account is up to 500 MB. See the page below for details:
-            // https://docs.github.com/en/github/setting-up-and-managing-billing-and-payments-on-github/about-billing-for-github-actions
-            MAX_SIZE_IN_BYTES = 300_000_000; // 300 MB
-
-            let index = 0;
-            let sum = parseInt(process.env.WHEEL_SIZE);  // include the newly-uploaded wheel
-            for (const [idx, { size_in_bytes }] of wheels.entries()) {
-              index = idx;
-              sum += size_in_bytes;
-              if (sum > MAX_SIZE_IN_BYTES) {
-                break;
-              }
-            }
-
-            if (sum <= MAX_SIZE_IN_BYTES) {
-              return;
-            }
-
-            // Delete old wheels
-            const promises = wheels.slice(index).map(({ id: artifact_id }) =>
-              github.rest.actions.deleteArtifact({
-                owner,
-                repo,
-                artifact_id,
-              })
-            );
-            Promise.all(promises).then(data => console.log(data));
+      - name: Generate summary
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          echo "### Download URL" >> $GITHUB_STEP_SUMMARY
+          echo "${{ steps.upload-wheel.outputs.artifact-url }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Notes" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- The artifact will be deleted after 7 days." >> $GITHUB_STEP_SUMMARY
+          echo "- Unzip the downloaded artifact to get the wheel." >> $GITHUB_STEP_SUMMARY
