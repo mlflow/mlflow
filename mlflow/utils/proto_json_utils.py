@@ -104,7 +104,7 @@ def _merge_json_dicts(from_dict, to_dict):
     return to_dict
 
 
-def message_to_dict(message):
+def message_to_dict(message) -> Dict[str, Any]:
     """Converts a proto message to a JSON dict, preserving int64 proto fields."""
     # Google's MessageToJson API converts int64 proto fields to JSON strings.
     # For more info, see https://github.com/protocolbuffers/protobuf/issues/2954
@@ -125,14 +125,14 @@ def message_to_json(message):
     return json.dumps(message_to_dict(message), indent=2)
 
 
-def format_endpoint(endpoint: str, params: Dict[str, Any]) -> Tuple[str, Dict[str, Any]]:
+def format_endpoint(endpoint: str, payload: Dict[str, Any]) -> Tuple[str, Dict[str, Any]]:
     """
     Format the endpoint string with the given parameters.
 
     Args:
         endpoint: The endpoint string with placeholders for parameters. For example,
             "/api/2.0/mlflow/experiments/{experiment_id}".
-        params: The parameters to be formatted into the endpoint string. For example,
+        payload: The parameters to be formatted into the endpoint string. For example,
             {"experiment_id": "1", "param": "value"}.
 
     Returns:
@@ -140,12 +140,12 @@ def format_endpoint(endpoint: str, params: Dict[str, Any]) -> Tuple[str, Dict[st
     """
     replacements: Dict[str, Any] = {}
     for _, name, _, _ in string.Formatter().parse(endpoint):
-        if name in params:
-            replacements[name] = params.pop(name)
+        if name in payload:
+            replacements[name] = payload.pop(name)
     if replacements:
         endpoint = endpoint.format(**replacements)
 
-    return endpoint, params
+    return endpoint, payload
 
 
 def _stringify_all_experiment_ids(x):
