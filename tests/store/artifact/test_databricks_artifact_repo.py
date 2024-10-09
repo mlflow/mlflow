@@ -653,7 +653,7 @@ def test_list_artifacts_with_relative_path():
         f"{DATABRICKS_ARTIFACT_REPOSITORY}._get_run_artifact_root",
         return_value=MOCK_RUN_ROOT_URI,
     ), mock.patch(
-        f"{DATABRICKS_ARTIFACT_REPOSITORY_PACKAGE}.message_to_json", return_value=None
+        f"{DATABRICKS_ARTIFACT_REPOSITORY_PACKAGE}.message_to_dict", return_value=None
     ) as message_mock:
         list_artifact_response_proto = ListArtifacts.Response(
             root_uri="", files=list_artifacts_dir_proto_mock, next_page_token=None
@@ -709,7 +709,7 @@ def test_list_artifacts_handles_pagination(databricks_artifact_repo):
         ListArtifacts.Response(root_uri="", files=list_artifacts_proto_mock_4, next_page_token="8"),
     ]
     with mock.patch(
-        f"{DATABRICKS_ARTIFACT_REPOSITORY_PACKAGE}.message_to_json", return_value=None
+        f"{DATABRICKS_ARTIFACT_REPOSITORY_PACKAGE}.message_to_dict", return_value=None
     ) as message_mock, mock.patch(
         f"{DATABRICKS_ARTIFACT_REPOSITORY}._call_endpoint",
         side_effect=list_artifact_paginated_response_protos,
@@ -755,7 +755,7 @@ def test_get_read_credential_infos_handles_pagination(databricks_artifact_repo):
         GetCredentialsForRead.Response(credential_infos=credential_infos_mock_3),
     ]
     with mock.patch(
-        f"{DATABRICKS_ARTIFACT_REPOSITORY_PACKAGE}.message_to_json"
+        f"{DATABRICKS_ARTIFACT_REPOSITORY_PACKAGE}.message_to_dict"
     ) as message_mock, mock.patch(
         f"{DATABRICKS_ARTIFACT_REPOSITORY}._call_endpoint",
         side_effect=get_credentials_for_read_responses,
@@ -814,7 +814,7 @@ def test_get_read_credential_infos_respects_max_request_size(databricks_artifact
     ]
 
     with mock.patch(
-        f"{DATABRICKS_ARTIFACT_REPOSITORY_PACKAGE}.message_to_json"
+        f"{DATABRICKS_ARTIFACT_REPOSITORY_PACKAGE}.message_to_dict"
     ) as message_mock, mock.patch(
         f"{DATABRICKS_ARTIFACT_REPOSITORY}._call_endpoint",
         side_effect=[
@@ -867,7 +867,7 @@ def test_get_write_credential_infos_handles_pagination(databricks_artifact_repo)
         GetCredentialsForWrite.Response(credential_infos=credential_infos_mock_3),
     ]
     with mock.patch(
-        f"{DATABRICKS_ARTIFACT_REPOSITORY_PACKAGE}.message_to_json"
+        f"{DATABRICKS_ARTIFACT_REPOSITORY_PACKAGE}.message_to_dict"
     ) as message_mock, mock.patch(
         f"{DATABRICKS_ARTIFACT_REPOSITORY}._call_endpoint",
         side_effect=get_credentials_for_write_responses,
@@ -921,7 +921,7 @@ def test_get_write_credential_infos_respects_max_request_size(databricks_artifac
     ]
 
     with mock.patch(
-        f"{DATABRICKS_ARTIFACT_REPOSITORY_PACKAGE}.message_to_json"
+        f"{DATABRICKS_ARTIFACT_REPOSITORY_PACKAGE}.message_to_dict"
     ) as message_mock, mock.patch(
         f"{DATABRICKS_ARTIFACT_REPOSITORY}._call_endpoint",
         side_effect=[
@@ -1346,7 +1346,7 @@ def test_multipart_upload(
         # The upload-part requests are sent in parallel, so the order of the calls is not
         # deterministic
         assert sorted(http_request_mock.call_args_list, key=lambda c: c.args[1]) == expected_calls
-        complete_request_body = json.loads(call_endpoint_mock.call_args_list[-1].args[-1])
+        complete_request_body = call_endpoint_mock.call_args_list[-1].args[-1]
         assert complete_request_body["upload_id"] == mock_upload_id
         assert complete_request_body["part_etags"] == [
             {"part_number": 1, "etag": "etag-1"},
@@ -1439,7 +1439,7 @@ def test_multipart_upload_retry_part_upload(
         # The upload-part requests are sent in parallel, so the order of the calls is not
         # deterministic
         assert sorted(http_request_mock.call_args_list, key=lambda c: c.args[1]) == expected_calls
-        complete_request_body = json.loads(call_endpoint_mock.call_args_list[-1].args[-1])
+        complete_request_body = call_endpoint_mock.call_args_list[-1].args[-1]
         assert complete_request_body["upload_id"] == mock_upload_id
         assert complete_request_body["part_etags"] == [
             {"part_number": 1, "etag": "etag-1"},
@@ -1499,7 +1499,7 @@ def test_multipart_upload_abort(
         # The upload-part requests are sent in parallel, so the order of the calls is not
         # deterministic
         assert sorted(part_upload_calls, key=lambda c: c.args[1]) == expected_calls
-        complete_request_body = json.loads(call_endpoint_mock.call_args_list[-1].args[-1])
+        complete_request_body = call_endpoint_mock.call_args_list[-1].args[-1]
         assert complete_request_body["upload_id"] == mock_upload_id
         assert complete_request_body["part_etags"] == [
             {"part_number": 1, "etag": "etag-1"},
