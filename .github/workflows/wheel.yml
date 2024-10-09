@@ -1,0 +1,40 @@
+name: Build a wheel of MLflow and upload it as an artifact
+
+on:
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "The branch or tag to build the wheel from"
+        required: true
+        default: "main"
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash --noprofile --norc -exo pipefail {0}
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.ref }}
+      - uses: ./.github/actions/setup-python
+      - uses: ./.github/actions/setup-node
+      - name: Build UI
+        working-directory: mlflow/server/js
+        run: |
+          yarn
+          yarn build
+      - name: Build wheel
+        id: build-wheel
+        run: |
+          python dev/build.py
+      - uses: actions/upload-artifact@v4
+        with:
+          path: dist/mlflow-*.whl
