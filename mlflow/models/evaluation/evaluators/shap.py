@@ -1,21 +1,26 @@
 import functools
 import logging
 from typing import List, Optional
+
 import numpy as np
 from packaging.version import Version
 from sklearn.pipeline import Pipeline as sk_Pipeline
 
-from mlflow import MlflowException
-
 import mlflow
-from mlflow.models.evaluation.base import _ModelType, EvaluationMetric, EvaluationResult
-from mlflow.models.evaluation.default_evaluator import BuiltInEvaluator, _extract_predict_fn, _extract_raw_model
-from mlflow.models.evaluation.evaluators.classifier import _is_continuous, _suppress_class_imbalance_errors
-from mlflow.models.evaluation.default_evaluator import _get_dataframe_with_renamed_columns
+from mlflow import MlflowException
+from mlflow.models.evaluation.base import EvaluationMetric, EvaluationResult, _ModelType
+from mlflow.models.evaluation.default_evaluator import (
+    BuiltInEvaluator,
+    _extract_predict_fn,
+    _extract_raw_model,
+    _get_dataframe_with_renamed_columns,
+)
+from mlflow.models.evaluation.evaluators.classifier import (
+    _is_continuous,
+    _suppress_class_imbalance_errors,
+)
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.pyfunc import _ServedPyFuncModel
-
-
 
 _logger = logging.getLogger(__name__)
 
@@ -28,22 +33,20 @@ def _shap_predict_fn(x, predict_fn, feature_names):
     return predict_fn(_get_dataframe_with_renamed_columns(x, feature_names))
 
 
-
 class ShapEvaluator(BuiltInEvaluator):
     name = "shap"
 
     @classmethod
     def can_evaluate(self, *, model_type, evaluator_config, **kwargs):
-        return (
-            (model_type in (_ModelType.CLASSIFIER, _ModelType.REGRESSOR)
-            and evaluator_config.get("log_model_explainability", True))
+        return model_type in (_ModelType.CLASSIFIER, _ModelType.REGRESSOR) and evaluator_config.get(
+            "log_model_explainability", True
         )
 
     def _evaluate(
         self,
         model: Optional["mlflow.pyfunc.PyFuncModel"],
         extra_metrics: List[EvaluationMetric],
-        custom_artifacts = None,
+        custom_artifacts=None,
         **kwargs,
     ) -> EvaluationResult:
         if isinstance(model, _ServedPyFuncModel):
@@ -266,6 +269,7 @@ class ShapEvaluator(BuiltInEvaluator):
             run_id=self.run_id,
         )
 
+
 def _compute_df_mode_or_mean(df):
     """
     Compute mean (for continuous columns) and compute mode (for other columns) for the
@@ -280,4 +284,3 @@ def _compute_df_mode_or_mean(df):
     means = {} if df_cont.empty else df_cont.mean().to_dict()
     modes = {} if df_non_cont.empty else df_non_cont.mode().loc[0].to_dict()
     return {**means, **modes}
-

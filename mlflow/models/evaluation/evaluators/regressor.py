@@ -3,14 +3,17 @@ from typing import List, Optional
 import numpy as np
 from sklearn import metrics as sk_metrics
 
-from mlflow.models.evaluation.base import _ModelType, EvaluationMetric, EvaluationResult
-from mlflow.models.evaluation.default_evaluator import BuiltInEvaluator, _extract_predict_fn, _get_aggregate_metrics_values
-
+import mlflow
+from mlflow.models.evaluation.base import EvaluationMetric, EvaluationResult, _ModelType
+from mlflow.models.evaluation.default_evaluator import (
+    BuiltInEvaluator,
+    _extract_predict_fn,
+    _get_aggregate_metrics_values,
+)
 
 
 class RegressorEvaluator(BuiltInEvaluator):
     name = "regressor"
-
 
     def can_evaluate(self, *, model_type, evaluator_config, **kwargs):
         return model_type == _ModelType.REGRESSOR
@@ -19,7 +22,7 @@ class RegressorEvaluator(BuiltInEvaluator):
         self,
         model: Optional["mlflow.pyfunc.PyFuncModel"],
         extra_metrics: List[EvaluationMetric],
-        custom_artifacts = None,
+        custom_artifacts=None,
         **kwargs,
     ) -> EvaluationResult:
         self.y_true = self.dataset.labels_data
@@ -30,7 +33,9 @@ class RegressorEvaluator(BuiltInEvaluator):
         self._compute_buildin_metrics(model)
 
         self.evaluate_metrics(extra_metrics, prediction=self.y_pred, target=self.y_true)
-        self.evaluate_and_log_custom_artifacts(custom_artifacts, prediction=self.y_pred, target=self.y_true)
+        self.evaluate_and_log_custom_artifacts(
+            custom_artifacts, prediction=self.y_pred, target=self.y_true
+        )
 
         self.log_metrics()
         self.log_eval_table(self.y_pred)
@@ -40,13 +45,10 @@ class RegressorEvaluator(BuiltInEvaluator):
         )
 
     def _generate_model_predictions(self, model, input_df):
-        predict_fn = _extract_predict_fn(model)
-        # Regressor model should output single column of predictions
-        if model is not None:
-            y_pred = predict_fn(input_df)
+        if predict_fn := _extract_predict_fn(model):
+            return predict_fn(input_df)
         else:
-            y_pred = self.dataset.predictions_data
-        return y_pred
+            return self.dataset.predictions_data
 
     def _compute_buildin_metrics(self, model):
         self._evaluate_sklearn_model_score_if_scorable(model, self.y_true, self.sample_weights)

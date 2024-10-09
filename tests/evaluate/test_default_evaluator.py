@@ -58,7 +58,6 @@ from mlflow.models.evaluation.default_evaluator import (
     _extract_raw_model,
     _get_aggregate_metrics_values,
 )
-from mlflow.models.evaluation.evaluators.default import _extract_output_and_other_columns
 from mlflow.models.evaluation.evaluators.classifier import (
     _extract_predict_fn_and_prodict_proba_fn,
     _gen_classifier_curve,
@@ -67,9 +66,11 @@ from mlflow.models.evaluation.evaluators.classifier import (
     _get_multiclass_classifier_metrics,
     _infer_model_type_by_labels,
 )
+from mlflow.models.evaluation.evaluators.default import _extract_output_and_other_columns
 from mlflow.models.evaluation.evaluators.regressor import _get_regressor_metrics
 from mlflow.models.evaluation.evaluators.shap import _compute_df_mode_or_mean
 from mlflow.models.evaluation.utils.metric import MetricDefinition
+
 from tests.evaluate.test_evaluation import (
     binary_logistic_regressor_model_uri,  # noqa: F401
     breast_cancer_dataset,  # noqa: F401
@@ -100,11 +101,7 @@ def assert_metrics_equal(actual, expected):
 
 
 @pytest.mark.parametrize("use_sample_weights", [False, True])
-@pytest.mark.parametrize("evaluators", [
-    "default",
-    ["regressor", "shap"],
-    None
-])
+@pytest.mark.parametrize("evaluators", ["default", ["regressor", "shap"], None])
 def test_regressor_evaluation(
     linear_regressor_model_uri,
     diabetes_dataset,
@@ -127,7 +124,7 @@ def test_regressor_evaluation(
             model_type="regressor",
             targets=diabetes_dataset._constructor_args["targets"],
             evaluators=evaluators,
-            evaluator_config=evaluator_config
+            evaluator_config=evaluator_config,
         )
 
     _, metrics, tags, artifacts = get_run_data(run.info.run_id)
@@ -216,11 +213,7 @@ def test_regressor_evaluation_with_int_targets(
 
 
 @pytest.mark.parametrize("use_sample_weights", [True, False])
-@pytest.mark.parametrize("evaluators", [
-    "default",
-    ["classifier", "shap"],
-    None
-])
+@pytest.mark.parametrize("evaluators", ["default", ["classifier", "shap"], None])
 def test_multi_classifier_evaluation(
     multiclass_logistic_regressor_model_uri,
     iris_dataset,
@@ -1233,7 +1226,8 @@ def test_evaluate_custom_metric_incorrect_return_formats():
         return ["stuff"], 3
 
     with mock.patch("mlflow.models.evaluation.utils.metric._logger.warning") as mock_warning:
-        MetricDefinition(incorrect_return_type, incorrect_return_type.__name__, 0).evaluate(eval_fn_args)
+        metric = MetricDefinition(incorrect_return_type, incorrect_return_type.__name__, 0).
+        metric.evaluate(eval_fn_args)
         mock_warning.assert_called_once_with(
             f"Did not log metric '{incorrect_return_type.__name__}' at index 0 in the "
             "`extra_metrics` parameter because it did not return a MetricValue."
@@ -1263,7 +1257,8 @@ def test_evaluate_custom_metric_incorrect_return_formats():
         return MetricValue(justifications="string")
 
     with mock.patch("mlflow.models.evaluation.utils.metric._logger.warning") as mock_warning:
-        MetricDefinition(non_list_justifications, non_list_justifications.__name__, 0).evaluate(eval_fn_args)
+        metric = MetricDefinition(non_list_justifications, non_list_justifications.__name__, 0)
+        metric.evaluate(eval_fn_args)
         mock_warning.assert_called_once_with(
             f"Did not log metric '{non_list_justifications.__name__}' at index 0 in the "
             "`extra_metrics` parameter because it must return MetricValue with justifications "
@@ -1274,7 +1269,8 @@ def test_evaluate_custom_metric_incorrect_return_formats():
         return MetricValue(justifications=[3, 4])
 
     with mock.patch("mlflow.models.evaluation.utils.metric._logger.warning") as mock_warning:
-        MetricDefinition(non_str_justifications, non_str_justifications.__name__, 0).evaluate(eval_fn_args)
+        metric = MetricDefinition(non_str_justifications, non_str_justifications.__name__, 0)
+        metric.evaluate(eval_fn_args)
         mock_warning.assert_called_once_with(
             f"Did not log metric '{non_str_justifications.__name__}' at index 0 in the "
             "`extra_metrics` parameter because it must return MetricValue with string "
@@ -1285,7 +1281,8 @@ def test_evaluate_custom_metric_incorrect_return_formats():
         return MetricValue(aggregate_results=[5.0, 4.0])
 
     with mock.patch("mlflow.models.evaluation.utils.metric._logger.warning") as mock_warning:
-        MetricDefinition(non_dict_aggregates, non_dict_aggregates.__name__, 0).evaluate(eval_fn_args)
+        metric = MetricDefinition(non_dict_aggregates, non_dict_aggregates.__name__, 0)
+        metric.evaluate(eval_fn_args)
         mock_warning.assert_called_once_with(
             f"Did not log metric '{non_dict_aggregates.__name__}' at index 0 in the "
             "`extra_metrics` parameter because it must return MetricValue with aggregate_results "
@@ -1296,7 +1293,8 @@ def test_evaluate_custom_metric_incorrect_return_formats():
         return MetricValue(aggregate_results={"toxicity": 0.0, "hi": "hi"})
 
     with mock.patch("mlflow.models.evaluation.utils.metric._logger.warning") as mock_warning:
-        MetricDefinition(wrong_type_aggregates, wrong_type_aggregates.__name__, 0).evaluate(eval_fn_args)
+        metric = MetricDefinition(wrong_type_aggregates, wrong_type_aggregates.__name__, 0)
+        metric.evaluate(eval_fn_args)
         mock_warning.assert_called_once_with(
             f"Did not log metric '{wrong_type_aggregates.__name__}' at index 0 in the "
             "`extra_metrics` parameter because it must return MetricValue with aggregate_results "

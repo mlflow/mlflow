@@ -21,7 +21,7 @@ import sklearn.pipeline
 import sklearn.preprocessing
 from langchain.prompts import PromptTemplate
 from langchain_community.llms import FakeListLLM
-# from mlflow_test_plugin.dummy_evaluator import Array2DEvaluationArtifact
+from mlflow_test_plugin.dummy_evaluator import Array2DEvaluationArtifact
 from PIL import Image, ImageChops
 from pyspark.ml.linalg import Vectors
 from pyspark.ml.regression import LinearRegression as SparkLinearRegression
@@ -50,13 +50,10 @@ from mlflow.models.evaluation.base import (
     _get_model_from_deployment_endpoint_uri,
     _is_model_deployment_endpoint_uri,
     _start_run_or_reuse_active_run,
+    resolve_evaluators_and_configs,
 )
-from mlflow.models.evaluation.base import (
-    _logger as _base_logger,
-)
-from mlflow.models.evaluation.base import resolve_evaluators_and_configs
-from mlflow.models.evaluation.evaluators.default import DefaultEvaluator
 from mlflow.models.evaluation.evaluator_registry import _model_evaluation_registry
+from mlflow.models.evaluation.evaluators.default import DefaultEvaluator
 from mlflow.pyfunc import _ServedPyFuncModel
 from mlflow.pyfunc.scoring_server.client import ScoringServerClient
 from mlflow.tracing.constant import TraceMetadataKey
@@ -1274,13 +1271,23 @@ def test_resolve_evaluators_and_configs():
         {"default": DefaultEvaluator, "dummy_evaluator": FakeEvaluator1},
     ):
         assert resolve_evaluators_and_configs(None, None) == {"default": {}, "dummy_evaluator": {}}
-        assert resolve_evaluators_and_configs(None, {"a": 3}) == {"default": {"a": 3}, "dummy_evaluator": {"a": 3}}
+        assert resolve_evaluators_and_configs(None, {"a": 3}) == {
+            "default": {"a": 3},
+            "dummy_evaluator": {"a": 3},
+        }
 
-        assert resolve_evaluators_and_configs(None, {"default": {"a": 3}}) == {"default": {"a": 3}, "dummy_evaluator": {}}
+        assert resolve_evaluators_and_configs(None, {"default": {"a": 3}}) == {
+            "default": {"a": 3},
+            "dummy_evaluator": {},
+        }
 
-        assert resolve_evaluators_and_configs("dummy_evaluator", {"a": 3}) == {"dummy_evaluator": {"a": 3}}
+        assert resolve_evaluators_and_configs("dummy_evaluator", {"a": 3}) == {
+            "dummy_evaluator": {"a": 3}
+        }
 
-        assert resolve_evaluators_and_configs(["default", "dummy_evaluator"], {"dummy_evaluator": {"a": 3}}) == {"default": {}, "dummy_evaluator": {"a": 3}}
+        assert resolve_evaluators_and_configs(
+            ["default", "dummy_evaluator"], {"dummy_evaluator": {"a": 3}}
+        ) == {"default": {}, "dummy_evaluator": {"a": 3}}
 
         with pytest.raises(
             MlflowException,
