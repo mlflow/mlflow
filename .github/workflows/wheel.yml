@@ -35,6 +35,7 @@ jobs:
       - name: Build wheel
         id: build-wheel
         run: |
+          pip install build
           python dev/build.py --sha $(git rev-parse HEAD)
       - uses: actions/upload-artifact@v4
         with:
