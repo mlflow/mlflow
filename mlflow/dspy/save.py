@@ -85,6 +85,7 @@ def save_model(
     pip_requirements: Optional[Union[List[str], str]] = None,
     extra_pip_requirements: Optional[Union[List[str], str]] = None,
     metadata: Optional[Dict[str, Any]] = None,
+    resources: Optional[Union[str, List[Resource]]] = None,
 ):
     """
     Save a Dspy model.
@@ -108,6 +109,8 @@ def save_model(
         pip_requirements: {{ pip_requirements }}
         extra_pip_requirements: {{ extra_pip_requirements }}
         metadata: {{ metadata }}
+        resources: A list of model resources or a resources.yaml file containing a list of
+            resources required to serve the model.
     """
 
     import dspy
@@ -195,6 +198,15 @@ def save_model(
     if size := get_total_file_size(path):
         mlflow_model.model_size_bytes = size
 
+    # Add resources if specified.
+    if resources is not None:
+        if isinstance(resources, (Path, str)):
+            serialized_resource = _ResourceBuilder.from_yaml_file(resources)
+        else:
+            serialized_resource = _ResourceBuilder.from_resources(resources)
+
+        mlflow_model.resources = serialized_resource        
+
     # Save mlflow_model to path/MLmodel.
     mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
 
@@ -244,6 +256,7 @@ def log_model(
     pip_requirements: Optional[Union[List[str], str]] = None,
     extra_pip_requirements: Optional[Union[List[str], str]] = None,
     metadata: Optional[Dict[str, Any]] = None,
+    resources: Optional[Union[str, List[Resource]]] = None,
 ):
     """
     Log a Dspy model along with metadata to MLflow.
@@ -273,6 +286,8 @@ def log_model(
         extra_pip_requirements: {{ extra_pip_requirements }}
         metadata: Custom metadata dictionary passed to the model and stored in the MLmodel
             file.
+        resources: A list of model resources or a resources.yaml file containing a list of
+                    resources required to serve the model.
 
     .. code-block:: python
         :caption: Example
@@ -330,4 +345,5 @@ def log_model(
         pip_requirements=pip_requirements,
         extra_pip_requirements=extra_pip_requirements,
         metadata=metadata,
+        resources=resources
     )
