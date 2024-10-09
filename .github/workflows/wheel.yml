@@ -8,7 +8,7 @@ on:
       ref:
         description: "The branch or tag to build the wheel from"
         required: true
-        default: "main"
+        default: "master"
 
 permissions:
   contents: read
