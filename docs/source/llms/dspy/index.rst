@@ -8,7 +8,7 @@ MLflow DSPy Flavor
 Introduction
 ------------
 
-**DSPy** is a framework for algorithmically optimizing LM prompts and weights. It's designed to 
+`DSPy <https://dspy-docs.vercel.app/>`_ is a framework for algorithmically optimizing LM prompts and weights. It's designed to 
 improve the process of prompt engineering by replacing hand-crafted prompt strings with modular 
 components. These modules are concise, well-defined, and maintain high quality and expressive power, 
 making prompt creation more efficient and scalable. By parameterizing these modules and treating 
@@ -36,7 +36,7 @@ Getting Started
 ---------------
 
 In this introductory tutorial, you will learn the most fundamental components of DSPy and how to leverage the integration with MLflow to store, retrieve, and 
-use an index. 
+use a DSPy program. 
 
 .. raw:: html
 
@@ -92,7 +92,7 @@ Saving and Loading DSPy Program in MLflow Experiment
 Creating a DSPy Program
 ~~~~~~~~~~~~~~~~~~~~~~~
 
-The [Module](https://dspy-docs.vercel.app/docs/building-blocks/modules) object is the centerpiece of
+The `Module <https://dspy-docs.vercel.app/docs/building-blocks/modules>`_ object is the centerpiece of
 the DSPy and MLflow integration. With DSPy, you can create complex agentic logic via a module or 
 set of modules.
 
@@ -124,11 +124,11 @@ set of modules.
 
     Typically you'd want to leverage a compiled DSPy module. MLflow will natively supports logging
     both compiled and uncompiled DSPy modules. Above we show an uncompiled version for simplicity,
-    but in production you'd want to leverage an [optimizer](https://dspy-docs.vercel.app/docs/building-blocks/optimizers)
+    but in production you'd want to leverage an `optimizer <https://dspy-docs.vercel.app/docs/building-blocks/optimizers>`_
     and log the outputted object instead.
 
-Logging the Index to MLflow
-~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Logging the Program to MLflow
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 You can log the ``dspy.Module`` object to the MLflow experiment using the 
 :py:func:`mlflow.dspy.log_model` function.
@@ -158,7 +158,7 @@ model inputs and outputs, ensuring consistency and correctness during model infe
         )
 
 .. figure:: ../../_static/images/llms/dspy/dspy-artifacts.png
-    :alt: MLflow artifacts for the DSPy index
+    :alt: MLflow artifacts for the DSPy program 
     :width: 80%
     :align: center
 
@@ -199,13 +199,12 @@ gives an MLflow Python Model backed by the DSPy module.
 
 
 
-.. tip::
 
-    To load the index itself back instead of the engine, use the :py:func:`mlflow.dspy.load_model` function.
+To load the DSPy program itself back instead of the PyFunc-wrapped model, use the :py:func:`mlflow.dspy.load_model` function.
 
-    .. code-block:: python
+.. code-block:: python
 
-        model = mlflow.dspy.load_model(model_uri)
+    model = mlflow.dspy.load_model(model_uri)
 
 
 
