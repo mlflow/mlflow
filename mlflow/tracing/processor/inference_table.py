@@ -73,8 +73,8 @@ class InferenceTableSpanProcessor(SimpleSpanProcessor):
                 return
         span.set_attribute(SpanAttributeKey.REQUEST_ID, json.dumps(request_id))
         tags = {}
-        if depedencies_schema := maybe_get_dependencies_schemas():
-            tags.update(depedencies_schema)
+        if dependencies_schema := maybe_get_dependencies_schemas():
+            tags.update(dependencies_schema)
 
         if span._parent is None:
             trace_info = TraceInfo(

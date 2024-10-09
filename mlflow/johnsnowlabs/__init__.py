@@ -15,7 +15,7 @@ Johnsnowlabs (native) format
 This flavor gives you access to `20.000+ state-of-the-art enterprise NLP models in 200+ languages
 <https://nlp.johnsnowlabs.com/models>`_ for medical, finance, legal and many more domains.
 Features include: LLM's, Text Summarization, Question Answering, Named Entity Recognition, Relation
-Extration, Sentiment Analysis, Spell Checking, Image Classification, Automatic Speech Recognition
+Extraction, Sentiment Analysis, Spell Checking, Image Classification, Automatic Speech Recognition
 and much more, powered by the latest Transformer Architectures. The models are provided by
 `John Snow Labs <https://www.johnsnowlabs.com/>`_ and requires a `John Snow Labs
 <https://www.johnsnowlabs.com/>`_ Enterprise NLP License. `You can reach out to us

@@ -44,7 +44,7 @@ class DatasetSource:
             raw_source: The raw source, e.g. a string like "s3://mybucket/path/to/iris/data".
 
         Returns:
-            True if this DatsetSource can resolve the raw source, False otherwise.
+            True if this DatasetSource can resolve the raw source, False otherwise.
 
         """
 
