@@ -751,6 +751,8 @@ class BuiltInEvaluator(ModelEvaluator):
                             self.aggregate_metrics[metric_name] = agg_value
                         else:
                             self.aggregate_metrics[f"{metric_name}/{agg_name}"] = agg_value
+        print(f"{self.metrics_values}")
+        print(f"{self.aggregate_metrics}")
 
     def _add_prefix_to_metrics(self):
         def _prefix_value(value):

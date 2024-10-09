@@ -102,6 +102,9 @@ class ClassifierEvaluator(BuiltInEvaluator):
         if self.label_list is None:
             # If label list is not specified, infer label list from model output
             self.label_list = np.unique(np.concatenate([self.y_true, self.y_pred]))
+        else:
+            # np.where only works for numpy array, not list
+            self.label_list = np.array(self.label_list)
 
         # sort label_list ASC, for binary classification it makes sure the last one is pos label
         self.label_list.sort()
@@ -112,7 +115,9 @@ class ClassifierEvaluator(BuiltInEvaluator):
                 self.pos_label = self.label_list[-1]
             else:
                 if self.pos_label in self.label_list:
+                    print(f"{self.label_list} {self.pos_label}")
                     self.label_list = np.delete(self.label_list, np.where(self.label_list == self.pos_label))
+                    print(f"{self.label_list}")
                 self.label_list = np.append(self.label_list, self.pos_label)
             if len(self.label_list) < 2:
                 raise MlflowException(
@@ -135,6 +140,7 @@ class ClassifierEvaluator(BuiltInEvaluator):
     def _compute_builtin_metrics(self, model):
         self._evaluate_sklearn_model_score_if_scorable(model, self.y_true, self.sample_weights)
 
+        print(f"{self.label_list}")
         if len(self.label_list) <= 2:
             metrics = _get_binary_classifier_metrics(
                 y_true=self.y_true,
