@@ -126,13 +126,13 @@ jobs:
           retention-days: 7
           if-no-files-found: error
 
-      - name: ⬇️ Download wheel here ⬇️
+      - name: Generate summary
         # if: github.event_name == 'workflow_dispatch'
         run: |
-          echo "# Download URL" >> $GITHUB_STEP_SUMMARY
+          echo "### Download URL" >> $GITHUB_STEP_SUMMARY
           echo "${{ steps.upload-wheel.outputs.artifact-url }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "# Notes" >> $GITHUB_STEP_SUMMARY
+          echo "### Notes" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "- The artifact will be deleted after 7 days." >> $GITHUB_STEP_SUMMARY
           echo "- Unzip the downloaded artifact to get the wheel." >> $GITHUB_STEP_SUMMARY
