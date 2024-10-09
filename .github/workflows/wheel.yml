@@ -40,7 +40,7 @@ jobs:
         run: |
           pip install build
           python dev/build.py --sha $(git rev-parse HEAD)
-          wheel_name=$(ls dist/*.whl)
+          wheel_name=$(basename $(ls dist/*.whl))
           echo "wheel_name=${wheel_name}" >> $GITHUB_OUTPUT
       - name: Test installation
         run: |
