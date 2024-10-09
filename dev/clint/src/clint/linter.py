@@ -54,6 +54,13 @@ class Rule:
     name: str
     message: str
 
+    def format(self, **kwargs: str) -> str:
+        return Rule(
+            self.id,
+            self.name,
+            self.message.format(**kwargs),
+        )
+
 
 @dataclass
 class Violation:
@@ -136,6 +143,12 @@ EXAMPLE_SYNTAX_ERROR = Rule(
     "This example has a syntax error.",
 )
 
+PARAM_MISMATCH = Rule(
+    "MLF0007",
+    "param-mismatch",
+    "Function arguments do not match docstring arguments: {args}.",
+)
+
 
 @dataclass
 class CodeBlock:
@@ -184,6 +197,48 @@ def _iter_code_blocks(docstring: str) -> Iterator[CodeBlock]:
     if code_lines:
         code = textwrap.dedent("\n".join(code_lines))
         yield CodeBlock(code=code, loc=code_block_loc)
+
+
+def _parse_docstring_args(docstring: str) -> set[str]:
+    args: set[str] = set()
+    args_indent: int | None = None
+    for line in docstring.split("\n"):
+        if args_indent is not None:
+            indent = _get_indent(line)
+
+            if 0 < indent <= args_indent:
+                break
+
+            if m := re.match(r"(\w+)", line[args_indent + 4 :]):
+                args.add(m.group(1))
+
+        elif line.lstrip().startswith("Args:"):
+            args_indent = _get_indent(line)
+
+    return args
+
+
+def _parse_func_args(func: ast.FunctionDef | ast.AsyncFunctionDef) -> set[str]:
+    args: set[str] = set()
+    for arg in func.args.posonlyargs:
+        args.add(arg.arg)
+
+    for arg in func.args.args:
+        args.add(arg.arg)
+
+    for arg in func.args.kwonlyargs:
+        args.add(arg.arg)
+
+    if func.args.vararg:
+        args.add(func.args.vararg.arg)
+
+    if func.args.kwarg:
+        args.add(func.args.kwarg.arg)
+
+    args.discard("self")
+    args.discard("cls")
+
+    return args
 
 
 class Linter(ast.NodeVisitor):
@@ -265,9 +320,19 @@ class Linter(ast.NodeVisitor):
                     )
                     self._check(loc, EXAMPLE_SYNTAX_ERROR)
 
+    def _param_mismatch(self, node: ast.FunctionDef | ast.AsyncFunctionDef) -> None:
+        if node.name.startswith("_"):
+            return
+        if docstring_node := self._docstring(node):
+            doc_args = _parse_docstring_args(docstring_node.value)
+            func_args = _parse_func_args(node)
+            if doc_args and (diff := doc_args.symmetric_difference(func_args)):
+                self._check(Location.from_node(node), PARAM_MISMATCH.format(args=diff))
+
     def visit_FunctionDef(self, node: ast.FunctionDef) -> None:
         self._test_name_typo(node)
         self._syntax_error_example(node)
+        self._param_mismatch(node)
         self.stack.append(node)
         self._no_rst(node)
         self.generic_visit(node)
@@ -276,6 +341,7 @@ class Linter(ast.NodeVisitor):
     def visit_AsyncFunctionDef(self, node: ast.AsyncFunctionDef) -> None:
         self._test_name_typo(node)
         self._syntax_error_example(node)
+        self._param_mismatch(node)
         self.stack.append(node)
         self._no_rst(node)
         self.generic_visit(node)
