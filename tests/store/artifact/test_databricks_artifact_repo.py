@@ -1550,10 +1550,16 @@ def test_download_trace_data(databricks_artifact_repo, cred_type):
     )
     cred = GetCredentialsForTraceDataUpload.Response(credential_info=cred_info)
     with mock.patch(
-        f"{DATABRICKS_ARTIFACT_REPOSITORY}._call_endpoint",
+        f"{DATABRICKS_ARTIFACT_REPOSITORY_PACKAGE}.call_endpoint",
         return_value=cred,
-    ), mock.patch("requests.Session.request", return_value=MockResponse(b'{"spans": []}')):
+    ) as mock_call_endpoint, mock.patch(
+        "requests.Session.request", return_value=MockResponse(b'{"spans": []}')
+    ) as mock_request:
         trace_data = databricks_artifact_repo.download_trace_data()
+        mock_call_endpoint.assert_called_once()
+        url = mock_call_endpoint.call_args.args[1]
+        assert MOCK_RUN_ID in url
+        mock_request.assert_called_once()
         assert TraceData.from_dict(trace_data) == TraceData(spans=[])
 
 
