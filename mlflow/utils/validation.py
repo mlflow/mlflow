@@ -272,8 +272,8 @@ def _validate_experiment_tag(key, value):
     Check that a tag with the specified key & value is valid and raise an exception if it isn't.
     """
     _validate_tag_name(key)
-    _validate_length_limit("tag.key", MAX_EXPERIMENT_TAG_KEY_LENGTH, key)
-    _validate_length_limit("tag.value", MAX_EXPERIMENT_TAG_VAL_LENGTH, value)
+    _validate_length_limit("key", MAX_EXPERIMENT_TAG_KEY_LENGTH, key)
+    _validate_length_limit("value", MAX_EXPERIMENT_TAG_VAL_LENGTH, value)
 
 
 def _validate_registered_model_tag(key, value):
