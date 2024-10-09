@@ -50,5 +50,5 @@ jobs:
           if-no-files-found: error
       - name: ⬇️ Download wheel here ⬇️
         run: |
-          echo -e "\033[1;33mMake sure to unzip the wheel after download!\033[0m"
+          echo -e "\033[1;33mMake sure to unzip the downloaded artifact!\033[0m"
           echo "Download URL: ${{ steps.upload-wheel.outputs.artifact-url }}"
