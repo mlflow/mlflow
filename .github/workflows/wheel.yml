@@ -1,4 +1,5 @@
-name: Build a wheel of MLflow and upload it as an artifact
+# Build a wheel of MLflow and upload it as an artifact.
+name: wheel
 
 on:
   pull_request:
