@@ -1665,8 +1665,8 @@ def evaluate(  # noqa: D417
 
         warnings.warn(
             "Model validation functionality is moved from `mlflow.evaluate` to the "
-            "`mlflow.evaluation.validate_evaluation_results()` API. The "
-            "`baseline_model` argument will be removed in the future release.",
+            "`mlflow.validate_evaluation_results()` API. The "
+            "`baseline_model` argument will be removed in a future release.",
             category=FutureWarning,
             stacklevel=2,
         )
