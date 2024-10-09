@@ -318,7 +318,7 @@ Harnessing the power of LLMs becomes effortless with flavors designed specifical
     sentence-transformers/index
     langchain/index
     llama-index/index
-    llama-index/dspy
+    dspy/index
 
 Explore the Native LLM Flavors
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

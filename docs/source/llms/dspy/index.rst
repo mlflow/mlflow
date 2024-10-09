@@ -215,24 +215,42 @@ FAQ
 
 How can I save a compiled vs. uncompiled model?
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-TODO
-* DSPy compiling effectively training the model, a variety of LLM parameters such as prompts, hyperparameters, and model weights are updated
-* You can log both a compiled and uncompiled model - it doesn't matte to MLflow
-* Pratically, you'll usually want to leverage a compiled model because it will theroetically perform better
+
+DSPy compiles models by updating various LLM parameters, such as prompts, hyperparameters, and 
+model weights, to optimize training. While MLflow allows logging both compiled and uncompiled 
+models, it's generally preferable to use a compiled model, as it is expected to perform better in 
+practice.
 
 What can be serialized by MLflow?
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-TODO
-* When running a :py:func:`mlflow.dspy.log_model` or :py:func:`mlflow.dspy.save_model` command in MLflow, the DSPy program is serialized meaning it's saved to the tracking server as a file
-* By wiritng to disk, we support easy productionzation
-* On the backend, MLflow uses cloudpickle for the DSPy flavor
-* Not all DSPy artifacts are seialiZABLE by MLflow
-* Notable things that are serialized include: a pkl fil containing the DSPy program artifact, a MLflow model signature, pip dependencies, the DSPy settings (service context which is stored in the pkl file)
-* Notable things that are not serialized include: API tokens (this should be set as environment variables and managed securely), the DSpy trace (it's only useful during training)
+
+When using :py:func:`mlflow.dspy.log_model` or :py:func:`mlflow.dspy.save_model` in MLflow, the 
+DSPy program is serialized and saved to the tracking server as a ``.pkl`` file. This enables easy 
+deployment. Under the hood, MLflow uses ``cloudpickle`` to serialize the DSPy object, but not all 
+DSPy artifacts are serializable. 
+
+Here are some relevant serialized artifacts that help you reproduce a DSPy program in another 
+environment.
+* A pickle file containing the DSPy program artifact
+* The DSPy settings, which are serialized in the above ``.pkl`` file
+* An MLflow model signature
+* A pip requirements file containing inferred or user-specified pip dependencies
+* `venv` and `conda` environment files.
+
+Here are some relevant objects that are **not** serialized and need to be handled by the user. 
+* API tokens. These should be managed separately and passed securely via environment variables.
+* The DSPy trace object, which is primarily used during training, not inference.
+
+How do I manage secrets?
+^^^^^^^^^^^^^^^^^^^^^^^^
+
+When serializing using the MLflow DSPy flavor, tokens are dropped from the settings objects. It is
+the user responsibility to securely pass the required secrets to the deployment environment. 
 
 How is the DSPy ``settings`` object saved?
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-TODO: check if tokens are dropped
-* To ensure reproducibility of the program, we store the service context
-* In short, we convert to a dict then pickle it with the model artifact
-* All this is managed behind the scenes
+
+To ensure program reproducibility, the service context is convert to a Python dictionary and 
+pickled with the model artifact. This entire process is handled automatically behind the scenes.
+
+Remember that your API keys are dropped.
