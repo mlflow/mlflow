@@ -36,10 +36,13 @@ jobs:
           yarn
           yarn build
       - name: Build wheel
+        id: build-wheel
         run: |
           pip install build
           python dev/build.py --sha $(git rev-parse HEAD)
+          wheel_path=$(find dist -type f -name "*.whl")
+          echo "wheel-path=${wheel_path}" >> $GITHUB_OUTPUT
       - uses: actions/upload-artifact@v4
         with:
-          path: dist/*.whl
+          path: ${{ steps.build-wheel.outputs.wheel-path }}
           retention-days: 7
