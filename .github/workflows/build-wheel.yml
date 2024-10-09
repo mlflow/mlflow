@@ -62,7 +62,7 @@ jobs:
         run: |
           # if workflow_dispatch is triggered, use the specified ref
           if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
-            SHA_OPT="--sha ${{ github.event.inputs.ref }}"
+            SHA_OPT="--sha $(git rev-parse HEAD)"
           else
             SHA_OPT=""
           fi
