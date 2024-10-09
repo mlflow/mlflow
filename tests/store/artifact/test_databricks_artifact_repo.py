@@ -1543,12 +1543,15 @@ class MockResponse:
         ArtifactCredentialType.GCP_SIGNED_URL,
     ],
 )
-def test_download_trace_data(databricks_artifact_repo, cred_type):
+def test_download_trace_data(databricks_artifact_repo, cred_type, monkeypatch):
     cred_info = ArtifactCredentialInfo(
         signed_uri=MOCK_AWS_SIGNED_URI,
         type=cred_type,
     )
     cred = GetCredentialsForTraceDataUpload.Response(credential_info=cred_info)
+
+    monkeypatch.setenv("DATABRICKS_HOST", "https://my.databricks.com")
+    monkeypatch.setenv("DATABRICKS_TOKEN", "token")
     with mock.patch(
         f"{DATABRICKS_ARTIFACT_REPOSITORY_PACKAGE}.call_endpoint",
         return_value=cred,
