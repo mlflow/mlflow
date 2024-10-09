@@ -2008,9 +2008,8 @@ def search_logged_models(
         order_by: List of dictionaries to specify the ordering of the search results. The following
             fields are supported:
 
-            field_name (str): Required. The name of the field to order by.
-            ascending: (bool): Optional. Sorting order. If True, sort in ascending order; if False,
-                sort in descending order. The default is True.
+            field_name (str): Required. Name of the field to order by, e.g. "metrics.accuracy".
+            ascending: (bool): Optional. Whether the order is ascending or not.
             dataset_name: (str): Optional. If ``field_name`` refers to a metric, this field
                 specifies the name of the dataset associated with the metric. Only metrics
                 associated with the specified dataset name will be considered for ordering.
