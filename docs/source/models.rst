@@ -179,7 +179,7 @@ that rely on external services (e.g., LangChain chains). Another benefit is that
 ``cloudpickle`` modules within Python, which can carry security risks when loading untrusted models.
 
 .. note::
-    This feature is only supported for **LangChain** and **PythonModel** models.
+    This feature is only supported for **LangChain**, **LlamaIndex**, and **PythonModel** models.
 
 In order to log a model from code, you can leverage the :py:func:`mlflow.models.set_model` API. This API allows you to define a model by specifying
 an instance of the model class directly within the file where the model is defined. When logging such a model, a

@@ -25,11 +25,11 @@ Why use LlamaIndex with MLflow?
 
 The integration of the LlamaIndex library with MLflow provides a seamless experience for managing and deploying LlamaIndex engines. The following are some of the key benefits of using LlamaIndex with MLflow:
 
-* `MLflow Tracking <../../tracking.html>`_ allows you to track your indices within MLflow and manage the many moving parts that comprise your LlamaIndex project, such as prompts, LLMs, retrievers, tools, global configurations, and more.
+* `MLflow Tracking <../../tracking.html>`_ allows you to track your indices within MLflow and manage the many moving parts that comprise your LlamaIndex project, such as prompts, LLMs, workflows, tools, global configurations, and more.
 
-* `MLflow Model <../../models.html>`_ packages your LlamaIndex engine with all its dependency versions, input and output interfaces, and other essential metadata. This allows you to deploy your LlamaIndex engine with ease, knowing that the environment is consistent across different stages of the ML lifecycle.
+* `MLflow Model <../../models.html>`_ packages your LlamaIndex index/engine/workflows with all its dependency versions, input and output interfaces, and other essential metadata. This allows you to deploy your LlamaIndex models for inference with ease, knowing that the environment is consistent across different stages of the ML lifecycle.
 
-* `MLflow Evaluate <../llm-evaluate/index.html>`_ provides native capabilities within MLflow to evaluate GenAI applications. This capability facilitates the efficient assessment of inference results from your LlamaIndex engine, ensuring robust performance analytics and facilitating quick iterations.
+* `MLflow Evaluate <../llm-evaluate/index.html>`_ provides native capabilities within MLflow to evaluate GenAI applications. This capability facilitates the efficient assessment of inference results from your LlamaIndex models, ensuring robust performance analytics and facilitating quick iterations.
 
 * `MLflow Tracing <../tracing/index.html>`_ is a powerful observability tool for monitoring and debugging what happens inside the LlamaIndex models, helping you identify potential bottlenecks or issues quickly. With its powerful automatic logging capability, you can instrument your LlamaIndex application without needing to add any code apart from running a single command.
 
@@ -38,17 +38,26 @@ The integration of the LlamaIndex library with MLflow provides a seamless experi
 Getting Started
 ---------------
 
-In this introductory tutorial, you will learn the most fundamental components of LlamaIndex and how to leverage the integration with MLflow to store, retrieve, and 
-use an index. 
+In these introductory tutorials, you will learn the most fundamental components of LlamaIndex and how to leverage the integration with MLflow to bring better maintainability and observability to your LlamaIndex applications.
 
 .. raw:: html
 
     <section>
         <article class="simple-grid">
             <div class="simple-card">
+                <a href="notebooks/llama_index_workflow_tutorial.html">
+                    <div class="header">
+                        LlamaIndex Workflows with MLflow
+                    </div>
+                    <p>
+                        Get started with MLflow and LLamaIndex by building a simple agentic Workflow. Learn how to log and load the Workflow for inference, as well as enable tracing for observability.
+                    </p>
+                </a>
+            </div>
+            <div class="simple-card">
                 <a href="notebooks/llama_index_quickstart.html">
                     <div class="header">
-                        LlamaIndex Quickstart
+                        Building Index with MLflow
                     </div>
                     <p>
                         Get started with MLflow and LlamaIndex by exploring the simplest possible index configuration of a VectorStoreIndex.
@@ -58,19 +67,32 @@ use an index.
         </article>
     </section>
 
+
 .. toctree::
     :maxdepth: 2
     :hidden:
 
+    notebooks/llama_index_workflow_tutorial.ipynb
     notebooks/llama_index_quickstart.ipynb
 
 Concepts
 --------
 
+.. note::
+
+    Workflow integration is only available in LlamaIndex >= 0.11.0 and MLflow >= 2.17.0.
+
+``Workflow`` 🆕
+^^^^^^^^^^^^^^^
+
+The ``Workflow`` is LlamaIndex's event-driven orchestration framework. It is designed
+as a flexible and interpretable framework for building arbitrary LLM applications such as an agent, a RAG flow, a data extraction pipeline, etc.
+MLflow supports tracking, evaluating, and tracing the ``Workflow`` objects, which makes them more observable and maintainable.
+
 ``Index``
 ^^^^^^^^^
 
-The ``Index`` object is the core foundation in LlamaIndex. This object is a collection of documents that are indexed for fast information retrieval, providing capabilities for applications such as Retrieval-Augmented Generation (RAG) and Agents. The ``Index`` object can be logged directly to an MLflow run and loaded back for use as an inference engine.
+The ``Index`` object is a collection of documents that are indexed for fast information retrieval, providing capabilities for applications such as Retrieval-Augmented Generation (RAG) and Agents. The ``Index`` object can be logged directly to an MLflow run and loaded back for use as an inference engine.
 
 
 ``Engine``
@@ -80,16 +102,20 @@ The ``Engine`` is a generic interface built on top of the ``Index`` object, whic
 query and returns a response based on the index. The ``ChatEngine`` is designed for conversational agents, which keeps track of the conversation history as well.
 
 
-``Retriever``
-^^^^^^^^^^^^^
+``Settings``
+^^^^^^^^^^^^
 
-The ``Retriever`` is a lower-level component built on top of the ``Index`` object. It is responsible for fetching the most relevant context given a user query (or chat message), and used as a building block for the ``ChatEngine`` and ``QueryEngine``. MLflow supports ``Retriever`` as a third engine type, which is useful for scenarios where you need more fine-grained control over the retrieval process in your application.
+The ``Settings`` object is a global service context that bundles commonly used resources throughout the
+LlamaIndex application. It includes settings such as the LLM model, embedding model, callbacks, and more. When logging a LlamaIndex index/engine/workflow, MLflow tracks 
+the state of the ``Settings`` object so that you can easily reproduce the same result when loading the model back for inference.
+
 
 Usage
 -----
 
 .. toctree::
     :maxdepth: 2
+
 
 Saving and Loading Index in MLflow Experiment
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -283,6 +309,40 @@ The logged index can be loaded back using the :py:func:`mlflow.llama_index.load_
 
     The object that is passed to the ``set_model()`` method must be a LlamaIndex index that is compatible with the engine type specified during logging. More
     objects support will be added in the future releases.
+
+
+How to log and load a LlamaIndex Workflow?
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Mlflow supports logging and loading a LlamaIndex Workflow via the `Model-from-Code <../../../models.html#models-from-code>`_ feature. For a detailed example of logging and loading a LlamaIndex Workflow, see the `LlamaIndex Workflows with MLflow <notebooks/llama_index_workflow_tutorial.html>`_ notebook.
+
+.. code-block:: python
+
+    import mlflow
+
+    with mlflow.start_run():
+        model_info = mlflow.llama_index.log_model(
+            "/path/to/workflow.py",
+            artifact_path="model",
+            input_example={"input": "What is MLflow?"},
+        )
+
+The logged workflow can be loaded back using the :py:func:`mlflow.llama_index.load_model` or :py:func:`mlflow.pyfunc.load_model` function.
+
+.. code-block:: python
+
+    # Use mlflow.llama_index.load_model to load the workflow object as is
+    workflow = mlflow.llama_index.load_model(model_info.model_uri)
+    await workflow.run(input="What is MLflow?")
+
+    # Use mlflow.pyfunc.load_model to load the workflow as a MLflow Pyfunc Model
+    # with standard inference APIs for deployment and evaluation.
+    pyfunc = mlflow.pyfunc.load_model(model_info.model_uri)
+    pyfunc.predict({"input": "What is MLflow?"})
+
+.. warning::
+
+    The MLflow PyFunc Model does not support async inference. When you load the workflow with :py:func:`mlflow.pyfunc.load_model`, the ``predict`` method becomes **synchronous** and will block until the workflow execution is completed. This also applies when deploying the logged LlamaIndex workflow to a production endpoint using `MLflow Deployment <https://mlflow.org/docs/latest/deployment/index.html>`_ or Databricks `Model Serving <https://docs.databricks.com/en/machine-learning/model-serving/index.html>`_.
 
 
 I have an index logged with ``query`` engine type. Can I load it back a ``chat`` engine?
