@@ -17,7 +17,6 @@ potentially outperforming prompts crafted by experts. This modularity also enabl
 exploration of complex pipelines, allowing for fine-tuning performance based on specific tasks or 
 nuanced metrics. 
 
-TODO image
 .. figure:: ../../_static/images/llms/dspy/dspy-integration-architecture.png
     :alt: Overview of DSPy and MLflow integration
     :width: 70%
@@ -30,12 +29,8 @@ Why use DSPy with MLflow?
 The native integration of the DSPy library with MLflow helps users manage the development lifecycle with DSPy. The following are some of the key benefits of using DSPy with MLflow:
 
 * `MLflow Tracking <../../tracking.html>`_ allows you to track your DSPy program's training and execution. With the MLflow APIs, you can log a variety of artifacts and organize training runs, thereby increasing visibility into your model performance.  
-
 * `MLflow Model <../../models.html>`_ packages your compiled DSPy program with all its dependency versions, input and output interfaces, and other essential metadata. This allows you to deploy your compiled DSPy program with ease, knowing that the environment is consistent across different stages of the ML lifecycle.
-
 * `MLflow Evaluate <../llm-evaluate/index.html>`_ provides native capabilities within MLflow to evaluate GenAI applications. This capability facilitates the efficient assessment of inference results from your DSPy compiled program, ensuring robust performance analytics and facilitating quick iterations.
-
-TODO: tracing is not included in this bullet list. We can leave it out and wait for official support or explain how to define a custom MLflow trace.
 
 Getting Started
 ---------------
@@ -43,7 +38,6 @@ Getting Started
 In this introductory tutorial, you will learn the most fundamental components of DSPy and how to leverage the integration with MLflow to store, retrieve, and 
 use an index. 
 
-TODO
 .. raw:: html
 
     <section>
@@ -185,7 +179,7 @@ gives an MLflow Python Model backed by the DSPy module.
     print(response)
 
 
-.. code-bock:: python 
+.. code-block:: python 
     :caption: Output
 
     {
