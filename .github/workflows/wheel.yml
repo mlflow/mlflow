@@ -46,8 +46,12 @@ jobs:
         run: |
           pip install --no-deps dist/*.whl
       - uses: actions/upload-artifact@v4
+        id: upload-wheel
         with:
           name: ${{ steps.build-wheel.outputs.wheel_name }}
           path: dist/*.whl
           retention-days: 7
           if-no-files-found: error
+      - name: ⬇️ Download wheel here ⬇️
+        run: |
+          echo "Artifact download URL: ${{ steps.upload-wheel.outputs.artifact_url }}"
