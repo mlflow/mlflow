@@ -117,10 +117,7 @@ def message_to_json(message):
     # By merging these two JSON dicts, we end up with a JSON dict where int64 proto fields are not
     # converted to JSON strings. Int64 keys in proto maps will always be converted to JSON strings
     # because JSON doesn't support non-string keys.
-    json_dict_with_int64_as_numbers = _merge_json_dicts(
-        json_dict_with_int64_fields_only, json_dict_with_int64_as_str
-    )
-    return json.dumps(json_dict_with_int64_as_numbers, indent=2)
+    return _merge_json_dicts(json_dict_with_int64_fields_only, json_dict_with_int64_as_str)
 
 
 def _stringify_all_experiment_ids(x):
