@@ -72,7 +72,7 @@ jobs:
           else
             PACKAGE_TYPE_OPT=""
           fi
-          python dev/build.py PACKAGE_TYPE_OPT $SHA_OPT
+          python dev/build.py $PACKAGE_TYPE_OPT $SHA_OPT
 
           # List distribution files and check their file sizes
           ls -lh dist
