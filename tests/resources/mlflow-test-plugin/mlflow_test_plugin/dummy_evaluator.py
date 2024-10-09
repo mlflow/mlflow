@@ -45,57 +45,53 @@ class DummyEvaluator(ModelEvaluator):
             ],
         )
 
-    def _evaluate(self, y_pred, is_baseline_model=False):
+    def _evaluate(self, y_pred):
         if self.model_type == "classifier":
             accuracy_score = sk_metrics.accuracy_score(self.y, y_pred)
 
             metrics = {"accuracy_score": accuracy_score}
             artifacts = {}
-            if not is_baseline_model:
-                self._log_metrics(self.run_id, metrics)
-                confusion_matrix = sk_metrics.confusion_matrix(self.y, y_pred)
-                confusion_matrix_artifact_name = "confusion_matrix"
-                confusion_matrix_artifact = Array2DEvaluationArtifact(
-                    uri=get_artifact_uri(self.run_id, confusion_matrix_artifact_name + ".csv"),
-                    content=confusion_matrix,
+            self._log_metrics(self.run_id, metrics)
+            confusion_matrix = sk_metrics.confusion_matrix(self.y, y_pred)
+            confusion_matrix_artifact_name = "confusion_matrix"
+            confusion_matrix_artifact = Array2DEvaluationArtifact(
+                uri=get_artifact_uri(self.run_id, confusion_matrix_artifact_name + ".csv"),
+                content=confusion_matrix,
+            )
+            confusion_matrix_csv_buff = io.StringIO()
+            confusion_matrix_artifact._save(confusion_matrix_csv_buff)
+            self.client.log_text(
+                self.run_id,
+                confusion_matrix_csv_buff.getvalue(),
+                confusion_matrix_artifact_name + ".csv",
+            )
+
+            confusion_matrix_figure = sk_metrics.ConfusionMatrixDisplay.from_predictions(
+                self.y, y_pred
+            ).figure_
+            img_buf = io.BytesIO()
+            confusion_matrix_figure.savefig(img_buf)
+            img_buf.seek(0)
+            confusion_matrix_image = Image.open(img_buf)
+
+            confusion_matrix_image_artifact_name = "confusion_matrix_image"
+            confusion_matrix_image_artifact = ImageEvaluationArtifact(
+                uri=get_artifact_uri(self.run_id, confusion_matrix_image_artifact_name + ".png"),
+                content=confusion_matrix_image,
+            )
+            with tempfile.TemporaryDirectory() as tmpdir:
+                path = os.path.join(tmpdir, confusion_matrix_image_artifact_name + ".png")
+                confusion_matrix_image_artifact._save(path)
+                self.client.log_image(
+                    self.run_id,
+                    confusion_matrix_image,
+                    confusion_matrix_image_artifact_name + ".png",
                 )
-                confusion_matrix_csv_buff = io.StringIO()
-                confusion_matrix_artifact._save(confusion_matrix_csv_buff)
-                if not is_baseline_model:
-                    self.client.log_text(
-                        self.run_id,
-                        confusion_matrix_csv_buff.getvalue(),
-                        confusion_matrix_artifact_name + ".csv",
-                    )
 
-                confusion_matrix_figure = sk_metrics.ConfusionMatrixDisplay.from_predictions(
-                    self.y, y_pred
-                ).figure_
-                img_buf = io.BytesIO()
-                confusion_matrix_figure.savefig(img_buf)
-                img_buf.seek(0)
-                confusion_matrix_image = Image.open(img_buf)
-
-                confusion_matrix_image_artifact_name = "confusion_matrix_image"
-                confusion_matrix_image_artifact = ImageEvaluationArtifact(
-                    uri=get_artifact_uri(
-                        self.run_id, confusion_matrix_image_artifact_name + ".png"
-                    ),
-                    content=confusion_matrix_image,
-                )
-                with tempfile.TemporaryDirectory() as tmpdir:
-                    path = os.path.join(tmpdir, confusion_matrix_image_artifact_name + ".png")
-                    confusion_matrix_image_artifact._save(path)
-                    self.client.log_image(
-                        self.run_id,
-                        confusion_matrix_image,
-                        confusion_matrix_image_artifact_name + ".png",
-                    )
-
-                artifacts = {
-                    confusion_matrix_artifact_name: confusion_matrix_artifact,
-                    confusion_matrix_image_artifact_name: confusion_matrix_image_artifact,
-                }
+            artifacts = {
+                confusion_matrix_artifact_name: confusion_matrix_artifact,
+                confusion_matrix_image_artifact_name: confusion_matrix_image_artifact,
+            }
         elif self.model_type == "regressor":
             mean_absolute_error = sk_metrics.mean_absolute_error(self.y, y_pred)
             mean_squared_error = sk_metrics.mean_squared_error(self.y, y_pred)
@@ -103,17 +99,14 @@ class DummyEvaluator(ModelEvaluator):
                 "mean_absolute_error": mean_absolute_error,
                 "mean_squared_error": mean_squared_error,
             }
-            if not is_baseline_model:
-                self._log_metrics(self.run_id, metrics)
+            self._log_metrics(self.run_id, metrics)
             artifacts = {}
         else:
             raise ValueError(f"Unsupported model type {self.model_type}")
 
         return EvaluationResult(metrics=metrics, artifacts=artifacts)
 
-    def evaluate(
-        self, *, model, model_type, dataset, run_id, evaluator_config, baseline_model=None, **kwargs
-    ):
+    def evaluate(self, *, model, model_type, dataset, run_id, evaluator_config, **kwargs):
         self.model_type = model_type
         self.client = MlflowClient()
         self.dataset = dataset
@@ -121,15 +114,4 @@ class DummyEvaluator(ModelEvaluator):
         self.X = dataset.features_data
         self.y = dataset.labels_data
         y_pred = model.predict(self.X) if model is not None else self.dataset.predictions_data
-        eval_result = self._evaluate(y_pred, is_baseline_model=False)
-
-        if not baseline_model:
-            return eval_result
-
-        y_pred_baseline = baseline_model.predict(self.X)
-        baseline_model_eval_result = self._evaluate(y_pred_baseline, is_baseline_model=True)
-        return EvaluationResult(
-            metrics=eval_result.metrics,
-            artifacts=eval_result.artifacts,
-            baseline_model_metrics=baseline_model_eval_result.metrics,
-        )
+        return self._evaluate(y_pred)

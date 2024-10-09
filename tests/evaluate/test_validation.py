@@ -26,14 +26,6 @@ from tests.evaluate.test_evaluation import (
 message_separator = "\n"
 
 
-class MockEvaluator(ModelEvaluator):
-    def can_evaluate(self, *, model_type, evaluator_config, **kwargs):
-        raise RuntimeError()
-
-    def evaluate(self, *, model, model_type, dataset, run_id, evaluator_config, **kwargs):
-        raise RuntimeError()
-
-
 @pytest.fixture
 def metric_threshold_class_test_spec(request):
     """
@@ -160,44 +152,6 @@ def faulty_baseline_model_param_test_spec(request):
 
 
 @pytest.mark.parametrize(
-    "faulty_baseline_model_param_test_spec",
-    [
-        ("min_relative_change_present"),
-        ("min_absolute_change_present"),
-        ("both_relative_absolute_change_present"),
-        ("baseline_model_is_not_string"),
-    ],
-    indirect=["faulty_baseline_model_param_test_spec"],
-)
-def test_validation_faulty_baseline_model(
-    multiclass_logistic_regressor_model_uri,
-    iris_dataset,
-    faulty_baseline_model_param_test_spec,
-):
-    (
-        validation_thresholds,
-        baseline_model,
-        expected_failure_message,
-    ) = faulty_baseline_model_param_test_spec
-
-    with mock.patch.object(
-        _model_evaluation_registry, "_registry", {"test_evaluator1": MockEvaluator}
-    ):
-        with pytest.raises(
-            MlflowException,
-            match=expected_failure_message,
-        ):
-            evaluate(
-                multiclass_logistic_regressor_model_uri,
-                data=iris_dataset._constructor_args["data"],
-                model_type="classifier",
-                targets=iris_dataset._constructor_args["targets"],
-                validation_thresholds=validation_thresholds,
-                baseline_model=baseline_model,
-            )
-
-
-@pytest.mark.parametrize(
     "validation_thresholds",
     [
         pytest.param(1, id="param_not_dict"),
@@ -207,25 +161,13 @@ def test_validation_faulty_baseline_model(
         pytest.param({"accuracy": 1}, id="value_not_metric_threshold"),
     ],
 )
-def test_validation_faulty_validation_thresholds(
-    multiclass_logistic_regressor_model_uri,
-    iris_dataset,
-    validation_thresholds,
-):
-    with mock.patch.object(
-        _model_evaluation_registry, "_registry", {"test_evaluator1": MockEvaluator}
-    ):
-        with pytest.raises(
-            MlflowException,
-            match="The validation thresholds argument",
-        ):
-            evaluate(
-                multiclass_logistic_regressor_model_uri,
-                data=iris_dataset._constructor_args["data"],
-                model_type="classifier",
-                targets=iris_dataset._constructor_args["targets"],
-                validation_thresholds=validation_thresholds,
-            )
+def test_validation_faulty_validation_thresholds(validation_thresholds):
+    with pytest.raises(MlflowException, match="The validation thresholds argument"):
+        mlflow.validate_evaluation_results(
+            candidate_result={},
+            baseline_result={},
+            validation_thresholds=validation_thresholds,
+        )
 
 
 @pytest.fixture
@@ -343,33 +285,31 @@ def test_validation_value_threshold_should_fail(
     value_threshold_test_spec,
 ):
     metrics, validation_thresholds, expected_validation_results = value_threshold_test_spec
+
+    MockEvaluator = mock.MagicMock(spec=ModelEvaluator)
+    MockEvaluator().can_evaluate.return_value = True
+    MockEvaluator().evaluate.return_value = EvaluationResult(metrics=metrics, artifacts={})
+
     with mock.patch.object(
         _model_evaluation_registry, "_registry", {"test_evaluator1": MockEvaluator}
     ):
-        evaluator1_config = {}
-        evaluator1_return_value = EvaluationResult(
-            metrics=metrics, artifacts={}, baseline_model_metrics=None
+        candidate_result = evaluate(
+            multiclass_logistic_regressor_model_uri,
+            data=iris_dataset._constructor_args["data"],
+            model_type="classifier",
+            targets=iris_dataset._constructor_args["targets"],
+            evaluators="test_evaluator1",
         )
-        expected_failure_message = message_separator.join(
-            map(str, list(expected_validation_results.values()))
+
+    with pytest.raises(
+        ModelValidationFailedException,
+        match=message_separator.join(map(str, list(expected_validation_results.values()))),
+    ):
+        mlflow.validate_evaluation_results(
+            candidate_result=candidate_result,
+            baseline_result=None,
+            validation_thresholds=validation_thresholds,
         )
-        with mock.patch.object(MockEvaluator, "can_evaluate", return_value=True), mock.patch.object(
-            MockEvaluator, "evaluate", return_value=evaluator1_return_value
-        ):
-            with pytest.raises(
-                ModelValidationFailedException,
-                match=expected_failure_message,
-            ):
-                evaluate(
-                    multiclass_logistic_regressor_model_uri,
-                    data=iris_dataset._constructor_args["data"],
-                    model_type="classifier",
-                    targets=iris_dataset._constructor_args["targets"],
-                    evaluators="test_evaluator1",
-                    evaluator_config=evaluator1_config,
-                    validation_thresholds=validation_thresholds,
-                    baseline_model=None,
-                )
 
 
 @pytest.mark.parametrize(
@@ -388,26 +328,27 @@ def test_validation_value_threshold_should_pass(
     value_threshold_test_spec,
 ):
     metrics, validation_thresholds, _ = value_threshold_test_spec
+
+    MockEvaluator = mock.MagicMock(spec=ModelEvaluator)
+    MockEvaluator().can_evaluate.return_value = True
+    MockEvaluator().evaluate.return_value = EvaluationResult(metrics=metrics, artifacts={})
+
     with mock.patch.object(
         _model_evaluation_registry, "_registry", {"test_evaluator1": MockEvaluator}
     ):
-        evaluator1_config = {}
-        evaluator1_return_value = EvaluationResult(
-            metrics=metrics, artifacts={}, baseline_model_metrics=None
+        candidate_result = evaluate(
+            multiclass_logistic_regressor_model_uri,
+            data=iris_dataset._constructor_args["data"],
+            model_type="classifier",
+            targets=iris_dataset._constructor_args["targets"],
+            evaluators="test_evaluator1",
         )
-        with mock.patch.object(MockEvaluator, "can_evaluate", return_value=True), mock.patch.object(
-            MockEvaluator, "evaluate", return_value=evaluator1_return_value
-        ):
-            evaluate(
-                multiclass_logistic_regressor_model_uri,
-                data=iris_dataset._constructor_args["data"],
-                model_type="classifier",
-                targets=iris_dataset._constructor_args["targets"],
-                evaluators="test_evaluator1",
-                evaluator_config=evaluator1_config,
-                validation_thresholds=validation_thresholds,
-                baseline_model=None,
-            )
+
+    mlflow.validate_evaluation_results(
+        candidate_result=candidate_result,
+        baseline_result=None,
+        validation_thresholds=validation_thresholds,
+    )
 
 
 @pytest.fixture
@@ -550,33 +491,40 @@ def test_validation_model_comparison_absolute_threshold_should_fail(
         expected_validation_results,
     ) = min_absolute_change_threshold_test_spec
 
+    MockEvaluator = mock.MagicMock(spec=ModelEvaluator)
+    MockEvaluator().can_evaluate.return_value = True
+    mock_evaluate = MockEvaluator().evaluate
+
     with mock.patch.object(
         _model_evaluation_registry, "_registry", {"test_evaluator1": MockEvaluator}
     ):
-        evaluator1_config = {}
-        evaluator1_return_value = EvaluationResult(
-            metrics=metrics, artifacts={}, baseline_model_metrics=baseline_model_metrics
+        common_kwargs = {
+            "data": iris_dataset._constructor_args["data"],
+            "model_type": "classifier",
+            "targets": iris_dataset._constructor_args["targets"],
+            "evaluators": "test_evaluator1",
+        }
+
+        mock_evaluate.return_value = EvaluationResult(metrics=metrics, artifacts={})
+        candidate_result = evaluate(multiclass_logistic_regressor_model_uri, **common_kwargs)
+
+        if baseline_model_metrics is None:
+            baseline_result = None
+        else:
+            mock_evaluate.return_value = EvaluationResult(
+                metrics=baseline_model_metrics, artifacts={}
+            )
+            baseline_result = evaluate(multiclass_logistic_regressor_model_uri, **common_kwargs)
+
+    with pytest.raises(
+        ModelValidationFailedException,
+        match=message_separator.join(map(str, list(expected_validation_results.values()))),
+    ):
+        mlflow.validate_evaluation_results(
+            candidate_result=candidate_result,
+            baseline_result=baseline_result,
+            validation_thresholds=validation_thresholds,
         )
-        expected_failure_message = message_separator.join(
-            map(str, list(expected_validation_results.values()))
-        )
-        with mock.patch.object(MockEvaluator, "can_evaluate", return_value=True), mock.patch.object(
-            MockEvaluator, "evaluate", return_value=evaluator1_return_value
-        ):
-            with pytest.raises(
-                ModelValidationFailedException,
-                match=expected_failure_message,
-            ):
-                evaluate(
-                    multiclass_logistic_regressor_model_uri,
-                    data=iris_dataset._constructor_args["data"],
-                    model_type="classifier",
-                    targets=iris_dataset._constructor_args["targets"],
-                    evaluators="test_evaluator1",
-                    evaluator_config=evaluator1_config,
-                    validation_thresholds=validation_thresholds,
-                    baseline_model=multiclass_logistic_regressor_model_uri,
-                )
 
 
 @pytest.mark.parametrize(
@@ -600,26 +548,32 @@ def test_validation_model_comparison_absolute_threshold_should_pass(
         validation_thresholds,
         _,
     ) = min_absolute_change_threshold_test_spec
+
+    MockEvaluator = mock.MagicMock(spec=ModelEvaluator)
+    MockEvaluator().can_evaluate.return_value = True
+    mock_evaluate = MockEvaluator().evaluate
+
     with mock.patch.object(
         _model_evaluation_registry, "_registry", {"test_evaluator1": MockEvaluator}
     ):
-        evaluator1_config = {}
-        evaluator1_return_value = EvaluationResult(
-            metrics=metrics, artifacts={}, baseline_model_metrics=baseline_model_metrics
-        )
-        with mock.patch.object(MockEvaluator, "can_evaluate", return_value=True), mock.patch.object(
-            MockEvaluator, "evaluate", return_value=evaluator1_return_value
-        ):
-            evaluate(
-                multiclass_logistic_regressor_model_uri,
-                data=iris_dataset._constructor_args["data"],
-                model_type="classifier",
-                targets=iris_dataset._constructor_args["targets"],
-                evaluators="test_evaluator1",
-                evaluator_config=evaluator1_config,
-                validation_thresholds=validation_thresholds,
-                baseline_model=multiclass_logistic_regressor_model_uri,
-            )
+        common_kwargs = {
+            "data": iris_dataset._constructor_args["data"],
+            "model_type": "classifier",
+            "targets": iris_dataset._constructor_args["targets"],
+            "evaluators": "test_evaluator1",
+        }
+
+        mock_evaluate.return_value = EvaluationResult(metrics=metrics, artifacts={})
+        candidate_result = evaluate(multiclass_logistic_regressor_model_uri, **common_kwargs)
+
+        mock_evaluate.return_value = EvaluationResult(metrics=baseline_model_metrics, artifacts={})
+        baseline_result = evaluate(multiclass_logistic_regressor_model_uri, **common_kwargs)
+
+    mlflow.validate_evaluation_results(
+        candidate_result=candidate_result,
+        baseline_result=baseline_result,
+        validation_thresholds=validation_thresholds,
+    )
 
 
 @pytest.fixture
@@ -783,33 +737,40 @@ def test_validation_model_comparison_relative_threshold_should_fail(
         expected_validation_results,
     ) = min_relative_change_threshold_test_spec
 
+    MockEvaluator = mock.MagicMock(spec=ModelEvaluator)
+    MockEvaluator().can_evaluate.return_value = True
+    mock_evaluate = MockEvaluator().evaluate
+
     with mock.patch.object(
         _model_evaluation_registry, "_registry", {"test_evaluator1": MockEvaluator}
     ):
-        evaluator1_config = {}
-        evaluator1_return_value = EvaluationResult(
-            metrics=metrics, artifacts={}, baseline_model_metrics=baseline_model_metrics
-        )
-        expected_failure_message = message_separator.join(
-            map(str, list(expected_validation_results.values()))
-        )
-        with mock.patch.object(MockEvaluator, "can_evaluate", return_value=True), mock.patch.object(
-            MockEvaluator, "evaluate", return_value=evaluator1_return_value
+        common_kwargs = {
+            "data": iris_dataset._constructor_args["data"],
+            "model_type": "classifier",
+            "targets": iris_dataset._constructor_args["targets"],
+            "evaluators": "test_evaluator1",
+        }
+
+        mock_evaluate.return_value = EvaluationResult(metrics=metrics, artifacts={})
+        candidate_result = evaluate(multiclass_logistic_regressor_model_uri, **common_kwargs)
+
+        if baseline_model_metrics is None:
+            baseline_result = None
+        else:
+            mock_evaluate.return_value = EvaluationResult(
+                metrics=baseline_model_metrics, artifacts={}
+            )
+            baseline_result = evaluate(multiclass_logistic_regressor_model_uri, **common_kwargs)
+
+        with pytest.raises(
+            ModelValidationFailedException,
+            match=message_separator.join(map(str, list(expected_validation_results.values()))),
         ):
-            with pytest.raises(
-                ModelValidationFailedException,
-                match=expected_failure_message,
-            ):
-                evaluate(
-                    multiclass_logistic_regressor_model_uri,
-                    data=iris_dataset._constructor_args["data"],
-                    model_type="classifier",
-                    targets=iris_dataset._constructor_args["targets"],
-                    evaluators="test_evaluator1",
-                    evaluator_config=evaluator1_config,
-                    validation_thresholds=validation_thresholds,
-                    baseline_model=multiclass_logistic_regressor_model_uri,
-                )
+            mlflow.validate_evaluation_results(
+                candidate_result=candidate_result,
+                baseline_result=baseline_result,
+                validation_thresholds=validation_thresholds,
+            )
 
 
 @pytest.mark.parametrize(
@@ -834,26 +795,32 @@ def test_validation_model_comparison_relative_threshold_should_pass(
         validation_thresholds,
         _,
     ) = min_relative_change_threshold_test_spec
+
+    MockEvaluator = mock.MagicMock(spec=ModelEvaluator)
+    MockEvaluator().can_evaluate.return_value = True
+    mock_evaluate = MockEvaluator().evaluate
+
     with mock.patch.object(
         _model_evaluation_registry, "_registry", {"test_evaluator1": MockEvaluator}
     ):
-        evaluator1_config = {}
-        evaluator1_return_value = EvaluationResult(
-            metrics=metrics, artifacts={}, baseline_model_metrics=baseline_model_metrics
-        )
-        with mock.patch.object(MockEvaluator, "can_evaluate", return_value=True), mock.patch.object(
-            MockEvaluator, "evaluate", return_value=evaluator1_return_value
-        ):
-            evaluate(
-                multiclass_logistic_regressor_model_uri,
-                data=iris_dataset._constructor_args["data"],
-                model_type="classifier",
-                targets=iris_dataset._constructor_args["targets"],
-                evaluators="test_evaluator1",
-                evaluator_config=evaluator1_config,
-                validation_thresholds=validation_thresholds,
-                baseline_model=multiclass_logistic_regressor_model_uri,
-            )
+        common_kwargs = {
+            "data": iris_dataset._constructor_args["data"],
+            "model_type": "classifier",
+            "targets": iris_dataset._constructor_args["targets"],
+            "evaluators": "test_evaluator1",
+        }
+
+        mock_evaluate.return_value = EvaluationResult(metrics=metrics, artifacts={})
+        candidate_result = evaluate(multiclass_logistic_regressor_model_uri, **common_kwargs)
+
+        mock_evaluate.return_value = EvaluationResult(metrics=baseline_model_metrics, artifacts={})
+        baseline_result = evaluate(multiclass_logistic_regressor_model_uri, **common_kwargs)
+
+    mlflow.validate_evaluation_results(
+        candidate_result=candidate_result,
+        baseline_result=baseline_result,
+        validation_thresholds=validation_thresholds,
+    )
 
 
 @pytest.fixture
@@ -908,35 +875,35 @@ def test_validation_multi_thresholds_should_fail(
         expected_validation_results,
     ) = multi_thresholds_test_spec
 
+    MockEvaluator = mock.MagicMock(spec=ModelEvaluator)
+    MockEvaluator().can_evaluate.return_value = True
+    mock_evaluate = MockEvaluator().evaluate
+
     with mock.patch.object(
         _model_evaluation_registry, "_registry", {"test_evaluator1": MockEvaluator}
     ):
-        evaluator1_config = {}
-        evaluator1_return_value = EvaluationResult(
-            metrics=metrics, artifacts={}, baseline_model_metrics=baseline_model_metrics
+        common_kwargs = {
+            "data": iris_dataset._constructor_args["data"],
+            "model_type": "classifier",
+            "targets": iris_dataset._constructor_args["targets"],
+            "evaluators": "test_evaluator1",
+        }
+
+        mock_evaluate.return_value = EvaluationResult(metrics=metrics, artifacts={})
+        candidate_result = evaluate(multiclass_logistic_regressor_model_uri, **common_kwargs)
+
+        mock_evaluate.return_value = EvaluationResult(metrics=baseline_model_metrics, artifacts={})
+        baseline_result = evaluate(multiclass_logistic_regressor_model_uri, **common_kwargs)
+
+    with pytest.raises(
+        ModelValidationFailedException,
+        match=message_separator.join(map(str, list(expected_validation_results.values()))),
+    ):
+        mlflow.validate_evaluation_results(
+            candidate_result=candidate_result,
+            baseline_result=baseline_result,
+            validation_thresholds=validation_thresholds,
         )
-        expected_failure_message = message_separator.join(
-            map(str, list(expected_validation_results.values()))
-        )
-        with mock.patch.object(
-            MockEvaluator, "can_evaluate", return_value=True
-        ) as _, mock.patch.object(
-            MockEvaluator, "evaluate", return_value=evaluator1_return_value
-        ) as _:
-            with pytest.raises(
-                ModelValidationFailedException,
-                match=expected_failure_message,
-            ):
-                evaluate(
-                    multiclass_logistic_regressor_model_uri,
-                    data=iris_dataset._constructor_args["data"],
-                    model_type="classifier",
-                    targets=iris_dataset._constructor_args["targets"],
-                    evaluators="test_evaluator1",
-                    evaluator_config=evaluator1_config,
-                    validation_thresholds=validation_thresholds,
-                    baseline_model=multiclass_logistic_regressor_model_uri,
-                )
 
 
 def test_validation_thresholds_no_mock():
@@ -955,11 +922,23 @@ def test_validation_thresholds_no_mock():
         base = mlflow.pyfunc.log_model("base", python_model=BaseModel())
         candidate = mlflow.pyfunc.log_model("candidate", python_model=CandidateModel())
 
-    evaluate(
-        candidate.model_uri,
-        data=data,
-        model_type="classifier",
-        targets=targets,
+        candidate_result = evaluate(
+            candidate.model_uri,
+            data=data,
+            model_type="classifier",
+            targets=targets,
+        )
+
+        baseline_result = evaluate(
+            base.model_uri,
+            data=data,
+            model_type="classifier",
+            targets=targets,
+        )
+
+    mlflow.validate_evaluation_results(
+        candidate_result=candidate_result,
+        baseline_result=baseline_result,
         validation_thresholds={
             "recall_score": MetricThreshold(
                 threshold=0.9,
@@ -967,15 +946,47 @@ def test_validation_thresholds_no_mock():
                 greater_is_better=True,
             ),
         },
-        baseline_model=base.model_uri,
     )
 
     with pytest.raises(
         ModelValidationFailedException,
         match="recall_score value threshold check failed",
     ):
+        mlflow.validate_evaluation_results(
+            candidate_result=baseline_result,
+            baseline_result=candidate_result,
+            validation_thresholds={
+                "recall_score": MetricThreshold(
+                    threshold=0.9,
+                    min_absolute_change=0.1,
+                    greater_is_better=True,
+                ),
+            },
+        )
+
+
+def test_legacy_validation_within_evaluate():
+    # Test legacy validation within mlflow.evaluate(). This is deprecated
+    # in favor of the new mlflow.mlflow.validate_evaluation_results API but we
+    # keep backward compatibility until it is entirely removed.
+    targets = [0, 1, 1, 1]
+    data = [[random.random()] for _ in targets]
+
+    class BaseModel(mlflow.pyfunc.PythonModel):
+        def predict(self, context, model_input):
+            return len(model_input) * [0]
+
+    class CandidateModel(mlflow.pyfunc.PythonModel):
+        def predict(self, context, model_input):
+            return len(model_input) * [1]
+
+    with mlflow.start_run():
+        base = mlflow.pyfunc.log_model("base", python_model=BaseModel())
+        candidate = mlflow.pyfunc.log_model("candidate", python_model=CandidateModel())
+
+    with mlflow.start_run():
         evaluate(
-            base.model_uri,
+            candidate.model_uri,
             data=data,
             model_type="classifier",
             targets=targets,
@@ -986,5 +997,25 @@ def test_validation_thresholds_no_mock():
                     greater_is_better=True,
                 ),
             },
-            baseline_model=candidate.model_uri,
+            baseline_model=base.model_uri,
         )
+
+    with pytest.raises(
+        ModelValidationFailedException,
+        match="recall_score value threshold check failed",
+    ):
+        with mlflow.start_run():
+            evaluate(
+                base.model_uri,
+                data=data,
+                model_type="classifier",
+                targets=targets,
+                validation_thresholds={
+                    "recall_score": MetricThreshold(
+                        threshold=0.9,
+                        min_absolute_change=0.1,
+                        greater_is_better=True,
+                    ),
+                },
+                baseline_model=candidate.model_uri,
+            )

@@ -2800,13 +2800,18 @@ The following example uses :py:func:`mlflow.evaluate()` to evaluate a static dat
 Performing Model Validation
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-You can also use the :py:func:`mlflow.evaluate()` API to perform some checks on the metrics
-generated during model evaluation to validate the quality of your model. By specifying a
-``validation_thresholds`` dictionary mapping metric names to :py:class:`mlflow.models.MetricThreshold`
-objects, you can specify value thresholds that your model's evaluation metrics must exceed as well
-as absolute and relative gains your model must have in comparison to a specified
-``baseline_model``. If your model fails to clear specified thresholds, :py:func:`mlflow.evaluate()`
-will throw a ``ModelValidationFailedException`` detailing the validation failure.
+.. attention::
+
+    MLflow 2.18.0 has moved the model validation functionality from the :py:func:`mlflow.evaluate()` API to a dedicated :py:func:`mlflow.validate_evaluation_results()` API. The relevant parameters, such as baseline_model, are deprecated and will be removed from the older API in future versions.
+
+With the :py:func:`mlflow.validate_evaluation_results()` API, you can validate metrics generated during model evaluation to assess the quality of your model against a baseline. To achieve this, first evaluate both the candidate and baseline models using :py:func:`mlflow.evaluate()` (or load persisted evaluation results from local storage). Then, pass the results along with a validation_thresholds dictionary that maps metric names to :py:class:`mlflow.models.MetricThreshold` objects. If your model fails to meet the specified thresholds, :py:func:`mlflow.validate_evaluation_results()` will raise a ``ModelValidationFailedException`` with details about the validation failure.
+
+More information on model evaluation behavior and outputs can be found in the :py:func:`mlflow.evaluate()` API documentation.
+
+Validating a Model Agasint a Baseline Model
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Below is an example of how to validate a candidate model's performance against a baseline using predefined thresholds.
 
 .. code-block:: python
 
@@ -2815,7 +2820,6 @@ will throw a ``ModelValidationFailedException`` detailing the validation failure
     from sklearn.model_selection import train_test_split
     from sklearn.dummy import DummyClassifier
     import mlflow
-    from mlflow.models import infer_signature
     from mlflow.models import MetricThreshold
 
     # load UCI Adult Data Set; segment it into training and test sets
@@ -2824,18 +2828,39 @@ will throw a ``ModelValidationFailedException`` detailing the validation failure
         X, y, test_size=0.33, random_state=42
     )
 
-    # train a candidate XGBoost model
-    candidate_model = xgboost.XGBClassifier().fit(X_train, y_train)
-
-    # train a baseline dummy model
-    baseline_model = DummyClassifier(strategy="uniform").fit(X_train, y_train)
-
-    # create signature that is shared by the two models
-    signature = infer_signature(X_test, y_test)
-
     # construct an evaluation dataset from the test set
     eval_data = X_test
     eval_data["label"] = y_test
+
+    # Log and evaluate the candidate model
+    candidate_model = xgboost.XGBClassifier().fit(X_train, y_train)
+
+    with mlflow.start_run(run_name="candidate") as run:
+        candidate_model_uri = mlflow.sklearn.log_model(
+            candidate_model, "candidate_model", signature=signature
+        ).model_uri
+
+        candidate_result = mlflow.evaluate(
+            candidate_model_uri,
+            eval_data,
+            targets="label",
+            model_type="classifier",
+        )
+
+    # Log and evaluate the baseline model
+    baseline_model = DummyClassifier(strategy="uniform").fit(X_train, y_train)
+
+    with mlflow.start_run(run_name="baseline") as run:
+        baseline_model_uri = mlflow.sklearn.log_model(
+            baseline_model, "baseline_model", signature=signature
+        ).model_uri
+
+        baseline_result = mlflow.evaluate(
+            baseline_model_uri,
+            eval_data,
+            targets="label",
+            model_type="classifier",
+        )
 
     # Define criteria for model to be validated against
     thresholds = {
@@ -2847,43 +2872,72 @@ will throw a ``ModelValidationFailedException`` detailing the validation failure
         ),
     }
 
-    with mlflow.start_run() as run:
-        candidate_model_uri = mlflow.sklearn.log_model(
-            candidate_model, "candidate_model", signature=signature
-        ).model_uri
-        baseline_model_uri = mlflow.sklearn.log_model(
-            baseline_model, "baseline_model", signature=signature
-        ).model_uri
-
-        mlflow.evaluate(
-            candidate_model_uri,
-            eval_data,
-            targets="label",
-            model_type="classifier",
-            validation_thresholds=thresholds,
-            baseline_model=baseline_model_uri,
-        )
+    # Validate the candidate model agaisnt baseline
+    mlflow.validate_evaluation_results(
+        candidate_result=candidate_result,
+        baseline_result=baseline_result,
+        validation_thresholds=thresholds,
+    )
 
 Refer to :py:class:`mlflow.models.MetricThreshold` to see details on how the thresholds are specified
-and checked. For a more comprehensive demonstration on how to use :py:func:`mlflow.evaluate()` to perform model validation, refer to
-`the Model Validation example from the MLflow GitHub Repository
-<https://github.com/mlflow/mlflow/blob/master/examples/evaluation/evaluate_with_model_validation.py>`_.
+and checked.
 
-The logged output within the MLflow UI for the comprehensive example is shown below. Note the two model artifacts that have
-been logged: 'baseline_model' and 'candidate_model' for comparison purposes in the example.
+The logged output within the MLflow UI for the comprehensive example is shown below.
 
 |eval_importance_compare_img|
 
 .. |eval_importance_compare_img| image:: _static/images/model_evaluation_compare_feature_importance.png
    :width: 99%
 
-.. note:: Limitations (when the default evaluator is used):
+.. note::
 
-    - Model validation results are not included in the active MLflow run.
-    - No metrics are logged nor artifacts produced for the baseline model in the active MLflow run.
+    Model validation results are not included in the active MLflow run.
 
-Additional information about model evaluation behaviors and outputs is available in the
-:py:func:`mlflow.evaluate()` API docs.
+Validating a Model Against Static Thresholds
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The :py:func:`mlflow.validate_evaluation_results()` API can also be used to validate a candidate model against static thresholds, instead of comparing it to a baseline model, by passing ``None`` to the ``baseline_result`` parameter.
+
+.. code-block:: python
+
+    import mlflow
+    from mlflow.models import MetricThreshold
+
+    thresholds = {
+        "accuracy_score": MetricThreshold(
+            threshold=0.8,  # accuracy should be >=0.8
+            greater_is_better=True,
+        ),
+    }
+
+    # Validate the candidate model agaisnt static threshold
+    mlflow.validate_evaluation_results(
+        candidate_result=candidate_result,
+        baseline_result=None,
+        validation_thresholds=thresholds,
+    )
+
+Reusing Baseline Result For Multiple Validations
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The :py:class:`mlflow.models.EvaluationResult` object returned by :py:func:`mlflow.evaluate()` can be saved to and loaded from local storage. This feature allows you to reuse the same baseline result across different candidate models, which is particularly useful for automating model quality monitoring.
+
+.. code-block:: python
+
+    import mlflow
+    from mlflow.models.evaluation import EvaluationResult
+
+    baseline_result = mlflow.evaluate(
+        baseline_model_uri,
+        eval_data,
+        targets="label",
+        model_type="classifier",
+    )
+    baseline_result.save("RESULT_PATH")
+
+    # Load the evaluation result for validation
+    baseline_result = EvaluationResult.load("RESULT_PATH")
+
 
 .. note:: There are plugins that support in-depth model validation with features that are not supported
     directly in MLflow. To learn more, see:
