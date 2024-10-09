@@ -33,7 +33,6 @@ jobs:
           yarn
           yarn build
       - name: Build wheel
-        id: build-wheel
         run: |
           pip install build
           python dev/build.py --sha $(git rev-parse HEAD)
