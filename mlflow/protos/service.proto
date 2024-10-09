@@ -576,7 +576,7 @@ service MlflowService {
   rpc searchLoggedModels (SearchLoggedModels) returns (SearchLoggedModels.Response) {
     option (rpc) = {
       endpoints: [{
-        method: "GET",
+        method: "POST",
         path: "/mlflow/logged-models"
         since { major: 2, minor: 0 },
       }],
