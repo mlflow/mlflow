@@ -36,13 +36,18 @@ jobs:
           yarn
           yarn build
       - name: Build wheel
+        id: build-wheel
         run: |
           pip install build
           python dev/build.py --sha $(git rev-parse HEAD)
+          wheel_name=$(ls dist/*.whl)
+          echo "wheel_name=${wheel_name}" >> $GITHUB_OUTPUT
       - name: Test installation
         run: |
           pip install --no-deps dist/*.whl
       - uses: actions/upload-artifact@v4
         with:
+          name: ${{ steps.build-wheel.outputs.wheel_name }}
           path: dist/*.whl
           retention-days: 7
+          if-no-files-found: error
