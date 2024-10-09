@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useIntl } from 'react-intl';
 import { EXPERIMENT_PAGE_QUERY_PARAM_KEYS, useUpdateExperimentPageSearchFacets } from './useExperimentPageSearchFacets';
 import { pick } from 'lodash';
-import { EXPERIMENT_PAGE_UI_STATE_FIELDS, ExperimentPageUIState } from '../models/ExperimentPageUIState';
+import { createExperimentPageUIState, ExperimentPageUIState } from '../models/ExperimentPageUIState';
 import { ExperimentPageSearchFacetsState } from '../models/ExperimentPageSearchFacetsState';
 import { ExperimentEntity, KeyValueEntity } from '../../../types';
 import { useNavigate, useSearchParams } from '../../../../common/utils/RoutingUtils';
@@ -63,7 +63,7 @@ export const useSharedExperimentViewState = (
         ) as ExperimentPageSearchFacetsState;
 
         // Then, extract UI state part of the shared view state
-        const sharedUiState = pick(parsedSharedViewState, EXPERIMENT_PAGE_UI_STATE_FIELDS) as ExperimentPageUIState;
+        const sharedUiState = pick(parsedSharedViewState, Object.keys(createExperimentPageUIState())) as ExperimentPageUIState;
 
         setSharedSearchFacetsState(sharedSearchFacetsState);
         setSharedUiState(sharedUiState);
