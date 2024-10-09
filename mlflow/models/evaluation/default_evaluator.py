@@ -1,6 +1,4 @@
-from abc import abstractmethod
 import copy
-import functools
 import inspect
 import json
 import logging
@@ -9,16 +7,25 @@ import pickle
 import shutil
 import tempfile
 import traceback
+import warnings
+from abc import abstractmethod
+from typing import Any, Callable, List, NamedTuple, Optional, Tuple, Union
+
 import numpy as np
 import pandas as pd
-from typing import Any, Callable, Dict, List, NamedTuple, Optional, Tuple, Union
-import warnings
-from mlflow import MlflowClient, MlflowException
+
 import mlflow
+from mlflow import MlflowClient, MlflowException
 from mlflow.data.evaluation_dataset import EvaluationDataset
 from mlflow.entities.metric import Metric
 from mlflow.metrics.base import MetricValue
-from mlflow.models.evaluation.artifacts import CsvEvaluationArtifact, ImageEvaluationArtifact, JsonEvaluationArtifact, NumpyEvaluationArtifact, _infer_artifact_type_and_ext
+from mlflow.models.evaluation.artifacts import (
+    CsvEvaluationArtifact,
+    ImageEvaluationArtifact,
+    JsonEvaluationArtifact,
+    NumpyEvaluationArtifact,
+    _infer_artifact_type_and_ext,
+)
 from mlflow.models.evaluation.base import EvaluationMetric, EvaluationResult, ModelEvaluator
 from mlflow.models.evaluation.utils.metric import MetricDefinition
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
@@ -50,6 +57,7 @@ def _extract_raw_model(model):
         return model_loader_module, model._model_impl
     else:
         return model_loader_module, None
+
 
 def _extract_predict_fn(model: Any) -> Optional[Callable]:
     """
@@ -117,6 +125,7 @@ _matplotlib_config = {
     "font.size": 8,
 }
 
+
 class _CustomArtifact(NamedTuple):
     """
     A namedtuple representing a custom artifact function and its properties.
@@ -175,30 +184,28 @@ def _evaluate_custom_artifacts(custom_artifact_tuple, eval_df, builtin_metrics):
     return artifacts
 
 
-
 class BuiltInEvaluator(ModelEvaluator):
     """
     The base class for all evaluators that are built-in to MLflow.
 
-    Each evaluator is responsible for implementing the `_evaluate()` method, which is called by the
-    `evaluate()` method of this class. This class contains many helper methods that are used commonly
-    across all evaluators, such as logging metrics, logging artifacts, and ordering metrics.
+    Each evaluator is responsible for implementing the `_evaluate()` method, which is called by
+    the `evaluate()` method of this base class. This class contains many helper methods used
+    across built-in evaluators, such as logging metrics, artifacts, and ordering metrics.
     """
+
     def __init__(self):
         self.client = MlflowClient()
-
 
     @abstractmethod
     def _evaluate(
         self,
         model: Optional["mlflow.pyfunc.PyFuncModel"],
         extra_metrics: List[EvaluationMetric],
-        custom_artifacts = None,
+        custom_artifacts=None,
         **kwargs,
     ) -> EvaluationResult:
         """Implement the evaluation logic for each evaluator."""
         raise NotImplementedError
-
 
     def log_metrics(self):
         """
@@ -354,7 +361,7 @@ class BuiltInEvaluator(ModelEvaluator):
         arguments from the input/output columns, other calculated metrics, and evaluator_config.
 
         Args:
-            metric_tuple: The metric tuple containing a user provided function and its index
+            metric: The metric definition containing a user provided function and its index
                 in the ``extra_metrics`` parameter of ``mlflow.evaluate``.
             eval_df: The evaluation dataframe containing the prediction and target columns.
             input_df: The input dataframe containing the features used to make predictions.
@@ -443,15 +450,13 @@ class BuiltInEvaluator(ModelEvaluator):
             return False, params_not_found
         return True, eval_fn_args
 
-
     def evaluate_and_log_custom_artifacts(
         self,
         custom_artifacts: List[_CustomArtifact],
         prediction: pd.Series,
-        target: Optional[np.array] = None
+        target: Optional[np.array] = None,
     ):
-        """
-        """
+        """ """
         if not custom_artifacts:
             return
 
@@ -521,11 +526,10 @@ class BuiltInEvaluator(ModelEvaluator):
 
         return "\n".join(l.lstrip() for l in full_message.splitlines())
 
-
-    def _raise_exception_for_malformed_metrics(self, malformed_results, eval_df, other_output_df):
-        output_columns = (
-            [] if other_output_df is None else list(other_output_df.columns)
-        )
+    def _raise_exception_for_malformed_metrics(
+            self, malformed_results, eval_df, other_output_df
+        ):
+        output_columns = [] if other_output_df is None else list(other_output_df.columns)
         if self.predictions:
             output_columns.append(self.predictions)
         elif self.dataset.predictions_name:
@@ -557,16 +561,19 @@ class BuiltInEvaluator(ModelEvaluator):
             eval_df["target"] = target
         return eval_df
 
-    # to order the metrics, we append metrics to self.ordered_metrics if they can be calculated
-    # given the metrics that will be calculated before it
-    # we stop when all metrics are in self.ordered_metrics or we cannot "calculate" any more metrics
-    # and raise an exception in the latter case
     def _order_metrics(
         self,
         metrics: List[EvaluationMetric],
         eval_df: pd.DataFrame,
         other_output_df: Optional[pd.DataFrame],
     ):
+        """
+        Order the list metrics so they can be computed in sequence.
+
+        Some metrics might use the results of other metrics to compute their own results. This
+        function iteratively resolve this dependency, by checking if each metric can be computed
+        with the current available columns and metrics values.
+        """
         remaining_metrics = metrics
         input_df = self.X.copy_to_avoid_mutation()
 
@@ -587,13 +594,20 @@ class BuiltInEvaluator(ModelEvaluator):
 
             # cant calculate any more metrics
             if not did_append_metric:
-                self._raise_exception_for_malformed_metrics(failed_results, eval_df, other_output_df)
+                self._raise_exception_for_malformed_metrics(
+                    failed_results, eval_df, other_output_df
+                )
 
             remaining_metrics = pending_metrics
 
         return self.ordered_metrics
 
-    def _test_first_row(self, metrics: List[MetricDefinition], eval_df: pd.DataFrame, other_output_df: Optional[pd.DataFrame]):
+    def _test_first_row(
+        self,
+        metrics: List[MetricDefinition],
+        eval_df: pd.DataFrame,
+        other_output_df: Optional[pd.DataFrame],
+    ):
         # test calculations on first row of eval_df
         _logger.info("Testing metrics on first row...")
         exceptions = []
@@ -606,11 +620,7 @@ class BuiltInEvaluator(ModelEvaluator):
                 )
                 metric_value = metric.evaluate(eval_fn_args)
                 if metric_value:
-                    name = (
-                        f"{metric.name}/{metric.version}"
-                        if metric.version
-                        else metric.name
-                    )
+                    name = f"{metric.name}/{metric.version}" if metric.version else metric.name
                     self.metrics_values.update({name: metric_value})
             except Exception as e:
                 stacktrace_str = traceback.format_exc()
@@ -619,9 +629,7 @@ class BuiltInEvaluator(ModelEvaluator):
                         f"Metric '{metric.name}': Error:\n{e.message}\n{stacktrace_str}"
                     )
                 else:
-                    exceptions.append(
-                        f"Metric '{metric.name}': Error:\n{e!r}\n{stacktrace_str}"
-                    )
+                    exceptions.append(f"Metric '{metric.name}': Error:\n{e!r}\n{stacktrace_str}")
 
         if len(exceptions) > 0:
             raise MlflowException("\n".join(exceptions))
@@ -637,8 +645,7 @@ class BuiltInEvaluator(ModelEvaluator):
         Evaluate the metrics on the given prediction and target data.
 
         Args:
-            metrics: A list of metrics to evaluate. This is unordered list so we first need to sort it, because
-                a metrics whose result is used for computing another metric should be calculated first.
+            metrics: A list of metrics to evaluate.
             prediction: A Pandas Series containing the predictions.
             other_output_df: A Pandas DataFrame containing other output columns from the model.
             target: A numpy array containing the target values.
@@ -648,7 +655,9 @@ class BuiltInEvaluator(ModelEvaluator):
         """
 
         eval_df = self._get_eval_df(prediction, target)
-        metrics = [MetricDefinition.from_index_and_metric(i, metric) for i, metric in enumerate(metrics)]
+        metrics = [
+            MetricDefinition.from_index_and_metric(i, metric) for i, metric in enumerate(metrics)
+        ]
         metrics = self._order_metrics(metrics, eval_df, other_output_df)
 
         self._test_first_row(metrics, eval_df, other_output_df)
@@ -660,13 +669,8 @@ class BuiltInEvaluator(ModelEvaluator):
             metric_value = metric.evaluate(eval_fn_args)
 
             if metric_value:
-                name = (
-                    f"{metric.name}/{metric.version}"
-                    if metric.version
-                    else metric.name
-                )
+                name = f"{metric.name}/{metric.version}" if metric.version else metric.name
                 self.metrics_values.update({name: metric_value})
-
 
     def log_eval_table(self, y_pred, other_output_columns=None):
         # only log eval table if there are per row metrics recorded
@@ -740,7 +744,6 @@ class BuiltInEvaluator(ModelEvaluator):
             uri=mlflow.get_artifact_uri(artifact_file_name)
         )
 
-
     def _update_aggregate_metrics(self):
         self.aggregate_metrics = {}
         for metric_name, metric_value in self.metrics_values.items():
@@ -751,8 +754,6 @@ class BuiltInEvaluator(ModelEvaluator):
                             self.aggregate_metrics[metric_name] = agg_value
                         else:
                             self.aggregate_metrics[f"{metric_name}/{agg_name}"] = agg_value
-        print(f"{self.metrics_values}")
-        print(f"{self.aggregate_metrics}")
 
     def _add_prefix_to_metrics(self):
         def _prefix_value(value):
@@ -862,13 +863,13 @@ class BuiltInEvaluator(ModelEvaluator):
 
         import matplotlib
 
-        with TempDir() as temp_dir, matplotlib.rc_context(_matplotlib_config), \
-            mlflow.utils.autologging_utils.disable_autologging(
+        with TempDir() as temp_dir, matplotlib.rc_context(
+            _matplotlib_config
+        ), mlflow.utils.autologging_utils.disable_autologging(
             exemptions=[mlflow.langchain.FLAVOR_NAME]
         ):
             self.temp_dir = temp_dir
             return self._evaluate(model, extra_metrics, custom_artifacts)
-
 
     @property
     def X(self) -> pd.DataFrame:
@@ -876,7 +877,9 @@ class BuiltInEvaluator(ModelEvaluator):
         The features (`X`) portion of the dataset, guarded against accidental mutations.
         """
         return BuiltInEvaluator._MutationGuardedData(
-            _get_dataframe_with_renamed_columns(self.dataset.features_data, self.dataset.feature_names)
+            _get_dataframe_with_renamed_columns(
+                self.dataset.features_data, self.dataset.feature_names
+            )
         )
 
     class _MutationGuardedData:

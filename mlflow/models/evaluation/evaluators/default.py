@@ -28,17 +28,18 @@ from mlflow.metrics import (
 from mlflow.metrics.genai.genai_metric import _GENAI_CUSTOM_METRICS_FILE_NAME
 from mlflow.models.evaluation.artifacts import JsonEvaluationArtifact
 from mlflow.models.evaluation.base import EvaluationMetric, EvaluationResult, _ModelType
-from mlflow.models.evaluation.default_evaluator import _LATENCY_METRIC_NAME, BuiltInEvaluator, _extract_predict_fn
+from mlflow.models.evaluation.default_evaluator import (
+    _LATENCY_METRIC_NAME,
+    BuiltInEvaluator,
+    _extract_predict_fn,
+)
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 
 _logger = logging.getLogger(__name__)
 
 
-
-
 class DefaultEvaluator(BuiltInEvaluator):
     name = "default"
-
 
     def can_evaluate(self, *, model_type, evaluator_config, **kwargs):
         return model_type in _ModelType.values() or model_type is None
@@ -47,7 +48,7 @@ class DefaultEvaluator(BuiltInEvaluator):
         self,
         model: Optional["mlflow.pyfunc.PyFuncModel"],
         extra_metrics: List[EvaluationMetric],
-        custom_artifacts = None,
+        custom_artifacts=None,
         **kwargs,
     ) -> EvaluationResult:
         compute_latency = False
@@ -62,14 +63,20 @@ class DefaultEvaluator(BuiltInEvaluator):
 
         # Generate model predictions and evaluate metrics
         y_pred, other_model_outputs, self.predictions = self._generate_model_predictions(
-            model,
-            input_df=self.X.copy_to_avoid_mutation(),
-            compute_latency=compute_latency)
+            model, input_df=self.X.copy_to_avoid_mutation(), compute_latency=compute_latency
+        )
         y_true = self.dataset.labels_data
 
         metrics = self._builtin_metrics() + extra_metrics
-        self.evaluate_metrics(metrics, prediction=y_pred, target=self.dataset.labels_data, other_output_df=other_model_outputs)
-        self.evaluate_and_log_custom_artifacts(custom_artifacts, prediction=y_pred, target=y_true)
+        self.evaluate_metrics(
+            metrics,
+            prediction=y_pred,
+            target=self.dataset.labels_data,
+            other_output_df=other_model_outputs,
+        )
+        self.evaluate_and_log_custom_artifacts(
+            custom_artifacts, prediction=y_pred, target=y_true
+        )
 
         # Log metrics and artifacts
         self.log_metrics()
@@ -77,7 +84,6 @@ class DefaultEvaluator(BuiltInEvaluator):
         return EvaluationResult(
             metrics=self.aggregate_metrics, artifacts=self.artifacts, run_id=self.run_id
         )
-
 
     def _builtin_metrics(self) -> List[Metric]:
         """
@@ -91,7 +97,7 @@ class DefaultEvaluator(BuiltInEvaluator):
         ]
         builtin_metrics = []
 
-        # NB: Classifier and Regressor is handled by ClassifierEvaluator, RegressorEvaluator, respectively
+        # NB: Classifier and Regressor are handled by dedicated built-in evaluators,
         if self.model_type == _ModelType.QUESTION_ANSWERING:
             builtin_metrics = [*text_metrics, exact_match()]
         elif self.model_type == _ModelType.TEXT_SUMMARIZATION:
@@ -115,12 +121,11 @@ class DefaultEvaluator(BuiltInEvaluator):
 
         return builtin_metrics
 
-
     def _generate_model_predictions(
         self,
         model: Optional["mlflow.pyfunc.PyFuncModel"],
         input_df: pd.DataFrame,
-        compute_latency=False
+        compute_latency=False,
     ):
         """
         Helper method for generating model predictions
@@ -176,7 +181,9 @@ class DefaultEvaluator(BuiltInEvaluator):
                 model_predictions = predict_fn(input_df)
         else:
             if compute_latency:
-                _logger.warning("Setting the latency to 0 for all entries because the model is not provided.")
+                _logger.warning(
+                    "Setting the latency to 0 for all entries because the model is not provided."
+                )
                 self.metrics_values.update(
                     {_LATENCY_METRIC_NAME: MetricValue(scores=[0.0] * len(input_df))}
                 )
@@ -190,7 +197,6 @@ class DefaultEvaluator(BuiltInEvaluator):
         ) = _extract_output_and_other_columns(model_predictions, output_column_name)
 
         return y_pred, other_output_df, predictions_column_name
-
 
     def _log_genai_custom_metrics(self, extra_metrics: List[EvaluationMetric]):
         genai_custom_metrics = [

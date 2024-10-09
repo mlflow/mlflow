@@ -1,27 +1,29 @@
-from collections import namedtuple
-from contextlib import contextmanager
 import logging
 import math
+from collections import namedtuple
+from contextlib import contextmanager
 from typing import List, Optional
 
 import numpy as np
 import pandas as pd
 from sklearn import metrics as sk_metrics
 
-
-from mlflow import MlflowException
 import mlflow
+from mlflow import MlflowException
 from mlflow.environment_variables import _MLFLOW_EVALUATE_SUPPRESS_CLASSIFICATION_ERRORS
 from mlflow.models.evaluation.artifacts import CsvEvaluationArtifact
-from mlflow.models.evaluation.base import _ModelType, EvaluationMetric, EvaluationResult
-from mlflow.models.evaluation.default_evaluator import BuiltInEvaluator, _extract_raw_model, _get_aggregate_metrics_values
+from mlflow.models.evaluation.base import EvaluationMetric, EvaluationResult, _ModelType
+from mlflow.models.evaluation.default_evaluator import (
+    BuiltInEvaluator,
+    _extract_raw_model,
+    _get_aggregate_metrics_values,
+)
 from mlflow.models.utils import plot_lines
 
 _logger = logging.getLogger(__name__)
 
 
 _Curve = namedtuple("_Curve", ["plot_fn", "plot_fn_args", "auc"])
-
 
 
 class ClassifierEvaluator(BuiltInEvaluator):
@@ -35,7 +37,7 @@ class ClassifierEvaluator(BuiltInEvaluator):
         self,
         model: Optional["mlflow.pyfunc.PyFuncModel"],
         extra_metrics: List[EvaluationMetric],
-        custom_artifacts = None,
+        custom_artifacts=None,
         **kwargs,
     ) -> EvaluationResult:
         # Get classification config
@@ -65,7 +67,9 @@ class ClassifierEvaluator(BuiltInEvaluator):
 
         self._compute_builtin_metrics(model)
         self.evaluate_metrics(extra_metrics, prediction=self.y_pred, target=self.y_true)
-        self.evaluate_and_log_custom_artifacts(custom_artifacts, prediction=self.y_pred, target=self.y_true)
+        self.evaluate_and_log_custom_artifacts(
+            custom_artifacts, prediction=self.y_pred, target=self.y_true
+        )
 
         # Log metrics and artifacts
         self.log_metrics()
@@ -81,14 +85,10 @@ class ClassifierEvaluator(BuiltInEvaluator):
             metrics=self.aggregate_metrics, artifacts=self.artifacts, run_id=self.run_id
         )
 
-
     def _generate_model_predictions(self, model, input_df):
         predict_fn, predict_proba_fn = _extract_predict_fn_and_prodict_proba_fn(model)
         # Classifier model is guaranteed to output single column of predictions
-        if model is not None:
-            y_pred = predict_fn(input_df)
-        else:
-            y_pred = self.dataset.predictions_data
+        y_pred = self.dataset.predictions_data if model is None else predict_fn(input_df)
 
         # Predict class probabilities if the model supports it
         if predict_proba_fn is not None:
@@ -96,7 +96,6 @@ class ClassifierEvaluator(BuiltInEvaluator):
         else:
             y_probs = None
         return y_pred, y_probs
-
 
     def _validate_label_list(self):
         if self.label_list is None:
@@ -115,14 +114,14 @@ class ClassifierEvaluator(BuiltInEvaluator):
                 self.pos_label = self.label_list[-1]
             else:
                 if self.pos_label in self.label_list:
-                    print(f"{self.label_list} {self.pos_label}")
-                    self.label_list = np.delete(self.label_list, np.where(self.label_list == self.pos_label))
-                    print(f"{self.label_list}")
+                    self.label_list = np.delete(
+                        self.label_list, np.where(self.label_list == self.pos_label)
+                    )
                 self.label_list = np.append(self.label_list, self.pos_label)
             if len(self.label_list) < 2:
                 raise MlflowException(
                     "Evaluation dataset for classification must contain at least two unique "
-                    f"labels, but only {len(label_list)} unique labels were found.",
+                    f"labels, but only {len(self.label_list)} unique labels were found.",
                 )
             with _suppress_class_imbalance_errors(IndexError, log_warning=False):
                 _logger.info(
@@ -136,11 +135,9 @@ class ClassifierEvaluator(BuiltInEvaluator):
                 "`label_list` parameter in `evaluator_config`."
             )
 
-
     def _compute_builtin_metrics(self, model):
         self._evaluate_sklearn_model_score_if_scorable(model, self.y_true, self.sample_weights)
 
-        print(f"{self.label_list}")
         if len(self.label_list) <= 2:
             metrics = _get_binary_classifier_metrics(
                 y_true=self.y_true,
@@ -165,7 +162,6 @@ class ClassifierEvaluator(BuiltInEvaluator):
             )
             if metrics:
                 self.metrics_values.update(_get_aggregate_metrics_values(metrics))
-
 
     def _compute_roc_and_pr_curve(self):
         if self.y_probs is not None:
@@ -198,7 +194,6 @@ class ClassifierEvaluator(BuiltInEvaluator):
                     _get_aggregate_metrics_values({"precision_recall_auc": self.pr_curve.auc})
                 )
 
-
     def _log_pandas_df_artifact(self, pandas_df, artifact_name):
         artifact_file_name = f"{artifact_name}.csv"
         artifact_file_local_path = self.temp_dir.path(artifact_file_name)
@@ -210,7 +205,6 @@ class ClassifierEvaluator(BuiltInEvaluator):
         )
         artifact._load(artifact_file_local_path)
         self.artifacts[artifact_name] = artifact
-
 
     def _log_multiclass_classifier_artifacts(self):
         per_class_metrics_collection_df = _get_classifier_per_class_metrics_collection_df(
@@ -289,7 +283,6 @@ class ClassifierEvaluator(BuiltInEvaluator):
 
         self._log_image_artifact(_plot_lift_curve, "lift_curve_plot")
 
-
     def _log_binary_classifier_artifacts(self):
         if self.y_probs is not None:
             with _suppress_class_imbalance_errors(log_warning=False):
@@ -298,7 +291,6 @@ class ClassifierEvaluator(BuiltInEvaluator):
                 self._log_precision_recall_curve()
             with _suppress_class_imbalance_errors(ValueError, log_warning=False):
                 self._log_lift_curve()
-
 
     def _log_confusion_matrix(self):
         """
@@ -397,7 +389,6 @@ def _extract_predict_fn_and_prodict_proba_fn(model):
     return predict_fn, predict_proba_fn
 
 
-
 @contextmanager
 def _suppress_class_imbalance_errors(exception_type=Exception, log_warning=True):
     """
@@ -422,6 +413,7 @@ def _suppress_class_imbalance_errors(exception_type=Exception, log_warning=True)
                 )
         else:
             raise e
+
 
 def _get_binary_sum_up_label_pred_prob(positive_class_index, positive_class, y, y_pred, y_probs):
     y = np.array(y)
@@ -497,6 +489,7 @@ def _get_binary_classifier_metrics(
             ),
         }
 
+
 def _get_multiclass_classifier_metrics(
     *,
     y_true,
@@ -526,6 +519,7 @@ def _get_multiclass_classifier_metrics(
             )
         )
     return metrics
+
 
 def _get_classifier_per_class_metrics_collection_df(y, y_pred, labels, sample_weights):
     per_class_metrics_list = []
@@ -682,4 +676,3 @@ def _gen_classifier_curve(
         },
         auc=auc,
     )
-

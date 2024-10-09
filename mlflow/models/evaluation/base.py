@@ -777,6 +777,16 @@ def _start_run_or_reuse_active_run():
 
 def _resolve_default_evaluator(model_type, evaluator_config):
     """
+    Determine which built-in evaluators should be used for the given model type by default.
+
+    Previously, MLflow evaluate API only had a single "default" evaluator used for all models like
+    classifier, regressor, etc. We split it into multiple built-in evaluators for different model
+    types for maintainability, but in order to maintain backward compatibility, we need to map
+    the "default" provided by users to the correct built-in evaluators.
+
+    Args:
+        model_type: A string describing the model type (e.g., "regressor", "classifier", …).
+        evaluator_config: A dictionary of additional configurations for the evaluator.
     """
     from mlflow.models.evaluation.evaluator_registry import _model_evaluation_registry
 
@@ -786,20 +796,34 @@ def _resolve_default_evaluator(model_type, evaluator_config):
             evaluator_name != "default"
             and _model_evaluation_registry.is_builtin(evaluator_name)
             and (evaluator := _model_evaluation_registry.get_evaluator(evaluator_name))
-            and evaluator.can_evaluate(model_type=model_type, evaluator_config=evaluator_config or {})
+            and evaluator.can_evaluate(
+                model_type=model_type, evaluator_config=evaluator_config or {}
+            )
         ):
             builtin_evaluators.append(evaluator_name)
 
-    # We should use default evaluator only if there is no other built-in evaluator applicable.
+    # We should use DefaultEvaluator only if there is no other built-in evaluator applicable.
     return builtin_evaluators or ["default"]
 
 
 def resolve_evaluators_and_configs(
-    evaluators,
-    evaluator_config,
-    model_type: str = None,
-    ) -> Dict[str, Dict[str, Any]]:
+    evaluators: Union[str, List[str], None],
+    evaluator_config: Union[Dict[str, Any], None],
+    model_type: Optional[str] = None,
+) -> Dict[str, Dict[str, Any]]:
     """
+    The `evaluators` and `evaluator_config` arguments of the `evaluate` API can be specified
+    in multiple ways. This function normalizes the arguments into a single format for easier
+    downstream processing.
+
+    Args:
+        evaluators: A string or a list of strings specifying the evaluators to use for model
+            evaluation. If None, all available evaluators will be used.
+        evaluator_config: A dictionary containing configuration items for the evaluators.
+        model_type: A string describing the model type (e.g., "regressor", "classifier", …).
+
+    Returns:
+        A dictionary mapping a;;evaluator names to their corresponding config.
     """
     from mlflow.models.evaluation.evaluator_registry import _model_evaluation_registry
 
@@ -808,7 +832,6 @@ def resolve_evaluators_and_configs(
             k in _evaluator_name_list and isinstance(v, dict)
             for k, v in _evaluator_name_to_conf_map.items()
         )
-
 
     if evaluators is None:
         # If no evaluators are specified, use all available evaluators.
@@ -839,8 +862,6 @@ def resolve_evaluators_and_configs(
                 "evaluator config dict.",
                 error_code=INVALID_PARAMETER_VALUE,
             )
-
-    # At this moment, `evaluators` should always be a list and `evaluator_config` should be a nested dict.
 
     # Previously we only had a single "default" evaluator used for all models like
     # classifier, regressor, etc. We need to map "default" to the correct builtin evaluators.
@@ -1617,7 +1638,9 @@ def evaluate(  # noqa: D417
             error_code=INVALID_PARAMETER_VALUE,
         )
 
-    evaluator_name_to_conf_map = resolve_evaluators_and_configs(evaluators, evaluator_config, model_type)
+    evaluator_name_to_conf_map = resolve_evaluators_and_configs(
+        evaluators, evaluator_config, model_type
+    )
 
     with _start_run_or_reuse_active_run() as run_id:
         if not isinstance(data, Dataset):

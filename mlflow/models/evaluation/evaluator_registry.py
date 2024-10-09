@@ -59,10 +59,10 @@ def register_evaluators(module):
     from mlflow.models.evaluation.evaluators.shap import ShapEvaluator
 
     # Built-in evaluators
-    module._model_evaluation_registry.register(DefaultEvaluator.name, DefaultEvaluator, is_builtin=True)
-    module._model_evaluation_registry.register(ClassifierEvaluator.name, ClassifierEvaluator, is_builtin=True)
-    module._model_evaluation_registry.register(RegressorEvaluator.name, RegressorEvaluator, is_builtin=True)
-    module._model_evaluation_registry.register(ShapEvaluator.name, ShapEvaluator, is_builtin=True)
+    module._model_evaluation_registry.register(DefaultEvaluator.name, DefaultEvaluator, True)
+    module._model_evaluation_registry.register(ClassifierEvaluator.name, ClassifierEvaluator, True)
+    module._model_evaluation_registry.register(RegressorEvaluator.name, RegressorEvaluator, True)
+    module._model_evaluation_registry.register(ShapEvaluator.name, ShapEvaluator, True)
 
     # Plugin evaluators
     module._model_evaluation_registry.register_entrypoints()

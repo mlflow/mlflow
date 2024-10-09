@@ -1,13 +1,14 @@
-from dataclasses import dataclass
 import logging
-from typing import Any, Callable, Dict, Optional
+from dataclasses import dataclass
+from typing import Callable, Dict, Optional
+
 import numpy as np
 
 from mlflow.metrics.base import MetricValue
 from mlflow.models.evaluation.base import EvaluationMetric
 
-
 _logger = logging.getLogger(__name__)
+
 
 @dataclass
 class MetricDefinition:
@@ -62,7 +63,6 @@ class MetricDefinition:
         def _is_numeric(value):
             return isinstance(value, (int, float, np.number))
 
-
         def _is_string(value):
             return isinstance(value, str)
 
@@ -83,9 +83,11 @@ class MetricDefinition:
 
         if scores is not None:
             if not isinstance(scores, list):
-                _logger.warning(f"{exception_header} must return MetricValue with scores as a list.")
+                _logger.warning(
+                    f"{exception_header} must return MetricValue with scores as a list."
+                )
                 return
-            if any(not (_is_numeric(score) or _is_string(score) or score is None) for score in scores):
+            if any(not (_is_numeric(s) or _is_string(s) or s is None) for s in scores):
                 _logger.warning(
                     f"{exception_header} must return MetricValue with numeric or string scores."
                 )
