@@ -89,6 +89,23 @@ from tests.evaluate.test_evaluation import (
 )
 
 
+@pytest.fixture(autouse=True)
+def suppress_dummy_evaluator():
+    """
+    Dummy evaluator is registered by the test plugin and used in
+    test_evaluation.py, but we don't want it to be used in this test.
+
+    This fixture suppress dummy evaluator for the duration of each test.
+    """
+    from mlflow.models.evaluation.evaluator_registry import _model_evaluation_registry
+
+    dummy_evaluator = _model_evaluation_registry._registry.pop("dummy_evaluator")
+
+    yield
+
+    _model_evaluation_registry._registry["dummy_evaluator"] = dummy_evaluator
+
+
 def assert_dict_equal(d1, d2, rtol):
     for k in d1:
         assert k in d2
@@ -1226,7 +1243,7 @@ def test_evaluate_custom_metric_incorrect_return_formats():
         return ["stuff"], 3
 
     with mock.patch("mlflow.models.evaluation.utils.metric._logger.warning") as mock_warning:
-        metric = MetricDefinition(incorrect_return_type, incorrect_return_type.__name__, 0).
+        metric = MetricDefinition(incorrect_return_type, incorrect_return_type.__name__, 0)
         metric.evaluate(eval_fn_args)
         mock_warning.assert_called_once_with(
             f"Did not log metric '{incorrect_return_type.__name__}' at index 0 in the "
@@ -4114,9 +4131,7 @@ def test_xgboost_model_evaluate_work_with_shap_explainer():
         eval_data["label"] = y_test
 
         model_uri = mlflow.get_artifact_uri("model")
-        with mock.patch(
-            "mlflow.models.evaluation.default_evaluator._logger.warning"
-        ) as mock_warning:
+        with mock.patch("mlflow.models.evaluation.evaluators.shap._logger.warning") as mock_warning:
             mlflow.evaluate(
                 model_uri,
                 eval_data,

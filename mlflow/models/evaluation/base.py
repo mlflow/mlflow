@@ -9,8 +9,8 @@ import urllib
 import urllib.parse
 import warnings
 from abc import ABCMeta, abstractmethod
-from collections import OrderedDict
 from contextlib import contextmanager
+from dataclasses import dataclass
 from inspect import Parameter, Signature
 from types import FunctionType
 from typing import Any, Dict, List, Optional, Union
@@ -806,11 +806,22 @@ def _resolve_default_evaluator(model_type, evaluator_config):
     return builtin_evaluators or ["default"]
 
 
+# NB: We often pass around evaluator name, config, and its instance together. Ideally, the
+# evaluator class should have name and config as class attributes, however, it was not
+# designed that way. Adding them while keeping backward compatibility is not trivial.
+# So, we use a dataclass to bundle them together.
+@dataclass
+class EvaluatorBundle:
+    name: str
+    evaluator: ModelEvaluator
+    config: Dict[str, Any]
+
+
 def resolve_evaluators_and_configs(
     evaluators: Union[str, List[str], None],
     evaluator_config: Union[Dict[str, Any], None],
     model_type: Optional[str] = None,
-) -> Dict[str, Dict[str, Any]]:
+) -> List[EvaluatorBundle]:
     """
     The `evaluators` and `evaluator_config` arguments of the `evaluate` API can be specified
     in multiple ways. This function normalizes the arguments into a single format for easier
@@ -823,9 +834,9 @@ def resolve_evaluators_and_configs(
         model_type: A string describing the model type (e.g., "regressor", "classifier", …).
 
     Returns:
-        A dictionary mapping a;;evaluator names to their corresponding config.
+        A list of EvaluatorBundle that contains name, evaluator, config for each evaluator.
     """
-    from mlflow.models.evaluation.evaluator_registry import _model_evaluation_registry
+    from mlflow.models.evaluation.evaluator_registry import _model_evaluation_registry as rg
 
     def check_nesting_config_dict(_evaluator_name_list, _evaluator_name_to_conf_map):
         return isinstance(_evaluator_name_to_conf_map, dict) and all(
@@ -835,24 +846,61 @@ def resolve_evaluators_and_configs(
 
     if evaluators is None:
         # If no evaluators are specified, use all available evaluators.
-        evaluators = list(_model_evaluation_registry._registry.keys())
+        evaluators = list(rg._registry.keys())
 
-        if evaluator_config is not None and "default" not in evaluator_config:
-            # If evaluator is None and the key "default" is not in the evaluator config,
-            # we assume the evaluator config to be a flat dict, because there is no way
-            # to determine whether it is a flat dict or a nested dict.
+        evaluator_config = evaluator_config or {}
+        if evaluator_config is not None and not any(
+            name in evaluator_config for name in evaluators
+        ):
+            # If evaluator config is passed but any of available evaluator key is not
+            # in the evaluator config, we assume the evaluator config to be a flat dict,
+            # which is globally applied to all evaluators.
             evaluator_config = {ev: evaluator_config for ev in evaluators}
 
+        # Filter out evaluators that cannot evaluate the model type.
+        resolved = []
+        for name in evaluators:
+            evaluator = rg.get_evaluator(name)
+            config = evaluator_config.get(name, {})
+            if evaluator.can_evaluate(model_type=model_type, evaluator_config=config):
+                resolved.append(EvaluatorBundle(name=name, evaluator=evaluator, config=config))
+
+        # If any of built-in evaluator can apply, skip "default" evaluator.
+        default = next((ev for ev in resolved if ev.name == "default"), None)
+        non_default_builtins = [
+            ev for ev in resolved if ev.name != "default" and rg.is_builtin(ev.name)
+        ]
+        if default and non_default_builtins:
+            resolved.remove(default)
+            # Apply default config to non-default built-in evaluators if they don't have config.
+            for ev in non_default_builtins:
+                ev.config = ev.config or default.config
+
+        return resolved
+
     elif isinstance(evaluators, str):
+        # Single evaluator name specified
         if not (evaluator_config is None or isinstance(evaluator_config, dict)):
             raise MlflowException(
                 message="If `evaluators` argument is the name of an evaluator, evaluator_config"
                 " must be None or a dict containing config items for the evaluator.",
                 error_code=INVALID_PARAMETER_VALUE,
             )
-        evaluators = [evaluators]
-        if evaluator_config is not None:
-            evaluator_config = {evaluators[0]: evaluator_config}
+
+        if evaluators == "default":
+            # Previously we only had a single "default" evaluator used for all models.
+            # We need to map "default" to the new dedicated builtin evaluators.
+            builtin_evaluators = _resolve_default_evaluator(model_type, evaluator_config)
+            return [
+                EvaluatorBundle(name, rg.get_evaluator(name), evaluator_config or {})
+                for name in builtin_evaluators
+            ]
+        elif rg.is_registered(evaluators):
+            return [
+                EvaluatorBundle(evaluators, rg.get_evaluator(evaluators), evaluator_config or {})
+            ]
+        else:
+            return []
 
     elif isinstance(evaluators, list) and evaluator_config is not None:
         if not check_nesting_config_dict(evaluators, evaluator_config):
@@ -863,28 +911,18 @@ def resolve_evaluators_and_configs(
                 error_code=INVALID_PARAMETER_VALUE,
             )
 
-    # Previously we only had a single "default" evaluator used for all models like
-    # classifier, regressor, etc. We need to map "default" to the correct builtin evaluators.
-    if "default" in evaluators:
-        evaluators.remove("default")
-        builtin_evaluators = _resolve_default_evaluator(model_type, evaluator_config)
-        evaluators.extend(builtin_evaluators)
+        return [
+            EvaluatorBundle(name, rg.get_evaluator(name), evaluator_config.get(name, {}))
+            for name in evaluators
+            if rg.is_registered(name)
+        ]
 
-        # Copy default evaluator's config to all builtin evaluators
-        if evaluator_config is not None:
-            for evaluator in evaluators:
-                if (
-                    evaluator != "default"
-                    and _model_evaluation_registry.is_builtin(evaluator)
-                    and evaluator not in evaluator_config
-                ):
-                    evaluator_config[evaluator] = evaluator_config.get("default", {})
-
-    if evaluator_config is None:
-        return {name: {} for name in evaluators}
     else:
-        # Use `OrderedDict.fromkeys` to deduplicate elements but keep elements order.
-        return {name: evaluator_config.get(name, {}) for name in OrderedDict.fromkeys(evaluators)}
+        raise MlflowException(
+            message="Invalid `evaluators` and `evaluator_config` arguments. "
+            "Please refer to the documentation for correct usage.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
 
 
 def _model_validation_contains_model_comparison(validation_thresholds):
@@ -917,7 +955,7 @@ def _evaluate(
     model_type,
     dataset,
     run_id,
-    evaluator_name_to_conf_map,
+    evaluators,
     custom_metrics,
     extra_metrics,
     custom_artifacts,
@@ -928,7 +966,6 @@ def _evaluate(
     to the _evaluate method.
     """
     # import _model_evaluation_registry and PyFuncModel inside function to avoid circuit importing
-    from mlflow.models.evaluation.evaluator_registry import _model_evaluation_registry
 
     global _last_failed_evaluator
     _last_failed_evaluator = None
@@ -942,22 +979,16 @@ def _evaluate(
         dataset._log_dataset_tag(client, run_id, model_uuid)
 
     eval_results = []
-    for evaluator_name, config in evaluator_name_to_conf_map.items():
-        try:
-            evaluator = _model_evaluation_registry.get_evaluator(evaluator_name)
-        except MlflowException:
-            _logger.warning(f"Evaluator '{evaluator_name}' is not registered.")
-            continue
-
-        _last_failed_evaluator = evaluator_name
-        if evaluator.can_evaluate(model_type=model_type, evaluator_config=config):
-            _logger.debug(f"Evaluating the model with the {evaluator_name} evaluator.")
-            eval_result = evaluator.evaluate(
+    for e in evaluators:
+        _logger.debug(f"Evaluating the model with the {e.name} evaluator.")
+        _last_failed_evaluator = e.name
+        if e.evaluator.can_evaluate(model_type=model_type, evaluator_config=e.config):
+            eval_result = e.evaluator.evaluate(
                 model=model,
                 model_type=model_type,
                 dataset=dataset,
                 run_id=run_id,
-                evaluator_config=config,
+                evaluator_config=e.config,
                 custom_metrics=custom_metrics,
                 extra_metrics=extra_metrics,
                 custom_artifacts=custom_artifacts,
@@ -1521,6 +1552,7 @@ def evaluate(  # noqa: D417
         An :py:class:`mlflow.models.EvaluationResult` instance containing
         metrics of evaluating the model with the given dataset.
     '''
+    from mlflow.models.evaluation.evaluator_registry import _model_evaluation_registry
     from mlflow.pyfunc import PyFuncModel, _load_model_or_server, _ServedPyFuncModel
     from mlflow.utils import env_manager as _EnvManager
 
@@ -1638,7 +1670,7 @@ def evaluate(  # noqa: D417
             error_code=INVALID_PARAMETER_VALUE,
         )
 
-    evaluator_name_to_conf_map = resolve_evaluators_and_configs(
+    evaluators: List[EvaluatorBundle] = resolve_evaluators_and_configs(
         evaluators, evaluator_config, model_type
     )
 
@@ -1656,10 +1688,14 @@ def evaluate(  # noqa: D417
 
         if isinstance(data, Dataset) and issubclass(data.__class__, PyFuncConvertibleDatasetMixin):
             dataset = data.to_evaluation_dataset(dataset_path, feature_names)
-            if evaluator_name_to_conf_map and evaluator_name_to_conf_map.get("default", None):
-                context = evaluator_name_to_conf_map["default"].get("metric_prefix", None)
-            else:
-                context = None
+
+            # Use metrix_prefix configured for builtin evaluators as a dataset tag
+            context = None
+            for e in evaluators:
+                if _model_evaluation_registry.is_builtin(e.name) and e.config.get("metric_prefix"):
+                    context = e.config.get("metric_prefix")
+                    break
+
             client = MlflowClient()
             tags = [InputTag(key=MLFLOW_DATASET_CONTEXT, value=context)] if context else []
             dataset_input = DatasetInput(dataset=data._to_mlflow_entity(), tags=tags)
@@ -1680,7 +1716,7 @@ def evaluate(  # noqa: D417
                 model_type=model_type,
                 dataset=dataset,
                 run_id=run_id,
-                evaluator_name_to_conf_map=evaluator_name_to_conf_map,
+                evaluators=evaluators,
                 custom_metrics=custom_metrics,
                 extra_metrics=extra_metrics,
                 custom_artifacts=custom_artifacts,
@@ -1713,7 +1749,7 @@ def evaluate(  # noqa: D417
             model_type=model_type,
             dataset=dataset,
             run_id=run_id,
-            evaluator_name_to_conf_map=evaluator_name_to_conf_map,
+            evaluators=evaluators,
             custom_metrics=custom_metrics,
             extra_metrics=extra_metrics,
             custom_artifacts=custom_artifacts,

@@ -39,6 +39,11 @@ _logger = logging.getLogger(__name__)
 
 
 class DefaultEvaluator(BuiltInEvaluator):
+    """
+    The default built-in evaluator for any models that cannot be evaluated
+    by other built-in evaluators, such as question-answering.
+    """
+
     name = "default"
 
     def can_evaluate(self, *, model_type, evaluator_config, **kwargs):
@@ -74,9 +79,7 @@ class DefaultEvaluator(BuiltInEvaluator):
             target=self.dataset.labels_data,
             other_output_df=other_model_outputs,
         )
-        self.evaluate_and_log_custom_artifacts(
-            custom_artifacts, prediction=y_pred, target=y_true
-        )
+        self.evaluate_and_log_custom_artifacts(custom_artifacts, prediction=y_pred, target=y_true)
 
         # Log metrics and artifacts
         self.log_metrics()

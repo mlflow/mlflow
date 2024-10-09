@@ -34,6 +34,12 @@ def _shap_predict_fn(x, predict_fn, feature_names):
 
 
 class ShapEvaluator(BuiltInEvaluator):
+    """
+    A built-in evaluator to get SHAP explainability insights for classifier and regressor models.
+
+    This evaluator often run with the main evaluator for the model like ClassifierEvaluator.
+    """
+
     name = "shap"
 
     @classmethod
@@ -140,8 +146,9 @@ class ShapEvaluator(BuiltInEvaluator):
         )
 
         if self.label_list is None:
-            # If label list is not specified, infer label list from model output
-            y_pred = predict_fn(X_df) if predict_fn else self.dataset.predictions_data
+            # If label list is not specified, infer label list from model output.
+            # We need to copy the input data as the model might mutate the input data.
+            y_pred = predict_fn(X_df.copy()) if predict_fn else self.dataset.predictions_data
             self.label_list = np.unique(np.concatenate([self.y_true, y_pred]))
 
         try:
@@ -209,7 +216,7 @@ class ShapEvaluator(BuiltInEvaluator):
                 f"Shap evaluation failed. Reason: {e!r}. "
                 "Set logging level to DEBUG to see the full traceback."
             )
-            _logger.warning("", exc_info=True)
+            _logger.debug("", exc_info=True)
             return
         try:
             mlflow.shap.log_explainer(explainer, artifact_path="explainer")

@@ -21,7 +21,7 @@ import sklearn.pipeline
 import sklearn.preprocessing
 from langchain.prompts import PromptTemplate
 from langchain_community.llms import FakeListLLM
-from mlflow_test_plugin.dummy_evaluator import Array2DEvaluationArtifact
+from mlflow_test_plugin.dummy_evaluator import Array2DEvaluationArtifact, DummyEvaluator
 from PIL import Image, ImageChops
 from pyspark.ml.linalg import Vectors
 from pyspark.ml.regression import LinearRegression as SparkLinearRegression
@@ -1152,12 +1152,8 @@ def test_evaluate_with_multi_evaluators(
         # evaluators=["test_evaluator1", "test_evaluator2"]
         for evaluators in [None, ["test_evaluator1", "test_evaluator2"]]:
             with mock.patch.object(
-                FakeEvaluator1, "can_evaluate", return_value=True
-            ) as mock_can_evaluate1, mock.patch.object(
                 FakeEvaluator1, "evaluate", return_value=evaluator1_return_value
             ) as mock_evaluate1, mock.patch.object(
-                FakeEvaluator2, "can_evaluate", return_value=True
-            ) as mock_can_evaluate2, mock.patch.object(
                 FakeEvaluator2, "evaluate", return_value=evaluator2_return_value
             ) as mock_evaluate2:
                 with mlflow.start_run() as run:
@@ -1180,18 +1176,11 @@ def test_evaluate_with_multi_evaluators(
                         **evaluator1_return_value.artifacts,
                         **evaluator2_return_value.artifacts,
                     }
-                    mock_can_evaluate1.assert_called_once_with(
-                        model_type="classifier", evaluator_config=evaluator1_config
-                    )
                     mock_evaluate1.assert_called_once_with(
                         **get_evaluate_call_arg(
                             mlflow.pyfunc.load_model(multiclass_logistic_regressor_model_uri),
                             evaluator1_config,
                         )
-                    )
-                    mock_can_evaluate2.assert_called_once_with(
-                        model_type="classifier",
-                        evaluator_config=evaluator2_config,
                     )
                     mock_evaluate2.assert_called_once_with(
                         **get_evaluate_call_arg(
@@ -1254,46 +1243,129 @@ def test_start_run_or_reuse_active_run():
 
 
 def test_resolve_evaluators_and_configs():
+    from mlflow.models.evaluation.evaluators.classifier import ClassifierEvaluator
     from mlflow.models.evaluation.evaluators.default import DefaultEvaluator
+    from mlflow.models.evaluation.evaluators.regressor import RegressorEvaluator
+    from mlflow.models.evaluation.evaluators.shap import ShapEvaluator
+
+    def assert_equal(actual, expected):
+        assert len(actual) == len(expected)
+        for actual_i, expected_i in zip(actual, expected):
+            assert actual_i.name == expected_i[0]
+            assert isinstance(actual_i.evaluator, expected_i[1])
+            assert actual_i.config == expected_i[2]
 
     with mock.patch.object(
         _model_evaluation_registry,
         "_registry",
         {"default": DefaultEvaluator},
     ):
-        assert resolve_evaluators_and_configs(None, None) == {"default": {}}
-        assert resolve_evaluators_and_configs(None, {"a": 3}) == {"default": {"a": 3}}
-        assert resolve_evaluators_and_configs(None, {"default": {"a": 3}}) == {"default": {"a": 3}}
+        assert_equal(
+            resolve_evaluators_and_configs(None, None), [("default", DefaultEvaluator, {})]
+        )
+        assert_equal(
+            actual=resolve_evaluators_and_configs(None, {"a": 3}),
+            expected=[("default", DefaultEvaluator, {"a": 3})],
+        )
+        assert_equal(
+            actual=resolve_evaluators_and_configs(None, {"default": {"a": 3}}),
+            expected=[("default", DefaultEvaluator, {"a": 3})],
+        )
 
-    with mock.patch.object(FakeEvaluator1, "can_evaluate", return_value=True), mock.patch.object(
-        _model_evaluation_registry,
-        "_registry",
-        {"default": DefaultEvaluator, "dummy_evaluator": FakeEvaluator1},
+    # 1. evaluators is None -> only default evaluator is used
+    assert_equal(
+        actual=resolve_evaluators_and_configs(None, None),
+        expected=[("default", DefaultEvaluator, {})],
+    )
+    assert_equal(
+        actual=resolve_evaluators_and_configs(None, {"a": 3}),
+        expected=[("default", DefaultEvaluator, {"a": 3})],
+    )
+
+    # 2. evaluators is None and model type is classifier -> builtin classifier evaluators
+    #   are used instead of the default. Also dummy evaluator can evaluate classifier.
+    assert_equal(
+        actual=resolve_evaluators_and_configs(
+            evaluators=None, evaluator_config={"a": 3}, model_type="classifier"
+        ),
+        expected=[
+            ("classifier", ClassifierEvaluator, {"a": 3}),
+            ("shap", ShapEvaluator, {"a": 3}),
+            ("dummy_evaluator", DummyEvaluator, {"a": 3}),
+        ],
+    )
+
+    assert_equal(
+        resolve_evaluators_and_configs(
+            evaluators=None,
+            # config for a specific evaluator
+            evaluator_config={"shap": {"a": 3}},
+            model_type="classifier",
+        ),
+        expected=[
+            ("classifier", ClassifierEvaluator, {}),
+            ("shap", ShapEvaluator, {"a": 3}),
+            ("dummy_evaluator", DummyEvaluator, {}),
+        ],
+    )
+
+    assert_equal(
+        resolve_evaluators_and_configs(
+            evaluators=None,
+            # config for a "default" copied to builtin evaluators
+            evaluator_config={"default": {"a": 3}},
+            model_type="classifier",
+        ),
+        expected=[
+            ("classifier", ClassifierEvaluator, {"a": 3}),
+            ("shap", ShapEvaluator, {"a": 3}),
+            ("dummy_evaluator", DummyEvaluator, {}),
+        ],
+    )
+
+    # 3. evaluators is string -> the specified evaluator is used
+    assert_equal(
+        actual=resolve_evaluators_and_configs("dummy_evaluator", {"a": 3}, "regressor"),
+        expected=[("dummy_evaluator", DummyEvaluator, {"a": 3})],
+    )
+    assert_equal(
+        actual=resolve_evaluators_and_configs("default", {"a": 3}),
+        expected=[("default", DefaultEvaluator, {"a": 3})],
+    )
+    assert_equal(
+        actual=resolve_evaluators_and_configs("default", {"a": 3}, "regressor"),
+        expected=[
+            ("regressor", RegressorEvaluator, {"a": 3}),
+            ("shap", ShapEvaluator, {"a": 3}),
+        ],
+    )
+    assert_equal(
+        actual=resolve_evaluators_and_configs("regressor", {"a": 3}, "regressor"),
+        expected=[("regressor", RegressorEvaluator, {"a": 3})],
+    )
+    assert_equal(
+        actual=resolve_evaluators_and_configs("non-existing", {"a": 3}),
+        expected=[],  # empty because not registered evaluator
+    )
+
+    # 4. evaluators is a list of strings -> the specified evaluators are used
+    assert_equal(
+        actual=resolve_evaluators_and_configs(
+            evaluators=["default", "dummy_evaluator"],
+            evaluator_config={"dummy_evaluator": {"a": 3}, "default": {"a": 5}},
+            model_type="classifier",
+        ),
+        expected=[
+            ("default", DefaultEvaluator, {"a": 5}),
+            ("dummy_evaluator", DummyEvaluator, {"a": 3}),
+        ],
+    )
+
+    with pytest.raises(
+        MlflowException,
+        match="evaluator_config must be a dict contains mapping from evaluator name to",
     ):
-        assert resolve_evaluators_and_configs(None, None) == {"default": {}, "dummy_evaluator": {}}
-        assert resolve_evaluators_and_configs(None, {"a": 3}) == {
-            "default": {"a": 3},
-            "dummy_evaluator": {"a": 3},
-        }
-
-        assert resolve_evaluators_and_configs(None, {"default": {"a": 3}}) == {
-            "default": {"a": 3},
-            "dummy_evaluator": {},
-        }
-
-        assert resolve_evaluators_and_configs("dummy_evaluator", {"a": 3}) == {
-            "dummy_evaluator": {"a": 3}
-        }
-
-        assert resolve_evaluators_and_configs(
-            ["default", "dummy_evaluator"], {"dummy_evaluator": {"a": 3}}
-        ) == {"default": {}, "dummy_evaluator": {"a": 3}}
-
-        with pytest.raises(
-            MlflowException,
-            match="evaluator_config must be a dict contains mapping from evaluator name to",
-        ):
-            resolve_evaluators_and_configs(["default", "dummy_evaluator"], {"abc": {"a": 3}})
+        resolve_evaluators_and_configs(["default", "dummy_evaluator"], {"abc": {"a": 3}})
 
 
 def test_evaluate_env_manager_params(multiclass_logistic_regressor_model_uri, iris_dataset):
