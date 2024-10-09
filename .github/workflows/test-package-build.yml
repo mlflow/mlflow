@@ -14,7 +14,7 @@ on:
   workflow_dispatch:
     inputs:
       ref:
-        description: "The branch or tag to build the wheel from"
+        description: "The branch, tag or SHA to build the wheel from."
         required: true
         default: "master"
 
