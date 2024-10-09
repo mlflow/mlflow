@@ -902,15 +902,17 @@ def resolve_evaluators_and_configs(
         else:
             return []
 
-    elif isinstance(evaluators, list) and evaluator_config is not None:
-        if not check_nesting_config_dict(evaluators, evaluator_config):
+    elif isinstance(evaluators, list):
+        if evaluator_config is not None and not check_nesting_config_dict(
+            evaluators, evaluator_config
+        ):
             raise MlflowException(
                 message="If `evaluators` argument is an evaluator name list, evaluator_config "
                 "must be a dict contains mapping from evaluator name to individual "
                 "evaluator config dict.",
                 error_code=INVALID_PARAMETER_VALUE,
             )
-
+        evaluator_config = evaluator_config or {}
         return [
             EvaluatorBundle(name, rg.get_evaluator(name), evaluator_config.get(name, {}))
             for name in evaluators
