@@ -116,7 +116,7 @@ jobs:
           python -c "import mlflow; print(mlflow.__version__)"
 
       # Anyone with read access can download the uploaded wheel on GitHub.
-      - name: Store wheel
+      - name: Upload wheel
         uses: actions/upload-artifact@v4
         if: github.event_name == 'workflow_dispatch'
         id: upload-wheel
