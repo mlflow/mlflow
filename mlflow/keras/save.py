@@ -5,6 +5,7 @@ import logging
 import os
 import shutil
 import tempfile
+from typing import Any, Dict, Optional
 
 import keras
 import yaml
@@ -278,7 +279,7 @@ def save_model(
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
 def log_model(
     model,
-    artifact_path,
+    name: Optional[str] = None,
     save_exported_model=False,
     conda_env=None,
     signature: ModelSignature = None,
@@ -289,6 +290,11 @@ def log_model(
     extra_pip_requirements=None,
     save_model_kwargs=None,
     metadata=None,
+    params: Optional[Dict[str, Any]] = None,
+    tags: Optional[Dict[str, Any]] = None,
+    model_type: Optional[str] = None,
+    step: int = 0,
+    model_id: Optional[str] = None,
 ):
     """
     Log a Keras model along with metadata to MLflow.
@@ -298,7 +304,7 @@ def log_model(
 
     Args:
         model: an instance of `keras.Model`. The Keras model to be saved.
-        artifact_path: the run-relative path to which to log model artifacts.
+        name: {{ name }}
         save_exported_model: defaults to False. If True, save Keras model in exported
             model format, otherwise save in `.keras` format. For more information, please
             refer to [Keras doc](https://keras.io/guides/serialization_and_saving/).
@@ -319,6 +325,11 @@ def log_model(
             `keras.Model.save` method.
         metadata: Custom metadata dictionary passed to the model and stored in the MLmodel
             file.
+        params: {{ params }}
+        tags: {{ tags }}
+        model_type: {{ model_type }}
+        step: {{ step }}
+        model_id: {{ model_id }}
 
     .. code-block:: python
         :caption: Example
@@ -337,7 +348,7 @@ def log_model(
             mlflow.keras.log_model(model, "model")
     """
     return Model.log(
-        artifact_path=artifact_path,
+        name=name,
         flavor=mlflow.keras,
         model=model,
         conda_env=conda_env,
@@ -350,4 +361,9 @@ def log_model(
         save_model_kwargs=save_model_kwargs,
         save_exported_model=save_exported_model,
         metadata=metadata,
+        params=params,
+        tags=tags,
+        model_type=model_type,
+        step=step,
+        model_id=model_id,
     )

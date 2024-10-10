@@ -304,7 +304,7 @@ def _get_transformers_model_name(model_name_or_path):
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
 def log_model(  # noqa: D417
     model,
-    artifact_path: str,
+    name: Optional[str] = None,
     task: Optional[str] = None,
     inference_config: Optional[Dict[str, Any]] = None,
     code_paths: Optional[List[str]] = None,
@@ -317,6 +317,11 @@ def log_model(  # noqa: D417
     conda_env=None,
     metadata: Optional[Dict[str, Any]] = None,
     example_no_conversion: Optional[bool] = None,
+    params: Optional[Dict[str, Any]] = None,
+    tags: Optional[Dict[str, Any]] = None,
+    model_type: Optional[str] = None,
+    step: int = 0,
+    model_id: Optional[str] = None,
 ):
     """
     .. note::
@@ -352,7 +357,7 @@ def log_model(  # noqa: D417
 
     Args:
         model: A trained ``sentence-transformers`` model.
-        artifact_path: Local path destination for the serialized model to be saved.
+        name: {{ name }}
         task: MLflow inference task type for ``sentence-transformers`` model. Candidate task type
             is `llm/v1/embeddings`.
         inference_config:
@@ -387,7 +392,7 @@ def log_model(  # noqa: D417
         metadata = _verify_task_and_update_metadata(task, metadata)
 
     return Model.log(
-        artifact_path=artifact_path,
+        name=name,
         flavor=mlflow.sentence_transformers,
         registered_model_name=registered_model_name,
         await_registration_for=await_registration_for,
@@ -401,6 +406,11 @@ def log_model(  # noqa: D417
         pip_requirements=pip_requirements,
         extra_pip_requirements=extra_pip_requirements,
         example_no_conversion=example_no_conversion,
+        params=params,
+        tags=tags,
+        model_type=model_type,
+        step=step,
+        model_id=model_id,
     )
 
 

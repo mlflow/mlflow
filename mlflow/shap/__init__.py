@@ -291,7 +291,7 @@ def log_explanation(predict_function, features, artifact_path=None):
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
 def log_explainer(
     explainer,
-    artifact_path,
+    name: Optional[str],
     serialize_model_using_mlflow=True,
     conda_env=None,
     code_paths=None,
@@ -302,13 +302,18 @@ def log_explainer(
     pip_requirements=None,
     extra_pip_requirements=None,
     metadata=None,
+    params: Optional[Dict[str, Any]] = None,
+    tags: Optional[Dict[str, Any]] = None,
+    model_type: Optional[str] = None,
+    step: int = 0,
+    model_id: Optional[str] = None,
 ):
     """
     Log an SHAP explainer as an MLflow artifact for the current run.
 
     Args:
         explainer: SHAP explainer to be saved.
-        artifact_path: Run-relative artifact path.
+        name: {{ name }}
         serialize_model_using_mlflow: When set to True, MLflow will extract the underlying
             model and serialize it as an MLmodel, otherwise it uses SHAP's internal serialization.
             Defaults to True. Currently MLflow serialization is only supported for models of
@@ -337,10 +342,15 @@ def log_explainer(
         pip_requirements: {{ pip_requirements }}
         extra_pip_requirements: {{ extra_pip_requirements }}
         metadata: {{ metadata }}
+        params: {{ params }}
+        tags: {{ tags }}
+        model_type: {{ model_type }}
+        step: {{ step }}
+        model_id: {{ model_id }}
     """
 
     Model.log(
-        artifact_path=artifact_path,
+        name=name,
         flavor=mlflow.shap,
         explainer=explainer,
         conda_env=conda_env,
@@ -353,6 +363,11 @@ def log_explainer(
         pip_requirements=pip_requirements,
         extra_pip_requirements=extra_pip_requirements,
         metadata=metadata,
+        params=params,
+        tags=tags,
+        model_type=model_type,
+        step=step,
+        model_id=model_id,
     )
 
 

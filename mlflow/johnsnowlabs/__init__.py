@@ -196,7 +196,7 @@ def get_default_conda_env():
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name="johnsnowlabs"))
 def log_model(
     spark_model,
-    artifact_path,
+    name: Optional[str] = None,
     conda_env=None,
     code_paths=None,
     dfs_tmpdir=None,
@@ -209,6 +209,11 @@ def log_model(
     extra_pip_requirements=None,
     metadata=None,
     store_license=False,
+    params: Optional[Dict[str, Any]] = None,
+    tags: Optional[Dict[str, Any]] = None,
+    model_type: Optional[str] = None,
+    step: int = 0,
+    model_id: Optional[str] = None,
 ):
     """
     Log a ``Johnsnowlabs NLUPipeline`` created via `nlp.load()
@@ -223,7 +228,7 @@ def log_model(
             <https://nlp.johnsnowlabs.com/docs/en/jsl/load_api>`_
         store_license: If True, the license will be stored with the model and used and re-loading
             it.
-        artifact_path: Run relative artifact path.
+        name: {{ name }}
         conda_env: Either a dictionary representation of a Conda environment or the path to a
             Conda environment yaml file. If provided, this describes the environment
             this model should be run in. At minimum, it should specify the dependencies
@@ -275,6 +280,11 @@ def log_model(
         pip_requirements: {{ pip_requirements }}
         extra_pip_requirements: {{ extra_pip_requirements }}
         metadata:  {{ metadata }}
+        params: {{ params }}
+        tags: {{ tags }}
+        model_type: {{ model_type }}
+        step: {{ step }}
+        model_id: {{ model_id }}
 
     Returns:
         A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
@@ -331,10 +341,10 @@ def log_model(
     # artifact repo via Spark. If this fails, we defer to Model.log().
     if is_local_uri(run_root_artifact_uri) or not _maybe_save_model(
         spark_model,
-        append_to_uri_path(run_root_artifact_uri, artifact_path),
+        append_to_uri_path(run_root_artifact_uri, name),
     ):
         return Model.log(
-            artifact_path=artifact_path,
+            name=name,
             flavor=mlflow.johnsnowlabs,
             spark_model=spark_model,
             conda_env=conda_env,
@@ -348,9 +358,23 @@ def log_model(
             pip_requirements=pip_requirements,
             extra_pip_requirements=extra_pip_requirements,
             metadata=metadata,
+            params=params,
+            tags=tags,
+            model_type=model_type,
+            step=step,
+            model_id=model_id,
         )
     # Otherwise, override the default model log behavior and save model directly to artifact repo
-    mlflow_model = Model(artifact_path=artifact_path, run_id=run_id)
+    client = mlflow.tracking.MlflowClient()
+    logged_model = client.create_logged_model(
+        experiment_id=mlflow.tracking.fluent._get_experiment_id(),
+        name=name,
+        run_id=run.info.run_id if (run := mlflow.active_run()) else None,
+        model_type=model_type,
+        params=params,
+        tags=tags,
+    )
+    mlflow_model = Model(artifact_path=logged_model.artifact_location, run_id=run_id)
     with TempDir() as tmp:
         tmp_model_metadata_dir = tmp.path()
         _save_model_metadata(
@@ -367,11 +391,11 @@ def log_model(
             remote_model_path=remote_model_path,
             store_license=store_license,
         )
-        mlflow.tracking.fluent.log_artifacts(tmp_model_metadata_dir, artifact_path)
+        mlflow.tracking.fluent.log_artifacts(tmp_model_metadata_dir, name)
         mlflow.tracking.fluent._record_logged_model(mlflow_model)
         if registered_model_name is not None:
             mlflow.register_model(
-                f"runs:/{run_id}/{artifact_path}",
+                f"runs:/{logged_model.model_id}",
                 registered_model_name,
                 await_registration_for,
             )

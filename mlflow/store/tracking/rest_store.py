@@ -2,21 +2,37 @@ import json
 import logging
 from typing import Dict, List, Optional
 
-from mlflow.entities import DatasetInput, Experiment, Metric, Run, RunInfo, TraceInfo, ViewType
+from mlflow.entities import (
+    DatasetInput,
+    Experiment,
+    LoggedModel,
+    LoggedModelParameter,
+    LoggedModelStatus,
+    LoggedModelTag,
+    Metric,
+    Run,
+    RunInfo,
+    TraceInfo,
+    ViewType,
+)
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.exceptions import MlflowException
 from mlflow.protos import databricks_pb2
 from mlflow.protos.service_pb2 import (
     CreateExperiment,
+    CreateLoggedModel,
     CreateRun,
     DeleteExperiment,
+    DeleteLoggedModelTag,
     DeleteRun,
     DeleteTag,
     DeleteTraces,
     DeleteTraceTag,
     EndTrace,
+    FinalizeLoggedModel,
     GetExperiment,
     GetExperimentByName,
+    GetLoggedModel,
     GetMetricHistory,
     GetRun,
     GetTraceInfo,
@@ -32,6 +48,7 @@ from mlflow.protos.service_pb2 import (
     SearchRuns,
     SearchTraces,
     SetExperimentTag,
+    SetLoggedModelTags,
     SetTag,
     SetTraceTag,
     StartTrace,
@@ -48,6 +65,7 @@ from mlflow.utils.rest_utils import (
     _REST_API_PATH_PREFIX,
     call_endpoint,
     extract_api_info_for_service,
+    get_logged_model_endpoint,
     get_set_trace_tag_endpoint,
     get_single_trace_endpoint,
     get_trace_info_endpoint,
@@ -71,7 +89,7 @@ class RestStore(AbstractStore):
         super().__init__()
         self.get_host_creds = get_host_creds
 
-    def _call_endpoint(self, api, json_body, endpoint=None):
+    def _call_endpoint(self, api, json_body=None, endpoint=None):
         if endpoint:
             # Allow customizing the endpoint for compatibility with dynamic endpoints, such as
             # /mlflow/traces/{request_id}/info.
@@ -540,6 +558,107 @@ class RestStore(AbstractStore):
             LogModel(run_id=run_id, model_json=json.dumps(mlflow_model.get_tags_dict()))
         )
         self._call_endpoint(LogModel, req_body)
+
+    def create_logged_model(
+        self,
+        experiment_id: str,
+        name: str,
+        source_run_id: Optional[str] = None,
+        tags: Optional[List[LoggedModelTag]] = None,
+        params: Optional[List[LoggedModelParameter]] = None,
+        model_type: Optional[str] = None,
+    ) -> LoggedModel:
+        """
+        Create a new logged model.
+
+        Args:
+            experiment_id: ID of the experiment to which the model belongs.
+            name: Name of the model.
+            source_run_id: ID of the run that produced the model.
+            tags: Tags to set on the model.
+            params: Parameters to set on the model.
+            model_type: Type of the model.
+
+        Returns:
+            The created model.
+        """
+        req_body = message_to_json(
+            CreateLoggedModel(
+                experiment_id=experiment_id,
+                name=name,
+                model_type=model_type,
+                source_run_id=source_run_id,
+                params=[p.to_proto() for p in params or []],
+                tags=[t.to_proto() for t in tags or []],
+            )
+        )
+        response_proto = self._call_endpoint(CreateLoggedModel, req_body)
+        return LoggedModel.from_proto(response_proto.model)
+
+    def get_logged_model(self, model_id: str) -> LoggedModel:
+        """
+        Fetch the logged model with the specified ID.
+
+        Args:
+            model_id: ID of the model to fetch.
+
+        Returns:
+            The fetched model.
+        """
+        endpoint = get_logged_model_endpoint(model_id)
+        response_proto = self._call_endpoint(GetLoggedModel, endpoint=endpoint)
+        return LoggedModel.from_proto(response_proto.model)
+
+    def finalize_logged_model(self, model_id: str, status: LoggedModelStatus) -> LoggedModel:
+        """
+        Finalize a model by updating its status.
+
+        Args:
+            model_id: ID of the model to finalize.
+            status: Final status to set on the model.
+
+        Returns:
+            The updated model.
+        """
+        endpoint = get_logged_model_endpoint(model_id)
+        json_body = message_to_json(
+            FinalizeLoggedModel(model_id=model_id, status=status.to_proto())
+        )
+        self._call_endpoint(FinalizeLoggedModel, json_body=json_body, endpoint=endpoint)
+
+    def set_logged_model_tags(self, model_id: str, tags: List[LoggedModelTag]) -> LoggedModel:
+        """
+        Set tags on the specified logged model.
+
+        Args:
+            model_id: ID of the model.
+            tags: Tags to set on the model.
+
+        Returns:
+            The model with the updated tags.
+        """
+        endpoint = get_logged_model_endpoint(model_id)
+        json_body = message_to_json(
+            SetLoggedModelTags(model_id=model_id, tags=[tag.to_proto() for tag in tags])
+        )
+        response_proto = self._call_endpoint(
+            SetLoggedModelTags, json_body=json_body, endpoint=f"{endpoint}/tags"
+        )
+        return LoggedModel.from_proto(response_proto.model)
+
+    def delete_logged_model_tag(self, model_id: str, key: str) -> None:
+        """
+        Delete a tag from the specified logged model.
+
+        Args:
+            model_id: ID of the model.
+            key: Key of the tag to delete.
+
+        Returns:
+            The model with the specified tag removed.
+        """
+        endpoint = get_logged_model_endpoint(model_id)
+        self._call_endpoint(DeleteLoggedModelTag, endpoint=f"{endpoint}/tags/{key}")
 
     def log_inputs(self, run_id: str, datasets: Optional[List[DatasetInput]] = None):
         """
