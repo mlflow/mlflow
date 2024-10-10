@@ -1394,7 +1394,6 @@ message LogModel {
 
 message LogInputs {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
-
   // ID of the run to log under
   optional string run_id = 1 [(validate_required) = true];
 
