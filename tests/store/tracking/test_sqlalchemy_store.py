@@ -1246,7 +1246,7 @@ def test_log_param_max_length_value(store: SqlAlchemyStore, monkeypatch):
     run = store.get_run(run.info.run_id)
     assert run.data.params[tkey] == str(tval)
     monkeypatch.setenv("MLFLOW_TRUNCATE_LONG_VALUES", "false")
-    with pytest.raises(MlflowException, match="exceeded length"):
+    with pytest.raises(MlflowException, match="exceeds the maximum length"):
         store.log_param(run.info.run_id, entities.Param(tkey, "x" * 6001))
 
     monkeypatch.setenv("MLFLOW_TRUNCATE_LONG_VALUES", "true")
@@ -1282,7 +1282,7 @@ def test_set_experiment_tag(store: SqlAlchemyStore):
     assert experiment.tags["multiline tag"] == "value2\nvalue2\nvalue2"
     # test cannot set tags that are too long
     long_tag = entities.ExperimentTag("longTagKey", "a" * 5001)
-    with pytest.raises(MlflowException, match="exceeded length limit of 5000"):
+    with pytest.raises(MlflowException, match="exceeds the maximum length of 5000"):
         store.set_experiment_tag(exp_id, long_tag)
     # test can set tags that are somewhat long
     long_tag = entities.ExperimentTag("longTagKey", "a" * 4999)
@@ -1306,7 +1306,9 @@ def test_set_tag(store: SqlAlchemyStore, monkeypatch):
     store.set_tag(run.info.run_id, new_tag)
     # test setting tags that are too long fails.
     monkeypatch.setenv("MLFLOW_TRUNCATE_LONG_VALUES", "false")
-    with pytest.raises(MlflowException, match=f"exceeded length limit of {MAX_TAG_VAL_LENGTH}"):
+    with pytest.raises(
+        MlflowException, match=f"exceeds the maximum length of {MAX_TAG_VAL_LENGTH} characters"
+    ):
         store.set_tag(
             run.info.run_id, entities.RunTag("longTagKey", "a" * (MAX_TAG_VAL_LENGTH + 1))
         )
@@ -2862,7 +2864,7 @@ def test_log_batch_params_max_length_value(store: SqlAlchemyStore, monkeypatch):
     _verify_logged(store, run.info.run_id, [], expected_param_entities, [])
     param_entities = [Param("long param", "x" * 6001)]
     monkeypatch.setenv("MLFLOW_TRUNCATE_LONG_VALUES", "false")
-    with pytest.raises(MlflowException, match="exceeded length"):
+    with pytest.raises(MlflowException, match="exceeds the maximum length"):
         store.log_batch(run.info.run_id, [], param_entities, [])
 
     monkeypatch.setenv("MLFLOW_TRUNCATE_LONG_VALUES", "true")
@@ -4454,7 +4456,7 @@ def test_set_and_delete_tags(store: SqlAlchemyStore):
             "Invalid value \"/\\.:\\\\\\\\.\" for parameter 'key' supplied",
         ),
         ("../", "value", "Invalid value \"\\.\\./\" for parameter 'key' supplied"),
-        ("a" * 251, "value", "Trace tag key 'aaa"),
+        ("a" * 251, "value", "'key' exceeds the maximum length of 250 characters"),
     ],
     # Name each test case too avoid including the long string arguments in the test name
     ids=["null-key", "bad-key-1", "bad-key-2", "bad-key-3", "too-long-key"],
