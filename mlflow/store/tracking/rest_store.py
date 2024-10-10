@@ -6,6 +6,7 @@ from mlflow.entities import (
     DatasetInput,
     Experiment,
     LoggedModel,
+    LoggedModelInput,
     LoggedModelParameter,
     LoggedModelStatus,
     LoggedModelTag,
@@ -660,7 +661,12 @@ class RestStore(AbstractStore):
         endpoint = get_logged_model_endpoint(model_id)
         self._call_endpoint(DeleteLoggedModelTag, endpoint=f"{endpoint}/tags/{key}")
 
-    def log_inputs(self, run_id: str, datasets: Optional[List[DatasetInput]] = None):
+    def log_inputs(
+        self,
+        run_id: str,
+        datasets: Optional[List[DatasetInput]] = None,
+        models: Optional[List[LoggedModelInput]] = None,
+    ):
         """
         Log inputs, such as datasets, to the specified run.
 
@@ -668,10 +674,18 @@ class RestStore(AbstractStore):
             run_id: String id for the run
             datasets: List of :py:class:`mlflow.entities.DatasetInput` instances to log
                 as inputs to the run.
+            models: List of :py:class:`mlflow.entities.LoggedModelInput` instances to log.
 
         Returns:
             None.
         """
-        datasets_protos = [dataset.to_proto() for dataset in datasets]
-        req_body = message_to_json(LogInputs(run_id=run_id, datasets=datasets_protos))
+        datasets_protos = [dataset.to_proto() for dataset in datasets or []]
+        models_protos = [model.to_proto() for model in models]
+        req_body = message_to_json(
+            LogInputs(
+                run_id=run_id,
+                datasets=datasets_protos,
+                models=models_protos,
+            )
+        )
         self._call_endpoint(LogInputs, req_body)
