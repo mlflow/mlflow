@@ -1852,6 +1852,9 @@ def spark_udf(
     NOTE: Inputs of type ``pyspark.sql.types.DateType`` are not supported on earlier versions of
     Spark (2.4 and below).
 
+    NOTE: If using Databricks Connect to connect to remote Databricks cluster,
+       the Databricks cluster must use runtime version greater than 16.
+
     NOTE: If using Databricks Connect to connect to remote Databricks cluster, and 'spark_udf'
        param'env_manager' to 'virtualenv', the 'prebuilt_env_path' param is required too.
 
