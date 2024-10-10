@@ -58,7 +58,7 @@ def get_default_pip_requirements():
         `save_model()` and `log_model()` produce a pip environment that, at minimum, contains these
         requirements.
     """
-    return [_get_pinned_requirement("dspy-ai")]
+    return [_get_pinned_requirement("dspy")]
 
 
 def get_default_conda_env():
@@ -163,7 +163,7 @@ def save_model(
 
     flavor_options = {
         "model_path": model_subpath,
-        "dspy_version": version("dspy-ai"),
+        "dspy_version": version("dspy"),
     }
 
     if task:
