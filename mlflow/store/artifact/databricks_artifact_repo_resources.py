@@ -85,6 +85,9 @@ class _Resource(ABC):
         """
 
     def list_artifacts(self, path: Optional[str] = None) -> List[FileInfo]:
+        """
+        Handle pagination and return all artifacts under the specified path.
+        """
         files: List[FileInfo] = []
         page_token: Optional[str] = None
         while True:
@@ -136,12 +139,11 @@ class _LoggedModel(_Resource):
     def _list_artifacts(
         self, path: Optional[str] = None, page_token: Optional[str] = None
     ) -> Tuple[List[FileInfo], Optional[str]]:
-        json_body = message_to_json(ListLoggedModelArtifacts(page_token=page_token))
+        json_body = message_to_json(
+            ListLoggedModelArtifacts(page_token=page_token, artifact_directory_path=path)
+        )
         response = self.call_endpoint(
-            MlflowService,
-            ListLoggedModelArtifacts,
-            json_body,
-            path_params={"model_id": self.id, "artifact_directory_path": path},
+            MlflowService, ListLoggedModelArtifacts, json_body, path_params={"model_id": self.id}
         )
         files = response.files
         # If `path` is a file, ListArtifacts returns a single list element with the
@@ -186,9 +188,7 @@ class _Run(_Resource):
     def _list_artifacts(
         self, path: Optional[str] = None, page_token: Optional[str] = None
     ) -> ListArtifactsPage:
-        json_body = message_to_json(
-            ListArtifacts(run_id=self.resource.id, path=path, page_token=page_token)
-        )
+        json_body = message_to_json(ListArtifacts(run_id=self.id, path=path, page_token=page_token))
         response = self._call_endpoint(MlflowService, ListArtifacts, json_body)
         files = response.files
         # If `path` is a file, ListArtifacts returns a single list element with the
