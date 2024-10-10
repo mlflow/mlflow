@@ -1186,11 +1186,17 @@ def test_evaluate_with_multi_evaluators(
                             evaluator1_config,
                         )
                     )
+                    mock_can_evaluate1.assert_has_calls(
+                        [mock.call(model_type="classifier", evaluator_config=evaluator1_config)]
+                    )
                     mock_evaluate2.assert_called_once_with(
                         **get_evaluate_call_arg(
                             mlflow.pyfunc.load_model(multiclass_logistic_regressor_model_uri),
                             evaluator2_config,
                         )
+                    )
+                    mock_can_evaluate2.assert_has_calls(
+                        [mock.call(model_type="classifier", evaluator_config=evaluator2_config)]
                     )
 
 
