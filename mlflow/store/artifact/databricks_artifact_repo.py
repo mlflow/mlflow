@@ -4,7 +4,7 @@ import logging
 import os
 import posixpath
 import uuid
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
 import requests
 
@@ -16,7 +16,6 @@ from mlflow.azure.client import (
     put_block,
     put_block_list,
 )
-from mlflow.entities import FileInfo
 from mlflow.environment_variables import (
     MLFLOW_MULTIPART_DOWNLOAD_CHUNK_SIZE,
     MLFLOW_MULTIPART_UPLOAD_CHUNK_SIZE,
@@ -36,7 +35,7 @@ from mlflow.protos.databricks_pb2 import (
     INTERNAL_ERROR,
     INVALID_PARAMETER_VALUE,
 )
-from mlflow.protos.service_pb2 import ListArtifacts, MlflowService
+from mlflow.protos.service_pb2 import MlflowService
 from mlflow.store.artifact.artifact_repo import write_local_temp_trace_data_file
 from mlflow.store.artifact.cloud_artifact_repo import (
     CloudArtifactRepository,
@@ -717,55 +716,7 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
         )
 
     def list_artifacts(self, path=None):
-        # TODO: Support list_artifacts for logged models
-        if isinstance(self.resource, _LoggedModel):
-            return self.resource.list_artifacts(path)
-
-        if path:
-            relative_path = posixpath.join(self.relative_artifact_repo_root_path, path)
-        else:
-            relative_path = self.relative_artifact_repo_root_path
-        infos = []
-        page_token = None
-        while True:
-            json_body = message_to_json(
-                ListArtifacts(run_id=self.resource.id, path=relative_path, page_token=page_token)
-            )
-            response = self._call_endpoint(MlflowService, ListArtifacts, json_body)
-            artifact_list = response.files
-            # If `path` is a file, ListArtifacts returns a single list element with the
-            # same name as `path`. The list_artifacts API expects us to return an empty list in this
-            # case, so we do so here.
-            if (
-                len(artifact_list) == 1
-                and artifact_list[0].path == relative_path
-                and not artifact_list[0].is_dir
-            ):
-                return []
-            for output_file in artifact_list:
-                file_rel_path = posixpath.relpath(
-                    path=output_file.path, start=self.relative_artifact_repo_root_path
-                )
-                artifact_size = None if output_file.is_dir else output_file.file_size
-                infos.append(FileInfo(file_rel_path, output_file.is_dir, artifact_size))
-            if len(artifact_list) == 0 or not response.next_page_token:
-                break
-            page_token = response.next_page_token
-        return infos
-
-    def list_logged_model_artifacts(self, path: Optional[str] = None) -> List[FileInfo]:
-        if path:
-            relative_path = posixpath.join(self.relative_artifact_repo_root_path, path)
-        else:
-            relative_path = self.relative_artifact_repo_root_path
-        return [
-            FileInfo(
-                posixpath.relpath(path=f.path, start=self.relative_artifact_repo_root_path),
-                f.is_dir,
-                f.file_size,
-            )
-            for f in self.resource.list_artifacts(relative_path)
-        ]
+        return self.resource.list_artifacts(path)
 
     def delete_artifacts(self, artifact_path=None):
         raise MlflowException("Not implemented yet")
