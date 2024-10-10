@@ -677,14 +677,14 @@ openai:
 
 dspy:
   package_info:
-    pip_release: "dspy-ai"
+    pip_release: "dspy"
     install_dev: |
       pip install git+https://github.com/stanfordnlp/dspy.git
   models:
-    minimum: "2.4.16"
-    maximum: "2.5.0"
+    minimum: "2.5.6"
+    maximum: "2.5.6"
     python:
-      ">= 2.4.16": "3.9"
+      ">= 2.5.6": "3.9"
     requirements:
       ">= 0.0.0": ["openai"]
     run: |
