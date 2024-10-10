@@ -2830,6 +2830,11 @@ class MlflowClient:
         """
         return self._tracking_client.list_artifacts(run_id, path)
 
+    def list_logged_model_artifacts(
+        self, model_id: str, path: Optional[str] = None
+    ) -> List[FileInfo]:
+        return self._tracking_client.list_logged_model_artifacts(model_id, path)
+
     def download_artifacts(self, run_id: str, path: str, dst_path: Optional[str] = None) -> str:
         """
         Download an artifact file or directory from a run to a local directory if applicable,

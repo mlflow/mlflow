@@ -13,6 +13,7 @@ from typing import Any, Dict, List, Optional
 
 from mlflow.entities import (
     ExperimentTag,
+    FileInfo,
     LoggedModel,
     LoggedModelInput,
     LoggedModelOutput,
@@ -873,6 +874,20 @@ class TrackingServiceClient:
             utils._artifact_repos_cache[run_id] = artifact_repo
             return artifact_repo
 
+    def _get_artifact_repo_for_logged_model(self, model_id: str):
+        if cached_repo := utils._artifact_repos_cache.get(model_id):
+            return cached_repo
+
+        logged_model = self.get_logged_model(model_id)
+        artifact_uri = add_databricks_profile_info_to_artifact_uri(
+            logged_model.info.artifact_location, self.tracking_uri
+        )
+        artifact_repo = get_artifact_repository(artifact_uri)
+        if len(utils._artifact_repos_cache) > 1024:
+            utils._artifact_repos_cache.popitem(last=False)
+        utils._artifact_repos_cache[model_id] = artifact_repo
+        return artifact_repo
+
     def log_artifact(self, run_id, local_path, artifact_path=None):
         """
         Write a local file or directory to the remote ``artifact_uri``.
@@ -938,6 +953,21 @@ class TrackingServiceClient:
 
         """
         return self._get_artifact_repo(run_id).list_artifacts(path)
+
+    def list_logged_model_artifacts(
+        self, model_id: str, path: Optional[str] = None
+    ) -> List[FileInfo]:
+        """List the artifacts for a run.
+
+        Args:
+            model_id: The run to list artifacts from.
+            path: The run's relative artifact path to list from. By default it is set to None
+                or the root artifact path.
+
+        Returns:
+            List of :py:class:`mlflow.entities.FileInfo`
+        """
+        return self._get_artifact_repo_for_logged_model(model_id).list_logged_model_artifacts(path)
 
     def download_artifacts(self, run_id, path, dst_path=None):
         """Download an artifact file or directory from a run to a local directory if applicable,
