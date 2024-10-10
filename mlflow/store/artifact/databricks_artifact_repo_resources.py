@@ -142,7 +142,7 @@ class _LoggedModel(_Resource):
         self,
         path: Optional[str] = None,
         page_token: Optional[str] = None,
-    ) -> Tuple[List[FileInfo], Optional[str]]:
+    ) -> ListArtifactsPage:
         json_body = message_to_json(
             ListLoggedModelArtifacts(page_token=page_token, artifact_directory_path=path)
         )
