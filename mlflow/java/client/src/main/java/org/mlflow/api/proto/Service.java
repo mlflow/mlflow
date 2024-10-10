@@ -109811,7 +109811,7 @@ public final class Service {
       "\003*\212\001\n\021LoggedModelStatus\022#\n\037LOGGED_MODEL_" +
       "STATUS_UNSPECIFIED\020\000\022\030\n\024LOGGED_MODEL_PEN" +
       "DING\020\001\022\026\n\022LOGGED_MODEL_READY\020\002\022\036\n\032LOGGED" +
-      "_MODEL_UPLOAD_FAILED\020\0032\300+\n\rMlflowService" +
+      "_MODEL_UPLOAD_FAILED\020\0032\244+\n\rMlflowService" +
       "\022\246\001\n\023getExperimentByName\022\033.mlflow.GetExp" +
       "erimentByName\032$.mlflow.GetExperimentByNa" +
       "me.Response\"L\362\206\031H\n,\n\003GET\022\037/mlflow/experi" +
@@ -109944,14 +109944,13 @@ public final class Service {
       "gedModelTag\032%.mlflow.DeleteLoggedModelTa" +
       "g.Response\"`\362\206\031\\\n?\n\006DELETE\022//mlflow/logg" +
       "ed-models/{model_id}/tags/{tag_key}\032\004\010\002\020" +
-      "\000\020\003*\027Delete Logged Model Tag\022\362\001\n\030listLog" +
+      "\000\020\003*\027Delete Logged Model Tag\022\326\001\n\030listLog" +
       "gedModelArtifacts\022 .mlflow.ListLoggedMod" +
       "elArtifacts\032).mlflow.ListLoggedModelArti" +
-      "facts.Response\"\210\001\362\206\031\203\001\n]\n\003GET\022P/mlflow/l" +
-      "ogged-models/{model_id}/artifacts/direct" +
-      "ories/{artifact_directory_path}\032\004\010\002\020\000\020\003*" +
-      " List Artifacts for Logged ModelsB\036\n\024org" +
-      ".mlflow.api.proto\220\001\001\342?\002\020\001"
+      "facts.Response\"m\362\206\031i\nC\n\003GET\0226/mlflow/log" +
+      "ged-models/{model_id}/artifacts/director" +
+      "ies\032\004\010\002\020\000\020\003* List Artifacts for Logged M" +
+      "odelsB\036\n\024org.mlflow.api.proto\220\001\001\342?\002\020\001"
     };
     descriptor = com.google.protobuf.Descriptors.FileDescriptor
       .internalBuildGeneratedFileFrom(descriptorData,
