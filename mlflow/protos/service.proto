@@ -458,6 +458,22 @@ service MlflowService {
     };
   }
 
+  // Logs outputs, such as datasets and models, from an MLflow Run.
+  //
+  // .. note::
+  //     Experimental: This API may change or be removed in a future release without warning.
+  rpc logOutputs (LogOutputs) returns (LogOutputs.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "POST",
+        path: "/mlflow/runs/outputs"
+        since {major: 2, minor: 0},
+      }],
+      visibility: PUBLIC_UNDOCUMENTED,
+      rpc_doc_title: "Log Outputs",
+    };
+  }
+
   rpc searchDatasets(SearchDatasets) returns (SearchDatasets.Response) {
     option (rpc) = {
       endpoints: [{
@@ -830,6 +846,12 @@ message DatasetInput {
   optional Dataset dataset = 2 [(validate_required) = true];
 }
 
+// Represents a LoggedModel or Registered Model Version input to a Run.
+message ModelInput {
+  // The unique identifier of the model.
+  optional string model_id = 1 [(validate_required) = true];
+}
+
 // Tag for an input.
 message InputTag {
   // The tag key.
@@ -863,6 +885,15 @@ message Dataset {
   // in a table, the mean / std / mode of each column in a table, or the number of elements
   // in an array.
   optional string profile = 6;
+}
+
+// Represents a LoggedModel output of a Run.
+message ModelOutput {
+  // The unique identifier of the model.
+  optional string model_id = 1 [(validate_required) = true];
+
+  // Step at which the model was produced.
+  optional int64 step = 2 [(validate_required) = true];
 }
 
 message CreateExperiment {
@@ -1368,6 +1399,23 @@ message LogInputs {
 
   // Dataset inputs
   repeated DatasetInput datasets = 2;
+
+  // Model inputs
+  // (Currently undocumented for LoggedModels private preview)
+  repeated ModelInput models = 3 [(visibility) = PUBLIC_UNDOCUMENTED];
+
+  message Response {
+  }
+}
+
+message LogOutputs {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // ID of the Run from which to log outputs.
+  optional string run_id = 1 [(validate_required) = true];
+
+  // Model outputs from the Run.
+  repeated ModelOutput models = 2;
 
   message Response {
   }
