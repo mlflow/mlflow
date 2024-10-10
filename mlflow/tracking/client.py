@@ -1905,7 +1905,7 @@ class MlflowClient:
         """
         self._tracking_client.log_inputs(run_id, datasets, models)
 
-    def log_outputs(self, run_id: str, models: Sequence[LoggedModelOutput]):
+    def log_outputs(self, run_id: str, models: List[LoggedModelOutput]):
         self._tracking_client.log_outputs(run_id, models)
 
     def log_artifact(self, run_id, local_path, artifact_path=None) -> None:

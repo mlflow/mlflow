@@ -673,7 +673,7 @@ class AbstractStore:
             None.
         """
 
-    def log_outputs(self, run_id, models: Optional[List[LoggedModelOutput]] = None):
+    def log_outputs(self, run_id: str, models: List[LoggedModelOutput]):
         """
         Log outputs, such as models, to the specified run.
 

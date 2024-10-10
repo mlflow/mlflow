@@ -1273,7 +1273,7 @@ class FileStore(AbstractStore):
                 )
                 fs_input.write_yaml(input_dir, FileStore.META_DATA_FILE_NAME)
 
-    def log_outputs(self, run_id, models: Optional[List[LoggedModelOutput]] = None):
+    def log_outputs(self, run_id: str, models: List[LoggedModelOutput]):
         """
         Log outputs, such as models, to the specified run.
 

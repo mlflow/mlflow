@@ -1,4 +1,5 @@
 from mlflow.entities._mlflow_object import _MlflowObject
+from mlflow.protos.service_pb2 import ModelOutput
 
 
 class LoggedModelOutput(_MlflowObject):
@@ -22,3 +23,6 @@ class LoggedModelOutput(_MlflowObject):
     def step(self) -> str:
         """Step at which the model was logged"""
         return self._step
+
+    def to_proto(self):
+        return ModelOutput(model_id=self.model_id, step=self.step)
