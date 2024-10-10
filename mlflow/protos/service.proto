@@ -1671,8 +1671,8 @@ message SearchLoggedModels {
   // Example: ``params.alpha < 0.3 AND metrics.accuracy > 0.9``.
   optional string filter = 2;
 
-  // Maximum number of Logged Models to return. Max threshold is 500.
-  optional int32 max_results = 3 [default = 100];
+  // Maximum number of Logged Models to return. Max threshold is 50.
+  optional int32 max_results = 3 [default = 50];
 
   // List of columns for ordering the results, with additional fields for sorting criteria.
   repeated OrderBy order_by = 4;
