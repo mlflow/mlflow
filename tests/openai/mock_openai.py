@@ -116,7 +116,7 @@ async def chat(payload: ChatPayload):
                 f"data: {json.dumps(d)}\n\n" async for d in chat_response_stream_empty_choices()
             )
         else:
-            content = ((f"data: {json.dumps(d)}\n\n" async for d in chat_response_stream()),)
+            content = (f"data: {json.dumps(d)}\n\n" async for d in chat_response_stream())
 
         return StreamingResponse(
             content,
