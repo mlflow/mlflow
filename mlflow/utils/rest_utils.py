@@ -108,12 +108,23 @@ def http_request(
             # Databricks SDK `APIClient.do` API is for making request using
             # HTTP
             # https://github.com/databricks/databricks-sdk-py/blob/a714146d9c155dd1e3567475be78623f72028ee0/databricks/sdk/core.py#L134
+
+            url_params = kwargs.get("params")
+            """"
+            if url_params is not None and not isinstance(url_params, dict):
+                raise RuntimeError(
+                    f"http_request got unexpected params: {str(url_params)}, type: {type(url_params)}"
+                )
+            """
+            if isinstance(url_params, str):
+                url_params = json.loads(url_params)
+
             raw_response = ws_client.api_client.do(
                 method=method,
                 path=endpoint,
                 headers=extra_headers,
                 raw=True,
-                query=kwargs.get("params"),
+                query=url_params,
                 body=kwargs.get("json"),
                 files=kwargs.get("files"),
                 data=kwargs.get("data"),
