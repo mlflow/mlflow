@@ -1,7 +1,6 @@
 """Functions for saving DSPY models to MLflow."""
 
 import os
-from importlib.metadata import version
 from typing import Any, Dict, List, Optional, Union
 
 import cloudpickle
@@ -163,7 +162,6 @@ def save_model(
 
     flavor_options = {
         "model_path": model_subpath,
-        "dspy_version": version("dspy"),
     }
 
     if task:
