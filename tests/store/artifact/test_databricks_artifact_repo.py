@@ -1246,6 +1246,7 @@ def mock_chunk_size(monkeypatch):
     # Use a smaller chunk size for faster comparison
     chunk_size = 10
     monkeypatch.setenv("MLFLOW_MULTIPART_UPLOAD_MINIMUM_FILE_SIZE", str(chunk_size))
+    monkeypatch.setenv("MLFLOW_MULTIPART_UPLOAD_CHUNK_SIZE", str(chunk_size))
     return chunk_size
 
 
