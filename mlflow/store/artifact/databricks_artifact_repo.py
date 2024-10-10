@@ -116,30 +116,6 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
         )
         self.creds = get_databricks_host_creds(self.databricks_profile_uri)
         self.resource = self._extract_resource(self.artifact_uri)
-        self._relative_artifact_repo_root_path = None
-
-    @property
-    def relative_artifact_repo_root_path(self):
-        """
-        Lazily computes the relative artifact repository root path to skip the existence
-        check when downloading/uploading trace data.
-        """
-        if self._relative_artifact_repo_root_path is None:
-            # Fetch the artifact root for the MLflow Run associated with `artifact_uri` and compute
-            # the path of `artifact_uri` relative to the MLflow Run's artifact root
-            # (the `relative_artifact_repo_root_path`). All operations performed on this
-            # artifact repository will be performed relative to this computed location
-            artifact_repo_root_path = extract_and_normalize_path(self.artifact_uri)
-            artifact_root_path = extract_and_normalize_path(self.resource.artifact_root)
-            relative_root_path = posixpath.relpath(
-                path=artifact_repo_root_path, start=artifact_root_path
-            )
-            # If the paths are equal, then use empty string over "./" for ListArtifact compatibility
-            self._relative_artifact_repo_root_path = (
-                "" if artifact_root_path == artifact_repo_root_path else relative_root_path
-            )
-
-        return self._relative_artifact_repo_root_path
 
     def _extract_resource(self, artifact_uri) -> _Resource:
         """
@@ -220,8 +196,7 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
         run-relative artifact `paths` within the MLflow Run specified by `run_id`.
         """
         relative_remote_paths = [
-            posixpath.join(self.relative_artifact_repo_root_path, p or "")
-            for p in remote_file_paths
+            posixpath.join(self.resource.relative_path, p or "") for p in remote_file_paths
         ]
         return self._get_credential_infos(_CredentialType.WRITE, relative_remote_paths)
 
@@ -294,7 +269,7 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
                 f"Expected `paths` to be a list of strings. Got {type(remote_file_paths)}"
             )
         relative_remote_paths = [
-            posixpath.join(self.relative_artifact_repo_root_path, p) for p in remote_file_paths
+            posixpath.join(self.resource.relative_path, p) for p in remote_file_paths
         ]
         return self._get_credential_infos(_CredentialType.READ, relative_remote_paths)
 
@@ -684,7 +659,7 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
 
     def _multipart_upload(self, local_file, artifact_file_path):
         run_relative_artifact_path = posixpath.join(
-            self.relative_artifact_repo_root_path, artifact_file_path or ""
+            self.resource.relative_path, artifact_file_path or ""
         )
         num_parts = _compute_num_chunks(local_file, MLFLOW_MULTIPART_UPLOAD_CHUNK_SIZE.get())
         create_mpu_resp = self._create_multipart_upload(

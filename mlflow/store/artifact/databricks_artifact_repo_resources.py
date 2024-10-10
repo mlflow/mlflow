@@ -1,3 +1,4 @@
+import posixpath
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from enum import Enum
@@ -19,6 +20,7 @@ from mlflow.protos.service_pb2 import (
     MlflowService,
 )
 from mlflow.utils.proto_json_utils import message_to_json
+from mlflow.utils.uri import extract_and_normalize_path
 
 
 class _CredentialType(Enum):
@@ -58,6 +60,18 @@ class _Resource(ABC):
         self.id = id_
         self.call_endpoint = call_endpoint
         self.artifact_root = self.get_artifact_root()
+        self.relative_path = self.get_rel_path
+
+    def get_relative_path(self) -> str:
+        # Fetch the artifact root for the MLflow resource associated with `artifact_uri` and compute
+        # the path of `artifact_uri` relative to the MLflow Run's artifact root
+        # (the `relative_artifact_repo_root_path`). All operations performed on this
+        # artifact repository will be performed relative to this computed location
+        artifact_repo_root_path = extract_and_normalize_path(self.artifact_uri)
+        artifact_root_path = extract_and_normalize_path(self.artifact_root)
+        relative_root_path = posixpath.relpath(artifact_repo_root_path, artifact_root_path)
+        # If the paths are equal, then use empty string over "./" for ListArtifact compatibility
+        return "" if artifact_root_path == artifact_repo_root_path else relative_root_path
 
     @abstractmethod
     def get_credentials(
@@ -157,7 +171,14 @@ class _LoggedModel(_Resource):
             return ListArtifactsPage.empty()
 
         return ListArtifactsPage(
-            files=[FileInfo(f.path, f.is_dir, None if f.is_dir else f.file_size) for f in files],
+            files=[
+                FileInfo(
+                    posixpath.relpath(f.path, self.relative_path),
+                    f.is_dir,
+                    None if f.is_dir else f.file_size,
+                )
+                for f in files
+            ],
             next_page_token=response.next_page_token,
         )
 
@@ -204,6 +225,13 @@ class _Run(_Resource):
             return ListArtifactsPage.empty()
 
         return ListArtifactsPage(
-            files=[FileInfo(f.path, f.is_dir, None if f.is_dir else f.file_size) for f in files],
+            files=[
+                FileInfo(
+                    posixpath.relpath(f.path, self.relative_path),
+                    f.is_dir,
+                    None if f.is_dir else f.file_size,
+                )
+                for f in files
+            ],
             next_page_token=response.next_page_token,
         )
