@@ -80,7 +80,7 @@ def _make_chat_stream_chunk(content):
     }
 
 
-def _make_chat_stream_chunk_empty_choices(content):
+def _make_chat_stream_chunk_empty_choices():
     return {
         "id": "chatcmpl-123",
         "object": "chat.completion.chunk",
@@ -98,7 +98,7 @@ async def chat_response_stream():
 
 
 async def chat_response_stream_empty_choices():
-    yield _make_chat_stream_chunk_empty_choices("")
+    yield _make_chat_stream_chunk_empty_choices()
     yield _make_chat_stream_chunk("Hello")
 
 
@@ -162,7 +162,7 @@ def _make_completions_stream_chunk(content):
     }
 
 
-def _make_completions_stream_chunk_empty_choices(content):
+def _make_completions_stream_chunk_empty_choices():
     return {
         "id": "cmpl-uqkvlQyYK7bGYrRHQ0eXlWi7",
         "object": "text_completion",
@@ -180,7 +180,7 @@ async def completions_response_stream():
 
 
 async def completions_response_stream_empty_choices():
-    yield _make_completions_stream_chunk_empty_choices("")
+    yield _make_completions_stream_chunk_empty_choices()
     yield _make_completions_stream_chunk("Hello")
 
 
