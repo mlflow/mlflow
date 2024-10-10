@@ -78,7 +78,9 @@ class _Resource(ABC):
 
     @abstractmethod
     def _list_artifacts(
-        self, path: Optional[str] = None, page_token: Optional[str] = None
+        self,
+        path: Optional[str] = None,
+        page_token: Optional[str] = None,
     ) -> ListArtifactsPage:
         """
         List artifacts under the specified path.
@@ -137,7 +139,9 @@ class _LoggedModel(_Resource):
         return response.model.info.artifact_uri
 
     def _list_artifacts(
-        self, path: Optional[str] = None, page_token: Optional[str] = None
+        self,
+        path: Optional[str] = None,
+        page_token: Optional[str] = None,
     ) -> Tuple[List[FileInfo], Optional[str]]:
         json_body = message_to_json(
             ListLoggedModelArtifacts(page_token=page_token, artifact_directory_path=path)
@@ -186,7 +190,9 @@ class _Run(_Resource):
         return run_response.run.info.artifact_uri
 
     def _list_artifacts(
-        self, path: Optional[str] = None, page_token: Optional[str] = None
+        self,
+        path: Optional[str] = None,
+        page_token: Optional[str] = None,
     ) -> ListArtifactsPage:
         json_body = message_to_json(ListArtifacts(run_id=self.id, path=path, page_token=page_token))
         response = self.call_endpoint(MlflowService, ListArtifacts, json_body)
