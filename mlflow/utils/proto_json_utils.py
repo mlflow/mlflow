@@ -3,11 +3,12 @@ import datetime
 import importlib
 import json
 import os
+import string
 from collections import defaultdict
 from copy import deepcopy
 from functools import partial
 from json import JSONEncoder
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Tuple
 
 from google.protobuf.descriptor import FieldDescriptor
 from google.protobuf.json_format import MessageToJson, ParseDict
@@ -103,9 +104,8 @@ def _merge_json_dicts(from_dict, to_dict):
     return to_dict
 
 
-def message_to_json(message):
-    """Converts a message to JSON, using snake_case for field names."""
-
+def message_to_dict(message) -> Dict[str, Any]:
+    """Converts a proto message to a JSON dict, preserving int64 proto fields."""
     # Google's MessageToJson API converts int64 proto fields to JSON strings.
     # For more info, see https://github.com/protocolbuffers/protobuf/issues/2954
     json_dict_with_int64_as_str = json.loads(
@@ -117,10 +117,35 @@ def message_to_json(message):
     # By merging these two JSON dicts, we end up with a JSON dict where int64 proto fields are not
     # converted to JSON strings. Int64 keys in proto maps will always be converted to JSON strings
     # because JSON doesn't support non-string keys.
-    json_dict_with_int64_as_numbers = _merge_json_dicts(
-        json_dict_with_int64_fields_only, json_dict_with_int64_as_str
-    )
-    return json.dumps(json_dict_with_int64_as_numbers, indent=2)
+    return _merge_json_dicts(json_dict_with_int64_fields_only, json_dict_with_int64_as_str)
+
+
+def message_to_json(message) -> str:
+    """Converts a message to JSON, using snake_case for field names."""
+    return json.dumps(message_to_dict(message), indent=2)
+
+
+def format_endpoint(endpoint: str, payload: Dict[str, Any]) -> Tuple[str, Dict[str, Any]]:
+    """
+    Format the endpoint string with the given parameters.
+
+    Args:
+        endpoint: The endpoint string with placeholders for parameters. For example,
+            "/api/2.0/mlflow/experiments/{experiment_id}".
+        payload: The parameters to be formatted into the endpoint string. For example,
+            {"experiment_id": "1", "param": "value"}.
+
+    Returns:
+        The formatted endpoint string and the parameters that were not used in the endpoint string.
+    """
+    replacements: Dict[str, Any] = {}
+    for _, name, _, _ in string.Formatter().parse(endpoint):
+        if name in payload:
+            replacements[name] = payload.pop(name)
+    if replacements:
+        endpoint = endpoint.format(**replacements)
+
+    return endpoint, payload
 
 
 def _stringify_all_experiment_ids(x):
