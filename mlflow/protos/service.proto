@@ -615,7 +615,7 @@ service MlflowService {
     option (rpc) = {
       endpoints: [{
         method: "GET",
-        path: "/mlflow/logged-models/{model_id}/artifacts/directories/{artifact_directory_path}"
+        path: "/mlflow/logged-models/{model_id}/artifacts/directories"
         since { major: 2, minor: 0 },
       }],
       visibility: PUBLIC_UNDOCUMENTED,
