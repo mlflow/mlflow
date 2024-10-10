@@ -387,7 +387,7 @@ Select the integration below to read the documentation on how to leverage MLflow
             <div class="simple-card">
                 <a href="dspy/index.html">
                     <div class="header-with-image">
-                        <img src="../_static/images/logos/dspy-logo.svg" alt="DSPy Logo" style="width: 90%"/>
+                        <img src="../_static/images/logos/dspy-logo.png" alt="DSPy Logo" style="width: 90%"/>
                     </div>
                     <p>
                         Learn about MLflow's native integration with DSPy and see example notebooks that leverage 
