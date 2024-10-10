@@ -1,4 +1,5 @@
 from mlflow.entities._mlflow_object import _MlflowObject
+from mlflow.protos import service_pb2 as pb2
 
 
 class LoggedModelInput(_MlflowObject):
@@ -16,3 +17,6 @@ class LoggedModelInput(_MlflowObject):
     def model_id(self) -> str:
         """Model ID."""
         return self._model_id
+
+    def to_proto(self):
+        return pb2.ModelInput(model_id=self._model_id)
