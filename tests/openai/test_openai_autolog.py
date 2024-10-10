@@ -8,6 +8,7 @@ from mlflow import MlflowClient
 from mlflow.tracing.constant import TraceMetadataKey
 
 from tests.openai.conftest import is_v1
+from tests.openai.mock_openai import EMPTY_CHOICES
 
 
 @pytest.fixture
@@ -139,6 +140,26 @@ def test_chat_completions_autolog_tracing_error(client):
     assert span.events[0].attributes["exception.type"] == "BadRequestError"
 
 
+def test_chat_completions_streaming_empty_choices(client):
+    mlflow.openai.autolog()
+    stream = client.chat.completions.create(
+        messages=[{"role": "user", "content": EMPTY_CHOICES}],
+        model="gpt-4o-mini",
+        stream=True,
+    )
+
+    # Ensure the stream has a chunk with empty choices
+    first_chunk = next(stream)
+    assert first_chunk.choices == []
+
+    # Exhaust the stream
+    for _ in stream:
+        pass
+
+    trace = mlflow.get_last_active_trace()
+    assert trace.info.status == "OK"
+
+
 @pytest.mark.skipif(not is_v1, reason="Requires OpenAI SDK v1")
 @pytest.mark.parametrize("log_models", [True, False])
 def test_completions_autolog(client, log_models):
@@ -170,6 +191,26 @@ def test_completions_autolog(client, log_models):
         assert pyfunc_model.predict("test") == ["test"]
     else:
         assert TraceMetadataKey.SOURCE_RUN not in trace.info.request_metadata
+
+
+def test_completions_autolog_streaming_empty_choices(client):
+    mlflow.openai.autolog()
+    stream = client.completions.create(
+        prompt=EMPTY_CHOICES,
+        model="gpt-4o-mini",
+        stream=True,
+    )
+
+    # Ensure the stream has a chunk with empty choices
+    first_chunk = next(stream)
+    assert first_chunk.choices == []
+
+    # Exhaust the stream
+    for _ in stream:
+        pass
+
+    trace = mlflow.get_last_active_trace()
+    assert trace.info.status == "OK"
 
 
 @pytest.mark.skipif(not is_v1, reason="Requires OpenAI SDK v1")
