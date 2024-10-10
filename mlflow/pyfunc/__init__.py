@@ -1853,7 +1853,9 @@ def spark_udf(
     Spark (2.4 and below).
 
     NOTE: If using Databricks Connect to connect to remote Databricks cluster,
-       the Databricks cluster must use runtime version greater than 16.
+       the Databricks cluster must use runtime version greater than 16, or use runtime version
+       15.3 / 15.4 but set safe flag 'spark.databricks.safespark.archive.artifact.unpack.disabled'
+       to 'false'.
 
     NOTE: If using Databricks Connect to connect to remote Databricks cluster, and 'spark_udf'
        param'env_manager' to 'virtualenv', the 'prebuilt_env_path' param is required too.
