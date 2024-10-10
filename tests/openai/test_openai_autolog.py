@@ -148,6 +148,11 @@ def test_chat_completions_streaming_empty_choices(client):
         stream=True,
     )
 
+    # Ensure the stream has a chunk with empty choices
+    choices = next(c.choices for c in stream)
+    assert choices == []
+
+    # Exhaust the stream
     for _ in stream:
         pass
 
@@ -196,6 +201,10 @@ def test_completions_autolog_streaming_empty_choices(client):
         stream=True,
     )
 
+    # Ensure the stream has a chunk with empty choices
+    choices = next(c.choices for c in stream)
+    assert choices == []
+    # Exhaust the stream
     for _ in stream:
         pass
 
