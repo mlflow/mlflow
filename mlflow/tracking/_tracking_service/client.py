@@ -957,11 +957,11 @@ class TrackingServiceClient:
     def list_logged_model_artifacts(
         self, model_id: str, path: Optional[str] = None
     ) -> List[FileInfo]:
-        """List the artifacts for a run.
+        """List the artifacts for a logged model.
 
         Args:
-            model_id: The run to list artifacts from.
-            path: The run's relative artifact path to list from. By default it is set to None
+            model_id: The model to list artifacts from.
+            path: The model's relative artifact path to list from. By default it is set to None
                 or the root artifact path.
 
         Returns:
