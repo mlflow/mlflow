@@ -680,7 +680,7 @@ class RestStore(AbstractStore):
             None.
         """
         datasets_protos = [dataset.to_proto() for dataset in datasets or []]
-        models_protos = [model.to_proto() for model in models]
+        models_protos = [model.to_proto() for model in models or []]
         req_body = message_to_json(
             LogInputs(
                 run_id=run_id,
