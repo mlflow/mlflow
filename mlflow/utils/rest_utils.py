@@ -110,14 +110,11 @@ def http_request(
             # https://github.com/databricks/databricks-sdk-py/blob/a714146d9c155dd1e3567475be78623f72028ee0/databricks/sdk/core.py#L134
 
             url_params = kwargs.get("params")
-            """"
+
             if url_params is not None and not isinstance(url_params, dict):
                 raise RuntimeError(
                     f"http_request got unexpected params: {str(url_params)}, type: {type(url_params)}"
                 )
-            """
-            if isinstance(url_params, str):
-                url_params = json.loads(url_params)
 
             raw_response = ws_client.api_client.do(
                 method=method,
@@ -364,6 +361,8 @@ def call_endpoint(host_creds, endpoint, method, json_body, response_proto, extra
     # Convert json string to json dictionary, to pass to requests
     if json_body:
         json_body = json.loads(json_body)
+    else:
+        json_body = None
     call_kwargs = {
         "host_creds": host_creds,
         "endpoint": endpoint,
