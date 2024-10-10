@@ -93,6 +93,9 @@ class MlflowCredentialContext:
 
     def __enter__(self):
         db_creds = _get_databricks_creds_config(self.databricks_profile_url)
+        if db_creds is None:
+            _fail_malformed_databricks_auth(self.databricks_profile_url)
+
         self.db_utils.notebook.entry_point.putMlflowProperties(
             db_creds.host,
             db_creds.insecure,
@@ -667,7 +670,9 @@ def get_databricks_host_creds(server_uri=None):
 
     config = _get_databricks_creds_config(server_uri)
 
-    if not config:
+    if not config and not use_databricks_sdk:
+        # if `use_databricks_sdk` is True, databricks-sdk can set up authentication correctly,
+        # so that we can ignore `_get_databricks_creds_config` failure in the case.
         _fail_malformed_databricks_auth(profile)
 
     return MlflowHostCreds(
@@ -953,9 +958,6 @@ def _get_databricks_creds_config(tracking_uri):
                 config = _config
                 break
 
-    if not config or not config.host:
-        _fail_malformed_databricks_auth(tracking_uri)
-
     return config
 
 
@@ -964,6 +966,8 @@ def get_databricks_env_vars(tracking_uri):
         return {}
 
     config = _get_databricks_creds_config(tracking_uri)
+    if config is None:
+        _fail_malformed_databricks_auth(tracking_uri)
 
     if config.auth_type == "databricks-cli":
         raise MlflowException(
