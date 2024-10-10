@@ -7,6 +7,7 @@ from mlflow.entities import (
     Experiment,
     LoggedModel,
     LoggedModelInput,
+    LoggedModelOutput,
     LoggedModelParameter,
     LoggedModelStatus,
     LoggedModelTag,
@@ -41,6 +42,7 @@ from mlflow.protos.service_pb2 import (
     LogInputs,
     LogMetric,
     LogModel,
+    LogOutputs,
     LogParam,
     MlflowService,
     RestoreExperiment,
@@ -688,4 +690,19 @@ class RestStore(AbstractStore):
                 models=models_protos,
             )
         )
+        self._call_endpoint(LogInputs, req_body)
+
+    def log_outputs(self, run_id: str, models: List[LoggedModelOutput]):
+        """
+        Log outputs, such as models, to the specified run.
+
+        Args:
+            run_id: String id for the run
+            models: List of :py:class:`mlflow.entities.LoggedModelOutput` instances to log
+                as outputs of the run.
+
+        Returns:
+            None.
+        """
+        req_body = message_to_json(LogOutputs(run_id=run_id, models=[m.to_proto() for m in models]))
         self._call_endpoint(LogInputs, req_body)
