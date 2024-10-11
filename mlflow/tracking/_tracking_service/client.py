@@ -856,9 +856,9 @@ class TrackingServiceClient:
         artifact_uri = add_databricks_profile_info_to_artifact_uri(artifact_uri, self.tracking_uri)
         return get_artifact_repository(artifact_uri)
 
-    def _get_artifact_repo(self, run_id: str) -> ArtifactRepository:
+    def _get_artifact_repo(self, resource_id: str) -> ArtifactRepository:
         # Attempt to fetch the artifact repo from a local cache
-        cached_repo = utils._artifact_repos_cache.get(run_id)
+        cached_repo = utils._artifact_repos_cache.get(resource_id)
         if cached_repo is not None:
             return cached_repo
         else:
@@ -870,7 +870,7 @@ class TrackingServiceClient:
             # entry in the cache if there are too many elements
             if len(utils._artifact_repos_cache) > 1024:
                 utils._artifact_repos_cache.popitem(last=False)
-            utils._artifact_repos_cache[run_id] = artifact_repo
+            utils._artifact_repos_cache[resource_id] = artifact_repo
             return artifact_repo
 
     def log_artifact(self, run_id, local_path, artifact_path=None):
@@ -952,7 +952,7 @@ class TrackingServiceClient:
         Returns:
             List of :py:class:`mlflow.entities.FileInfo`
         """
-        return self._get_artifact_repo_for_logged_model(model_id).list_artifacts(path)
+        return self._get_artifact_repo(model_id).list_artifacts(path)
 
     def download_artifacts(self, run_id, path, dst_path=None):
         """Download an artifact file or directory from a run to a local directory if applicable,
@@ -1103,7 +1103,7 @@ class TrackingServiceClient:
         return self.store.delete_logged_model_tag(model_id, key)
 
     def log_model_artifacts(self, model_id: str, local_dir: str) -> None:
-        self._get_artifact_repo_for_logged_model(model_id).log_artifacts(local_dir)
+        self._get_artifact_repo(model_id).log_artifacts(local_dir)
 
     def search_logged_models(
         self,

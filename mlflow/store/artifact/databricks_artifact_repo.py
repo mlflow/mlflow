@@ -87,8 +87,9 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
     Signed access URIs for S3 / Azure Blob Storage are fetched from the MLflow service and used to
     read and write files from/to this location.
 
-    The artifact_uri is expected to be of the form
-    dbfs:/databricks/mlflow-tracking/<EXP_ID>/<RUN_ID>/
+    The artifact_uri is expected to be in one of the following forms:
+    - dbfs:/databricks/mlflow-tracking/<EXP_ID>/<RUN_ID>/
+    - databricks/mlflow-tracking/<EXP_ID>/logged_models/<MODEL_ID>/artifacts/<path>
     """
 
     def __init__(self, artifact_uri):
@@ -160,14 +161,14 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
     def _get_credential_infos(self, cred_type: _CredentialType, paths: List[str]):
         """
         Issue one or more requests for artifact credentials, providing read or write
-        access to the specified run-relative artifact `paths` within the MLflow Run specified
-        by `run_id`. The type of access credentials, read or write, is specified by
-        `request_message_class`.
+        access to the specified resource relative artifact `paths` within the MLflow
+        resource specified by `self.resource.id`. The type of access credentials, read or write,
+        is specified by `request_message_class`.
 
         Args:
             cred_type: Specifies the type of access credentials, read or write.
             resource: The specified MLflow resource.
-            paths: The specified run-relative artifact paths within the MLflow resource.
+            paths: The specified relative artifact paths within the MLflow resource.
 
         Returns:
             A list of `ArtifactCredentialInfo` objects providing read access to the specified
@@ -193,7 +194,7 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
     def _get_write_credential_infos(self, remote_file_paths):
         """
         A list of `ArtifactCredentialInfo` objects providing write access to the specified
-        run-relative artifact `paths` within the MLflow Run specified by `run_id`.
+        relative artifact `paths` within the MLflow resource specified by `self.resource.id`.
         """
         relative_remote_paths = [
             posixpath.join(self.resource.relative_path, p or "") for p in remote_file_paths
@@ -492,12 +493,12 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
     def _upload_to_cloud(self, cloud_credential_info, src_file_path, artifact_file_path):
         """
         Upload a local file to the cloud. Note that in this artifact repository, files are uploaded
-        to run-relative artifact file paths in the artifact repository.
+        to resource relative artifact file paths in the artifact repository.
 
         Args:
             cloud_credential_info: ArtifactCredentialInfo object with presigned URL for the file.
             src_file_path: Local source file path for the upload.
-            artifact_file_path: Path in the artifact repository, relative to the run root path,
+            artifact_file_path: Path in the artifact repository, relative to the resource root path,
                 where the artifact will be logged.
 
         """
@@ -533,7 +534,7 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
         Download a file from the input `remote_file_path` and save it to `local_path`.
 
         Args:
-            remote_file_path: Path relative to the run root path to file in remote artifact
+            remote_file_path: Path relative to the resource root path to file in remote artifact
                 repository.
             local_path: Local path to download file to.
 
