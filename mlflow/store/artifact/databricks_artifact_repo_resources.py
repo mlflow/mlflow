@@ -128,7 +128,7 @@ class _LoggedModel(_Resource):
         cred_type: _CredentialType,
         paths: List[str],
         page_token: Optional[str] = None,
-    ) -> Tuple[List[Any], Optional[str]]:
+    ) -> Tuple[List[ArtifactCredentialInfo], Optional[str]]:
         api = (
             GetCredentialsForLoggedModelDownload
             if cred_type == _CredentialType.READ
@@ -196,7 +196,7 @@ class _Run(_Resource):
         cred_type: _CredentialType,
         paths: List[str],
         page_token: Optional[str] = None,
-    ) -> List[ArtifactCredentialInfo]:
+    ) -> Tuple[List[ArtifactCredentialInfo], Optional[str]]:
         api = GetCredentialsForRead if cred_type == _CredentialType.READ else GetCredentialsForWrite
         json_body = api(run_id=self.id, path=paths, page_token=page_token)
         response = self.call_endpoint(
