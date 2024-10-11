@@ -60,7 +60,7 @@ class _Resource(ABC):
         self.id = id_
         self.call_endpoint = call_endpoint
         self.artifact_root = self.get_artifact_root()
-        self.relative_path = self.get_rel_path
+        self.relative_path = self.get_relative_path()
 
     def get_relative_path(self) -> str:
         # Fetch the artifact root for the MLflow resource associated with `artifact_uri` and compute
