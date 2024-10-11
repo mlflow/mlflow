@@ -712,6 +712,7 @@ def test_search_traces(mock_client):
     assert len(traces) == 10
     mock_client.search_traces.assert_called_once_with(
         experiment_ids=["1"],
+        run_id=None,
         filter_string="name = 'foo'",
         max_results=10,
         order_by=["timestamp DESC"],
@@ -739,6 +740,7 @@ def test_search_traces_with_pagination(mock_client):
     assert len(traces) == 30
     common_args = {
         "experiment_ids": ["1"],
+        "run_id": None,
         "max_results": SEARCH_TRACES_DEFAULT_MAX_RESULTS,
         "filter_string": None,
         "order_by": None,
@@ -759,6 +761,7 @@ def test_search_traces_with_default_experiment_id(mock_client):
 
     mock_client.search_traces.assert_called_once_with(
         experiment_ids=["123"],
+        run_id=None,
         filter_string=None,
         max_results=SEARCH_TRACES_DEFAULT_MAX_RESULTS,
         order_by=None,
@@ -1055,6 +1058,45 @@ def test_search_traces_with_span_name(monkeypatch):
             return get_traces()
 
     monkeypatch.setattr("mlflow.tracing.fluent.MlflowClient", MockMlflowClient)
+
+
+def test_search_traces_with_run_id():
+    def _create_trace(name, tags=None):
+        with mlflow.start_span(name=name) as span:
+            for k, v in (tags or {}).items():
+                mlflow.MlflowClient().set_trace_tag(request_id=span.request_id, key=k, value=v)
+        return span.request_id
+
+    def _get_names(traces):
+        tags = traces["tags"].tolist()
+        return [tags[i].get(TraceTagKey.TRACE_NAME) for i in range(len(tags))]
+
+    with mlflow.start_run() as run1:
+        _create_trace(name="tr-1")
+        _create_trace(name="tr-2", tags={"fruit": "apple"})
+
+    with mlflow.start_run() as run2:
+        _create_trace(name="tr-3")
+        _create_trace(name="tr-4", tags={"fruit": "banana"})
+        _create_trace(name="tr-5", tags={"fruit": "apple"})
+
+    traces = mlflow.search_traces()
+    assert _get_names(traces) == ["tr-5", "tr-4", "tr-3", "tr-2", "tr-1"]
+
+    traces = mlflow.search_traces(run_id=run1.info.run_id)
+    assert _get_names(traces) == ["tr-2", "tr-1"]
+
+    traces = mlflow.search_traces(
+        run_id=run2.info.run_id,
+        filter_string="tag.fruit = 'apple'",
+    )
+    assert _get_names(traces) == ["tr-5"]
+
+    with pytest.raises(MlflowException, match="You cannot filter by run_id when it is already"):
+        mlflow.search_traces(
+            run_id=run2.info.run_id,
+            filter_string="metadata.mlflow.sourceRun = '123'",
+        )
 
 
 @pytest.mark.parametrize(

@@ -64,6 +64,10 @@ To explore the structure and schema of MLflow Tracing, please see the `Tracing S
 Automatic Tracing
 -----------------
 
+.. hint::
+
+    Is your favorite library missing from the list? Consider `contributing to MLflow Tracing <contribute.html>`_ or `submitting a feature request <https://github.com/mlflow/mlflow/issues/new?assignees=&labels=enhancement&projects=&template=feature_request_template.yaml&title=%5BFR%5D>`_ to our Github repository.
+
 The easiest way to get started with MLflow Tracing is to leverage the built-in capabilities with MLflow's integrated libraries. MLflow provides automatic tracing capabilities for some of the integrated libraries such as
 LangChain, OpenAI, LlamaIndex, and AutoGen. For these libraries, you can instrument your code with
 just a single command ``mlflow.<library>.autolog()`` and MLflow will automatically log traces
@@ -884,7 +888,7 @@ For example, in the following code, the traces are generated within the ``start_
     mlflow.set_experiment("Run Associated Tracing")
 
     # Start a new MLflow Run
-    with mlflow.start_run():
+    with mlflow.start_run() as run:
         # Initiate a trace by starting a Span context from within the Run context
         with mlflow.start_span(name="Run Span") as parent_span:
             parent_span.set_inputs({"input": "a"})
@@ -903,6 +907,19 @@ well as providing a link to navigate to the run within the MLflow UI. See the be
     :alt: Tracing within a Run Context
     :width: 100%
     :align: center
+
+You can also programmatically retrieve the traces associated to a particular Run by using the :py:meth:`mlflow.client.MlflowClient.search_traces` method.
+
+.. code-block:: python
+
+    from mlflow import MlflowClient
+
+    client = MlflowClient()
+
+    # Retrieve traces associated with a specific Run
+    traces = client.search_traces(run_id=run.info.run_id)
+
+    print(traces)
 
 
 Q: Can I use the fluent API and the client API together?

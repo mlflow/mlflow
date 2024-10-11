@@ -690,6 +690,8 @@ langchain:
           # Required to run tests/openai/mock_openai.py
           "fastapi",
           "uvicorn",
+          # Required for testing Databricks dependency extraction
+          "databricks-vectorsearch",
         ]
       # langchain-openai 0.1.22 is imcomptible with earlier langchain-core due to
       # https://github.com/langchain-ai/langchain/commit/b83f1eb0d56dbf99605a1fce93953ee09d77aabf
@@ -773,6 +775,8 @@ llama_index:
           # Required to run tests/openai/mock_openai.py
           "fastapi",
           "uvicorn",
+          # Required for testing LlamaIndex workflow
+          "pytest-asyncio",
         ]
     run: pytest tests/llama_index --ignore tests/llama_index/test_llama_index_autolog.py --ignore tests/llama_index/test_llama_index_tracer.py
   autologging:
@@ -786,6 +790,8 @@ llama_index:
           # Required to run tests/openai/mock_openai.py
           "fastapi",
           "uvicorn",
+          # Required for testing LlamaIndex workflow
+          "pytest-asyncio",
         ]
       "< 0.11.0": ["pydantic<2"]
     run: pytest tests/llama_index/test_llama_index_autolog.py tests/llama_index/test_llama_index_tracer.py

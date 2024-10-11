@@ -101,9 +101,12 @@ of your GenAI models and retain your traced data within the tracking server for 
     tracing/index
     tracing/overview
     tracing/tracing-schema
+    tracing/contribute
 
 To learn more about what tracing is, see our `Tracing Concepts Overview <tracing/overview.html>`_ guide. For an in-depth exploration into the structure of 
 MLflow traces and their schema, see the `Tracing Schema <tracing/tracing-schema.html>`_ guide.
+
+If you're interested in contributing to the development of MLflow Tracing, please refer to the `Contribute to MLflow Tracing <tracing/contribute.html>`_ guide.
 
 `MLflow AI Gateway for LLMs <deployments/index.html>`_
 --------------------------------------------------------------
