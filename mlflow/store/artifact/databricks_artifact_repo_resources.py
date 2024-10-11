@@ -43,7 +43,9 @@ class ArtifactCredentialInfo:
 
 @dataclass
 class ListArtifactsPage:
+    # List of files in the current page
     files: List[FileInfo]
+    # Token to fetch the next page of files
     next_page_token: Optional[str] = None
 
     @classmethod
