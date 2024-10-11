@@ -953,6 +953,8 @@ def _get_databricks_creds_config(tracking_uri, ignore_error=False):
                 break
 
     if ignore_error:
+        # If we use Databricks sdk to do authentication,
+        # we can ignore error in `_get_databricks_creds_config`
         return config or DatabricksConfig.empty()
 
     if not config or not config.host:

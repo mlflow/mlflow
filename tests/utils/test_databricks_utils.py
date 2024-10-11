@@ -24,6 +24,7 @@ from mlflow.utils.databricks_utils import (
     get_workspace_url,
     is_databricks_default_tracking_uri,
     is_running_in_ipython_environment,
+    _get_databricks_creds_config,
 )
 
 from tests.helper_functions import mock_method_chain
@@ -535,3 +536,13 @@ def test_get_workspace_url(input_url, expected_result):
     with mock.patch("mlflow.utils.databricks_utils._get_workspace_url", return_value=input_url):
         result = get_workspace_url()
         assert result == expected_result
+
+
+def test_get_databricks_creds_config_ignore_error():
+    config = _get_databricks_creds_config("databricks", ignore_error=True)
+    assert isinstance(config, DatabricksConfig)
+    
+    with pytest.raises(
+        MlflowException, match="Reading databricks credential configuration failed"
+    ):
+        _get_databricks_creds_config("databricks")
