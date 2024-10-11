@@ -2,8 +2,10 @@
 
 ## 2.17.0 (2024-09-26)
 
-We are excited to announce the release candidate for MLflow 2.17.0. This release includes several enhancements to extend the
+We are excited to announce the release of MLflow 2.17.0! This release includes several enhancements to extend the
 functionality of MLflow's ChatModel interface to further extend its versatility for handling custom GenAI application use cases. 
+Additionally, we've improved the interface within the tracing UI to provide a structured output for retrieved documents,
+enhancing the ability to read the contents of those documents within the UI.
 We're also starting the work on improving both the utility and the versatility of MLflow's evaluate functionality for GenAI,
 initially with support for callable GenAI evaluation metrics. 
 
@@ -28,11 +30,15 @@ initially with support for callable GenAI evaluation metrics.
 
 Features:
 
+- [Tracing] Add Standardization to retriever span outputs within MLflow tracing (#13242, @daniellok-db)
+- [Models] Add support for LlamaIndex `Workflows` objects to be serialized when calling `log_model()` (#13277, #13305, #13336, @B-Step62)
 - [Models] Add tool calling support for ChatModel (#13191, @daniellok-db)
 - [Models] Add `from_dict()` function to ChatModel dataclasses (#13180, @daniellok-db)
 - [Models] Add metadata field for ChatModel (#13143, @daniellok-db)
 - [Models] Update ChatCompletionResponse to populate object type (#13102, @BenWilson2)
 - [Models] Add support for LLM response refusal (#13071, @BenWilson2)
+- [Models] Add support for resources to be passed in via `langchain.log_model()` (#13315, @sunishsheth2009)
+- [Tracking] Add support for setting multiple retrievers' schema via `set_retriever_schema` (#13246, @sunishsheth2009)
 - [Eval] Make Evaluation metrics callable (#13144, @serena-ruan)
 - [UI] Add audio support to artifact viewer UI (#13017, @sydneyw-spotify)
 - [Databricks] Add support for route_optimized parameter in databricks deployment client (#13222, @prabhatkgupta)
@@ -40,6 +46,8 @@ Features:
 Bug fixes:
 
 - [Tracking] Fix tracing for LangGraph (#13215, @B-Step62)
+- [Tracking] Fix an issue with `presigned_url_artifact` requests being in the wrong format (#13366, @WeichenXu123)
+- [Models] Update Databricks dependency extraction functionality to work with the `langchain-databricks` partner package. (#13266, @B-Step62)
 - [Model Registry] Fix retry and credential refresh issues with artifact downloads from the model registry (#12935, @rohitarun-db)
 - [Tracking] Fix LangChain autologging so that langchain-community is not required for partner packages (#13172, @B-Step62)
 - [Artifacts] Fix issues with file removal for the local artifact repository (#13005, @rzalawad)
@@ -49,10 +57,12 @@ Documentation updates:
 - [Docs] Add guide for building custom GenAI apps with ChatModel (#13207, @BenWilson2)
 - [Docs] Add updates to the MLflow AI Gateway documentation (#13217, @daniellok-db)
 - [Docs] Remove MLflow AI Gateway deprecation status (#13153, @BenWilson2)
+- [Docs] Add contribution guide for MLflow tracing integrations (#13333, @B-Step62)
+- [Docs] Add documentation regarding the `run_id` parameter within the `search_trace` API (#13251, @B-Step62)
 
 Small bug fixes and documentation updates:
 
-#13243, #13226, #13190, #13230, #13208, #13130, #13045, #13094, @B-Step62; #13238, #13234, #13205, #13200, #13196, #13198, #13193, #13192, #13194, #13189, #13184, #13182, #13161, #13179, #13178, #13110, #13162, #13173, #13171, #13169, #13168, #13167, #13156, #13127, #13133, #13089, #13073, #13057, #13058, #13067, #13062, #13061, #13052, @harupy; #13219, #13038, @serena-ruan; #13176, #13164, @WeichenXu123; #13163, @gabrielfu; #13186, @varshinimuthukumar1; #13128, #13115, @nojaf; #13120, @levscaut; #13152, #13075, @BenWilson2; #13138, @tanguylefloch-veesion; #13087, @SeanAverS; #13051, #13043, @daniellok-db; #13224, @levscaut;
+#13372, #13271, #13243, #13226, #13190, #13230, #13208, #13130, #13045, #13094, @B-Step62; #13302, #13238, #13234, #13205, #13200, #13196, #13198, #13193, #13192, #13194, #13189, #13184, #13182, #13161, #13179, #13178, #13110, #13162, #13173, #13171, #13169, #13168, #13167, #13156, #13127, #13133, #13089, #13073, #13057, #13058, #13067, #13062, #13061, #13052, @harupy; #13295, #13219, #13038, @serena-ruan; #13176, #13164, @WeichenXu123; #13163, @gabrielfu; #13186, @varshinimuthukumar1; #13128, #13115, @nojaf; #13120, @levscaut; #13152, #13075, @BenWilson2; #13138, @tanguylefloch-veesion; #13087, @SeanAverS; #13285, #13051, #13043, @daniellok-db; #13224, @levscaut;
 
 ## 2.16.2 (2024-09-17)
 
