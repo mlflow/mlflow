@@ -134,9 +134,11 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
         parts = artifact_path.split("/")
 
         if parts[3] == "logged_models":
-            return _LoggedModel(id_=parts[4], call_endpoint=self._call_endpoint)
+            return _LoggedModel(
+                id_=parts[4], artifact_uri=artifact_uri, call_endpoint=self._call_endpoint
+            )
 
-        return _Run(id_=parts[3], call_endpoint=self._call_endpoint)
+        return _Run(id_=parts[3], artifact_uri=artifact_uri, call_endpoint=self._call_endpoint)
 
     def _call_endpoint(self, service, api, json_body=None, path_params=None):
         """

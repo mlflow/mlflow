@@ -58,8 +58,9 @@ class _Resource(ABC):
     Represents a resource that `DatabricksArtifactRepository` interacts with.
     """
 
-    def __init__(self, id_: str, call_endpoint: Callable[..., Any]):
+    def __init__(self, id_: str, artifact_uri: str, call_endpoint: Callable[..., Any]):
         self.id = id_
+        self.artifact_uri = artifact_uri
         self.call_endpoint = call_endpoint
         self.artifact_root = self.get_artifact_root()
         self.relative_path = self.get_relative_path()
@@ -162,6 +163,7 @@ class _LoggedModel(_Resource):
         path: Optional[str] = None,
         page_token: Optional[str] = None,
     ) -> ListArtifactsPage:
+        path = posixpath.join(self.relative_path, path) if path else self.relative_path
         json_body = message_to_json(
             ListLoggedModelArtifacts(page_token=page_token, artifact_directory_path=path)
         )
