@@ -1110,18 +1110,15 @@ message LogMetric {
   optional int64 step = 5 [default = 0];
 
   // ID of the logged model associated with the metric, if applicable
-  // (Currently undocumented for LoggedModels private preview)
   optional string model_id = 7 [(visibility) = PUBLIC_UNDOCUMENTED];
 
   // The name of the dataset associated with the metric.
   // E.g. “my.uc.table@2” “nyc-taxi-dataset”, “fantastic-elk-3”
-  // (Currently undocumented for LoggedModels private preview)
   optional string dataset_name = 8 [(visibility) = PUBLIC_UNDOCUMENTED];
 
   // Dataset digest of the dataset associated with the metric,
   // e.g. an md5 hash of the dataset that uniquely identifies it
   // within datasets of the same name.
-  // (Currently undocumented for LoggedModels private preview)
   optional string dataset_digest = 9 [(visibility) = PUBLIC_UNDOCUMENTED];
 
   message Response {}
