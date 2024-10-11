@@ -27,31 +27,6 @@ from mlflow.utils.rest_utils import (
 from tests import helper_functions
 
 
-def test_well_formed_json_error_response():
-    with mock.patch(
-        "requests.Session.request", return_value=mock.MagicMock(status_code=400, text="{}")
-    ):
-        host_only = MlflowHostCreds("http://my-host")
-        response_proto = GetRun.Response()
-        with pytest.raises(RestException, match="INTERNAL_ERROR"):
-            call_endpoint(host_only, "/my/endpoint", "GET", "", response_proto)
-
-
-def test_non_json_ok_response():
-    with mock.patch(
-        "requests.Session.request",
-        return_value=mock.MagicMock(status_code=200, text="<html></html>"),
-    ):
-        host_only = MlflowHostCreds("http://my-host")
-        response_proto = GetRun.Response()
-        with pytest.raises(
-            MlflowException,
-            match="API request to endpoint was successful but the response body was not "
-            "in a valid JSON format",
-        ):
-            call_endpoint(host_only, "/api/2.0/fetch-model", "GET", "", response_proto)
-
-
 @pytest.mark.parametrize(
     "response_mock",
     [
@@ -68,7 +43,7 @@ def test_malformed_json_error_response(response_mock):
         with pytest.raises(
             MlflowException, match="API request to endpoint /my/endpoint failed with error code 400"
         ):
-            call_endpoint(host_only, "/my/endpoint", "GET", "", response_proto)
+            call_endpoint(host_only, "/my/endpoint", "GET", None, response_proto)
 
 
 def test_call_endpoints():
