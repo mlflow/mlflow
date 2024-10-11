@@ -66,19 +66,19 @@ Concepts
 
 ``Module``
 ^^^^^^^^^^
-Components that handle specific text transformations, like answering questions or summarizing. They replace traditional hand-written prompts and can learn from examples, making them more adaptable.
+`Modules <https://dspy-docs.vercel.app/docs/building-blocks/modules>`_ are components that handle specific text transformations, like answering questions or summarizing. They replace traditional hand-written prompts and can learn from examples, making them more adaptable.
 
 ``Signature``
 ^^^^^^^^^^^^^
-A natural language description of a module's input and output behavior. For example, `"question -> answer"` specifies that the module should take a question as input and return an answer.
+A `signature <https://dspy-docs.vercel.app/docs/building-blocks/signatures>`_ is a natural language description of a module's input and output behavior. For example, `"question -> answer"` specifies that the module should take a question as input and return an answer.
 
-``Compiler`` 
+``Optimizer`` 
 ^^^^^^^^^^^^
-This is DSPy's optimization tool. It improves LM pipelines by adjusting modules to meet a performance metric, either by generating better prompts or fine-tuning models.
+A `optimizer <https://dspy-docs.vercel.app/docs/building-blocks/optimizers>`_ improves LM pipelines by adjusting modules to meet a performance metric, either by generating better prompts or fine-tuning models.
 
 ``Program``
 ^^^^^^^^^^^
-A set of modules connected into a pipeline to perform complex tasks. DSPy programs are flexible, allowing you to optimize and adapt them using the compiler.
+A program is a a set of modules connected into a pipeline to perform complex tasks. DSPy programs are flexible, allowing you to optimize and adapt them using the compiler.
 
 Usage
 -----
@@ -98,7 +98,7 @@ set of modules.
 
 .. code-block:: shell
 
-    pip install mlflow dspy-ai -U
+    pip install mlflow dspy -U
 .. code-block:: python
 
     import dspy
@@ -139,13 +139,6 @@ model inputs and outputs, ensuring consistency and correctness during model infe
 .. code-block:: python
 
     import mlflow
-    from mlflow.models import ModelSignature
-    from mlflow.types.schema import ColSpec, Schema
-
-    # Define a model signature
-    input_schema = Schema([ColSpec("string")])
-    output_schema = Schema([ColSpec("string")])
-    signature = ModelSignature(inputs=input_schema, outputs=output_schema)
 
     # Start an MLflow run
     with mlflow.start_run():
@@ -154,7 +147,6 @@ model inputs and outputs, ensuring consistency and correctness during model infe
             dspy_model,
             artifact_path="model",
             input_example="what is 2 + 2?",
-            signature=signature,
         )
 
 .. figure:: ../../_static/images/llms/dspy/dspy-artifacts.png
@@ -225,7 +217,7 @@ What can be serialized by MLflow?
 
 When using :py:func:`mlflow.dspy.log_model` or :py:func:`mlflow.dspy.save_model` in MLflow, the 
 DSPy program is serialized and saved to the tracking server as a ``.pkl`` file. This enables easy 
-deployment. Under the hood, MLflow uses ``cloudpickle`` to serialize the DSPy object, but not all 
+deployment. Under the hood, MLflow uses ``cloudpickle`` to serialize the DSPy object, but 
 DSPy artifacts are serializable. 
 
 Here are some relevant serialized artifacts that help you reproduce a DSPy program in another 
