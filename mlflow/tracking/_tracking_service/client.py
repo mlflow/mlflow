@@ -863,8 +863,7 @@ class TrackingServiceClient:
         resource: Literal["run", "logged_model"] = "run",
     ) -> ArtifactRepository:
         # Attempt to fetch the artifact repo from a local cache
-        cached_repo = utils._artifact_repos_cache.get(resource_id)
-        if cached_repo is not None:
+        if cached_repo := utils._artifact_repos_cache.get(resource_id):
             return cached_repo
         else:
             if resource == "run":
