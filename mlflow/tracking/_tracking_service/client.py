@@ -856,15 +856,14 @@ class TrackingServiceClient:
         artifact_uri = add_databricks_profile_info_to_artifact_uri(artifact_uri, self.tracking_uri)
         return get_artifact_repository(artifact_uri)
 
-    def _get_artifact_repo(self, run_id):
+    def _get_artifact_repo(self, run_id: str) -> ArtifactRepository:
         # Attempt to fetch the artifact repo from a local cache
         cached_repo = utils._artifact_repos_cache.get(run_id)
         if cached_repo is not None:
             return cached_repo
         else:
-            run = self.get_run(run_id)
             artifact_uri = add_databricks_profile_info_to_artifact_uri(
-                run.info.artifact_uri, self.tracking_uri
+                self.resource.artifact_uri, self.tracking_uri
             )
             artifact_repo = get_artifact_repository(artifact_uri)
             # Cache the artifact repo to avoid a future network call, removing the oldest
@@ -873,20 +872,6 @@ class TrackingServiceClient:
                 utils._artifact_repos_cache.popitem(last=False)
             utils._artifact_repos_cache[run_id] = artifact_repo
             return artifact_repo
-
-    def _get_artifact_repo_for_logged_model(self, model_id: str):
-        if cached_repo := utils._artifact_repos_cache.get(model_id):
-            return cached_repo
-
-        logged_model = self.get_logged_model(model_id)
-        artifact_uri = add_databricks_profile_info_to_artifact_uri(
-            logged_model.info.artifact_location, self.tracking_uri
-        )
-        artifact_repo = get_artifact_repository(artifact_uri)
-        if len(utils._artifact_repos_cache) > 1024:
-            utils._artifact_repos_cache.popitem(last=False)
-        utils._artifact_repos_cache[model_id] = artifact_repo
-        return artifact_repo
 
     def log_artifact(self, run_id, local_path, artifact_path=None):
         """
@@ -1131,21 +1116,3 @@ class TrackingServiceClient:
         return self.store.search_logged_models(
             experiment_ids, filter_string, max_results, order_by, page_token
         )
-
-    def _get_artifact_repo_for_logged_model(self, model_id: str) -> ArtifactRepository:
-        # Attempt to fetch the artifact repo from a local cache
-        cached_repo = utils._artifact_repos_cache.get(model_id)
-        if cached_repo is not None:
-            return cached_repo
-        else:
-            model = self.get_logged_model(model_id)
-            artifact_uri = add_databricks_profile_info_to_artifact_uri(
-                model.artifact_location, self.tracking_uri
-            )
-            artifact_repo = get_artifact_repository(artifact_uri)
-            # Cache the artifact repo to avoid a future network call, removing the oldest
-            # entry in the cache if there are too many elements
-            if len(utils._artifact_repos_cache) > 1024:
-                utils._artifact_repos_cache.popitem(last=False)
-            utils._artifact_repos_cache[model_id] = artifact_repo
-            return artifact_repo
