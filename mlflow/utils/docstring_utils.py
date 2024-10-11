@@ -411,9 +411,10 @@ def docstring_version_compatibility_warning(integration_name):
         _, min_ver, max_ver = get_module_min_and_max_supported_ranges(integration_name)
         required_pkg_versions = f"``{min_ver}`` -  ``{max_ver}``"
 
+        pkg_name = _ML_PACKAGE_VERSIONS[integration_name]["package_info"]["pip_release"]
         notice = (
             f"The '{integration_name}' MLflow Models integration is known to be compatible with "
-            f"the following package version ranges: {required_pkg_versions}. "
+            f"``{pkg_name}`` {required_pkg_versions}. "
             f"MLflow Models integrations with {integration_name} may not succeed when used with "
             "package versions outside of this range."
         )
