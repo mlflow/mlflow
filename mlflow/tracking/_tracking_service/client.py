@@ -872,9 +872,9 @@ class TrackingServiceClient:
                 artifact_location = run.info.artifact_uri
             elif resource == "logged_model":
                 logged_model = self.get_logged_model(resource_id)
-                artifact_location = logged_model.info.artifact_location
+                artifact_location = logged_model.artifact_location
             else:
-                raise ValueError(f"Invalid resource type {resource!r}.")
+                raise ValueError(f"Unexpected resource type {resource!r}.")
 
             artifact_uri = add_databricks_profile_info_to_artifact_uri(
                 artifact_location, self.tracking_uri
