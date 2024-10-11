@@ -361,20 +361,18 @@ def _get_or_create_virtualenv(  # noqa: D417
     if env_root_dir is not None:
         virtual_envs_root_path = Path(env_root_dir) / _VIRTUALENV_ENVS_DIR
         pyenv_root_path = Path(env_root_dir) / _PYENV_ROOT_DIR
+        pyenv_root_path.mkdir(parents=True, exist_ok=True)
         pyenv_root_dir = str(pyenv_root_path)
     else:
         virtual_envs_root_path = Path(_get_mlflow_virtualenv_root())
         pyenv_root_dir = None
 
+    virtual_envs_root_path.mkdir(parents=True, exist_ok=True)
     env_name = _get_virtualenv_name(python_env, local_model_path, env_id)
     env_dir = virtual_envs_root_path / env_name
     if env_dir.exists():
         paths = ("bin", "activate") if not is_windows() else ("Scripts", "activate.bat")
-        activate_cmd = env_dir.joinpath(*paths)
-        return f"source {activate_cmd}" if not is_windows() else str(activate_cmd)
-
-    pyenv_root_path.mkdir(parents=True, exist_ok=True)
-    virtual_envs_root_path.mkdir(parents=True, exist_ok=True)
+        return env_dir.joinpath(*paths)
 
     # Create an environment
     python_bin_path = _install_python(

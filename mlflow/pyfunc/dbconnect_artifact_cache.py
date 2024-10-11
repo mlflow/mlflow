@@ -118,7 +118,7 @@ def archive_directory(input_dir, archive_file_path):
     """
 
     archive_file_path = os.path.abspath(archive_file_path)
-    # Note: I don't use `shutil.make_archive` API because it replaces symlink files with
+    # Note: `shutil.make_archive` doesn't work because it replaces symlink files with
     #  the file symlink pointing to, which is not the expected behavior in our usage.
     #  We need to pack the python and virtualenv environment, which contains a bunch of
     #  symlink files.

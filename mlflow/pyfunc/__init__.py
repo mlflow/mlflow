@@ -1750,14 +1750,18 @@ def prebuild_model_env(model_uri, save_path):
     Prebuild model python environment and generate an archive file saved to provided
     `save_path`.
 
-    NOTE:
-    The `prebuild_model_env` can only be called in Databricks runtime,
-    and the generated prebuilt env file can be used in `mlflow.pyfunc.spark_udf` in
-    Databricks runtime or Databricks Connect client.
-    The prebuilt env archive file can't be used across different Databricks runtime
-    versions or different platform machines.
-    When using the prebuilt env in `mlflow.pyfunc.spark_udf`, MLflow will verify
-    whether the spark UDF sandbox environment matches the prebuilt env requirements.
+    Args:
+        model_uri: URI to the model that is used to build the python environment.
+        save_path: The directory path that is used to save the prebuilt model environment
+            archive file path.
+
+    NOTE: The `prebuild_model_env` can only be called in Databricks runtime,
+        and the generated prebuilt env file can be used in `mlflow.pyfunc.spark_udf` in
+        Databricks runtime or Databricks Connect client.
+        The prebuilt env archive file can't be used across different Databricks runtime
+        versions or different platform machines.
+        When using the prebuilt env in `mlflow.pyfunc.spark_udf`, MLflow will verify
+        whether the spark UDF sandbox environment matches the prebuilt env requirements.
     """
     from mlflow.utils._spark_utils import _get_active_spark_session
 
@@ -1948,7 +1952,7 @@ def spark_udf(
 
         prebuilt_env_path: The path of the prebuilt env archive file created by
             `mlflow.pyfunc.prebuild_model_env` API.
-            This param can only be used in Databricks Serverless notebook REPL,
+            This parameter can only be used in Databricks Serverless notebook REPL,
             Databricks Shared cluster notebook REPL, and Databricks Connect client
             environment.
             If this parameter is set, `env_manger` is ignored.
@@ -1993,8 +1997,8 @@ def spark_udf(
     dbconnect_mode = is_databricks_connect(spark)
     if prebuilt_env_path is not None and not dbconnect_mode:
         raise RuntimeError(
-            "'prebuilt_env' param can only be used in Databricks Serverless notebook REPL, "
-            "Databricks Shared cluster notebook REPL, and Databricks Connect client "
+            "'prebuilt_env' parameter can only be used in Databricks Serverless "
+            "notebook REPL, atabricks Shared cluster notebook REPL, and Databricks Connect client "
             "environment."
         )
 
