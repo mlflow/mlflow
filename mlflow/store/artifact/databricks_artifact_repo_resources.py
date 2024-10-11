@@ -64,9 +64,9 @@ class _Resource(ABC):
 
     def get_relative_path(self) -> str:
         # Fetch the artifact root for the MLflow resource associated with `artifact_uri` and compute
-        # the path of `artifact_uri` relative to the MLflow Run's artifact root
-        # (the `relative_artifact_repo_root_path`). All operations performed on this
-        # artifact repository will be performed relative to this computed location
+        # the path of `artifact_uri` relative to the MLflow resource's artifact root
+        # All operations performed on this artifact repository will be performed relative to this
+        # computed location.
         artifact_repo_root_path = extract_and_normalize_path(self.artifact_uri)
         artifact_root_path = extract_and_normalize_path(self.artifact_root)
         relative_root_path = posixpath.relpath(artifact_repo_root_path, artifact_root_path)
