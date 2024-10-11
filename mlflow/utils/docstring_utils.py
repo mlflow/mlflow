@@ -411,7 +411,9 @@ def docstring_version_compatibility_warning(integration_name):
         # NB: if using this decorator, ensure the package name to module name reference is
         # updated with the flavor's `save` and `load` functions being used within
         # ml-package-version.yml file.
-        min_ver, max_ver, pip_release = get_min_max_version_and_pip_release(integration_name)
+        min_ver, max_ver, pip_release = get_min_max_version_and_pip_release(
+            integration_name, "models"
+        )
         notice = (
             f"The '{integration_name}' MLflow Models integration is known to be compatible with "
             f"``{min_ver}`` <= ``{pip_release}`` <= ``{max_ver}``. "
