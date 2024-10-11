@@ -9,7 +9,7 @@ import logging
 import os
 from concurrent.futures import ThreadPoolExecutor
 from itertools import zip_longest
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Literal, Optional
 
 from mlflow.entities import (
     ExperimentTag,
@@ -856,14 +856,28 @@ class TrackingServiceClient:
         artifact_uri = add_databricks_profile_info_to_artifact_uri(artifact_uri, self.tracking_uri)
         return get_artifact_repository(artifact_uri)
 
-    def _get_artifact_repo(self, resource_id: str) -> ArtifactRepository:
+    def _get_artifact_repo(
+        self,
+        resource_id: str,
+        *,
+        resource: Literal["run", "logged_model"] = "run",
+    ) -> ArtifactRepository:
         # Attempt to fetch the artifact repo from a local cache
         cached_repo = utils._artifact_repos_cache.get(resource_id)
         if cached_repo is not None:
             return cached_repo
         else:
+            if resource == "run":
+                run = self.get_run(resource_id)
+                artifact_location = run.info.artifact_uri
+            elif resource == "logged_model":
+                logged_model = self.get_logged_model(resource_id)
+                artifact_location = logged_model.info.artifact_location
+            else:
+                raise ValueError(f"Invalid resource type {resource!r}.")
+
             artifact_uri = add_databricks_profile_info_to_artifact_uri(
-                self.resource.artifact_uri, self.tracking_uri
+                artifact_location, self.tracking_uri
             )
             artifact_repo = get_artifact_repository(artifact_uri)
             # Cache the artifact repo to avoid a future network call, removing the oldest
@@ -1103,7 +1117,7 @@ class TrackingServiceClient:
         return self.store.delete_logged_model_tag(model_id, key)
 
     def log_model_artifacts(self, model_id: str, local_dir: str) -> None:
-        self._get_artifact_repo(model_id).log_artifacts(local_dir)
+        self._get_artifact_repo(model_id, resource="logged_model").log_artifacts(local_dir)
 
     def search_logged_models(
         self,
