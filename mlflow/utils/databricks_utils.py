@@ -952,12 +952,11 @@ def _get_databricks_creds_config(tracking_uri, ignore_error=False):
                 config = _config
                 break
 
-    if ignore_error:
-        # If we use Databricks sdk to do authentication,
-        # we can ignore error in `_get_databricks_creds_config`
-        return config or DatabricksConfig.empty()
-
     if not config or not config.host:
+        if ignore_error:
+            # If we use Databricks sdk to do authentication,
+            # we can ignore error in `_get_databricks_creds_config`
+            return config or DatabricksConfig.empty()
         _fail_malformed_databricks_auth(tracking_uri)
 
     return config
