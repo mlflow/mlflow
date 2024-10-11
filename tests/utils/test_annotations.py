@@ -25,13 +25,7 @@ def function():
 @keyword_only
 @deprecated(since="0.0.0")
 def deprecated_and_keyword_only_first():
-    """Description
-
-    Args:
-        x: x
-
-    Returns:
-        y
+    """
     """
     return 1
 
@@ -40,13 +34,6 @@ def deprecated_and_keyword_only_first():
 @keyword_only
 def deprecated_and_keyword_only_second():
     """
-    Description
-
-    Args:
-        x: x
-
-    Returns:
-        y
     """
     return 1
 

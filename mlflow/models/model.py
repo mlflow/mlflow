@@ -691,6 +691,7 @@ class Model:
         active run.
 
         Args:
+            cls: The MLflow model class.
             artifact_path: Run relative path identifying the model.
             flavor: Flavor module to save the model with. The module must have
                 the ``save_model`` function that will persist the model as a valid
@@ -698,14 +699,14 @@ class Model:
             registered_model_name: If given, create a model version under
                 ``registered_model_name``, also creating a registered model if
                 one with the given name does not exist.
-            signature: {{ signature }}
-            input_example: {{ input_example }}
             await_registration_for: Number of seconds to wait for the model version to finish
                 being created and is in ``READY`` status. By default, the
                 function waits for five minutes. Specify 0 or None to skip
                 waiting.
-            metadata: {{ metadata }}
-            resources: {{ resources }}
+            metadata: {{ metadata }} Custom metadata to log with the model.
+            run_id: The run ID to associate with this model. If not provided,
+                a new run will be started.
+            resources: {{ resources }} Resources used for model deployment, if any.
             kwargs: Extra args passed to the model flavor.
 
         Returns:
