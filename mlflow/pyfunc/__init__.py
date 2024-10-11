@@ -1691,6 +1691,7 @@ def _verify_prebuilt_env(spark, local_model_path, env_archive_path):
         get_dbconnect_udf_sandbox_image_version_and_platform_machine,
     )
 
+    # Use `[:-7]` to truncate ".tar.gz" in the end
     archive_name = os.path.basename(env_archive_path)[:-7]
     prebuilt_env_sha, prebuilt_runtime_version, prebuilt_platform_machine = archive_name.split("-")[
         -3:
@@ -1749,17 +1750,14 @@ def prebuild_model_env(model_uri, save_path):
     Prebuild model python environment and generate an archive file saved to provided
     `save_path`.
 
-    Note:
-    You can only call `prebuild_model_env` in Databricks runtime,
-    and you can use the generated prebuilt env file in `mlflow.pyfunc.spark_udf` in
+    NOTE:
+    The `prebuild_model_env` can only be called in Databricks runtime,
+    and the generated prebuilt env file can be used in `mlflow.pyfunc.spark_udf` in
     Databricks runtime or Databricks Connect client.
-    The generated model env file is named by:
-    'mlflow-{sha of python env config and dependencies}-{runtime version}-{platform machine}.tar.gz'
-    the file name shouldn't be modified,
-    and the prebuilt env can't be used across different Databricks runtime version or
-    different platform machine.
-    When you use the prebuilt env in other execution environment, MLflow will verify whether the
-    spark UDF sandbox environment matches the prebuilt env requirements.
+    The prebuilt env archive file can't be used across different Databricks runtime
+    versions or different platform machines.
+    When using the prebuilt env in `mlflow.pyfunc.spark_udf`, MLflow will verify
+    whether the spark UDF sandbox environment matches the prebuilt env requirements.
     """
     from mlflow.utils._spark_utils import _get_active_spark_session
 
@@ -1778,9 +1776,9 @@ def prebuild_model_env(model_uri, save_path):
     dest_path = os.path.join(save_path, archive_name + ".tar.gz")
     if os.path.exists(dest_path):
         raise RuntimeError(
-            "You have pre-built the model python environment and save "
+            "You have pre-built the model python environment and saved "
             f"it in the '{save_path}' directory as the archive file "
-            f"{archive_name}.tar.gz, if you want to rebuild it, please remove "
+            f"{archive_name}.tar.gz. To rebuild it, please remove "
             "the existing one first."
         )
 
@@ -1853,17 +1851,16 @@ def spark_udf(
     Spark (2.4 and below).
 
     NOTE: If using Databricks Connect to connect to remote Databricks cluster,
-       the Databricks cluster must use runtime version greater than 16, or use runtime version
-       15.3 / 15.4 but set safe flag 'spark.databricks.safespark.archive.artifact.unpack.disabled'
-       to 'false'.
+       the Databricks cluster must use runtime version >= 16, and if 'spark_udf'
+       param 'env_manager' is set as 'virtualenv', the 'prebuilt_env_path' param is
+       required to be specified.
 
-    NOTE: If using Databricks Connect to connect to remote Databricks cluster, and 'spark_udf'
-       param'env_manager' to 'virtualenv', the 'prebuilt_env_path' param is required too.
-
-    NOTE: If running in Databricks Serverless, the spark tasks are executed inside Databricks
-       Serverless UDF sandbox, which has limitation of 1GB size in total for available memory
-       plus local disk capacity, and no GPU device available. So deep-learning model containing
-       large weight or requiring GPU does not fit Databricks Serverless.
+    NOTE: Please be aware that when operating in Databricks Serverless,
+       spark tasks run within the confines of the Databricks Serverless UDF sandbox.
+       This environment has a total capacity limit of 1GB, combining both available
+       memory and local disk capacity. Furthermore, there are no GPU devices available
+       in this setup. Therefore, any deep-learning models that contain large weights
+       or require a GPU are not suitable for deployment on Databricks Serverless.
 
     .. code-block:: python
         :caption: Example
@@ -1954,7 +1951,7 @@ def spark_udf(
             This param can only be used in Databricks Serverless notebook REPL,
             Databricks Shared cluster notebook REPL, and Databricks Connect client
             environment.
-            If you set this param, `env_manager` param is ignored.
+            If this parameter is set, `env_manger` is ignored.
 
     Returns:
         Spark UDF that applies the model's ``predict`` method to the data and returns a
