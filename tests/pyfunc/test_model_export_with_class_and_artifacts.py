@@ -36,6 +36,7 @@ from mlflow.models.resources import (
     DatabricksServingEndpoint,
     DatabricksSQLWarehouse,
     DatabricksVectorSearchIndex,
+    DatabricksGenieSpace
 )
 from mlflow.models.utils import _read_example
 from mlflow.pyfunc.context import Context, set_prediction_context
@@ -1616,6 +1617,10 @@ def test_model_save_load_with_resources(tmp_path):
                 {"name": "rag.studio.test_function_a"},
                 {"name": "rag.studio.test_function_b"},
             ],
+            "genie_space": [
+                {"name": "genie_space_id_1"},
+                {"name": "genie_space_id_2"}
+            ]
         },
     }
     mlflow.pyfunc.save_model(
@@ -1630,6 +1635,8 @@ def test_model_save_load_with_resources(tmp_path):
             DatabricksSQLWarehouse(warehouse_id="testid"),
             DatabricksFunction(function_name="rag.studio.test_function_a"),
             DatabricksFunction(function_name="rag.studio.test_function_b"),
+            DatabricksGenieSpace(genie_space_id="genie_space_id_1"),
+            DatabricksGenieSpace(genie_space_id="genie_space_id_2")
         ],
     )
 
@@ -1653,6 +1660,9 @@ def test_model_save_load_with_resources(tmp_path):
                 function:
                 - name: rag.studio.test_function_a
                 - name: rag.studio.test_function_b
+                genie_space:
+                - name: genie_space_id_1
+                - name: genie_space_id_2
             """
         )
 
@@ -1722,6 +1732,9 @@ def test_model_log_with_resources(tmp_path):
                 function:
                 - name: rag.studio.test_function_a
                 - name: rag.studio.test_function_b
+                genie_space:
+                - name: genie_space_id_1
+                - name: genie_space_id_2
             """
         )
 

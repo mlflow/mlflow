@@ -6,6 +6,7 @@ from mlflow.models.resources import (
     DatabricksServingEndpoint,
     DatabricksSQLWarehouse,
     DatabricksVectorSearchIndex,
+    DatabricksGenieSpace,
     _ResourceBuilder,
 )
 
@@ -45,6 +46,16 @@ def test_uc_function():
     expected = {"function": [{"name": "function"}]}
     assert uc_function.to_dict() == expected
     assert _ResourceBuilder.from_resources([uc_function]) == {
+        "api_version": DEFAULT_API_VERSION,
+        "databricks": expected,
+    }
+
+def test_genie_space():
+    genie_space = DatabricksGenieSpace(genie_space_id="id1")
+    expected = {"genie_space": [{"name": "id1"}]}
+
+    assert genie_space.to_dict() == expected
+    assert _ResourceBuilder.from_resources([genie_space]) == {
         "api_version": DEFAULT_API_VERSION,
         "databricks": expected,
     }

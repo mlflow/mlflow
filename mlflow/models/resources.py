@@ -18,6 +18,7 @@ class ResourceType(Enum):
     SERVING_ENDPOINT = "serving_endpoint"
     SQL_WAREHOUSE = "sql_warehouse"
     FUNCTION = "function"
+    GENIE_SPACE = "genie_space"
 
 
 @dataclass
@@ -137,7 +138,25 @@ class DatabricksFunction(DatabricksResource):
     def from_dict(cls, data: Dict[str, str]):
         return cls(function_name=data["name"])
 
+@dataclass
+class DatabricksGenieSpace(DatabricksResource):
+    """
+    Define a Databricks Genie Space to serve a model.
 
+    Args:
+        genie_space_id (str): The genie space id
+    """
+
+    type: ResourceType = ResourceType.GENIE_SPACE
+    genie_space_id: str = None
+
+    def to_dict(self):
+        return {self.type.value: [{"name": self.genie_space_id}]} if self.genie_space_id else {}
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, str]):
+        return cls(genie_space_id=data["name"])
+    
 def _get_resource_class_by_type(target_uri: str, resource_type: ResourceType):
     resource_classes = {
         "databricks": {
@@ -145,6 +164,7 @@ def _get_resource_class_by_type(target_uri: str, resource_type: ResourceType):
             ResourceType.VECTOR_SEARCH_INDEX.value: DatabricksVectorSearchIndex,
             ResourceType.SQL_WAREHOUSE.value: DatabricksSQLWarehouse,
             ResourceType.FUNCTION.value: DatabricksFunction,
+            ResourceType.GENIE_SPACE.value: DatabricksGenieSpace
         }
     }
     resource = resource_classes.get(target_uri)
