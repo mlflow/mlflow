@@ -159,7 +159,6 @@ def patched_call(original, self, *args, **kwargs):
                 yield chunk
 
             try:
-                chunk_dicts = []
                 chunk_dicts = [chunk.to_dict() for chunk in chunks]
                 if config.log_traces and request_id:
                     mlflow_client.end_trace(
