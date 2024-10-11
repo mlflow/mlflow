@@ -150,9 +150,10 @@ def patched_call(original, self, *args, **kwargs):
             chunks = []
             output = []
             for chunk in stream:
-                if isinstance(chunk, Completion):
+                # `chunk.choices` can be empty: https://github.com/mlflow/mlflow/issues/13361
+                if isinstance(chunk, Completion) and chunk.choices:
                     output.append(chunk.choices[0].text or "")
-                elif isinstance(chunk, ChatCompletionChunk):
+                elif isinstance(chunk, ChatCompletionChunk) and chunk.choices:
                     output.append(chunk.choices[0].delta.content or "")
                 chunks.append(chunk)
                 yield chunk

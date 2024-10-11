@@ -5,6 +5,8 @@ import fastapi
 from pydantic import BaseModel
 from starlette.responses import StreamingResponse
 
+EMPTY_CHOICES = "EMPTY_CHOICES"
+
 app = fastapi.FastAPI()
 
 
@@ -78,9 +80,26 @@ def _make_chat_stream_chunk(content):
     }
 
 
+def _make_chat_stream_chunk_empty_choices():
+    return {
+        "id": "chatcmpl-123",
+        "object": "chat.completion.chunk",
+        "created": 1677652288,
+        "model": "gpt-4o-mini",
+        "system_fingerprint": "fp_44709d6fcb",
+        "choices": [],
+        "usage": None,
+    }
+
+
 async def chat_response_stream():
     yield _make_chat_stream_chunk("Hello")
     yield _make_chat_stream_chunk(" world")
+
+
+async def chat_response_stream_empty_choices():
+    yield _make_chat_stream_chunk_empty_choices()
+    yield _make_chat_stream_chunk("Hello")
 
 
 @app.post("/chat/completions")
@@ -92,8 +111,15 @@ async def chat(payload: ChatPayload):
         )
     if payload.stream:
         # SSE stream
+        if EMPTY_CHOICES == payload.messages[0].content:
+            content = (
+                f"data: {json.dumps(d)}\n\n" async for d in chat_response_stream_empty_choices()
+            )
+        else:
+            content = (f"data: {json.dumps(d)}\n\n" async for d in chat_response_stream())
+
         return StreamingResponse(
-            (f"data: {json.dumps(d)}\n\n" async for d in chat_response_stream()),
+            content,
             media_type="text/event-stream",
         )
     else:
@@ -136,17 +162,41 @@ def _make_completions_stream_chunk(content):
     }
 
 
+def _make_completions_stream_chunk_empty_choices():
+    return {
+        "id": "cmpl-uqkvlQyYK7bGYrRHQ0eXlWi7",
+        "object": "text_completion",
+        "created": 1589478378,
+        "model": "gpt-4o-mini",
+        "choices": [],
+        "system_fingerprint": None,
+        "usage": None,
+    }
+
+
 async def completions_response_stream():
     yield _make_completions_stream_chunk("Hello")
     yield _make_completions_stream_chunk(" world")
 
 
+async def completions_response_stream_empty_choices():
+    yield _make_completions_stream_chunk_empty_choices()
+    yield _make_completions_stream_chunk("Hello")
+
+
 @app.post("/completions")
 def completions(payload: CompletionsPayload):
     if payload.stream:
-        # SSE stream
+        if EMPTY_CHOICES == payload.prompt:
+            content = (
+                f"data: {json.dumps(d)}\n\n"
+                async for d in completions_response_stream_empty_choices()
+            )
+        else:
+            content = (f"data: {json.dumps(d)}\n\n" async for d in completions_response_stream())
+
         return StreamingResponse(
-            (f"data: {json.dumps(d)}\n\n" async for d in completions_response_stream()),
+            content,
             media_type="text/event-stream",
         )
     else:
