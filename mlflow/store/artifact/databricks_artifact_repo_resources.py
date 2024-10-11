@@ -171,7 +171,7 @@ class _LoggedModel(_Resource):
             MlflowService, ListLoggedModelArtifacts, json_body, path_params={"model_id": self.id}
         )
         files = response.files
-        # If `path` is a file, ListArtifacts returns a single list element with the
+        # If `path` is a file, ListLoggedModelArtifacts returns a single list element with the
         # same name as `path`. The list_artifacts API expects us to return an empty list in this
         # case, so we do so here.
         if len(files) == 1 and files[0].path == path and not files[0].is_dir:
