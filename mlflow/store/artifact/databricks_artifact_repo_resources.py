@@ -69,9 +69,12 @@ class _Resource(ABC):
         # computed location.
         artifact_repo_root_path = extract_and_normalize_path(self.artifact_uri)
         artifact_root_path = extract_and_normalize_path(self.artifact_root)
-        relative_root_path = posixpath.relpath(artifact_repo_root_path, artifact_root_path)
         # If the paths are equal, then use empty string over "./" for ListArtifact compatibility
-        return "" if artifact_root_path == artifact_repo_root_path else relative_root_path
+        return (
+            ""
+            if artifact_root_path == artifact_repo_root_path
+            else posixpath.relpath(artifact_repo_root_path, artifact_root_path)
+        )
 
     @abstractmethod
     def get_credentials(
