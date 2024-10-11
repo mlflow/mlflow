@@ -44,11 +44,11 @@ _ML_PACKAGE_VERSIONS = {
         },
         "models": {
             "minimum": "3.0.2",
-            "maximum": "3.5.0"
+            "maximum": "3.6.0"
         },
         "autologging": {
             "minimum": "3.0.2",
-            "maximum": "3.5.0"
+            "maximum": "3.6.0"
         }
     },
     "tensorflow": {
@@ -131,7 +131,7 @@ _ML_PACKAGE_VERSIONS = {
         },
         "models": {
             "minimum": "1.13.1",
-            "maximum": "1.16.2"
+            "maximum": "1.17.0"
         }
     },
     "spacy": {
@@ -140,7 +140,7 @@ _ML_PACKAGE_VERSIONS = {
         },
         "models": {
             "minimum": "2.2.4",
-            "maximum": "3.7.5"
+            "maximum": "3.8.2"
         }
     },
     "statsmodels": {
@@ -149,11 +149,11 @@ _ML_PACKAGE_VERSIONS = {
         },
         "models": {
             "minimum": "0.11.1",
-            "maximum": "0.14.3"
+            "maximum": "0.14.4"
         },
         "autologging": {
             "minimum": "0.11.1",
-            "maximum": "0.14.3"
+            "maximum": "0.14.4"
         }
     },
     "spark": {
@@ -185,7 +185,7 @@ _ML_PACKAGE_VERSIONS = {
         },
         "models": {
             "minimum": "1.1.1",
-            "maximum": "1.1.5"
+            "maximum": "1.1.6"
         }
     },
     "pmdarima": {
@@ -243,11 +243,11 @@ _ML_PACKAGE_VERSIONS = {
         },
         "models": {
             "minimum": "4.25.1",
-            "maximum": "4.45.0"
+            "maximum": "4.45.2"
         },
         "autologging": {
             "minimum": "4.25.1",
-            "maximum": "4.45.0"
+            "maximum": "4.45.2"
         }
     },
     "openai": {
@@ -256,11 +256,11 @@ _ML_PACKAGE_VERSIONS = {
         },
         "models": {
             "minimum": "1.0.1",
-            "maximum": "1.49.0"
+            "maximum": "1.51.2"
         },
         "autologging": {
             "minimum": "1.17.0",
-            "maximum": "1.49.0"
+            "maximum": "1.51.2"
         }
     },
     "dspy": {
@@ -278,11 +278,11 @@ _ML_PACKAGE_VERSIONS = {
         },
         "models": {
             "minimum": "0.0.354",
-            "maximum": "0.3.1"
+            "maximum": "0.3.3"
         },
         "autologging": {
             "minimum": "0.1.0",
-            "maximum": "0.3.1"
+            "maximum": "0.3.3"
         }
     },
     "llama_index": {
@@ -292,11 +292,11 @@ _ML_PACKAGE_VERSIONS = {
         },
         "models": {
             "minimum": "0.10.44",
-            "maximum": "0.11.13"
+            "maximum": "0.11.17"
         },
         "autologging": {
             "minimum": "0.10.44",
-            "maximum": "0.11.13"
+            "maximum": "0.11.17"
         }
     },
     "autogen": {
@@ -305,7 +305,7 @@ _ML_PACKAGE_VERSIONS = {
         },
         "autologging": {
             "minimum": "0.2.29",
-            "maximum": "0.3.0"
+            "maximum": "0.3.1"
         }
     },
     "sentence_transformers": {
@@ -314,7 +314,7 @@ _ML_PACKAGE_VERSIONS = {
         },
         "models": {
             "minimum": "2.2.2",
-            "maximum": "3.1.1"
+            "maximum": "3.2.0"
         }
     },
     "johnsnowlabs": {
@@ -323,7 +323,7 @@ _ML_PACKAGE_VERSIONS = {
         },
         "models": {
             "minimum": "4.4.6",
-            "maximum": "5.4.4"
+            "maximum": "5.4.5"
         }
     },
     "promptflow": {
@@ -332,7 +332,7 @@ _ML_PACKAGE_VERSIONS = {
         },
         "models": {
             "minimum": "1.3.0",
-            "maximum": "1.15.1"
+            "maximum": "1.16.1"
         }
     }
 }
