@@ -145,19 +145,6 @@ class ArtifactRepository:
             List of artifacts as FileInfo listed directly under path.
         """
 
-    def list_logged_model_artifacts(self, path: Optional[str] = None) -> List[FileInfo]:
-        """
-        Return all the artifacts for this model_id directly under path. If `path` is a file, returns
-        an empty list. Will error if `path` is neither a file nor directory.
-
-        Args:
-            path: Relative source path that contains desired artifacts.
-
-        Returns:
-            List of artifacts as `FileInfo` listed directly under path.
-        """
-        return self.list_artifacts(path)
-
     def _is_directory(self, artifact_path):
         listing = self.list_artifacts(artifact_path)
         return len(listing) > 0
