@@ -607,6 +607,6 @@ def _validate_username(username):
 
 def _validate_trace_tag(key, value):
     _validate_tag_name(key)
-    key = _validate_length_limit("tag.key", MAX_TRACE_TAG_KEY_LENGTH, key)
-    value = _validate_length_limit("tag.value", MAX_TRACE_TAG_VAL_LENGTH, value, truncate=True)
+    key = _validate_length_limit("key", MAX_TRACE_TAG_KEY_LENGTH, key)
+    value = _validate_length_limit("value", MAX_TRACE_TAG_VAL_LENGTH, value, truncate=True)
     return key, value
