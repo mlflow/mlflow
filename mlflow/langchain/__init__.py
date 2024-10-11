@@ -50,7 +50,7 @@ from mlflow.models.dependencies_schemas import (
     _get_dependencies_schemas,
 )
 from mlflow.models.model import MLMODEL_FILE_NAME, MODEL_CODE_PATH, MODEL_CONFIG
-from mlflow.models.resources import _ResourceBuilder
+from mlflow.models.resources import DatabricksFunction, _ResourceBuilder
 from mlflow.models.signature import _infer_signature_from_input_example
 from mlflow.models.utils import (
     _convert_llm_input_data,
@@ -71,6 +71,7 @@ from mlflow.utils.autologging_utils import (
 )
 from mlflow.utils.databricks_utils import (
     is_in_databricks_model_serving_environment,
+    is_in_databricks_serverless,
     is_mlflow_tracing_enabled_in_model_serving,
 )
 from mlflow.utils.docstring_utils import (
@@ -125,6 +126,28 @@ def get_default_conda_env():
         :func:`save_model()` and :func:`log_model()`.
     """
     return _mlflow_conda_env(additional_pip_deps=get_default_pip_requirements())
+
+
+def _get_databricks_serverless_env_vars():
+    """
+    Returns the environment variables required to to initialize WorkspaceClient in a subprocess
+    with serverless compute.
+
+    Note:
+        Databricks authentication related environment variables are set in the
+        _capture_imported_modules function.
+    """
+    envs = {}
+    if "SPARK_REMOTE" in os.environ:
+        envs["SPARK_LOCAL_REMOTE"] = os.environ["SPARK_REMOTE"]
+    else:
+        logger.warning(
+            "Missing required environment variable `SPARK_LOCAL_REMOTE` or `SPARK_REMOTE`."
+            "These are necessary to initialize the WorkspaceClient with serverless compute in "
+            "a subprocess in Databricks for UC function execution. Setting the value to 'true'."
+        )
+        envs["SPARK_LOCAL_REMOTE"] = "true"
+    return envs
 
 
 @experimental
@@ -359,10 +382,14 @@ def save_model(
         **model_data_kwargs,
     )
 
+    needs_databricks_auth = False
     if Version(langchain.__version__) >= Version("0.0.311") and mlflow_model.resources is None:
         if databricks_resources := _detect_databricks_dependencies(lc_model):
             serialized_databricks_resources = _ResourceBuilder.from_resources(databricks_resources)
             mlflow_model.resources = serialized_databricks_resources
+            needs_databricks_auth = any(
+                isinstance(r, DatabricksFunction) for r in databricks_resources
+            )
 
     mlflow_model.add_flavor(
         FLAVOR_NAME,
@@ -378,8 +405,13 @@ def save_model(
     if conda_env is None:
         if pip_requirements is None:
             default_reqs = get_default_pip_requirements()
+            extra_env_vars = (
+                _get_databricks_serverless_env_vars()
+                if needs_databricks_auth and is_in_databricks_serverless()
+                else None
+            )
             inferred_reqs = mlflow.models.infer_pip_requirements(
-                str(path), FLAVOR_NAME, fallback=default_reqs
+                str(path), FLAVOR_NAME, fallback=default_reqs, extra_env_vars=extra_env_vars
             )
             default_reqs = sorted(set(inferred_reqs).union(default_reqs))
         else:

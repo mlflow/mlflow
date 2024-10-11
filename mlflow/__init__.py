@@ -109,6 +109,7 @@ from mlflow.config import (
 )
 from mlflow.exceptions import MlflowException
 from mlflow.models import evaluate
+from mlflow.models.evaluation.validation import validate_evaluation_results
 from mlflow.projects import run
 from mlflow.tracing.fluent import (
     add_trace,
@@ -229,6 +230,7 @@ __all__ = [
     "set_tags",
     "set_tracking_uri",
     "start_run",
+    "validate_evaluation_results",
     "Image",
     # Tracing Fluent APIs
     "get_current_active_span",

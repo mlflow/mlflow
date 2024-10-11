@@ -1,12 +1,13 @@
 from __future__ import annotations
 
 import ast
+import json
 import re
 import textwrap
 import tokenize
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterator
+from typing import Any, Iterator
 
 from clint.builtin import BUILTIN_MODULES
 
@@ -39,10 +40,10 @@ def _is_log_model(node: ast.AST) -> bool:
     Is this node a call to `log_model`?
     """
     if isinstance(node, ast.Name):
-        return node.id == "log_model"
+        return "log_model" in node.id
 
     elif isinstance(node, ast.Attribute):
-        return node.attr == "log_model"
+        return "log_model" in node.attr
 
     return False
 
@@ -60,9 +61,15 @@ class Violation:
     path: Path
     lineno: int
     col_offset: int
+    cell: int | None = None
 
     def __str__(self):
-        return f"{self.path}:{self.lineno}:{self.col_offset}: {self.rule.id}: {self.rule.message}"
+        # Use the same format as ruff
+        cell_loc = f"cell {self.cell}:" if self.cell is not None else ""
+        return (
+            f"{self.path}:{cell_loc}{self.lineno}:{self.col_offset}: "
+            f"{self.rule.id}: {self.rule.message}"
+        )
 
     def json(self) -> dict[str, str | int | None]:
         return {
@@ -180,10 +187,19 @@ def _iter_code_blocks(docstring: str) -> Iterator[CodeBlock]:
 
 
 class Linter(ast.NodeVisitor):
-    def __init__(self, path: Path, ignore: dict[str, set[int]]):
+    def __init__(self, *, path: Path, ignore: dict[str, set[int]], cell: int | None = None):
+        """
+        Lints a Python file.
+
+        Args:
+            path: Path to the file being linted.
+            ignore: Mapping of rule name to line numbers to ignore.
+            cell: Index of the cell being linted in a Jupyter notebook.
+        """
         self.stack: list[ast.FunctionDef | ast.AsyncFunctionDef] = []
         self.path = path
         self.ignore = ignore
+        self.cell = cell
         self.violations: list[Violation] = []
 
     def _check(self, loc: Location, rule: Rule) -> None:
@@ -195,6 +211,7 @@ class Linter(ast.NodeVisitor):
                 self.path,
                 loc.lineno,
                 loc.col_offset,
+                self.cell,
             )
         )
 
@@ -285,9 +302,36 @@ class Linter(ast.NodeVisitor):
             self._check(Location.from_node(node), KEYWORD_ARTIFACT_PATH)
 
 
+def _lint_cell(path: Path, cell: dict[str, Any], index: int) -> list[Violation]:
+    type_ = cell.get("cell_type")
+    if type_ != "code":
+        return []
+
+    lines = cell.get("source")
+    if not lines:
+        return []
+
+    src = "\n".join(lines)
+    try:
+        tree = ast.parse(src)
+    except SyntaxError:
+        # Ignore non-python cells such as `!pip install ...`
+        return []
+
+    linter = Linter(path=path, ignore=ignore_map(src), cell=index)
+    linter.visit(tree)
+    return linter.violations
+
+
 def lint_file(path: Path) -> list[Violation]:
-    with open(path) as f:
-        code = f.read()
-        linter = Linter(path, ignore_map(code))
+    code = path.read_text()
+    if path.suffix == ".ipynb":
+        if cells := json.loads(code).get("cells"):
+            violations = []
+            for idx, cell in enumerate(cells, start=1):
+                violations.extend(_lint_cell(path, cell, idx))
+            return violations
+    else:
+        linter = Linter(path=path, ignore=ignore_map(code))
         linter.visit(ast.parse(code))
         return linter.violations
