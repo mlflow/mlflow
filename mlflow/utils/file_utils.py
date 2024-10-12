@@ -371,13 +371,13 @@ def read_parquet_as_pandas_df(data_parquet_path: str):
 
     Args:
         data_parquet_path: String, path object (implementing os.PathLike[str]),
-        or file-like object implementing a binary read() function. The string
-        could be a URL. Valid URL schemes include http, ftp, s3, gs, and file.
-        For file URLs, a host is expected. A local file could
-        be: file://localhost/path/to/table.parquet. A file URL can also be a path to a
-        directory that contains multiple partitioned parquet files. Pyarrow
-        support paths to directories as well as file URLs. A directory
-        path could be: file://localhost/path/to/tables or s3://bucket/partition_dir.
+            or file-like object implementing a binary read() function. The string
+            could be a URL. Valid URL schemes include http, ftp, s3, gs, and file.
+            For file URLs, a host is expected. A local file could
+            be: file://localhost/path/to/table.parquet. A file URL can also be a path to a
+            directory that contains multiple partitioned parquet files. Pyarrow
+            support paths to directories as well as file URLs. A directory
+            path could be: file://localhost/path/to/tables or s3://bucket/partition_dir.
 
     Returns:
         pandas dataframe
