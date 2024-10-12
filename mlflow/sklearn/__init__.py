@@ -816,6 +816,8 @@ class _AutologgingMetricsManager:
                 the `self_obj` represent the instance.
             metric_fn: metric function.
             call_pos_args: the positional arguments of the metric function call. If `metric_fn`
+                is instance method, then the `call_pos_args` should exclude the first `self`
+                argument.
             call_kwargs: the keyword arguments of the metric function call.
         """
 

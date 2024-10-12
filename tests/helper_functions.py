@@ -235,8 +235,7 @@ def pyfunc_scoring_endpoint(
             example, passing ``extra_args=["--env-manager", "local"]`` will pass the
             ``--env-manager local`` flag to the scoring server to ensure that conda
             environment activation is skipped.
-        stdout: The output stream to which standard output is redirected.
-            Defaults to `sys.stdout`.
+        stdout: The output stream to which standard output is redirected. Defaults to `sys.stdout`.
     """
     env = dict(os.environ)
     env.update(LC_ALL="en_US.UTF-8", LANG="en_US.UTF-8")
