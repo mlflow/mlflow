@@ -38,8 +38,14 @@ def deprecated_and_keyword_only_first(x):
 
 @deprecated(since="0.0.0")
 @keyword_only
-def deprecated_and_keyword_only_second():
-    """ """
+def deprecated_and_keyword_only_second(x):
+    """
+    Description
+    Args:
+        x: x
+    Returns:
+        y
+    """
     return 1
 
 
