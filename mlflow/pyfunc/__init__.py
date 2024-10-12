@@ -599,12 +599,15 @@ def add_to_model(
         conda_env: Conda environment.
         python_env: Python environment.
         model_config: The model configuration to apply to the model. This configuration
-                is available during model loading.
+            is available during model loading.
+
+            .. Note:: Experimental: This parameter may change or be removed in a future
+                    release without warning.
+
         model_code_path: Path to the model code.
         kwargs: Additional key-value pairs to include in the ``pyfunc`` flavor specification.
                 Values must be YAML-serializable.
-        .. Note:: Experimental: This parameter may change or be removed in a future
-                release without warning.
+
 
     Returns:
         Updated model configuration.
