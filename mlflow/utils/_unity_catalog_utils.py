@@ -229,7 +229,7 @@ def _get_artifact_repo_from_storage_info(
         return GCSArtifactRepository(
             artifact_uri=storage_location,
             client=client,
-            credential_refresh=gcp_credential_refresh
+            credential_refresh_def=gcp_credential_refresh
         )
     elif credential_type == "r2_temp_credentials":
         from mlflow.store.artifact.r2_artifact_repo import R2ArtifactRepository
