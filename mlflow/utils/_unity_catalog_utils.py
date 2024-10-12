@@ -222,8 +222,8 @@ def _get_artifact_repo_from_storage_info(
         credentials = Credentials(scoped_token.gcp_oauth_token.oauth_token)
         def gcp_credential_refresh():
             new_scoped_token = base_credential_refresh_def()
-            new_gcp_creds = new_scoped_token.gcp_temp_credentials
-            return new_gcp_creds.gcp_oauth_token.oauth_token
+            new_gcp_creds = new_scoped_token.gcp_oauth_token
+            return new_gcp_creds.oauth_token
 
         client = Client(project="mlflow", credentials=credentials)
         return GCSArtifactRepository(
