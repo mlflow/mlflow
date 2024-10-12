@@ -36,7 +36,6 @@ class SampleDataset(Dataset):
 
     def to_dict(self) -> Dict[str, str]:
         """
-        
         Returns:
             A string dictionary containing the following fields: name,
             digest, source, source type, schema (optional), profile

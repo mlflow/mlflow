@@ -223,7 +223,7 @@ def pyfunc_serve_and_score_model(
 
 
 @contextmanager
-def pyfunc_scoring_endpoint(  # noqa: D417
+def pyfunc_scoring_endpoint(
     model_uri, activity_polling_timeout_seconds=500, extra_args=None, stdout=sys.stdout
 ):
     """
@@ -235,7 +235,7 @@ def pyfunc_scoring_endpoint(  # noqa: D417
             example, passing ``extra_args=["--env-manager", "local"]`` will pass the
             ``--env-manager local`` flag to the scoring server to ensure that conda
             environment activation is skipped.
-        stdout: The output stream to which standard output is redirected. 
+        stdout: The output stream to which standard output is redirected.
             Defaults to `sys.stdout`.
     """
     env = dict(os.environ)

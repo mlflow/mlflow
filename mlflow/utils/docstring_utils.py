@@ -398,7 +398,7 @@ def docstring_version_compatibility_warning(integration_name):
 
     Args:
         integration_name: The name of the module as stored within ml-package-versions.yml
-        
+
     Returns:
         The wrapped function with the additional docstring header applied
     """

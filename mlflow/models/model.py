@@ -675,7 +675,7 @@ class Model:
 
     @format_docstring(LOG_MODEL_PARAM_DOCS)
     @classmethod
-    def log(  # noqa: D417
+    def log(
         cls,
         artifact_path,
         flavor,
@@ -691,7 +691,6 @@ class Model:
         active run.
 
         Args:
-            cls: The MLflow model class.
             artifact_path: Run relative path identifying the model.
             flavor: Flavor module to save the model with. The module must have
                 the ``save_model`` function that will persist the model as a valid

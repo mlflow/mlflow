@@ -569,7 +569,7 @@ PY_VERSION = "python_version"
 _logger = logging.getLogger(__name__)
 
 
-def add_to_model(  # noqa: D417
+def add_to_model(
     model,
     loader_module,
     data=None,
