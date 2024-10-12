@@ -33,7 +33,7 @@ def load_data(fpath):
 def train(fpath, max_depth, max_features, n_estimators):
     """
     Train a Random Forest classifier with the specified hyperparameters.
-    
+
     Args:
         fpath: Path or URL for the training data used with the model.
         max_depth: Maximum depth of the trees in the Random Forest.

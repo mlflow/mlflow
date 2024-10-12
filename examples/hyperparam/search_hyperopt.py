@@ -49,8 +49,8 @@ def train(training_data, max_runs, epochs, metric, algo, seed):
             null_train_loss: Loss of a null model on the training dataset.
             null_valid_loss: Loss of a null model on the validation dataset.
             null_test_loss Loss of a null model on the test dataset.
-            return_all: If True, return train, validation, and test loss. 
-                Otherwise, return only the validation loss. 
+            return_all: If True, return train, validation, and test loss.
+                Otherwise, return only the validation loss.
                 Default is False.
 
         Returns:
