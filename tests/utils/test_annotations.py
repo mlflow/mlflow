@@ -41,8 +41,10 @@ def deprecated_and_keyword_only_first(x):
 def deprecated_and_keyword_only_second(x):
     """
     Description
+
     Args:
         x: x
+
     Returns:
         y
     """
