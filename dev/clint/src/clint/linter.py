@@ -235,16 +235,16 @@ class Linter(ast.NodeVisitor):
             args.append(func.args.kwarg.arg)
 
         if self._is_in_class():
-            # Is this a class method?
             if any(
                 isinstance(dec, ast.Name) and dec.id == "classmethod" for dec in func.decorator_list
             ):
                 args.remove("cls")
-            elif not any(
+            elif any(
                 isinstance(dec, ast.Name) and dec.id == "staticmethod"
                 for dec in func.decorator_list
             ):
-                # Instance method
+                pass
+            else:  # Instance method
                 args.remove("self")
 
         return args
