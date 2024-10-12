@@ -24,7 +24,7 @@ def function():
 
 @keyword_only
 @deprecated(since="0.0.0")
-def deprecated_and_keyword_only_first():
+def deprecated_and_keyword_only_first(x):
     """Description
 
     Args:
@@ -38,7 +38,7 @@ def deprecated_and_keyword_only_first():
 
 @deprecated(since="0.0.0")
 @keyword_only
-def deprecated_and_keyword_only_second():
+def deprecated_and_keyword_only_second(x):
     """
     Description
 

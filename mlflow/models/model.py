@@ -675,7 +675,7 @@ class Model:
 
     @format_docstring(LOG_MODEL_PARAM_DOCS)
     @classmethod
-    def log(  # noqa: D417
+    def log(
         cls,
         artifact_path,
         flavor,
@@ -698,13 +698,13 @@ class Model:
             registered_model_name: If given, create a model version under
                 ``registered_model_name``, also creating a registered model if
                 one with the given name does not exist.
-            signature: {{ signature }}
-            input_example: {{ input_example }}
             await_registration_for: Number of seconds to wait for the model version to finish
                 being created and is in ``READY`` status. By default, the
                 function waits for five minutes. Specify 0 or None to skip
                 waiting.
             metadata: {{ metadata }}
+            run_id: The run ID to associate with this model. If not provided,
+                a new run will be started.
             resources: {{ resources }}
             kwargs: Extra args passed to the model flavor.
 

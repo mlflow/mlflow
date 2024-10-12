@@ -9,6 +9,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Iterator
 
+from clint import rules
 from clint.builtin import BUILTIN_MODULES
 
 PARAM_REGEX = re.compile(r"\s+:param\s+\w+:", re.MULTILINE)
@@ -49,15 +50,8 @@ def _is_log_model(node: ast.AST) -> bool:
 
 
 @dataclass
-class Rule:
-    id: str
-    name: str
-    message: str
-
-
-@dataclass
 class Violation:
-    rule: Rule
+    rule: rules.Rule
     path: Path
     lineno: int
     col_offset: int
@@ -95,46 +89,6 @@ class Location:
     @classmethod
     def from_node(cls, node: ast.AST) -> "Location":
         return cls(node.lineno, node.col_offset)
-
-
-NO_RST = Rule(
-    "MLF0001",
-    "no-rst",
-    "Do not use RST style. Use Google style instead.",
-)
-LAZY_BUILTIN_IMPORT = Rule(
-    "MLF0002",
-    "lazy-builtin-import",
-    "Builtin modules must be imported at the top level.",
-)
-MLFLOW_CLASS_NAME = Rule(
-    "MLF0003",
-    "mlflow-class-name",
-    "Should use `Mlflow` in class name, not `MLflow` or `MLFlow`.",
-)
-TEST_NAME_TYPO = Rule(
-    "MLF0004",
-    "test-name-typo",
-    "This function looks like a test, but its name does not start with 'test_'.",
-)
-
-# TODO: Remove this rule after merging mlflow-3 branch into master
-KEYWORD_ARTIFACT_PATH = Rule(
-    "MLF0005",
-    "keyword-artifact-path",
-    (
-        "artifact_path must be passed as a positional argument. "
-        "See https://github.com/mlflow/mlflow/pull/13268 for why this is necessary."
-    ),
-)
-
-# TODO: Consider dropping this rule once https://github.com/astral-sh/ruff/discussions/13622
-#       is supported.
-EXAMPLE_SYNTAX_ERROR = Rule(
-    "MLF0006",
-    "example-syntax-error",
-    "This example has a syntax error.",
-)
 
 
 @dataclass
@@ -186,6 +140,31 @@ def _iter_code_blocks(docstring: str) -> Iterator[CodeBlock]:
         yield CodeBlock(code=code, loc=code_block_loc)
 
 
+def _parse_docstring_args(docstring: str) -> list[str]:
+    args: list[str] = []
+    args_header_indent: int | None = None
+    first_arg_indent: int | None = None
+    arg_name_regex = re.compile(r"(\w+)")
+    for line in docstring.split("\n"):
+        if args_header_indent is not None:
+            indent = _get_indent(line)
+            # If we encounter a non-blank line with an indent less than the args header,
+            # we are done parsing the args section.
+            if 0 < indent <= args_header_indent:
+                break
+
+            if not args and first_arg_indent is None:
+                first_arg_indent = indent
+
+            if m := arg_name_regex.match(line[first_arg_indent:]):
+                args.append(m.group(1))
+
+        elif line.lstrip().startswith("Args:"):
+            args_header_indent = _get_indent(line)
+
+    return args
+
+
 class Linter(ast.NodeVisitor):
     def __init__(self, *, path: Path, ignore: dict[str, set[int]], cell: int | None = None):
         """
@@ -196,13 +175,13 @@ class Linter(ast.NodeVisitor):
             ignore: Mapping of rule name to line numbers to ignore.
             cell: Index of the cell being linted in a Jupyter notebook.
         """
-        self.stack: list[ast.FunctionDef | ast.AsyncFunctionDef] = []
+        self.stack: list[ast.AST] = []
         self.path = path
         self.ignore = ignore
         self.cell = cell
         self.violations: list[Violation] = []
 
-    def _check(self, loc: Location, rule: Rule) -> None:
+    def _check(self, loc: Location, rule: rules.Rule) -> None:
         if (lines := self.ignore.get(rule.name)) and loc.lineno in lines:
             return
         self.violations.append(
@@ -230,21 +209,55 @@ class Linter(ast.NodeVisitor):
         if (nd := self._docstring(node)) and (
             PARAM_REGEX.search(nd.s) or RETURN_REGEX.search(nd.s)
         ):
-            self._check(nd, NO_RST)
+            self._check(nd, rules.NoRst())
 
     def _is_in_function(self) -> bool:
         return bool(self.stack)
+
+    def _is_in_class(self) -> bool:
+        return self.stack and isinstance(self.stack[-1], ast.ClassDef)
+
+    def _parse_func_args(self, func: ast.FunctionDef | ast.AsyncFunctionDef) -> list[str]:
+        args: list[str] = []
+        for arg in func.args.posonlyargs:
+            args.append(arg.arg)
+
+        for arg in func.args.args:
+            args.append(arg.arg)
+
+        for arg in func.args.kwonlyargs:
+            args.append(arg.arg)
+
+        if func.args.vararg:
+            args.append(func.args.vararg.arg)
+
+        if func.args.kwarg:
+            args.append(func.args.kwarg.arg)
+
+        if self._is_in_class():
+            if any(isinstance(d, ast.Name) and d.id == "classmethod" for d in func.decorator_list):
+                if "cls":
+                    args.remove("cls")
+            elif any(
+                isinstance(d, ast.Name) and d.id == "staticmethod" for d in func.decorator_list
+            ):
+                pass
+            else:  # Instance method
+                if "self":
+                    args.remove("self")
+
+        return args
 
     def _test_name_typo(self, node: ast.FunctionDef | ast.AsyncFunctionDef) -> None:
         if not self.path.name.startswith("test_") or self._is_in_function():
             return
 
         if node.name.startswith("test") and not node.name.startswith("test_"):
-            self._check(Location.from_node(node), TEST_NAME_TYPO)
+            self._check(Location.from_node(node), rules.TestNameTypo())
 
     def _mlflow_class_name(self, node: ast.ClassDef) -> None:
         if "MLflow" in node.name or "MLFlow" in node.name:
-            self._check(Location.from_node(node), MLFLOW_CLASS_NAME)
+            self._check(Location.from_node(node), rules.MlflowClassName())
 
     def visit_ClassDef(self, node: ast.ClassDef) -> None:
         self.stack.append(node)
@@ -263,11 +276,32 @@ class Linter(ast.NodeVisitor):
                         docstring_node.lineno + code_block.loc.lineno,
                         code_block.loc.col_offset,
                     )
-                    self._check(loc, EXAMPLE_SYNTAX_ERROR)
+                    self._check(loc, rules.ExampleSyntaxError())
+
+    def _param_mismatch(self, node: ast.FunctionDef | ast.AsyncFunctionDef) -> None:
+        if node.name.startswith("_"):
+            return
+        if docstring_node := self._docstring(node):
+            if (doc_args := _parse_docstring_args(docstring_node.value)) and (
+                func_args := self._parse_func_args(node)
+            ):
+                func_args_set = set(func_args)
+                doc_args_set = set(doc_args)
+                # TODO: Enable this rule
+                # if diff := func_args_set - doc_args_set:
+                #     self._check(Location.from_node(node), rules.MissingDocstringParam(diff))
+
+                if diff := doc_args_set - func_args_set:
+                    self._check(Location.from_node(node), rules.ExtraneousDocstringParam(diff))
+
+                # TODO: Enable this rule
+                # if func_args_set == doc_args_set and func_args != doc_args:
+                #     self._check(Location.from_node(node), rules.DocstringParamOrder())
 
     def visit_FunctionDef(self, node: ast.FunctionDef) -> None:
         self._test_name_typo(node)
         self._syntax_error_example(node)
+        self._param_mismatch(node)
         self.stack.append(node)
         self._no_rst(node)
         self.generic_visit(node)
@@ -276,6 +310,7 @@ class Linter(ast.NodeVisitor):
     def visit_AsyncFunctionDef(self, node: ast.AsyncFunctionDef) -> None:
         self._test_name_typo(node)
         self._syntax_error_example(node)
+        self._param_mismatch(node)
         self.stack.append(node)
         self._no_rst(node)
         self.generic_visit(node)
@@ -285,12 +320,12 @@ class Linter(ast.NodeVisitor):
         if self._is_in_function():
             for alias in node.names:
                 if alias.name.split(".", 1)[0] in BUILTIN_MODULES:
-                    self._check(Location.from_node(node), LAZY_BUILTIN_IMPORT)
+                    self._check(Location.from_node(node), rules.LazyBuiltinImport())
         self.generic_visit(node)
 
     def visit_ImportFrom(self, node: ast.ImportFrom) -> None:
         if self._is_in_function() and node.module.split(".", 1)[0] in BUILTIN_MODULES:
-            self._check(Location.from_node(node), LAZY_BUILTIN_IMPORT)
+            self._check(Location.from_node(node), rules.LazyBuiltinImport())
         self.generic_visit(node)
 
     def visit_Call(self, node: ast.Call) -> None:
@@ -299,7 +334,7 @@ class Linter(ast.NodeVisitor):
             and _is_log_model(node.func)
             and any(arg.arg == "artifact_path" for arg in node.keywords)
         ):
-            self._check(Location.from_node(node), KEYWORD_ARTIFACT_PATH)
+            self._check(Location.from_node(node), rules.KeywordArtifactPath())
 
 
 def _lint_cell(path: Path, cell: dict[str, Any], index: int) -> list[Violation]:

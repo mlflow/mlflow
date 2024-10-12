@@ -36,11 +36,6 @@ class SampleDataset(Dataset):
 
     def to_dict(self) -> Dict[str, str]:
         """
-        Args:
-            base_dict: A string dictionary of base information about the
-                dataset, including: name, digest, source, and source
-                type.
-
         Returns:
             A string dictionary containing the following fields: name,
             digest, source, source type, schema (optional), profile

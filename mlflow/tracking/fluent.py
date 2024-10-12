@@ -1350,7 +1350,6 @@ def log_image(
             - H x W x 4 (an RGBA channel order is assumed)
 
     Args:
-        run_id: String ID of run.
         image: The image object to be logged.
         artifact_file: Specifies the path, in POSIX format, where the image
             will be stored as an artifact relative to the run's root directory (for

@@ -569,7 +569,7 @@ PY_VERSION = "python_version"
 _logger = logging.getLogger(__name__)
 
 
-def add_to_model(  # noqa: D417
+def add_to_model(
     model,
     loader_module,
     data=None,
@@ -598,14 +598,15 @@ def add_to_model(  # noqa: D417
         code: Path to the code dependencies.
         conda_env: Conda environment.
         python_env: Python environment.
-        req: pip requirements file.
+        model_config: The model configuration to apply to the model. This configuration
+            is available during model loading.
+
+            .. Note:: Experimental: This parameter may change or be removed in a future
+                release without warning.
+
+        model_code_path: Path to the model code.
         kwargs: Additional key-value pairs to include in the ``pyfunc`` flavor specification.
                 Values must be YAML-serializable.
-        model_config: The model configuration to apply to the model. This configuration
-                      is available during model loading.
-
-                      .. Note:: Experimental: This parameter may change or be removed in a future
-                                              release without warning.
 
     Returns:
         Updated model configuration.
