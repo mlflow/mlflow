@@ -290,12 +290,10 @@ class Linter(ast.NodeVisitor):
                 doc_args_set = set(doc_args)
                 # TODO: Enable this rule
                 # if diff := func_args_set - doc_args_set:
-                #     self._check(Location.from_node(node), rules.MissingDocstringParam(list(diff)))
+                #     self._check(Location.from_node(node), rules.MissingDocstringParam(diff))
 
                 if diff := doc_args_set - func_args_set:
-                    self._check(
-                        Location.from_node(node), rules.ExtraneousDocstringParam(list(diff))
-                    )
+                    self._check(Location.from_node(node), rules.ExtraneousDocstringParam(diff))
 
                 # TODO: Enable this rule
                 # if func_args_set == doc_args_set and func_args != doc_args:

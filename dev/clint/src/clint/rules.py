@@ -89,7 +89,7 @@ class ExampleSyntaxError(Rule):
 
 
 class MissingDocstringParam(Rule):
-    def __init__(self, params: list[str]) -> None:
+    def __init__(self, params: set[str]) -> None:
         self.params = params
 
     def _id(self) -> str:
@@ -100,7 +100,7 @@ class MissingDocstringParam(Rule):
 
 
 class ExtraneousDocstringParam(Rule):
-    def __init__(self, params: list[str]) -> None:
+    def __init__(self, params: set[str]) -> None:
         self.params = params
 
     def _id(self) -> str:
