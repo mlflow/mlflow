@@ -1,0 +1,28 @@
+name: cherry-picks-warn
+
+on:
+  pull_request_target:
+    types:
+      - opened
+    branches:
+      - branch-[0-9]+.[0-9]+
+
+permissions:
+  contents: read
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      pull-requests: write # to post a comment on the PR
+    steps:
+      - uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: '### 🚨 Important Reminder:\nAre you cherry-picking commits to a release branch? If so, please ensure you use the **Rebase and Merge** option when merging this pull request. Do not select the **Squash and Merge** option, as it makes reverting individual commits impossible. Thank you!'
+            });
