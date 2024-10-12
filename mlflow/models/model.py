@@ -702,10 +702,10 @@ class Model:
                 being created and is in ``READY`` status. By default, the
                 function waits for five minutes. Specify 0 or None to skip
                 waiting.
-            metadata: {{ metadata }} Custom metadata to log with the model.
+            metadata: {{ metadata }}
             run_id: The run ID to associate with this model. If not provided,
                 a new run will be started.
-            resources: {{ resources }} Resources used for model deployment, if any.
+            resources: {{ resources }}
             kwargs: Extra args passed to the model flavor.
 
         Returns:
