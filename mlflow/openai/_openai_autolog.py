@@ -121,10 +121,23 @@ def patched_call(original, self, *args, **kwargs):
             run_id = run.info.run_id
 
     if config.log_traces:
-        root_span = mlflow_client.start_trace(
-            name=self.__class__.__name__, span_type=_get_span_type(self.__class__), inputs=kwargs
-        )
-        request_id = root_span.request_id
+        # If there is an active span, create a child span under it, otherwise create a new trace
+        if active_span := mlflow.get_current_active_span():
+            span = mlflow_client.start_span(
+                name=self.__class__.__name__,
+                request_id=active_span.request_id,
+                parent_id=active_span.span_id,
+                span_type=_get_span_type(self.__class__),
+                inputs=kwargs,
+            )
+        else:
+            span = mlflow_client.start_trace(
+                name=self.__class__.__name__,
+                span_type=_get_span_type(self.__class__),
+                inputs=kwargs,
+            )
+
+        request_id = span.request_id
         # If a new autolog run is created, associate the trace with the run
         if run_id is not None:
             tm = InMemoryTraceManager().get_instance()
@@ -137,7 +150,7 @@ def patched_call(original, self, *args, **kwargs):
         # We have to end the trace even the exception is raised
         if config.log_traces and request_id:
             try:
-                root_span.add_event(SpanEvent.from_exception(e))
+                span.add_event(SpanEvent.from_exception(e))
                 mlflow_client.end_trace(request_id=request_id, status=SpanStatusCode.ERROR)
             except Exception as inner_e:
                 _logger.warning(f"Encountered unexpected error when ending trace: {inner_e}")
@@ -173,7 +186,12 @@ def patched_call(original, self, *args, **kwargs):
     else:
         if config.log_traces and request_id:
             try:
-                mlflow_client.end_trace(request_id=request_id, outputs=result)
+                if span.parent_id is None:
+                    mlflow_client.end_trace(request_id=request_id, outputs=result)
+                else:
+                    mlflow_client.end_span(
+                        request_id=request_id, span_id=span.span_id, outputs=result
+                    )
             except Exception as e:
                 _logger.warning(f"Encountered unexpected error when ending trace: {e}")
 
