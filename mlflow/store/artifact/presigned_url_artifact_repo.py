@@ -97,7 +97,7 @@ class PresignedUrlArtifactRepository(CloudArtifactRepository):
         page_token = ""
         while True:
             endpoint = posixpath.join(DIRECTORIES_ENDPOINT, self.artifact_uri.lstrip("/"), path)
-            req_body = json.dumps({"page_token": page_token}) if page_token else ""
+            req_body = json.dumps({"page_token": page_token}) if page_token else None
 
             response_proto = ListDirectoryResponse()
             resp = call_endpoint(
