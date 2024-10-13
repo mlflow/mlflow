@@ -1,6 +1,7 @@
 import json
 import logging
 import os
+import functools
 from contextlib import contextmanager
 from copy import deepcopy
 from typing import Iterator
@@ -238,3 +239,61 @@ def patched_call(original, self, *args, **kwargs):
         mlflow_client.set_terminated(run_id)
 
     return result
+
+
+def patched_agent_get_chat_completion(original, self, *args, **kwargs):
+    """
+    Patch the `get_chat_completion` method of the ChatCompletion object.
+    OpenAI autolog already handles the raw completion request, but tracing
+    the swarm's method is useful to track other parameters like agent name.
+    """
+    agent = kwargs.get("agent") or args[0]
+
+    # Patch agent's functions to generate traces. Function calls only happen
+    # after the first completion is generated because of the design of
+    # function calling. Therefore, we can safely patch the tool functions here.
+    # We cannot patch functions during the agent's initialization because the
+    # agent's functions can be modified after the agent is created.
+    def function_wrapper(fn):
+        if "context_variables" in fn.__code__.co_varnames:
+            context_variables = {}
+            def wrapper(*args, **kwargs):
+                # To add "context_variables" in the wrapper.__code__.co_varname
+                context_variables = kwargs.get("context_variables", {})
+                return mlflow.trace(
+                    fn,
+                    name=f"{agent.name}.{fn.__name__}",
+                    span_type=SpanType.TOOL,
+                )(*args, **kwargs)
+        else:
+            def wrapper(*args, **kwargs):
+                return mlflow.trace(
+                    fn,
+                    name=f"{agent.name}.{fn.__name__}",
+                    span_type=SpanType.TOOL,
+                )(*args, **kwargs)
+
+        wrapped = functools.wraps(fn)(wrapper)
+        wrapped._is_mlflow_traced = True # Marker to avoid double tracing
+        return wrapped
+
+    agent.functions = [
+        function_wrapper(fn) if not hasattr(fn, "_is_mlflow_traced") else fn
+        for fn in agent.functions
+    ]
+
+    # Patch the get_completion method as well
+    traced_fn = mlflow.trace(
+        original,
+        name=f"{agent.name}.get_chat_completion",
+        span_type=SpanType.CHAT_MODEL
+    )
+    return traced_fn(self, *args, **kwargs)
+
+
+def patched_swarm_run(original, self, *args, **kwargs):
+    """
+    Patched version of `run` method of the Swarm object.
+    """
+    traced_fn = mlflow.trace(original, span_type=SpanType.AGENT)
+    return traced_fn(self, *args, **kwargs)

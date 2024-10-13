@@ -908,3 +908,28 @@ def autolog(
             "create",
             patched_call,
         )
+
+    # Patch Swarm agent to generate traces
+    try:
+        from swarm import Swarm
+        from mlflow.entities import SpanType
+        from mlflow.openai._openai_autolog import (
+            patched_swarm_run,
+            patched_agent_get_chat_completion
+        )
+
+        safe_patch(
+            FLAVOR_NAME,
+            Swarm,
+            "get_chat_completion",
+            patched_agent_get_chat_completion,
+        )
+
+        safe_patch(
+            FLAVOR_NAME,
+            Swarm,
+            "run",
+            patched_swarm_run,
+        )
+    except ImportError:
+        pass
