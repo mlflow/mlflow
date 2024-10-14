@@ -443,9 +443,12 @@ def safe_patch(
                 or autologging_is_disabled(autologging_integration)
                 or (user_created_fluent_run_is_active and exclusive)
                 or (
-                    mlflow.utils.autologging_utils._autolog_conf_thread_local.disabled
+                    getattr(mlflow.utils.autologging_utils._autolog_conf_thread_local, "disabled", False)
                     and autologging_integration
-                    not in mlflow.utils.autologging_utils._autolog_conf_thread_local.disabled_exemptions
+                    not in getattr(
+                        mlflow.utils.autologging_utils._autolog_conf_thread_local,
+                        "disabled_exemptions", []
+                    )
                 )
             ):
                 # If the autologging integration associated with this patch is disabled,
