@@ -1750,11 +1750,6 @@ def prebuild_model_env(model_uri, save_path):
     Prebuild model python environment and generate an archive file saved to provided
     `save_path`.
 
-    Args:
-        model_uri: URI to the model that is used to build the python environment.
-        save_path: The directory path that is used to save the prebuilt model environment
-            archive file path.
-
     NOTE: The `prebuild_model_env` can only be called in Databricks runtime,
         and the generated prebuilt env file can be used in `mlflow.pyfunc.spark_udf` in
         Databricks runtime or Databricks Connect client.
@@ -1762,6 +1757,18 @@ def prebuild_model_env(model_uri, save_path):
         versions or different platform machines.
         When using the prebuilt env in `mlflow.pyfunc.spark_udf`, MLflow will verify
         whether the spark UDF sandbox environment matches the prebuilt env requirements.
+
+    .. code-block:: python
+        :caption: Example
+
+        from mlflow.pyfunc import prebuild_model_env
+        # Create a python environment archive file at the path `prebuilt_env_path`
+        prebuilt_env_path = prebuild_model_env(f"runs:/{run_id}/model", "/path/to/save_directory")
+
+    Args:
+        model_uri: URI to the model that is used to build the python environment.
+        save_path: The directory path that is used to save the prebuilt model environment
+            archive file path.
     """
     from mlflow.utils._spark_utils import _get_active_spark_session
 
@@ -1843,8 +1850,8 @@ def spark_udf(
     NOTE: Inputs of type ``pyspark.sql.types.DateType`` are not supported on earlier versions of
     Spark (2.4 and below).
 
-    NOTE: If using Databricks Connect to connect to remote Databricks cluster,
-       the Databricks cluster must use runtime version >= 16, and if 'spark_udf'
+    NOTE: When using Databricks Connect to connect to a remote Databricks cluster,
+       the Databricks cluster must use runtime version >= 16, and when 'spark_udf'
        param 'env_manager' is set as 'virtualenv', the 'prebuilt_env_path' param is
        required to be specified.
 
@@ -1933,7 +1940,7 @@ def spark_udf(
               may differ from the environment used to train the model and may lead to
               errors or invalid predictions.
 
-            This param is ignored if you set `prebuilt_env_path` param.
+            This parameter is ignored if you set `prebuilt_env_path` param.
 
         params: Additional parameters to pass to the model for inference.
 
