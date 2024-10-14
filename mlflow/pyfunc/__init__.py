@@ -1994,8 +1994,8 @@ def spark_udf(
         # this case all executors and driver share the same filesystem
         is_spark_in_local_mode = spark.conf.get("spark.master").startswith("local")
 
-    dbconnect_mode = is_databricks_connect(spark)
-    if prebuilt_env_path is not None and not dbconnect_mode:
+    is_dbconnect_mode = is_databricks_connect(spark)
+    if prebuilt_env_path is not None and not is_dbconnect_mode:
         raise RuntimeError(
             "'prebuilt_env' parameter can only be used in Databricks Serverless "
             "notebook REPL, atabricks Shared cluster notebook REPL, and Databricks Connect client "
@@ -2005,7 +2005,7 @@ def spark_udf(
     if (
         prebuilt_env_path is None
         and env_manager != _EnvManager.LOCAL
-        and dbconnect_mode
+        and is_dbconnect_mode
         and not is_in_databricks_runtime()
     ):
         raise RuntimeError(
@@ -2018,7 +2018,7 @@ def spark_udf(
     # But for Databricks shared cluster runtime, it can directly write to NFS, so exclude it
     # Note for Databricks Serverles runtime (notebook REPL), it runs on Servereless VM that
     # can't access NFS, so it needs to use `spark.addArtifact`.
-    use_dbconnect_artifact = dbconnect_mode and not is_in_databricks_shared_cluster_runtime()
+    use_dbconnect_artifact = is_dbconnect_mode and not is_in_databricks_shared_cluster_runtime()
 
     nfs_root_dir = get_nfs_cache_root_dir()
     should_use_nfs = nfs_root_dir is not None
@@ -2035,7 +2035,7 @@ def spark_udf(
 
     if (
         is_spark_connect
-        and not dbconnect_mode
+        and not is_dbconnect_mode
         and env_manager in (_EnvManager.VIRTUALENV, _EnvManager.CONDA)
     ):
         raise MlflowException.invalid_parameter_value(
