@@ -13,11 +13,7 @@ from mlflow.entities.run_status import RunStatus
 from mlflow.environment_variables import _MLFLOW_AUTOLOGGING_TESTING
 from mlflow.tracking.client import MlflowClient
 from mlflow.utils import gorilla, is_iterator
-from mlflow.utils.autologging_utils import (
-    _logger,
-    _AUTOLOGGING_DISABLED,
-    _AUTOLOGGING_DISABLED_EXEMPTIONS,
-)
+from mlflow.utils.autologging_utils import _logger
 from mlflow.utils.autologging_utils.events import AutologgingEventLogger
 from mlflow.utils.autologging_utils.logging_and_warnings import (
     set_mlflow_events_and_warnings_behavior_globally,
@@ -397,6 +393,10 @@ def safe_patch(
         while exceptions thrown from other parts of `patch_function` are caught and logged as
         warnings.
         """
+        from mlflow.utils.autologging_utils import (
+            _AUTOLOGGING_DISABLED,
+            _AUTOLOGGING_DISABLED_EXEMPTIONS,
+        )
         # Reroute warnings encountered during the patch function implementation to an MLflow event
         # logger, and enforce silent mode if applicable (i.e. if the corresponding autologging
         # integration was called with `silent=True`), hiding MLflow event logging statements and
