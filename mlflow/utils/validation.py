@@ -260,8 +260,10 @@ def _validate_tag(key, value, path=""):
     """
     _validate_tag_name(key, append_to_json_path(path, "key"))
     return RunTag(
-        _validate_length_limit("Tag key", MAX_ENTITY_KEY_LENGTH, key),
-        _validate_length_limit("Tag value", MAX_TAG_VAL_LENGTH, value, truncate=True),
+        _validate_length_limit(append_to_json_path(path, "key"), MAX_ENTITY_KEY_LENGTH, key),
+        _validate_length_limit(
+            append_to_json_path(path, "value"), MAX_TAG_VAL_LENGTH, value, truncate=True
+        ),
     )
 
 
@@ -270,8 +272,8 @@ def _validate_experiment_tag(key, value):
     Check that a tag with the specified key & value is valid and raise an exception if it isn't.
     """
     _validate_tag_name(key)
-    _validate_length_limit("Tag key", MAX_EXPERIMENT_TAG_KEY_LENGTH, key)
-    _validate_length_limit("Tag value", MAX_EXPERIMENT_TAG_VAL_LENGTH, value)
+    _validate_length_limit("key", MAX_EXPERIMENT_TAG_KEY_LENGTH, key)
+    _validate_length_limit("value", MAX_EXPERIMENT_TAG_VAL_LENGTH, value)
 
 
 def _validate_registered_model_tag(key, value):
@@ -279,8 +281,8 @@ def _validate_registered_model_tag(key, value):
     Check that a tag with the specified key & value is valid and raise an exception if it isn't.
     """
     _validate_tag_name(key)
-    _validate_length_limit("Registered model key", MAX_MODEL_REGISTRY_TAG_KEY_LENGTH, key)
-    _validate_length_limit("Registered model value", MAX_MODEL_REGISTRY_TAG_VALUE_LENGTH, value)
+    _validate_length_limit("key", MAX_MODEL_REGISTRY_TAG_KEY_LENGTH, key)
+    _validate_length_limit("value", MAX_MODEL_REGISTRY_TAG_VALUE_LENGTH, value)
 
 
 def _validate_model_version_tag(key, value):
@@ -289,8 +291,8 @@ def _validate_model_version_tag(key, value):
     """
     _validate_tag_name(key)
     _validate_tag_value(value)
-    _validate_length_limit("Model version key", MAX_MODEL_REGISTRY_TAG_KEY_LENGTH, key)
-    _validate_length_limit("Model version value", MAX_MODEL_REGISTRY_TAG_VALUE_LENGTH, value)
+    _validate_length_limit("key", MAX_MODEL_REGISTRY_TAG_KEY_LENGTH, key)
+    _validate_length_limit("value", MAX_MODEL_REGISTRY_TAG_VALUE_LENGTH, value)
 
 
 def _validate_param_keys_unique(params):
@@ -365,8 +367,7 @@ def _validate_length_limit(entity_name, limit, value, *, truncate=False):
         return value[:limit]
 
     raise MlflowException(
-        f"{entity_name} '{value[:250]}' had length {len(value)}, "
-        f"which exceeded length limit of {limit}",
+        exceeds_maximum_length(entity_name, limit),
         error_code=INVALID_PARAMETER_VALUE,
     )
 
@@ -606,8 +607,6 @@ def _validate_username(username):
 
 def _validate_trace_tag(key, value):
     _validate_tag_name(key)
-    key = _validate_length_limit("Trace tag key", MAX_TRACE_TAG_KEY_LENGTH, key)
-    value = _validate_length_limit(
-        "Trace tag value", MAX_TRACE_TAG_VAL_LENGTH, value, truncate=True
-    )
+    key = _validate_length_limit("key", MAX_TRACE_TAG_KEY_LENGTH, key)
+    value = _validate_length_limit("value", MAX_TRACE_TAG_VAL_LENGTH, value, truncate=True)
     return key, value
