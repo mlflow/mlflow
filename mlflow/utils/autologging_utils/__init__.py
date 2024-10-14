@@ -111,7 +111,7 @@ def autologging_conf_lock(fn):
     """
     global _autolog_conf_global_lock
 
-    @functools.wraps(func)
+    @functools.wraps(fn)
     def wrapper(*args, **kwargs):
         with _autolog_conf_global_lock:
             return fn(*args, **kwargs)
