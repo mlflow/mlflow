@@ -1109,7 +1109,7 @@ def autolog(disable=False, silent=False):
     <https://www.mlflow.org/docs/latest/tracking.html#spark>`_
     attached. It should be called on the Spark driver, not on the executors (i.e. do not call
     this method within a function parallelized by Spark). 
-    The mlflow-spark JAR used, should match the Scala version of Spark. Please see the 
+    The mlflow-spark JAR used must match the Scala version of Spark. Please see the 
     `Maven Repository
     <https://mvnrepository.com/artifact/org.mlflow/mlflow-spark>`_
     for available versions. This API requires Spark 3.0 or above.
