@@ -7,7 +7,7 @@ from contextlib import contextmanager
 
 import mlflow
 from mlflow.entities import Run
-from mlflow.environment_variables import MLFLOW_UNITY_CATALOG_PRESIGNED_URLS_ENABLED
+from mlflow.environment_variables import MLFLOW_USE_DATABRICKS_SDK_MODEL_ARTIFACTS_REPO_FOR_UC
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INTERNAL_ERROR
 from mlflow.protos.databricks_uc_registry_messages_pb2 import (
@@ -54,6 +54,7 @@ from mlflow.protos.databricks_uc_registry_messages_pb2 import (
     SetRegisteredModelAliasResponse,
     SetRegisteredModelTagRequest,
     SetRegisteredModelTagResponse,
+    StorageMode,
     Table,
     TemporaryCredentials,
     UpdateModelVersionRequest,
@@ -66,6 +67,9 @@ from mlflow.protos.service_pb2 import GetRun, MlflowService
 from mlflow.store._unity_catalog.lineage.constants import (
     _DATABRICKS_LINEAGE_ID_HEADER,
     _DATABRICKS_ORG_ID_HEADER,
+)
+from mlflow.store.artifact.databricks_sdk_models_artifact_repo import (
+    DatabricksSDKModelsArtifactRepository,
 )
 from mlflow.store.artifact.presigned_url_artifact_repo import PresignedUrlArtifactRepository
 from mlflow.store.entities.paged_list import PagedList
@@ -96,6 +100,7 @@ from mlflow.utils.rest_utils import (
     http_request,
     verify_rest_response,
 )
+from mlflow.utils.uri import is_fuse_or_uc_volumes_uri
 
 _TRACKING_METHOD_TO_INFO = extract_api_info_for_service(MlflowService, _REST_API_PATH_PREFIX)
 _METHOD_TO_INFO = extract_api_info_for_service(UcModelRegistryService, _REST_API_PATH_PREFIX)
@@ -173,13 +178,6 @@ def get_model_version_dependencies(model_dir):
     Gets the specified dependencies for a particular model version and formats them
     to be passed into CreateModelVersion.
     """
-    # import here to work around circular imports
-    from mlflow.langchain.databricks_dependencies import (
-        _DATABRICKS_CHAT_ENDPOINT_NAME_KEY,
-        _DATABRICKS_EMBEDDINGS_ENDPOINT_NAME_KEY,
-        _DATABRICKS_LLM_ENDPOINT_NAME_KEY,
-        _DATABRICKS_VECTOR_SEARCH_INDEX_NAME_KEY,
-    )
     from mlflow.models.resources import ResourceType
 
     model = _load_model(model_dir)
@@ -190,22 +188,36 @@ def get_model_version_dependencies(model_dir):
 
     if databricks_resources:
         databricks_dependencies = databricks_resources.get("databricks", {})
-        index_names = _fetch_langchain_dependency_from_model_info(
-            databricks_dependencies, ResourceType.VECTOR_SEARCH_INDEX.value
+        dependencies.extend(
+            _fetch_langchain_dependency_from_model_resources(
+                databricks_dependencies,
+                ResourceType.VECTOR_SEARCH_INDEX.value,
+                "DATABRICKS_VECTOR_INDEX",
+            )
         )
-        for index_name in index_names:
-            dependencies.append({"type": "DATABRICKS_VECTOR_INDEX", **index_name})
-        endpoint_names = _fetch_langchain_dependency_from_model_info(
-            databricks_dependencies, ResourceType.SERVING_ENDPOINT.value
+        dependencies.extend(
+            _fetch_langchain_dependency_from_model_resources(
+                databricks_dependencies,
+                ResourceType.SERVING_ENDPOINT.value,
+                "DATABRICKS_MODEL_ENDPOINT",
+            )
         )
-        for endpoint_name in endpoint_names:
-            dependencies.append({"type": "DATABRICKS_MODEL_ENDPOINT", **endpoint_name})
+        dependencies.extend(
+            _fetch_langchain_dependency_from_model_resources(
+                databricks_dependencies, ResourceType.FUNCTION.value, "DATABRICKS_UC_FUNCTION"
+            )
+        )
     else:
-        # import here to work around circular imports
-        from mlflow.langchain.databricks_dependencies import _DATABRICKS_DEPENDENCY_KEY
+        # These types of dependencies are required for old models that didn't use
+        # resources so they can be registered correctly to UC
+        _DATABRICKS_VECTOR_SEARCH_INDEX_NAME_KEY = "databricks_vector_search_index_name"
+        _DATABRICKS_EMBEDDINGS_ENDPOINT_NAME_KEY = "databricks_embeddings_endpoint_name"
+        _DATABRICKS_LLM_ENDPOINT_NAME_KEY = "databricks_llm_endpoint_name"
+        _DATABRICKS_CHAT_ENDPOINT_NAME_KEY = "databricks_chat_endpoint_name"
+        _DB_DEPENDENCY_KEY = "databricks_dependency"
 
         databricks_dependencies = model_info.flavors.get("langchain", {}).get(
-            _DATABRICKS_DEPENDENCY_KEY, {}
+            _DB_DEPENDENCY_KEY, {}
         )
 
         index_names = _fetch_langchain_dependency_from_model_info(
@@ -224,6 +236,14 @@ def get_model_version_dependencies(model_dir):
             for endpoint_name in endpoint_names:
                 dependencies.append({"type": "DATABRICKS_MODEL_ENDPOINT", "name": endpoint_name})
     return dependencies
+
+
+def _fetch_langchain_dependency_from_model_resources(databricks_dependencies, key, resource_type):
+    dependencies = databricks_dependencies.get(key, [])
+    deps = []
+    for depndency in dependencies:
+        deps.append({"type": resource_type, **depndency})
+    return deps
 
 
 def _fetch_langchain_dependency_from_model_info(databricks_dependencies, key):
@@ -607,8 +627,8 @@ class UcModelRegistryStore(BaseRestStore):
             "All models in the Unity Catalog must be logged with a "
             "model signature containing both input and output "
             "type specifications. See "
-            "https://mlflow.org/docs/latest/models.html#model-signature "
-            "for details on how to log a model with a signature"
+            "https://mlflow.org/docs/latest/model/signatures.html#how-to-log-models-with-signatures"
+            " for details on how to log a model with a signature"
         )
         if model.signature is None:
             raise MlflowException(
@@ -677,14 +697,20 @@ class UcModelRegistryStore(BaseRestStore):
                     f"the source artifact location exists and that you can download from "
                     f"it via mlflow.artifacts.download_artifacts()"
                 ) from e
-            # Clean up temporary model directory at end of block. We assume a temporary
-            # model directory was created if the `source` is not a local path (must be downloaded
-            # from remote to a temporary directory)
-            yield local_model_dir
-            if not os.path.exists(source):
-                shutil.rmtree(local_model_dir)
+            try:
+                yield local_model_dir
+            finally:
+                # Clean up temporary model directory at end of block. We assume a temporary
+                # model directory was created if the `source` is not a local path
+                # (must be downloaded from remote to a temporary directory) and
+                # `local_model_dir` is not a FUSE-mounted path. The check for FUSE-mounted
+                # paths is important as mlflow.artifacts.download_artifacts() can return
+                # a FUSE mounted path equivalent to the (remote) source path in some cases,
+                # e.g. return /dbfs/some/path for source dbfs:/some/path.
+                if not os.path.exists(source) and not is_fuse_or_uc_volumes_uri(local_model_dir):
+                    shutil.rmtree(local_model_dir)
 
-    def create_model_version(
+    def create_model_version(  # noqa: D417
         self,
         name,
         source,
@@ -757,25 +783,28 @@ class UcModelRegistryStore(BaseRestStore):
                 CreateModelVersionRequest, req_body, extra_headers=extra_headers
             ).model_version
 
-            store = self._get_artifact_repo(model_version)
+            store = self._get_artifact_repo(model_version, full_name)
             store.log_artifacts(local_dir=local_model_dir, artifact_path="")
             finalized_mv = self._finalize_model_version(
                 name=full_name, version=model_version.version
             )
             return model_version_from_uc_proto(finalized_mv)
 
-    def _get_artifact_repo(self, model_version):
-        if MLFLOW_UNITY_CATALOG_PRESIGNED_URLS_ENABLED.get():
-            return PresignedUrlArtifactRepository(
-                self.get_host_creds(), model_version.name, model_version.version
-            )
-
+    def _get_artifact_repo(self, model_version, model_name=None):
         def base_credential_refresh_def():
             return self._get_temporary_model_version_write_credentials(
                 name=model_version.name, version=model_version.version
             )
 
+        if MLFLOW_USE_DATABRICKS_SDK_MODEL_ARTIFACTS_REPO_FOR_UC.get():
+            return DatabricksSDKModelsArtifactRepository(model_name, model_version.version)
+
         scoped_token = base_credential_refresh_def()
+        if scoped_token.storage_mode == StorageMode.DEFAULT_STORAGE:
+            return PresignedUrlArtifactRepository(
+                self.get_host_creds(), model_version.name, model_version.version
+            )
+
         return get_artifact_repo_from_storage_info(
             storage_location=model_version.storage_location,
             scoped_token=scoped_token,

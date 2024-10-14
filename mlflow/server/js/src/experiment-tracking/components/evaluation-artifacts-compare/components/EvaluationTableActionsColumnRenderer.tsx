@@ -1,4 +1,4 @@
-import { Button, ChevronDownIcon, ChevronRightIcon, Tooltip } from '@databricks/design-system';
+import { Button, ChevronDownIcon, ChevronRightIcon, LegacyTooltip } from '@databricks/design-system';
 import { EvaluationTableHeader } from './EvaluationTableHeader';
 import { usePromptEngineeringContext } from '../contexts/PromptEngineeringContext';
 import { FormattedMessage } from 'react-intl';
@@ -10,7 +10,7 @@ export const EvaluationTableActionsColumnRenderer = () => {
 
   return (
     <EvaluationTableHeader>
-      <Tooltip
+      <LegacyTooltip
         placement="right"
         title={
           <FormattedMessage
@@ -30,7 +30,7 @@ export const EvaluationTableActionsColumnRenderer = () => {
           }
           onClick={toggleExpandedHeader}
         />
-      </Tooltip>
+      </LegacyTooltip>
     </EvaluationTableHeader>
   );
 };

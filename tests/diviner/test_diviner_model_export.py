@@ -4,7 +4,6 @@ from copy import deepcopy
 from pathlib import Path
 from unittest import mock
 
-import numpy as np
 import pandas as pd
 import pytest
 import yaml
@@ -17,7 +16,7 @@ from mlflow import pyfunc
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model, infer_signature
 from mlflow.models.model import MLMODEL_FILE_NAME
-from mlflow.models.utils import _read_example
+from mlflow.models.utils import _read_example, load_serving_example
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.environment import _mlflow_conda_env
@@ -198,19 +197,21 @@ def test_diviner_signature_and_examples_saved_correctly(
 ):
     prediction = grouped_prophet.forecast(horizon=20, frequency="D")
     signature = infer_signature(diviner_data.df, prediction) if use_signature else None
-    example = diviner_data.df[0:5].copy(deep=False) if use_example else None
+    example = pd.DataFrame([{"horizon": 20, "frequency": "D"}]) if use_example else None
     mlflow.diviner.save_model(
         grouped_prophet, path=model_path, signature=signature, input_example=example
     )
     mlflow_model = Model.load(model_path)
-    assert signature == mlflow_model.signature
+    if signature is not None or example is None:
+        assert signature == mlflow_model.signature
+    else:
+        # signature is inferred from input_example
+        assert mlflow_model.signature is not None
     if example is None:
         assert mlflow_model.saved_input_example_info is None
     else:
         r_example = _read_example(mlflow_model, model_path).copy(deep=False)
-        # NB: datetime values are implicitly cast, so this needs to be reverted.
-        r_example["ds"] = pd.to_datetime(r_example["ds"], format=DS_FORMAT)
-        np.testing.assert_array_equal(r_example, example)
+        pd.testing.assert_frame_equal(example, r_example)
 
 
 def test_diviner_load_from_remote_uri_succeeds(grouped_pmdarima, model_path, mock_s3_bucket):
@@ -237,8 +238,8 @@ def test_diviner_log_model(grouped_prophet, tmp_path, should_start_run):
         conda_env = tmp_path.joinpath("conda_env.yaml")
         _mlflow_conda_env(conda_env, additional_pip_deps=["diviner"])
         model_info = mlflow.diviner.log_model(
-            diviner_model=grouped_prophet,
-            artifact_path=artifact_path,
+            grouped_prophet,
+            artifact_path,
             conda_env=str(conda_env),
         )
         model_uri = f"runs:/{mlflow.active_run().info.run_id}/{artifact_path}"
@@ -265,8 +266,8 @@ def test_diviner_log_model_calls_register_model(grouped_pmdarima, tmp_path):
         conda_env = tmp_path.joinpath("conda_env.yaml")
         _mlflow_conda_env(conda_env, additional_pip_deps=["diviner"])
         mlflow.diviner.log_model(
-            diviner_model=grouped_pmdarima,
-            artifact_path=artifact_path,
+            grouped_pmdarima,
+            artifact_path,
             conda_env=str(conda_env),
             registered_model_name="DivinerModel",
         )
@@ -282,9 +283,7 @@ def test_diviner_log_model_no_registered_model_name(grouped_prophet, tmp_path):
     with mlflow.start_run(), register_model_patch:
         conda_env = tmp_path.joinpath("conda_env.yaml")
         _mlflow_conda_env(conda_env, additional_pip_deps=["diviner"])
-        mlflow.diviner.log_model(
-            diviner_model=grouped_prophet, artifact_path=artifact_path, conda_env=str(conda_env)
-        )
+        mlflow.diviner.log_model(grouped_prophet, artifact_path, conda_env=str(conda_env))
         mlflow.tracking._model_registry.fluent._register_model.assert_not_called()
 
 
@@ -398,19 +397,16 @@ def test_diviner_model_log_without_conda_env_uses_default_env_with_expected_depe
 def test_pmdarima_pyfunc_serve_and_score(grouped_prophet):
     artifact_path = "model"
     with mlflow.start_run():
-        mlflow.diviner.log_model(
-            grouped_prophet,
-            artifact_path,
+        model_info = mlflow.diviner.log_model(
+            grouped_prophet, artifact_path, input_example={"horizon": 10, "frequency": "W"}
         )
-        model_uri = mlflow.get_artifact_uri(artifact_path)
 
     local_predict = grouped_prophet.forecast(horizon=10, frequency="W")
 
-    inference_data = pd.DataFrame({"horizon": 10, "frequency": "W"}, index=[0])
-
+    inference_payload = load_serving_example(model_info.model_uri)
     resp = pyfunc_serve_and_score_model(
-        model_uri,
-        data=inference_data,
+        model_info.model_uri,
+        data=inference_payload,
         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
         extra_args=EXTRA_PYFUNC_SERVING_TEST_ARGS,
     )
@@ -484,7 +480,7 @@ def test_model_log_with_metadata(grouped_pmdarima):
     with mlflow.start_run():
         mlflow.pmdarima.log_model(
             grouped_pmdarima,
-            artifact_path=artifact_path,
+            artifact_path,
             metadata={"metadata_key": "metadata_value"},
         )
         model_uri = mlflow.get_artifact_uri(artifact_path)

@@ -53,6 +53,7 @@ class EmbeddingsResponse(BaseModel):
 
 class MlflowModelServingProvider(BaseProvider):
     NAME = "MLflow Model Serving"
+    CONFIG_TYPE = MlflowModelServingConfig
 
     def __init__(self, config: RouteConfig) -> None:
         super().__init__(config)

@@ -22,6 +22,10 @@ Each MLflow Model is a directory containing arbitrary files, together with an ``
 file in the root of the directory that can define multiple *flavors* that the model can be viewed
 in.
 
+The **model** aspect of the MLflow Model can either be a serialized object (e.g., a pickled ``scikit-learn`` model)
+or a Python script (or notebook, if running in Databricks) that contains the model instance that has been defined 
+with the :py:func:`mlflow.models.set_model` API. 
+
 Flavors are the key concept that makes MLflow Models powerful: they are a convention that deployment
 tools can use to understand the model, which makes it possible to write tools that work with models
 from any ML library without having to integrate each tool with each library. MLflow defines
@@ -87,6 +91,11 @@ When logging a model, model metadata files (``MLmodel``, ``conda.yaml``, ``pytho
     This file contains the name and version of the model referenced in the MLflow Model Registry,
     and will be used for deployment and other purposes.
 
+.. attention::
+
+    If you log a model within Databricks, MLflow also creates a ``metadata`` subdirectory within
+    the model directory. This subdirectory contains the lightweight copy of aforementioned
+    metadata files for internal use.
 
 .. toctree::
     :maxdepth: 1
@@ -116,6 +125,7 @@ In MLflow, understanding the intricacies of model signatures and input examples 
 
 - **Model Signature**: Defines the schema for model inputs, outputs, and additional inference parameters, promoting a standardized interface for model interaction.
 - **Model Input Example**: Provides a concrete instance of valid model input, aiding in understanding and testing model requirements. Additionally, if an input example is provided when logging a model, a model signature will be automatically inferred and stored if not explicitly provided.
+- **Model Serving Payload Example**: Provides a json payload example for querying a deployed model endpoint. If an input example is provided when logging a model, a serving paylod example is automatically generated from the input example and saved as ``serving_input_example.json``.
 
 Our documentation delves into several key areas:
 
@@ -146,6 +156,96 @@ class has four key functions:
   current run using MLflow Tracking.
 * :py:func:`load <mlflow.models.Model.load>` to load a model from a local directory or
   from an artifact in a previous run.
+
+
+Models From Code
+----------------
+
+.. toctree::
+    :maxdepth: 1
+    :hidden:
+
+    model/models-from-code
+
+To **learn more about the Models From Code feature**, please visit `the deep dive guide <model/models-from-code.html>`_ for more in-depth explanation 
+and to see additional examples.
+
+.. note::
+    The Models from Code feature is available in MLflow versions 2.12.2 and later. This feature is experimental and may change in future releases.
+
+The Models from Code feature allows you to define and log models directly from a stand-alone python script. This feature is particularly useful when you want to 
+log models that can be effectively stored as a code representation (models that do not need optimized weights through training) or applications 
+that rely on external services (e.g., LangChain chains). Another benefit is that this approach entirely bypasses the use of the ``pickle`` or 
+``cloudpickle`` modules within Python, which can carry security risks when loading untrusted models.
+
+.. note::
+    This feature is only supported for **LangChain**, **LlamaIndex**, and **PythonModel** models.
+
+In order to log a model from code, you can leverage the :py:func:`mlflow.models.set_model` API. This API allows you to define a model by specifying
+an instance of the model class directly within the file where the model is defined. When logging such a model, a
+file path is specified (instead of an object) that points to the Python file containing both the model class definition and the usage of the 
+``set_model`` API applied on an instance of your custom model. 
+
+The figure below provides a comparison of the standard model logging process and the Models from Code feature for models that are eligible to be 
+saved using the Models from Code feature:
+
+.. figure:: _static/images/models/models_from_code.png
+    :alt: Models from Code
+    :width: 60%
+    :align: center
+
+For example, defining a model in a separate file named ``my_model.py``:
+
+.. code-block:: python
+
+    import mlflow
+    from mlflow.models import set_model
+
+
+    class MyModel(mlflow.pyfunc.PythonModel):
+        def predict(self, context, model_input):
+            return model_input
+
+
+    # Define the custom PythonModel instance that will be used for inference
+    set_model(MyModel())
+
+.. note::
+
+    The Models from code feature does not support capturing import statements that are from external file references. If you have dependencies that 
+    are not captured via a ``pip`` install, dependencies will need to be included and resolved via appropriate absolute path import references from 
+    using the `code_paths feature <https://mlflow.org/docs/latest/model/dependencies.html#saving-extra-code-with-an-mlflow-model-manual-declaration>`_.
+    For simplicity's sake, it is recommended to encapsulate all of your required local dependencies for a model defined from code within the same 
+    python script file due to limitations around ``code_paths`` dependency pathing resolution. 
+
+.. tip::
+
+    When defining a model from code and using the :py:func:`mlflow.models.set_model` API, the code that is defined in the script that is being logged 
+    will be executed internally to ensure that it is valid code. If you have connections to external services within your script (e.g. you are connecting
+    to a GenAI service within LangChain), be aware that you will incur a connection request to that service when the model is being logged.
+
+Then, logging the model from the file path in a different python script:
+
+.. code-block:: python
+
+    import mlflow
+
+    model_path = "my_model.py"
+
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model(
+            python_model=model_path,  # Define the model as the path to the Python file
+            artifact_path="my_model",
+        )
+
+    # Loading the model behaves exactly as if an instance of MyModel had been logged
+    my_model = mlflow.pyfunc.load_model(model_info.model_uri)
+
+.. warning::
+    The :py:func:`mlflow.models.set_model` API is **not threadsafe**. Do not attempt to use this feature if you are logging models concurrently 
+    from multiple threads. This fluent API utilizes a global active model state that has no consistency guarantees. If you are interested in threadsafe 
+    logging APIs, please use the :py:class:`mlflow.client.MlflowClient` APIs for logging models. 
+
 
 .. _models_built-in-model-flavors:
 
@@ -186,6 +286,8 @@ This module also includes utilities for creating custom Python models, which is 
 adding custom python code to ML models. For more information, see the :ref:`custom Python models
 documentation <custom-python-models>`.
 
+For information on how to store a custom model from a python script (models from code functionality), 
+see the `guide to models from code <model/models-from-code.html>`_ for the recommended approaches.
 
 How To Load And Score Python Function Models
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -1745,56 +1847,77 @@ ds            y
 
     import numpy as np
     import pandas as pd
-    from prophet import Prophet
+    from prophet import Prophet, serialize
     from prophet.diagnostics import cross_validation, performance_metrics
 
     import mlflow
     from mlflow.models import infer_signature
 
-    # starts on 2007-12-10, ends on 2016-01-20
-    train_df = pd.read_csv(
-        "https://raw.githubusercontent.com/facebook/prophet/main/examples/example_wp_log_peyton_manning.csv"
-    )
+    # URL to the dataset
+    SOURCE_DATA = "https://raw.githubusercontent.com/facebook/prophet/main/examples/example_wp_log_peyton_manning.csv"
+
+    np.random.seed(12345)
+
+
+    def extract_params(pr_model):
+        params = {attr: getattr(pr_model, attr) for attr in serialize.SIMPLE_ATTRIBUTES}
+        return {k: v for k, v in params.items() if isinstance(v, (int, float, str, bool))}
+
+
+    # Load the training data
+    train_df = pd.read_csv(SOURCE_DATA)
 
     # Create a "test" DataFrame with the "ds" column containing 10 days after the end date in train_df
     test_dates = pd.date_range(start="2016-01-21", end="2016-01-31", freq="D")
-    test_df = pd.Series(data=test_dates.values, name="ds").to_frame()
+    test_df = pd.DataFrame({"ds": test_dates})
 
+    # Initialize Prophet model with specific parameters
     prophet_model = Prophet(changepoint_prior_scale=0.5, uncertainty_samples=7)
 
     with mlflow.start_run():
+        # Fit the model on the training data
         prophet_model.fit(train_df)
 
-        # extract and log parameters such as changepoint_prior_scale in the mlflow run
-        model_params = {
-            name: value for name, value in vars(prophet_model).items() if np.isscalar(value)
-        }
-        mlflow.log_params(model_params)
+        # Extract and log model parameters
+        params = extract_params(prophet_model)
+        mlflow.log_params(params)
 
-        # cross validate with 900 days of data initially, predictions for next 30 days
-        # walk forward by 30 days
+        # Perform cross-validation
         cv_results = cross_validation(
-            prophet_model, initial="900 days", period="30 days", horizon="30 days"
+            prophet_model,
+            initial="900 days",
+            period="30 days",
+            horizon="30 days",
+            parallel="threads",
+            disable_tqdm=True,
         )
 
-        # Calculate metrics from cv_results, then average each metric across all backtesting windows and log to mlflow
-        cv_metrics = ["mse", "rmse", "mape"]
-        metrics_results = performance_metrics(cv_results, metrics=cv_metrics)
-        average_metrics = metrics_results.loc[:, cv_metrics].mean(axis=0).to_dict()
+        # Calculate and log performance metrics
+        cv_metrics = performance_metrics(cv_results, metrics=["mse", "rmse", "mape"])
+        average_metrics = cv_metrics.drop(columns=["horizon"]).mean(axis=0).to_dict()
         mlflow.log_metrics(average_metrics)
 
-        # Calculate model signature
+        # Generate predictions and infer model signature
         train = prophet_model.history
-        predictions = prophet_model.predict(prophet_model.make_future_dataframe(30))
-        signature = infer_signature(train, predictions)
 
+        # Log the Prophet model with MLflow
         model_info = mlflow.prophet.log_model(
-            prophet_model, "prophet-model", signature=signature
+            prophet_model,
+            artifact_path="prophet_model",
+            input_example=train[["ds"]].head(10),
         )
 
-    # Load saved model
+    # Load the saved model as a pyfunc
     prophet_model_saved = mlflow.pyfunc.load_model(model_info.model_uri)
+
+    # Generate predictions for the test set
     predictions = prophet_model_saved.predict(test_df)
+
+    # Truncate and display the forecast if needed
+    forecast = predictions[["ds", "yhat"]]
+
+    print(f"forecast:\n{forecast.head(5)}")
+
 
 Output (``Pandas DataFrame``):
 
@@ -2320,7 +2443,7 @@ in your current system environment in order to run the example):
     )
     mlflow.log_param("system_prompt", system_prompt)
     logged_model = mlflow.openai.log_model(
-        model="gpt-3.5-turbo",
+        model="gpt-4o-mini",
         task=openai.chat.completions,
         artifact_path="model",
         messages=[
@@ -2677,13 +2800,18 @@ The following example uses :py:func:`mlflow.evaluate()` to evaluate a static dat
 Performing Model Validation
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-You can also use the :py:func:`mlflow.evaluate()` API to perform some checks on the metrics
-generated during model evaluation to validate the quality of your model. By specifying a
-``validation_thresholds`` dictionary mapping metric names to :py:class:`mlflow.models.MetricThreshold`
-objects, you can specify value thresholds that your model's evaluation metrics must exceed as well
-as absolute and relative gains your model must have in comparison to a specified
-``baseline_model``. If your model fails to clear specified thresholds, :py:func:`mlflow.evaluate()`
-will throw a ``ModelValidationFailedException`` detailing the validation failure.
+.. attention::
+
+    MLflow 2.18.0 has moved the model validation functionality from the :py:func:`mlflow.evaluate()` API to a dedicated :py:func:`mlflow.validate_evaluation_results()` API. The relevant parameters, such as baseline_model, are deprecated and will be removed from the older API in future versions.
+
+With the :py:func:`mlflow.validate_evaluation_results()` API, you can validate metrics generated during model evaluation to assess the quality of your model against a baseline. To achieve this, first evaluate both the candidate and baseline models using :py:func:`mlflow.evaluate()` (or load persisted evaluation results from local storage). Then, pass the results along with a validation_thresholds dictionary that maps metric names to :py:class:`mlflow.models.MetricThreshold` objects. If your model fails to meet the specified thresholds, :py:func:`mlflow.validate_evaluation_results()` will raise a ``ModelValidationFailedException`` with details about the validation failure.
+
+More information on model evaluation behavior and outputs can be found in the :py:func:`mlflow.evaluate()` API documentation.
+
+Validating a Model Agasint a Baseline Model
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Below is an example of how to validate a candidate model's performance against a baseline using predefined thresholds.
 
 .. code-block:: python
 
@@ -2692,7 +2820,6 @@ will throw a ``ModelValidationFailedException`` detailing the validation failure
     from sklearn.model_selection import train_test_split
     from sklearn.dummy import DummyClassifier
     import mlflow
-    from mlflow.models import infer_signature
     from mlflow.models import MetricThreshold
 
     # load UCI Adult Data Set; segment it into training and test sets
@@ -2701,18 +2828,39 @@ will throw a ``ModelValidationFailedException`` detailing the validation failure
         X, y, test_size=0.33, random_state=42
     )
 
-    # train a candidate XGBoost model
-    candidate_model = xgboost.XGBClassifier().fit(X_train, y_train)
-
-    # train a baseline dummy model
-    baseline_model = DummyClassifier(strategy="uniform").fit(X_train, y_train)
-
-    # create signature that is shared by the two models
-    signature = infer_signature(X_test, y_test)
-
     # construct an evaluation dataset from the test set
     eval_data = X_test
     eval_data["label"] = y_test
+
+    # Log and evaluate the candidate model
+    candidate_model = xgboost.XGBClassifier().fit(X_train, y_train)
+
+    with mlflow.start_run(run_name="candidate") as run:
+        candidate_model_uri = mlflow.sklearn.log_model(
+            candidate_model, "candidate_model", signature=signature
+        ).model_uri
+
+        candidate_result = mlflow.evaluate(
+            candidate_model_uri,
+            eval_data,
+            targets="label",
+            model_type="classifier",
+        )
+
+    # Log and evaluate the baseline model
+    baseline_model = DummyClassifier(strategy="uniform").fit(X_train, y_train)
+
+    with mlflow.start_run(run_name="baseline") as run:
+        baseline_model_uri = mlflow.sklearn.log_model(
+            baseline_model, "baseline_model", signature=signature
+        ).model_uri
+
+        baseline_result = mlflow.evaluate(
+            baseline_model_uri,
+            eval_data,
+            targets="label",
+            model_type="classifier",
+        )
 
     # Define criteria for model to be validated against
     thresholds = {
@@ -2724,43 +2872,72 @@ will throw a ``ModelValidationFailedException`` detailing the validation failure
         ),
     }
 
-    with mlflow.start_run() as run:
-        candidate_model_uri = mlflow.sklearn.log_model(
-            candidate_model, "candidate_model", signature=signature
-        ).model_uri
-        baseline_model_uri = mlflow.sklearn.log_model(
-            baseline_model, "baseline_model", signature=signature
-        ).model_uri
-
-        mlflow.evaluate(
-            candidate_model_uri,
-            eval_data,
-            targets="label",
-            model_type="classifier",
-            validation_thresholds=thresholds,
-            baseline_model=baseline_model_uri,
-        )
+    # Validate the candidate model agaisnt baseline
+    mlflow.validate_evaluation_results(
+        candidate_result=candidate_result,
+        baseline_result=baseline_result,
+        validation_thresholds=thresholds,
+    )
 
 Refer to :py:class:`mlflow.models.MetricThreshold` to see details on how the thresholds are specified
-and checked. For a more comprehensive demonstration on how to use :py:func:`mlflow.evaluate()` to perform model validation, refer to
-`the Model Validation example from the MLflow GitHub Repository
-<https://github.com/mlflow/mlflow/blob/master/examples/evaluation/evaluate_with_model_validation.py>`_.
+and checked.
 
-The logged output within the MLflow UI for the comprehensive example is shown below. Note the two model artifacts that have
-been logged: 'baseline_model' and 'candidate_model' for comparison purposes in the example.
+The logged output within the MLflow UI for the comprehensive example is shown below.
 
 |eval_importance_compare_img|
 
 .. |eval_importance_compare_img| image:: _static/images/model_evaluation_compare_feature_importance.png
    :width: 99%
 
-.. note:: Limitations (when the default evaluator is used):
+.. note::
 
-    - Model validation results are not included in the active MLflow run.
-    - No metrics are logged nor artifacts produced for the baseline model in the active MLflow run.
+    Model validation results are not included in the active MLflow run.
 
-Additional information about model evaluation behaviors and outputs is available in the
-:py:func:`mlflow.evaluate()` API docs.
+Validating a Model Against Static Thresholds
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The :py:func:`mlflow.validate_evaluation_results()` API can also be used to validate a candidate model against static thresholds, instead of comparing it to a baseline model, by passing ``None`` to the ``baseline_result`` parameter.
+
+.. code-block:: python
+
+    import mlflow
+    from mlflow.models import MetricThreshold
+
+    thresholds = {
+        "accuracy_score": MetricThreshold(
+            threshold=0.8,  # accuracy should be >=0.8
+            greater_is_better=True,
+        ),
+    }
+
+    # Validate the candidate model agaisnt static threshold
+    mlflow.validate_evaluation_results(
+        candidate_result=candidate_result,
+        baseline_result=None,
+        validation_thresholds=thresholds,
+    )
+
+Reusing Baseline Result For Multiple Validations
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The :py:class:`mlflow.models.EvaluationResult` object returned by :py:func:`mlflow.evaluate()` can be saved to and loaded from local storage. This feature allows you to reuse the same baseline result across different candidate models, which is particularly useful for automating model quality monitoring.
+
+.. code-block:: python
+
+    import mlflow
+    from mlflow.models.evaluation import EvaluationResult
+
+    baseline_result = mlflow.evaluate(
+        baseline_model_uri,
+        eval_data,
+        targets="label",
+        model_type="classifier",
+    )
+    baseline_result.save("RESULT_PATH")
+
+    # Load the evaluation result for validation
+    baseline_result = EvaluationResult.load("RESULT_PATH")
+
 
 .. note:: There are plugins that support in-depth model validation with features that are not supported
     directly in MLflow. To learn more, see:

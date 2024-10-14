@@ -1,5 +1,6 @@
 import json
 import os
+import re
 import time
 from collections import namedtuple
 from functools import wraps
@@ -1310,7 +1311,7 @@ def test_update_deployment_in_replace_mode_with_archiving_does_not_delete_resour
     sk_model = mlflow.sklearn.load_model(model_uri=model_uri)
     new_artifact_path = "model"
     with mlflow.start_run():
-        mlflow.sklearn.log_model(sk_model=sk_model, artifact_path=new_artifact_path)
+        mlflow.sklearn.log_model(sk_model, new_artifact_path)
         new_model_uri = f"runs:/{mlflow.active_run().info.run_id}/{new_artifact_path}"
     sagemaker_deployment_client.update_deployment(
         name=name,
@@ -1530,6 +1531,9 @@ def test_get_deployment_successful(pretrained_model, sagemaker_client):
     endpoint_description = sagemaker_deployment_client.get_deployment(name)
 
     expected_description = sagemaker_client.describe_endpoint(EndpointName=name)
+    # The date header value in `expected_description` is occasionally one second ahead of
+    # `endpoint_description`. To avoid flakiness, use `mock.ANY` to match any value.
+    expected_description["ResponseMetadata"]["HTTPHeaders"]["date"] = mock.ANY
     assert endpoint_description == expected_description
 
 
@@ -1543,6 +1547,9 @@ def test_get_deployment_with_assumed_role_arn(
     endpoint_description = sagemaker_deployment_client.get_deployment(name)
 
     expected_description = sagemaker_client.describe_endpoint(EndpointName=name)
+    # The date header value in `expected_description` is occasionally one second ahead of
+    # `endpoint_description`. To avoid flakiness, use `mock.ANY` to match any value.
+    expected_description["ResponseMetadata"]["HTTPHeaders"]["date"] = mock.ANY
     assert endpoint_description == expected_description
 
 
@@ -1702,6 +1709,5 @@ def test_get_sagemaker_config_name():
 # Test the behavior when the base name is too long and needs truncation
 def test_name_truncation_for_long_base_name():
     long_base_name = "a" * 100  # 100 characters long
-    with mock.patch("mlflow.sagemaker.get_unique_resource_id", return_value="1234567890abcdef1234"):
-        model_name = mfs._get_sagemaker_model_name(long_base_name)
-    assert model_name == "aaaaaaaaaaaaaaaa---aaaaaaaaaaaaaaaaa-model-1234567890abcdef1234"
+    model_name = mfs._get_sagemaker_model_name(long_base_name)
+    assert re.match(r"^aaaaaaaaaaaaaaaa---aaaaaaaaaaaaaaaaa-model-[0-9a-f]{20}$", model_name)

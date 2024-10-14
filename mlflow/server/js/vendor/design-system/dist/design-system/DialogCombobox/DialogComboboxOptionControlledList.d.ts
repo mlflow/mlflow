@@ -1,4 +1,3 @@
-/// <reference types="react" />
 import type { DialogComboboxOptionListProps } from './DialogComboboxOptionList';
 import type { WithLoadingState } from '../LoadingState/LoadingState';
 export interface DialogComboboxOptionControlledListProps extends Omit<DialogComboboxOptionListProps, 'children'>, WithLoadingState {

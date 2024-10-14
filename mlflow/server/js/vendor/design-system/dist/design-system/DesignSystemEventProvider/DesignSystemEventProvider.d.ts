@@ -1,11 +1,41 @@
+import type { UIEvent } from 'react';
 import React from 'react';
 export type DesignSystemEventTypeMapping<V> = {
     [K in DesignSystemEventProviderAnalyticsEventTypes]: V;
 };
 export declare enum DesignSystemEventProviderComponentTypes {
+    Accordion = "accordion",
+    Alert = "alert",
     Banner = "banner",
     Button = "button",
-    Input = "input"
+    Card = "card",
+    Checkbox = "checkbox",
+    ContextMenuCheckboxItem = "context_menu_checkbox_item",
+    ContextMenuItem = "context_menu_item",
+    ContextMenuRadioGroup = "context_menu_radio_group",
+    DialogCombobox = "dialog_combobox",
+    Drawer = "drawer_content",
+    DropdownMenuCheckboxItem = "dropdown_menu_checkbox_item",
+    DropdownMenuItem = "dropdown_menu_item",
+    DropdownMenuRadioGroup = "dropdown_menu_radio_group",
+    Input = "input",
+    LegacySelect = "legacy_select",
+    Modal = "modal",
+    Notification = "notification",
+    Pagination = "pagination",
+    PillControl = "pill_control",
+    PreviewCard = "preview_card",
+    RadioGroup = "radio_group",
+    SegmentedControlGroup = "segmented_control_group",
+    SimpleSelect = "simple_select",
+    Switch = "switch",
+    TableHeader = "table_header",
+    TabsV2 = "tabs",
+    Tag = "tag",
+    TextArea = "text_area",
+    ToggleButton = "toggle_button",
+    Tooltip = "tooltip",
+    TypographyLink = "typography_link"
 }
 export declare enum DesignSystemEventProviderAnalyticsEventTypes {
     OnClick = "onClick",
@@ -15,7 +45,16 @@ export declare enum DesignSystemEventProviderAnalyticsEventTypes {
 export type DesignSystemEventProviderContextType = {
     callback: DesignSystemEventProviderCallback;
 };
-export type DesignSystemEventProviderCallback = (eventType: DesignSystemEventProviderAnalyticsEventTypes, componentType: DesignSystemEventProviderComponentTypes, componentId: string) => void;
+export type DesignSystemEventProviderCallbackParams = {
+    eventType: DesignSystemEventProviderAnalyticsEventTypes;
+    componentType: DesignSystemEventProviderComponentTypes;
+    componentId: string;
+    value: unknown;
+    shouldStartInteraction?: boolean;
+    event?: UIEvent;
+    skip?: boolean;
+};
+export type DesignSystemEventProviderCallback = (params: DesignSystemEventProviderCallbackParams) => void;
 /**
  * NOTE: This is not suggested for direct usage from engineers, and should emit your own events.
  * See https://databricks.atlassian.net/wiki/spaces/UN/pages/2533556277/Usage+Logging+in+UI#Send-usage-logging-from-UI for more details.
@@ -26,11 +65,17 @@ export type DesignSystemEventProviderCallback = (eventType: DesignSystemEventPro
  *
  * @returns Object of event callbacks
  */
-export declare const useDesignSystemEventComponentCallbacks: ({ componentType, componentId, analyticsEvents, }: {
+export declare const useDesignSystemEventComponentCallbacks: ({ componentType, componentId, analyticsEvents, valueHasNoPii, shouldStartInteraction, }: {
     componentType: DesignSystemEventProviderComponentTypes;
     componentId: string | undefined;
     analyticsEvents: ReadonlyArray<DesignSystemEventProviderAnalyticsEventTypes>;
-}) => DesignSystemEventTypeMapping<() => void>;
+    valueHasNoPii?: boolean;
+    shouldStartInteraction?: boolean;
+}) => {
+    onClick: (event?: UIEvent) => void;
+    onValueChange: (value?: any) => void;
+    onView: () => void;
+};
 /**
  * NOTE: This is not suggested for direct usage from engineers, and should use RecordEventContext instead.
  * See https://databricks.atlassian.net/wiki/spaces/UN/pages/2533556277/Usage+Logging+in+UI#Send-usage-logging-from-UI for more details.

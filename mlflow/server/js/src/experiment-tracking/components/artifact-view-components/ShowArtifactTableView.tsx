@@ -11,6 +11,7 @@ import { LegacyTable } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
 // @ts-expect-error TS(7016): Could not find a declaration file for module 'papa... Remove this comment to see the full error message
 import Papa from 'papaparse';
+import { ArtifactViewSkeleton } from './ArtifactViewSkeleton';
 
 type OwnProps = {
   runUuid: string;
@@ -81,7 +82,7 @@ const ShowArtifactTableView = ({ runUuid, path, getArtifact }: Props) => {
   }
 
   if (loading) {
-    return <div className="artifact-text-view-loading">Loading...</div>;
+    return <ArtifactViewSkeleton className="artifact-text-view-loading" />;
   }
   if (error) {
     return <div className="artifact-text-view-error">Oops we couldn't load your file because of an error.</div>;

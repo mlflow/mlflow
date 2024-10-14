@@ -722,7 +722,7 @@ def test_list_artifacts_handles_pagination(databricks_artifact_repo):
             mock.call(ListArtifacts(run_id=MOCK_RUN_ID, path="", page_token="4")),
             mock.call(ListArtifacts(run_id=MOCK_RUN_ID, path="", page_token="6")),
         ]
-        message_mock.assert_has_calls(calls)
+        assert message_mock.mock_calls == calls
 
 
 def test_get_read_credential_infos_handles_pagination(databricks_artifact_repo):
@@ -1245,8 +1245,16 @@ def test_log_artifacts_provides_failure_info(databricks_artifact_repo, tmp_path)
 def mock_chunk_size(monkeypatch):
     # Use a smaller chunk size for faster comparison
     chunk_size = 10
+    monkeypatch.setenv("MLFLOW_MULTIPART_UPLOAD_MINIMUM_FILE_SIZE", str(chunk_size))
     monkeypatch.setenv("MLFLOW_MULTIPART_UPLOAD_CHUNK_SIZE", str(chunk_size))
     return chunk_size
+
+
+@pytest.fixture
+def ignore_aws_chunk_validation(monkeypatch):
+    monkeypatch.setattr(
+        f"{DATABRICKS_ARTIFACT_REPOSITORY_PACKAGE}._validate_chunk_size_aws", lambda _: None
+    )
 
 
 @pytest.fixture
@@ -1278,7 +1286,21 @@ def mock_request(method, url, *_args, **_kwargs):
         raise Exception("Unreachable")
 
 
-def test_multipart_upload(databricks_artifact_repo, large_file, mock_chunk_size):
+def test_multipart_fail_due_to_chunk_size(databricks_artifact_repo, large_file):
+    mock_credential_info = ArtifactCredentialInfo(
+        signed_uri=MOCK_AWS_SIGNED_URI, type=ArtifactCredentialType.AWS_PRESIGNED_URL
+    )
+    with mock.patch(
+        f"{DATABRICKS_ARTIFACT_REPOSITORY}._get_write_credential_infos",
+        return_value=[mock_credential_info],
+    ), mock.patch("requests.Session.request", side_effect=mock_request):
+        with pytest.raises(MlflowException, match="Multipart chunk size"):
+            databricks_artifact_repo.log_artifact(large_file)
+
+
+def test_multipart_upload(
+    databricks_artifact_repo, large_file, mock_chunk_size, ignore_aws_chunk_validation
+):
     mock_credential_info = ArtifactCredentialInfo(
         signed_uri=MOCK_AWS_SIGNED_URI, type=ArtifactCredentialType.AWS_PRESIGNED_URL
     )
@@ -1359,7 +1381,9 @@ def mock_request_retry(method, url, *_args, **_kwargs):
         raise Exception("Unreachable")
 
 
-def test_multipart_upload_retry_part_upload(databricks_artifact_repo, large_file, mock_chunk_size):
+def test_multipart_upload_retry_part_upload(
+    databricks_artifact_repo, large_file, mock_chunk_size, ignore_aws_chunk_validation
+):
     mock_credential_info = ArtifactCredentialInfo(
         signed_uri=MOCK_AWS_SIGNED_URI, type=ArtifactCredentialType.AWS_PRESIGNED_URL
     )
@@ -1424,7 +1448,9 @@ def test_multipart_upload_retry_part_upload(databricks_artifact_repo, large_file
         ]
 
 
-def test_multipart_upload_abort(databricks_artifact_repo, large_file, mock_chunk_size):
+def test_multipart_upload_abort(
+    databricks_artifact_repo, large_file, mock_chunk_size, ignore_aws_chunk_validation
+):
     mock_credential_info = ArtifactCredentialInfo(
         signed_uri=MOCK_AWS_SIGNED_URI,
         type=ArtifactCredentialType.AWS_PRESIGNED_URL,

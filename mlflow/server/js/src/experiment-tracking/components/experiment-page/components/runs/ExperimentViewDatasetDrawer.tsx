@@ -7,7 +7,7 @@ import {
   Spacer,
   TableIcon,
   Tag,
-  Tooltip,
+  LegacyTooltip,
   Typography,
   useDesignSystemTheme,
 } from '@databricks/design-system';
@@ -24,6 +24,9 @@ import { RunColorPill } from '../RunColorPill';
 import { ExperimentViewDatasetSourceType } from './ExperimentViewDatasetSourceType';
 import { ExperimentViewDatasetSourceURL } from './ExperimentViewDatasetSourceURL';
 import { ExperimentViewDatasetDigest } from './ExperimentViewDatasetDigest';
+import { useSelector } from 'react-redux';
+import { ReduxState } from '../../../../../redux-types';
+import { useGetExperimentRunColor } from '../../hooks/useExperimentRunColor';
 
 export type DatasetWithRunType = {
   datasetWithTags: RunDatasetWithTags;
@@ -32,7 +35,6 @@ export type DatasetWithRunType = {
     tags?: Record<string, { key: string; value: string }>;
     runUuid: string;
     runName?: string;
-    color?: string;
     datasets: RunDatasetWithTags[];
   };
 };
@@ -63,6 +65,7 @@ export const ExperimentViewDatasetDrawerImpl = ({
       ? datasetWithTags.dataset.profile
       : undefined;
 
+  const getRunColor = useGetExperimentRunColor();
   const { experimentId = '', tags = {} } = runData;
 
   return (
@@ -84,7 +87,7 @@ export const ExperimentViewDatasetDrawerImpl = ({
               />
             </Typography.Title>
             <Link to={Routes.getRunPageRoute(experimentId, runData.runUuid)} css={styles.runLink}>
-              <RunColorPill color={runData.color} />
+              <RunColorPill color={getRunColor(runData.runUuid)} />
               <span css={styles.runName}>{runData.runName}</span>
             </Link>
           </div>
@@ -193,13 +196,14 @@ export const ExperimentViewDatasetDrawerImpl = ({
                   title={
                     <div css={{ display: 'flex', flexDirection: 'row', alignItems: 'center' }}>
                       <TableIcon css={{ marginRight: theme.spacing.xs }} />
-                      <Tooltip title={datasetWithTags.dataset.name}>
+                      <LegacyTooltip title={datasetWithTags.dataset.name}>
                         <Typography.Title ellipsis level={3} css={{ marginBottom: 0, maxWidth: 200 }}>
                           {datasetWithTags.dataset.name}
                         </Typography.Title>
-                      </Tooltip>
+                      </LegacyTooltip>
                       {contextTag && (
                         <Tag
+                          componentId="codegen_mlflow_app_src_experiment-tracking_components_experiment-page_components_runs_experimentviewdatasetdrawer.tsx_206"
                           css={{
                             textTransform: 'capitalize',
                             marginLeft: theme.spacing.xs,

@@ -1,6 +1,6 @@
 import React from 'react';
 import type { InputProps } from '../Input';
-export interface DialogComboboxOptionListSearchProps extends InputProps {
+export interface DialogComboboxOptionListSearchProps extends Omit<InputProps, 'componentId' | 'analyticsEvents'> {
     children: any;
     hasWrapper?: boolean;
     virtualized?: boolean;
@@ -9,5 +9,5 @@ export interface DialogComboboxOptionListSearchProps extends InputProps {
     controlledValue?: string;
     setControlledValue?: (value: string) => void;
 }
-export declare const DialogComboboxOptionListSearch: React.ForwardRefExoticComponent<DialogComboboxOptionListSearchProps & React.RefAttributes<import("antd/lib/input/Input").default>>;
+export declare const DialogComboboxOptionListSearch: React.ForwardRefExoticComponent<DialogComboboxOptionListSearchProps & React.RefAttributes<import("antd").Input>>;
 //# sourceMappingURL=DialogComboboxOptionListSearch.d.ts.map

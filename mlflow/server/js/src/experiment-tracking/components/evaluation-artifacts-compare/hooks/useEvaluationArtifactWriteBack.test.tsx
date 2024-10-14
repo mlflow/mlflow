@@ -1,11 +1,11 @@
 import '@testing-library/jest-dom';
 import { Provider } from 'react-redux';
 import configureStore from 'redux-mock-store';
-import userEvent from '@testing-library/user-event';
+import userEvent from '@testing-library/user-event-14';
 import promiseMiddleware from 'redux-promise-middleware';
 import thunk from 'redux-thunk';
 
-import { renderWithIntl, act, screen } from 'common/utils/TestUtils.react17';
+import { renderWithIntl, act, screen } from '@mlflow/mlflow/src/common/utils/TestUtils.react17';
 import { EvaluationDataReduxState } from '../../../reducers/EvaluationDataReducer';
 import { useEvaluationArtifactWriteBack } from './useEvaluationArtifactWriteBack';
 import {
@@ -125,9 +125,7 @@ describe('useEvaluationArtifactWriteBack + writeBackEvaluationArtifacts action',
       },
     });
 
-    await act(async () => {
-      userEvent.click(screen.getByRole('button', { name: 'Save' }));
-    });
+    await userEvent.click(screen.getByRole('button', { name: 'Save' }));
 
     expect(uploadArtifactApi).toBeCalledWith('run_1', MLFLOW_PROMPT_ENGINEERING_ARTIFACT_NAME, {
       columns: ['question', 'answer'],
@@ -195,9 +193,7 @@ describe('useEvaluationArtifactWriteBack + writeBackEvaluationArtifacts action',
       },
     });
 
-    await act(async () => {
-      userEvent.click(screen.getByRole('button', { name: 'Save' }));
-    });
+    await userEvent.click(screen.getByRole('button', { name: 'Save' }));
 
     expect(Utils.logErrorAndNotifyUser).toBeCalledWith(
       expect.objectContaining({
@@ -214,9 +210,7 @@ describe('useEvaluationArtifactWriteBack + writeBackEvaluationArtifacts action',
       },
     });
 
-    await act(async () => {
-      userEvent.click(screen.getByRole('button', { name: 'Discard' }));
-    });
+    await userEvent.click(screen.getByRole('button', { name: 'Discard' }));
 
     expect(discardPendingEvaluationData).toBeCalledWith();
   });

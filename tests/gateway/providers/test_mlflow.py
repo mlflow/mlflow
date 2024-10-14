@@ -269,6 +269,7 @@ async def test_chat():
                     "message": {
                         "role": "assistant",
                         "content": "It is a test",
+                        "tool_calls": None,
                     },
                     "finish_reason": None,
                     "index": 0,

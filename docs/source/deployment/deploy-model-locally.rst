@@ -18,25 +18,16 @@ Remember to note down the model URI, such as ``runs:/<run_id>/<artifact_path>`` 
 Once you have the model ready, deploying to a local server is straightforward. Use the `mlflow models serve <../cli.html#mlflow-models-serve>`_ command for a one-step deployment.
 This command starts a local server that listens on the specified port and serves your model.
 
-.. tabs::
+.. code-block:: bash
 
-    .. code-tab:: bash
-
-       mlflow models serve -m runs:/<run_id>/model -p 5000
-
-    .. code-tab:: python
-
-       import mlflow
-
-       model = mlflow.pyfunc.load_model("runs:/<run_id>/model")
-       model.serve(port=5000)
+    mlflow models serve -m runs:/<run_id>/model -p 5000
 
 
 You can then send a test request to the server as follows:
 
 .. code-block:: bash
 
-    curl http://127.0.0.1:5000/invocations -H "Content-Type:application/json;"  --data '{"inputs": [[1, 2], [3, 4], [5, 6]]}'
+    curl http://127.0.0.1:5000/invocations -H "Content-Type:application/json"  --data '{"inputs": [[1, 2], [3, 4], [5, 6]]}'
 
 
 Several command line options are available to customize the server's behavior. For instance, the ``--env-manager`` option allows you to
@@ -312,18 +303,9 @@ MLServer exposes the same scoring API through the ``/invocations`` endpoint.
 To deploy with MLServer, first install additional dependencies with ``pip install mlflow[extras]``,
 then execute the deployment command with the ``--enable-mlserver`` option. For example,
 
-.. tabs::
-
-    .. code-tab:: bash
+.. code-block:: bash
 
        mlflow models serve -m runs:/<run_id>/model -p 5000 --enable-mlserver
-
-    .. code-tab:: python
-
-       import mlflow
-
-       model = mlflow.pyfunc.load_model("runs:/<run_id>/model")
-       model.serve(port=5000, enable_mlserver=True)
 
 To read more about the integration between MLflow and MLServer, please check the `end-to-end example <https://mlserver.readthedocs.io/en/latest/examples/mlflow/README.html>`_ in the MLServer documentation.
 You can also find guides to deploy MLflow models to a Kubernetes cluster using MLServer in `Deploying a model to Kubernetes <deploy-model-to-kubernetes/index.html>`_.

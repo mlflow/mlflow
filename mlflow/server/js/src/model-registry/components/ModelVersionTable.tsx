@@ -8,7 +8,7 @@ import {
   TableHeader,
   TableRow,
   TableRowSelectCell,
-  Tooltip,
+  LegacyTooltip,
   Typography,
   useDesignSystemTheme,
 } from '@databricks/design-system';
@@ -27,7 +27,6 @@ import { KeyValueEntity, ModelEntity, ModelVersionInfoEntity, ModelAliasMap } fr
 import { useEffect, useMemo, useState } from 'react';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { RegisteringModelDocUrl } from '../../common/constants';
-import { useNextModelsUIContext } from '../hooks/useNextModelsUI';
 import {
   ACTIVE_STAGES,
   EMPTY_CELL_PLACEHOLDER,
@@ -150,9 +149,9 @@ export const ModelVersionTable = ({
         cell: ({ row: { original } }) => {
           const { status, status_message } = original || {};
           return (
-            <Tooltip title={status_message || modelVersionStatusIconTooltips[status]}>
+            <LegacyTooltip title={status_message || modelVersionStatusIconTooltips[status]}>
               <Typography.Text>{ModelVersionStatusIcons[status]}</Typography.Text>
-            </Tooltip>
+            </LegacyTooltip>
           );
         },
       },
@@ -307,6 +306,7 @@ export const ModelVersionTable = ({
 
   const paginationComponent = (
     <Pagination
+      componentId="codegen_mlflow_app_src_model-registry_components_modelversiontable.tsx_403"
       currentPageIndex={pagination.pageIndex + 1}
       numTotal={(versions || []).length}
       onChange={(page, pageSize) => {
@@ -328,7 +328,11 @@ export const ModelVersionTable = ({
           description="Message text when no model versions are registered"
           values={{
             link: (chunks) => (
-              <Typography.Link target="_blank" href={getLearnMoreLinkUrl()}>
+              <Typography.Link
+                componentId="codegen_mlflow_app_src_model-registry_components_modelversiontable.tsx_425"
+                target="_blank"
+                href={getLearnMoreLinkUrl()}
+              >
                 {chunks}
               </Typography.Link>
             ),
@@ -350,6 +354,7 @@ export const ModelVersionTable = ({
       >
         <TableRow isHeader>
           <TableRowSelectCell
+            componentId="codegen_mlflow_app_src_model-registry_components_modelversiontable.tsx_450"
             checked={table.getIsAllRowsSelected()}
             indeterminate={table.getIsSomeRowsSelected()}
             onChange={table.getToggleAllRowsSelectedHandler()}
@@ -376,7 +381,11 @@ export const ModelVersionTable = ({
               },
             }}
           >
-            <TableRowSelectCell checked={row.getIsSelected()} onChange={row.getToggleSelectedHandler()} />
+            <TableRowSelectCell
+              componentId="codegen_mlflow_app_src_model-registry_components_modelversiontable.tsx_477"
+              checked={row.getIsSelected()}
+              onChange={row.getToggleSelectedHandler()}
+            />
             {row.getAllCells().map((cell) => (
               <TableCell
                 className={(cell.column.columnDef as ModelVersionColumnDef).meta?.className}

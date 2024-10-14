@@ -7,9 +7,10 @@ import { HashRouter, Route, Routes, createLazyRouteElement } from './common/util
 import { MlflowHeader } from './common/components/MlflowHeader';
 
 // Route definition imports:
-import { getRouteDefs as getExperimentTrackingRouteDefs } from './experiment-tracking/routes';
-import { getRouteDefs as getModelRegistryRouteDefs } from './model-registry/routes';
-import { getRouteDefs as getCommonRouteDefs } from './common/routes';
+import { getRouteDefs as getExperimentTrackingRouteDefs } from './experiment-tracking/route-defs';
+import { getRouteDefs as getModelRegistryRouteDefs } from './model-registry/route-defs';
+import { getRouteDefs as getCommonRouteDefs } from './common/route-defs';
+import { useInitializeExperimentRunColors } from './experiment-tracking/components/experiment-page/hooks/useExperimentRunColor';
 
 /**
  * This is the MLflow default entry/landing route.
@@ -28,6 +29,9 @@ export const MlflowRouter = ({
   setIsDarkTheme?: (isDarkTheme: boolean) => void;
 }) => {
   // eslint-disable-next-line react-hooks/rules-of-hooks
+  useInitializeExperimentRunColors();
+
+  // eslint-disable-next-line react-hooks/rules-of-hooks
   const routes = useMemo(
     () => [...getExperimentTrackingRouteDefs(), ...getModelRegistryRouteDefs(), landingRoute, ...getCommonRouteDefs()],
     [],
@@ -36,14 +40,16 @@ export const MlflowRouter = ({
     <>
       <ErrorModal />
       <HashRouter>
-        <MlflowHeader isDarkTheme={isDarkTheme} setIsDarkTheme={setIsDarkTheme} />
-        <React.Suspense fallback={<LegacySkeleton />}>
-          <Routes>
-            {routes.map(({ element, pageId, path }) => (
-              <Route key={pageId} path={path} element={element} />
-            ))}
-          </Routes>
-        </React.Suspense>
+        <AppErrorBoundary>
+          <MlflowHeader isDarkTheme={isDarkTheme} setIsDarkTheme={setIsDarkTheme} />
+          <React.Suspense fallback={<LegacySkeleton />}>
+            <Routes>
+              {routes.map(({ element, pageId, path }) => (
+                <Route key={pageId} path={path} element={element} />
+              ))}
+            </Routes>
+          </React.Suspense>
+        </AppErrorBoundary>
       </HashRouter>
     </>
   );

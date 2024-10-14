@@ -1,10 +1,4 @@
 /**
- * shouldUsePathRouting() evaluation is stable so we omit
- * `react-hooks/rules-of-hooks` rule for hooks in this file
- */
-/* eslint-disable react-hooks/rules-of-hooks */
-
-/**
  * This file is the only one that should directly import from 'react-router-dom' module
  */
 /* eslint-disable no-restricted-imports */
@@ -15,9 +9,7 @@
 import {
   BrowserRouter,
   MemoryRouter,
-  StaticRouter,
   HashRouter,
-  CompatRouter,
   matchPath,
   generatePath,
   Navigate,
@@ -35,13 +27,12 @@ import {
   type Location,
   type NavigateFunction,
   type Params,
-} from 'react-router-dom-v5-compat';
+} from 'react-router-dom';
 
 /**
  * Import React Router V5 parts
  */
 import { HashRouter as HashRouterV5, Link as LinkV5, NavLink as NavLinkV5 } from 'react-router-dom';
-import { shouldUsePathRouting } from './FeatureUtils';
 import React, { ComponentProps } from 'react';
 
 const useLocation = useLocationDirect;
@@ -62,9 +53,7 @@ export {
   // React Router V6 API exports
   BrowserRouter,
   MemoryRouter,
-  StaticRouter,
   HashRouter,
-  CompatRouter,
   Link,
   NavLink,
   useNavigate,

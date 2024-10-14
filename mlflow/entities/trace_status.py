@@ -18,11 +18,21 @@ class TraceStatus(str, Enum):
 
     @staticmethod
     def from_proto(proto_status):
-        return ProtoTraceStatus.Name(proto_status)
+        return TraceStatus(ProtoTraceStatus.Name(proto_status))
 
     @staticmethod
     def from_otel_status(otel_status: trace_api.Status):
         return _OTEL_STATUS_CODE_TO_MLFLOW[otel_status.status_code]
+
+    @classmethod
+    def pending_statuses(cls):
+        """Traces in pending statuses can be updated to any statuses."""
+        return {cls.IN_PROGRESS}
+
+    @classmethod
+    def end_statuses(cls):
+        """Traces in end statuses cannot be updated to any statuses."""
+        return {cls.UNSPECIFIED, cls.OK, cls.ERROR}
 
 
 _OTEL_STATUS_CODE_TO_MLFLOW = {

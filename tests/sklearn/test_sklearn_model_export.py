@@ -17,6 +17,7 @@ import yaml
 from packaging.version import Version
 from sklearn import datasets
 from sklearn.pipeline import Pipeline as SKPipeline
+from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import FunctionTransformer as SKFunctionTransformer
 
 import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
@@ -26,7 +27,7 @@ from mlflow import pyfunc
 from mlflow.entities.model_registry.model_version import ModelVersion, ModelVersionStatus
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model, ModelSignature
-from mlflow.models.utils import _read_example
+from mlflow.models.utils import _read_example, load_serving_example
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, ErrorCode
 from mlflow.store._unity_catalog.registry.rest_store import UcModelRegistryStore
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
@@ -210,8 +211,8 @@ def test_model_log(sklearn_logreg_model, model_path):
                 _mlflow_conda_env(conda_env, additional_pip_deps=["scikit-learn"])
 
                 model_info = mlflow.sklearn.log_model(
-                    sk_model=sklearn_logreg_model.model,
-                    artifact_path=artifact_path,
+                    sklearn_logreg_model.model,
+                    artifact_path,
                     conda_env=conda_env,
                 )
                 model_uri = f"runs:/{mlflow.active_run().info.run_id}/{artifact_path}"
@@ -241,8 +242,8 @@ def test_log_model_calls_register_model(sklearn_logreg_model):
         conda_env = os.path.join(tmp.path(), "conda_env.yaml")
         _mlflow_conda_env(conda_env, additional_pip_deps=["scikit-learn"])
         mlflow.sklearn.log_model(
-            sk_model=sklearn_logreg_model.model,
-            artifact_path=artifact_path,
+            sklearn_logreg_model.model,
+            artifact_path,
             conda_env=conda_env,
             registered_model_name="AdsModel1",
         )
@@ -269,8 +270,8 @@ def test_log_model_call_register_model_to_uc(configure_client_for_uc, sklearn_lo
             conda_env = os.path.join(tmp.path(), "conda_env.yaml")
             _mlflow_conda_env(conda_env, additional_pip_deps=["scikit-learn"])
             mlflow.sklearn.log_model(
-                sk_model=sklearn_logreg_model.model,
-                artifact_path=artifact_path,
+                sklearn_logreg_model.model,
+                artifact_path,
                 conda_env=conda_env,
                 registered_model_name="AdsModel1",
             )
@@ -289,8 +290,8 @@ def test_log_model_no_registered_model_name(sklearn_logreg_model):
         conda_env = os.path.join(tmp.path(), "conda_env.yaml")
         _mlflow_conda_env(conda_env, additional_pip_deps=["scikit-learn"])
         mlflow.sklearn.log_model(
-            sk_model=sklearn_logreg_model.model,
-            artifact_path=artifact_path,
+            sklearn_logreg_model.model,
+            artifact_path,
             conda_env=conda_env,
         )
         mlflow.tracking._model_registry.fluent._register_model.assert_not_called()
@@ -451,8 +452,8 @@ def test_model_log_persists_specified_conda_env_in_mlflow_model_directory(
     artifact_path = "model"
     with mlflow.start_run():
         mlflow.sklearn.log_model(
-            sk_model=sklearn_knn_model.model,
-            artifact_path=artifact_path,
+            sklearn_knn_model.model,
+            artifact_path,
             conda_env=sklearn_custom_env,
         )
         model_uri = f"runs:/{mlflow.active_run().info.run_id}/{artifact_path}"
@@ -476,8 +477,8 @@ def test_model_log_persists_requirements_in_mlflow_model_directory(
     artifact_path = "model"
     with mlflow.start_run():
         mlflow.sklearn.log_model(
-            sk_model=sklearn_knn_model.model,
-            artifact_path=artifact_path,
+            sklearn_knn_model.model,
+            artifact_path,
             conda_env=sklearn_custom_env,
         )
         model_uri = f"runs:/{mlflow.active_run().info.run_id}/{artifact_path}"
@@ -519,7 +520,7 @@ def test_model_log_without_specified_conda_env_uses_default_env_with_expected_de
 ):
     artifact_path = "model"
     with mlflow.start_run():
-        mlflow.sklearn.log_model(sk_model=sklearn_knn_model.model, artifact_path=artifact_path)
+        mlflow.sklearn.log_model(sklearn_knn_model.model, artifact_path)
         model_uri = mlflow.get_artifact_uri(artifact_path)
 
     _assert_pip_requirements(
@@ -540,7 +541,7 @@ def test_model_save_uses_cloudpickle_serialization_format_by_default(sklearn_knn
 def test_model_log_uses_cloudpickle_serialization_format_by_default(sklearn_knn_model):
     artifact_path = "model"
     with mlflow.start_run():
-        mlflow.sklearn.log_model(sk_model=sklearn_knn_model.model, artifact_path=artifact_path)
+        mlflow.sklearn.log_model(sklearn_knn_model.model, artifact_path)
         model_uri = f"runs:/{mlflow.active_run().info.run_id}/{artifact_path}"
 
     model_path = _download_artifact_from_uri(artifact_uri=model_uri)
@@ -664,12 +665,14 @@ def test_pyfunc_serve_and_score(sklearn_knn_model):
     model, inference_dataframe = sklearn_knn_model
     artifact_path = "model"
     with mlflow.start_run():
-        mlflow.sklearn.log_model(model, artifact_path)
-        model_uri = mlflow.get_artifact_uri(artifact_path)
+        model_info = mlflow.sklearn.log_model(
+            model, artifact_path, input_example=inference_dataframe
+        )
 
+    inference_payload = load_serving_example(model_info.model_uri)
     resp = pyfunc_serve_and_score_model(
-        model_uri,
-        data=pd.DataFrame(inference_dataframe),
+        model_info.model_uri,
+        data=inference_payload,
         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
         extra_args=EXTRA_PYFUNC_SERVING_TEST_ARGS,
     )
@@ -819,7 +822,7 @@ def test_model_log_with_metadata(sklearn_knn_model):
     with mlflow.start_run():
         mlflow.sklearn.log_model(
             sklearn_knn_model.model,
-            artifact_path=artifact_path,
+            artifact_path,
             metadata={"metadata_key": "metadata_value"},
         )
         model_uri = mlflow.get_artifact_uri(artifact_path)
@@ -834,9 +837,7 @@ def test_model_log_with_signature_inference(sklearn_knn_model, iris_signature):
     example = X.iloc[[0]]
 
     with mlflow.start_run():
-        mlflow.sklearn.log_model(
-            sklearn_knn_model.model, artifact_path=artifact_path, input_example=example
-        )
+        mlflow.sklearn.log_model(sklearn_knn_model.model, artifact_path, input_example=example)
         model_uri = mlflow.get_artifact_uri(artifact_path)
 
     mlflow_model = Model.load(model_uri)
@@ -859,8 +860,8 @@ def test_model_registration_metadata_handling(sklearn_knn_model, tmp_path):
     artifact_path = "model"
     with mlflow.start_run():
         mlflow.sklearn.log_model(
-            sk_model=sklearn_knn_model.model,
-            artifact_path=artifact_path,
+            sklearn_knn_model.model,
+            artifact_path,
             registered_model_name="test",
         )
         model_uri = "models:/test/1"
@@ -874,3 +875,30 @@ def test_model_registration_metadata_handling(sklearn_knn_model, tmp_path):
     # This validates that the models artifact repo will not attempt to create a
     # "registered model metadata" file if the source of an artifact download is a file.
     assert os.listdir(dst_full) == ["MLmodel"]
+
+
+def test_pipeline_predict_proba(sklearn_knn_model, model_path):
+    knn_model = sklearn_knn_model.model
+    pipeline = make_pipeline(knn_model)
+
+    mlflow.sklearn.save_model(sk_model=pipeline, path=model_path, pyfunc_predict_fn="predict_proba")
+    reloaded_knn_pyfunc = pyfunc.load_model(model_uri=model_path)
+
+    np.testing.assert_array_equal(
+        knn_model.predict_proba(sklearn_knn_model.inference_data),
+        reloaded_knn_pyfunc.predict(sklearn_knn_model.inference_data),
+    )
+
+
+def test_get_raw_model(sklearn_knn_model):
+    with mlflow.start_run():
+        model_info = mlflow.sklearn.log_model(
+            sklearn_knn_model.model, "model", input_example=sklearn_knn_model.inference_data
+        )
+    pyfunc_model = pyfunc.load_model(model_info.model_uri)
+    raw_model = pyfunc_model.get_raw_model()
+    assert type(raw_model) == type(sklearn_knn_model.model)
+    np.testing.assert_array_equal(
+        raw_model.predict(sklearn_knn_model.inference_data),
+        sklearn_knn_model.model.predict(sklearn_knn_model.inference_data),
+    )

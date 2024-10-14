@@ -1,4 +1,3 @@
-/// <reference types="react" />
 import type { CSSObject } from '@emotion/react';
 import type { Theme } from '../../theme';
 import type { TypographyColor, ValidationState } from '../types';

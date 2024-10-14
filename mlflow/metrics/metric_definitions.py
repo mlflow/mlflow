@@ -395,7 +395,8 @@ def _expand_duplicate_retrieved_docs(predictions, targets):
                 f"{doc_id}_bc574ae_{counter[doc_id]}"  # adding a random string to avoid collisions
             )
             expanded_predictions.append(new_doc_id)
-            expanded_targets.add(new_doc_id)
+            if doc_id in expanded_targets:
+                expanded_targets.add(new_doc_id)
     return expanded_predictions, expanded_targets
 
 
@@ -478,15 +479,15 @@ def _ndcg_at_k_eval_fn(k):
 def _recall_at_k_eval_fn(k):
     if not (isinstance(k, int) and k > 0):
         _logger.warning(
-            f"Cannot calculate 'precision_at_k' for invalid parameter 'k'. "
+            f"Cannot calculate 'recall_at_k' for invalid parameter 'k'. "
             f"'k' should be a positive integer; found: {k}. Skipping metric logging."
         )
         return noop
 
     def _fn(predictions, targets):
         if not _validate_array_like_id_data(
-            predictions, "precision_at_k", predictions_col_specifier
-        ) or not _validate_array_like_id_data(targets, "precision_at_k", targets_col_specifier):
+            predictions, "recall_at_k", predictions_col_specifier
+        ) or not _validate_array_like_id_data(targets, "recall_at_k", targets_col_specifier):
             return
 
         scores = []

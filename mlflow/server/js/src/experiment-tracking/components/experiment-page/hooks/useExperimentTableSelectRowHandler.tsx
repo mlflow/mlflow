@@ -1,6 +1,6 @@
 import { GridApi, RowSelectedEvent, SelectionChangedEvent } from '@ag-grid-community/core';
 import { useCallback, useRef } from 'react';
-import { SearchExperimentRunsViewState } from '../models/SearchExperimentRunsViewState';
+import { ExperimentPageViewState } from '../models/ExperimentPageViewState';
 import { RunRowType } from '../utils/experimentPage.row-types';
 import { uniqBy } from 'lodash';
 
@@ -18,7 +18,7 @@ const agGridSelectRunRows = (runUuids: string[], isSelected: boolean, gridApi: G
       return;
     }
 
-    const childrenRunUuid = runInfo.run_uuid;
+    const childrenRunUuid = runInfo.runUuid;
     if (runUuids.includes(childrenRunUuid)) {
       // If we found children being parents, mark their children
       // to be selected as well.
@@ -58,7 +58,7 @@ const agGridSelectGroupRows = (rowData: RunRowType[], gridApi: GridApi) => {
  * Supports groups, nested runs and regular flat hierarchy.
  */
 export const useExperimentTableSelectRowHandler = (
-  updateViewState: (newPartialViewState: Partial<SearchExperimentRunsViewState>) => void,
+  updateViewState: (newPartialViewState: Partial<ExperimentPageViewState>) => void,
 ) => {
   const onSelectionChange = useCallback(
     ({ api }: SelectionChangedEvent) => {
@@ -66,7 +66,7 @@ export const useExperimentTableSelectRowHandler = (
         .getSelectedRows()
         // Filter out "load more" and group rows
         .filter((row) => row.runInfo)
-        .map(({ runInfo }) => runInfo.run_uuid);
+        .map(({ runInfo }) => runInfo.runUuid);
       updateViewState({
         runsSelected: selectedUUIDs.reduce((aggregate, curr) => ({ ...aggregate, [curr]: true }), {}),
       });
@@ -98,7 +98,7 @@ export const useExperimentTableSelectRowHandler = (
       agGridSelectRunRows(childrenIdsToSelect, isSelected, event.api);
     } else if (runInfo) {
       // If we are selecting a run row, we need to select other runs with the same UUID
-      agGridSelectRunRows([runInfo.run_uuid], isSelected, event.api);
+      agGridSelectRunRows([runInfo.runUuid], isSelected, event.api);
 
       // Next, we need to (de)select the group row if all runs belonging to the group are (de)selected
       const selectedRunRows = uniqBy(

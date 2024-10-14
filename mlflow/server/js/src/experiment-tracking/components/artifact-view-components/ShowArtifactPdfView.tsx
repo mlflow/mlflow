@@ -13,6 +13,8 @@ import { getArtifactBytesContent, getArtifactLocationUrl } from '../../../common
 import './ShowArtifactPdfView.css';
 import Utils from '../../../common/utils/Utils';
 import { ErrorWrapper } from '../../../common/utils/ErrorWrapper';
+import { ArtifactViewSkeleton } from './ArtifactViewSkeleton';
+import { ArtifactViewErrorState } from './ArtifactViewErrorState';
 
 // See: https://github.com/wojtekmaj/react-pdf/blob/master/README.md#enable-pdfjs-worker for how
 // workerSrc is supposed to be specified.
@@ -112,14 +114,10 @@ class ShowArtifactPdfView extends Component<Props, State> {
 
   render() {
     if (this.state.loading) {
-      return <div className="artifact-pdf-view-loading">Loading...</div>;
+      return <ArtifactViewSkeleton className="artifact-pdf-view-loading" />;
     }
     if (this.state.error) {
-      return (
-        <div className="artifact-pdf-view-error">
-          Oops we couldn't load your file because of an error. Please reload the page to try again.
-        </div>
-      );
+      return <ArtifactViewErrorState className="artifact-pdf-view-error" />;
     } else {
       return <div className="pdf-outer-container">{this.renderPdf()}</div>;
     }

@@ -1,4 +1,3 @@
-/// <reference types="react" />
 import type { PopoverProps } from './Popover';
 export interface InfoPopoverProps extends React.HTMLAttributes<HTMLButtonElement> {
     popoverProps?: Omit<PopoverProps, 'children' | 'title'>;

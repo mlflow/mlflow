@@ -1,4 +1,3 @@
-/// <reference types="react" />
 import type { CSSObject } from '@emotion/react';
 import type { TabsProps as AntDTabsProps, TabPaneProps as AntDTabPaneProps } from 'antd';
 import type { Theme } from '../../theme';

@@ -134,7 +134,7 @@ def test_get_s3_client_verify_param_set_correctly(
 def test_s3_client_config_set_correctly(s3_artifact_root):
     repo = get_artifact_repository(posixpath.join(s3_artifact_root, "some/path"))
     s3_client = repo._get_s3_client()
-    assert s3_client.meta.config.s3.get("addressing_style") == "path"
+    assert s3_client.meta.config.s3.get("addressing_style") == "auto"
 
 
 def test_s3_creds_passed_to_client(s3_artifact_root):
@@ -429,7 +429,7 @@ def test_abort_multipart_upload(s3_artifact_root):
 def test_trace_data(s3_artifact_root):
     repo = get_artifact_repository(s3_artifact_root)
     # s3 download_file raises exception directly if the file doesn't exist
-    with pytest.raises(Exception, match=r"Not Found"):
+    with pytest.raises(Exception, match=r"Trace data not found"):
         repo.download_trace_data()
     repo.upload_trace_data("invalid data")
     with pytest.raises(MlflowTraceDataCorrupted, match=r"Trace data is corrupted for path="):

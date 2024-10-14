@@ -19,7 +19,7 @@ import { Provider } from 'react-redux';
 import { mockRunInfo } from '../../experiment-tracking/utils/test-utils/ReduxStoreFixtures';
 import TrackingRouters from '../../experiment-tracking/routes';
 import { ModelRegistryRoutes } from '../../model-registry/routes';
-import { mountWithIntl } from 'common/utils/TestUtils.enzyme';
+import { mountWithIntl } from '@mlflow/mlflow/src/common/utils/TestUtils.enzyme';
 import { DesignSystemContainer } from '../../common/components/DesignSystemContainer';
 import { Services } from '../services';
 import { shouldShowModelsNextUI } from '../../common/utils/FeatureUtils';

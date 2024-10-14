@@ -1,4 +1,3 @@
-/// <reference types="react" />
 import type { BreadcrumbProps as AntDBreadcrumbProps } from 'antd';
 import { Breadcrumb as AntDBreadcrumb } from 'antd';
 import type { DangerouslySetAntdProps, HTMLDataAttributes } from '../types';

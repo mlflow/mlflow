@@ -4,6 +4,12 @@ Building Custom Python Function Models with MLflow
 MLflow offers a wide range of pre-defined model flavors, but there are instances where you'd want to go 
 beyond these and craft something tailored to your needs. That's where custom PyFuncs come in handy.
 
+.. tip::
+
+    MLflow 2.12.2 introduced the feature "models from code", which greatly simplifies the process of serializing and deploying custom models through the use 
+    of script serialization. While the tutorial here is valuable as a point of reference, we strongly recommend migrating custom model implementations to this 
+    new paradigm. You can learn more about models from code within the `Models From Code Guide <../../model/models-from-code.html>`_.
+
 What's in this tutorial?
 
 This guide aims to walk you through the intricacies of PyFuncs, explaining the why, the what, and the how:

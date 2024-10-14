@@ -18,11 +18,13 @@ class RFuncBackend(FlavorBackend):
     Predict and serve locally models with 'crate' flavor.
     """
 
-    def build_image(self, model_uri, image_name, install_mlflow, mlflow_home, enable_mlserver):
+    def build_image(
+        self, model_uri, image_name, install_mlflow, mlflow_home, enable_mlserver, base_image=None
+    ):
         pass
 
     def generate_dockerfile(
-        self, model_uri, output_path, install_mlflow, mlflow_home, enable_mlserver
+        self, model_uri, output_path, install_mlflow, mlflow_home, enable_mlserver, base_image=None
     ):
         pass
 

@@ -8,6 +8,7 @@
 import React, { useCallback, useRef, useEffect } from 'react';
 import { DesignSystemProvider, DesignSystemThemeProvider } from '@databricks/design-system';
 import { message, ConfigProvider } from 'antd';
+import { ColorsPaletteDatalist } from './ColorsPaletteDatalist';
 
 const isInsideShadowDOM = (element: any) => element instanceof window.Node && element.getRootNode() !== document;
 
@@ -56,6 +57,7 @@ export const DesignSystemContainer = (props: DesignSystemContainerProps) => {
           <div ref={modalContainerElement} />
         </ConfigProvider>
       </DesignSystemProvider>
+      <ColorsPaletteDatalist />
     </ThemeProvider>
   );
 };

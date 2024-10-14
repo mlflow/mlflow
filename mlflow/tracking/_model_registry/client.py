@@ -3,6 +3,7 @@ Internal package providing a Python CRUD interface to MLflow models and versions
 This is a lower level API than the :py:mod:`mlflow.tracking.fluent` module, and is
 exposed in the :py:mod:`mlflow.tracking` module.
 """
+
 import logging
 
 from mlflow.entities.model_registry import ModelVersionTag, RegisteredModelTag
@@ -178,7 +179,7 @@ class ModelRegistryClient:
 
     # Model Version Methods
 
-    def create_model_version(
+    def create_model_version(  # noqa: D417
         self,
         name,
         source,

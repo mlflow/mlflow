@@ -137,7 +137,8 @@ def fetch_and_validate_project(uri, version, entry_point, parameters):
     parameters = parameters or {}
     work_dir = _fetch_project(uri=uri, version=version)
     project = _project_spec.load_project(work_dir)
-    project.get_entry_point(entry_point)._validate_parameters(parameters)
+    if entry_point_obj := project.get_entry_point(entry_point):
+        entry_point_obj._validate_parameters(parameters)
     return work_dir
 
 
@@ -297,11 +298,15 @@ def _create_run(uri, experiment_id, work_dir, version, entry_point, parameters):
     # Consolidate parameters for logging.
     # `storage_dir` is `None` since we want to log actual path not downloaded local path
     entry_point_obj = project.get_entry_point(entry_point)
-    final_params, extra_params = entry_point_obj.compute_parameters(parameters, storage_dir=None)
-    params_list = [
-        Param(key, value) for key, value in list(final_params.items()) + list(extra_params.items())
-    ]
-    tracking.MlflowClient().log_batch(active_run.info.run_id, params=params_list)
+    if entry_point_obj:
+        final_params, extra_params = entry_point_obj.compute_parameters(
+            parameters, storage_dir=None
+        )
+        params_list = [
+            Param(key, value)
+            for key, value in list(final_params.items()) + list(extra_params.items())
+        ]
+        tracking.MlflowClient().log_batch(active_run.info.run_id, params=params_list)
     return active_run
 
 

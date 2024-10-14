@@ -3,6 +3,7 @@ import { Link } from '../../../../common/utils/RoutingUtils';
 import { ModelVersionInfoEntity, RunInfoEntity } from '../../../types';
 import { ModelRegistryRoutes } from '../../../../model-registry/routes';
 import { ReactComponent as RegisteredModelOkIcon } from '../../../../common/static/registered-model-grey-ok.svg';
+import type { UseGetRunQueryResponseRunInfo } from '../hooks/useGetRunQuery';
 
 const getModelLink = (modelVersion: ModelVersionInfoEntity) => {
   const { name, version } = modelVersion;
@@ -17,7 +18,7 @@ export const RunViewRegisteredModelsBox = ({
   registeredModels,
   runInfo,
 }: {
-  runInfo: RunInfoEntity;
+  runInfo: RunInfoEntity | UseGetRunQueryResponseRunInfo;
   registeredModels: ModelVersionInfoEntity[];
 }) => {
   const { theme } = useDesignSystemTheme();
@@ -30,7 +31,13 @@ export const RunViewRegisteredModelsBox = ({
           to={getModelLink(model)}
           css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm }}
         >
-          <RegisteredModelOkIcon /> {model.name} <Tag css={{ cursor: 'pointer' }}>v{model.version}</Tag>
+          <RegisteredModelOkIcon /> {model.name}{' '}
+          <Tag
+            componentId="codegen_mlflow_app_src_experiment-tracking_components_run-page_overview_runviewregisteredmodelsbox.tsx_40"
+            css={{ cursor: 'pointer' }}
+          >
+            v{model.version}
+          </Tag>
         </Link>
       ))}
     </Overflow>

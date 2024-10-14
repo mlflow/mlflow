@@ -28,5 +28,11 @@ class DatabricksRequestHeaderProvider(RequestHeaderProvider):
         command_run_id = databricks_utils.get_command_run_id()
         if command_run_id is not None:
             request_headers["command_run_id"] = command_run_id
+        workload_id = databricks_utils.get_workload_id()
+        workload_class = databricks_utils.get_workload_class()
+        if workload_id is not None:
+            request_headers["workload_id"] = workload_id
+        if workload_class is not None:
+            request_headers["workload_class"] = workload_class
 
         return request_headers

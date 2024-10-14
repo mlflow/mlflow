@@ -1,9 +1,12 @@
+import logging
 import re
 from pathlib import Path
 from typing import List, Union
 
 import click
 from packaging.version import Version
+
+_logger = logging.getLogger(__name__)
 
 _PYTHON_VERSION_FILES = [
     Path("mlflow", "version.py"),
@@ -12,6 +15,7 @@ _PYTHON_VERSION_FILES = [
 _PYPROJECT_TOML_FILES = [
     Path("pyproject.toml"),
     Path("pyproject.skinny.toml"),
+    Path("pyproject.release.toml"),
 ]
 
 _JAVA_VERSION_FILES = Path("mlflow", "java").rglob("*.java")
@@ -76,6 +80,11 @@ def replace_pyproject_toml(new_py_version: str, paths: List[Path]) -> None:
         files=paths,
         pattern=re.compile(r'^version\s+=\s+".+"$', re.MULTILINE),
         repl=f'version = "{new_py_version}"',
+    )
+    replace_occurrences(
+        files=paths,
+        pattern=re.compile(r"^\s*\"mlflow-skinny==.+\",$", re.MULTILINE),
+        repl=f'  "mlflow-skinny=={new_py_version}",',
     )
 
 
@@ -165,10 +174,17 @@ def validate_new_version(
 ) -> str:
     new = Version(value)
     current = Version(get_current_py_version())
+
+    # this could be the case if we just promoted an RC to a release
     if new < current:
-        raise click.BadParameter(
-            f"New version {new} is not greater than or equal to current version {current}"
+        _logger.warning(
+            f"New version {new} is not greater than or equal to current version {current}. "
+            "If the previous version was an RC, this is expected. If not, please make sure the "
+            "specified new version is correct."
         )
+        # exit with 0 to avoid failing the CI job
+        exit(0)
+
     return value
 
 

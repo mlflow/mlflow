@@ -22,6 +22,7 @@ jobs:
       - name: Create preview link
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CIRCLE_TOKEN: ${{ secrets.CIRCLE_TOKEN }}
         run: |
           python dev/preview_docs.py \
             --commit-sha ${{ github.event.pull_request.head.sha }} \

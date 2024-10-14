@@ -1,6 +1,8 @@
-/// <reference types="react" />
-export interface DialogComboboxContextType {
-    label: string | React.ReactNode;
+import type { DesignSystemEventProviderAnalyticsEventTypes } from '../../DesignSystemEventProvider/DesignSystemEventProvider';
+import type { AnalyticsEventValueChangeNoPiiFlagProps } from '../../types';
+export interface DialogComboboxContextType extends AnalyticsEventValueChangeNoPiiFlagProps<DesignSystemEventProviderAnalyticsEventTypes.OnValueChange> {
+    id?: string;
+    label?: string | React.ReactNode;
     value: string[];
     isInsideDialogCombobox: boolean;
     multiSelect?: boolean;

@@ -1,6 +1,8 @@
 import * as DialogPrimitive from '@radix-ui/react-dialog';
 import React from 'react';
-export interface DrawerContentProps {
+import type { DesignSystemEventProviderAnalyticsEventTypes } from '../DesignSystemEventProvider';
+import type { AnalyticsEventOptionalProps } from '../types';
+export interface DrawerContentProps extends AnalyticsEventOptionalProps<DesignSystemEventProviderAnalyticsEventTypes.OnView> {
     /** Contents displayed in the drawer */
     children: React.ReactNode;
     /**
@@ -58,7 +60,7 @@ export interface DrawerContentProps {
      */
     hideClose?: boolean;
 }
-export declare const Content: ({ children, footer, title, width, position: positionOverride, useCustomScrollBehavior, expandContentToFullHeight, disableOpenAutoFocus, onInteractOutside, seeThrough, hideClose, }: DrawerContentProps) => import("@emotion/react/jsx-runtime").JSX.Element;
+export declare const Content: ({ children, footer, title, width, position: positionOverride, useCustomScrollBehavior, expandContentToFullHeight, disableOpenAutoFocus, onInteractOutside, seeThrough, hideClose, componentId, analyticsEvents, }: DrawerContentProps) => import("@emotion/react/jsx-runtime").JSX.Element;
 export declare function Root(props: Pick<DialogPrimitive.DialogProps, 'onOpenChange' | 'children' | 'open' | 'modal'>): import("@emotion/react/jsx-runtime").JSX.Element;
 export declare function Trigger(props: Omit<DialogPrimitive.DialogTriggerProps, 'asChild'>): import("@emotion/react/jsx-runtime").JSX.Element;
 //# sourceMappingURL=Drawer.d.ts.map

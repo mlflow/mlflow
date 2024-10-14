@@ -18,7 +18,7 @@ import mlflow.sentence_transformers
 from mlflow import pyfunc
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model, infer_signature
-from mlflow.models.utils import _read_example
+from mlflow.models.utils import _read_example, load_serving_example
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
 from mlflow.utils.environment import _mlflow_conda_env
 
@@ -147,9 +147,7 @@ def test_get_transformers_model_name(model_name, expected):
 def test_model_logging_and_inference(basic_model):
     artifact_path = "sentence_transformer"
     with mlflow.start_run():
-        model_info = mlflow.sentence_transformers.log_model(
-            model=basic_model, artifact_path=artifact_path
-        )
+        model_info = mlflow.sentence_transformers.log_model(basic_model, artifact_path)
 
     model = mlflow.sentence_transformers.load_model(model_info.model_uri)
 
@@ -197,8 +195,8 @@ def test_log_model_calls_register_model(tmp_path, basic_model):
             conda_env, additional_pip_deps=["transformers", "torch", "sentence-transformers"]
         )
         mlflow.sentence_transformers.log_model(
-            model=basic_model,
-            artifact_path=artifact_path,
+            basic_model,
+            artifact_path,
             conda_env=str(conda_env),
             registered_model_name="My super cool encoder",
         )
@@ -219,8 +217,8 @@ def test_log_model_with_no_registered_model_name(tmp_path, basic_model):
             conda_env, additional_pip_deps=["transformers", "torch", "sentence-transformers"]
         )
         mlflow.sentence_transformers.log_model(
-            model=basic_model,
-            artifact_path=artifact_path,
+            basic_model,
+            artifact_path,
             conda_env=str(conda_env),
         )
         mlflow.tracking._model_registry.fluent._register_model.assert_not_called()
@@ -387,18 +385,6 @@ def test_model_pyfunc_predict_with_params(basic_model, tmp_path):
     with pytest.raises(MlflowException, match=r"Incompatible types for param 'batch_size'"):
         loaded_pyfunc.predict(sentence, {"batch_size": "16"})
 
-    model_path = tmp_path / "model2"
-    mlflow.sentence_transformers.save_model(
-        basic_model,
-        model_path,
-        signature=infer_signature(sentence, params={"invalid_param": "value"}),
-    )
-    loaded_pyfunc = pyfunc.load_model(model_uri=model_path)
-    with pytest.raises(
-        MlflowException, match=r"Received invalid parameter value for `params` argument"
-    ):
-        loaded_pyfunc.predict(sentence, {"invalid_param": "random_value"})
-
     model_path = tmp_path / "model3"
     mlflow.sentence_transformers.save_model(basic_model, model_path)
     loaded_pyfunc = pyfunc.load_model(model_uri=model_path)
@@ -409,6 +395,27 @@ def test_model_pyfunc_predict_with_params(basic_model, tmp_path):
         "schema. This model does not define a params schema. Ignoring provided params: "
         "['batch_size']"
     )
+
+
+@pytest.mark.skipif(
+    Version(sentence_transformers.__version__) >= Version("3.1.0"),
+    reason="This test only passes for Sentence Transformers < 3.1.0",
+)
+def test_model_pyfunc_predict_with_invalid_params(basic_model, tmp_path):
+    sentence = "hello world and hello mlflow"
+    model_path = tmp_path / "model"
+    mlflow.sentence_transformers.save_model(
+        basic_model,
+        model_path,
+        signature=infer_signature(sentence, params={"invalid_param": "value"}),
+    )
+    loaded_pyfunc = pyfunc.load_model(model_uri=model_path)
+
+    loaded_pyfunc = pyfunc.load_model(model_uri=model_path)
+    with pytest.raises(
+        MlflowException, match=r"Received invalid parameter value for `params` argument"
+    ):
+        loaded_pyfunc.predict(sentence, {"invalid_param": "random_value"})
 
 
 def test_spark_udf(basic_model, spark):
@@ -448,12 +455,15 @@ def test_spark_udf(basic_model, spark):
 )
 def test_pyfunc_serve_and_score(input1, input2, basic_model):
     with mlflow.start_run():
-        model_info = mlflow.sentence_transformers.log_model(basic_model, "my_model")
+        model_info = mlflow.sentence_transformers.log_model(
+            basic_model, "my_model", input_example=input1
+        )
     loaded_pyfunc = pyfunc.load_model(model_uri=model_info.model_uri)
     local_predict = loaded_pyfunc.predict(input1)
 
     # Check that the giving the same string to the served model results in the same result
-    inference_data = json.dumps({"inputs": input1})
+    inference_data = load_serving_example(model_info.model_uri)
+    assert json.loads(inference_data) == {"inputs": input1}
     resp = pyfunc_serve_and_score_model(
         model_info.model_uri,
         data=inference_data,
@@ -500,7 +510,10 @@ def test_signature_and_examples_are_saved_correctly(
     example, signature, expected_signature, basic_model, model_path
 ):
     mlflow.sentence_transformers.save_model(
-        basic_model, path=model_path, signature=signature, input_example=example
+        basic_model,
+        path=model_path,
+        signature=signature,
+        input_example=example,
     )
     mlflow_model = Model.load(model_path)
 
@@ -510,8 +523,10 @@ def test_signature_and_examples_are_saved_correctly(
         assert mlflow_model.saved_input_example_info is None
     else:
         if isinstance(example, pd.DataFrame):
+            assert mlflow_model.saved_input_example_info["type"] == "dataframe"
             pd.testing.assert_frame_equal(_read_example(mlflow_model, model_path), example)
         else:
+            assert mlflow_model.saved_input_example_info["type"] == "json_object"
             np.testing.assert_equal(_read_example(mlflow_model, model_path), example)
 
 
@@ -519,9 +534,7 @@ def test_model_log_with_signature_inference(basic_model):
     artifact_path = "model"
 
     with mlflow.start_run():
-        mlflow.sentence_transformers.log_model(
-            basic_model, artifact_path=artifact_path, input_example=SENTENCES
-        )
+        mlflow.sentence_transformers.log_model(basic_model, artifact_path, input_example=SENTENCES)
         model_uri = mlflow.get_artifact_uri(artifact_path)
 
     model_info = Model.load(model_uri)

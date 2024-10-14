@@ -1,8 +1,7 @@
 import { fromPairs } from 'lodash';
 import { useMemo } from 'react';
-import { RunLoggedArtifactType, RunLoggedArtifactsDeclaration } from '../../../types';
-import { MLFLOW_LOGGED_ARTIFACTS_TAG } from '../../../constants';
 import { RunRowType } from '../../experiment-page/utils/experimentPage.row-types';
+import { extractLoggedTablesFromRunTags } from '../../../utils/ArtifactUtils';
 
 /**
  * Consumes an array of experiment run entities and extracts names of
@@ -13,25 +12,8 @@ export const useEvaluationArtifactTables = (comparedRunRows: RunRowType[]) =>
     const tablesByRun = fromPairs(
       comparedRunRows
         .map<[string, string[]]>((run) => {
-          const rawLoggedArtifactsDeclaration = run.tags?.[MLFLOW_LOGGED_ARTIFACTS_TAG]?.value;
-          const tablesInRun: Set<string> = new Set();
-          if (rawLoggedArtifactsDeclaration) {
-            try {
-              const loggedArtifacts: RunLoggedArtifactsDeclaration = JSON.parse(rawLoggedArtifactsDeclaration);
-
-              loggedArtifacts
-                .filter(({ type }) => type === RunLoggedArtifactType.TABLE)
-                .forEach(({ path }) => {
-                  tablesInRun.add(path);
-                });
-            } catch (error) {
-              if (error instanceof SyntaxError) {
-                throw new SyntaxError(`The "${MLFLOW_LOGGED_ARTIFACTS_TAG}" tag in "${run.runName}" run is malformed!`);
-              }
-              throw error;
-            }
-          }
-          return [run.runUuid, Array.from(tablesInRun)];
+          const tablesInRun = run.tags ? extractLoggedTablesFromRunTags(run.tags) : [];
+          return [run.runUuid, tablesInRun];
         })
         // Filter entries with no tables reported
         .filter(([, tables]) => tables.length > 0),

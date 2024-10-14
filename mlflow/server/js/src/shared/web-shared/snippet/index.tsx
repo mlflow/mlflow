@@ -56,6 +56,10 @@ export interface CodeSnippetProps {
    * Custom styles for line numbers
    */
   lineNumberStyle?: CSSProperties;
+  /**
+   * Whether or not to wrap long lines
+   */
+  wrapLongLines?: boolean;
 }
 
 /**
@@ -69,6 +73,7 @@ export function CodeSnippet({
   children,
   showLineNumbers,
   lineNumberStyle,
+  wrapLongLines,
 }: CodeSnippetProps) {
   const customStyle = {
     border: 'none',
@@ -89,6 +94,7 @@ export function CodeSnippet({
         codeTagProps={{
           style: pick(style, 'backgroundColor'),
         }}
+        wrapLongLines={wrapLongLines}
       >
         {children}
       </SyntaxHighlighter>

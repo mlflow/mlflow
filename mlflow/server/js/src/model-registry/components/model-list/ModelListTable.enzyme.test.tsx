@@ -1,14 +1,14 @@
 import { MemoryRouter } from '../../../common/utils/RoutingUtils';
 import { getTableRowByCellText, getTableRows } from '@databricks/design-system/test-utils/enzyme';
-import { mountWithIntl } from 'common/utils/TestUtils.enzyme';
-import { renderWithIntl, act, screen } from 'common/utils/TestUtils.react17';
+import { mountWithIntl } from '@mlflow/mlflow/src/common/utils/TestUtils.enzyme';
+import { renderWithIntl, act, screen } from '@mlflow/mlflow/src/common/utils/TestUtils.react17';
 import { ModelListTable, ModelListTableProps } from './ModelListTable';
 
 import { Stages } from '../../constants';
 import Utils from '../../../common/utils/Utils';
 import { withNextModelsUIContext } from '../../hooks/useNextModelsUI';
 import { ModelsNextUIToggleSwitch } from '../ModelsNextUIToggleSwitch';
-import userEvent from '@testing-library/user-event';
+import userEvent from '@testing-library/user-event-14';
 import { shouldShowModelsNextUI } from '../../../common/utils/FeatureUtils';
 
 jest.mock('../../../common/utils/FeatureUtils', () => ({
@@ -50,6 +50,7 @@ const MODELS = [
 describe('ModelListTable', () => {
   const minimalProps: ModelListTableProps = {
     isLoading: false,
+    error: undefined,
     modelsData: MODELS as any,
     onSortChange: jest.fn(),
     orderByAsc: false,
@@ -91,15 +92,19 @@ describe('ModelListTable', () => {
 
   it('checks if the model link is rendered', () => {
     const wrapper = createComponentWrapper({});
-    expect(getTableRowByCellText(wrapper, 'test_model_1').find('a[href="/models/test_model_1"]').exists()).toBeTruthy();
-    expect(getTableRowByCellText(wrapper, 'test_model_2').find('a[href="/models/test_model_2"]').exists()).toBeTruthy();
+    expect(
+      getTableRowByCellText(wrapper, 'test_model_1').find('a[href$="/models/test_model_1"]').exists(),
+    ).toBeTruthy();
+    expect(
+      getTableRowByCellText(wrapper, 'test_model_2').find('a[href$="/models/test_model_2"]').exists(),
+    ).toBeTruthy();
   });
 
   it('checks if the simple model version links are rendered', () => {
     const wrapper = createComponentWrapper({});
     // Model #1 contains only one version
     expect(
-      getTableRowByCellText(wrapper, 'test_model_1').find('a[href="/models/test_model_1/versions/1"]').exists(),
+      getTableRowByCellText(wrapper, 'test_model_1').find('a[href$="/models/test_model_1/versions/1"]').exists(),
     ).toBeTruthy();
   });
 
@@ -108,9 +113,9 @@ describe('ModelListTable', () => {
     const wrapper = createComponentWrapper({});
     // Model #2 contains versions 2 and 3 in staging in production, but version 1 is not shown
     const row = getTableRowByCellText(wrapper, 'test_model_2');
-    expect(row.find('a[href="/models/test_model_2/versions/1"]').exists()).toBeFalsy();
-    expect(row.find('a[href="/models/test_model_2/versions/2"]').exists()).toBeTruthy();
-    expect(row.find('a[href="/models/test_model_2/versions/3"]').exists()).toBeTruthy();
+    expect(row.find('a[href$="/models/test_model_2/versions/1"]').exists()).toBeFalsy();
+    expect(row.find('a[href$="/models/test_model_2/versions/2"]').exists()).toBeTruthy();
+    expect(row.find('a[href$="/models/test_model_2/versions/3"]').exists()).toBeTruthy();
   });
 
   it('checks if the tags are rendered correctly and are expanding', () => {
@@ -147,6 +152,14 @@ describe('ModelListTable', () => {
     expect(wrapper.html()).toContain('No results. Try using a different keyword or adjusting your filters.');
   });
 
+  test('should display error message on API errors', () => {
+    const errMsg = 'TEMPORARILY_UNAVAILABLE: Backend unavailable';
+    const wrapper = createComponentWrapper({ error: new Error(errMsg) });
+    const wrapperHtml = wrapper.html();
+    expect(wrapperHtml).toContain('Error fetching models');
+    expect(wrapperHtml).toContain(errMsg);
+  });
+
   test('should display aliases column instead of stage in new models UI', async () => {
     jest.mocked(shouldShowModelsNextUI).mockImplementation(() => true);
     const TestComponent = withNextModelsUIContext(() => (
@@ -163,12 +176,8 @@ describe('ModelListTable', () => {
     expect(screen.queryByRole('columnheader', { name: 'Aliased versions' })).toBeInTheDocument();
 
     // Flip the "Next models UI" switch
-    await act(async () => {
-      userEvent.click(screen.getByRole('switch'));
-    });
-    await act(async () => {
-      userEvent.click(screen.getByText('Disable'));
-    });
+    await userEvent.click(screen.getByRole('switch'));
+    await userEvent.click(screen.getByText('Disable'));
 
     // Assert stages column being visible and aliased versions column being absent
     expect(screen.queryByRole('columnheader', { name: 'Staging' })).toBeInTheDocument();

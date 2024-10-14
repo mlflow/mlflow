@@ -5,7 +5,7 @@ import {
   ChevronUpIcon,
   Modal,
   PencilIcon,
-  Tooltip,
+  LegacyTooltip,
   useDesignSystemTheme,
 } from '@databricks/design-system';
 import { useCallback, useState } from 'react';
@@ -16,11 +16,15 @@ import { useFetchExperiments } from '../hooks/useFetchExperiments';
 import { ThunkDispatch } from '../../../../redux-types';
 import React from 'react';
 import ReactMde, { SvgIcon } from 'react-mde';
-import { forceAnchorTagNewTab, getConverter, sanitizeConvertedHtml } from '../../../../common/utils/MarkdownUtils';
+import {
+  forceAnchorTagNewTab,
+  getMarkdownConverter,
+  sanitizeConvertedHtml,
+} from '../../../../common/utils/MarkdownUtils';
 import { FormattedMessage } from 'react-intl';
 
 const extractNoteFromTags = (tags: Record<string, KeyValueEntity>) =>
-  Object.values(tags).find((t) => t.getKey() === NOTE_CONTENT_TAG)?.value || undefined;
+  Object.values(tags).find((t) => t.key === NOTE_CONTENT_TAG)?.value || undefined;
 
 const toolbarCommands = [
   ['header', 'bold', 'italic', 'strikethrough'],
@@ -28,7 +32,7 @@ const toolbarCommands = [
   ['unordered-list', 'ordered-list'],
 ];
 
-const converter = getConverter();
+const converter = getMarkdownConverter();
 
 const getSanitizedHtmlContent = (markdown: string | undefined) => {
   if (markdown) {
@@ -50,7 +54,7 @@ export const ExperimentViewDescriptionNotes = ({
   setShowAddDescriptionButton: (show: boolean) => void;
 }) => {
   const storedNote = useSelector((state) => {
-    const tags = getExperimentTags(experiment.experiment_id, state);
+    const tags = getExperimentTags(experiment.experimentId, state);
     return tags ? extractNoteFromTags(tags) : '';
   });
   setShowAddDescriptionButton(!storedNote);
@@ -77,10 +81,10 @@ export const ExperimentViewDescriptionNotes = ({
     (updatedNote: any) => {
       setEditing(false);
       setShowAddDescriptionButton(!updatedNote);
-      const action = setExperimentTagApi(experiment.experiment_id, NOTE_CONTENT_TAG, updatedNote);
+      const action = setExperimentTagApi(experiment.experimentId, NOTE_CONTENT_TAG, updatedNote);
       dispatch(action);
     },
-    [experiment.experiment_id, setExperimentTagApi, dispatch, setEditing, setShowAddDescriptionButton],
+    [experiment.experimentId, setExperimentTagApi, dispatch, setEditing, setShowAddDescriptionButton],
   );
 
   return (
@@ -135,6 +139,7 @@ export const ExperimentViewDescriptionNotes = ({
         </div>
       )}
       <Modal
+        componentId="codegen_mlflow_app_src_experiment-tracking_components_experiment-page_components_experimentviewdescriptionnotes.tsx_141"
         title={
           <FormattedMessage
             defaultMessage="Add description"
@@ -169,11 +174,11 @@ export const ExperimentViewDescriptionNotes = ({
             onTabChange={(newTab) => setSelectedTab(newTab)}
             generateMarkdownPreview={() => Promise.resolve(getSanitizedHtmlContent(tmpNote))}
             getIcon={(name) => (
-              <Tooltip title={name}>
+              <LegacyTooltip title={name}>
                 <span css={{ color: theme.colors.textPrimary }}>
                   <SvgIcon icon={name} />
                 </span>
-              </Tooltip>
+              </LegacyTooltip>
             )}
           />
         </React.Fragment>

@@ -43,9 +43,21 @@ class RequestPayload(BaseRequestPayload):
             schema_extra = _REQUEST_PAYLOAD_EXTRA_SCHEMA
 
 
+class Function(ResponseModel):
+    name: str
+    arguments: str
+
+
+class ToolCall(ResponseModel):
+    id: str
+    type: Literal["function"]
+    function: Function
+
+
 class ResponseMessage(ResponseModel):
     role: str
-    content: str
+    content: Optional[str]
+    tool_calls: Optional[List[ToolCall]] = None
 
 
 class Choice(ResponseModel):
@@ -80,7 +92,7 @@ _RESPONSE_PAYLOAD_EXTRA_SCHEMA = {
 
 class ResponsePayload(ResponseModel):
     id: Optional[str] = None
-    object: Literal["chat.completion"] = "chat.completion"
+    object: str = "chat.completion"
     created: int
     model: str
     choices: List[Choice]
@@ -123,7 +135,7 @@ _STREAM_RESPONSE_PAYLOAD_EXTRA_SCHEMA = {
 
 class StreamResponsePayload(ResponseModel):
     id: Optional[str] = None
-    object: Literal["chat.completion.chunk"] = "chat.completion.chunk"
+    object: str = "chat.completion.chunk"
     created: int
     model: str
     choices: List[StreamChoice]

@@ -4,7 +4,7 @@ import { DesignSystemThemeProvider } from '@databricks/design-system';
 
 export type DarkModePref = 'system' | 'dark' | 'light';
 
-const DARK_MODE_PREF_DEFAULT = 'light';
+export const DARK_MODE_PREF_DEFAULT = 'system';
 
 export interface SupportsDuBoisThemesProps {
   disabled?: boolean;

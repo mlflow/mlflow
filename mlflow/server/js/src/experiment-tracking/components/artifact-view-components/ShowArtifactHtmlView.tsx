@@ -9,6 +9,7 @@ import React, { Component } from 'react';
 import { getArtifactContent, getArtifactLocationUrl } from '../../../common/utils/ArtifactUtils';
 import './ShowArtifactHtmlView.css';
 import Iframe from 'react-iframe';
+import { ArtifactViewSkeleton } from './ArtifactViewSkeleton';
 
 type ShowArtifactHtmlViewState = {
   loading: boolean;
@@ -52,7 +53,7 @@ class ShowArtifactHtmlView extends Component<ShowArtifactHtmlViewProps, ShowArti
 
   render() {
     if (this.state.loading || this.state.path !== this.props.path) {
-      return <div className="artifact-html-view-loading">Loading...</div>;
+      return <ArtifactViewSkeleton className="artifact-html-view-loading" />;
     }
     if (this.state.error) {
       console.error('Unable to load HTML artifact, got error ' + this.state.error);

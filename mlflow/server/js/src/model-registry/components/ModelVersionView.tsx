@@ -15,7 +15,7 @@ import { ModelStageTransitionDropdown } from './ModelStageTransitionDropdown';
 import { message } from 'antd';
 import { Descriptions } from '../../common/components/Descriptions';
 import { modelStagesMigrationGuideLink } from '../../common/constants';
-import { Alert, Modal, Button, InfoIcon, Tooltip, Typography } from '@databricks/design-system';
+import { Alert, Modal, Button, InfoIcon, LegacyTooltip, Typography } from '@databricks/design-system';
 import {
   ModelVersionStatus,
   StageLabels,
@@ -38,7 +38,7 @@ import { withNextModelsUIContext } from '../hooks/useNextModelsUI';
 import { ModelsNextUIToggleSwitch } from './ModelsNextUIToggleSwitch';
 import { shouldShowModelsNextUI } from '../../common/utils/FeatureUtils';
 import { ModelVersionViewAliasEditor } from './aliases/ModelVersionViewAliasEditor';
-import type { ModelEntity } from '../../experiment-tracking/types';
+import type { ModelEntity, RunInfoEntity } from '../../experiment-tracking/types';
 
 type ModelVersionViewImplProps = {
   modelName?: string;
@@ -50,7 +50,7 @@ type ModelVersionViewImplProps = {
   onCreateComment: (...args: any[]) => any;
   onEditComment: (...args: any[]) => any;
   onDeleteComment: (...args: any[]) => any;
-  runInfo?: any;
+  runInfo?: RunInfoEntity;
   runDisplayName?: string;
   handleStageTransitionDropdownSelect: (...args: any[]) => any;
   deleteModelVersionApi: (...args: any[]) => any;
@@ -228,7 +228,11 @@ export class ModelVersionViewImpl extends React.Component<ModelVersionViewImplPr
         description="Tooltip content for the disabled stage metadata in model version page"
         values={{
           link: (chunks: any) => (
-            <Typography.Link href={modelStagesMigrationGuideLink} openInNewTab>
+            <Typography.Link
+              componentId="codegen_mlflow_app_src_model-registry_components_modelversionview.tsx_301"
+              href={modelStagesMigrationGuideLink}
+              openInNewTab
+            >
               {chunks}
             </Typography.Link>
           ),
@@ -245,9 +249,9 @@ export class ModelVersionViewImpl extends React.Component<ModelVersionViewImplPr
       >
         <div css={{ display: 'flex', alignItems: 'center' }}>
           {StageLabels[modelVersion.current_stage]}
-          <Tooltip title={tooltipContent} placement="bottom">
+          <LegacyTooltip title={tooltipContent} placement="bottom">
             <InfoIcon css={{ paddingLeft: '4px' }} />
-          </Tooltip>
+          </LegacyTooltip>
         </div>
       </Descriptions.Item>
     );
@@ -449,10 +453,10 @@ export class ModelVersionViewImpl extends React.Component<ModelVersionViewImplPr
       let artifactPath = null;
       const modelSource = this.props.modelVersion?.source;
       if (modelSource) {
-        artifactPath = extractArtifactPathFromModelSource(modelSource, runInfo.getRunUuid());
+        artifactPath = extractArtifactPathFromModelSource(modelSource, runInfo.runUuid);
       }
       return (
-        <Link to={Routers.getRunPageRoute(runInfo.getExperimentId(), runInfo.getRunUuid(), artifactPath)}>
+        <Link to={Routers.getRunPageRoute(runInfo.experimentId, runInfo.runUuid, artifactPath)}>
           {this.resolveRunName()}
         </Link>
       );
@@ -467,7 +471,7 @@ export class ModelVersionViewImpl extends React.Component<ModelVersionViewImplPr
       // Run: [ID]
       return modelVersion.run_link.substr(0, 37) + '...';
     } else if (runInfo) {
-      return runDisplayName || runInfo.getRunUuid();
+      return runDisplayName || runInfo.runUuid;
     } else {
       return null;
     }

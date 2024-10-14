@@ -26,6 +26,7 @@ import { EvaluationTableActionsColumnRenderer } from './EvaluationTableActionsCo
 import { EvaluationTableActionsCellRenderer } from './EvaluationTableActionsCellRenderer';
 import { shouldEnablePromptLab } from '../../../../common/utils/FeatureUtils';
 import { useCreateNewRun } from '../../experiment-page/hooks/useCreateNewRun';
+import { EvaluationImageCellRenderer } from './EvaluationImageCellRenderer';
 
 export interface EvaluationArtifactCompareTableProps {
   resultList: UseEvaluationArtifactTableDataResult;
@@ -37,6 +38,7 @@ export interface EvaluationArtifactCompareTableProps {
   highlightedText: string;
   isPreviewPaneVisible?: boolean;
   outputColumnName: string;
+  isImageColumn: boolean;
 }
 
 export const EvaluationArtifactCompareTable = ({
@@ -49,6 +51,7 @@ export const EvaluationArtifactCompareTable = ({
   highlightedText = '',
   isPreviewPaneVisible,
   outputColumnName,
+  isImageColumn,
 }: EvaluationArtifactCompareTableProps) => {
   const [columns, setColumns] = useState<ColDef[]>([]);
 
@@ -202,7 +205,7 @@ export const EvaluationArtifactCompareTable = ({
         colId: run.runUuid,
         valueGetter: ({ data }) => data.cellValues[run.runUuid],
         suppressMovable: true,
-        cellRenderer: 'TextRendererCellRenderer',
+        cellRenderer: isImageColumn ? 'ImageRendererCellRenderer' : 'TextRendererCellRenderer',
         cellRendererParams: {
           run,
         },
@@ -229,6 +232,7 @@ export const EvaluationArtifactCompareTable = ({
     displayAddNewInputsButton,
     handleCellClicked,
     outputColumnIndicator,
+    isImageColumn,
   ]);
 
   useEffect(() => {
@@ -261,6 +265,7 @@ export const EvaluationArtifactCompareTable = ({
           RunHeaderCellRenderer: EvaluationRunHeaderCellRenderer,
           ActionsColumnRenderer: EvaluationTableActionsColumnRenderer,
           ActionsCellRenderer: EvaluationTableActionsCellRenderer,
+          ImageRendererCellRenderer: EvaluationImageCellRenderer,
         }}
       />
       {AddNewInputsModal}

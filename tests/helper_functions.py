@@ -12,6 +12,7 @@ import tempfile
 import time
 import uuid
 from contextlib import ExitStack, contextmanager
+from functools import wraps
 from unittest import mock
 
 import pytest
@@ -101,12 +102,13 @@ def score_model_in_sagemaker_docker_container(
         cmd=scoring_cmd.split(" "),
         env=env,
     )
-    return _evaluate_scoring_proc(
-        proc, port, data, content_type, activity_polling_timeout_seconds, False
-    )
+    with RestEndpoint(
+        proc, port, activity_polling_timeout_seconds, validate_version=False
+    ) as endpoint:
+        return endpoint.invoke(data, content_type)
 
 
-def pyfunc_generate_dockerfile(output_directory, model_uri=None, extra_args=None, env=None):
+def pyfunc_generate_dockerfile(output_directory, model_uri=None, extra_args=None, env=None):  # noqa: D417
     """
     Builds a dockerfile for the specified model.
 
@@ -131,7 +133,7 @@ def pyfunc_generate_dockerfile(output_directory, model_uri=None, extra_args=None
     subprocess.run(cmd, check=True, env=env)
 
 
-def pyfunc_build_image(model_uri=None, extra_args=None, env=None):
+def pyfunc_build_image(model_uri=None, extra_args=None, env=None):  # noqa: D417
     """
     Builds a docker image containing the specified model, returning the name of the image.
 
@@ -141,6 +143,8 @@ def pyfunc_build_image(model_uri=None, extra_args=None, env=None):
     """
     name = uuid.uuid4().hex
     cmd = [
+        sys.executable,
+        "-m",
         "mlflow",
         "models",
         "build-docker",
@@ -148,14 +152,20 @@ def pyfunc_build_image(model_uri=None, extra_args=None, env=None):
         "-n",
         name,
     ]
-    mlflow_home = os.environ.get("MLFLOW_HOME")
-    if mlflow_home:
+    if mlflow_home := os.environ.get("MLFLOW_HOME"):
         cmd += ["--mlflow-home", mlflow_home]
     if extra_args:
         cmd += extra_args
-    p = subprocess.Popen(cmd, env=env)
-    assert p.wait() == 0, f"Failed to build docker image to serve model from {model_uri}"
-    return name
+
+    # Docker image build occasionally fails on GitHub Actions while running `apt-get` due to
+    # transient network issues. Retry the build a few times as a workaround.
+    for _ in range(3):
+        p = subprocess.Popen(cmd, env=env)
+        if p.wait() == 0:
+            return name
+        time.sleep(5)
+
+    raise RuntimeError(f"Failed to build docker image to serve model from {model_uri}")
 
 
 def pyfunc_serve_from_docker_image(image_name, host_port, extra_args=None):
@@ -203,19 +213,29 @@ def pyfunc_serve_and_score_model(
     extra_args=None,
     stdout=sys.stdout,
 ):
+    with pyfunc_scoring_endpoint(
+        model_uri,
+        extra_args=extra_args,
+        activity_polling_timeout_seconds=activity_polling_timeout_seconds,
+        stdout=stdout,
+    ) as endpoint:
+        return endpoint.invoke(data, content_type)
+
+
+@contextmanager
+def pyfunc_scoring_endpoint(
+    model_uri, activity_polling_timeout_seconds=500, extra_args=None, stdout=sys.stdout
+):
     """
     Args:
         model_uri: URI to the model to be served.
-        data: The data to send to the pyfunc server for testing. This is either a
-            Pandas dataframe or string of the format specified by `content_type`.
-        content_type: The type of the data to send to the pyfunc server for testing. This is
-            one of `mlflow.pyfunc.scoring_server.CONTENT_TYPES`.
         activity_polling_timeout_seconds: The amount of time, in seconds, to wait before
             declaring the scoring process to have failed.
         extra_args: A list of extra arguments to pass to the pyfunc scoring server command. For
             example, passing ``extra_args=["--env-manager", "local"]`` will pass the
             ``--env-manager local`` flag to the scoring server to ensure that conda
             environment activation is skipped.
+        stdout: The output stream to which standard output is redirected. Defaults to `sys.stdout`.
     """
     env = dict(os.environ)
     env.update(LC_ALL="en_US.UTF-8", LANG="en_US.UTF-8")
@@ -223,6 +243,8 @@ def pyfunc_serve_and_score_model(
     env.update(MLFLOW_HOME=_get_mlflow_home())
     port = get_safe_port()
     scoring_cmd = [
+        sys.executable,
+        "-m",
         "mlflow",
         "models",
         "serve",
@@ -231,15 +253,17 @@ def pyfunc_serve_and_score_model(
         "-p",
         str(port),
         "--install-mlflow",
-    ]
-    validate_version = True
-    if extra_args is not None:
-        scoring_cmd += extra_args
-        validate_version = "--enable-mlserver" not in extra_args
-    proc = _start_scoring_proc(cmd=scoring_cmd, env=env, stdout=stdout, stderr=stdout)
-    return _evaluate_scoring_proc(
-        proc, port, data, content_type, activity_polling_timeout_seconds, validate_version
-    )
+    ] + (extra_args or [])
+
+    with _start_scoring_proc(cmd=scoring_cmd, env=env, stdout=stdout, stderr=stdout) as proc:
+        validate_version = "--enable-mlserver" not in (extra_args or [])
+        try:
+            with RestEndpoint(
+                proc, port, activity_polling_timeout_seconds, validate_version=validate_version
+            ) as endpoint:
+                yield endpoint
+        finally:
+            proc.terminate()
 
 
 def _get_mlflow_home():
@@ -340,20 +364,6 @@ class RestEndpoint:
             data=data,
             headers={"Content-Type": content_type},
         )
-
-
-def _evaluate_scoring_proc(
-    proc, port, data, content_type, activity_polling_timeout_seconds=250, validate_version=True
-):
-    """
-    Args:
-        activity_polling_timeout_seconds: The amount of time, in seconds, to wait before
-            declaring the scoring process to have failed.
-    """
-    with RestEndpoint(
-        proc, port, activity_polling_timeout_seconds, validate_version=validate_version
-    ) as endpoint:
-        return endpoint.invoke(data, content_type)
 
 
 @pytest.fixture(autouse=True)
@@ -648,3 +658,73 @@ def clear_hub_cache():
     except ImportError:
         # Local import check for mlflow-skinny not including huggingface_hub
         pass
+
+
+def flaky(max_tries=3):
+    """
+    Annotation decorator for retrying flaky functions up to max_tries times, and raise the Exception
+    if it fails after max_tries attempts.
+
+    Args:
+        max_tries: Maximum number of times to retry the function.
+
+    Returns:
+        Decorated function.
+    """
+
+    def flaky_test_func(test_func):
+        @wraps(test_func)
+        def decorated_func(*args, **kwargs):
+            for i in range(max_tries):
+                try:
+                    return test_func(*args, **kwargs)
+                except Exception as e:
+                    _logger.warning(f"Attempt {i+1} failed with error: {e}")
+                    if i == max_tries - 1:
+                        raise
+                    time.sleep(3)
+
+        return decorated_func
+
+    return flaky_test_func
+
+
+@contextmanager
+def start_mock_openai_server():
+    """
+    Start a fake service that mimics the OpenAI endpoints such as /chat/completions.
+
+    Yields:
+        The base URL of the mock OpenAI server.
+    """
+    port = get_safe_port()
+    with subprocess.Popen(
+        [
+            sys.executable,
+            "-m",
+            "uvicorn",
+            "tests.openai.mock_openai:app",
+            "--host",
+            "localhost",
+            "--port",
+            str(port),
+        ]
+    ) as proc:
+        try:
+            base_url = f"http://localhost:{port}"
+            for _ in range(10):
+                try:
+                    resp = requests.get(f"{base_url}/health")
+                except requests.ConnectionError:
+                    time.sleep(2)
+                    continue
+                if resp.ok:
+                    break
+            else:
+                proc.kill()
+                proc.wait()
+                raise RuntimeError("Failed to start mock OpenAI server")
+
+            yield base_url
+        finally:
+            proc.kill()

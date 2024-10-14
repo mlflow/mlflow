@@ -9,9 +9,11 @@ To run this test, run the following command manually
 
 """
 
-import json
+import contextlib
 import os
 import shutil
+import sys
+import threading
 import time
 from operator import itemgetter
 
@@ -22,13 +24,13 @@ import requests
 import mlflow
 from mlflow.environment_variables import _MLFLOW_RUN_SLOW_TESTS
 from mlflow.models.flavor_backend_registry import get_flavor_backend
+from mlflow.models.utils import load_serving_example
 
 # Only import model fixtures if when MLFLOW_RUN_SLOW_TESTS environment variable is set to true
 if _MLFLOW_RUN_SLOW_TESTS.get():
     from tests.catboost.test_catboost_model_export import reg_model  # noqa: F401
     from tests.diviner.test_diviner_model_export import (  # noqa: F401
         diviner_data,
-        diviner_groups,
         grouped_prophet,
     )
     from tests.fastai.test_fastai_model_export import fastai_model as fastai_model_raw  # noqa: F401
@@ -59,7 +61,10 @@ if _MLFLOW_RUN_SLOW_TESTS.get():
     )
     from tests.statsmodels.model_fixtures import ols_model
     from tests.tensorflow.test_tensorflow2_core_model_export import tf2_toy_model  # noqa: F401
-    from tests.transformers.helper import load_small_qa_pipeline, load_small_seq2seq_pipeline
+    from tests.transformers.helper import (
+        load_small_qa_tf_pipeline,
+        load_text_classification_pipeline,
+    )
 
 
 pytestmark = pytest.mark.skipif(
@@ -79,6 +84,48 @@ def model_path(tmp_path):
     # disk space.
     if os.getenv("GITHUB_ACTIONS") == "true":
         shutil.rmtree(model_path, ignore_errors=True)
+
+
+@contextlib.contextmanager
+def start_container(port: int):
+    container = docker_client.containers.run(
+        image=TEST_IMAGE_NAME,
+        ports={8080: port},
+        detach=True,
+    )
+
+    def stream_logs():
+        for line in container.logs(stream=True):
+            sys.stdout.write(line.decode("utf-8"))
+
+    # Start a thread to stream logs from the container
+    t = threading.Thread(target=stream_logs, daemon=True)
+    t.start()
+
+    try:
+        # Wait for the server to start
+        for _ in range(30):
+            try:
+                response = requests.get(url=f"http://localhost:{port}/ping")
+                if response.ok:
+                    break
+            except requests.exceptions.ConnectionError:
+                time.sleep(5)
+
+            container.reload()  # update container status
+            if container.status == "exited":
+                raise Exception("Container exited unexpectedly.")
+
+            sys.stdout.write(f"Container status: {container.status}\n")
+
+        else:
+            raise TimeoutError("Failed to start server.")
+
+        yield container
+    finally:
+        container.stop()
+        container.remove()
+        t.join(timeout=5)
 
 
 @pytest.mark.parametrize(
@@ -123,40 +170,22 @@ def test_build_image_and_serve(flavor, request):
 
     # Run a container
     port = get_safe_port()
-    docker_client.containers.run(
-        image=TEST_IMAGE_NAME,
-        ports={8080: port},
-        detach=True,
-    )
+    with start_container(port):
+        # Make a scoring request with a saved serving input example
+        inference_payload = load_serving_example(model_path)
 
-    # Wait for the container to start
-    iteration_limit = 60 if flavor in ["h2o", "spark"] else 30
-    for _ in range(iteration_limit):
-        try:
-            response = requests.get(url=f"http://localhost:{port}/ping")
-            if response.ok:
-                break
-        except requests.exceptions.ConnectionError:
-            time.sleep(5)
-    else:
-        raise TimeoutError("Failed to start server.")
+        response = requests.post(
+            url=f"http://localhost:{port}/invocations",
+            data=inference_payload,
+            headers={"Content-Type": "application/json"},
+        )
 
-    # Make a scoring request with a saved input example
-    with open(os.path.join(model_path, "input_example.json")) as f:
-        input_example = json.load(f)
-
-    # Wrap Pandas dataframe in a proper payload format
-    if "columns" in input_example or "data" in input_example:
-        input_example = {"dataframe_split": input_example}
-
-    response = requests.post(
-        url=f"http://localhost:{port}/invocations",
-        data=json.dumps(input_example),
-        headers={"Content-Type": "application/json"},
-    )
-
-    assert response.status_code == 200, f"Response: {response.text}"
-    assert "predictions" in response.json(), f"Response: {response.text}"
+        assert response.status_code == 200, f"Response: {response.text}"
+        if flavor == "langchain":
+            # "messages" key is unified llm input, output is not wrapped into predictions
+            assert response.json() == ["Hi"]
+        else:
+            assert "predictions" in response.json(), f"Response: {response.text}"
 
 
 @pytest.fixture
@@ -171,14 +200,12 @@ def catboost_model(model_path, reg_model):
 
 
 @pytest.fixture
-def diviner_model(model_path, grouped_prophet, diviner_groups):
+def diviner_model(model_path, grouped_prophet):
     save_model_with_latest_mlflow_version(
         flavor="diviner",
         diviner_model=grouped_prophet,
         path=model_path,
-        input_example=pd.DataFrame(
-            {"groups": [diviner_groups], "horizon": 10, "frequency": "D"}, index=[0]
-        ),
+        input_example={"horizon": 10, "frequency": "D"},
     )
     return model_path
 
@@ -231,7 +258,10 @@ def langchain_model(model_path):
 
     chain = RunnablePassthrough() | itemgetter("messages")
     save_model_with_latest_mlflow_version(
-        flavor="langchain", lc_model=chain, path=model_path, input_example={"messages": "Hi"}
+        flavor="langchain",
+        lc_model=chain,
+        path=model_path,
+        input_example={"messages": "Hi"},
     )
     return model_path
 
@@ -304,6 +334,8 @@ def prophet_model(model_path, prophet_raw_model):
         pr_model=prophet_raw_model.model,
         path=model_path,
         input_example=prophet_raw_model.data[:1],
+        # Prophet does not handle numpy 2 yet. https://github.com/facebook/prophet/issues/2595
+        extra_pip_requirements=["numpy<2"],
     )
     return model_path
 
@@ -398,7 +430,7 @@ def tensorflow_model(model_path, tf2_toy_model):
 
 @pytest.fixture
 def transformers_pt_model(model_path):
-    pipeline = load_small_seq2seq_pipeline()
+    pipeline = load_text_classification_pipeline()
     save_model_with_latest_mlflow_version(
         flavor="transformers",
         transformers_model=pipeline,
@@ -410,7 +442,7 @@ def transformers_pt_model(model_path):
 
 @pytest.fixture
 def transformers_tf_model(model_path):
-    pipeline = load_small_qa_pipeline()
+    pipeline = load_small_qa_tf_pipeline()
     save_model_with_latest_mlflow_version(
         flavor="transformers",
         transformers_model=pipeline,

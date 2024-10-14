@@ -14,6 +14,7 @@ import {
   HTML_EXTENSIONS,
   PDF_EXTENSIONS,
   DATA_EXTENSIONS,
+  AUDIO_EXTENSIONS,
 } from '../../../common/utils/FileUtils';
 import { getLoggedModelPathsFromTags, getLoggedTablesFromTags } from '../../../common/utils/TagUtils';
 import { ONE_MB } from '../../constants';
@@ -26,11 +27,12 @@ import { LazyShowArtifactTableView } from './LazyShowArtifactTableView';
 import ShowArtifactLoggedModelView from './ShowArtifactLoggedModelView';
 import previewIcon from '../../../common/static/preview-icon.png';
 import warningSvg from '../../../common/static/warning.svg';
-import './ShowArtifactPage.css';
 import { ModelRegistryRoutes } from '../../../model-registry/routes';
 import Utils from '../../../common/utils/Utils';
 import { FormattedMessage } from 'react-intl';
 import { ShowArtifactLoggedTableView } from './ShowArtifactLoggedTableView';
+import { Empty, Spacer, useDesignSystemTheme } from '@databricks/design-system';
+import { LazyShowArtifactAudioView } from './LazyShowArtifactAudioView';
 
 const MAX_PREVIEW_ARTIFACT_SIZE_MB = 50;
 
@@ -57,9 +59,7 @@ class ShowArtifactPage extends Component<ShowArtifactPageProps> {
         );
         if (registeredModel) {
           const { name: registeredModelName, version } = registeredModel;
-          registeredModelLink = Utils.getIframeCorrectedRoute(
-            ModelRegistryRoutes.getModelVersionPageRoute(registeredModelName, version),
-          );
+          registeredModelLink = ModelRegistryRoutes.getModelVersionPageRoute(registeredModelName, version);
         }
       }
       // @ts-expect-error TS(2532): Object is possibly 'undefined'.
@@ -68,6 +68,8 @@ class ShowArtifactPage extends Component<ShowArtifactPageProps> {
       } else if (this.props.isDirectory) {
         if (this.props.runTags && getLoggedModelPathsFromTags(this.props.runTags).includes(this.props.path)) {
           return (
+            // getArtifact has a default in the component
+            // @ts-expect-error TS(2741): Property 'getArtifact' is missing
             <ShowArtifactLoggedModelView
               runUuid={this.props.runUuid}
               path={this.props.path}
@@ -91,6 +93,8 @@ class ShowArtifactPage extends Component<ShowArtifactPageProps> {
           return <ShowArtifactHtmlView runUuid={this.props.runUuid} path={this.props.path} />;
         } else if (PDF_EXTENSIONS.has(normalizedExtension.toLowerCase())) {
           return <LazyShowArtifactPdfView runUuid={this.props.runUuid} path={this.props.path} />;
+        } else if (AUDIO_EXTENSIONS.has(normalizedExtension.toLowerCase())) {
+          return <LazyShowArtifactAudioView runUuid={this.props.runUuid} path={this.props.path} />;
         }
       }
     }
@@ -100,54 +104,54 @@ class ShowArtifactPage extends Component<ShowArtifactPageProps> {
 
 const getSelectFileView = () => {
   return (
-    <div className="preview-outer-container">
-      <div className="preview-container">
-        <div className="preview-image-container">
-          <img className="preview-image" alt="Preview icon." src={previewIcon} />
-        </div>
-        <div className="preview-text">
-          <span className="preview-header">
-            <FormattedMessage
-              defaultMessage="Select a file to preview"
-              description="Label to suggests users to select a file to preview the output"
-            />
-          </span>
-          <span className="preview-supported-formats">
-            <FormattedMessage
-              defaultMessage="Supported formats: image, text, html, pdf, geojson files"
-              // eslint-disable-next-line max-len
-              description="Text to explain users which formats are supported to display the artifacts"
-            />
-          </span>
-        </div>
-      </div>
+    <div css={{ flex: 1, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+      <Empty
+        image={
+          <>
+            <img alt="Preview icon." src={previewIcon} css={{ width: 64, height: 64 }} />
+            <Spacer size="sm" />
+          </>
+        }
+        title={
+          <FormattedMessage
+            defaultMessage="Select a file to preview"
+            description="Label to suggests users to select a file to preview the output"
+          />
+        }
+        description={
+          <FormattedMessage
+            defaultMessage="Supported formats: image, text, html, pdf, audio, geojson files"
+            description="Text to explain users which formats are supported to display the artifacts"
+          />
+        }
+      />
     </div>
   );
 };
 
 const getFileTooLargeView = () => {
   return (
-    <div className="preview-outer-container">
-      <div className="preview-container">
-        <div className="preview-image-container">
-          <img className="preview-image" alt="Preview icon." src={warningSvg} />
-        </div>
-        <div className="preview-text">
-          <span className="preview-header">
-            <FormattedMessage
-              defaultMessage="File is too large to preview"
-              description="Label to indicate that the file is too large to preview"
-            />
-          </span>
-          <span className="preview-max-size">
-            <FormattedMessage
-              defaultMessage={`Maximum file size for preview: ${MAX_PREVIEW_ARTIFACT_SIZE_MB}MB`}
-              // eslint-disable-next-line max-len
-              description="Text to notify users of the maximum file size for which artifact previews are displayed"
-            />
-          </span>
-        </div>
-      </div>
+    <div css={{ flex: 1, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+      <Empty
+        image={
+          <>
+            <img alt="Preview icon." src={warningSvg} css={{ width: 64, height: 64 }} />
+            <Spacer size="sm" />
+          </>
+        }
+        title={
+          <FormattedMessage
+            defaultMessage="File is too large to preview"
+            description="Label to indicate that the file is too large to preview"
+          />
+        }
+        description={
+          <FormattedMessage
+            defaultMessage={`Maximum file size for preview: ${MAX_PREVIEW_ARTIFACT_SIZE_MB}MiB`}
+            description="Text to notify users of the maximum file size for which artifact previews are displayed"
+          />
+        }
+      />
     </div>
   );
 };

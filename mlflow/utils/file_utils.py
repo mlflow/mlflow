@@ -48,7 +48,10 @@ from mlflow.environment_variables import (
 from mlflow.exceptions import MissingConfigException, MlflowException
 from mlflow.protos.databricks_artifacts_pb2 import ArtifactCredentialType
 from mlflow.utils import download_cloud_file_chunk, merge_dicts
-from mlflow.utils.databricks_utils import _get_dbutils
+from mlflow.utils.databricks_utils import (
+    get_databricks_local_temp_dir,
+    get_databricks_nfs_temp_dir,
+)
 from mlflow.utils.os import is_windows
 from mlflow.utils.process import cache_return_value_per_process
 from mlflow.utils.request_utils import cloud_storage_http_request, download_chunk
@@ -56,9 +59,6 @@ from mlflow.utils.rest_utils import augmented_raise_for_status
 
 ENCODING = "utf-8"
 _PROGRESS_BAR_DISPLAY_THRESHOLD = 500_000_000  # 500 MB
-
-_logger = logging.getLogger(__name__)
-
 
 _logger = logging.getLogger(__name__)
 
@@ -222,7 +222,7 @@ def make_containing_dirs(path):
         os.makedirs(dir_name)
 
 
-def write_yaml(root, file_name, data, overwrite=False, sort_keys=True, ensure_yaml_extension=True):
+def write_yaml(root, file_name, data, overwrite=False, sort_keys=True, ensure_yaml_extension=True):  # noqa: D417
     """Write dictionary data in yaml format.
 
     Args:
@@ -371,13 +371,13 @@ def read_parquet_as_pandas_df(data_parquet_path: str):
 
     Args:
         data_parquet_path: String, path object (implementing os.PathLike[str]),
-        or file-like object implementing a binary read() function. The string
-        could be a URL. Valid URL schemes include http, ftp, s3, gs, and file.
-        For file URLs, a host is expected. A local file could
-        be: file://localhost/path/to/table.parquet. A file URL can also be a path to a
-        directory that contains multiple partitioned parquet files. Pyarrow
-        support paths to directories as well as file URLs. A directory
-        path could be: file://localhost/path/to/tables or s3://bucket/partition_dir.
+            or file-like object implementing a binary read() function. The string
+            could be a URL. Valid URL schemes include http, ftp, s3, gs, and file.
+            For file URLs, a host is expected. A local file could
+            be: file://localhost/path/to/table.parquet. A file URL can also be a path to a
+            directory that contains multiple partitioned parquet files. Pyarrow
+            support paths to directories as well as file URLs. A directory
+            path could be: file://localhost/path/to/tables or s3://bucket/partition_dir.
 
     Returns:
         pandas dataframe
@@ -422,7 +422,6 @@ class TempDir:
             shutil.rmtree(self._path)
 
         assert not self._remove or not os.path.exists(self._path)
-        assert os.path.exists(os.getcwd())
 
     def path(self, *path):
         return os.path.join("./", *path) if self._chdr else os.path.join(self._path, *path)
@@ -460,7 +459,7 @@ def read_file(parent_path, file_name):
         return f.read()
 
 
-def get_file_info(path, rel_path):
+def get_file_info(path, rel_path):  # noqa: D417
     """Returns file meta data : location, size, ... etc
 
     Args:
@@ -532,6 +531,7 @@ def _copy_project(src_path, dst_path=""):
     The MLflow is assumed to be accessible as a local directory in this case.
 
     Args:
+        src_path: Path to the original MLflow project
         dst_path: MLflow will be copied here
 
     Returns:
@@ -858,7 +858,7 @@ def _get_tmp_dir():
 
     if is_in_databricks_runtime():
         try:
-            return _get_dbutils().entry_point.getReplLocalTempDir()
+            return get_databricks_local_temp_dir()
         except Exception:
             pass
 
@@ -885,12 +885,12 @@ def get_or_create_tmp_dir():
 
     if is_in_databricks_runtime() and get_repl_id() is not None:
         # Note: For python process attached to databricks notebook, atexit does not work.
-        # The directory returned by `dbutils.entry_point.getReplLocalTempDir()`
+        # The directory returned by `get_databricks_local_tmp_dir`
         # will be removed once databricks notebook detaches.
         # The temp directory is designed to be used by all kinds of applications,
         # so create a child directory "mlflow" for storing mlflow temp data.
         try:
-            repl_local_tmp_dir = _get_dbutils().entry_point.getReplLocalTempDir()
+            repl_local_tmp_dir = get_databricks_local_temp_dir()
         except Exception:
             repl_local_tmp_dir = os.path.join("/tmp", "repl_tmp_data", get_repl_id())
 
@@ -918,12 +918,12 @@ def get_or_create_nfs_tmp_dir():
 
     if is_in_databricks_runtime() and get_repl_id() is not None:
         # Note: In databricks, atexit hook does not work.
-        # The directory returned by `dbutils.entry_point.getReplNFSTempDir()`
+        # The directory returned by `get_databricks_nfs_tmp_dir`
         # will be removed once databricks notebook detaches.
         # The temp directory is designed to be used by all kinds of applications,
         # so create a child directory "mlflow" for storing mlflow temp data.
         try:
-            repl_nfs_tmp_dir = _get_dbutils().entry_point.getReplNFSTempDir()
+            repl_nfs_tmp_dir = get_databricks_nfs_temp_dir()
         except Exception:
             repl_nfs_tmp_dir = os.path.join(nfs_root_dir, "repl_tmp_data", get_repl_id())
 

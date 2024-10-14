@@ -1,11 +1,15 @@
 import { Tabs } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
-import { Link, useNavigate, useParams } from '../../../common/utils/RoutingUtils';
+import { useNavigate, useParams } from '../../../common/utils/RoutingUtils';
 import Routes from '../../routes';
 import { RunPageTabName } from '../../constants';
 import { useRunViewActiveTab } from './useRunViewActiveTab';
 import { useState } from 'react';
-import { shouldEnableLoggedArtifactTableView } from 'common/utils/FeatureUtils';
+import { PreviewBadge } from '../../../shared/building_blocks/PreviewBadge';
+import { shouldEnableRunDetailsPageTracesTab } from '../../../common/utils/FeatureUtils';
+
+// Set of tabs that when active, the margin of the tab selector should be removed for better displaying
+const TABS_WITHOUT_MARGIN = [RunPageTabName.ARTIFACTS, RunPageTabName.EVALUATIONS];
 
 /**
  * Mode switcher for the run details page.
@@ -14,19 +18,15 @@ export const RunViewModeSwitch = () => {
   const { experimentId, runUuid } = useParams<{ runUuid: string; experimentId: string }>();
   const navigate = useNavigate();
   const currentTab = useRunViewActiveTab();
-  const [removeTabMargin, setRemoveTabMargin] = useState(
-    shouldEnableLoggedArtifactTableView() && currentTab === RunPageTabName.ARTIFACTS,
-  );
+  const [removeTabMargin, setRemoveTabMargin] = useState(TABS_WITHOUT_MARGIN.includes(currentTab));
 
   const onTabChanged = (newTabKey: string) => {
     if (!experimentId || !runUuid || currentTab === newTabKey) {
       return;
     }
-    if (shouldEnableLoggedArtifactTableView() && newTabKey === RunPageTabName.ARTIFACTS) {
-      setRemoveTabMargin(true);
-    } else {
-      setRemoveTabMargin(false);
-    }
+
+    setRemoveTabMargin(TABS_WITHOUT_MARGIN.includes(newTabKey as RunPageTabName));
+
     if (newTabKey === RunPageTabName.OVERVIEW) {
       navigate(Routes.getRunPageRoute(experimentId, runUuid));
       return;
@@ -43,6 +43,7 @@ export const RunViewModeSwitch = () => {
         }
         key={RunPageTabName.OVERVIEW}
       />
+
       <Tabs.TabPane
         tab={
           <FormattedMessage
@@ -61,6 +62,12 @@ export const RunViewModeSwitch = () => {
         }
         key={RunPageTabName.SYSTEM_METRIC_CHARTS}
       />
+      {shouldEnableRunDetailsPageTracesTab() && (
+        <Tabs.TabPane
+          tab={<FormattedMessage defaultMessage="Traces" description="Run details page > tab selector > Traces tab" />}
+          key={RunPageTabName.TRACES}
+        />
+      )}
       <Tabs.TabPane
         tab={
           <FormattedMessage defaultMessage="Artifacts" description="Run details page > tab selector > artifacts tab" />

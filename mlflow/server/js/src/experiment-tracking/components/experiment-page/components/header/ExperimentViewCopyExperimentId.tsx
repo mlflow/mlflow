@@ -14,7 +14,7 @@ export const ExperimentViewCopyExperimentId = ({ experiment }: { experiment: Exp
       size="md"
       dangerouslySetAntdProps={{
         copyable: {
-          text: experiment.experiment_id,
+          text: experiment.experimentId,
           icon: <CopyIcon />,
           tooltips: [
             intl.formatMessage({

@@ -6,10 +6,11 @@ import { isSystemMetricKey } from '../../utils/MetricsUtils';
 import type { MetricEntity, RunInfoEntity } from '../../types';
 import { shouldEnableDeepLearningUIPhase3 } from '../../../common/utils/FeatureUtils';
 import { RunsChartsLineChartXAxisType } from '../runs-charts/components/RunsCharts.common';
+import type { UseGetRunQueryResponseRunInfo } from './hooks/useGetRunQuery';
 
 export interface RunViewMetricHistoryChartProps extends Pick<RunsMetricsLinePlotProps, 'xRange' | 'yRange'> {
   metricKey: string;
-  runInfo: RunInfoEntity;
+  runInfo: RunInfoEntity | UseGetRunQueryResponseRunInfo;
   metricsHistory: MetricEntity[];
   onUpdate: RunsMetricsLinePlotProps['onUpdate'];
 }
@@ -38,8 +39,8 @@ export const RunViewMetricHistoryChart = ({
   const chartData = useMemo(
     () => [
       {
-        uuid: runInfo.run_uuid,
-        displayName: runInfo.run_name,
+        uuid: runInfo.runUuid ?? '',
+        displayName: runInfo.runName ?? '',
         runInfo,
         metricsHistory: { [metricKey]: metricsHistory },
         color: theme.colors.primary,

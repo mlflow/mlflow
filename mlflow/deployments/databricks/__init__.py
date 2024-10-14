@@ -306,10 +306,16 @@ class DatabricksDeploymentClient(BaseDeploymentClient):
         for line in chunk_line_iter:
             splits = line.split(":", 1)
             if len(splits) < 2:
-                raise MlflowException(f"Unknown streaming response format: '{line}'.")
+                raise MlflowException(
+                    f"Unknown response format: '{line}', "
+                    "expected 'data: <value>' for streaming response."
+                )
             key, value = splits
             if key != "data":
-                raise MlflowException(f"Unknown streaming response format with key '{key}'.")
+                raise MlflowException(
+                    f"Unknown response format with key '{key}'. "
+                    f"Expected 'data: <value>' for streaming response, got '{line}'."
+                )
 
             value = value.strip()
             if value == "[DONE]":
@@ -320,7 +326,7 @@ class DatabricksDeploymentClient(BaseDeploymentClient):
             yield json.loads(value)
 
     @experimental
-    def create_endpoint(self, name, config=None):
+    def create_endpoint(self, name, config=None, route_optimized=False):
         """
         Create a new serving endpoint with the provided name and configuration.
 
@@ -330,6 +336,9 @@ class DatabricksDeploymentClient(BaseDeploymentClient):
         Args:
             name: The name of the serving endpoint to create.
             config: A dictionary containing the configuration of the serving endpoint to create.
+            route_optimized: A boolean which defines whether databricks serving endpoint
+                in optimized for routing traffic. Refer to the following doc for more details.
+                https://docs.databricks.com/en/machine-learning/model-serving/route-optimization.html#enable-route-optimization-on-a-feature-serving-endpoint
 
         Returns:
             A :py:class:`DatabricksEndpoint` object containing the request response.
@@ -358,6 +367,7 @@ class DatabricksDeploymentClient(BaseDeploymentClient):
                         }
                     ],
                 },
+                route_optimized=True,
             )
             assert endpoint == {
                 "name": "chat",
@@ -376,7 +386,7 @@ class DatabricksDeploymentClient(BaseDeploymentClient):
         for key in ("tags", "rate_limits"):
             if tags := config.pop(key, None):
                 extras[key] = tags
-        payload = {"name": name, "config": config, **extras}
+        payload = {"name": name, "config": config, "route_optimized": route_optimized, **extras}
         return self._call_endpoint(method="POST", json_body=payload)
 
     @experimental

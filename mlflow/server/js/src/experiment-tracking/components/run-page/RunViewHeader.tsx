@@ -4,9 +4,9 @@ import { OverflowMenu, PageHeader } from '../../../shared/building_blocks/PageHe
 import Routes from '../../routes';
 import { ExperimentEntity, KeyValueEntity } from '../../types';
 import { RunViewModeSwitch } from './RunViewModeSwitch';
-import { shouldEnableDeepLearningUI } from '../../../common/utils/FeatureUtils';
 import Utils from '../../../common/utils/Utils';
 import { RunViewHeaderRegisterModelButton } from './RunViewHeaderRegisterModelButton';
+import type { UseGetRunQueryResponseExperiment } from './hooks/useGetRunQuery';
 
 /**
  * Run details page header component, common for all page view modes
@@ -17,18 +17,22 @@ export const RunViewHeader = ({
   experiment,
   runDisplayName,
   runTags,
+  runParams,
   runUuid,
   handleRenameRunClick,
   handleDeleteRunClick,
+  artifactRootUri,
 }: {
   hasComparedExperimentsBefore?: boolean;
   comparedExperimentIds?: string[];
   runDisplayName: string;
   runUuid: string;
   runTags: Record<string, KeyValueEntity>;
-  experiment: ExperimentEntity;
+  runParams: Record<string, KeyValueEntity>;
+  experiment: ExperimentEntity | UseGetRunQueryResponseExperiment;
   handleRenameRunClick: () => void;
   handleDeleteRunClick?: () => void;
+  artifactRootUri?: string;
 }) => {
   function getExperimentPageLink() {
     return hasComparedExperimentsBefore && comparedExperimentIds ? (
@@ -43,7 +47,7 @@ export const RunViewHeader = ({
         />
       </Link>
     ) : (
-      <Link to={Routes.getExperimentPageRoute(experiment.experiment_id)} data-test-id="experiment-runs-link">
+      <Link to={Routes.getExperimentPageRoute(experiment?.experimentId ?? '')} data-test-id="experiment-runs-link">
         {experiment.name}
       </Link>
     );
@@ -67,7 +71,7 @@ export const RunViewHeader = ({
                 <FormattedMessage defaultMessage="Rename" description="Menu item to rename an experiment run" />
               ),
             },
-            ...(shouldEnableDeepLearningUI() && handleDeleteRunClick
+            ...(handleDeleteRunClick
               ? [
                   {
                     id: 'overflow-delete-button',
@@ -80,13 +84,15 @@ export const RunViewHeader = ({
               : []),
           ]}
         />
-        {shouldEnableDeepLearningUI() && (
-          <>
-            <RunViewHeaderRegisterModelButton runUuid={runUuid} experimentId={experiment.experiment_id} />
-          </>
-        )}
+
+        <RunViewHeaderRegisterModelButton
+          runUuid={runUuid}
+          experimentId={experiment?.experimentId ?? ''}
+          runTags={runTags}
+          artifactRootUri={artifactRootUri}
+        />
       </PageHeader>
-      {shouldEnableDeepLearningUI() && <RunViewModeSwitch />}
+      <RunViewModeSwitch />
     </div>
   );
 };

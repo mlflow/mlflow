@@ -114,10 +114,6 @@ Example
 
 This will create a SQLite database ``my.db`` in the current directory, and logging requests from clients will be pointed to this database.
 
-.. note::
-  If you are using a SQL-based backend store, the artifact store URI has to be specified, otherwise the server will fail to start (because we can't store artifacts to a SQL database).
-  Refer to the section below for details on how to configure the artifact store URI when using a SQL-based backend store.
-
 .. _tracking-server-artifact-store:
 
 Remote artifacts store
@@ -126,7 +122,7 @@ Remote artifacts store
 Using the Tracking Server for proxied artifact access
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 By default, the tracking server stores artifacts in its local filesystem under ``./mlartifacts`` directory. To configure 
-the tracking server to connect to remote storgate and serve artifacts, start the server with ``--artifacts-destination`` flag.
+the tracking server to connect to remote storage and serve artifacts, start the server with ``--artifacts-destination`` flag.
 
 .. code-block:: bash
 

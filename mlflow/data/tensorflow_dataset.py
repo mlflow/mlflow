@@ -12,10 +12,10 @@ from mlflow.data.digest_utils import (
     compute_numpy_digest,
     get_normalized_md5_digest,
 )
+from mlflow.data.evaluation_dataset import EvaluationDataset
 from mlflow.data.pyfunc_dataset_mixin import PyFuncConvertibleDatasetMixin, PyFuncInputsOutputs
 from mlflow.data.schema import TensorDatasetSchema
 from mlflow.exceptions import MlflowException
-from mlflow.models.evaluation.base import EvaluationDataset
 from mlflow.protos.databricks_pb2 import INTERNAL_ERROR, INVALID_PARAMETER_VALUE
 from mlflow.types.schema import Schema
 from mlflow.types.utils import _infer_schema
@@ -77,7 +77,7 @@ class TensorFlowDataset(Dataset, PyFuncConvertibleDatasetMixin):
         self._targets = targets
         super().__init__(source=source, name=name, digest=digest)
 
-    def _compute_tensorflow_dataset_digest(
+    def _compute_tensorflow_dataset_digest(  # noqa: D417
         self,
         dataset,
         targets=None,

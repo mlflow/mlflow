@@ -10,8 +10,6 @@ import {
 } from '@databricks/design-system';
 import { compact, mapValues, values } from 'lodash';
 import { useMemo, useState } from 'react';
-import { DndProvider } from 'react-dnd';
-import { HTML5Backend } from 'react-dnd-html5-backend';
 import { FormattedMessage, defineMessages, useIntl } from 'react-intl';
 import { useSelector } from 'react-redux';
 import { getGridColumnSetup } from '../../../common/utils/CssGrid.utils';
@@ -23,6 +21,8 @@ import { RunsChartsTooltipWrapper } from '../runs-charts/hooks/useRunsChartsTool
 import { RunViewChartTooltipBody } from './RunViewChartTooltipBody';
 import { RunViewMetricChart } from './RunViewMetricChart';
 import { ChartRefreshManager, useChartRefreshManager } from './useChartRefreshManager';
+import { DragAndDropProvider } from '../../../common/hooks/useDragAndDropElement';
+import type { UseGetRunQueryResponseRunInfo } from './hooks/useGetRunQuery';
 
 const { systemMetricChartsEmpty, modelMetricChartsEmpty } = defineMessages({
   systemMetricChartsEmpty: {
@@ -60,7 +60,7 @@ const RunViewMetricChartsSection = ({
 }: {
   metricKeys: string[];
   search: string;
-  runInfo: RunInfoEntity;
+  runInfo: RunInfoEntity | UseGetRunQueryResponseRunInfo;
   onReorderChart: (sourceChartKey: string, targetChartKey: string) => void;
   chartRefreshManager: ChartRefreshManager;
 }) => {
@@ -118,7 +118,7 @@ export const RunViewMetricCharts = ({
   mode,
 }: {
   metricKeys: string[];
-  runInfo: RunInfoEntity;
+  runInfo: RunInfoEntity | UseGetRunQueryResponseRunInfo;
   /**
    * Whether to display model or system metrics. This affects labels and tooltips.
    */
@@ -127,7 +127,7 @@ export const RunViewMetricCharts = ({
   const chartRefreshManager = useChartRefreshManager();
 
   const metricsForRun = useSelector(({ entities }: ReduxState) => {
-    return mapValues(entities.sampledMetricsByRunUuid[runInfo.run_uuid], (metricsByRange) => {
+    return mapValues(entities.sampledMetricsByRunUuid[runInfo.runUuid ?? ''], (metricsByRange) => {
       return compact(
         values(metricsByRange)
           .map(({ metricsHistory }) => metricsHistory)
@@ -139,7 +139,7 @@ export const RunViewMetricCharts = ({
   const [search, setSearch] = useState('');
   const { formatMessage } = useIntl();
 
-  const { orderedMetricKeys, onReorderChart } = useOrderedCharts(metricKeys, 'RunView' + mode, runInfo.run_uuid);
+  const { orderedMetricKeys, onReorderChart } = useOrderedCharts(metricKeys, 'RunView' + mode, runInfo.runUuid ?? '');
 
   const noMetricsRecorded = !metricKeys.length;
   const allMetricsFilteredOut =
@@ -151,18 +151,19 @@ export const RunViewMetricCharts = ({
   const tooltipContext = useMemo(() => ({ runInfo, metricsForRun }), [runInfo, metricsForRun]);
 
   const anyRunRefreshing = useSelector((store: ReduxState) => {
-    return values(store.entities.sampledMetricsByRunUuid[runInfo.run_uuid]).some((metricsByRange) =>
+    return values(store.entities.sampledMetricsByRunUuid[runInfo.runUuid ?? '']).some((metricsByRange) =>
       values(metricsByRange).some(({ refreshing }) => refreshing),
     );
   });
 
   return (
-    <DndProvider backend={HTML5Backend}>
+    <DragAndDropProvider>
       <div css={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
         <div css={{ flexShrink: 0 }}>
           {showConfigArea && (
             <div css={{ display: 'flex', gap: theme.spacing.sm }}>
               <Input
+                componentId="codegen_mlflow_app_src_experiment-tracking_components_run-page_runviewmetriccharts.tsx_165"
                 role="searchbox"
                 prefix={<SearchIcon />}
                 value={search}
@@ -214,6 +215,6 @@ export const RunViewMetricCharts = ({
           </RunsChartsTooltipWrapper>
         </div>{' '}
       </div>
-    </DndProvider>
+    </DragAndDropProvider>
   );
 };

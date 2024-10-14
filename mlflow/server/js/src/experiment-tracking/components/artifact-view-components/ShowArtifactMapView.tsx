@@ -13,6 +13,8 @@ import L from 'leaflet';
 import icon from 'leaflet/dist/images/marker-icon.png';
 import iconRetina from 'leaflet/dist/images/marker-icon-2x.png';
 import iconShadow from 'leaflet/dist/images/marker-shadow.png';
+import { ArtifactViewSkeleton } from './ArtifactViewSkeleton';
+import { ArtifactViewErrorState } from './ArtifactViewErrorState';
 
 function onEachFeature(feature: any, layer: any) {
   if (feature.properties && feature.properties.popupContent) {
@@ -45,6 +47,7 @@ class ShowArtifactMapView extends Component<Props, State> {
 
   leafletMap: any;
   mapDivId: any;
+  mapRef: HTMLDivElement | null = null;
 
   state = {
     loading: true,
@@ -71,8 +74,8 @@ class ShowArtifactMapView extends Component<Props, State> {
       }
     }
 
-    if (this.state.features !== undefined) {
-      const map = L.map(this.mapDivId);
+    if (this.state.features !== undefined && this.mapRef) {
+      const map = L.map(this.mapRef);
 
       // Load tiles from OSM with the corresponding attribution
       // Potentially, these could be set in an ENV VAR to use a custom map
@@ -114,14 +117,19 @@ class ShowArtifactMapView extends Component<Props, State> {
 
   render() {
     if (this.state.loading) {
-      return <div className="artifact-map-view-loading">Loading...</div>;
+      return <ArtifactViewSkeleton className="artifact-map-view-loading" />;
     }
     if (this.state.error) {
-      return <div className="artifact-map-view-error">Oops, we couldn't load your file because of an error.</div>;
+      return <ArtifactViewErrorState className="artifact-map-view-error" />;
     } else {
       return (
         <div className="map-container">
-          <div id={this.mapDivId}></div>
+          <div
+            id={this.mapDivId}
+            ref={(ref) => {
+              this.mapRef = ref;
+            }}
+          ></div>
         </div>
       );
     }

@@ -25,7 +25,7 @@ describe('useExperimentRuns', () => {
     let result: any;
 
     const params = {
-      experiments: experimentIds.map((id) => ({ experiment_id: id })),
+      experiments: experimentIds.map((id) => ({ experimentId: id })),
       ...filterParams,
     };
 
@@ -44,7 +44,7 @@ describe('useExperimentRuns', () => {
 
     expect(Object.keys(result.runInfos).length).toEqual(4);
 
-    expect(Object.values(result.runInfos).map((r) => r.experiment_id)).toEqual(expect.arrayContaining(['123456789']));
+    expect(Object.values(result.runInfos).map((r) => r.experimentId)).toEqual(expect.arrayContaining(['123456789']));
   });
   it('fetches experiment tags from the store properly', () => {
     const result = mountComponentWithExperimentRuns(['123456789']);
@@ -232,5 +232,39 @@ describe('useExperimentRuns', () => {
     expect(result.paramKeyList).toEqual([]);
     expect(result.paramsList).toEqual([]);
     expect(result.metricsList).toEqual([]);
+  });
+
+  it('fetches metrics, params, and tags with non-empty key and empty value, but not those with empty key', () => {
+    const result = mountComponentWithExperimentRuns(['3210']);
+
+    expect(result.metricsList.length).toEqual(1);
+    expect(result.metricsList[0]).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          key: 'met1',
+          value: 2,
+        }),
+      ]),
+    );
+
+    expect(result.tagsList.length).toEqual(1);
+    expect(result.tagsList[0]).toEqual(
+      expect.objectContaining({
+        testtag1: expect.objectContaining({
+          key: 'testtag1',
+          value: '',
+        }),
+      }),
+    );
+
+    expect(result.paramsList.length).toEqual(1);
+    expect(result.paramsList[0]).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          key: 'p1',
+          value: '',
+        }),
+      ]),
+    );
   });
 });

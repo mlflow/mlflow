@@ -55,7 +55,7 @@ export const useFetchCompareRunsMetricHistory = (
   );
 
   const isLoading = useMemo(() => {
-    const runUuids = compact(runsData.map((r) => r.runInfo?.run_uuid));
+    const runUuids = compact(runsData.map((r) => r.runInfo?.runUuid));
     for (const uuid of runUuids) {
       for (const metric of metricKeys) {
         const isPendingRequest = requests[`${uuid}-${metric}`];
@@ -79,7 +79,7 @@ export const useFetchCompareRunsMetricHistory = (
 
       // Determine which runs does not have corresponding
       // metric history entries already fetched and stored
-      const runUuids = compact(runsData.map((r) => r.runInfo?.run_uuid));
+      const runUuids = compact(runsData.map((r) => r.runInfo?.runUuid));
       const runUuidsToFetch = runUuids.filter((runUuid) => {
         const isInStore = Boolean(metricsByRunUuid[runUuid]?.[metricKey]);
         const isPendingRequest = requests[`${runUuid}-${metricKey}`];

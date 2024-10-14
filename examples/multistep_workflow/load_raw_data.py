@@ -1,6 +1,7 @@
 """
 Downloads the MovieLens dataset and saves it as an artifact
 """
+
 import os
 import tempfile
 import zipfile

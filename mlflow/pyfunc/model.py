@@ -9,17 +9,22 @@ import os
 import shutil
 from abc import ABCMeta, abstractmethod
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Iterator, List, Optional, Union
 
 import cloudpickle
+import pandas as pd
 import yaml
 
 import mlflow.pyfunc
 import mlflow.utils
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
-from mlflow.models.model import MLMODEL_FILE_NAME
+from mlflow.models.model import MLMODEL_FILE_NAME, MODEL_CODE_PATH
+from mlflow.models.rag_signatures import ChatCompletionRequest, SplitChatMessagesRequest
 from mlflow.models.signature import _extract_type_hints
+from mlflow.models.utils import _load_model_code_path
+from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
+from mlflow.pyfunc.utils.input_converter import _hydrate_dataclass
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.types.llm import ChatMessage, ChatParams, ChatResponse
 from mlflow.utils.annotations import experimental
@@ -223,7 +228,7 @@ class ChatModel(PythonModel, metaclass=ABCMeta):
     """
 
     @abstractmethod
-    def predict(self, context, messages: List[ChatMessage], params: ChatParams) -> ChatResponse:
+    def predict(self, context, messages: List[ChatMessage], params: ChatParams) -> ChatResponse:  # noqa: D417
         """
         Evaluates a chat input and produces a chat output.
 
@@ -241,8 +246,31 @@ class ChatModel(PythonModel, metaclass=ABCMeta):
             the model's response(s), as well as other metadata.
         """
 
+    def predict_stream(  # noqa: D417
+        self, context, messages: List[ChatMessage], params: ChatParams
+    ) -> Iterator[ChatResponse]:
+        """
+        Evaluates a chat input and produces a chat output.
+        Overrides this function to implement a real stream prediction.
+        By default, this function just yields result of `predict` function.
 
-def _save_model_with_class_artifacts_params(
+        Args:
+            messages (List[:py:class:`ChatMessage <mlflow.types.llm.ChatMessage>`]):
+                A list of :py:class:`ChatMessage <mlflow.types.llm.ChatMessage>`
+                objects representing chat history.
+            params (:py:class:`ChatParams <mlflow.types.llm.ChatParams>`):
+                A :py:class:`ChatParams <mlflow.types.llm.ChatParams>` object
+                containing various parameters used to modify model behavior during
+                inference.
+
+        Returns:
+            An iterator over :py:class:`ChatResponse <mlflow.types.llm.ChatResponse>` object
+            containing the model's response(s), as well as other metadata.
+        """
+        yield self.predict(context, messages, params)
+
+
+def _save_model_with_class_artifacts_params(  # noqa: D417
     path,
     python_model,
     signature=None,
@@ -255,6 +283,7 @@ def _save_model_with_class_artifacts_params(
     extra_pip_requirements=None,
     model_config=None,
     streamable=None,
+    model_code_path=None,
     infer_code_paths=False,
 ):
     """
@@ -285,6 +314,12 @@ def _save_model_with_class_artifacts_params(
             .. Note:: Experimental: This parameter may change or be removed in a future release
                 without warning.
 
+        model_code_path: The path to the code that is being logged as a PyFunc model. Can be used
+            to load python_model when python_model is None.
+
+            .. Note:: Experimental: This parameter may change or be removed in a future release
+                without warning.
+
         streamable: A boolean value indicating if the model supports streaming prediction,
                     If None, MLflow will try to inspect if the model supports streaming
                     by checking if `predict_stream` method exists. Default None.
@@ -299,33 +334,36 @@ def _save_model_with_class_artifacts_params(
         python_model = _FunctionPythonModel(python_model, hints, signature)
     saved_python_model_subpath = _SAVED_PYTHON_MODEL_SUBPATH
 
-    try:
-        with open(os.path.join(path, saved_python_model_subpath), "wb") as out:
-            cloudpickle.dump(python_model, out)
-    except Exception as e:
-        # cloudpickle sometimes raises TypeError instead of PicklingError.
-        # catching generic Exception and checking message to handle both cases.
-        if "cannot pickle" in str(e).lower():
-            raise MlflowException(
-                "Failed to serialize Python model. Please audit your "
-                "class variables (e.g. in `__init__()`) for any "
-                "unpicklable objects. If you're trying to save an external model "
-                "in your custom pyfunc, Please use the `artifacts` parameter "
-                "in `mlflow.pyfunc.save_model()`, and load your external model "
-                "in the `load_context()` method instead. For example:\n\n"
-                "class MyModel(mlflow.pyfunc.PythonModel):\n"
-                "    def load_context(self, context):\n"
-                "        model_path = context.artifacts['my_model_path']\n"
-                "        // custom load logic here\n"
-                "        self.model = load_model(model_path)\n\n"
-                "For more information, see our full tutorial at: "
-                "https://mlflow.org/docs/latest/traditional-ml/creating-custom-pyfunc/index.html"
-                f"\n\nFull serialization error: {e}"
-            ) from None
-        else:
-            raise e
+    # If model_code_path is defined, we load the model into python_model, but we don't want to
+    # pickle/save the python_model since the module won't be able to be imported.
+    if not model_code_path:
+        try:
+            with open(os.path.join(path, saved_python_model_subpath), "wb") as out:
+                cloudpickle.dump(python_model, out)
+        except Exception as e:
+            # cloudpickle sometimes raises TypeError instead of PicklingError.
+            # catching generic Exception and checking message to handle both cases.
+            if "cannot pickle" in str(e).lower():
+                raise MlflowException(
+                    "Failed to serialize Python model. Please audit your "
+                    "class variables (e.g. in `__init__()`) for any "
+                    "unpicklable objects. If you're trying to save an external model "
+                    "in your custom pyfunc, Please use the `artifacts` parameter "
+                    "in `mlflow.pyfunc.save_model()`, and load your external model "
+                    "in the `load_context()` method instead. For example:\n\n"
+                    "class MyModel(mlflow.pyfunc.PythonModel):\n"
+                    "    def load_context(self, context):\n"
+                    "        model_path = context.artifacts['my_model_path']\n"
+                    "        // custom load logic here\n"
+                    "        self.model = load_model(model_path)\n\n"
+                    "For more information, see our full tutorial at: "
+                    "https://mlflow.org/docs/latest/traditional-ml/creating-custom-pyfunc/index.html"
+                    f"\n\nFull serialization error: {e}"
+                ) from None
+            else:
+                raise e
 
-    custom_model_config_kwargs[CONFIG_KEY_PYTHON_MODEL] = saved_python_model_subpath
+        custom_model_config_kwargs[CONFIG_KEY_PYTHON_MODEL] = saved_python_model_subpath
 
     if artifacts:
         saved_artifacts_config = {}
@@ -385,14 +423,25 @@ def _save_model_with_class_artifacts_params(
     if streamable is None:
         streamable = python_model.__class__.predict_stream != PythonModel.predict_stream
 
+    if model_code_path:
+        loader_module = mlflow.pyfunc.loaders.code_model.__name__
+    elif python_model:
+        loader_module = _get_pyfunc_loader_module(python_model)
+    else:
+        raise MlflowException(
+            "Either `python_model` or `model_code_path` must be provided to save the model.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+
     mlflow.pyfunc.add_to_model(
         model=mlflow_model,
-        loader_module=_get_pyfunc_loader_module(python_model),
+        loader_module=loader_module,
         code=None,
         conda_env=_CONDA_ENV_FILE_NAME,
         python_env=_PYTHON_ENV_FILE_NAME,
         model_config=model_config,
         streamable=streamable,
+        model_code_path=model_code_path,
         **custom_model_config_kwargs,
     )
     if size := get_total_file_size(path):
@@ -450,30 +499,39 @@ def _load_context_model_and_signature(
     pyfunc_config = _get_flavor_configuration(
         model_path=model_path, flavor_name=mlflow.pyfunc.FLAVOR_NAME
     )
+    signature = mlflow.models.Model.load(model_path).signature
 
-    python_model_cloudpickle_version = pyfunc_config.get(CONFIG_KEY_CLOUDPICKLE_VERSION, None)
-    if python_model_cloudpickle_version is None:
-        mlflow.pyfunc._logger.warning(
-            "The version of CloudPickle used to save the model could not be found in the MLmodel"
-            " configuration"
-        )
-    elif python_model_cloudpickle_version != cloudpickle.__version__:
-        # CloudPickle does not have a well-defined cross-version compatibility policy. Micro version
-        # releases have been known to cause incompatibilities. Therefore, we match on the full
-        # library version
-        mlflow.pyfunc._logger.warning(
-            "The version of CloudPickle that was used to save the model, `CloudPickle %s`, differs"
-            " from the version of CloudPickle that is currently running, `CloudPickle %s`, and may"
-            " be incompatible",
-            python_model_cloudpickle_version,
-            cloudpickle.__version__,
-        )
+    if MODEL_CODE_PATH in pyfunc_config:
+        conf_model_code_path = pyfunc_config.get(MODEL_CODE_PATH)
+        model_code_path = os.path.join(model_path, os.path.basename(conf_model_code_path))
+        python_model = _load_model_code_path(model_code_path, model_config)
 
-    python_model_subpath = pyfunc_config.get(CONFIG_KEY_PYTHON_MODEL, None)
-    if python_model_subpath is None:
-        raise MlflowException("Python model path was not specified in the model configuration")
-    with open(os.path.join(model_path, python_model_subpath), "rb") as f:
-        python_model = cloudpickle.load(f)
+        if callable(python_model):
+            python_model = _FunctionPythonModel(python_model, signature=signature)
+    else:
+        python_model_cloudpickle_version = pyfunc_config.get(CONFIG_KEY_CLOUDPICKLE_VERSION, None)
+        if python_model_cloudpickle_version is None:
+            mlflow.pyfunc._logger.warning(
+                "The version of CloudPickle used to save the model could not be found in the "
+                "MLmodel configuration"
+            )
+        elif python_model_cloudpickle_version != cloudpickle.__version__:
+            # CloudPickle does not have a well-defined cross-version compatibility policy. Micro
+            # version releases have been known to cause incompatibilities. Therefore, we match on
+            # the full library version
+            mlflow.pyfunc._logger.warning(
+                "The version of CloudPickle that was used to save the model, `CloudPickle %s`, "
+                "differs from the version of CloudPickle that is currently running, `CloudPickle "
+                "%s`, and may be incompatible",
+                python_model_cloudpickle_version,
+                cloudpickle.__version__,
+            )
+
+        python_model_subpath = pyfunc_config.get(CONFIG_KEY_PYTHON_MODEL, None)
+        if python_model_subpath is None:
+            raise MlflowException("Python model path was not specified in the model configuration")
+        with open(os.path.join(model_path, python_model_subpath), "rb") as f:
+            python_model = cloudpickle.load(f)
 
     artifacts = {}
     for saved_artifact_name, saved_artifact_info in pyfunc_config.get(
@@ -485,7 +543,6 @@ def _load_context_model_and_signature(
 
     context = PythonModelContext(artifacts=artifacts, model_config=model_config)
     python_model.load_context(context=context)
-    signature = mlflow.models.Model.load(model_path).signature
 
     return context, python_model, signature
 
@@ -552,7 +609,19 @@ class _PythonModelPyfuncWrapper:
             elif isinstance(model_input, list) and all(isinstance(x, dict) for x in model_input):
                 keys = [x.name for x in self.signature.inputs]
                 return [{k: d[k] for k in keys} for d in model_input]
-
+        elif isinstance(hints.input, type) and (
+            issubclass(hints.input, ChatCompletionRequest)
+            or issubclass(hints.input, SplitChatMessagesRequest)
+        ):
+            # If the type hint is a RAG dataclass, we hydrate it
+            if isinstance(model_input, pd.DataFrame):
+                # If there are multiple rows, we should throw
+                if len(model_input) > 1:
+                    raise MlflowException(
+                        "Expected a single input for dataclass type hint, but got multiple rows"
+                    )
+                # Since single input is expected, we take the first row
+                return _hydrate_dataclass(hints.input, model_input.iloc[0])
         return model_input
 
     def predict(self, model_input, params: Optional[Dict[str, Any]] = None):
@@ -593,3 +662,86 @@ def _get_pyfunc_loader_module(python_model):
     if isinstance(python_model, ChatModel):
         return mlflow.pyfunc.loaders.chat_model.__name__
     return __name__
+
+
+class ModelFromDeploymentEndpoint(PythonModel):
+    """
+    A PythonModel wrapper for invoking an MLflow Deployments endpoint.
+    This class is particularly used for running evaluation against an MLflow Deployments endpoint.
+    """
+
+    def __init__(self, endpoint, params):
+        self.endpoint = endpoint
+        self.params = params
+
+    def predict(  # noqa: D417
+        self, context, model_input: Union[pd.DataFrame, Dict[str, Any], List[Dict[str, Any]]]
+    ):
+        """
+        Run prediction on the input data.
+
+        Args:
+            model_input: The input data for prediction, either of the following:
+                - Pandas DataFrame: If the default evaluator is used, input is a DF
+                    that contains the multiple request payloads in a single column.
+                - A dictionary: If the model_type is "databricks-agents" and the
+                    Databricks RAG evaluator is used, this PythonModel can be invoked
+                    with a single dict corresponding to the ChatCompletionsRequest schema.
+                - A list of dictionaries: Currently we don't have any evaluator that
+                    gives this input format, but we keep this for future use cases and
+                    compatibility with normal pyfunc models.
+
+        Return:
+            The prediction result. The return type will be consistent with the model input type,
+            e.g., if the input is a Pandas DataFrame, the return will be a Pandas Series.
+        """
+        if isinstance(model_input, dict):
+            return self._predict_single(model_input)
+        elif isinstance(model_input, list) and all(isinstance(data, dict) for data in model_input):
+            return [self._predict_single(data) for data in model_input]
+        elif isinstance(model_input, pd.DataFrame):
+            if len(model_input.columns) != 1:
+                raise MlflowException(
+                    f"The number of input columns must be 1, but got {model_input.columns}. "
+                    "Multi-column input is not supported for evaluating an MLflow Deployments "
+                    "endpoint. Please include the input text or payload in a single column.",
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
+            input_column = model_input.columns[0]
+
+            predictions = [self._predict_single(data) for data in model_input[input_column]]
+            return pd.Series(predictions)
+        else:
+            raise MlflowException(
+                f"Invalid input data type: {type(model_input)}. The input data must be either "
+                "a Pandas DataFrame, a dictionary, or a list of dictionaries containing the "
+                "request payloads for evaluating an MLflow Deployments endpoint.",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+
+    def _predict_single(self, data: Union[str, Dict[str, Any]]) -> Dict[str, Any]:
+        """
+        Send a single prediction request to the MLflow Deployments endpoint.
+
+        Args:
+            data: The single input data for prediction. If the input data is a string, we will
+                construct the request payload from it. If the input data is a dictionary, we
+                will directly use it as the request payload.
+
+        Returns:
+            The prediction result from the MLflow Deployments endpoint as a dictionary.
+        """
+        from mlflow.metrics.genai.model_utils import _call_deployments_api
+
+        if isinstance(data, str):
+            prediction = _call_deployments_api(self.endpoint, data, self.params)
+        elif isinstance(data, dict):
+            prediction = _call_deployments_api(self.endpoint, data, self.params, wrap_payload=False)
+        else:
+            raise MlflowException(
+                f"Invalid input data type: {type(data)}. The feature column of the evaluation "
+                "dataset must contain only strings or dictionaries containing the request "
+                "payload for evaluating an MLflow Deployments endpoint.",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+        return prediction

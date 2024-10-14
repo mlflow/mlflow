@@ -17,12 +17,12 @@ export const sampledMetricsByRunUuid = (
   if (action.type === rejected(GET_SAMPLED_METRIC_HISTORY_API_BULK) && action.meta) {
     const { runUuids, key, rangeKey } = action.meta;
     const updatedState = { ...state };
-    const errorResult = {
-      error: action.payload,
-    };
     for (const runUuid of runUuids) {
       if (updatedState[runUuid]?.[key]?.[rangeKey]) {
+        const existingEntry = updatedState[runUuid][key][rangeKey];
         updatedState[runUuid][key][rangeKey] = {
+          // In case of failure, retain previous data entry and set error
+          ...existingEntry,
           error: action.payload,
           refreshing: false,
           loading: false,
@@ -82,9 +82,10 @@ export const sampledMetricsByRunUuid = (
       const resultList = resultsByRunUuid[runUuid];
       if (updatedState[runUuid]?.[key]?.[rangeKey]) {
         updatedState[runUuid][key][rangeKey] = {
-          metricsHistory: resultList,
+          metricsHistory: resultList || [],
           loading: false,
           refreshing: false,
+          lastUpdatedTime: Date.now(),
         };
       }
     }

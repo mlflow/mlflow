@@ -5,6 +5,7 @@ import os
 import sys
 import types
 import uuid
+from pathlib import Path
 from subprocess import PIPE, Popen
 from typing import Any, Dict, List, Tuple
 from unittest import mock
@@ -25,13 +26,22 @@ import mlflow.pyfunc
 import mlflow.pyfunc.model
 import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 import mlflow.sklearn
+from mlflow.entities import Trace
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model, infer_signature
+from mlflow.models.dependencies_schemas import DependenciesSchemasType
 from mlflow.models.model import _DATABRICKS_FS_LOADER_MODULE
-from mlflow.models.resources import DatabricksServingEndpoint, DatabricksVectorSearchIndex
+from mlflow.models.resources import (
+    DatabricksFunction,
+    DatabricksServingEndpoint,
+    DatabricksSQLWarehouse,
+    DatabricksVectorSearchIndex,
+)
 from mlflow.models.utils import _read_example
+from mlflow.pyfunc.context import Context, set_prediction_context
 from mlflow.pyfunc.model import _load_pyfunc
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
+from mlflow.tracing.export.inference_table import pop_trace
 from mlflow.tracking.artifact_utils import (
     _download_artifact_from_uri,
 )
@@ -50,6 +60,7 @@ from tests.helper_functions import (
     assert_register_model_called_with_local_model_path,
     pyfunc_serve_and_score_model,
 )
+from tests.tracing.helper import get_traces
 
 
 def get_model_class():
@@ -163,7 +174,7 @@ def test_model_save_load(sklearn_knn_model, main_scoped_model_class, iris_data, 
 def test_pyfunc_model_log_load_no_active_run(sklearn_knn_model, main_scoped_model_class, iris_data):
     sklearn_artifact_path = "sk_model_no_run"
     with mlflow.start_run():
-        mlflow.sklearn.log_model(sk_model=sklearn_knn_model, artifact_path=sklearn_artifact_path)
+        mlflow.sklearn.log_model(sklearn_knn_model, sklearn_artifact_path)
         sklearn_model_uri = f"runs:/{mlflow.active_run().info.run_id}/{sklearn_artifact_path}"
 
     def test_predict(sk_model, model_input):
@@ -172,7 +183,7 @@ def test_pyfunc_model_log_load_no_active_run(sklearn_knn_model, main_scoped_mode
     pyfunc_artifact_path = "pyfunc_model"
     assert mlflow.active_run() is None
     mlflow.pyfunc.log_model(
-        artifact_path=pyfunc_artifact_path,
+        pyfunc_artifact_path,
         artifacts={"sk_model": sklearn_model_uri},
         python_model=main_scoped_model_class(test_predict),
     )
@@ -188,7 +199,7 @@ def test_pyfunc_model_log_load_no_active_run(sklearn_knn_model, main_scoped_mode
 def test_model_log_load(sklearn_knn_model, main_scoped_model_class, iris_data):
     sklearn_artifact_path = "sk_model"
     with mlflow.start_run():
-        mlflow.sklearn.log_model(sk_model=sklearn_knn_model, artifact_path=sklearn_artifact_path)
+        mlflow.sklearn.log_model(sklearn_knn_model, sklearn_artifact_path)
         sklearn_model_uri = f"runs:/{mlflow.active_run().info.run_id}/{sklearn_artifact_path}"
 
     def test_predict(sk_model, model_input):
@@ -197,7 +208,7 @@ def test_model_log_load(sklearn_knn_model, main_scoped_model_class, iris_data):
     pyfunc_artifact_path = "pyfunc_model"
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
-            artifact_path=pyfunc_artifact_path,
+            pyfunc_artifact_path,
             artifacts={"sk_model": sklearn_model_uri},
             python_model=main_scoped_model_class(test_predict),
         )
@@ -231,9 +242,7 @@ def test_python_model_predict_compatible_without_params(sklearn_knn_model, iris_
 
     sklearn_artifact_path = "sk_model"
     with mlflow.start_run():
-        model_info = mlflow.sklearn.log_model(
-            sk_model=sklearn_knn_model, artifact_path=sklearn_artifact_path
-        )
+        model_info = mlflow.sklearn.log_model(sklearn_knn_model, sklearn_artifact_path)
         sklearn_model_uri = model_info.model_uri
 
     def test_predict(sk_model, model_input):
@@ -242,7 +251,7 @@ def test_python_model_predict_compatible_without_params(sklearn_knn_model, iris_
     pyfunc_artifact_path = "pyfunc_model"
     with mlflow.start_run() as run:
         model_info = mlflow.pyfunc.log_model(
-            artifact_path=pyfunc_artifact_path,
+            pyfunc_artifact_path,
             artifacts={"sk_model": sklearn_model_uri},
             python_model=CustomSklearnModelWithoutParams(test_predict),
         )
@@ -293,9 +302,7 @@ def test_log_model_calls_register_model(sklearn_knn_model, main_scoped_model_cla
     with register_model_patch:
         sklearn_artifact_path = "sk_model_no_run"
         with mlflow.start_run():
-            mlflow.sklearn.log_model(
-                sk_model=sklearn_knn_model, artifact_path=sklearn_artifact_path
-            )
+            mlflow.sklearn.log_model(sklearn_knn_model, sklearn_artifact_path)
             sklearn_model_uri = f"runs:/{mlflow.active_run().info.run_id}/{sklearn_artifact_path}"
 
         def test_predict(sk_model, model_input):
@@ -304,14 +311,16 @@ def test_log_model_calls_register_model(sklearn_knn_model, main_scoped_model_cla
         pyfunc_artifact_path = "pyfunc_model"
         assert mlflow.active_run() is None
         mlflow.pyfunc.log_model(
-            artifact_path=pyfunc_artifact_path,
+            pyfunc_artifact_path,
             artifacts={"sk_model": sklearn_model_uri},
             python_model=main_scoped_model_class(test_predict),
             registered_model_name="AdsModel1",
         )
         model_uri = f"runs:/{mlflow.active_run().info.run_id}/{pyfunc_artifact_path}"
         assert_register_model_called_with_local_model_path(
-            mlflow.tracking._model_registry.fluent._register_model, model_uri, "AdsModel1"
+            mlflow.tracking._model_registry.fluent._register_model,
+            model_uri,
+            "AdsModel1",
         )
         mlflow.end_run()
 
@@ -321,9 +330,7 @@ def test_log_model_no_registered_model_name(sklearn_knn_model, main_scoped_model
     with register_model_patch:
         sklearn_artifact_path = "sk_model_no_run"
         with mlflow.start_run():
-            mlflow.sklearn.log_model(
-                sk_model=sklearn_knn_model, artifact_path=sklearn_artifact_path
-            )
+            mlflow.sklearn.log_model(sklearn_knn_model, sklearn_artifact_path)
             sklearn_model_uri = f"runs:/{mlflow.active_run().info.run_id}/{sklearn_artifact_path}"
 
         def test_predict(sk_model, model_input):
@@ -332,7 +339,7 @@ def test_log_model_no_registered_model_name(sklearn_knn_model, main_scoped_model
         pyfunc_artifact_path = "pyfunc_model"
         assert mlflow.active_run() is None
         mlflow.pyfunc.log_model(
-            artifact_path=pyfunc_artifact_path,
+            pyfunc_artifact_path,
             artifacts={"sk_model": sklearn_model_uri},
             python_model=main_scoped_model_class(test_predict),
         )
@@ -652,7 +659,9 @@ def test_log_model_with_pip_requirements(main_scoped_model_class, tmp_path):
     with mlflow.start_run():
         mlflow.pyfunc.log_model("model", python_model=python_model, pip_requirements=str(req_file))
         _assert_pip_requirements(
-            mlflow.get_artifact_uri("model"), [expected_mlflow_version, "a"], strict=True
+            mlflow.get_artifact_uri("model"),
+            [expected_mlflow_version, "a"],
+            strict=True,
         )
 
     # List of requirements
@@ -661,7 +670,9 @@ def test_log_model_with_pip_requirements(main_scoped_model_class, tmp_path):
             "model", python_model=python_model, pip_requirements=[f"-r {req_file}", "b"]
         )
         _assert_pip_requirements(
-            mlflow.get_artifact_uri("model"), [expected_mlflow_version, "a", "b"], strict=True
+            mlflow.get_artifact_uri("model"),
+            [expected_mlflow_version, "a", "b"],
+            strict=True,
         )
 
     # Constraints file
@@ -698,7 +709,8 @@ def test_log_model_with_extra_pip_requirements(
             extra_pip_requirements=str(req_file),
         )
         _assert_pip_requirements(
-            mlflow.get_artifact_uri("model"), [expected_mlflow_version, *default_reqs, "a"]
+            mlflow.get_artifact_uri("model"),
+            [expected_mlflow_version, *default_reqs, "a"],
         )
 
     # List of requirements
@@ -710,7 +722,8 @@ def test_log_model_with_extra_pip_requirements(
             extra_pip_requirements=[f"-r {req_file}", "b"],
         )
         _assert_pip_requirements(
-            mlflow.get_artifact_uri("model"), [expected_mlflow_version, *default_reqs, "a", "b"]
+            mlflow.get_artifact_uri("model"),
+            [expected_mlflow_version, *default_reqs, "a", "b"],
         )
 
     # Constraints file
@@ -733,13 +746,13 @@ def test_log_model_persists_specified_conda_env_in_mlflow_model_directory(
 ):
     sklearn_artifact_path = "sk_model"
     with mlflow.start_run():
-        mlflow.sklearn.log_model(sk_model=sklearn_knn_model, artifact_path=sklearn_artifact_path)
+        mlflow.sklearn.log_model(sklearn_knn_model, sklearn_artifact_path)
         sklearn_run_id = mlflow.active_run().info.run_id
 
     pyfunc_artifact_path = "pyfunc_model"
     with mlflow.start_run():
         mlflow.pyfunc.log_model(
-            artifact_path=pyfunc_artifact_path,
+            pyfunc_artifact_path,
             artifacts={
                 "sk_model": utils_get_artifact_uri(
                     artifact_path=sklearn_artifact_path, run_id=sklearn_run_id
@@ -771,13 +784,13 @@ def test_model_log_persists_requirements_in_mlflow_model_directory(
 ):
     sklearn_artifact_path = "sk_model"
     with mlflow.start_run():
-        mlflow.sklearn.log_model(sk_model=sklearn_knn_model, artifact_path=sklearn_artifact_path)
+        mlflow.sklearn.log_model(sklearn_knn_model, sklearn_artifact_path)
         sklearn_run_id = mlflow.active_run().info.run_id
 
     pyfunc_artifact_path = "pyfunc_model"
     with mlflow.start_run():
         mlflow.pyfunc.log_model(
-            artifact_path=pyfunc_artifact_path,
+            pyfunc_artifact_path,
             artifacts={
                 "sk_model": utils_get_artifact_uri(
                     artifact_path=sklearn_artifact_path, run_id=sklearn_run_id
@@ -815,13 +828,13 @@ def test_log_model_without_specified_conda_env_uses_default_env_with_expected_de
 ):
     sklearn_artifact_path = "sk_model"
     with mlflow.start_run():
-        mlflow.sklearn.log_model(sk_model=sklearn_knn_model, artifact_path=sklearn_artifact_path)
+        mlflow.sklearn.log_model(sklearn_knn_model, sklearn_artifact_path)
         sklearn_run_id = mlflow.active_run().info.run_id
 
     pyfunc_artifact_path = "pyfunc_model"
     with mlflow.start_run():
         mlflow.pyfunc.log_model(
-            artifact_path=pyfunc_artifact_path,
+            pyfunc_artifact_path,
             artifacts={
                 "sk_model": utils_get_artifact_uri(
                     artifact_path=sklearn_artifact_path, run_id=sklearn_run_id
@@ -884,34 +897,44 @@ def test_save_model_with_no_artifacts_does_not_produce_artifacts_dir(model_path)
     assert mlflow.pyfunc.model.CONFIG_KEY_ARTIFACTS not in pyfunc_conf
 
 
-def test_save_model_with_python_model_argument_of_invalid_type_raises_exeption(tmp_path):
+def test_save_model_with_python_model_argument_of_invalid_type_raises_exception(
+    tmp_path,
+):
     with pytest.raises(
-        MlflowException, match="must be a PythonModel instance or a callable object"
+        MlflowException,
+        match="must be a PythonModel instance, callable object, or path to a",
     ):
-        mlflow.pyfunc.save_model(
-            path=os.path.join(tmp_path, "model1"), python_model="not the right type"
-        )
+        mlflow.pyfunc.save_model(path=os.path.join(tmp_path, "model1"), python_model=5)
 
     with pytest.raises(
-        MlflowException, match="must be a PythonModel instance or a callable object"
+        MlflowException,
+        match="must be a PythonModel instance, callable object, or path to a",
     ):
         mlflow.pyfunc.save_model(
-            path=os.path.join(tmp_path, "model2"), python_model="not the right type"
+            path=os.path.join(tmp_path, "model2"), python_model=["not a python model"]
+        )
+    with pytest.raises(MlflowException, match="The provided model path"):
+        mlflow.pyfunc.save_model(
+            path=os.path.join(tmp_path, "model3"), python_model="not a valid filepath"
         )
 
 
 def test_save_model_with_unsupported_argument_combinations_throws_exception(model_path):
     with pytest.raises(
-        MlflowException, match="Either `loader_module` or `python_model` must be specified"
+        MlflowException,
+        match="Either `loader_module` or `python_model` must be specified",
     ) as exc_info:
         mlflow.pyfunc.save_model(
-            path=model_path, artifacts={"artifact": "/path/to/artifact"}, python_model=None
+            path=model_path,
+            artifacts={"artifact": "/path/to/artifact"},
+            python_model=None,
         )
 
     python_model = ModuleScopedSklearnModel(predict_fn=None)
     loader_module = __name__
     with pytest.raises(
-        MlflowException, match="The following sets of parameters cannot be specified together"
+        MlflowException,
+        match="The following sets of parameters cannot be specified together",
     ) as exc_info:
         mlflow.pyfunc.save_model(
             path=model_path, python_model=python_model, loader_module=loader_module
@@ -920,7 +943,8 @@ def test_save_model_with_unsupported_argument_combinations_throws_exception(mode
     assert str(loader_module) in str(exc_info)
 
     with pytest.raises(
-        MlflowException, match="The following sets of parameters cannot be specified together"
+        MlflowException,
+        match="The following sets of parameters cannot be specified together",
     ) as exc_info:
         mlflow.pyfunc.save_model(
             path=model_path,
@@ -930,7 +954,8 @@ def test_save_model_with_unsupported_argument_combinations_throws_exception(mode
         )
 
     with pytest.raises(
-        MlflowException, match="Either `loader_module` or `python_model` must be specified"
+        MlflowException,
+        match="Either `loader_module` or `python_model` must be specified",
     ):
         mlflow.pyfunc.save_model(path=model_path, python_model=None, loader_module=None)
 
@@ -943,7 +968,7 @@ def test_log_model_with_unsupported_argument_combinations_throws_exception():
     )
     with mlflow.start_run(), pytest.raises(MlflowException, match=match):
         mlflow.pyfunc.log_model(
-            artifact_path="pyfunc_model",
+            "pyfunc_model",
             artifacts={"artifact": "/path/to/artifact"},
             python_model=None,
         )
@@ -955,7 +980,7 @@ def test_log_model_with_unsupported_argument_combinations_throws_exception():
         match="The following sets of parameters cannot be specified together",
     ) as exc_info:
         mlflow.pyfunc.log_model(
-            artifact_path="pyfunc_model",
+            "pyfunc_model",
             python_model=python_model,
             loader_module=loader_module,
         )
@@ -963,19 +988,21 @@ def test_log_model_with_unsupported_argument_combinations_throws_exception():
     assert str(loader_module) in str(exc_info)
 
     with mlflow.start_run(), pytest.raises(
-        MlflowException, match="The following sets of parameters cannot be specified together"
+        MlflowException,
+        match="The following sets of parameters cannot be specified together",
     ) as exc_info:
         mlflow.pyfunc.log_model(
-            artifact_path="pyfunc_model",
+            "pyfunc_model",
             python_model=python_model,
             data_path="/path/to/data",
             artifacts={"artifact1": "/path/to/artifact"},
         )
 
     with mlflow.start_run(), pytest.raises(
-        MlflowException, match="Either `loader_module` or `python_model` must be specified"
+        MlflowException,
+        match="Either `loader_module` or `python_model` must be specified",
     ):
-        mlflow.pyfunc.log_model(artifact_path="pyfunc_model", python_model=None, loader_module=None)
+        mlflow.pyfunc.log_model("pyfunc_model", python_model=None, loader_module=None)
 
 
 def test_repr_can_be_called_withtout_run_id_or_artifact_path():
@@ -1097,7 +1124,7 @@ def test_model_with_code_path_containing_main(tmp_path):
     main.write_text("# empty main")
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
-            artifact_path="model",
+            "model",
             python_model=mlflow.pyfunc.model.PythonModel(),
             code_paths=[str(directory)],
         )
@@ -1133,7 +1160,7 @@ def test_error_when_both_code_path_and_code_paths_specified():
     with pytest.raises(MlflowException, match=error_msg):
         with mlflow.start_run():
             mlflow.pyfunc.log_model(
-                artifact_path="some_path",
+                "some_path",
                 code_path="some_code_path",
                 code_paths=["some_code_path"],
             )
@@ -1157,7 +1184,7 @@ def test_model_log_with_metadata():
     pyfunc_artifact_path = "pyfunc_model"
     with mlflow.start_run():
         mlflow.pyfunc.log_model(
-            artifact_path=pyfunc_artifact_path,
+            pyfunc_artifact_path,
             python_model=mlflow.pyfunc.model.PythonModel(),
             metadata={"metadata_key": "metadata_value"},
         )
@@ -1312,7 +1339,9 @@ def test_functional_python_model_list_dict_invalid_example(
 
 def test_functional_python_model_list_dict_to_list(tmp_path):
     mlflow.pyfunc.save_model(
-        path=tmp_path, python_model=list_dict_to_list, input_example=[{"a": "x", "b": "y"}]
+        path=tmp_path,
+        python_model=list_dict_to_list,
+        input_example=[{"a": "x", "b": "y"}],
     )
     model = Model.load(tmp_path)
     assert model.signature.inputs.to_dict() == [
@@ -1413,7 +1442,9 @@ def test_functional_python_model_infer_requirements(tmp_path):
 
 def test_functional_python_model_throws_when_required_arguments_are_missing(tmp_path):
     mlflow.pyfunc.save_model(
-        path=tmp_path / uuid.uuid4().hex, python_model=requires_sklearn, input_example=["a"]
+        path=tmp_path / uuid.uuid4().hex,
+        python_model=requires_sklearn,
+        input_example=["a"],
     )
     mlflow.pyfunc.save_model(
         path=tmp_path / uuid.uuid4().hex,
@@ -1450,14 +1481,17 @@ def test_python_model_predict_with_params():
 
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
+            "test_model",
             python_model=AnnotatedPythonModel(),
-            artifact_path="test_model",
             signature=signature,
         )
 
     loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
     assert loaded_model.predict(["a", "b"], params={"foo": [0, 1]}) == ["a", "b"]
-    assert loaded_model.predict(["a", "b"], params={"foo": np.array([0, 1])}) == ["a", "b"]
+    assert loaded_model.predict(["a", "b"], params={"foo": np.array([0, 1])}) == [
+        "a",
+        "b",
+    ]
 
 
 def test_artifact_path_posix(sklearn_knn_model, main_scoped_model_class, tmp_path):
@@ -1489,7 +1523,7 @@ def test_load_model_fails_for_feature_store_models(tmp_path):
 
     with mlflow.start_run() as run:
         mlflow.pyfunc.log_model(
-            artifact_path="model",
+            "model",
             data_path=feature_store,
             loader_module=_DATABRICKS_FS_LOADER_MODULE,
             code_paths=[__file__],
@@ -1508,8 +1542,8 @@ def test_pyfunc_model_infer_signature_from_type_hints(model_path):
 
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
+            "test_model",
             python_model=TestModel(),
-            artifact_path="test_model",
             input_example=["a"],
         )
     pyfunc_model = mlflow.pyfunc.load_model(model_info.model_uri)
@@ -1548,6 +1582,22 @@ def test_streamable_model_save_load(iris_data, tmp_path):
     assert list(stream_result) == ["test1", "test2"]
 
 
+def test_streamable_model_save_load(tmp_path):
+    pyfunc_model_path = os.path.join(tmp_path, "pyfunc_model")
+
+    mlflow.pyfunc.save_model(
+        path=pyfunc_model_path,
+        python_model="tests/pyfunc/sample_code/streamable_model_code.py",
+    )
+
+    loaded_pyfunc_model = mlflow.pyfunc.load_model(model_uri=pyfunc_model_path)
+
+    stream_result = loaded_pyfunc_model.predict_stream("single-input")
+    assert isinstance(stream_result, types.GeneratorType)
+
+    assert list(stream_result) == ["test1", "test2"]
+
+
 def test_model_save_load_with_resources(tmp_path):
     pyfunc_model_path = os.path.join(tmp_path, "pyfunc_model")
     pyfunc_model_path_2 = os.path.join(tmp_path, "pyfunc_model_2")
@@ -1561,6 +1611,11 @@ def test_model_save_load_with_resources(tmp_path):
                 {"name": "azure-eastus-model-serving-2_vs_endpoint"},
             ],
             "vector_search_index": [{"name": "rag.studio_bugbash.databricks_docs_index"}],
+            "sql_warehouse": [{"name": "testid"}],
+            "function": [
+                {"name": "rag.studio.test_function_a"},
+                {"name": "rag.studio.test_function_b"},
+            ],
         },
     }
     mlflow.pyfunc.save_model(
@@ -1572,6 +1627,9 @@ def test_model_save_load_with_resources(tmp_path):
             DatabricksServingEndpoint(endpoint_name="databricks-bge-large-en"),
             DatabricksServingEndpoint(endpoint_name="azure-eastus-model-serving-2_vs_endpoint"),
             DatabricksVectorSearchIndex(index_name="rag.studio_bugbash.databricks_docs_index"),
+            DatabricksSQLWarehouse(warehouse_id="testid"),
+            DatabricksFunction(function_name="rag.studio.test_function_a"),
+            DatabricksFunction(function_name="rag.studio.test_function_b"),
         ],
     )
 
@@ -1590,6 +1648,11 @@ def test_model_save_load_with_resources(tmp_path):
                 - name: databricks-mixtral-8x7b-instruct
                 - name: databricks-bge-large-en
                 - name: azure-eastus-model-serving-2_vs_endpoint
+                sql_warehouse:
+                - name: testid
+                function:
+                - name: rag.studio.test_function_a
+                - name: rag.studio.test_function_b
             """
         )
 
@@ -1616,17 +1679,25 @@ def test_model_log_with_resources(tmp_path):
                 {"name": "azure-eastus-model-serving-2_vs_endpoint"},
             ],
             "vector_search_index": [{"name": "rag.studio_bugbash.databricks_docs_index"}],
+            "sql_warehouse": [{"name": "testid"}],
+            "function": [
+                {"name": "rag.studio.test_function_a"},
+                {"name": "rag.studio.test_function_b"},
+            ],
         },
     }
     with mlflow.start_run() as run:
         mlflow.pyfunc.log_model(
-            artifact_path=pyfunc_artifact_path,
+            pyfunc_artifact_path,
             python_model=mlflow.pyfunc.model.PythonModel(),
             resources=[
                 DatabricksServingEndpoint(endpoint_name="databricks-mixtral-8x7b-instruct"),
                 DatabricksServingEndpoint(endpoint_name="databricks-bge-large-en"),
                 DatabricksServingEndpoint(endpoint_name="azure-eastus-model-serving-2_vs_endpoint"),
                 DatabricksVectorSearchIndex(index_name="rag.studio_bugbash.databricks_docs_index"),
+                DatabricksSQLWarehouse(warehouse_id="testid"),
+                DatabricksFunction(function_name="rag.studio.test_function_a"),
+                DatabricksFunction(function_name="rag.studio.test_function_b"),
             ],
         )
     pyfunc_model_uri = f"runs:/{run.info.run_id}/{pyfunc_artifact_path}"
@@ -1646,12 +1717,17 @@ def test_model_log_with_resources(tmp_path):
                 - name: databricks-mixtral-8x7b-instruct
                 - name: databricks-bge-large-en
                 - name: azure-eastus-model-serving-2_vs_endpoint
+                sql_warehouse:
+                - name: testid
+                function:
+                - name: rag.studio.test_function_a
+                - name: rag.studio.test_function_b
             """
         )
 
     with mlflow.start_run() as run:
         mlflow.pyfunc.log_model(
-            artifact_path=pyfunc_artifact_path,
+            pyfunc_artifact_path,
             python_model=mlflow.pyfunc.model.PythonModel(),
             resources=yaml_file,
         )
@@ -1659,3 +1735,267 @@ def test_model_log_with_resources(tmp_path):
     pyfunc_model_path = _download_artifact_from_uri(pyfunc_model_uri)
     reloaded_model = Model.load(os.path.join(pyfunc_model_path, "MLmodel"))
     assert reloaded_model.resources == expected_resources
+
+
+def test_pyfunc_as_code_log_and_load():
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model(
+            "model",
+            python_model="tests/pyfunc/sample_code/python_model.py",
+        )
+
+    loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
+    model_input = "asdf"
+    expected_output = f"This was the input: {model_input}"
+    assert loaded_model.predict(model_input) == expected_output
+
+
+def test_pyfunc_as_code_log_and_load_with_path():
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model(
+            "model",
+            python_model=Path("tests/pyfunc/sample_code/python_model.py"),
+        )
+
+    loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
+    model_input = "asdf"
+    expected_output = f"This was the input: {model_input}"
+    assert loaded_model.predict(model_input) == expected_output
+
+
+def test_pyfunc_as_code_with_config(tmp_path):
+    temp_file = tmp_path / "config.yml"
+    temp_file.write_text("timeout: 400")
+
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model(
+            "model",
+            python_model="tests/pyfunc/sample_code/python_model_with_config.py",
+            model_config=str(temp_file),
+        )
+
+    loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
+    model_input = "input"
+    expected_output = f"Predict called with input {model_input}, timeout 400"
+    assert loaded_model.predict(model_input) == expected_output
+
+
+def test_pyfunc_as_code_with_path_config(tmp_path):
+    temp_file = tmp_path / "config.yml"
+    temp_file.write_text("timeout: 400")
+
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model(
+            "model",
+            python_model="tests/pyfunc/sample_code/python_model_with_config.py",
+            model_config=temp_file,
+        )
+
+    loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
+    model_input = "input"
+    expected_output = f"Predict called with input {model_input}, timeout 400"
+    assert loaded_model.predict(model_input) == expected_output
+
+
+def test_pyfunc_as_code_with_dict_config():
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model(
+            "model",
+            python_model="tests/pyfunc/sample_code/python_model_with_config.py",
+            model_config={"timeout": 400},
+        )
+
+    loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
+    model_input = "input"
+    expected_output = f"Predict called with input {model_input}, timeout 400"
+    assert loaded_model.predict(model_input) == expected_output
+
+
+def test_pyfunc_as_code_log_and_load_with_code_paths():
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model(
+            "model",
+            python_model="tests/pyfunc/sample_code/python_model_with_utils.py",
+            code_paths=["tests/pyfunc/sample_code/utils.py"],
+        )
+
+    loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
+    model_input = "asdf"
+    expected_output = f"My utils function received this input: {model_input}"
+    assert loaded_model.predict(model_input) == expected_output
+
+
+def test_pyfunc_as_code_with_dependencies():
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model(
+            "model",
+            python_model="tests/pyfunc/sample_code/code_with_dependencies.py",
+            pip_requirements=["pandas"],
+        )
+
+    loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
+    model_input = "user_123"
+    expected_output = f"Input: {model_input}. Retriever called with ID: {model_input}. Output: 42."
+    assert loaded_model.predict(model_input) == expected_output
+
+    pyfunc_model_path = _download_artifact_from_uri(model_info.model_uri)
+    reloaded_model = Model.load(os.path.join(pyfunc_model_path, "MLmodel"))
+    assert reloaded_model.metadata["dependencies_schemas"] == {
+        "retrievers": [
+            {
+                "doc_uri": "doc-uri",
+                "name": "retriever",
+                "other_columns": ["column1", "column2"],
+                "primary_key": "primary-key",
+                "text_column": "text-column",
+            }
+        ]
+    }
+
+
+@pytest.mark.parametrize("is_in_db_model_serving", ["true", "false"])
+@pytest.mark.parametrize("stream", [True, False])
+def test_pyfunc_as_code_with_dependencies_store_dependencies_schemas_in_trace(
+    monkeypatch, is_in_db_model_serving, stream
+):
+    monkeypatch.setenv("IS_IN_DB_MODEL_SERVING_ENV", is_in_db_model_serving)
+    monkeypatch.setenv("ENABLE_MLFLOW_TRACING", "true")
+    is_in_db_model_serving = is_in_db_model_serving == "true"
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model(
+            "model",
+            python_model="tests/pyfunc/sample_code/code_with_dependencies.py",
+            pip_requirements=["pandas"],
+        )
+
+    loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
+    model_input = "user_123"
+    expected_output = f"Input: {model_input}. Retriever called with ID: {model_input}. Output: 42."
+    func = loaded_model.predict_stream if stream else loaded_model.predict
+
+    def _get_result(output):
+        return next(output) if stream else output
+
+    if is_in_db_model_serving:
+        with set_prediction_context(Context(request_id="1234")):
+            assert _get_result(func(model_input)) == expected_output
+    else:
+        assert _get_result(func(model_input)) == expected_output
+
+    pyfunc_model_path = _download_artifact_from_uri(model_info.model_uri)
+    reloaded_model = Model.load(os.path.join(pyfunc_model_path, "MLmodel"))
+    expected_dependencies_schemas = {
+        DependenciesSchemasType.RETRIEVERS.value: [
+            {
+                "doc_uri": "doc-uri",
+                "name": "retriever",
+                "other_columns": ["column1", "column2"],
+                "primary_key": "primary-key",
+                "text_column": "text-column",
+            }
+        ]
+    }
+    assert reloaded_model.metadata["dependencies_schemas"] == expected_dependencies_schemas
+
+    if is_in_db_model_serving:
+        trace_dict = pop_trace("1234")
+        trace = Trace.from_dict(trace_dict)
+        assert trace.info.request_id == "1234"
+    else:
+        trace = get_traces()[0]
+    assert trace.info.tags[DependenciesSchemasType.RETRIEVERS.value] == json.dumps(
+        expected_dependencies_schemas[DependenciesSchemasType.RETRIEVERS.value]
+    )
+
+
+@pytest.mark.parametrize("stream", [True, False])
+def test_no_traces_collected_for_pyfunc_as_code_with_dependencies_if_no_tracing_enabled(
+    monkeypatch, stream
+):
+    # This sets model without trace inside code_with_dependencies.py file
+    monkeypatch.setenv("TEST_TRACE", "false")
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model(
+            "model",
+            python_model="tests/pyfunc/sample_code/code_with_dependencies.py",
+            pip_requirements=["pandas"],
+        )
+
+    loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
+    model_input = "user_123"
+    expected_output = f"Input: {model_input}. Retriever called with ID: {model_input}. Output: 42."
+    if stream:
+        assert next(loaded_model.predict_stream(model_input)) == expected_output
+    else:
+        assert loaded_model.predict(model_input) == expected_output
+
+    pyfunc_model_path = _download_artifact_from_uri(model_info.model_uri)
+    reloaded_model = Model.load(os.path.join(pyfunc_model_path, "MLmodel"))
+    expected_dependencies_schemas = {
+        DependenciesSchemasType.RETRIEVERS.value: [
+            {
+                "doc_uri": "doc-uri",
+                "name": "retriever",
+                "other_columns": ["column1", "column2"],
+                "primary_key": "primary-key",
+                "text_column": "text-column",
+            }
+        ]
+    }
+    assert reloaded_model.metadata["dependencies_schemas"] == expected_dependencies_schemas
+
+    # no traces will be logged at all
+    traces = get_traces()
+    assert len(traces) == 0
+
+
+def test_pyfunc_as_code_log_and_load_wrong_path():
+    with pytest.raises(
+        MlflowException,
+        match="The provided model path",
+    ):
+        with mlflow.start_run():
+            mlflow.pyfunc.log_model(
+                "model",
+                python_model="asdf",
+            )
+
+
+def test_predict_as_code():
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model(
+            "model",
+            python_model="tests/pyfunc/sample_code/func_code.py",
+            input_example="string",
+        )
+
+    loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
+    model_input = "asdf"
+    expected_output = f"This was the input: {model_input}"
+    assert loaded_model.predict(model_input) == expected_output
+
+
+def test_predict_as_code_with_config():
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model(
+            "model",
+            python_model="tests/pyfunc/sample_code/func_code_with_config.py",
+            input_example="string",
+            model_config="tests/pyfunc/sample_code/config.yml",
+        )
+
+    loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
+    model_input = "asdf"
+    expected_output = f"This was the input: {model_input}, timeout 300"
+    assert loaded_model.predict(model_input) == expected_output
+
+
+def test_model_as_code_pycache_cleaned_up():
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model(
+            "model",
+            python_model="tests/pyfunc/sample_code/python_model.py",
+        )
+
+    path = _download_artifact_from_uri(model_info.model_uri)
+    assert list(Path(path).rglob("__pycache__")) == []

@@ -101,7 +101,7 @@ class DatasetSource:
         """Constructs an instance of the DatasetSource from a JSON string representation.
 
         Args:
-            source_dict: A JSON string representation of the DatasetSource.
+            source_json: A JSON string representation of the DatasetSource.
 
         Returns:
             A DatasetSource instance.

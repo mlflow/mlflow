@@ -3,6 +3,7 @@ from collections import namedtuple
 from unittest import mock
 
 import numpy as np
+import pandas as pd
 import pytest
 import sklearn.neighbors as knn
 from sklearn import datasets
@@ -13,10 +14,13 @@ from mlflow.entities.model_registry import ModelVersion
 from mlflow.exceptions import MlflowException
 from mlflow.models import add_libraries_to_model
 from mlflow.models.utils import (
+    _config_context,
+    _convert_llm_input_data,
     _enforce_array,
     _enforce_datatype,
     _enforce_object,
     _enforce_property,
+    _flatten_nested_params,
     _validate_model_code_from_notebook,
     get_model_version_from_model_uri,
 )
@@ -50,8 +54,8 @@ def test_adding_libraries_to_model_default(sklearn_knn_model):
     with mlflow.start_run():
         run_id = mlflow.tracking.fluent._get_or_start_run().info.run_id
         mlflow.sklearn.log_model(
-            sk_model=sklearn_knn_model.model,
-            artifact_path=artifact_path,
+            sklearn_knn_model.model,
+            artifact_path,
             registered_model_name=model_name,
         )
 
@@ -74,8 +78,8 @@ def test_adding_libraries_to_model_new_run(sklearn_knn_model):
     with mlflow.start_run():
         original_run_id = mlflow.tracking.fluent._get_or_start_run().info.run_id
         mlflow.sklearn.log_model(
-            sk_model=sklearn_knn_model.model,
-            artifact_path=artifact_path,
+            sklearn_knn_model.model,
+            artifact_path,
             registered_model_name=model_name,
         )
 
@@ -101,8 +105,8 @@ def test_adding_libraries_to_model_run_id_passed(sklearn_knn_model):
     with mlflow.start_run():
         original_run_id = mlflow.tracking.fluent._get_or_start_run().info.run_id
         mlflow.sklearn.log_model(
-            sk_model=sklearn_knn_model.model,
-            artifact_path=artifact_path,
+            sklearn_knn_model.model,
+            artifact_path,
             registered_model_name=model_name,
         )
 
@@ -129,8 +133,8 @@ def test_adding_libraries_to_model_new_model_name(sklearn_knn_model):
     # Log a model
     with mlflow.start_run():
         mlflow.sklearn.log_model(
-            sk_model=sklearn_knn_model.model,
-            artifact_path=artifact_path,
+            sklearn_knn_model.model,
+            artifact_path,
             registered_model_name=model_name,
         )
 
@@ -157,8 +161,8 @@ def test_adding_libraries_to_model_when_version_source_None(sklearn_knn_model):
     with mlflow.start_run():
         original_run_id = mlflow.tracking.fluent._get_or_start_run().info.run_id
         mlflow.sklearn.log_model(
-            sk_model=sklearn_knn_model.model,
-            artifact_path=artifact_path,
+            sklearn_knn_model.model,
+            artifact_path,
             registered_model_name=model_name,
         )
 
@@ -436,12 +440,15 @@ def test_model_code_validation():
     # Invalid code with dbutils
     invalid_code = "dbutils.library.restartPython()\nsome_python_variable = 5"
 
-    with pytest.raises(
-        ValueError, match="The model file uses 'dbutils' command which is not supported."
-    ):
+    with mock.patch("mlflow.models.utils._logger.warning") as mock_warning:
         _validate_model_code_from_notebook(invalid_code)
+        mock_warning.assert_called_once_with(
+            "The model file uses 'dbutils' commands which are not supported. To ensure your "
+            "code functions correctly, make sure that it does not rely on these dbutils "
+            "commands for correctness."
+        )
 
-    # Code with commended magic commands displays warning
+    # Code with commented magic commands displays warning
     warning_code = "# dbutils.library.restartPython()\n# MAGIC %run ../wheel_installer"
 
     with mock.patch("mlflow.models.utils._logger.warning") as mock_warning:
@@ -451,6 +458,12 @@ def test_model_code_validation():
             "functions correctly, make sure that it does not rely on these magic commands for "
             "correctness."
         )
+
+    # Code with commented pip magic commands does not warn
+    warning_code = "# MAGIC %pip install mlflow"
+    with mock.patch("mlflow.models.utils._logger.warning") as mock_warning:
+        _validate_model_code_from_notebook(warning_code)
+        mock_warning.assert_not_called()
 
     # Test valid code
     valid_code = "some_valid_python_code = 'valid'"
@@ -471,3 +484,108 @@ def test_model_code_validation():
         code_with_magic_command
     ).decode("utf-8")
     assert validated_code_with_magic_command == expected_validated_code
+
+
+def test_config_context():
+    with _config_context("tests/langchain/config.yml"):
+        assert mlflow.models.model_config.__mlflow_model_config__ == "tests/langchain/config.yml"
+
+    assert mlflow.models.model_config.__mlflow_model_config__ is None
+
+
+def test_flatten_nested_params():
+    nested_params = {
+        "a": 1,
+        "b": {"c": 2, "d": {"e": 3}},
+        "f": {"g": {"h": 4}},
+    }
+    expected_flattened_params = {
+        "a": 1,
+        "b.c": 2,
+        "b.d.e": 3,
+        "f.g.h": 4,
+    }
+    assert _flatten_nested_params(nested_params, sep=".") == expected_flattened_params
+    assert _flatten_nested_params(nested_params, sep="/") == {
+        "a": 1,
+        "b/c": 2,
+        "b/d/e": 3,
+        "f/g/h": 4,
+    }
+    assert _flatten_nested_params({}) == {}
+
+    params = {"a": 1, "b": 2, "c": 3}
+    assert _flatten_nested_params(params) == params
+
+    params = {
+        "a": 1,
+        "b": {"c": 2, "d": {"e": 3, "f": [1, 2, 3]}, "g": "hello"},
+        "h": {"i": None},
+    }
+    expected_flattened_params = {
+        "a": 1,
+        "b/c": 2,
+        "b/d/e": 3,
+        "b/d/f": [1, 2, 3],
+        "b/g": "hello",
+        "h/i": None,
+    }
+    assert _flatten_nested_params(params) == expected_flattened_params
+
+    nested_params = {1: {2: {3: 4}}, "a": {"b": {"c": 5}}}
+    expected_flattened_params_mixed = {
+        "1/2/3": 4,
+        "a/b/c": 5,
+    }
+    assert _flatten_nested_params(nested_params) == expected_flattened_params_mixed
+
+    rag_params = {
+        "workspace_url": "https://e2-dogfood.staging.cloud.databricks.com",
+        "vector_search_endpoint_name": "dbdemos_vs_endpoint",
+        "vector_search_index": "monitoring.rag.databricks_docs_index",
+        "embedding_model_endpoint_name": "databricks-bge-large-en",
+        "embedding_model_query_instructions": "Represent this sentence for searching",
+        "llm_model": "databricks-dbrx-instruct",
+        "llm_prompt_template": "You are a trustful assistant for Databricks users.",
+        "retriever_config": {"k": 5, "use_mmr": "false"},
+        "llm_parameters": {"temperature": 0.01, "max_tokens": 200},
+        "llm_prompt_template_variables": ["chat_history", "context", "question"],
+        "secret_scope": "dbdemos",
+        "secret_key": "rag_sunish",
+    }
+
+    expected_rag_flattened_params = {
+        "workspace_url": "https://e2-dogfood.staging.cloud.databricks.com",
+        "vector_search_endpoint_name": "dbdemos_vs_endpoint",
+        "vector_search_index": "monitoring.rag.databricks_docs_index",
+        "embedding_model_endpoint_name": "databricks-bge-large-en",
+        "embedding_model_query_instructions": "Represent this sentence for searching",
+        "llm_model": "databricks-dbrx-instruct",
+        "llm_prompt_template": "You are a trustful assistant for Databricks users.",
+        "retriever_config/k": 5,
+        "retriever_config/use_mmr": "false",
+        "llm_parameters/temperature": 0.01,
+        "llm_parameters/max_tokens": 200,
+        "llm_prompt_template_variables": ["chat_history", "context", "question"],
+        "secret_scope": "dbdemos",
+        "secret_key": "rag_sunish",
+    }
+
+    assert _flatten_nested_params(rag_params) == expected_rag_flattened_params
+
+
+@pytest.mark.parametrize(
+    ("data", "target", "target_type"),
+    [
+        (pd.DataFrame([{"a": [1, 2, 3]}]), [{"a": [1, 2, 3]}], list),
+        (pd.DataFrame([{"a": np.array([1, 2, 3])}]), [{"a": [1, 2, 3]}], list),
+        (pd.DataFrame([{0: np.array(["abc"])[0]}]), ["abc"], list),
+        (np.array([1, 2, 3]), [1, 2, 3], list),
+        (np.array([123])[0], 123, int),
+        (np.array(["abc"])[0], "abc", str),
+    ],
+)
+def test_convert_llm_input_data(data, target, target_type):
+    result = _convert_llm_input_data(data)
+    assert result == target
+    assert type(result) == target_type

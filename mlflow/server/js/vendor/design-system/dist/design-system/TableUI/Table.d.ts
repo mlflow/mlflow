@@ -2,9 +2,9 @@ import type { CSSProperties } from 'react';
 import React from 'react';
 import type { HTMLDataAttributes } from '../types';
 export declare const TableContext: React.Context<{
-    size: 'default' | 'small';
-    someRowsSelected?: boolean | undefined;
-    grid?: boolean | undefined;
+    size: "default" | "small";
+    someRowsSelected?: boolean;
+    grid?: boolean;
 }>;
 export interface TableProps extends HTMLDataAttributes {
     size?: 'default' | 'small';

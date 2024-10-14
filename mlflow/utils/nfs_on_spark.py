@@ -4,7 +4,7 @@ import uuid
 
 from mlflow.utils._spark_utils import _get_active_spark_session
 from mlflow.utils.databricks_utils import (
-    _get_dbutils,
+    get_databricks_nfs_temp_dir,
     is_in_databricks_runtime,
     is_in_databricks_serverless,
 )
@@ -35,8 +35,7 @@ def get_nfs_cache_root_dir():
             )
         if nfs_enabled:
             try:
-                # The directory `getReplNFSTempDir` returns has read/write permissions.
-                return _get_dbutils().entry_point.getReplNFSTempDir()
+                return get_databricks_nfs_temp_dir()
             except Exception:
                 nfs_root_dir = "/local_disk0/.ephemeral_nfs"
                 # Test whether the NFS directory is writable.

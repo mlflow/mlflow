@@ -187,7 +187,7 @@ CREATE TABLE params (
 
 CREATE TABLE tags (
 	key VARCHAR(250) NOT NULL,
-	value VARCHAR(5000),
+	value VARCHAR(8000),
 	run_uuid VARCHAR(32) NOT NULL,
 	CONSTRAINT tag_pk PRIMARY KEY (key, run_uuid),
 	FOREIGN KEY(run_uuid) REFERENCES runs (run_uuid)
@@ -199,7 +199,7 @@ CREATE TABLE trace_request_metadata (
 	value VARCHAR(8000),
 	request_id VARCHAR(50) NOT NULL,
 	CONSTRAINT trace_request_metadata_pk PRIMARY KEY (key, request_id),
-	CONSTRAINT fk_trace_request_metadata_request_id FOREIGN KEY(request_id) REFERENCES trace_info (request_id)
+	CONSTRAINT fk_trace_request_metadata_request_id FOREIGN KEY(request_id) REFERENCES trace_info (request_id) ON DELETE CASCADE
 )
 
 
@@ -208,6 +208,6 @@ CREATE TABLE trace_tags (
 	value VARCHAR(8000),
 	request_id VARCHAR(50) NOT NULL,
 	CONSTRAINT trace_tag_pk PRIMARY KEY (key, request_id),
-	CONSTRAINT fk_trace_tags_request_id FOREIGN KEY(request_id) REFERENCES trace_info (request_id)
+	CONSTRAINT fk_trace_tags_request_id FOREIGN KEY(request_id) REFERENCES trace_info (request_id) ON DELETE CASCADE
 )
 

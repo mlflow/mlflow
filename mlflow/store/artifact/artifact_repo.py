@@ -3,6 +3,7 @@ import logging
 import os
 import posixpath
 import tempfile
+import traceback
 from abc import ABC, ABCMeta, abstractmethod
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from contextlib import contextmanager
@@ -11,9 +12,9 @@ from typing import Any, Dict, List, Optional
 
 from mlflow.entities.file_info import FileInfo
 from mlflow.entities.multipart_upload import CreateMultipartUploadResponse, MultipartUploadPart
-from mlflow.environment_variables import MLFLOW_ENABLE_ARTIFACTS_PROGRESS_BAR
 from mlflow.exceptions import MlflowException, MlflowTraceDataCorrupted, MlflowTraceDataNotFound
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, RESOURCE_DOES_NOT_EXIST
+from mlflow.tracing.artifact_utils import TRACE_DATA_FILE_NAME
 from mlflow.utils.annotations import developer_stable
 from mlflow.utils.async_logging.async_artifacts_logging_queue import AsyncArtifactsLoggingQueue
 from mlflow.utils.file_utils import ArtifactProgressBar, create_tmp_dir
@@ -28,7 +29,6 @@ assert _NUM_MAX_THREADS >= _NUM_MAX_THREADS_PER_CPU
 assert _NUM_MAX_THREADS_PER_CPU > 0
 # Default number of CPUs to assume on the machine if unavailable to fetch it using os.cpu_count()
 _NUM_DEFAULT_CPUS = _NUM_MAX_THREADS // _NUM_MAX_THREADS_PER_CPU
-TRACE_DATA_FILE_NAME = "traces.json"
 _logger = logging.getLogger(__name__)
 
 
@@ -69,7 +69,9 @@ class ArtifactRepository:
         self._async_logging_queue = AsyncArtifactsLoggingQueue(log_artifact_handler)
 
     def _create_thread_pool(self):
-        return ThreadPoolExecutor(max_workers=self.max_workers)
+        return ThreadPoolExecutor(
+            max_workers=self.max_workers, thread_name_prefix=f"Mlflow{self.__class__.__name__}"
+        )
 
     def flush_async_logging(self):
         """
@@ -258,12 +260,8 @@ class ArtifactRepository:
 
         # Wait for downloads to complete and collect failures
         failed_downloads = {}
+        tracebacks = {}
         with ArtifactProgressBar.files(desc="Downloading artifacts", total=len(futures)) as pbar:
-            if len(futures) >= 10 and pbar.pbar:
-                _logger.info(
-                    "The progress bar can be disabled by setting the environment "
-                    f"variable {MLFLOW_ENABLE_ARTIFACTS_PROGRESS_BAR} to false"
-                )
             for f in as_completed(futures):
                 try:
                     f.result()
@@ -271,11 +269,17 @@ class ArtifactRepository:
                 except Exception as e:
                     path = futures[f]
                     failed_downloads[path] = e
+                    tracebacks[path] = traceback.format_exc()
 
         if failed_downloads:
-            template = "##### File {path} #####\n{error}"
+            if _logger.isEnabledFor(logging.DEBUG):
+                template = "##### File {path} #####\n{error}\nTraceback:\n{traceback}\n"
+            else:
+                template = "##### File {path} #####\n{error}"
+
             failures = "\n".join(
-                template.format(path=path, error=error) for path, error in failed_downloads.items()
+                template.format(path=path, error=error, traceback=tracebacks[path])
+                for path, error in failed_downloads.items()
             )
             raise MlflowException(
                 message=(
@@ -327,7 +331,12 @@ class ArtifactRepository:
         """
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_file = Path(temp_dir, TRACE_DATA_FILE_NAME)
-            self._download_file(TRACE_DATA_FILE_NAME, temp_file)
+            try:
+                self._download_file(TRACE_DATA_FILE_NAME, temp_file)
+            except Exception as e:
+                # `MlflowTraceDataNotFound` is caught in `TrackingServiceClient.search_traces` and
+                # is used to filter out traces with failed trace data download.
+                raise MlflowTraceDataNotFound(artifact_path=TRACE_DATA_FILE_NAME) from e
             return try_read_trace_data(temp_file)
 
     def upload_trace_data(self, trace_data: str) -> None:

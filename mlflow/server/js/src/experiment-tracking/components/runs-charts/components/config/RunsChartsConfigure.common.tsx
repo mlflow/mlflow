@@ -1,4 +1,4 @@
-import { LegacySelect, Typography } from '@databricks/design-system';
+import { LegacySelect, Typography, useDesignSystemTheme } from '@databricks/design-system';
 import React, { ComponentProps, PropsWithChildren } from 'react';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { makeCanonicalSortKey } from '../../../experiment-page/utils/experimentPage.common-utils';
@@ -10,16 +10,19 @@ import { shouldUseNewRunRowsVisibilityModel } from '../../../../../common/utils/
  */
 export const RunsChartsConfigureField = ({
   title,
+  compact = false,
   children,
 }: PropsWithChildren<{
-  title: string;
+  title: React.ReactNode;
+  compact?: boolean;
 }>) => {
+  const { theme } = useDesignSystemTheme();
   return (
     <div
-      css={(theme) => ({ marginBottom: theme.spacing.md * 2 })}
+      css={{ marginBottom: compact ? theme.spacing.sm : theme.spacing.md * 2 }}
       data-testid="experiment-view-compare-runs-config-field"
     >
-      <Typography.Title level={4}>{title}:</Typography.Title>
+      <Typography.Title level={4}>{title}</Typography.Title>
       {children}
     </div>
   );

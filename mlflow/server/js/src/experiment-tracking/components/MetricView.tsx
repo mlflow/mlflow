@@ -90,7 +90,7 @@ export class MetricViewImpl extends Component<MetricViewImplProps> {
       return <Link to={Routes.getCompareExperimentsPageRoute(experimentIds)}>{text}</Link>;
     }
 
-    return <Link to={Routes.getExperimentPageRoute(experimentIds[0])}>{experiments[0].getName()}</Link>;
+    return <Link to={Routes.getExperimentPageRoute(experimentIds[0])}>{experiments[0].name}</Link>;
   }
 
   render() {

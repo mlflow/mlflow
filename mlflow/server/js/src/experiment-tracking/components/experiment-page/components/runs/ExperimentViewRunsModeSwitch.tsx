@@ -1,27 +1,27 @@
-import { Button, Popover, Tabs, Tag, Tooltip, Typography, useDesignSystemTheme } from '@databricks/design-system';
+import { Button, Popover, Tabs, Tag, LegacyTooltip, Typography, useDesignSystemTheme } from '@databricks/design-system';
 import React, { useState, useEffect, useCallback } from 'react';
 import { FormattedMessage } from 'react-intl';
-import { SearchExperimentRunsViewState } from '../../models/SearchExperimentRunsViewState';
+import { ExperimentPageViewState } from '../../models/ExperimentPageViewState';
 import { useExperimentViewLocalStore } from '../../hooks/useExperimentViewLocalStore';
-import { shouldEnableShareExperimentViewByTags } from '../../../../../common/utils/FeatureUtils';
 import type { ExperimentViewRunsCompareMode } from '../../../../types';
-import { PreviewBadge } from 'shared/building_blocks/PreviewBadge';
-import { useExperimentPageViewMode } from '../../hooks/useExperimentPageViewMode';
+import { PreviewBadge } from '@mlflow/mlflow/src/shared/building_blocks/PreviewBadge';
+import { getExperimentPageDefaultViewMode, useExperimentPageViewMode } from '../../hooks/useExperimentPageViewMode';
+import { shouldEnableTracingUI } from '../../../../../common/utils/FeatureUtils';
+import { useShouldShowCombinedRunsTab } from '../../hooks/useShouldShowCombinedRunsTab';
 
 const COMPARE_RUNS_TOOLTIP_STORAGE_KEY = 'compareRunsTooltip';
 const COMPARE_RUNS_TOOLTIP_STORAGE_ITEM = 'seenBefore';
 
 export interface ExperimentViewRunsModeSwitchProps {
-  compareRunsMode: ExperimentViewRunsCompareMode;
-  setCompareRunsMode: (newCompareRunsMode: ExperimentViewRunsCompareMode) => void;
-  viewState: SearchExperimentRunsViewState;
+  viewState?: ExperimentPageViewState;
   runsAreGrouped?: boolean;
+  hideBorder?: boolean;
 }
 
 const ChartViewButtonTooltip: React.FC<{
-  isComparingRuns: boolean;
+  isTableMode: boolean;
   multipleRunsSelected: boolean;
-}> = ({ multipleRunsSelected, isComparingRuns }) => {
+}> = ({ multipleRunsSelected, isTableMode }) => {
   const seenTooltipStore = useExperimentViewLocalStore(COMPARE_RUNS_TOOLTIP_STORAGE_KEY);
   const [isToolTipOpen, setToolTipOpen] = useState(
     multipleRunsSelected && !seenTooltipStore.getItem(COMPARE_RUNS_TOOLTIP_STORAGE_ITEM),
@@ -29,12 +29,12 @@ const ChartViewButtonTooltip: React.FC<{
 
   useEffect(() => {
     const hasSeenTooltipBefore = seenTooltipStore.getItem(COMPARE_RUNS_TOOLTIP_STORAGE_ITEM);
-    if (multipleRunsSelected && !isComparingRuns && !hasSeenTooltipBefore) {
+    if (multipleRunsSelected && isTableMode && !hasSeenTooltipBefore) {
       setToolTipOpen(true);
     } else {
       setToolTipOpen(false);
     }
-  }, [multipleRunsSelected, isComparingRuns, seenTooltipStore]);
+  }, [multipleRunsSelected, isTableMode, seenTooltipStore]);
 
   const updateIsTooltipOpen = useCallback(
     (isOpen) => {
@@ -76,76 +76,93 @@ const ChartViewButtonTooltip: React.FC<{
 };
 
 /**
- * Allows switching between "table", "chart" and "evaluation" modes of experiment view
+ * Allows switching between "table", "chart", "evaluation" and "traces" modes of experiment view
  */
 export const ExperimentViewRunsModeSwitch = ({
-  compareRunsMode: compareRunsModeFromProps,
-  setCompareRunsMode,
   viewState,
   runsAreGrouped,
+  hideBorder = true,
 }: ExperimentViewRunsModeSwitchProps) => {
-  const usingNewViewStateModel = shouldEnableShareExperimentViewByTags();
-  const [viewModeFromURL, setViewModeInURL] = useExperimentPageViewMode();
-
-  // In the new view state model, use the view mode serialized in the URL
-  const compareRunsMode = usingNewViewStateModel ? compareRunsModeFromProps : viewModeFromURL;
-
-  const isComparingRuns = compareRunsMode !== undefined;
+  const [viewMode, setViewModeInURL] = useExperimentPageViewMode();
   const { classNamePrefix } = useDesignSystemTheme();
-
-  const activeTab = (usingNewViewStateModel ? viewModeFromURL : compareRunsMode) || 'TABLE';
+  const currentViewMode = viewMode || getExperimentPageDefaultViewMode();
+  const showCombinedRuns = useShouldShowCombinedRunsTab();
+  const activeTab = showCombinedRuns && ['TABLE', 'CHART'].includes(currentViewMode) ? 'RUNS' : currentViewMode;
 
   return (
     <Tabs
       dangerouslyAppendEmotionCSS={{
         [`.${classNamePrefix}-tabs-nav`]: {
           marginBottom: 0,
-          '::before': { border: 'none' },
+          '::before': {
+            display: hideBorder ? 'none' : 'block',
+          },
         },
       }}
       activeKey={activeTab}
       onChange={(tabKey) => {
-        const newValue = (tabKey === 'TABLE' ? undefined : tabKey) as ExperimentViewRunsCompareMode;
-        if (usingNewViewStateModel) {
-          setViewModeInURL(newValue);
-        } else {
-          setCompareRunsMode(newValue);
+        const newValue = tabKey as ExperimentViewRunsCompareMode | 'RUNS';
+
+        if (activeTab === newValue) {
+          return;
         }
+
+        if (newValue === 'RUNS') {
+          return setViewModeInURL('TABLE');
+        }
+
+        setViewModeInURL(newValue);
       }}
     >
-      <Tabs.TabPane
-        tab={
-          <span data-testid="experiment-runs-mode-switch-list">
-            <FormattedMessage
-              defaultMessage="Table"
-              description="A button enabling table mode on the experiment page"
-            />
-          </span>
-        }
-        key="TABLE"
-      />
-      <Tabs.TabPane
-        tab={
-          <>
-            <span data-testid="experiment-runs-mode-switch-compare">
+      {showCombinedRuns ? (
+        <Tabs.TabPane
+          tab={
+            <span data-testid="experiment-runs-mode-switch-combined">
               <FormattedMessage
-                defaultMessage="Chart"
-                description="A button enabling compare runs (chart) mode on the experiment page"
+                defaultMessage="Runs"
+                description="A button enabling combined runs table and charts mode on the experiment page"
               />
             </span>
-            <ChartViewButtonTooltip
-              isComparingRuns={isComparingRuns}
-              multipleRunsSelected={Object.keys(viewState.runsSelected).length > 1}
-            />
-          </>
-        }
-        key="CHART"
-      />
+          }
+          key="RUNS"
+        />
+      ) : (
+        <>
+          <Tabs.TabPane
+            tab={
+              <span data-testid="experiment-runs-mode-switch-list">
+                <FormattedMessage
+                  defaultMessage="Table"
+                  description="A button enabling table mode on the experiment page"
+                />
+              </span>
+            }
+            key="TABLE"
+          />
+          <Tabs.TabPane
+            tab={
+              <>
+                <span data-testid="experiment-runs-mode-switch-compare">
+                  <FormattedMessage
+                    defaultMessage="Chart"
+                    description="A button enabling compare runs (chart) mode on the experiment page"
+                  />
+                </span>
+                <ChartViewButtonTooltip
+                  isTableMode={viewMode === 'TABLE'}
+                  multipleRunsSelected={viewState ? Object.keys(viewState.runsSelected).length > 1 : false}
+                />
+              </>
+            }
+            key="CHART"
+          />
+        </>
+      )}
 
       <Tabs.TabPane
         disabled={runsAreGrouped}
         tab={
-          <Tooltip
+          <LegacyTooltip
             title={
               runsAreGrouped ? (
                 <FormattedMessage
@@ -162,10 +179,24 @@ export const ExperimentViewRunsModeSwitch = ({
               />
               <PreviewBadge />
             </span>
-          </Tooltip>
+          </LegacyTooltip>
         }
         key="ARTIFACT"
       />
+      {shouldEnableTracingUI() && (
+        <Tabs.TabPane
+          tab={
+            <span data-testid="experiment-runs-mode-switch-traces">
+              <FormattedMessage
+                defaultMessage="Traces"
+                description="A button enabling traces mode on the experiment page"
+              />
+              <PreviewBadge />
+            </span>
+          }
+          key="TRACES"
+        />
+      )}
     </Tabs>
   );
 };

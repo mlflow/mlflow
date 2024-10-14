@@ -1,7 +1,7 @@
 import React from 'react';
 import { LoggingRunsDocUrl } from '../../../../../common/constants';
 import { ExperimentViewRunsEmptyTable } from './ExperimentViewRunsEmptyTable';
-import { mountWithIntl } from 'common/utils/TestUtils.enzyme';
+import { mountWithIntl } from '@mlflow/mlflow/src/common/utils/TestUtils.enzyme';
 
 describe('ExperimentRunsTableEmptyOverlay', () => {
   let wrapper;

@@ -1,7 +1,6 @@
-/// <reference types="react" />
 import type { UseComboboxReturnValue, UseMultipleSelectionReturnValue } from 'downshift';
 import type { TypeaheadComboboxInputProps } from './TypeaheadComboboxInput';
-export interface TypeaheadComboboxMultiSelectInputProps<T> extends TypeaheadComboboxInputProps<T> {
+export interface TypeaheadComboboxMultiSelectInputProps<T> extends Omit<TypeaheadComboboxInputProps<T>, 'componentId' | 'analyticsEvents'> {
     comboboxState: UseComboboxReturnValue<T>;
     multipleSelectionState: UseMultipleSelectionReturnValue<T>;
     selectedItems: T[];
@@ -11,6 +10,7 @@ export interface TypeaheadComboboxMultiSelectInputProps<T> extends TypeaheadComb
     showTagAfterValueCount?: number;
     width?: string | number;
     maxHeight?: string | number;
+    disableTooltip?: boolean;
 }
 export declare const TypeaheadComboboxMultiSelectInput: React.FC<TypeaheadComboboxMultiSelectInputProps<any>>;
 //# sourceMappingURL=TypeaheadComboboxMultiSelectInput.d.ts.map

@@ -1,4 +1,3 @@
-/// <reference types="react" />
 export interface DialogComboboxOptionListContextType {
     isInsideDialogComboboxOptionList?: boolean;
     lookAhead: string;

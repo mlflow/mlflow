@@ -1,6 +1,7 @@
 """
 The ``mlflow.sagemaker`` module provides an API for deploying MLflow models to Amazon SageMaker.
 """
+
 import json
 import logging
 import os
@@ -10,6 +11,7 @@ import sys
 import tarfile
 import time
 import urllib.parse
+import uuid
 from subprocess import Popen
 from typing import Any, Dict, List, Optional
 
@@ -32,7 +34,6 @@ from mlflow.models.container import (
 from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, RESOURCE_DOES_NOT_EXIST
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
-from mlflow.utils import get_unique_resource_id
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.proto_json_utils import dump_input_data
 
@@ -330,22 +331,28 @@ def _deploy(
             on the sagemaker endpoint.
             .. code-block:: python
                 :caption: Example
+
+                {
                     "AsyncInferenceConfig": {
-                        "ClientConfig": {
-                            "MaxConcurrentInvocationsPerInstance": 4
-                        },
+                        "ClientConfig": {"MaxConcurrentInvocationsPerInstance": 4},
                         "OutputConfig": {
                             "S3OutputPath": "s3://<path-to-output-bucket>",
                             "NotificationConfig": {},
                         },
                     }
+                }
+
         serverless_config: An optional dictionary specifying the serverless configuration
             .. code-block:: python
                 :caption: Example
+
+                {
                     "ServerlessConfig": {
                         "MemorySizeInMB": 2048,
                         "MaxConcurrency": 20,
                     }
+                }
+
         env: An optional dictionary of environment variables to set for the model.
         tags: An optional dictionary of tags to apply to the endpoint.
     """
@@ -1300,7 +1307,7 @@ def _make_tarfile(output_filename, source_dir):
             tar.add(os.path.join(source_dir, f), arcname=f)
 
 
-def _upload_s3(local_model_path, bucket, prefix, region_name, s3_client, **assume_role_credentials):
+def _upload_s3(local_model_path, bucket, prefix, region_name, s3_client, **assume_role_credentials):  # noqa: D417
     """
     Upload dir to S3 as .tar.gz.
 
@@ -1376,7 +1383,8 @@ def _truncate_name(name, max_length):
 
 
 def _get_unique_name(base_name, unique_suffix, unique_id_length=20):
-    unique_resource_string = f"{unique_suffix}{get_unique_resource_id(unique_id_length)}"
+    unique_id = uuid.uuid4().hex[:unique_id_length]
+    unique_resource_string = f"{unique_suffix}{unique_id}"
     max_length = 63 - len(unique_resource_string)
     return _truncate_name(base_name, max_length) + unique_resource_string
 
@@ -1556,7 +1564,7 @@ def _create_sagemaker_transform_job(
     return _SageMakerOperation(status_check_fn=status_check_fn, cleanup_fn=cleanup_fn)
 
 
-def _create_sagemaker_endpoint(
+def _create_sagemaker_endpoint(  # noqa: D417
     endpoint_name,
     model_name,
     model_s3_path,
@@ -1681,7 +1689,7 @@ def _create_sagemaker_endpoint(
     return _SageMakerOperation(status_check_fn=status_check_fn, cleanup_fn=cleanup_fn)
 
 
-def _update_sagemaker_endpoint(
+def _update_sagemaker_endpoint(  # noqa: D417
     endpoint_name,
     model_name,
     model_uri,
@@ -1899,7 +1907,7 @@ def _create_sagemaker_model(
     return sage_client.create_model(**create_model_args)
 
 
-def _delete_sagemaker_model(model_name, sage_client, s3_client):
+def _delete_sagemaker_model(model_name, sage_client, s3_client):  # noqa: D417
     """
     Args:
         sage_client: A boto3 client for SageMaker.
@@ -1925,7 +1933,7 @@ def _delete_sagemaker_model(model_name, sage_client, s3_client):
     return model_arn
 
 
-def _delete_sagemaker_endpoint_configuration(endpoint_config_name, sage_client):
+def _delete_sagemaker_endpoint_configuration(endpoint_config_name, sage_client):  # noqa: D417
     """
     Args:
         sage_client: A boto3 client for SageMaker.
@@ -1940,7 +1948,7 @@ def _delete_sagemaker_endpoint_configuration(endpoint_config_name, sage_client):
     return endpoint_config_info["EndpointConfigArn"]
 
 
-def _find_endpoint(endpoint_name, sage_client):
+def _find_endpoint(endpoint_name, sage_client):  # noqa: D417
     """
     Finds a SageMaker endpoint with the specified name in the caller's AWS account, returning a
     NoneType if the endpoint is not found.
@@ -1967,7 +1975,7 @@ def _find_endpoint(endpoint_name, sage_client):
             return None
 
 
-def _find_transform_job(job_name, sage_client):
+def _find_transform_job(job_name, sage_client):  # noqa: D417
     """
     Finds a SageMaker batch transform job with the specified name in the caller's AWS account,
     returning a NoneType if the transform job is not found.
@@ -1996,7 +2004,7 @@ def _find_transform_job(job_name, sage_client):
             return None
 
 
-def _does_model_exist(model_name, sage_client):
+def _does_model_exist(model_name, sage_client):  # noqa: D417
     """
     Determines whether a SageMaker model exists with the specified name in the caller's AWS account,
     returning True if the model exists, returning False if the model does not exist.
@@ -2786,7 +2794,7 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
                 message=f"There was an error while retrieving the deployment: {exc}\n"
             )
 
-    def predict(
+    def predict(  # noqa: D417
         self,
         deployment_name=None,
         inputs=None,

@@ -5,6 +5,7 @@ from unittest import mock
 import pytest
 
 from mlflow.models.signature import ModelSignature
+from mlflow.transformers import _try_import_conversational_pipeline
 from mlflow.transformers.signature import (
     _TEXT2TEXT_SIGNATURE,
     format_input_example_for_special_cases,
@@ -137,12 +138,14 @@ from mlflow.types.schema import ColSpec, DataType, Schema
     ],
 )
 def test_signature_inference(pipeline_name, example, expected_signature, request):
+    if pipeline_name == "conversational_pipeline" and _try_import_conversational_pipeline() is None:
+        pytest.skip("Conversation model is deprecated and removed.")
     pipeline = request.getfixturevalue(pipeline_name)
 
     default_signature = infer_or_get_default_signature(pipeline)
     assert default_signature == expected_signature
 
-    signature_from_input_example = infer_or_get_default_signature(pipeline, example)
+    signature_from_input_example = infer_or_get_default_signature(pipeline, example=example)
     assert signature_from_input_example == expected_signature
 
 

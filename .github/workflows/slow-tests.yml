@@ -6,7 +6,7 @@ on:
     paths:
       # Run this workflow in PR when relevant files change
       - ".github/workflows/slow-tests.yml"
-      - "tests/pyfunc/docker/test_docker.py"
+      - "tests/pyfunc/docker/**"
   workflow_dispatch:
     inputs:
       repository:
@@ -47,6 +47,12 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 120
     if: (github.event_name == 'schedule' && github.repository == 'mlflow-automation/mlflow') || github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && github.event.pull_request.draft == false)
+    strategy:
+      fail-fast: false
+      matrix:
+        group: [1, 2, 3]
+        include:
+          - splits: 3
     steps:
       - uses: actions/checkout@v4
         with:
@@ -54,6 +60,8 @@ jobs:
       - uses: ./.github/actions/free-disk-space
       - uses: ./.github/actions/untracked
       - uses: ./.github/actions/setup-python
+        with:
+          python-version: 3.9
       - uses: ./.github/actions/setup-pyenv
       - uses: ./.github/actions/setup-java
       - name: Install dependencies
@@ -61,9 +69,12 @@ jobs:
           python -m venv .venv
           source .venv/bin/activate
           source ./dev/install-common-deps.sh --ml
-          python -m pip install langchain_experimental
+          # transformers requires `tf-keras` when keras 3.0 is installed.
+          # See https://github.com/huggingface/transformers/issues/27377 for more details.
+          python -m pip install langchain_experimental tf-keras
+      - uses: ./.github/actions/show-versions
       - uses: ./.github/actions/pipdeptree
       - name: Run tests
         run: |
           source .venv/bin/activate
-          pytest tests/pyfunc/docker
+          pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} tests/pyfunc/docker

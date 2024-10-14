@@ -5,7 +5,8 @@ import { getLanguage } from '../../../common/utils/FileUtils';
 import { getArtifactContent, getArtifactLocationUrl } from '../../../common/utils/ArtifactUtils';
 import './ShowArtifactTextView.css';
 import { DesignSystemHocProps, WithDesignSystemThemeHoc } from '@databricks/design-system';
-import { shouldEnableLoggedArtifactTableView } from 'common/utils/FeatureUtils';
+import { ArtifactViewSkeleton } from './ArtifactViewSkeleton';
+import { ArtifactViewErrorState } from './ArtifactViewErrorState';
 
 const LARGE_ARTIFACT_SIZE = 100 * 1024;
 
@@ -52,10 +53,10 @@ class ShowArtifactTextView extends Component<Props, State> {
 
   render() {
     if (this.state.loading || this.state.path !== this.props.path) {
-      return <div className="artifact-text-view-loading">Loading...</div>;
+      return <ArtifactViewSkeleton className="artifact-text-view-loading" />;
     }
     if (this.state.error) {
-      return <div className="artifact-text-view-error">Oops we couldn't load your file because of an error.</div>;
+      return <ArtifactViewErrorState className="artifact-text-view-error" />;
     } else {
       const isLargeFile = (this.props.size || 0) > LARGE_ARTIFACT_SIZE;
       const language = isLargeFile ? 'text' : getLanguage(this.props.path);
@@ -70,7 +71,7 @@ class ShowArtifactTextView extends Component<Props, State> {
         height: '100%',
         padding: theme.spacing.xs,
         borderColor: theme.colors.borderDecorative,
-        border: shouldEnableLoggedArtifactTableView() ? 'none' : 'inherit',
+        border: 'none',
       };
       const renderedContent = this.state.text ? prettifyArtifactText(language, this.state.text) : this.state.text;
 

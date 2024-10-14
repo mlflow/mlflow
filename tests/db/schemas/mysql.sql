@@ -51,7 +51,7 @@ CREATE TABLE datasets (
 	digest VARCHAR(36) NOT NULL,
 	dataset_source_type VARCHAR(36) NOT NULL,
 	dataset_source TEXT NOT NULL,
-	dataset_schema TEXT,
+	dataset_schema MEDIUMTEXT,
 	dataset_profile MEDIUMTEXT,
 	PRIMARY KEY (experiment_id, name, digest),
 	CONSTRAINT datasets_ibfk_1 FOREIGN KEY(experiment_id) REFERENCES experiments (experiment_id)
@@ -198,7 +198,7 @@ CREATE TABLE trace_request_metadata (
 	value VARCHAR(8000),
 	request_id VARCHAR(50) NOT NULL,
 	CONSTRAINT trace_request_metadata_pk PRIMARY KEY (key, request_id),
-	CONSTRAINT fk_trace_request_metadata_request_id FOREIGN KEY(request_id) REFERENCES trace_info (request_id)
+	CONSTRAINT fk_trace_request_metadata_request_id FOREIGN KEY(request_id) REFERENCES trace_info (request_id) ON DELETE CASCADE
 )
 
 
@@ -207,5 +207,5 @@ CREATE TABLE trace_tags (
 	value VARCHAR(8000),
 	request_id VARCHAR(50) NOT NULL,
 	CONSTRAINT trace_tag_pk PRIMARY KEY (key, request_id),
-	CONSTRAINT fk_trace_tags_request_id FOREIGN KEY(request_id) REFERENCES trace_info (request_id)
+	CONSTRAINT fk_trace_tags_request_id FOREIGN KEY(request_id) REFERENCES trace_info (request_id) ON DELETE CASCADE
 )

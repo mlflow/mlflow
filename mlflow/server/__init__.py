@@ -20,10 +20,12 @@ from mlflow.server.handlers import (
     get_metric_history_bulk_handler,
     get_metric_history_bulk_interval_handler,
     get_model_version_artifact_handler,
+    get_trace_artifact_handler,
     search_datasets_handler,
     upload_artifact_handler,
 )
-from mlflow.utils.os import get_entry_points, is_windows
+from mlflow.utils.os import is_windows
+from mlflow.utils.plugins import get_entry_points
 from mlflow.utils.process import _exec_cmd
 from mlflow.version import VERSION
 
@@ -111,6 +113,14 @@ def serve_gateway_proxy():
 @app.route(_add_static_prefix("/ajax-api/2.0/mlflow/upload-artifact"), methods=["POST"])
 def serve_upload_artifact():
     return upload_artifact_handler()
+
+
+# Serve the "/get-trace-artifact" route to allow frontend to fetch trace artifacts
+# and render them in the Trace UI. The request body should contain the request_id
+# of the trace.
+@app.route(_add_static_prefix("/ajax-api/2.0/mlflow/get-trace-artifact"), methods=["GET"])
+def serve_get_trace_artifact():
+    return get_trace_artifact_handler()
 
 
 # We expect the react app to be built assuming it is hosted at /static-files, so that requests for
@@ -226,7 +236,7 @@ def _build_gunicorn_command(gunicorn_opts, host, port, workers, app_name):
     ]
 
 
-def _run_server(
+def _run_server(  # noqa: D417
     file_store_path,
     registry_store_uri,
     default_artifact_root,

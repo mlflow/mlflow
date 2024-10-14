@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "mlflow-skinny"
-version = "2.12.3.dev0"
+version = "2.17.1.dev0"
 description = "MLflow is an open source platform for the complete machine learning lifecycle"
 readme = "README.rst"
 keywords = ["mlflow", "ai", "databricks"]
@@ -25,21 +25,20 @@ dependencies = [
   "cachetools<6,>=5.0.0",
   "click<9,>=7.0",
   "cloudpickle<4",
-  "entrypoints<1",
+  "databricks-sdk<1,>=0.20.0",
   "gitpython<4,>=3.1.9",
-  "importlib_metadata<8,>=3.7.0,!=4.7.0",
-  "opentelemetry-api<3,>=1.0.0",
-  "opentelemetry-sdk<3,>=1.0.0",
+  "importlib_metadata<9,>=3.7.0,!=4.7.0",
+  "opentelemetry-api<3,>=1.9.0",
+  "opentelemetry-sdk<3,>=1.9.0",
   "packaging<25",
-  "protobuf<5,>=3.12.0",
-  "pytz<2025",
+  "protobuf<6,>=3.12.0",
   "pyyaml<7,>=5.1",
   "requests<3,>=2.17.3",
   "sqlparse<1,>=0.4.0",
 ]
 [[project.maintainers]]
 name = "Databricks"
-email = "mlflow-oss-maintainers@googlegroups.com "
+email = "mlflow-oss-maintainers@googlegroups.com"
 
 [project.license]
 file = "LICENSE.txt"
@@ -54,8 +53,6 @@ extras = [
   "azureml-core>=1.2.0",
   "pysftp",
   "kubernetes",
-  "mlserver>=1.2.0,!=1.3.1,<1.4.0",
-  "mlserver-mlflow>=1.2.0,!=1.3.1,<1.4.0",
   "virtualenv",
   "prometheus-flask-exporter",
 ]
@@ -65,6 +62,7 @@ databricks = [
   "boto3>1",
   "botocore",
 ]
+mlserver = ["mlserver>=1.2.0,!=1.3.1", "mlserver-mlflow>=1.2.0,!=1.3.1"]
 gateway = [
   "pydantic<3,>=1.0",
   "fastapi<1",
@@ -89,6 +87,7 @@ sqlserver = ["mlflow-dbstore"]
 aliyun-oss = ["aliyunstoreplugin"]
 xethub = ["mlflow-xethub"]
 jfrog = ["mlflow-jfrog-plugin"]
+langchain = ["langchain>=0.1.0,<=0.3.3"]
 
 [project.urls]
 homepage = "https://mlflow.org"

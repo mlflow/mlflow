@@ -81,6 +81,7 @@ async def test_chat():
                     "message": {
                         "role": "assistant",
                         "content": "\n\nThis is a test!",
+                        "tool_calls": None,
                     },
                     "finish_reason": None,
                     "index": 0,

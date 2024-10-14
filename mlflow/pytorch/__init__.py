@@ -7,6 +7,7 @@ PyTorch (native) format
 :py:mod:`mlflow.pyfunc`
     Produced for use by generic pyfunc-based deployment tools and batch inference.
 """
+
 from __future__ import annotations
 
 import atexit
@@ -227,6 +228,9 @@ def log_model(
         pip_requirements: {{ pip_requirements }}
         extra_pip_requirements: {{ extra_pip_requirements }}
         metadata: {{ metadata }}
+        client: :py:class:`MlflowClient <mlflow.client.MlflowClient>`
+            The client to use for logging models. The client's tracking and registry URIs
+            will be used. Default None to use the global URIs.
         kwargs: kwargs to pass to ``torch.save`` method.
 
     Returns:
@@ -447,18 +451,18 @@ def save_model(
     path = os.path.abspath(path)
     _validate_and_prepare_target_save_path(path)
 
-    if signature is None and input_example is not None:
+    if mlflow_model is None:
+        mlflow_model = Model()
+    saved_example = _save_example(mlflow_model, input_example, path)
+
+    if signature is None and saved_example is not None:
         wrapped_model = _PyTorchWrapper(pytorch_model, device="cpu")
-        signature = _infer_signature_from_input_example(input_example, wrapped_model)
+        signature = _infer_signature_from_input_example(saved_example, wrapped_model)
     elif signature is False:
         signature = None
 
-    if mlflow_model is None:
-        mlflow_model = Model()
     if signature is not None:
         mlflow_model.signature = signature
-    if input_example is not None:
-        _save_example(mlflow_model, input_example, path)
     if metadata is not None:
         mlflow_model.metadata = metadata
 
@@ -582,6 +586,7 @@ def _load_model(path, device=None, **kwargs):
     """
     Args:
         path: The path to a serialized PyTorch model.
+        device: If specified, load the model on the specified device.
         kwargs: Additional kwargs to pass to the PyTorch ``torch.load`` function.
     """
     import torch
@@ -700,7 +705,7 @@ def load_model(model_uri, dst_path=None, **kwargs):
     return _load_model(path=torch_model_artifacts_path, **kwargs)
 
 
-def _load_pyfunc(path, model_config=None):
+def _load_pyfunc(path, model_config=None):  # noqa: D417
     """
     Load PyFunc implementation. Called by ``pyfunc.load_model``.
 
@@ -734,6 +739,12 @@ class _PyTorchWrapper:
     def __init__(self, pytorch_model, device):
         self.pytorch_model = pytorch_model
         self.device = device
+
+    def get_raw_model(self):
+        """
+        Returns the underlying model.
+        """
+        return self.pytorch_model
 
     def predict(self, data, params: Optional[Dict[str, Any]] = None):
         """
@@ -929,9 +940,6 @@ def autolog(
     `torch.utils.tensorboard.SummaryWriter <https://pytorch.org/docs/stable/tensorboard.html>`_'s
     ``add_scalar`` and ``add_hparams`` methods to mlflow. In this case, there's also
     no notion of an "epoch".
-
-    .. Note:: Only pytorch-lightning modules between versions MIN_REQ_VERSION and
-        MAX_REQ_VERSION are known to be compatible with mlflow's autologging.
 
     Args:
         log_every_n_epoch: If specified, logs metrics once every `n` epochs. By default, metrics

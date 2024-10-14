@@ -1,4 +1,5 @@
 export * from './DialogCombobox';
+export * from './DialogComboboxAddButton';
 export * from './DialogComboboxContent';
 export * from './DialogComboboxCountBadge';
 export { EmptyResults as DialogComboboxEmpty } from '../_shared_/Combobox/EmptyResults';

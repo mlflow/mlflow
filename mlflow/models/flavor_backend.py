@@ -66,12 +66,14 @@ class FlavorBackend:
         """
 
     @abstractmethod
-    def build_image(self, model_uri, image_name, install_mlflow, mlflow_home, enable_mlserver):
+    def build_image(
+        self, model_uri, image_name, install_mlflow, mlflow_home, enable_mlserver, base_image=None
+    ):
         raise NotImplementedError
 
     @abstractmethod
     def generate_dockerfile(
-        self, model_uri, output_path, install_mlflow, mlflow_home, enable_mlserver
+        self, model_uri, output_path, install_mlflow, mlflow_home, enable_mlserver, base_image=None
     ):
         raise NotImplementedError
 

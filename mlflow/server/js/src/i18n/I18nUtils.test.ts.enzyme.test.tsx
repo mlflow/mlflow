@@ -149,10 +149,12 @@ describe('I18nUtils', () => {
       });
 
       // Now we should have mock messages (defined in setupTests.js)
-      expect(mockLookupFn).toBeCalledWith({
-        locale: 'en',
-        messages: { en: 'value', 'top-locale': 'en' },
-      });
+      expect(mockLookupFn).toBeCalledWith(
+        expect.objectContaining({
+          locale: 'en',
+          messages: { en: 'value', 'top-locale': 'en' },
+        }),
+      );
     });
 
     it('falls back to the default value when necessary', async () => {
@@ -173,10 +175,12 @@ describe('I18nUtils', () => {
       });
 
       // Now we should have fallback messages (empty set)
-      expect(mockLookupFn).toBeCalledWith({
-        locale: 'de-DE',
-        messages: {},
-      });
+      expect(mockLookupFn).toBeCalledWith(
+        expect.objectContaining({
+          locale: 'de-DE',
+          messages: {},
+        }),
+      );
 
       I18nUtils.initI18n = originalI18nUtils.initI18n;
     });

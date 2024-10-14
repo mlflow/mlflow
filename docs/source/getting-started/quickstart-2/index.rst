@@ -202,8 +202,8 @@ Compare the results
 -------------------
 
 Open the MLflow UI in your browser at the `MLFLOW_TRACKING_URI`. You should see a nested list of runs. In the
-default **Table view**, choose the **Columns** button and add the **Metrics | test_rmse** column and
-the **Parameters | lr** and **Parameters | momentum** column. To sort by RMSE ascending, click the **test_rmse**
+default **Table view**, choose the **Columns** button and add the **Metrics | eval_rmse** column and
+the **Parameters | lr** and **Parameters | momentum** column. To sort by RMSE ascending, click the **eval_rmse**
 column header. The best run typically has an RMSE on the **test** dataset of ~0.70. You can see the parameters
 of the best run in the **Parameters** column.
 
@@ -214,7 +214,7 @@ of the best run in the **Parameters** column.
 
 
 Choose **Chart view**. Choose the **Parallel coordinates** graph and configure it to show the **lr** and
-**momentum** coordinates and the **test_rmse** metric. Each line in this graph represents a run and associates
+**momentum** coordinates and the **eval_rmse** metric. Each line in this graph represents a run and associates
 each hyperparameter evaluation run's parameters to the evaluated error metric for the run.
 
 .. raw:: html

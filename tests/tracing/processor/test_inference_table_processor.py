@@ -28,7 +28,7 @@ def flask_request():
         yield request
 
 
-def test_on_start(clear_singleton, flask_request):
+def test_on_start(flask_request):
     # Root span should create a new trace on start
     span = create_mock_otel_span(
         trace_id=_TRACE_ID, span_id=1, parent_id=None, start_time=5_000_000
@@ -61,7 +61,7 @@ def test_on_start(clear_singleton, flask_request):
         assert trace.info.timestamp_ms == 5
 
 
-def test_on_end(clear_singleton):
+def test_on_end():
     trace_info = create_test_trace_info(_REQUEST_ID, 0)
     trace_manager = InMemoryTraceManager.get_instance()
     trace_manager.register_trace(_TRACE_ID, trace_info)

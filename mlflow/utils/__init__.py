@@ -1,9 +1,7 @@
-import base64
 import inspect
 import logging
 import socket
 import subprocess
-import uuid
 from contextlib import closing
 from itertools import islice
 from sys import version_info
@@ -19,37 +17,6 @@ _logger = logging.getLogger(__name__)
 
 def get_major_minor_py_version(py_version):
     return ".".join(py_version.split(".")[:2])
-
-
-def get_unique_resource_id(max_length=None):
-    """
-    Obtains a unique id that can be included in a resource name. This unique id is a valid
-    DNS subname.
-
-    Args:
-        max_length: The maximum length of the identifier.
-
-    Returns:
-        A unique identifier that can be appended to a user-readable resource name to avoid
-        naming collisions.
-    """
-    if max_length is not None and max_length <= 0:
-        raise ValueError(
-            "The specified maximum length for the unique resource id must be positive!"
-        )
-
-    uuid_bytes = uuid.uuid4().bytes
-    # Use base64 encoding to shorten the UUID length. Note that the replacement of the
-    # unsupported '+' symbol maintains uniqueness because the UUID byte string is of a fixed,
-    # 16-byte length
-    uuid_b64 = base64.b64encode(uuid_bytes)
-    # In Python3, `uuid_b64` is a `bytes` object. It needs to be
-    # converted to a string
-    uuid_b64 = uuid_b64.decode("ascii")
-    unique_id = uuid_b64.rstrip("=\n").replace("/", "-").replace("+", "AB").lower()
-    if max_length is not None:
-        unique_id = unique_id[: int(max_length)]
-    return unique_id
 
 
 def reraise(tp, value, tb=None):

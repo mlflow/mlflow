@@ -5,8 +5,6 @@ See the System Tags section in the MLflow Tracking documentation for information
 meaning of these tags.
 """
 
-from mlflow.tracing.constant import TRACE_SCHEMA_VERSION_KEY
-
 MLFLOW_EXPERIMENT_SOURCE_ID = "mlflow.experiment.sourceId"
 MLFLOW_EXPERIMENT_SOURCE_TYPE = "mlflow.experiment.sourceType"
 MLFLOW_RUN_NAME = "mlflow.runName"
@@ -82,7 +80,20 @@ MLFLOW_EXPERIMENT_PRIMARY_METRIC_GREATER_IS_BETTER = (
 LATEST_CHECKPOINT_ARTIFACT_TAG_KEY = "mlflow.latest_checkpoint_artifact"
 
 # A set of tags that cannot be updated by the user
-IMMUTABLE_TAGS = {MLFLOW_USER, MLFLOW_ARTIFACT_LOCATION, TRACE_SCHEMA_VERSION_KEY}
+IMMUTABLE_TAGS = {MLFLOW_USER, MLFLOW_ARTIFACT_LOCATION}
+
+# The list of tags generated from resolve_tags() that are required for tracing UI
+TRACE_RESOLVE_TAGS_ALLOWLIST = (
+    MLFLOW_DATABRICKS_NOTEBOOK_COMMAND_ID,
+    MLFLOW_DATABRICKS_NOTEBOOK_ID,
+    MLFLOW_DATABRICKS_NOTEBOOK_PATH,
+    MLFLOW_DATABRICKS_WEBAPP_URL,
+    MLFLOW_DATABRICKS_WORKSPACE_ID,
+    MLFLOW_DATABRICKS_WORKSPACE_URL,
+    MLFLOW_SOURCE_NAME,
+    MLFLOW_SOURCE_TYPE,
+    MLFLOW_USER,
+)
 
 
 def _get_run_name_from_tags(tags):

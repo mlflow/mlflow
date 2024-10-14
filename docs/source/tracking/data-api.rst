@@ -24,7 +24,6 @@ There are a number of concrete implementations of this abstract class, including
 - :py:class:`mlflow.data.pandas_dataset.PandasDataset`
 - :py:class:`mlflow.data.numpy_dataset.NumpyDataset`
 - :py:class:`mlflow.data.huggingface_dataset.HuggingFaceDataset`
-- :py:class:`mlflow.data.spark_dataset.SparkDataset`
 - :py:class:`mlflow.data.tensorflow_dataset.TensorFlowDataset`
 
 The following example demonstrates how to construct a :py:class:`mlflow.data.pandas_dataset.PandasDataset` object from a Pandas DataFrame:
@@ -132,7 +131,7 @@ access the Dataset's source via the following API:
    # Loading the dataset's source
    dataset_source = mlflow.data.get_source(logged_dataset)
 
-   local_dataset = retrieved_data.load()
+   local_dataset = dataset_source.load()
 
    print(f"The local file where the data has been downloaded to: {local_dataset}")
 

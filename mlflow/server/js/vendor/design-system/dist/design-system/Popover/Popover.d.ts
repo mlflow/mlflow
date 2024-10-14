@@ -1,9 +1,9 @@
-/// <reference types="react" />
 import * as Popover from '@radix-ui/react-popover';
 export declare const Root: import("react").FC<Popover.PopoverProps>;
 export declare const Anchor: import("react").ForwardRefExoticComponent<Popover.PopoverAnchorProps & import("react").RefAttributes<HTMLDivElement>>;
 export interface PopoverProps extends Popover.PopoverContentProps {
     minWidth?: number;
+    maxWidth?: number;
 }
 export declare const Content: import("react").ForwardRefExoticComponent<PopoverProps & import("react").RefAttributes<HTMLDivElement>>;
 export declare const Trigger: import("react").ForwardRefExoticComponent<Popover.PopoverTriggerProps & import("react").RefAttributes<HTMLButtonElement>>;

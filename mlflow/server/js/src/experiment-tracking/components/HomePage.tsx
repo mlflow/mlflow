@@ -26,7 +26,7 @@ const getExperimentActions = {
 
 const getFirstActiveExperiment = (experiments: ExperimentEntity[]) => {
   const sorted = [...experiments].sort(Utils.compareExperiments);
-  return sorted.find(({ lifecycle_stage }) => lifecycle_stage === 'active');
+  return sorted.find(({ lifecycleStage }) => lifecycleStage === 'active');
 };
 
 const HomePage = () => {
@@ -47,7 +47,7 @@ const HomePage = () => {
   if (!experimentIds.length) {
     const firstExp = getFirstActiveExperiment(experiments);
     if (firstExp) {
-      return <Navigate to={Routes.getExperimentPageRoute(firstExp.experiment_id)} replace />;
+      return <Navigate to={Routes.getExperimentPageRoute(firstExp.experimentId)} replace />;
     }
   }
 

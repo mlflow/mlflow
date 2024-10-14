@@ -4,6 +4,7 @@ Initialize the environment and start model serving in a Docker container.
 To be executed only during the model deployment.
 
 """
+
 import logging
 import multiprocessing
 import os
@@ -47,7 +48,7 @@ SERVING_ENVIRONMENT = "SERVING_ENVIRONMENT"
 _logger = logging.getLogger(__name__)
 
 
-def _init(cmd, env_manager):
+def _init(cmd, env_manager):  # noqa: D417
     """
     Initialize the container and execute command.
 
@@ -106,14 +107,20 @@ def _install_pyfunc_deps(
 
     # NB: If we don't use virtualenv or conda env, we don't need to install mlflow here as
     # it's already installed in the container.
-    if len(activate_cmd) and install_mlflow:
-        install_mlflow_cmd = [
-            "pip install /opt/mlflow/."
-            if _container_includes_mlflow_source()
-            else f"pip install mlflow=={MLFLOW_VERSION}"
-        ]
-        if Popen(["bash", "-c", " && ".join(activate_cmd + install_mlflow_cmd)]).wait() != 0:
-            raise Exception("Failed to install mlflow into the model environment.")
+    if len(activate_cmd):
+        if _container_includes_mlflow_source():
+            # If the MLflow source code is copied to the container,
+            # we always need to run `pip install /opt/mlflow` otherwise
+            # the MLflow dependencies are not installed.
+            install_mlflow_cmd = ["pip install /opt/mlflow/."]
+        elif install_mlflow:
+            install_mlflow_cmd = [f"pip install mlflow=={MLFLOW_VERSION}"]
+        else:
+            install_mlflow_cmd = []
+
+        if install_mlflow_cmd:
+            if Popen(["bash", "-c", " && ".join(activate_cmd + install_mlflow_cmd)]).wait() != 0:
+                raise Exception("Failed to install mlflow into the model environment.")
     return activate_cmd
 
 
@@ -279,7 +286,7 @@ def _serve_mleap():
 
 
 def _container_includes_mlflow_source():
-    return os.path.exists("/opt/mlflow/setup.py")
+    return os.path.exists("/opt/mlflow/pyproject.toml")
 
 
 def _train():

@@ -1595,7 +1595,7 @@ Get Latest ModelVersions
 +------------------------------------------------------+-------------+
 |                       Endpoint                       | HTTP Method |
 +======================================================+=============+
-| ``2.0/mlflow/registered-models/get-latest-versions`` | ``POST``    |
+| ``2.0/mlflow/registered-models/get-latest-versions`` | ``GET``     |
 +------------------------------------------------------+-------------+
 
 

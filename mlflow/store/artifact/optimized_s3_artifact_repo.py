@@ -1,6 +1,5 @@
 import json
 import logging
-import math
 import os
 import posixpath
 import urllib.parse
@@ -17,7 +16,9 @@ from mlflow.protos.databricks_artifacts_pb2 import ArtifactCredentialInfo
 from mlflow.store.artifact.cloud_artifact_repo import (
     CloudArtifactRepository,
     _complete_futures,
+    _compute_num_chunks,
     _retry_with_new_creds,
+    _validate_chunk_size_aws,
 )
 from mlflow.store.artifact.s3_artifact_repo import _get_s3_client
 from mlflow.utils.file_utils import read_chunk
@@ -49,8 +50,9 @@ class OptimizedS3ArtifactRepository(CloudArtifactRepository):
         secret_access_key=None,
         session_token=None,
         credential_refresh_def=None,
-        addressing_style="path",
+        addressing_style=None,
         s3_endpoint_url=None,
+        s3_upload_extra_args=None,
     ):
         super().__init__(artifact_uri)
         self._access_key_id = access_key_id
@@ -61,6 +63,7 @@ class OptimizedS3ArtifactRepository(CloudArtifactRepository):
         self._s3_endpoint_url = s3_endpoint_url
         self.bucket, self.bucket_path = self.parse_s3_compliant_uri(self.artifact_uri)
         self._region_name = self._get_region_name()
+        self._s3_upload_extra_args = s3_upload_extra_args if s3_upload_extra_args else {}
 
     def _refresh_credentials(self):
         if not self._credential_refresh_def:
@@ -69,13 +72,14 @@ class OptimizedS3ArtifactRepository(CloudArtifactRepository):
         self._access_key_id = new_creds["access_key_id"]
         self._secret_access_key = new_creds["secret_access_key"]
         self._session_token = new_creds["session_token"]
+        self._s3_upload_extra_args = new_creds["s3_upload_extra_args"]
         return self._get_s3_client()
 
     def _get_region_name(self):
         from botocore.exceptions import ClientError
 
         temp_client = _get_s3_client(
-            addressing_style="path",
+            addressing_style=self._addressing_style,
             access_key_id=self._access_key_id,
             secret_access_key=self._secret_access_key,
             session_token=self._session_token,
@@ -145,6 +149,7 @@ class OptimizedS3ArtifactRepository(CloudArtifactRepository):
 
     def _upload_file(self, s3_client, local_file, bucket, key):
         extra_args = {}
+        extra_args.update(self._s3_upload_extra_args)
         guessed_type, guessed_encoding = guess_type(local_file)
         if guessed_type is not None:
             extra_args["ContentType"] = guessed_type
@@ -195,16 +200,15 @@ class OptimizedS3ArtifactRepository(CloudArtifactRepository):
         response = s3_client.create_multipart_upload(Bucket=bucket, Key=key)
         upload_id = response["UploadId"]
 
-        # Create presigned URL for each part
-        num_parts = math.ceil(
-            os.path.getsize(local_file) / MLFLOW_MULTIPART_UPLOAD_CHUNK_SIZE.get()
-        )
+        num_parts = _compute_num_chunks(local_file, MLFLOW_MULTIPART_UPLOAD_CHUNK_SIZE.get())
+        _validate_chunk_size_aws(MLFLOW_MULTIPART_UPLOAD_CHUNK_SIZE.get())
 
         # define helper functions for uploading data
         def _upload_part(part_number, local_file, start_byte, size):
             data = read_chunk(local_file, size, start_byte)
 
             def try_func(creds):
+                # Create presigned URL for each part
                 presigned_url = creds.generate_presigned_url(
                     "upload_part",
                     Params={

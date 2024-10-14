@@ -44,6 +44,7 @@ You can set them using the following code:
     }
     os.environ["JOHNSNOWLABS_LICENSE_JSON"] = json.dumps(creds)
 """
+
 import json
 import logging
 import os
@@ -664,7 +665,7 @@ def _load_model(model_uri, dfs_tmpdir_base=None, local_model_path=None):
     return nlp.load(path=local_model_path)
 
 
-def load_model(model_uri, dfs_tmpdir=None, dst_path=None, **kwargs):
+def load_model(model_uri, dfs_tmpdir=None, dst_path=None):
     """
     Load the Johnsnowlabs MLflow model from the path.
 
@@ -766,7 +767,7 @@ def _load_pyfunc(path, spark=None):
     )
 
 
-def _get_or_create_sparksession(model_path=None):
+def _get_or_create_sparksession(model_path=None):  # noqa: D417
     """Check if SparkSession running and get it.
 
     If none exists, create a new one using jars in model_path. If model_path not defined, rely on
@@ -867,6 +868,12 @@ class _PyFuncModelWrapper:
         # we have this `or`, so we support _PyFuncModelWrapper(nlu_ref)
         self.spark = spark or _get_or_create_sparksession()
         self.spark_model = spark_model
+
+    def get_raw_model(self):
+        """
+        Returns the underlying model.
+        """
+        return self.spark_model
 
     def predict(self, text, params: Optional[Dict[str, Any]] = None):
         """Generate predictions given input data in a pandas DataFrame.

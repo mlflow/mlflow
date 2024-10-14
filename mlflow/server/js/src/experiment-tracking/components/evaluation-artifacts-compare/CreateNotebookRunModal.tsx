@@ -69,7 +69,7 @@ mlflow.log_param("system_prompt", system_prompt)
 # Create a question answering model using prompt engineering
 # with OpenAI. Log the model to MLflow Tracking
 logged_model = mlflow.openai.log_model(
-    model="gpt-3.5-turbo",
+    model="gpt-4o-mini",
     task=openai.ChatCompletion,
     artifact_path="model",
     messages=[
@@ -106,6 +106,7 @@ mlflow.end_run()
 
   return (
     <Modal
+      componentId="codegen_mlflow_app_src_experiment-tracking_components_evaluation-artifacts-compare_createnotebookrunmodal.tsx_111"
       visible={isOpen}
       onCancel={closeModal}
       onOk={closeModal}

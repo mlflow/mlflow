@@ -7,6 +7,7 @@ ONNX (native) format
 :py:mod:`mlflow.pyfunc`
     Produced for use by generic pyfunc-based deployment tools and batch inference.
 """
+
 from __future__ import annotations
 
 import logging
@@ -315,6 +316,12 @@ class _OnnxModelWrapper:
         self.inputs = [(inp.name, inp.type) for inp in self.rt.get_inputs()]
         self.output_names = [outp.name for outp in self.rt.get_outputs()]
 
+    def get_raw_model(self):
+        """
+        Returns the underlying model.
+        """
+        return self.rt
+
     def _cast_float64_to_float32(self, feeds):
         for input_name, input_type in self.inputs:
             if input_type == "tensor(float)":
@@ -512,7 +519,9 @@ def log_model(
             https://onnxruntime.ai/docs/api/python/api_summary.html#sessionoptions
         metadata: {{ metadata }}
         save_as_external_data: Save tensors to external file(s).
-        client: The MlflowClient. If provided, the client's tracking URI will be used to log models.
+        client: :py:class:`MlflowClient <mlflow.client.MlflowClient>`
+            The client to use for logging models. The client's tracking and registry URIs
+            will be used. Default None to use the global URIs.
 
     Returns:
         A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the

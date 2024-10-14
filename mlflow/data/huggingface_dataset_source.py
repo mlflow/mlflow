@@ -19,6 +19,7 @@ class HuggingFaceDatasetSource(DatasetSource):
         ] = None,
         split: Optional[Union[str, "datasets.Split"]] = None,
         revision: Optional[Union[str, "datasets.Version"]] = None,
+        trust_remote_code: Optional[bool] = None,
     ):
         """Create a `HuggingFaceDatasetSource` instance.
 
@@ -35,6 +36,7 @@ class HuggingFaceDatasetSource(DatasetSource):
             data_files: Paths to source data file(s) for the Hugging Face dataset configuration.
             split: Which split of the data to load.
             revision: Version of the dataset script to load.
+            trust_remote_code: Whether to trust remote code from the dataset repo.
         """
         self.path = path
         self.config_name = config_name
@@ -42,6 +44,7 @@ class HuggingFaceDatasetSource(DatasetSource):
         self.data_files = data_files
         self.split = split
         self.revision = revision
+        self.trust_remote_code = trust_remote_code
 
     @staticmethod
     def _get_source_type() -> str:
@@ -58,6 +61,7 @@ class HuggingFaceDatasetSource(DatasetSource):
             An instance of `datasets.Dataset`.
         """
         import datasets
+        from packaging.version import Version
 
         load_kwargs = {
             "path": self.path,
@@ -67,6 +71,11 @@ class HuggingFaceDatasetSource(DatasetSource):
             "split": self.split,
             "revision": self.revision,
         }
+
+        # this argument only exists in >= 2.16.0
+        if Version(datasets.__version__) >= Version("2.16.0"):
+            load_kwargs["trust_remote_code"] = self.trust_remote_code
+
         intersecting_keys = set(load_kwargs.keys()) & set(kwargs.keys())
         if intersecting_keys:
             raise KeyError(

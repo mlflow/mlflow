@@ -165,6 +165,7 @@ AWS_MODEL_PROVIDER_TO_ADAPTER = {
 
 class AmazonBedrockProvider(BaseProvider):
     NAME = "Amazon Bedrock"
+    CONFIG_TYPE = AmazonBedrockConfig
 
     def __init__(self, config: RouteConfig):
         super().__init__(config)

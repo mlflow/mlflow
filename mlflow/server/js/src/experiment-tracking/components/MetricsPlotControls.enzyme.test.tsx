@@ -6,7 +6,7 @@
  */
 
 import React from 'react';
-import { shallowWithInjectIntl } from 'common/utils/TestUtils.enzyme';
+import { shallowWithInjectIntl } from '@mlflow/mlflow/src/common/utils/TestUtils.enzyme';
 import { MetricsPlotControls, X_AXIS_RELATIVE } from './MetricsPlotControls';
 import { CHART_TYPE_BAR, CHART_TYPE_LINE } from './MetricsPlotPanel';
 

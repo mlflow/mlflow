@@ -1,7 +1,12 @@
 import React from 'react';
 
 import type { ButtonProps } from '@databricks/design-system';
-import { useDesignSystemTheme } from '@databricks/design-system';
+import {
+  DesignSystemEventProviderAnalyticsEventTypes,
+  DesignSystemEventProviderComponentTypes,
+  useDesignSystemEventComponentCallbacks,
+  useDesignSystemTheme,
+} from '@databricks/design-system';
 
 export interface ToggleIconButtonProps extends ButtonProps {
   pressed?: boolean;
@@ -17,11 +22,33 @@ export interface ToggleIconButtonProps extends ButtonProps {
  */
 const ToggleIconButton = React.forwardRef<HTMLButtonElement, ToggleIconButtonProps>(
   (props: ToggleIconButtonProps, ref) => {
-    const { pressed, onClick, icon, onBlur, onFocus, onMouseEnter, onMouseLeave, type, ...remainingProps } = props;
+    const {
+      pressed,
+      onClick,
+      icon,
+      onBlur,
+      onFocus,
+      onMouseEnter,
+      onMouseLeave,
+      componentId,
+      analyticsEvents,
+      type,
+      ...remainingProps
+    } = props;
     const { theme } = useDesignSystemTheme();
+
+    const eventContext = useDesignSystemEventComponentCallbacks({
+      componentType: DesignSystemEventProviderComponentTypes.Button,
+      componentId,
+      analyticsEvents: analyticsEvents ?? [DesignSystemEventProviderAnalyticsEventTypes.OnClick],
+    });
+
     return (
       <button
-        onClick={onClick}
+        onClick={(event) => {
+          eventContext.onClick();
+          onClick?.(event);
+        }}
         css={{
           cursor: 'pointer',
           width: theme.general.heightSm,

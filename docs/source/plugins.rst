@@ -262,7 +262,7 @@ plugin:
        1) ``evaluate``: Computes and logs metrics and artifacts, returning evaluation results as an instance
        of ``mlflow.models.EvaluationResult``. Accepts the following arguments: ``model`` (a pyfunc model instance),
        ``model_type`` (identical to the ``model_type`` argument from :py:func:`mlflow.evaluate()`),
-       ``dataset`` (an instance of ``mlflow.models.evaluation.base._EvaluationDataset`` containing features and labels (optional) for model evaluation),
+       ``dataset`` (an instance of ``mlflow.data.evaluation_dataset._EvaluationDataset`` containing features and labels (optional) for model evaluation),
        ``run_id`` (the ID of the MLflow Run to which to log results), and ``evaluator_config`` (a dictionary of additional configurations for the evaluator).
      - `DummyEvaluator <https://github.com/mlflow/mlflow/blob/branch-1.23/tests/resources/mlflow-test-plugin/mlflow_test_plugin/dummy_evaluator.py>`_.
    * - [Experimental] Plugins for custom mlflow server flask app configuration `mlflow.server.app <https://github.com/mlflow/mlflow/blob/v2.2.0/mlflow/server/__init__.py#L31>`_.

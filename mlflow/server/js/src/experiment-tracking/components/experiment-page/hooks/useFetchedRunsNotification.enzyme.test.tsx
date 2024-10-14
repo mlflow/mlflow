@@ -1,6 +1,6 @@
 import { NotificationInstance } from '@databricks/design-system';
 import { useEffect } from 'react';
-import { mountWithIntl } from 'common/utils/TestUtils.enzyme';
+import { mountWithIntl } from '@mlflow/mlflow/src/common/utils/TestUtils.enzyme';
 import { RunEntity, RunInfoEntity } from '../../../types';
 import { EXPERIMENT_PARENT_ID_TAG } from '../utils/experimentPage.common-utils';
 import { useFetchedRunsNotification } from './useFetchedRunsNotification';
@@ -9,7 +9,7 @@ const generateRuns = (n: number, asChildRuns = false): RunEntity[] =>
   new Array(n).fill(0).map(
     (_, index) =>
       ({
-        info: { run_uuid: asChildRuns ? `run_child${index}` : `run${index}` },
+        info: { runUuid: asChildRuns ? `run_child${index}` : `run${index}` },
         data: asChildRuns ? { tags: [{ key: EXPERIMENT_PARENT_ID_TAG, value: `parent-id-${index}` }] } : undefined,
       } as any),
   );

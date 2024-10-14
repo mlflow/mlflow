@@ -329,9 +329,33 @@ def test_requestor():
         run_id = "run_id"
         m = Model(artifact_path="model/path", run_id="run_id", flavors={"tf": "flavor body"})
         store.record_logged_model("run_id", m)
-        expected_message = LogModel(run_id=run_id, model_json=m.to_json())
+        expected_message = LogModel(run_id=run_id, model_json=json.dumps(m.get_tags_dict()))
         _verify_requests(
             mock_http, creds, "runs/log-model", "POST", message_to_json(expected_message)
+        )
+
+    # if model has config, it should be removed from the model_json before sending to the server
+    with mock_http_request() as mock_http:
+        run_id = "run_id"
+        flavors_with_config = {
+            "tf": "flavor body",
+            "python_function": {"config": {"a": 1}, "code": "code"},
+        }
+        m_with_config = Model(
+            artifact_path="model/path", run_id="run_id", flavors=flavors_with_config
+        )
+        store.record_logged_model("run_id", m_with_config)
+        flavors = m_with_config.get_tags_dict().get("flavors", {})
+        assert all("config" not in v for v in flavors.values())
+        expected_message = LogModel(
+            run_id=run_id, model_json=json.dumps(m_with_config.get_tags_dict())
+        )
+        _verify_requests(
+            mock_http,
+            creds,
+            "runs/log-model",
+            "POST",
+            message_to_json(expected_message),
         )
 
 
@@ -498,13 +522,16 @@ def test_start_trace():
     request_id = "tr-123"
     experiment_id = "447585625682310"
     timestamp_ms = 123
-    metadata = {"key1": "val1", "key2": "val2"}
-    tags = {"tag1": "tv1", "tag2": "tv2"}
+    # Metadata/tags values should be string, but should not break for other types too
+    metadata = {"key1": "val1", "key2": "val2", "key3": 123}
+    tags = {"tag1": "tv1", "tag2": "tv2", "tag3": None}
     expected_request = StartTrace(
         experiment_id=experiment_id,
         timestamp_ms=123,
-        request_metadata=[ProtoTraceRequestMetadata(key=k, value=v) for k, v in metadata.items()],
-        tags=[ProtoTraceTag(key=k, value=v) for k, v in tags.items()],
+        request_metadata=[
+            ProtoTraceRequestMetadata(key=k, value=str(v)) for k, v in metadata.items()
+        ],
+        tags=[ProtoTraceTag(key=k, value=str(v)) for k, v in tags.items()],
     )
     response = mock.MagicMock()
     response.status_code = 200
@@ -516,8 +543,8 @@ def test_start_trace():
                 "timestamp_ms": timestamp_ms,
                 "execution_time_ms": None,
                 "status": 0,  # Running
-                "request_metadata": [{"key": k, "value": v} for k, v in metadata.items()],
-                "tags": [{"key": k, "value": v} for k, v in tags.items()],
+                "request_metadata": [{"key": k, "value": str(v)} for k, v in metadata.items()],
+                "tags": [{"key": k, "value": str(v)} for k, v in tags.items()],
             }
         }
     )
@@ -535,8 +562,8 @@ def test_start_trace():
         assert res.timestamp_ms == timestamp_ms
         assert res.execution_time_ms == 0
         assert res.status == TraceStatus.UNSPECIFIED
-        assert res.request_metadata == metadata
-        assert res.tags == tags
+        assert res.request_metadata == {k: str(v) for k, v in metadata.items()}
+        assert res.tags == {k: str(v) for k, v in tags.items()}
 
 
 def test_end_trace():
@@ -644,25 +671,22 @@ def test_search_traces():
         assert token == "token"
 
 
-def test_delete_traces():
+@pytest.mark.parametrize(
+    "delete_traces_kwargs",
+    [
+        {"experiment_id": "0", "request_ids": ["tr-1234"]},
+        {"experiment_id": "0", "max_timestamp_millis": 1, "max_traces": 2},
+    ],
+)
+def test_delete_traces(delete_traces_kwargs):
     creds = MlflowHostCreds("https://hello")
     store = RestStore(lambda: creds)
     response = mock.MagicMock()
     response.status_code = 200
-    request = DeleteTraces(
-        experiment_id="0",
-        max_timestamp_millis=1,
-        max_traces=2,
-        request_ids=["tr-1234"],
-    )
+    request = DeleteTraces(**delete_traces_kwargs)
     response.text = json.dumps({"traces_deleted": 1})
     with mock.patch("mlflow.utils.rest_utils.http_request", return_value=response) as mock_http:
-        res = store.delete_traces(
-            experiment_id=request.experiment_id,
-            max_timestamp_millis=request.max_timestamp_millis,
-            max_traces=request.max_traces,
-            request_ids=request.request_ids,
-        )
+        res = store.delete_traces(**delete_traces_kwargs)
         _verify_requests(mock_http, creds, "traces/delete-traces", "POST", message_to_json(request))
         assert res == 1
 

@@ -1,6 +1,6 @@
 import userEvent from '@testing-library/user-event-14';
 import { KeyValueTagFullViewModal } from './KeyValueTagFullViewModal';
-import { screen, renderWithIntl } from 'common/utils/TestUtils.react18';
+import { screen, renderWithIntl } from '@mlflow/mlflow/src/common/utils/TestUtils.react18';
 
 describe('KeyValueTagFullViewModal', () => {
   const mockSetIsKeyValueTagFullViewModalVisible = jest.fn();

@@ -2,9 +2,8 @@ import { Button } from '@databricks/design-system';
 import { useState } from 'react';
 import { FormattedMessage } from 'react-intl';
 import { GetLinkModal } from '../../../modals/GetLinkModal';
-import { shouldEnableShareExperimentViewByTags } from '../../../../../common/utils/FeatureUtils';
-import { ExperimentPageSearchFacetsStateV2 } from '../../models/ExperimentPageSearchFacetsStateV2';
-import { ExperimentPageUIStateV2 } from '../../models/ExperimentPageUIStateV2';
+import { ExperimentPageSearchFacetsState } from '../../models/ExperimentPageSearchFacetsState';
+import { ExperimentPageUIState } from '../../models/ExperimentPageUIState';
 import { ExperimentGetShareLinkModal } from './ExperimentGetShareLinkModal';
 
 /**
@@ -16,16 +15,15 @@ export const ExperimentViewHeaderShareButton = ({
   uiState,
   experimentIds,
 }: {
-  searchFacetsState?: ExperimentPageSearchFacetsStateV2;
-  uiState?: ExperimentPageUIStateV2;
+  searchFacetsState?: ExperimentPageSearchFacetsState;
+  uiState?: ExperimentPageUIState;
   experimentIds?: string[];
 }) => {
-  const shareExperimentViewStateByTagsEnabled = shouldEnableShareExperimentViewByTags();
   const [showGetLinkModal, setShowGetLinkModal] = useState(false);
 
   return (
     <>
-      {shareExperimentViewStateByTagsEnabled && searchFacetsState && uiState && experimentIds ? (
+      {searchFacetsState && uiState && experimentIds ? (
         <ExperimentGetShareLinkModal
           searchFacetsState={searchFacetsState}
           uiState={uiState}

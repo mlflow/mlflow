@@ -11,7 +11,7 @@ import { useFetchExperiments } from '../hooks/useFetchExperiments';
 import { ThunkDispatch } from '../../../../redux-types';
 
 const extractNoteFromTags = (tags: Record<string, KeyValueEntity>) =>
-  Object.values(tags).find((t) => t.getKey() === NOTE_CONTENT_TAG)?.value || undefined;
+  Object.values(tags).find((t) => t.key === NOTE_CONTENT_TAG)?.value || undefined;
 
 export interface ExperimentViewNotesProps {
   experiment: ExperimentEntity;
@@ -25,7 +25,7 @@ export interface ExperimentViewNotesProps {
  */
 export const ExperimentViewNotes = React.memo(({ experiment }: ExperimentViewNotesProps) => {
   const storedNote = useSelector((state) => {
-    const tags = getExperimentTags(experiment.experiment_id, state);
+    const tags = getExperimentTags(experiment.experimentId, state);
     return tags ? extractNoteFromTags(tags) : '';
   });
 
@@ -39,10 +39,10 @@ export const ExperimentViewNotes = React.memo(({ experiment }: ExperimentViewNot
 
   const handleSubmitEditNote = useCallback(
     (updatedNote: any) => {
-      const action = setExperimentTagApi(experiment.experiment_id, NOTE_CONTENT_TAG, updatedNote);
+      const action = setExperimentTagApi(experiment.experimentId, NOTE_CONTENT_TAG, updatedNote);
       dispatch(action).then(() => setShowNotesEditor(false));
     },
-    [experiment.experiment_id, setExperimentTagApi, dispatch],
+    [experiment.experimentId, setExperimentTagApi, dispatch],
   );
 
   return (

@@ -133,3 +133,5 @@ export const CompareModelVersionsPage = withErrorBoundary(
   ErrorUtils.mlflowServices.MODEL_REGISTRY,
   CompareModelVersionsPageWithRouter,
 );
+
+export default CompareModelVersionsPage;

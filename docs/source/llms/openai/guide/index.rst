@@ -118,6 +118,16 @@ Integrating Azure OpenAI models within MLflow follows similar procedures to dire
 .. literalinclude:: ../../../../../examples/openai/azure_openai.py
     :language: python
 
+OpenAI Autologging
+------------------
+
+.. attention::
+    Autologging is only supported for OpenAI >= 1.17.
+
+To learn more about autologging support for the OpenAI flavor, please `see the autologging guide <../autologging.html>`_.
+
+For more examples, please click `here <https://github.com/mlflow/mlflow/blob/master/examples/openai/autologging>`_.
+
 Next Steps in Your NLP Journey
 ------------------------------
 We invite you to harness the combined power of MLflow and OpenAI for developing innovative NLP applications. Whether it's creating interactive 
