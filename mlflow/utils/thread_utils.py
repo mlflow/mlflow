@@ -2,6 +2,8 @@ import threading
 import os
 
 _thread_locals = threading.local()
+_globals = {}
+_globals_lock = threading.Lock()
 
 
 def set_thread_local_var(key, value):
@@ -12,21 +14,50 @@ def set_thread_local_var(key, value):
     setattr(_thread_locals, key, (value, os.getpid()))
 
 
-def get_thread_local_var(key, default, reset_in_subprocess=True):
+def get_thread_local_var(key, init_value, reset_in_subprocess=True):
     """
     Get a thread-local variable.
-    If the thread-local variable is not set, return the provided `default` value.
+    If the thread-local variable is not set, return the provided `init_value` value.
     If `get_thread_local_var` is called in a forked subprocess and `reset_in_subprocess` is True,
-    return the provided `default` value
+    return the provided `init_value` value
     """
     global _thread_locals
+
     if hasattr(_thread_locals, key):
         value, pid = getattr(_thread_locals, key)
         if reset_in_subprocess and pid != os.getpid():
             # `get_thread_local_var` is called in a forked subprocess, reset it.
-            return default
+            set_thread_local_var(key, init_value)
+            return init_value
         else:
             return value
     else:
-        return default
+        set_thread_local_var(key, init_value)
+        return init_value
 
+
+def set_global_var(key, value):
+    global _globals
+    _globals[key] = (value, os.getpid())
+
+
+def get_global_var(key, init_value, reset_in_subprocess=True):
+    """
+    Get a global variable.
+    If the global variable is not set, return the provided `init_value` value.
+    If `get_global_var` is called in a forked subprocess and `reset_in_subprocess` is True,
+    return the provided `init_value` value
+    """
+    global _globals, _globals_lock
+    with _globals_lock:
+        if hasattr(_globals, key):
+            value, pid = getattr(_globals, key)
+            if reset_in_subprocess and pid != os.getpid():
+                # `get_global_var` is called in a forked subprocess, reset it.
+                set_global_var(key, init_value)
+                return init_value
+            else:
+                return value
+        else:
+            set_global_var(key, init_value)
+            return init_value

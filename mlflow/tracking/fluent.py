@@ -49,7 +49,7 @@ from mlflow.utils.annotations import experimental
 from mlflow.utils.async_logging.run_operations import RunOperations
 from mlflow.utils.autologging_utils import (
     AUTOLOGGING_CONF_KEY_IS_GLOBALLY_CONFIGURED,
-    AUTOLOGGING_INTEGRATIONS,
+    get_autologging_integrations,
     autologging_integration,
     autologging_is_disabled,
     is_testing,
@@ -2358,7 +2358,7 @@ def autolog(
             # - if the config doesn't contain this key, the configuration was set by an
             #   `mlflow.integration.autolog` call, so we should not call `autolog_fn` with
             #   new configs.
-            prev_config = AUTOLOGGING_INTEGRATIONS.get(autolog_fn.integration_name)
+            prev_config = get_autologging_integrations().get(autolog_fn.integration_name)
             if prev_config and not prev_config.get(
                 AUTOLOGGING_CONF_KEY_IS_GLOBALLY_CONFIGURED, False
             ):
@@ -2366,7 +2366,7 @@ def autolog(
 
             autologging_params = get_autologging_params(autolog_fn)
             autolog_fn(**autologging_params)
-            AUTOLOGGING_INTEGRATIONS[autolog_fn.integration_name][
+            get_autologging_integrations()[autolog_fn.integration_name][
                 AUTOLOGGING_CONF_KEY_IS_GLOBALLY_CONFIGURED
             ] = True
             if not autologging_is_disabled(

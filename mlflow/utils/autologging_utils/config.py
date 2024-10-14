@@ -2,7 +2,7 @@ import logging
 from dataclasses import dataclass
 from typing import Optional
 
-from mlflow.utils.autologging_utils import AUTOLOGGING_INTEGRATIONS
+from mlflow.utils.autologging_utils import get_autologging_integrations
 
 _logger = logging.getLogger(__name__)
 
@@ -33,7 +33,7 @@ class AutoLoggingConfig:
 
     @classmethod
     def init(cls, flavor_name: str):
-        config_dict = AUTOLOGGING_INTEGRATIONS.get(flavor_name, {})
+        config_dict = get_autologging_integrations().get(flavor_name, {})
         if config_dict.get("log_inputs_outputs"):
             _logger.warning(
                 "The log_inputs_outputs option is deprecated and will be removed in a future "
