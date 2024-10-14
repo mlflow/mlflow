@@ -53,6 +53,7 @@ from mlflow.utils.autologging_utils import (
     autologging_integration,
     autologging_is_disabled,
     is_testing,
+    autologging_conf_lock,
 )
 from mlflow.utils.databricks_utils import is_in_databricks_runtime
 from mlflow.utils.import_hooks import register_post_import_hook
@@ -2336,6 +2337,11 @@ def autolog(
         except Exception:
             return {}
 
+    # Note: we need to protect `setup_autologging` with `autologging_conf_lock`,
+    # because `setup_autologging` might be registered as post importing hook
+    # and be executed asynchronously, so that it is out of current active
+    # `autologging_conf_lock` scope.
+    @autologging_conf_lock
     def setup_autologging(module):
         try:
             autologging_params = None

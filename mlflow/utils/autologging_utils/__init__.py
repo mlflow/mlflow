@@ -1,8 +1,10 @@
 import contextlib
+import functools
 import importlib
 import inspect
 import logging
 import sys
+import threading
 import time
 from typing import List
 
@@ -50,11 +52,6 @@ ENSURE_AUTOLOGGING_ENABLED_TEXT = (
     "please ensure that autologging is enabled before constructing the dataset."
 )
 
-# Flag indicating whether autologging is globally disabled for all integrations.
-_AUTOLOGGING_GLOBALLY_DISABLED = False
-# Exempts autologging flavors from the `_AUTOLOGGING_GLOBALLY_DISABLED` flag
-_AUTOLOGGING_GLOBALLY_DISABLED_EXEMPTIONS = []
-
 # Autologging config key indicating whether or not a particular autologging integration
 # was configured (i.e. its various `log_models`, `disable`, etc. configuration options
 # were set) via a call to `mlflow.autolog()`, rather than via a call to the integration-specific
@@ -93,7 +90,34 @@ _AUTOLOGGING_SUPPORTED_VERSION_WARNING_SUPPRESS_LIST = [
     "openai",
 ]
 
+# Global lock for turning on / off autologging
+# Note "RLock" is required instead of plain lock, for avoid dead-lock
+_autolog_conf_global_lock = threading.RLock()
+
+
+# _autolog_conf_thread_local stores 2 thread-local config:
+#  disabled:
+#    Flag indicating whether autologging is globally disabled for all integrations.
+#  disabled_exemptions:
+#    Exempts autologging flavors from the `_autolog_conf_thread_local.disabled` flag
+_autolog_conf_thread_local = threading.local()
+
 _logger = logging.getLogger(__name__)
+
+
+def autologging_conf_lock(fn):
+    """
+    Appliy a global lock on functions that enable / disable autologging.
+    """
+    global _autolog_conf_global_lock
+
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        with _autolog_conf_global_lock:
+            return fn(*args, **kwargs)
+
+    return wrapper
+
 
 
 def get_mlflow_run_params_for_fn_args(fn, args, kwargs, unlogged=None):
@@ -408,6 +432,7 @@ def autologging_integration(name):
                 " must specify a 'silent' argument with default value 'False'"
             )
 
+    @autologging_conf_lock
     def wrapper(_autolog):
         param_spec = inspect.signature(_autolog).parameters
         validate_param_spec(param_spec)
@@ -530,15 +555,14 @@ def disable_autologging(exemptions=None):
     """
     if exemptions is None:
         exemptions = []
-    global _AUTOLOGGING_GLOBALLY_DISABLED
-    global _AUTOLOGGING_GLOBALLY_DISABLED_EXEMPTIONS
-    _AUTOLOGGING_GLOBALLY_DISABLED = True
-    _AUTOLOGGING_GLOBALLY_DISABLED_EXEMPTIONS = exemptions
+
+    _autolog_conf_thread_local.disabled = true
+    _autolog_conf_thread_local.disabled_exemptions = exemptions
     try:
         yield
     finally:
-        _AUTOLOGGING_GLOBALLY_DISABLED = False
-        _AUTOLOGGING_GLOBALLY_DISABLED_EXEMPTIONS = []
+        _autolog_conf_thread_local.disabled = False
+        _autolog_conf_thread_local.disabled_exemptions = []
 
 
 @contextlib.contextmanager
