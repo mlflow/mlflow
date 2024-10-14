@@ -1651,7 +1651,7 @@ def test_log_param_max_length_value(store, monkeypatch):
     run = store.get_run(run_id)
     assert run.data.params[param_name] == param_value
     monkeypatch.setenv("MLFLOW_TRUNCATE_LONG_VALUES", "false")
-    with pytest.raises(MlflowException, match="exceeded length"):
+    with pytest.raises(MlflowException, match="exceeds the maximum length"):
         store.log_param(run_id, Param(param_name, "x" * 6001))
 
     monkeypatch.setenv("MLFLOW_TRUNCATE_LONG_VALUES", "true")
@@ -1961,7 +1961,7 @@ def test_log_batch_max_length_value(store, monkeypatch):
 
     monkeypatch.setenv("MLFLOW_TRUNCATE_LONG_VALUES", "false")
     param_entities = [Param("long param", "x" * 6001), Param("short param", "xyz")]
-    with pytest.raises(MlflowException, match="exceeded length"):
+    with pytest.raises(MlflowException, match="exceeds the maximum length"):
         store.log_batch(run.info.run_id, (), param_entities, ())
 
     monkeypatch.setenv("MLFLOW_TRUNCATE_LONG_VALUES", "true")
