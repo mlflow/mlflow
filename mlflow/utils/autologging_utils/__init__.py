@@ -556,7 +556,7 @@ def disable_autologging(exemptions=None):
     if exemptions is None:
         exemptions = []
 
-    _autolog_conf_thread_local.disabled = true
+    _autolog_conf_thread_local.disabled = True
     _autolog_conf_thread_local.disabled_exemptions = exemptions
     try:
         yield
