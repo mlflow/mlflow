@@ -1807,17 +1807,6 @@ def prebuild_model_env(model_uri, save_path):
         if tmp_archive_path and os.path.exists(tmp_archive_path):
             os.remove(tmp_archive_path)
 
-
-def _setup_model_env_symlink_in_udf_sandbox(env_src_dir, env_dest_dir):
-    """
-    This function is used when the prebuilt python env is built under a different path
-    from the env archive extracting path in the NFS.
-    """
-    # In shared cluster, UDF sandbox might be reused, so the `env_dest_dir` might already exist.
-    if not os.path.exists(env_dest_dir):
-        os.symlink(env_src_dir, env_dest_dir)
-
-
 def spark_udf(
     spark,
     model_uri,
@@ -2316,15 +2305,19 @@ Compound types:
                         dbconnect_artifact_cache.get_unpacked_artifact_dir(model_uri)
                     )
                     env_src_dir = dbconnect_artifact_cache.get_unpacked_artifact_dir(env_cache_key)
-                    _setup_model_env_symlink_in_udf_sandbox(env_src_dir, prebuilt_env_root_dir)
+
+                    # Create symlink if it does not exist
+                    if not os.path.exists(prebuilt_env_root_dir):
+                        os.symlink(env_src_dir, prebuilt_env_root_dir)
                 elif prebuilt_env_path is not None:
                     # prebuilt env is extracted to `prebuilt_env_nfs_dir` directory,
                     # and model is downloaded to `local_model_path` which points to an NFS
                     # directory too.
                     local_model_path_on_executor = None
-                    _setup_model_env_symlink_in_udf_sandbox(
-                        prebuilt_env_nfs_dir, prebuilt_env_root_dir
-                    )
+
+                    # Create symlink if it does not exist
+                    if not os.path.exists(prebuilt_env_root_dir):
+                        os.symlink(prebuilt_env_nfs_dir, prebuilt_env_root_dir)
                 elif should_use_spark_to_broadcast_file:
                     local_model_path_on_executor = _SparkDirectoryDistributor.get_or_extract(
                         archive_path
