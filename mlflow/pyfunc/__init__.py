@@ -1745,12 +1745,12 @@ def _prebuild_env_internal(local_model_path, archive_name, save_path):
         shutil.rmtree(env_root_dir, ignore_errors=True)
 
 
-def prebuild_model_env(model_uri, save_path):
+def build_model_env(model_uri, save_path):
     """
     Prebuild model python environment and generate an archive file saved to provided
     `save_path`.
 
-    NOTE: The `prebuild_model_env` can only be called in Databricks runtime,
+    NOTE: The `build_model_env` can only be called in Databricks runtime,
         and the generated prebuilt env file can be used in `mlflow.pyfunc.spark_udf` in
         Databricks runtime or Databricks Connect client.
         The prebuilt env archive file can't be used across different Databricks runtime
@@ -1761,12 +1761,10 @@ def prebuild_model_env(model_uri, save_path):
     .. code-block:: python
         :caption: Example
 
-        from mlflow.pyfunc import prebuild_model_env
+        from mlflow.pyfunc import build_model_env
 
         # Create a python environment archive file at the path `prebuilt_env_path`
-        prebuilt_env_path = prebuild_model_env(
-            f"runs:/{run_id}/model", "/path/to/save_directory"
-        )
+        prebuilt_env_path = build_model_env(f"runs:/{run_id}/model", "/path/to/save_directory")
 
     Args:
         model_uri: URI to the model that is used to build the python environment.
@@ -1776,12 +1774,11 @@ def prebuild_model_env(model_uri, save_path):
     from mlflow.utils._spark_utils import _get_active_spark_session
 
     if not is_in_databricks_runtime():
-        raise RuntimeError("'prebuild_model_env' only support running in Databricks runtime.")
+        raise RuntimeError("'build_model_env' only support running in Databricks runtime.")
 
-    if not os.path.exists(save_path):
-        raise RuntimeError(f"The saving path '{save_path}' does not exist.")
-    if not os.path.isdir(save_path):
+    if os.path.isfile(save_path):
         raise RuntimeError(f"The saving path '{save_path}' must be a directory.")
+    os.makedirs(save_path, exist_ok=True)
 
     local_model_path = _download_artifact_from_uri(
         artifact_uri=model_uri, output_path=_create_model_downloading_tmp_dir(should_use_nfs=False)
@@ -1951,7 +1948,7 @@ def spark_udf(
         extra_env: Extra environment variables to pass to the UDF executors.
 
         prebuilt_env_path: The path of the prebuilt env archive file created by
-            `mlflow.pyfunc.prebuild_model_env` API.
+            `mlflow.pyfunc.build_model_env` API.
             This parameter can only be used in Databricks Serverless notebook REPL,
             Databricks Shared cluster notebook REPL, and Databricks Connect client
             environment.
@@ -2009,9 +2006,9 @@ def spark_udf(
         and not is_in_databricks_runtime()
     ):
         raise RuntimeError(
-            "If using Databricks Connect to connect to Databricks cluster from your "
-            "own machine, and 'env_manager' is set to 'virtualenv', "
-            "the 'prebuilt_env_path' param is required."
+            "'prebuilt_env_path' param is required if using Databricks Connect to connect "
+            "to Databricks cluster from your own machine, and 'env_manager' is set to "
+            "'virtualenv'."
         )
 
     # Databricks connect can use `spark.addArtifact` to upload artifact to NFS.

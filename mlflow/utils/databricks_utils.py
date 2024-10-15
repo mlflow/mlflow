@@ -313,8 +313,8 @@ def get_dbconnect_udf_sandbox_image_version_and_platform_machine(spark):
         _cached_dbconnect_client = spark
         # version is like '15.4.x-snapshot-scala2.12'
         version = spark.sql("SELECT current_version().dbr_version").collect()[0][0]
-        version_splits = version.split(".")
-        _dbconnect_udf_sandbox_image_version = ".".join(version_splits[:2])
+        major, minor, *_rest = version.split(".")
+        _dbconnect_udf_sandbox_image_version = f"{major}.{minor}"
 
         @pandas_udf("string")
         def f(_):
@@ -334,9 +334,9 @@ def is_databricks_serverless(spark):
     """
     from mlflow.utils.spark_utils import is_spark_connect_mode
 
-    return is_spark_connect_mode() and "x-databricks-session-id" in [
-        k for k, v in spark.client.metadata()
-    ]
+    return is_spark_connect_mode() and any(
+        k == "x-databricks-session-id" for k, v in spark.client.metadata()
+    )
 
 
 def is_dbfs_fuse_available():
