@@ -9,10 +9,11 @@ import logging
 import os
 from concurrent.futures import ThreadPoolExecutor
 from itertools import zip_longest
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Literal, Optional
 
 from mlflow.entities import (
     ExperimentTag,
+    FileInfo,
     LoggedModel,
     LoggedModelInput,
     LoggedModelOutput,
@@ -855,22 +856,34 @@ class TrackingServiceClient:
         artifact_uri = add_databricks_profile_info_to_artifact_uri(artifact_uri, self.tracking_uri)
         return get_artifact_repository(artifact_uri)
 
-    def _get_artifact_repo(self, run_id):
+    def _get_artifact_repo(
+        self,
+        resource_id: str,
+        *,
+        resource: Literal["run", "logged_model"] = "run",
+    ) -> ArtifactRepository:
         # Attempt to fetch the artifact repo from a local cache
-        cached_repo = utils._artifact_repos_cache.get(run_id)
-        if cached_repo is not None:
+        if cached_repo := utils._artifact_repos_cache.get(resource_id):
             return cached_repo
         else:
-            run = self.get_run(run_id)
+            if resource == "run":
+                run = self.get_run(resource_id)
+                artifact_location = run.info.artifact_uri
+            elif resource == "logged_model":
+                logged_model = self.get_logged_model(resource_id)
+                artifact_location = logged_model.artifact_location
+            else:
+                raise ValueError(f"Unexpected resource type {resource!r}.")
+
             artifact_uri = add_databricks_profile_info_to_artifact_uri(
-                run.info.artifact_uri, self.tracking_uri
+                artifact_location, self.tracking_uri
             )
             artifact_repo = get_artifact_repository(artifact_uri)
             # Cache the artifact repo to avoid a future network call, removing the oldest
             # entry in the cache if there are too many elements
             if len(utils._artifact_repos_cache) > 1024:
                 utils._artifact_repos_cache.popitem(last=False)
-            utils._artifact_repos_cache[run_id] = artifact_repo
+            utils._artifact_repos_cache[resource_id] = artifact_repo
             return artifact_repo
 
     def log_artifact(self, run_id, local_path, artifact_path=None):
@@ -938,6 +951,21 @@ class TrackingServiceClient:
 
         """
         return self._get_artifact_repo(run_id).list_artifacts(path)
+
+    def list_logged_model_artifacts(
+        self, model_id: str, path: Optional[str] = None
+    ) -> List[FileInfo]:
+        """List the artifacts for a logged model.
+
+        Args:
+            model_id: The model to list artifacts from.
+            path: The model's relative artifact path to list from. By default it is set to None
+                or the root artifact path.
+
+        Returns:
+            List of :py:class:`mlflow.entities.FileInfo`
+        """
+        return self._get_artifact_repo(model_id).list_artifacts(path)
 
     def download_artifacts(self, run_id, path, dst_path=None):
         """Download an artifact file or directory from a run to a local directory if applicable,
@@ -1088,7 +1116,7 @@ class TrackingServiceClient:
         return self.store.delete_logged_model_tag(model_id, key)
 
     def log_model_artifacts(self, model_id: str, local_dir: str) -> None:
-        self._get_artifact_repo_for_logged_model(model_id).log_artifacts(local_dir)
+        self._get_artifact_repo(model_id, resource="logged_model").log_artifacts(local_dir)
 
     def search_logged_models(
         self,
@@ -1101,21 +1129,3 @@ class TrackingServiceClient:
         return self.store.search_logged_models(
             experiment_ids, filter_string, max_results, order_by, page_token
         )
-
-    def _get_artifact_repo_for_logged_model(self, model_id: str) -> ArtifactRepository:
-        # Attempt to fetch the artifact repo from a local cache
-        cached_repo = utils._artifact_repos_cache.get(model_id)
-        if cached_repo is not None:
-            return cached_repo
-        else:
-            model = self.get_logged_model(model_id)
-            artifact_uri = add_databricks_profile_info_to_artifact_uri(
-                model.artifact_location, self.tracking_uri
-            )
-            artifact_repo = get_artifact_repository(artifact_uri)
-            # Cache the artifact repo to avoid a future network call, removing the oldest
-            # entry in the cache if there are too many elements
-            if len(utils._artifact_repos_cache) > 1024:
-                utils._artifact_repos_cache.popitem(last=False)
-            utils._artifact_repos_cache[model_id] = artifact_repo
-            return artifact_repo

@@ -16,7 +16,6 @@ from mlflow.azure.client import (
     put_block,
     put_block_list,
 )
-from mlflow.entities import FileInfo
 from mlflow.environment_variables import (
     MLFLOW_MULTIPART_DOWNLOAD_CHUNK_SIZE,
     MLFLOW_MULTIPART_UPLOAD_CHUNK_SIZE,
@@ -37,7 +36,7 @@ from mlflow.protos.databricks_pb2 import (
     INTERNAL_ERROR,
     INVALID_PARAMETER_VALUE,
 )
-from mlflow.protos.service_pb2 import ListArtifacts, MlflowService
+from mlflow.protos.service_pb2 import MlflowService
 from mlflow.store.artifact.artifact_repo import write_local_temp_trace_data_file
 from mlflow.store.artifact.cloud_artifact_repo import (
     CloudArtifactRepository,
@@ -89,8 +88,9 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
     Signed access URIs for S3 / Azure Blob Storage are fetched from the MLflow service and used to
     read and write files from/to this location.
 
-    The artifact_uri is expected to be of the form
-    dbfs:/databricks/mlflow-tracking/<EXP_ID>/<RUN_ID>/
+    The artifact_uri is expected to be in one of the following forms:
+    - dbfs:/databricks/mlflow-tracking/<EXP_ID>/<RUN_ID>/
+    - databricks/mlflow-tracking/<EXP_ID>/logged_models/<MODEL_ID>/artifacts/<path>
     """
 
     def __init__(self, artifact_uri):
@@ -118,30 +118,6 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
         )
         self.creds = get_databricks_host_creds(self.databricks_profile_uri)
         self.resource = self._extract_resource(self.artifact_uri)
-        self._relative_artifact_repo_root_path = None
-
-    @property
-    def relative_artifact_repo_root_path(self):
-        """
-        Lazily computes the relative artifact repository root path to skip the existence
-        check when downloading/uploading trace data.
-        """
-        if self._relative_artifact_repo_root_path is None:
-            # Fetch the artifact root for the MLflow Run associated with `artifact_uri` and compute
-            # the path of `artifact_uri` relative to the MLflow Run's artifact root
-            # (the `relative_artifact_repo_root_path`). All operations performed on this
-            # artifact repository will be performed relative to this computed location
-            artifact_repo_root_path = extract_and_normalize_path(self.artifact_uri)
-            artifact_root_path = extract_and_normalize_path(self.resource.artifact_root)
-            relative_root_path = posixpath.relpath(
-                path=artifact_repo_root_path, start=artifact_root_path
-            )
-            # If the paths are equal, then use empty string over "./" for ListArtifact compatibility
-            self._relative_artifact_repo_root_path = (
-                "" if artifact_root_path == artifact_repo_root_path else relative_root_path
-            )
-
-        return self._relative_artifact_repo_root_path
 
     def _extract_resource(self, artifact_uri) -> _Resource:
         """
@@ -159,9 +135,11 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
         parts = artifact_path.split("/")
 
         if parts[3] == "logged_models":
-            return _LoggedModel(id_=parts[4], call_endpoint=self._call_endpoint)
+            return _LoggedModel(
+                id_=parts[4], artifact_uri=artifact_uri, call_endpoint=self._call_endpoint
+            )
 
-        return _Run(id_=parts[3], call_endpoint=self._call_endpoint)
+        return _Run(id_=parts[3], artifact_uri=artifact_uri, call_endpoint=self._call_endpoint)
 
     def _call_endpoint(self, service, api, json_body=None, path_params=None):
         """
@@ -186,14 +164,14 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
     def _get_credential_infos(self, cred_type: _CredentialType, paths: List[str]):
         """
         Issue one or more requests for artifact credentials, providing read or write
-        access to the specified run-relative artifact `paths` within the MLflow Run specified
-        by `run_id`. The type of access credentials, read or write, is specified by
-        `request_message_class`.
+        access to the specified resource relative artifact `paths` within the MLflow
+        resource specified by `self.resource.id`. The type of access credentials, read or write,
+        is specified by `request_message_class`.
 
         Args:
             cred_type: Specifies the type of access credentials, read or write.
             resource: The specified MLflow resource.
-            paths: The specified run-relative artifact paths within the MLflow resource.
+            paths: The specified relative artifact paths within the MLflow resource.
 
         Returns:
             A list of `ArtifactCredentialInfo` objects providing read access to the specified
@@ -219,11 +197,10 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
     def _get_write_credential_infos(self, remote_file_paths):
         """
         A list of `ArtifactCredentialInfo` objects providing write access to the specified
-        run-relative artifact `paths` within the MLflow Run specified by `run_id`.
+        relative artifact `paths` within the MLflow resource specified by `self.resource.id`.
         """
         relative_remote_paths = [
-            posixpath.join(self.relative_artifact_repo_root_path, p or "")
-            for p in remote_file_paths
+            posixpath.join(self.resource.relative_path, p or "") for p in remote_file_paths
         ]
         return self._get_credential_infos(_CredentialType.WRITE, relative_remote_paths)
 
@@ -296,7 +273,7 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
                 f"Expected `paths` to be a list of strings. Got {type(remote_file_paths)}"
             )
         relative_remote_paths = [
-            posixpath.join(self.relative_artifact_repo_root_path, p) for p in remote_file_paths
+            posixpath.join(self.resource.relative_path, p) for p in remote_file_paths
         ]
         return self._get_credential_infos(_CredentialType.READ, relative_remote_paths)
 
@@ -519,12 +496,12 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
     def _upload_to_cloud(self, cloud_credential_info, src_file_path, artifact_file_path):
         """
         Upload a local file to the cloud. Note that in this artifact repository, files are uploaded
-        to run-relative artifact file paths in the artifact repository.
+        to resource relative artifact file paths in the artifact repository.
 
         Args:
             cloud_credential_info: ArtifactCredentialInfo object with presigned URL for the file.
             src_file_path: Local source file path for the upload.
-            artifact_file_path: Path in the artifact repository, relative to the run root path,
+            artifact_file_path: Path in the artifact repository, relative to the resource root path,
                 where the artifact will be logged.
 
         """
@@ -560,7 +537,7 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
         Download a file from the input `remote_file_path` and save it to `local_path`.
 
         Args:
-            remote_file_path: Path relative to the run root path to file in remote artifact
+            remote_file_path: Path relative to the resource root path to file in remote artifact
                 repository.
             local_path: Local path to download file to.
 
@@ -686,7 +663,7 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
 
     def _multipart_upload(self, local_file, artifact_file_path):
         run_relative_artifact_path = posixpath.join(
-            self.relative_artifact_repo_root_path, artifact_file_path or ""
+            self.resource.relative_path, artifact_file_path or ""
         )
         num_parts = _compute_num_chunks(local_file, MLFLOW_MULTIPART_UPLOAD_CHUNK_SIZE.get())
         create_mpu_resp = self._create_multipart_upload(
@@ -718,41 +695,7 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
         )
 
     def list_artifacts(self, path=None):
-        # TODO: Support list_artifacts for logged models
-        if isinstance(self.resource, _LoggedModel):
-            return []
-
-        if path:
-            relative_path = posixpath.join(self.relative_artifact_repo_root_path, path)
-        else:
-            relative_path = self.relative_artifact_repo_root_path
-        infos = []
-        page_token = None
-        while True:
-            json_body = message_to_json(
-                ListArtifacts(run_id=self.resource.id, path=relative_path, page_token=page_token)
-            )
-            response = self._call_endpoint(MlflowService, ListArtifacts, json_body)
-            artifact_list = response.files
-            # If `path` is a file, ListArtifacts returns a single list element with the
-            # same name as `path`. The list_artifacts API expects us to return an empty list in this
-            # case, so we do so here.
-            if (
-                len(artifact_list) == 1
-                and artifact_list[0].path == relative_path
-                and not artifact_list[0].is_dir
-            ):
-                return []
-            for output_file in artifact_list:
-                file_rel_path = posixpath.relpath(
-                    path=output_file.path, start=self.relative_artifact_repo_root_path
-                )
-                artifact_size = None if output_file.is_dir else output_file.file_size
-                infos.append(FileInfo(file_rel_path, output_file.is_dir, artifact_size))
-            if len(artifact_list) == 0 or not response.next_page_token:
-                break
-            page_token = response.next_page_token
-        return infos
+        return self.resource.list_artifacts(path)
 
     def delete_artifacts(self, artifact_path=None):
         raise MlflowException("Not implemented yet")
