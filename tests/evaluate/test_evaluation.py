@@ -50,6 +50,7 @@ from mlflow.models.evaluation.base import (
     _get_model_from_deployment_endpoint_uri,
     _is_model_deployment_endpoint_uri,
     _start_run_or_reuse_active_run,
+    make_metric,
     resolve_evaluators_and_configs,
 )
 from mlflow.models.evaluation.evaluator_registry import _model_evaluation_registry
@@ -2287,3 +2288,110 @@ def test_env_manager_set_on_served_pyfunc_model(multiclass_logistic_regressor_mo
     served_model_1 = _ServedPyFuncModel(model_meta=model.metadata, client=client, server_pid=1)
     served_model_1.env_manager = "virtualenv"
     assert served_model_1.env_manager == "virtualenv"
+
+
+def test_make_metric_name_inference():
+    def metric(_df, _metrics):
+        return 1
+
+    eval_metric = make_metric(eval_fn=metric, greater_is_better=True)
+    assert eval_metric.name == "metric"
+
+    eval_metric = make_metric(eval_fn=metric, greater_is_better=True, name="my_metric")
+    assert eval_metric.name == "my_metric"
+
+    eval_metric = make_metric(
+        eval_fn=lambda _df, _metrics: 0, greater_is_better=True, name="metric"
+    )
+    assert eval_metric.name == "metric"
+
+    with pytest.raises(
+        MlflowException, match="`name` must be specified if `eval_fn` is a lambda function."
+    ):
+        make_metric(eval_fn=lambda _df, _metrics: 0, greater_is_better=True)
+
+    class Callable:
+        def __call__(self, _df, _metrics):
+            return 1
+
+    with pytest.raises(
+        MlflowException,
+        match="`name` must be specified if `eval_fn` does not have a `__name__` attribute.",
+    ):
+        make_metric(eval_fn=Callable(), greater_is_better=True)
+
+
+def test_custom_metrics_deprecated(
+    binary_logistic_regressor_model_uri,
+    breast_cancer_dataset,
+):
+    def dummy_fn(eval_df, metrics):
+        pass
+
+    with pytest.raises(
+        MlflowException,
+        match="The 'custom_metrics' parameter in mlflow.evaluate is deprecated. Please update "
+        "your code to only use the 'extra_metrics' parameter instead.",
+    ):
+        with mlflow.start_run():
+            mlflow.evaluate(
+                binary_logistic_regressor_model_uri,
+                breast_cancer_dataset._constructor_args["data"],
+                targets=breast_cancer_dataset._constructor_args["targets"],
+                evaluators="default",
+                model_type="classifier",
+                custom_metrics=[make_metric(eval_fn=dummy_fn, greater_is_better=True)],
+                extra_metrics=[make_metric(eval_fn=dummy_fn, greater_is_better=True)],
+            )
+
+    message = "The 'custom_metrics' parameter in mlflow.evaluate is deprecated. Please update your "
+    "code to use the 'extra_metrics' parameter instead."
+    with pytest.warns(FutureWarning, match=message):
+        with mlflow.start_run():
+            mlflow.evaluate(
+                binary_logistic_regressor_model_uri,
+                breast_cancer_dataset._constructor_args["data"],
+                targets=breast_cancer_dataset._constructor_args["targets"],
+                evaluators="default",
+                model_type="classifier",
+                custom_metrics=[make_metric(eval_fn=dummy_fn, greater_is_better=True)],
+            )
+
+
+def test_custom_metric_bad_names():
+    def metric_fn(predictions, targets):
+        return 0
+
+    error_message = re.escape(
+        "Invalid metric name 'metric/with/slash'. Metric names cannot include "
+        "forward slashes ('/')."
+    )
+    with pytest.raises(
+        MlflowException,
+        match=error_message,
+    ):
+        make_metric(eval_fn=metric_fn, name="metric/with/slash", greater_is_better=True)
+
+    with mock.patch("mlflow.models.evaluation.base._logger.warning") as mock_warning:
+        make_metric(eval_fn=metric_fn, name="bad-metric-name", greater_is_better=True)
+        mock_warning.assert_called_once_with(
+            "The metric name 'bad-metric-name' provided is not a valid Python identifier, which "
+            "will prevent its use as a base metric for derived metrics. Please use a valid "
+            "identifier to enable creation of derived metrics that use the given metric."
+        )
+
+    with mock.patch("mlflow.models.evaluation.base._logger.warning") as mock_warning:
+        make_metric(eval_fn=metric_fn, name="None", greater_is_better=True)
+        mock_warning.assert_called_once_with(
+            "The metric name 'None' is a reserved Python keyword, which will "
+            "prevent its use as a base metric for derived metrics. Please use a valid identifier "
+            "to enable creation of derived metrics that use the given metric."
+        )
+
+    with mock.patch("mlflow.models.evaluation.base._logger.warning") as mock_warning:
+        make_metric(eval_fn=metric_fn, name="predictions", greater_is_better=True)
+        mock_warning.assert_called_once_with(
+            "The metric name 'predictions' is used as a special parameter in MLflow metrics, which "
+            "will prevent its use as a base metric for derived metrics. Please use a different "
+            "name to enable creation of derived metrics that use the given metric."
+        )

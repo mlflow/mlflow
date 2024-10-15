@@ -17,7 +17,7 @@ from mlflow.models.evaluation.artifacts import (
     TextEvaluationArtifact,
     _infer_artifact_type_and_ext,
 )
-from mlflow.models.evaluation.default_evaluator import _CustomArtifact
+from mlflow.models.evaluation.evaluators.base import _CustomArtifact
 
 
 @pytest.fixture

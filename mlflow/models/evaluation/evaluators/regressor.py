@@ -5,7 +5,7 @@ from sklearn import metrics as sk_metrics
 
 import mlflow
 from mlflow.models.evaluation.base import EvaluationMetric, EvaluationResult, _ModelType
-from mlflow.models.evaluation.default_evaluator import (
+from mlflow.models.evaluation.evaluators.base import (
     BuiltInEvaluator,
     _extract_predict_fn,
     _get_aggregate_metrics_values,
