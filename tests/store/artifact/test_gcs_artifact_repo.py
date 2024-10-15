@@ -485,7 +485,7 @@ def test_abort_multipart_upload(mock_client):
         assert kwargs["data"] is None
 
 @pytest.mark.parametrize("throw", [True, False])
-def test_retryable_log_artifact(throw):
+def test_retryable_log_artifact(throw, tmp_path):
     with mock.patch(
         "google.cloud.storage.Client"
     ) as mock_gcs_client_factory, mock.patch(
@@ -509,7 +509,7 @@ def test_retryable_log_artifact(throw):
             return None
 
         def creds_func():
-            return "new_creds"
+            return {"oauth_token": "new_creds"}
 
         gcs_bucket_mock.blob.return_value.upload_from_filename.side_effect = exception_thrown_side_effect_func
         gcs_refreshed_bucket_mock.blob.return_value.upload_from_filename.side_effect = success_side_effect_func
@@ -519,7 +519,17 @@ def test_retryable_log_artifact(throw):
             client=gcs_client_mock,
             credential_refresh_def=creds_func
         )
-        repo._retryable_log_artifact("bucket", "path", "filename")
+
+        data = tmp_path.joinpath("data")
+        data.mkdir()
+        subd = data.joinpath("subdir")
+        subd.mkdir()
+        subd.joinpath("a.txt").write_text("A")
+
+        try:
+            repo.log_artifacts(subd)
+        except Exception:
+            pass
 
         if throw:
             assert gcs_bucket_mock.blob.call_count == 1

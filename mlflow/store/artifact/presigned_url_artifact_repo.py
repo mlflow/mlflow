@@ -12,7 +12,8 @@ from mlflow.protos.databricks_filesystem_service_pb2 import (
     FilesystemService,
     ListDirectoryResponse,
 )
-from mlflow.store.artifact.cloud_artifact_repo import CloudArtifactRepository, _retry_with_new_creds
+from mlflow.store.artifact.artifact_repo import _retry_with_new_creds
+from mlflow.store.artifact.cloud_artifact_repo import CloudArtifactRepository
 from mlflow.utils.file_utils import download_file_using_http_uri
 from mlflow.utils.proto_json_utils import message_to_json
 from mlflow.utils.request_utils import augmented_raise_for_status, cloud_storage_http_request
