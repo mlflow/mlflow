@@ -1,5 +1,6 @@
 import importlib
 import re
+from typing import Literal
 
 from packaging.version import InvalidVersion, Version
 
@@ -41,13 +42,15 @@ def _strip_dev_version_suffix(version):
     return re.sub(r"(\.?)dev.*", "", version)
 
 
-def get_min_max_version_and_pip_release(flavor_name):
+def get_min_max_version_and_pip_release(
+    flavor_name: str, category: Literal["autologging", "models"] = "autologging"
+):
     if flavor_name == "pyspark.ml":
         # pyspark.ml is a special case of spark flavor
         flavor_name = "spark"
 
-    min_version = _ML_PACKAGE_VERSIONS[flavor_name]["autologging"]["minimum"]
-    max_version = _ML_PACKAGE_VERSIONS[flavor_name]["autologging"]["maximum"]
+    min_version = _ML_PACKAGE_VERSIONS[flavor_name][category]["minimum"]
+    max_version = _ML_PACKAGE_VERSIONS[flavor_name][category]["maximum"]
     pip_release = _ML_PACKAGE_VERSIONS[flavor_name]["package_info"]["pip_release"]
     return min_version, max_version, pip_release
 

@@ -3,6 +3,9 @@ import warnings
 from typing import Dict
 
 from mlflow.ml_package_versions import _ML_PACKAGE_VERSIONS
+from mlflow.utils.autologging_utils.versioning import (
+    get_min_max_version_and_pip_release,
+)
 
 
 def _create_placeholder(key: str):
@@ -407,12 +410,12 @@ def docstring_version_compatibility_warning(integration_name):
         # NB: if using this decorator, ensure the package name to module name reference is
         # updated with the flavor's `save` and `load` functions being used within
         # ml-package-version.yml file.
-        _, min_ver, max_ver = get_module_min_and_max_supported_ranges(integration_name)
-        required_pkg_versions = f"``{min_ver}`` -  ``{max_ver}``"
-
+        min_ver, max_ver, pip_release = get_min_max_version_and_pip_release(
+            integration_name, "models"
+        )
         notice = (
             f"The '{integration_name}' MLflow Models integration is known to be compatible with "
-            f"the following package version ranges: {required_pkg_versions}. "
+            f"``{min_ver}`` <= ``{pip_release}`` <= ``{max_ver}``. "
             f"MLflow Models integrations with {integration_name} may not succeed when used with "
             "package versions outside of this range."
         )
