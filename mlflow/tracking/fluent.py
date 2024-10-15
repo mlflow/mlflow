@@ -922,9 +922,12 @@ def _log_inputs_for_metrics_if_necessary(
     run = client.get_run(run_id)
     datasets = datasets or []
     for metric in metrics:
-        if metric.model_id is not None and metric.model_id not in [
-            inp.model_id for inp in run.inputs.model_inputs
-        ] + [output.model_id for output in run.outputs.model_outputs]:
+        input_model_ids = [i.model_id for i in (run.inputs and run.inputs.model_inputs) or []]
+        output_model_ids = [o.model_id for o in (run.outputs and run.outputs.model_outputs) or []]
+        if (
+            metric.model_id is not None
+            and metric.model_id not in input_model_ids + output_model_ids
+        ):
             client.log_inputs(run_id, models=[LoggedModelInput(model_id=metric.model_id)])
         if (metric.dataset_name, metric.dataset_digest) not in [
             (inp.dataset.name, inp.dataset.digest) for inp in run.inputs.dataset_inputs
