@@ -226,7 +226,6 @@ def _traverse_runnable(
     """
     import pydantic
     from langchain_core.runnables import Runnable, RunnableLambda
-    from langgraph.utils.runnable import RunnableCallable
 
     visited = visited or set()
     current_object_id = id(lc_model)
@@ -243,10 +242,11 @@ def _traverse_runnable(
             pydantic.version.VERSION
         ) >= version.parse("2.0"):
             nodes = _get_nodes_from_runnable_lambda(lc_model)
-        elif isinstance(lc_model, RunnableCallable):
-            nodes = _get_nodes_from_runnable_callable(lc_model)
         else:
-            nodes = lc_model.get_graph().nodes.values()
+            nodes = _get_nodes_from_runnable_callable(lc_model)
+            # If no nodes are found continue with the default behaviour
+            if len(nodes) == 0:
+                nodes = lc_model.get_graph().nodes.values()
 
         for node in nodes:
             yield from _traverse_runnable(node.data, visited)
@@ -289,9 +289,6 @@ def _get_nodes_from_runnable_lambda(lc_model):
 
 
 def _get_nodes_from_runnable_callable(lc_model):
-    from langchain_core.runnables import Runnable
-    from langchain_core.runnables.utils import get_function_nonlocals
-
     """
     RunnableLambda has a `deps` property which goes through the function and extracts a
     ny dependencies. RunnableCallable does not have this property so we cannot derive all
@@ -300,6 +297,19 @@ def _get_nodes_from_runnable_callable(lc_model):
 
     The code here is from: https://github.com/langchain-ai/langchain/blob/12fea5b868edd12b0d576e7f8bfc922d0167eeab/libs/core/langchain_core/runnables/base.py#L4467
     """
+
+    # If Runnable Callable is not importable or if the lc_model is not an instance
+    # of RunnableCallable return early
+    try:
+        from langchain_core.runnables import Runnable
+        from langchain_core.runnables.utils import get_function_nonlocals
+        from langgraph.utils.runnable import RunnableCallable
+
+        if not isinstance(lc_model, RunnableCallable):
+            return []
+    except ImportError:
+        return []
+
     if hasattr(lc_model, "func"):
         objects = get_function_nonlocals(lc_model.func)
     elif hasattr(lc_model, "afunc"):
