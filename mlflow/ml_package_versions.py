@@ -305,7 +305,7 @@ _ML_PACKAGE_VERSIONS = {
         },
         "autologging": {
             "minimum": "0.2.36",
-            "maximum": "0.3.1"
+            "maximum": "0.2.36"
         }
     },
     "sentence_transformers": {

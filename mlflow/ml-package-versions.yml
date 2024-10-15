@@ -834,7 +834,7 @@ autogen:
     #  pip install git+https://github.com/microsoft/autogen#subdirectory=python/packages/autogen-agentchat
   autologging:
     minimum: "0.2.36"
-    maximum: "0.3.1"
+    maximum: "0.2.36"
     python:
       "== dev": "3.10"
     requirements:
