@@ -46,7 +46,7 @@ from mlflow.utils.autologging_utils.versioning import (
     get_min_max_version_and_pip_release,
     is_flavor_supported_for_associated_package_versions,
 )
-from mlflow.utils.thread_utils import set_thread_local_var, get_global_var
+from mlflow.utils.thread_utils import set_thread_local_var
 
 INPUT_EXAMPLE_SAMPLE_ROWS = 5
 ENSURE_AUTOLOGGING_ENABLED_TEXT = (
@@ -59,17 +59,8 @@ ENSURE_AUTOLOGGING_ENABLED_TEXT = (
 # autologging method (e.g., `mlflow.tensorflow.autolog()`, ...)
 AUTOLOGGING_CONF_KEY_IS_GLOBALLY_CONFIGURED = "globally_configured"
 
-
-def get_autologging_integrations():
-    """
-    Get a global variable `AUTOLOGGING_INTEGRATIONS` which is a dict
-    mapping integration name to its config.
-    Note `AUTOLOGGING_INTEGRATIONS` value is reset in forked subprocess,
-        to make it work correctly, do not cache its return value
-        but call `get_autologging_integrations()` when using it.
-    """
-    return get_global_var("AUTOLOGGING_INTEGRATIONS", init_value={})
-
+# Dict mapping integration name to its config.
+AUTOLOGGING_INTEGRATIONS = {}
 
 # Corresponds to `mlflow.langchain.autolog` kwargs. Restricts
 # autologging to only log traces.
@@ -446,7 +437,7 @@ def autologging_integration(name):
         param_spec = inspect.signature(_autolog).parameters
         validate_param_spec(param_spec)
 
-        get_autologging_integrations()[name] = {}
+        AUTOLOGGING_INTEGRATIONS[name] = {}
         default_params = {param.name: param.default for param in param_spec.values()}
 
         def autolog(*args, **kwargs):
@@ -455,7 +446,7 @@ def autologging_integration(name):
                 {param.name: arg for arg, param in zip(args, param_spec.values())}
             )
             config_to_store.update(kwargs)
-            get_autologging_integrations()[name] = config_to_store
+            AUTOLOGGING_INTEGRATIONS[name] = config_to_store
 
             try:
                 # Pass `autolog()` arguments to `log_autolog_called` in keyword format to enable
@@ -526,7 +517,7 @@ def get_autologging_config(flavor_name, config_key, default_value=None):
         config_key: The key for the desired config value.
         default_value: The default_value to return.
     """
-    config = get_autologging_integrations().get(flavor_name)
+    config = AUTOLOGGING_INTEGRATIONS.get(flavor_name)
     if config is not None:
         return config.get(config_key, default_value)
     else:
@@ -579,7 +570,7 @@ def restrict_langchain_autologging_to_traces_only():
     if sys.modules.get("langchain") is None:
         yield
     else:
-        prev_langchain_params = get_autologging_integrations().get(mlflow.langchain.FLAVOR_NAME)
+        prev_langchain_params = AUTOLOGGING_INTEGRATIONS.get(mlflow.langchain.FLAVOR_NAME)
         try:
             mlflow.langchain.autolog(**MLFLOW_EVALUATE_RESTRICT_LANGCHAIN_AUTOLOG_TO_TRACES_CONFIG)
             yield

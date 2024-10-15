@@ -27,7 +27,7 @@ from mlflow.tensorflow.callback import MlflowCallback
 from mlflow.tracking.fluent import _shut_down_async_logging
 from mlflow.types.utils import _infer_schema
 from mlflow.utils.autologging_utils import (
-    get_autologging_integrations,
+    AUTOLOGGING_INTEGRATIONS,
     autologging_is_disabled,
 )
 from mlflow.utils.process import _exec_cmd
@@ -154,7 +154,7 @@ def clear_autologging_config():
     Clears TensorFlow autologging config, simulating a fresh state where autologging has not
     been previously enabled with any particular configuration
     """
-    get_autologging_integrations().pop(mlflow.tensorflow.FLAVOR_NAME, None)
+    AUTOLOGGING_INTEGRATIONS.pop(mlflow.tensorflow.FLAVOR_NAME, None)
 
 
 def create_tf_keras_model():

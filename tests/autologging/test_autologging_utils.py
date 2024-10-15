@@ -11,7 +11,7 @@ from mlflow import MlflowClient
 from mlflow.ml_package_versions import FLAVOR_TO_MODULE_NAME
 from mlflow.utils import gorilla
 from mlflow.utils.autologging_utils import (
-    get_autologging_integrations,
+    AUTOLOGGING_INTEGRATIONS,
     AutologgingEventLogger,
     BatchMetricsLogger,
     autologging_integration,
@@ -397,28 +397,28 @@ def test_autologging_integration_stores_and_updates_config():
         return foo
 
     autolog()
-    assert get_autologging_integrations()["test_integration"] == {
+    assert AUTOLOGGING_INTEGRATIONS["test_integration"] == {
         "foo": 7,
         "bar": 10,
         "disable": False,
         "silent": False,
     }
     autolog(bar=11)
-    assert get_autologging_integrations()["test_integration"] == {
+    assert AUTOLOGGING_INTEGRATIONS["test_integration"] == {
         "foo": 7,
         "bar": 11,
         "disable": False,
         "silent": False,
     }
     autolog(6, disable=True)
-    assert get_autologging_integrations()["test_integration"] == {
+    assert AUTOLOGGING_INTEGRATIONS["test_integration"] == {
         "foo": 6,
         "bar": 10,
         "disable": True,
         "silent": False,
     }
     autolog(1, 2, False, silent=True)
-    assert get_autologging_integrations()["test_integration"] == {
+    assert AUTOLOGGING_INTEGRATIONS["test_integration"] == {
         "foo": 1,
         "bar": 2,
         "disable": False,
@@ -451,7 +451,7 @@ def test_autologging_integration_validates_structure_of_autolog_function():
 
     # Failure to apply the @autologging_integration decorator should not create a
     # placeholder for configuration state
-    assert "test" not in get_autologging_integrations()
+    assert "test" not in AUTOLOGGING_INTEGRATIONS
 
 
 def test_autologging_integration_makes_expected_event_logging_calls():
@@ -769,7 +769,7 @@ def test_disable_for_unsupported_versions_warning_sklearn_integration():
         )
 
     with mock.patch("sklearn.__version__", "1.5.1"):
-        get_autologging_integrations().clear()
+        AUTOLOGGING_INTEGRATIONS.clear()
         with mock.patch(log_warn_fn_name) as log_warn_fn, mock.patch(
             log_info_fn_name
         ) as log_info_fn:
@@ -795,7 +795,7 @@ def test_disable_for_unsupported_versions_warning_sklearn_integration():
             log_warn_fn.assert_not_called()
 
     with mock.patch("sklearn.__version__", "0.20.2"):
-        get_autologging_integrations().clear()
+        AUTOLOGGING_INTEGRATIONS.clear()
         with mock.patch(log_warn_fn_name) as log_warn_fn, mock.patch(
             log_info_fn_name
         ) as log_info_fn:
@@ -824,7 +824,7 @@ def test_disable_for_unsupported_versions_warning_sklearn_integration():
 
 def test_unsupported_versions_warning_should_not_shown_for_excluded_packages():
     with mock.patch("langchain.__version__", "100.200.300"):
-        get_autologging_integrations().clear()
+        AUTOLOGGING_INTEGRATIONS.clear()
         with mock.patch("mlflow.utils.autologging_utils._logger.warning") as log_warn_fn:
             mlflow.langchain.autolog()
             assert len(log_warn_fn.call_args_list) == 0 or (

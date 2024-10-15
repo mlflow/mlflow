@@ -312,9 +312,9 @@ def test_autolog_respects_silent_mode(tmp_path, monkeypatch):
 
 
 def test_autolog_globally_configured_flag_set_correctly():
-    from mlflow.utils.autologging_utils import get_autologging_integrations
+    from mlflow.utils.autologging_utils import AUTOLOGGING_INTEGRATIONS
 
-    get_autologging_integrations().clear()
+    AUTOLOGGING_INTEGRATIONS.clear()
     import pyspark
     import pyspark.ml  # noqa: F401
     import sklearn  # noqa: F401
@@ -322,11 +322,11 @@ def test_autolog_globally_configured_flag_set_correctly():
     integrations_to_test = ["sklearn", "spark", "pyspark.ml"]
     mlflow.autolog()
     for integration_name in integrations_to_test:
-        assert get_autologging_integrations()[integration_name]["globally_configured"]
+        assert AUTOLOGGING_INTEGRATIONS[integration_name]["globally_configured"]
 
     mlflow.sklearn.autolog()
     mlflow.spark.autolog()
     mlflow.pyspark.ml.autolog()
 
     for integration_name in integrations_to_test:
-        assert "globally_configured" not in get_autologging_integrations()[integration_name]
+        assert "globally_configured" not in AUTOLOGGING_INTEGRATIONS[integration_name]

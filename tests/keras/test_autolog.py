@@ -11,13 +11,13 @@ import mlflow
 from mlflow import MlflowClient
 from mlflow.tracking.fluent import flush_async_logging
 from mlflow.types import Schema, TensorSpec
-from mlflow.utils.autologging_utils import get_autologging_integrations
+from mlflow.utils.autologging_utils import AUTOLOGGING_INTEGRATIONS
 
 
 @pytest.fixture(autouse=True)
 def clear_autologging_config():
     yield
-    get_autologging_integrations().pop("keras", None)
+    AUTOLOGGING_INTEGRATIONS.pop("keras", None)
 
 
 def _create_keras_model():

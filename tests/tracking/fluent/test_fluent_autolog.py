@@ -54,9 +54,9 @@ library_to_mlflow_module = {
 
 @pytest.fixture(autouse=True)
 def reset_global_states():
-    from mlflow.utils.autologging_utils import get_autologging_integrations
+    from mlflow.utils.autologging_utils import AUTOLOGGING_INTEGRATIONS
 
-    for value in get_autologging_integrations().values():
+    for value in AUTOLOGGING_INTEGRATIONS.values():
         value.clear()
 
     for integration_name in library_to_mlflow_module:
@@ -65,12 +65,12 @@ def reset_global_states():
         except Exception:
             pass
 
-    assert all(v == {} for v in get_autologging_integrations().values())
+    assert all(v == {} for v in AUTOLOGGING_INTEGRATIONS.values())
     assert mlflow.utils.import_hooks._post_import_hooks == {}
 
     yield
 
-    for value in get_autologging_integrations().values():
+    for value in AUTOLOGGING_INTEGRATIONS.values():
         value.clear()
 
     for integration_name in library_to_mlflow_module:
@@ -82,7 +82,7 @@ def reset_global_states():
     # TODO: Remove this when we remove the `mlflow.gluon` module
     mlflow.utils.import_hooks._post_import_hooks.pop("mxnet.gluon", None)
 
-    assert all(v == {} for v in get_autologging_integrations().values())
+    assert all(v == {} for v in AUTOLOGGING_INTEGRATIONS.values())
     assert mlflow.utils.import_hooks._post_import_hooks == {}
 
 
@@ -223,7 +223,7 @@ def test_universal_autolog_makes_expected_event_logging_calls():
 
 
 def test_autolog_obeys_disabled():
-    from mlflow.utils.autologging_utils import get_autologging_integrations
+    from mlflow.utils.autologging_utils import AUTOLOGGING_INTEGRATIONS
 
     mlflow.autolog(disable=True)
     mlflow.utils.import_hooks.notify_module_loaded(sklearn)
@@ -241,7 +241,7 @@ def test_autolog_obeys_disabled():
     mlflow.sklearn.autolog(disable=True)
     assert get_autologging_config("sklearn", "disable")
 
-    get_autologging_integrations().clear()
+    AUTOLOGGING_INTEGRATIONS.clear()
     mlflow.autolog(disable_for_unsupported_versions=False)
     mlflow.utils.import_hooks.notify_module_loaded(sklearn)
     assert not get_autologging_config("sklearn", "disable_for_unsupported_versions")
