@@ -690,7 +690,7 @@ class EvaluationResult:
 @developer_stable
 class ModelEvaluator(metaclass=ABCMeta):
     @abstractmethod
-    def can_evaluate(self, *, model_type, evaluator_config, **kwargs) -> bool:
+    def can_evaluate(cls, *, model_type, evaluator_config, **kwargs) -> bool:
         """
         Args:
             model_type: A string describing the model type (e.g., "regressor", "classifier", …).
@@ -791,16 +791,15 @@ def _resolve_default_evaluator(model_type, evaluator_config):
     from mlflow.models.evaluation.evaluator_registry import _model_evaluation_registry
 
     builtin_evaluators = []
-    for evaluator_name in list(_model_evaluation_registry._registry.keys()):
+    for name, evaluator in _model_evaluation_registry._registry.items():
         if (
-            evaluator_name != "default"
-            and _model_evaluation_registry.is_builtin(evaluator_name)
-            and (evaluator := _model_evaluation_registry.get_evaluator(evaluator_name))
+            name != "default"
+            and _model_evaluation_registry.is_builtin(name)
             and evaluator.can_evaluate(
                 model_type=model_type, evaluator_config=evaluator_config or {}
             )
         ):
-            builtin_evaluators.append(evaluator_name)
+            builtin_evaluators.append(name)
 
     # We should use DefaultEvaluator only if there is no other built-in evaluator applicable.
     return builtin_evaluators or ["default"]
@@ -908,7 +907,7 @@ def resolve_evaluators_and_configs(
         ):
             raise MlflowException(
                 message="If `evaluators` argument is an evaluator name list, evaluator_config "
-                "must be a dict contains mapping from evaluator name to individual "
+                "must be a dict containing mapping from evaluator name to individual "
                 "evaluator config dict.",
                 error_code=INVALID_PARAMETER_VALUE,
             )
@@ -981,22 +980,23 @@ def _evaluate(
         dataset._log_dataset_tag(client, run_id, model_uuid)
 
     eval_results = []
-    for e in evaluators:
-        _logger.debug(f"Evaluating the model with the {e.name} evaluator.")
-        _last_failed_evaluator = e.name
-        if e.evaluator.can_evaluate(model_type=model_type, evaluator_config=e.config):
-            eval_result = e.evaluator.evaluate(
+    for eval_ in evaluators:
+        _logger.debug(f"Evaluating the model with the {eval_.name} evaluator.")
+        _last_failed_evaluator = eval_.name
+        if eval_.evaluator.can_evaluate(model_type=model_type, evaluator_config=eval_.config):
+            eval_result = eval_.evaluator.evaluate(
                 model=model,
                 model_type=model_type,
                 dataset=dataset,
                 run_id=run_id,
-                evaluator_config=e.config,
+                evaluator_config=eval_.config,
                 custom_metrics=custom_metrics,
                 extra_metrics=extra_metrics,
                 custom_artifacts=custom_artifacts,
                 predictions=predictions,
             )
-            eval_results.append(eval_result)
+            if eval_result is not None:
+                eval_results.append(eval_result)
 
     _last_failed_evaluator = None
 
@@ -1010,8 +1010,6 @@ def _evaluate(
     merged_eval_result = EvaluationResult({}, {}, None)
 
     for eval_result in eval_results:
-        if not eval_result:
-            continue
         merged_eval_result.metrics.update(eval_result.metrics)
         merged_eval_result.artifacts.update(eval_result.artifacts)
 

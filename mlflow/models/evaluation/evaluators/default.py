@@ -46,7 +46,8 @@ class DefaultEvaluator(BuiltInEvaluator):
 
     name = "default"
 
-    def can_evaluate(self, *, model_type, evaluator_config, **kwargs):
+    @classmethod
+    def can_evaluate(cls, *, model_type, evaluator_config, **kwargs):
         return model_type in _ModelType.values() or model_type is None
 
     def _evaluate(
@@ -55,7 +56,7 @@ class DefaultEvaluator(BuiltInEvaluator):
         extra_metrics: List[EvaluationMetric],
         custom_artifacts=None,
         **kwargs,
-    ) -> EvaluationResult:
+    ) -> Optional[EvaluationResult]:
         compute_latency = False
         for extra_metric in extra_metrics:
             # If latency metric is specified, we will compute latency for the model

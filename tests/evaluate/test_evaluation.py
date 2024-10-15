@@ -1009,7 +1009,8 @@ def test_log_dataset_tag(iris_dataset, iris_pandas_df_dataset):
 
 
 class FakeEvaluator1(ModelEvaluator):
-    def can_evaluate(self, *, model_type, evaluator_config, **kwargs):
+    @classmethod
+    def can_evaluate(cls, *, model_type, evaluator_config, **kwargs):
         raise RuntimeError()
 
     def evaluate(self, *, model, model_type, dataset, run_id, evaluator_config, **kwargs):
@@ -1017,7 +1018,8 @@ class FakeEvaluator1(ModelEvaluator):
 
 
 class FakeEvaluator2(ModelEvaluator):
-    def can_evaluate(self, *, model_type, evaluator_config, **kwargs):
+    @classmethod
+    def can_evaluate(cls, *, model_type, evaluator_config, **kwargs):
         raise RuntimeError()
 
     def evaluate(self, *, model, model_type, dataset, run_id, evaluator_config, **kwargs):
@@ -1417,7 +1419,8 @@ def test_evaluate_restores_env(tmp_path, env_manager, iris_dataset):
             return model_input.apply(lambda row: pred_value, axis=1)
 
     class FakeEvauatorEnv(ModelEvaluator):
-        def can_evaluate(self, *, model_type, evaluator_config, **kwargs):
+        @classmethod
+        def can_evaluate(cls, *, model_type, evaluator_config, **kwargs):
             return True
 
         def evaluate(self, *, model, model_type, dataset, run_id, evaluator_config, **kwargs):

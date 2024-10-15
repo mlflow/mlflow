@@ -33,7 +33,8 @@ class ClassifierEvaluator(BuiltInEvaluator):
 
     name = "classifier"
 
-    def can_evaluate(self, *, model_type, evaluator_config, **kwargs):
+    @classmethod
+    def can_evaluate(cls, *, model_type, evaluator_config, **kwargs):
         # TODO: Also the model needs to be pyfunc model, not function or endpoint URI
         return model_type == _ModelType.CLASSIFIER
 
@@ -43,7 +44,7 @@ class ClassifierEvaluator(BuiltInEvaluator):
         extra_metrics: List[EvaluationMetric],
         custom_artifacts=None,
         **kwargs,
-    ) -> EvaluationResult:
+    ) -> Optional[EvaluationResult]:
         # Get classification config
         self.y_true = self.dataset.labels_data
         self.label_list = self.evaluator_config.get("label_list")

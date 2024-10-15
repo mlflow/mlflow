@@ -14,11 +14,14 @@ class ModelEvaluatorRegistry:
         self._registry = {}
         self._builtin_evaluators = {}
 
-    def register(self, scheme, evaluator, is_builtin=False):
+    def register(self, scheme, evaluator):
         """Register model evaluator provided by other packages"""
         self._registry[scheme] = evaluator
-        if is_builtin:
-            self._builtin_evaluators[scheme] = evaluator
+
+    def register_builtin(self, scheme, evaluator):
+        """Register built-in model evaluator"""
+        self._registry[scheme] = evaluator
+        self._builtin_evaluators[scheme] = evaluator
 
     def register_entrypoints(self):
         # Register ModelEvaluator implementation provided by other packages
@@ -62,10 +65,12 @@ def register_evaluators(module):
     from mlflow.models.evaluation.evaluators.shap import ShapEvaluator
 
     # Built-in evaluators
-    module._model_evaluation_registry.register(DefaultEvaluator.name, DefaultEvaluator, True)
-    module._model_evaluation_registry.register(ClassifierEvaluator.name, ClassifierEvaluator, True)
-    module._model_evaluation_registry.register(RegressorEvaluator.name, RegressorEvaluator, True)
-    module._model_evaluation_registry.register(ShapEvaluator.name, ShapEvaluator, True)
+    module._model_evaluation_registry.register_builtin(DefaultEvaluator.name, DefaultEvaluator)
+    module._model_evaluation_registry.register_builtin(
+        ClassifierEvaluator.name, ClassifierEvaluator
+    )
+    module._model_evaluation_registry.register_builtin(RegressorEvaluator.name, RegressorEvaluator)
+    module._model_evaluation_registry.register_builtin(ShapEvaluator.name, ShapEvaluator)
 
     # Plugin evaluators
     module._model_evaluation_registry.register_entrypoints()

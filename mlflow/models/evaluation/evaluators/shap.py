@@ -43,7 +43,7 @@ class ShapEvaluator(BuiltInEvaluator):
     name = "shap"
 
     @classmethod
-    def can_evaluate(self, *, model_type, evaluator_config, **kwargs):
+    def can_evaluate(cls, *, model_type, evaluator_config, **kwargs):
         return model_type in (_ModelType.CLASSIFIER, _ModelType.REGRESSOR) and evaluator_config.get(
             "log_model_explainability", True
         )
@@ -54,7 +54,7 @@ class ShapEvaluator(BuiltInEvaluator):
         extra_metrics: List[EvaluationMetric],
         custom_artifacts=None,
         **kwargs,
-    ) -> EvaluationResult:
+    ) -> Optional[EvaluationResult]:
         if isinstance(model, _ServedPyFuncModel):
             _logger.warning(
                 "Skipping model explainability because a model server is used for environment "

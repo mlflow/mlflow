@@ -1,6 +1,6 @@
 import logging
 from dataclasses import dataclass
-from typing import Callable, Dict, Optional
+from typing import Any, Callable, Dict, Optional
 
 import numpy as np
 
@@ -20,11 +20,11 @@ class MetricDefinition:
     index : the index of the function in the ``extra_metrics`` argument of mlflow.evaluate
     """
 
-    function: Callable
+    function: Callable[..., Any]
     name: str
     index: int
     version: Optional[str] = None
-    genai_metric_args: Optional[Dict] = None
+    genai_metric_args: Optional[Dict[str, Any]] = None
 
     @classmethod
     def from_index_and_metric(cls, index: int, metric: EvaluationMetric):

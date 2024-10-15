@@ -204,9 +204,8 @@ class BuiltInEvaluator(ModelEvaluator):
         extra_metrics: List[EvaluationMetric],
         custom_artifacts=None,
         **kwargs,
-    ) -> EvaluationResult:
+    ) -> Optional[EvaluationResult]:
         """Implement the evaluation logic for each evaluator."""
-        raise NotImplementedError
 
     def log_metrics(self):
         """
@@ -458,7 +457,7 @@ class BuiltInEvaluator(ModelEvaluator):
         prediction: pd.Series,
         target: Optional[np.array] = None,
     ):
-        """ """
+        """Evaluate custom artifacts provided by users."""
         if not custom_artifacts:
             return
 

@@ -19,7 +19,8 @@ class RegressorEvaluator(BuiltInEvaluator):
 
     name = "regressor"
 
-    def can_evaluate(self, *, model_type, evaluator_config, **kwargs):
+    @classmethod
+    def can_evaluate(cls, *, model_type, evaluator_config, **kwargs):
         return model_type == _ModelType.REGRESSOR
 
     def _evaluate(
@@ -28,7 +29,7 @@ class RegressorEvaluator(BuiltInEvaluator):
         extra_metrics: List[EvaluationMetric],
         custom_artifacts=None,
         **kwargs,
-    ) -> EvaluationResult:
+    ) -> Optional[EvaluationResult]:
         self.y_true = self.dataset.labels_data
         self.sample_weights = self.evaluator_config.get("sample_weights", None)
 
