@@ -301,10 +301,10 @@ _ML_PACKAGE_VERSIONS = {
     },
     "autogen": {
         "package_info": {
-            "pip_release": "pyautogen"
+            "pip_release": "autogen-agentchat"
         },
         "autologging": {
-            "minimum": "0.2.29",
+            "minimum": "0.2.36",
             "maximum": "0.3.1"
         }
     },
