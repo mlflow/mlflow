@@ -28,7 +28,8 @@ class Array2DEvaluationArtifact(EvaluationArtifact):
 
 
 class DummyEvaluator(ModelEvaluator):
-    def can_evaluate(self, *, model_type, evaluator_config, **kwargs):
+    @classmethod
+    def can_evaluate(cls, *, model_type, evaluator_config, **kwargs):
         return model_type in ["classifier", "regressor"]
 
     def _log_metrics(self, run_id, metrics):

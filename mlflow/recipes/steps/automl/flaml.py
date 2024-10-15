@@ -10,10 +10,8 @@ if TYPE_CHECKING:
 import mlflow
 from mlflow import MlflowException
 from mlflow.models import EvaluationMetric
-from mlflow.models.evaluation.default_evaluator import (
-    _get_binary_classifier_metrics,
-    _get_regressor_metrics,
-)
+from mlflow.models.evaluation.evaluators.classifier import _get_binary_classifier_metrics
+from mlflow.models.evaluation.evaluators.regressor import _get_regressor_metrics
 from mlflow.recipes.utils.metrics import RecipeMetric, _load_custom_metrics
 
 _logger = logging.getLogger(__name__)
