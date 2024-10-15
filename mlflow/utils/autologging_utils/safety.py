@@ -452,6 +452,9 @@ def safe_patch(
                     )
                 )
                 or (
+                    # For typical use-case of "hyper parameter tuning", Optuna might fork multiple
+                    # subprocesses to run tuning tasks.
+                    # in forked subprocesses, we should disable autologging.
                     mlflow.utils.autologging_utils.AUTOLOGGING_CONF_PID.get(autologging_integration)
                     != os.getpid()
                 )
