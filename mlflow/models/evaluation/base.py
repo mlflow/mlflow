@@ -871,7 +871,13 @@ def resolve_evaluators_and_configs(
         ]
         if default and non_default_builtins:
             resolved.remove(default)
-            # Apply default config to non-default built-in evaluators if they don't have config.
+            # Apply default config (passed like `evaluator_config={"default": config}`) to non-default
+            # built-in evaluators (e.g., ClassifierEvaluator) if they don't have config. This is for
+            # backward compatibility where we only had a single "default" evaluator used for all models.
+            # For example, if the user passes this for a classifier model:
+            #     evaluator_config = {"default": my_config}
+            # it should be equivalent to
+            #    evaluator_config = {"classifier": my_config, "shap": my_config}
             for ev in non_default_builtins:
                 ev.config = ev.config or default.config
 
