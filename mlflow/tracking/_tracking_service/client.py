@@ -965,7 +965,7 @@ class TrackingServiceClient:
         Returns:
             List of :py:class:`mlflow.entities.FileInfo`
         """
-        return self._get_artifact_repo(model_id).list_artifacts(path)
+        return self._get_artifact_repo(model_id, resource="logged_model").list_artifacts(path)
 
     def download_artifacts(self, run_id, path, dst_path=None):
         """Download an artifact file or directory from a run to a local directory if applicable,
