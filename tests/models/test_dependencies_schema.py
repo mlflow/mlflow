@@ -1,6 +1,5 @@
 import pytest
 
-from mlflow.exceptions import MlflowException
 from mlflow.models.dependencies_schemas import (
     DependenciesSchemas,
     DependenciesSchemasType,
@@ -197,9 +196,18 @@ def test_multiple_set_retriever_schema_with_same_name():
         doc_uri="doc-uri-3",
         other_columns=["column1", "column2"],
     )
+    set_retriever_schema(
+        name="my_ret_2",
+        primary_key="primary-key",
+        text_column="text-column",
+        doc_uri="doc-uri",
+        other_columns=["column1", "column2"],
+    )
 
-    with pytest.raises(
-        MlflowException, match=r"A retriever schema with the name 'my_ret_1' already exists."
+    with pytest.warns(
+        UserWarning,
+        match="A retriever schema with the name 'my_ret_1' already exists. "
+        "Overriding the existing schema.",
     ):
         set_retriever_schema(
             name="my_ret_1",
@@ -209,5 +217,22 @@ def test_multiple_set_retriever_schema_with_same_name():
             other_columns=["column1", "column2"],
         )
 
-    # If there is an error, the schema is cleared
-    assert _get_retriever_schema() == []
+    with _get_dependencies_schemas() as schema:
+        assert schema.to_dict()["dependencies_schemas"] == {
+            DependenciesSchemasType.RETRIEVERS.value: [
+                {
+                    "doc_uri": "doc-uri",
+                    "name": "my_ret_1",
+                    "other_columns": ["column1", "column2"],
+                    "primary_key": "primary-key",
+                    "text_column": "text-column",
+                },
+                {
+                    "doc_uri": "doc-uri",
+                    "name": "my_ret_2",
+                    "other_columns": ["column1", "column2"],
+                    "primary_key": "primary-key",
+                    "text_column": "text-column",
+                },
+            ]
+        }

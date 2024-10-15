@@ -1,11 +1,10 @@
+import warnings
 from abc import ABC, abstractmethod
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Dict, List, Optional
 
-from mlflow.exceptions import MlflowException
-from mlflow.protos.databricks_pb2 import ALREADY_EXISTS
 from mlflow.utils.annotations import experimental
 
 
@@ -55,23 +54,31 @@ def set_retriever_schema(
     retriever_schema = globals().get(DependenciesSchemasType.RETRIEVERS.value, [])
 
     # Check if a retriever schema with the same name already exists
-    if any(schema["name"] == name for schema in retriever_schema):
-        # reset if there is an error to clear the global state for next run
-        _clear_retriever_schema()
-        raise MlflowException(
-            f"A retriever schema with the name '{name}' already exists.",
-            error_code=ALREADY_EXISTS,
+    existing_schema = next((schema for schema in retriever_schema if schema["name"] == name), None)
+
+    if existing_schema is not None:
+        warnings.warn(
+            f"A retriever schema with the name '{name}' already exists. "
+            "Overriding the existing schema.",
+            category=UserWarning,
+            stacklevel=2,
+        )
+        # Override the fields of the existing schema
+        existing_schema["primary_key"] = primary_key
+        existing_schema["text_column"] = text_column
+        existing_schema["doc_uri"] = doc_uri
+        existing_schema["other_columns"] = other_columns or []
+    else:
+        retriever_schema.append(
+            {
+                "primary_key": primary_key,
+                "text_column": text_column,
+                "doc_uri": doc_uri,
+                "other_columns": other_columns or [],
+                "name": name,
+            }
         )
 
-    retriever_schema.append(
-        {
-            "primary_key": primary_key,
-            "text_column": text_column,
-            "doc_uri": doc_uri,
-            "other_columns": other_columns or [],
-            "name": name,
-        }
-    )
     globals()[DependenciesSchemasType.RETRIEVERS.value] = retriever_schema
 
 
