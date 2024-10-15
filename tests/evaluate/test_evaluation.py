@@ -1375,7 +1375,7 @@ def test_resolve_evaluators_and_configs():
 
     with pytest.raises(
         MlflowException,
-        match="evaluator_config must be a dict contains mapping from evaluator name to",
+        match="If `evaluators` argument is an evaluator name list, evaluator_config must",
     ):
         resolve_evaluators_and_configs(["default", "dummy_evaluator"], {"abc": {"a": 3}})
 
