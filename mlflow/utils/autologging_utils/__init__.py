@@ -46,7 +46,6 @@ from mlflow.utils.autologging_utils.versioning import (
     get_min_max_version_and_pip_release,
     is_flavor_supported_for_associated_package_versions,
 )
-from mlflow.utils.thread_utils import set_thread_local_var
 
 INPUT_EXAMPLE_SAMPLE_ROWS = 5
 ENSURE_AUTOLOGGING_ENABLED_TEXT = (
@@ -95,12 +94,13 @@ _AUTOLOGGING_SUPPORTED_VERSION_WARNING_SUPPRESS_LIST = [
 # Note "RLock" is required instead of plain lock, for avoid dead-lock
 _autolog_conf_global_lock = threading.RLock()
 
-# Key of thread-local variable indicating whether autologging is globally disabled for all
-# integrations.
-_AUTOLOGGING_DISABLED = "AUTOLOGGING_DISABLED"
-# Key of thread-local variable for exempting autologging flavors from the thread-local
-# `AUTOLOGGING_DISABLED` flag
-_AUTOLOGGING_DISABLED_EXEMPTIONS = "AUTOLOGGING_DISABLED_EXEMPTIONS"
+
+# _autolog_conf_thread_local stores 2 thread-local config:
+#  disabled:
+#    Flag indicating whether autologging is globally disabled for all integrations.
+#  disabled_exemptions:
+#    Exempts autologging flavors from the `_autolog_conf_thread_local.disabled` flag
+_autolog_conf_thread_local = threading.local()
 
 _logger = logging.getLogger(__name__)
 
@@ -556,13 +556,13 @@ def disable_autologging(exemptions=None):
     if exemptions is None:
         exemptions = []
 
-    set_thread_local_var(_AUTOLOGGING_DISABLED, True)
-    set_thread_local_var(_AUTOLOGGING_DISABLED_EXEMPTIONS, exemptions)
+    _autolog_conf_thread_local.disabled = True
+    _autolog_conf_thread_local.disabled_exemptions = exemptions
     try:
         yield
     finally:
-        set_thread_local_var(_AUTOLOGGING_DISABLED, False)
-        set_thread_local_var(_AUTOLOGGING_DISABLED_EXEMPTIONS, [])
+        _autolog_conf_thread_local.disabled = False
+        _autolog_conf_thread_local.disabled_exemptions = []
 
 
 @contextlib.contextmanager

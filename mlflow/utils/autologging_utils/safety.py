@@ -13,18 +13,13 @@ from mlflow.entities.run_status import RunStatus
 from mlflow.environment_variables import _MLFLOW_AUTOLOGGING_TESTING
 from mlflow.tracking.client import MlflowClient
 from mlflow.utils import gorilla, is_iterator
-from mlflow.utils.autologging_utils import (
-    _logger,
-    _AUTOLOGGING_DISABLED,
-    _AUTOLOGGING_DISABLED_EXEMPTIONS,
-)
+from mlflow.utils.autologging_utils import _logger
 from mlflow.utils.autologging_utils.events import AutologgingEventLogger
 from mlflow.utils.autologging_utils.logging_and_warnings import (
     set_mlflow_events_and_warnings_behavior_globally,
     set_non_mlflow_warnings_behavior_for_current_thread,
 )
 from mlflow.utils.mlflow_tags import MLFLOW_AUTOLOGGING
-from mlflow.utils.thread_utils import get_thread_local_var
 
 _AUTOLOGGING_PATCHES = {}
 
@@ -448,9 +443,12 @@ def safe_patch(
                 or autologging_is_disabled(autologging_integration)
                 or (user_created_fluent_run_is_active and exclusive)
                 or (
-                    get_thread_local_var(_AUTOLOGGING_DISABLED, False)
+                    getattr(mlflow.utils.autologging_utils._autolog_conf_thread_local, "disabled", False)
                     and autologging_integration
-                    not in get_thread_local_var(_AUTOLOGGING_DISABLED_EXEMPTIONS, [])
+                    not in getattr(
+                        mlflow.utils.autologging_utils._autolog_conf_thread_local,
+                        "disabled_exemptions", []
+                    )
                 )
             ):
                 # If the autologging integration associated with this patch is disabled,
