@@ -643,7 +643,7 @@ helps validate that the model can run predictions successfully, making it **stro
     By default, fields in the input example are inferred as required. To mark a field as optional, you can provide a list of 
     input examples where some examples contain None values for the optional fields. This behavior will be improved in future releases.
 
-Take langchain model as an example, you can log a model with signature with below steps:
+Taking a langchain model as an example, you can log a model with signature with 2 simple steps using the models from code feature:
 
 1. Define the langchain model in a separate python file named `langchain_model.py`:
 
@@ -695,10 +695,17 @@ To log a langchain model successfully, **it is highly recommended to use** `mode
         }
         | prompt
         | model
+        # Add this parser to convert the model output to a string
+        # so that MLflow can correctly infer the output schema
         | StrOutputParser()
     )
 
     mlflow.models.set_model(chain)
+
+.. note::
+    MLflow can only infer model signature for :ref:`certain data types <supported-data-types-column>`, so for
+    a langchain model, it is essential to add a parser such as `StrOutputParser` to parse the output to a format 
+    that MLflow accepts. 
 
 2. Log the langchain model with a valid input example:
 
@@ -724,9 +731,41 @@ To log a langchain model successfully, **it is highly recommended to use** `mode
 
 At this stage, the input_example serves multiple purposes: it is used to infer the model signature, 
 validate that the model functions correctly when reloaded using the PyFunc flavor, and to generate 
-a corresponding serving_input_example, which is used to validate the model’s functionality prior to deployment.
+a corresponding serving_input_example. The generated signature is used to validate the model’s 
+functionality prior to deployment as well as providing guidance to callers of the model when 
+it is deployed if they are making requests with invalid data structures.
 For more information on the benefits and usage of the input example, refer to the :ref:`Model Input Example <input-example>` section.
 To learn how to validate the model locally before deployment, refer to the :ref:`Model Serving Payload Example <model-serving-payload-example>` section.
+
+If your model has an optional input field, you can use below input_example as a reference:
+
+.. code-block:: python
+
+    from mlflow.models import infer_signature
+
+    input_example = {
+        "messages": [
+            {
+                # specify name field in the first message
+                "name": "userA",
+                "role": "user",
+                "content": {
+                    "question": "What is the primary function of control rods in a nuclear reactor?",
+                    "answer": "To stir the primary coolant so that the neutrons are mixed well.",
+                },
+            },
+            {
+                # no name field in the second message, so `name` will be inferred as optional
+                "role": "user",
+                "content": {
+                    "question": "What is MLflow?",
+                    "answer": "MLflow is an open-source platform",
+                },
+            },
+        ]
+    }
+
+    print(infer_signature(input_example))
 
 3. Load the model back and make predictions:
 
@@ -737,7 +776,8 @@ To learn how to validate the model locally before deployment, refer to the :ref:
 
     print(result)
 
-**Dataclass object as input is also accepted, use `infer_signature` to get the model signature**:
+**A Dataclass object is also a valid way of submitting a signature. Passing a Dataclass
+definition to** `infer_signature` **will generate the corresponding model signature equivalent**:
 
 .. code-block:: python
 
