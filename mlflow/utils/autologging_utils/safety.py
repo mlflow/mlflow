@@ -2,6 +2,7 @@ import abc
 import functools
 import inspect
 import itertools
+import os
 import typing
 import uuid
 from abc import abstractmethod
@@ -449,6 +450,10 @@ def safe_patch(
                         mlflow.utils.autologging_utils._autolog_conf_thread_local,
                         "disabled_exemptions", []
                     )
+                )
+                or (
+                    mlflow.utils.autologging_utils.AUTOLOGGING_CONF_PID.get(autologging_integration)
+                    != os.getpid()
                 )
             ):
                 # If the autologging integration associated with this patch is disabled,
