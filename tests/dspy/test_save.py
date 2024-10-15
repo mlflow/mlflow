@@ -1,13 +1,9 @@
 import json
 from unittest import mock
 
+import dspy
+import dspy.teleprompt
 import pytest
-
-try:
-    import dspy
-    import dspy.teleprompt
-except ImportError:
-    pytest.skip(reason="Skipping test because dspy is not installed.", allow_module_level=True)
 
 import mlflow
 from mlflow.models import Model, ModelSignature
