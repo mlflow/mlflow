@@ -404,7 +404,7 @@ class RestStore(AbstractStore):
             DeleteTraceTag, req_body, endpoint=get_set_trace_tag_endpoint(request_id)
         )
 
-    def log_metric(self, run_id, metric):
+    def log_metric(self, run_id: str, metric: Metric):
         """
         Log a metric for the specified run
 
@@ -420,6 +420,9 @@ class RestStore(AbstractStore):
                 value=metric.value,
                 timestamp=metric.timestamp,
                 step=metric.step,
+                model_id=metric.model_id,
+                dataset_name=metric.dataset_name,
+                dataset_digest=metric.dataset_digest,
             )
         )
         self._call_endpoint(LogMetric, req_body)
