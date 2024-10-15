@@ -1750,6 +1750,14 @@ def build_model_env(model_uri, save_path):
     Prebuild model python environment and generate an archive file saved to provided
     `save_path`.
 
+    Typical usages:
+     - Prebuild the model environment in Databricks Runtime, and then download the prebuilt
+       python environment archive file, then the prebuilt env file can be used
+       in `mlflow.pyfunc.spark_udf` in any remote Databricks connect client side.
+     - When running `mlflow.pyfunc.spark_udf` in Databricks runtime with `env_manager='virtualenv',
+       setting `prebuilt_env_path` can speed up `mlflow.pyfunc.spark_udf` execution because
+       it can skip rebuilding the python environment.
+
     NOTE: The `build_model_env` can only be called in Databricks runtime,
         and the generated prebuilt env file can be used in `mlflow.pyfunc.spark_udf` in
         Databricks runtime or Databricks Connect client.
@@ -1770,6 +1778,9 @@ def build_model_env(model_uri, save_path):
         model_uri: URI to the model that is used to build the python environment.
         save_path: The directory path that is used to save the prebuilt model environment
             archive file path.
+
+    Returns:
+        Return the poth of an archive file containing the python environment data.
     """
     from mlflow.utils._spark_utils import _get_active_spark_session
 
@@ -1787,8 +1798,8 @@ def build_model_env(model_uri, save_path):
     dest_path = os.path.join(save_path, archive_name + ".tar.gz")
     if os.path.exists(dest_path):
         raise RuntimeError(
-            "You have pre-built the model python environment and saved "
-            f"it in the '{save_path}' directory as the archive file "
+            "A pre-built model python environment is saved "
+            f"in the '{save_path}' directory as the archive file "
             f"{archive_name}.tar.gz. To rebuild it, please remove "
             "the existing one first."
         )
@@ -1941,7 +1952,7 @@ def spark_udf(
               may differ from the environment used to train the model and may lead to
               errors or invalid predictions.
 
-            This parameter is ignored if you set `prebuilt_env_path` param.
+            This parameter is ignored if the `prebuilt_env_path` parameter is set.
 
         params: Additional parameters to pass to the model for inference.
 

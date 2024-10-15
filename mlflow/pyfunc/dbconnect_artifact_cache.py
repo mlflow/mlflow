@@ -11,10 +11,10 @@ _CACHE_MAP_FILE_NAME = "db_connect_artifact_cache.json"
 
 class DBConnectArtifactCache:
     """
-    This class is designed for managing Databricks Connect artifacts cache.
+    Manages Databricks Connect artifacts cache.
     Note it doesn't support OSS Spark Connect.
 
-    You can use this class in the following environment:
+    This class can be used in the following environment:
      - Databricks shared cluster python notebook REPL
      - Databricks Serverless python notebook REPL
      - Databricks connect client python REPL that connects to remote Databricks Serverless
