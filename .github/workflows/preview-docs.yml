@@ -16,9 +16,10 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
+      - uses: .github/actions/setup-python
       - name: Install dependencies
         run: |
-          pip install requests --break-system-packages
+          pip install requests
       - name: Create preview link
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
