@@ -43,8 +43,6 @@ class MetricDefinition:
         that are in the wrong format.
 
         Args:
-            metric_tuple: Containing a user provided function and its index in the
-                ``extra_metrics`` parameter of ``mlflow.evaluate``
             eval_fn_args: A dictionary of args needed to compute the eval metrics.
 
         Returns:
