@@ -1669,7 +1669,9 @@ def test_log_inputs_validation(mlflow_client):
         source="source1",
     )
     tags = [InputTag(key="tag1", value="value1")]
-    dataset_inputs = [message_to_json(DatasetInput(dataset=dataset, tags=tags).to_proto())]
+    dataset_inputs = [
+        json.loads(message_to_json(DatasetInput(dataset=dataset, tags=tags).to_proto()))
+    ]
     assert_bad_request(
         {
             "datasets": dataset_inputs,
