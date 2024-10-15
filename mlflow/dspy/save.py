@@ -86,7 +86,7 @@ def save_model(
     pip_requirements: Optional[Union[List[str], str]] = None,
     extra_pip_requirements: Optional[Union[List[str], str]] = None,
     metadata: Optional[Dict[str, Any]] = None,
-    resources: Optional[Union[str, List[Resource]]] = None,
+    resources: Optional[Union[str, Path, List[Resource]]] = None,
 ):
     """
     Save a Dspy model.
@@ -256,7 +256,7 @@ def log_model(
     pip_requirements: Optional[Union[List[str], str]] = None,
     extra_pip_requirements: Optional[Union[List[str], str]] = None,
     metadata: Optional[Dict[str, Any]] = None,
-    resources: Optional[Union[str, List[Resource]]] = None,
+    resources: Optional[Union[str, Path, List[Resource]]] = None,
 ):
     """
     Log a Dspy model along with metadata to MLflow.
@@ -287,7 +287,7 @@ def log_model(
         metadata: Custom metadata dictionary passed to the model and stored in the MLmodel
             file.
         resources: A list of model resources or a resources.yaml file containing a list of
-                    resources required to serve the model.
+            resources required to serve the model.
 
     .. code-block:: python
         :caption: Example
