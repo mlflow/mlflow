@@ -9,7 +9,7 @@ from sklearn.pipeline import Pipeline as sk_Pipeline
 import mlflow
 from mlflow import MlflowException
 from mlflow.models.evaluation.base import EvaluationMetric, EvaluationResult, _ModelType
-from mlflow.models.evaluation.default_evaluator import (
+from mlflow.models.evaluation.evaluators.base import (
     BuiltInEvaluator,
     _extract_predict_fn,
     _extract_raw_model,
