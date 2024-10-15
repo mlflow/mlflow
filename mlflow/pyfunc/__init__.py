@@ -1712,10 +1712,10 @@ def _verify_prebuilt_env(spark, local_model_path, env_archive_path):
             f"The prebuilt env '{env_archive_path}' runtime version '{prebuilt_runtime_version}' "
             f"does not match UDF sandbox runtime version {runtime_version}."
         )
-    if prebuilt_runtime_version != runtime_version:
+    if prebuilt_platform_machine != platform_machine:
         raise MlflowException(
             f"The prebuilt env '{env_archive_path}' platform machine '{prebuilt_platform_machine}' "
-            f"does not match UDF sandbox platform machine {prebuilt_platform_machine}."
+            f"does not match UDF sandbox platform machine {platform_machine}."
         )
 
 
@@ -1762,8 +1762,11 @@ def prebuild_model_env(model_uri, save_path):
         :caption: Example
 
         from mlflow.pyfunc import prebuild_model_env
+
         # Create a python environment archive file at the path `prebuilt_env_path`
-        prebuilt_env_path = prebuild_model_env(f"runs:/{run_id}/model", "/path/to/save_directory")
+        prebuilt_env_path = prebuild_model_env(
+            f"runs:/{run_id}/model", "/path/to/save_directory"
+        )
 
     Args:
         model_uri: URI to the model that is used to build the python environment.
@@ -1813,6 +1816,7 @@ def prebuild_model_env(model_uri, save_path):
         shutil.rmtree(local_model_path, ignore_errors=True)
         if tmp_archive_path and os.path.exists(tmp_archive_path):
             os.remove(tmp_archive_path)
+
 
 def spark_udf(
     spark,
