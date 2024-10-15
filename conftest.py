@@ -168,6 +168,7 @@ def pytest_ignore_collect(collection_path, config):
             "tests/azureml",
             "tests/catboost",
             "tests/diviner",
+            "tests/dspy",
             "tests/fastai",
             "tests/gluon",
             "tests/h2o",
