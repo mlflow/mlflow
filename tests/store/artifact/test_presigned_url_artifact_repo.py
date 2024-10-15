@@ -19,7 +19,7 @@ from mlflow.protos.databricks_filesystem_service_pb2 import (
     HttpHeader,
     ListDirectoryResponse,
 )
-from mlflow.store.artifact.cloud_artifact_repo import _retry_with_new_creds
+from mlflow.store.artifact.artifact_repo import _retry_with_new_creds
 from mlflow.store.artifact.presigned_url_artifact_repo import (
     DIRECTORIES_ENDPOINT,
     FILESYSTEM_METHOD_TO_INFO,
