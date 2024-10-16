@@ -125,7 +125,7 @@ class AzureDataLakeArtifactRepository(CloudArtifactRepository):
                     file_client.upload_data(data=file, overwrite=True)
 
         _retry_with_new_creds(
-            try_func=try_func, creds_func=self._refresh_credentials, og_creds=self.fs_client
+            try_func=try_func, creds_func=self._refresh_credentials, orig_creds=self.fs_client
         )
 
     def list_artifacts(self, path=None):
@@ -166,7 +166,7 @@ class AzureDataLakeArtifactRepository(CloudArtifactRepository):
                 file_client.download_file().readinto(file)
 
         _retry_with_new_creds(
-            try_func=try_func, creds_func=self._refresh_credentials, og_creds=self.fs_client
+            try_func=try_func, creds_func=self._refresh_credentials, orig_creds=self.fs_client
         )
 
     def delete_artifacts(self, artifact_path=None):

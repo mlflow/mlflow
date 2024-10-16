@@ -163,7 +163,7 @@ class OptimizedS3ArtifactRepository(CloudArtifactRepository):
             creds.upload_file(Filename=local_file, Bucket=bucket, Key=key, ExtraArgs=extra_args)
 
         _retry_with_new_creds(
-            try_func=try_func, creds_func=self._refresh_credentials, og_creds=s3_client
+            try_func=try_func, creds_func=self._refresh_credentials, orig_creds=s3_client
         )
 
     def log_artifact(self, local_file, artifact_path=None):
@@ -223,7 +223,7 @@ class OptimizedS3ArtifactRepository(CloudArtifactRepository):
                     return response.headers["ETag"]
 
             return _retry_with_new_creds(
-                try_func=try_func, creds_func=self._refresh_credentials, og_creds=s3_client
+                try_func=try_func, creds_func=self._refresh_credentials, orig_creds=s3_client
             )
 
         try:
@@ -331,7 +331,7 @@ class OptimizedS3ArtifactRepository(CloudArtifactRepository):
             creds.download_file(self.bucket, s3_full_path, local_path)
 
         _retry_with_new_creds(
-            try_func=try_func, creds_func=self._refresh_credentials, og_creds=s3_client
+            try_func=try_func, creds_func=self._refresh_credentials, orig_creds=s3_client
         )
 
     def delete_artifacts(self, artifact_path=None):

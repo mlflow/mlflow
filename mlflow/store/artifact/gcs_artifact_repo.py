@@ -89,12 +89,20 @@ class GCSArtifactRepository(ArtifactRepository, MultipartUploadMixin):
         from google.cloud.storage import Client
         from google.oauth2.credentials import Credentials
         (bucket, _) = self.parse_gcs_uri(self.artifact_uri)
+        _logger.info("Refreshing credentials for GCS bucket: %s", bucket)
         if not self.credential_refresh_def:
+            _logger.info("No credential refresh function provided.  Cannot refresh credentials.")
             return self._get_bucket(bucket)
         new_token = self.credential_refresh_def()
         credentials = Credentials(new_token["oauth_token"])
+        cur_bucket = self._get_bucket(bucket)
         self.client = Client(project="mlflow", credentials=credentials)
-        return self._get_bucket(bucket)
+        new_bucket = self._get_bucket(bucket)
+        if cur_bucket != new_bucket:
+            _logger.info("Credentials refreshed for GCS bucket: %s", bucket)
+        else:
+            _logger.info("Credentials refresh failed for GCS bucket: %s", bucket)
+        return new_bucket
 
     def log_artifact(self, local_file, artifact_path=None):
         (bucket, dest_path) = self.parse_gcs_uri(self.artifact_uri)
@@ -115,7 +123,10 @@ class GCSArtifactRepository(ArtifactRepository, MultipartUploadMixin):
         except Exception as e:
             from google.cloud.storage import Client
             from google.oauth2.credentials import Credentials
-
+            _logger.info(
+                "Failed to complete upload request, possibly due to credential expiration."
+                f" Attempting to refresh credentials and trying again... (Error: {e})"
+            )
             _logger.info(
                 "Failed to complete upload request, possibly due to credential expiration."
                 f" Attempting to refresh credentials and trying again... (Error: {e})"
@@ -157,7 +168,7 @@ class GCSArtifactRepository(ArtifactRepository, MultipartUploadMixin):
                     )
 
                 _retry_with_new_creds(
-                    try_func=try_func, creds_func=self._refresh_credentials, og_creds=gcs_bucket
+                    try_func=try_func, creds_func=self._refresh_credentials, orig_creds=gcs_bucket
                 )
 
     def list_artifacts(self, path=None):

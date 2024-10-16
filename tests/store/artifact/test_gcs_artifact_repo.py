@@ -485,7 +485,7 @@ def test_abort_multipart_upload(mock_client):
         assert kwargs["data"] is None
 
 @pytest.mark.parametrize("throw", [True, False])
-def test_retryable_log_artifact(throw, tmp_path):
+def test_retryable_log_artifacts(throw, tmp_path):
     with mock.patch(
         "google.cloud.storage.Client"
     ) as mock_gcs_client_factory, mock.patch(
@@ -526,10 +526,7 @@ def test_retryable_log_artifact(throw, tmp_path):
         subd.mkdir()
         subd.joinpath("a.txt").write_text("A")
 
-        try:
-            repo.log_artifacts(subd)
-        except Exception:
-            pass
+        repo.log_artifacts(subd)
 
         if throw:
             assert gcs_bucket_mock.blob.call_count == 1
