@@ -3,6 +3,7 @@ This example code shows how to use `mlflow.pyfunc.spark_udf` with Databricks Con
 outside Databricks runtime.
 """
 
+import os
 from databricks.connect import DatabricksSession
 from sklearn import datasets
 from sklearn.neighbors import KNeighborsClassifier
@@ -10,8 +11,8 @@ from sklearn.neighbors import KNeighborsClassifier
 import mlflow
 
 spark = DatabricksSession.builder.remote(
-    host="<Databricks host>",
-    token="<Databricks token>",
+    host=os.environ["DATABRICKS_HOST"],
+    token=os.environ["DATABRICKS_TOKEN"],
     cluster_id="<cluster id>",  # get cluster id by spark.conf.get("spark.databricks.clusterUsageTags.clusterId")
 ).getOrCreate()
 

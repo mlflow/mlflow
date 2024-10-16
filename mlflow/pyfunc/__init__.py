@@ -512,7 +512,7 @@ from mlflow.utils import env_manager as _EnvManager
 from mlflow.utils._spark_utils import modified_environ
 from mlflow.utils.annotations import deprecated, developer_stable, experimental
 from mlflow.utils.databricks_utils import (
-    get_dbconnect_udf_sandbox_image_version_and_platform_machine,
+    get_dbconnect_client_cache,
     is_databricks_connect,
     is_in_databricks_runtime,
     is_in_databricks_shared_cluster_runtime,
@@ -1680,17 +1680,12 @@ def _gen_prebuilt_env_archive_name(spark, local_model_path):
     """
     python_env = _get_python_env(Path(local_model_path))
     env_name = _get_virtualenv_name(python_env, local_model_path)
-    runtime_version, platform_machine = (
-        get_dbconnect_udf_sandbox_image_version_and_platform_machine(spark)
-    )
-    return f"{env_name}-{runtime_version}-{platform_machine}"
+    dbconnect_cache = get_dbconnect_client_cache(spark)
+    return f"{env_name}-{dbconnect_cache.udf_sandbox_image_version}-" \
+           f"{dbconnect_cache.udf_sandbox_platform_machine}"
 
 
 def _verify_prebuilt_env(spark, local_model_path, env_archive_path):
-    from mlflow.utils.databricks_utils import (
-        get_dbconnect_udf_sandbox_image_version_and_platform_machine,
-    )
-
     # Use `[:-7]` to truncate ".tar.gz" in the end
     archive_name = os.path.basename(env_archive_path)[:-7]
     prebuilt_env_sha, prebuilt_runtime_version, prebuilt_platform_machine = archive_name.split("-")[
@@ -1699,9 +1694,9 @@ def _verify_prebuilt_env(spark, local_model_path, env_archive_path):
 
     python_env = _get_python_env(Path(local_model_path))
     env_sha = _get_virtualenv_name(python_env, local_model_path).split("-")[-1]
-    runtime_version, platform_machine = (
-        get_dbconnect_udf_sandbox_image_version_and_platform_machine(spark)
-    )
+    dbconnect_cache = get_dbconnect_client_cache(spark)
+    runtime_version = dbconnect_cache.udf_sandbox_image_version
+    platform_machine = dbconnect_cache.udf_sandbox_platform_machine
 
     if prebuilt_env_sha != env_sha:
         raise MlflowException(

@@ -299,14 +299,15 @@ class DBConnectClientCache:
     udf_sandbox_platform_machine: str
 
 
-_dbconnect_client_cache: DBConnectClientCache = None
+_dbconnect_client_cache: Optional[DBConnectClientCache] = None
 
 
-def get_dbconnect_udf_sandbox_image_version_and_platform_machine(spark):
+def get_dbconnect_client_cache(spark):
     """
-    Get UDF sandbox image version like:
-    '{major_version}.{minor_version}' or 'client.{major_version}.{minor_version}'
-    and UDF sandbox platform machine like 'x86_64' or 'aarch64'
+    Get Databricks connect client cache which includes the following fields:
+     - UDF sandbox image version like:
+      '{major_version}.{minor_version}' or 'client.{major_version}.{minor_version}'
+     - UDF sandbox platform machine like 'x86_64' or 'aarch64'
     """
     global _dbconnect_client_cache
     from pyspark.sql.functions import pandas_udf
@@ -336,10 +337,7 @@ def get_dbconnect_udf_sandbox_image_version_and_platform_machine(spark):
             udf_sandbox_platform_machine=platform_machine,
         )
 
-    return (
-        _dbconnect_client_cache.udf_sandbox_image_version,
-        _dbconnect_client_cache.udf_sandbox_platform_machine,
-    )
+    return _dbconnect_client_cache
 
 
 def is_databricks_serverless(spark):

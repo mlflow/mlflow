@@ -33,15 +33,15 @@ class DBConnectArtifactCache:
            archive1_unpacked_dir = db_artifact_cache.get("archive1")
     """
 
-    _global_dbconnect_artifact_cache = None
+    _global_cache = None
 
     @staticmethod
     def get_or_create(spark):
         if (
-            DBConnectArtifactCache._global_dbconnect_artifact_cache is None
-            or spark is not DBConnectArtifactCache._global_dbconnect_artifact_cache._spark
+            DBConnectArtifactCache._global_cache is None
+            or spark is not DBConnectArtifactCache._global_cache._spark
         ):
-            DBConnectArtifactCache._global_dbconnect_artifact_cache = DBConnectArtifactCache(spark)
+            DBConnectArtifactCache._global_cache = DBConnectArtifactCache(spark)
             cache_file = os.path.join(get_or_create_tmp_dir(), _CACHE_MAP_FILE_NAME)
             if is_in_databricks_runtime() and os.path.exists(cache_file):
                 # In databricks runtime (shared cluster or Serverless), when you restart the
@@ -52,8 +52,8 @@ class DBConnectArtifactCache:
                 # `db_connect_artifact_cache.json` and after REPL restarts,
                 # `DBConnectArtifactCache` restores the cache map by loading data from the file.
                 with open(cache_file) as f:
-                    DBConnectArtifactCache._global_dbconnect_artifact_cache._cache = json.load(f)
-        return DBConnectArtifactCache._global_dbconnect_artifact_cache
+                    DBConnectArtifactCache._global_cache._cache = json.load(f)
+        return DBConnectArtifactCache._global_cache
 
     def __init__(self, spark):
         self._spark = spark
