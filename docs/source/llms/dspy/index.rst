@@ -242,7 +242,7 @@ the user's responsibility to securely pass the required secrets to the deploymen
 How is the DSPy ``settings`` object saved?
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-To ensure program reproducibility, the service context is convert to a Python dictionary and 
+To ensure program reproducibility, the service context is converted to a Python dictionary and 
 pickled with the model artifact. 
 
 Sensitive API access keys that are set within the ``Settings`` object are not persisted when logging your model. When deploying your DSPy model, you must ensure that the deployment environment has these keys set so that your DSPy model can make remote calls to services that require access keys.
