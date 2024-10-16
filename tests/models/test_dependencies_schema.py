@@ -1,4 +1,4 @@
-import pytest
+from unittest import mock
 
 from mlflow.models.dependencies_schemas import (
     DependenciesSchemas,
@@ -204,17 +204,18 @@ def test_multiple_set_retriever_schema_with_same_name():
         other_columns=["column1", "column2"],
     )
 
-    with pytest.warns(
-        UserWarning,
-        match="A retriever schema with the name 'my_ret_1' already exists. "
-        "Overriding the existing schema.",
-    ):
+    with mock.patch("mlflow.models.dependencies_schemas._logger") as mock_logger:
         set_retriever_schema(
             name="my_ret_1",
             primary_key="primary-key",
             text_column="text-column",
             doc_uri="doc-uri",
             other_columns=["column1", "column2"],
+        )
+        mock_logger.warning.assert_called_once()
+        mock_logger.warning.assert_called_with(
+            "A retriever schema with the name 'my_ret_1' already exists. "
+            "Overriding the existing schema."
         )
 
     with _get_dependencies_schemas() as schema:

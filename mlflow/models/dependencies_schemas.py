@@ -1,4 +1,4 @@
-import warnings
+import logging
 from abc import ABC, abstractmethod
 from contextlib import contextmanager
 from dataclasses import dataclass, field
@@ -6,6 +6,8 @@ from enum import Enum
 from typing import Dict, List, Optional
 
 from mlflow.utils.annotations import experimental
+
+_logger = logging.getLogger(__name__)
 
 
 class DependenciesSchemasType(Enum):
@@ -51,17 +53,15 @@ def set_retriever_schema(
                 other_columns=["title"],
             )
     """
-    retriever_schema = globals().get(DependenciesSchemasType.RETRIEVERS.value, [])
+    retriever_schemas = globals().get(DependenciesSchemasType.RETRIEVERS.value, [])
 
     # Check if a retriever schema with the same name already exists
-    existing_schema = next((schema for schema in retriever_schema if schema["name"] == name), None)
+    existing_schema = next((schema for schema in retriever_schemas if schema["name"] == name), None)
 
     if existing_schema is not None:
-        warnings.warn(
+        _logger.warning(
             f"A retriever schema with the name '{name}' already exists. "
-            "Overriding the existing schema.",
-            category=UserWarning,
-            stacklevel=2,
+            "Overriding the existing schema."
         )
         # Override the fields of the existing schema
         existing_schema["primary_key"] = primary_key
@@ -69,7 +69,7 @@ def set_retriever_schema(
         existing_schema["doc_uri"] = doc_uri
         existing_schema["other_columns"] = other_columns or []
     else:
-        retriever_schema.append(
+        retriever_schemas.append(
             {
                 "primary_key": primary_key,
                 "text_column": text_column,
@@ -79,7 +79,7 @@ def set_retriever_schema(
             }
         )
 
-    globals()[DependenciesSchemasType.RETRIEVERS.value] = retriever_schema
+    globals()[DependenciesSchemasType.RETRIEVERS.value] = retriever_schemas
 
 
 def _get_retriever_schema():
@@ -89,8 +89,8 @@ def _get_retriever_schema():
     Returns:
         VectorSearchIndex: The vector search index schema.
     """
-    retriever_schema_list = globals().get(DependenciesSchemasType.RETRIEVERS.value, [])
-    if not retriever_schema_list:
+    retriever_schemas = globals().get(DependenciesSchemasType.RETRIEVERS.value, [])
+    if not retriever_schemas:
         return []
 
     return [
@@ -101,7 +101,7 @@ def _get_retriever_schema():
             doc_uri=retriever.get("doc_uri"),
             other_columns=retriever.get("other_columns"),
         )
-        for retriever in retriever_schema_list
+        for retriever in retriever_schemas
     ]
 
 
