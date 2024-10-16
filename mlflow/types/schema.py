@@ -1397,13 +1397,13 @@ def _map_field_type(field):
 @experimental
 def get_dataclass_annotations(cls) -> Dict[str, Any]:
     """Collect annotations from the given dataclass and all its parent dataclasses."""
-    if not is_dataclass(cls):  # safety first
+    if not is_dataclass(cls):
         raise TypeError(f"{cls.__name__} is not a dataclass.")
 
     annotations = {}
-    # reverse this so subclasses overrides are captured last
+    # Reverse MRO so subclass overrides are captured last
     for base in reversed(cls.__mro__):
-        # only capture supers that are dataclasses
+        # Only capture supers that are dataclasses
         if is_dataclass(base) and hasattr(base, "__annotations__"):
             annotations.update(base.__annotations__)
     return annotations
@@ -1419,9 +1419,8 @@ def convert_dataclass_to_schema(dataclass):
     """
 
     inputs = []
-    annotations = get_dataclass_annotations(dataclass).items()
 
-    for field_name, field_type in annotations:
+    for field_name, field_type in get_dataclass_annotations(dataclass).items():
         # Determine the type and handle Optional and List correctly
         is_optional = False
         effective_type = field_type
