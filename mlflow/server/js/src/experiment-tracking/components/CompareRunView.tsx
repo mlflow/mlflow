@@ -37,8 +37,7 @@ type CompareRunViewProps = {
   intl: IntlShape;
 };
 
-const CompareRunView: React.FC<CompareRunViewProps> = (props) => {
-  const {
+const CompareRunView: React.FC<CompareRunViewProps> = ({
     runInfos,
     experimentIds,
     metricLists,
@@ -49,7 +48,7 @@ const CompareRunView: React.FC<CompareRunViewProps> = (props) => {
     intl,
     runUuids,
     hasComparedExperimentsBefore,
-  } = props;
+  }) => {
 
   const [tableWidth, setTableWidth] = useState<number | null>(null);
   const [onlyShowParamDiff, setOnlyShowParamDiff] = useState(false);
