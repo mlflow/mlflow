@@ -38,18 +38,19 @@ type CompareRunViewProps = {
 };
 
 const CompareRunView: React.FC<CompareRunViewProps> = ({
-    runInfos,
-    experimentIds,
-    metricLists,
-    paramLists,
-    tagLists,
-    runNames,
-    runDisplayNames,
-    intl,
-    runUuids,
-    hasComparedExperimentsBefore,
-  }) => {
-
+  experiments,
+  experimentIds,
+  comparedExperimentIds,
+  hasComparedExperimentsBefore,
+  runInfos,
+  runUuids,
+  metricLists,
+  paramLists,
+  tagLists,
+  runNames,
+  runDisplayNames,
+  intl,
+}) => {
   const [tableWidth, setTableWidth] = useState<number | null>(null);
   const [onlyShowParamDiff, setOnlyShowParamDiff] = useState(false);
   const [onlyShowTagDiff, setOnlyShowTagDiff] = useState(false);
@@ -165,13 +166,11 @@ const CompareRunView: React.FC<CompareRunViewProps> = ({
   };
 
   const getExperimentLink = () => {
-    const { comparedExperimentIds, hasComparedExperimentsBefore, experimentIds, experiments } = props;
-
     if (hasComparedExperimentsBefore) {
       return getCompareExperimentsPageLink(comparedExperimentIds);
     }
 
-    if (hasMultipleExperiments()) {
+    if (hasMultipleExperiments) {
       return getCompareExperimentsPageLink(experimentIds);
     }
 
@@ -179,7 +178,7 @@ const CompareRunView: React.FC<CompareRunViewProps> = ({
   };
 
   const getTitle = () => {
-    return hasMultipleExperiments() ? (
+    return hasMultipleExperiments ? (
       <FormattedMessage
         defaultMessage="Comparing {numRuns} Runs from {numExperiments} Experiments"
         // eslint-disable-next-line max-len
@@ -201,7 +200,6 @@ const CompareRunView: React.FC<CompareRunViewProps> = ({
   };
 
   const renderExperimentNameRowItems = () => {
-    const { experiments } = props;
     const experimentNameMap: Record<string, { name: string; basename: string }> = Utils.getExperimentNameMap(
       Utils.sortExperimentsById(experiments),
     );
@@ -217,9 +215,9 @@ const CompareRunView: React.FC<CompareRunViewProps> = ({
     });
   };
 
-  const hasMultipleExperiments = () => experimentIds.length > 1;
+  const hasMultipleExperiments = experimentIds.length > 1;
 
-  const shouldShowExperimentNameRow = () => hasComparedExperimentsBefore || hasMultipleExperiments();
+  const shouldShowExperimentNameRow = () => hasComparedExperimentsBefore || hasMultipleExperiments;
 
   const renderDataRows = (
     dataList: any[],
