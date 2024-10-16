@@ -294,7 +294,7 @@ def is_databricks_connect(spark):
 
 @dataclass
 class DBConnectClientCache:
-    client: "pyspark.sql.connect.session.SparkSession"  # noqa: F821
+    spark: "pyspark.sql.connect.session.SparkSession"  # noqa: F821
     udf_sandbox_image_version: str
     udf_sandbox_platform_machine: str
 
@@ -318,7 +318,7 @@ def get_dbconnect_client_cache(spark):
     if is_in_databricks_runtime():
         return get_databricks_runtime_version(), platform.machine()
 
-    if _dbconnect_client_cache is None or spark is not _dbconnect_client_cache.client:
+    if _dbconnect_client_cache is None or spark is not _dbconnect_client_cache.spark:
         # version is like '15.4.x-snapshot-scala2.12'
         version = spark.sql("SELECT current_version().dbr_version").collect()[0][0]
         major, minor, *_rest = version.split(".")
@@ -332,7 +332,7 @@ def get_dbconnect_client_cache(spark):
 
         platform_machine = spark.range(1).select(f("id")).collect()[0][0]
         _dbconnect_client_cache = DBConnectClientCache(
-            client=spark,
+            spark=spark,
             udf_sandbox_image_version=udf_sandbox_image_version,
             udf_sandbox_platform_machine=platform_machine,
         )
