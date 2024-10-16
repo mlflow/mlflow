@@ -446,6 +446,7 @@ def autologging_integration(name):
         AUTOLOGGING_INTEGRATIONS[name] = {}
         default_params = {param.name: param.default for param in param_spec.values()}
 
+        @autologging_conf_lock
         def autolog(*args, **kwargs):
             config_to_store = dict(default_params)
             config_to_store.update(
