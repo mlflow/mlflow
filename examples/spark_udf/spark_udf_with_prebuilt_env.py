@@ -1,28 +1,39 @@
-from pyspark.sql import SparkSession
+"""
+This example code shows how to use `mlflow.pyfunc.spark_udf` with Databricks Connect
+outside Databricks runtime.
+"""
+
+from databricks.connect import DatabricksSession
 from sklearn import datasets
 from sklearn.neighbors import KNeighborsClassifier
 
 import mlflow
-from mlflow.pyfunc import build_model_env
 
-with SparkSession.builder.getOrCreate() as spark:
-    X, y = datasets.load_iris(as_frame=True, return_X_y=True)
-    model = KNeighborsClassifier()
-    model.fit(X, y)
+spark = DatabricksSession.builder.remote(
+    host="<Databricks host>",
+    token="<Databricks token>",
+    cluster_id="<cluster id>",  # get cluster id by spark.conf.get("spark.databricks.clusterUsageTags.clusterId")
+).getOrCreate()
 
-    with mlflow.start_run():
-        model_info = mlflow.sklearn.log_model(model, "model")
+X, y = datasets.load_iris(as_frame=True, return_X_y=True)
+model = KNeighborsClassifier()
+model.fit(X, y)
 
-    model_uri = model_info.model_uri
+with mlflow.start_run():
+    model_info = mlflow.sklearn.log_model(model, "model")
 
-    # build a python environment for `model_uri` and save it to `/tmp` directory.
-    model_env_path = build_model_env(model_uri, "/tmp")
+model_uri = model_info.model_uri
 
-    infer_spark_df = spark.createDataFrame(X)
+# The prebuilt model environment archive file path.
+# To build the model environment, run `mlflow.pyfunc.build_model_env` in Databricks runtime,
+# and then download the built env archive file to local machine.
+model_env_path = "..."
 
-    # Setting 'prebuilt_env_path' parameter so that `spark_udf` can use the
-    # prebuilt python environment and skip rebuilding python environment.
-    pyfunc_udf = mlflow.pyfunc.spark_udf(spark, model_uri, prebuilt_env_path=model_env_path)
-    result = infer_spark_df.select(pyfunc_udf(*X.columns).alias("predictions")).toPandas()
+infer_spark_df = spark.createDataFrame(X)
 
-    print(result)
+# Setting 'prebuilt_env_path' parameter so that `spark_udf` can use the
+# prebuilt python environment and skip rebuilding python environment.
+pyfunc_udf = mlflow.pyfunc.spark_udf(spark, model_uri, prebuilt_env_path=model_env_path)
+result = infer_spark_df.select(pyfunc_udf(*X.columns).alias("predictions")).toPandas()
+
+print(result)

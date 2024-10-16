@@ -1800,8 +1800,7 @@ def build_model_env(model_uri, save_path):
     if os.path.exists(dest_path):
         raise RuntimeError(
             "A pre-built model python environment already exists "
-            f"in the '{save_path}' directory as the archive file "
-            f"{archive_name}.tar.gz. To rebuild it, please remove "
+            f"in '{dest_path}'. To rebuild it, please remove "
             "the existing one first."
         )
 
@@ -2005,8 +2004,7 @@ def spark_udf(
             )
         env_manager = _EnvManager.VIRTUALENV
     else:
-        if env_manager is None:
-            env_manager = _EnvManager.LOCAL
+        env_manager = env_manager or _EnvManager.LOCAL
 
     _EnvManager.validate(env_manager)
 
@@ -2025,11 +2023,7 @@ def spark_udf(
             "environment."
         )
 
-    if (
-        prebuilt_env_path is None
-        and is_dbconnect_mode
-        and not is_in_databricks_runtime()
-    ):
+    if prebuilt_env_path is None and is_dbconnect_mode and not is_in_databricks_runtime():
         raise RuntimeError(
             "'prebuilt_env_path' param is required if using Databricks Connect to connect "
             "to Databricks cluster from your own machine."

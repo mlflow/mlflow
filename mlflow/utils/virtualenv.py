@@ -86,8 +86,6 @@ _SEMANTIC_VERSION_REGEX = re.compile(r"^([0-9]+)\.([0-9]+)\.([0-9]+)$")
 
 
 def _get_pyenv_bin_path():
-    # We don't check "DATABRICKS_RUNTIME_VERSION" environment variable
-    # becasue spark executor side doesn't set this environment variable.
     if os.path.exists(_DATABRICKS_PYENV_BIN_PATH):
         return _DATABRICKS_PYENV_BIN_PATH
     return shutil.which("pyenv")
