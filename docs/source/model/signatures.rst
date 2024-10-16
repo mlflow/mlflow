@@ -629,8 +629,8 @@ The same signature can be created explicitly as follows:
         inputs=input_schema, outputs=output_schema, params=params_schema
     )
 
-GenAI flavors model signature examples
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Model signature examples for GenAI flavors
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 GenAI flavors such as langchain, OpenAI, and transformers normally require an object (dictionary) based model signature.
 Manually defining the structure is complex and error-prone. Instead, you should rely on the `infer_signature` method to automatically
 generate the model signature based on an input example.
@@ -776,19 +776,48 @@ If your model has an optional input field, you can use below input_example as a 
 
     print(result)
 
-**A Dataclass object is also a valid way of submitting a signature. Passing a Dataclass
-definition to** `infer_signature` **will generate the corresponding model signature equivalent**:
+**A** `Dataclass <https://docs.python.org/3/library/dataclasses.html>`_ **object is also a valid way of submitting a signature. Passing a Dataclass
+instance to** `infer_signature` **will generate the corresponding model signature equivalent**:
 
 .. code-block:: python
 
+    from dataclasses import dataclass
+    from typing import List
     from mlflow.models import infer_signature
-    from mlflow.models.rag_signatures import ChatCompletionRequest, ChatCompletionResponse
+
+
+    @dataclass
+    class Message:
+        role: str
+        content: str
+
+
+    @dataclass
+    class ChatCompletionRequest:
+        messages: List[Message]
+
+
+    chat_request = ChatCompletionRequest(
+        messages=[
+            Message(
+                role="user",
+                content="What is the primary function of control rods in a nuclear reactor?",
+            ),
+            Message(role="user", content="What is MLflow?"),
+        ]
+    )
 
     model_signature = infer_signature(
-        ChatCompletionRequest(),
-        ChatCompletionResponse(),
+        chat_request,
+        "Sample output as a string",
     )
     print(model_signature)
+    # inputs:
+    # ['messages': Array({content: string (required), role: string (required)}) (required)]
+    # outputs:
+    # [string (required)]
+    # params:
+    # None
 
 .. _how-to-set-signatures-on-models:
 
