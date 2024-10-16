@@ -68,11 +68,11 @@ def patched_inference(func_name, original, self, *args, **kwargs):
     return result
 
 
-def _get_args_with_mlflow_tracer(func_name, args, kwargs):
+def _get_args_with_mlflow_tracer(func_name, model_id, args, kwargs):
     """
     Get the patched arguments with MLflow tracer injected.
     """
-    mlflow_tracer = MlflowLangchainTracer()
+    mlflow_tracer = MlflowLangchainTracer(model_id=model_id)
 
     if func_name in ["invoke", "batch", "stream", "ainvoke", "abatch", "astream"]:
         # `config` is the second positional argument of runnable APIs such as
