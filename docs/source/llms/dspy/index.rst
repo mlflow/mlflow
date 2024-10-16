@@ -123,10 +123,12 @@ set of modules.
 
 .. tip::
 
-    Typically you'd want to leverage a compiled DSPy module. MLflow will natively supports logging
-    both compiled and uncompiled DSPy modules. Above we show an uncompiled version for simplicity,
-    but in production you'd want to leverage an `optimizer <https://dspy-docs.vercel.app/docs/building-blocks/optimizers>`_
-    and log the outputted object instead.
+    Typically you'd want to leverage a 
+    `compiled DSPy <https://dspy-docs.vercel.app/docs/building-blocks/optimizers#what-does-a-dspy-optimizer-tune-how-does-it-tune-them>` 
+    module. MLflow will natively supports logging both compiled and uncompiled DSPy modules. Above 
+    we show an uncompiled version for simplicity, but in production you'd want to leverage an 
+    `optimizer <https://dspy-docs.vercel.app/docs/building-blocks/optimizers>`_ and log the 
+    outputted object instead.
 
 Logging the Program to MLflow
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -134,8 +136,9 @@ Logging the Program to MLflow
 You can log the ``dspy.Module`` object to an MLflow run using the 
 :py:func:`mlflow.dspy.log_model` function.
 
-We will also specify a model signature. An MLflow model signature defines the expected schema for 
-model inputs and outputs, ensuring consistency and correctness during model inference. 
+We will also specify a `model signature <https://mlflow.org/docs/latest/model/signatures.html#input-example>`_. 
+An MLflow model signature defines the expected schema for model inputs and outputs, ensuring 
+consistency and correctness during model inference. 
 
 .. code-block:: python
 
@@ -218,18 +221,9 @@ What can be serialized by MLflow?
 
 When using :py:func:`mlflow.dspy.log_model` or :py:func:`mlflow.dspy.save_model` in MLflow, the 
 DSPy program is serialized and saved to the tracking server as a ``.pkl`` file. This enables easy 
-deployment. Under the hood, MLflow uses ``cloudpickle`` to serialize the DSPy object, but 
-DSPy artifacts are serializable. 
+deployment. Under the hood, MLflow uses ``cloudpickle`` to serialize the DSPy object, but some 
+DSPy artifacts are note serializable. Relevant examples are listed below.
 
-Here are some relevant serialized artifacts that help you reproduce a DSPy program in another 
-environment.
-* A pickle file containing the DSPy program artifact
-* The DSPy settings, which are serialized in the above ``.pkl`` file
-* An MLflow model signature
-* A pip requirements file containing inferred or user-specified pip dependencies
-* `venv` and `conda` environment files.
-
-Here are some relevant objects that are **not** serialized and need to be handled by the user. 
 * API tokens. These should be managed separately and passed securely via environment variables.
 * The DSPy trace object, which is primarily used during training, not inference.
 
