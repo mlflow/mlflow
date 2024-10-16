@@ -99,6 +99,7 @@ set of modules.
 .. code-block:: shell
 
     pip install mlflow dspy -U
+
 .. code-block:: python
 
     import dspy
