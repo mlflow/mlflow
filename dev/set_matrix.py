@@ -488,18 +488,17 @@ def validate_requirements(
             minimum: "1.3.0"
             maximum: "1.5.0"
             requirements:
-                "< 1.0.0": ["numpy<2.0"]    # Unused -> this will raise an error
+                "< 1.0.0": ["numpy<2.0"]    # Unused
                 ">= 1.5.0": ["numpy>=2.0"]  # Used
     ```
     """
     for specifier in requirements:
-        for v in versions:
-            if "dev" in specifier and package_info.install_dev:
-                break
+        if "dev" in specifier and package_info.install_dev:
+            continue
 
-            if SpecifierSet(specifier).contains(v):
-                break
-        else:
+        # Does this version specifier (e.g. '< 1.0.0') match at least one version?
+        spec_set = SpecifierSet(specifier)
+        if not any(map(spec_set.contains, versions)):
             raise ValueError(
                 f"Found unused requirements {specifier!r} for {name} / {category}. "
                 "Please remove it."
