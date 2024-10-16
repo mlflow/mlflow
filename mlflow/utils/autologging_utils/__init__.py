@@ -438,7 +438,6 @@ def autologging_integration(name):
                 " must specify a 'silent' argument with default value 'False'"
             )
 
-    @autologging_conf_lock
     def wrapper(_autolog):
         param_spec = inspect.signature(_autolog).parameters
         validate_param_spec(param_spec)
