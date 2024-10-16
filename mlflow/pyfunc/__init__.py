@@ -1726,7 +1726,7 @@ def _prebuild_env_internal(local_model_path, archive_name, save_path):
         pyfunc_backend = get_flavor_backend(
             local_model_path,
             env_manager="virtualenv",
-            install_mlflow=os.environ.get("MLFLOW_HOME") is not None,
+            install_mlflow=False,
             create_env_root_dir=False,
             env_root_dir=env_root_dir,
         )

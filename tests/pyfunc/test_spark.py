@@ -1581,14 +1581,20 @@ def test_spark_udf_env_manager_with_invalid_pythonpath(
 def test_build_model_env(spark, sklearn_model, model_path, tmp_path, monkeypatch):
     import sklearn
     from mlflow.pyfunc.dbconnect_artifact_cache import extract_archive_to_dir
-    from tests.helper_functions import _get_mlflow_home
 
-    monkeypatch.setenv("MLFLOW_HOME", _get_mlflow_home())
     monkeypatch.setenv("DATABRICKS_RUNTIME_VERSION", "15.4.1")
     model, inference_data = sklearn_model
 
     with mlflow.start_run():
-        model_info = mlflow.sklearn.log_model(model, "model")
+        model_info = mlflow.sklearn.log_model(
+            model, "model",
+            pip_requirements=[
+                f"scikit-learn=={sklearn.__version__}",
+                # `build_model_env` doesn't support building env with dev version MLflow,
+                # so pin MLflow version here.
+                f"mlflow==2.17.0",
+            ],
+        )
 
     model_uri = model_info.model_uri
     model_env_path = build_model_env(model_uri, tmp_path)
