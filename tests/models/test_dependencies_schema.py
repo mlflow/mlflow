@@ -212,8 +212,7 @@ def test_multiple_set_retriever_schema_with_same_name():
             doc_uri="doc-uri",
             other_columns=["column1", "column2"],
         )
-        mock_logger.warning.assert_called_once()
-        mock_logger.warning.assert_called_with(
+        mock_logger.warning.assert_called_once_with(
             "A retriever schema with the name 'my_ret_1' already exists. "
             "Overriding the existing schema."
         )
