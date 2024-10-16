@@ -73,7 +73,7 @@ Concepts
 A `signature <https://dspy-docs.vercel.app/docs/building-blocks/signatures>`_ is a natural language description of a module's input and output behavior. For example, `"question -> answer"` specifies that the module should take a question as input and return an answer.
 
 ``Optimizer`` 
-^^^^^^^^^^^^
+^^^^^^^^^^^^^
 A `optimizer <https://dspy-docs.vercel.app/docs/building-blocks/optimizers>`_ improves LM pipelines by adjusting modules to meet a performance metric, either by generating better prompts or fine-tuning models.
 
 ``Program``
