@@ -613,6 +613,7 @@ class _PythonModelPyfuncWrapper:
             issubclass(hints.input, ChatCompletionRequest)
             or issubclass(hints.input, SplitChatMessagesRequest)
         ):
+            print("special case here")
             # If the type hint is a RAG dataclass, we hydrate it
             if isinstance(model_input, pd.DataFrame):
                 # If there are multiple rows, we should throw
