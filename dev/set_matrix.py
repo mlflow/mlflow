@@ -501,11 +501,12 @@ def validate_requirements(
                 break
         else:
             raise ValueError(
-                f"Requirements {specifier!r} for {name} / {category} is unused. Please remove it."
+                f"Found unused requirements {specifier!r} for {name} / {category}. "
+                "Please remove it."
             )
 
 
-def expand_config(config: Dict[str, Any], *, is_ref: bool = False):
+def expand_config(config: Dict[str, Any], *, is_ref: bool = False) -> Set[MatrixItem]:
     matrix = set()
     for name, flavor_config in config.items():
         flavor = get_flavor(name)
