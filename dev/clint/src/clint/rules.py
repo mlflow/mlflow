@@ -118,4 +118,4 @@ class DocstringParamOrder(Rule):
         return "MLF009"
 
     def _message(self) -> str:
-        return f"Order of parameters in docstring does not match function parameters: {self.params}"
+        return f"Unordered parameters in docstring: {self.params}"
