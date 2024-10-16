@@ -470,13 +470,13 @@ def _get_test_files_from_pytest_command(cmd, test_dir):
 
 
 def validate_requirements(
-    cfg: TestConfig,
+    requirements: Dict[str, List[str]],
     name: str,
     category: str,
     package_info: PackageInfo,
     versions: List[Version],
 ) -> None:
-    for specifier, packages in cfg.requirements.items():
+    for specifier in requirements:
         for v in versions:
             if "dev" in specifier and package_info.install_dev:
                 break
@@ -485,8 +485,7 @@ def validate_requirements(
                 break
         else:
             raise ValueError(
-                f"Requirements specifier {specifier!r} for {name} / {category} is "
-                "unused. Please remove it."
+                f"Requirements {specifier!r} for {name} / {category} is unused. Please remove it."
             )
 
 
@@ -518,7 +517,7 @@ def expand_config(config: Dict[str, Any], *, is_ref: bool = False):
                 versions.append(cfg.minimum)
 
             if cfg.requirements and not is_ref:
-                validate_requirements(cfg, name, category, package_info, versions)
+                validate_requirements(cfg.requirements, name, category, package_info, versions)
 
             for ver in versions:
                 requirements = [f"{package_info.pip_release}=={ver}"]
