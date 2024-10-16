@@ -245,4 +245,4 @@ How is the DSPy ``settings`` object saved?
 To ensure program reproducibility, the service context is convert to a Python dictionary and 
 pickled with the model artifact. This entire process is handled automatically behind the scenes.
 
-Remember that your API keys are dropped.
+Sensitive API access keys that are set within the ``Settings`` object are not persisted when logging your model. When deploying your DSPy model, you must ensure that the deployment environment has these keys set so that your DSPy model can make remote calls to services that require access keys.
