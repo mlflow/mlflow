@@ -2,6 +2,7 @@ import datetime
 import os
 import random
 import shutil
+import subprocess
 import sys
 import threading
 import time
@@ -1581,7 +1582,7 @@ def test_build_model_env(spark, sklearn_model, model_path, tmp_path, monkeypatch
     import sklearn
 
     from mlflow.pyfunc.dbconnect_artifact_cache import extract_archive_to_dir
-
+    
     monkeypatch.setenv("DATABRICKS_RUNTIME_VERSION", "15.4.1")
     model, inference_data = sklearn_model
 

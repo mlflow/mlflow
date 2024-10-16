@@ -316,7 +316,11 @@ def get_dbconnect_client_cache(spark):
     # the UDF sandbox runs on client image, which has version like 'client.1.1'
     # in other cases, UDF sandbox runs on databricks runtime with version like '15.4'
     if is_in_databricks_runtime():
-        return get_databricks_runtime_version(), platform.machine()
+        return DBConnectClientCache(
+            spark=_get_active_spark_session(),
+            udf_sandbox_image_version=get_databricks_runtime_version(),
+            udf_sandbox_platform_machine=platform.machine(),
+        )
 
     if _dbconnect_client_cache is None or spark is not _dbconnect_client_cache.spark:
         # version is like '15.4.x-snapshot-scala2.12'
