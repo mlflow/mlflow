@@ -686,7 +686,11 @@ dspy:
     python:
       ">= 2.5.6": "3.9"
     requirements:
-      ">= 0.0.0": ["openai"]
+      ">= 0.0.0": [
+          "openai",
+          # https://github.com/stanfordnlp/dspy/issues/1624
+          "litellm<=1.49.2",
+        ]
     run: |
       pytest tests/dspy
 
@@ -828,13 +832,15 @@ llama_index:
 
 autogen:
   package_info:
-    pip_release: "pyautogen"
-    install_dev: |
-      pip install git+https://github.com/microsoft/autogen
+    pip_release: "autogen-agentchat"
+    # TODO: Uncomment this once we support autogen 0.4
+    # install_dev: |
+    #  pip install git+https://github.com/microsoft/autogen#subdirectory=python/packages/autogen-agentchat
   autologging:
-    # Tool call logging is implemented in autogen 0.2.29
-    minimum: "0.2.29"
-    maximum: "0.3.1"
+    minimum: "0.2.36"
+    maximum: "0.2.36"
+    python:
+      "== dev": "3.10"
     requirements:
       ">= 0.0.0": [
           # Required to run tests/openai/mock_openai.py

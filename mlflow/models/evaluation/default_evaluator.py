@@ -1,49 +1,24 @@
 import copy
-import functools
 import inspect
 import json
 import logging
-import math
-import os
 import pathlib
 import pickle
 import shutil
 import tempfile
-import time
 import traceback
 import warnings
-from collections import namedtuple
-from contextlib import contextmanager
-from typing import Any, Callable, Dict, List, NamedTuple, Optional, Tuple, Union
+from abc import abstractmethod
+from typing import Any, Callable, List, NamedTuple, Optional, Tuple, Union
 
 import numpy as np
 import pandas as pd
-from packaging.version import Version
-from sklearn import metrics as sk_metrics
-from sklearn.pipeline import Pipeline as sk_Pipeline
 
 import mlflow
-from mlflow import MlflowClient
+from mlflow import MlflowClient, MlflowException
+from mlflow.data.evaluation_dataset import EvaluationDataset
 from mlflow.entities.metric import Metric
-from mlflow.environment_variables import _MLFLOW_EVALUATE_SUPPRESS_CLASSIFICATION_ERRORS
-from mlflow.exceptions import MlflowException
-from mlflow.metrics import (
-    EvaluationMetric,
-    MetricValue,
-    ari_grade_level,
-    exact_match,
-    flesch_kincaid_grade_level,
-    ndcg_at_k,
-    precision_at_k,
-    recall_at_k,
-    rouge1,
-    rouge2,
-    rougeL,
-    rougeLsum,
-    token_count,
-    toxicity,
-)
-from mlflow.metrics.genai.genai_metric import _GENAI_CUSTOM_METRICS_FILE_NAME
+from mlflow.metrics.base import MetricValue
 from mlflow.models.evaluation.artifacts import (
     CsvEvaluationArtifact,
     ImageEvaluationArtifact,
@@ -51,12 +26,8 @@ from mlflow.models.evaluation.artifacts import (
     NumpyEvaluationArtifact,
     _infer_artifact_type_and_ext,
 )
-from mlflow.models.evaluation.base import (
-    EvaluationResult,
-    ModelEvaluator,
-    _ModelType,
-)
-from mlflow.models.utils import plot_lines
+from mlflow.models.evaluation.base import EvaluationMetric, EvaluationResult, ModelEvaluator
+from mlflow.models.evaluation.utils.metric import MetricDefinition
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.pyfunc import _ServedPyFuncModel
 from mlflow.utils.file_utils import TempDir
@@ -65,69 +36,15 @@ from mlflow.utils.time import get_current_time_millis
 
 _logger = logging.getLogger(__name__)
 
-_DEFAULT_SAMPLE_ROWS_FOR_SHAP = 2000
 _EVAL_TABLE_FILE_NAME = "eval_results_table.json"
 _TOKEN_COUNT_METRIC_NAME = "token_count"
 _LATENCY_METRIC_NAME = "latency"
 
 
-@contextmanager
-def _suppress_class_imbalance_errors(exception_type=Exception, log_warning=True):
-    """
-    Exception handler context manager to suppress Exceptions if the private environment
-    variable `_MLFLOW_EVALUATE_SUPPRESS_CLASSIFICATION_ERRORS` is set to `True`.
-    The purpose of this handler is to prevent an evaluation call for a binary or multiclass
-    classification automl run from aborting due to an extreme minority class imbalance
-    encountered during iterative training cycles due to the non deterministic sampling
-    behavior of Spark's DataFrame.sample() API.
-    The Exceptions caught in the usage of this are broad and are designed purely to not
-    interrupt the iterative hyperparameter tuning process. Final evaluations are done
-    in a more deterministic (but expensive) fashion.
-    """
-    try:
-        yield
-    except exception_type as e:
-        if _MLFLOW_EVALUATE_SUPPRESS_CLASSIFICATION_ERRORS.get():
-            if log_warning:
-                _logger.warning(
-                    "Failed to calculate metrics due to class imbalance. "
-                    "This is expected when the dataset is imbalanced."
-                )
-        else:
-            raise e
-
-
-def _is_categorical(values):
-    """
-    Infer whether input values are categorical on best effort.
-    Return True represent they are categorical, return False represent we cannot determine result.
-    """
-    dtype_name = pd.Series(values).convert_dtypes().dtype.name.lower()
-    return dtype_name in ["category", "string", "boolean"]
-
-
-def _is_continuous(values):
-    """
-    Infer whether input values is continuous on best effort.
-    Return True represent they are continous, return False represent we cannot determine result.
-    """
-    dtype_name = pd.Series(values).convert_dtypes().dtype.name.lower()
-    return dtype_name.startswith("float")
-
-
-def _infer_model_type_by_labels(labels):
-    """
-    Infer model type by target values.
-    """
-    if _is_categorical(labels):
-        return _ModelType.CLASSIFIER
-    elif _is_continuous(labels):
-        return _ModelType.REGRESSOR
-    else:
-        return None  # Unknown
-
-
 def _extract_raw_model(model):
+    if not getattr(model, "metadata", None):
+        return None, None
+
     model_loader_module = model.metadata.flavors["python_function"]["loader_module"]
     # If we load a model with mlflow.pyfunc.load_model, the model will be wrapped
     # with a pyfunc wrapper. We need to extract the raw model so that shap
@@ -142,10 +59,7 @@ def _extract_raw_model(model):
         return model_loader_module, None
 
 
-def _extract_predict_fn(
-    model: Any,
-    raw_model: Any,
-) -> Tuple[Optional[Callable], Optional[Callable]]:
+def _extract_predict_fn(model: Any) -> Optional[Callable]:
     """
     Extracts the predict function from the given model or raw_model.
 
@@ -158,203 +72,26 @@ def _extract_predict_fn(
         model: A model object that has a predict method.
         raw_model: A raw model object that has a predict method.
 
-    Returns:
-        A tuple of two elements:
-        - The predict function.
-        - The predict_proba function, if it exists in the raw_model; None otherwise.
+    Returns: The predict function.
     """
+    _, raw_model = _extract_raw_model(model)
     predict_fn = None
-    predict_proba_fn = None
 
     if raw_model is not None:
         predict_fn = raw_model.predict
-        predict_proba_fn = getattr(raw_model, "predict_proba", None)
         try:
-            from mlflow.xgboost import (
-                _wrapped_xgboost_model_predict_fn,
-                _wrapped_xgboost_model_predict_proba_fn,
-            )
+            from mlflow.xgboost import _wrapped_xgboost_model_predict_fn
 
             # Because shap evaluation will pass evaluation data in ndarray format
             # (without feature names), if set validate_features=True it will raise error.
             predict_fn = _wrapped_xgboost_model_predict_fn(raw_model, validate_features=False)
-            predict_proba_fn = _wrapped_xgboost_model_predict_proba_fn(
-                raw_model, validate_features=False
-            )
         except ImportError:
             pass
+
     elif model is not None:
         predict_fn = model.predict
 
-    return predict_fn, predict_proba_fn
-
-
-def _restrict_langchain_autologging_to_traces_only(pred_fn):
-    if pred_fn is None:
-        return None
-
-    # In non-langchain environments, nothing would be autologged.
-    @functools.wraps(pred_fn)
-    def new_pred_fn(*args, **kwargs):
-        with mlflow.utils.autologging_utils.restrict_langchain_autologging_to_traces_only():
-            return pred_fn(*args, **kwargs)
-
-    return new_pred_fn
-
-
-def _get_regressor_metrics(y, y_pred, sample_weights):
-    sum_on_target = (
-        (np.array(y) * np.array(sample_weights)).sum() if sample_weights is not None else sum(y)
-    )
-    return {
-        "example_count": len(y),
-        "mean_absolute_error": sk_metrics.mean_absolute_error(
-            y, y_pred, sample_weight=sample_weights
-        ),
-        "mean_squared_error": sk_metrics.mean_squared_error(
-            y, y_pred, sample_weight=sample_weights
-        ),
-        "root_mean_squared_error": sk_metrics.mean_squared_error(
-            y, y_pred, sample_weight=sample_weights, squared=False
-        ),
-        "sum_on_target": sum_on_target,
-        "mean_on_target": sum_on_target / len(y),
-        "r2_score": sk_metrics.r2_score(y, y_pred, sample_weight=sample_weights),
-        "max_error": sk_metrics.max_error(y, y_pred),
-        "mean_absolute_percentage_error": sk_metrics.mean_absolute_percentage_error(
-            y, y_pred, sample_weight=sample_weights
-        ),
-    }
-
-
-def _get_binary_sum_up_label_pred_prob(positive_class_index, positive_class, y, y_pred, y_probs):
-    y = np.array(y)
-    y_bin = np.where(y == positive_class, 1, 0)
-    y_pred_bin = None
-    y_prob_bin = None
-    if y_pred is not None:
-        y_pred = np.array(y_pred)
-        y_pred_bin = np.where(y_pred == positive_class, 1, 0)
-
-    if y_probs is not None:
-        y_probs = np.array(y_probs)
-        y_prob_bin = y_probs[:, positive_class_index]
-
-    return y_bin, y_pred_bin, y_prob_bin
-
-
-def _get_common_classifier_metrics(
-    *, y_true, y_pred, y_proba, labels, average, pos_label, sample_weights
-):
-    metrics = {
-        "example_count": len(y_true),
-        "accuracy_score": sk_metrics.accuracy_score(y_true, y_pred, sample_weight=sample_weights),
-        "recall_score": sk_metrics.recall_score(
-            y_true,
-            y_pred,
-            average=average,
-            pos_label=pos_label,
-            sample_weight=sample_weights,
-        ),
-        "precision_score": sk_metrics.precision_score(
-            y_true,
-            y_pred,
-            average=average,
-            pos_label=pos_label,
-            sample_weight=sample_weights,
-        ),
-        "f1_score": sk_metrics.f1_score(
-            y_true,
-            y_pred,
-            average=average,
-            pos_label=pos_label,
-            sample_weight=sample_weights,
-        ),
-    }
-
-    if y_proba is not None:
-        with _suppress_class_imbalance_errors(ValueError):
-            metrics["log_loss"] = sk_metrics.log_loss(
-                y_true, y_proba, labels=labels, sample_weight=sample_weights
-            )
-    return metrics
-
-
-def _get_binary_classifier_metrics(
-    *, y_true, y_pred, y_proba=None, labels=None, pos_label=1, sample_weights=None
-):
-    with _suppress_class_imbalance_errors(ValueError):
-        tn, fp, fn, tp = sk_metrics.confusion_matrix(y_true, y_pred).ravel()
-        return {
-            "true_negatives": tn,
-            "false_positives": fp,
-            "false_negatives": fn,
-            "true_positives": tp,
-            **_get_common_classifier_metrics(
-                y_true=y_true,
-                y_pred=y_pred,
-                y_proba=y_proba,
-                labels=labels,
-                average="binary",
-                pos_label=pos_label,
-                sample_weights=sample_weights,
-            ),
-        }
-
-
-def _get_multiclass_classifier_metrics(
-    *,
-    y_true,
-    y_pred,
-    y_proba=None,
-    labels=None,
-    average="weighted",
-    sample_weights=None,
-):
-    metrics = _get_common_classifier_metrics(
-        y_true=y_true,
-        y_pred=y_pred,
-        y_proba=y_proba,
-        labels=labels,
-        average=average,
-        pos_label=None,
-        sample_weights=sample_weights,
-    )
-    if average in ("macro", "weighted") and y_proba is not None:
-        metrics.update(
-            roc_auc=sk_metrics.roc_auc_score(
-                y_true=y_true,
-                y_score=y_proba,
-                sample_weight=sample_weights,
-                average=average,
-                multi_class="ovr",
-            )
-        )
-    return metrics
-
-
-def _get_classifier_per_class_metrics_collection_df(y, y_pred, labels, sample_weights):
-    per_class_metrics_list = []
-    for positive_class_index, positive_class in enumerate(labels):
-        (
-            y_bin,
-            y_pred_bin,
-            _,
-        ) = _get_binary_sum_up_label_pred_prob(
-            positive_class_index, positive_class, y, y_pred, None
-        )
-        per_class_metrics = {"positive_class": positive_class}
-        binary_classifier_metrics = _get_binary_classifier_metrics(
-            y_true=y_bin,
-            y_pred=y_pred_bin,
-            pos_label=1,
-            sample_weights=sample_weights,
-        )
-        if binary_classifier_metrics:
-            per_class_metrics.update(binary_classifier_metrics)
-        per_class_metrics_list.append(per_class_metrics)
-
-    return pd.DataFrame(per_class_metrics_list)
+    return predict_fn
 
 
 def _get_dataframe_with_renamed_columns(x, new_column_names):
@@ -377,139 +114,6 @@ def _get_dataframe_with_renamed_columns(x, new_column_names):
     return df.rename(columns=dict(zip(df.columns, new_column_names)))
 
 
-_Curve = namedtuple("_Curve", ["plot_fn", "plot_fn_args", "auc"])
-
-
-def _gen_classifier_curve(
-    is_binomial,
-    y,
-    y_probs,
-    labels,
-    pos_label,
-    curve_type,
-    sample_weights,
-):
-    """
-    Generate precision-recall curve or ROC curve for classifier.
-
-    Args:
-        is_binomial: True if it is binary classifier otherwise False
-        y: True label values
-        y_probs: if binary classifier, the predicted probability for positive class.
-                  if multiclass classifier, the predicted probabilities for all classes.
-        labels: The set of labels.
-        pos_label: The label of the positive class.
-        curve_type: "pr" or "roc"
-        sample_weights: Optional sample weights.
-
-    Returns:
-        An instance of "_Curve" which includes attributes "plot_fn", "plot_fn_args", "auc".
-    """
-    if curve_type == "roc":
-
-        def gen_line_x_y_label_auc(_y, _y_prob, _pos_label):
-            fpr, tpr, _ = sk_metrics.roc_curve(
-                _y,
-                _y_prob,
-                sample_weight=sample_weights,
-                # For multiclass classification where a one-vs-rest ROC curve is produced for each
-                # class, the positive label is binarized and should not be included in the plot
-                # legend
-                pos_label=_pos_label if _pos_label == pos_label else None,
-            )
-
-            auc = sk_metrics.roc_auc_score(y_true=_y, y_score=_y_prob, sample_weight=sample_weights)
-            return fpr, tpr, f"AUC={auc:.3f}", auc
-
-        xlabel = "False Positive Rate"
-        ylabel = "True Positive Rate"
-        title = "ROC curve"
-        if pos_label:
-            xlabel = f"False Positive Rate (Positive label: {pos_label})"
-            ylabel = f"True Positive Rate (Positive label: {pos_label})"
-    elif curve_type == "pr":
-
-        def gen_line_x_y_label_auc(_y, _y_prob, _pos_label):
-            precision, recall, _ = sk_metrics.precision_recall_curve(
-                _y,
-                _y_prob,
-                sample_weight=sample_weights,
-                # For multiclass classification where a one-vs-rest precision-recall curve is
-                # produced for each class, the positive label is binarized and should not be
-                # included in the plot legend
-                pos_label=_pos_label if _pos_label == pos_label else None,
-            )
-            # NB: We return average precision score (AP) instead of AUC because AP is more
-            # appropriate for summarizing a precision-recall curve
-            ap = sk_metrics.average_precision_score(
-                y_true=_y, y_score=_y_prob, pos_label=_pos_label, sample_weight=sample_weights
-            )
-            return recall, precision, f"AP={ap:.3f}", ap
-
-        xlabel = "Recall"
-        ylabel = "Precision"
-        title = "Precision recall curve"
-        if pos_label:
-            xlabel = f"Recall (Positive label: {pos_label})"
-            ylabel = f"Precision (Positive label: {pos_label})"
-    else:
-        assert False, "illegal curve type"
-
-    if is_binomial:
-        x_data, y_data, line_label, auc = gen_line_x_y_label_auc(y, y_probs, pos_label)
-        data_series = [(line_label, x_data, y_data)]
-    else:
-        curve_list = []
-        for positive_class_index, positive_class in enumerate(labels):
-            y_bin, _, y_prob_bin = _get_binary_sum_up_label_pred_prob(
-                positive_class_index, positive_class, y, labels, y_probs
-            )
-
-            x_data, y_data, line_label, auc = gen_line_x_y_label_auc(
-                y_bin, y_prob_bin, _pos_label=1
-            )
-            curve_list.append((positive_class, x_data, y_data, line_label, auc))
-
-        data_series = [
-            (f"label={positive_class},{line_label}", x_data, y_data)
-            for positive_class, x_data, y_data, line_label, _ in curve_list
-        ]
-        auc = [auc for _, _, _, _, auc in curve_list]
-
-    def _do_plot(**kwargs):
-        from matplotlib import pyplot
-
-        _, ax = plot_lines(**kwargs)
-        dash_line_args = {
-            "color": "gray",
-            "alpha": 0.3,
-            "drawstyle": "default",
-            "linestyle": "dashed",
-        }
-        if curve_type == "pr":
-            ax.plot([0, 1], [1, 0], **dash_line_args)
-        elif curve_type == "roc":
-            ax.plot([0, 1], [0, 1], **dash_line_args)
-
-        if is_binomial:
-            ax.legend(loc="best")
-        else:
-            ax.legend(loc="center left", bbox_to_anchor=(1, 0.5))
-            pyplot.subplots_adjust(right=0.6, bottom=0.25)
-
-    return _Curve(
-        plot_fn=_do_plot,
-        plot_fn_args={
-            "data_series": data_series,
-            "xlabel": xlabel,
-            "ylabel": ylabel,
-            "line_kwargs": {"drawstyle": "steps-post", "linewidth": 1},
-            "title": title,
-        },
-        auc=auc,
-    )
-
-
 def _get_aggregate_metrics_values(metrics):
     return {name: MetricValue(aggregate_results={name: value}) for name, value in metrics.items()}
 
@@ -520,105 +124,6 @@ _matplotlib_config = {
     "figure.autolayout": True,
     "font.size": 8,
 }
-
-
-def _extract_output_and_other_columns(model_predictions, output_column_name):
-    y_pred = None
-    other_output_columns = None
-    ERROR_MISSING_OUTPUT_COLUMN_NAME = (
-        "Output column name is not specified for the multi-output model. "
-        "Please set the correct output column name using the `predictions` parameter."
-    )
-
-    if isinstance(model_predictions, list) and all(isinstance(p, dict) for p in model_predictions):
-        # Extract 'y_pred' and 'other_output_columns' from list of dictionaries
-        if output_column_name in model_predictions[0]:
-            y_pred = pd.Series(
-                [p.get(output_column_name) for p in model_predictions], name=output_column_name
-            )
-            other_output_columns = pd.DataFrame(
-                [{k: v for k, v in p.items() if k != output_column_name} for p in model_predictions]
-            )
-        elif len(model_predictions[0]) == 1:
-            # Set the only key as self.predictions and its value as self.y_pred
-            key, value = list(model_predictions[0].items())[0]
-            y_pred = pd.Series(value, name=key)
-            output_column_name = key
-        elif output_column_name is None:
-            raise MlflowException(
-                ERROR_MISSING_OUTPUT_COLUMN_NAME,
-                error_code=INVALID_PARAMETER_VALUE,
-            )
-        else:
-            raise MlflowException(
-                f"Output column name '{output_column_name}' is not found in the model "
-                f"predictions list: {model_predictions}. Please set the correct output column "
-                "name using the `predictions` parameter.",
-                error_code=INVALID_PARAMETER_VALUE,
-            )
-    elif isinstance(model_predictions, pd.DataFrame):
-        if output_column_name in model_predictions.columns:
-            y_pred = model_predictions[output_column_name]
-            other_output_columns = model_predictions.drop(columns=output_column_name)
-        elif len(model_predictions.columns) == 1:
-            output_column_name = model_predictions.columns[0]
-            y_pred = model_predictions[output_column_name]
-        elif output_column_name is None:
-            raise MlflowException(
-                ERROR_MISSING_OUTPUT_COLUMN_NAME,
-                error_code=INVALID_PARAMETER_VALUE,
-            )
-        else:
-            raise MlflowException(
-                f"Output column name '{output_column_name}' is not found in the model "
-                f"predictions dataframe {model_predictions.columns}. Please set the correct "
-                "output column name using the `predictions` parameter.",
-                error_code=INVALID_PARAMETER_VALUE,
-            )
-    elif isinstance(model_predictions, dict):
-        if output_column_name in model_predictions:
-            y_pred = pd.Series(model_predictions[output_column_name], name=output_column_name)
-            other_output_columns = pd.DataFrame(
-                {k: v for k, v in model_predictions.items() if k != output_column_name}
-            )
-        elif len(model_predictions) == 1:
-            key, value = list(model_predictions.items())[0]
-            y_pred = pd.Series(value, name=key)
-            output_column_name = key
-        elif output_column_name is None:
-            raise MlflowException(
-                ERROR_MISSING_OUTPUT_COLUMN_NAME,
-                error_code=INVALID_PARAMETER_VALUE,
-            )
-        else:
-            raise MlflowException(
-                f"Output column name '{output_column_name}' is not found in the "
-                f"model predictions dict {model_predictions}. Please set the correct "
-                "output column name using the `predictions` parameter.",
-                error_code=INVALID_PARAMETER_VALUE,
-            )
-
-    return (
-        y_pred if y_pred is not None else model_predictions,
-        other_output_columns,
-        output_column_name,
-    )
-
-
-class _Metric(NamedTuple):
-    """
-    A namedtuple representing a metric function and its properties.
-
-    function : the metric function
-    name : the name of the metric function
-    index : the index of the function in the ``extra_metrics`` argument of mlflow.evaluate
-    """
-
-    function: Callable
-    name: str
-    index: int
-    version: Optional[str] = None
-    genai_metric_args: Optional[Dict] = None
 
 
 class _CustomArtifact(NamedTuple):
@@ -635,95 +140,6 @@ class _CustomArtifact(NamedTuple):
     name: str
     index: int
     artifacts_dir: str
-
-
-def _is_numeric(value):
-    return isinstance(value, (int, float, np.number))
-
-
-def _is_string(value):
-    return isinstance(value, str)
-
-
-def _evaluate_metric(metric_tuple, eval_fn_args):
-    """
-    This function calls the metric function and performs validations on the returned
-    result to ensure that they are in the expected format. It will warn and will not log metrics
-    that are in the wrong format.
-
-    Args:
-        metric_tuple: Containing a user provided function and its index in the
-            ``extra_metrics`` parameter of ``mlflow.evaluate``
-        eval_fn_args: A dictionary of args needed to compute the eval metrics.
-
-    Returns:
-        MetricValue
-    """
-    if metric_tuple.index < 0:
-        exception_header = f"Did not log builtin metric '{metric_tuple.name}' because it"
-    else:
-        exception_header = (
-            f"Did not log metric '{metric_tuple.name}' at index "
-            f"{metric_tuple.index} in the `extra_metrics` parameter because it"
-        )
-
-    metric = metric_tuple.function(*eval_fn_args)
-
-    if metric is None:
-        _logger.warning(f"{exception_header} returned None.")
-        return
-
-    if _is_numeric(metric):
-        return MetricValue(aggregate_results={metric_tuple.name: metric})
-
-    if not isinstance(metric, MetricValue):
-        _logger.warning(f"{exception_header} did not return a MetricValue.")
-        return
-
-    scores = metric.scores
-    justifications = metric.justifications
-    aggregates = metric.aggregate_results
-
-    if scores is not None:
-        if not isinstance(scores, list):
-            _logger.warning(f"{exception_header} must return MetricValue with scores as a list.")
-            return
-        if any(not (_is_numeric(score) or _is_string(score) or score is None) for score in scores):
-            _logger.warning(
-                f"{exception_header} must return MetricValue with numeric or string scores."
-            )
-            return
-
-    if justifications is not None:
-        if not isinstance(justifications, list):
-            _logger.warning(
-                f"{exception_header} must return MetricValue with justifications as a list."
-            )
-            return
-        if any(not (_is_string(jus) or jus is None) for jus in justifications):
-            _logger.warning(
-                f"{exception_header} must return MetricValue with string justifications."
-            )
-            return
-
-    if aggregates is not None:
-        if not isinstance(aggregates, dict):
-            _logger.warning(
-                f"{exception_header} must return MetricValue with aggregate_results as a dict."
-            )
-            return
-
-        if any(
-            not (isinstance(k, str) and (_is_numeric(v) or v is None))
-            for k, v in aggregates.items()
-        ):
-            _logger.warning(
-                f"{exception_header} must return MetricValue with aggregate_results with "
-                "str keys and numeric values."
-            )
-            return
-
-    return metric
 
 
 def _is_valid_artifacts(artifacts):
@@ -768,40 +184,35 @@ def _evaluate_custom_artifacts(custom_artifact_tuple, eval_df, builtin_metrics):
     return artifacts
 
 
-def _compute_df_mode_or_mean(df):
+# TODO: Move this to the /evaluators directory
+class BuiltInEvaluator(ModelEvaluator):
     """
-    Compute mean (for continuous columns) and compute mode (for other columns) for the
-    input dataframe, return a dict, key is column name, value is the corresponding mode or
-    mean value, this function calls `_is_continuous` to determine whether the
-    column is continuous column.
+    The base class for all evaluators that are built-in to MLflow.
+
+    Each evaluator is responsible for implementing the `_evaluate()` method, which is called by
+    the `evaluate()` method of this base class. This class contains many helper methods used
+    across built-in evaluators, such as logging metrics, artifacts, and ordering metrics.
     """
-    continuous_cols = [c for c in df.columns if _is_continuous(df[c])]
-    df_cont = df[continuous_cols]
-    df_non_cont = df.drop(continuous_cols, axis=1)
 
-    means = {} if df_cont.empty else df_cont.mean().to_dict()
-    modes = {} if df_non_cont.empty else df_non_cont.mode().loc[0].to_dict()
-    return {**means, **modes}
-
-
-_SUPPORTED_SHAP_ALGORITHMS = ("exact", "permutation", "partition", "kernel")
-
-
-def _shap_predict_fn(x, predict_fn, feature_names):
-    return predict_fn(_get_dataframe_with_renamed_columns(x, feature_names))
-
-
-class DefaultEvaluator(ModelEvaluator):
     def __init__(self):
         self.client = MlflowClient()
 
-    def can_evaluate(self, *, model_type, evaluator_config, **kwargs):
-        return model_type in _ModelType.values() or model_type is None
+    @abstractmethod
+    def _evaluate(
+        self,
+        model: Optional["mlflow.pyfunc.PyFuncModel"],
+        extra_metrics: List[EvaluationMetric],
+        custom_artifacts=None,
+        **kwargs,
+    ) -> Optional[EvaluationResult]:
+        """Implement the evaluation logic for each evaluator."""
 
-    def _log_metrics(self):
+    def log_metrics(self):
         """
         Helper method to log metrics into specified run.
         """
+        self._add_prefix_to_metrics()
+
         timestamp = get_current_time_millis()
         self.client.log_batch(
             self.run_id,
@@ -839,236 +250,12 @@ class DefaultEvaluator(ModelEvaluator):
         artifact._load(artifact_file_local_path)
         self.artifacts[artifact_name] = artifact
 
-    def _log_pandas_df_artifact(self, pandas_df, artifact_name):
-        artifact_file_name = f"{artifact_name}.csv"
-        artifact_file_local_path = self.temp_dir.path(artifact_file_name)
-        pandas_df.to_csv(artifact_file_local_path, index=False)
-        mlflow.log_artifact(artifact_file_local_path)
-        artifact = CsvEvaluationArtifact(
-            uri=mlflow.get_artifact_uri(artifact_file_name),
-            content=pandas_df,
-        )
-        artifact._load(artifact_file_local_path)
-        self.artifacts[artifact_name] = artifact
-
-    def _log_model_explainability(self):
-        if not self.evaluator_config.get("log_model_explainability", True):
-            return
-
-        if self.is_model_server and not self.evaluator_config.get(
-            "log_model_explainability", False
-        ):
-            _logger.warning(
-                "Skipping model explainability because a model server is used for environment "
-                "restoration."
-            )
-            return
-
-        if self.model_loader_module == "mlflow.spark":
-            # TODO: Shap explainer need to manipulate on each feature values,
-            #  but spark model input dataframe contains Vector type feature column
-            #  which shap explainer does not support.
-            #  To support this, we need expand the Vector type feature column into
-            #  multiple scalar feature columns and pass it to shap explainer.
-            _logger.warning(
-                "Logging model explainability insights is not currently supported for PySpark "
-                "models."
-            )
-            return
-
-        if not (np.issubdtype(self.y.dtype, np.number) or self.y.dtype == np.bool_):
-            # Note: python bool type inherits number type but np.bool_ does not inherit np.number.
-            _logger.warning(
-                "Skip logging model explainability insights because it requires all label "
-                "values to be numeric or boolean."
-            )
-            return
-
-        algorithm = self.evaluator_config.get("explainability_algorithm", None)
-        if algorithm is not None and algorithm not in _SUPPORTED_SHAP_ALGORITHMS:
-            raise MlflowException(
-                message=f"Specified explainer algorithm {algorithm} is unsupported. Currently only "
-                f"support {','.join(_SUPPORTED_SHAP_ALGORITHMS)} algorithms.",
-                error_code=INVALID_PARAMETER_VALUE,
-            )
-
-        if algorithm != "kernel":
-            feature_dtypes = list(self.X.get_original().dtypes)
-            for feature_dtype in feature_dtypes:
-                if not np.issubdtype(feature_dtype, np.number):
-                    _logger.warning(
-                        "Skip logging model explainability insights because the shap explainer "
-                        f"{algorithm} requires all feature values to be numeric, and each feature "
-                        "column must only contain scalar values."
-                    )
-                    return
-
-        try:
-            import shap
-            from matplotlib import pyplot
-        except ImportError:
-            _logger.warning(
-                "SHAP or matplotlib package is not installed, so model explainability insights "
-                "will not be logged."
-            )
-            return
-
-        if Version(shap.__version__) < Version("0.40"):
-            _logger.warning(
-                "Shap package version is lower than 0.40, Skip log model explainability."
-            )
-            return
-
-        is_multinomial_classifier = (
-            self.model_type == _ModelType.CLASSIFIER and self.num_classes > 2
-        )
-
-        sample_rows = self.evaluator_config.get(
-            "explainability_nsamples", _DEFAULT_SAMPLE_ROWS_FOR_SHAP
-        )
-
-        X_df = self.X.copy_to_avoid_mutation()
-
-        sampled_X = shap.sample(X_df, sample_rows, random_state=0)
-
-        mode_or_mean_dict = _compute_df_mode_or_mean(X_df)
-        sampled_X = sampled_X.fillna(mode_or_mean_dict)
-
-        # shap explainer might call provided `predict_fn` with a `numpy.ndarray` type
-        # argument, this might break some model inference, so convert the argument into
-        # a pandas dataframe.
-        # The `shap_predict_fn` calls model's predict function, we need to restore the input
-        # dataframe with original column names, because some model prediction routine uses
-        # the column name.
-
-        shap_predict_fn = functools.partial(
-            _shap_predict_fn, predict_fn=self.predict_fn, feature_names=self.feature_names
-        )
-
-        try:
-            if algorithm:
-                if algorithm == "kernel":
-                    # We need to lazily import shap, so lazily import `_PatchedKernelExplainer`
-                    from mlflow.models.evaluation._shap_patch import _PatchedKernelExplainer
-
-                    kernel_link = self.evaluator_config.get(
-                        "explainability_kernel_link", "identity"
-                    )
-                    if kernel_link not in ["identity", "logit"]:
-                        raise ValueError(
-                            "explainability_kernel_link config can only be set to 'identity' or "
-                            f"'logit', but got '{kernel_link}'."
-                        )
-                    background_X = shap.sample(X_df, sample_rows, random_state=3)
-                    background_X = background_X.fillna(mode_or_mean_dict)
-
-                    explainer = _PatchedKernelExplainer(
-                        shap_predict_fn, background_X, link=kernel_link
-                    )
-                else:
-                    explainer = shap.Explainer(
-                        shap_predict_fn,
-                        sampled_X,
-                        feature_names=self.feature_names,
-                        algorithm=algorithm,
-                    )
-            else:
-                if (
-                    self.raw_model
-                    and not is_multinomial_classifier
-                    and not isinstance(self.raw_model, sk_Pipeline)
-                ):
-                    # For mulitnomial classifier, shap.Explainer may choose Tree/Linear explainer
-                    # for raw model, this case shap plot doesn't support it well, so exclude the
-                    # multinomial_classifier case here.
-                    explainer = shap.Explainer(
-                        self.raw_model, sampled_X, feature_names=self.feature_names
-                    )
-                else:
-                    # fallback to default explainer
-                    explainer = shap.Explainer(
-                        shap_predict_fn, sampled_X, feature_names=self.feature_names
-                    )
-
-            _logger.info(f"Shap explainer {explainer.__class__.__name__} is used.")
-
-            if algorithm == "kernel":
-                shap_values = shap.Explanation(
-                    explainer.shap_values(sampled_X), feature_names=self.feature_names
-                )
-            else:
-                shap_values = explainer(sampled_X)
-        except Exception as e:
-            # Shap evaluation might fail on some edge cases, e.g., unsupported input data values
-            # or unsupported model on specific shap explainer. Catch exception to prevent it
-            # breaking the whole `evaluate` function.
-
-            if not self.evaluator_config.get("ignore_exceptions", True):
-                raise e
-
-            _logger.warning(
-                f"Shap evaluation failed. Reason: {e!r}. "
-                "Set logging level to DEBUG to see the full traceback."
-            )
-            _logger.debug("", exc_info=True)
-            return
-        try:
-            mlflow.shap.log_explainer(explainer, artifact_path="explainer")
-        except Exception as e:
-            # TODO: The explainer saver is buggy, if `get_underlying_model_flavor` return "unknown",
-            #   then fallback to shap explainer saver, and shap explainer will call `model.save`
-            #   for sklearn model, there is no `.save` method, so error will happen.
-            _logger.warning(
-                f"Logging explainer failed. Reason: {e!r}. "
-                "Set logging level to DEBUG to see the full traceback."
-            )
-            _logger.debug("", exc_info=True)
-
-        def _adjust_color_bar():
-            pyplot.gcf().axes[-1].set_aspect("auto")
-            pyplot.gcf().axes[-1].set_box_aspect(50)
-
-        def _adjust_axis_tick():
-            pyplot.xticks(fontsize=10)
-            pyplot.yticks(fontsize=10)
-
-        def plot_beeswarm():
-            shap.plots.beeswarm(shap_values, show=False, color_bar=True)
-            _adjust_color_bar()
-            _adjust_axis_tick()
-
-        with _suppress_class_imbalance_errors(ValueError, log_warning=False):
-            self._log_image_artifact(
-                plot_beeswarm,
-                "shap_beeswarm_plot",
-            )
-
-        def plot_summary():
-            shap.summary_plot(shap_values, show=False, color_bar=True)
-            _adjust_color_bar()
-            _adjust_axis_tick()
-
-        with _suppress_class_imbalance_errors(TypeError, log_warning=False):
-            self._log_image_artifact(
-                plot_summary,
-                "shap_summary_plot",
-            )
-
-        def plot_feature_importance():
-            shap.plots.bar(shap_values, show=False)
-            _adjust_axis_tick()
-
-        with _suppress_class_imbalance_errors(IndexError, log_warning=False):
-            self._log_image_artifact(
-                plot_feature_importance,
-                "shap_feature_importance_plot",
-            )
-
-    def _evaluate_sklearn_model_score_if_scorable(self):
-        if self.model_loader_module == "mlflow.sklearn" and self.raw_model is not None:
+    def _evaluate_sklearn_model_score_if_scorable(self, model, y_true, sample_weights):
+        model_loader_module, raw_model = _extract_raw_model(model)
+        if model_loader_module == "mlflow.sklearn" and raw_model is not None:
             try:
-                score = self.raw_model.score(
-                    self.X.copy_to_avoid_mutation(), self.y, sample_weight=self.sample_weights
+                score = raw_model.score(
+                    self.X.copy_to_avoid_mutation(), y_true, sample_weight=sample_weights
                 )
                 self.metrics_values.update(_get_aggregate_metrics_values({"score": score}))
             except Exception as e:
@@ -1077,123 +264,6 @@ class DefaultEvaluator(ModelEvaluator):
                     "DEBUG to see the full traceback."
                 )
                 _logger.debug("", exc_info=True)
-
-    def _compute_roc_and_pr_curve(self):
-        if self.y_probs is not None:
-            with _suppress_class_imbalance_errors(ValueError, log_warning=False):
-                self.roc_curve = _gen_classifier_curve(
-                    is_binomial=True,
-                    y=self.y,
-                    y_probs=self.y_probs[:, 1],
-                    labels=self.label_list,
-                    pos_label=self.pos_label,
-                    curve_type="roc",
-                    sample_weights=self.sample_weights,
-                )
-
-                self.metrics_values.update(
-                    _get_aggregate_metrics_values({"roc_auc": self.roc_curve.auc})
-                )
-            with _suppress_class_imbalance_errors(ValueError, log_warning=False):
-                self.pr_curve = _gen_classifier_curve(
-                    is_binomial=True,
-                    y=self.y,
-                    y_probs=self.y_probs[:, 1],
-                    labels=self.label_list,
-                    pos_label=self.pos_label,
-                    curve_type="pr",
-                    sample_weights=self.sample_weights,
-                )
-
-                self.metrics_values.update(
-                    _get_aggregate_metrics_values({"precision_recall_auc": self.pr_curve.auc})
-                )
-
-    def _log_multiclass_classifier_artifacts(self):
-        per_class_metrics_collection_df = _get_classifier_per_class_metrics_collection_df(
-            self.y,
-            self.y_pred,
-            labels=self.label_list,
-            sample_weights=self.sample_weights,
-        )
-
-        log_roc_pr_curve = False
-        if self.y_probs is not None:
-            max_classes_for_multiclass_roc_pr = self.evaluator_config.get(
-                "max_classes_for_multiclass_roc_pr", 10
-            )
-            if self.num_classes <= max_classes_for_multiclass_roc_pr:
-                log_roc_pr_curve = True
-            else:
-                _logger.warning(
-                    f"The classifier num_classes > {max_classes_for_multiclass_roc_pr}, skip "
-                    f"logging ROC curve and Precision-Recall curve. You can add evaluator config "
-                    f"'max_classes_for_multiclass_roc_pr' to increase the threshold."
-                )
-
-        if log_roc_pr_curve:
-            roc_curve = _gen_classifier_curve(
-                is_binomial=False,
-                y=self.y,
-                y_probs=self.y_probs,
-                labels=self.label_list,
-                pos_label=self.pos_label,
-                curve_type="roc",
-                sample_weights=self.sample_weights,
-            )
-
-            def plot_roc_curve():
-                roc_curve.plot_fn(**roc_curve.plot_fn_args)
-
-            self._log_image_artifact(plot_roc_curve, "roc_curve_plot")
-            per_class_metrics_collection_df["roc_auc"] = roc_curve.auc
-
-            pr_curve = _gen_classifier_curve(
-                is_binomial=False,
-                y=self.y,
-                y_probs=self.y_probs,
-                labels=self.label_list,
-                pos_label=self.pos_label,
-                curve_type="pr",
-                sample_weights=self.sample_weights,
-            )
-
-            def plot_pr_curve():
-                pr_curve.plot_fn(**pr_curve.plot_fn_args)
-
-            self._log_image_artifact(plot_pr_curve, "precision_recall_curve_plot")
-            per_class_metrics_collection_df["precision_recall_auc"] = pr_curve.auc
-
-        self._log_pandas_df_artifact(per_class_metrics_collection_df, "per_class_metrics")
-
-    def _log_roc_curve(self):
-        def _plot_roc_curve():
-            self.roc_curve.plot_fn(**self.roc_curve.plot_fn_args)
-
-        self._log_image_artifact(_plot_roc_curve, "roc_curve_plot")
-
-    def _log_precision_recall_curve(self):
-        def _plot_pr_curve():
-            self.pr_curve.plot_fn(**self.pr_curve.plot_fn_args)
-
-        self._log_image_artifact(_plot_pr_curve, "precision_recall_curve_plot")
-
-    def _log_lift_curve(self):
-        from mlflow.models.evaluation.lift_curve import plot_lift_curve
-
-        def _plot_lift_curve():
-            return plot_lift_curve(self.y, self.y_probs, pos_label=self.pos_label)
-
-        self._log_image_artifact(_plot_lift_curve, "lift_curve_plot")
-
-    def _log_binary_classifier_artifacts(self):
-        if self.y_probs is not None:
-            with _suppress_class_imbalance_errors(log_warning=False):
-                self._log_roc_curve()
-            with _suppress_class_imbalance_errors(log_warning=False):
-                self._log_precision_recall_curve()
-            with _suppress_class_imbalance_errors(ValueError, log_warning=False):
-                self._log_lift_curve()
 
     def _log_custom_metric_artifact(self, artifact_name, raw_artifact, custom_metric_tuple):
         """
@@ -1280,17 +350,22 @@ class DefaultEvaluator(ModelEvaluator):
                 return metric_value
 
     def _get_args_for_metrics(
-        self, metric_tuple, eval_df, input_df
+        self,
+        metric: MetricDefinition,
+        eval_df: pd.DataFrame,
+        input_df: pd.DataFrame,
+        other_output_df: Optional[pd.DataFrame],
     ) -> Tuple[bool, List[Union[str, pd.DataFrame]]]:
         """
         Given a metric_tuple, read the signature of the metric function and get the appropriate
         arguments from the input/output columns, other calculated metrics, and evaluator_config.
 
         Args:
-            metric_tuple: The metric tuple containing a user provided function and its index
+            metric: The metric definition containing a user provided function and its index
                 in the ``extra_metrics`` parameter of ``mlflow.evaluate``.
             eval_df: The evaluation dataframe containing the prediction and target columns.
             input_df: The input dataframe containing the features used to make predictions.
+            other_output_df: A dataframe containing all model output columns but the predictions.
 
         Returns:
             tuple: A tuple of (bool, list) where the bool indicates if the given metric can
@@ -1304,7 +379,7 @@ class DefaultEvaluator(ModelEvaluator):
         # deepcopying eval_df and builtin_metrics for each custom metric function call,
         # in case the user modifies them inside their function(s).
         eval_df_copy = eval_df.copy()
-        parameters = inspect.signature(metric_tuple.function).parameters
+        parameters = inspect.signature(metric.function).parameters
         eval_fn_args = []
         params_not_found = []
         if len(parameters) == 2:
@@ -1348,12 +423,9 @@ class DefaultEvaluator(ModelEvaluator):
 
                     # case column in col_mapping is string and the column value
                     # is part of the output_df(other than predictions)
-                    elif (
-                        self.other_output_columns is not None
-                        and column in self.other_output_columns.columns
-                    ):
+                    elif other_output_df is not None and column in other_output_df.columns:
                         self.other_output_columns_for_eval.add(column)
-                        eval_fn_args.append(self.other_output_columns[column])
+                        eval_fn_args.append(other_output_df[column])
 
                     # case where the param is defined as part of the evaluator_config
                     elif column in self.evaluator_config:
@@ -1379,10 +451,18 @@ class DefaultEvaluator(ModelEvaluator):
             return False, params_not_found
         return True, eval_fn_args
 
-    def _log_custom_artifacts(self, eval_df):
-        if not self.custom_artifacts:
+    def evaluate_and_log_custom_artifacts(
+        self,
+        custom_artifacts: List[_CustomArtifact],
+        prediction: pd.Series,
+        target: Optional[np.array] = None,
+    ):
+        """Evaluate custom artifacts provided by users."""
+        if not custom_artifacts:
             return
-        for index, custom_artifact in enumerate(self.custom_artifacts):
+
+        eval_df = self._get_eval_df(prediction, target)
+        for index, custom_artifact in enumerate(custom_artifacts):
             with tempfile.TemporaryDirectory() as artifacts_dir:
                 # deepcopying eval_df and builtin_metrics for each custom artifact function call,
                 # in case the user modifies them inside their function(s).
@@ -1404,202 +484,6 @@ class DefaultEvaluator(ModelEvaluator):
                             raw_artifact,
                             custom_artifact_tuple,
                         )
-
-    def _log_confusion_matrix(self):
-        """
-        Helper method for logging confusion matrix
-        """
-        # normalize the confusion matrix, keep consistent with sklearn autologging.
-        confusion_matrix = sk_metrics.confusion_matrix(
-            self.y,
-            self.y_pred,
-            labels=self.label_list,
-            normalize="true",
-            sample_weight=self.sample_weights,
-        )
-
-        def plot_confusion_matrix():
-            import matplotlib
-            import matplotlib.pyplot as plt
-
-            with matplotlib.rc_context(
-                {
-                    "font.size": min(8, math.ceil(50.0 / self.num_classes)),
-                    "axes.labelsize": 8,
-                }
-            ):
-                _, ax = plt.subplots(1, 1, figsize=(6.0, 4.0), dpi=175)
-                disp = sk_metrics.ConfusionMatrixDisplay(
-                    confusion_matrix=confusion_matrix,
-                    display_labels=self.label_list,
-                ).plot(cmap="Blues", ax=ax)
-                disp.ax_.set_title("Normalized confusion matrix")
-
-        if hasattr(sk_metrics, "ConfusionMatrixDisplay"):
-            self._log_image_artifact(
-                plot_confusion_matrix,
-                "confusion_matrix",
-            )
-        return
-
-    def _generate_model_predictions(self, compute_latency=False):
-        """
-        Helper method for generating model predictions
-        """
-
-        def predict_with_latency(X_copy):
-            y_pred_list = []
-            pred_latencies = []
-            if len(X_copy) == 0:
-                raise ValueError("Empty input data")
-
-            is_dataframe = isinstance(X_copy, pd.DataFrame)
-
-            for row in X_copy.iterrows() if is_dataframe else enumerate(X_copy):
-                i, row_data = row
-                single_input = row_data.to_frame().T if is_dataframe else row_data
-                start_time = time.time()
-                y_pred = self.predict_fn(single_input)
-                end_time = time.time()
-                pred_latencies.append(end_time - start_time)
-                y_pred_list.append(y_pred)
-
-            # Update latency metric
-            self.metrics_values.update({_LATENCY_METRIC_NAME: MetricValue(scores=pred_latencies)})
-
-            # Aggregate all predictions into model_predictions
-            sample_pred = y_pred_list[0]
-            if isinstance(sample_pred, pd.DataFrame):
-                return pd.concat(y_pred_list)
-            elif isinstance(sample_pred, np.ndarray):
-                return np.concatenate(y_pred_list, axis=0)
-            elif isinstance(sample_pred, list):
-                return sum(y_pred_list, [])
-            elif isinstance(sample_pred, pd.Series):
-                return pd.concat(y_pred_list, ignore_index=True)
-            elif isinstance(sample_pred, str):
-                return y_pred_list
-            else:
-                raise MlflowException(
-                    message=f"Unsupported prediction type {type(sample_pred)} for model type "
-                    f"{self.model_type}.",
-                    error_code=INVALID_PARAMETER_VALUE,
-                )
-
-        X_copy = self.X.copy_to_avoid_mutation()
-        if self.model is not None:
-            _logger.info("Computing model predictions.")
-
-            if compute_latency:
-                model_predictions = predict_with_latency(X_copy)
-            else:
-                model_predictions = self.predict_fn(X_copy)
-        else:
-            if self.dataset.predictions_data is None:
-                raise MlflowException(
-                    message="Predictions data is missing when model is not provided. "
-                    "Please provide predictions data in a dataset or provide a model. "
-                    "See the documentation for mlflow.evaluate() for how to specify "
-                    "the predictions data in a dataset.",
-                    error_code=INVALID_PARAMETER_VALUE,
-                )
-            if compute_latency:
-                _logger.warning(
-                    "Setting the latency to 0 for all entries because the model is not provided."
-                )
-                self.metrics_values.update(
-                    {_LATENCY_METRIC_NAME: MetricValue(scores=[0.0] * len(X_copy))}
-                )
-            model_predictions = self.dataset.predictions_data
-
-        if self.model_type == _ModelType.CLASSIFIER:
-            if self.predict_fn is not None:
-                self.y_pred = self.predict_fn(self.X.copy_to_avoid_mutation())
-            else:
-                self.y_pred = self.dataset.predictions_data
-
-            if self.label_list is None:
-                self.label_list = np.unique(np.concatenate([self.y, self.y_pred]))
-            # sort label_list ASC, for binary classification it makes sure the last one is pos label
-            self.label_list.sort()
-            self.num_classes = len(self.label_list)
-            self.is_binomial = self.num_classes <= 2
-
-            if self.is_binomial:
-                if self.pos_label is None:
-                    self.pos_label = self.label_list[-1]
-                else:
-                    if self.pos_label in self.label_list:
-                        self.label_list = np.delete(
-                            self.label_list, np.where(self.label_list == self.pos_label)
-                        )
-                    self.label_list = np.append(self.label_list, self.pos_label)
-                if len(self.label_list) < 2:
-                    raise MlflowException(
-                        "Evaluation dataset for classification must contain at least two unique "
-                        f"labels, but only {len(self.label_list)} unique labels were found.",
-                    )
-                with _suppress_class_imbalance_errors(IndexError, log_warning=False):
-                    _logger.info(
-                        "The evaluation dataset is inferred as binary dataset, positive label is "
-                        f"{self.label_list[1]}, negative label is {self.label_list[0]}."
-                    )
-            else:
-                _logger.info(
-                    "The evaluation dataset is inferred as multiclass dataset, number of classes "
-                    f"is inferred as {self.num_classes}. If this is incorrect, please specify the "
-                    "`label_list` parameter in `evaluator_config`."
-                )
-
-            if self.predict_proba_fn is not None:
-                self.y_probs = self.predict_proba_fn(self.X.copy_to_avoid_mutation())
-            else:
-                self.y_probs = None
-
-        output_column_name = self.predictions
-        (
-            self.y_pred,
-            self.other_output_columns,
-            self.predictions,
-        ) = _extract_output_and_other_columns(model_predictions, output_column_name)
-        self.other_output_columns_for_eval = set()
-
-    def _compute_builtin_metrics(self):
-        """
-        Helper method for computing builtin metrics
-        """
-        self._evaluate_sklearn_model_score_if_scorable()
-        if self.model_type == _ModelType.CLASSIFIER:
-            if self.is_binomial:
-                metrics = _get_binary_classifier_metrics(
-                    y_true=self.y,
-                    y_pred=self.y_pred,
-                    y_proba=self.y_probs,
-                    labels=self.label_list,
-                    pos_label=self.pos_label,
-                    sample_weights=self.sample_weights,
-                )
-                if metrics:
-                    self.metrics_values.update(_get_aggregate_metrics_values(metrics))
-                    self._compute_roc_and_pr_curve()
-            else:
-                average = self.evaluator_config.get("average", "weighted")
-                metrics = _get_multiclass_classifier_metrics(
-                    y_true=self.y,
-                    y_pred=self.y_pred,
-                    y_proba=self.y_probs,
-                    labels=self.label_list,
-                    average=average,
-                    sample_weights=self.sample_weights,
-                )
-                if metrics:
-                    self.metrics_values.update(_get_aggregate_metrics_values(metrics))
-        elif self.model_type == _ModelType.REGRESSOR:
-            self.metrics_values.update(
-                _get_aggregate_metrics_values(
-                    _get_regressor_metrics(self.y, self.y_pred, self.sample_weights)
-                )
-            )
 
     def _get_error_message_missing_columns(self, metric_name, param_names):
         error_message_parts = [f"Metric '{metric_name}' requires the following:"]
@@ -1643,10 +527,8 @@ class DefaultEvaluator(ModelEvaluator):
 
         return "\n".join(l.lstrip() for l in full_message.splitlines())
 
-    def _raise_exception_for_malformed_metrics(self, malformed_results, eval_df):
-        output_columns = (
-            [] if self.other_output_columns is None else list(self.other_output_columns.columns)
-        )
+    def _raise_exception_for_malformed_metrics(self, malformed_results, eval_df, other_output_df):
+        output_columns = [] if other_output_df is None else list(other_output_df.columns)
         if self.predictions:
             output_columns.append(self.predictions)
         elif self.dataset.predictions_name:
@@ -1667,12 +549,31 @@ class DefaultEvaluator(ModelEvaluator):
 
         raise MlflowException(error_message, error_code=INVALID_PARAMETER_VALUE)
 
-    # to order the metrics, we append metrics to self.ordered_metrics if they can be calculated
-    # given the metrics that will be calculated before it
-    # we stop when all metrics are in self.ordered_metrics or we cannot "calculate" any more metrics
-    # and raise an exception in the latter case
-    def _order_extra_metrics(self, eval_df):
-        remaining_metrics = self.extra_metrics
+    def _get_eval_df(self, prediction: pd.Series, target: Optional[np.array] = None):
+        """
+        Create a DataFrame with "prediction" and "target" columns.
+
+        This is a standard format that can be passed to the metric functions.
+        """
+        eval_df = pd.DataFrame({"prediction": copy.deepcopy(prediction)})
+        if target is not None:
+            eval_df["target"] = target
+        return eval_df
+
+    def _order_metrics(
+        self,
+        metrics: List[EvaluationMetric],
+        eval_df: pd.DataFrame,
+        other_output_df: Optional[pd.DataFrame],
+    ):
+        """
+        Order the list metrics so they can be computed in sequence.
+
+        Some metrics might use the results of other metrics to compute their own results. This
+        function iteratively resolve this dependency, by checking if each metric can be computed
+        with the current available columns and metrics values.
+        """
+        remaining_metrics = metrics
         input_df = self.X.copy_to_avoid_mutation()
 
         while len(remaining_metrics) > 0:
@@ -1681,7 +582,7 @@ class DefaultEvaluator(ModelEvaluator):
             did_append_metric = False
             for metric_tuple in remaining_metrics:
                 can_calculate, eval_fn_args = self._get_args_for_metrics(
-                    metric_tuple, eval_df, input_df
+                    metric_tuple, eval_df, input_df, other_output_df
                 )
                 if can_calculate:
                     self.ordered_metrics.append(metric_tuple)
@@ -1692,84 +593,85 @@ class DefaultEvaluator(ModelEvaluator):
 
             # cant calculate any more metrics
             if not did_append_metric:
-                self._raise_exception_for_malformed_metrics(failed_results, eval_df)
+                self._raise_exception_for_malformed_metrics(
+                    failed_results, eval_df, other_output_df
+                )
 
             remaining_metrics = pending_metrics
 
-    def _test_first_row(self, eval_df):
+        return self.ordered_metrics
+
+    def _test_first_row(
+        self,
+        metrics: List[MetricDefinition],
+        eval_df: pd.DataFrame,
+        other_output_df: Optional[pd.DataFrame],
+    ):
         # test calculations on first row of eval_df
         _logger.info("Testing metrics on first row...")
         exceptions = []
         first_row_df = eval_df.iloc[[0]]
         first_row_input_df = self.X.copy_to_avoid_mutation().iloc[[0]]
-        for metric_tuple in self.ordered_metrics:
+        for metric in metrics:
             try:
                 _, eval_fn_args = self._get_args_for_metrics(
-                    metric_tuple, first_row_df, first_row_input_df
+                    metric, first_row_df, first_row_input_df, other_output_df
                 )
-                metric_value = _evaluate_metric(metric_tuple, eval_fn_args)
+                metric_value = metric.evaluate(eval_fn_args)
                 if metric_value:
-                    name = (
-                        f"{metric_tuple.name}/{metric_tuple.version}"
-                        if metric_tuple.version
-                        else metric_tuple.name
-                    )
+                    name = f"{metric.name}/{metric.version}" if metric.version else metric.name
                     self.metrics_values.update({name: metric_value})
             except Exception as e:
                 stacktrace_str = traceback.format_exc()
                 if isinstance(e, MlflowException):
                     exceptions.append(
-                        f"Metric '{metric_tuple.name}': Error:\n{e.message}\n{stacktrace_str}"
+                        f"Metric '{metric.name}': Error:\n{e.message}\n{stacktrace_str}"
                     )
                 else:
-                    exceptions.append(
-                        f"Metric '{metric_tuple.name}': Error:\n{e!r}\n{stacktrace_str}"
-                    )
+                    exceptions.append(f"Metric '{metric.name}': Error:\n{e!r}\n{stacktrace_str}")
 
         if len(exceptions) > 0:
             raise MlflowException("\n".join(exceptions))
 
-    def _metric_to_metric_tuple(self, index, metric):
-        return _Metric(
-            function=metric.eval_fn,
-            index=index,
-            name=metric.name,
-            version=metric.version,
-            genai_metric_args=metric.genai_metric_args,
-        )
+    def evaluate_metrics(
+        self,
+        metrics: List[EvaluationMetric],
+        prediction: pd.Series,
+        target: Optional[np.array] = None,
+        other_output_df: Optional[pd.DataFrame] = None,
+    ):
+        """
+        Evaluate the metrics on the given prediction and target data.
 
-    def _evaluate_metrics(self, eval_df):
-        self._order_extra_metrics(eval_df)
-        self._test_first_row(eval_df)
+        Args:
+            metrics: A list of metrics to evaluate.
+            prediction: A Pandas Series containing the predictions.
+            other_output_df: A Pandas DataFrame containing other output columns from the model.
+            target: A numpy array containing the target values.
+
+        Returns:
+            None, the metrics values are recorded in the self.metrics_values dictionary.
+        """
+
+        eval_df = self._get_eval_df(prediction, target)
+        metrics = [
+            MetricDefinition.from_index_and_metric(i, metric) for i, metric in enumerate(metrics)
+        ]
+        metrics = self._order_metrics(metrics, eval_df, other_output_df)
+
+        self._test_first_row(metrics, eval_df, other_output_df)
 
         # calculate metrics for the full eval_df
         input_df = self.X.copy_to_avoid_mutation()
-        for metric_tuple in self.ordered_metrics:
-            _, eval_fn_args = self._get_args_for_metrics(metric_tuple, eval_df, input_df)
-            metric_value = _evaluate_metric(metric_tuple, eval_fn_args)
+        for metric in metrics:
+            _, eval_fn_args = self._get_args_for_metrics(metric, eval_df, input_df, other_output_df)
+            metric_value = metric.evaluate(eval_fn_args)
 
             if metric_value:
-                name = (
-                    f"{metric_tuple.name}/{metric_tuple.version}"
-                    if metric_tuple.version
-                    else metric_tuple.name
-                )
+                name = f"{metric.name}/{metric.version}" if metric.version else metric.name
                 self.metrics_values.update({name: metric_value})
 
-    def _log_artifacts(self):
-        """
-        Helper method for generating artifacts, logging metrics and artifacts.
-        """
-        if self.model_type in (_ModelType.CLASSIFIER, _ModelType.REGRESSOR):
-            if self.model_type == _ModelType.CLASSIFIER:
-                if self.is_binomial:
-                    self._log_binary_classifier_artifacts()
-                else:
-                    self._log_multiclass_classifier_artifacts()
-                self._log_confusion_matrix()
-            self._log_model_explainability()
-
-    def _log_eval_table(self):
+    def log_eval_table(self, y_pred, other_output_columns=None):
         # only log eval table if there are per row metrics recorded
         if not any(
             metric_value.scores is not None or metric_value.justifications is not None
@@ -1785,29 +687,29 @@ class DefaultEvaluator(ModelEvaluator):
             if self.dataset.has_targets:
                 data = self.dataset.features_data.assign(
                     **{
-                        self.dataset.targets_name or "target": self.y,
-                        self.dataset.predictions_name or self.predictions or "outputs": self.y_pred,
+                        self.dataset.targets_name or "target": self.dataset.labels_data,
+                        self.dataset.predictions_name or self.predictions or "outputs": y_pred,
                     }
                 )
             else:
-                data = self.dataset.features_data.assign(outputs=self.y_pred)
+                data = self.dataset.features_data.assign(outputs=y_pred)
         else:
             # Handle NumPy array case, converting it to a DataFrame
             data = pd.DataFrame(self.dataset.features_data, columns=self.dataset.feature_names)
             if self.dataset.has_targets:
                 data = data.assign(
                     **{
-                        self.dataset.targets_name or "target": self.y,
-                        self.dataset.predictions_name or self.predictions or "outputs": self.y_pred,
+                        self.dataset.targets_name or "target": self.dataset.labels_data,
+                        self.dataset.predictions_name or self.predictions or "outputs": y_pred,
                     }
                 )
             else:
-                data = data.assign(outputs=self.y_pred)
+                data = data.assign(outputs=y_pred)
 
         # Include other_output_columns used in evaluation to the eval table
-        if self.other_output_columns is not None and len(self.other_output_columns_for_eval) > 0:
+        if other_output_columns is not None and len(self.other_output_columns_for_eval) > 0:
             for column in self.other_output_columns_for_eval:
-                data[column] = self.other_output_columns[column]
+                data[column] = other_output_columns[column]
 
         columns = {}
         for metric_name, metric_value in self.metrics_values.items():
@@ -1841,29 +743,6 @@ class DefaultEvaluator(ModelEvaluator):
             uri=mlflow.get_artifact_uri(artifact_file_name)
         )
 
-    def _log_genai_custom_metrics(self, genai_custom_metrics):
-        if len(genai_custom_metrics) == 0:
-            return
-
-        names = []
-        versions = []
-        metric_args_list = []
-
-        for metric_args in genai_custom_metrics:
-            names.append(metric_args["name"])
-            # Custom metrics created from make_genai_metric_from_prompt don't have version
-            versions.append(metric_args.get("version", ""))
-            metric_args_list.append(metric_args)
-
-        data = {"name": names, "version": versions, "metric_args": metric_args_list}
-
-        mlflow.log_table(data, artifact_file=_GENAI_CUSTOM_METRICS_FILE_NAME)
-
-        artifact_name = os.path.splitext(_GENAI_CUSTOM_METRICS_FILE_NAME)[0]
-        self.artifacts[artifact_name] = JsonEvaluationArtifact(
-            uri=mlflow.get_artifact_uri(_GENAI_CUSTOM_METRICS_FILE_NAME)
-        )
-
     def _update_aggregate_metrics(self):
         self.aggregate_metrics = {}
         for metric_name, metric_value in self.metrics_values.items():
@@ -1874,42 +753,6 @@ class DefaultEvaluator(ModelEvaluator):
                             self.aggregate_metrics[metric_name] = agg_value
                         else:
                             self.aggregate_metrics[f"{metric_name}/{agg_name}"] = agg_value
-
-    def _handle_builtin_metrics_by_model_type(self):
-        text_metrics = [
-            token_count(),
-            toxicity(),
-            flesch_kincaid_grade_level(),
-            ari_grade_level(),
-        ]
-        builtin_metrics = []
-
-        if self.model_type in (_ModelType.CLASSIFIER, _ModelType.REGRESSOR):
-            self._compute_builtin_metrics()
-        elif self.model_type == _ModelType.QUESTION_ANSWERING:
-            builtin_metrics = [*text_metrics, exact_match()]
-        elif self.model_type == _ModelType.TEXT_SUMMARIZATION:
-            builtin_metrics = [
-                *text_metrics,
-                rouge1(),
-                rouge2(),
-                rougeL(),
-                rougeLsum(),
-            ]
-        elif self.model_type == _ModelType.TEXT:
-            builtin_metrics = text_metrics
-        elif self.model_type == _ModelType.RETRIEVER:
-            # default k to 3 if not specified
-            retriever_k = self.evaluator_config.pop("retriever_k", 3)
-            builtin_metrics = [
-                precision_at_k(retriever_k),
-                recall_at_k(retriever_k),
-                ndcg_at_k(retriever_k),
-            ]
-
-        self.ordered_metrics = [
-            self._metric_to_metric_tuple(-1, metric) for metric in builtin_metrics
-        ]
 
     def _add_prefix_to_metrics(self):
         def _prefix_value(value):
@@ -1927,71 +770,6 @@ class DefaultEvaluator(ModelEvaluator):
 
         self._update_aggregate_metrics()
 
-    def _evaluate(
-        self,
-        model: "mlflow.pyfunc.PyFuncModel" = None,
-        **kwargs,
-    ):
-        import matplotlib
-
-        with TempDir() as temp_dir, matplotlib.rc_context(_matplotlib_config):
-            self.temp_dir = temp_dir
-            self.model = model
-
-            self.is_model_server = isinstance(model, _ServedPyFuncModel)
-
-            if getattr(model, "metadata", None):
-                self.model_loader_module, self.raw_model = _extract_raw_model(model)
-            else:
-                # model is constructed from a user specified function or not provided
-                self.model_loader_module, self.raw_model = None, None
-            self.predict_fn, self.predict_proba_fn = _extract_predict_fn(model, self.raw_model)
-            self.predict_fn = _restrict_langchain_autologging_to_traces_only(self.predict_fn)
-            self.predict_proba_fn = _restrict_langchain_autologging_to_traces_only(
-                self.predict_proba_fn
-            )
-
-            self.artifacts = {}
-            self.aggregate_metrics = {}
-            self.metrics_values = {}
-            self.ordered_metrics = []
-
-            with mlflow.utils.autologging_utils.disable_autologging(
-                exemptions=[mlflow.langchain.FLAVOR_NAME]
-            ):
-                compute_latency = False
-                genai_custom_metrics = []
-                for extra_metric in self.extra_metrics:
-                    # If latency metric is specified, we will compute latency for the model
-                    # during prediction, and we will remove the metric from the list of extra
-                    # metrics to be computed after prediction.
-                    if extra_metric.name == _LATENCY_METRIC_NAME:
-                        compute_latency = True
-                        self.extra_metrics.remove(extra_metric)
-                    # When the field is present, the metric is created from either make_genai_metric
-                    # or make_genai_metric_from_prompt. We will log the metric definition.
-                    if extra_metric.genai_metric_args is not None:
-                        genai_custom_metrics.append(extra_metric.genai_metric_args)
-                self._generate_model_predictions(compute_latency=compute_latency)
-                self._handle_builtin_metrics_by_model_type()
-
-                eval_df = pd.DataFrame({"prediction": copy.deepcopy(self.y_pred)})
-                if self.dataset.has_targets:
-                    eval_df["target"] = self.y
-
-                self._evaluate_metrics(eval_df)
-                self._log_custom_artifacts(eval_df)
-
-                self._add_prefix_to_metrics()
-
-                self._log_artifacts()
-                self._log_metrics()
-                self._log_eval_table()
-                self._log_genai_custom_metrics(genai_custom_metrics)
-                return EvaluationResult(
-                    metrics=self.aggregate_metrics, artifacts=self.artifacts, run_id=self.run_id
-                )
-
     def evaluate(
         self,
         *,
@@ -2005,7 +783,7 @@ class DefaultEvaluator(ModelEvaluator):
         custom_artifacts=None,
         predictions=None,
         **kwargs,
-    ):
+    ) -> EvaluationResult:
         if model is None and predictions is None and dataset.predictions_data is None:
             raise MlflowException(
                 message=(
@@ -2018,25 +796,21 @@ class DefaultEvaluator(ModelEvaluator):
                 error_code=INVALID_PARAMETER_VALUE,
             )
 
-        self.dataset = dataset
+        self.artifacts = {}
+        self.aggregate_metrics = {}
+        self.metrics_values = {}
+        self.ordered_metrics = []
+        self.other_output_columns_for_eval = set()
+
+        self.dataset: EvaluationDataset = dataset
         self.run_id = run_id
         self.model_type = model_type
         self.evaluator_config = evaluator_config
-        self.feature_names = dataset.feature_names
 
-        self.custom_artifacts = custom_artifacts
-        self.y = dataset.labels_data
         self.predictions = predictions
         self.col_mapping = self.evaluator_config.get("col_mapping", {})
-        self.pos_label = self.evaluator_config.get("pos_label")
-        self.sample_weights = self.evaluator_config.get("sample_weights")
         self.eval_results_path = self.evaluator_config.get("eval_results_path")
         self.eval_results_mode = self.evaluator_config.get("eval_results_mode", "overwrite")
-        self.label_list = self.evaluator_config.get("label_list")
-        if self.pos_label and self.label_list and self.pos_label not in self.label_list:
-            raise MlflowException.invalid_parameter_value(
-                f"'pos_label' {self.pos_label} must exist in 'label_list' {self.label_list}."
-            )
 
         if self.eval_results_path:
             from mlflow.utils._spark_utils import _get_active_spark_session
@@ -2086,29 +860,25 @@ class DefaultEvaluator(ModelEvaluator):
                 f"mlflow.metrics.EvaluationMetric."
             )
 
-        self.extra_metrics = [
-            self._metric_to_metric_tuple(index, metric)
-            for index, metric in enumerate(extra_metrics)
-        ]
+        import matplotlib
 
-        if self.model_type in (_ModelType.CLASSIFIER, _ModelType.REGRESSOR):
-            inferred_model_type = _infer_model_type_by_labels(self.y)
-            if inferred_model_type is not None and model_type != inferred_model_type:
-                _logger.warning(
-                    f"According to the evaluation dataset label values, the model type looks like "
-                    f"{inferred_model_type}, but you specified model type {model_type}. Please "
-                    f"verify that you set the `model_type` and `dataset` arguments correctly."
-                )
-
-        return self._evaluate(model)
+        with TempDir() as temp_dir, matplotlib.rc_context(
+            _matplotlib_config
+        ), mlflow.utils.autologging_utils.disable_autologging(
+            exemptions=[mlflow.langchain.FLAVOR_NAME]
+        ):
+            self.temp_dir = temp_dir
+            return self._evaluate(model, extra_metrics, custom_artifacts)
 
     @property
     def X(self) -> pd.DataFrame:
         """
         The features (`X`) portion of the dataset, guarded against accidental mutations.
         """
-        return DefaultEvaluator._MutationGuardedData(
-            _get_dataframe_with_renamed_columns(self.dataset.features_data, self.feature_names)
+        return BuiltInEvaluator._MutationGuardedData(
+            _get_dataframe_with_renamed_columns(
+                self.dataset.features_data, self.dataset.feature_names
+            )
         )
 
     class _MutationGuardedData:
