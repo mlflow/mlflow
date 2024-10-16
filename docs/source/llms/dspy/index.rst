@@ -237,7 +237,7 @@ How do I manage secrets?
 ^^^^^^^^^^^^^^^^^^^^^^^^
 
 When serializing using the MLflow DSPy flavor, tokens are dropped from the settings objects. It is
-the user responsibility to securely pass the required secrets to the deployment environment. 
+the user's responsibility to securely pass the required secrets to the deployment environment. 
 
 How is the DSPy ``settings`` object saved?
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
