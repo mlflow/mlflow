@@ -641,7 +641,7 @@ helps validate that the model can run predictions successfully, making it **stro
 
 .. note::
     By default, fields in the input example are inferred as required. To mark a field as optional, you can provide a list of 
-    input examples where some examples contain None values for the optional fields. This behavior will be improved in future releases.
+    input examples where some examples contain None values for the optional fields. (e.g. `[{"str": "a"}, {"str": None}]`)
 
 Taking a langchain model as an example, you can log a model with signature with 2 simple steps using the models from code feature:
 
