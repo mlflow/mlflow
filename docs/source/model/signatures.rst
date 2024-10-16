@@ -776,7 +776,7 @@ If your model has an optional input field, you can use below input_example as a 
 
     print(result)
 
-**A** `Dataclass <https://docs.python.org/3/library/dataclasses.html>`_ **object is also a valid way of submitting a signature. Passing a Dataclass
+**A** `Dataclass <https://docs.python.org/3/library/dataclasses.html>`_ **object is also supported to define a signature. Passing a Dataclass
 instance to** `infer_signature` **will generate the corresponding model signature equivalent**:
 
 .. code-block:: python
