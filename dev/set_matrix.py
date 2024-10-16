@@ -476,6 +476,23 @@ def validate_requirements(
     package_info: PackageInfo,
     versions: List[Version],
 ) -> None:
+    """
+    Validate that the requirements specified in the config don't contain unused items.
+
+    Example:
+
+    ```
+    sklearn:
+        package_info:
+            pip_release: "scikit-learn"
+        autologging:
+            minimum: "1.3.0"
+            maximum: "1.5.0"
+            requirements:
+                "< 1.0.0": ["numpy<2.0"]    # Unused -> this will raise an error
+                ">= 1.5.0": ["numpy>=2.0"]  # Used
+    ```
+    """
     for specifier in requirements:
         for v in versions:
             if "dev" in specifier and package_info.install_dev:
