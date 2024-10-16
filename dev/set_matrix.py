@@ -489,7 +489,7 @@ def validate_requirements(
             maximum: "1.5.0"
             requirements:
                 "< 1.0.0": ["numpy<2.0"]    # Unused
-                ">= 1.5.0": ["numpy>=2.0"]  # Used
+                ">= 1.4.0": ["numpy>=2.0"]  # Used
     ```
     """
     for specifier in requirements:
