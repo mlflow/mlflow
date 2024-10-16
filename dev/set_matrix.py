@@ -469,7 +469,28 @@ def _get_test_files_from_pytest_command(cmd, test_dir):
     return executed_files - ignore_files
 
 
-def expand_config(config):
+def validate_requirements(
+    cfg: TestConfig,
+    name: str,
+    category: str,
+    package_info: PackageInfo,
+    versions: List[Version],
+) -> None:
+    for specifier, packages in cfg.requirements.items():
+        for v in versions:
+            if "dev" in specifier and package_info.install_dev:
+                break
+
+            if SpecifierSet(specifier).contains(v):
+                break
+        else:
+            raise ValueError(
+                f"Requirements specifier {specifier!r} for {name} / {category} is "
+                "unused. Please remove it."
+            )
+
+
+def expand_config(config: Dict[str, Any], *, is_ref: bool = False):
     matrix = set()
     for name, flavor_config in config.items():
         flavor = get_flavor(name)
@@ -495,6 +516,9 @@ def expand_config(config):
             # Always test the minimum version
             if cfg.minimum not in versions:
                 versions.append(cfg.minimum)
+
+            if cfg.requirements and not is_ref:
+                validate_requirements(cfg, name, category, package_info, versions)
 
             for ver in versions:
                 requirements = [f"{package_info.pip_release}=={ver}"]
@@ -581,7 +605,7 @@ def generate_matrix(args):
 
         if args.ref_versions_yaml:
             ref_config = read_yaml(args.ref_versions_yaml, if_error={})
-            ref_matrix = expand_config(ref_config)
+            ref_matrix = expand_config(ref_config, is_ref=True)
             matrix.update(mat.difference(ref_matrix))
 
         if args.changed_files:
