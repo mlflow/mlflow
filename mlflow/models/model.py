@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import json
 import logging
 import os
@@ -7,7 +9,7 @@ import warnings
 from datetime import datetime
 from pathlib import Path
 from pprint import pformat
-from typing import Any, Callable, Dict, List, Literal, NamedTuple, Optional, Union
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Literal, NamedTuple, Optional, Union
 from urllib.parse import urlparse
 
 import yaml
@@ -39,6 +41,9 @@ from mlflow.utils.uri import (
     append_to_uri_path,
     get_uri_scheme,
 )
+
+if TYPE_CHECKING:
+    from mlflow import MlflowClient
 
 _logger = logging.getLogger(__name__)
 
@@ -684,6 +689,7 @@ class Model:
         metadata=None,
         run_id=None,
         resources=None,
+        client: Optional[MlflowClient] = None,
         **kwargs,
     ):
         """
@@ -706,6 +712,8 @@ class Model:
             run_id: The run ID to associate with this model. If not provided,
                 a new run will be started.
             resources: {{ resources }}
+            client: The client to use when logging the model.
+                The client's tracking and registry URIs will be used instead of the global URIs.
             kwargs: Extra args passed to the model flavor.
 
         Returns:
@@ -731,7 +739,7 @@ class Model:
             if is_in_databricks_runtime():
                 _copy_model_metadata_for_uc_sharing(local_path, flavor)
 
-            tracking_uri = _resolve_tracking_uri()
+            tracking_uri = _resolve_tracking_uri(client=client)
             serving_input = mlflow_model.get_serving_input(local_path)
             # We check signature presence here as some flavors have a default signature as a
             # fallback when not provided by user, which is set during flavor's save_model() call.
@@ -740,7 +748,9 @@ class Model:
                     _logger.warning(_LOG_MODEL_MISSING_INPUT_EXAMPLE_WARNING)
                 elif tracking_uri == "databricks" or get_uri_scheme(tracking_uri) == "databricks":
                     _logger.warning(_LOG_MODEL_MISSING_SIGNATURE_WARNING)
-            mlflow.tracking.fluent.log_artifacts(local_path, mlflow_model.artifact_path, run_id)
+            mlflow.tracking.fluent.log_artifacts(
+                local_path, mlflow_model.artifact_path, run_id, client=client
+            )
 
             # if the model_config kwarg is passed in, then log the model config as an params
             if model_config := kwargs.get("model_config"):
@@ -777,7 +787,7 @@ class Model:
                     _logger.warning("Failed to log model config as params: %s", str(e))
 
             try:
-                mlflow.tracking.fluent._record_logged_model(mlflow_model, run_id)
+                mlflow.tracking.fluent._record_logged_model(mlflow_model, run_id, client=client)
             except MlflowException:
                 # We need to swallow all mlflow exceptions to maintain backwards compatibility with
                 # older tracking servers. Only print out a warning for now.
@@ -790,6 +800,7 @@ class Model:
                     registered_model_name,
                     await_registration_for=await_registration_for,
                     local_model_path=local_path,
+                    client=client,
                 )
             model_info = mlflow_model.get_model_info()
             if registered_model is not None:

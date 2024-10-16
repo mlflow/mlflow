@@ -1,10 +1,12 @@
+from __future__ import annotations
+
 import logging
 import os
 from collections import OrderedDict
 from contextlib import contextmanager
 from functools import partial
 from pathlib import Path
-from typing import Generator, Union
+from typing import TYPE_CHECKING, Generator, Optional, Union
 
 from mlflow.environment_variables import MLFLOW_TRACKING_URI
 from mlflow.store.db.db_types import DATABASE_ENGINES
@@ -17,6 +19,9 @@ from mlflow.utils.credentials import get_default_host_creds
 from mlflow.utils.databricks_utils import get_databricks_host_creds
 from mlflow.utils.file_utils import path_to_local_file_uri
 from mlflow.utils.uri import _DATABRICKS_UNITY_CATALOG_SCHEME, _OSS_UNITY_CATALOG_SCHEME
+
+if TYPE_CHECKING:
+    from mlflow import MlflowClient
 
 _logger = logging.getLogger(__name__)
 _tracking_uri = None
@@ -94,8 +99,19 @@ def _use_tracking_uri(uri: str) -> Generator[None, None, None]:
         set_tracking_uri(old_tracking_uri)
 
 
-def _resolve_tracking_uri(tracking_uri=None):
-    return tracking_uri or get_tracking_uri()
+def _resolve_tracking_uri(tracking_uri=None, client: Optional[MlflowClient] = None):
+    """Resolve the tracking URI.
+
+    This resolves using the following hierarchy:
+    1. The specified ``tracking_uri``.
+    2. The tracking URI used by a provided MLflow client.
+    3. The global tracking URI.
+
+    Args:
+        tracking_uri: The tracking URI to use.
+        client: The MLflow client to use.
+    """
+    return tracking_uri or (client.tracking_uri if client else None) or get_tracking_uri()
 
 
 def get_tracking_uri() -> str:

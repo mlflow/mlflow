@@ -396,6 +396,8 @@ In summary, use the function-based Model when you have a simple function to seri
 If you need more power, use  the class-based model.
 """
 
+from __future__ import annotations
+
 import collections
 import functools
 import importlib
@@ -413,7 +415,7 @@ from contextlib import contextmanager
 from copy import deepcopy
 from functools import lru_cache
 from pathlib import Path
-from typing import Any, Dict, Iterator, List, Optional, Tuple, Union
+from typing import TYPE_CHECKING, Any, Dict, Iterator, List, Optional, Tuple, Union
 
 import numpy as np
 import pandas
@@ -539,6 +541,9 @@ from mlflow.utils.requirements_utils import (
     _parse_requirements,
     warn_dependency_requirement_mismatches,
 )
+
+if TYPE_CHECKING:
+    from mlflow import MlflowClient
 
 try:
     from pyspark.sql import DataFrame as SparkDataFrame
@@ -2667,6 +2672,7 @@ def log_model(
     example_no_conversion=None,
     streamable=None,
     resources: Optional[Union[str, List[Resource]]] = None,
+    client: Optional[MlflowClient] = None,
 ):
     """
     Log a Pyfunc model with custom inference logic and optional data dependencies as an MLflow
@@ -2860,6 +2866,9 @@ def log_model(
         streamable: A boolean value indicating if the model supports streaming prediction,
                     If None, MLflow will try to inspect if the model supports streaming
                     by checking if `predict_stream` method exists. Default None.
+        client: :py:class:`MlflowClient <mlflow.client.MlflowClient>`
+            The client to use for logging models. The client's tracking and registry URIs
+            will be used. Default None to use the global URIs.
 
     Returns:
         A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
@@ -2887,6 +2896,7 @@ def log_model(
         streamable=streamable,
         resources=resources,
         infer_code_paths=infer_code_paths,
+        client=client,
     )
 
 

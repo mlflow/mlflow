@@ -8,10 +8,12 @@ ONNX (native) format
     Produced for use by generic pyfunc-based deployment tools and batch inference.
 """
 
+from __future__ import annotations
+
 import logging
 import os
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import TYPE_CHECKING, Any, Dict, Optional
 
 import numpy as np
 import pandas as pd
@@ -47,6 +49,9 @@ from mlflow.utils.model_utils import (
     _validate_onnx_session_options,
 )
 from mlflow.utils.requirements_utils import _get_pinned_requirement
+
+if TYPE_CHECKING:
+    from mlflow import MlflowClient
 
 FLAVOR_NAME = "onnx"
 ONNX_EXECUTION_PROVIDERS = ["CUDAExecutionProvider", "CPUExecutionProvider"]
@@ -461,6 +466,7 @@ def log_model(
     onnx_session_options=None,
     metadata=None,
     save_as_external_data=True,
+    client: Optional[MlflowClient] = None,
 ):
     """
     Log an ONNX model as an MLflow artifact for the current run.
@@ -513,6 +519,9 @@ def log_model(
             https://onnxruntime.ai/docs/api/python/api_summary.html#sessionoptions
         metadata: {{ metadata }}
         save_as_external_data: Save tensors to external file(s).
+        client: :py:class:`MlflowClient <mlflow.client.MlflowClient>`
+            The client to use for logging models. The client's tracking and registry URIs
+            will be used. Default None to use the global URIs.
 
     Returns:
         A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
@@ -534,4 +543,5 @@ def log_model(
         onnx_session_options=onnx_session_options,
         metadata=metadata,
         save_as_external_data=save_as_external_data,
+        client=client,
     )

@@ -15,6 +15,7 @@ import tempfile
 import urllib
 import uuid
 import warnings
+from types import ModuleType
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Sequence, Union
 
 import yaml
@@ -2013,6 +2014,43 @@ class MlflowClient:
         artifact_dir = posixpath.dirname(norm_path)
         artifact_dir = None if artifact_dir == "" else artifact_dir
         self._tracking_client._log_artifact_async(run_id, filename, artifact_dir, artifact)
+
+    def log_model(
+        self,
+        run_id: str,
+        model: Any,
+        artifact_path: str,
+        flavor: ModuleType,
+        registered_model_name: Optional[str] = None,
+        await_registration_for: Optional[int] = DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
+        **kwargs,
+    ):
+        """Log a model to the specified run.
+
+        Args:
+            run_id: The unique identifier for the run. This ID is used to associate the
+                artifact with a specific run.
+            model: The model to log.
+            artifact_path: If provided, the directory in ``artifact_uri`` to write to.
+            flavor: The MLflow flavor module to use.
+            registered_model_name: If given, create a model version under
+                ``registered_model_name``, also creating a registered model if
+                one with the given name does not exist.
+            await_registration_for: Number of seconds to wait for the model version to finish
+                being created and is in ``READY`` status. By default, the
+                function waits for five minutes. Specify 0 or None to skip
+                waiting.
+            kwargs: kwargs to pass to the flavor's ``log_model`` method.
+        """
+        return flavor.log_model(
+            model,
+            artifact_path,
+            run_id=run_id,
+            registered_model_name=registered_model_name,
+            await_registration_for=await_registration_for,
+            client=self,
+            **kwargs,
+        )
 
     def log_text(self, run_id: str, text: str, artifact_file: str) -> None:
         """Log text as an artifact.
