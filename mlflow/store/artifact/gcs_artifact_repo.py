@@ -146,7 +146,6 @@ class GCSArtifactRepository(ArtifactRepository, MultipartUploadMixin):
         (bucket, dest_path) = self.parse_gcs_uri(self.artifact_uri)
         if artifact_path:
             dest_path = posixpath.join(dest_path, artifact_path)
-        gcs_bucket = self._get_bucket(bucket)
 
         local_dir = os.path.abspath(local_dir)
 
@@ -157,6 +156,7 @@ class GCSArtifactRepository(ArtifactRepository, MultipartUploadMixin):
                 rel_path = relative_path_to_artifact_path(rel_path)
                 upload_path = posixpath.join(dest_path, rel_path)
             for f in filenames:
+                gcs_bucket = self._get_bucket(bucket)
                 path = posixpath.join(upload_path, f)
                 # For large models, we need to speculatively retry a credential refresh
                 # and throw if it still fails.  We cannot use the built-in refresh because UC
