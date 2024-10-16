@@ -478,8 +478,7 @@ def validate_requirements(
 ) -> None:
     """
     Validate that the requirements specified in the config don't contain unused items.
-
-    Example:
+    Here's an example of invalid requirements:
 
     ```
     sklearn:
