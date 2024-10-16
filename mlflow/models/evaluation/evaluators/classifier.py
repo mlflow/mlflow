@@ -279,8 +279,6 @@ class ClassifierEvaluator(BuiltInEvaluator):
         self._log_image_artifact(_plot_pr_curve, "precision_recall_curve_plot")
 
     def _log_lift_curve(self):
-        from mlflow.models.evaluation.lift_curve import plot_lift_curve
-
         def _plot_lift_curve():
             return plot_lift_curve(self.y_true, self.y_probs, pos_label=self.pos_label)
 
