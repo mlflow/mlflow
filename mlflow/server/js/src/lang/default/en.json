@@ -231,6 +231,10 @@
     "defaultMessage": "Evaluation not available when grouping is enabled",
     "description": "Experiment page > artifact compare view > disabled due to run grouping > title"
   },
+  "2jm4sV": {
+    "defaultMessage": "No tags to display.",
+    "description": "No tags to display"
+  },
   "2oFAO4": {
     "defaultMessage": "Share",
     "description": "Text for share button on experiment view page header"
@@ -479,10 +483,6 @@
     "defaultMessage": "{timeSince, plural, =1 {1 minute} other {# minutes}} ago",
     "description": "Text for time in minutes since given date for MLflow views"
   },
-  "7kUi8J": {
-    "defaultMessage": "Duration:",
-    "description": "Row title for the duration of runs on the experiment compare runs page"
-  },
   "7m2B5x": {
     "defaultMessage": "There are no evaluable rows within this column",
     "description": "Experiment page > artifact compare view > run column header > Disabled \"Evaluate all\" button tooltip when no rows are evaluable"
@@ -678,6 +678,9 @@
   "AyceYA": {
     "defaultMessage": "Served LLM model",
     "description": "Experiment page > new run modal > served LLM model endpoint label"
+  },
+  "B2NIb5": {
+    "defaultMessage": "Start Time:"
   },
   "B80MC6": {
     "defaultMessage": "Contour Plot",
@@ -883,10 +886,6 @@
     "defaultMessage": "Compare",
     "description": "Text for compare button to compare versions under details tab\n                       on the model view page"
   },
-  "G0gYkS": {
-    "defaultMessage": "End Time:",
-    "description": "Row title for the end time of runs on the experiment compare runs page"
-  },
   "G5mMJI": {
     "defaultMessage": "Difference view",
     "description": "Experiment tracking > runs charts > add chart menu > difference view"
@@ -926,6 +925,9 @@
   "Gs+blV": {
     "defaultMessage": "Last modified",
     "description": "Column title for last modified timestamp for a model in the registered model page"
+  },
+  "GyHhEq": {
+    "defaultMessage": "End Time:"
   },
   "H+4gFh": {
     "defaultMessage": "Show diff only",
@@ -1239,10 +1241,6 @@
     "defaultMessage": "Tokens",
     "description": "Experiment page > traces table > tokens column header"
   },
-  "O9r1RR": {
-    "defaultMessage": "Start Time:",
-    "description": "Row title for the start time of runs on the experiment compare runs page"
-  },
   "OEGyWZ": {
     "defaultMessage": "Predict on a Spark DataFrame.",
     "description": "Code comment which states on how we can predict using spark DataFrame"
@@ -1547,10 +1545,6 @@
     "defaultMessage": "Add New Tag",
     "description": "Add new key-value tag modal > Modal title"
   },
-  "VP+qFF": {
-    "defaultMessage": "Show diff only",
-    "description": "Label next to the switch that controls displaying only differing values in comparision tables on the compare runs page"
-  },
   "VPU43C": {
     "defaultMessage": "Compare parameter importance",
     "description": "Experiment page > compare runs > parallel coordinates chart > chart not configured warning > title"
@@ -1602,6 +1596,9 @@
   "WQwCH6": {
     "defaultMessage": "Aliased versions",
     "description": "Column title for aliased versions in the registered model page"
+  },
+  "WRf1yI": {
+    "defaultMessage": "Duration:"
   },
   "Wd8Tga": {
     "defaultMessage": "No schema. See <link>MLflow docs</link> for how to include input and output schema with your model.",
@@ -1727,13 +1724,13 @@
     "defaultMessage": "Relative Time",
     "description": "Label for the relative axis on the runs compare chart"
   },
-  "Zc48NC": {
-    "defaultMessage": "(unknown)",
-    "description": "Filler text when run's time information is unavailable"
-  },
   "ZgAOhX": {
     "defaultMessage": "Chart name",
     "description": "Runs charts > components > config > RunsChartsConfigureDifferenceChart > Chart name config section"
+  },
+  "ZhjWaP": {
+    "defaultMessage": "(unknown)",
+    "description": "Unknown time"
   },
   "ZoIjun": {
     "defaultMessage": "Duration",
@@ -1943,6 +1940,10 @@
     "defaultMessage": "No system metrics recorded",
     "description": "Run page > Charts tab > System charts section > empty label"
   },
+  "dQghMA": {
+    "defaultMessage": "No parameters to display.",
+    "description": "No parameters to display"
+  },
   "dTLq6E": {
     "defaultMessage": "expand {title}",
     "description": "Common component > collapsible section > alternative label when collapsed"
@@ -1982,10 +1983,6 @@
   "e7K2T3": {
     "defaultMessage": "Show all runs",
     "description": "Experiment page > compare runs tab > chart header > move down option"
-  },
-  "eBGO2d": {
-    "defaultMessage": "No metrics to display.",
-    "description": "Text shown when there are no metrics to display"
   },
   "eE5VIF": {
     "defaultMessage": "Click to hide the run",
@@ -2054,6 +2051,10 @@
   "fMf88R": {
     "defaultMessage": "Columns",
     "description": "Run page > artifact view > logged table view > columns selector label"
+  },
+  "fU1PZR": {
+    "defaultMessage": "Show diff only",
+    "description": "Label next to the switch that controls displaying only differing values in comparison tables on the compare runs page"
   },
   "fWEvZL": {
     "defaultMessage": ", . : / - = and blank spaces are not allowed",
@@ -2355,10 +2356,6 @@
     "defaultMessage": "The following variable names contain spaces which is disallowed: {invalidNames}",
     "description": "Experiment page > new run modal > variable name validation > including spaces error"
   },
-  "lNO3kK": {
-    "defaultMessage": "No parameters to display.",
-    "description": "Text shown when there are no parameters to display"
-  },
   "lTngfr": {
     "defaultMessage": "Select a cell to display preview",
     "description": "Experiment page > artifact compare view > preview sidebar > nothing selected"
@@ -2382,10 +2379,6 @@
   "m4159e": {
     "defaultMessage": "Metrics ({length})",
     "description": "Run page > Overview > Metrics table > Section title"
-  },
-  "m9e01X": {
-    "defaultMessage": "No tags to display.",
-    "description": "Text shown when there are no tags to display"
   },
   "mIk1MU": {
     "defaultMessage": "Create Model",
@@ -2778,6 +2771,10 @@
   "tx3aAM": {
     "defaultMessage": "Add tag",
     "description": "Key-value tag editor modal > Add tag button"
+  },
+  "u/M6ta": {
+    "defaultMessage": "No metrics to display.",
+    "description": "No metrics to display"
   },
   "uBTAtY": {
     "defaultMessage": "Prompt Template",
