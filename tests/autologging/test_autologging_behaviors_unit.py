@@ -1,9 +1,11 @@
 import logging
 import sys
+import threading
 import time
 import warnings
 from concurrent.futures import ThreadPoolExecutor
 from io import StringIO
+import multiprocessing
 
 import numpy as np
 import pytest
@@ -312,3 +314,125 @@ def test_silent_mode_and_warning_rerouting_respect_disabled_flag(
     # Verify that nothing is printed to the stderr-backed MLflow event logger, which would indicate
     # rerouting of warning content
     assert not stream.getvalue()
+
+
+def test_autolog_function_thread_safety(patch_destination):
+    from mlflow.utils.autologging_utils import AUTOLOGGING_INTEGRATIONS
+
+    AUTOLOGGING_INTEGRATIONS.pop("test_integration", None)
+
+    def original_impl():
+        print("original routine.")
+
+    patch_destination.fn = original_impl
+
+    def patch_impl(original):
+        print("patched routine.")
+        original()
+
+    @autologging_integration("test_integration")
+    def test_autolog(disable=False, silent=False):
+        time.sleep(2)
+        safe_patch("test_integration", patch_destination, "fn", patch_impl)
+
+    thread1 = threading.Thread(target=test_autolog, kwargs={"disable": False})
+    thread1.start()
+    time.sleep(1)
+    thread2 = threading.Thread(target=test_autolog, kwargs={"disable": True})
+    thread2.start()
+
+    thread1.join()
+    thread2.join()
+
+    assert AUTOLOGGING_INTEGRATIONS["test_integration"]["disable"]
+    assert patch_destination.fn is original_impl
+
+
+def test_disable_autolog_thread_local(patch_destination):
+    from mlflow.utils.autologging_utils import AUTOLOGGING_INTEGRATIONS, disable_autologging
+
+    AUTOLOGGING_INTEGRATIONS.pop("test_integration", None)
+
+    result = 0
+
+    def original_impl():
+        nonlocal result
+        result = 1
+
+    patch_destination.fn = original_impl
+
+    def patch_impl(original):
+        nonlocal result
+        original()
+        result = 2
+
+    @autologging_integration("test_integration")
+    def test_autolog(disable=False, silent=False):
+        safe_patch("test_integration", patch_destination, "fn", patch_impl)
+
+    test_autolog()
+
+    patch_destination.fn()
+    # assert autologging is enabled.
+    assert result == 2
+
+    with disable_autologging():
+        patch_destination.fn()
+        assert result == 1
+
+        result = None
+
+        def call_fn():
+            patch_destination.fn()
+
+        thread = threading.Thread(target=call_fn)
+        thread.start()
+        thread.join()
+
+        # `disable_autologging` should not affect other threads.
+        assert result == 2
+
+
+def test_autolog_disabled_in_forked_subprocess(patch_destination):
+    from mlflow.utils.autologging_utils import AUTOLOGGING_INTEGRATIONS
+
+    multiprocessing.set_start_method("fork")
+
+    AUTOLOGGING_INTEGRATIONS.pop("test_integration", None)
+
+    result = 0
+
+    def original_impl():
+        nonlocal result
+        result = 1
+
+    patch_destination.fn = original_impl
+
+    def patch_impl(original):
+        nonlocal result
+        original()
+        result = 2
+
+    @autologging_integration("test_integration")
+    def test_autolog(disable=False, silent=False):
+        safe_patch("test_integration", patch_destination, "fn", patch_impl)
+
+    test_autolog()
+
+    patch_destination.fn()
+    # assert autologging is enabled.
+    assert result == 2
+
+    queue = multiprocessing.Queue()
+
+    def subprocess_target(que):
+        nonlocal result
+        patch_destination.fn()
+        que.put(result)
+
+    subproc = multiprocessing.Process(target=subprocess_target, args=(queue,))
+    subproc.start()
+    subproc.join()
+
+    # Assert autologging is disabled in subprocess.
+    assert queue.get() == 1
