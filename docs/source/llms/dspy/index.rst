@@ -131,7 +131,7 @@ set of modules.
 Logging the Program to MLflow
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-You can log the ``dspy.Module`` object to the MLflow experiment using the 
+You can log the ``dspy.Module`` object to an MLflow run using the 
 :py:func:`mlflow.dspy.log_model` function.
 
 We will also specify a model signature. An MLflow model signature defines the expected schema for 
