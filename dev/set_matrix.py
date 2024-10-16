@@ -501,7 +501,7 @@ def validate_requirements(
         if not any(map(spec_set.contains, versions)):
             raise ValueError(
                 f"Found unused requirements {specifier!r} for {name} / {category}. "
-                "Please remove it."
+                "Please remove it or adjust the version specifier."
             )
 
 
