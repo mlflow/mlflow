@@ -278,22 +278,28 @@ def pypi_json(package: str) -> Dict[str, Any]:
     return resp.json()
 
 
-def get_requires_python(package: str, version: str) -> str:
+def _requires_python(package: str, version: str) -> Optional[str]:
     package_json = pypi_json(package)
-    requires_python = next(
-        (
-            distributions[0].get("requires_python")
-            for ver, distributions in package_json["releases"].items()
-            if ver == version and distributions
-        ),
-        None,
-    )
-    candidates = ("3.8", "3.9")
-    if requires_python is None:
-        return candidates[0]
+    for ver, dist in package_json.get("releases", {}).items():
+        if ver != version:
+            continue
 
-    spec = SpecifierSet(requires_python)
-    return next((c for c in candidates if spec.contains(c)), None) or candidates[0]
+        for d in dist:
+            if rp := d.get("requires_python"):
+                return rp
+    return None
+
+
+def infer_python_version(package: str, version: str) -> str:
+    """
+    Infer the minimum Python version required by the package.
+    """
+    candidates = ("3.8", "3.9", "3.10")
+    if rp := _requires_python(package, version):
+        spec = SpecifierSet(rp)
+        return next(filter(spec.contains, candidates), candidates[0])
+
+    return candidates[0]
 
 
 def get_python_version(python: Optional[Dict[str, str]], package: str, version: str) -> str:
@@ -303,7 +309,7 @@ def get_python_version(python: Optional[Dict[str, str]], package: str, version: 
             if specifier_set.contains(DEV_NUMERIC if version == DEV_VERSION else version):
                 return py_ver
 
-    return get_requires_python(package, version)
+    return infer_python_version(package, version)
 
 
 def remove_comments(s):
