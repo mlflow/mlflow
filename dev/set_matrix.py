@@ -497,7 +497,7 @@ def validate_requirements(
             continue
 
         # Does this version specifier (e.g. '< 1.0.0') match at least one version?
-        #　If not, raise an error.
+        # If not, raise an error.
         spec_set = SpecifierSet(specifier)
         if not any(map(spec_set.contains, versions)):
             raise ValueError(
