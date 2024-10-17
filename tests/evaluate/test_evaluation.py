@@ -21,7 +21,7 @@ import sklearn.pipeline
 import sklearn.preprocessing
 from langchain.prompts import PromptTemplate
 from langchain_community.llms import FakeListLLM
-from mlflow_test_plugin.dummy_evaluator import Array2DEvaluationArtifact
+from mlflow_test_plugin.dummy_evaluator import Array2DEvaluationArtifact, DummyEvaluator
 from PIL import Image, ImageChops
 from pyspark.ml.linalg import Vectors
 from pyspark.ml.regression import LinearRegression as SparkLinearRegression
@@ -50,15 +50,10 @@ from mlflow.models.evaluation.base import (
     _get_model_from_deployment_endpoint_uri,
     _is_model_deployment_endpoint_uri,
     _start_run_or_reuse_active_run,
+    resolve_evaluators_and_configs,
 )
-from mlflow.models.evaluation.base import (
-    _logger as _base_logger,
-)
-from mlflow.models.evaluation.base import (
-    _normalize_evaluators_and_evaluator_config_args as _normalize_config,
-)
-from mlflow.models.evaluation.default_evaluator import DefaultEvaluator
 from mlflow.models.evaluation.evaluator_registry import _model_evaluation_registry
+from mlflow.models.evaluation.evaluators.default import DefaultEvaluator
 from mlflow.pyfunc import _ServedPyFuncModel
 from mlflow.pyfunc.scoring_server.client import ScoringServerClient
 from mlflow.tracing.constant import TraceMetadataKey
@@ -277,11 +272,6 @@ def multiclass_logistic_regressor_model_uri():
     return multiclass_logistic_regressor_model_uri_by_max_iter(2)
 
 
-@pytest.fixture
-def multiclass_logistic_regressor_baseline_model_uri():
-    return multiclass_logistic_regressor_model_uri_by_max_iter(4)
-
-
 def multiclass_logistic_regressor_model_uri_by_max_iter(max_iter):
     X, y = get_iris()
     clf = sklearn.linear_model.LogisticRegression(max_iter=max_iter)
@@ -353,28 +343,6 @@ def iris_pandas_df_num_cols_dataset():
     return ds
 
 
-@pytest.fixture
-def baseline_model_uri(request):
-    if request.param == "linear_regressor_model_uri":
-        return get_linear_regressor_model_uri()
-    if request.param == "binary_logistic_regressor_model_uri":
-        return get_binary_logistic_regressor_model_uri()
-    if request.param == "spark_linear_regressor_model_uri":
-        return get_spark_linear_regressor_model_uri()
-    if request.param == "pipeline_model_uri":
-        return get_pipeline_model_uri()
-    if request.param == "svm_model_uri":
-        return get_svm_model_url()
-    if request.param == "multiclass_logistic_regressor_baseline_model_uri_4":
-        return multiclass_logistic_regressor_model_uri_by_max_iter(max_iter=4)
-    if request.param == "pyfunc":
-        model_uri = multiclass_logistic_regressor_model_uri_by_max_iter(max_iter=4)
-        return mlflow.pyfunc.load_model(model_uri)
-    if request.param == "invalid_model_uri":
-        return "invalid_uri"
-    return None
-
-
 def test_mlflow_evaluate_logs_traces():
     eval_data = pd.DataFrame(
         {
@@ -416,7 +384,7 @@ def test_pyfunc_evaluate_logs_traces():
     )
 
     with mlflow.start_run() as run:
-        model_info = mlflow.pyfunc.log_model(artifact_path="model", python_model=Model())
+        model_info = mlflow.pyfunc.log_model("model", python_model=Model())
         evaluate(
             model_info.model_uri,
             eval_data,
@@ -498,7 +466,7 @@ def test_langchain_pyfunc_autologs_traces():
     )
 
     with mlflow.start_run() as run:
-        model_info = mlflow.langchain.log_model(chain, artifact_path="model")
+        model_info = mlflow.langchain.log_model(chain, "model")
         evaluate(
             model_info.model_uri,
             eval_data,
@@ -599,16 +567,7 @@ def test_evaluate_works_with_no_langchain_installed():
         assert len(get_traces()) == 1
 
 
-# Test validation with valid baseline_model uri
-# should not affect evaluation behavior for classifier model
-@pytest.mark.parametrize(
-    "baseline_model_uri",
-    [("None"), ("multiclass_logistic_regressor_baseline_model_uri_4")],
-    indirect=["baseline_model_uri"],
-)
-def test_classifier_evaluate(
-    multiclass_logistic_regressor_model_uri, iris_dataset, baseline_model_uri
-):
+def test_classifier_evaluate(multiclass_logistic_regressor_model_uri, iris_dataset):
     y_true = iris_dataset.labels_data
     classifier_model = mlflow.pyfunc.load_model(multiclass_logistic_regressor_model_uri)
     y_pred = classifier_model.predict(iris_dataset.features_data)
@@ -634,7 +593,6 @@ def test_classifier_evaluate(
             model_type="classifier",
             targets=iris_dataset._constructor_args["targets"],
             evaluators="dummy_evaluator",
-            baseline_model=baseline_model_uri,
         )
 
     csv_artifact_name = "confusion_matrix"
@@ -734,17 +692,7 @@ def test_classifier_evaluate(
         )
 
 
-@pytest.mark.parametrize(
-    "baseline_model_uri",
-    [
-        ("None"),
-        # Test validation with valid baseline_model uri
-        # should not affect evaluation behavior
-        ("linear_regressor_model_uri"),
-    ],
-    indirect=["baseline_model_uri"],
-)
-def test_regressor_evaluate(linear_regressor_model_uri, diabetes_dataset, baseline_model_uri):
+def test_regressor_evaluate(linear_regressor_model_uri, diabetes_dataset):
     y_true = diabetes_dataset.labels_data
     regressor_model = mlflow.pyfunc.load_model(linear_regressor_model_uri)
     y_pred = regressor_model.predict(diabetes_dataset.features_data)
@@ -766,7 +714,6 @@ def test_regressor_evaluate(linear_regressor_model_uri, diabetes_dataset, baseli
             model_type="regressor",
             targets=diabetes_dataset._constructor_args["targets"],
             evaluators="dummy_evaluator",
-            baseline_model=baseline_model_uri,
         )
     _, saved_metrics, _, _ = get_run_data(run.info.run_id)
     assert saved_metrics == expected_saved_metrics
@@ -1062,7 +1009,8 @@ def test_log_dataset_tag(iris_dataset, iris_pandas_df_dataset):
 
 
 class FakeEvaluator1(ModelEvaluator):
-    def can_evaluate(self, *, model_type, evaluator_config, **kwargs):
+    @classmethod
+    def can_evaluate(cls, *, model_type, evaluator_config, **kwargs):
         raise RuntimeError()
 
     def evaluate(self, *, model, model_type, dataset, run_id, evaluator_config, **kwargs):
@@ -1070,7 +1018,8 @@ class FakeEvaluator1(ModelEvaluator):
 
 
 class FakeEvaluator2(ModelEvaluator):
-    def can_evaluate(self, *, model_type, evaluator_config, **kwargs):
+    @classmethod
+    def can_evaluate(cls, *, model_type, evaluator_config, **kwargs):
         raise RuntimeError()
 
     def evaluate(self, *, model, model_type, dataset, run_id, evaluator_config, **kwargs):
@@ -1148,7 +1097,6 @@ def test_evaluator_evaluation_interface(multiclass_logistic_regressor_model_uri,
                     evaluators="test_evaluator1",
                     evaluator_config=evaluator1_config,
                     extra_metrics=None,
-                    baseline_model=None,
                 )
                 assert eval1_result.metrics == evaluator1_return_value.metrics
                 assert eval1_result.artifacts == evaluator1_return_value.artifacts
@@ -1165,58 +1113,13 @@ def test_evaluator_evaluation_interface(multiclass_logistic_regressor_model_uri,
                     custom_metrics=None,
                     extra_metrics=None,
                     custom_artifacts=None,
-                    baseline_model=None,
                     predictions=None,
                 )
 
 
-@pytest.mark.parametrize(
-    ("baseline_model_uri", "expected_error"),
-    [
-        (
-            "pyfunc",
-            pytest.raises(
-                MlflowException,
-                match=(
-                    "The baseline model argument must be a string URI "
-                    + "referring to an MLflow model"
-                ),
-            ),
-        ),
-        (
-            "invalid_model_uri",
-            pytest.raises(OSError, match="No such file or directory: 'invalid_uri'"),
-        ),
-    ],
-    indirect=["baseline_model_uri"],
-)
-def test_model_validation_interface_invalid_baseline_model_should_throw(
-    multiclass_logistic_regressor_model_uri, iris_dataset, baseline_model_uri, expected_error
-):
-    with mock.patch.object(
-        _model_evaluation_registry, "_registry", {"test_evaluator1": FakeEvaluator1}
-    ):
-        evaluator1_config = {"config": True}
-        with expected_error:
-            evaluate(
-                multiclass_logistic_regressor_model_uri,
-                iris_dataset._constructor_args["data"],
-                model_type="classifier",
-                targets=iris_dataset._constructor_args["targets"],
-                evaluators="test_evaluator1",
-                evaluator_config=evaluator1_config,
-                extra_metrics=None,
-                baseline_model=baseline_model_uri,
-            )
-
-
-@pytest.mark.parametrize(
-    "baseline_model_uri",
-    [("None"), ("multiclass_logistic_regressor_baseline_model_uri_4")],
-    indirect=["baseline_model_uri"],
-)
 def test_evaluate_with_multi_evaluators(
-    multiclass_logistic_regressor_model_uri, iris_dataset, baseline_model_uri
+    multiclass_logistic_regressor_model_uri,
+    iris_dataset,
 ):
     with mock.patch.object(
         _model_evaluation_registry,
@@ -1233,10 +1136,6 @@ def test_evaluate_with_multi_evaluators(
             metrics={"m2": 6}, artifacts={"a2": FakeArtifact2(uri="uri2")}
         )
 
-        baseline_model = (
-            mlflow.pyfunc.load_model(baseline_model_uri) if baseline_model_uri else None
-        )
-
         def get_evaluate_call_arg(model, evaluator_config):
             return {
                 "model": model,
@@ -1247,7 +1146,6 @@ def test_evaluate_with_multi_evaluators(
                 "extra_metrics": None,
                 "custom_metrics": None,
                 "custom_artifacts": None,
-                "baseline_model": baseline_model,
                 "predictions": None,
             }
 
@@ -1275,7 +1173,6 @@ def test_evaluate_with_multi_evaluators(
                             "test_evaluator1": evaluator1_config,
                             "test_evaluator2": evaluator2_config,
                         },
-                        baseline_model=baseline_model_uri,
                     )
                     assert eval_result.metrics == {
                         **evaluator1_return_value.metrics,
@@ -1285,24 +1182,23 @@ def test_evaluate_with_multi_evaluators(
                         **evaluator1_return_value.artifacts,
                         **evaluator2_return_value.artifacts,
                     }
-                    mock_can_evaluate1.assert_called_once_with(
-                        model_type="classifier", evaluator_config=evaluator1_config
-                    )
                     mock_evaluate1.assert_called_once_with(
                         **get_evaluate_call_arg(
                             mlflow.pyfunc.load_model(multiclass_logistic_regressor_model_uri),
                             evaluator1_config,
                         )
                     )
-                    mock_can_evaluate2.assert_called_once_with(
-                        model_type="classifier",
-                        evaluator_config=evaluator2_config,
+                    mock_can_evaluate1.assert_has_calls(
+                        [mock.call(model_type="classifier", evaluator_config=evaluator1_config)]
                     )
                     mock_evaluate2.assert_called_once_with(
                         **get_evaluate_call_arg(
                             mlflow.pyfunc.load_model(multiclass_logistic_regressor_model_uri),
                             evaluator2_config,
                         )
+                    )
+                    mock_can_evaluate2.assert_has_calls(
+                        [mock.call(model_type="classifier", evaluator_config=evaluator2_config)]
                     )
 
 
@@ -1326,7 +1222,6 @@ def test_custom_evaluators_no_model_or_preds(multiclass_logistic_regressor_model
                     evaluators="test_evaluator1",
                     evaluator_config=None,
                     extra_metrics=None,
-                    baseline_model=None,
                 )
 
                 mock_can_evaluate.assert_called_once_with(
@@ -1342,7 +1237,6 @@ def test_custom_evaluators_no_model_or_preds(multiclass_logistic_regressor_model
                     custom_metrics=None,
                     extra_metrics=None,
                     custom_artifacts=None,
-                    baseline_model=None,
                 )
 
 
@@ -1360,53 +1254,140 @@ def test_start_run_or_reuse_active_run():
             assert run_id == active_run_id
 
 
-def test_normalize_evaluators_and_evaluator_config_args():
-    from mlflow.models.evaluation.default_evaluator import DefaultEvaluator
+def test_resolve_evaluators_and_configs():
+    from mlflow.models.evaluation.evaluators.classifier import ClassifierEvaluator
+    from mlflow.models.evaluation.evaluators.default import DefaultEvaluator
+    from mlflow.models.evaluation.evaluators.regressor import RegressorEvaluator
+    from mlflow.models.evaluation.evaluators.shap import ShapEvaluator
+
+    def assert_equal(actual, expected):
+        assert len(actual) == len(expected)
+        for actual_i, expected_i in zip(actual, expected):
+            assert actual_i.name == expected_i[0]
+            assert isinstance(actual_i.evaluator, expected_i[1])
+            assert actual_i.config == expected_i[2]
 
     with mock.patch.object(
         _model_evaluation_registry,
         "_registry",
         {"default": DefaultEvaluator},
     ):
-        assert _normalize_config(None, None) == (["default"], {})
-        assert _normalize_config(None, {"a": 3}) == (["default"], {"default": {"a": 3}})
-        assert _normalize_config(None, {"default": {"a": 3}}) == (
-            ["default"],
-            {"default": {"a": 3}},
+        assert_equal(
+            resolve_evaluators_and_configs(None, None), [("default", DefaultEvaluator, {})]
+        )
+        assert_equal(
+            actual=resolve_evaluators_and_configs(None, {"a": 3}),
+            expected=[("default", DefaultEvaluator, {"a": 3})],
+        )
+        assert_equal(
+            actual=resolve_evaluators_and_configs(None, {"default": {"a": 3}}),
+            expected=[("default", DefaultEvaluator, {"a": 3})],
         )
 
-    assert _normalize_config(None, None) == (["default", "dummy_evaluator"], {})
+    # 1. evaluators is None -> only default evaluator is used
+    assert_equal(
+        actual=resolve_evaluators_and_configs(None, None),
+        expected=[("default", DefaultEvaluator, {})],
+    )
+    assert_equal(
+        actual=resolve_evaluators_and_configs(None, {"a": 3}),
+        expected=[("default", DefaultEvaluator, {"a": 3})],
+    )
+
+    # 2. evaluators is None and model type is classifier -> builtin classifier evaluators
+    #   are used instead of the default. Also dummy evaluator can evaluate classifier.
+    assert_equal(
+        actual=resolve_evaluators_and_configs(
+            evaluators=None, evaluator_config={"a": 3}, model_type="classifier"
+        ),
+        expected=[
+            ("classifier", ClassifierEvaluator, {"a": 3}),
+            ("shap", ShapEvaluator, {"a": 3}),
+            ("dummy_evaluator", DummyEvaluator, {"a": 3}),
+        ],
+    )
+
+    assert_equal(
+        resolve_evaluators_and_configs(
+            evaluators=None,
+            # config for a specific evaluator
+            evaluator_config={"shap": {"a": 3}},
+            model_type="classifier",
+        ),
+        expected=[
+            ("classifier", ClassifierEvaluator, {}),
+            ("shap", ShapEvaluator, {"a": 3}),
+            ("dummy_evaluator", DummyEvaluator, {}),
+        ],
+    )
+
+    assert_equal(
+        resolve_evaluators_and_configs(
+            evaluators=None,
+            # config for a "default" copied to builtin evaluators
+            evaluator_config={"default": {"a": 3}},
+            model_type="classifier",
+        ),
+        expected=[
+            ("classifier", ClassifierEvaluator, {"a": 3}),
+            ("shap", ShapEvaluator, {"a": 3}),
+            ("dummy_evaluator", DummyEvaluator, {}),
+        ],
+    )
+
+    # 3. evaluators is string -> the specified evaluator is used
+    assert_equal(
+        actual=resolve_evaluators_and_configs("dummy_evaluator", {"a": 3}, "regressor"),
+        expected=[("dummy_evaluator", DummyEvaluator, {"a": 3})],
+    )
+    assert_equal(
+        actual=resolve_evaluators_and_configs("default", {"a": 3}),
+        expected=[("default", DefaultEvaluator, {"a": 3})],
+    )
+    assert_equal(
+        actual=resolve_evaluators_and_configs("default", {"a": 3}, "regressor"),
+        expected=[
+            ("regressor", RegressorEvaluator, {"a": 3}),
+            ("shap", ShapEvaluator, {"a": 3}),
+        ],
+    )
+    assert_equal(
+        actual=resolve_evaluators_and_configs("regressor", {"a": 3}, "regressor"),
+        expected=[("regressor", RegressorEvaluator, {"a": 3})],
+    )
+    assert_equal(
+        actual=resolve_evaluators_and_configs("non-existing", {"a": 3}),
+        expected=[],  # empty because not registered evaluator
+    )
+
+    # 4. evaluators is a list of strings -> the specified evaluators are used
+    assert_equal(
+        actual=resolve_evaluators_and_configs(
+            evaluators=["default", "dummy_evaluator"],
+            evaluator_config={"dummy_evaluator": {"a": 3}, "default": {"a": 5}},
+            model_type="classifier",
+        ),
+        expected=[
+            ("classifier", ClassifierEvaluator, {"a": 5}),
+            ("shap", ShapEvaluator, {"a": 5}),
+            ("dummy_evaluator", DummyEvaluator, {"a": 3}),
+        ],
+    )
+
+    assert_equal(
+        actual=resolve_evaluators_and_configs(
+            evaluators=["regressor"],
+            evaluator_config={"regressor": {"a": 5}},
+            model_type="regressor",
+        ),
+        expected=[("regressor", RegressorEvaluator, {"a": 5})],
+    )
+
     with pytest.raises(
         MlflowException,
-        match="`evaluator_config` argument must be a dictionary mapping each evaluator",
+        match="If `evaluators` argument is an evaluator name list, evaluator_config must",
     ):
-        assert _normalize_config(None, {"a": 3}) == (["default", "dummy_evaluator"], {})
-
-    assert _normalize_config(None, {"default": {"a": 3}}) == (
-        ["default", "dummy_evaluator"],
-        {"default": {"a": 3}},
-    )
-
-    with mock.patch.object(_base_logger, "debug") as patched_debug_fn:
-        _normalize_config(None, None)
-        patched_debug_fn.assert_called_once()
-        assert "Multiple registered evaluators have been" in patched_debug_fn.call_args[0][0]
-
-    assert _normalize_config("dummy_evaluator", {"a": 3}) == (
-        ["dummy_evaluator"],
-        {"dummy_evaluator": {"a": 3}},
-    )
-
-    assert _normalize_config(["default", "dummy_evaluator"], {"dummy_evaluator": {"a": 3}}) == (
-        ["default", "dummy_evaluator"],
-        {"dummy_evaluator": {"a": 3}},
-    )
-
-    with pytest.raises(
-        MlflowException,
-        match="evaluator_config must be a dict contains mapping from evaluator name to",
-    ):
-        _normalize_config(["default", "dummy_evaluator"], {"abc": {"a": 3}})
+        resolve_evaluators_and_configs(["default", "dummy_evaluator"], {"abc": {"a": 3}})
 
 
 def test_evaluate_env_manager_params(multiclass_logistic_regressor_model_uri, iris_dataset):
@@ -1422,7 +1403,6 @@ def test_evaluate_env_manager_params(multiclass_logistic_regressor_model_uri, ir
                 model_type="classifier",
                 targets=iris_dataset._constructor_args["targets"],
                 evaluators=None,
-                baseline_model=multiclass_logistic_regressor_model_uri,
                 env_manager="virtualenv",
             )
 
@@ -1433,7 +1413,6 @@ def test_evaluate_env_manager_params(multiclass_logistic_regressor_model_uri, ir
                 model_type="classifier",
                 targets=iris_dataset._constructor_args["targets"],
                 evaluators=None,
-                baseline_model=multiclass_logistic_regressor_model_uri,
                 env_manager="manager",
             )
 
@@ -1450,7 +1429,8 @@ def test_evaluate_restores_env(tmp_path, env_manager, iris_dataset):
             return model_input.apply(lambda row: pred_value, axis=1)
 
     class FakeEvauatorEnv(ModelEvaluator):
-        def can_evaluate(self, *, model_type, evaluator_config, **kwargs):
+        @classmethod
+        def can_evaluate(cls, *, model_type, evaluator_config, **kwargs):
             return True
 
         def evaluate(self, *, model, model_type, dataset, run_id, evaluator_config, **kwargs):
@@ -1506,11 +1486,10 @@ def test_evaluate_terminates_model_servers(multiclass_logistic_regressor_model_u
             model_type="classifier",
             targets=iris_dataset._constructor_args["targets"],
             evaluators=None,
-            baseline_model=multiclass_logistic_regressor_model_uri,
             env_manager="virtualenv",
         )
-        assert os_mock.call_count == 2
-        os_mock.assert_has_calls([mock.call(1, signal.SIGTERM), mock.call(2, signal.SIGTERM)])
+        assert os_mock.call_count == 1
+        os_mock.assert_has_calls([mock.call(1, signal.SIGTERM)])
 
 
 def test_evaluate_stdin_scoring_server():
@@ -1834,13 +1813,8 @@ def test_evaluate_with_static_dataset_error_handling_pandas_dataset():
             )
 
 
-@pytest.mark.parametrize(
-    "baseline_model_uri",
-    [("None"), ("binary_logistic_regressor_model_uri")],
-    indirect=["baseline_model_uri"],
-)
 def test_binary_classification_missing_minority_class_exception_override(
-    binary_logistic_regressor_model_uri, breast_cancer_dataset, baseline_model_uri, monkeypatch
+    binary_logistic_regressor_model_uri, breast_cancer_dataset, monkeypatch
 ):
     monkeypatch.setenv("_MLFLOW_EVALUATE_SUPPRESS_CLASSIFICATION_ERRORS", True)
 
@@ -1855,20 +1829,14 @@ def test_binary_classification_missing_minority_class_exception_override(
             model_type="classifier",
             targets=ds_targets,
             evaluators=["default"],
-            baseline_model=baseline_model_uri,
         )
     _, saved_metrics, _, _ = get_run_data(run.info.run_id)
 
     assert saved_metrics == eval_result.metrics
 
 
-@pytest.mark.parametrize(
-    "baseline_model_uri",
-    [("None"), ("multiclass_logistic_regressor_baseline_model_uri_4")],
-    indirect=["baseline_model_uri"],
-)
 def test_multiclass_classification_missing_minority_class_exception_override(
-    multiclass_logistic_regressor_model_uri, iris_dataset, baseline_model_uri, monkeypatch
+    multiclass_logistic_regressor_model_uri, iris_dataset, monkeypatch
 ):
     monkeypatch.setenv("_MLFLOW_EVALUATE_SUPPRESS_CLASSIFICATION_ERRORS", True)
 
@@ -1883,7 +1851,6 @@ def test_multiclass_classification_missing_minority_class_exception_override(
             model_type="classifier",
             targets=ds_targets,
             evaluators=["default"],
-            baseline_model=baseline_model_uri,
         )
     _, saved_metrics, _, saved_artifacts = get_run_data(run.info.run_id)
 

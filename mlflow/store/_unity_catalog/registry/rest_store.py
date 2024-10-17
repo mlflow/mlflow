@@ -7,6 +7,7 @@ from contextlib import contextmanager
 
 import mlflow
 from mlflow.entities import Run
+from mlflow.environment_variables import MLFLOW_USE_DATABRICKS_SDK_MODEL_ARTIFACTS_REPO_FOR_UC
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INTERNAL_ERROR
 from mlflow.protos.databricks_uc_registry_messages_pb2 import (
@@ -66,6 +67,9 @@ from mlflow.protos.service_pb2 import GetRun, MlflowService
 from mlflow.store._unity_catalog.lineage.constants import (
     _DATABRICKS_LINEAGE_ID_HEADER,
     _DATABRICKS_ORG_ID_HEADER,
+)
+from mlflow.store.artifact.databricks_sdk_models_artifact_repo import (
+    DatabricksSDKModelsArtifactRepository,
 )
 from mlflow.store.artifact.presigned_url_artifact_repo import PresignedUrlArtifactRepository
 from mlflow.store.entities.paged_list import PagedList
@@ -706,7 +710,7 @@ class UcModelRegistryStore(BaseRestStore):
                 if not os.path.exists(source) and not is_fuse_or_uc_volumes_uri(local_model_dir):
                     shutil.rmtree(local_model_dir)
 
-    def create_model_version(  # noqa: D417
+    def create_model_version(
         self,
         name,
         source,
@@ -727,6 +731,11 @@ class UcModelRegistryStore(BaseRestStore):
                 instances associated with this model version.
             run_link: Link to the run from an MLflow tracking server that generated this model.
             description: Description of the version.
+            local_model_path: Local path to the MLflow model, if it's already accessible on the
+                local filesystem. Can be used by AbstractStores that upload model version files
+                to the model registry to avoid a redundant download from the source location when
+                logging and registering a model via a single
+                mlflow.<flavor>.log_model(..., registered_model_name) call.
 
         Returns:
             A single object of :py:class:`mlflow.entities.model_registry.ModelVersion`
@@ -779,18 +788,21 @@ class UcModelRegistryStore(BaseRestStore):
                 CreateModelVersionRequest, req_body, extra_headers=extra_headers
             ).model_version
 
-            store = self._get_artifact_repo(model_version)
+            store = self._get_artifact_repo(model_version, full_name)
             store.log_artifacts(local_dir=local_model_dir, artifact_path="")
             finalized_mv = self._finalize_model_version(
                 name=full_name, version=model_version.version
             )
             return model_version_from_uc_proto(finalized_mv)
 
-    def _get_artifact_repo(self, model_version):
+    def _get_artifact_repo(self, model_version, model_name=None):
         def base_credential_refresh_def():
             return self._get_temporary_model_version_write_credentials(
                 name=model_version.name, version=model_version.version
             )
+
+        if MLFLOW_USE_DATABRICKS_SDK_MODEL_ARTIFACTS_REPO_FOR_UC.get():
+            return DatabricksSDKModelsArtifactRepository(model_name, model_version.version)
 
         scoped_token = base_credential_refresh_def()
         if scoped_token.storage_mode == StorageMode.DEFAULT_STORAGE:

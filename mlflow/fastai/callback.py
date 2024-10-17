@@ -139,6 +139,4 @@ class __MlflowFastaiCallback(Callback, metaclass=ExceptionSafeClass):
             registered_model_name = get_autologging_config(
                 mlflow.fastai.FLAVOR_NAME, "registered_model_name", None
             )
-            log_model(
-                self.learn, artifact_path="model", registered_model_name=registered_model_name
-            )
+            log_model(self.learn, "model", registered_model_name=registered_model_name)

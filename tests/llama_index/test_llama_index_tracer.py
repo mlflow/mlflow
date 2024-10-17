@@ -1,5 +1,6 @@
 import asyncio
 import inspect
+import random
 from dataclasses import asdict
 from typing import List
 from unittest.mock import ANY
@@ -21,12 +22,14 @@ from packaging.version import Version
 import mlflow
 import mlflow.tracking._tracking_service
 from mlflow.entities.span import SpanType
+from mlflow.entities.span_status import SpanStatusCode
 from mlflow.entities.trace import Trace
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.llama_index.tracer import remove_llama_index_tracer, set_llama_index_tracer
 from mlflow.tracking._tracking_service.utils import _use_tracking_uri
 from mlflow.tracking.default_experiment import DEFAULT_EXPERIMENT_ID
 
+llama_core_version = Version(importlib_metadata.version("llama-index-core"))
 llama_oai_version = Version(importlib_metadata.version("llama-index-llms-openai"))
 
 
@@ -66,12 +69,16 @@ def test_trace_llm_complete(is_async):
     assert spans[0].outputs["text"] == "Hello"
 
     attr = spans[0].attributes
-    assert attr["usage"] == {
-        "prompt_tokens": 5,
-        "completion_tokens": 7,
-        "total_tokens": 12,
-        "completion_tokens_details": None,
-    }
+    assert (
+        attr["usage"].items()
+        >= {
+            "prompt_tokens": 5,
+            "completion_tokens": 7,
+            "total_tokens": 12,
+            "completion_tokens_details": None,
+            "prompt_tokens_details": None,
+        }.items()
+    )
     assert attr["prompt"] == "Hello"
     assert attr["invocation_params"]["model_name"] == model_name
     assert attr["model_dict"]["model"] == model_name
@@ -101,12 +108,16 @@ def test_trace_llm_complete_stream():
     assert spans[0].outputs["text"] == "Hello world"
 
     attr = spans[0].attributes
-    assert attr["usage"] == {
-        "prompt_tokens": 9,
-        "completion_tokens": 12,
-        "total_tokens": 21,
-        "completion_tokens_details": None,
-    }
+    assert (
+        attr["usage"].items()
+        >= {
+            "prompt_tokens": 9,
+            "completion_tokens": 12,
+            "total_tokens": 21,
+            "completion_tokens_details": None,
+            "prompt_tokens_details": None,
+        }.items()
+    )
     assert attr["prompt"] == "Hello"
     assert attr["invocation_params"]["model_name"] == model_name
     assert attr["model_dict"]["model"] == model_name
@@ -151,12 +162,16 @@ def test_trace_llm_chat(is_async):
     }
 
     attr = spans[0].attributes
-    assert attr["usage"] == {
-        "prompt_tokens": 9,
-        "completion_tokens": 12,
-        "total_tokens": 21,
-        "completion_tokens_details": None,
-    }
+    assert (
+        attr["usage"].items()
+        >= {
+            "prompt_tokens": 9,
+            "completion_tokens": 12,
+            "total_tokens": 21,
+            "completion_tokens_details": None,
+            "prompt_tokens_details": None,
+        }.items()
+    )
     assert attr["invocation_params"]["model_name"] == llm.metadata.model_name
     assert attr["model_dict"]["model"] == llm.metadata.model_name
 
@@ -205,12 +220,16 @@ def test_trace_llm_chat_stream():
     }
 
     attr = spans[0].attributes
-    assert attr["usage"] == {
-        "prompt_tokens": 9,
-        "completion_tokens": 12,
-        "total_tokens": 21,
-        "completion_tokens_details": None,
-    }
+    assert (
+        attr["usage"].items()
+        >= {
+            "prompt_tokens": 9,
+            "completion_tokens": 12,
+            "total_tokens": 21,
+            "completion_tokens_details": None,
+            "prompt_tokens_details": None,
+        }.items()
+    )
     assert attr["invocation_params"]["model_name"] == llm.metadata.model_name
     assert attr["model_dict"]["model"] == llm.metadata.model_name
 
@@ -427,3 +446,95 @@ def test_tracer_handle_tracking_uri_update(tmp_path):
         # The new trace will be logged to the updated tracking URI
         OpenAI().complete("Hello")
         assert len(_get_all_traces()) == 1
+
+
+@pytest.mark.skipif(
+    llama_core_version >= Version("0.11.10"),
+    reason="Workflow tracing does not work correctly in >= 0.11.10 until "
+    "https://github.com/run-llama/llama_index/issues/16283 is fixed",
+)
+@pytest.mark.skipif(
+    llama_core_version < Version("0.11.0"),
+    reason="Workflow was introduced in 0.11.0",
+)
+@pytest.mark.asyncio
+async def test_tracer_simple_workflow():
+    from llama_index.core.workflow import StartEvent, StopEvent, Workflow, step
+
+    class MyWorkflow(Workflow):
+        @step
+        async def my_step(self, ev: StartEvent) -> StopEvent:
+            return StopEvent(result="Hi, world!")
+
+    w = MyWorkflow(timeout=10, verbose=False)
+    await w.run()
+
+    traces = _get_all_traces()
+    assert len(traces) == 1
+    assert traces[0].info.status == TraceStatus.OK
+    assert all(s.status.status_code == SpanStatusCode.OK for s in traces[0].data.spans)
+
+
+@pytest.mark.skipif(
+    llama_core_version >= Version("0.11.10"),
+    reason="Workflow tracing does not work correctly in >= 0.11.10 until "
+    "https://github.com/run-llama/llama_index/issues/16283 is fixed",
+)
+@pytest.mark.skipif(
+    llama_core_version < Version("0.11.0"),
+    reason="Workflow was introduced in 0.11.0",
+)
+@pytest.mark.asyncio
+async def test_tracer_parallel_workflow():
+    from llama_index.core.workflow import (
+        Context,
+        Event,
+        StartEvent,
+        StopEvent,
+        Workflow,
+        step,
+    )
+
+    class ProcessEvent(Event):
+        data: str
+
+    class ResultEvent(Event):
+        result: str
+
+    class ParallelWorkflow(Workflow):
+        @step
+        async def start(self, ctx: Context, ev: StartEvent) -> ProcessEvent:
+            await ctx.set("num_to_collect", len(ev.inputs))
+            for item in ev.inputs:
+                ctx.send_event(ProcessEvent(data=item))
+            return None
+
+        @step(num_workers=3)
+        async def process_data(self, ev: ProcessEvent) -> ResultEvent:
+            # Simulate some time-consuming processing
+            await asyncio.sleep(random.randint(1, 2))
+            return ResultEvent(result=ev.data)
+
+        @step
+        async def combine_results(self, ctx: Context, ev: ResultEvent) -> StopEvent:
+            num_to_collect = await ctx.get("num_to_collect")
+            results = ctx.collect_events(ev, [ResultEvent] * num_to_collect)
+            if results is None:
+                return None
+
+            combined_result = ", ".join(sorted([event.result for event in results]))
+            return StopEvent(result=combined_result)
+
+    w = ParallelWorkflow()
+    result = await w.run(inputs=["apple", "grape", "orange", "banana"])
+    assert result == "apple, banana, grape, orange"
+
+    traces = _get_all_traces()
+    assert len(traces) == 1
+    assert traces[0].info.status == TraceStatus.OK
+    for s in traces[0].data.spans:
+        assert s.status.status_code == SpanStatusCode.OK
+
+    root_span = traces[0].data.spans[0]
+    assert root_span.inputs == {"kwargs": {"inputs": ["apple", "grape", "orange", "banana"]}}
+    assert root_span.outputs == "apple, banana, grape, orange"

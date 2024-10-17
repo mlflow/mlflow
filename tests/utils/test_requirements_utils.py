@@ -417,8 +417,8 @@ def test_capture_imported_modules_include_deps_by_params():
 
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
+            "test_model",
             python_model=MyModel(),
-            artifact_path="test_model",
             input_example=(["input1"], params),
         )
 
@@ -447,8 +447,8 @@ def test_capture_imported_modules_includes_gateway_extra(module_to_import, shoul
 
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
+            "test_model",
             python_model=MyModel(),
-            artifact_path="test_model",
             input_example=([1, 2, 3]),
         )
 
@@ -468,8 +468,8 @@ def test_gateway_extra_not_captured_when_importing_deployment_client_only():
 
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
+            "test_model",
             python_model=MyModel(),
-            artifact_path="test_model",
             input_example=([1, 2, 3]),
         )
 
@@ -677,7 +677,9 @@ def test_capture_imported_modules_raises_when_env_var_set(monkeypatch):
             )
 
 
-def test_capture_imported_modules_correct():
+def test_capture_imported_modules_correct(monkeypatch):
+    monkeypatch.setenv("MLFLOW_REQUIREMENTS_INFERENCE_RAISE_ERRORS", "true")
+
     class TestModel(mlflow.pyfunc.PythonModel):
         def predict(self, context, model_input, params=None):
             import pandas  # noqa: F401
@@ -692,8 +694,27 @@ def test_capture_imported_modules_correct():
             input_example="test",
         )
 
-    with mock.patch("mlflow.utils.requirements_utils._logger.warning") as mock_warning:
-        modules = _capture_imported_modules(model_info.model_uri, mlflow.pyfunc.FLAVOR_NAME)
-        mock_warning.assert_not_called()
-        assert "pandas" in modules
-        assert "sklearn" in modules
+    modules = _capture_imported_modules(model_info.model_uri, mlflow.pyfunc.FLAVOR_NAME)
+    assert "pandas" in modules
+    assert "sklearn" in modules
+
+
+def test_capture_imported_modules_extra_env_vars(monkeypatch):
+    monkeypatch.setenv("MLFLOW_REQUIREMENTS_INFERENCE_RAISE_ERRORS", "true")
+
+    class TestModel(mlflow.pyfunc.PythonModel):
+        def predict(self, context, model_input, params=None):
+            assert os.environ["TEST"] == "test"
+            return model_input
+
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model(
+            "model",
+            python_model=TestModel(),
+            input_example="test",
+            pip_requirements=[],
+        )
+
+    _capture_imported_modules(
+        model_info.model_uri, mlflow.pyfunc.FLAVOR_NAME, extra_env_vars={"TEST": "test"}
+    )

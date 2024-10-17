@@ -367,7 +367,7 @@ class DatabricksDeploymentClient(BaseDeploymentClient):
                         }
                     ],
                 },
-                route_optimized: True
+                route_optimized=True,
             )
             assert endpoint == {
                 "name": "chat",

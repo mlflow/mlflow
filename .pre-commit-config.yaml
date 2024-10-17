@@ -49,7 +49,7 @@ repos:
         name: custom-python-lint
         entry: clint
         language: system
-        types: [python]
+        types_or: [python, jupyter]
         stages: [commit]
         require_serial: true
 
@@ -127,3 +127,11 @@ repos:
         stages: [commit]
         require_serial: true
         pass_filenames: false
+
+      - id: lint-proto
+        name: lint-proto
+        entry: dev/lint-proto.sh
+        files: '\.proto$'
+        language: system
+        stages: [commit]
+        require_serial: true

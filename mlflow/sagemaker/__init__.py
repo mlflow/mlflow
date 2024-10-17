@@ -331,22 +331,28 @@ def _deploy(
             on the sagemaker endpoint.
             .. code-block:: python
                 :caption: Example
+
+                {
                     "AsyncInferenceConfig": {
-                        "ClientConfig": {
-                            "MaxConcurrentInvocationsPerInstance": 4
-                        },
+                        "ClientConfig": {"MaxConcurrentInvocationsPerInstance": 4},
                         "OutputConfig": {
                             "S3OutputPath": "s3://<path-to-output-bucket>",
                             "NotificationConfig": {},
                         },
                     }
+                }
+
         serverless_config: An optional dictionary specifying the serverless configuration
             .. code-block:: python
                 :caption: Example
+
+                {
                     "ServerlessConfig": {
                         "MemorySizeInMB": 2048,
                         "MaxConcurrency": 20,
                     }
+                }
+
         env: An optional dictionary of environment variables to set for the model.
         tags: An optional dictionary of tags to apply to the endpoint.
     """
@@ -2788,7 +2794,7 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
                 message=f"There was an error while retrieving the deployment: {exc}\n"
             )
 
-    def predict(  # noqa: D417
+    def predict(
         self,
         deployment_name=None,
         inputs=None,
@@ -2814,6 +2820,7 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
                 inference. For a complete list of supported input types, see
                 :ref:`pyfunc-inference-api`.
             endpoint: Endpoint to predict against. Currently unsupported
+            params: Optional parameters to invoke the endpoint with.
 
         Returns:
             A PyFunc output, such as a Pandas DataFrame, Pandas Series, or NumPy array.

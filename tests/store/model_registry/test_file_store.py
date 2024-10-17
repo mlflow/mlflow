@@ -361,7 +361,7 @@ def test_set_registered_model_tag(store):
     long_tag = RegisteredModelTag("longTagKey", "a" * 5001)
     with pytest.raises(
         MlflowException,
-        match=(r"Registered model value '.+' had length \d+, which exceeded length limit of 5000"),
+        match=("'value' exceeds the maximum length of 5000 characters"),
     ) as exception_context:
         store.set_registered_model_tag(name2, long_tag)
     assert exception_context.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
@@ -1395,7 +1395,7 @@ def test_set_model_version_tag(store):
     long_tag = ModelVersionTag("longTagKey", "a" * 5001)
     with pytest.raises(
         MlflowException,
-        match=r"Model version value '.+' had length \d+, which exceeded length limit of 5000",
+        match="'value' exceeds the maximum length of 5000 characters",
     ) as exception_context:
         store.set_model_version_tag(name1, 1, long_tag)
     assert exception_context.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
@@ -1553,15 +1553,9 @@ def test_pyfunc_model_registry_with_file_store(store):
 
     mlflow.set_registry_uri(path_to_local_file_uri(store.root_directory))
     with mlflow.start_run():
-        mlflow.pyfunc.log_model(
-            python_model=MyModel(), artifact_path="foo", registered_model_name="model1"
-        )
-        mlflow.pyfunc.log_model(
-            python_model=MyModel(), artifact_path="foo", registered_model_name="model2"
-        )
-        mlflow.pyfunc.log_model(
-            python_model=MyModel(), artifact_path="foo", registered_model_name="model1"
-        )
+        mlflow.pyfunc.log_model("foo", python_model=MyModel(), registered_model_name="model1")
+        mlflow.pyfunc.log_model("foo", python_model=MyModel(), registered_model_name="model2")
+        mlflow.pyfunc.log_model("model", python_model=MyModel(), registered_model_name="model1")
 
     with mlflow.start_run():
         mlflow.log_param("A", "B")
