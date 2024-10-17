@@ -990,9 +990,10 @@ def load_model(
         dst_path: The local filesystem path to which to download the model artifact.
             This directory must already exist. If unspecified, a local output
             path will be created.
-        model_config: The model configuration to apply to the model. The logged configuration will
-            be available as `context.model_config` in ``load_context`` and ``predict``..
-            The configuration can be passed as a file path, or a dict with string keys.
+        model_config: The model configuration to apply to the model. The configuration will
+            be available as the ``artifacts`` property of the ``context`` parameter
+            in :func:`PythonModel.load_context() <mlflow.pyfunc.PythonModel.load_context>`
+            and :func:`PythonModel.predict() <mlflow.pyfunc.PythonModel.predict>`.
 
             .. Note:: Experimental: This parameter may change or be removed in a future
                 release without warning.
@@ -2415,8 +2416,10 @@ def save_model(
         pip_requirements: {{ pip_requirements }}
         extra_pip_requirements: {{ extra_pip_requirements }}
         metadata: {{ metadata }}
-        model_config: The model configuration to apply to the model. This configuration
-            is available during model loading.
+        model_config: The model configuration to apply to the model. The configuration will
+            be available as the ``artifacts`` property of the ``context`` parameter
+            in :func:`PythonModel.load_context() <mlflow.pyfunc.PythonModel.load_context>`
+            and :func:`PythonModel.predict() <mlflow.pyfunc.PythonModel.predict>`.
 
             .. Note:: Experimental: This parameter may change or be removed in a future
                                     release without warning.
@@ -2844,9 +2847,10 @@ def log_model(
         extra_pip_requirements: {{ extra_pip_requirements }}
         metadata: {{ metadata }}
 
-        model_config: The model configuration to apply to the model. The logged configuration will
-            be available as `context.model_config` in ``load_context`` and ``predict``..
-            The configuration can be passed as a file path, or a dict with string keys.
+        model_config: The model configuration to apply to the model. The configuration will
+            be available as the ``artifacts`` property of the ``context`` parameter
+            in :func:`PythonModel.load_context() <mlflow.pyfunc.PythonModel.load_context>`
+            and :func:`PythonModel.predict() <mlflow.pyfunc.PythonModel.predict>`.
 
             .. Note:: Experimental: This parameter may change or be removed in a future
                                     release without warning.
