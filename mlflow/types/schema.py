@@ -1401,7 +1401,7 @@ def _get_dataclass_annotations(cls) -> Dict[str, Any]:
 
     annotations = {}
     # Reverse MRO so subclass overrides are captured last
-    for base in reversed(cls.__mro__):
+    for base in reversed(type(cls).__mro__):
         # Only capture supers that are dataclasses
         if is_dataclass(base) and hasattr(base, "__annotations__"):
             annotations.update(base.__annotations__)
