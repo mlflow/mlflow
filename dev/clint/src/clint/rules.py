@@ -124,7 +124,7 @@ class DocstringParamOrder(Rule):
 
 class ImplicitOptional(Rule):
     def _id(self) -> str:
-        return "MLF010"
+        return "MLF0010"
 
     def _message(self) -> str:
         return "Use `Optional` if default value is `None`"
