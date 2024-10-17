@@ -2252,9 +2252,6 @@ def save_model(
     **kwargs,
 ):
     """
-    save_model(path, loader_module=None, data_path=None, code_path=None, conda_env=None,\
-               mlflow_model=Model(), python_model=None, artifacts=None)
-
     Save a Pyfunc model with custom inference logic and optional data dependencies to a path on the
     local filesystem.
 
@@ -2387,9 +2384,7 @@ def save_model(
             and :func:`PythonModel.predict() <mlflow.pyfunc.PythonModel.predict>`.
             For example, consider the following ``artifacts`` dictionary::
 
-                {
-                    "my_file": "s3://my-bucket/path/to/my/file"
-                }
+                {"my_file": "s3://my-bucket/path/to/my/file"}
 
             In this case, the ``"my_file"`` artifact is downloaded from S3. The
             ``python_model`` can then refer to ``"my_file"`` as an absolute filesystem
