@@ -10,7 +10,8 @@ def _is_optional_dataclass(field_type) -> bool:
         inner_types = get_args(field_type)
         # Check if it's a Union[Dataclass, NoneType] (i.e., Optional[Dataclass])
         if len(inner_types) == 2 and inner_types[1] == type(None):
-            return is_dataclass(inner_types[0])
+            effective_type = next(t for t in get_args(field_type) if t is not type(None))
+            return is_dataclass(effective_type)
     return False
 
 
@@ -28,8 +29,8 @@ def _hydrate_dataclass(dataclass_type, data):
             if is_dataclass(field_type):
                 kwargs[key] = _hydrate_dataclass(field_type, value)
             elif _is_optional_dataclass(field_type):
-                item_type = get_args(field_type)[0]
-                kwargs[key] = _hydrate_dataclass(item_type, value)
+                effective_type = next(t for t in get_args(field_type) if t is not type(None))
+                kwargs[key] = _hydrate_dataclass(effective_type, value)
             elif get_origin(field_type) == list:
                 item_type = get_args(field_type)[0]
                 if is_dataclass(item_type):

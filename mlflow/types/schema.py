@@ -1395,13 +1395,18 @@ def _map_field_type(field):
 
 
 def _get_dataclass_annotations(cls) -> Dict[str, Any]:
-    """Collect annotations from the given dataclass and all its parent dataclasses."""
+    """
+    Given a dataclass or an instance of one, collect annotations from it and all its parent
+    dataclasses.
+    """
     if not is_dataclass(cls):
         raise TypeError(f"{cls.__name__} is not a dataclass.")
 
     annotations = {}
+    effective_class = cls if isinstance(cls, type) else type(cls)
+
     # Reverse MRO so subclass overrides are captured last
-    for base in reversed(type(cls).__mro__):
+    for base in reversed(effective_class.__mro__):
         # Only capture supers that are dataclasses
         if is_dataclass(base) and hasattr(base, "__annotations__"):
             annotations.update(base.__annotations__)
