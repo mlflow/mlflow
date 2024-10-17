@@ -111,8 +111,11 @@ class ExtraneousDocstringParam(Rule):
 
 
 class DocstringParamOrder(Rule):
+    def __init__(self, params: list[str]) -> None:
+        self.params = params
+
     def _id(self) -> str:
         return "MLF009"
 
     def _message(self) -> str:
-        return "Order of parameters in docstring does not match function parameters."
+        return f"Unordered parameters in docstring: {self.params}"
