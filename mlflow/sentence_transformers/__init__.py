@@ -302,7 +302,7 @@ def _get_transformers_model_name(model_name_or_path):
 @experimental
 @docstring_version_compatibility_warning(integration_name=FLAVOR_NAME)
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
-def log_model(  # noqa: D417
+def log_model(
     model,
     name: Optional[str] = None,
     task: Optional[str] = None,
@@ -382,11 +382,19 @@ def log_model(  # noqa: D417
             call :py:func:`infer_signature() <mlflow.models.infer_signature>` on datasets
             with valid model inputs and valid model outputs.
         input_example: {{ input_example }}
+        await_registration_for: Number of seconds to wait for the model version to finish
+            being created and is in ``READY`` status. By default, the function
+            waits for five minutes. Specify 0 or None to skip waiting.
         pip_requirements: {{ pip_requirements }}
         extra_pip_requirements: {{ extra_pip_requirements }}
         conda_env: {{ conda_env }}
         metadata: {{ metadata }}
         example_no_conversion: {{ example_no_conversion }}
+        params: {{ params }}
+        tags: {{ tags }}
+        model_type: {{ model_type }}
+        step: {{ step }}
+        model_id: {{ model_id }}
     """
     if task is not None:
         metadata = _verify_task_and_update_metadata(task, metadata)

@@ -108,14 +108,15 @@ def score_model_in_sagemaker_docker_container(
         return endpoint.invoke(data, content_type)
 
 
-def pyfunc_generate_dockerfile(output_directory, model_uri=None, extra_args=None, env=None):  # noqa: D417
+def pyfunc_generate_dockerfile(output_directory, model_uri=None, extra_args=None, env=None):
     """
     Builds a dockerfile for the specified model.
 
     Args:
+        output_directory: Output directory to generate Dockerfile and model artifacts
         model_uri: URI of model, e.g. runs:/some-run-id/run-relative/path/to/model
         extra_args: List of extra args to pass to `mlflow models build-docker` command
-        output_directory: Output directory to generate Dockerfile and model artifacts
+        env: Environment variables to use.
     """
     cmd = [
         "mlflow",
@@ -133,13 +134,14 @@ def pyfunc_generate_dockerfile(output_directory, model_uri=None, extra_args=None
     subprocess.run(cmd, check=True, env=env)
 
 
-def pyfunc_build_image(model_uri=None, extra_args=None, env=None):  # noqa: D417
+def pyfunc_build_image(model_uri=None, extra_args=None, env=None):
     """
     Builds a docker image containing the specified model, returning the name of the image.
 
     Args:
         model_uri: URI of model, e.g. runs:/some-run-id/run-relative/path/to/model
         extra_args: List of extra args to pass to `mlflow models build-docker` command
+        env: Environment variables to pass to the subprocess building the image.
     """
     name = uuid.uuid4().hex
     cmd = [

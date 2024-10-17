@@ -170,7 +170,6 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
 
         Args:
             cred_type: Specifies the type of access credentials, read or write.
-            resource: The specified MLflow resource.
             paths: The specified relative artifact paths within the MLflow resource.
 
         Returns:

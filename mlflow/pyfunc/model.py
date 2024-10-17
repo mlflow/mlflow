@@ -228,11 +228,13 @@ class ChatModel(PythonModel, metaclass=ABCMeta):
     """
 
     @abstractmethod
-    def predict(self, context, messages: List[ChatMessage], params: ChatParams) -> ChatResponse:  # noqa: D417
+    def predict(self, context, messages: List[ChatMessage], params: ChatParams) -> ChatResponse:
         """
         Evaluates a chat input and produces a chat output.
 
         Args:
+            context: A :class:`~PythonModelContext` instance containing artifacts that the model
+                can use to perform inference.
             messages (List[:py:class:`ChatMessage <mlflow.types.llm.ChatMessage>`]):
                 A list of :py:class:`ChatMessage <mlflow.types.llm.ChatMessage>`
                 objects representing chat history.
@@ -246,7 +248,7 @@ class ChatModel(PythonModel, metaclass=ABCMeta):
             the model's response(s), as well as other metadata.
         """
 
-    def predict_stream(  # noqa: D417
+    def predict_stream(
         self, context, messages: List[ChatMessage], params: ChatParams
     ) -> Iterator[ChatResponse]:
         """
@@ -255,6 +257,8 @@ class ChatModel(PythonModel, metaclass=ABCMeta):
         By default, this function just yields result of `predict` function.
 
         Args:
+            context: A :class:`~PythonModelContext` instance containing artifacts that the model
+                can use to perform inference.
             messages (List[:py:class:`ChatMessage <mlflow.types.llm.ChatMessage>`]):
                 A list of :py:class:`ChatMessage <mlflow.types.llm.ChatMessage>`
                 objects representing chat history.
@@ -674,13 +678,15 @@ class ModelFromDeploymentEndpoint(PythonModel):
         self.endpoint = endpoint
         self.params = params
 
-    def predict(  # noqa: D417
+    def predict(
         self, context, model_input: Union[pd.DataFrame, Dict[str, Any], List[Dict[str, Any]]]
     ):
         """
         Run prediction on the input data.
 
         Args:
+            context: A :class:`~PythonModelContext` instance containing artifacts that the model
+                can use to perform inference.
             model_input: The input data for prediction, either of the following:
                 - Pandas DataFrame: If the default evaluator is used, input is a DF
                     that contains the multiple request payloads in a single column.

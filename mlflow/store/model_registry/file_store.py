@@ -610,7 +610,7 @@ class FileStore(AbstractStore):
                 model_version_dict,
             )
 
-    def create_model_version(  # noqa: D417
+    def create_model_version(
         self,
         name,
         source,
@@ -632,6 +632,7 @@ class FileStore(AbstractStore):
                 instances associated with this model version.
             run_link: Link to the run from an MLflow tracking server that generated this model.
             description: Description of the version.
+            local_model_path: Unused.
             model_id: The ID of the model (from an Experiment) that is being promoted to a
                       registered model version, if applicable.
 

@@ -226,8 +226,6 @@ def log_model(
     Args:
         spark_model: NLUPipeline obtained via `nlp.load()
             <https://nlp.johnsnowlabs.com/docs/en/jsl/load_api>`_
-        store_license: If True, the license will be stored with the model and used and re-loading
-            it.
         name: {{ name }}
         conda_env: Either a dictionary representation of a Conda environment or the path to a
             Conda environment yaml file. If provided, this describes the environment
@@ -280,6 +278,8 @@ def log_model(
         pip_requirements: {{ pip_requirements }}
         extra_pip_requirements: {{ extra_pip_requirements }}
         metadata:  {{ metadata }}
+        store_license: If True, the license will be stored with the model and used and re-loading
+            it.
         params: {{ params }}
         tags: {{ tags }}
         model_type: {{ model_type }}
@@ -534,8 +534,6 @@ def save_model(
     is also serialized in MLeap format and the MLeap flavor is added.
 
     Args:
-        store_license: If True, the license will be stored with the model and used and
-            re-loading it.
         spark_model: Either a pyspark.ml.pipeline.PipelineModel or nlu.NLUPipeline object to be
             saved. `Every johnsnowlabs model <https://nlp.johnsnowlabs.com/models>`_
             is a PipelineModel and loadable as nlu.NLUPipeline.
@@ -585,6 +583,8 @@ def save_model(
         pip_requirements: {{ pip_requirements }}
         extra_pip_requirements: {{ extra_pip_requirements }}
         metadata: {{ metadata }}
+        store_license: If True, the license will be stored with the model and used and
+            re-loading it.
 
     .. code-block:: python
         :caption: Example

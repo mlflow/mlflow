@@ -222,7 +222,7 @@ def make_containing_dirs(path):
         os.makedirs(dir_name)
 
 
-def write_yaml(root, file_name, data, overwrite=False, sort_keys=True, ensure_yaml_extension=True):  # noqa: D417
+def write_yaml(root, file_name, data, overwrite=False, sort_keys=True, ensure_yaml_extension=True):
     """Write dictionary data in yaml format.
 
     Args:
@@ -230,6 +230,7 @@ def write_yaml(root, file_name, data, overwrite=False, sort_keys=True, ensure_ya
         file_name: Desired file name.
         data: Data to be dumped as yaml format.
         overwrite: If True, will overwrite existing files.
+        sort_keys: Whether to sort the keys when writing the yaml file.
         ensure_yaml_extension: If True, will automatically add .yaml extension if not given.
     """
     if not exists(root):
@@ -459,11 +460,12 @@ def read_file(parent_path, file_name):
         return f.read()
 
 
-def get_file_info(path, rel_path):  # noqa: D417
+def get_file_info(path, rel_path):
     """Returns file meta data : location, size, ... etc
 
     Args:
-        path: Path to artifact
+        path: Path to artifact.
+        rel_path: Relative path.
 
     Returns:
         `FileInfo` object

@@ -2794,7 +2794,7 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
                 message=f"There was an error while retrieving the deployment: {exc}\n"
             )
 
-    def predict(  # noqa: D417
+    def predict(
         self,
         deployment_name=None,
         inputs=None,
@@ -2820,6 +2820,7 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
                 inference. For a complete list of supported input types, see
                 :ref:`pyfunc-inference-api`.
             endpoint: Endpoint to predict against. Currently unsupported
+            params: Optional parameters to invoke the endpoint with.
 
         Returns:
             A PyFunc output, such as a Pandas DataFrame, Pandas Series, or NumPy array.
