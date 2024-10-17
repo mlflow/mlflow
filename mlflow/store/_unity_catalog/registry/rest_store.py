@@ -601,12 +601,17 @@ class UcModelRegistryStore(BaseRestStore):
             eprint(f"shichengz _get_lineage_input_sources dataset_inputs {run.inputs.dataset_inputs}")
             for dataset in run.inputs.dataset_inputs:
                 dataset_source = mlflow.data.get_source(dataset)
+                eprint(f"shichengz _get_lineage_input_sources data_source {dataset_source}")
+                eprint(f"shichengz _get_lineage_input_sources type of data_source {type(dataset_source)}")
+                eprint(f"shichengz _get_lineage_input_sources dataset_source._get_source_type() {dataset_source._get_source_type()}")
                 if (
                     isinstance(dataset_source, DeltaDatasetSource)
                     and dataset_source._get_source_type() == _DELTA_TABLE
                 ):
                     # check if dataset is a uc table and then append
+                    eprint(f"shichengz _get_lineage_input_sources dataset_source name and id {dataset_source.delta_table_name}, {dataset_source.delta_table_id}")
                     if dataset_source.delta_table_name and dataset_source.delta_table_id:
+                        eprint(f"shichengz _get_lineage_input_sources adding table {dataset_source.delta_table_name}")
                         table_entity = Table(
                             name=dataset_source.delta_table_name,
                             table_id=dataset_source.delta_table_id,
