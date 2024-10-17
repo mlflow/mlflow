@@ -1,6 +1,6 @@
 import json
 import logging
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 from mlflow.entities import (
     DatasetInput,
@@ -48,6 +48,7 @@ from mlflow.protos.service_pb2 import (
     RestoreExperiment,
     RestoreRun,
     SearchExperiments,
+    SearchLoggedModels,
     SearchRuns,
     SearchTraces,
     SetExperimentTag,
@@ -617,6 +618,61 @@ class RestStore(AbstractStore):
         endpoint = get_logged_model_endpoint(model_id)
         response_proto = self._call_endpoint(GetLoggedModel, endpoint=endpoint)
         return LoggedModel.from_proto(response_proto.model)
+
+    def search_logged_models(
+        self,
+        experiment_ids: List[str],
+        filter_string: Optional[str] = None,
+        max_results: Optional[int] = None,
+        order_by: Optional[List[Dict[str, Any]]] = None,
+        page_token: Optional[str] = None,
+    ) -> PagedList[LoggedModel]:
+        """
+        Search for logged models that match the specified search criteria.
+
+        Args:
+            experiment_ids: List of experiment ids to scope the search.
+            filter_string: A search filter string.
+            max_results: Maximum number of logged models desired.
+            order_by: List of dictionaries to specify the ordering of the search results.
+                The following fields are supported:
+
+                field_name (str): Required. Name of the field to order by, e.g. "metrics.accuracy".
+                ascending: (bool): Optional. Whether the order is ascending or not.
+                dataset_name: (str): Optional. If ``field_name`` refers to a metric, this field
+                    specifies the name of the dataset associated with the metric. Only metrics
+                    associated with the specified dataset name will be considered for ordering.
+                    This field may only be set if ``field_name`` refers to a metric.
+                dataset_digest (str): Optional. If ``field_name`` refers to a metric, this field
+                    specifies the digest of the dataset associated with the metric. Only metrics
+                    associated with the specified dataset name and digest will be considered for
+                    ordering. This field may only be set if ``dataset_name`` is also set.
+            page_token: Token specifying the next page of results.
+
+        Returns:
+            A :py:class:`PagedList <mlflow.store.entities.PagedList>` of
+            :py:class:`LoggedModel <mlflow.entities.LoggedModel>` objects.
+        """
+        req_body = message_to_json(
+            SearchLoggedModels(
+                experiment_ids=experiment_ids,
+                filter=filter_string,
+                max_results=max_results,
+                order_by=[
+                    SearchLoggedModels.OrderBy(
+                        field_name=d["field_name"],
+                        ascending=d.get("ascending", True),
+                        dataset_name=d.get("dataset_name"),
+                        dataset_digest=d.get("dataset_digest"),
+                    )
+                    for d in order_by or []
+                ],
+                page_token=page_token,
+            )
+        )
+        response_proto = self._call_endpoint(SearchLoggedModels, req_body)
+        models = [LoggedModel.from_proto(x) for x in response_proto.models]
+        return PagedList(models, response_proto.next_page_token)
 
     def finalize_logged_model(self, model_id: str, status: LoggedModelStatus) -> LoggedModel:
         """
