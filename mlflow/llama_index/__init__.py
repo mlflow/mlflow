@@ -373,11 +373,6 @@ def log_model(
         model_type: {{ model_type }}
         step: {{ step }}
         model_id: {{ model_id }}
-        params: {{ params }}
-        tags: {{ tags }}
-        model_type: {{ model_type }}
-        step: {{ step }}
-        model_id: {{ model_id }}
         kwargs: Additional arguments for :py:class:`mlflow.models.model.Model`
     """
 
