@@ -30,8 +30,7 @@ with mlflow.start_run():
 model_uri = model_info.model_uri
 
 # The prebuilt model environment archive file path.
-# To build the model environment, run `mlflow.pyfunc.build_model_env` in Databricks runtime,
-# and save the built environment archive file to a UC volume path,
+# To build the model environment, run the following line code in Databricks runtime:
 # `model_env_uc_path = mlflow.pyfunc.build_model_env(model_uri, "/Volumes/...")`
 model_env_uc_path = "..."
 
