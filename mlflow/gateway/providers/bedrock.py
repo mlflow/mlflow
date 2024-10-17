@@ -141,6 +141,8 @@ class AmazonBedrockModelProvider(Enum):
     COHERE = "cohere"
     AI21 = "ai21"
     ANTHROPIC = "anthropic"
+    META = "meta"
+    MISTRAL = "mistral"
 
     @property
     def adapter(self):
