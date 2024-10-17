@@ -279,6 +279,7 @@ class Linter(ast.NodeVisitor):
                     self._check(loc, rules.ExampleSyntaxError())
 
     def _param_mismatch(self, node: ast.FunctionDef | ast.AsyncFunctionDef) -> None:
+        # TODO: Remove this guard clause to enforce the docstring param checks for all functions
         if node.name.startswith("_"):
             return
         if docstring_node := self._docstring(node):
@@ -287,9 +288,8 @@ class Linter(ast.NodeVisitor):
             ):
                 func_args_set = set(func_args)
                 doc_args_set = set(doc_args)
-                # TODO: Enable this rule
-                # if diff := func_args_set - doc_args_set:
-                #     self._check(Location.from_node(node), rules.MissingDocstringParam(diff))
+                if diff := func_args_set - doc_args_set:
+                    self._check(Location.from_node(node), rules.MissingDocstringParam(diff))
 
                 if diff := doc_args_set - func_args_set:
                     self._check(Location.from_node(node), rules.ExtraneousDocstringParam(diff))

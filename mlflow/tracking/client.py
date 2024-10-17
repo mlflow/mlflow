@@ -2858,6 +2858,7 @@ class MlflowClient:
         """Set a run's status to terminated.
 
         Args:
+            run_id: The ID of the run to terminate.
             status: A string value of :py:class:`mlflow.entities.RunStatus`. Defaults to "FINISHED".
             end_time: If not provided, defaults to the current time.
 
