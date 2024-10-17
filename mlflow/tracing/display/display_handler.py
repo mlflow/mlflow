@@ -90,6 +90,10 @@ class IPythonTraceDisplayHandler:
             }
 
     def display_traces(self, traces: List[Trace]):
+        # Temporarily disable rendering of traces in Databricks notebooks,
+        # since it doesnt' work with file-based storage
+        return
+
         # This only works in Databricks notebooks
         if not is_in_databricks_runtime():
             return

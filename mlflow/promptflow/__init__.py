@@ -97,7 +97,7 @@ def get_default_conda_env():
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
 def log_model(
     model,
-    artifact_path,
+    name: Optional[str] = None,
     conda_env=None,
     code_paths=None,
     registered_model_name=None,
@@ -109,13 +109,18 @@ def log_model(
     metadata=None,
     model_config: Optional[Dict[str, Any]] = None,
     example_no_conversion=None,
+    params: Optional[Dict[str, Any]] = None,
+    tags: Optional[Dict[str, Any]] = None,
+    model_type: Optional[str] = None,
+    step: int = 0,
+    model_id: Optional[str] = None,
 ):
     """
     Log a Promptflow model as an MLflow artifact for the current run.
 
     Args:
         model: A promptflow model loaded by `promptflow.load_flow()`.
-        artifact_path: Run-relative artifact path.
+        name: {{ name }}
         conda_env: {{ conda_env }}
         code_paths: {{ code_paths }}
         registered_model_name: If given, create a model version under
@@ -171,6 +176,11 @@ def log_model(
                         flow, artifact_path="promptflow_model", model_config=model_config
                     )
         example_no_conversion: {{ example_no_conversion }}
+        params: {{ params }}
+        tags: {{ tags }}
+        model_type: {{ model_type }}
+        step: {{ step }}
+        model_id: {{ model_id }}
 
     Returns
         A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
@@ -178,7 +188,7 @@ def log_model(
     """
 
     return Model.log(
-        artifact_path=artifact_path,
+        name=name,
         flavor=mlflow.promptflow,
         registered_model_name=registered_model_name,
         model=model,
@@ -192,6 +202,11 @@ def log_model(
         metadata=metadata,
         model_config=model_config,
         example_no_conversion=example_no_conversion,
+        params=params,
+        tags=tags,
+        model_type=model_type,
+        step=step,
+        model_id=model_id,
     )
 
 
