@@ -1368,9 +1368,19 @@ def test_resolve_evaluators_and_configs():
             model_type="classifier",
         ),
         expected=[
-            ("default", DefaultEvaluator, {"a": 5}),
+            ("classifier", ClassifierEvaluator, {"a": 5}),
+            ("shap", ShapEvaluator, {"a": 5}),
             ("dummy_evaluator", DummyEvaluator, {"a": 3}),
         ],
+    )
+
+    assert_equal(
+        actual=resolve_evaluators_and_configs(
+            evaluators=["regressor"],
+            evaluator_config={"regressor": {"a": 5}},
+            model_type="regressor",
+        ),
+        expected=[("regressor", RegressorEvaluator, {"a": 5})],
     )
 
     with pytest.raises(

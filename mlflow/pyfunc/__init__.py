@@ -2252,9 +2252,6 @@ def save_model(
     **kwargs,
 ):
     """
-    save_model(path, loader_module=None, data_path=None, code_path=None, conda_env=None,\
-               mlflow_model=Model(), python_model=None, artifacts=None)
-
     Save a Pyfunc model with custom inference logic and optional data dependencies to a path on the
     local filesystem.
 
@@ -2387,9 +2384,7 @@ def save_model(
             and :func:`PythonModel.predict() <mlflow.pyfunc.PythonModel.predict>`.
             For example, consider the following ``artifacts`` dictionary::
 
-                {
-                    "my_file": "s3://my-bucket/path/to/my/file"
-                }
+                {"my_file": "s3://my-bucket/path/to/my/file"}
 
             In this case, the ``"my_file"`` artifact is downloaded from S3. The
             ``python_model`` can then refer to ``"my_file"`` as an absolute filesystem
@@ -2421,14 +2416,14 @@ def save_model(
             .. Note:: Experimental: This parameter may change or be removed in a future
                                     release without warning.
         example_no_conversion: {{ example_no_conversion }}
+        streamable: A boolean value indicating if the model supports streaming prediction,
+                    If None, MLflow will try to inspect if the model supports streaming
+                    by checking if `predict_stream` method exists. Default None.
         resources: A list of model resources or a resources.yaml file containing a list of
                     resources required to serve the model.
 
             .. Note:: Experimental: This parameter may change or be removed in a future
                                     release without warning.
-        streamable: A boolean value indicating if the model supports streaming prediction,
-                    If None, MLflow will try to inspect if the model supports streaming
-                    by checking if `predict_stream` method exists. Default None.
         kwargs: Extra keyword arguments.
     """
     _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
@@ -2850,16 +2845,14 @@ def log_model(
             .. Note:: Experimental: This parameter may change or be removed in a future
                                     release without warning.
         example_no_conversion: {{ example_no_conversion }}
+        streamable: A boolean value indicating if the model supports streaming prediction,
+                    If None, MLflow will try to inspect if the model supports streaming
+                    by checking if `predict_stream` method exists. Default None.
         resources: A list of model resources or a resources.yaml file containing a list of
                     resources required to serve the model.
 
             .. Note:: Experimental: This parameter may change or be removed in a future
                                     release without warning.
-
-
-        streamable: A boolean value indicating if the model supports streaming prediction,
-                    If None, MLflow will try to inspect if the model supports streaming
-                    by checking if `predict_stream` method exists. Default None.
 
     Returns:
         A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the

@@ -689,6 +689,7 @@ class EvaluationResult:
 
 @developer_stable
 class ModelEvaluator(metaclass=ABCMeta):
+    @classmethod
     @abstractmethod
     def can_evaluate(cls, *, model_type, evaluator_config, **kwargs) -> bool:
         """
@@ -706,7 +707,7 @@ class ModelEvaluator(metaclass=ABCMeta):
         raise NotImplementedError()
 
     @abstractmethod
-    def evaluate(  # noqa: D417
+    def evaluate(
         self,
         *,
         model_type,
@@ -733,13 +734,14 @@ class ModelEvaluator(metaclass=ABCMeta):
                 the evaluator.
             model: A pyfunc model instance. If None, the model output is supposed to be found in
                 ``dataset.predictions_data``.
+            custom_metrics: Deprecated. Use ``extra_metrics`` instead.
             extra_metrics: A list of :py:class:`EvaluationMetric` objects.
             custom_artifacts: A list of callable custom artifact functions.
-            kwargs: For forwards compatibility, a placeholder for additional arguments that
-                may be added to the evaluation interface in the future.
             predictions: The column name of the model output column that is used for evaluation.
                 This is only used when a model returns a pandas dataframe that contains
                 multiple columns.
+            kwargs: For forwards compatibility, a placeholder for additional arguments that
+                may be added to the evaluation interface in the future.
 
         Returns:
             A :py:class:`mlflow.models.EvaluationResult` instance containing
@@ -775,7 +777,18 @@ def _start_run_or_reuse_active_run():
         yield active_run.info.run_id
 
 
-def _resolve_default_evaluator(model_type, evaluator_config):
+# NB: We often pass around evaluator name, config, and its instance together. Ideally, the
+# evaluator class should have name and config as class attributes, however, it was not
+# designed that way. Adding them while keeping backward compatibility is not trivial.
+# So, we use a dataclass to bundle them together.
+@dataclass
+class EvaluatorBundle:
+    name: str
+    evaluator: ModelEvaluator
+    config: Dict[str, Any]
+
+
+def _resolve_default_evaluator(model_type, default_config) -> List[EvaluatorBundle]:
     """
     Determine which built-in evaluators should be used for the given model type by default.
 
@@ -786,34 +799,27 @@ def _resolve_default_evaluator(model_type, evaluator_config):
 
     Args:
         model_type: A string describing the model type (e.g., "regressor", "classifier", …).
-        evaluator_config: A dictionary of additional configurations for the evaluator.
+        default_config: A dictionary of configurations for the "default" evaluator. If any
+            non-default built-in evaluator is applicable, this config will be applied to them.
     """
     from mlflow.models.evaluation.evaluator_registry import _model_evaluation_registry
 
     builtin_evaluators = []
-    for name, evaluator in _model_evaluation_registry._registry.items():
+    for name in _model_evaluation_registry._registry:
+        evaluator = _model_evaluation_registry.get_evaluator(name)
         if (
             name != "default"
             and _model_evaluation_registry.is_builtin(name)
-            and evaluator.can_evaluate(
-                model_type=model_type, evaluator_config=evaluator_config or {}
-            )
+            and evaluator.can_evaluate(model_type=model_type, evaluator_config=default_config)
         ):
-            builtin_evaluators.append(name)
+            builtin_evaluators.append(EvaluatorBundle(name, evaluator, default_config))
 
     # We should use DefaultEvaluator only if there is no other built-in evaluator applicable.
-    return builtin_evaluators or ["default"]
+    if not builtin_evaluators:
+        default_evaluator = _model_evaluation_registry.get_evaluator("default")
+        builtin_evaluators = [EvaluatorBundle("default", default_evaluator, default_config)]
 
-
-# NB: We often pass around evaluator name, config, and its instance together. Ideally, the
-# evaluator class should have name and config as class attributes, however, it was not
-# designed that way. Adding them while keeping backward compatibility is not trivial.
-# So, we use a dataclass to bundle them together.
-@dataclass
-class EvaluatorBundle:
-    name: str
-    evaluator: ModelEvaluator
-    config: Dict[str, Any]
+    return builtin_evaluators
 
 
 def resolve_evaluators_and_configs(
@@ -893,18 +899,13 @@ def resolve_evaluators_and_configs(
                 error_code=INVALID_PARAMETER_VALUE,
             )
 
+        evaluator_config = evaluator_config or {}
         if evaluators == "default":
             # Previously we only had a single "default" evaluator used for all models.
             # We need to map "default" to the new dedicated builtin evaluators.
-            builtin_evaluators = _resolve_default_evaluator(model_type, evaluator_config)
-            return [
-                EvaluatorBundle(name, rg.get_evaluator(name), evaluator_config or {})
-                for name in builtin_evaluators
-            ]
+            return _resolve_default_evaluator(model_type, evaluator_config)
         elif rg.is_registered(evaluators):
-            return [
-                EvaluatorBundle(evaluators, rg.get_evaluator(evaluators), evaluator_config or {})
-            ]
+            return [EvaluatorBundle(evaluators, rg.get_evaluator(evaluators), evaluator_config)]
         else:
             return []
 
@@ -919,12 +920,18 @@ def resolve_evaluators_and_configs(
                 error_code=INVALID_PARAMETER_VALUE,
             )
         evaluator_config = evaluator_config or {}
-        return [
-            EvaluatorBundle(name, rg.get_evaluator(name), evaluator_config.get(name, {}))
-            for name in evaluators
-            if rg.is_registered(name)
-        ]
 
+        # Previously we only had a single "default" evaluator used for all models.
+        # We need to map "default" to the new dedicated builtin evaluators.
+        resolved = []
+        for name in evaluators:
+            config = evaluator_config.get(name, {})
+            if name == "default":
+                builtin_evaluators = _resolve_default_evaluator(model_type, config)
+                resolved.extend(builtin_evaluators)
+            else:
+                resolved.append(EvaluatorBundle(name, rg.get_evaluator(name), config))
+        return resolved
     else:
         raise MlflowException(
             message="Invalid `evaluators` and `evaluator_config` arguments. "
@@ -1345,6 +1352,24 @@ def evaluate(  # noqa: D417
                 with a PandasDataset. Model outputs are required when model is unspecified, and
                 should be specified via the ``predictions`` prerty of the PandasDataset.
 
+        model_type: (Optional) A string describing the model type. The default evaluator
+            supports the following model types:
+
+            - ``'classifier'``
+            - ``'regressor'``
+            - ``'question-answering'``
+            - ``'text-summarization'``
+            - ``'text'``
+            - ``'retriever'``
+
+            If no ``model_type`` is specified, then you must provide a a list of
+            metrics to compute via the ``extra_metrics`` param.
+
+            .. note::
+                ``'question-answering'``, ``'text-summarization'``, ``'text'``, and
+                ``'retriever'`` are experimental and may be changed or removed in a
+                future release.
+
         targets: If ``data`` is a numpy array or list, a numpy array or list of evaluation
             labels. If ``data`` is a DataFrame, the string name of a column from ``data``
             that contains evaluation labels. Required for classifier and regressor models,
@@ -1386,29 +1411,6 @@ def evaluate(  # noqa: D417
                     predictions="answer",
                     # other arguments if needed
                 )
-
-        model_type: (Optional) A string describing the model type. The default evaluator
-            supports the following model types:
-
-            - ``'classifier'``
-            - ``'regressor'``
-            - ``'question-answering'``
-            - ``'text-summarization'``
-            - ``'text'``
-            - ``'retriever'``
-
-            If no ``model_type`` is specified, then you must provide a a list of
-            metrics to compute via the ``extra_metrics`` param.
-
-            .. note::
-                ``'question-answering'``, ``'text-summarization'``, ``'text'``, and
-                ``'retriever'`` are experimental and may be changed or removed in a
-                future release.
-
-        inference_params: (Optional) A dictionary of inference parameters to be passed to the model
-            when making predictions, such as ``{"max_tokens": 100}``. This is only used when
-            the ``model`` is an MLflow Deployments endpoint URI e.g. ``"endpoints:/my-chat"``
-
         dataset_path: (Optional) The path where the data is stored. Must not contain double
             quotes (``“``). If specified, the path is logged to the ``mlflow.datasets``
             tag for lineage tracking purposes.
@@ -1432,6 +1434,7 @@ def evaluate(  # noqa: D417
             If multiple evaluators are specified, each configuration should be
             supplied as a nested dictionary whose key is the evaluator name.
 
+        custom_metrics: Deprecated. Use ``extra_metrics`` instead.
         extra_metrics:
             (Optional) A list of :py:class:`EvaluationMetric <mlflow.models.EvaluationMetric>`
             objects.  These metrics are computed in addition to the default metrics associated with
@@ -1534,9 +1537,6 @@ def evaluate(  # noqa: D417
         baseline_model: DEPRECATED. Please use :py:func:`mlflow.validate_evaluation_results`
             API instead for running model validation against baseline.
 
-        baseline_config: DEPRECATED. Please use :py:func:`mlflow.validate_evaluation_results`
-            API instead for running model validation against baseline.
-
         env_manager: Specify an environment manager to load the candidate ``model`` in
             isolated Python environments and restore their
             dependencies. Default value is ``local``, and the following values are
@@ -1554,6 +1554,13 @@ def evaluate(  # noqa: D417
             the model's pyfunc flavor to know which keys are supported for your
             specific model. If not indicated, the default model configuration
             from the model is used (if any).
+
+        baseline_config: DEPRECATED. Please use :py:func:`mlflow.validate_evaluation_results`
+            API instead for running model validation against baseline.
+
+        inference_params: (Optional) A dictionary of inference parameters to be passed to the model
+            when making predictions, such as ``{"max_tokens": 100}``. This is only used when
+            the ``model`` is an MLflow Deployments endpoint URI e.g. ``"endpoints:/my-chat"``
 
     Returns:
         An :py:class:`mlflow.models.EvaluationResult` instance containing
