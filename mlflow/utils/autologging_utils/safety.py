@@ -2,6 +2,7 @@ import abc
 import functools
 import inspect
 import itertools
+import os
 import typing
 import uuid
 from abc import abstractmethod
@@ -443,9 +444,19 @@ def safe_patch(
                 or autologging_is_disabled(autologging_integration)
                 or (user_created_fluent_run_is_active and exclusive)
                 or (
-                    mlflow.utils.autologging_utils._AUTOLOGGING_GLOBALLY_DISABLED
+                    getattr(mlflow.utils.autologging_utils._autolog_conf_thread_local, "disabled", False)
                     and autologging_integration
-                    not in mlflow.utils.autologging_utils._AUTOLOGGING_GLOBALLY_DISABLED_EXEMPTIONS
+                    not in getattr(
+                        mlflow.utils.autologging_utils._autolog_conf_thread_local,
+                        "disabled_exemptions", []
+                    )
+                )
+                or (
+                    # For typical use-case of "hyper parameter tuning", Optuna might fork multiple
+                    # subprocesses to run tuning tasks.
+                    # in forked subprocesses, we should disable autologging.
+                    mlflow.utils.autologging_utils.AUTOLOGGING_CONF_PID.get(autologging_integration)
+                    != os.getpid()
                 )
             ):
                 # If the autologging integration associated with this patch is disabled,
