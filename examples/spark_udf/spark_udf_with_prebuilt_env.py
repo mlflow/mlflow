@@ -4,7 +4,7 @@ outside Databricks runtime.
 """
 
 import os
-
+import tempfile
 from databricks.connect import DatabricksSession
 from sklearn import datasets
 from sklearn.neighbors import KNeighborsClassifier
@@ -32,16 +32,14 @@ model_uri = model_info.model_uri
 # The prebuilt model environment archive file path.
 # To build the model environment, run the following line code in Databricks runtime:
 # `model_env_uc_path = mlflow.pyfunc.build_model_env(model_uri, "/Volumes/...")`
-model_env_uc_path = "..."
+model_env_uc_path = "/Volumes/..."
 
-local_model_env_path = os.path.join("/tmp", os.path.basename(model_env_uc_path))
+tmp_dir = tempfile.mkdtemp()
+local_model_env_path = os.path.join(tmp_dir, os.path.basename(model_env_uc_path))
 
 # Download model env file from UC volume.
 with ws.files.download(model_env_uc_path).contents as rf, open(local_model_env_path, "wb") as wf:
-    while True:
-        chunk = rf.read(4096)
-        if len(chunk) == 0:
-            break
+    while chunk := rf.read(4096):
         wf.write(chunk)
 
 infer_spark_df = spark.createDataFrame(X)
