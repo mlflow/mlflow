@@ -31,13 +31,13 @@ import { ExperimentPageUIState } from './models/ExperimentPageUIState';
 import { UseExperimentsResult } from './hooks/useExperiments';
 
 
-type Props = {
+type ExperimentViewProps = {
   uiState: ExperimentPageUIState;
   setUIState: React.Dispatch<React.SetStateAction<ExperimentPageUIState>>;
   seedInitialUIState: (experiments: UseExperimentsResult, runs: ExperimentRunsSelectorResult) => void;
 }
 
-export const ExperimentView = ({uiState, setUIState, seedInitialUIState}: Props) => {
+export const ExperimentView = ({uiState, setUIState, seedInitialUIState}: ExperimentViewProps) => {
   const dispatch = useDispatch<ThunkDispatch>();
 
   const [searchFacets, experimentIds, isPreview] = useExperimentPageSearchFacets();
