@@ -994,6 +994,7 @@ def load_model(
             be available as the ``model_config`` property of the ``context`` parameter
             in :func:`PythonModel.load_context() <mlflow.pyfunc.PythonModel.load_context>`
             and :func:`PythonModel.predict() <mlflow.pyfunc.PythonModel.predict>`.
+            The configuration can be passed as a file path, or a dict with string keys.
 
             .. Note:: Experimental: This parameter may change or be removed in a future
                 release without warning.
@@ -2420,6 +2421,7 @@ def save_model(
             be available as the ``model_config`` property of the ``context`` parameter
             in :func:`PythonModel.load_context() <mlflow.pyfunc.PythonModel.load_context>`
             and :func:`PythonModel.predict() <mlflow.pyfunc.PythonModel.predict>`.
+            The configuration can be passed as a file path, or a dict with string keys.
 
             .. Note:: Experimental: This parameter may change or be removed in a future
                                     release without warning.
@@ -2851,6 +2853,7 @@ def log_model(
             be available as the ``model_config`` property of the ``context`` parameter
             in :func:`PythonModel.load_context() <mlflow.pyfunc.PythonModel.load_context>`
             and :func:`PythonModel.predict() <mlflow.pyfunc.PythonModel.predict>`.
+            The configuration can be passed as a file path, or a dict with string keys.
 
             .. Note:: Experimental: This parameter may change or be removed in a future
                                     release without warning.
