@@ -1394,8 +1394,7 @@ def _map_field_type(field):
     return field_type_mapping.get(field)
 
 
-@experimental
-def get_dataclass_annotations(cls) -> Dict[str, Any]:
+def _get_dataclass_annotations(cls) -> Dict[str, Any]:
     """Collect annotations from the given dataclass and all its parent dataclasses."""
     if not is_dataclass(cls):
         raise TypeError(f"{cls.__name__} is not a dataclass.")
@@ -1420,7 +1419,7 @@ def convert_dataclass_to_schema(dataclass):
 
     inputs = []
 
-    for field_name, field_type in get_dataclass_annotations(dataclass).items():
+    for field_name, field_type in _get_dataclass_annotations(dataclass).items():
         # Determine the type and handle Optional and List correctly
         is_optional = False
         effective_type = field_type
