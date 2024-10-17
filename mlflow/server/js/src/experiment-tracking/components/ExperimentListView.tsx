@@ -38,7 +38,7 @@ export type ExperimentListViewProps = {
   setUIState: React.Dispatch<React.SetStateAction<ExperimentPageUIState>>;
 } & DesignSystemHocProps;
 
-export const ExperimentListViewInner = ({
+export const ExperimentListView = ({
   activeExperimentIds,
   experiments,
   navigate,
@@ -57,13 +57,6 @@ export const ExperimentListViewInner = ({
     selectedExperimentId: '0',
     selectedExperimentName: '',
   });
-
-  // useEffect(() => {
-  //   // Ensure the filter is applied
-  //   if (list.current) {
-  //     list.forceUpdateGrid();
-  //   }
-  // }, [list]);
 
   const filterExperiments = (searchInput: any) => {
     const lowerCasedSearchInput = searchInput.toLowerCase();
@@ -99,7 +92,6 @@ export const ExperimentListViewInner = ({
       ...state,
       showDeleteExperimentModal: true,
     }));
-    console.log(state.showDeleteExperimentModal)
     updateSelectedExperiment(experimentId, experimentName);
   };
 
@@ -136,7 +128,7 @@ export const ExperimentListViewInner = ({
     updateSelectedExperiment('0', '');
   };
 
-  const pushExperimentRoute = () => {
+  useEffect(() => {
     if (state.checkedKeys.length > 0) {
       const route =
         state.checkedKeys.length === 1
@@ -144,7 +136,7 @@ export const ExperimentListViewInner = ({
           : Routes.getCompareExperimentsPageRoute(state.checkedKeys);
       navigate(route);
     }
-  };
+  }, [state.checkedKeys, navigate]);
 
   // Add a key if it does not exist, remove it if it does
   // Always keep at least one experiment checked if it is only the active one.
@@ -157,9 +149,7 @@ export const ExperimentListViewInner = ({
       if (isChecked === false && activeExperimentIds.length !== 1) {
         checkedKeys = activeExperimentIds.filter((i: any) => i !== key);
       }
-      const new_state = { ...prevState, checkedKeys: checkedKeys }
-      pushExperimentRoute()
-      return new_state
+      return { ...prevState, checkedKeys: checkedKeys }
     });
   };
 
@@ -303,7 +293,6 @@ export const ExperimentListViewInner = ({
     </div>
   );
 }
-export const ExperimentListView = React.memo(ExperimentListViewInner)
 
 const classNames = {
   experimentListOuterContainer: css({
