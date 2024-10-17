@@ -494,14 +494,14 @@ class MlflowClient:
 
         Args:
             experiment_ids: List of experiment ids to scope the search.
-                it will be associated with the run and you can filter on the run id to retrieve
-                the trace.
             filter_string: A search filter string.
             max_results: Maximum number of traces desired.
             order_by: List of order_by clauses.
             page_token: Token specifying the next page of results. It should be obtained from
                 a ``search_traces`` call.
             run_id: A run id to scope the search. When a trace is created under an active run,
+                it will be associated with the run and you can filter on the run id to retrieve
+                the trace.
 
         Returns:
             A :py:class:`PagedList <mlflow.store.entities.PagedList>` of
