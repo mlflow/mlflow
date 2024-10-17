@@ -197,4 +197,5 @@ class LoggedModel(_MlflowObject):
             status_message=proto.info.status_message,
             tags=[LoggedModelTag.from_proto(tag) for tag in proto.info.tags],
             params=[LoggedModelParameter.from_proto(param) for param in proto.data.params],
+            metrics=[Metric.from_proto(metric) for metric in proto.data.metrics],
         )
