@@ -396,7 +396,7 @@ def test_disable_autolog_thread_local(patch_destination):
 def test_autolog_disabled_in_forked_subprocess(patch_destination):
     from mlflow.utils.autologging_utils import AUTOLOGGING_INTEGRATIONS
 
-    multiprocessing.set_start_method("fork", force=True)
+    mp_ctx = multiprocessing.get_context("fork")
 
     AUTOLOGGING_INTEGRATIONS.pop("test_integration", None)
 
@@ -423,14 +423,14 @@ def test_autolog_disabled_in_forked_subprocess(patch_destination):
     # assert autologging is enabled.
     assert result == 2
 
-    queue = multiprocessing.Queue()
+    queue = mp_ctx.Queue()
 
     def subprocess_target(que):
         nonlocal result
         patch_destination.fn()
         que.put(result)
 
-    subproc = multiprocessing.Process(target=subprocess_target, args=(queue,))
+    subproc = mp_ctx.Process(target=subprocess_target, args=(queue,))
     subproc.start()
     subproc.join()
 
