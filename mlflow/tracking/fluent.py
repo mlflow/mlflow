@@ -951,7 +951,8 @@ def _log_inputs_for_metrics_if_necessary(
 def _get_model_ids_for_new_metric_if_exist(run_id: str, metric_step: str) -> List[str]:
     client = MlflowClient()
     run = client.get_run(run_id)
-    model_outputs_at_step = [mo for mo in run.outputs.model_outputs if mo.step == metric_step]
+    outputs = run.outputs.model_outputs if run.outputs else []
+    model_outputs_at_step = [mo for mo in outputs if mo.step == metric_step]
     return [mo.model_id for mo in model_outputs_at_step]
 
 
