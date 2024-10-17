@@ -396,7 +396,7 @@ def test_disable_autolog_thread_local(patch_destination):
 def test_autolog_disabled_in_forked_subprocess(patch_destination):
     from mlflow.utils.autologging_utils import AUTOLOGGING_INTEGRATIONS
 
-    multiprocessing.set_start_method("fork")
+    multiprocessing.set_start_method("fork", force=True)
 
     AUTOLOGGING_INTEGRATIONS.pop("test_integration", None)
 
