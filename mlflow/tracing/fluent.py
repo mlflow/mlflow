@@ -55,7 +55,7 @@ TRACE_BUFFER = TTLCache(
 
 
 @experimental
-def trace(  # noqa: D417
+def trace(
     func: Optional[Callable] = None,
     name: Optional[str] = None,
     span_type: str = SpanType.UNKNOWN,
@@ -129,6 +129,7 @@ def trace(  # noqa: D417
         span_type: The type of the span. Can be either a string or a
             :py:class:`SpanType <mlflow.entities.SpanType>` enum value.
         attributes: A dictionary of attributes to set on the span.
+        model_id: If specified, associates the span with the given model ID.
     """
 
     class _WrappingContext:
@@ -185,7 +186,7 @@ def trace(  # noqa: D417
 
 @experimental
 @contextlib.contextmanager
-def start_span(  # noqa: D417
+def start_span(
     name: str = "span",
     span_type: Optional[str] = SpanType.UNKNOWN,
     attributes: Optional[Dict[str, Any]] = None,
@@ -249,6 +250,7 @@ def start_span(  # noqa: D417
         span_type: The type of the span. Can be either a string or
             a :py:class:`SpanType <mlflow.entities.SpanType>` enum value
         attributes: A dictionary of attributes to set on the span.
+        model_id: If specified, associates the span with the given model ID.
 
     Returns:
         Yields an :py:class:`mlflow.entities.Span` that represents the created span.
@@ -334,7 +336,7 @@ def get_trace(request_id: str) -> Optional[Trace]:
 
 
 @experimental
-def search_traces(  # noqa: D417
+def search_traces(
     experiment_ids: Optional[List[str]] = None,
     filter_string: Optional[str] = None,
     max_results: Optional[int] = None,
@@ -385,6 +387,7 @@ def search_traces(  # noqa: D417
         run_id: A run id to scope the search. When a trace is created under an active run,
             it will be associated with the run and you can filter on the run id to retrieve the
             trace. See the example below for how to filter traces by run id.
+        model_id: If specified, search traces associated with the given model ID.
 
     Returns:
         A Pandas DataFrame containing information about traces that satisfy the search expressions.

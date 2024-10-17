@@ -708,10 +708,9 @@ class Model:
                 being created and is in ``READY`` status. By default, the
                 function waits for five minutes. Specify 0 or None to skip
                 waiting.
-            run_id: If specified, log the model to the specified run. Otherwise, use the active run.
             metadata: {{ metadata }}
-            run_id: The run ID to associate with this model. If not provided,
-                a new run will be started.
+            run_id: The run ID to associate with this model. If not provided, a new run will be
+                started.
             resources: {{ resources }}
             model_type: {{ model_type }}
             params: {{ params }}
