@@ -45,6 +45,7 @@ MLflow AI Gateway using the :ref:`mlflow server <cli>` command as follows:
 .. code-block:: bash
 
    export MLFLOW_DEPLOYMENTS_TARGET="http://127.0.0.1:7000"
+   export MLFLOW_TRACKING_TOKEN="token" # for secure targets (optional)
    mlflow server --port 5000
 
 Step 3: Create or find an MLflow Experiment
