@@ -294,9 +294,9 @@ class Linter(ast.NodeVisitor):
                 if diff := doc_args_set - func_args_set:
                     self._check(Location.from_node(node), rules.ExtraneousDocstringParam(diff))
 
-                # TODO: Enable this rule
-                # if func_args_set == doc_args_set and func_args != doc_args:
-                #     self._check(Location.from_node(node), rules.DocstringParamOrder())
+                if func_args_set == doc_args_set and func_args != doc_args:
+                    params = [a for a, b in zip(func_args, doc_args) if a != b]
+                    self._check(Location.from_node(node), rules.DocstringParamOrder(params))
 
     def visit_FunctionDef(self, node: ast.FunctionDef) -> None:
         self._test_name_typo(node)

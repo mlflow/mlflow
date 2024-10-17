@@ -358,8 +358,8 @@ def _run_make(
     Args:
         execution_directory_path: The absolute path of the execution directory on the local
             filesystem for the relevant recipe. The Makefile is created in this directory.
-        extra_env: Extra environment variables to be defined when running the Make child process.
         rule_name: The name of the Make rule to run.
+        extra_env: Extra environment variables to be defined when running the Make child process.
         recipe_steps: A list of step instances that is a subgraph containing the step specified
             by `rule_name`.
     """

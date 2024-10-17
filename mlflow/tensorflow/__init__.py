@@ -195,11 +195,11 @@ def log_model(
             :py:func:`mlflow.pyfunc.load_model`.
         conda_env: {{ conda_env }}
         code_paths: {{ code_paths }}
+        signature: {{ signature }}
+        input_example: {{ input_example }}
         registered_model_name: If given, create a model version under
             ``registered_model_name``, also creating a registered model if one
             with the given name does not exist.
-        signature: {{ signature }}
-        input_example: {{ input_example }}
         await_registration_for: Number of seconds to wait for the model version to finish
             being created and is in ``READY`` status. By default, the function
             waits for five minutes. Specify 0 or None to skip waiting.
@@ -1100,12 +1100,12 @@ def autolog(
         checkpoint: Enable automatic model checkpointing.
         checkpoint_monitor: In automatic model checkpointing, the metric name to monitor if
             you set `model_checkpoint_save_best_only` to True.
-        checkpoint_save_best_only: If True, automatic model checkpointing only saves when
-            the model is considered the "best" model according to the quantity
-            monitored and previous checkpoint model is overwritten.
         checkpoint_mode: one of {"min", "max"}. In automatic model checkpointing,
             if save_best_only=True, the decision to overwrite the current save file is made based on
             either the maximization or the minimization of the monitored quantity.
+        checkpoint_save_best_only: If True, automatic model checkpointing only saves when
+            the model is considered the "best" model according to the quantity
+            monitored and previous checkpoint model is overwritten.
         checkpoint_save_weights_only: In automatic model checkpointing, if True, then
             only the model’s weights will be saved. Otherwise, the optimizer states,
             lr-scheduler states, etc are added in the checkpoint too.

@@ -646,8 +646,8 @@ class BuiltInEvaluator(ModelEvaluator):
         Args:
             metrics: A list of metrics to evaluate.
             prediction: A Pandas Series containing the predictions.
-            other_output_df: A Pandas DataFrame containing other output columns from the model.
             target: A numpy array containing the target values.
+            other_output_df: A Pandas DataFrame containing other output columns from the model.
 
         Returns:
             None, the metrics values are recorded in the self.metrics_values dictionary.

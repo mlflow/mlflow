@@ -2421,14 +2421,14 @@ def save_model(
             .. Note:: Experimental: This parameter may change or be removed in a future
                                     release without warning.
         example_no_conversion: {{ example_no_conversion }}
+        streamable: A boolean value indicating if the model supports streaming prediction,
+                    If None, MLflow will try to inspect if the model supports streaming
+                    by checking if `predict_stream` method exists. Default None.
         resources: A list of model resources or a resources.yaml file containing a list of
                     resources required to serve the model.
 
             .. Note:: Experimental: This parameter may change or be removed in a future
                                     release without warning.
-        streamable: A boolean value indicating if the model supports streaming prediction,
-                    If None, MLflow will try to inspect if the model supports streaming
-                    by checking if `predict_stream` method exists. Default None.
         kwargs: Extra keyword arguments.
     """
     _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
@@ -2850,16 +2850,14 @@ def log_model(
             .. Note:: Experimental: This parameter may change or be removed in a future
                                     release without warning.
         example_no_conversion: {{ example_no_conversion }}
+        streamable: A boolean value indicating if the model supports streaming prediction,
+                    If None, MLflow will try to inspect if the model supports streaming
+                    by checking if `predict_stream` method exists. Default None.
         resources: A list of model resources or a resources.yaml file containing a list of
                     resources required to serve the model.
 
             .. Note:: Experimental: This parameter may change or be removed in a future
                                     release without warning.
-
-
-        streamable: A boolean value indicating if the model supports streaming prediction,
-                    If None, MLflow will try to inspect if the model supports streaming
-                    by checking if `predict_stream` method exists. Default None.
 
     Returns:
         A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the

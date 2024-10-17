@@ -60,23 +60,19 @@ def build_docker(
             an 's3://' URI). For more information about supported remote URIs for model artifacts,
             see https://mlflow.org/docs/latest/tracking.html#artifact-stores"
         name: Name of the Docker image to build. Defaults to 'mlflow-pyfunc'.
-        install_java: If specified, install Java in the image. Default is False in order to
-            reduce both the image size and the build time. Model flavors requiring Java will enable
-            this setting automatically, such as the Spark flavor. (This argument is only available
-            in MLflow 2.10.1 and later. In earlier versions, Java is always installed to the image.)
-
-        enable_mlserver: If specified, the image will be built with the Seldon MLserver as backend.
         env_manager: If specified, create an environment for MLmodel using the specified environment
             manager. The following values are supported: (1) virtualenv (default): use virtualenv
             and pyenv for Python version management (2) conda: use conda (3) local: use the local
             environment without creating a new one.
-
+        mlflow_home: Path to local clone of MLflow project. Use for development only.
+        install_java: If specified, install Java in the image. Default is False in order to
+            reduce both the image size and the build time. Model flavors requiring Java will enable
+            this setting automatically, such as the Spark flavor. (This argument is only available
+            in MLflow 2.10.1 and later. In earlier versions, Java is always installed to the image.)
         install_mlflow: If specified and there is a conda or virtualenv environment to be activated
             mlflow will be installed into the environment after it has been activated.
             The version of installed mlflow will be the same as the one used to invoke this command.
-
-        mlflow_home: Path to local clone of MLflow project. Use for development only.
-
+        enable_mlserver: If specified, the image will be built with the Seldon MLserver as backend.
         base_image: Base image for the Docker image. If not specified, the default image is either
             UBUNTU_BASE_IMAGE = "ubuntu:20.04" or PYTHON_SLIM_BASE_IMAGE = "python:{version}-slim"
             Note: If custom image is used, there are no guarantees that the image will work. You

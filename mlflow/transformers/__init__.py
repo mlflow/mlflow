@@ -390,6 +390,48 @@ def save_model(
 
             .. Warning:: Deprecated. `inference_config` is deprecated in favor of `model_config`.
 
+        code_paths: {{ code_paths }}
+        mlflow_model: An MLflow model object that specifies the flavor that this model is being
+            added to.
+        signature: A Model Signature object that describes the input and output Schema of the
+            model. The model signature can be inferred using `infer_signature` function
+            of `mlflow.models.signature`.
+
+            .. code-block:: python
+                :caption: Example
+
+                from mlflow.models import infer_signature
+                from mlflow.transformers import generate_signature_output
+                from transformers import pipeline
+
+                en_to_de = pipeline("translation_en_to_de")
+
+                data = "MLflow is great!"
+                output = generate_signature_output(en_to_de, data)
+                signature = infer_signature(data, output)
+
+                mlflow.transformers.save_model(
+                    transformers_model=en_to_de,
+                    path="/path/to/save/model",
+                    signature=signature,
+                    input_example=data,
+                )
+
+                loaded = mlflow.pyfunc.load_model("/path/to/save/model")
+                print(loaded.predict(data))
+                # MLflow ist großartig!
+
+            If an input_example is provided and the signature is not, a signature will
+            be inferred automatically and applied to the MLmodel file iff the
+            pipeline type is a text-based model (NLP). If the pipeline type is not
+            a supported type, this inference functionality will not function correctly
+            and a warning will be issued. In order to ensure that a precise signature
+            is logged, it is recommended to explicitly provide one.
+        input_example: {{ input_example }}
+        pip_requirements: {{ pip_requirements }}
+        extra_pip_requirements: {{ extra_pip_requirements }}
+        conda_env: {{ conda_env }}
+        metadata: {{ metadata }}
         model_config:
             A dict of valid overrides that can be applied to a pipeline instance during inference.
             These arguments are used exclusively for the case of loading the model as a ``pyfunc``
@@ -441,49 +483,6 @@ def save_model(
                     task=task,
                     model_config=model_config,
                 )
-
-        code_paths: {{ code_paths }}
-        mlflow_model: An MLflow model object that specifies the flavor that this model is being
-            added to.
-        signature: A Model Signature object that describes the input and output Schema of the
-            model. The model signature can be inferred using `infer_signature` function
-            of `mlflow.models.signature`.
-
-            .. code-block:: python
-                :caption: Example
-
-                from mlflow.models import infer_signature
-                from mlflow.transformers import generate_signature_output
-                from transformers import pipeline
-
-                en_to_de = pipeline("translation_en_to_de")
-
-                data = "MLflow is great!"
-                output = generate_signature_output(en_to_de, data)
-                signature = infer_signature(data, output)
-
-                mlflow.transformers.save_model(
-                    transformers_model=en_to_de,
-                    path="/path/to/save/model",
-                    signature=signature,
-                    input_example=data,
-                )
-
-                loaded = mlflow.pyfunc.load_model("/path/to/save/model")
-                print(loaded.predict(data))
-                # MLflow ist großartig!
-
-            If an input_example is provided and the signature is not, a signature will
-            be inferred automatically and applied to the MLmodel file iff the
-            pipeline type is a text-based model (NLP). If the pipeline type is not
-            a supported type, this inference functionality will not function correctly
-            and a warning will be issued. In order to ensure that a precise signature
-            is logged, it is recommended to explicitly provide one.
-        input_example: {{ input_example }}
-        pip_requirements: {{ pip_requirements }}
-        extra_pip_requirements: {{ extra_pip_requirements }}
-        conda_env: {{ conda_env }}
-        metadata: {{ metadata }}
         example_no_conversion: {{ example_no_conversion }}
         prompt_template: {{ prompt_template }}
         save_pretrained: {{ save_pretrained }}
@@ -909,57 +908,6 @@ def log_model(
         inference_config:
 
             .. Warning:: Deprecated. `inference_config` is deprecated in favor of `model_config`.
-        model_config:
-            A dict of valid overrides that can be applied to a pipeline instance during inference.
-            These arguments are used exclusively for the case of loading the model as a ``pyfunc``
-            Model or for use in Spark. These values are not applied to a returned Pipeline from a
-            call to ``mlflow.transformers.load_model()``
-
-            .. Warning:: If the key provided is not compatible with either the
-                         Pipeline instance for the task provided or is not a valid
-                         override to any arguments available in the Model, an
-                         Exception will be raised at runtime. It is very important
-                         to validate the entries in this dictionary to ensure
-                         that they are valid prior to saving or logging.
-
-            An example of providing overrides for a question generation model:
-
-            .. code-block:: python
-
-                from transformers import pipeline, AutoTokenizer
-
-                task = "text-generation"
-                architecture = "gpt2"
-
-                sentence_pipeline = pipeline(
-                    task=task,
-                    tokenizer=AutoTokenizer.from_pretrained(architecture),
-                    model=architecture,
-                )
-
-                # Validate that the overrides function
-                prompts = ["Generative models are", "I'd like a coconut so that I can"]
-
-                # validation of config prior to save or log
-                model_config = {
-                    "top_k": 2,
-                    "num_beams": 5,
-                    "max_length": 30,
-                    "temperature": 0.62,
-                    "top_p": 0.85,
-                    "repetition_penalty": 1.15,
-                }
-
-                # Verify that no exceptions are thrown
-                sentence_pipeline(prompts, **model_config)
-
-                with mlflow.start_run():
-                    mlflow.transformers.log_model(
-                        transformers_model=sentence_pipeline,
-                        artifact_path="my_sentence_generator",
-                        task=task,
-                        model_config=model_config,
-                    )
 
         code_paths: {{ code_paths }}
         registered_model_name: This argument may change or be removed in a
@@ -1012,6 +960,57 @@ def log_model(
         extra_pip_requirements: {{ extra_pip_requirements }}
         conda_env: {{ conda_env }}
         metadata: {{ metadata }}
+        model_config:
+            A dict of valid overrides that can be applied to a pipeline instance during inference.
+            These arguments are used exclusively for the case of loading the model as a ``pyfunc``
+            Model or for use in Spark. These values are not applied to a returned Pipeline from a
+            call to ``mlflow.transformers.load_model()``
+
+            .. Warning:: If the key provided is not compatible with either the
+                         Pipeline instance for the task provided or is not a valid
+                         override to any arguments available in the Model, an
+                         Exception will be raised at runtime. It is very important
+                         to validate the entries in this dictionary to ensure
+                         that they are valid prior to saving or logging.
+
+            An example of providing overrides for a question generation model:
+
+            .. code-block:: python
+
+                from transformers import pipeline, AutoTokenizer
+
+                task = "text-generation"
+                architecture = "gpt2"
+
+                sentence_pipeline = pipeline(
+                    task=task,
+                    tokenizer=AutoTokenizer.from_pretrained(architecture),
+                    model=architecture,
+                )
+
+                # Validate that the overrides function
+                prompts = ["Generative models are", "I'd like a coconut so that I can"]
+
+                # validation of config prior to save or log
+                model_config = {
+                    "top_k": 2,
+                    "num_beams": 5,
+                    "max_length": 30,
+                    "temperature": 0.62,
+                    "top_p": 0.85,
+                    "repetition_penalty": 1.15,
+                }
+
+                # Verify that no exceptions are thrown
+                sentence_pipeline(prompts, **model_config)
+
+                with mlflow.start_run():
+                    mlflow.transformers.log_model(
+                        transformers_model=sentence_pipeline,
+                        artifact_path="my_sentence_generator",
+                        task=task,
+                        model_config=model_config,
+                    )
         example_no_conversion: {{ example_no_conversion }}
         prompt_template: {{ prompt_template }}
         save_pretrained: {{ save_pretrained }}

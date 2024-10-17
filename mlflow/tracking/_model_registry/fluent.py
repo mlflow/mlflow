@@ -131,6 +131,8 @@ def search_registered_models(
     """Search for registered models that satisfy the filter criteria.
 
     Args:
+        max_results: If passed, specifies the maximum number of models desired. If not
+            passed, all models will be returned.
         filter_string: Filter query string (e.g., "name = 'a_model_name' and tag.key = 'value1'"),
             defaults to searching for all registered models. The following identifiers, comparators,
             and logical operators are supported.
@@ -149,8 +151,6 @@ def search_registered_models(
             Logical operators
               - "AND": Combines two sub-queries and returns True if both of them are True.
 
-        max_results: If passed, specifies the maximum number of models desired. If not
-            passed, all models will be returned.
         order_by: List of column names with ASC|DESC annotation, to be used for ordering
             matching search results.
 
@@ -240,6 +240,8 @@ def search_model_versions(
         The model version search results may not have aliases populated for performance reasons.
 
     Args:
+        max_results: If passed, specifies the maximum number of models desired. If not
+            passed, all models will be returned.
         filter_string: Filter query string
             (e.g., ``"name = 'a_model_name' and tag.key = 'value1'"``),
             defaults to searching for all model versions. The following identifiers, comparators,
@@ -262,8 +264,6 @@ def search_model_versions(
             Logical operators
               - ``AND``: Combines two sub-queries and returns True if both of them are True.
 
-        max_results: If passed, specifies the maximum number of models desired. If not
-            passed, all models will be returned.
         order_by: List of column names with ASC|DESC annotation, to be used for ordering
             matching search results.
 

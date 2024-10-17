@@ -189,9 +189,9 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
         `request_message_class`.
 
         Args:
-            paths: The specified run-relative artifact paths within the MLflow Run.
-            run_id: The specified MLflow Run.
             request_message_class: Specifies the type of access credentials, read or write.
+            run_id: The specified MLflow Run.
+            paths: The specified run-relative artifact paths within the MLflow Run.
 
         Returns:
             A list of `ArtifactCredentialInfo` objects providing read access to the specified
