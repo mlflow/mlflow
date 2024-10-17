@@ -50,6 +50,7 @@ def test_uc_function():
         "databricks": expected,
     }
 
+
 def test_genie_space():
     genie_space = DatabricksGenieSpace(genie_space_id="id1")
     expected = {"genie_space": [{"name": "id1"}]}

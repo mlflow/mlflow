@@ -2,7 +2,7 @@ import os
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from enum import Enum
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 import yaml
 
@@ -138,6 +138,7 @@ class DatabricksFunction(DatabricksResource):
     def from_dict(cls, data: Dict[str, str]):
         return cls(function_name=data["name"])
 
+
 @dataclass
 class DatabricksGenieSpace(DatabricksResource):
     """
@@ -148,7 +149,7 @@ class DatabricksGenieSpace(DatabricksResource):
     """
 
     type: ResourceType = ResourceType.GENIE_SPACE
-    genie_space_id: str = None
+    genie_space_id: Optional[str] = None
 
     def to_dict(self):
         return {self.type.value: [{"name": self.genie_space_id}]} if self.genie_space_id else {}
@@ -156,7 +157,8 @@ class DatabricksGenieSpace(DatabricksResource):
     @classmethod
     def from_dict(cls, data: Dict[str, str]):
         return cls(genie_space_id=data["name"])
-    
+
+
 def _get_resource_class_by_type(target_uri: str, resource_type: ResourceType):
     resource_classes = {
         "databricks": {
@@ -164,7 +166,7 @@ def _get_resource_class_by_type(target_uri: str, resource_type: ResourceType):
             ResourceType.VECTOR_SEARCH_INDEX.value: DatabricksVectorSearchIndex,
             ResourceType.SQL_WAREHOUSE.value: DatabricksSQLWarehouse,
             ResourceType.FUNCTION.value: DatabricksFunction,
-            ResourceType.GENIE_SPACE.value: DatabricksGenieSpace
+            ResourceType.GENIE_SPACE.value: DatabricksGenieSpace,
         }
     }
     resource = resource_classes.get(target_uri)
