@@ -169,7 +169,7 @@ class ModelsArtifactRepository(ArtifactRepository):
             ensure_yaml_extension=False,
         )
 
-    def download_artifacts(self, artifact_path, dst_path=None, lineage_header_info=None):  # noqa: D417
+    def download_artifacts(self, artifact_path, dst_path=None, lineage_header_info=None):
         """
         Download an artifact file or directory to a local directory if applicable, and return a
         local path for it.
@@ -184,6 +184,7 @@ class ModelsArtifactRepository(ArtifactRepository):
                 If unspecified, the artifacts will either be downloaded to a new
                 uniquely-named directory on the local filesystem or will be returned
                 directly in the case of the LocalArtifactRepository.
+            lineage_header_info: Linear header information.
 
         Returns:
             Absolute path of the local filesystem location containing the desired artifacts.

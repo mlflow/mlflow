@@ -226,7 +226,7 @@ class RestStore(BaseRestStore):
 
     # CRUD API for ModelVersion objects
 
-    def create_model_version(  # noqa: D417
+    def create_model_version(
         self,
         name,
         source,
@@ -247,6 +247,7 @@ class RestStore(BaseRestStore):
                 instances associated with this model version.
             run_link: Link to the run from an MLflow tracking server that generated this model.
             description: Description of the version.
+            local_model_path: Unused.
 
         Returns:
             A single object of :py:class:`mlflow.entities.model_registry.ModelVersion`

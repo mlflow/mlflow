@@ -42,7 +42,7 @@ class FlavorKey:
     PROMPT_TEMPLATE = "prompt_template"
 
 
-def build_flavor_config(  # noqa: D417
+def build_flavor_config(
     pipeline: transformers.Pipeline, processor=None, torch_dtype=None, save_pretrained=True
 ) -> Dict[str, Any]:
     """
@@ -56,6 +56,7 @@ def build_flavor_config(  # noqa: D417
     Args:
         pipeline: Transformer pipeline to generate the flavor configuration for.
         processor: Optional processor instance to save alongside the pipeline.
+        torch_dtype: Torch tensor data type.
         save_pretrained: Whether to save the pipeline and components weights to local disk.
 
     Returns:

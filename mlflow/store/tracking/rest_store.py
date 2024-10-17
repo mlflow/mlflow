@@ -105,13 +105,16 @@ class RestStore(AbstractStore):
         )
         return PagedList(experiments, token)
 
-    def create_experiment(self, name, artifact_location=None, tags=None):  # noqa: D417
+    def create_experiment(self, name, artifact_location=None, tags=None):
         """
         Create a new experiment.
         If an experiment with the given name already exists, throws exception.
 
         Args:
             name: Desired name for an experiment.
+            artifact_location: Location to store run artifacts.
+            tags: A list of :py:class:`mlflow.entities.ExperimentTag` instances to set for the
+                experiment.
 
         Returns:
             experiment_id for the newly created experiment if successful, else None
