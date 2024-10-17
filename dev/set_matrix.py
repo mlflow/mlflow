@@ -497,6 +497,7 @@ def validate_requirements(
             continue
 
         # Does this version specifier (e.g. '< 1.0.0') match at least one version?
+        #　If not, raise an error.
         spec_set = SpecifierSet(specifier)
         if not any(map(spec_set.contains, versions)):
             raise ValueError(
@@ -532,7 +533,7 @@ def expand_config(config: Dict[str, Any], *, is_ref: bool = False) -> Set[Matrix
             if cfg.minimum not in versions:
                 versions.append(cfg.minimum)
 
-            if cfg.requirements and not is_ref:
+            if not is_ref and cfg.requirements:
                 validate_requirements(cfg.requirements, name, category, package_info, versions)
 
             for ver in versions:
