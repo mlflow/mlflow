@@ -964,9 +964,9 @@ def _get_last_failed_evaluator():
     return _last_failed_evaluator
 
 
-# BE CAREFUL WHEN EDITING SIGNATURE OF THIS FUNCTION.
-# This function is monkeypatched in Databricks codebase, and the order of arguments
-# must be kept the same, even if some of them are unused by MLflow.
+# DO NOT CHANGE THE ORDER OF THE ARGUMENTS
+# The order of the arguments need to be preserved. You can add new arguments at the end
+# of the argument list, but do not change the order of the existing arguments.
 def _evaluate(
     *,
     model,
@@ -974,7 +974,7 @@ def _evaluate(
     dataset,
     run_id,
     # The `evaluator_name_list` and `evaluator_name_to_conf_map` are not used by MLflow at all,
-    # but we need to keep this for compatibility with Databricks codebase.
+    # but we need to keep these for backward compatibility.
     evaluator_name_list,
     evaluator_name_to_conf_map,
     custom_metrics,
@@ -1694,9 +1694,7 @@ def evaluate(  # noqa: D417
     )
 
     # NB: MLflow do not use either of these two variables. However, we need to pass these to
-    # _evaluate() function because Databricks codebase monkeypatch the function with hard-coding
-    # argument names. Once we fixes the hard-coding issue in Databricks side, we can safely
-    # remove these two variables.
+    # _evaluate() function for backward compatibility.
     evaluator_name_list = [evaluator.name for evaluator in evaluators]
     evaluator_name_to_conf_map = {evaluator.name: evaluator.config for evaluator in evaluators}
 
