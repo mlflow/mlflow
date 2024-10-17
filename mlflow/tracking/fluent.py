@@ -9,6 +9,7 @@ import importlib
 import inspect
 import logging
 import os
+import threading
 from copy import deepcopy
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
 
@@ -101,6 +102,9 @@ def _set_last_active_run_id(run_id):
     set_thread_local_var("last_active_run_id", run_id)
 
 
+_experiment_lock = threading.Lock()
+
+
 def set_experiment(
     experiment_name: Optional[str] = None, experiment_id: Optional[str] = None
 ) -> Experiment:
@@ -155,38 +159,50 @@ def set_experiment(
         )
 
     client = MlflowClient()
-    if experiment_id is None:
-        experiment = client.get_experiment_by_name(experiment_name)
-        if not experiment:
-            _logger.info(
-                "Experiment with name '%s' does not exist. Creating a new experiment.",
-                experiment_name,
-            )
-            # NB: If two simultaneous threads or processes attempt to set the same experiment
-            # simultaneously, a race condition may be encountered here wherein experiment creation
-            # fails
-            experiment_id = client.create_experiment(experiment_name)
-            experiment = client.get_experiment(experiment_id)
-    else:
-        experiment = client.get_experiment(experiment_id)
-        if experiment is None:
-            raise MlflowException(
-                message=f"Experiment with ID '{experiment_id}' does not exist.",
-                error_code=RESOURCE_DOES_NOT_EXIST,
-            )
 
-    if experiment.lifecycle_stage != LifecycleStage.ACTIVE:
-        raise MlflowException(
-            message=(
-                f"Cannot set a deleted experiment {experiment.name!r} as the active experiment. "
-                "You can restore the experiment, or permanently delete the "
-                "experiment to create a new one."
-            ),
-            error_code=INVALID_PARAMETER_VALUE,
-        )
+    with _experiment_lock:
+        if experiment_id is None:
+            experiment = client.get_experiment_by_name(experiment_name)
+            if not experiment:
+                _logger.info(
+                    "Experiment with name '%s' does not exist. Creating a new experiment.",
+                    experiment_name,
+                )
+                try:
+                    experiment_id = client.create_experiment(experiment_name)
+                except MlflowException as e:
+                    if e.error_code == "RESOURCE_ALREADY_EXISTS":
+                        # NB: If two simultaneous processes attempt to set the same experiment
+                        # simultaneously, a race condition may be encountered here wherein experiment
+                        # creation fails
+                        return client.get_experiment_by_name(experiment_name)
+
+                experiment = client.get_experiment(experiment_id)
+        else:
+            experiment = client.get_experiment(experiment_id)
+            if experiment is None:
+                raise MlflowException(
+                    message=f"Experiment with ID '{experiment_id}' does not exist.",
+                    error_code=RESOURCE_DOES_NOT_EXIST,
+                )
+
+        if experiment.lifecycle_stage != LifecycleStage.ACTIVE:
+            raise MlflowException(
+                message=(
+                    f"Cannot set a deleted experiment {experiment.name!r} as the active"
+                    " experiment. "
+                    "You can restore the experiment, or permanently delete the "
+                    "experiment to create a new one."
+                ),
+                error_code=INVALID_PARAMETER_VALUE,
+            )
 
     global _active_experiment_id
     _active_experiment_id = experiment.experiment_id
+
+    # export the active experiment ID so that subprocess can inherit it.
+    MLFLOW_EXPERIMENT_ID.set(_active_experiment_id)
+
     return experiment
 
 
