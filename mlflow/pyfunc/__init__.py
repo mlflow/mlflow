@@ -1751,9 +1751,6 @@ def build_model_env(model_uri, save_path):
      - Prebuild the model environment in Databricks Runtime, and then download the prebuilt
        python environment archive file, then the prebuilt env file can be used
        in `mlflow.pyfunc.spark_udf` in any remote Databricks connect client side.
-     - When running `mlflow.pyfunc.spark_udf` in Databricks runtime with `env_manager='virtualenv',
-       setting `prebuilt_env_path` can speed up `mlflow.pyfunc.spark_udf` execution because
-       it can skip rebuilding the python environment.
 
     .. note::
         The `build_model_env` can only be called in Databricks runtime,
