@@ -1593,8 +1593,8 @@ def test_build_model_env(spark, sklearn_model, model_path, tmp_path, monkeypatch
             pip_requirements=[
                 f"scikit-learn=={sklearn.__version__}",
                 # `build_model_env` doesn't support building env with dev version MLflow,
-                # so pin MLflow version here.
-                "mlflow==2.17.0",
+                # so add MLflow as a required dependency here.
+                "mlflow",
             ],
         )
 
