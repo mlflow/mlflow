@@ -375,6 +375,14 @@ export class ArtifactViewImpl extends Component<ArtifactViewImplProps, ArtifactV
     return this.props.artifactRootUri;
   }
 
+  getActiveNodeFilePath() {
+    if (this.state.activeNodeId) {
+      const node = ArtifactUtils.findChild(this.props.artifactNode, this.state.activeNodeId);
+      return node.fileInfo.path;
+    }
+    return undefined;
+  }
+
   getActiveNodeSize() {
     if (this.state.activeNodeId) {
       const node = ArtifactUtils.findChild(this.props.artifactNode, this.state.activeNodeId);
@@ -407,7 +415,7 @@ export class ArtifactViewImpl extends Component<ArtifactViewImplProps, ArtifactV
   componentDidUpdate(prevProps: ArtifactViewImplProps, prevState: ArtifactViewImplState) {
     const { activeNodeId } = this.state;
     if (prevState.activeNodeId !== activeNodeId) {
-      this.props.handleActiveNodeChange(this.activeNodeIsDirectory());
+      this.props.handleActiveNodeChange(this.activeNodeIsDirectory(), this.getActiveNodeFilePath());
     }
   }
 
