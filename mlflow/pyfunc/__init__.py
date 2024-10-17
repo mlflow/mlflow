@@ -991,7 +991,7 @@ def load_model(
             This directory must already exist. If unspecified, a local output
             path will be created.
         model_config: The model configuration to apply to the model. The configuration will
-            be available as the ``artifacts`` property of the ``context`` parameter
+            be available as the ``model_config`` property of the ``context`` parameter
             in :func:`PythonModel.load_context() <mlflow.pyfunc.PythonModel.load_context>`
             and :func:`PythonModel.predict() <mlflow.pyfunc.PythonModel.predict>`.
 
@@ -2417,7 +2417,7 @@ def save_model(
         extra_pip_requirements: {{ extra_pip_requirements }}
         metadata: {{ metadata }}
         model_config: The model configuration to apply to the model. The configuration will
-            be available as the ``artifacts`` property of the ``context`` parameter
+            be available as the ``model_config`` property of the ``context`` parameter
             in :func:`PythonModel.load_context() <mlflow.pyfunc.PythonModel.load_context>`
             and :func:`PythonModel.predict() <mlflow.pyfunc.PythonModel.predict>`.
 
@@ -2848,7 +2848,7 @@ def log_model(
         metadata: {{ metadata }}
 
         model_config: The model configuration to apply to the model. The configuration will
-            be available as the ``artifacts`` property of the ``context`` parameter
+            be available as the ``model_config`` property of the ``context`` parameter
             in :func:`PythonModel.load_context() <mlflow.pyfunc.PythonModel.load_context>`
             and :func:`PythonModel.predict() <mlflow.pyfunc.PythonModel.predict>`.
 
