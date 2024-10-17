@@ -56,7 +56,12 @@ class ModelsArtifactRepository(ArtifactRepository):
             )
             self.model_name = self.repo.model_name
             self.model_version = self.repo.model_version
-        elif is_using_databricks_registry(artifact_uri):
+        elif (
+            is_using_databricks_registry(artifact_uri)
+            # Avoid using DatabricksModelsArtifactRepository if `artifact_uri` is a logged model
+            # URI (e.g., 'models:/{model_id}').
+            and artifact_uri.count("/") >= 2
+        ):
             # Use the DatabricksModelsArtifactRepository if a databricks profile is being used.
             self.repo = DatabricksModelsArtifactRepository(artifact_uri)
             self.model_name = self.repo.model_name
