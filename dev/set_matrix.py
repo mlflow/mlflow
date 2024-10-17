@@ -469,7 +469,44 @@ def _get_test_files_from_pytest_command(cmd, test_dir):
     return executed_files - ignore_files
 
 
-def expand_config(config):
+def validate_requirements(
+    requirements: Dict[str, List[str]],
+    name: str,
+    category: str,
+    package_info: PackageInfo,
+    versions: List[Version],
+) -> None:
+    """
+    Validate that the requirements specified in the config don't contain unused items.
+    Here's an example of invalid requirements:
+
+    ```
+    sklearn:
+        package_info:
+            pip_release: "scikit-learn"
+        autologging:
+            minimum: "1.3.0"
+            maximum: "1.5.0"
+            requirements:
+                "< 1.0.0": ["numpy<2.0"]    # Unused
+                ">= 1.4.0": ["numpy>=2.0"]  # Used
+    ```
+    """
+    for specifier in requirements:
+        if "dev" in specifier and package_info.install_dev:
+            continue
+
+        # Does this version specifier (e.g. '< 1.0.0') match at least one version?
+        # If not, raise an error.
+        spec_set = SpecifierSet(specifier)
+        if not any(map(spec_set.contains, versions)):
+            raise ValueError(
+                f"Found unused requirements {specifier!r} for {name} / {category}. "
+                "Please remove it or adjust the version specifier."
+            )
+
+
+def expand_config(config: Dict[str, Any], *, is_ref: bool = False) -> Set[MatrixItem]:
     matrix = set()
     for name, flavor_config in config.items():
         flavor = get_flavor(name)
@@ -495,6 +532,9 @@ def expand_config(config):
             # Always test the minimum version
             if cfg.minimum not in versions:
                 versions.append(cfg.minimum)
+
+            if not is_ref and cfg.requirements:
+                validate_requirements(cfg.requirements, name, category, package_info, versions)
 
             for ver in versions:
                 requirements = [f"{package_info.pip_release}=={ver}"]
@@ -581,7 +621,7 @@ def generate_matrix(args):
 
         if args.ref_versions_yaml:
             ref_config = read_yaml(args.ref_versions_yaml, if_error={})
-            ref_matrix = expand_config(ref_config)
+            ref_matrix = expand_config(ref_config, is_ref=True)
             matrix.update(mat.difference(ref_matrix))
 
         if args.changed_files:
