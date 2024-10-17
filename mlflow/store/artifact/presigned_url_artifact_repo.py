@@ -12,7 +12,8 @@ from mlflow.protos.databricks_filesystem_service_pb2 import (
     FilesystemService,
     ListDirectoryResponse,
 )
-from mlflow.store.artifact.cloud_artifact_repo import CloudArtifactRepository, _retry_with_new_creds
+from mlflow.store.artifact.artifact_repo import _retry_with_new_creds
+from mlflow.store.artifact.cloud_artifact_repo import CloudArtifactRepository
 from mlflow.utils.file_utils import download_file_using_http_uri
 from mlflow.utils.proto_json_utils import message_to_json
 from mlflow.utils.request_utils import augmented_raise_for_status, cloud_storage_http_request
@@ -89,7 +90,7 @@ class PresignedUrlArtifactRepository(CloudArtifactRepository):
             return self._get_write_credential_infos(remote_file_paths=[artifact_file_path])[0]
 
         _retry_with_new_creds(
-            try_func=try_func, creds_func=creds_func, og_creds=cloud_credential_info
+            try_func=try_func, creds_func=creds_func, orig_creds=cloud_credential_info
         )
 
     def list_artifacts(self, path=""):

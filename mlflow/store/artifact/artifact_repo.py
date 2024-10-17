@@ -39,6 +39,24 @@ def _truncate_error(err: str, max_length: int = 10_000) -> str:
     return err[:half] + "\n\n*** Error message is too long, truncated ***\n\n" + err[-half:]
 
 
+def _retry_with_new_creds(try_func, creds_func, orig_creds=None):
+    """
+    Attempt the try_func with the original credentials (og_creds) if provided, or by generating the
+    credentials using creds_func. If the try_func throws, then try again with new credentials
+    provided by creds_func.
+    """
+    try:
+        first_creds = creds_func() if orig_creds is None else orig_creds
+        return try_func(first_creds)
+    except Exception as e:
+        _logger.info(
+            f"Failed to complete request, possibly due to credential expiration (Error: {e})."
+            " Refreshing credentials and trying again..."
+        )
+        new_creds = creds_func()
+        return try_func(new_creds)
+
+
 @developer_stable
 class ArtifactRepository:
     """
