@@ -4,6 +4,7 @@ outside Databricks runtime.
 """
 
 import os
+
 from databricks.connect import DatabricksSession
 from sklearn import datasets
 from sklearn.neighbors import KNeighborsClassifier

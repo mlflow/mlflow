@@ -1681,8 +1681,10 @@ def _gen_prebuilt_env_archive_name(spark, local_model_path):
     python_env = _get_python_env(Path(local_model_path))
     env_name = _get_virtualenv_name(python_env, local_model_path)
     dbconnect_cache = get_dbconnect_client_cache(spark)
-    return f"{env_name}-{dbconnect_cache.udf_sandbox_image_version}-" \
-           f"{dbconnect_cache.udf_sandbox_platform_machine}"
+    return (
+        f"{env_name}-{dbconnect_cache.udf_sandbox_image_version}-"
+        f"{dbconnect_cache.udf_sandbox_platform_machine}"
+    )
 
 
 def _verify_prebuilt_env(spark, local_model_path, env_archive_path):

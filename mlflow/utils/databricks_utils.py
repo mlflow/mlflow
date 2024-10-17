@@ -7,7 +7,11 @@ import platform
 import subprocess
 import time
 from dataclasses import dataclass
-from typing import NamedTuple, Optional, TypeVar
+from typing import TYPE_CHECKING, NamedTuple, Optional, TypeVar
+
+if TYPE_CHECKING:
+    from pyspark.sql.connect.session import SparkSession as SparkConnectSession
+
 
 import mlflow.utils
 from mlflow.environment_variables import (
@@ -294,7 +298,7 @@ def is_databricks_connect(spark):
 
 @dataclass
 class DBConnectClientCache:
-    spark: "pyspark.sql.connect.session.SparkSession"  # noqa: F821
+    spark: SparkConnectSession
     udf_sandbox_image_version: str
     udf_sandbox_platform_machine: str
 
