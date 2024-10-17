@@ -1,10 +1,13 @@
 import datetime
 import os
 import random
+import shutil
+import subprocess
 import sys
 import threading
 import time
 from collections import namedtuple
+from pathlib import Path
 from typing import Iterator
 from unittest import mock
 
@@ -47,6 +50,7 @@ from mlflow.pyfunc import (
     PythonModel,
     _check_udf_return_type,
     _parse_spark_datatype,
+    build_model_env,
     spark_udf,
 )
 from mlflow.pyfunc.spark_model_cache import SparkModelCache
@@ -1572,3 +1576,44 @@ def test_spark_udf_env_manager_with_invalid_pythonpath(
     )
 
     np.testing.assert_allclose(result, expected_pred_result, rtol=1e-5)
+
+
+def test_build_model_env(spark, sklearn_model, model_path, tmp_path, monkeypatch):
+    import sklearn
+
+    from mlflow.pyfunc.dbconnect_artifact_cache import extract_archive_to_dir
+
+    monkeypatch.setenv("DATABRICKS_RUNTIME_VERSION", "15.4.1")
+    model, inference_data = sklearn_model
+
+    with mlflow.start_run():
+        model_info = mlflow.sklearn.log_model(
+            model,
+            "model",
+            pip_requirements=[
+                f"scikit-learn=={sklearn.__version__}",
+                # `build_model_env` doesn't support building env with dev version MLflow,
+                # so add MLflow as a required dependency here.
+                "mlflow",
+            ],
+        )
+
+    model_uri = model_info.model_uri
+    model_env_path = build_model_env(model_uri, tmp_path)
+    archive_name = Path(model_env_path).name[:-7]
+    env_name = "-".join(archive_name.split("-")[:2])
+    extract_dir = Path("/tmp") / archive_name
+    try:
+        extract_archive_to_dir(model_env_path, extract_dir)
+        # Check the extracted python environment installs the expected sklearn package version.
+        subprocess.check_call(
+            [
+                "bash",
+                "-c",
+                f"source /tmp/{archive_name}/virtualenv_envs/{env_name}/bin/activate && "
+                f"python -c "
+                f"\"import sklearn; assert sklearn.__version__ == '{sklearn.__version__}'\"",
+            ]
+        )
+    finally:
+        shutil.rmtree(f"/tmp/{archive_name}", ignore_errors=True)

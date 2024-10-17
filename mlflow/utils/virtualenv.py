@@ -14,7 +14,6 @@ from mlflow.environment_variables import MLFLOW_ENV_ROOT
 from mlflow.exceptions import MlflowException
 from mlflow.models.model import MLMODEL_FILE_NAME, Model
 from mlflow.utils.conda import _PIP_CACHE_DIR
-from mlflow.utils.databricks_utils import is_in_databricks_runtime
 from mlflow.utils.environment import (
     _CONDA_ENV_FILE_NAME,
     _PYTHON_ENV_FILE_NAME,
@@ -87,7 +86,7 @@ _SEMANTIC_VERSION_REGEX = re.compile(r"^([0-9]+)\.([0-9]+)\.([0-9]+)$")
 
 
 def _get_pyenv_bin_path():
-    if is_in_databricks_runtime() and os.path.exists(_DATABRICKS_PYENV_BIN_PATH):
+    if os.path.exists(_DATABRICKS_PYENV_BIN_PATH):
         return _DATABRICKS_PYENV_BIN_PATH
     return shutil.which("pyenv")
 
@@ -367,13 +366,17 @@ def _get_or_create_virtualenv(  # noqa: D417
         pyenv_root_dir = None
 
     virtual_envs_root_path.mkdir(parents=True, exist_ok=True)
+    env_name = _get_virtualenv_name(python_env, local_model_path, env_id)
+    env_dir = virtual_envs_root_path / env_name
+    if env_dir.exists():
+        paths = ("bin", "activate") if not is_windows() else ("Scripts", "activate.bat")
+        activate_cmd = env_dir.joinpath(*paths)
+        return f"source {activate_cmd}" if not is_windows() else str(activate_cmd)
 
     # Create an environment
     python_bin_path = _install_python(
         python_env.python, pyenv_root=pyenv_root_dir, capture_output=capture_output
     )
-    env_name = _get_virtualenv_name(python_env, local_model_path, env_id)
-    env_dir = virtual_envs_root_path / env_name
     try:
         activate_cmd = _create_virtualenv(
             local_model_path,

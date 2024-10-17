@@ -16,6 +16,26 @@ pip install scikit-learn
 
 #### How to run the examples
 
+Simple example:
+
 ```
 python spark_udf.py
+```
+
+Spark UDF example with input data of datetime type:
+
+```
+python spark_udf_datetime.py
+```
+
+Spark UDF example with input data of struct and array type:
+
+```
+python structs_and_arrays.py
+```
+
+Spark UDF example using prebuilt model environment:
+
+```
+python spark_udf_with_prebuilt_env.py
 ```
