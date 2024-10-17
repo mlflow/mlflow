@@ -1132,9 +1132,11 @@ def log_input(
     if context:
         tags_to_log.append(InputTag(key=MLFLOW_DATASET_CONTEXT, value=context))
 
-    dataset_input = DatasetInput(dataset=dataset._to_mlflow_entity(), tags=tags_to_log)
+    datasets = (
+        [DatasetInput(dataset=dataset._to_mlflow_entity(), tags=tags_to_log)] if dataset else None
+    )
 
-    MlflowClient().log_inputs(run_id=run_id, datasets=[dataset_input], models=[model])
+    MlflowClient().log_inputs(run_id=run_id, datasets=datasets, models=[model])
 
 
 def set_experiment_tags(tags: Dict[str, Any]) -> None:
