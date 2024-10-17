@@ -795,10 +795,10 @@ class MlflowClient:
             name: The name of the span.
             request_id: The ID of the trace to attach the span to. This is synonym to
                 trace_id` in OpenTelemetry.
-            span_type: The type of the span. Can be either a string or a
-                :py:class:`SpanType <mlflow.entities.SpanType>` enum value.
             parent_id: The ID of the parent span. The parent span can be a span created by
                 both fluent APIs like `with mlflow.start_span()`, and imperative APIs like this.
+            span_type: The type of the span. Can be either a string or a
+                :py:class:`SpanType <mlflow.entities.SpanType>` enum value.
             inputs: Inputs to set on the span.
             attributes: A dictionary of attributes to set on the span.
             start_time_ns: The start time of the span in nano seconds since the UNIX epoch.
@@ -2858,6 +2858,7 @@ class MlflowClient:
         """Set a run's status to terminated.
 
         Args:
+            run_id: The ID of the run to terminate.
             status: A string value of :py:class:`mlflow.entities.RunStatus`. Defaults to "FINISHED".
             end_time: If not provided, defaults to the current time.
 

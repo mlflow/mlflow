@@ -710,7 +710,7 @@ class UcModelRegistryStore(BaseRestStore):
                 if not os.path.exists(source) and not is_fuse_or_uc_volumes_uri(local_model_dir):
                     shutil.rmtree(local_model_dir)
 
-    def create_model_version(  # noqa: D417
+    def create_model_version(
         self,
         name,
         source,
@@ -731,6 +731,11 @@ class UcModelRegistryStore(BaseRestStore):
                 instances associated with this model version.
             run_link: Link to the run from an MLflow tracking server that generated this model.
             description: Description of the version.
+            local_model_path: Local path to the MLflow model, if it's already accessible on the
+                local filesystem. Can be used by AbstractStores that upload model version files
+                to the model registry to avoid a redundant download from the source location when
+                logging and registering a model via a single
+                mlflow.<flavor>.log_model(..., registered_model_name) call.
 
         Returns:
             A single object of :py:class:`mlflow.entities.model_registry.ModelVersion`
