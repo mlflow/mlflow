@@ -529,12 +529,12 @@ def test_retryable_log_artifacts(throw, tmp_path):
         repo.log_artifacts(subd)
 
         if throw:
-            assert gcs_bucket_mock.blob.call_count == 1
-            assert gcs_refreshed_bucket_mock.blob.call_count == 1
-            assert mock_gcs_client_factory.call_count == 1
-            assert mock_gcs_credentials_factory.call_count == 1
+            gcs_bucket_mock.blob.assert_called_once()
+            gcs_refreshed_bucket_mock.blob.assert_called_once()
+            mock_gcs_client_factory.assert_called_once()
+            mock_gcs_credentials_factory.assert_called_once()
         else:
-            assert gcs_bucket_mock.blob.call_count == 1
-            assert gcs_refreshed_bucket_mock.blob.call_count == 0
-            assert mock_gcs_client_factory.call_count == 0
-            assert mock_gcs_credentials_factory.call_count == 0
+            gcs_bucket_mock.blob.assert_called_once()
+            gcs_refreshed_bucket_mock.blob.assert_not_called()
+            mock_gcs_client_factory.assert_not_called()
+            mock_gcs_credentials_factory.assert_not_called()
