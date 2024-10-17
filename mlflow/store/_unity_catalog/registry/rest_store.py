@@ -598,8 +598,9 @@ class UcModelRegistryStore(BaseRestStore):
         securable_list = []
         eprint(f"shichengz _get_lineage_input_sources run.inputs {run.inputs}")
         if run.inputs is not None:
-            eprint(f"shichengz _get_lineage_input_sources dataset_inputs {run.inputs.dataset_inputs}")
+            eprint(f"shichengz _get_lineage_input_sources dataset_inputs is {run.inputs.dataset_inputs}, len: {len(run.inputs.dataset_inputs)} ")
             for dataset in run.inputs.dataset_inputs:
+                eprint(f"shichengz _get_lineage_input_sources iterating {dataset}")
                 dataset_source = mlflow.data.get_source(dataset)
                 eprint(f"shichengz _get_lineage_input_sources data_source {dataset_source}")
                 eprint(f"shichengz _get_lineage_input_sources type of data_source {type(dataset_source)}")
