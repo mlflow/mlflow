@@ -590,11 +590,15 @@ class UcModelRegistryStore(BaseRestStore):
 
     def _get_lineage_input_sources(self, run):
         from mlflow.data.delta_dataset_source import DeltaDatasetSource
+        from mlflow.utils.logging_utils import eprint
 
+        eprint(f"shichengz _get_lineage_input_sources run {run}")
         if run is None:
             return None
         securable_list = []
+        eprint(f"shichengz _get_lineage_input_sources run.inputs {run.inputs}")
         if run.inputs is not None:
+            eprint(f"shichengz _get_lineage_input_sources dataset_inputs {run.inputs.dataset_inputs}")
             for dataset in run.inputs.dataset_inputs:
                 dataset_source = mlflow.data.get_source(dataset)
                 if (
@@ -744,6 +748,9 @@ class UcModelRegistryStore(BaseRestStore):
         job_id = self._get_job_id(run)
         job_run_id = self._get_job_run_id(run)
         extra_headers = None
+
+        from mlflow.utils.logging_utils import eprint
+        eprint(f"shichengz lineage_securable_list {lineage_securable_list}")
         if notebook_id is not None or job_id is not None:
             entity_list = []
             lineage_list = None
