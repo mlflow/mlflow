@@ -298,7 +298,7 @@ def is_databricks_connect(spark):
 
 @dataclass
 class DBConnectClientCache:
-    spark: SparkConnectSession
+    spark: "SparkConnectSession"
     udf_sandbox_image_version: str
     udf_sandbox_platform_machine: str
 
