@@ -462,9 +462,10 @@ prophet:
 pmdarima:
   package_info:
     pip_release: "pmdarima"
-    install_dev: |
-      pip install Cython
-      pip install git+https://github.com/alkaline-ml/pmdarima.git
+    # TODO: Uncomment once https://github.com/alkaline-ml/pmdarima/issues/582 is fixed.
+    # install_dev: |
+    #   # pip install Cython
+    #   # pip install git+https://github.com/alkaline-ml/pmdarima.git
 
   models:
     minimum: "1.8.0"
