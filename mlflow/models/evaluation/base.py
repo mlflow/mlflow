@@ -964,24 +964,29 @@ def _get_last_failed_evaluator():
     return _last_failed_evaluator
 
 
+# DO NOT CHANGE THE ORDER OF THE ARGUMENTS
+# The order of the arguments need to be preserved. You can add new arguments at the end
+# of the argument list, but do not change the order of the existing arguments.
 def _evaluate(
     *,
     model,
     model_type,
     dataset,
     run_id,
-    evaluators,
+    # The `evaluator_name_list` and `evaluator_name_to_conf_map` are not used by MLflow at all,
+    # but we need to keep these for backward compatibility.
+    evaluator_name_list,
+    evaluator_name_to_conf_map,
     custom_metrics,
     extra_metrics,
     custom_artifacts,
     predictions,
+    evaluators,
 ):
     """
     The public API "evaluate" will verify argument first, and then pass normalized arguments
     to the _evaluate method.
     """
-    # import _model_evaluation_registry and PyFuncModel inside function to avoid circuit importing
-
     global _last_failed_evaluator
     _last_failed_evaluator = None
 
@@ -1688,6 +1693,11 @@ def evaluate(  # noqa: D417
         evaluators, evaluator_config, model_type
     )
 
+    # NB: MLflow do not use either of these two variables. However, we need to pass these to
+    # _evaluate() function for backward compatibility.
+    evaluator_name_list = [evaluator.name for evaluator in evaluators]
+    evaluator_name_to_conf_map = {evaluator.name: evaluator.config for evaluator in evaluators}
+
     with _start_run_or_reuse_active_run() as run_id:
         if not isinstance(data, Dataset):
             # Convert data to `mlflow.data.dataset.Dataset`.
@@ -1730,11 +1740,13 @@ def evaluate(  # noqa: D417
                 model_type=model_type,
                 dataset=dataset,
                 run_id=run_id,
-                evaluators=evaluators,
+                evaluator_name_list=evaluator_name_list,
+                evaluator_name_to_conf_map=evaluator_name_to_conf_map,
                 custom_metrics=custom_metrics,
                 extra_metrics=extra_metrics,
                 custom_artifacts=custom_artifacts,
                 predictions=predictions_expected_in_model_output,
+                evaluators=evaluators,
             )
         finally:
             if isinstance(model, _ServedPyFuncModel):
@@ -1763,11 +1775,13 @@ def evaluate(  # noqa: D417
             model_type=model_type,
             dataset=dataset,
             run_id=run_id,
-            evaluators=evaluators,
+            evaluator_name_list=evaluator_name_list,
+            evaluator_name_to_conf_map=evaluator_name_to_conf_map,
             custom_metrics=custom_metrics,
             extra_metrics=extra_metrics,
             custom_artifacts=custom_artifacts,
             predictions=predictions_expected_in_model_output,
+            evaluators=evaluators,
         )
         return validate_evaluation_results(
             validation_thresholds=validation_thresholds,
