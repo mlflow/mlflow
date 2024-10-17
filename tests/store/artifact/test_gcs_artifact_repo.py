@@ -484,11 +484,10 @@ def test_abort_multipart_upload(mock_client):
         )
         assert kwargs["data"] is None
 
+
 @pytest.mark.parametrize("throw", [True, False])
 def test_retryable_log_artifacts(throw, tmp_path):
-    with mock.patch(
-        "google.cloud.storage.Client"
-    ) as mock_gcs_client_factory, mock.patch(
+    with mock.patch("google.cloud.storage.Client") as mock_gcs_client_factory, mock.patch(
         "google.oauth2.credentials.Credentials"
     ) as mock_gcs_credentials_factory:
         gcs_client_mock = mock.Mock()
@@ -511,13 +510,17 @@ def test_retryable_log_artifacts(throw, tmp_path):
         def creds_func():
             return {"oauth_token": "new_creds"}
 
-        gcs_bucket_mock.blob.return_value.upload_from_filename.side_effect = exception_thrown_side_effect_func
-        gcs_refreshed_bucket_mock.blob.return_value.upload_from_filename.side_effect = success_side_effect_func
+        gcs_bucket_mock.blob.return_value.upload_from_filename.side_effect = (
+            exception_thrown_side_effect_func
+        )
+        gcs_refreshed_bucket_mock.blob.return_value.upload_from_filename.side_effect = (
+            success_side_effect_func
+        )
 
         repo = GCSArtifactRepository(
             artifact_uri="gs://test_bucket/test_root/",
             client=gcs_client_mock,
-            credential_refresh_def=creds_func
+            credential_refresh_def=creds_func,
         )
 
         data = tmp_path.joinpath("data")

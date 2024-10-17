@@ -38,6 +38,7 @@ def _truncate_error(err: str, max_length: int = 10_000) -> str:
     half = max_length // 2
     return err[:half] + "\n\n*** Error message is too long, truncated ***\n\n" + err[-half:]
 
+
 def _retry_with_new_creds(try_func, creds_func, orig_creds=None):
     """
     Attempt the try_func with the original credentials (og_creds) if provided, or by generating the
@@ -54,6 +55,7 @@ def _retry_with_new_creds(try_func, creds_func, orig_creds=None):
         )
         new_creds = creds_func()
         return try_func(new_creds)
+
 
 @developer_stable
 class ArtifactRepository:

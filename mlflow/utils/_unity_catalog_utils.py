@@ -221,6 +221,7 @@ def _get_artifact_repo_from_storage_info(
         from mlflow.store.artifact.gcs_artifact_repo import GCSArtifactRepository
 
         credentials = Credentials(scoped_token.gcp_oauth_token.oauth_token)
+
         def gcp_credential_refresh():
             new_scoped_token = base_credential_refresh_def()
             new_gcp_creds = new_scoped_token.gcp_oauth_token
@@ -232,7 +233,7 @@ def _get_artifact_repo_from_storage_info(
         return GCSArtifactRepository(
             artifact_uri=storage_location,
             client=client,
-            credential_refresh_def=gcp_credential_refresh
+            credential_refresh_def=gcp_credential_refresh,
         )
     elif credential_type == "r2_temp_credentials":
         from mlflow.store.artifact.r2_artifact_repo import R2ArtifactRepository

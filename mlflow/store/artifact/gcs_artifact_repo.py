@@ -22,7 +22,7 @@ from mlflow.exceptions import _UnsupportedMultipartUploadException
 from mlflow.store.artifact.artifact_repo import (
     ArtifactRepository,
     MultipartUploadMixin,
-    _retry_with_new_creds
+    _retry_with_new_creds,
 )
 from mlflow.utils.file_utils import relative_path_to_artifact_path
 
@@ -86,6 +86,7 @@ class GCSArtifactRepository(ArtifactRepository, MultipartUploadMixin):
     def _refresh_credentials(self):
         from google.cloud.storage import Client
         from google.oauth2.credentials import Credentials
+
         (bucket, _) = self.parse_gcs_uri(self.artifact_uri)
         if not self.credential_refresh_def:
             return self._get_bucket(bucket)
@@ -124,10 +125,11 @@ class GCSArtifactRepository(ArtifactRepository, MultipartUploadMixin):
                 # and throw if it still fails.  We cannot use the built-in refresh because UC
                 # does not return a refresh token with the oauth token
                 file_name = os.path.join(root, f)
+
                 def try_func(gcs_bucket):
-                    gcs_bucket.blob(path, chunk_size=self._GCS_UPLOAD_CHUNK_SIZE).upload_from_filename(
-                        file_name, timeout=self._GCS_DEFAULT_TIMEOUT
-                    )
+                    gcs_bucket.blob(
+                        path, chunk_size=self._GCS_UPLOAD_CHUNK_SIZE
+                    ).upload_from_filename(file_name, timeout=self._GCS_DEFAULT_TIMEOUT)
 
                 _retry_with_new_creds(
                     try_func=try_func, creds_func=self._refresh_credentials, orig_creds=gcs_bucket
