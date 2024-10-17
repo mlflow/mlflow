@@ -53,10 +53,10 @@ const defaultProps = {
   navigate: () => {},
 }
 
-const mountComponent = (props: any) => {
+const mountComponent = (addedProps: any) => {
   const mockStore = configureStore([thunk, promiseMiddleware()]);
-  props = {...defaultProps, ...props}
-  props.setUIState = (callback: ((state: Object) => Object)) => {props.uiState = callback(props.uiState)}
+  const props = {...defaultProps, ...addedProps}
+  props.setUIState = (setState: ((state: Record<string, unknown>) => Record<string, unknown>)) => {props.uiState = setState(props.uiState)}
   return renderWithIntl(
     <DesignSystemProvider>
       <Provider
