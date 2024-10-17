@@ -66,6 +66,7 @@ from mlflow.utils.mlflow_tags import (
 )
 from mlflow.utils.time import get_current_time_millis
 from mlflow.utils.validation import _validate_experiment_id_type, _validate_run_id
+from mlflow.utils.thread_utils import get_thread_local_var, set_thread_local_var
 
 if TYPE_CHECKING:
     import matplotlib
@@ -76,15 +77,28 @@ if TYPE_CHECKING:
     import plotly
 
 
-_active_run_stack = []
-run_id_to_system_metrics_monitor = {}
 _active_experiment_id = None
-_last_active_run_id = None
 
 SEARCH_MAX_RESULTS_PANDAS = 100000
 NUM_RUNS_PER_PAGE_PANDAS = 10000
 
 _logger = logging.getLogger(__name__)
+
+
+def _get_active_run_stack():
+    return get_thread_local_var("active_run_stack", init_value=[])
+
+
+def _get_run_id_to_system_metrics_monitor():
+    return get_thread_local_var("run_id_to_system_metrics_monitor", init_value={})
+
+
+def _get_last_active_run_id():
+    return get_thread_local_var("last_active_run_id", init_value=None)
+
+
+def _set_last_active_run_id(run_id):
+    set_thread_local_var("last_active_run_id", run_id)
 
 
 def set_experiment(
@@ -313,17 +327,17 @@ def start_run(
                                      run_id params.child tags.mlflow.runName
         0  7d175204675e40328e46d9a6a5a7ee6a          yes           CHILD_RUN
     """
-    global _active_run_stack
+    active_run_stack = _get_active_run_stack()
     _validate_experiment_id_type(experiment_id)
     # back compat for int experiment_id
     experiment_id = str(experiment_id) if isinstance(experiment_id, int) else experiment_id
-    if len(_active_run_stack) > 0 and not nested:
+    if len(active_run_stack) > 0 and not nested:
         raise Exception(
             (
                 "Run with UUID {} is already active. To start a new run, first end the "
                 + "current run with mlflow.end_run(). To start a nested "
                 + "run, call start_run with nested=True"
-            ).format(_active_run_stack[0].info.run_id)
+            ).format(active_run_stack[0].info.run_id)
         )
     client = MlflowClient()
     if run_id:
@@ -377,8 +391,8 @@ def start_run(
         if parent_run_id:
             _validate_run_id(parent_run_id)
             # Make sure parent_run_id matches the current run id, if there is an active run
-            if len(_active_run_stack) > 0 and parent_run_id != _active_run_stack[-1].info.run_id:
-                current_run_id = _active_run_stack[-1].info.run_id
+            if len(active_run_stack) > 0 and parent_run_id != active_run_stack[-1].info.run_id:
+                current_run_id = active_run_stack[-1].info.run_id
                 raise MlflowException(
                     f"Current run with UUID {current_run_id} does not match the specified "
                     f"parent_run_id {parent_run_id}. To start a new nested run under "
@@ -394,7 +408,7 @@ def start_run(
                 )
         else:
             parent_run_id = (
-                _active_run_stack[-1].info.run_id if len(_active_run_stack) > 0 else None
+                active_run_stack[-1].info.run_id if len(active_run_stack) > 0 else None
             )
 
         exp_id_for_run = experiment_id if experiment_id is not None else _get_experiment_id()
@@ -440,15 +454,15 @@ def start_run(
                 active_run_obj.info.run_id,
                 resume_logging=existing_run_id is not None,
             )
-            global run_id_to_system_metrics_monitor
+            run_id_to_system_metrics_monitor = _get_run_id_to_system_metrics_monitor()
 
             run_id_to_system_metrics_monitor[active_run_obj.info.run_id] = system_monitor
             system_monitor.start()
         except Exception as e:
             _logger.error(f"Failed to start system metrics monitoring: {e}.")
 
-    _active_run_stack.append(ActiveRun(active_run_obj))
-    return _active_run_stack[-1]
+    active_run_stack.append(ActiveRun(active_run_obj))
+    return active_run_stack[-1]
 
 
 def end_run(status: str = RunStatus.to_string(RunStatus.FINISHED)) -> None:
@@ -483,15 +497,17 @@ def end_run(status: str = RunStatus.to_string(RunStatus.FINISHED)) -> None:
         --
         Active run: None
     """
-    global _active_run_stack, _last_active_run_id, run_id_to_system_metrics_monitor
-    if len(_active_run_stack) > 0:
+    active_run_stack = _get_active_run_stack()
+    run_id_to_system_metrics_monitor = _get_run_id_to_system_metrics_monitor()
+    if len(active_run_stack) > 0:
         # Clear out the global existing run environment variable as well.
         MLFLOW_RUN_ID.unset()
-        run = _active_run_stack.pop()
-        _last_active_run_id = run.info.run_id
-        MlflowClient().set_terminated(_last_active_run_id, status)
-        if _last_active_run_id in run_id_to_system_metrics_monitor:
-            system_metrics_monitor = run_id_to_system_metrics_monitor.pop(_last_active_run_id)
+        run = active_run_stack.pop()
+        last_active_run_id = run.info.run_id
+        _set_last_active_run_id(last_active_run_id)
+        MlflowClient().set_terminated(last_active_run_id, status)
+        if last_active_run_id in run_id_to_system_metrics_monitor:
+            system_metrics_monitor = run_id_to_system_metrics_monitor.pop(last_active_run_id)
             system_metrics_monitor.finish()
 
 
@@ -527,7 +543,8 @@ def active_run() -> Optional[ActiveRun]:
 
         Active run_id: 6f252757005748708cd3aad75d1ff462
     """
-    return _active_run_stack[-1] if len(_active_run_stack) > 0 else None
+    active_run_stack = _get_active_run_stack()
+    return active_run_stack[-1] if len(active_run_stack) > 0 else None
 
 
 def last_active_run() -> Optional[Run]:
@@ -586,9 +603,11 @@ def last_active_run() -> Optional[Run]:
     _active_run = active_run()
     if _active_run is not None:
         return _active_run
-    if _last_active_run_id is None:
+
+    last_active_run_id = _get_last_active_run_id()
+    if last_active_run_id is None:
         return None
-    return get_run(_last_active_run_id)
+    return get_run(last_active_run_id)
 
 
 def get_run(run_id: str) -> Run:
@@ -2129,8 +2148,9 @@ def search_runs(
 
 
 def _get_or_start_run():
-    if len(_active_run_stack) > 0:
-        return _active_run_stack[-1]
+    active_run_stack = _get_active_run_stack()
+    if len(active_run_stack) > 0:
+        return active_run_stack[-1]
     return start_run()
 
 
