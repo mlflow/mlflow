@@ -49,8 +49,8 @@ def _retry_with_new_creds(try_func, creds_func, orig_creds=None):
         return try_func(first_creds)
     except Exception as e:
         _logger.info(
-            "Failed to complete request, possibly due to credential expiration."
-            f" Refreshing credentials and trying again... (Error: {e})"
+            f"Failed to complete request, possibly due to credential expiration (Error: {e})."
+            " Refreshing credentials and trying again..."
         )
         new_creds = creds_func()
         return try_func(new_creds)

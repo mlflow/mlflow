@@ -1,6 +1,5 @@
 import datetime
 import importlib.metadata
-import logging
 import os
 import posixpath
 import urllib.parse
@@ -29,7 +28,6 @@ from mlflow.utils.file_utils import relative_path_to_artifact_path
 
 GCSMPUArguments = namedtuple("GCSMPUArguments", ["transport", "url", "headers", "content_type"])
 
-_logger = logging.getLogger(__name__)
 
 class GCSArtifactRepository(ArtifactRepository, MultipartUploadMixin):
     """
@@ -89,20 +87,12 @@ class GCSArtifactRepository(ArtifactRepository, MultipartUploadMixin):
         from google.cloud.storage import Client
         from google.oauth2.credentials import Credentials
         (bucket, _) = self.parse_gcs_uri(self.artifact_uri)
-        _logger.info("Refreshing credentials for GCS bucket: %s", bucket)
         if not self.credential_refresh_def:
-            _logger.info("No credential refresh function provided.  Cannot refresh credentials.")
             return self._get_bucket(bucket)
         new_token = self.credential_refresh_def()
         credentials = Credentials(new_token["oauth_token"])
-        cur_bucket = self._get_bucket(bucket)
         self.client = Client(project="mlflow", credentials=credentials)
-        new_bucket = self._get_bucket(bucket)
-        if cur_bucket != new_bucket:
-            _logger.info("Credentials refreshed for GCS bucket: %s", bucket)
-        else:
-            _logger.info("Credentials refresh failed for GCS bucket: %s", bucket)
-        return new_bucket
+        return self._get_bucket(bucket)
 
     def log_artifact(self, local_file, artifact_path=None):
         (bucket, dest_path) = self.parse_gcs_uri(self.artifact_uri)
@@ -113,34 +103,6 @@ class GCSArtifactRepository(ArtifactRepository, MultipartUploadMixin):
         gcs_bucket = self._get_bucket(bucket)
         blob = gcs_bucket.blob(dest_path, chunk_size=self._GCS_UPLOAD_CHUNK_SIZE)
         blob.upload_from_filename(local_file, timeout=self._GCS_DEFAULT_TIMEOUT)
-
-    def _retryable_log_artifact(self, bucket, path, file_name):
-        gcs_bucket = self._get_bucket(bucket)
-        try:
-            gcs_bucket.blob(path, chunk_size=self._GCS_UPLOAD_CHUNK_SIZE).upload_from_filename(
-                file_name, timeout=self._GCS_DEFAULT_TIMEOUT
-            )
-        except Exception as e:
-            from google.cloud.storage import Client
-            from google.oauth2.credentials import Credentials
-            _logger.info(
-                "Failed to complete upload request, possibly due to credential expiration."
-                f" Attempting to refresh credentials and trying again... (Error: {e})"
-            )
-            _logger.info(
-                "Failed to complete upload request, possibly due to credential expiration."
-                f" Attempting to refresh credentials and trying again... (Error: {e})"
-            )
-            if self.credential_refresh_def is not None:
-                new_token = self.credential_refresh_def()
-                credentials = Credentials(new_token)
-                self.client = Client(project="mlflow", credentials=credentials)
-                gcs_bucket = self._get_bucket(bucket)
-                gcs_bucket.blob(path, chunk_size=self._GCS_UPLOAD_CHUNK_SIZE).upload_from_filename(
-                    file_name, timeout=self._GCS_DEFAULT_TIMEOUT
-                )
-            else:
-                raise e
 
     def log_artifacts(self, local_dir, artifact_path=None):
         (bucket, dest_path) = self.parse_gcs_uri(self.artifact_uri)
