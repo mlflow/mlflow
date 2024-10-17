@@ -116,7 +116,7 @@ class RunInfo(_MlflowObject):
     @searchable_attribute
     def status(self):
         """
-        One of the values in :py:class:`mlflow.entities.RunStatus`
+        String representation of one of the *names* in :py:class:`mlflow.entities.RunStatus`
         describing the status of the run.
         """
         return self._status
