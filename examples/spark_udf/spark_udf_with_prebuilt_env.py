@@ -5,10 +5,11 @@ outside Databricks runtime.
 
 import os
 import tempfile
+
 from databricks.connect import DatabricksSession
+from databricks.sdk import WorkspaceClient
 from sklearn import datasets
 from sklearn.neighbors import KNeighborsClassifier
-from databricks.sdk import WorkspaceClient
 
 import mlflow
 
