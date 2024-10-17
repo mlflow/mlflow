@@ -590,19 +590,29 @@ class UcModelRegistryStore(BaseRestStore):
 
     def _get_lineage_input_sources(self, run):
         from mlflow.data.delta_dataset_source import DeltaDatasetSource
+        from mlflow.utils.logging_utils import eprint
 
+        eprint(f"shichengz _get_lineage_input_sources run {run}")
         if run is None:
             return None
         securable_list = []
+        eprint(f"shichengz _get_lineage_input_sources run.inputs {run.inputs}")
         if run.inputs is not None:
+            eprint(f"shichengz _get_lineage_input_sources dataset_inputs is {run.inputs.dataset_inputs}, len: {len(run.inputs.dataset_inputs)} ")
             for dataset in run.inputs.dataset_inputs:
+                eprint(f"shichengz _get_lineage_input_sources iterating {dataset}")
                 dataset_source = mlflow.data.get_source(dataset)
+                eprint(f"shichengz _get_lineage_input_sources data_source {dataset_source}")
+                eprint(f"shichengz _get_lineage_input_sources type of data_source {type(dataset_source)}")
+                eprint(f"shichengz _get_lineage_input_sources dataset_source._get_source_type() {dataset_source._get_source_type()}")
                 if (
                     isinstance(dataset_source, DeltaDatasetSource)
                     and dataset_source._get_source_type() == _DELTA_TABLE
                 ):
                     # check if dataset is a uc table and then append
+                    eprint(f"shichengz _get_lineage_input_sources dataset_source name and id {dataset_source.delta_table_name}, {dataset_source.delta_table_id}")
                     if dataset_source.delta_table_name and dataset_source.delta_table_id:
+                        eprint(f"shichengz _get_lineage_input_sources adding table {dataset_source.delta_table_name}")
                         table_entity = Table(
                             name=dataset_source.delta_table_name,
                             table_id=dataset_source.delta_table_id,
@@ -749,6 +759,9 @@ class UcModelRegistryStore(BaseRestStore):
         job_id = self._get_job_id(run)
         job_run_id = self._get_job_run_id(run)
         extra_headers = None
+
+        from mlflow.utils.logging_utils import eprint
+        eprint(f"shichengz lineage_securable_list {lineage_securable_list}")
         if notebook_id is not None or job_id is not None:
             entity_list = []
             lineage_list = None
