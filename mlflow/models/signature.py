@@ -225,8 +225,22 @@ def infer_signature(
     Returns:
       ModelSignature
     """
-    inputs = _infer_schema(model_input) if model_input is not None else None
-    outputs = _infer_schema(model_output) if model_output is not None else None
+    if model_input is not None:
+        inputs = (
+            convert_dataclass_to_schema(model_input)
+            if is_dataclass(model_input)
+            else _infer_schema(model_input)
+        )
+    else:
+        inputs = None
+    if model_output is not None:
+        outputs = (
+            convert_dataclass_to_schema(model_output)
+            if is_dataclass(model_output)
+            else _infer_schema(model_output)
+        )
+    else:
+        outputs = None
     params = _infer_param_schema(params) if params else None
     return ModelSignature(inputs, outputs, params)
 
