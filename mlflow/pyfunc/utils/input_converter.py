@@ -1,5 +1,5 @@
 from dataclasses import fields, is_dataclass
-from typing import get_args, get_origin, Union
+from typing import Union, get_args, get_origin
 
 from mlflow.utils.annotations import experimental
 
