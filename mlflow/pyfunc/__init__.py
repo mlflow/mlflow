@@ -990,9 +990,9 @@ def load_model(
         dst_path: The local filesystem path to which to download the model artifact.
             This directory must already exist. If unspecified, a local output
             path will be created.
-        model_config: The model configuration to apply to the model. This configuration
-            is available during model loading. The configuration can be passed as a file path,
-            or a dict with string keys.
+        model_config: The model configuration to apply to the model. The logged configuration will
+            be available as `context.model_config` in ``load_context`` and ``predict``..
+            The configuration can be passed as a file path, or a dict with string keys.
 
             .. Note:: Experimental: This parameter may change or be removed in a future
                 release without warning.
@@ -2844,8 +2844,9 @@ def log_model(
         extra_pip_requirements: {{ extra_pip_requirements }}
         metadata: {{ metadata }}
 
-        model_config: The model configuration to apply to the model. This configuration
-            is available during model loading.
+        model_config: The model configuration to apply to the model. The logged configuration will
+            be available as `context.model_config` in ``load_context`` and ``predict``..
+            The configuration can be passed as a file path, or a dict with string keys.
 
             .. Note:: Experimental: This parameter may change or be removed in a future
                                     release without warning.
