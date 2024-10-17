@@ -28,8 +28,12 @@ model_uri = model_info.model_uri
 
 # The prebuilt model environment archive file path.
 # To build the model environment, run `mlflow.pyfunc.build_model_env` in Databricks runtime,
-# and save the built environment archive file to a UC volume path
-# and then download the built env archive file to local disk from the saved UC volume path.
+# and save the built environment archive file to a UC volume path, like
+# `mlflow.pyfunc.build_model_env(model_uri, "/Volumes/...")`
+# and then download the built env archive file to local disk from the saved UC volume path,
+# you can use Databricks CLI to download the file, or use Databricks SDK API
+# https://databricks-sdk-py.readthedocs.io/en/latest/workspace/files/files.html#databricks.sdk.service.files.FilesAPI.download
+# to download it.
 model_env_path = "..."
 
 infer_spark_df = spark.createDataFrame(X)
