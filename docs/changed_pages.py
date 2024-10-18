@@ -26,15 +26,8 @@ def main() -> None:
     if pr is None:
         return
 
-    SOURCE_REGEX = re.compile(r"<!-- source: (.+) -->")
     BUILD_DIR = pathlib.Path("build/")
-    changed_files = fetch_changed_files(pr)
-    changed_pages: list[str] = []
-    for p in BUILD_DIR.rglob("**/*.html"):
-        if m := SOURCE_REGEX.search(p.read_text()):
-            source = m.group(1)
-            if source in changed_files:
-                changed_pages.append(p.relative_to(BUILD_DIR))
+    changed_pages = [f[:-4] + ".html" for f in fetch_changed_files(pr) if f.endswith(".mdx")]
 
     links = "".join(f'<li><a href="{p}"><h2>{p}</h2></a></li>' for p in changed_pages)
     diff_html = f"""
