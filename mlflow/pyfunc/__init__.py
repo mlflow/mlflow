@@ -1676,7 +1676,7 @@ def _gen_prebuilt_env_archive_name(spark, local_model_path):
     'mlflow-{sha of python env config and dependencies}-{runtime version}-{platform machine}'
     Note: The runtime version and platform machine information are included in the
      archive name because the prebuilt env might not be compatible across different
-     runtime version or platform machine.
+     runtime versions or platform machines.
     """
     python_env = _get_python_env(Path(local_model_path))
     env_name = _get_virtualenv_name(python_env, local_model_path)
@@ -1748,18 +1748,27 @@ def build_model_env(model_uri, save_path):
     `save_path`.
 
     Typical usages:
-     - Prebuild the model environment in Databricks Runtime, and then download the prebuilt
-       python environment archive file, then the prebuilt env file can be used
-       in `mlflow.pyfunc.spark_udf` in any remote Databricks connect client side.
+     - Pre-build a model's environment in Databricks Runtime and then download the prebuilt
+       python environment archive file. This pre-built environment archive can then be used
+       in `mlflow.pyfunc.spark_udf` for remote inference execution when using Databricks Connect
+       to remotely connect to a Databricks environment for code execution.
 
     .. note::
-        The `build_model_env` can only be called in Databricks runtime,
-        and the generated prebuilt env file can be used in `mlflow.pyfunc.spark_udf` in
-        Databricks runtime or Databricks Connect client.
-        The prebuilt env archive file can't be used across different Databricks runtime
-        versions or different platform machines.
+        The `build_model_env` API is intended to only work when executed within Databricks runtime,
+        serving the purpose of capturing the required execution environment that is needed for
+        remote code execution when using DBConnect. The environment archive is designed to be used
+        when performing remote execution using `mlflow.pyfunc.spark_udf` in
+        Databricks runtime or Databricks Connect client and has no other purpose.
+        The prebuilt env archive file cannot be used across different Databricks runtime
+        versions or different platform machines. As such, if you connect to a different cluster
+        that is running a different runtime version on Databricks, you will need to execute this
+        API in a notebook and retrieve the generated archive to your local machine. Each
+        environment snapshot is unique to the the model, the runtime version of your remote
+        Databricks cluster, and the specification of the udf execution environment.
         When using the prebuilt env in `mlflow.pyfunc.spark_udf`, MLflow will verify
-        whether the spark UDF sandbox environment matches the prebuilt env requirements.
+        whether the spark UDF sandbox environment matches the prebuilt env requirements and will
+        raise Exceptions if there are compatibility issues. If these occur, simply re-run this API
+        in the cluster that you are attempting to attach to.
 
     .. code-block:: python
         :caption: Example
