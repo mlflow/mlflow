@@ -2032,7 +2032,7 @@ class FileStore(AbstractStore):
             tags: Tags to set on the model.
 
         Returns:
-            The model with the updated tags
+            None
         """
         model = self.get_logged_model(model_id)
         for tag in tags:

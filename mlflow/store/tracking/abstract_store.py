@@ -777,7 +777,7 @@ class AbstractStore:
             tags: Tags to set on the model.
 
         Returns:
-            The model with the updated tags.
+            None
         """
         raise NotImplementedError
 
