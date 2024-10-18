@@ -99,15 +99,16 @@ Let's start from training a model with the default hyperparameters. Execute the 
   import mlflow
 
   import numpy as np
-  from sklearn import datasets, metrics
+  from sklearn import datasets
+  from sklearn.metrics import mean_squared_error, r2_score, mean_absolute_error
   from sklearn.linear_model import ElasticNet
   from sklearn.model_selection import train_test_split
 
 
   def eval_metrics(pred, actual):
-      rmse = np.sqrt(metrics.mean_squared_error(actual, pred))
-      mae = metrics.mean_absolute_error(actual, pred)
-      r2 = metrics.r2_score(actual, pred)
+      rmse = np.sqrt(mean_squared_error(actual, pred))
+      mae = mean_absolute_error(actual, pred)
+      r2 = r2_score(actual, pred)
       return rmse, mae, r2
 
 
@@ -184,7 +185,7 @@ We will conduct a random search to identify the optimal combination of ``alpha``
 
       # Evaluate the best model on test dataset
       y_pred = clf.best_estimator_.predict(X_test)
-      rmse, mae, r2 = eval_metrics(clf.best_estimator_, y_pred, y_test)
+      rmse, mae, r2 = eval_metrics(y_pred, y_test)
       mlflow.log_metrics(
           {
               "mean_squared_error_X_test": rmse,
@@ -267,7 +268,7 @@ This command starts a local server listening on port 1234. You can send a reques
 
 .. code-block:: bash
 
-    $ curl -X POST -H "Content-Type:application/json" --data '{"inputs": [[14.23, 1.71, 2.43, 15.6, 127.0, 2.8, 3.06, 0.28, 2.29, 5.64, 1.04, 3.92, 1065.0]]' http://127.0.0.1:1234/invocations
+    $ curl -X POST -H "Content-Type:application/json" --data '{"inputs": [[14.23, 1.71, 2.43, 15.6, 127.0, 2.8, 3.06, 0.28, 2.29, 5.64, 1.04, 3.92, 1065.0]]}' http://127.0.0.1:1234/invocations
 
     {"predictions": [-0.03416275504140387]}
 
