@@ -27,7 +27,7 @@ def main() -> None:
         return
 
     SOURCE_REGEX = re.compile(r"<!-- source: (.+) -->")
-    BUILD_DIR = pathlib.Path("build/html")
+    BUILD_DIR = pathlib.Path("build/")
     changed_files = fetch_changed_files(pr)
     changed_pages: list[str] = []
     for p in BUILD_DIR.rglob("**/*.html"):
