@@ -44,7 +44,7 @@ jobs:
           name: Build documentation
           working_directory: docs
           command: |
-            yarn && yarn build
+            yarn install && yarn build
       - store_artifacts:
           path: docs/build/
 
