@@ -1,6 +1,5 @@
 import json
-from dataclasses import asdict
-
+from dataclasses import asdict, dataclass
 import numpy as np
 import pandas as pd
 import pyspark
@@ -21,6 +20,8 @@ from mlflow.types.schema import (
     TensorSpec,
     convert_dataclass_to_schema,
 )
+
+from typing import Optional
 
 
 def test_model_signature_with_colspec():
@@ -338,3 +339,42 @@ def test_infer_signature_with_dataclass():
     output_schema = convert_dataclass_to_schema(rag_signatures.ChatCompletionResponse())
     assert inferred_signature.inputs == input_schema
     assert inferred_signature.outputs == output_schema
+
+
+@dataclass
+class CustomInput:
+    id: int = 0
+
+
+@dataclass
+class CustomOutput:
+    id: int = 0
+
+
+@dataclass
+class FlexibleChatCompletionRequest(rag_signatures.ChatCompletionRequest):
+    custom_input: Optional[CustomInput] = CustomInput()
+
+
+@dataclass
+class FlexibleChatCompletionResponse(rag_signatures.ChatCompletionResponse):
+    custom_output: Optional[CustomOutput] = CustomOutput()
+
+
+def test_infer_signature_with_optional_dataclass():
+    inferred_signature = infer_signature(
+        FlexibleChatCompletionRequest(), FlexibleChatCompletionResponse()
+    )
+    custom_input_schema = next(
+        schema for schema in inferred_signature.inputs.to_dict() if schema["name"] == "custom_input"
+    )
+    assert custom_input_schema["required"] is False
+
+
+def test_infer_signature_with_child_dataclass():
+    inferred_signature = infer_signature(
+        FlexibleChatCompletionRequest(), FlexibleChatCompletionResponse()
+    )
+    assert any(
+        schema for schema in inferred_signature.inputs.to_dict() if schema["name"] == "messages"
+    )
