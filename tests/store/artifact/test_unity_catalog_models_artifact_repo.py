@@ -231,7 +231,7 @@ def test_uc_models_artifact_repo_download_artifacts_uses_temporary_creds_gcp(mon
         )
         assert models_repo.download_artifacts("artifact_path", "dst_path") == fake_local_path
         gcs_artifact_repo_class_mock.assert_called_once_with(
-            artifact_uri=artifact_location, client=ANY
+            artifact_uri=artifact_location, client=ANY, credential_refresh_def=ANY
         )
         mock_gcs_repo.download_artifacts.assert_called_once_with("artifact_path", "dst_path")
         gcs_client_args = gcs_client_class_mock.call_args_list[0]

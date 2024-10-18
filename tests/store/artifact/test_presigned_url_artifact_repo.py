@@ -19,7 +19,7 @@ from mlflow.protos.databricks_filesystem_service_pb2 import (
     HttpHeader,
     ListDirectoryResponse,
 )
-from mlflow.store.artifact.cloud_artifact_repo import _retry_with_new_creds
+from mlflow.store.artifact.artifact_repo import _retry_with_new_creds
 from mlflow.store.artifact.presigned_url_artifact_repo import (
     DIRECTORIES_ENDPOINT,
     FILESYSTEM_METHOD_TO_INFO,
@@ -342,7 +342,7 @@ def test_retry_refresh_creds_no_creds(throw, use_og_creds, status_code):
     mock_creds = mock.Mock(side_effect=creds_func)
     mock_func = mock.Mock(side_effect=try_func)
     if use_og_creds:
-        _retry_with_new_creds(try_func=mock_func, creds_func=mock_creds, og_creds=credentials)
+        _retry_with_new_creds(try_func=mock_func, creds_func=mock_creds, orig_creds=credentials)
     else:
         _retry_with_new_creds(try_func=mock_func, creds_func=mock_creds)
 

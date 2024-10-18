@@ -1449,7 +1449,7 @@ def test_create_model_version_gcp(store, local_model_dir, create_args):
         store.create_model_version(**create_kwargs)
         # Verify that gcs artifact repo mock was called with expected args
         gcs_artifact_repo_class_mock.assert_called_once_with(
-            artifact_uri=storage_location, client=ANY
+            artifact_uri=storage_location, client=ANY, credential_refresh_def=ANY
         )
         mock_gcs_repo.log_artifacts.assert_called_once_with(local_dir=ANY, artifact_path="")
         gcs_client_args = gcs_client_class_mock.call_args_list[0]

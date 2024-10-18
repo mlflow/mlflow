@@ -85,24 +85,6 @@ def _complete_futures(futures_dict, file):
     return results, errors
 
 
-def _retry_with_new_creds(try_func, creds_func, og_creds=None):
-    """
-    Attempt the try_func with the original credentials (og_creds) if provided, or by generating the
-    credentials using creds_func. If the try_func throws, then try again with new credentials
-    provided by creds_func.
-    """
-    try:
-        first_creds = creds_func() if og_creds is None else og_creds
-        return try_func(first_creds)
-    except Exception as e:
-        _logger.info(
-            "Failed to complete request, possibly due to credential expiration."
-            f" Refreshing credentials and trying again... (Error: {e})"
-        )
-        new_creds = creds_func()
-        return try_func(new_creds)
-
-
 StagedArtifactUpload = namedtuple(
     "StagedArtifactUpload",
     [
