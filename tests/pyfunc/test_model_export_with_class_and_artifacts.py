@@ -33,10 +33,10 @@ from mlflow.models.dependencies_schemas import DependenciesSchemasType
 from mlflow.models.model import _DATABRICKS_FS_LOADER_MODULE
 from mlflow.models.resources import (
     DatabricksFunction,
+    DatabricksGenieSpace,
     DatabricksServingEndpoint,
     DatabricksSQLWarehouse,
     DatabricksVectorSearchIndex,
-    DatabricksGenieSpace,
 )
 from mlflow.models.utils import _read_example
 from mlflow.pyfunc.context import Context, set_prediction_context

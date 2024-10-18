@@ -3,10 +3,10 @@ import pytest
 from mlflow.models.resources import (
     DEFAULT_API_VERSION,
     DatabricksFunction,
+    DatabricksGenieSpace,
     DatabricksServingEndpoint,
     DatabricksSQLWarehouse,
     DatabricksVectorSearchIndex,
-    DatabricksGenieSpace,
     _ResourceBuilder,
 )
 
