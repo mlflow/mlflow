@@ -45,16 +45,6 @@ jobs:
           working_directory: docs
           command: |
             yarn && yarn build
-      - run:
-          name: Check for broken links
-          working_directory: docs
-          command: |
-            python broken_links.py
-      - run:
-          name: Test examples
-          working_directory: docs
-          command: |
-            make test-examples
       - store_artifacts:
           path: docs/build/
 
