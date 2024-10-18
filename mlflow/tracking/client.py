@@ -4834,7 +4834,7 @@ class MlflowClient:
         """
         return self._tracking_client.get_logged_model(model_id)
 
-    def set_logged_model_tags(self, model_id: str, tags: Dict[str, Any]) -> LoggedModel:
+    def set_logged_model_tags(self, model_id: str, tags: Dict[str, Any]) -> None:
         """
         Set tags on the specified logged model.
 
@@ -4845,7 +4845,7 @@ class MlflowClient:
         Returns:
             The model with the updated tags.
         """
-        return self._tracking_client.set_logged_model_tags(model_id, tags)
+        self._tracking_client.set_logged_model_tags(model_id, tags)
 
     def delete_logged_model_tag(self, model_id: str, key: str) -> None:
         """

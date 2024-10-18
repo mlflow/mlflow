@@ -1107,8 +1107,8 @@ class TrackingServiceClient:
     def get_logged_model(self, model_id: str) -> LoggedModel:
         return self.store.get_logged_model(model_id)
 
-    def set_logged_model_tags(self, model_id: str, tags: Dict[str, Any]) -> LoggedModel:
-        return self.store.set_logged_model_tags(
+    def set_logged_model_tags(self, model_id: str, tags: Dict[str, Any]) -> None:
+        self.store.set_logged_model_tags(
             model_id, [LoggedModelTag(str(key), str(value)) for key, value in tags.items()]
         )
 
