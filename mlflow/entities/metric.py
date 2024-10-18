@@ -84,13 +84,24 @@ class Metric(_MlflowObject):
         metric.value = self.value
         metric.timestamp = self.timestamp
         metric.step = self.step
-        # TODO: Add model_id, dataset_name, dataset_digest, and run_id to the proto
+        metric.model_id = self.model_id
+        metric.dataset_name = self.dataset_name
+        metric.dataset_digest = self.dataset_digest
+        metric.run_id = self.run_id
         return metric
 
     @classmethod
     def from_proto(cls, proto):
-        # TODO: Add model_id, dataset_name, dataset_digest, and run_id to the proto
-        return cls(proto.key, proto.value, proto.timestamp, proto.step)
+        return cls(
+            proto.key,
+            proto.value,
+            proto.timestamp,
+            proto.step,
+            model_id=proto.model_id,
+            dataset_name=proto.dataset_name,
+            dataset_digest=proto.dataset_digest,
+            run_id=proto.run_id,
+        )
 
     def __eq__(self, __o):
         if isinstance(__o, self.__class__):
