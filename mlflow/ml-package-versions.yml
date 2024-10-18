@@ -575,6 +575,8 @@ transformers:
       # Installing `transformers==4.34.1` with `datasets` results in installing `huggingface_hub==0.17.3`.
       # `accelerate>=0.32.0` and `peft>=0.13.0` are incompatible with `huggingface_hub==0.17.3`.
       "== 4.34.1": ["accelerate<0.32.0", "peft<0.13.0"]
+      # Pin torchvision to <0.20.0 to avoid https://github.com/pytorch/torchchat/issues/1158
+      ">= 4.42, < 4.46.0": ["torchvision<0.20.0"]
       "== dev": ["tf-keras"]
     pre_test: |
       export PYTHONPATH=./
