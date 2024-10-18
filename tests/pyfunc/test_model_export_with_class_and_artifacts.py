@@ -35,6 +35,7 @@ from mlflow.models.resources import (
     DatabricksFunction,
     DatabricksServingEndpoint,
     DatabricksSQLWarehouse,
+    DatabricksUCConnection,
     DatabricksVectorSearchIndex,
 )
 from mlflow.models.utils import _read_example
@@ -1616,6 +1617,7 @@ def test_model_save_load_with_resources(tmp_path):
                 {"name": "rag.studio.test_function_a"},
                 {"name": "rag.studio.test_function_b"},
             ],
+            "uc_connection": [{"name": "test_connection_1"}, {"name": "test_connection_2"}],
         },
     }
     mlflow.pyfunc.save_model(
@@ -1630,6 +1632,8 @@ def test_model_save_load_with_resources(tmp_path):
             DatabricksSQLWarehouse(warehouse_id="testid"),
             DatabricksFunction(function_name="rag.studio.test_function_a"),
             DatabricksFunction(function_name="rag.studio.test_function_b"),
+            DatabricksUCConnection(connection_name="test_connection_1"),
+            DatabricksUCConnection(connection_name="test_connection_2"),
         ],
     )
 
@@ -1653,6 +1657,9 @@ def test_model_save_load_with_resources(tmp_path):
                 function:
                 - name: rag.studio.test_function_a
                 - name: rag.studio.test_function_b
+                uc_connection:
+                - name: test_connection_1
+                - name: test_connection_2
             """
         )
 
@@ -1684,6 +1691,7 @@ def test_model_log_with_resources(tmp_path):
                 {"name": "rag.studio.test_function_a"},
                 {"name": "rag.studio.test_function_b"},
             ],
+            "uc_connection": [{"name": "test_connection_1"}, {"name": "test_connection_2"}],
         },
     }
     with mlflow.start_run() as run:
@@ -1698,6 +1706,8 @@ def test_model_log_with_resources(tmp_path):
                 DatabricksSQLWarehouse(warehouse_id="testid"),
                 DatabricksFunction(function_name="rag.studio.test_function_a"),
                 DatabricksFunction(function_name="rag.studio.test_function_b"),
+                DatabricksUCConnection(connection_name="test_connection_1"),
+                DatabricksUCConnection(connection_name="test_connection_2"),
             ],
         )
     pyfunc_model_uri = f"runs:/{run.info.run_id}/{pyfunc_artifact_path}"
@@ -1722,6 +1732,9 @@ def test_model_log_with_resources(tmp_path):
                 function:
                 - name: rag.studio.test_function_a
                 - name: rag.studio.test_function_b
+                uc_connection:
+                - name: test_connection_1
+                - name: test_connection_2
             """
         )
 
