@@ -4859,6 +4859,20 @@ class MlflowClient:
         return self._tracking_client.delete_logged_model_tag(model_id, key)
 
     def log_model_artifacts(self, model_id: str, local_dir: str) -> None:
+        """
+        Log artifacts for the specified model.
+
+        Args:
+            model_id: ID of the model.
+            local_dir: Local directory containing the artifacts to log.
+
+        Returns:
+            None
+        """
+        if not os.path.exists(local_dir):
+            raise MlflowException.invalid_parameter_value(f"{local_dir} does not exist.")
+        if not os.path.isdir(local_dir):
+            raise MlflowException.invalid_parameter_value(f"{local_dir} is not a directory.")
         return self._tracking_client.log_model_artifacts(model_id, local_dir)
 
     def search_logged_models(
