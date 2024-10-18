@@ -1,5 +1,7 @@
 import json
 from dataclasses import asdict, dataclass
+from typing import Optional
+
 import numpy as np
 import pandas as pd
 import pyspark
@@ -20,8 +22,6 @@ from mlflow.types.schema import (
     TensorSpec,
     convert_dataclass_to_schema,
 )
-
-from typing import Optional
 
 
 def test_model_signature_with_colspec():
