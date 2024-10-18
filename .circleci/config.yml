@@ -44,7 +44,7 @@ jobs:
           name: Set env vars
           working_directory: docs
           command: |
-            export CIRCLECI_BASE_URL="/output/job/${CIRCLE_WORKFLOW_JOB_ID}/artifacts/0/docs/build/"
+            echo "export CIRCLECI_BASE_URL=/output/job/$CIRCLE_WORKFLOW_JOB_ID/artifacts/0/docs/build/" >> "$BASH_ENV"
       - run:
           name: Build documentation
           working_directory: docs
