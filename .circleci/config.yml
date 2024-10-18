@@ -29,6 +29,8 @@ jobs:
           command: |
             ./build-rdoc.sh
             if [ -n "$(git status --porcelain)" ]; then
+              echo "The following files have changed:"
+              git status --porcelain
               exit 1
             fi
 
