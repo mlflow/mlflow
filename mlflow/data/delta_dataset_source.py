@@ -136,6 +136,7 @@ class DeltaDatasetSource(DatasetSource):
                 json_body=req_body,
                 response_proto=GetTableResponse,
             )
+            eprint("_lookup_table_id returned", resp.table_id)
             return resp.table_id
         except Exception as e:
             eprint("_lookup_table_id returned None due to", e)
