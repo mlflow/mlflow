@@ -78,7 +78,9 @@ class DeltaDatasetSource(DatasetSource):
         if self._path:
             return spark_read_op.load(self._path)
         else:
-            return spark_read_op.table(self._delta_table_name)
+            # make spark happy
+            return spark_read_op.table(self._delta_table_name.replace('`', ''))
+            # return spark_read_op.table(self._delta_table_name)
 
     @property
     def path(self) -> Optional[str]:
