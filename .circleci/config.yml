@@ -68,9 +68,7 @@ jobs:
           environment:
             JAVA_HOME: /usr/lib/jvm/default-java
           command: |
-            make rsthtml
-            make javadocs
-            python changed_pages.py
+            yarn build
       - run:
           name: Check for broken links
           working_directory: docs
@@ -82,7 +80,7 @@ jobs:
           command: |
             make test-examples
       - store_artifacts:
-          path: docs/build/html
+          path: docs/build/
 
   mlflow-recipes:
     docker:

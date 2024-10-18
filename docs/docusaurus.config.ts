@@ -50,7 +50,7 @@ const config: Config = {
     navbar: {
       logo: {
         alt: "MLflow Logo",
-        src: "img/logo.png",
+        src: "images/logo.png",
       },
       items: [
         {
