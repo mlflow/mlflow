@@ -11,14 +11,15 @@ const config: Config = {
   url: "https://mlflow.org",
   // Set the /<baseUrl>/ pathname under which your site is served
   // For GitHub pages deployment, it is often '/<projectName>/'
-  baseUrl: "/",
+  baseUrl: process.env.CIRCLECI_BASE_URL || "/",
 
   // GitHub pages deployment config.
   // If you aren't using GitHub pages, you don't need these.
   organizationName: "mlflow", // Usually your GitHub org/user name.
   projectName: "mlflow", // Usually your repo name.
 
-  onBrokenLinks: "throw",
+  // change to throw when migration is done
+  onBrokenLinks: "warn",
   onBrokenMarkdownLinks: "warn",
 
   // Even if you don't use internationalization, you can use this field to set
@@ -49,7 +50,7 @@ const config: Config = {
     navbar: {
       logo: {
         alt: "MLflow Logo",
-        src: "img/logo.png",
+        src: "images/logo.png",
       },
       items: [
         {
