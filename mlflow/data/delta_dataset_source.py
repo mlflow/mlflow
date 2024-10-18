@@ -116,6 +116,8 @@ class DeltaDatasetSource(DatasetSource):
             return False
 
     def _lookup_table_id(self, table_name):
+        from mlflow.utils.logging_utils import eprint
+        eprint("_lookup_table_id is invoked")
         try:
             req_body = message_to_json(GetTable(full_name_arg=table_name))
             _METHOD_TO_INFO = extract_api_info_for_service(
@@ -134,7 +136,8 @@ class DeltaDatasetSource(DatasetSource):
                 response_proto=GetTableResponse,
             )
             return resp.table_id
-        except Exception:
+        except Exception as e:
+            eprint("_lookup_table_id returned None due to", e)
             return None
 
     def to_dict(self) -> Dict[Any, Any]:
