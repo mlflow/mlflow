@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import os
 import pathlib
-import re
 
 import requests
 
@@ -27,7 +26,9 @@ def main() -> None:
         return
 
     BUILD_DIR = pathlib.Path("build/")
-    changed_pages = [f[:-4] + ".html" for f in fetch_changed_files(pr) if f.endswith(".mdx")]
+
+    # TODO: improve this when docusaurus launches
+    changed_pages = [f[5:-4] + "/index.html" for f in fetch_changed_files(pr) if f.endswith(".mdx")]
 
     links = "".join(f'<li><a href="{p}"><h2>{p}</h2></a></li>' for p in changed_pages)
     diff_html = f"""
