@@ -35,7 +35,7 @@ jobs:
   # TODO: Add a job to build the python and java api reference
   build_doc:
     docker:
-      - image: cimg/node:20.17
+      - image: cimg/python:3.8.16-node
 
     steps:
       - checkout
@@ -50,6 +50,7 @@ jobs:
           working_directory: docs
           command: |
             yarn install && yarn build
+            python changed_pages.py
       - store_artifacts:
           path: docs/build/
 
