@@ -46,6 +46,10 @@ jobs:
           command: |
             echo "export CIRCLECI_BASE_URL=/output/job/$CIRCLE_WORKFLOW_JOB_ID/artifacts/0/docs/build/" >> "$BASH_ENV"
       - run:
+          name: Install dependencies
+          command: |
+            pip install requests
+      - run:
           name: Build documentation
           working_directory: docs
           command: |
