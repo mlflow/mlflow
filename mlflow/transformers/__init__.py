@@ -1514,10 +1514,28 @@ def _get_task_for_model(model_name_or_path: str, default_task=None) -> str:
     NB: The get_task() function only works for remote models available in the Hugging
     Face hub, so the default task should be supplied when using a custom local model.
     """
-    from transformers.pipelines import get_task
+    from transformers.pipelines import get_supported_tasks, get_task
 
     try:
-        return get_task(model_name_or_path)
+        model_task = get_task(model_name_or_path)
+        if model_task in get_supported_tasks():
+            return model_task
+        elif default_task is not None:
+            _logger.warning(
+                f"The task '{model_task}' inferred from the model is not"
+                "supported by the transformers pipeline. MLflow will "
+                f"construct the pipeline with the fallback task {default_task} "
+                "inferred from the specified 'llm/v1/xxx' task."
+            )
+            return default_task
+        else:
+            raise MlflowException(
+                f"Cannot construct transformers pipeline because the task '{model_task}' "
+                "inferred from the model is not supported by the transformers pipeline. "
+                "Please construct the pipeline instance manually and pass it to the "
+                "`log_model` or `save_model` function."
+            )
+
     except RuntimeError as e:
         if default_task:
             return default_task
