@@ -116,8 +116,9 @@ class DeltaDatasetSource(DatasetSource):
             return False
 
     def _lookup_table_id(self, table_name):
+        table_name = table_name.replace('`', '')
         from mlflow.utils.logging_utils import eprint
-        eprint("_lookup_table_id is invoked")
+        eprint("_lookup_table_id is invoked", table_name)
         try:
             req_body = message_to_json(GetTable(full_name_arg=table_name))
             _METHOD_TO_INFO = extract_api_info_for_service(
