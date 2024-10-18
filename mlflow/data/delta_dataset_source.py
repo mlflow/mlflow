@@ -79,8 +79,8 @@ class DeltaDatasetSource(DatasetSource):
             return spark_read_op.load(self._path)
         else:
             # make spark happy
-            return spark_read_op.table("1b0_dev.`mlflow-example5`.wine_mlflow_train2")
-            # return spark_read_op.table(self._delta_table_name)
+            # return spark_read_op.table("1b0_dev.`mlflow-example5`.wine_mlflow_train2")
+            return spark_read_op.table(self._delta_table_name)
 
     @property
     def path(self) -> Optional[str]:
