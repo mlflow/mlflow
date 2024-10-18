@@ -16,7 +16,7 @@ from mlflow.utils._spark_utils import _get_active_spark_session
 from mlflow.utils.credentials import get_default_host_creds
 from mlflow.utils.databricks_utils import (
     get_databricks_host_creds,
-    is_in_databricks_serverless,
+    is_in_databricks_serverless_runtime,
     warn_on_deprecated_cross_workspace_registry_uri,
 )
 from mlflow.utils.uri import _DATABRICKS_UNITY_CATALOG_SCHEME, _OSS_UNITY_CATALOG_SCHEME
@@ -83,7 +83,7 @@ def _get_registry_uri_from_spark_session():
     if session is None:
         return None
 
-    if is_in_databricks_serverless():
+    if is_in_databricks_serverless_runtime():
         # Connected to Serverless
         return "databricks-uc"
 

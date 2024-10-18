@@ -71,7 +71,7 @@ from mlflow.utils.autologging_utils import (
 )
 from mlflow.utils.databricks_utils import (
     is_in_databricks_model_serving_environment,
-    is_in_databricks_serverless,
+    is_in_databricks_serverless_runtime,
     is_mlflow_tracing_enabled_in_model_serving,
 )
 from mlflow.utils.docstring_utils import (
@@ -407,7 +407,7 @@ def save_model(
             default_reqs = get_default_pip_requirements()
             extra_env_vars = (
                 _get_databricks_serverless_env_vars()
-                if needs_databricks_auth and is_in_databricks_serverless()
+                if needs_databricks_auth and is_in_databricks_serverless_runtime()
                 else None
             )
             inferred_reqs = mlflow.models.infer_pip_requirements(
