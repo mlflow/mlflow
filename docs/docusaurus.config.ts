@@ -18,7 +18,8 @@ const config: Config = {
   organizationName: "mlflow", // Usually your GitHub org/user name.
   projectName: "mlflow", // Usually your repo name.
 
-  onBrokenLinks: "throw",
+  // change to throw when migration is done
+  onBrokenLinks: "warn",
   onBrokenMarkdownLinks: "warn",
 
   // Even if you don't use internationalization, you can use this field to set
