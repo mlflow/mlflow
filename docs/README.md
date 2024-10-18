@@ -1,6 +1,13 @@
-# Website
+# MLflow Docusaurus Migration
 
-This website is built using [Docusaurus](https://docusaurus.io/), a modern static website generator.
+The `docusaurus` branch is the working branch for all Docusaurus migration work. We are switching away from Sphinx for our main informational docs, and using [Docusaurus](https://docusaurus.io/) instead.
+
+## Jobs to be Done
+
+1. Migrating all non-API related docs from `.rst` to `.mdx`, the Docusaurus format
+  a. These files can be found in the `rst_to_migrate` folder
+2. Migrating notebooks to be rendered via [this plugin](https://github.com/datalayer/jupyter-ui/tree/main/packages/docusaurus-plugin), rather than by `nbsphinx`
+  a. Notebooks are also found in the `rst_to_migrate` folder, but will end in `.ipynb` 
 
 ### Installation
 
