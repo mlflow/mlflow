@@ -34,7 +34,7 @@ def _read_mlflow_creds_from_file() -> Tuple[Optional[str], Optional[str]]:
     if not os.path.exists(path):
         return None, None
 
-    config = configparser.ConfigParser()
+    config = configparser.ConfigParser(interpolation=None)
     config.read(path)
     if "mlflow" not in config:
         return None, None
