@@ -41,10 +41,13 @@ jobs:
       - checkout
       - fetch_merge_ref
       - run:
+          name: Set env vars
+          working_directory: docs
+          command: |
+            export CIRCLECI_BASE_URL="/output/job/${CIRCLE_WORKFLOW_JOB_ID}/artifacts/0/docs/build/"
+      - run:
           name: Build documentation
           working_directory: docs
-          environment:
-            CIRCLECI_BASE_URL: /output/job/$CIRCLE_WORKFLOW_JOB_ID/artifacts/0/docs/build/
           command: |
             yarn install && yarn build
       - store_artifacts:
