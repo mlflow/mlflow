@@ -2,7 +2,7 @@
 
 set -ex
 
-pushd ../mlflow/R/mlflow
+pushd ../../mlflow/R/mlflow
 
 image_name="mlflow-r-dev"
 

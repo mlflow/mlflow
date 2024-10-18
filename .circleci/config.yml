@@ -25,13 +25,16 @@ jobs:
       - fetch_merge_ref
       - run:
           name: Build documentation
-          working_directory: docs
+          working_directory: docs/api_reference
           command: |
             ./build-rdoc.sh
             if [ -n "$(git status --porcelain)" ]; then
+              echo "The following files have changed:"
+              git status --porcelain
               exit 1
             fi
 
+  # TODO: Add a job to build the python and java api reference
   build_doc:
     docker:
       - image: cimg/python:3.9
@@ -40,48 +43,22 @@ jobs:
       - checkout
       - fetch_merge_ref
       - run:
-          name: Install Java
+          name: Set env vars
+          working_directory: docs
           command: |
-            sudo apt-get update --yes
-            sudo apt-get install default-jdk --yes
-            sudo apt-get install maven --yes
-            java -version
+            echo "export CIRCLECI_BASE_URL=/output/job/$CIRCLE_WORKFLOW_JOB_ID/artifacts/0/docs/build/" >> "$BASH_ENV"
       - run:
-          name: Install Pandoc
+          name: Install dependencies
           command: |
-            sudo apt-get install pandoc
-      - run:
-          name: Install Python dependencies
-          command: |
-            pip --version
-            pip install --progress-bar off -r requirements/doc-requirements.txt pytest pytest-cov plotly .[gateway]
-          environment:
-            PIP_EXTRA_INDEX_URL: https://download.pytorch.org/whl/cpu
-      - run:
-          name: Show package release dates
-          command: |
-            python dev/show_package_release_dates.py
+            pip install requests
       - run:
           name: Build documentation
           working_directory: docs
-          environment:
-            JAVA_HOME: /usr/lib/jvm/default-java
           command: |
-            make rsthtml
-            make javadocs
+            yarn install && yarn build
             python changed_pages.py
-      - run:
-          name: Check for broken links
-          working_directory: docs
-          command: |
-            python broken_links.py
-      - run:
-          name: Test examples
-          working_directory: docs
-          command: |
-            make test-examples
       - store_artifacts:
-          path: docs/build/html
+          path: docs/build/
 
   mlflow-recipes:
     docker:
