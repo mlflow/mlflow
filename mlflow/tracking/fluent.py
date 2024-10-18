@@ -1016,7 +1016,10 @@ def log_input(
     if context:
         tags_to_log.append(InputTag(key=MLFLOW_DATASET_CONTEXT, value=context))
 
+    from mlflow.utils.logging_utils import eprint
+    eprint("dataset", dataset)
     dataset_input = DatasetInput(dataset=dataset._to_mlflow_entity(), tags=tags_to_log)
+    eprint("dataset_input", dataset_input)
 
     MlflowClient().log_inputs(run_id=run_id, datasets=[dataset_input])
 
