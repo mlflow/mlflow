@@ -44,19 +44,19 @@ export default [
   },
   {
     path: '/docs',
-    component: ComponentCreator('/docs', '2f3'),
+    component: ComponentCreator('/docs', '1b6'),
     routes: [
       {
         path: '/docs',
-        component: ComponentCreator('/docs', '9b2'),
+        component: ComponentCreator('/docs', '579'),
         routes: [
           {
             path: '/docs',
-            component: ComponentCreator('/docs', 'b94'),
+            component: ComponentCreator('/docs', 'c7b'),
             routes: [
               {
                 path: '/docs/',
-                component: ComponentCreator('/docs/', 'af3'),
+                component: ComponentCreator('/docs/', '520'),
                 exact: true,
                 sidebar: "docsSidebar"
               }
