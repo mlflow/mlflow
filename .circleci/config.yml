@@ -44,7 +44,7 @@ jobs:
           name: Build documentation
           working_directory: docs
           command: |
-            yarn build
+            yarn && yarn build
       - run:
           name: Check for broken links
           working_directory: docs
