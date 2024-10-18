@@ -483,3 +483,61 @@ def test_abort_multipart_upload(mock_client):
             f"{gcs_base_url}/{bucket_name}/{artifact_root_path}/{file_name}?uploadId={upload_id}",
         )
         assert kwargs["data"] is None
+
+
+@pytest.mark.parametrize("throw", [True, False])
+def test_retryable_log_artifacts(throw, tmp_path):
+    with mock.patch("google.cloud.storage.Client") as mock_gcs_client_factory, mock.patch(
+        "google.oauth2.credentials.Credentials"
+    ) as mock_gcs_credentials_factory:
+        gcs_client_mock = mock.Mock()
+        gcs_bucket_mock = mock.Mock()
+        gcs_client_mock.bucket.return_value = gcs_bucket_mock
+
+        gcs_refreshed_client_mock = mock.Mock()
+        gcs_refreshed_bucket_mock = mock.Mock()
+        gcs_refreshed_client_mock.bucket.return_value = gcs_refreshed_bucket_mock
+        mock_gcs_client_factory.return_value = gcs_refreshed_client_mock
+
+        def exception_thrown_side_effect_func(*args, **kwargs):
+            if throw:
+                raise Exception("Test Exception")
+            return None
+
+        def success_side_effect_func(*args, **kwargs):
+            return None
+
+        def creds_func():
+            return {"oauth_token": "new_creds"}
+
+        gcs_bucket_mock.blob.return_value.upload_from_filename.side_effect = (
+            exception_thrown_side_effect_func
+        )
+        gcs_refreshed_bucket_mock.blob.return_value.upload_from_filename.side_effect = (
+            success_side_effect_func
+        )
+
+        repo = GCSArtifactRepository(
+            artifact_uri="gs://test_bucket/test_root/",
+            client=gcs_client_mock,
+            credential_refresh_def=creds_func,
+        )
+
+        data = tmp_path.joinpath("data")
+        data.mkdir()
+        subd = data.joinpath("subdir")
+        subd.mkdir()
+        subd.joinpath("a.txt").write_text("A")
+
+        repo.log_artifacts(subd)
+
+        if throw:
+            gcs_bucket_mock.blob.assert_called_once()
+            gcs_refreshed_bucket_mock.blob.assert_called_once()
+            mock_gcs_client_factory.assert_called_once()
+            mock_gcs_credentials_factory.assert_called_once()
+        else:
+            gcs_bucket_mock.blob.assert_called_once()
+            gcs_refreshed_bucket_mock.blob.assert_not_called()
+            mock_gcs_client_factory.assert_not_called()
+            mock_gcs_credentials_factory.assert_not_called()
