@@ -4843,7 +4843,7 @@ class MlflowClient:
             tags: Tags to set on the model.
 
         Returns:
-            The model with the updated tags.
+            None
         """
         self._tracking_client.set_logged_model_tags(model_id, tags)
 
