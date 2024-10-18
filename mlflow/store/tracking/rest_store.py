@@ -764,4 +764,4 @@ class RestStore(AbstractStore):
             None.
         """
         req_body = message_to_json(LogOutputs(run_id=run_id, models=[m.to_proto() for m in models]))
-        self._call_endpoint(LogInputs, req_body)
+        self._call_endpoint(LogOutputs, req_body)
