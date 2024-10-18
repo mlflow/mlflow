@@ -32,12 +32,15 @@ def get_source(dataset: Union[DatasetEntity, DatasetInput, Dataset]) -> DatasetS
     if isinstance(dataset, DatasetInput):
         dataset: DatasetEntity = dataset.dataset
 
+    from mlflow.utils.logging_utils import eprint
     if isinstance(dataset, DatasetEntity):
+        eprint("dataset is of type DatasetEntity")
         dataset_source: DatasetSource = get_dataset_source_from_json(
             source_json=dataset.source,
             source_type=dataset.source_type,
         )
     elif isinstance(dataset, Dataset):
+        eprint("dataset is of type Dataset")
         dataset_source: DatasetSource = dataset.source
     else:
         raise MlflowException(

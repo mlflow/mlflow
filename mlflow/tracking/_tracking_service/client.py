@@ -785,7 +785,8 @@ class TrackingServiceClient:
         """
         if datasets is None or len(datasets) == 0:
             return
-
+        from mlflow.utils.logging_utils import eprint
+        eprint(f"self.store.log_inputs datasets {datasets}")
         self.store.log_inputs(run_id=run_id, datasets=datasets)
 
     def _record_logged_model(self, run_id, mlflow_model):

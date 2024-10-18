@@ -78,6 +78,8 @@ class DeltaDatasetSource(DatasetSource):
         if self._path:
             return spark_read_op.load(self._path)
         else:
+            # make spark happy
+            # return spark_read_op.table("1b0_dev.`mlflow-example5`.wine_mlflow_train2")
             return spark_read_op.table(self._delta_table_name)
 
     @property
@@ -116,6 +118,9 @@ class DeltaDatasetSource(DatasetSource):
             return False
 
     def _lookup_table_id(self, table_name):
+        table_name = table_name.replace('`', '')
+        from mlflow.utils.logging_utils import eprint
+        eprint("_lookup_table_id is invoked", table_name)
         try:
             req_body = message_to_json(GetTable(full_name_arg=table_name))
             _METHOD_TO_INFO = extract_api_info_for_service(
@@ -133,8 +138,10 @@ class DeltaDatasetSource(DatasetSource):
                 json_body=req_body,
                 response_proto=GetTableResponse,
             )
+            eprint("_lookup_table_id returned", resp.table_id)
             return resp.table_id
-        except Exception:
+        except Exception as e:
+            eprint("_lookup_table_id returned None due to", e)
             return None
 
     def to_dict(self) -> Dict[Any, Any]:
