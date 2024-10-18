@@ -2023,7 +2023,7 @@ class FileStore(AbstractStore):
         write_yaml(model_dir, FileStore.META_DATA_FILE_NAME, model_info_dict, overwrite=True)
         return self.get_logged_model(model_id)
 
-    def set_logged_model_tags(self, model_id: str, tags: List[LoggedModelTag]) -> LoggedModel:
+    def set_logged_model_tags(self, model_id: str, tags: List[LoggedModelTag]) -> None:
         """
         Set tags on the specified logged model.
 
@@ -2032,7 +2032,7 @@ class FileStore(AbstractStore):
             tags: Tags to set on the model.
 
         Returns:
-            The model with the updated tags
+            None
         """
         model = self.get_logged_model(model_id)
         for tag in tags:

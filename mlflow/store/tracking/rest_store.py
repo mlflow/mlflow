@@ -691,7 +691,7 @@ class RestStore(AbstractStore):
         )
         return self._call_endpoint(FinalizeLoggedModel, json_body=json_body, endpoint=endpoint)
 
-    def set_logged_model_tags(self, model_id: str, tags: List[LoggedModelTag]) -> LoggedModel:
+    def set_logged_model_tags(self, model_id: str, tags: List[LoggedModelTag]) -> None:
         """
         Set tags on the specified logged model.
 
@@ -700,16 +700,13 @@ class RestStore(AbstractStore):
             tags: Tags to set on the model.
 
         Returns:
-            The model with the updated tags.
+            None
         """
         endpoint = get_logged_model_endpoint(model_id)
         json_body = message_to_json(
             SetLoggedModelTags(model_id=model_id, tags=[tag.to_proto() for tag in tags])
         )
-        response_proto = self._call_endpoint(
-            SetLoggedModelTags, json_body=json_body, endpoint=f"{endpoint}/tags"
-        )
-        return LoggedModel.from_proto(response_proto.model)
+        self._call_endpoint(SetLoggedModelTags, json_body=json_body, endpoint=f"{endpoint}/tags")
 
     def delete_logged_model_tag(self, model_id: str, key: str) -> None:
         """
