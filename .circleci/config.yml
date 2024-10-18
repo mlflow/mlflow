@@ -25,13 +25,14 @@ jobs:
       - fetch_merge_ref
       - run:
           name: Build documentation
-          working_directory: docs
+          working_directory: docs/api_reference
           command: |
             ./build-rdoc.sh
             if [ -n "$(git status --porcelain)" ]; then
               exit 1
             fi
 
+  # TODO: Add a job to build the python and java api reference
   build_doc:
     docker:
       # Pin to 3.8.16 to avoid https://github.com/mlflow/mlflow/issues/8635
@@ -41,32 +42,8 @@ jobs:
       - checkout
       - fetch_merge_ref
       - run:
-          name: Install Java
-          command: |
-            sudo apt-get update --yes
-            sudo apt-get install default-jdk --yes
-            sudo apt-get install maven --yes
-            java -version
-      - run:
-          name: Install Pandoc
-          command: |
-            sudo apt-get install pandoc
-      - run:
-          name: Install Python dependencies
-          command: |
-            pip --version
-            pip install --progress-bar off -r requirements/doc-requirements.txt pytest pytest-cov plotly .[gateway]
-          environment:
-            PIP_EXTRA_INDEX_URL: https://download.pytorch.org/whl/cpu
-      - run:
-          name: Show package release dates
-          command: |
-            python dev/show_package_release_dates.py
-      - run:
           name: Build documentation
           working_directory: docs
-          environment:
-            JAVA_HOME: /usr/lib/jvm/default-java
           command: |
             yarn build
       - run:
