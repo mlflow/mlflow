@@ -84,10 +84,14 @@ class Metric(_MlflowObject):
         metric.value = self.value
         metric.timestamp = self.timestamp
         metric.step = self.step
-        metric.model_id = self.model_id
-        metric.dataset_name = self.dataset_name
-        metric.dataset_digest = self.dataset_digest
-        metric.run_id = self.run_id
+        if self.model_id:
+            metric.model_id = self.model_id
+        if self.dataset_name:
+            metric.dataset_name = self.dataset_name
+        if self.dataset_digest:
+            metric.dataset_digest = self.dataset_digest
+        if self.run_id:
+            metric.run_id = self.run_id
         return metric
 
     @classmethod
