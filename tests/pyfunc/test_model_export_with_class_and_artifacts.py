@@ -1691,6 +1691,10 @@ def test_model_log_with_resources(tmp_path):
                 {"name": "rag.studio.test_function_a"},
                 {"name": "rag.studio.test_function_b"},
             ],
+            "genie_space": [
+                {"name": "genie_space_id_1"},
+                {"name": "genie_space_id_2"},
+            ],
         },
     }
     with mlflow.start_run() as run:
