@@ -1709,6 +1709,8 @@ def test_model_log_with_resources(tmp_path):
                 DatabricksSQLWarehouse(warehouse_id="testid"),
                 DatabricksFunction(function_name="rag.studio.test_function_a"),
                 DatabricksFunction(function_name="rag.studio.test_function_b"),
+                DatabricksGenieSpace(genie_space_id="genie_space_id_1"),
+                DatabricksGenieSpace(genie_space_id="genie_space_id_2"),
             ],
         )
     pyfunc_model_uri = f"runs:/{run.info.run_id}/{pyfunc_artifact_path}"
