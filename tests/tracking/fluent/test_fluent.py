@@ -514,7 +514,7 @@ def test_search_model_versions(tmp_path):
 
 @pytest.fixture
 def empty_active_run_stack():
-    with mock.patch("mlflow.tracking.fluent._active_run_stack", []):
+    with mock.patch("mlflow.tracking.fluent._get_active_run_stack", return_value=[]):
         yield
 
 
