@@ -5,7 +5,6 @@ from unittest import mock
 
 import pytest
 from openai.types.chat.chat_completion import ChatCompletion, Choice
-from packaging.version import Version
 
 import mlflow
 from mlflow.entities import SpanType
@@ -13,10 +12,10 @@ from mlflow.entities import SpanType
 from tests.openai.test_openai_autolog import client  # noqa: F401
 from tests.tracing.helper import get_traces
 
-if Version(mlflow.openai._get_openai_package_version()) < Version("1.33.0"):
-    pytest.skip("Swarm requires OpenAI SDK >= 1.33.0", allow_module_level=True)
-else:
+try:
     from swarm import Agent, Swarm
+except ImportError:
+    pytest.skip("OpenAI Swarm not installed", allow_module_level=True)
 
 
 @contextmanager
