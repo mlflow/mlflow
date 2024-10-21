@@ -54,6 +54,8 @@ class Resource(ABC):
 class DatabricksResource(Resource, ABC):
     """
     Base class to define all the Databricks resources to serve a model.
+
+    Example usage: https://docs.databricks.com/en/generative-ai/log-agent.html#specify-resources-for-pyfunc-or-langchain-agent
     """
 
     target_uri: str = "databricks"
