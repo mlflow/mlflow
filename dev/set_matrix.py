@@ -329,7 +329,7 @@ def get_python_version(python: Optional[Dict[str, str]], package: str, version: 
     return infer_python_version(package, version)
 
 
-def get_runs_on(runs_on: Optional[Dict[str, str]], package: str, version: str) -> str:
+def get_runs_on(runs_on: Optional[Dict[str, str]], version: str) -> str:
     if runs_on and (match := next(_find_matches(runs_on, version), None)):
         return match
 
@@ -572,7 +572,7 @@ def expand_config(config: Dict[str, Any], *, is_ref: bool = False) -> Set[Matrix
                 install = make_pip_install_command(requirements)
                 run = remove_comments(cfg.run)
                 python = get_python_version(cfg.python, package_info.pip_release, str(ver))
-                runs_on = get_runs_on(cfg.python, package_info.pip_release, DEV_VERSION)
+                runs_on = get_runs_on(cfg.runs_on, ver)
                 java = get_java_version(cfg.java, str(ver))
 
                 matrix.add(
@@ -602,7 +602,7 @@ def expand_config(config: Dict[str, Any], *, is_ref: bool = False) -> Set[Matrix
                 else:
                     install = install_dev
                 python = get_python_version(cfg.python, package_info.pip_release, DEV_VERSION)
-                runs_on = get_runs_on(cfg.python, package_info.pip_release, DEV_VERSION)
+                runs_on = get_runs_on(cfg.runs_on, DEV_VERSION)
                 java = get_java_version(cfg.java, DEV_VERSION)
 
                 run = remove_comments(cfg.run)
