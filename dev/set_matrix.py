@@ -263,16 +263,10 @@ def get_matched_requirements(requirements, version=None):
 
 
 def get_java_version(java: Optional[Dict[str, str]], version: str) -> str:
-    default = "11"
-    if java is None:
-        return default
+    if java and (match := next(_find_matches(java, version), None)):
+        return match
 
-    for specifier, java_ver in java.items():
-        specifier_set = SpecifierSet(specifier.replace(DEV_VERSION, DEV_NUMERIC))
-        if specifier_set.contains(DEV_NUMERIC if version == DEV_VERSION else version):
-            return java_ver
-
-    return default
+    return "11"
 
 
 @functools.lru_cache(maxsize=128)
