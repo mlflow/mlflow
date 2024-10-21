@@ -395,6 +395,7 @@ spark:
     requirements:
       ">= 0.0.0": ["scikit-learn"]
       "< 3.4.0": ["pandas<2"]
+      "== 3.3.4": ["numpy"]
     run: |
       # Build Java package
       # Pyspark 4.0 ('dev' version) exclusively supports Scala 2.13
