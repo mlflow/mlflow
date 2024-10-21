@@ -36,6 +36,7 @@ from mlflow.models.resources import (
     DatabricksGenieSpace,
     DatabricksServingEndpoint,
     DatabricksSQLWarehouse,
+    DatabricksUCConnection,
     DatabricksVectorSearchIndex,
 )
 from mlflow.models.utils import _read_example
@@ -1624,6 +1625,7 @@ def test_model_save_load_with_resources(tmp_path):
                 {"name": "rag.studio.test_function_b"},
             ],
             "genie_space": [{"name": "genie_space_id_1"}, {"name": "genie_space_id_2"}],
+            "uc_connection": [{"name": "test_connection_1"}, {"name": "test_connection_2"}],
         },
     }
     mlflow.pyfunc.save_model(
@@ -1640,6 +1642,8 @@ def test_model_save_load_with_resources(tmp_path):
             DatabricksFunction(function_name="rag.studio.test_function_b"),
             DatabricksGenieSpace(genie_space_id="genie_space_id_1"),
             DatabricksGenieSpace(genie_space_id="genie_space_id_2"),
+            DatabricksUCConnection(connection_name="test_connection_1"),
+            DatabricksUCConnection(connection_name="test_connection_2"),
         ],
     )
 
@@ -1666,6 +1670,9 @@ def test_model_save_load_with_resources(tmp_path):
                 genie_space:
                 - name: genie_space_id_1
                 - name: genie_space_id_2
+                uc_connection:
+                - name: test_connection_1
+                - name: test_connection_2
             """
         )
 
@@ -1701,6 +1708,7 @@ def test_model_log_with_resources(tmp_path):
                 {"name": "genie_space_id_1"},
                 {"name": "genie_space_id_2"},
             ],
+            "uc_connection": [{"name": "test_connection_1"}, {"name": "test_connection_2"}],
         },
     }
     with mlflow.start_run() as run:
@@ -1717,6 +1725,8 @@ def test_model_log_with_resources(tmp_path):
                 DatabricksFunction(function_name="rag.studio.test_function_b"),
                 DatabricksGenieSpace(genie_space_id="genie_space_id_1"),
                 DatabricksGenieSpace(genie_space_id="genie_space_id_2"),
+                DatabricksUCConnection(connection_name="test_connection_1"),
+                DatabricksUCConnection(connection_name="test_connection_2"),
             ],
         )
     pyfunc_model_uri = f"runs:/{run.info.run_id}/{pyfunc_artifact_path}"
@@ -1744,6 +1754,9 @@ def test_model_log_with_resources(tmp_path):
                 genie_space:
                 - name: genie_space_id_1
                 - name: genie_space_id_2
+                uc_connection:
+                - name: test_connection_1
+                - name: test_connection_2
             """
         )
 
