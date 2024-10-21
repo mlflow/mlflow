@@ -553,6 +553,7 @@ from mlflow.utils.requirements_utils import (
 )
 from mlflow.utils.spark_utils import is_spark_connect_mode
 from mlflow.utils.virtualenv import _get_python_env, _get_virtualenv_name
+from urllib.parse import urlparse
 
 try:
     from pyspark.sql import DataFrame as SparkDataFrame
@@ -1745,6 +1746,34 @@ def _prebuild_env_internal(local_model_path, archive_name, save_path):
         shutil.rmtree(env_root_dir, ignore_errors=True)
 
 
+def _download_prebuilt_env_if_needed(prebuilt_env_path):
+    from mlflow.utils.file_utils import get_or_create_tmp_dir
+    from databricks.sdk import WorkspaceClient
+
+    parsed_url = urlparse(prebuilt_env_path)
+    if parsed_url.scheme == '' or parsed_url.scheme == 'file':
+        # local path
+        return parsed_url.path
+    if parsed_url.scheme == 'dbfs':
+        tmp_dir = tempfile.mkdtemp(dir=get_or_create_tmp_dir())
+        model_env_uc_path = parsed_url.path
+
+        # download file from DBFS.
+        local_model_env_path = os.path.join(tmp_dir, os.path.basename(model_env_uc_path))
+
+        ws = WorkspaceClient()
+        # Download model env file from UC volume.
+        with ws.files.download(model_env_uc_path).contents as rf, open(local_model_env_path, "wb") as wf:
+            while chunk := rf.read(4096):
+                wf.write(chunk)
+        return local_model_env_path
+
+    raise MlflowException(
+        f"Unsupported prebuilt env file path '{prebuilt_env_path}', "
+        f"invalid scheme: '{parsed_url.scheme}'."
+    )
+
+
 def build_model_env(model_uri, save_path):
     """
     Prebuild model python environment and generate an archive file saved to provided
@@ -1785,6 +1814,9 @@ def build_model_env(model_uri, save_path):
         model_uri: URI to the model that is used to build the python environment.
         save_path: The directory path that is used to save the prebuilt model environment
             archive file path.
+            The path can be either local directory path or
+            mounted DBFS path such as '/dbfs/...' or
+            mounted UC volume path such as '/Volumes/...'.
 
     Returns:
         Return the path of an archive file containing the python environment data.
@@ -1973,7 +2005,10 @@ def spark_udf(
             This parameter can only be used in Databricks Serverless notebook REPL,
             Databricks Shared cluster notebook REPL, and Databricks Connect client
             environment.
-            If this parameter is set, `env_manger` is ignored.
+            The path can be either local file path or DBFS path such as
+            'dbfs:/Volumes/...'.
+
+            If this parameter is set, `env_manger` parameter must not be set.
 
     Returns:
         Spark UDF that applies the model's ``predict`` method to the data and returns a
@@ -2070,6 +2105,7 @@ def spark_udf(
     )
 
     if prebuilt_env_path:
+        prebuilt_env_path = _download_prebuilt_env_if_needed(prebuilt_env_path)
         _verify_prebuilt_env(spark, local_model_path, prebuilt_env_path)
     if use_dbconnect_artifact and env_manager == _EnvManager.CONDA:
         raise MlflowException(
