@@ -1,7 +1,7 @@
 name: "setup-node"
 description: "Set up Node"
 inputs:
-  java-version:
+  node-version:
     description: "node-version"
     default: 20
     required: false
