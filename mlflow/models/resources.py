@@ -14,6 +14,7 @@ class ResourceType(Enum):
     Enum to define the different types of resources needed to serve a model.
     """
 
+    UC_CONNECTION = "uc_connection"
     VECTOR_SEARCH_INDEX = "vector_search_index"
     SERVING_ENDPOINT = "serving_endpoint"
     SQL_WAREHOUSE = "sql_warehouse"
@@ -53,9 +54,32 @@ class Resource(ABC):
 class DatabricksResource(Resource, ABC):
     """
     Base class to define all the Databricks resources to serve a model.
+
+    Example usage: https://docs.databricks.com/en/generative-ai/log-agent.html#specify-resources-for-pyfunc-or-langchain-agent
     """
 
     target_uri: str = "databricks"
+
+
+@dataclass
+class DatabricksUCConnection(DatabricksResource):
+    """
+    Define a Databricks UC Connection used to serve a model.
+
+    Args:
+        connection_name (str): The name of the databricks UC connection
+        used to create the tool which was used to build the model.
+    """
+
+    type: ResourceType = ResourceType.UC_CONNECTION
+    connection_name: str = None
+
+    def to_dict(self):
+        return {self.type.value: [{"name": self.connection_name}]} if self.connection_name else {}
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, str]):
+        return cls(connection_name=data["name"])
 
 
 @dataclass
@@ -162,6 +186,7 @@ class DatabricksGenieSpace(DatabricksResource):
 def _get_resource_class_by_type(target_uri: str, resource_type: ResourceType):
     resource_classes = {
         "databricks": {
+            ResourceType.UC_CONNECTION.value: DatabricksUCConnection,
             ResourceType.SERVING_ENDPOINT.value: DatabricksServingEndpoint,
             ResourceType.VECTOR_SEARCH_INDEX.value: DatabricksVectorSearchIndex,
             ResourceType.SQL_WAREHOUSE.value: DatabricksSQLWarehouse,
