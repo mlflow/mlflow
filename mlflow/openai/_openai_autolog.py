@@ -1,7 +1,7 @@
+import functools
 import json
 import logging
 import os
-import functools
 from contextlib import contextmanager
 from copy import deepcopy
 from typing import Iterator
@@ -251,21 +251,28 @@ def patched_agent_get_chat_completion(original, self, *args, **kwargs):
 
     # Patch agent's functions to generate traces. Function calls only happen
     # after the first completion is generated because of the design of
-    # function calling. Therefore, we can safely patch the tool functions here.
+    # function calling. Therefore, we can safely patch the tool functions here
+    # within get_chat_completion() hook.
     # We cannot patch functions during the agent's initialization because the
     # agent's functions can be modified after the agent is created.
     def function_wrapper(fn):
         if "context_variables" in fn.__code__.co_varnames:
-            context_variables = {}
+
             def wrapper(*args, **kwargs):
-                # To add "context_variables" in the wrapper.__code__.co_varname
-                context_variables = kwargs.get("context_variables", {})
+                # NB: Swarm uses `func.__code__.co_varnames` to inspect if the provided
+                # tool function includes 'context_variables' parameter in the signature
+                # and ingest the global context variables if so. Wrapping the function
+                # with mlflow.trace() will break this.
+                # The co_varnames is determined based on the local variables of the
+                # function, so we workaround this by declaring it here as a local variable.
+                context_variables = kwargs.get("context_variables", {})  # noqa: F841
                 return mlflow.trace(
                     fn,
                     name=f"{agent.name}.{fn.__name__}",
                     span_type=SpanType.TOOL,
                 )(*args, **kwargs)
         else:
+
             def wrapper(*args, **kwargs):
                 return mlflow.trace(
                     fn,
@@ -274,7 +281,7 @@ def patched_agent_get_chat_completion(original, self, *args, **kwargs):
                 )(*args, **kwargs)
 
         wrapped = functools.wraps(fn)(wrapper)
-        wrapped._is_mlflow_traced = True # Marker to avoid double tracing
+        wrapped._is_mlflow_traced = True  # Marker to avoid double tracing
         return wrapped
 
     agent.functions = [
@@ -282,11 +289,8 @@ def patched_agent_get_chat_completion(original, self, *args, **kwargs):
         for fn in agent.functions
     ]
 
-    # Patch the get_completion method as well
     traced_fn = mlflow.trace(
-        original,
-        name=f"{agent.name}.get_chat_completion",
-        span_type=SpanType.CHAT_MODEL
+        original, name=f"{agent.name}.get_chat_completion", span_type=SpanType.CHAT_MODEL
     )
     return traced_fn(self, *args, **kwargs)
 

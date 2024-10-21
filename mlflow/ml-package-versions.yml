@@ -651,6 +651,9 @@ openai:
   autologging:
     minimum: "1.17.0"
     maximum: "1.51.2"
+    python:
+      # OpenAI Swarm requires Python >=3.10
+      ">= 1.33.0": "3.10"
     requirements:
       ">= 0.0.0": [
           "pyspark",
@@ -660,6 +663,10 @@ openai:
           # Required to run tests/openai/mock_openai.py
           "fastapi",
           "uvicorn",
+        ]
+      ">= 1.33.0": [
+          # Install OpenAI Swarm from the main branch as it's not available on pip
+          "pip install git+ssh://git@github.com/openai/swarm.git",
         ]
     run: |
       pytest tests/openai/test_openai_autolog.py
