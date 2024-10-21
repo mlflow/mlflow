@@ -86,12 +86,11 @@ NUM_RUNS_PER_PAGE_PANDAS = 10000
 _logger = logging.getLogger(__name__)
 
 
+run_id_to_system_metrics_monitor = {}
+
+
 def _get_active_run_stack():
     return get_thread_local_var("active_run_stack", init_value=[])
-
-
-def _get_run_id_to_system_metrics_monitor():
-    return get_thread_local_var("run_id_to_system_metrics_monitor", init_value={})
 
 
 def _get_last_active_run_id():
@@ -470,8 +469,6 @@ def start_run(
                 active_run_obj.info.run_id,
                 resume_logging=existing_run_id is not None,
             )
-            run_id_to_system_metrics_monitor = _get_run_id_to_system_metrics_monitor()
-
             run_id_to_system_metrics_monitor[active_run_obj.info.run_id] = system_monitor
             system_monitor.start()
         except Exception as e:
@@ -514,7 +511,6 @@ def end_run(status: str = RunStatus.to_string(RunStatus.FINISHED)) -> None:
         Active run: None
     """
     active_run_stack = _get_active_run_stack()
-    run_id_to_system_metrics_monitor = _get_run_id_to_system_metrics_monitor()
     if len(active_run_stack) > 0:
         # Clear out the global existing run environment variable as well.
         MLFLOW_RUN_ID.unset()
