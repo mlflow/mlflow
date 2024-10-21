@@ -70,6 +70,7 @@ def set_tracking_uri(uri: Union[str, Path]) -> None:
 
     if _tracking_uri != uri:
         _tracking_uri = uri
+        MLFLOW_TRACKING_URI.set(_tracking_uri)
 
         # Tracer provider uses tracking URI to determine where to export traces.
         # Tracer provider stores the URI as its state so we need to reset

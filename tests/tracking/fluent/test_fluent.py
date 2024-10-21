@@ -1506,8 +1506,8 @@ def test_set_experiment_thread_safety(tmp_path):
         created_exp_ids = []
 
         def thread_target():
-            exp_id = mlflow.set_experiment("test_experiment")
-            created_exp_ids.append(exp_id)
+            exp = mlflow.set_experiment("test_experiment")
+            created_exp_ids.append(exp.experiment_id)
 
         t1 = threading.Thread(target=thread_target)
         t1.start()
@@ -1526,8 +1526,8 @@ def test_set_experiment_thread_safety(tmp_path):
         queue = mp_ctx.Queue()
 
         def subprocess_target(que):
-            exp_id = mlflow.set_experiment("test_experiment2")
-            que.put(exp_id)
+            exp = mlflow.set_experiment("test_experiment2")
+            que.put(exp.experiment_id)
 
         subproc1 = mp_ctx.Process(target=subprocess_target, args=(queue,))
         subproc1.start()
@@ -1554,8 +1554,8 @@ def test_subprocess_inherit_active_experiment(tmp_path):
 
     subprocess.check_call([
         sys.executable, "-c",
-        f"import mlflow; assert mlflow.tracking.fluent._get_experiment_id() == {exp_id}"]
-    )
+        f"import mlflow; assert mlflow.tracking.fluent._get_experiment_id() == '{exp_id}'"
+    ])
 
 
 def test_mlflow_active_run_thread_local(tmp_path):
@@ -1569,7 +1569,7 @@ def test_mlflow_active_run_thread_local(tmp_path):
             nonlocal thread_active_run
             thread_active_run = mlflow.active_run()
 
-        thread1 = threading.Thread(target=thread_target())
+        thread1 = threading.Thread(target=thread_target)
         thread1.start()
         thread1.join()
         # assert in another thread, active run is None.
@@ -1602,7 +1602,7 @@ def test_mlflow_last_active_run_thread_local(tmp_path):
         nonlocal thread_last_active_run
         thread_last_active_run = mlflow.last_active_run()
 
-    thread1 = threading.Thread(target=thread_target())
+    thread1 = threading.Thread(target=thread_target)
     thread1.start()
     thread1.join()
     # assert in another thread, active run is None.
