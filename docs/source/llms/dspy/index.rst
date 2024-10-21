@@ -124,7 +124,7 @@ set of modules.
 .. tip::
 
     Typically you'd want to leverage a 
-    `compiled DSPy <https://dspy-docs.vercel.app/docs/building-blocks/optimizers#what-does-a-dspy-optimizer-tune-how-does-it-tune-them>` 
+    `compiled DSPy <https://dspy-docs.vercel.app/docs/building-blocks/optimizers#what-does-a-dspy-optimizer-tune-how-does-it-tune-them>`_
     module. MLflow will natively supports logging both compiled and uncompiled DSPy modules. Above 
     we show an uncompiled version for simplicity, but in production you'd want to leverage an 
     `optimizer <https://dspy-docs.vercel.app/docs/building-blocks/optimizers>`_ and log the 
@@ -237,6 +237,10 @@ How is the DSPy ``settings`` object saved?
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 To ensure program reproducibility, the service context is converted to a Python dictionary and 
-pickled with the model artifact. 
+pickled with the model artifact. Service context is a concept that has been popularized in GenAI
+frameworks. Put simply, it stores a configuration that is global to your project. For DSPy
+specifically, we can set information such as the language model, reranker, adapter, etc.
 
-Sensitive API access keys that are set within the ``Settings`` object are not persisted when logging your model. When deploying your DSPy model, you must ensure that the deployment environment has these keys set so that your DSPy model can make remote calls to services that require access keys.
+Sensitive API access keys that are set within the ``Settings`` object are not persisted when logging 
+your model. When deploying your DSPy model, you must ensure that the deployment environment has these 
+keys set so that your DSPy model can make remote calls to services that require access keys.
