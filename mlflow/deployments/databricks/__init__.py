@@ -1,6 +1,7 @@
 import json
 import posixpath
-from typing import Any, Iterator, Optional
+import warnings
+from typing import Any, Dict, Iterator, Optional
 
 from mlflow.deployments import BaseDeploymentClient
 from mlflow.deployments.constants import (
@@ -335,10 +336,10 @@ class DatabricksDeploymentClient(BaseDeploymentClient):
 
         Args:
             name: The name of the serving endpoint to create.
-            config: A dictionary containing the configuration of the serving endpoint to create.
+            config: A dictionary containing either the full API request payload
+                    or the configuration of the serving endpoint to create (deprecated).
             route_optimized: A boolean which defines whether databricks serving endpoint
-                in optimized for routing traffic. Refer to the following doc for more details.
-                https://docs.databricks.com/en/machine-learning/model-serving/route-optimization.html#enable-route-optimization-on-a-feature-serving-endpoint
+                is optimized for routing traffic. Only used in the deprecated approach.
 
         Returns:
             A :py:class:`DatabricksEndpoint` object containing the request response.
@@ -381,12 +382,27 @@ class DatabricksDeploymentClient(BaseDeploymentClient):
             }
 
         """
-        config = config.copy() if config else {}  # avoid mutating config
-        extras = {}
-        for key in ("tags", "rate_limits"):
-            if tags := config.pop(key, None):
-                extras[key] = tags
-        payload = {"name": name, "config": config, "route_optimized": route_optimized, **extras}
+        if config and "config" in config:
+            # config contains the full API request payload
+            if route_optimized:
+                raise ValueError("'route_optimized' parameter cannot be used when 'config' "
+                                 "contains the full API request payload. Include "
+                                 "'route_optimized' in the payload instead.")
+            payload = config
+        else:
+            # for backwards compatibility
+            warnings.warn(
+                "The current usage of create_endpoint is deprecated. "
+                "Please pass the full API request payload in the 'config' parameter.",
+                UserWarning,
+            )
+            config = config.copy() if config else {}  # avoid mutating config
+            extras = {}
+            for key in ("tags", "rate_limits"):
+                if tags := config.pop(key, None):
+                    extras[key] = tags
+            payload = {"name": name, "config": config, "route_optimized": route_optimized, **extras}
+
         return self._call_endpoint(method="POST", json_body=payload)
 
     @experimental
