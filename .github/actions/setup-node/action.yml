@@ -2,7 +2,7 @@ name: "setup-node"
 description: "Set up Node"
 inputs:
   node-version:
-    description: "node-version"
+    description: "Node version to use."
     default: 20
     required: false
 
