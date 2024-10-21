@@ -1618,3 +1618,23 @@ def test_mlflow_last_active_run_thread_local(tmp_path):
     subproc.start()
     subproc.join()
     assert subproc.exitcode == 0
+
+
+def test_subprocess_inherit_tracking_uri(tmp_path):
+    sqlite_uri = "sqlite:///{}".format(tmp_path.joinpath("test.db"))
+    mlflow.set_tracking_uri(sqlite_uri)
+
+    subprocess.check_call([
+        sys.executable, "-c",
+        f"import mlflow; assert mlflow.get_tracking_uri() == '{sqlite_uri}'"
+    ])
+
+
+def test_subprocess_inherit_registry_uri(tmp_path):
+    sqlite_uri = "sqlite:///{}".format(tmp_path.joinpath("test.db"))
+    mlflow.set_registry_uri(sqlite_uri)
+
+    subprocess.check_call([
+        sys.executable, "-c",
+        f"import mlflow; assert mlflow.get_registry_uri() == '{sqlite_uri}'"
+    ])
