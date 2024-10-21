@@ -391,10 +391,10 @@ class DatabricksDeploymentClient(BaseDeploymentClient):
         """
         if config and "config" in config:
             # config contains the full API request payload
-            if route_optimized:
-                raise ValueError("'route_optimized' parameter cannot be used when 'config' "
+            if route_optimized or name:
+                raise ValueError("'route_optimized' and 'name' parameters cannot be used when 'config' "
                                  "contains the full API request payload. Include "
-                                 "'route_optimized' in the payload instead.")
+                                 "'route_optimized' and/or 'name' in the payload instead.")
             payload = config
         else:
             # for backwards compatibility
@@ -593,3 +593,4 @@ def run_local(name, model_uri, flavor=None, config=None):
 
 def target_help():
     pass
+
