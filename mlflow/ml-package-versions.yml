@@ -351,6 +351,9 @@ spark:
       cd python/packaging/classic
       pip install '.[connect]'
       pyspark --version
+    runs_on:
+      # TODO: Remove this once ubuntu 24 is fully rolled out: https://github.com/actions/runner-images/issues/10636
+      "== 3.3.4": "ubuntu-24.04"
 
   models:
     minimum: "3.1.2"
