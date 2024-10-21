@@ -353,7 +353,7 @@ class CustomOutput:
 
 @dataclass
 class FlexibleChatCompletionRequest(rag_signatures.ChatCompletionRequest):
-    custom_input: Optional[CustomInput] = CustomInput()
+    custom_input: CustomInput | None = CustomInput()
 
 
 @dataclass
@@ -369,6 +369,12 @@ def test_infer_signature_with_optional_dataclass():
         schema for schema in inferred_signature.inputs.to_dict() if schema["name"] == "custom_input"
     )
     assert custom_input_schema["required"] is False
+    custom_output_schema = next(
+        schema
+        for schema in inferred_signature.outputs.to_dict()
+        if schema["name"] == "custom_output"
+    )
+    assert custom_output_schema["required"] is False
 
 
 def test_infer_signature_with_child_dataclass():

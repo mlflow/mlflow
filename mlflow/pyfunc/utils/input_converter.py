@@ -9,7 +9,7 @@ def _is_optional_dataclass(field_type) -> bool:
     if get_origin(field_type) is Union:
         inner_types = get_args(field_type)
         # Check if it's a Union[Dataclass, NoneType] (i.e., Optional[Dataclass])
-        if len(inner_types) == 2 and inner_types[1] == type(None):
+        if len(inner_types) == 2 and any(t is type(None) for t in inner_types):
             effective_type = next(t for t in get_args(field_type) if t is not type(None))
             return is_dataclass(effective_type)
     return False
@@ -20,6 +20,8 @@ def _hydrate_dataclass(dataclass_type, data):
     """Recursively create an instance of the dataclass_type from data."""
     if not (is_dataclass(dataclass_type) or _is_optional_dataclass(dataclass_type)):
         raise ValueError(f"{dataclass_type.__name__} is not a dataclass")
+    if data is None:
+        return None
 
     field_names = {f.name: f.type for f in fields(dataclass_type)}
     kwargs = {}
