@@ -327,7 +327,7 @@ class DatabricksDeploymentClient(BaseDeploymentClient):
             yield json.loads(value)
 
     @experimental
-    def create_endpoint(self, name, config=None, route_optimized=False):
+    def create_endpoint(self, name=None, config=None, route_optimized=False):
         """
         Create a new serving endpoint with the provided name and configuration.
 
@@ -352,26 +352,27 @@ class DatabricksDeploymentClient(BaseDeploymentClient):
 
             client = get_deploy_client("databricks")
             endpoint = client.create_endpoint(
-                name="chat",
                 config={
-                    "served_entities": [
-                        {
-                            "name": "test",
-                            "external_model": {
-                                "name": "gpt-4",
-                                "provider": "openai",
-                                "task": "llm/v1/chat",
-                                "openai_config": {
-                                    "openai_api_key": "{{secrets/scope/key}}",
+                    "name": "test",
+                    "config": {
+                        "served_entities": [
+                            {
+                                "external_model": {
+                                    "name": "gpt-4",
+                                    "provider": "openai",
+                                    "task": "llm/v1/chat",
+                                    "openai_config": {
+                                        "openai_api_key": "{{secrets/scope/key}}",
+                                    },
                                 },
-                            },
-                        }
-                    ],
+                            }
+                        ],
+                        "route_optimized": True,
+                    },
                 },
-                route_optimized=True,
             )
             assert endpoint == {
-                "name": "chat",
+                "name": "test",
                 "creator": "alice@company.com",
                 "creation_timestamp": 0,
                 "last_updated_timestamp": 0,
@@ -379,6 +380,12 @@ class DatabricksDeploymentClient(BaseDeploymentClient):
                 "config": {...},
                 "tags": [...],
                 "id": "88fd3f75a0d24b0380ddc40484d7a31b",
+                "permission_level": "CAN_MANAGE",
+                "route_optimized": False,
+                "task": "llm/v1/chat",
+                "endpoint_type": "EXTERNAL_MODEL",
+                "creator_display_name": "Alice",
+                "creator_kind": "User"
             }
 
         """
