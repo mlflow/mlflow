@@ -241,6 +241,7 @@ pickled with the model artifact. Service context is a concept that has been popu
 frameworks. Put simply, it stores a configuration that is global to your project. For DSPy
 specifically, we can set information such as the language model, reranker, adapter, etc.
 
-Sensitive API access keys that are set within the ``Settings`` object are not persisted when logging 
-your model. When deploying your DSPy model, you must ensure that the deployment environment has these 
-keys set so that your DSPy model can make remote calls to services that require access keys.
+DSPy stores this service context in a ``Settings`` singleton class. Sensitive API access keys that 
+are set within the ``Settings`` object are not persisted when logging your model. When deploying 
+your DSPy model, you must ensure that the deployment environment has these keys set so that your 
+DSPy model can make remote calls to services that require access keys.
