@@ -666,7 +666,7 @@ openai:
         ]
       ">= 1.33.0": [
           # Install OpenAI Swarm from the main branch as it's not available on pip
-          "pip install git+ssh://git@github.com/openai/swarm.git",
+          "git+https://github.com/openai/swarm.git",
         ]
     run: |
       pytest tests/openai/test_openai_autolog.py
