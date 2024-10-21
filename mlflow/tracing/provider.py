@@ -10,6 +10,7 @@ use OpenTelemetry e.g. PromptFlow, Snowpark.
 import functools
 import json
 import logging
+import threading
 from typing import Optional, Tuple
 
 from opentelemetry import trace
@@ -24,6 +25,7 @@ from mlflow.utils.databricks_utils import (
     is_in_databricks_model_serving_environment,
     is_mlflow_tracing_enabled_in_model_serving,
 )
+from mlflow.utils.thread_utils import get_thread_local_var, set_thread_local_var
 
 # Global tracer provider instance. We manage the tracer provider by ourselves instead of using
 # the global tracer provider provided by OpenTelemetry.
@@ -237,6 +239,10 @@ def enable():
     _MLFLOW_TRACER_PROVIDER_INITIALIZED.done = True
 
 
+_tracing_thread_local = threading.local()
+_DISABLE_LOCAL_THREAD_TRACING_KEY = "DISABLE_LOCAL_THREAD_TRACING"
+
+
 def trace_disabled(f):
     """
     A decorator that temporarily disables tracing for the duration of the decorated function.
@@ -259,33 +265,11 @@ def trace_disabled(f):
 
     @functools.wraps(f)
     def wrapper(*args, **kwargs):
-        is_func_called = False
-        result = None
+        set_thread_local_var(_DISABLE_LOCAL_THREAD_TRACING_KEY, True)
         try:
-            if is_tracing_enabled():
-                disable()
-                try:
-                    is_func_called, result = True, f(*args, **kwargs)
-                finally:
-                    enable()
-            else:
-                is_func_called, result = True, f(*args, **kwargs)
-        # We should only catch the exception from disable() and enable()
-        # and let other exceptions propagate.
-        except MlflowTracingException as e:
-            _logger.warning(
-                f"An error occurred while disabling or re-enabling tracing: {e} "
-                "The original function will still be executed, but the tracing "
-                "state may not be as expected. For full traceback, set "
-                "logging level to debug.",
-                exc_info=_logger.isEnabledFor(logging.DEBUG),
-            )
-            # If the exception is raised before the original function
-            # is called, we should call the original function
-            if not is_func_called:
-                result = f(*args, **kwargs)
-
-        return result
+            return f(*args, **kwargs)
+        finally:
+            set_thread_local_var(_DISABLE_LOCAL_THREAD_TRACING_KEY, False)
 
     return wrapper
 
@@ -307,12 +291,17 @@ def reset_tracer_setup():
 def is_tracing_enabled() -> bool:
     """
     Check if tracing is enabled based on whether the global tracer
-    is instantiated or not.
+    is instantiated or not and whether tracing is disabled in the local thread
+    by `trace_disabled` decorator.
 
-    Trace is considered as "enabled" if the followings
+    Trace is considered as "enabled" if local thread variable `DISABLE_LOCAL_THREAD_TRACING`
+    is not True and meeting the followings
     1. The default state (before any tracing operation)
     2. The tracer is not either ProxyTracer or NoOpTracer
     """
+    if get_thread_local_var(_DISABLE_LOCAL_THREAD_TRACING_KEY, False):
+        return False
+
     if not _MLFLOW_TRACER_PROVIDER_INITIALIZED.done:
         return True
 

@@ -1,5 +1,7 @@
+import threading
 from concurrent.futures import ThreadPoolExecutor
 from unittest import mock
+import time
 
 import pytest
 from opentelemetry import trace
@@ -265,3 +267,29 @@ def test_enable_mlflow_tracing_switch_in_serving_client(monkeypatch, enable_mlfl
         assert sorted(_TRACE_BUFFER) == request_ids
     else:
         assert len(_TRACE_BUFFER) == 0
+
+
+def test_trace_disabled_thread_local():
+    # Test `trace_disabled` only disable tracing in local thread.
+
+    @trace_disabled
+    def test_fn():
+        assert not is_tracing_enabled()
+        time.sleep(2)
+        assert not is_tracing_enabled()
+
+    thread_tracing_enabled = None
+
+    def test_tracing_enabled_fn():
+        nonlocal thread_tracing_enabled
+        time.sleep(1)
+        thread_tracing_enabled = is_tracing_enabled()
+
+    mlflow.tracing.enable()
+    assert is_tracing_enabled()
+
+    thread = threading.Thread(target=test_tracing_enabled_fn)
+    thread.start()
+    test_fn()
+    thread.join()
+    assert thread_tracing_enabled
