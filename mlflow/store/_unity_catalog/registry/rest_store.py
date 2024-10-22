@@ -207,6 +207,13 @@ def get_model_version_dependencies(model_dir):
                 databricks_dependencies, ResourceType.FUNCTION.value, "DATABRICKS_UC_FUNCTION"
             )
         )
+        dependencies.extend(
+            _fetch_langchain_dependency_from_model_resources(
+                databricks_dependencies,
+                ResourceType.UC_CONNECTION.value,
+                "DATABRICKS_UC_CONNECTION",
+            )
+        )
     else:
         # These types of dependencies are required for old models that didn't use
         # resources so they can be registered correctly to UC

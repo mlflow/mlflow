@@ -42,7 +42,8 @@ pytorch:
     requirements:
       ">= 0.0.0": ["torchvision", "scikit-learn"]
       ">= 1.8": ["transformers"]
-      "< 1.8": ["transformers<4.32.0"]
+    python:
+      ">= 2.5.0": "3.9"
     run: |
       pytest tests/pytorch/test_pytorch_model_export.py tests/pytorch/test_pytorch_metric_value_conversion_utils.py
 
@@ -51,6 +52,8 @@ pytorch:
     maximum: "2.4.1"
     requirements:
       ">= 0.0.0": ["tensorboard"]
+    python:
+      ">= 2.5.0": "3.9"
     run: |
       pytest tests/pytorch/test_tensorboard_autolog.py
 
@@ -66,16 +69,6 @@ pytorch-lightning:
     maximum: "2.4.0"
     requirements:
       ">= 0.0.0": ["scikit-learn", "torchvision", "protobuf<4.0.0", "tensorboard", "greenlet<3"]
-      # torchmetrics==0.8.0 released a breaking change for versions 1.3 and 1.4 where
-      # torchmetrics dependency was defined as non-upper-bounded in its requirements.
-      # see: https://github.com/PyTorchLightning/metrics/commit/c537c9b3e8e801772a7e5670ff273321ed26e77b
-      # for the removed function that causes pytorch-lightning imports to fail with torchmetrics==0.8.0
-      ">= 1.3.0, < 1.5.0": ["torchmetrics<0.8.0"]
-      # torchmetrics==1.0.0 released a breaking change in version 1.0.0 that is incompatible with
-      # the usage of a private utility within torchmetrics for pytorch-lightning~=1.7 that was
-      # modified in pytorch-lightning>=1.8.
-      # The problematic commit: https://github.com/Lightning-AI/torchmetrics/commit/3527e17516902eb5265cd2a4f76ad6b0f9f77692
-      "< 1.8.0": ["torchmetrics<1.0.0"]
     run: |
       pytest tests/pytorch/test_pytorch_autolog.py
 
@@ -260,9 +253,7 @@ fastai:
       #  To migrate fastai tests to python 3.9, we need to address error
       #  when installing old version scipy: "No module named 'distutils.msvccompiler'"
       #  similar issue link: https://github.com/numpy/numpy/issues/27405
-      "> 0.0.0": ["spacy<3.8.2"]
-      "< 2.8.0": ["torch<1.13.0", "torchvision<0.14.0"]
-      ">= 2.8.0": ["torch", "torchvision"]
+      "> 0.0.0": ["spacy<3.8.2", "torch<1.13.0", "torchvision<0.14.0"]
     run: |
       pytest tests/fastai/test_fastai_model_export.py
 
@@ -270,9 +261,7 @@ fastai:
     minimum: "2.4.1"
     maximum: "2.7.17"
     requirements:
-      "> 0.0.0": ["spacy<3.8.2"]
-      "< 2.8.0": ["torch<1.13.0", "torchvision<0.14.0"]
-      ">= 2.8.0": ["torch", "torchvision"]
+      "> 0.0.0": ["spacy<3.8.2", "torch<1.13.0", "torchvision<0.14.0"]
     run: |
       pytest tests/fastai/test_fastai_autolog.py
 
@@ -303,7 +292,6 @@ onnx:
     maximum: "1.17.0"
     requirements:
       ">= 0.0.0": ["onnxruntime", "torch", "scikit-learn", "protobuf<4.0.0"]
-      "< 1.11.0": ["numpy<1.24.0"]
     run: |
       pytest tests/onnx/test_onnx_model_export.py
 
@@ -314,7 +302,7 @@ spacy:
       pip install git+https://github.com/explosion/spaCy.git
 
   models:
-    minimum: "2.2.4"
+    minimum: "3.0.0"
     maximum: "3.8.2"
     python:
       "== dev": "3.9"
@@ -333,7 +321,7 @@ statsmodels:
       pip install git+https://github.com/statsmodels/statsmodels.git
 
   models:
-    minimum: "0.11.1"
+    minimum: "0.12.2"
     maximum: "0.14.4"
     python:
       "== dev": "3.9"
@@ -343,7 +331,7 @@ statsmodels:
       pytest tests/statsmodels/test_statsmodels_model_export.py
 
   autologging:
-    minimum: "0.11.1"
+    minimum: "0.12.2"
     maximum: "0.14.4"
     python:
       "== dev": "3.9"
@@ -400,6 +388,9 @@ spark:
   autologging:
     minimum: "3.1.2"
     maximum: "3.5.3"
+    runs_on:
+      # TODO: Remove this once ubuntu 24 is fully rolled out: https://github.com/actions/runner-images/issues/10636
+      "== 3.3.4": "ubuntu-24.04"
     python:
       "== dev": "3.9"
     java:
@@ -478,12 +469,13 @@ prophet:
 pmdarima:
   package_info:
     pip_release: "pmdarima"
-    install_dev: |
-      pip install Cython
-      pip install git+https://github.com/alkaline-ml/pmdarima.git
+    # TODO: Uncomment once https://github.com/alkaline-ml/pmdarima/issues/582 is fixed.
+    # install_dev: |
+    #   # pip install Cython
+    #   # pip install git+https://github.com/alkaline-ml/pmdarima.git
 
   models:
-    minimum: "1.8.0"
+    minimum: "1.8.1"
     maximum: "2.0.4"
     requirements:
       "< 1.9": ["scikit-learn<1.3"]
@@ -590,6 +582,8 @@ transformers:
       # Installing `transformers==4.34.1` with `datasets` results in installing `huggingface_hub==0.17.3`.
       # `accelerate>=0.32.0` and `peft>=0.13.0` are incompatible with `huggingface_hub==0.17.3`.
       "== 4.34.1": ["accelerate<0.32.0", "peft<0.13.0"]
+      # Pin torchvision to <0.20.0 to avoid https://github.com/pytorch/torchchat/issues/1158
+      ">= 4.42, < 4.46.0": ["torchvision<0.20.0"]
       "== dev": ["tf-keras"]
     pre_test: |
       export PYTHONPATH=./
