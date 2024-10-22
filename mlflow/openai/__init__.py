@@ -694,7 +694,7 @@ class _OpenAIWrapper:
 
     def _construct_request_url(self, task_url, default_url):
         api_type = self.request_configs.get("api_type")
-        api_base = self.request_configs.get("api_base")
+        api_base = base.rstrip("/") if (base := self.request_configs.get("api_base")) else None
         if api_type in ("azure", "azure_ad", "azuread"):
             api_version = self.request_configs.get("api_version")
             deployment_id = self.request_configs.get("deployment_id")
