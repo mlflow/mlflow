@@ -385,16 +385,18 @@ class DatabricksDeploymentClient(BaseDeploymentClient):
                 "task": "llm/v1/chat",
                 "endpoint_type": "EXTERNAL_MODEL",
                 "creator_display_name": "Alice",
-                "creator_kind": "User"
+                "creator_kind": "User",
             }
 
         """
         if config and "config" in config:
             # config contains the full API request payload
             if route_optimized or name:
-                raise ValueError("'route_optimized' and 'name' parameters cannot be used when "
-                                 "'config' contains the full API request payload. Include "
-                                 "'route_optimized' and/or 'name' in the payload instead.")
+                raise ValueError(
+                    "'route_optimized' and 'name' parameters cannot be used when "
+                    "'config' contains the full API request payload. Include "
+                    "'route_optimized' and/or 'name' in the payload instead."
+                )
             payload = config
         else:
             # for backwards compatibility
@@ -575,18 +577,9 @@ class DatabricksDeploymentClient(BaseDeploymentClient):
 
             client = get_deploy_client("databricks")
             updated_tags = client.update_endpoint_tags(
-                endpoint="test",
-                config={
-                    "add_tags": [
-                        {"key": "project", "value": "test"}
-                    ]
-                }
+                endpoint="test", config={"add_tags": [{"key": "project", "value": "test"}]}
             )
-            assert updated_tags == {
-                "tags": [
-                    {"key": "project", "value": "test"}
-                ]
-            }
+            assert updated_tags == {"tags": [{"key": "project", "value": "test"}]}
         """
         return self._call_endpoint(
             method="PATCH", route=posixpath.join(endpoint, "tags"), json_body=config
@@ -615,24 +608,13 @@ class DatabricksDeploymentClient(BaseDeploymentClient):
             client = get_deploy_client("databricks")
             name = "databricks-dbrx-instruct"
             rate_limits = {
-                "rate_limits": [
-                    {
-                        "calls": 10,
-                        "key": "endpoint",
-                        "renewal_period": "minute"
-                    }
-                ]
+                "rate_limits": [{"calls": 10, "key": "endpoint", "renewal_period": "minute"}]
             }
-            updated_rate_limits = client.update_endpoint_rate_limits(endpoint=name,
-                                                                    config=rate_limits)
+            updated_rate_limits = client.update_endpoint_rate_limits(
+                endpoint=name, config=rate_limits
+            )
             assert updated_rate_limits == {
-                "rate_limits": [
-                    {
-                        "calls": 10,
-                        "key": "endpoint",
-                        "renewal_period": "minute"
-                    }
-                ]
+                "rate_limits": [{"calls": 10, "key": "endpoint", "renewal_period": "minute"}]
             }
         """
         return self._call_endpoint(
@@ -669,22 +651,22 @@ class DatabricksDeploymentClient(BaseDeploymentClient):
                 },
             }
 
-            updated_gateway = client.update_endpoint_ai_gateway(endpoint=name,
-                                                                config=gateway_config)
+            updated_gateway = client.update_endpoint_ai_gateway(
+                endpoint=name, config=gateway_config
+            )
             assert updated_gateway == {
-                'usage_tracking_config': {'enabled': True},
-                'inference_table_config': {
-                    'catalog_name': 'my_catalog',
-                    'schema_name': 'my_schema',
-                    'table_name_prefix': 'test',
-                    'enabled': True
-                }
+                "usage_tracking_config": {"enabled": True},
+                "inference_table_config": {
+                    "catalog_name": "my_catalog",
+                    "schema_name": "my_schema",
+                    "table_name_prefix": "test",
+                    "enabled": True,
+                },
             }
         """
         return self._call_endpoint(
             method="PUT", route=posixpath.join(endpoint, "ai-gateway"), json_body=config
         )
-
 
     @experimental
     def delete_endpoint(self, endpoint):
@@ -786,4 +768,3 @@ def run_local(name, model_uri, flavor=None, config=None):
 
 def target_help():
     pass
-
