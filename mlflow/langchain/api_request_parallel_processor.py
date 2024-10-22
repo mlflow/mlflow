@@ -222,6 +222,8 @@ def process_api_requests(
     """
     Processes API requests in parallel.
     """
+    from mlflow.tracing.provider import _DISABLE_LOCAL_THREAD_TRACING_KEY
+    from mlflow.utils.thread_utils import get_thread_local_var, set_thread_local_var
 
     # initialize trackers
     retry_queue = queue.Queue()
@@ -241,6 +243,17 @@ def process_api_requests(
     ) = transform_request_json_for_chat_if_necessary(requests, lc_model)
 
     requests_iter = enumerate(converted_chat_requests)
+
+    tracing_locally_disabled = get_thread_local_var(_DISABLE_LOCAL_THREAD_TRACING_KEY, False)
+
+    def call_api(requester, status_tracker, callback_handlers):
+        # If tracing is disabled in local thread, it should be disabled in
+        # all the worker threads.
+        set_thread_local_var(_DISABLE_LOCAL_THREAD_TRACING_KEY, tracing_locally_disabled)
+        return requester.call_api(
+            status_tracker=status_tracker, callback_handlers=callback_handlers
+        )
+
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
         while True:
             # get next request (if one is not already waiting for capacity)
@@ -270,7 +283,8 @@ def process_api_requests(
             if next_request:
                 # call API
                 executor.submit(
-                    next_request.call_api,
+                    call_api,
+                    requester=next_request,
                     status_tracker=status_tracker,
                     callback_handlers=callback_handlers,
                 )
