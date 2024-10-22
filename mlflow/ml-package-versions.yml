@@ -52,6 +52,8 @@ pytorch:
     maximum: "2.4.1"
     requirements:
       ">= 0.0.0": ["tensorboard"]
+    python:
+      ">= 2.5.0": "3.9"
     run: |
       pytest tests/pytorch/test_tensorboard_autolog.py
 
