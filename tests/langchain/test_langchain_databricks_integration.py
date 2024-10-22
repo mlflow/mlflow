@@ -56,19 +56,9 @@ def test_save_and_load_chat_databricks(model_path):
 
     mlflow.langchain.save_model(chain, path=model_path)
 
-    # TODO: Uncomment after the PR https://github.com/mlflow/mlflow/pull/13045 is
-    #   released. This test won't pass within the PR because of the weird mlflow-skinny
-    #   issue. The langchain-databricks package includes databricks-vectorsearch as a
-    #   dependency, which installs mlflow-skinny instead of mlflow. The installed skinny
-    #   interferes system path when MLflow runs capture_module.py in subprocess during
-    #   dependency capturing. Since skinny is installed from public released version and
-    #   does not include local changes, dependency inference fails and thus this
-    #   assertion does not pass. Ideally we should remove the skinny dependency from
-    #   databricks-vectorsearch library, but this assertion problem itself will be
-    #   resolved once the PR above is released.
-    # with model_path.joinpath("requirements.txt").open() as f:
-    #     reqs = {req.split("==")[0] for req in f.read().split("\n")}
-    # assert "langchain-databricks" in reqs
+    with model_path.joinpath("requirements.txt").open() as f:
+        reqs = {req.split("==")[0] for req in f.read().split("\n")}
+    assert "langchain-databricks" in reqs
 
     loaded_model = mlflow.langchain.load_model(model_path)
     assert loaded_model == chain

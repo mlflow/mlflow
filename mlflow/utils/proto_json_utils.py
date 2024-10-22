@@ -265,8 +265,8 @@ def dataframe_from_parsed_json(decoded_input, pandas_orient, schema=None):
 
     Args:
         decoded_input: Parsed json - either a list or a dictionary.
-        schema: MLflow schema used when parsing the data.
         pandas_orient: pandas data frame convention used to store the data.
+        schema: MLflow schema used when parsing the data.
 
     Returns:
         pandas.DataFrame.

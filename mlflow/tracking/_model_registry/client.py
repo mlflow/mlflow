@@ -179,7 +179,7 @@ class ModelRegistryClient:
 
     # Model Version Methods
 
-    def create_model_version(  # noqa: D417
+    def create_model_version(
         self,
         name,
         source,
@@ -203,6 +203,11 @@ class ModelRegistryClient:
             await_creation_for: Number of seconds to wait for the model version to finish being
                 created and is in ``READY`` status. By default, the function
                 waits for five minutes. Specify 0 or None to skip waiting.
+            local_model_path: Local path to the MLflow model, if it's already accessible on the
+                local filesystem. Can be used by AbstractStores that upload model version files
+                to the model registry to avoid a redundant download from the source location when
+                logging and registering a model via a single
+                mlflow.<flavor>.log_model(..., registered_model_name) call.
 
         Returns:
             Single :py:class:`mlflow.entities.model_registry.ModelVersion` object created by

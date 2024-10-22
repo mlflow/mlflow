@@ -1188,18 +1188,22 @@ class SqlAlchemyStore(AbstractStore):
                 # NB: Updating the run_info will set the tag. No need to do it twice.
                 session.merge(SqlTag(run_uuid=run_id, key=tag.key, value=tag.value))
 
-    def _set_tags(self, run_id, tags):
+    def _set_tags(self, run_id, tags, path=""):
         """
         Set multiple tags on a run
 
         Args:
             run_id: String ID of the run
             tags: List of RunTag instances to log
+            path: current json path for error messages
         """
         if not tags:
             return
 
-        tags = [_validate_tag(t.key, t.value) for t in tags]
+        tags = [
+            _validate_tag(t.key, t.value, path=append_to_json_path(path, f"tags[{idx}]"))
+            for (idx, t) in enumerate(tags)
+        ]
 
         with self.ManagedSessionMaker() as session:
             run = self._get_run(run_uuid=run_id, session=session)
@@ -1384,7 +1388,7 @@ class SqlAlchemyStore(AbstractStore):
             try:
                 self._log_params(run_id, params)
                 self._log_metrics(run_id, metrics, path="metrics")
-                self._set_tags(run_id, tags)
+                self._set_tags(run_id, tags, path="tags")
             except MlflowException as e:
                 raise e
             except Exception as e:
