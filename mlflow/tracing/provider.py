@@ -30,6 +30,7 @@ from mlflow.utils.thread_utils import get_thread_local_var, set_thread_local_var
 # Global tracer provider instance. We manage the tracer provider by ourselves instead of using
 # the global tracer provider provided by OpenTelemetry.
 _MLFLOW_TRACER_PROVIDER = None
+_MLFLOW_NOOP_TRACER_PROVIDER = trace.NoOpTracerProvider()
 
 # Once() object ensures a function is executed only once in a process.
 # Note that it doesn't work as expected in a distributed environment.
@@ -94,7 +95,12 @@ def _get_tracer(module_name: str):
 
     If the tracer provider is not initialized, this function will initialize the tracer provider.
     Other simultaneous calls to this function will block until the initialization is done.
+
+    If the tracer is disabled in local thread by `trace_disabled` decorator,
+    return a `NoOpTracer` instance.
     """
+    if get_thread_local_var(_DISABLE_LOCAL_THREAD_TRACING_KEY, False):
+        return _MLFLOW_NOOP_TRACER_PROVIDER.get_tracer(module_name)
     # Initiate tracer provider only once in the application lifecycle
     _MLFLOW_TRACER_PROVIDER_INITIALIZED.do_once(_setup_tracer_provider)
     return _MLFLOW_TRACER_PROVIDER.get_tracer(module_name)
@@ -104,7 +110,11 @@ def _get_trace_exporter():
     """
     Get the exporter instance that is used by the current tracer provider.
     """
-    if _MLFLOW_TRACER_PROVIDER:
+    if get_thread_local_var(_DISABLE_LOCAL_THREAD_TRACING_KEY, False):
+        provider = _MLFLOW_NOOP_TRACER_PROVIDER
+    else:
+        provider = _MLFLOW_TRACER_PROVIDER
+    if provider:
         processors = _MLFLOW_TRACER_PROVIDER._active_span_processor._span_processors
         # There should be only one processor used for MLflow tracing
         processor = processors[0]

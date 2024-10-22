@@ -153,14 +153,14 @@ def test_trace_disabled_decorator(enabled_initially):
     ) as disable_mock:
         assert test_fn() == 0
         assert call_count == 3
-        assert disable_mock.call_count == (1 if enabled_initially else 0)
+        assert disable_mock.call_count == 0
 
     with mock.patch(
         "mlflow.tracing.provider.enable", side_effect=MlflowTracingException("error")
     ) as enable_mock:
         assert test_fn() == 0
         assert call_count == 4
-        assert enable_mock.call_count == (1 if enabled_initially else 0)
+        assert enable_mock.call_count == 0
 
 
 def test_disable_enable_tracing_not_mutate_otel_provider():
