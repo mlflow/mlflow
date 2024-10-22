@@ -1524,27 +1524,28 @@ def test_set_experiment_thread_safety(tmp_path):
         # assert the `set_experiment` invocations in the 2 threads use the same experiment ID.
         assert created_exp_ids[0] == created_exp_ids[1]
 
-        mp_ctx = multiprocessing.get_context("fork")
-        queue = mp_ctx.Queue()
+        if os.name == 'posix':
+            mp_ctx = multiprocessing.get_context("fork")
+            queue = mp_ctx.Queue()
 
-        def subprocess_target(que):
-            exp = mlflow.set_experiment("test_experiment2")
-            que.put(exp.experiment_id)
+            def subprocess_target(que):
+                exp = mlflow.set_experiment("test_experiment2")
+                que.put(exp.experiment_id)
 
-        subproc1 = mp_ctx.Process(target=subprocess_target, args=(queue,))
-        subproc1.start()
-        subproc2 = mp_ctx.Process(target=subprocess_target, args=(queue,))
-        subproc2.start()
+            subproc1 = mp_ctx.Process(target=subprocess_target, args=(queue,))
+            subproc1.start()
+            subproc2 = mp_ctx.Process(target=subprocess_target, args=(queue,))
+            subproc2.start()
 
-        subproc1.join()
-        subproc2.join()
+            subproc1.join()
+            subproc2.join()
 
-        assert subproc1.exitcode == 0
-        assert subproc2.exitcode == 0
+            assert subproc1.exitcode == 0
+            assert subproc2.exitcode == 0
 
-        exp_id1 = queue.get(block=False)
-        exp_id2 = queue.get(block=False)
-        assert exp_id1 == exp_id2
+            exp_id1 = queue.get(block=False)
+            exp_id2 = queue.get(block=False)
+            assert exp_id1 == exp_id2
 
 
 def test_subprocess_inherit_active_experiment(tmp_path):
@@ -1577,16 +1578,17 @@ def test_mlflow_active_run_thread_local(tmp_path):
         # assert in another thread, active run is None.
         assert thread_active_run is None
 
-        mp_ctx = multiprocessing.get_context("fork")
+        if os.name == 'posix':
+            mp_ctx = multiprocessing.get_context("fork")
 
-        def subprocess_target():
-            # assert in subprocess, active run is None.
-            assert mlflow.active_run() is None
+            def subprocess_target():
+                # assert in subprocess, active run is None.
+                assert mlflow.active_run() is None
 
-        subproc = mp_ctx.Process(target=subprocess_target)
-        subproc.start()
-        subproc.join()
-        assert subproc.exitcode == 0
+            subproc = mp_ctx.Process(target=subprocess_target)
+            subproc.start()
+            subproc.join()
+            assert subproc.exitcode == 0
 
 
 def test_mlflow_last_active_run_thread_local(tmp_path):
@@ -1610,16 +1612,17 @@ def test_mlflow_last_active_run_thread_local(tmp_path):
     # assert in another thread, active run is None.
     assert thread_last_active_run is None
 
-    mp_ctx = multiprocessing.get_context("fork")
+    if os.name == 'posix':
+        mp_ctx = multiprocessing.get_context("fork")
 
-    def subprocess_target():
-        # assert in subprocess, active run is None.
-        assert mlflow.last_active_run() is None
+        def subprocess_target():
+            # assert in subprocess, active run is None.
+            assert mlflow.last_active_run() is None
 
-    subproc = mp_ctx.Process(target=subprocess_target)
-    subproc.start()
-    subproc.join()
-    assert subproc.exitcode == 0
+        subproc = mp_ctx.Process(target=subprocess_target)
+        subproc.start()
+        subproc.join()
+        assert subproc.exitcode == 0
 
 
 def test_subprocess_inherit_tracking_uri(tmp_path):
