@@ -65,9 +65,9 @@ from mlflow.utils.mlflow_tags import (
     MLFLOW_RUN_NAME,
     MLFLOW_RUN_NOTE,
 )
+from mlflow.utils.thread_utils import get_thread_local_var, set_thread_local_var
 from mlflow.utils.time import get_current_time_millis
 from mlflow.utils.validation import _validate_experiment_id_type, _validate_run_id
-from mlflow.utils.thread_utils import get_thread_local_var, set_thread_local_var
 
 if TYPE_CHECKING:
     import matplotlib
@@ -176,8 +176,8 @@ def set_experiment(
                 except MlflowException as e:
                     if e.error_code == "RESOURCE_ALREADY_EXISTS":
                         # NB: If two simultaneous processes attempt to set the same experiment
-                        # simultaneously, a race condition may be encountered here wherein experiment
-                        # creation fails
+                        # simultaneously, a race condition may be encountered here wherein
+                        # experiment creation fails
                         return client.get_experiment_by_name(experiment_name)
 
                 experiment = client.get_experiment(experiment_id)
@@ -426,9 +426,7 @@ def start_run(
                     f"because it is in the deleted state."
                 )
         else:
-            parent_run_id = (
-                active_run_stack[-1].info.run_id if len(active_run_stack) > 0 else None
-            )
+            parent_run_id = active_run_stack[-1].info.run_id if len(active_run_stack) > 0 else None
 
         exp_id_for_run = experiment_id if experiment_id is not None else _get_experiment_id()
 

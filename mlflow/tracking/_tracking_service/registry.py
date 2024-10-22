@@ -3,7 +3,6 @@ from functools import lru_cache
 
 from mlflow.tracking.registry import StoreRegistry
 
-
 _building_store_lock = threading.Lock()
 
 

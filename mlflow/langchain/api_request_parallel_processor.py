@@ -275,8 +275,7 @@ def process_api_requests(
                 # copy current thread active run stack to inference worker thread.
                 _set_active_run_stack(active_run_stack.copy())
                 return requester.call_api(
-                    status_tracker=status_tracker,
-                    callback_handlers=callback_handlers
+                    status_tracker=status_tracker, callback_handlers=callback_handlers
                 )
 
             # if enough capacity available, call API

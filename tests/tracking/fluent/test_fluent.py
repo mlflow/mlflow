@@ -1,4 +1,5 @@
 import json
+import multiprocessing
 import os
 import random
 import subprocess
@@ -6,7 +7,6 @@ import sys
 import threading
 import time
 import uuid
-import multiprocessing
 from collections import defaultdict
 from importlib import reload
 from itertools import zip_longest
@@ -773,7 +773,7 @@ def test_start_run_with_invalid_parent_id():
 
 
 def test_start_run_with_parent_non_nested():
-    with mock.patch("mlflow.tracking.fluent._active_run_stack", [mock.Mock()]):
+    with mock.patch("mlflow.tracking.fluent._get_active_run_stack", return_value=[mock.Mock()]):
         with pytest.raises(Exception, match=r"Run with UUID .+ is already active"):
             start_run()
 
@@ -1502,8 +1502,7 @@ def test_set_experiment_thread_safety(tmp_path):
         return origin_create_experiment(self, *args, **kwargs)
 
     with mock.patch(
-        "mlflow.tracking.client.MlflowClient.create_experiment",
-        patched_create_experiment
+        "mlflow.tracking.client.MlflowClient.create_experiment", patched_create_experiment
     ):
         created_exp_ids = []
 
@@ -1524,7 +1523,7 @@ def test_set_experiment_thread_safety(tmp_path):
         # assert the `set_experiment` invocations in the 2 threads use the same experiment ID.
         assert created_exp_ids[0] == created_exp_ids[1]
 
-        if os.name == 'posix':
+        if os.name == "posix":
             mp_ctx = multiprocessing.get_context("fork")
             queue = mp_ctx.Queue()
 
@@ -1555,10 +1554,13 @@ def test_subprocess_inherit_active_experiment(tmp_path):
     exp = mlflow.set_experiment("test_experiment")
     exp_id = exp.experiment_id
 
-    subprocess.check_call([
-        sys.executable, "-c",
-        f"import mlflow; assert mlflow.tracking.fluent._get_experiment_id() == '{exp_id}'"
-    ])
+    subprocess.check_call(
+        [
+            sys.executable,
+            "-c",
+            f"import mlflow; assert mlflow.tracking.fluent._get_experiment_id() == '{exp_id}'",
+        ]
+    )
 
 
 def test_mlflow_active_run_thread_local(tmp_path):
@@ -1578,7 +1580,7 @@ def test_mlflow_active_run_thread_local(tmp_path):
         # assert in another thread, active run is None.
         assert thread_active_run is None
 
-        if os.name == 'posix':
+        if os.name == "posix":
             mp_ctx = multiprocessing.get_context("fork")
 
             def subprocess_target():
@@ -1612,7 +1614,7 @@ def test_mlflow_last_active_run_thread_local(tmp_path):
     # assert in another thread, active run is None.
     assert thread_last_active_run is None
 
-    if os.name == 'posix':
+    if os.name == "posix":
         mp_ctx = multiprocessing.get_context("fork")
 
         def subprocess_target():
@@ -1629,17 +1631,25 @@ def test_subprocess_inherit_tracking_uri(tmp_path):
     sqlite_uri = "sqlite:///{}".format(tmp_path.joinpath("test.db"))
     mlflow.set_tracking_uri(sqlite_uri)
 
-    subprocess.check_call([
-        sys.executable, "-c",
-        f"import mlflow; assert mlflow.get_tracking_uri() == '{sqlite_uri}'"
-    ])
+    subprocess.check_call(
+        [
+            sys.executable,
+            "-c",
+            f"import mlflow; assert mlflow.get_tracking_uri() == '{sqlite_uri}'",
+        ],
+        env=os.environ,
+    )
 
 
 def test_subprocess_inherit_registry_uri(tmp_path):
     sqlite_uri = "sqlite:///{}".format(tmp_path.joinpath("test.db"))
     mlflow.set_registry_uri(sqlite_uri)
 
-    subprocess.check_call([
-        sys.executable, "-c",
-        f"import mlflow; assert mlflow.get_registry_uri() == '{sqlite_uri}'"
-    ])
+    subprocess.check_call(
+        [
+            sys.executable,
+            "-c",
+            f"import mlflow; assert mlflow.get_registry_uri() == '{sqlite_uri}'",
+        ],
+        env=os.environ,
+    )
