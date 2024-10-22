@@ -720,7 +720,9 @@ def test_start_run_with_parent():
     mock_experiment_id = "123456"
     mock_source_name = mock.Mock()
 
-    active_run_stack_patch = mock.patch("mlflow.tracking.fluent._active_run_stack", [parent_run])
+    active_run_stack_patch = mock.patch(
+        "mlflow.tracking.fluent._get_active_run_stack", lambda: [parent_run]
+    )
 
     mock_user = mock.Mock()
     user_patch = mock.patch(
