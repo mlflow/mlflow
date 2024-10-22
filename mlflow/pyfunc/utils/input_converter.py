@@ -5,7 +5,10 @@ from mlflow.utils.annotations import experimental
 
 
 def _is_optional_dataclass(field_type) -> bool:
-    """Check if the field type is an Optional containing a dataclass."""
+    """
+    Check if the field type is an Optional containing a dataclass.
+    Currently, ... | None (in Python 3.10) is not supported.
+    """
     if get_origin(field_type) is Union:
         inner_types = get_args(field_type)
         # Check if it's a Union[Dataclass, NoneType] (i.e., Optional[Dataclass])
