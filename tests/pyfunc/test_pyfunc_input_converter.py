@@ -1,11 +1,11 @@
-from dataclasses import dataclass, asdict
+from dataclasses import asdict, dataclass
 from typing import List, Optional
 
 import pandas as pd
 import pytest
 
+from mlflow.models.rag_signatures import ChatCompletionRequest
 from mlflow.pyfunc.utils.input_converter import _hydrate_dataclass
-from mlflow.models.rag_signatures import ChatCompletionRequest, ChatCompletionResponse
 
 
 def test_hydrate_dataclass_input_no_dataclass():
