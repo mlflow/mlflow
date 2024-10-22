@@ -361,20 +361,16 @@ class FlexibleChatCompletionResponse(rag_signatures.ChatCompletionResponse):
     custom_output: Optional[CustomOutput] = None
 
 
-def test_infer_signature_with_optional_dataclass():
+def test_infer_signature_with_optional_and_child_dataclass():
     inferred_signature = infer_signature(
-        FlexibleChatCompletionRequest(), FlexibleChatCompletionResponse()
+        FlexibleChatCompletionRequest(),
+        FlexibleChatCompletionResponse(),
     )
     custom_input_schema = next(
         schema for schema in inferred_signature.inputs.to_dict() if schema["name"] == "custom_input"
     )
     assert custom_input_schema["required"] is False
-
-
-def test_infer_signature_with_child_dataclass():
-    inferred_signature = infer_signature(
-        FlexibleChatCompletionRequest(), FlexibleChatCompletionResponse()
-    )
+    assert "id" in custom_input_schema["properties"]
     assert any(
         schema for schema in inferred_signature.inputs.to_dict() if schema["name"] == "messages"
     )
