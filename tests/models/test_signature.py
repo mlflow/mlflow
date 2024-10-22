@@ -1,5 +1,6 @@
 import json
-from dataclasses import asdict
+from dataclasses import asdict, dataclass
+from typing import Optional
 
 import numpy as np
 import pandas as pd
@@ -338,3 +339,38 @@ def test_infer_signature_with_dataclass():
     output_schema = convert_dataclass_to_schema(rag_signatures.ChatCompletionResponse())
     assert inferred_signature.inputs == input_schema
     assert inferred_signature.outputs == output_schema
+
+
+@dataclass
+class CustomInput:
+    id: int = 0
+
+
+@dataclass
+class CustomOutput:
+    id: int = 0
+
+
+@dataclass
+class FlexibleChatCompletionRequest(rag_signatures.ChatCompletionRequest):
+    custom_input: Optional[CustomInput] = None
+
+
+@dataclass
+class FlexibleChatCompletionResponse(rag_signatures.ChatCompletionResponse):
+    custom_output: Optional[CustomOutput] = None
+
+
+def test_infer_signature_with_optional_and_child_dataclass():
+    inferred_signature = infer_signature(
+        FlexibleChatCompletionRequest(),
+        FlexibleChatCompletionResponse(),
+    )
+    custom_input_schema = next(
+        schema for schema in inferred_signature.inputs.to_dict() if schema["name"] == "custom_input"
+    )
+    assert custom_input_schema["required"] is False
+    assert "id" in custom_input_schema["properties"]
+    assert any(
+        schema for schema in inferred_signature.inputs.to_dict() if schema["name"] == "messages"
+    )

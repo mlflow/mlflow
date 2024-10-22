@@ -10,7 +10,7 @@ from mlflow.types.schema import (
     Property,
     Schema,
 )
-from mlflow.utils.annotations import deprecated, experimental
+from mlflow.utils.annotations import experimental
 
 
 @dataclass
@@ -33,7 +33,6 @@ class SplitChatMessagesRequest:
     history: Optional[List[Message]] = field(default_factory=list)
 
 
-@deprecated(since="2.13.1")
 @dataclass
 @experimental
 class MultiturnChatRequest:
