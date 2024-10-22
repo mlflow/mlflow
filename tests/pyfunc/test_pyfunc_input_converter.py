@@ -1,10 +1,11 @@
-from dataclasses import dataclass
-from typing import List
+from dataclasses import dataclass, asdict
+from typing import List, Optional
 
 import pandas as pd
 import pytest
 
 from mlflow.pyfunc.utils.input_converter import _hydrate_dataclass
+from mlflow.models.rag_signatures import ChatCompletionRequest, ChatCompletionResponse
 
 
 def test_hydrate_dataclass_input_no_dataclass():
@@ -53,3 +54,29 @@ def test_hydrate_dataclass_complex():
     # Check that the dataclass is hydrated
     result = _hydrate_dataclass(MyListDataclass, df.iloc[0])
     assert result == MyListDataclass(c=[MyDataclass(a=1, b=2), MyDataclass(a=3, b=4)])
+
+
+@dataclass
+class CustomInput:
+    id: int = 0
+
+
+@dataclass
+class FlexibleChatCompletionRequest(ChatCompletionRequest):
+    custom_input: Optional[CustomInput] = None
+
+
+def test_hydrate_child_dataclass():
+    result = _hydrate_dataclass(
+        FlexibleChatCompletionRequest,
+        asdict(FlexibleChatCompletionRequest(custom_input=CustomInput())),
+    )
+    assert result == FlexibleChatCompletionRequest(custom_input=CustomInput())
+
+
+def test_hydrate_optional_dataclass():
+    result = _hydrate_dataclass(
+        FlexibleChatCompletionRequest,
+        asdict(FlexibleChatCompletionRequest(custom_input=None)),
+    )
+    assert result == FlexibleChatCompletionRequest(custom_input=None)
