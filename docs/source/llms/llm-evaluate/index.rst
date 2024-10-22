@@ -116,7 +116,7 @@ There are two types of LLM evaluation metrics in MLflow:
    More details of how these fields are set can be found in the section "Create your Custom LLM-evaluation Metrics".
 
 2. Function-based per-row metrics. These metrics calculate a score for each data record (row in terms of Pandas/Spark dataframe),
-   based on certain functions, like Rouge (:py:func:`mlflow.metrics.rougeL`) or Flesch Kincaid (:py:func:`mlflow.metrics.flesch_kincaid_grade_level`). 
+   based on certain functions, like Rouge (:py:func:`mlflow.metrics.rougeL`) or Flesch Kincaid (:py:func:`mlflow.metrics.flesch_kincaid_grade_level`) or Bilingual Evaluation Understudy (BLEU) (:py:func:`mlflow.metrics.bleu`). 
    These metrics are similar to traditional metrics.
 
 
@@ -234,6 +234,7 @@ metrics:
 * :py:func:`mlflow.metrics.genai.answer_relevance`: Use this metric when you want to evaluate how relevant the model generated output is to the input (context is ignored). High scores mean that your model outputs are about the same subject as the input, while low scores mean that outputs may be non-topical.
 * :py:func:`mlflow.metrics.genai.relevance`: Use this metric when you want to evaluate how relevant the model generated output is with respect to both the input and the context. High scores mean that the model has understood the context and correct extracted relevant information from the context, while low score mean that output has completely ignored the question and the context and could be hallucinating.
 * :py:func:`mlflow.metrics.genai.faithfulness`: Use this metric when you want to evaluate how faithful the model generated output is based on the context provided. High scores mean that the outputs contain information that is in line with the context, while low scores mean that outputs may disagree with the context (input is ignored).
+* :py:func:`mlflow.metrics.bleu`: Use this metric when you want to evaluate the quality of machine-generated text, particularly for translation tasks. BLEU (Bilingual Evaluation Understudy) measures the similarity between the model's output and one or more reference texts. Scores range from 0 to 1, with 1 indicating a perfect match. Note that while BLEU is widely used, it has limitations such as not accounting for meaning or grammatical correctness, so it's often used in conjunction with other metrics for a more comprehensive evaluation.
 
 Selecting the LLM-as-judge Model
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

@@ -507,3 +507,32 @@ def _recall_at_k_eval_fn(k):
         return MetricValue(scores=scores, aggregate_results=standard_aggregations(scores))
 
     return _fn
+
+
+def _bleu_eval_fn(predictions, targets=None, metrics=None):
+    if not _validate_text_data(targets, "bleu", targets_col_specifier) or not _validate_text_data(
+        predictions, "bleu", predictions_col_specifier
+    ):
+        return
+
+    try:
+        bleu = _cached_evaluate_load("bleu")
+    except Exception as e:
+        _logger.warning(f"Failed to load 'bleu' metric (error: {e!r}), skipping metric logging.")
+        return
+
+    result = []
+    for i, (prediction, target) in enumerate(zip(predictions, targets)):
+        if len(target) == 0:
+            _logger.warning(
+                f"Cannot calculate bleu for empty targets: "
+                f"the target is empty on row {i}. Skipping metric logging."
+            )
+            return
+        score = bleu.compute(predictions=[prediction], references=[[target]])
+        result.append(score["bleu"])
+
+    return MetricValue(
+        scores=result,
+        aggregate_results=standard_aggregations(result),
+    )
