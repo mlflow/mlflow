@@ -45,6 +45,7 @@ def test_create_endpoint():
         mock_request.assert_called_once()
         assert resp == {"name": "test"}
 
+
 def test_create_endpoint_config_only():
     client = get_deploy_client("databricks")
     mock_resp = mock.Mock()
@@ -75,6 +76,7 @@ def test_create_endpoint_config_only():
         )
         mock_request.assert_called_once()
         assert resp == {"name": "test"}
+
 
 def test_get_endpoint():
     client = get_deploy_client("databricks")
@@ -128,6 +130,7 @@ def test_update_endpoint():
         mock_request.assert_called_once()
         assert resp == {}
 
+
 def test_update_endpoint_config():
     client = get_deploy_client("databricks")
     mock_resp = mock.Mock()
@@ -156,6 +159,7 @@ def test_update_endpoint_config():
         mock_request.assert_called_once()
         assert resp == {}
 
+
 def test_update_endpoint_tags():
     client = get_deploy_client("databricks")
     mock_resp = mock.Mock()
@@ -165,14 +169,11 @@ def test_update_endpoint_tags():
     with mock.patch("requests.Session.request", return_value=mock_resp) as mock_request:
         resp = client.update_endpoint_tags(
             endpoint="test",
-            config={
-                "add_tags": [
-                    {"key": "project", "value": "test"}
-                ]
-            },
+            config={"add_tags": [{"key": "project", "value": "test"}]},
         )
         mock_request.assert_called_once()
         assert resp == {}
+
 
 def test_update_endpoint_rate_limits():
     client = get_deploy_client("databricks")
@@ -183,18 +184,11 @@ def test_update_endpoint_rate_limits():
     with mock.patch("requests.Session.request", return_value=mock_resp) as mock_request:
         resp = client.update_endpoint_rate_limits(
             endpoint="test",
-            config={
-                "rate_limits": [
-                    {
-                        "calls": 10,
-                        "key": "endpoint",
-                        "renewal_period": "minute"
-                    }
-                ]
-            },
+            config={"rate_limits": [{"calls": 10, "key": "endpoint", "renewal_period": "minute"}]},
         )
         mock_request.assert_called_once()
         assert resp == {}
+
 
 def test_update_endpoint_ai_gateway():
     client = get_deploy_client("databricks")
@@ -216,6 +210,7 @@ def test_update_endpoint_ai_gateway():
         )
         mock_request.assert_called_once()
         assert resp == {}
+
 
 def test_delete_endpoint():
     client = get_deploy_client("databricks")
