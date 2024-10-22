@@ -322,12 +322,11 @@ def test_autolog_function_thread_safety(patch_destination):
     AUTOLOGGING_INTEGRATIONS.pop("test_integration", None)
 
     def original_impl():
-        print("original routine.")
+        pass
 
     patch_destination.fn = original_impl
 
     def patch_impl(original):
-        print("patched routine.")
         original()
 
     @autologging_integration("test_integration")

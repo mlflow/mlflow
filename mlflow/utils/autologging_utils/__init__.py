@@ -1,5 +1,4 @@
 import contextlib
-import functools
 import importlib
 import inspect
 import logging
@@ -122,8 +121,7 @@ def autologging_conf_lock(fn):
         with _autolog_conf_global_lock:
             return fn(*args, **kwargs)
 
-    wrapper = update_wrapper_extended(wrapper, fn)
-    return wrapper
+    return update_wrapper_extended(wrapper, fn)
 
 
 def get_mlflow_run_params_for_fn_args(fn, args, kwargs, unlogged=None):
