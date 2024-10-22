@@ -1,0 +1,96 @@
+.simpleGrid {
+  display: grid;
+  gap: 2rem;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  margin-right: 5rem;
+  padding-bottom: 4rem;
+}
+
+.simpleCard {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  background: var(--ifm-background-surface-color);
+  font-size: 1rem;
+  color: var(--font-color);
+  height: 100%;
+  width: 100%;
+  border-radius: 10px;
+  transition: all 500ms;
+  overflow: hidden;
+  padding: 0.5rem;
+  margin: 2rem !important;
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  cursor: pointer;
+}
+
+[data-theme="dark"] .simpleCard {
+  box-shadow: rgba(228, 236, 252, 0.3) 0.4rem 0.8rem 1.6rem,
+    rgba(228, 236, 252, 0.1) 0rem 0.4rem 3px;
+}
+
+[data-theme="light"] .simpleCard {
+  box-shadow: rgba(2, 8, 20, 0.3) 0.4rem 0.8rem 1.6rem,
+    rgba(2, 8, 20, 0.1) 0rem 0.4rem 3px;
+}
+
+[data-theme="dark"] .simpleCard:hover {
+  box-shadow: rgba(228, 236, 252, 0.25) 0.5rem 2.5rem 5rem,
+    rgba(228, 236, 252, 0.35) 0rem 1.5rem 1.65rem;
+}
+
+[data-theme="light"] .simpleCard:hover {
+  box-shadow: rgba(2, 8, 20, 0.25) 0.5rem 2.5rem 5rem,
+    rgba(2, 8, 20, 0.35) 0rem 1.5rem 1.65rem;
+}
+
+.simpleCard:hover .header {
+  color: var(--ifm-color-primary);
+}
+
+.simpleCard .header {
+  text-align: left;
+  font-size: 1.5rem;
+  font-weight: 600;
+  margin: 2rem;
+  margin-top: 3rem;
+  position: relative;
+  height: calc(5rem + 1.2em);
+  display: flex;
+  overflow: hidden;
+}
+
+.simpleCard .header-with-image {
+  text-align: left;
+  font-size: 1.5rem;
+  font-weight: 600;
+  margin: 1rem 2rem;
+  position: relative;
+  height: calc(5rem + 1.2em);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  overflow: hidden;
+}
+
+.simpleCard a {
+  display: block;
+  height: 100%;
+  text-decoration: none;
+  color: inherit;
+  position: relative;
+}
+
+.simpleCard a:hover {
+  text-decoration: none;
+}
+
+.simpleCard p {
+  color: var(--font-color--inverted);
+  font-size: 1rem;
+  margin: 1rem 2rem;
+  text-align: left;
+}

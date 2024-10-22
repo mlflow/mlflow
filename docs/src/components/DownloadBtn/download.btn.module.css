@@ -1,0 +1,17 @@
+/**
+ * Download button
+ */
+a.downloadBtn {
+  display: inline-block;
+  padding: 8px 12px;
+  border: 1px solid var(--ifm-color-primary);
+  background-color: var(--ifm-color-primary);
+  color: #ffffff;
+  border-radius: 4px;
+  margin-bottom: 10px;
+  /* font-family: "Source Sans Pro"; */
+}
+
+a.downloadBtn i.fas {
+  margin-right: 5px; /* Add some space between the icon and the text */
+}

@@ -1,0 +1,10 @@
+.leftBox {
+  flex: 1;
+  padding: 10px;
+  border: 2px solid #ccc;
+  border-radius: 15px;
+  background-color: #f9f9f9;
+  margin: 0 5px;
+  box-sizing: border-box;
+  text-align: left;
+}
