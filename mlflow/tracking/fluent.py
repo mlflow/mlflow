@@ -93,6 +93,10 @@ def _get_active_run_stack():
     return get_thread_local_var("active_run_stack", init_value=[])
 
 
+def _set_active_run_stack(run_stack):
+    set_thread_local_var("active_run_stack", run_stack)
+
+
 def _get_last_active_run_id():
     return get_thread_local_var("last_active_run_id", init_value=None)
 
