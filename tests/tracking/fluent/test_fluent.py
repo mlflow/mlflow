@@ -1554,13 +1554,15 @@ def test_subprocess_inherit_active_experiment(tmp_path):
     exp = mlflow.set_experiment("test_experiment")
     exp_id = exp.experiment_id
 
-    subprocess.check_call(
+    stdout = subprocess.check_output(
         [
             sys.executable,
             "-c",
-            f"import mlflow; assert mlflow.tracking.fluent._get_experiment_id() == '{exp_id}'",
-        ]
+            "import mlflow; print(mlflow.tracking.fluent._get_experiment_id())",
+        ],
+        text=True,
     )
+    assert exp_id in stdout
 
 
 def test_mlflow_active_run_thread_local(tmp_path):
@@ -1631,25 +1633,27 @@ def test_subprocess_inherit_tracking_uri(tmp_path):
     sqlite_uri = "sqlite:///{}".format(tmp_path.joinpath("test.db"))
     mlflow.set_tracking_uri(sqlite_uri)
 
-    subprocess.check_call(
+    stdout = subprocess.check_output(
         [
             sys.executable,
             "-c",
-            f"import mlflow; assert mlflow.get_tracking_uri() == '{sqlite_uri}'",
+            "import mlflow; print(mlflow.get_tracking_uri())",
         ],
-        env=os.environ,
+        text=True,
     )
+    assert sqlite_uri in stdout
 
 
 def test_subprocess_inherit_registry_uri(tmp_path):
     sqlite_uri = "sqlite:///{}".format(tmp_path.joinpath("test.db"))
     mlflow.set_registry_uri(sqlite_uri)
 
-    subprocess.check_call(
+    stdout = subprocess.check_output(
         [
             sys.executable,
             "-c",
-            f"import mlflow; assert mlflow.get_registry_uri() == '{sqlite_uri}'",
+            "import mlflow; print(mlflow.get_registry_uri())",
         ],
-        env=os.environ,
+        text=True,
     )
+    assert sqlite_uri in stdout
