@@ -647,7 +647,7 @@ openai:
           "uvicorn",
         ]
     run: |
-      pytest tests/openai --ignore tests/openai/test_openai_autolog.py
+      pytest tests/openai tests/openai/test_openai_model_export.py
   autologging:
     minimum: "1.17.0"
     maximum: "1.51.2"
@@ -669,7 +669,7 @@ openai:
           "git+https://github.com/openai/swarm.git",
         ]
     run: |
-      pytest tests/openai/test_openai_autolog.py
+      pytest tests/openai/test_openai_autolog.py tests/openai/test_openai_agent_autolog.py
 
 dspy:
   package_info:

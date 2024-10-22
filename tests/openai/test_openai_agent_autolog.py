@@ -22,16 +22,14 @@ except ImportError:
 def mock_openai(oai_client, expected_responses):
     original = oai_client.chat.completions.create
     expected_responses = copy.deepcopy(expected_responses)
-    with mock.patch.object(oai_client.chat.completions, "create") as mock_create:
 
-        def _mocked_create(*args, **kwargs):
-            # We need to call the original SDK function because OpenAI autolog patches
-            # it to generate a span for completion.
-            original(*args, **kwargs)
-            return expected_responses.pop(0)
+    def _mocked_create(*args, **kwargs):
+        # We need to call the original SDK function because OpenAI autolog patches
+        # it to generate a span for completion.
+        original(*args, **kwargs)
+        return expected_responses.pop(0)
 
-        mock_create.side_effect = _mocked_create
-
+    with mock.patch.object(oai_client.chat.completions, "create", side_effect=_mocked_create):
         yield
 
 
@@ -39,7 +37,7 @@ def test_autolog_swarm_agent(client):
     mlflow.openai.autolog()
 
     # NB: We have to mock the OpenAI SDK responses to make agent works
-    _DUMMY_RESPONSES = [
+    DUMMY_RESPONSES = [
         _get_chat_completion(tool_call="transfer_to_spanish_agent"),
         _get_chat_completion(content="¡Hola! Estoy bien, gracias. ¿Y tú, cómo estás?"),
     ]
@@ -54,7 +52,7 @@ def test_autolog_swarm_agent(client):
 
     english_agent.functions.append(transfer_to_spanish_agent)
 
-    with mock_openai(client, expected_responses=_DUMMY_RESPONSES):
+    with mock_openai(client, expected_responses=DUMMY_RESPONSES):
         messages = [{"role": "user", "content": "Hola.  ¿Como estás?"}]
         response = swarm.run(agent=english_agent, messages=messages)
 
@@ -88,11 +86,9 @@ def test_autolog_swarm_agent(client):
 
 
 def test_autolog_swarm_agent_with_context_variables(client):
-    from swarm import Agent, Swarm
-
     mlflow.openai.autolog()
 
-    _DUMMY_RESPONSES = [
+    DUMMY_RESPONSES = [
         _get_chat_completion(tool_call="print_account_details"),
         _get_chat_completion(
             content="Hello, James! Your account details have been successfully printed."
@@ -112,7 +108,7 @@ def test_autolog_swarm_agent_with_context_variables(client):
     swarm = Swarm(client=client)
     agent = Agent(name="Agent", instructions=instructions, functions=[print_account_details])
 
-    with mock_openai(client, expected_responses=_DUMMY_RESPONSES):
+    with mock_openai(client, expected_responses=DUMMY_RESPONSES):
         context_variables = {"name": "James", "user_id": 123}
         messages = [{"role": "user", "content": "Print my account details!"}]
 
@@ -157,7 +153,7 @@ def test_autolog_swarm_agent_with_context_variables(client):
 def test_autolog_swarm_agent_tool_exception(client):
     mlflow.openai.autolog()
 
-    _DUMMY_RESPONSES = [_get_chat_completion(tool_call="always_fail")]
+    DUMMY_RESPONSES = [_get_chat_completion(tool_call="always_fail")]
 
     swarm = Swarm(client=client)
 
@@ -166,7 +162,7 @@ def test_autolog_swarm_agent_tool_exception(client):
 
     agent = Agent(name="Agent", instructions="You are an agent", functions=[always_fail])
 
-    with mock_openai(client, expected_responses=_DUMMY_RESPONSES):
+    with mock_openai(client, expected_responses=DUMMY_RESPONSES):
         messages = [{"role": "user", "content": "Hi!"}]
         with pytest.raises(Exception, match="This function always fails"):
             swarm.run(agent=agent, messages=messages)
@@ -193,7 +189,7 @@ def test_autolog_swarm_agent_completion_exception(client):
         client.chat.completions, "create", side_effect=RuntimeError("Connection error")
     ):
         messages = [{"role": "user", "content": "Hi!"}]
-        with pytest.raises(Exception, match="Connection error"):
+        with pytest.raises(RuntimeError, match="Connection error"):
             swarm.run(agent=agent, messages=messages)
 
     traces = get_traces()

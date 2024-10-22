@@ -62,7 +62,7 @@ def test_chat_completions_autolog(client, log_models):
 
 @pytest.mark.skipif(not is_v1, reason="Requires OpenAI SDK v1")
 def test_chat_completions_autolog_under_current_active_span(client):
-    # If an user have an active span, the autologging should create a child span under it.
+    # If a user have an active span, the autologging should create a child span under it.
     mlflow.openai.autolog()
 
     messages = [{"role": "user", "content": "test"}]

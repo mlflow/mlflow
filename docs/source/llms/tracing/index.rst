@@ -256,7 +256,6 @@ for model/API invocations to the active MLflow Experiment.
 
         .. code-block:: python
 
-            import os
             import mlflow
             from swarm import Swarm, Agent
 
