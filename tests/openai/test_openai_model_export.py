@@ -6,6 +6,7 @@ import numpy as np
 import openai
 import pandas as pd
 import pytest
+import requests
 import yaml
 from pyspark.sql import SparkSession
 
@@ -658,3 +659,17 @@ def test_openai_request_auth_headers(api_type, auth_headers, tmp_path, monkeypat
             timeout=mock.ANY,
             headers=auth_headers,
         )
+
+
+def test_openai_base_url(tmp_path, monkeypatch, mock_openai):
+    base = mock_openai.rstrip("/")
+    monkeypatch.setenv("OPENAI_API_BASE", base + "/")
+    mlflow.openai.save_model(model="gpt-4o", task="chat.completions", path=tmp_path)
+    model = mlflow.pyfunc.load_model(tmp_path)
+
+    with mock.patch("requests.post", side_effect=requests.post) as mock_request:
+        resp = model.predict("test")
+        mock_request.assert_called_once()
+        url = mock_request.call_args.kwargs["url"]
+        assert url == f"{base}/chat/completions"
+        assert resp == ['[{"role": "user", "content": "test"}]']
