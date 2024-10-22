@@ -1,0 +1,36 @@
+.hint {
+  color: var(--ifm-color-white);
+  background-color: var(--ifm-color-info-light);
+  border: 1px solid var(--docusaurus-highlighted-code-line-bg);
+  border-radius: var(--padding-xs);
+  padding: var(--padding-md) var(--padding-md) 0 var(--padding-md);
+  margin-bottom: var(--padding-md);
+}
+
+.title {
+  border-radius: var(--padding-xs) var(--padding-xs) 0 0;
+  font-size: 1.2rem;
+  color: var(--ifm-color-white);
+  background-color: var(--ifm-color-info-dark);
+  font-weight: 600;
+  margin: calc(var(--padding-md) * -1);
+  padding: 0 var(--padding-md);
+  margin-bottom: var(--padding-xs);
+}
+
+.hint p:not(.title) {
+  margin: 0 0 var(--padding-xs);
+}
+
+.hint code {
+  color: var(--ifm-color-black);
+}
+
+.hint a {
+  color: var(--ifm-color-white);
+}
+
+[data-theme="light"] .hint code {
+  color: var(--ifm-color-white);
+  background-color: var(--ifm-color-black);
+}

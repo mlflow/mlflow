@@ -1,0 +1,45 @@
+.note {
+  color: var(--ifm-color-white);
+  background-color: var(--ifm-color-secondary-light);
+  border: 1px solid var(--docusaurus-highlighted-code-line-bg);
+  border-radius: var(--padding-xs);
+  padding: var(--padding-md) var(--padding-md) 0 var(--padding-md);
+  margin-bottom: var(--padding-md);
+}
+
+.title {
+  border-radius: var(--padding-xs) var(--padding-xs) 0 0;
+  font-size: 1.2rem;
+  color: var(--ifm-color-white);
+  background-color: var(--ifm-color-secondary-dark);
+  font-weight: 600;
+  margin: calc(var(--padding-md) * -1);
+  padding: 0 var(--padding-md);
+  margin-bottom: var(--padding-xs);
+}
+
+.title::before {
+  background-image: image-set(url(../../../static//icons/note-icon.svg));
+  font-size: 0.9em;
+  content: " ";
+  display: inline-block;
+  margin-right: 0.4em;
+  width: 1em;
+  height: 1em;
+  line-height: 1em;
+  vertical-align: middle;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: 1em;
+  position: relative;
+  top: -0.1em;
+}
+
+.note p:not(.title) {
+  margin: 0 0 var(--padding-xs);
+}
+
+.note code {
+  color: var(--ifm-color-black);
+  background-color: var(--ifm-color-white);
+}
