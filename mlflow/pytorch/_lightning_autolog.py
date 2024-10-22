@@ -8,13 +8,12 @@ from packaging.version import Version
 import mlflow.pytorch
 from mlflow.exceptions import MlflowException
 from mlflow.ml_package_versions import _ML_PACKAGE_VERSIONS
-from mlflow.pytorch import _pytorch_autolog
 from mlflow.utils.autologging_utils import (
     BatchMetricsLogger,
     ExceptionSafeAbstractClass,
     MlflowAutologgingQueueingClient,
-    get_autologging_config,
     disable_autologging,
+    get_autologging_config,
 )
 from mlflow.utils.checkpoint_utils import MlflowModelCheckpointCallbackBase
 

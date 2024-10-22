@@ -100,13 +100,14 @@ _AUTOLOGGING_SUPPORTED_VERSION_WARNING_SUPPRESS_LIST = [
 # Note "RLock" is required instead of plain lock, for avoid dead-lock
 _autolog_conf_global_lock = threading.RLock()
 
+# Thread local variable key for flag indicating whether autologging is globally
+# disabled for all integrations.
+_AUTOLOGGING_DISABLED_KEY = "AUTOLOGGING_DISABLED"
 
-# _autolog_conf_thread_local stores 2 thread-local config:
-#  disabled:
-#    Flag indicating whether autologging is globally disabled for all integrations.
-#  disabled_exemptions:
-#    Exempts autologging flavors from the `_autolog_conf_thread_local.disabled` flag
-_autolog_conf_thread_local = threading.local()
+# Thread local variable key for exempting autologging flavors from the
+# thread-local `AUTOLOGGING_DISABLED` flag
+_AUTOLOGGING_DISABLED_EXEMPTIONS_KEY = "AUTOLOGGING_DISABLED_EXEMPTIONS"
+
 
 _logger = logging.getLogger(__name__)
 
@@ -123,7 +124,6 @@ def autologging_conf_lock(fn):
 
     wrapper = update_wrapper_extended(wrapper, fn)
     return wrapper
-
 
 
 def get_mlflow_run_params_for_fn_args(fn, args, kwargs, unlogged=None):
@@ -560,16 +560,25 @@ def disable_autologging(exemptions=None):
     Args:
         exemptions: flavors that we do not disable
     """
+    from mlflow.utils.thread_utils import get_thread_local_var, set_thread_local_var
+
     if exemptions is None:
         exemptions = []
 
-    _autolog_conf_thread_local.disabled = True
-    _autolog_conf_thread_local.disabled_exemptions = exemptions
+    original_autologging_disabled = get_thread_local_var(_AUTOLOGGING_DISABLED_KEY, False)
+    original_autologging_disabled_exemptions = get_thread_local_var(
+        _AUTOLOGGING_DISABLED_EXEMPTIONS_KEY, []
+    )
+
+    set_thread_local_var(_AUTOLOGGING_DISABLED_KEY, True)
+    set_thread_local_var(_AUTOLOGGING_DISABLED_EXEMPTIONS_KEY, exemptions)
     try:
         yield
     finally:
-        _autolog_conf_thread_local.disabled = False
-        _autolog_conf_thread_local.disabled_exemptions = []
+        set_thread_local_var(_AUTOLOGGING_DISABLED_KEY, original_autologging_disabled)
+        set_thread_local_var(
+            _AUTOLOGGING_DISABLED_EXEMPTIONS_KEY, original_autologging_disabled_exemptions
+        )
 
 
 @contextlib.contextmanager

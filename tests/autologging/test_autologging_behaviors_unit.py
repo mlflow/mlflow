@@ -1,11 +1,11 @@
 import logging
+import multiprocessing
 import sys
 import threading
 import time
 import warnings
 from concurrent.futures import ThreadPoolExecutor
 from io import StringIO
-import multiprocessing
 
 import numpy as np
 import pytest

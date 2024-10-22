@@ -50,10 +50,10 @@ from mlflow.utils.async_logging.run_operations import RunOperations
 from mlflow.utils.autologging_utils import (
     AUTOLOGGING_CONF_KEY_IS_GLOBALLY_CONFIGURED,
     AUTOLOGGING_INTEGRATIONS,
+    autologging_conf_lock,
     autologging_integration,
     autologging_is_disabled,
     is_testing,
-    autologging_conf_lock,
 )
 from mlflow.utils.databricks_utils import is_in_databricks_runtime
 from mlflow.utils.import_hooks import register_post_import_hook
