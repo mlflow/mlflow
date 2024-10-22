@@ -59,15 +59,26 @@ def set_retriever_schema(
     existing_schema = next((schema for schema in retriever_schemas if schema["name"] == name), None)
 
     if existing_schema is not None:
-        _logger.warning(
-            f"A retriever schema with the name '{name}' already exists. "
-            "Overriding the existing schema."
-        )
-        # Override the fields of the existing schema
-        existing_schema["primary_key"] = primary_key
-        existing_schema["text_column"] = text_column
-        existing_schema["doc_uri"] = doc_uri
-        existing_schema["other_columns"] = other_columns or []
+        # Compare all relevant fields
+        if (
+            existing_schema["primary_key"] == primary_key
+            and existing_schema["text_column"] == text_column
+            and existing_schema["doc_uri"] == doc_uri
+            and existing_schema["other_columns"] == (other_columns or [])
+        ):
+            # No difference, no need to warn or update
+            return
+        else:
+            # Differences found, issue a warning
+            _logger.warning(
+                f"A retriever schema with the name '{name}' already exists. "
+                "Overriding the existing schema."
+            )
+            # Override the fields of the existing schema
+            existing_schema["primary_key"] = primary_key
+            existing_schema["text_column"] = text_column
+            existing_schema["doc_uri"] = doc_uri
+            existing_schema["other_columns"] = other_columns or []
     else:
         retriever_schemas.append(
             {
