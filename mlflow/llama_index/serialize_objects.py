@@ -43,11 +43,6 @@ def object_to_dict(o: object):
             field_val = getattr(o, k, None)
             if field_val != v.default and callable(field_val):
                 callable_fields.add(k)
-        if callable_fields:
-            _logger.warning(
-                f"Object {o} contains callable fields that are not serializable: {callable_fields},"
-                f" removing these fields and saving the object."
-            )
         # exclude default values from serialization to avoid
         # unnecessary clutter in the serialized object
         o_state_as_dict = o.to_dict(exclude=callable_fields)
