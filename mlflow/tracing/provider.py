@@ -275,11 +275,12 @@ def trace_disabled(f):
 
     @functools.wraps(f)
     def wrapper(*args, **kwargs):
+        original_value = get_thread_local_var(_DISABLE_LOCAL_THREAD_TRACING_KEY, False)
         set_thread_local_var(_DISABLE_LOCAL_THREAD_TRACING_KEY, True)
         try:
             return f(*args, **kwargs)
         finally:
-            set_thread_local_var(_DISABLE_LOCAL_THREAD_TRACING_KEY, False)
+            set_thread_local_var(_DISABLE_LOCAL_THREAD_TRACING_KEY, original_value)
 
     return wrapper
 
