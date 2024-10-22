@@ -273,7 +273,7 @@ def process_api_requests(
                 # langchain inference tracing will read current active run,
                 # but active run stack is thread local, to make it work,
                 # copy current thread active run stack to inference worker thread.
-                _set_active_run_stack(active_run_stack)
+                _set_active_run_stack(active_run_stack.copy())
                 return requester.call_api(
                     status_tracker=status_tracker,
                     callback_handlers=callback_handlers
