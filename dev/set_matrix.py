@@ -36,7 +36,7 @@ import sys
 import warnings
 from collections import defaultdict
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Any, Dict, Iterator, List, Optional, Set, Tuple, TypeVar
 
 import requests
 import yaml
@@ -49,6 +49,8 @@ VERSIONS_YAML_PATH = "mlflow/ml-package-versions.yml"
 DEV_VERSION = "dev"
 # Treat "dev" as "newer than any existing versions"
 DEV_NUMERIC = "9999.9999.9999"
+
+T = TypeVar("T")
 
 
 class Version(OriginalVersion):
@@ -76,6 +78,7 @@ class TestConfig(BaseModel, extra="forbid"):
     unsupported: Optional[List[Version]] = None
     requirements: Optional[Dict[str, List[str]]] = None
     python: Optional[Dict[str, str]] = None
+    runs_on: Optional[Dict[str, str]] = None
     java: Optional[Dict[str, str]] = None
     run: str
     allow_unreleased_max_version: Optional[bool] = None
@@ -125,6 +128,7 @@ class MatrixItem(BaseModel, extra="forbid"):
     java: str
     supported: bool
     free_disk_space: bool
+    runs_on: str
     pre_test: Optional[str] = None
 
     class Config:
@@ -259,16 +263,10 @@ def get_matched_requirements(requirements, version=None):
 
 
 def get_java_version(java: Optional[Dict[str, str]], version: str) -> str:
-    default = "11"
-    if java is None:
-        return default
+    if java and (match := next(_find_matches(java, version), None)):
+        return match
 
-    for specifier, java_ver in java.items():
-        specifier_set = SpecifierSet(specifier.replace(DEV_VERSION, DEV_NUMERIC))
-        if specifier_set.contains(DEV_NUMERIC if version == DEV_VERSION else version):
-            return java_ver
-
-    return default
+    return "11"
 
 
 @functools.lru_cache(maxsize=128)
@@ -302,14 +300,34 @@ def infer_python_version(package: str, version: str) -> str:
     return candidates[0]
 
 
+def _find_matches(spec: Dict[str, T], version: str) -> Iterator[T]:
+    """
+    Args:
+        spec: A dictionary with key as version specifier and value as the corresponding value.
+            For example, {"< 1.0.0": "numpy<2.0", ">= 1.0.0": "numpy>=2.0"}.
+        version: The version to match against the specifiers.
+
+    Returns:
+        An iterator of values that match the version.
+    """
+    for specifier, val in spec.items():
+        specifier_set = SpecifierSet(specifier.replace(DEV_VERSION, DEV_NUMERIC))
+        if specifier_set.contains(DEV_NUMERIC if version == DEV_VERSION else version):
+            yield val
+
+
 def get_python_version(python: Optional[Dict[str, str]], package: str, version: str) -> str:
-    if python:
-        for specifier, py_ver in python.items():
-            specifier_set = SpecifierSet(specifier.replace(DEV_VERSION, DEV_NUMERIC))
-            if specifier_set.contains(DEV_NUMERIC if version == DEV_VERSION else version):
-                return py_ver
+    if python and (match := next(_find_matches(python, version), None)):
+        return match
 
     return infer_python_version(package, version)
+
+
+def get_runs_on(runs_on: Optional[Dict[str, str]], version: str) -> str:
+    if runs_on and (match := next(_find_matches(runs_on, version), None)):
+        return match
+
+    return "ubuntu-latest"
 
 
 def remove_comments(s):
@@ -548,6 +566,7 @@ def expand_config(config: Dict[str, Any], *, is_ref: bool = False) -> Set[Matrix
                 install = make_pip_install_command(requirements)
                 run = remove_comments(cfg.run)
                 python = get_python_version(cfg.python, package_info.pip_release, str(ver))
+                runs_on = get_runs_on(cfg.runs_on, ver)
                 java = get_java_version(cfg.java, str(ver))
 
                 matrix.add(
@@ -564,6 +583,7 @@ def expand_config(config: Dict[str, Any], *, is_ref: bool = False) -> Set[Matrix
                         java=java,
                         supported=ver <= cfg.maximum,
                         free_disk_space=free_disk_space,
+                        runs_on=runs_on,
                         pre_test=cfg.pre_test,
                     )
                 )
@@ -576,6 +596,7 @@ def expand_config(config: Dict[str, Any], *, is_ref: bool = False) -> Set[Matrix
                 else:
                     install = install_dev
                 python = get_python_version(cfg.python, package_info.pip_release, DEV_VERSION)
+                runs_on = get_runs_on(cfg.runs_on, DEV_VERSION)
                 java = get_java_version(cfg.java, DEV_VERSION)
 
                 run = remove_comments(cfg.run)
@@ -594,6 +615,7 @@ def expand_config(config: Dict[str, Any], *, is_ref: bool = False) -> Set[Matrix
                         java=java,
                         supported=False,
                         free_disk_space=free_disk_space,
+                        runs_on=runs_on,
                         pre_test=cfg.pre_test,
                     )
                 )
