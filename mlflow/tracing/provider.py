@@ -16,7 +16,6 @@ from typing import Optional, Tuple
 from opentelemetry import trace
 from opentelemetry.sdk.trace import TracerProvider
 
-from mlflow.exceptions import MlflowTracingException
 from mlflow.tracing.constant import SpanAttributeKey
 from mlflow.tracing.utils.exception import raise_as_trace_exception
 from mlflow.tracing.utils.once import Once

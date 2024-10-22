@@ -1,7 +1,7 @@
 import threading
+import time
 from concurrent.futures import ThreadPoolExecutor
 from unittest import mock
-import time
 
 import pytest
 from opentelemetry import trace
