@@ -56,8 +56,8 @@ from mlflow.utils.model_utils import (
     _validate_and_prepare_target_save_path,
 )
 from mlflow.utils.requirements_utils import _get_pinned_requirement
-from mlflow.utils.validation import _is_numeric
 from mlflow.utils.thread_utils import get_thread_local_var, set_thread_local_var
+from mlflow.utils.validation import _is_numeric
 
 FLAVOR_NAME = "statsmodels"
 STATSMODELS_DATA_SUBPATH = "model.statsmodels"
