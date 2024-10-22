@@ -416,6 +416,7 @@ from copy import deepcopy
 from functools import lru_cache
 from pathlib import Path
 from typing import Any, Dict, Iterator, List, Optional, Tuple, Union
+from urllib.parse import urlparse
 
 import numpy as np
 import pandas
@@ -428,6 +429,7 @@ import mlflow.pyfunc.model
 from mlflow.environment_variables import (
     _MLFLOW_IN_CAPTURE_MODULE_PROCESS,
     _MLFLOW_TESTING,
+    MLFLOW_MODEL_ENV_DOWNLOADING_TEMP_DIR,
     MLFLOW_SCORING_SERVER_REQUEST_TIMEOUT,
 )
 from mlflow.exceptions import MlflowException
@@ -553,7 +555,6 @@ from mlflow.utils.requirements_utils import (
 )
 from mlflow.utils.spark_utils import is_spark_connect_mode
 from mlflow.utils.virtualenv import _get_python_env, _get_virtualenv_name
-from urllib.parse import urlparse
 
 try:
     from pyspark.sql import DataFrame as SparkDataFrame
@@ -1747,26 +1748,39 @@ def _prebuild_env_internal(local_model_path, archive_name, save_path):
 
 
 def _download_prebuilt_env_if_needed(prebuilt_env_path):
-    from mlflow.utils.file_utils import get_or_create_tmp_dir
     from databricks.sdk import WorkspaceClient
 
+    from mlflow.utils.file_utils import get_or_create_tmp_dir
+
     parsed_url = urlparse(prebuilt_env_path)
-    if parsed_url.scheme == '' or parsed_url.scheme == 'file':
+    if parsed_url.scheme == "" or parsed_url.scheme == "file":
         # local path
         return parsed_url.path
-    if parsed_url.scheme == 'dbfs':
-        tmp_dir = tempfile.mkdtemp(dir=get_or_create_tmp_dir())
+    if parsed_url.scheme == "dbfs":
+        tmp_dir = MLFLOW_MODEL_ENV_DOWNLOADING_TEMP_DIR.get() or tempfile.mkdtemp(
+            dir=get_or_create_tmp_dir()
+        )
         model_env_uc_path = parsed_url.path
 
         # download file from DBFS.
         local_model_env_path = os.path.join(tmp_dir, os.path.basename(model_env_uc_path))
+        if os.path.exists(local_model_env_path):
+            # file is already downloaded.
+            return local_model_env_path
 
-        ws = WorkspaceClient()
-        # Download model env file from UC volume.
-        with ws.files.download(model_env_uc_path).contents as rf, open(local_model_env_path, "wb") as wf:
-            while chunk := rf.read(4096):
-                wf.write(chunk)
-        return local_model_env_path
+        try:
+            ws = WorkspaceClient()
+            # Download model env file from UC volume.
+            with ws.files.download(model_env_uc_path).contents as rf, open(
+                local_model_env_path, "wb"
+            ) as wf:
+                while chunk := rf.read(4096):
+                    wf.write(chunk)
+            return local_model_env_path
+        finally:
+            if os.path.exists(local_model_env_path):
+                # clean the partially saved file if downloading fails.
+                os.remove(local_model_env_path)
 
     raise MlflowException(
         f"Unsupported prebuilt env file path '{prebuilt_env_path}', "
@@ -2006,7 +2020,10 @@ def spark_udf(
             Databricks Shared cluster notebook REPL, and Databricks Connect client
             environment.
             The path can be either local file path or DBFS path such as
-            'dbfs:/Volumes/...'.
+            'dbfs:/Volumes/...', in this case, MLflow automatically downloads it
+            to local temporary directory, "MLFLOW_MODEL_ENV_DOWNLOADING_TEMP_DIR"
+            environmental variable can be set to specify the temporary directory
+            to use.
 
             If this parameter is set, `env_manger` parameter must not be set.
 
