@@ -401,8 +401,9 @@ class DatabricksDeploymentClient(BaseDeploymentClient):
         else:
             # for backwards compatibility
             warnings.warn(
-                "The current usage of create_endpoint is deprecated. "
-                "Please pass the full API request payload in the 'config' parameter.",
+                "Passing 'name', 'config', and 'route_optimized' as separate parameters to "
+                "create_endpoint() is deprecated. Please pass the full API request payload "
+                "as a single dictionary in the 'config' parameter instead.",
                 UserWarning,
             )
             config = config.copy() if config else {}  # avoid mutating config
