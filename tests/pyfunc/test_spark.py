@@ -1617,3 +1617,26 @@ def test_build_model_env(spark, sklearn_model, model_path, tmp_path, monkeypatch
         )
     finally:
         shutil.rmtree(f"/tmp/{archive_name}", ignore_errors=True)
+
+
+class CustomModelWithMlflowConfig(mlflow.pyfunc.PythonModel):
+    def predict(self, context, model_input, params=None):
+        alpha = context.model_config["alpha"]
+        return [x + alpha for x in model_input[model_input.columns[0]]]
+
+
+@pytest.mark.parametrize("env_manager", ["local", "virtualenv"])
+def test_spark_udf_with_model_config(spark, model_path, env_manager):
+    model = CustomModelWithMlflowConfig()
+    mlflow.pyfunc.save_model(
+        model_path, python_model=model, model_config={"alpha": 0},
+        code_paths=[os.path.dirname(tests.__file__)],
+    )
+    udf = mlflow.pyfunc.spark_udf(
+        spark, model_path,
+        result_type='long',
+        model_config={"alpha": 3},
+        env_manager=env_manager,
+    )
+    result = spark.range(10).repartition(1).withColumn("prediction", udf(col("id"))).toPandas()
+    assert all(result.id + 3 == result.prediction)
