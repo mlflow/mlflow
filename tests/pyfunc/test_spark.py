@@ -1625,8 +1625,15 @@ class CustomModelWithMlflowConfig(mlflow.pyfunc.PythonModel):
         return [x + alpha for x in model_input[model_input.columns[0]]]
 
 
-@pytest.mark.parametrize("env_manager", ["local", "virtualenv"])
-def test_spark_udf_with_model_config(spark, model_path, env_manager):
+@pytest.mark.parametrize(
+    ("env_manager", "force_stdin_serve"),
+    [("local", None), ("virtualenv", False), ("virtualenv", True)]
+)
+def test_spark_udf_with_model_config(spark, model_path, monkeypatch, env_manager, force_stdin_serve):
+    from mlflow.environment_variables import _MLFLOW_SPARK_UDF_FORCE_SERVE_STDIN
+    if force_stdin_serve:
+        monkeypatch.setenv(_MLFLOW_SPARK_UDF_FORCE_SERVE_STDIN.name, "true")
+
     model = CustomModelWithMlflowConfig()
     mlflow.pyfunc.save_model(
         model_path,
