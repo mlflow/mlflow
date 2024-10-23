@@ -92,6 +92,14 @@ SCORING_PROTOCOL_CHANGE_INFO = (
 )
 
 
+def load_model_with_mlflow_config(model_uri):
+    extra_kwargs = {}
+    if model_config_json := os.environ[SERVING_MODEL_CONFIG]:
+        extra_kwargs["model_config"] = json.loads(model_config_json)
+
+    return load_model(model_uri)
+
+
 # Keep this method to maintain compatibility with MLServer
 # https://github.com/SeldonIO/MLServer/blob/caa173ab099a4ec002a7c252cbcc511646c261a6/runtimes/mlflow/mlserver_mlflow/runtime.py#L13C5-L13C31
 @deprecated("infer_and_parse_data", "2.6.0")

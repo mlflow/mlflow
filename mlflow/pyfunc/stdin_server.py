@@ -18,11 +18,7 @@ args = parser.parse_args()
 
 _logger.info("Loading model from %s", args.model_uri)
 
-model_loading_extra_kwargs = {}
-if model_config_json := os.environ[scoring_server.SERVING_MODEL_CONFIG]:
-    model_loading_extra_kwargs["model_config"] = json.loads(model_config_json)
-
-model = mlflow.pyfunc.load_model(args.model_uri, **model_loading_extra_kwargs)
+model = scoring_server.load_model_with_mlflow_config(args.model_uri)
 input_schema = model.metadata.get_input_schema()
 _logger.info("Loaded model")
 
