@@ -31,6 +31,11 @@ Introduction to MLflow Tracing
                     <img src="../../_static/images/logos/openai-logo.png" alt="OpenAI Logo"/>
                 </div>
             </a>
+            <a href="../openai/autologging.html#auto-tracing-for-openai-swarm">
+                <div class="logo-card">
+                    <img src="../../_static/images/logos/openai-swarm-logo.png" alt="OpenAI Swarm Logo"/>
+                </div>
+            </a>
             <a href="#automatic-tracing">
                 <div class="logo-card">
                     <img src="../../_static/images/logos/autogen-logo.svg" alt="AutoGen Logo"/>
@@ -224,6 +229,69 @@ for model/API invocations to the active MLflow Experiment.
 
         .. figure:: ../../_static/images/llms/tracing/openai-tracing.png
             :alt: OpenAI Tracing
+            :width: 100%
+            :align: center
+
+    .. tab:: Swarm
+
+        .. raw:: html
+
+            <h3>OpenAI Swarm Automatic Tracing</h3>
+
+        |
+
+        The MLflow OpenAI flavor supports automatic tracing for `Swarm <https://github.com/openai/swarm>`_, a multi-agent orchestration
+        framework from OpenAI. To enable tracing for **Swarm**, just call :py:func:`mlflow.openai.autolog`
+        before running your multi-agent interactions. MLflow will trace all LLM interactions,
+        tool calls, and agent operations automatically.
+
+        .. code-block:: python
+
+            import mlflow
+
+            mlflow.openai.autolog()
+
+
+        For example, the code below will run the simplest example of multi-agent interaction using OpenAI Swarm.
+
+        .. code-block:: python
+
+            import mlflow
+            from swarm import Swarm, Agent
+
+            # Calling the autolog API will enable trace logging by default.
+            mlflow.openai.autolog()
+
+            mlflow.set_experiment("OpenAI Swarm")
+
+            client = Swarm()
+
+
+            def transfer_to_agent_b():
+                return agent_b
+
+
+            agent_a = Agent(
+                name="Agent A",
+                instructions="You are a helpful agent.",
+                functions=[transfer_to_agent_b],
+            )
+
+            agent_b = Agent(
+                name="Agent B",
+                instructions="Only speak in Haikus.",
+            )
+
+            response = client.run(
+                agent=agent_a,
+                messages=[{"role": "user", "content": "I want to talk to agent B."}],
+            )
+            print(response)
+
+        The logged trace, associated with the ``OpenAI Swarm`` experiment, can be seen in the MLflow UI, as shown below:
+
+        .. figure:: ../../_static/images/llms/tracing/openai-swarm-tracing.png
+            :alt: OpenAI Swarm Tracing
             :width: 100%
             :align: center
 

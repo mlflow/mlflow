@@ -164,6 +164,55 @@ The model can be loaded by using the ``models`` uri via the model that was logge
         "as measured by an on-board clock on the spacecraft and humans on Earth, assuming constant speed?"
     )
 
+Auto-tracing for OpenAI Swarm
+-----------------------------
+
+MLflow 2.17.1 introduced built-in tracing capability for `OpenAI Swarm <https://github.com/openai/swarm/tree/main>`_, a multi-agent orchestration framework from OpenAI. The framework provides a clean interface to build multi-agent systems on top of the OpenAI's Function Calling capability and the concept of `handoff & routines patterns <https://cookbook.openai.com/examples/orchestrating_agents>`_.
+
+MLflow's automatic tracing capability offers seamless tracking of interactions between agents, tool calls, and their collective outputs. You can enable auto-tracing for OpenAI Swarm just by calling the :py:func:`mlflow.openai.autolog()` function.
+
+
+.. code-block:: python
+
+    import mlflow
+    from swarm import Swarm, Agent
+
+    # Calling the autolog API will enable trace logging by default.
+    mlflow.openai.autolog()
+
+    mlflow.set_experiment("OpenAI Swarm")
+
+    client = Swarm()
+
+
+    def transfer_to_agent_b():
+        return agent_b
+
+
+    agent_a = Agent(
+        name="Agent A",
+        instructions="You are a helpful agent.",
+        functions=[transfer_to_agent_b],
+    )
+
+    agent_b = Agent(
+        name="Agent B",
+        instructions="Only speak in Haikus.",
+    )
+
+    response = client.run(
+        agent=agent_a,
+        messages=[{"role": "user", "content": "I want to talk to agent B."}],
+    )
+    print(response)
+
+The logged trace, associated with the ``OpenAI Swarm`` experiment, can be seen in the MLflow UI, as shown below:
+
+.. figure:: ../../_static/images/llms/tracing/openai-swarm-tracing.png
+    :alt: OpenAI Swarm Tracing
+    :width: 100%
+    :align: center
+
 
 FAQ
 ---

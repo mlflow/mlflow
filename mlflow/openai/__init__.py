@@ -51,7 +51,11 @@ from mlflow.models import Model, ModelInputExample, ModelSignature
 from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.signature import _infer_signature_from_input_example
 from mlflow.models.utils import _save_example
-from mlflow.openai._openai_autolog import patched_call
+from mlflow.openai._openai_autolog import (
+    patched_agent_get_chat_completion,
+    patched_call,
+    patched_swarm_run,
+)
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
@@ -910,3 +914,23 @@ def autolog(
             "create",
             patched_call,
         )
+
+    # Patch Swarm agent to generate traces
+    try:
+        from swarm import Swarm
+
+        safe_patch(
+            FLAVOR_NAME,
+            Swarm,
+            "get_chat_completion",
+            patched_agent_get_chat_completion,
+        )
+
+        safe_patch(
+            FLAVOR_NAME,
+            Swarm,
+            "run",
+            patched_swarm_run,
+        )
+    except ImportError:
+        pass
