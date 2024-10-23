@@ -3,6 +3,7 @@ import inspect
 import json
 import logging
 import sys
+import os
 
 import mlflow
 from mlflow.pyfunc import scoring_server
@@ -16,7 +17,12 @@ parser.add_argument("--model-uri")
 args = parser.parse_args()
 
 _logger.info("Loading model from %s", args.model_uri)
-model = mlflow.pyfunc.load_model(args.model_uri)
+
+model_loading_extra_kwargs = {}
+if model_config_json := os.environ[scoring_server.SERVING_MODEL_CONFIG]:
+    model_loading_extra_kwargs["model_config"] = json.loads(model_config_json)
+
+model = mlflow.pyfunc.load_model(args.model_uri, **model_loading_extra_kwargs)
 input_schema = model.metadata.get_input_schema()
 _logger.info("Loaded model")
 

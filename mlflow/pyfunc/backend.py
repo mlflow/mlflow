@@ -1,7 +1,9 @@
 import ctypes
+import json
 import logging
 import os
 import pathlib
+import pickle
 import posixpath
 import shlex
 import signal
@@ -225,6 +227,7 @@ class PyFuncBackend(FlavorBackend):
         synchronous=True,
         stdout=None,
         stderr=None,
+        model_config=None,
     ):
         """
         Serve pyfunc model locally.
@@ -235,6 +238,11 @@ class PyFuncBackend(FlavorBackend):
         command, command_env = server_implementation.get_cmd(
             local_path, port, host, timeout, self._nworkers
         )
+        if model_config:
+            if mlserver:
+                _logger.warning("mlserver does not support 'model_config', ignore it.")
+            else:
+                command_env[scoring_server.SERVING_MODEL_CONFIG] = json.dumps(model_config)
 
         if sys.platform.startswith("linux"):
 
@@ -318,8 +326,14 @@ class PyFuncBackend(FlavorBackend):
         model_uri,
         stdout=None,
         stderr=None,
+        model_config=None,
     ):
         local_path = _download_artifact_from_uri(model_uri)
+
+        command_env = os.environ.copy()
+        if model_config:
+            command_env[scoring_server.SERVING_MODEL_CONFIG] = json.dumps(model_config)
+
         return self.prepare_env(local_path).execute(
             command=f"python {_STDIN_SERVER_SCRIPT} --model-uri {local_path}",
             stdin=subprocess.PIPE,
