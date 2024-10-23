@@ -1,3 +1,4 @@
+import functools
 import json
 import logging
 import os
@@ -121,10 +122,23 @@ def patched_call(original, self, *args, **kwargs):
             run_id = run.info.run_id
 
     if config.log_traces:
-        root_span = mlflow_client.start_trace(
-            name=self.__class__.__name__, span_type=_get_span_type(self.__class__), inputs=kwargs
-        )
-        request_id = root_span.request_id
+        # If there is an active span, create a child span under it, otherwise create a new trace
+        if active_span := mlflow.get_current_active_span():
+            span = mlflow_client.start_span(
+                name=self.__class__.__name__,
+                request_id=active_span.request_id,
+                parent_id=active_span.span_id,
+                span_type=_get_span_type(self.__class__),
+                inputs=kwargs,
+            )
+        else:
+            span = mlflow_client.start_trace(
+                name=self.__class__.__name__,
+                span_type=_get_span_type(self.__class__),
+                inputs=kwargs,
+            )
+
+        request_id = span.request_id
         # If a new autolog run is created, associate the trace with the run
         if run_id is not None:
             tm = InMemoryTraceManager().get_instance()
@@ -137,7 +151,7 @@ def patched_call(original, self, *args, **kwargs):
         # We have to end the trace even the exception is raised
         if config.log_traces and request_id:
             try:
-                root_span.add_event(SpanEvent.from_exception(e))
+                span.add_event(SpanEvent.from_exception(e))
                 mlflow_client.end_trace(request_id=request_id, status=SpanStatusCode.ERROR)
             except Exception as inner_e:
                 _logger.warning(f"Encountered unexpected error when ending trace: {inner_e}")
@@ -173,7 +187,12 @@ def patched_call(original, self, *args, **kwargs):
     else:
         if config.log_traces and request_id:
             try:
-                mlflow_client.end_trace(request_id=request_id, outputs=result)
+                if span.parent_id is None:
+                    mlflow_client.end_trace(request_id=request_id, outputs=result)
+                else:
+                    mlflow_client.end_span(
+                        request_id=request_id, span_id=span.span_id, outputs=result
+                    )
             except Exception as e:
                 _logger.warning(f"Encountered unexpected error when ending trace: {e}")
 
@@ -220,3 +239,65 @@ def patched_call(original, self, *args, **kwargs):
         mlflow_client.set_terminated(run_id)
 
     return result
+
+
+def patched_agent_get_chat_completion(original, self, *args, **kwargs):
+    """
+    Patch the `get_chat_completion` method of the ChatCompletion object.
+    OpenAI autolog already handles the raw completion request, but tracing
+    the swarm's method is useful to track other parameters like agent name.
+    """
+    agent = kwargs.get("agent") or args[0]
+
+    # Patch agent's functions to generate traces. Function calls only happen
+    # after the first completion is generated because of the design of
+    # function calling. Therefore, we can safely patch the tool functions here
+    # within get_chat_completion() hook.
+    # We cannot patch functions during the agent's initialization because the
+    # agent's functions can be modified after the agent is created.
+    def function_wrapper(fn):
+        if "context_variables" in fn.__code__.co_varnames:
+
+            def wrapper(*args, **kwargs):
+                # NB: Swarm uses `func.__code__.co_varnames` to inspect if the provided
+                # tool function includes 'context_variables' parameter in the signature
+                # and ingest the global context variables if so. Wrapping the function
+                # with mlflow.trace() will break this.
+                # The co_varnames is determined based on the local variables of the
+                # function, so we workaround this by declaring it here as a local variable.
+                context_variables = kwargs.get("context_variables", {})  # noqa: F841
+                return mlflow.trace(
+                    fn,
+                    name=f"{agent.name}.{fn.__name__}",
+                    span_type=SpanType.TOOL,
+                )(*args, **kwargs)
+        else:
+
+            def wrapper(*args, **kwargs):
+                return mlflow.trace(
+                    fn,
+                    name=f"{agent.name}.{fn.__name__}",
+                    span_type=SpanType.TOOL,
+                )(*args, **kwargs)
+
+        wrapped = functools.wraps(fn)(wrapper)
+        wrapped._is_mlflow_traced = True  # Marker to avoid double tracing
+        return wrapped
+
+    agent.functions = [
+        function_wrapper(fn) if not hasattr(fn, "_is_mlflow_traced") else fn
+        for fn in agent.functions
+    ]
+
+    traced_fn = mlflow.trace(
+        original, name=f"{agent.name}.get_chat_completion", span_type=SpanType.CHAIN
+    )
+    return traced_fn(self, *args, **kwargs)
+
+
+def patched_swarm_run(original, self, *args, **kwargs):
+    """
+    Patched version of `run` method of the Swarm object.
+    """
+    traced_fn = mlflow.trace(original, span_type=SpanType.AGENT)
+    return traced_fn(self, *args, **kwargs)
