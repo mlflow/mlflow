@@ -125,12 +125,12 @@ adeptly to accommodate varying data needs.
 
 Here's how MLflow addresses scalability across different dimensions:
 
-* **Distributed Execution**: MLflow runs can operate on distributed clusters. For instance, integration with Apache Spark allows for distributed processing. Furthermore, runs can be initiated on the distributed infrastructure of your preference, with results relayed to a centralized Tracking Server for analysis. Notably, MLflow offers an integrated API to initiate runs on Databricks.
+- **Distributed Execution**: MLflow runs can operate on distributed clusters. For instance, integration with Apache Spark allows for distributed processing. Furthermore, runs can be initiated on the distributed infrastructure of your preference, with results relayed to a centralized Tracking Server for analysis. Notably, MLflow offers an integrated API to initiate runs on Databricks.
 
-* **Parallel Runs**: For use cases like hyperparameter tuning, MLflow can orchestrate multiple runs simultaneously, each with distinct parameters.
+- **Parallel Runs**: For use cases like hyperparameter tuning, MLflow can orchestrate multiple runs simultaneously, each with distinct parameters.
 
-* **Interoperability with Distributed Storage**: MLflow Projects can interface with distributed storage solutions, including Azure ADLS, Azure Blob Storage, AWS S3, Cloudflare R2 and DBFS. Whether it's automatically fetching files to a local environment or interfacing with a distributed storage URI directly, MLflow ensures that projects can handle extensive datasets – even scenarios like processing a 100 TB file.
+- **Interoperability with Distributed Storage**: MLflow Projects can interface with distributed storage solutions, including Azure ADLS, Azure Blob Storage, AWS S3, Cloudflare R2 and DBFS. Whether it's automatically fetching files to a local environment or interfacing with a distributed storage URI directly, MLflow ensures that projects can handle extensive datasets – even scenarios like processing a 100 TB file.
 
-* **Centralized Model Management with Model Registry**: Large-scale organizations can benefit from the MLflow Model Registry, a unified platform tailored for collaborative model lifecycle management. In environments where multiple data science teams might be concurrently developing numerous models, the Model Registry proves invaluable. It streamlines model discovery, tracks experiments, manages versions, and facilitates understanding a model's intent across different teams.
+- **Centralized Model Management with Model Registry**: Large-scale organizations can benefit from the MLflow Model Registry, a unified platform tailored for collaborative model lifecycle management. In environments where multiple data science teams might be concurrently developing numerous models, the Model Registry proves invaluable. It streamlines model discovery, tracks experiments, manages versions, and facilitates understanding a model's intent across different teams.
 
 By addressing these scalability dimensions, MLflow ensures that users can capitalize on its capabilities regardless of their data environment's size or complexity.
