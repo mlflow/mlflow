@@ -2315,7 +2315,6 @@ Compound types:
             ScoringServerClient,
             StdinScoringServerClient,
         )
-        from mlflow.environment_variables import _MLFLOW_SPARK_UDF_FORCE_SERVE_STDIN
 
         # Note: this is a pandas udf function in iteration style, which takes an iterator of
         # tuple of pandas.Series and outputs an iterator of pandas.Series.
@@ -2373,7 +2372,7 @@ Compound types:
                 else:
                     local_model_path_on_executor = None
 
-                if check_port_connectivity() and not _MLFLOW_SPARK_UDF_FORCE_SERVE_STDIN.get():
+                if check_port_connectivity():
                     # launch scoring server
                     server_port = find_free_port()
                     host = "127.0.0.1"

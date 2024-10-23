@@ -661,9 +661,3 @@ _MLFLOW_IN_CAPTURE_MODULE_PROCESS = _BooleanEnvironmentVariable(
 MLFLOW_USE_DATABRICKS_SDK_MODEL_ARTIFACTS_REPO_FOR_UC = _BooleanEnvironmentVariable(
     "MLFLOW_USE_DATABRICKS_SDK_MODEL_ARTIFACTS_REPO_FOR_UC", False
 )
-
-
-# A flag indicating whether to forcibly use `serve_stdin` if env_manager is set.
-_MLFLOW_SPARK_UDF_FORCE_SERVE_STDIN = _BooleanEnvironmentVariable(
-    "MLFLOW_SPARK_UDF_FORCE_SERVE_STDIN", False
-)
