@@ -94,7 +94,7 @@ SCORING_PROTOCOL_CHANGE_INFO = (
 
 def load_model_with_mlflow_config(model_uri):
     extra_kwargs = {}
-    if model_config_json := os.enviro.get(SERVING_MODEL_CONFIG):
+    if model_config_json := os.environ.get(SERVING_MODEL_CONFIG):
         extra_kwargs["model_config"] = json.loads(model_config_json)
 
     return load_model(model_uri, **extra_kwargs)
