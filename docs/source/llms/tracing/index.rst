@@ -31,7 +31,7 @@ Introduction to MLflow Tracing
                     <img src="../../_static/images/logos/openai-logo.png" alt="OpenAI Logo"/>
                 </div>
             </a>
-            <a href="../openai/autologging.html">
+            <a href="../openai/autologging.html#auto-tracing-for-openai-swarm">
                 <div class="logo-card">
                     <img src="../../_static/images/logos/openai-swarm-logo.png" alt="OpenAI Swarm Logo"/>
                 </div>
