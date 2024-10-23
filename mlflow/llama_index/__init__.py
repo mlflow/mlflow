@@ -120,7 +120,7 @@ def save_model(
     llama_index_model,
     path: str,
     engine_type: Optional[str] = None,
-    model_config: Optional[Dict[str, Any]] = None,
+    model_config: Optional[Union[str, Dict[str, Any]]] = None,
     code_paths=None,
     mlflow_model: Optional[Model] = None,
     signature: Optional[ModelSignature] = None,
@@ -383,6 +383,7 @@ def log_model(
             model.py:
 
             .. code-block:: python
+
                 import mlflow
                 from llama_index.vector_stores.qdrant import QdrantVectorStore
                 import qdrant_client
@@ -471,7 +472,7 @@ def _load_llama_model(path, flavor_conf):
         # file when it is saved. We should update the relative path in artifact directory.
         model_code_path = os.path.join(path, os.path.basename(model_code_path))
 
-        model_config = pyfunc_flavor_conf.get(MODEL_CONFIG, flavor_conf.get(MODEL_CONFIG, {}))
+        model_config = pyfunc_flavor_conf.get(MODEL_CONFIG) or flavor_conf.get(MODEL_CONFIG, {})
         if isinstance(model_config, str):
             config_path = os.path.join(path, os.path.basename(model_config))
             model_config = _validate_and_get_model_config_from_file(config_path)

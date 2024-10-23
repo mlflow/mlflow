@@ -1,5 +1,5 @@
 """
-Sample code to define an chat engine and save it with model config (YAML file).
+Sample code to define a chat engine and save it with model config (YAML file).
 """
 
 from llama_index.core import Document, VectorStoreIndex

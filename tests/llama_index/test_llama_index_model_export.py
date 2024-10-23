@@ -487,7 +487,7 @@ def test_save_load_chat_engine_as_code():
         (
             "tests/llama_index/sample_code/with_model_config.py",
             {
-                "model_name": "gpt-3.5-turbo",
+                "model_name": "gpt-4o-mini",
                 "temperature": 0.7,
             },
         ),
@@ -507,7 +507,7 @@ def test_save_load_as_code_with_model_config(index_code_path, model_config):
 
     loaded_model = mlflow.pyfunc.load_model(logged_model.model_uri)
     engine = loaded_model.get_raw_model()
-    assert engine._llm.model == "gpt-3.5-turbo"
+    assert engine._llm.model == "gpt-4o-mini"
     assert engine._llm.temperature == 0.7
 
 
