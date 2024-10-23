@@ -36,9 +36,9 @@ model_env_uc_path = "dbfs:/Volumes/..."
 
 infer_spark_df = spark.createDataFrame(X)
 
-# Setting 'prebuilt_env_path' parameter so that `spark_udf` can use the
+# Setting 'prebuilt_env_uri' parameter so that `spark_udf` can use the
 # prebuilt python environment and skip rebuilding python environment.
-pyfunc_udf = mlflow.pyfunc.spark_udf(spark, model_uri, prebuilt_env_path=model_env_uc_path)
+pyfunc_udf = mlflow.pyfunc.spark_udf(spark, model_uri, prebuilt_env_uri=model_env_uc_path)
 result = infer_spark_df.select(pyfunc_udf(*X.columns).alias("predictions")).toPandas()
 
 print(result)
