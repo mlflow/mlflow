@@ -1772,10 +1772,10 @@ def _download_prebuilt_env_if_needed(prebuilt_env_uri):
             with ws.files.download(model_env_uc_path).contents as rf, open(
                 local_model_env_path, "wb"
             ) as wf:
-                while chunk := rf.read(4096):
+                while chunk := rf.read(4096 * 1024):
                     wf.write(chunk)
             return local_model_env_path
-        except Exception:
+        except (Exception, KeyboardInterrupt):
             if os.path.exists(local_model_env_path):
                 # clean the partially saved file if downloading fails.
                 os.remove(local_model_env_path)

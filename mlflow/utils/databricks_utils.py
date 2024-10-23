@@ -288,12 +288,9 @@ def is_databricks_connect(spark):
 
     if is_in_databricks_serverless_runtime() or is_in_databricks_shared_cluster_runtime():
         return True
-    try:
-        # TODO: Remove the `spark.client._builder._build` attribute access once
-        #  Spark-connect has public attribute for this information.
-        return "databricks-session" in spark.client._builder.userAgent
-    except Exception:
-        return False
+    return is_spark_connect_mode() and any(
+        k == "x-databricks-cluster-id" for k, v in spark.client.metadata()
+    )
 
 
 @dataclass
