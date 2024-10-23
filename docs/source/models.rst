@@ -4008,6 +4008,9 @@ If you want to call `:py:func:`mlflow.pyfunc.spark_udf` through Databricks conne
     # and print the saved model env archive file path (like '/Volumes/.../.../XXXXX.tar.gz')
     print(build_model_env(model_uri, "/Volumes/..."))
 
+    # print the cluster id. Databricks Connect client needs to use the cluster id.
+    print(spark.conf.get("spark.databricks.clusterUsageTags.clusterId"))
+
 Once you have pre-built the model environment, you can run `:py:func:`mlflow.pyfunc.spark_udf` with 'prebuilt_model_env' parameter through Databricks connect in remote client,
 
 .. rubric:: Example

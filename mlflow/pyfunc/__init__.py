@@ -421,6 +421,7 @@ from urllib.parse import urlparse
 import numpy as np
 import pandas
 import yaml
+from databricks.sdk import WorkspaceClient
 from packaging.version import Version
 
 import mlflow
@@ -1748,8 +1749,6 @@ def _prebuild_env_internal(local_model_path, archive_name, save_path):
 
 
 def _download_prebuilt_env_if_needed(prebuilt_env_path):
-    from databricks.sdk import WorkspaceClient
-
     from mlflow.utils.file_utils import get_or_create_tmp_dir
 
     parsed_url = urlparse(prebuilt_env_path)
@@ -1757,9 +1756,7 @@ def _download_prebuilt_env_if_needed(prebuilt_env_path):
         # local path
         return parsed_url.path
     if parsed_url.scheme == "dbfs":
-        tmp_dir = MLFLOW_MODEL_ENV_DOWNLOADING_TEMP_DIR.get() or tempfile.mkdtemp(
-            dir=get_or_create_tmp_dir()
-        )
+        tmp_dir = MLFLOW_MODEL_ENV_DOWNLOADING_TEMP_DIR.get() or get_or_create_tmp_dir()
         model_env_uc_path = parsed_url.path
 
         # download file from DBFS.
@@ -1777,10 +1774,11 @@ def _download_prebuilt_env_if_needed(prebuilt_env_path):
                 while chunk := rf.read(4096):
                     wf.write(chunk)
             return local_model_env_path
-        finally:
+        except Exception:
             if os.path.exists(local_model_env_path):
                 # clean the partially saved file if downloading fails.
                 os.remove(local_model_env_path)
+            raise
 
     raise MlflowException(
         f"Unsupported prebuilt env file path '{prebuilt_env_path}', "
