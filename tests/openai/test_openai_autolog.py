@@ -9,6 +9,7 @@ from mlflow.tracing.constant import TraceMetadataKey
 
 from tests.openai.conftest import is_v1
 from tests.openai.mock_openai import EMPTY_CHOICES
+from tests.tracing.helper import get_traces
 
 
 @pytest.fixture
@@ -34,7 +35,9 @@ def test_chat_completions_autolog(client, log_models):
         temperature=0,
     )
 
-    trace = mlflow.get_last_active_trace()
+    traces = get_traces()
+    assert len(traces) == 1
+    trace = traces[0]
     assert trace is not None
     assert trace.info.status == "OK"
     assert len(trace.data.spans) == 1
@@ -55,6 +58,34 @@ def test_chat_completions_autolog(client, log_models):
 
     else:
         assert TraceMetadataKey.SOURCE_RUN not in trace.info.request_metadata
+
+
+@pytest.mark.skipif(not is_v1, reason="Requires OpenAI SDK v1")
+def test_chat_completions_autolog_under_current_active_span(client):
+    # If a user have an active span, the autologging should create a child span under it.
+    mlflow.openai.autolog()
+
+    messages = [{"role": "user", "content": "test"}]
+    with mlflow.start_span(name="parent"):
+        client.chat.completions.create(
+            messages=messages,
+            model="gpt-4o-mini",
+            temperature=0,
+        )
+
+    traces = get_traces()
+    assert len(traces) == 1
+    trace = traces[0]
+    assert trace is not None
+    assert trace.info.status == "OK"
+    assert len(trace.data.spans) == 2
+    parent_span = trace.data.spans[0]
+    assert parent_span.name == "parent"
+    child_span = trace.data.spans[1]
+    assert child_span.name == "Completions"
+    assert child_span.inputs == {"messages": messages, "model": "gpt-4o-mini", "temperature": 0}
+    assert child_span.outputs["id"] == "chatcmpl-123"
+    assert child_span.parent_id == parent_span.span_id
 
 
 @pytest.mark.skipif(not is_v1, reason="Requires OpenAI SDK v1")
