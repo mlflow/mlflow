@@ -44,6 +44,7 @@ pytorch:
     requirements:
       ">= 0.0.0": ["torchvision", "scikit-learn"]
       ">= 1.8": ["transformers"]
+      "< 2.3": ["numpy<2"]
     python:
       ">= 2.5.0": "3.9"
     run: |
@@ -156,7 +157,7 @@ xgboost:
     maximum: "2.1.1"
     requirements:
       ">= 0.0.0": ["scikit-learn"]
-      "< 1.6": ["pandas<2"]
+      "< 1.6": ["pandas<2", "numpy<2"]
     python:
       "== dev": "3.10"
     run: |
@@ -167,7 +168,7 @@ xgboost:
     maximum: "2.1.1"
     requirements:
       ">= 0.0.0": ["scikit-learn", "matplotlib"]
-      "< 1.6": ["pandas<2"]
+      "< 1.6": ["pandas<2", "numpy<2"]
     python:
       "== dev": "3.10"
     run: |
@@ -186,6 +187,7 @@ lightgbm:
     maximum: "4.5.0"
     requirements:
       ">= 0.0.0": ["scikit-learn"]
+      "== 4.0.*": ["numpy<2"]
     run: |
       pytest tests/lightgbm/test_lightgbm_model_export.py
 
@@ -194,6 +196,7 @@ lightgbm:
     maximum: "4.5.0"
     requirements:
       ">= 0.0.0": ["scikit-learn", "matplotlib"]
+      "== 4.0.*": ["numpy<2"]
     run: |
       pytest tests/lightgbm/test_lightgbm_autolog.py
 
@@ -211,6 +214,7 @@ catboost:
     requirements:
       ">= 0.0.0": ["scikit-learn"]
       "< 1.1": ["pandas<2"]
+      "< 1.2": ["numpy<2"]
     run: |
       pytest tests/catboost/test_catboost_model_export.py
 
@@ -333,6 +337,7 @@ statsmodels:
       "== dev": "3.9"
     requirements:
       "< 0.13.0": ["pandas==1.3.5", "scipy==1.7.3"]
+      "== 0.13.*": ["numpy<2"]
     run: |
       pytest tests/statsmodels/test_statsmodels_model_export.py
 
@@ -343,6 +348,7 @@ statsmodels:
       "== dev": "3.9"
     requirements:
       "< 0.13.0": ["pandas==1.3.5", "scipy==1.7.3"]
+      "== 0.13.*": ["numpy<2"]
     run: |
       pytest tests/statsmodels/test_statsmodels_autolog.py
 
@@ -583,7 +589,6 @@ transformers:
           "protobuf<=3.20.3", # fix error `Couldn't build proto file into descriptor pool: duplicate file name sentencepiece_model.proto`
           "typing_extensions>=4.6.0", # fix error for SqlAlchemy == 2.0.25 cannot import name 'TypeAliasType' from 'typing_extensions'
           "accelerate<1",
-          "tf-keras",
         ]
       # tensorflow 2.13.0 made all Keras private functions inaccessible. transformers versions
       # prior to 4.30.0 are incompatible with this breaking change in Keras.
@@ -628,7 +633,6 @@ transformers:
           "setfit",
           "optuna",
           "accelerate<1",
-          "tf-keras",
         ]
       # sentence-transformers >= 2.4.0 relies on `transformers.utils.import_utils.is_nltk_available`
       # to check nltk availability. This function is only available in transformers>=4.34.0.
