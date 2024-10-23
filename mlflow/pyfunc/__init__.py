@@ -1198,10 +1198,11 @@ def _load_model_or_server(
             synchronous=False,
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
+            model_config=model_config,
         )
         client = ScoringServerClient("127.0.0.1", server_port)
     else:
-        scoring_server_proc = pyfunc_backend.serve_stdin(local_path)
+        scoring_server_proc = pyfunc_backend.serve_stdin(local_path, model_config=model_config)
         client = StdinScoringServerClient(scoring_server_proc)
 
     _logger.info(f"Scoring server process started at PID: {scoring_server_proc.pid}")
@@ -1884,6 +1885,7 @@ def spark_udf(
     params: Optional[Dict[str, Any]] = None,
     extra_env: Optional[Dict[str, str]] = None,
     prebuilt_env_uri: Optional[str] = None,
+    model_config: Optional[Union[str, Path, Dict[str, Any]]] = None,
 ):
     """
     A Spark UDF that can be used to invoke the Python function formatted model.
@@ -2024,6 +2026,9 @@ def spark_udf(
             to use.
 
             If this parameter is set, `env_manger` parameter must not be set.
+
+        model_config: The model configuration to set when loading the model.
+            See 'model_config' argument in `mlflow.pyfunc.load_model` API for details.
 
     Returns:
         Spark UDF that applies the model's ``predict`` method to the data and returns a
@@ -2431,6 +2436,7 @@ Compound types:
                         synchronous=False,
                         stdout=subprocess.PIPE,
                         stderr=subprocess.STDOUT,
+                        model_config=model_config,
                     )
 
                     client = ScoringServerClient(host, server_port)
@@ -2439,6 +2445,7 @@ Compound types:
                         model_uri=local_model_path_on_executor or local_model_path,
                         stdout=subprocess.PIPE,
                         stderr=subprocess.STDOUT,
+                        model_config=model_config,
                     )
                     client = StdinScoringServerClient(scoring_server_proc)
 
@@ -2495,14 +2502,20 @@ Compound types:
                         str(os.getpid()),
                     )
                     try:
-                        loaded_model = mlflow.pyfunc.load_model(model_path)
+                        loaded_model = mlflow.pyfunc.load_model(
+                            model_path, model_config=model_config
+                        )
                     except Exception:
                         os.makedirs(model_path, exist_ok=True)
-                        loaded_model = mlflow.pyfunc.load_model(model_uri, dst_path=model_path)
+                        loaded_model = mlflow.pyfunc.load_model(
+                            model_uri, dst_path=model_path, model_config=model_config
+                        )
                 elif should_use_spark_to_broadcast_file:
                     loaded_model, _ = SparkModelCache.get_or_load(archive_path)
                 else:
-                    loaded_model = mlflow.pyfunc.load_model(local_model_path)
+                    loaded_model = mlflow.pyfunc.load_model(
+                        local_model_path, model_config=model_config
+                    )
 
                 def batch_predict_fn(pdf, params=None):
                     if inspect.signature(loaded_model.predict).parameters.get("params"):
