@@ -1093,6 +1093,7 @@ def log_params(
 def log_input(
     dataset: Optional[Dataset] = None,
     context: Optional[str] = None,
+    *,
     tags: Optional[Dict[str, str]] = None,
     model: Optional[LoggedModelInput] = None,
 ) -> None:
@@ -1949,6 +1950,7 @@ def delete_experiment(experiment_id: str) -> None:
 
 def create_logged_model(
     name: str,
+    *,
     source_run_id: Optional[str] = None,
     tags: Optional[Dict[str, str]] = None,
     params: Optional[Dict[str, str]] = None,
@@ -1996,6 +1998,7 @@ def get_logged_model(model_id: str) -> LoggedModel:
 
 
 def search_logged_models(
+    *,
     experiment_ids: Optional[List[str]] = None,
     filter_string: Optional[str] = None,
     max_results: Optional[int] = None,
@@ -2052,7 +2055,7 @@ def search_logged_models(
         )
 
 
-def log_outputs(models: Optional[List[LoggedModelOutput]] = None):
+def log_outputs(models: List[LoggedModelOutput]):
     """
     Log outputs, such as models, to the active run. If there is no active run, a new run will be
     created.
