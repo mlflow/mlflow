@@ -62,6 +62,12 @@ LOCAL_ENV_MANAGER_ERROR_MESSAGE = "We cannot use 'LOCAL' environment manager "
 "manager instead with `--env-manager` argument."
 
 
+def _set_mlflow_config_env(command_env, model_config):
+    if model_config:
+        command_env[scoring_server.SERVING_MODEL_CONFIG] = json.dumps(model_config)
+    return command_env
+
+
 class PyFuncBackend(FlavorBackend):
     """
     Flavor backend implementation for the generic python models.
@@ -216,12 +222,6 @@ class PyFuncBackend(FlavorBackend):
                 )
             scoring_server._predict(local_uri, input_path, output_path, content_type)
 
-    @staticmethod
-    def _set_mlflow_config_env(command_env, model_config):
-        if model_config:
-            command_env[scoring_server.SERVING_MODEL_CONFIG] = json.dumps(model_config)
-        return command_env
-
     def serve(
         self,
         model_uri,
@@ -243,7 +243,7 @@ class PyFuncBackend(FlavorBackend):
         command, command_env = server_implementation.get_cmd(
             local_path, port, host, timeout, self._nworkers
         )
-        self._set_mlflow_config_env(command_env, model_config)
+        _set_mlflow_config_env(command_env, model_config)
 
         if sys.platform.startswith("linux"):
 
@@ -332,10 +332,11 @@ class PyFuncBackend(FlavorBackend):
         local_path = _download_artifact_from_uri(model_uri)
 
         command_env = os.environ.copy()
-        self._set_mlflow_config_env(command_env, model_config)
+        _set_mlflow_config_env(command_env, model_config)
 
         return self.prepare_env(local_path).execute(
             command=f"python {_STDIN_SERVER_SCRIPT} --model-uri {local_path}",
+            command_env=command_env,
             stdin=subprocess.PIPE,
             stdout=stdout,
             stderr=stderr,
