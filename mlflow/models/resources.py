@@ -1,7 +1,7 @@
 import os
 from abc import ABC, abstractmethod
 from enum import Enum
-from typing import Dict, List
+from typing import Any, Dict, List
 
 import yaml
 
@@ -58,6 +58,11 @@ class Resource(ABC):
         Convert the dictionary to a Resource.
         Subclasses must implement this method.
         """
+
+    def __eq__(self, other: Any):
+        if not isinstance(other, Resource):
+            return False
+        return self.to_dict() == other.to_dict()
 
 
 class DatabricksResource(Resource, ABC):
