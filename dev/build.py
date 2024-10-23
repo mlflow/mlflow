@@ -56,7 +56,7 @@ def main():
 
     if args.sha:
         # If build succeeds, there should be one wheel in the dist directory
-        wheel = next(Path("dist").glob("mlflow-*.whl"))
+        wheel = next(Path("dist").glob("mlflow*.whl"))
         name, version, rest = wheel.name.split("-", 2)
         build_tag = f"0.sha.{args.sha}"  # build tag must start with a digit
         wheel.rename(wheel.with_name(f"{name}-{version}-{build_tag}-{rest}"))
