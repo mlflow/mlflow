@@ -1,5 +1,4 @@
 import os
-import json
 
 from mlflow.pyfunc import scoring_server
 

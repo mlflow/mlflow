@@ -97,7 +97,7 @@ def load_model_with_mlflow_config(model_uri):
     if model_config_json := os.environ[SERVING_MODEL_CONFIG]:
         extra_kwargs["model_config"] = json.loads(model_config_json)
 
-    return load_model(model_uri)
+    return load_model(model_uri, **extra_kwargs)
 
 
 # Keep this method to maintain compatibility with MLServer
