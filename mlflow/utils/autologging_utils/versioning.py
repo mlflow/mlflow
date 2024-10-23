@@ -62,7 +62,13 @@ def is_flavor_supported_for_associated_package_versions(flavor_name):
         associated packages.
     """
     module_name = FLAVOR_TO_MODULE_NAME[flavor_name]
-    actual_version = importlib.import_module(module_name).__version__
+
+    try:
+        actual_version = importlib.import_module(module_name).__version__
+    except AttributeError:
+        # Some package do not expose __version__ attribute. For this case, we assume the package
+        # version is supported by MLflow.
+        return True
 
     # In Databricks, treat 'pyspark 3.x.y.dev0' as 'pyspark 3.x.y'
     if module_name == "pyspark" and is_in_databricks_runtime():
