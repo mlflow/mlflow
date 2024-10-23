@@ -10,6 +10,7 @@ export const RunViewArtifactTab = ({
   runTags,
   artifactUri,
   runUuid,
+  experimentId,
 }: {
   runUuid: string;
   experimentId: string;
@@ -32,6 +33,7 @@ export const RunViewArtifactTab = ({
       }}
     >
       <ArtifactPage
+        experimentId={experimentId}
         runUuid={runUuid}
         runTags={runTags}
         useAutoHeight={useFullHeightPage}

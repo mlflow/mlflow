@@ -20,11 +20,14 @@ import RequestStateWrapper from '../../common/components/RequestStateWrapper';
 import Utils from '../../common/utils/Utils';
 import { getUUID } from '../../common/utils/ActionUtils';
 import { getLoggedModelPathsFromTags } from '../../common/utils/TagUtils';
+import { NavigateFunction } from '../../common/utils/RoutingUtils';
 import { ArtifactViewBrowserSkeleton } from './artifact-view-components/ArtifactViewSkeleton';
 import { DangerIcon, Empty } from '@databricks/design-system';
 import { ArtifactViewErrorState } from './artifact-view-components/ArtifactViewErrorState';
+import Routes from '../routes';
 
 type ArtifactPageImplProps = {
+  experimentId: string;
   runUuid: string;
   initialSelectedArtifactPath?: string;
   artifactRootUri?: string;
@@ -37,6 +40,7 @@ type ArtifactPageImplProps = {
    * If true, the artifact browser will try to use all available height
    */
   useAutoHeight?: boolean;
+  navigate: NavigateFunction;
 };
 
 type ArtifactPageImplState = any;
@@ -89,8 +93,14 @@ export class ArtifactPageImpl extends Component<ArtifactPageImplProps, ArtifactP
     }
   };
 
-  handleActiveNodeChange = (activeNodeIsDirectory: any) => {
+  handleActiveNodeChange = (activeNodeIsDirectory: any, selectedArtifactPath?: string) => {
     this.setState({ activeNodeIsDirectory });
+    if (selectedArtifactPath) {
+      // Update URL to point to the artifact path
+      const { runUuid, experimentId } = this.props;
+      const route = Routes.getRunPageRoute(experimentId, runUuid, selectedArtifactPath);
+      this.props.navigate(route, { replace: true });
+    }
   };
 
   pollArtifactsForCurrentRun = async () => {
@@ -187,7 +197,7 @@ type ArtifactPageOwnProps = Omit<
 >;
 
 const mapStateToProps = (state: any, ownProps: ArtifactPageOwnProps & WithRouterNextProps) => {
-  const { runUuid, location } = ownProps;
+  const { experimentId, runUuid, location } = ownProps;
   const currentPathname = location?.pathname || '';
 
   const initialSelectedArtifactPathMatch = currentPathname.match(/\/(?:artifactPath|artifacts)\/(.+)/);
@@ -209,7 +219,7 @@ const mapStateToProps = (state: any, ownProps: ArtifactPageOwnProps & WithRouter
       selectedPath = _.first(loggedModelPaths);
     }
   }
-  return { artifactRootUri, apis, initialSelectedArtifactPath: selectedPath };
+  return { experimentId, artifactRootUri, apis, initialSelectedArtifactPath: selectedPath };
 };
 
 const mapDispatchToProps = {
