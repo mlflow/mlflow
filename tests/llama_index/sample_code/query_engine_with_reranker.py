@@ -1,5 +1,5 @@
 """
-Sample code to define an query engine with post processors and save it with model-from-code logging.
+Sample code to define a query engine with post processors and save it with model-from-code logging.
 
 Ref: https://qdrant.tech/documentation/quickstart/
 """

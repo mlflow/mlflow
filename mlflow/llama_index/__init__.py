@@ -10,7 +10,7 @@ from mlflow import pyfunc
 from mlflow.exceptions import MlflowException
 from mlflow.llama_index.pyfunc_wrapper import create_pyfunc_wrapper
 from mlflow.models import Model, ModelInputExample, ModelSignature
-from mlflow.models.model import MLMODEL_FILE_NAME, MODEL_CODE_PATH
+from mlflow.models.model import MLMODEL_FILE_NAME, MODEL_CODE_PATH, MODEL_CONFIG
 from mlflow.models.signature import _infer_signature_from_input_example
 from mlflow.models.utils import (
     _load_model_code_path,
@@ -40,6 +40,7 @@ from mlflow.utils.model_utils import (
     _get_flavor_configuration,
     _validate_and_copy_code_paths,
     _validate_and_copy_file_to_directory,
+    _validate_and_get_model_config_from_file,
     _validate_and_prepare_target_save_path,
 )
 from mlflow.utils.requirements_utils import _get_pinned_requirement
@@ -119,7 +120,7 @@ def save_model(
     llama_index_model,
     path: str,
     engine_type: Optional[str] = None,
-    model_config: Optional[Dict[str, Any]] = None,
+    model_config: Optional[Union[str, Dict[str, Any]]] = None,
     code_paths=None,
     mlflow_model: Optional[Model] = None,
     signature: Optional[ModelSignature] = None,
@@ -159,10 +160,11 @@ def save_model(
             - ``"retriever"``: load the index as an instance of the LlamaIndex
               `Retriever <https://docs.llamaindex.ai/en/stable/module_guides/querying/retriever/>`_.
 
-        model_config: Keyword arguments to be passed to the LlamaIndex engine at instantiation.
-            Note that not all llama index objects have supported serialization; when an object is
-            not supported, an info log message will be emitted and the unsupported object will be
-            dropped.
+        model_config: The model configuration to apply when loading the model back with
+            ``mlflow.pyfunc.load_model()``. It will be applied in a different way depending on the
+            model type and saving method. See the docstring of :func:`log_model` for more details
+            and usage examples.
+
         code_paths: {{ code_paths }}
         mlflow_model: An MLflow model object that specifies the flavor that this model is being
             added to.
@@ -189,6 +191,9 @@ def save_model(
 
         path = os.path.abspath(path)
         _validate_and_prepare_target_save_path(path)
+
+        if isinstance(model_config, str):
+            model_config = _validate_and_get_model_config_from_file(model_config)
 
         model_code_path = None
         if isinstance(model_or_code_path, str):
@@ -342,10 +347,58 @@ def log_model(
             - ``"retriever"``: load the index as an instance of the LlamaIndex
               `Retriever <https://docs.llamaindex.ai/en/stable/module_guides/querying/retriever/>`_.
 
-        model_config: Keyword arguments to be passed to the LlamaIndex engine at instantiation.
-            Note that not all llama index objects have supported serialization; when an object is
-            not supported, an info log message will be emitted and the unsupported object will be
-            dropped.
+        model_config: The model configuration to apply when loading the model back with
+            ``mlflow.pyfunc.load_model()``. It will be applied in a different way depending on the
+            model type and saving method:
+
+            For in-memory Index objects saved directly, it will be passed as keyword arguments to
+            instantiate the LlamaIndex engine with the specified engine type at logging.
+
+            .. code-block:: python
+
+                with mlflow.start_run() as run:
+                    model_info = mlflow.llama_index.log_model(
+                        index,
+                        artifact_path="index",
+                        engine_type="chat",
+                        model_config={"top_k": 10},
+                    )
+
+                # When loading back, MLflow will call ``index.as_chat_engine(top_k=10)``
+                engine = mlflow.pyfunc.load_model(model_info.model_uri)
+
+            For other model types saved with the `Model-from-Code <https://www.mlflow.org/docs/latest/model/models-from-code.html>`
+            method, the config will be accessed via the :py:class`~mlflow.models.ModelConfig`
+            object within your model code.
+
+            .. code-block:: python
+
+                with mlflow.start_run() as run:
+                    model_info = mlflow.llama_index.log_model(
+                        "model.py",
+                        artifact_path="model",
+                        model_config={"qdrant_host": "localhost", "qdrant_port": 6333},
+                    )
+
+            model.py:
+
+            .. code-block:: python
+
+                import mlflow
+                from llama_index.vector_stores.qdrant import QdrantVectorStore
+                import qdrant_client
+
+
+                # The model configuration is accessible via the ModelConfig singleton
+                model_config = mlflow.models.ModelConfig()
+                qdrant_host = model_config.get("top_k", 5)
+                qdrant_port = model_config.get("qdrant_port", 6333)
+
+                client = qdrant_client.Client(host=qdrant_host, port=qdrant_port)
+                vectorstore = QdrantVectorStore(client)
+
+                # the rest of the model definition...
+
         code_paths: {{ code_paths }}
         registered_model_name: This argument may change or be removed in a
             future release without warning. If given, create a model
@@ -417,11 +470,14 @@ def _load_llama_model(path, flavor_conf):
     if model_code_path := pyfunc_flavor_conf.get(MODEL_CODE_PATH):
         # TODO: The code path saved in the MLModel file is the local absolute path to the code
         # file when it is saved. We should update the relative path in artifact directory.
-        model_code_path = os.path.join(
-            path,
-            os.path.basename(model_code_path),
-        )
-        return _load_model_code_path(model_code_path, flavor_conf)
+        model_code_path = os.path.join(path, os.path.basename(model_code_path))
+
+        model_config = pyfunc_flavor_conf.get(MODEL_CONFIG) or flavor_conf.get(MODEL_CONFIG, {})
+        if isinstance(model_config, str):
+            config_path = os.path.join(path, os.path.basename(model_config))
+            model_config = _validate_and_get_model_config_from_file(config_path)
+
+        return _load_model_code_path(model_code_path, model_config)
     else:
         # Use default vector store when loading from the serialized index
         index_path = os.path.join(path, _INDEX_PERSIST_FOLDER)

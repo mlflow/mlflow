@@ -1,5 +1,5 @@
 """
-Sample code to define an chat engine and save it with model-from-code logging.
+Sample code to define a chat engine and save it with model-from-code logging.
 
 Ref: https://qdrant.tech/documentation/quickstart/
 """

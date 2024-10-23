@@ -96,6 +96,23 @@ def test_llama_index_save_invalid_object_raise(single_index):
         )
 
 
+def test_llama_index_load_with_model_config(single_index):
+    from llama_index.core.response_synthesizers import Refine
+
+    with mlflow.start_run():
+        logged_model = mlflow.llama_index.log_model(
+            single_index,
+            "model",
+            engine_type="query",
+            model_config={"response_mode": "refine"},
+        )
+
+    loaded_model = mlflow.pyfunc.load_model(logged_model.model_uri)
+    engine = loaded_model.get_raw_model()
+
+    assert isinstance(engine._response_synthesizer, Refine)
+
+
 @pytest.mark.parametrize(
     "engine_type",
     ["query", "retriever"],
@@ -462,6 +479,36 @@ def test_save_load_chat_engine_as_code():
     assert isinstance(pyfunc_loaded_model._model_impl, ChatEngineWrapper)
     assert isinstance(pyfunc_loaded_model.get_raw_model(), SimpleChatEngine)
     assert pyfunc_loaded_model.predict(_TEST_QUERY) != ""
+
+
+@pytest.mark.parametrize(
+    ("index_code_path", "model_config"),
+    [
+        (
+            "tests/llama_index/sample_code/with_model_config.py",
+            {
+                "model_name": "gpt-4o-mini",
+                "temperature": 0.7,
+            },
+        ),
+        (
+            "tests/llama_index/sample_code/with_model_config_yaml_file.py",
+            "tests/llama_index/sample_code/model_config.yaml",
+        ),
+    ],
+)
+def test_save_load_as_code_with_model_config(index_code_path, model_config):
+    with mlflow.start_run():
+        logged_model = mlflow.llama_index.log_model(
+            index_code_path,
+            "model",
+            model_config=model_config,
+        )
+
+    loaded_model = mlflow.pyfunc.load_model(logged_model.model_uri)
+    engine = loaded_model.get_raw_model()
+    assert engine._llm.model == "gpt-4o-mini"
+    assert engine._llm.temperature == 0.7
 
 
 def test_save_engine_with_engine_type_issues_warning(model_path):
