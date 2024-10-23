@@ -353,8 +353,8 @@ class _Example:
             else:
                 example_type = "sparse_matrix_csr"
             self.info["type"] = example_type
+            self.serving_input = {INPUTS: model_input.toarray()}
             model_input = _handle_sparse_matrix(model_input)
-            self.serving_input = None
         elif isinstance(model_input, pd.DataFrame):
             model_input = _convert_dataframe_to_split_dict(model_input)
             self.serving_input = {DF_SPLIT: model_input}
@@ -365,7 +365,7 @@ class _Example:
                     "pandas_orient": orient,
                 }
             )
-        elif np.isscalar(model_input):
+        elif np.isscalar(model_input) or isinstance(model_input, dt.datetime):
             self.info["type"] = "json_object"
             self.serving_input = {INPUTS: model_input}
         else:
@@ -379,6 +379,7 @@ class _Example:
                 "- dict\n"
                 "- list\n"
                 "- scalars\n"
+                "- datetime.datetime\n"
                 f"but got '{type(model_input)}'",
             )
 
