@@ -240,9 +240,9 @@ for model/API invocations to the active MLflow Experiment.
 
         |
 
-        The MLflow OpenAI flavor supports automatic tracing for **Swarm**, a multi-agent orchestration
+        The MLflow OpenAI flavor supports automatic tracing for `Swarm <https://github.com/openai/swarm>`_, a multi-agent orchestration
         framework from OpenAI. To enable tracing for **Swarm**, just call :py:func:`mlflow.openai.autolog`
-        before running your multi-agent interactions. Then MLflow will trace all LLM interactions,
+        before running your multi-agent interactions. MLflow will trace all LLM interactions,
         tool calls, and agent operations automatically.
 
         .. code-block:: python

@@ -290,7 +290,7 @@ def patched_agent_get_chat_completion(original, self, *args, **kwargs):
     ]
 
     traced_fn = mlflow.trace(
-        original, name=f"{agent.name}.get_chat_completion", span_type=SpanType.CHAT_MODEL
+        original, name=f"{agent.name}.get_chat_completion", span_type=SpanType.CHAIN
     )
     return traced_fn(self, *args, **kwargs)
 
