@@ -1625,8 +1625,11 @@ class CustomModelWithMlflowConfig(mlflow.pyfunc.PythonModel):
         return [x + alpha for x in model_input[model_input.columns[0]]]
 
 
-@pytest.mark.parametrize("env_manager", ["local", "virtualenv"])
-def test_spark_udf_with_model_config(spark, model_path, env_manager):
+@pytest.mark.parametrize(
+    ("env_manager", "use_stdin_serve"),
+    [("local", None), ("virtualenv", False), ("virtualenv", True)]
+)
+def test_spark_udf_with_model_config(spark, model_path, monkeypatch, env_manager, use_stdin_serve):
     model = CustomModelWithMlflowConfig()
     mlflow.pyfunc.save_model(
         model_path,
@@ -1634,12 +1637,13 @@ def test_spark_udf_with_model_config(spark, model_path, env_manager):
         model_config={"alpha": 0},
         code_paths=[os.path.dirname(tests.__file__)],
     )
-    udf = mlflow.pyfunc.spark_udf(
-        spark,
-        model_path,
-        result_type="long",
-        model_config={"alpha": 3},
-        env_manager=env_manager,
-    )
-    result = spark.range(10).repartition(1).withColumn("prediction", udf(col("id"))).toPandas()
+    with mock.patch("mlflow.pyfunc.check_port_connectivity", return_value=(not use_stdin_serve)):
+        udf = mlflow.pyfunc.spark_udf(
+            spark,
+            model_path,
+            result_type="long",
+            model_config={"alpha": 3},
+            env_manager=env_manager,
+        )
+        result = spark.range(10).repartition(1).withColumn("prediction", udf(col("id"))).toPandas()
     assert all(result.id + 3 == result.prediction)
