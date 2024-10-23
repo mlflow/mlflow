@@ -292,7 +292,7 @@ def infer_python_version(package: str, version: str) -> str:
     """
     Infer the minimum Python version required by the package.
     """
-    candidates = ("3.8", "3.9", "3.10")
+    candidates = ("3.9", "3.10")
     if rp := _requires_python(package, version):
         spec = SpecifierSet(rp)
         return next(filter(spec.contains, candidates), candidates[0])

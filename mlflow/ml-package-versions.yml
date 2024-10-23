@@ -150,7 +150,7 @@ xgboost:
     minimum: "1.4.2"
     maximum: "2.1.1"
     requirements:
-      ">= 0.0.0": ["scikit-learn"]
+      ">= 0.0.0": ["scikit-learn", "numpy<2.0"]
       "< 1.6": ["pandas<2"]
     python:
       "== dev": "3.10"
@@ -161,7 +161,7 @@ xgboost:
     minimum: "1.4.2"
     maximum: "2.1.1"
     requirements:
-      ">= 0.0.0": ["scikit-learn", "matplotlib"]
+      ">= 0.0.0": ["scikit-learn", "matplotlib", "numpy<2.0"]
       "< 1.6": ["pandas<2"]
     python:
       "== dev": "3.10"
@@ -180,7 +180,7 @@ lightgbm:
     minimum: "3.1.1"
     maximum: "4.5.0"
     requirements:
-      ">= 0.0.0": ["scikit-learn"]
+      ">= 0.0.0": ["scikit-learn", "numpy<2.0"]
     run: |
       pytest tests/lightgbm/test_lightgbm_model_export.py
 
@@ -188,7 +188,7 @@ lightgbm:
     minimum: "3.1.1"
     maximum: "4.5.0"
     requirements:
-      ">= 0.0.0": ["scikit-learn", "matplotlib"]
+      ">= 0.0.0": ["scikit-learn", "matplotlib", "numpy<2.0"]
     run: |
       pytest tests/lightgbm/test_lightgbm_autolog.py
 
@@ -204,7 +204,7 @@ catboost:
     minimum: "1.0.0"
     maximum: "1.2.7"
     requirements:
-      ">= 0.0.0": ["scikit-learn"]
+      ">= 0.0.0": ["scikit-learn", "numpy<2.0"]
       "< 1.1": ["pandas<2"]
     run: |
       pytest tests/catboost/test_catboost_model_export.py
@@ -311,6 +311,7 @@ spacy:
       ">= 0.0.0": ["scikit-learn", "click<8.1.0"]
       "<= 3.0.9": ["flask<2.1.0", "werkzeug<3"]
       ">= 3.0.9, < 3.4.0": ["typing_extensions<4.6.0", "sqlalchemy<2.0.25"]
+      "< 3.8": ["numpy<2.0"]
     run: |
       pytest tests/spacy/test_spacy_model_export.py
 
@@ -366,7 +367,7 @@ spark:
     # prior to their release on PyPI (e.g. Databricks)
     allow_unreleased_max_version: True
     requirements:
-      ">= 0.0.0": ["boto3", "scikit-learn", "pyarrow"]
+      ">= 0.0.0": ["boto3", "scikit-learn", "pyarrow", "numpy<2.0"]
       "< 3.4.0": ["pandas<2"]
       ">= 3.5.0": ["torch", "scikit-learn", "torcheval"]
       ">= 3.5.0, < dev": ["pyspark[connect]"]
@@ -400,7 +401,7 @@ spark:
     # prior to their release on PyPI (e.g. Databricks)
     allow_unreleased_max_version: True
     requirements:
-      ">= 0.0.0": ["scikit-learn"]
+      ">= 0.0.0": ["scikit-learn", "numpy<2.0"]
       "< 3.4.0": ["pandas<2"]
     run: |
       # Build Java package
@@ -518,7 +519,7 @@ shap:
   package_info:
     pip_release: "shap"
   models:
-    minimum: "0.41.0"
+    minimum: "0.42.1"
     maximum: "0.46.0"
     requirements:
       "< 0.46.0": ["numpy<1.24.0"]
@@ -574,6 +575,7 @@ transformers:
           "protobuf<=3.20.3", # fix error `Couldn't build proto file into descriptor pool: duplicate file name sentencepiece_model.proto`
           "typing_extensions>=4.6.0", # fix error for SqlAlchemy == 2.0.25 cannot import name 'TypeAliasType' from 'typing_extensions'
           "accelerate<1",
+          "tf-keras",
         ]
       # tensorflow 2.13.0 made all Keras private functions inaccessible. transformers versions
       # prior to 4.30.0 are incompatible with this breaking change in Keras.
@@ -618,6 +620,7 @@ transformers:
           "setfit",
           "optuna",
           "accelerate<1",
+          "tf-keras",
         ]
       # sentence-transformers >= 2.4.0 relies on `transformers.utils.import_utils.is_nltk_available`
       # to check nltk availability. This function is only available in transformers>=4.34.0.
