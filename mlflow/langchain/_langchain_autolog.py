@@ -47,7 +47,7 @@ def patched_inference(func_name, original, self, *args, **kwargs):
 
     config = AutoLoggingConfig.init(mlflow.langchain.FLAVOR_NAME)
 
-    logged_model = mlflow.create_logged_model(name="langchain")
+    logged_model = mlflow.create_logged_model(name="model")
     if config.log_traces:
         args, kwargs = _get_args_with_mlflow_tracer(func_name, logged_model.model_id, args, kwargs)
         _logger.debug("Injected MLflow callbacks into the model.")
