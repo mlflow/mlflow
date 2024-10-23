@@ -1629,12 +1629,15 @@ class CustomModelWithMlflowConfig(mlflow.pyfunc.PythonModel):
 def test_spark_udf_with_model_config(spark, model_path, env_manager):
     model = CustomModelWithMlflowConfig()
     mlflow.pyfunc.save_model(
-        model_path, python_model=model, model_config={"alpha": 0},
+        model_path,
+        python_model=model,
+        model_config={"alpha": 0},
         code_paths=[os.path.dirname(tests.__file__)],
     )
     udf = mlflow.pyfunc.spark_udf(
-        spark, model_path,
-        result_type='long',
+        spark,
+        model_path,
+        result_type="long",
         model_config={"alpha": 3},
         env_manager=env_manager,
     )

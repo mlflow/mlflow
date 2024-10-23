@@ -3,7 +3,6 @@ import json
 import logging
 import os
 import pathlib
-import pickle
 import posixpath
 import shlex
 import signal

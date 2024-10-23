@@ -3,9 +3,7 @@ import inspect
 import json
 import logging
 import sys
-import os
 
-import mlflow
 from mlflow.pyfunc import scoring_server
 from mlflow.pyfunc.model import _log_warning_if_params_not_in_predict_signature
 
