@@ -848,7 +848,6 @@ def autolog(
     log_input_examples=False,
     log_model_signatures=False,
     log_models=False,
-    log_datasets=False,
     disable=False,
     exclusive=False,
     disable_for_unsupported_versions=False,
@@ -879,8 +878,6 @@ def autolog(
             If ``False``, OpenAI models are not logged.
             Input examples and model signatures, which are attributes of MLflow models,
             are also omitted when ``log_models`` is ``False``.
-        log_datasets: If ``True``, dataset information is logged to MLflow Tracking
-            if applicable. If ``False``, dataset information is not logged.
         disable: If ``True``, disables the OpenAI autologging integration. If ``False``,
             enables the OpenAI autologging integration.
         exclusive: If ``True``, autologged content is not logged to user-created fluent runs.
