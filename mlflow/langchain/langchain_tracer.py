@@ -80,7 +80,7 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
         parent_run_id: Optional[UUID],
         span_type: str,
         run_id: UUID,
-        inputs: Optional[Dict[str, Any]] = None,
+        inputs: Optional[Union[str, Dict[str, Any]]] = None,
         attributes: Optional[Dict[str, Any]] = None,
     ) -> LiveSpan:
         """Start MLflow Span (or Trace if it is root component)"""
