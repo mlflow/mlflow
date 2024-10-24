@@ -1,4 +1,5 @@
 import datetime
+import json
 import sys
 from unittest import mock
 
@@ -26,13 +27,13 @@ from mlflow.utils.env_manager import CONDA, VIRTUALENV
             _CONTENT_TYPE_CSV,
         ),
         (
-            {"inputs": {"a": [1]}},
+            {"a": [1]},
             {"a": np.array([1])},
             _CONTENT_TYPE_JSON,
         ),
         (
             1,
-            [1],
+            np.array(1),
             _CONTENT_TYPE_JSON,
         ),
         (
@@ -168,20 +169,22 @@ def test_predict_with_input_none(mock_backend):
 @pytest.mark.parametrize(
     ("input_data", "content_type", "expected"),
     [
-        # String (no change)
-        ('{"inputs": [1, 2, 3]}', _CONTENT_TYPE_JSON, '{"inputs": [1, 2, 3]}'),
+        # String (convert to serving input)
+        ("[1, 2, 3]", _CONTENT_TYPE_JSON, '{"inputs": "[1, 2, 3]"}'),
+        # uLLM String (no change)
+        ({"input": "data"}, _CONTENT_TYPE_JSON, '{"input": "data"}'),
         ("x,y,z\n1,2,3\n4,5,6", _CONTENT_TYPE_CSV, "x,y,z\n1,2,3\n4,5,6"),
         # Bool
-        (True, _CONTENT_TYPE_JSON, '{"inputs": [true]}'),
+        (True, _CONTENT_TYPE_JSON, '{"inputs": true}'),
         # Int
-        (1, _CONTENT_TYPE_JSON, '{"inputs": [1]}'),
+        (1, _CONTENT_TYPE_JSON, '{"inputs": 1}'),
         # Float
-        (1.0, _CONTENT_TYPE_JSON, '{"inputs": [1.0]}'),
+        (1.0, _CONTENT_TYPE_JSON, '{"inputs": 1.0}'),
         # Datatime
         (
             datetime.datetime(2021, 1, 1, 0, 0, 0),
             _CONTENT_TYPE_JSON,
-            '{"inputs": ["2021-01-01T00:00:00"]}',
+            '{"inputs": "2021-01-01T00:00:00"}',
         ),
         # List
         ([1, 2, 3], _CONTENT_TYPE_CSV, "0\n1\n2\n3\n"),  # a header '0' is added by pandas
@@ -199,15 +202,14 @@ def test_predict_with_input_none(mock_backend):
             "x,y\n1,3\n2,4\n",
         ),
         # Dict (json)
-        ({"inputs": [1, 2, 3]}, _CONTENT_TYPE_JSON, '{"inputs": [1, 2, 3]}'),
+        ({"a": [1, 2, 3]}, _CONTENT_TYPE_JSON, '{"inputs": {"a": [1, 2, 3]}}'),
         # Pandas DataFrame (csv)
         (pd.DataFrame({"x": [1, 2, 3], "y": [4, 5, 6]}), _CONTENT_TYPE_CSV, "x,y\n1,4\n2,5\n3,6\n"),
         # Pandas DataFrame (json)
         (
             pd.DataFrame({"x": [1, 2, 3], "y": [4, 5, 6]}),
             _CONTENT_TYPE_JSON,
-            '{"dataframe_split": {"index": [0, 1, 2], '
-            '"columns": ["x", "y"], "data": [[1, 4], [2, 5], [3, 6]]}}',
+            '{"dataframe_split": {"columns": ["x", "y"], "data": [[1, 4], [2, 5], [3, 6]]}}',
         ),
         # Numpy Array
         (np.array([1, 2, 3]), _CONTENT_TYPE_JSON, '{"inputs": [1, 2, 3]}'),
@@ -226,7 +228,10 @@ def test_predict_with_input_none(mock_backend):
     ],
 )
 def test_serialize_input_data(input_data, content_type, expected):
-    assert _serialize_input_data(input_data, content_type) == expected
+    if content_type == _CONTENT_TYPE_JSON:
+        assert json.loads(_serialize_input_data(input_data, content_type)) == json.loads(expected)
+    else:
+        assert _serialize_input_data(input_data, content_type) == expected
 
 
 @pytest.mark.parametrize(
@@ -236,7 +241,6 @@ def test_serialize_input_data(input_data, content_type, expected):
         (1, _CONTENT_TYPE_CSV),
         ({1, 2, 3}, _CONTENT_TYPE_CSV),
         # Invalid string
-        ("{inputs: [1, 2, 3]}", _CONTENT_TYPE_JSON),
         ("x,y\n1,2\n3,4,5\n", _CONTENT_TYPE_CSV),
         # Invalid list
         ([[1, 2], [3, 4], 5], _CONTENT_TYPE_CSV),
