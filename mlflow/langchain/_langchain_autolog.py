@@ -47,9 +47,13 @@ def patched_inference(func_name, original, self, *args, **kwargs):
 
     config = AutoLoggingConfig.init(mlflow.langchain.FLAVOR_NAME)
 
-    logged_model = mlflow.create_logged_model()
+    if config.log_models:
+        logged_model = mlflow.create_logged_model()
+        model_id = logged_model.model_id
+    else:
+        model_id = None
     if config.log_traces:
-        args, kwargs = _get_args_with_mlflow_tracer(func_name, logged_model.model_id, args, kwargs)
+        args, kwargs = _get_args_with_mlflow_tracer(func_name, model_id, args, kwargs)
         _logger.debug("Injected MLflow callbacks into the model.")
 
     # Traces does not require an MLflow run, only the other optional artifacts require it.
