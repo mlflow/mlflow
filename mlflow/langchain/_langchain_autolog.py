@@ -13,6 +13,7 @@ import mlflow
 from mlflow.entities import RunTag
 from mlflow.entities.run_status import RunStatus
 from mlflow.exceptions import MlflowException
+from mlflow.langchain import _LOADED_MODEL_TRACKER
 from mlflow.langchain.langchain_tracer import MlflowLangchainTracer
 from mlflow.langchain.runnables import get_runnable_steps
 from mlflow.tracking.context import registry as context_registry
@@ -46,9 +47,10 @@ def patched_inference(func_name, original, self, *args, **kwargs):
             return original(self, *args, **kwargs)
 
     config = AutoLoggingConfig.init(mlflow.langchain.FLAVOR_NAME)
-
-    if config.log_models:
-        logged_model = mlflow.create_logged_model()
+    if mid := _LOADED_MODEL_TRACKER.get(self):
+        model_id = mid
+    elif config.log_models:
+        logged_model = mlflow.create_logged_model(name="model")
         model_id = logged_model.model_id
     else:
         model_id = None
