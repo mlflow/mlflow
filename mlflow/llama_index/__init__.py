@@ -141,7 +141,7 @@ def save_model(
 
     .. note::
 
-        When logging a model, MLflow will automatically saves the state of the ``Settings``
+        When logging a model, MLflow will automatically save the state of the ``Settings``
         object so that you can use the same settings at inference time. However, please
         note that some information in the ``Settings`` object will not be saved, including:
 
@@ -337,7 +337,7 @@ def log_model(
 
     .. note::
 
-        When logging a model, MLflow will automatically saves the state of the ``Settings``
+        When logging a model, MLflow will automatically save the state of the ``Settings``
         object so that you can use the same settings at inference time. However, please
         note that some information in the ``Settings`` object will not be saved, including:
 
