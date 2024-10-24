@@ -12,8 +12,8 @@ jest.setTimeout(60000);
 
 // Generates array of param_a1, param_a2, ..., param_b2, ..., param_c3 param keys with values "value_1.0"..."value_9.0"
 const sampleLatestParameters = keyBy(
-  ['a', 'b', 'c'].flatMap((letter, letterIndex) =>
-    [1, 2, 3].map((digit, digitIndex) => ({
+  ['c', 'a', 'b'].flatMap((letter, letterIndex) =>
+    [3, 1, 2].map((digit, digitIndex) => ({
       key: `param_${letter}${digit}`,
       value: 'value_' + (letterIndex * 3 + digitIndex + 1).toFixed(1),
     })),
@@ -38,10 +38,14 @@ describe('RunViewParamsTable', () => {
   test('Renders the table with values and filters values', async () => {
     renderComponent();
     expect(screen.getByRole('heading', { name: 'Parameters (9)' })).toBeInTheDocument();
-    expect(screen.getByRole('row', { name: 'param_a1 value_1.0' })).toBeInTheDocument();
-    expect(screen.getByRole('row', { name: 'param_c3 value_9.0' })).toBeInTheDocument();
+    expect(screen.getByRole('row', { name: 'param_c3 value_1.0' })).toBeInTheDocument();
+    expect(screen.getByRole('row', { name: 'param_b2 value_9.0' })).toBeInTheDocument();
 
     expect(screen.getAllByRole('row')).toHaveLength(10); // 9 rows + 1 header row
+
+    // Expect rows to be sorted
+    expect(screen.getAllByRole('row')[1]).toHaveTextContent("param_a1");
+    expect(screen.getAllByRole('row')[9]).toHaveTextContent("param_c3");
 
     await fastFillInput(screen.getByRole('textbox'), 'param_a');
 
