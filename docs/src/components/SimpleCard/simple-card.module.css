@@ -1,0 +1,95 @@
+.CardGroup {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+
+.CardGroup .CardGroupCards {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(200px, 33%));
+  grid-gap: 20px;
+  margin-top: 20px;
+}
+
+@media (max-width: 750px) {
+  .CardGroup .CardGroupCards {
+    grid-template-columns: 100% !important;
+  }
+}
+@media (max-width: 650px) {
+  .CardGroup .CardGroupCards {
+    grid-template-columns: 100% !important;
+  }
+}
+@media (max-width: 1150px) {
+  .CardGroup .CardGroupCards {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+.Card {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+}
+
+.CardBordered {
+  padding: 18px;
+  border: 1px solid var(--docusaurus-tag-list-border);
+  border-radius: var(--card-border-radius);
+  transition: box-shadow 0.2s ease-in-out;
+}
+
+.CardBordered:hover {
+  box-shadow: 0 0 11px rgba(33, 33, 33, 0.2);
+  box-shadow: var(--card-hover-shadow);
+}
+
+.CardBody {
+  display: flex;
+  flex-grow: 1;
+}
+
+.TextColor {
+  color: var(--ifm-font-color-base);
+}
+
+.BoxRoot {
+  box-sizing: border-box;
+}
+
+.FlexWrapNowrap {
+  flex-wrap: nowrap;
+}
+.FlexJustifyContentFlexStart {
+  justify-content: flex-start;
+}
+.FlexDirectionRow {
+  flex-direction: row;
+}
+.FlexAlignItemsCenter {
+  align-items: center;
+}
+.FlexFlex {
+  display: flex;
+}
+
+.Link {
+  text-decoration: none;
+}
+
+.Link:hover {
+  text-decoration: none;
+}
+
+.MarginLeft4 {
+  margin-left: var(--padding-xs);
+}
+.MarginTop4 {
+  margin-top: var(--padding-xs);
+}
+
+.PaddingBottom4 {
+  padding-bottom: var(--padding-xs);
+}

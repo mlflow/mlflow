@@ -1,0 +1,9 @@
+.Container {
+  flex: 1;
+  padding: 10px;
+  border: 2px solid var(--docusaurus-tag-list-border);
+  border-radius: 15px;
+  margin: 0 5px;
+  box-sizing: border-box;
+  text-align: left;
+}
