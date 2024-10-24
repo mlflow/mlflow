@@ -81,6 +81,9 @@ jobs:
           python -m venv .venv
           source .venv/bin/activate
           source ./dev/install-common-deps.sh --ml
+          # 4.46.0 is broken because of https://github.com/huggingface/transformers/issues/34370
+          # TODO: remove this once above issue is resolved
+          pip install 'transformers!=4.46.0'
       - uses: ./.github/actions/show-versions
       - uses: ./.github/actions/pipdeptree
       - name: Import check
@@ -184,6 +187,9 @@ jobs:
           python -m venv .venv
           source .venv/bin/activate
           source ./dev/install-common-deps.sh --ml
+          # 4.46.0 is broken because of https://github.com/huggingface/transformers/issues/34370
+          # TODO: remove this once above issue is resolved
+          pip install 'transformers!=4.46.0'
       - uses: ./.github/actions/show-versions
       - uses: ./.github/actions/pipdeptree
       - name: Run tests
@@ -252,6 +258,9 @@ jobs:
         run: |
           source ./dev/install-common-deps.sh
           pip install pyspark torch transformers langchain langchain-experimental '.[genai]'
+          # 4.46.0 is broken because of https://github.com/huggingface/transformers/issues/34370
+          # TODO: remove this once above issue is resolved
+          pip install 'transformers!=4.46.0'
       - uses: ./.github/actions/show-versions
       - uses: ./.github/actions/pipdeptree
       - name: Run tests
@@ -350,6 +359,9 @@ jobs:
           # Install torch and transformers to test metrics
           pip install torch transformers
           pip install -r requirements/test-requirements.txt
+          # 4.46.0 is broken because of https://github.com/huggingface/transformers/issues/34370
+          # TODO: remove this once above issue is resolved
+          pip install 'transformers!=4.46.0'
       - uses: ./.github/actions/show-versions
       - uses: ./.github/actions/pipdeptree
       - name: Download Hadoop winutils for Spark
