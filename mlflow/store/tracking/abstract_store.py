@@ -696,7 +696,7 @@ class AbstractStore:
     def create_logged_model(
         self,
         experiment_id: str,
-        name: str,
+        name: Optional[str] = None,
         source_run_id: Optional[str] = None,
         tags: Optional[List[LoggedModelTag]] = None,
         params: Optional[List[LoggedModelParameter]] = None,
@@ -707,7 +707,7 @@ class AbstractStore:
 
         Args:
             experiment_id: ID of the experiment to which the model belongs.
-            name: Name of the model.
+            name: Name of the model. If not specified, a random name will be generated.
             source_run_id: ID of the run that produced the model.
             tags: Tags to set on the model.
             params: Parameters to set on the model.

@@ -1082,7 +1082,7 @@ class TrackingServiceClient:
     def create_logged_model(
         self,
         experiment_id: str,
-        name: str,
+        name: Optional[str] = None,
         source_run_id: Optional[str] = None,
         tags: Optional[Dict[str, str]] = None,
         params: Optional[Dict[str, str]] = None,
