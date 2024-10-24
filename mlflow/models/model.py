@@ -938,7 +938,7 @@ def get_model_requirements_files(resolved_uri: str) -> Files:
 def update_model_requirements(
     model_uri: str,
     operation: Literal["add", "remove"],
-    requirement_list: List[Union[str, Requirement]],
+    requirement_list: List[str],
 ) -> None:
     """
     Add or remove requirements from a model's conda.yaml and requirements.txt files.
@@ -997,10 +997,12 @@ def update_model_requirements(
     old_conda_reqs = _get_requirements_from_file(conda_yaml_path)
     old_requirements_reqs = _get_requirements_from_file(requirements_txt_path)
 
-    requirement_list = [
-        Requirement(requirement) if not isinstance(requirement, Requirement) else requirement
-        for requirement in requirement_list
-    ]
+    try:
+        requirement_list = [Requirement(s.strip().lower()) for s in requirement_list]
+    except Exception as e:
+        raise MlflowException.invalid_parameter_value(
+            f"Invalid requirement list: {requirement_list}"
+        ) from e
     if operation == "add":
         updated_conda_reqs = _add_or_overwrite_requirements(requirement_list, old_conda_reqs)
         updated_requirements_reqs = _add_or_overwrite_requirements(
