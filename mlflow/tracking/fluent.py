@@ -842,11 +842,11 @@ def log_metric(
             All backend stores will support values up to length 5000, but some
             may support larger values.
         step: Metric step. Defaults to zero if unspecified.
-        timestamp: Time when this metric was calculated. Defaults to the current system time.
         synchronous: *Experimental* If True, blocks until the metric is logged
             successfully. If False, logs the metric asynchronously and
             returns a future representing the logging operation. If None, read from environment
             variable `MLFLOW_ENABLE_ASYNC_LOGGING`, which defaults to False if not set.
+        timestamp: Time when this metric was calculated. Defaults to the current system time.
         run_id: If specified, log the metric to the specified run. If not specified, log the metric
             to the currently active run.
 
@@ -1350,7 +1350,6 @@ def log_image(
             - H x W x 4 (an RGBA channel order is assumed)
 
     Args:
-        run_id: String ID of run.
         image: The image object to be logged.
         artifact_file: Specifies the path, in POSIX format, where the image
             will be stored as an artifact relative to the run's root directory (for

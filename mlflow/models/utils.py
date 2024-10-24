@@ -315,16 +315,6 @@ class _Example:
                 model_input = _handle_ndarray_input(model_input)
                 self.serving_input = {INPUTS: model_input}
             else:
-                # TODO: remove this warning after 2.17.0 release
-                warnings.warn(
-                    "Since MLflow 2.16.0, we no longer convert dictionary input example "
-                    "to pandas Dataframe, and directly save it as a json object. "
-                    "If the model expects a pandas DataFrame input instead, please "
-                    "pass the pandas DataFrame as input example directly.",
-                    FutureWarning,
-                    stacklevel=2,
-                )
-
                 from mlflow.pyfunc.utils.serving_data_parser import is_unified_llm_input
 
                 self.info["type"] = "json_object"
@@ -1796,8 +1786,8 @@ def _mock_dbutils(globals_dict):
 # This function addresses this by dynamically importing the `code path` module under a unique,
 # dynamically generated module name. This bypasses the caching mechanism, as each import is
 # considered a separate module by the Python interpreter.
-def _load_model_code_path(code_path: str, config: Optional[Union[str, Dict[str, Any]]]):
-    with _config_context(config):
+def _load_model_code_path(code_path: str, model_config: Optional[Union[str, Dict[str, Any]]]):
+    with _config_context(model_config):
         try:
             new_module_name = f"code_model_{uuid.uuid4().hex}"
             spec = importlib.util.spec_from_file_location(new_module_name, code_path)

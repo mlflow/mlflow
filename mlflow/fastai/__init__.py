@@ -276,13 +276,13 @@ def log_model(
               signature = infer_signature(train, predictions)
 
         input_example: {{ input_example }}
-        kwargs: kwargs to pass to `fastai.Learner.export`_ method.
         await_registration_for: Number of seconds to wait for the model version to finish
             being created and is in ``READY`` status. By default, the function
             waits for five minutes. Specify 0 or None to skip waiting.
         pip_requirements: {{ pip_requirements }}
         extra_pip_requirements: {{ extra_pip_requirements }}
         metadata: {{ metadata }}
+        kwargs: kwargs to pass to `fastai.Learner.export`_ method.
 
     Returns:
         A ModelInfo instance that contains the metadata of the logged model.

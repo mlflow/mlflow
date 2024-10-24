@@ -37,6 +37,7 @@ from mlflow.transformers import (
     _CARD_TEXT_FILE_NAME,
     _build_pipeline_from_model_input,
     _fetch_model_card,
+    _get_task_for_model,
     _is_model_distributed_in_memory,
     _should_add_pyfunc_to_model,
     _TransformersWrapper,
@@ -3320,6 +3321,31 @@ def test_llm_v1_task_embeddings_serve(feature_extraction_pipeline, request_paylo
     assert len(prediction["data"]) == 1
     assert prediction["data"][0]["object"] == "embedding"
     assert len(prediction["data"][0]["embedding"]) == 384
+
+
+def test_get_task_for_model():
+    with mock.patch("transformers.pipelines.get_task") as mock_get_task:
+        mock_get_task.return_value = "feature-extraction"
+        assert _get_task_for_model("model") == "feature-extraction"
+
+        # Some model task is not supported by Transformers pipeline yet. Then fall back
+        # to the default task if provided, otherwise raise an exception.
+        mock_get_task.return_value = "unsupported-task"
+        assert (
+            _get_task_for_model("model", default_task="feature-extraction") == "feature-extraction"
+        )
+
+        with pytest.raises(MlflowException, match="Cannot construct transformers pipeline"):
+            _get_task_for_model("model")
+
+        # If get_task raises an exception, fall back to the default task if provided.
+        mock_get_task.side_effect = RuntimeError("Some error")
+        assert (
+            _get_task_for_model("model", default_task="feature-extraction") == "feature-extraction"
+        )
+
+        with pytest.raises(MlflowException, match="The task could not be inferred"):
+            _get_task_for_model("model")
 
 
 def test_local_custom_model_save_and_load(text_generation_pipeline, model_path, tmp_path):
