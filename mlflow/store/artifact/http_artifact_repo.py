@@ -97,6 +97,16 @@ class HttpArtifactRepository(ArtifactRepository, MultipartUploadMixin):
             )
             file_infos.append(file_info)
 
+        # The list_artifacts API expects us to return an empty list if the
+        # the path references a single file.
+        if (
+            len(file_infos) == 1
+            and not file_infos[0].is_dir
+            and path is not None
+            and file_infos[0].path == posixpath.join(path, os.path.basename(path))
+        ):
+            return []
+
         return sorted(file_infos, key=lambda f: f.path)
 
     def _download_file(self, remote_file_path, local_path):
