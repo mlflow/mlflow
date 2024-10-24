@@ -8,6 +8,7 @@ sklearn:
     minimum: "0.24.1"
     maximum: "1.5.2"
     requirements:
+      "< 1.3.0": ["numpy<2"]
       "< 1.0": ["scipy==1.7.3"]
     python:
       "== dev": "3.9"
@@ -21,6 +22,7 @@ sklearn:
       "== dev": "3.9"
     requirements:
       ">= 0.0.0": ["matplotlib"]
+      "< 1.3.0": ["numpy<2"]
       "< 1.0": ["scipy==1.7.3"]
     run: |
       pytest tests/sklearn/test_sklearn_autolog.py
@@ -42,7 +44,9 @@ pytorch:
     requirements:
       ">= 0.0.0": ["torchvision", "scikit-learn"]
       ">= 1.8": ["transformers"]
-      "< 1.8": ["transformers<4.32.0"]
+      "< 2.3": ["numpy<2"]
+    python:
+      ">= 2.5.0": "3.9"
     run: |
       pytest tests/pytorch/test_pytorch_model_export.py tests/pytorch/test_pytorch_metric_value_conversion_utils.py
 
@@ -51,6 +55,8 @@ pytorch:
     maximum: "2.4.1"
     requirements:
       ">= 0.0.0": ["tensorboard"]
+    python:
+      ">= 2.5.0": "3.9"
     run: |
       pytest tests/pytorch/test_tensorboard_autolog.py
 
@@ -66,16 +72,6 @@ pytorch-lightning:
     maximum: "2.4.0"
     requirements:
       ">= 0.0.0": ["scikit-learn", "torchvision", "protobuf<4.0.0", "tensorboard", "greenlet<3"]
-      # torchmetrics==0.8.0 released a breaking change for versions 1.3 and 1.4 where
-      # torchmetrics dependency was defined as non-upper-bounded in its requirements.
-      # see: https://github.com/PyTorchLightning/metrics/commit/c537c9b3e8e801772a7e5670ff273321ed26e77b
-      # for the removed function that causes pytorch-lightning imports to fail with torchmetrics==0.8.0
-      ">= 1.3.0, < 1.5.0": ["torchmetrics<0.8.0"]
-      # torchmetrics==1.0.0 released a breaking change in version 1.0.0 that is incompatible with
-      # the usage of a private utility within torchmetrics for pytorch-lightning~=1.7 that was
-      # modified in pytorch-lightning>=1.8.
-      # The problematic commit: https://github.com/Lightning-AI/torchmetrics/commit/3527e17516902eb5265cd2a4f76ad6b0f9f77692
-      "< 1.8.0": ["torchmetrics<1.0.0"]
     run: |
       pytest tests/pytorch/test_pytorch_autolog.py
 
@@ -87,7 +83,7 @@ keras:
 
   models:
     minimum: "3.0.2"
-    maximum: "3.5.0"
+    maximum: "3.6.0"
     python:
       "== dev": "3.9"
     requirements:
@@ -98,7 +94,7 @@ keras:
 
   autologging:
     minimum: "3.0.2"
-    maximum: "3.5.0"
+    maximum: "3.6.0"
     python:
       "== dev": "3.9"
     requirements:
@@ -121,6 +117,7 @@ tensorflow:
     requirements:
       # Requirements to run tests for keras
       ">= 0.0.0": ["scikit-learn", "pyspark", "pyarrow", "transformers!=4.38.0,!=4.38.1"]
+      "< 2.12.0": ["numpy<2"]
       # TensorFlow 2.12.1 and 2.13.1 requires typing_extensions < 4.6.0, which is
       # incompatible with SQLAlchemy 2.0.25 with error
       # `cannot import name 'TypeAliasType' from 'typing_extensions'`
@@ -140,6 +137,7 @@ tensorflow:
       "== dev": "3.9"
     requirements:
       "== dev": ["scikit-learn"]
+      "< 2.12.0": ["numpy<2"]
       # TensorFlow 2.12.1 and 2.13.1 requires typing_extensions < 4.6.0, which is
       # incompatible with SQLAlchemy 2.0.25 with error
       # `cannot import name 'TypeAliasType' from 'typing_extensions'`
@@ -158,7 +156,7 @@ xgboost:
     maximum: "2.1.1"
     requirements:
       ">= 0.0.0": ["scikit-learn"]
-      "< 1.6": ["pandas<2"]
+      "< 1.6": ["pandas<2", "numpy<2"]
     python:
       "== dev": "3.10"
     run: |
@@ -169,7 +167,7 @@ xgboost:
     maximum: "2.1.1"
     requirements:
       ">= 0.0.0": ["scikit-learn", "matplotlib"]
-      "< 1.6": ["pandas<2"]
+      "< 1.6": ["pandas<2", "numpy<2"]
     python:
       "== dev": "3.10"
     run: |
@@ -188,6 +186,7 @@ lightgbm:
     maximum: "4.5.0"
     requirements:
       ">= 0.0.0": ["scikit-learn"]
+      "== 4.0.*": ["numpy<2"]
     run: |
       pytest tests/lightgbm/test_lightgbm_model_export.py
 
@@ -196,6 +195,7 @@ lightgbm:
     maximum: "4.5.0"
     requirements:
       ">= 0.0.0": ["scikit-learn", "matplotlib"]
+      "== 4.0.*": ["numpy<2"]
     run: |
       pytest tests/lightgbm/test_lightgbm_autolog.py
 
@@ -213,6 +213,7 @@ catboost:
     requirements:
       ">= 0.0.0": ["scikit-learn"]
       "< 1.1": ["pandas<2"]
+      "< 1.2": ["numpy<2"]
     run: |
       pytest tests/catboost/test_catboost_model_export.py
 
@@ -260,9 +261,7 @@ fastai:
       #  To migrate fastai tests to python 3.9, we need to address error
       #  when installing old version scipy: "No module named 'distutils.msvccompiler'"
       #  similar issue link: https://github.com/numpy/numpy/issues/27405
-      "> 0.0.0": ["spacy<3.8.2"]
-      "< 2.8.0": ["torch<1.13.0", "torchvision<0.14.0"]
-      ">= 2.8.0": ["torch", "torchvision"]
+      "> 0.0.0": ["spacy<3.8.2", "torch<1.13.0", "torchvision<0.14.0"]
     run: |
       pytest tests/fastai/test_fastai_model_export.py
 
@@ -270,9 +269,7 @@ fastai:
     minimum: "2.4.1"
     maximum: "2.7.17"
     requirements:
-      "> 0.0.0": ["spacy<3.8.2"]
-      "< 2.8.0": ["torch<1.13.0", "torchvision<0.14.0"]
-      ">= 2.8.0": ["torch", "torchvision"]
+      "> 0.0.0": ["spacy<3.8.2", "torch<1.13.0", "torchvision<0.14.0"]
     run: |
       pytest tests/fastai/test_fastai_autolog.py
 
@@ -300,10 +297,9 @@ onnx:
 
   models:
     minimum: "1.13.1"
-    maximum: "1.16.2"
+    maximum: "1.17.0"
     requirements:
       ">= 0.0.0": ["onnxruntime", "torch", "scikit-learn", "protobuf<4.0.0"]
-      "< 1.11.0": ["numpy<1.24.0"]
     run: |
       pytest tests/onnx/test_onnx_model_export.py
 
@@ -314,8 +310,8 @@ spacy:
       pip install git+https://github.com/explosion/spaCy.git
 
   models:
-    minimum: "2.2.4"
-    maximum: "3.7.5"
+    minimum: "3.0.0"
+    maximum: "3.8.2"
     python:
       "== dev": "3.9"
       ">= 3.8.2": "3.9"
@@ -323,6 +319,7 @@ spacy:
       ">= 0.0.0": ["scikit-learn", "click<8.1.0"]
       "<= 3.0.9": ["flask<2.1.0", "werkzeug<3"]
       ">= 3.0.9, < 3.4.0": ["typing_extensions<4.6.0", "sqlalchemy<2.0.25"]
+      "< 3.8": ["numpy<2"]
     run: |
       pytest tests/spacy/test_spacy_model_export.py
 
@@ -333,22 +330,24 @@ statsmodels:
       pip install git+https://github.com/statsmodels/statsmodels.git
 
   models:
-    minimum: "0.11.1"
-    maximum: "0.14.3"
+    minimum: "0.12.2"
+    maximum: "0.14.4"
     python:
       "== dev": "3.9"
     requirements:
       "< 0.13.0": ["pandas==1.3.5", "scipy==1.7.3"]
+      "== 0.13.*": ["numpy<2"]
     run: |
       pytest tests/statsmodels/test_statsmodels_model_export.py
 
   autologging:
-    minimum: "0.11.1"
-    maximum: "0.14.3"
+    minimum: "0.12.2"
+    maximum: "0.14.4"
     python:
       "== dev": "3.9"
     requirements:
       "< 0.13.0": ["pandas==1.3.5", "scipy==1.7.3"]
+      "== 0.13.*": ["numpy<2"]
     run: |
       pytest tests/statsmodels/test_statsmodels_autolog.py
 
@@ -378,7 +377,7 @@ spark:
     # prior to their release on PyPI (e.g. Databricks)
     allow_unreleased_max_version: True
     requirements:
-      ">= 0.0.0": ["boto3", "scikit-learn", "pyarrow"]
+      ">= 0.0.0": ["boto3", "scikit-learn", "pyarrow", "numpy<2"]
       "< 3.4.0": ["pandas<2"]
       ">= 3.5.0": ["torch", "scikit-learn", "torcheval"]
       ">= 3.5.0, < dev": ["pyspark[connect]"]
@@ -400,6 +399,9 @@ spark:
   autologging:
     minimum: "3.1.2"
     maximum: "3.5.3"
+    runs_on:
+      # TODO: Remove this once ubuntu 24 is fully rolled out: https://github.com/actions/runner-images/issues/10636
+      "== 3.3.4": "ubuntu-24.04"
     python:
       "== dev": "3.9"
     java:
@@ -409,7 +411,7 @@ spark:
     # prior to their release on PyPI (e.g. Databricks)
     allow_unreleased_max_version: True
     requirements:
-      ">= 0.0.0": ["scikit-learn"]
+      ">= 0.0.0": ["scikit-learn", "numpy<2"]
       "< 3.4.0": ["pandas<2"]
     run: |
       # Build Java package
@@ -464,7 +466,7 @@ prophet:
 
   models:
     minimum: "1.1.1"
-    maximum: "1.1.5"
+    maximum: "1.1.6"
     requirements:
       # Prophet does not handle numpy 2 yet. https://github.com/facebook/prophet/issues/2595
       ">= 0.0.0": ["numpy<2"]
@@ -478,17 +480,18 @@ prophet:
 pmdarima:
   package_info:
     pip_release: "pmdarima"
-    install_dev: |
-      pip install Cython
-      pip install git+https://github.com/alkaline-ml/pmdarima.git
+    # TODO: Uncomment once https://github.com/alkaline-ml/pmdarima/issues/582 is fixed.
+    # install_dev: |
+    #   # pip install Cython
+    #   # pip install git+https://github.com/alkaline-ml/pmdarima.git
 
   models:
-    minimum: "1.8.0"
+    minimum: "1.8.1"
     maximum: "2.0.4"
     requirements:
       "< 1.9": ["scikit-learn<1.3"]
       # Avoid holidays 0.25 due to https://github.com/dr-prodigy/python-holidays/issues/1200
-      ">= 0.0.0": ["prophet", "holidays!=0.25"]
+      ">= 0.0.0": ["prophet", "holidays!=0.25", "numpy<2"]
     run: |
       pytest tests/pmdarima/test_pmdarima_model_export.py
 
@@ -504,7 +507,7 @@ diviner:
     requirements:
       # https://github.com/alan-turing-institute/sktime/issues/2898
       # Avoid holidays 0.25 due to https://github.com/dr-prodigy/python-holidays/issues/1200
-      ">= 0.0": ["cmdstanpy!=1.0.2", "holidays!=0.25"]
+      ">= 0.0": ["cmdstanpy!=1.0.2", "holidays!=0.25", "numpy<2"]
       "<= 0.1.0": ["pmdarima<2.0.0"]
       # Diviner <= 0.1.1 isn't compatible with pandas>=2
       "<= 0.1.1": ["pandas<2"]
@@ -526,7 +529,7 @@ shap:
   package_info:
     pip_release: "shap"
   models:
-    minimum: "0.41.0"
+    minimum: "0.42.1"
     maximum: "0.46.0"
     requirements:
       "< 0.46.0": ["numpy<1.24.0"]
@@ -540,12 +543,15 @@ paddle:
     minimum: "2.4.1"
     maximum: "2.6.2"
     requirements:
+      "< 2.6.0": ["numpy<2"]
       "< 2.5.0": ["google-cloud-storage==2.14.0"]
     run: |
       pytest tests/paddle/test_paddle_model_export.py
   autologging:
     minimum: "2.4.1"
     maximum: "2.6.2"
+    requirements:
+      "< 2.6.0": ["numpy<2"]
     run: |
       pytest tests/paddle/test_paddle_autolog.py
 
@@ -556,7 +562,7 @@ transformers:
       pip install git+https://github.com/huggingface/transformers
   models:
     minimum: "4.25.1"
-    maximum: "4.45.0"
+    maximum: "4.45.2"
     python:
       "== dev": "3.9"
     unsupported: [
@@ -590,6 +596,8 @@ transformers:
       # Installing `transformers==4.34.1` with `datasets` results in installing `huggingface_hub==0.17.3`.
       # `accelerate>=0.32.0` and `peft>=0.13.0` are incompatible with `huggingface_hub==0.17.3`.
       "== 4.34.1": ["accelerate<0.32.0", "peft<0.13.0"]
+      # Pin torchvision to <0.20.0 to avoid https://github.com/pytorch/torchchat/issues/1158
+      ">= 4.42, < 4.46.0": ["torchvision<0.20.0"]
       "== dev": ["tf-keras"]
     pre_test: |
       export PYTHONPATH=./
@@ -601,7 +609,7 @@ transformers:
       pytest tests/transformers/test_transformers_model_export.py -k "test_transformers_tf_model_save_without_conda_env_uses_default_env_with_expected_dependencies or test_transformers_pt_model_save_dependencies_without_accelerate"
   autologging:
     minimum: "4.25.1"
-    maximum: "4.45.0"
+    maximum: "4.45.2"
     python:
       "== dev": "3.9"
     unsupported: [
@@ -646,7 +654,7 @@ openai:
       pip install git+https://github.com/openai/openai-python
   models:
     minimum: "1.0.1"
-    maximum: "1.49.0"
+    maximum: "1.51.2"
     requirements:
       ">= 0.0.0": [
           "pyspark",
@@ -658,10 +666,13 @@ openai:
           "uvicorn",
         ]
     run: |
-      pytest tests/openai --ignore tests/openai/test_openai_autolog.py
+      pytest tests/openai tests/openai/test_openai_model_export.py
   autologging:
     minimum: "1.17.0"
-    maximum: "1.49.0"
+    maximum: "1.51.2"
+    python:
+      # OpenAI Swarm requires Python >=3.10
+      ">= 1.33.0": "3.10"
     requirements:
       ">= 0.0.0": [
           "pyspark",
@@ -672,21 +683,29 @@ openai:
           "fastapi",
           "uvicorn",
         ]
+      ">= 1.33.0": [
+          # Install OpenAI Swarm from the main branch as it's not available on pip
+          "git+https://github.com/openai/swarm.git",
+        ]
     run: |
-      pytest tests/openai/test_openai_autolog.py
+      pytest tests/openai/test_openai_autolog.py tests/openai/test_openai_agent_autolog.py
 
 dspy:
   package_info:
-    pip_release: "dspy-ai"
+    pip_release: "dspy"
     install_dev: |
       pip install git+https://github.com/stanfordnlp/dspy.git
   models:
-    minimum: "2.4.16"
-    maximum: "2.5.0"
+    minimum: "2.5.6"
+    maximum: "2.5.6"
     python:
-      ">= 2.4.16": "3.9"
+      ">= 2.5.6": "3.9"
     requirements:
-      ">= 0.0.0": ["openai"]
+      ">= 0.0.0": [
+          "openai",
+          # https://github.com/stanfordnlp/dspy/issues/1624
+          "litellm<=1.49.2",
+        ]
     run: |
       pytest tests/dspy
 
@@ -698,7 +717,7 @@ langchain:
   models:
     # Where the large package update was made (langchain-core, community, ...)
     minimum: "0.0.354"
-    maximum: "0.3.1"
+    maximum: "0.3.3"
     python:
       "== dev": "3.9"
     requirements:
@@ -743,7 +762,7 @@ langchain:
       fi
   autologging:
     minimum: "0.1.0"
-    maximum: "0.3.1"
+    maximum: "0.3.3"
     python:
       "== dev": "3.9"
     requirements:
@@ -791,7 +810,7 @@ llama_index:
   models:
     # New event/span framework is fully implemented in 0.10.44
     minimum: "0.10.44"
-    maximum: "0.11.13"
+    maximum: "0.11.17"
     python:
       "== dev": "3.9"
     requirements:
@@ -811,7 +830,7 @@ llama_index:
     run: pytest tests/llama_index --ignore tests/llama_index/test_llama_index_autolog.py --ignore tests/llama_index/test_llama_index_tracer.py
   autologging:
     minimum: "0.10.44"
-    maximum: "0.11.13"
+    maximum: "0.11.17"
     python:
       "== dev": "3.9"
     requirements:
@@ -828,13 +847,15 @@ llama_index:
 
 autogen:
   package_info:
-    pip_release: "pyautogen"
-    install_dev: |
-      pip install git+https://github.com/microsoft/autogen
+    pip_release: "autogen-agentchat"
+    # TODO: Uncomment this once we support autogen 0.4
+    # install_dev: |
+    #  pip install git+https://github.com/microsoft/autogen#subdirectory=python/packages/autogen-agentchat
   autologging:
-    # Tool call logging is implemented in autogen 0.2.29
-    minimum: "0.2.29"
-    maximum: "0.3.0"
+    minimum: "0.2.36"
+    maximum: "0.2.36"
+    python:
+      "== dev": "3.10"
     requirements:
       ">= 0.0.0": [
           # Required to run tests/openai/mock_openai.py
@@ -850,7 +871,7 @@ sentence_transformers:
       pip install git+https://github.com/UKPLab/sentence-transformers#egg=sentence-transformers
   models:
     minimum: "2.2.2"
-    maximum: "3.1.1"
+    maximum: "3.2.0"
     requirements:
       ">= 0.0.0": [
           "pyspark",
@@ -868,7 +889,7 @@ johnsnowlabs:
     pip_release: "johnsnowlabs"
   models:
     minimum: "4.4.6"
-    maximum: "5.4.4"
+    maximum: "5.4.5"
     requirements:
       ">= 0.0.0": ["pandas<=1.5.3"]
       "< 5.2.8": ["pyspark<3.4"]
@@ -887,10 +908,11 @@ promptflow:
       pip install git+https://github.com/microsoft/promptflow#subdirectory=src/promptflow
   models:
     minimum: "1.3.0"
-    maximum: "1.15.1"
+    maximum: "1.16.1"
     requirements:
       # Requirements to run sparkudf predict test
       ">= 0.0.0": ["pyspark", "jinja2"]
       ">= 1.11.0": ["openai>=1"]
+      "< 1.18": ["numpy<2"]
     run: |
       pytest tests/promptflow/test_promptflow_model_export.py

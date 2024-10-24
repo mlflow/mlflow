@@ -20,6 +20,7 @@ from mlflow.entities import FileInfo
 from mlflow.environment_variables import (
     MLFLOW_MULTIPART_DOWNLOAD_CHUNK_SIZE,
     MLFLOW_MULTIPART_UPLOAD_CHUNK_SIZE,
+    MLFLOW_MULTIPART_UPLOAD_MINIMUM_FILE_SIZE,
 )
 from mlflow.exceptions import MlflowException, MlflowTraceDataCorrupted, MlflowTraceDataNotFound
 from mlflow.protos.databricks_artifacts_pb2 import (
@@ -188,9 +189,9 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
         `request_message_class`.
 
         Args:
-            paths: The specified run-relative artifact paths within the MLflow Run.
-            run_id: The specified MLflow Run.
             request_message_class: Specifies the type of access credentials, read or write.
+            run_id: The specified MLflow Run.
+            paths: The specified run-relative artifact paths within the MLflow Run.
 
         Returns:
             A list of `ArtifactCredentialInfo` objects providing read access to the specified
@@ -545,7 +546,7 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
                 self._get_write_credential_infos,
             )
         elif cloud_credential_info.type == ArtifactCredentialType.AWS_PRESIGNED_URL:
-            if os.path.getsize(src_file_path) > MLFLOW_MULTIPART_UPLOAD_CHUNK_SIZE.get():
+            if os.path.getsize(src_file_path) > MLFLOW_MULTIPART_UPLOAD_MINIMUM_FILE_SIZE.get():
                 _validate_chunk_size_aws(MLFLOW_MULTIPART_UPLOAD_CHUNK_SIZE.get())
                 self._multipart_upload(src_file_path, artifact_file_path)
             else:

@@ -1,7 +1,7 @@
 """Functions for saving DSPY models to MLflow."""
 
 import os
-from importlib.metadata import version
+from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 
 import cloudpickle
@@ -19,6 +19,7 @@ from mlflow.models import (
 )
 from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.rag_signatures import SIGNATURE_FOR_LLM_INFERENCE_TASK
+from mlflow.models.resources import Resource, _ResourceBuilder
 from mlflow.models.signature import _infer_signature_from_input_example
 from mlflow.models.utils import _save_example
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
@@ -58,7 +59,7 @@ def get_default_pip_requirements():
         `save_model()` and `log_model()` produce a pip environment that, at minimum, contains these
         requirements.
     """
-    return [_get_pinned_requirement("dspy-ai")]
+    return [_get_pinned_requirement("dspy")]
 
 
 def get_default_conda_env():
@@ -85,6 +86,7 @@ def save_model(
     pip_requirements: Optional[Union[List[str], str]] = None,
     extra_pip_requirements: Optional[Union[List[str], str]] = None,
     metadata: Optional[Dict[str, Any]] = None,
+    resources: Optional[Union[str, Path, List[Resource]]] = None,
 ):
     """
     Save a Dspy model.
@@ -108,6 +110,8 @@ def save_model(
         pip_requirements: {{ pip_requirements }}
         extra_pip_requirements: {{ extra_pip_requirements }}
         metadata: {{ metadata }}
+        resources: A list of model resources or a resources.yaml file containing a list of
+            resources required to serve the model.
     """
 
     import dspy
@@ -163,7 +167,6 @@ def save_model(
 
     flavor_options = {
         "model_path": model_subpath,
-        "dspy_version": version("dspy-ai"),
     }
 
     if task:
@@ -194,6 +197,15 @@ def save_model(
     # Add model file size to `mlflow_model`.
     if size := get_total_file_size(path):
         mlflow_model.model_size_bytes = size
+
+    # Add resources if specified.
+    if resources is not None:
+        if isinstance(resources, (Path, str)):
+            serialized_resource = _ResourceBuilder.from_yaml_file(resources)
+        else:
+            serialized_resource = _ResourceBuilder.from_resources(resources)
+
+        mlflow_model.resources = serialized_resource
 
     # Save mlflow_model to path/MLmodel.
     mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
@@ -244,6 +256,7 @@ def log_model(
     pip_requirements: Optional[Union[List[str], str]] = None,
     extra_pip_requirements: Optional[Union[List[str], str]] = None,
     metadata: Optional[Dict[str, Any]] = None,
+    resources: Optional[Union[str, Path, List[Resource]]] = None,
 ):
     """
     Log a Dspy model along with metadata to MLflow.
@@ -273,6 +286,8 @@ def log_model(
         extra_pip_requirements: {{ extra_pip_requirements }}
         metadata: Custom metadata dictionary passed to the model and stored in the MLmodel
             file.
+        resources: A list of model resources or a resources.yaml file containing a list of
+            resources required to serve the model.
 
     .. code-block:: python
         :caption: Example
@@ -330,4 +345,5 @@ def log_model(
         pip_requirements=pip_requirements,
         extra_pip_requirements=extra_pip_requirements,
         metadata=metadata,
+        resources=resources,
     )

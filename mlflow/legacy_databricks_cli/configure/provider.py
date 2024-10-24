@@ -102,13 +102,14 @@ def _overwrite_config(raw_config):
         raw_config.write(cfg)
 
 
-def update_and_persist_config(profile, databricks_config):  # noqa: D417
+def update_and_persist_config(profile, databricks_config):
     """
     Takes a DatabricksConfig and adds the in memory contents to the persisted version of the
     config. This will overwrite any other config that was persisted to the file system under the
     same profile.
 
     Args:
+        profile: str
         databricks_config: DatabricksConfig
     """
     profile = profile if profile else DEFAULT_SECTION

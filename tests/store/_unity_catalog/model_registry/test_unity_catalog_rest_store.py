@@ -247,6 +247,7 @@ def langchain_local_model_dir_with_resources(tmp_path):
                     {"name": "test.schema.test_function"},
                     {"name": "test.schema.test_function_2"},
                 ],
+                "uc_connection": [{"name": "test_connection"}],
             }
         },
     }
@@ -362,6 +363,7 @@ def test_create_model_version_with_resources(store, langchain_local_model_dir_wi
         {"type": "DATABRICKS_MODEL_ENDPOINT", "name": "chat_endpoint"},
         {"type": "DATABRICKS_UC_FUNCTION", "name": "test.schema.test_function"},
         {"type": "DATABRICKS_UC_FUNCTION", "name": "test.schema.test_function_2"},
+        {"type": "DATABRICKS_UC_CONNECTION", "name": "test_connection"},
     ]
 
     mock_artifact_repo = mock.MagicMock(autospec=OptimizedS3ArtifactRepository)
@@ -1449,7 +1451,7 @@ def test_create_model_version_gcp(store, local_model_dir, create_args):
         store.create_model_version(**create_kwargs)
         # Verify that gcs artifact repo mock was called with expected args
         gcs_artifact_repo_class_mock.assert_called_once_with(
-            artifact_uri=storage_location, client=ANY
+            artifact_uri=storage_location, client=ANY, credential_refresh_def=ANY
         )
         mock_gcs_repo.log_artifacts.assert_called_once_with(local_dir=ANY, artifact_path="")
         gcs_client_args = gcs_client_class_mock.call_args_list[0]

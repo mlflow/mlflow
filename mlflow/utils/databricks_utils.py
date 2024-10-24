@@ -3,9 +3,15 @@ import getpass
 import json
 import logging
 import os
+import platform
 import subprocess
 import time
-from typing import NamedTuple, Optional, TypeVar
+from dataclasses import dataclass
+from typing import TYPE_CHECKING, NamedTuple, Optional, TypeVar
+
+if TYPE_CHECKING:
+    from pyspark.sql.connect.session import SparkSession as SparkConnectSession
+
 
 import mlflow.utils
 from mlflow.environment_variables import (
@@ -256,9 +262,102 @@ def is_in_databricks_runtime():
     return get_databricks_runtime_version() is not None
 
 
-def is_in_databricks_serverless():
+def is_in_databricks_serverless_runtime():
     dbr_version = get_databricks_runtime_version()
     return dbr_version and dbr_version.startswith("client.")
+
+
+def is_in_databricks_shared_cluster_runtime():
+    from mlflow.utils.spark_utils import is_spark_connect_mode
+
+    return (
+        is_in_databricks_runtime()
+        and is_spark_connect_mode()
+        and not is_in_databricks_serverless_runtime()
+    )
+
+
+def is_databricks_connect(spark):
+    """
+    Return True if current Spark-connect client connects to Databricks cluster.
+    """
+    from mlflow.utils.spark_utils import is_spark_connect_mode
+
+    if not is_spark_connect_mode():
+        return False
+
+    if is_in_databricks_serverless_runtime() or is_in_databricks_shared_cluster_runtime():
+        return True
+    try:
+        # TODO: Remove the `spark.client._builder._build` attribute access once
+        #  Spark-connect has public attribute for this information.
+        return "databricks-session" in spark.client._builder.userAgent
+    except Exception:
+        return False
+
+
+@dataclass
+class DBConnectClientCache:
+    spark: "SparkConnectSession"
+    udf_sandbox_image_version: str
+    udf_sandbox_platform_machine: str
+
+
+_dbconnect_client_cache: Optional[DBConnectClientCache] = None
+
+
+def get_dbconnect_client_cache(spark):
+    """
+    Get Databricks connect client cache which includes the following fields:
+     - UDF sandbox image version like:
+      '{major_version}.{minor_version}' or 'client.{major_version}.{minor_version}'
+     - UDF sandbox platform machine like 'x86_64' or 'aarch64'
+    """
+    global _dbconnect_client_cache
+    from pyspark.sql.functions import pandas_udf
+
+    # For Databricks Serverless python REPL,
+    # the UDF sandbox runs on client image, which has version like 'client.1.1'
+    # in other cases, UDF sandbox runs on databricks runtime with version like '15.4'
+    if is_in_databricks_runtime():
+        return DBConnectClientCache(
+            spark=_get_active_spark_session(),
+            udf_sandbox_image_version=get_databricks_runtime_version(),
+            udf_sandbox_platform_machine=platform.machine(),
+        )
+
+    if _dbconnect_client_cache is None or spark is not _dbconnect_client_cache.spark:
+        # version is like '15.4.x-snapshot-scala2.12'
+        version = spark.sql("SELECT current_version().dbr_version").collect()[0][0]
+        major, minor, *_rest = version.split(".")
+        udf_sandbox_image_version = f"{major}.{minor}"
+
+        @pandas_udf("string")
+        def f(_):
+            import pandas as pd
+
+            return pd.Series([platform.machine()])
+
+        platform_machine = spark.range(1).select(f("id")).collect()[0][0]
+        _dbconnect_client_cache = DBConnectClientCache(
+            spark=spark,
+            udf_sandbox_image_version=udf_sandbox_image_version,
+            udf_sandbox_platform_machine=platform_machine,
+        )
+
+    return _dbconnect_client_cache
+
+
+def is_databricks_serverless(spark):
+    """
+    Return True if running on Databricks Serverless notebook or
+    on Databricks Connect client that connects to Databricks Serverless.
+    """
+    from mlflow.utils.spark_utils import is_spark_connect_mode
+
+    return is_spark_connect_mode() and any(
+        k == "x-databricks-session-id" for k, v in spark.client.metadata()
+    )
 
 
 def is_dbfs_fuse_available():
