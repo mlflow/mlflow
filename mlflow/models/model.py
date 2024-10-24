@@ -1005,7 +1005,7 @@ def update_model_requirements(
             invalid_requirements[s] = e
     if invalid_requirements:
         raise MlflowException.invalid_parameter_value(
-            f"Invalid requirement list: {invalid_requirements}"
+            f"Found invalid requirements: {invalid_requirements}"
         )
     if operation == "add":
         updated_conda_reqs = _add_or_overwrite_requirements(requirements, old_conda_reqs)
