@@ -220,7 +220,7 @@ _ML_PACKAGE_VERSIONS = {
             "pip_release": "shap"
         },
         "models": {
-            "minimum": "0.41.0",
+            "minimum": "0.42.1",
             "maximum": "0.46.0"
         }
     },
