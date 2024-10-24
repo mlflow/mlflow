@@ -11,7 +11,7 @@ from typing import Any, Callable, Dict, List, Literal, NamedTuple, Optional, Uni
 from urllib.parse import urlparse
 
 import yaml
-from packaging.requirements import Requirement
+from packaging.requirements import InvalidRequirement, Requirement
 
 import mlflow
 from mlflow.artifacts import download_artifacts
@@ -996,20 +996,25 @@ def update_model_requirements(
     old_conda_reqs = _get_requirements_from_file(conda_yaml_path)
     old_requirements_reqs = _get_requirements_from_file(requirements_txt_path)
 
-    try:
-        requirement_list = [Requirement(s.strip().lower()) for s in requirement_list]
-    except Exception as e:
+    requirements = []
+    invalid_requirements = {}
+    for s in requirement_list:
+        try:
+            requirements.append(Requirement(s.strip().lower()))
+        except InvalidRequirement as e:
+            invalid_requirements[s] = e
+    if invalid_requirements:
         raise MlflowException.invalid_parameter_value(
-            f"Invalid requirement list: {requirement_list}"
-        ) from e
+            f"Invalid requirement list: {invalid_requirements}"
+        )
     if operation == "add":
-        updated_conda_reqs = _add_or_overwrite_requirements(requirement_list, old_conda_reqs)
+        updated_conda_reqs = _add_or_overwrite_requirements(requirements, old_conda_reqs)
         updated_requirements_reqs = _add_or_overwrite_requirements(
-            requirement_list, old_requirements_reqs
+            requirements, old_requirements_reqs
         )
     else:
-        updated_conda_reqs = _remove_requirements(requirement_list, old_conda_reqs)
-        updated_requirements_reqs = _remove_requirements(requirement_list, old_requirements_reqs)
+        updated_conda_reqs = _remove_requirements(requirements, old_conda_reqs)
+        updated_requirements_reqs = _remove_requirements(requirements, old_requirements_reqs)
 
     _write_requirements_to_file(conda_yaml_path, updated_conda_reqs)
     _write_requirements_to_file(requirements_txt_path, updated_requirements_reqs)
