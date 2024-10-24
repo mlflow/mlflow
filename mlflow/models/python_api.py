@@ -280,8 +280,8 @@ def _serialize_input_data(input_data, content_type):
                 ) from e
 
     try:
-        # we do not need to validate string input here
-        # as the model can accept arbitrary string inputs
+        # rely on convert_input_example_to_serving_input to validate
+        # the input_data is valid type for the loaded pyfunc model
         return convert_input_example_to_serving_input(input_data)
     except Exception as e:
         raise MlflowException.invalid_parameter_value(
