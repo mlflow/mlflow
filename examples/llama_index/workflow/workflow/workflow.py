@@ -1,15 +1,13 @@
 import os
 
 import qdrant_client
-
 from llama_index.core import Settings, VectorStoreIndex
-from llama_index.postprocessor.rankgpt_rerank import RankGPTRerank
 from llama_index.core.schema import NodeWithScore
 from llama_index.core.workflow import Context, StartEvent, StopEvent, Workflow, step
+from llama_index.postprocessor.rankgpt_rerank import RankGPTRerank
 from llama_index.retrievers.bm25 import BM25Retriever
 from llama_index.tools.tavily_research.base import TavilyToolSpec
 from llama_index.vector_stores.qdrant import QdrantVectorStore
-
 from workflow.events import *
 from workflow.prompts import *
 
@@ -21,7 +19,6 @@ _QDRANT_COLLECTION_NAME = os.environ.get("QDRANT_COLLECTION_NAME", "mlflow_doc")
 
 
 class HybridRAGWorkflow(Workflow):
-
     VALID_RETRIEVERS = {"vector_search", "bm25", "web_search"}
 
     def __init__(self, retrievers=None, **kwargs):
@@ -38,7 +35,9 @@ class HybridRAGWorkflow(Workflow):
 
         if self._use_vs_retriever:
             qd_client = qdrant_client.QdrantClient(host=_QDRANT_HOST, port=_QDRANT_PORT)
-            vector_store = QdrantVectorStore(client=qd_client, collection_name=_QDRANT_COLLECTION_NAME)
+            vector_store = QdrantVectorStore(
+                client=qd_client, collection_name=_QDRANT_COLLECTION_NAME
+            )
             index = VectorStoreIndex.from_vector_store(vector_store=vector_store)
             self.vs_retriever = index.as_retriever()
 

@@ -1,5 +1,6 @@
-import mlflow
 from workflow.workflow import HybridRAGWorkflow
+
+import mlflow
 
 # Get model config from ModelConfig singleton (specified via `model_config` parameter when logging the model)
 model_config = mlflow.models.ModelConfig()

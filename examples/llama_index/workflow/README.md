@@ -6,7 +6,6 @@ This example demonstrates how to build and optimize a Retrieval-Augmented Genera
 
 ![Evaluation Result](static/images/llama_index_workflow_result_chart.png)
 
-
 ## Set Up
 
 This repository contains a complete workflow definition, a hands-on notebook, and a sample dataset for running experiments. To clone it to your working environment, use the following command:
