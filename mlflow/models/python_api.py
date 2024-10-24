@@ -160,7 +160,7 @@ def predict(
         # Run prediction with additional pip dependencies
         mlflow.models.predict(
             model_uri=f"runs:/{run_id}/model",
-            input_data='{"x": 1, "y": 2}',
+            input_data={"x": 1, "y": 2},
             content_type="json",
             pip_requirements_override=["scikit-learn==0.23.2"],
         )
