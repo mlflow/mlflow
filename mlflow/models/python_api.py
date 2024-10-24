@@ -1,13 +1,11 @@
 import json
 import logging
 import os
-import shutil
 from io import StringIO
 from typing import ForwardRef, get_args, get_origin
 
 from mlflow.exceptions import MlflowException
 from mlflow.models.flavor_backend_registry import get_flavor_backend
-from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils import env_manager as _EnvManager
 from mlflow.utils.annotations import experimental
 from mlflow.utils.databricks_utils import (
@@ -169,11 +167,7 @@ def predict(
 
     """
     # to avoid circular imports
-    from mlflow.pyfunc import (
-        _PREBUILD_ENV_ROOT_LOCATION,
-        _create_model_downloading_tmp_dir,
-        _gen_prebuilt_env_archive_name,
-    )
+    from mlflow.pyfunc import _PREBUILD_ENV_ROOT_LOCATION
 
     if content_type not in [_CONTENT_TYPE_JSON, _CONTENT_TYPE_CSV]:
         raise MlflowException.invalid_parameter_value(
@@ -196,17 +190,9 @@ def predict(
                 "Databricks Connect only supports virtualenv as the environment manager. "
                 f"Got {env_manager}."
             )
-        local_model_path = _download_artifact_from_uri(
-            artifact_uri=model_uri,
-            output_path=_create_model_downloading_tmp_dir(should_use_nfs=False),
-        )
-        archive_name = _gen_prebuilt_env_archive_name(spark_session, local_model_path)
-        env_root_dir = os.path.join(_PREBUILD_ENV_ROOT_LOCATION, archive_name)
-        if os.path.exists(env_root_dir):
-            shutil.rmtree(env_root_dir)
         pyfunc_backend_env_root_config = {
             "create_env_root_dir": False,
-            "env_root_dir": env_root_dir,
+            "env_root_dir": _PREBUILD_ENV_ROOT_LOCATION,
         }
     else:
         pyfunc_backend_env_root_config = {"create_env_root_dir": True}
