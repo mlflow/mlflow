@@ -1948,7 +1948,7 @@ def delete_experiment(experiment_id: str) -> None:
 
 
 def create_logged_model(
-    name: str,
+    name: Optional[str] = None,
     source_run_id: Optional[str] = None,
     tags: Optional[Dict[str, str]] = None,
     params: Optional[Dict[str, str]] = None,
@@ -1959,7 +1959,7 @@ def create_logged_model(
     Create a new logged model.
 
     Args:
-        name: The name of the model.
+        name: The name of the model. If not specified, a random name will be generated.
         source_run_id: The ID of the run that the model is associated with.
         tags: A dictionary of string keys and values to set as tags on the model.
         params: A dictionary of string keys and values to set as parameters on the model.
