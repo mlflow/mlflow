@@ -63,7 +63,7 @@ def patched_inference(func_name, original, self, *args, **kwargs):
         with _setup_autolog_run(config, self) as run_id:
             result = _invoke(self, *args, **kwargs)
             _log_optional_artifacts(
-                config, run_id, result, self, func_name, logged_model.model_id, *args, **kwargs
+                config, run_id, result, self, func_name, model_id, *args, **kwargs
             )
     else:
         result = _invoke(self, *args, **kwargs)
