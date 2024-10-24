@@ -177,10 +177,9 @@ def predict(
     spark_session = None
     if is_in_databricks_runtime():
         try:
-            # if in Databricks, fetch the current active session
-            from databricks.sdk.runtime import spark
+            from pyspark.sql import SparkSession
 
-            spark_session = spark
+            spark_session = SparkSession.getActiveSession()
         except Exception:
             pass
     is_dbconnect_mode = is_databricks_connect(spark_session)
