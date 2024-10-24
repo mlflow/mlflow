@@ -2,7 +2,9 @@ import contextlib
 import importlib
 import inspect
 import logging
+import os
 import sys
+import threading
 import time
 from typing import List
 
@@ -50,11 +52,6 @@ ENSURE_AUTOLOGGING_ENABLED_TEXT = (
     "please ensure that autologging is enabled before constructing the dataset."
 )
 
-# Flag indicating whether autologging is globally disabled for all integrations.
-_AUTOLOGGING_GLOBALLY_DISABLED = False
-# Exempts autologging flavors from the `_AUTOLOGGING_GLOBALLY_DISABLED` flag
-_AUTOLOGGING_GLOBALLY_DISABLED_EXEMPTIONS = []
-
 # Autologging config key indicating whether or not a particular autologging integration
 # was configured (i.e. its various `log_models`, `disable`, etc. configuration options
 # were set) via a call to `mlflow.autolog()`, rather than via a call to the integration-specific
@@ -63,6 +60,11 @@ AUTOLOGGING_CONF_KEY_IS_GLOBALLY_CONFIGURED = "globally_configured"
 
 # Dict mapping integration name to its config.
 AUTOLOGGING_INTEGRATIONS = {}
+
+# Record the process id of the process that set the corresponding autologging integration config.
+# key: autologging integration name, value: pid of the process.
+# This is used to disable autologging in forked subprocesses.
+AUTOLOGGING_CONF_PID = {}
 
 # Corresponds to `mlflow.langchain.autolog` kwargs. Restricts
 # autologging to only log traces.
@@ -93,7 +95,33 @@ _AUTOLOGGING_SUPPORTED_VERSION_WARNING_SUPPRESS_LIST = [
     "openai",
 ]
 
+# Global lock for turning on / off autologging
+# Note "RLock" is required instead of plain lock, for avoid dead-lock
+_autolog_conf_global_lock = threading.RLock()
+
+# Thread local variable key for flag indicating whether autologging is globally
+# disabled for all integrations.
+_AUTOLOGGING_DISABLED_KEY = "AUTOLOGGING_DISABLED"
+
+# Thread local variable key for exempting autologging flavors from the
+# thread-local `AUTOLOGGING_DISABLED` flag
+_AUTOLOGGING_DISABLED_EXEMPTIONS_KEY = "AUTOLOGGING_DISABLED_EXEMPTIONS"
+
+
 _logger = logging.getLogger(__name__)
+
+
+def autologging_conf_lock(fn):
+    """
+    Appliy a global lock on functions that enable / disable autologging.
+    """
+    global _autolog_conf_global_lock
+
+    def wrapper(*args, **kwargs):
+        with _autolog_conf_global_lock:
+            return fn(*args, **kwargs)
+
+    return update_wrapper_extended(wrapper, fn)
 
 
 def get_mlflow_run_params_for_fn_args(fn, args, kwargs, unlogged=None):
@@ -415,6 +443,7 @@ def autologging_integration(name):
         AUTOLOGGING_INTEGRATIONS[name] = {}
         default_params = {param.name: param.default for param in param_spec.values()}
 
+        @autologging_conf_lock
         def autolog(*args, **kwargs):
             config_to_store = dict(default_params)
             config_to_store.update(
@@ -422,6 +451,7 @@ def autologging_integration(name):
             )
             config_to_store.update(kwargs)
             AUTOLOGGING_INTEGRATIONS[name] = config_to_store
+            AUTOLOGGING_CONF_PID[name] = os.getpid()
 
             try:
                 # Pass `autolog()` arguments to `log_autolog_called` in keyword format to enable
@@ -528,17 +558,25 @@ def disable_autologging(exemptions=None):
     Args:
         exemptions: flavors that we do not disable
     """
+    from mlflow.utils.thread_utils import get_thread_local_var, set_thread_local_var
+
     if exemptions is None:
         exemptions = []
-    global _AUTOLOGGING_GLOBALLY_DISABLED
-    global _AUTOLOGGING_GLOBALLY_DISABLED_EXEMPTIONS
-    _AUTOLOGGING_GLOBALLY_DISABLED = True
-    _AUTOLOGGING_GLOBALLY_DISABLED_EXEMPTIONS = exemptions
+
+    original_autologging_disabled = get_thread_local_var(_AUTOLOGGING_DISABLED_KEY, False)
+    original_autologging_disabled_exemptions = get_thread_local_var(
+        _AUTOLOGGING_DISABLED_EXEMPTIONS_KEY, []
+    )
+
+    set_thread_local_var(_AUTOLOGGING_DISABLED_KEY, True)
+    set_thread_local_var(_AUTOLOGGING_DISABLED_EXEMPTIONS_KEY, exemptions)
     try:
         yield
     finally:
-        _AUTOLOGGING_GLOBALLY_DISABLED = False
-        _AUTOLOGGING_GLOBALLY_DISABLED_EXEMPTIONS = []
+        set_thread_local_var(_AUTOLOGGING_DISABLED_KEY, original_autologging_disabled)
+        set_thread_local_var(
+            _AUTOLOGGING_DISABLED_EXEMPTIONS_KEY, original_autologging_disabled_exemptions
+        )
 
 
 @contextlib.contextmanager
