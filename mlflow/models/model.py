@@ -960,7 +960,7 @@ def update_model_requirements(
     found in the existing files will be ignored.
 
     Args:
-        model_uri (str): The location, in URI format, of the MLflow model. For example:
+        model_uri: The location, in URI format, of the MLflow model. For example:
 
             - ``/Users/me/path/to/local/model``
             - ``relative/path/to/local/model``
@@ -972,10 +972,9 @@ def update_model_requirements(
             `Referencing Artifacts <https://www.mlflow.org/docs/latest/concepts.html#
             artifact-locations>`_.
 
-        operation (Literal["add", "remove]): The operation to perform.
-            Must be one of "add" or "remove".
+        operation: The operation to perform. Must be one of "add" or "remove".
 
-        requirement_list (List[str]): A list of requirements to add or remove from the model.
+        requirement_list: A list of requirements to add or remove from the model.
             For example: ["numpy==1.20.3", "pandas>=1.3.3"]
     """
     if ModelsArtifactRepository.is_models_uri(model_uri):
