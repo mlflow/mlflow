@@ -190,7 +190,7 @@ gives an MLflow Python Model backed by the DSPy module.
         intelligence, or adaptability.''',
         'answer': '''There isn\'t a definitive answer, as it depends on the context. However, many 
         people humorously refer to the American black bear or the polar bear when discussing 
-        "the best" kind of bear.'
+        "the best" kind of bear.'''
     }
 
 
