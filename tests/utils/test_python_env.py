@@ -31,7 +31,7 @@ dependencies:
 
 
 def test_from_yaml(tmp_path):
-    content = """
+    content = f"""
 python: {PYTHON_VERSION}
 build_dependencies:
 - a
