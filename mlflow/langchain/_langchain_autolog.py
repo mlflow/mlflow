@@ -50,7 +50,7 @@ def patched_inference(func_name, original, self, *args, **kwargs):
     if mid := _LOADED_MODEL_TRACKER.get(self):
         model_id = mid
     elif config.log_models:
-        logged_model = mlflow.create_logged_model(name="model")
+        logged_model = mlflow.create_logged_model()
         model_id = logged_model.model_id
     else:
         model_id = None
