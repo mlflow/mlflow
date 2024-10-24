@@ -1108,8 +1108,8 @@ def autolog(disable=False, silent=False):
     `mlflow-spark JAR
     <https://www.mlflow.org/docs/latest/tracking.html#spark>`_
     attached. It should be called on the Spark driver, not on the executors (i.e. do not call
-    this method within a function parallelized by Spark). 
-    The mlflow-spark JAR used must match the Scala version of Spark. Please see the 
+    this method within a function parallelized by Spark).
+    The mlflow-spark JAR used must match the Scala version of Spark. Please see the
     `Maven Repository
     <https://mvnrepository.com/artifact/org.mlflow/mlflow-spark>`_
     for available versions. This API requires Spark 3.0 or above.
@@ -1133,7 +1133,7 @@ def autolog(disable=False, silent=False):
         from pyspark.sql import SparkSession
 
         # Create and persist some dummy data
-        # Note: the 2.12 in 'org.mlflow:mlflow-spark_2.12:2.16.2' below indicates the Scala 
+        # Note: the 2.12 in 'org.mlflow:mlflow-spark_2.12:2.16.2' below indicates the Scala
         # version, please match this with that of Spark. The 2.16.2 indicates the mlflow version.
         # Note: On environments like Databricks with pre-created SparkSessions,
         # ensure the org.mlflow:mlflow-spark_2.12:2.16.2 is attached as a library to
