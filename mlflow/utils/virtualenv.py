@@ -281,9 +281,7 @@ def _create_virtualenv(
 
                 tmp_req_file = f"requirements.{uuid.uuid4().hex}.txt"
                 Path(tmpdir).joinpath(tmp_req_file).write_text("\n".join(deps))
-                cmd = _join_commands(
-                    activate_cmd, f"python -m pip install --quiet -r {tmp_req_file}"
-                )
+                cmd = _join_commands(activate_cmd, f"python -m pip install -r {tmp_req_file}")
                 _exec_cmd(cmd, capture_output=capture_output, cwd=tmpdir, extra_env=extra_env)
 
     return activate_cmd
