@@ -45,7 +45,8 @@ class KerasModelWrapper:
                 f"received type: {type(data)}.",
                 INVALID_PARAMETER_VALUE,
             )
-        return model_call(data)
+        # Return value must be json serializable, so we convert the Tensor output to a list.
+        return keras.ops.convert_to_numpy(model_call(data)).tolist()
 
 
 def _load_keras_model(path, model_conf, custom_objects=None, **load_model_kwargs):
