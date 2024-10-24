@@ -371,6 +371,10 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
         parent_run_id: Optional[UUID] = None,
         metadata: Optional[Dict[str, Any]] = None,
         name: Optional[str] = None,
+        # We don't use inputs here because LangChain override the original inputs
+        # with None for some cases. In order to avoid losing the original inputs,
+        # we try to parse the input_str instead.
+        # https://github.com/langchain-ai/langchain/blob/master/libs/core/langchain_core/tools/base.py#L636-L640
         inputs: Optional[Dict[str, Any]] = None,
         **kwargs: Any,
     ):
