@@ -1,4 +1,4 @@
-import json
+import ast
 import logging
 from typing import Any, Dict, List, Optional, Sequence, Set, Union
 from uuid import UUID
@@ -378,11 +378,11 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
         if metadata:
             kwargs.update({"metadata": metadata})
 
-        # Input string should be JSON-like (it is json with single quotes)
-        # for function calling. We try parsing it for better rendering,
+        # For function calling, input_str can be a stringified dictionary
+        # like "{'key': 'value'}". We try parsing it for better rendering,
         # but conservatively fallback to original if it fails.
         try:
-            inputs = json.loads(input_str.replace("'", '"'))
+            inputs = ast.literal_eval(input_str)
         except Exception:
             inputs = input_str
 
