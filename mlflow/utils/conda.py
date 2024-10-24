@@ -118,7 +118,6 @@ def _create_conda_env(
                 project_env_name,
                 "--file",
                 conda_env_path,
-                "--quiet",
             ],
             extra_env=conda_extra_env_vars,
             capture_output=capture_output,
@@ -300,7 +299,6 @@ def get_or_create_conda_env(
                 "-n",
                 project_env_name,
                 "--yes",
-                "--quiet",
                 *pip_requirements_override,
             ]
             process._exec_cmd(cmd, extra_env=conda_extra_env_vars, capture_output=capture_output)
