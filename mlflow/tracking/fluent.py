@@ -1139,6 +1139,57 @@ def log_input(
     MlflowClient().log_inputs(run_id=run_id, datasets=datasets, models=[model])
 
 
+def log_inputs(
+    datasets: Optional[List[Dataset]] = None,
+    context: Optional[str] = None,
+    tags: Optional[Dict[str, str]] = None,
+    models: Optional[List[LoggedModelInput]] = None,
+) -> None:
+    """
+    Log datasets used in the current run.
+
+    Args:
+        datasets: A list of :py:class:`mlflow.data.dataset.Dataset` objects to be logged.
+        context: Context in which the dataset is used. For example: "training", "testing".
+            This will be set as an input tag with key `mlflow.data.context`.
+        tags: Tags to be associated with the dataset. Dictionary of tag_key -> tag_value.
+        models: A list of :py:class:`mlflow.entities.LoggedModelInput` instances to log as as input
+            to the run.
+
+    .. code-block:: python
+        :test:
+        :caption: Example
+
+        import numpy as np
+        import mlflow
+
+        array = np.asarray([[1, 2, 3], [4, 5, 6], [7, 8, 9]])
+        dataset = mlflow.data.from_numpy(array, source="data.csv")
+
+        # Log an input dataset used for training
+        with mlflow.start_run():
+            mlflow.log_inputs([dataset], context="training")
+    """
+    if (context or tags) and datasets is None:
+        raise MlflowException.invalid_parameter_value(
+            "`datasets` must be specified if `context` or `tags` is specified."
+        )
+    run_id = _get_or_start_run().info.run_id
+    tags_to_log = []
+    if tags:
+        tags_to_log.extend(InputTag(key=key, value=value) for key, value in tags.items())
+    if context:
+        tags_to_log.append(InputTag(key=MLFLOW_DATASET_CONTEXT, value=context))
+
+    datasets = (
+        [DatasetInput(dataset=d._to_mlflow_entity(), tags=tags_to_log) for d in datasets]
+        if datasets
+        else None
+    )
+
+    MlflowClient().log_inputs(run_id=run_id, datasets=datasets, models=models)
+
+
 def set_experiment_tags(tags: Dict[str, Any]) -> None:
     """
     Set tags for the current active experiment.
