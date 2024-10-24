@@ -1,4 +1,3 @@
-import json
 import logging
 import os
 from io import StringIO
@@ -119,7 +118,8 @@ def predict(
             to the :py:func:`mlflow.pyfunc.PyFuncModel.predict()` for the supported input types.
 
             .. note::
-                Use `mlflow.models.convert_input_example_to_serving_input` to manually validate
+                If this API fails due to errors in input_data, use
+                `mlflow.models.convert_input_example_to_serving_input` to manually validate
                 your input data.
         input_path: Path to a file containing input data. If provided, 'input_data' must be None.
         content_type: Content type of the input data. Can be one of {‘json’, ‘csv’}.
@@ -137,11 +137,11 @@ def predict(
             model inference environment. This is particularly useful when you want to add extra
             dependencies or try different versions of the dependencies defined in the logged model.
 
-            .. note::
+            .. tip::
                 After validating the pip requirements override works as expected, you can update
-                the logged model's dependency using `mlflow.models.update_model_requirements` API.
-                Note that a registered model is immutable, so you need to register a new model
-                version with the updated logged model.
+                the logged model's dependency using `mlflow.models.update_model_requirements` API
+                without re-logging it. Note that a registered model is immutable, so you need to
+                register a new model version with the updated model.
 
     Code example:
 
@@ -269,7 +269,7 @@ def _serialize_input_data(input_data, content_type):
 
     if content_type == _CONTENT_TYPE_CSV:
         if isinstance(input_data, str):
-            _validate_string(input_data, content_type)
+            _validate_csv_string(input_data)
             return input_data
         else:
             try:
@@ -291,21 +291,15 @@ def _serialize_input_data(input_data, content_type):
         ) from e
 
 
-def _validate_string(input_data: str, content_type: str):
+def _validate_csv_string(input_data: str):
     """
-    Validate the input data is compatible with the content_type.
-    If content_type is 'csv', the string must be the path to a CSV file.
-    If content_type is 'json', the string must be a valid JSON string.
+    Validate the string must be the path to a CSV file.
     """
     try:
-        if content_type == _CONTENT_TYPE_CSV:
-            import pandas as pd
+        import pandas as pd
 
-            pd.read_csv(StringIO(input_data))
-        else:
-            json.loads(input_data)
+        pd.read_csv(StringIO(input_data))
     except Exception as e:
-        target = "JSON" if content_type == _CONTENT_TYPE_JSON else "Pandas DataFrame"
         raise MlflowException.invalid_parameter_value(
-            message=f"Failed to deserialize input string data to {target}."
+            message="Failed to deserialize input string data to Pandas DataFrame."
         ) from e
