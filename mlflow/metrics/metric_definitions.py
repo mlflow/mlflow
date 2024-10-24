@@ -507,3 +507,61 @@ def _recall_at_k_eval_fn(k):
         return MetricValue(scores=scores, aggregate_results=standard_aggregations(scores))
 
     return _fn
+
+
+def _bleu_eval_fn(predictions, targets=None, metrics=None):
+    # Validate input data
+    if not _validate_text_data(targets, "bleu", targets_col_specifier):
+        _logger.error(
+            """Target validation failed.
+            Ensure targets are valid for BLEU computation."""
+        )
+        return
+    if not _validate_text_data(predictions, "bleu", predictions_col_specifier):
+        _logger.error(
+            """Prediction validation failed.
+            Ensure predictions are valid for BLEU computation."""
+        )
+        return
+
+    # Load BLEU metric
+    try:
+        bleu = _cached_evaluate_load("bleu")
+    except Exception as e:
+        _logger.warning(f"Failed to load 'bleu' metric (error: {e!r}), skipping metric logging.")
+        return
+
+    # Calculate BLEU scores for each prediction-target pair
+    result = []
+    invalid_indices = []
+
+    for i, (prediction, target) in enumerate(zip(predictions, targets)):
+        if len(target) == 0 or len(prediction) == 0:
+            invalid_indices.append(i)
+            result.append(0)  # Append 0 as a placeholder for invalid entries
+            continue
+
+        try:
+            score = bleu.compute(predictions=[prediction], references=[[target]])
+            result.append(score["bleu"])
+        except Exception as e:
+            _logger.warning(f"Failed to calculate BLEU for row {i} (error: {e!r}). Skipping.")
+            result.append(0)  # Append 0 for consistency if an unexpected error occurs
+
+    # Log warning for any invalid indices
+    if invalid_indices:
+        _logger.warning(
+            f"BLEU score calculation skipped for the following indices "
+            f"due to empty target or prediction: {invalid_indices}. "
+            f"A score of 0 was appended for these entries."
+        )
+
+    # Return results
+    if not result:
+        _logger.warning("No BLEU scores were calculated due to input errors.")
+        return
+
+    return MetricValue(
+        scores=result,
+        aggregate_results=standard_aggregations(result),
+    )
