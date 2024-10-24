@@ -1,3 +1,5 @@
+import threading
+import time
 from concurrent.futures import ThreadPoolExecutor
 from unittest import mock
 
@@ -151,14 +153,14 @@ def test_trace_disabled_decorator(enabled_initially):
     ) as disable_mock:
         assert test_fn() == 0
         assert call_count == 3
-        assert disable_mock.call_count == (1 if enabled_initially else 0)
+        assert disable_mock.call_count == 0
 
     with mock.patch(
         "mlflow.tracing.provider.enable", side_effect=MlflowTracingException("error")
     ) as enable_mock:
         assert test_fn() == 0
         assert call_count == 4
-        assert enable_mock.call_count == (1 if enabled_initially else 0)
+        assert enable_mock.call_count == 0
 
 
 def test_disable_enable_tracing_not_mutate_otel_provider():
@@ -265,3 +267,29 @@ def test_enable_mlflow_tracing_switch_in_serving_client(monkeypatch, enable_mlfl
         assert sorted(_TRACE_BUFFER) == request_ids
     else:
         assert len(_TRACE_BUFFER) == 0
+
+
+def test_trace_disabled_thread_local():
+    # Test `trace_disabled` only disable tracing in local thread.
+
+    @trace_disabled
+    def test_fn():
+        assert not is_tracing_enabled()
+        time.sleep(2)
+        assert not is_tracing_enabled()
+
+    thread_tracing_enabled = None
+
+    def test_tracing_enabled_fn():
+        nonlocal thread_tracing_enabled
+        time.sleep(1)
+        thread_tracing_enabled = is_tracing_enabled()
+
+    mlflow.tracing.enable()
+    assert is_tracing_enabled()
+
+    thread = threading.Thread(target=test_tracing_enabled_fn)
+    thread.start()
+    test_fn()
+    thread.join()
+    assert thread_tracing_enabled
