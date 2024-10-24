@@ -1,3 +1,4 @@
+import ast
 import logging
 from typing import Any, Dict, List, Optional, Sequence, Set, Union
 from uuid import UUID
@@ -79,7 +80,7 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
         parent_run_id: Optional[UUID],
         span_type: str,
         run_id: UUID,
-        inputs: Optional[Dict[str, Any]] = None,
+        inputs: Optional[Union[str, Dict[str, Any]]] = None,
         attributes: Optional[Dict[str, Any]] = None,
     ) -> LiveSpan:
         """Start MLflow Span (or Trace if it is root component)"""
@@ -370,25 +371,38 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
         parent_run_id: Optional[UUID] = None,
         metadata: Optional[Dict[str, Any]] = None,
         name: Optional[str] = None,
+        # We don't use inputs here because LangChain override the original inputs
+        # with None for some cases. In order to avoid losing the original inputs,
+        # we try to parse the input_str instead.
+        # https://github.com/langchain-ai/langchain/blob/master/libs/core/langchain_core/tools/base.py#L636-L640
         inputs: Optional[Dict[str, Any]] = None,
         **kwargs: Any,
     ):
         """Start span for a tool run."""
         if metadata:
             kwargs.update({"metadata": metadata})
+
+        # For function calling, input_str can be a stringified dictionary
+        # like "{'key': 'value'}". We try parsing it for better rendering,
+        # but conservatively fallback to original if it fails.
+        try:
+            inputs = ast.literal_eval(input_str)
+        except Exception:
+            inputs = input_str
+
         self._start_span(
             span_name=name or self._assign_span_name(serialized, "tool"),
             parent_run_id=parent_run_id,
             span_type=SpanType.TOOL,
             run_id=run_id,
-            inputs=input_str,
+            inputs=inputs,
             attributes=kwargs,
         )
 
     def on_tool_end(self, output: Any, *, run_id: UUID, **kwargs: Any):
         """Run when tool ends running."""
         tool_span = self._get_span_by_run_id(run_id)
-        self._end_span(run_id, tool_span, outputs=str(output))
+        self._end_span(run_id, tool_span, outputs=output)
 
     def on_tool_error(
         self,

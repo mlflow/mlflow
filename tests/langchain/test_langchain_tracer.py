@@ -468,7 +468,7 @@ def test_tool_success(mock_databricks_serving_with_tracing_env):
     # Tool
     tool_span = spans[0]
     assert tool_span.span_type == "TOOL"
-    assert tool_span.inputs == str(tool_input)
+    assert tool_span.inputs == tool_input
     assert tool_span.outputs is not None
     tool_span_id = tool_span.span_id
 
