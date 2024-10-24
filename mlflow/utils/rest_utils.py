@@ -351,7 +351,7 @@ def get_set_trace_tag_endpoint(request_id):
 
 def call_endpoint(host_creds, endpoint, method, json_body, response_proto, extra_headers=None):
     # Convert json string to json dictionary, to pass to requests
-    if json_body:
+    if json_body is not None:
         json_body = json.loads(json_body)
     call_kwargs = {
         "host_creds": host_creds,

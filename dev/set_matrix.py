@@ -36,7 +36,7 @@ import sys
 import warnings
 from collections import defaultdict
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Any, Dict, Iterator, List, Optional, Set, Tuple, TypeVar
 
 import requests
 import yaml
@@ -49,6 +49,8 @@ VERSIONS_YAML_PATH = "mlflow/ml-package-versions.yml"
 DEV_VERSION = "dev"
 # Treat "dev" as "newer than any existing versions"
 DEV_NUMERIC = "9999.9999.9999"
+
+T = TypeVar("T")
 
 
 class Version(OriginalVersion):
@@ -76,6 +78,7 @@ class TestConfig(BaseModel, extra="forbid"):
     unsupported: Optional[List[Version]] = None
     requirements: Optional[Dict[str, List[str]]] = None
     python: Optional[Dict[str, str]] = None
+    runs_on: Optional[Dict[str, str]] = None
     java: Optional[Dict[str, str]] = None
     run: str
     allow_unreleased_max_version: Optional[bool] = None
@@ -125,6 +128,7 @@ class MatrixItem(BaseModel, extra="forbid"):
     java: str
     supported: bool
     free_disk_space: bool
+    runs_on: str
     pre_test: Optional[str] = None
 
     class Config:
@@ -259,16 +263,10 @@ def get_matched_requirements(requirements, version=None):
 
 
 def get_java_version(java: Optional[Dict[str, str]], version: str) -> str:
-    default = "11"
-    if java is None:
-        return default
+    if java and (match := next(_find_matches(java, version), None)):
+        return match
 
-    for specifier, java_ver in java.items():
-        specifier_set = SpecifierSet(specifier.replace(DEV_VERSION, DEV_NUMERIC))
-        if specifier_set.contains(DEV_NUMERIC if version == DEV_VERSION else version):
-            return java_ver
-
-    return default
+    return "11"
 
 
 @functools.lru_cache(maxsize=128)
@@ -278,32 +276,63 @@ def pypi_json(package: str) -> Dict[str, Any]:
     return resp.json()
 
 
-def get_requires_python(package: str, version: str) -> str:
+def _requires_python(package: str, version: str) -> Optional[str]:
     package_json = pypi_json(package)
-    requires_python = next(
-        (
-            distributions[0].get("requires_python")
-            for ver, distributions in package_json["releases"].items()
-            if ver == version and distributions
-        ),
-        None,
-    )
-    candidates = ("3.8", "3.9")
-    if requires_python is None:
-        return candidates[0]
+    for ver, dist in package_json.get("releases", {}).items():
+        if ver != version:
+            continue
 
-    spec = SpecifierSet(requires_python)
-    return next((c for c in candidates if spec.contains(c)), None) or candidates[0]
+        for d in dist:
+            if rp := d.get("requires_python"):
+                return rp
+    return None
+
+
+def infer_python_version(package: str, version: str) -> str:
+    """
+    Infer the minimum Python version required by the package.
+    """
+    candidates = ("3.9", "3.10")
+
+    # TODO: Figure out how to fix transformers tests for Python 3.9 and remove this.
+    if package == "transformers":
+        candidates = ("3.8", *candidates)
+
+    if rp := _requires_python(package, version):
+        spec = SpecifierSet(rp)
+        return next(filter(spec.contains, candidates), candidates[0])
+
+    return candidates[0]
+
+
+def _find_matches(spec: Dict[str, T], version: str) -> Iterator[T]:
+    """
+    Args:
+        spec: A dictionary with key as version specifier and value as the corresponding value.
+            For example, {"< 1.0.0": "numpy<2.0", ">= 1.0.0": "numpy>=2.0"}.
+        version: The version to match against the specifiers.
+
+    Returns:
+        An iterator of values that match the version.
+    """
+    for specifier, val in spec.items():
+        specifier_set = SpecifierSet(specifier.replace(DEV_VERSION, DEV_NUMERIC))
+        if specifier_set.contains(DEV_NUMERIC if version == DEV_VERSION else version):
+            yield val
 
 
 def get_python_version(python: Optional[Dict[str, str]], package: str, version: str) -> str:
-    if python:
-        for specifier, py_ver in python.items():
-            specifier_set = SpecifierSet(specifier.replace(DEV_VERSION, DEV_NUMERIC))
-            if specifier_set.contains(DEV_NUMERIC if version == DEV_VERSION else version):
-                return py_ver
+    if python and (match := next(_find_matches(python, version), None)):
+        return match
 
-    return get_requires_python(package, version)
+    return infer_python_version(package, version)
+
+
+def get_runs_on(runs_on: Optional[Dict[str, str]], version: str) -> str:
+    if runs_on and (match := next(_find_matches(runs_on, version), None)):
+        return match
+
+    return "ubuntu-latest"
 
 
 def remove_comments(s):
@@ -469,7 +498,44 @@ def _get_test_files_from_pytest_command(cmd, test_dir):
     return executed_files - ignore_files
 
 
-def expand_config(config):
+def validate_requirements(
+    requirements: Dict[str, List[str]],
+    name: str,
+    category: str,
+    package_info: PackageInfo,
+    versions: List[Version],
+) -> None:
+    """
+    Validate that the requirements specified in the config don't contain unused items.
+    Here's an example of invalid requirements:
+
+    ```
+    sklearn:
+        package_info:
+            pip_release: "scikit-learn"
+        autologging:
+            minimum: "1.3.0"
+            maximum: "1.5.0"
+            requirements:
+                "< 1.0.0": ["numpy<2.0"]    # Unused
+                ">= 1.4.0": ["numpy>=2.0"]  # Used
+    ```
+    """
+    for specifier in requirements:
+        if "dev" in specifier and package_info.install_dev:
+            continue
+
+        # Does this version specifier (e.g. '< 1.0.0') match at least one version?
+        # If not, raise an error.
+        spec_set = SpecifierSet(specifier)
+        if not any(map(spec_set.contains, versions)):
+            raise ValueError(
+                f"Found unused requirements {specifier!r} for {name} / {category}. "
+                "Please remove it or adjust the version specifier."
+            )
+
+
+def expand_config(config: Dict[str, Any], *, is_ref: bool = False) -> Set[MatrixItem]:
     matrix = set()
     for name, flavor_config in config.items():
         flavor = get_flavor(name)
@@ -496,12 +562,16 @@ def expand_config(config):
             if cfg.minimum not in versions:
                 versions.append(cfg.minimum)
 
+            if not is_ref and cfg.requirements:
+                validate_requirements(cfg.requirements, name, category, package_info, versions)
+
             for ver in versions:
                 requirements = [f"{package_info.pip_release}=={ver}"]
                 requirements.extend(get_matched_requirements(cfg.requirements or {}, str(ver)))
                 install = make_pip_install_command(requirements)
                 run = remove_comments(cfg.run)
                 python = get_python_version(cfg.python, package_info.pip_release, str(ver))
+                runs_on = get_runs_on(cfg.runs_on, ver)
                 java = get_java_version(cfg.java, str(ver))
 
                 matrix.add(
@@ -518,6 +588,7 @@ def expand_config(config):
                         java=java,
                         supported=ver <= cfg.maximum,
                         free_disk_space=free_disk_space,
+                        runs_on=runs_on,
                         pre_test=cfg.pre_test,
                     )
                 )
@@ -530,6 +601,7 @@ def expand_config(config):
                 else:
                     install = install_dev
                 python = get_python_version(cfg.python, package_info.pip_release, DEV_VERSION)
+                runs_on = get_runs_on(cfg.runs_on, DEV_VERSION)
                 java = get_java_version(cfg.java, DEV_VERSION)
 
                 run = remove_comments(cfg.run)
@@ -548,6 +620,7 @@ def expand_config(config):
                         java=java,
                         supported=False,
                         free_disk_space=free_disk_space,
+                        runs_on=runs_on,
                         pre_test=cfg.pre_test,
                     )
                 )
@@ -581,7 +654,7 @@ def generate_matrix(args):
 
         if args.ref_versions_yaml:
             ref_config = read_yaml(args.ref_versions_yaml, if_error={})
-            ref_matrix = expand_config(ref_config)
+            ref_matrix = expand_config(ref_config, is_ref=True)
             matrix.update(mat.difference(ref_matrix))
 
         if args.changed_files:

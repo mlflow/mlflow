@@ -494,14 +494,14 @@ class MlflowClient:
 
         Args:
             experiment_ids: List of experiment ids to scope the search.
-                it will be associated with the run and you can filter on the run id to retrieve
-                the trace.
             filter_string: A search filter string.
             max_results: Maximum number of traces desired.
             order_by: List of order_by clauses.
             page_token: Token specifying the next page of results. It should be obtained from
                 a ``search_traces`` call.
             run_id: A run id to scope the search. When a trace is created under an active run,
+                it will be associated with the run and you can filter on the run id to retrieve
+                the trace.
 
         Returns:
             A :py:class:`PagedList <mlflow.store.entities.PagedList>` of
@@ -795,10 +795,10 @@ class MlflowClient:
             name: The name of the span.
             request_id: The ID of the trace to attach the span to. This is synonym to
                 trace_id` in OpenTelemetry.
-            span_type: The type of the span. Can be either a string or a
-                :py:class:`SpanType <mlflow.entities.SpanType>` enum value.
             parent_id: The ID of the parent span. The parent span can be a span created by
                 both fluent APIs like `with mlflow.start_span()`, and imperative APIs like this.
+            span_type: The type of the span. Can be either a string or a
+                :py:class:`SpanType <mlflow.entities.SpanType>` enum value.
             inputs: Inputs to set on the span.
             attributes: A dictionary of attributes to set on the span.
             start_time_ns: The start time of the span in nano seconds since the UNIX epoch.
@@ -2858,6 +2858,7 @@ class MlflowClient:
         """Set a run's status to terminated.
 
         Args:
+            run_id: The ID of the run to terminate.
             status: A string value of :py:class:`mlflow.entities.RunStatus`. Defaults to "FINISHED".
             end_time: If not provided, defaults to the current time.
 
