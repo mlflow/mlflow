@@ -288,14 +288,13 @@ def is_databricks_connect(spark):
 
     if is_in_databricks_serverless_runtime() or is_in_databricks_shared_cluster_runtime():
         return True
-    try:
-        # TODO: Remove the `spark.client._builder` attribute usage once
-        #  Spark-connect has public attribute for this information.
-        return is_spark_connect_mode() and any(
-            k == "x-databricks-cluster-id" for k, v in spark.client._builder.metadata()
-        )
-    except Exception:
-        return False
+
+    if hasattr(spark.client, "metadata"):
+        metadata = spark.client.metadata
+    else:
+        metadata = spark.client._builder.metadata()
+
+    return any(k in ["x-databricks-session-id", "x-databricks-cluster-id"] for k, v in metadata)
 
 
 @dataclass
@@ -356,15 +355,15 @@ def is_databricks_serverless(spark):
     on Databricks Connect client that connects to Databricks Serverless.
     """
     from mlflow.utils.spark_utils import is_spark_connect_mode
-
-    try:
-        # TODO: Remove the `spark.client._builder` attribute usage once
-        #  Spark-connect has public attribute for this information.
-        return is_spark_connect_mode() and any(
-            k == "x-databricks-session-id" for k, v in spark.client._builder.metadata()
-        )
-    except Exception:
+    if not is_spark_connect_mode():
         return False
+
+    if hasattr(spark.client, "metadata"):
+        metadata = spark.client.metadata
+    else:
+        metadata = spark.client._builder.metadata()
+
+    return any(k == "x-databricks-session-id" for k, v in metadata)
 
 
 def is_dbfs_fuse_available():
