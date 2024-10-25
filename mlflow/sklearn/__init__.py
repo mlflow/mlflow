@@ -334,6 +334,7 @@ def save_model(
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name="scikit-learn"))
 def log_model(
     sk_model,
+    artifact_path: Optional[str] = None,
     name: Optional[str] = None,
     conda_env=None,
     code_paths=None,
@@ -363,6 +364,7 @@ def log_model(
 
     Args:
         sk_model: scikit-learn model to be saved.
+        artifact_path: Deprecated. Use `name` instead.
         name: {{ name }}
         conda_env: {{ conda_env }}
         code_paths: {{ code_paths }}
@@ -421,6 +423,15 @@ def log_model(
             mlflow.sklearn.log_model(sk_model, "sk_models", signature=signature)
 
     """
+    if name is not None and artifact_path is not None:
+        raise MlflowException.invalid_parameter_value(
+            "Both `artifact_path` (deprecated) and `name` parameters were specified. "
+            "Please only specify `name`."
+        )
+    elif artifact_path is not None:
+        _logger.warning("`artifact_path` is deprecated. Please use `name` instead.")
+
+    name = name or artifact_path
     return Model.log(
         name=name,
         flavor=mlflow.sklearn,
