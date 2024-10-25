@@ -36,7 +36,9 @@ class MlflowCallback(BaseCallback):
             attributes=attributes,
         )
 
-    def on_module_end(self, call_id: str, outputs: Optional[Any], exception: Exception = None):
+    def on_module_end(
+        self, call_id: str, outputs: Optional[Any], exception: Optional[Exception] = None
+    ):
         self._end_span(call_id, outputs, exception)
 
     def on_lm_start(self, call_id: str, instance: Any, inputs: Dict[str, Any]):
@@ -59,7 +61,9 @@ class MlflowCallback(BaseCallback):
             attributes=attributes,
         )
 
-    def on_lm_end(self, call_id: str, outputs: Optional[Any], exception: Exception = None):
+    def on_lm_end(
+        self, call_id: str, outputs: Optional[Any], exception: Optional[Exception] = None
+    ):
         self._end_span(call_id, outputs, exception)
 
     def on_format_start(self, call_id: str, instance: Any, inputs: Dict[str, Any]):
@@ -71,7 +75,9 @@ class MlflowCallback(BaseCallback):
             attributes={},
         )
 
-    def on_format_end(self, call_id: str, outputs: Optional[Any], exception: Exception = None):
+    def on_format_end(
+        self, call_id: str, outputs: Optional[Any], exception: Optional[Exception] = None
+    ):
         self._end_span(call_id, outputs, exception)
 
     def on_parse_start(self, call_id: str, instance: Any, inputs: Dict[str, Any]):
@@ -83,7 +89,9 @@ class MlflowCallback(BaseCallback):
             attributes={},
         )
 
-    def on_parse_end(self, call_id: str, outputs: Optional[Any], exception: Exception = None):
+    def on_parse_end(
+        self, call_id: str, outputs: Optional[Any], exception: Optional[Exception] = None
+    ):
         self._end_span(call_id, outputs, exception)
 
     def _start_span(
@@ -94,7 +102,6 @@ class MlflowCallback(BaseCallback):
         inputs: Dict[str, Any],
         attributes: Dict[str, Any],
     ):
-        print(f"{inputs=}")
         # Get parent span in this order:
         # 1. If there is an parent component in DSPy, use its span as parent span.
         # 2. If there is an active span in MLflow, use it as parent span.
@@ -128,7 +135,7 @@ class MlflowCallback(BaseCallback):
         self,
         call_id: str,
         outputs: Optional[Any],
-        exception: Exception = None,
+        exception: Optional[Exception] = None,
     ):
         span = self._call_id_to_span.pop(call_id)
         status = SpanStatusCode.OK if exception is None else SpanStatusCode.ERROR
