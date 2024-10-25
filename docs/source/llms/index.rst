@@ -45,6 +45,16 @@ Note that there are additional tutorials within the `"Explore the Native LLM Fla
                 </a>
             </div>
             <div class="simple-card">
+                <a href="chat-model-guide/index.html" >
+                    <div class="header">
+                        Tool Calling Models
+                    </div>
+                    <p>
+                        Learn how to build a simple tool-calling model using MLflow's <code>ChatModel</code>.
+                    </p>
+                </a>
+            </div>
+            <div class="simple-card">
                 <a href="llm-evaluate/index.html" >
                     <div class="header">
                         Evaluating LLMs
