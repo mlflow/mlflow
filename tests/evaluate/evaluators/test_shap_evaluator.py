@@ -10,7 +10,9 @@ from tests.evaluate.test_evaluation import (
     get_pipeline_model_dataset,
     get_run_data,
     iris_pandas_df_dataset,  # noqa: F401
+    iris_pandas_df_num_cols_dataset,  # noqa: F401
     multiclass_logistic_regressor_model_uri,  # noqa: F401
+    pipeline_model_uri,  # noqa: F401
 )
 
 
