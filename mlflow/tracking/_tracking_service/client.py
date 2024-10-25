@@ -922,8 +922,8 @@ class TrackingServiceClient:
             experiment_url = f"{host_url}/#/experiments/{experiment_id}"
         run_url = f"{experiment_url}/runs/{run_id}"
 
-        sys.stdout.write(f"🏃 View run {run_name} at: {run_url}.\n")
-        sys.stdout.write(f"🧪 View experiment at: {experiment_url}.\n")
+        sys.stdout.write(f"🏃 View run {run_name} at: {run_url}\n")
+        sys.stdout.write(f"🧪 View experiment at: {experiment_url}\n")
 
     def set_terminated(self, run_id, status=None, end_time=None):
         """Set a run's status to terminated.
