@@ -204,7 +204,7 @@ catboost:
     pip_release: "catboost"
     install_dev: |
       git clone --depth=1 https://github.com/catboost/catboost.git
-      cd = catboost/python-package
+      cd catboost/python-package
       sed -i 's/from wheel.bdist_wheel import bdist_wheel as _bdist_wheel/from setuptools.command.bdist_wheel import bdist_wheel as _bdist_wheel/' setup.py
       pip install .
 
