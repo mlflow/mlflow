@@ -131,7 +131,17 @@ def test_trace_info_serialization_deserialization(trace_info_proto):
     # TraceInfo -> trace info proto
     assert trace_info.to_proto() == trace_info_proto
 
-def _check(trace_info, request_id, experiment_id, timestamp_ms, execution_time_ms, status, request_metadata=None, tags=None):
+
+def _check(
+    trace_info,
+    request_id,
+    experiment_id,
+    timestamp_ms,
+    execution_time_ms,
+    status,
+    request_metadata=None,
+    tags=None,
+):
     assert isinstance(trace_info, TraceInfo)
     assert trace_info.request_id == request_id
     assert trace_info.experiment_id == experiment_id
@@ -141,6 +151,7 @@ def _check(trace_info, request_id, experiment_id, timestamp_ms, execution_time_m
     assert trace_info.request_metadata == request_metadata
     assert trace_info.tags == tags
 
+
 def test_absent_fields():
     request_id = "request_id"
     experiment_id = "experiment_id"
@@ -148,7 +159,16 @@ def test_absent_fields():
     execution_time_ms = 2
     status = TraceStatus.OK
     trace_info = TraceInfo(request_id, experiment_id, timestamp_ms, execution_time_ms, status)
-    _check(trace_info, request_id, experiment_id, timestamp_ms, execution_time_ms, status, request_metadata=None, tags=None)
+    _check(
+        trace_info,
+        request_id,
+        experiment_id,
+        timestamp_ms,
+        execution_time_ms,
+        status,
+        request_metadata=None,
+        tags=None,
+    )
 
     as_dict = {
         "request_id": request_id,
