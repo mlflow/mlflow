@@ -3,6 +3,7 @@ class TraceMetadataKey:
     INPUTS = "mlflow.traceInputs"
     OUTPUTS = "mlflow.traceOutputs"
     SOURCE_RUN = "mlflow.sourceRun"
+    MODEL_ID = "mlflow.modelId"
 
 
 class TraceTagKey:
@@ -20,6 +21,7 @@ class SpanAttributeKey:
     SPAN_TYPE = "mlflow.spanType"
     FUNCTION_NAME = "mlflow.spanFunctionName"
     START_TIME_NS = "mlflow.spanStartTimeNs"
+    MODEL_ID = "mlflow.modelId"
 
 
 # All storage backends are guaranteed to support key values up to 250 characters

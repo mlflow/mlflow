@@ -60,6 +60,7 @@ def trace(
     name: Optional[str] = None,
     span_type: str = SpanType.UNKNOWN,
     attributes: Optional[Dict[str, Any]] = None,
+    model_id: Optional[str] = None,
 ) -> Callable:
     """
     A decorator that creates a new span for the decorated function.
@@ -128,6 +129,7 @@ def trace(
         span_type: The type of the span. Can be either a string or a
             :py:class:`SpanType <mlflow.entities.SpanType>` enum value.
         attributes: A dictionary of attributes to set on the span.
+        model_id: If specified, associates the span with the given model ID.
     """
 
     class _WrappingContext:
@@ -137,7 +139,9 @@ def trace(
         def _wrapping_logic(fn, args, kwargs):
             span_name = name or fn.__name__
 
-            with start_span(name=span_name, span_type=span_type, attributes=attributes) as span:
+            with start_span(
+                name=span_name, span_type=span_type, attributes=attributes, model_id=model_id
+            ) as span:
                 span.set_attribute(SpanAttributeKey.FUNCTION_NAME, fn.__name__)
                 try:
                     span.set_inputs(capture_function_input_args(fn, args, kwargs))
@@ -186,6 +190,7 @@ def start_span(
     name: str = "span",
     span_type: Optional[str] = SpanType.UNKNOWN,
     attributes: Optional[Dict[str, Any]] = None,
+    model_id: Optional[str] = None,
 ) -> Generator[LiveSpan, None, None]:
     """
     Context manager to create a new span and start it as the current span in the context.
@@ -245,6 +250,7 @@ def start_span(
         span_type: The type of the span. Can be either a string or
             a :py:class:`SpanType <mlflow.entities.SpanType>` enum value
         attributes: A dictionary of attributes to set on the span.
+        model_id: If specified, associates the span with the given model ID.
 
     Returns:
         Yields an :py:class:`mlflow.entities.Span` that represents the created span.
@@ -255,9 +261,11 @@ def start_span(
         # Create a new MLflow span and register it to the in-memory trace manager
         request_id = get_otel_attribute(otel_span, SpanAttributeKey.REQUEST_ID)
         mlflow_span = create_mlflow_span(otel_span, request_id, span_type)
-        mlflow_span.set_attributes(attributes or {})
+        attributes = dict(attributes) if attributes is not None else {}
+        if model_id is not None:
+            attributes[SpanAttributeKey.MODEL_ID] = model_id
+        mlflow_span.set_attributes(attributes)
         InMemoryTraceManager.get_instance().register_span(mlflow_span)
-
     except Exception as e:
         _logger.warning(
             f"Failed to start span: {e}. For full traceback, set logging level to debug.",
@@ -335,6 +343,7 @@ def search_traces(
     order_by: Optional[List[str]] = None,
     extract_fields: Optional[List[str]] = None,
     run_id: Optional[str] = None,
+    model_id: Optional[str] = None,
 ) -> "pandas.DataFrame":
     """
     Return traces that match the given list of search expressions within the experiments.
@@ -378,6 +387,7 @@ def search_traces(
         run_id: A run id to scope the search. When a trace is created under an active run,
             it will be associated with the run and you can filter on the run id to retrieve the
             trace. See the example below for how to filter traces by run id.
+        model_id: If specified, search traces associated with the given model ID.
 
     Returns:
         A Pandas DataFrame containing information about traces that satisfy the search expressions.
@@ -455,6 +465,7 @@ def search_traces(
             filter_string=filter_string,
             order_by=order_by,
             page_token=next_page_token,
+            model_id=model_id,
         )
 
     results = get_results_from_paginated_fn(

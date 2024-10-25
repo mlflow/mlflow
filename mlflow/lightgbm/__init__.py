@@ -272,7 +272,7 @@ def _save_model(lgb_model, model_path):
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
 def log_model(
     lgb_model,
-    artifact_path,
+    name: Optional[str] = None,
     conda_env=None,
     code_paths=None,
     registered_model_name=None,
@@ -282,6 +282,11 @@ def log_model(
     pip_requirements=None,
     extra_pip_requirements=None,
     metadata=None,
+    params: Optional[Dict[str, Any]] = None,
+    tags: Optional[Dict[str, Any]] = None,
+    model_type: Optional[str] = None,
+    step: int = 0,
+    model_id: Optional[str] = None,
     **kwargs,
 ):
     """
@@ -290,7 +295,7 @@ def log_model(
     Args:
         lgb_model: LightGBM model (an instance of `lightgbm.Booster`_) or
             models that implement the `scikit-learn API`_  to be saved.
-        artifact_path: Run-relative artifact path.
+        name: {{ name }}
         conda_env: {{ conda_env }}
         code_paths: {{ code_paths }}
         registered_model_name: If given, create a model version under
@@ -305,6 +310,11 @@ def log_model(
         pip_requirements: {{ pip_requirements }}
         extra_pip_requirements: {{ extra_pip_requirements }}
         metadata: {{ metadata }}
+        params: {{ params }}
+        tags: {{ tags }}
+        model_type: {{ model_type }}
+        step: {{ step }}
+        model_id: {{ model_id }}
         kwargs: kwargs to pass to `lightgbm.Booster.save_model`_ method.
 
     Returns:
@@ -353,7 +363,7 @@ def log_model(
                     'model/requirements.txt']
     """
     return Model.log(
-        artifact_path=artifact_path,
+        name=name,
         flavor=mlflow.lightgbm,
         registered_model_name=registered_model_name,
         lgb_model=lgb_model,
@@ -365,6 +375,11 @@ def log_model(
         pip_requirements=pip_requirements,
         extra_pip_requirements=extra_pip_requirements,
         metadata=metadata,
+        params=params,
+        tags=tags,
+        model_type=model_type,
+        step=step,
+        model_id=model_id,
         **kwargs,
     )
 

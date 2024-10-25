@@ -122,6 +122,10 @@ type MlflowMetric {
   value: Float
   timestamp: LongString
   step: LongString
+  datasetName: String
+  datasetDigest: String
+  modelId: String
+  runId: String
 }
 
 type MlflowParam {

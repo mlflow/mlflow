@@ -3014,7 +3014,7 @@ def save_model(
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name="scikit-learn"))
 @trace_disabled  # Suppress traces for internal predict calls while logging model
 def log_model(
-    artifact_path,
+    name=None,
     loader_module=None,
     data_path=None,
     code_path=None,  # deprecated
@@ -3034,6 +3034,11 @@ def log_model(
     example_no_conversion=None,
     streamable=None,
     resources: Optional[Union[str, List[Resource]]] = None,
+    params: Optional[Dict[str, Any]] = None,
+    tags: Optional[Dict[str, Any]] = None,
+    model_type: Optional[str] = None,
+    step: int = 0,
+    model_id: Optional[str] = None,
 ):
     """
     Log a Pyfunc model with custom inference logic and optional data dependencies as an MLflow
@@ -3046,7 +3051,7 @@ def log_model(
     and the parameters for the first workflow: ``python_model``, ``artifacts`` together.
 
     Args:
-        artifact_path: The run-relative artifact path to which to log the Python model.
+        name: The name of the model.
         loader_module: The name of the Python module that is used to load the model
             from ``data_path``. This module must define a method with the prototype
             ``_load_pyfunc(data_path)``. If not ``None``, this module and its
@@ -3229,12 +3234,18 @@ def log_model(
             .. Note:: Experimental: This parameter may change or be removed in a future
                                     release without warning.
 
+        params: {{ params }}
+        tags: {{ tags }}
+        model_type: {{ model_type }}
+        step: {{ step }}
+        model_id: {{ model_id }}
+
     Returns:
         A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
         metadata of the logged model.
     """
     return Model.log(
-        artifact_path=artifact_path,
+        name=name,
         flavor=mlflow.pyfunc,
         loader_module=loader_module,
         data_path=data_path,
@@ -3255,6 +3266,11 @@ def log_model(
         streamable=streamable,
         resources=resources,
         infer_code_paths=infer_code_paths,
+        params=params,
+        tags=tags,
+        model_type=model_type,
+        step=step,
+        model_id=model_id,
     )
 
 
