@@ -483,7 +483,9 @@ def _predict(model_uri, input_path, output_path, content_type):
             with open(input_path) as f:
                 input_str = f.read()
         data, params = _split_data_and_params(input_str)
-        df = infer_and_parse_data(data)
+        # schema needs to be passed to correctly match the behavior
+        # of schema enforcement during pyfunc predict
+        df = infer_and_parse_data(data, schema=pyfunc_model.metadata.get_input_schema())
     elif content_type == "csv":
         df = parse_csv_input(input_path) if input_path is not None else parse_csv_input(sys.stdin)
         params = None

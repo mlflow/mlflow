@@ -1,15 +1,17 @@
-import json
 import logging
 import os
-from datetime import datetime
 from io import StringIO
 from typing import ForwardRef, get_args, get_origin
 
 from mlflow.exceptions import MlflowException
 from mlflow.models.flavor_backend_registry import get_flavor_backend
 from mlflow.utils import env_manager as _EnvManager
+from mlflow.utils.annotations import experimental
+from mlflow.utils.databricks_utils import (
+    is_databricks_connect,
+    is_in_databricks_runtime,
+)
 from mlflow.utils.file_utils import TempDir
-from mlflow.utils.proto_json_utils import dump_input_data
 
 _logger = logging.getLogger(__name__)
 
@@ -94,6 +96,7 @@ _CONTENT_TYPE_CSV = "csv"
 _CONTENT_TYPE_JSON = "json"
 
 
+@experimental
 def predict(
     model_uri,
     input_data=None,
@@ -113,6 +116,11 @@ def predict(
         model_uri: URI to the model. A local path, a local or remote URI e.g. runs:/, s3://.
         input_data: Input data for prediction. Must be valid input for the PyFunc model. Refer
             to the :py:func:`mlflow.pyfunc.PyFuncModel.predict()` for the supported input types.
+
+            .. note::
+                If this API fails due to errors in input_data, use
+                `mlflow.models.convert_input_example_to_serving_input` to manually validate
+                your input data.
         input_path: Path to a file containing input data. If provided, 'input_data' must be None.
         content_type: Content type of the input data. Can be one of {‘json’, ‘csv’}.
         output_path: File to output results to as json. If not provided, output to stdout.
@@ -128,6 +136,12 @@ def predict(
         pip_requirements_override: If specified, install the specified python dependencies to the
             model inference environment. This is particularly useful when you want to add extra
             dependencies or try different versions of the dependencies defined in the logged model.
+
+            .. tip::
+                After validating the pip requirements override works as expected, you can update
+                the logged model's dependency using `mlflow.models.update_model_requirements` API
+                without re-logging it. Note that a registered model is immutable, so you need to
+                register a new model version with the updated model.
 
     Code example:
 
@@ -146,20 +160,48 @@ def predict(
         # Run prediction with additional pip dependencies
         mlflow.models.predict(
             model_uri=f"runs:/{run_id}/model",
-            input_data='{"x": 1, "y": 2}',
+            input_data={"x": 1, "y": 2},
             content_type="json",
             pip_requirements_override=["scikit-learn==0.23.2"],
         )
 
     """
+    # to avoid circular imports
+    from mlflow.pyfunc import _PREBUILD_ENV_ROOT_LOCATION
+
     if content_type not in [_CONTENT_TYPE_JSON, _CONTENT_TYPE_CSV]:
         raise MlflowException.invalid_parameter_value(
             f"Content type must be one of {_CONTENT_TYPE_JSON} or {_CONTENT_TYPE_CSV}."
         )
 
+    spark_session = None
+    if is_in_databricks_runtime():
+        try:
+            from pyspark.sql import SparkSession
+
+            spark_session = SparkSession.getActiveSession()
+        except Exception:
+            pass
+    is_dbconnect_mode = is_databricks_connect(spark_session)
+    if is_dbconnect_mode:
+        if env_manager != _EnvManager.VIRTUALENV:
+            raise MlflowException(
+                "Databricks Connect only supports virtualenv as the environment manager. "
+                f"Got {env_manager}."
+            )
+        pyfunc_backend_env_root_config = {
+            "create_env_root_dir": False,
+            "env_root_dir": _PREBUILD_ENV_ROOT_LOCATION,
+        }
+    else:
+        pyfunc_backend_env_root_config = {"create_env_root_dir": True}
+
     def _predict(_input_path: str):
         return get_flavor_backend(
-            model_uri, env_manager=env_manager, install_mlflow=install_mlflow
+            model_uri,
+            env_manager=env_manager,
+            install_mlflow=install_mlflow,
+            **pyfunc_backend_env_root_config,
         ).predict(
             model_uri=model_uri,
             input_path=_input_path,
@@ -210,6 +252,10 @@ def _serialize_input_data(input_data, content_type):
     # so we shouldn't import pandas at the top level
     import pandas as pd
 
+    # this introduces numpy as dependency, we shouldn't import it at the top level
+    # as it is not available in mlflow-skinny
+    from mlflow.models.utils import convert_input_example_to_serving_input
+
     valid_input_types = {
         _CONTENT_TYPE_CSV: (str, list, dict, pd.DataFrame),
         _CONTENT_TYPE_JSON: _get_pyfunc_supported_input_types(),
@@ -221,63 +267,39 @@ def _serialize_input_data(input_data, content_type):
             f"but got {type(input_data)}."
         )
 
-    # If the input is already string, check if the input string can be deserialized correctly
-    if isinstance(input_data, str):
-        _validate_string(input_data, content_type)
-        return input_data
+    if content_type == _CONTENT_TYPE_CSV:
+        if isinstance(input_data, str):
+            _validate_csv_string(input_data)
+            return input_data
+        else:
+            try:
+                return pd.DataFrame(input_data).to_csv(index=False)
+            except Exception as e:
+                raise MlflowException.invalid_parameter_value(
+                    "Failed to serialize input data to CSV format."
+                ) from e
 
     try:
-        if content_type == _CONTENT_TYPE_CSV:
-            # We should not set header=False here because the scoring server expects the
-            # first row to be the header
-            return pd.DataFrame(input_data).to_csv(index=False)
-        else:
-            return _serialize_to_json(input_data)
+        # rely on convert_input_example_to_serving_input to validate
+        # the input_data is valid type for the loaded pyfunc model
+        return convert_input_example_to_serving_input(input_data)
     except Exception as e:
         raise MlflowException.invalid_parameter_value(
-            message=f"Input data could not be serialized to {content_type}."
+            "Invalid input data, please make sure the data is acceptable by the "
+            "loaded pyfunc model. Use `mlflow.models.convert_input_example_to_serving_input` "
+            "to manually validate your input data."
         ) from e
 
 
-def _serialize_to_json(input_data):
-    # imported inside function to avoid circular import
-    from mlflow.pyfunc.scoring_server import SUPPORTED_FORMATS
-    from mlflow.pyfunc.utils.serving_data_parser import SUPPORTED_LLM_FORMATS
-
-    if isinstance(input_data, dict) and any(
-        key in input_data for key in SUPPORTED_FORMATS | SUPPORTED_LLM_FORMATS
-    ):
-        return json.dumps(input_data)
-    else:
-        original_input_data = input_data
-
-        if isinstance(input_data, (datetime, bool, bytes, float, int, str)):
-            input_data = [input_data]
-
-        input_data = dump_input_data(input_data)
-
-        _logger.info(
-            f"Your input data has been transformed to comply with the expected input format for "
-            "the MLflow scoring server. If you want to deploy the model to online serving, make "
-            "sure to apply the same preprocessing in your inference client. Please also refer to "
-            "https://www.mlflow.org/docs/latest/deployment/deploy-model-locally.html#json-input "
-            "for more details on the supported input format."
-            f"\n\nOriginal input data:\n{original_input_data}"
-            f"\n\nTransformed input data:\n{input_data}"
-        )
-        return input_data
-
-
-def _validate_string(input_data: str, content_type: str):
+def _validate_csv_string(input_data: str):
+    """
+    Validate the string must be the path to a CSV file.
+    """
     try:
-        if content_type == _CONTENT_TYPE_CSV:
-            import pandas as pd
+        import pandas as pd
 
-            pd.read_csv(StringIO(input_data))
-        else:
-            json.loads(input_data)
+        pd.read_csv(StringIO(input_data))
     except Exception as e:
-        target = "JSON" if content_type == _CONTENT_TYPE_JSON else "Pandas DataFrame"
         raise MlflowException.invalid_parameter_value(
-            message=f"Failed to deserialize input string data to {target}."
+            message="Failed to deserialize input string data to Pandas DataFrame."
         ) from e

@@ -661,3 +661,9 @@ _MLFLOW_IN_CAPTURE_MODULE_PROCESS = _BooleanEnvironmentVariable(
 MLFLOW_USE_DATABRICKS_SDK_MODEL_ARTIFACTS_REPO_FOR_UC = _BooleanEnvironmentVariable(
     "MLFLOW_USE_DATABRICKS_SDK_MODEL_ARTIFACTS_REPO_FOR_UC", False
 )
+
+# Specifies the model environment archive file downloading path when using
+# ``mlflow.pyfunc.spark_udf``. (default: ``None``)
+MLFLOW_MODEL_ENV_DOWNLOADING_TEMP_DIR = _EnvironmentVariable(
+    "MLFLOW_MODEL_ENV_DOWNLOADING_TEMP_DIR", str, None
+)

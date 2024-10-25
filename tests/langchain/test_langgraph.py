@@ -5,6 +5,8 @@ import pytest
 from packaging.version import Version
 
 import mlflow
+from mlflow.entities.span import SpanType
+from mlflow.entities.span_status import SpanStatusCode
 
 from tests.tracing.helper import get_traces
 
@@ -102,3 +104,11 @@ def test_langgraph_tracing():
     for msg, (type, expected_content) in zip(messages, expected_messages):
         assert msg["type"] == type
         assert msg["content"] == expected_content
+
+    # Validate tool span
+    tool_span = next(span for span in traces[0].data.spans if span.span_type == SpanType.TOOL)
+    assert tool_span.name == "get_weather"
+    assert tool_span.inputs == {"city": "sf"}
+    assert tool_span.outputs["content"] == "It's always sunny in sf"
+    assert tool_span.outputs["status"] == "success"
+    assert tool_span.status.status_code == SpanStatusCode.OK
