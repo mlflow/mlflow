@@ -718,6 +718,8 @@ dspy:
           "openai",
           # https://github.com/stanfordnlp/dspy/issues/1624
           "litellm<=1.49.2",
+          # TODO: Remove once https://github.com/stanfordnlp/dspy/pull/1689 is merged in DSPy
+          "git+https://github.com/B-Step62/dspy.git@callback"
         ]
     run: |
       pytest tests/dspy/test_dspy_autolog.py
