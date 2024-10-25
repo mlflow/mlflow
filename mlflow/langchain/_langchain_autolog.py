@@ -13,6 +13,7 @@ import mlflow
 from mlflow.entities import RunTag
 from mlflow.entities.run_status import RunStatus
 from mlflow.exceptions import MlflowException
+from mlflow.langchain import _LOADED_MODEL_TRACKER
 from mlflow.langchain.langchain_tracer import MlflowLangchainTracer
 from mlflow.langchain.runnables import get_runnable_steps
 from mlflow.tracking.context import registry as context_registry
@@ -46,26 +47,34 @@ def patched_inference(func_name, original, self, *args, **kwargs):
             return original(self, *args, **kwargs)
 
     config = AutoLoggingConfig.init(mlflow.langchain.FLAVOR_NAME)
-
+    if mid := _LOADED_MODEL_TRACKER.get(self):
+        model_id = mid
+    elif config.log_models:
+        logged_model = mlflow.create_logged_model()
+        model_id = logged_model.model_id
+    else:
+        model_id = None
     if config.log_traces:
-        args, kwargs = _get_args_with_mlflow_tracer(func_name, args, kwargs)
+        args, kwargs = _get_args_with_mlflow_tracer(func_name, model_id, args, kwargs)
         _logger.debug("Injected MLflow callbacks into the model.")
 
     # Traces does not require an MLflow run, only the other optional artifacts require it.
     if config.should_log_optional_artifacts():
         with _setup_autolog_run(config, self) as run_id:
             result = _invoke(self, *args, **kwargs)
-            _log_optional_artifacts(config, run_id, result, self, func_name, *args, **kwargs)
+            _log_optional_artifacts(
+                config, run_id, result, self, func_name, model_id, *args, **kwargs
+            )
     else:
         result = _invoke(self, *args, **kwargs)
     return result
 
 
-def _get_args_with_mlflow_tracer(func_name, args, kwargs):
+def _get_args_with_mlflow_tracer(func_name, model_id, args, kwargs):
     """
     Get the patched arguments with MLflow tracer injected.
     """
-    mlflow_tracer = MlflowLangchainTracer()
+    mlflow_tracer = MlflowLangchainTracer(model_id=model_id)
 
     if func_name in ["invoke", "batch", "stream", "ainvoke", "abatch", "astream"]:
         # `config` is the second positional argument of runnable APIs such as
@@ -358,7 +367,16 @@ def _chain_with_retriever(model):
     return False
 
 
-def _log_optional_artifacts(autolog_config, run_id, result, self, func_name, *args, **kwargs):
+def _log_optional_artifacts(
+    autolog_config,
+    run_id,
+    result,
+    self,
+    func_name,
+    model_id,
+    *args,
+    **kwargs,
+):
     input_example = None
     if autolog_config.log_models and not hasattr(self, "_mlflow_model_logged"):
         if (
@@ -392,6 +410,7 @@ def _log_optional_artifacts(autolog_config, run_id, result, self, func_name, *ar
                         input_example=input_example,
                         registered_model_name=registered_model_name,
                         run_id=run_id,
+                        model_id=model_id,
                     )
             except Exception as e:
                 _logger.warning(f"Failed to log model due to error {e}.")

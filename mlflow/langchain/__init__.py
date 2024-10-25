@@ -59,6 +59,7 @@ from mlflow.models.utils import (
 )
 from mlflow.pyfunc import FLAVOR_NAME as PYFUNC_FLAVOR_NAME
 from mlflow.pyfunc.context import get_prediction_context
+from mlflow.store.artifact.utils.models import _parse_model_uri
 from mlflow.tracing.provider import trace_disabled
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
@@ -100,6 +101,7 @@ from mlflow.utils.model_utils import (
     _validate_and_prepare_target_save_path,
 )
 from mlflow.utils.requirements_utils import _get_pinned_requirement
+from mlflow.utils.uri import is_models_uri
 
 logger = logging.getLogger(mlflow.__name__)
 
@@ -921,6 +923,24 @@ def _load_model_from_local_fs(local_model_path, model_config_overrides=None):
         return _load_model(local_model_path, flavor_conf)
 
 
+class _LoadedModelTracker:
+    """
+    Tracks models loaded by `load_model`.
+    """
+
+    def __init__(self):
+        self.model_ids: Dict[int, str] = {}
+
+    def get(self, model: Any) -> Optional[str]:
+        return self.model_ids.get(id(model))
+
+    def set(self, model: Any, model_id: str) -> None:
+        self.model_ids[id(model)] = model_id
+
+
+_LOADED_MODEL_TRACKER = _LoadedModelTracker()
+
+
 @experimental
 @docstring_version_compatibility_warning(FLAVOR_NAME)
 @trace_disabled  # Suppress traces while loading model
@@ -947,7 +967,12 @@ def load_model(model_uri, dst_path=None):
         A LangChain model instance.
     """
     local_model_path = _download_artifact_from_uri(artifact_uri=model_uri, output_path=dst_path)
-    return _load_model_from_local_fs(local_model_path)
+    model = _load_model_from_local_fs(local_model_path)
+    if is_models_uri(model_uri):
+        parsed_model_uri = _parse_model_uri(model_uri)
+        if parsed_model_uri.model_id:
+            _LOADED_MODEL_TRACKER.set(model, parsed_model_uri.model_id)
+    return model
 
 
 def _patch_runnable_cls(cls):
