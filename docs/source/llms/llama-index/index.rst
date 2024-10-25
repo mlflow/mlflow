@@ -107,7 +107,7 @@ query and returns a response based on the index. The ``ChatEngine`` is designed 
 
 The ``Settings`` object is a global service context that bundles commonly used resources throughout the
 LlamaIndex application. It includes settings such as the LLM model, embedding model, callbacks, and more. When logging a LlamaIndex index/engine/workflow, MLflow tracks 
-the state of the ``Settings`` object so that you can easily reproduce the same result when loading the model back for inference.
+the state of the ``Settings`` object so that you can easily reproduce the same result when loading the model back for inference (note that some objects like API keys, non-serializable objects, etc., are not tracked).
 
 
 Usage

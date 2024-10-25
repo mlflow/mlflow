@@ -139,6 +139,15 @@ def save_model(
         Please refer to the `Models From Code Guide <https://www.mlflow.org/docs/latest/model/models-from-code.html>`_
         for more information.
 
+    .. note::
+
+        When logging a model, MLflow will automatically save the state of the ``Settings``
+        object so that you can use the same settings at inference time. However, please
+        note that some information in the ``Settings`` object will not be saved, including:
+
+            - API keys for avoiding key leakage.
+            - Function objects which are not serializable.
+
     Args:
         llama_index_model: A LlamaIndex object to be saved. Supported model types are:
 
@@ -325,6 +334,15 @@ def log_model(
         Saving a non-index object is only supported in the 'Model-from-Code' saving mode.
         Please refer to the `Models From Code Guide <https://www.mlflow.org/docs/latest/model/models-from-code.html>`_
         for more information.
+
+    .. note::
+
+        When logging a model, MLflow will automatically save the state of the ``Settings``
+        object so that you can use the same settings at inference time. However, please
+        note that some information in the ``Settings`` object will not be saved, including:
+
+            - API keys for avoiding key leakage.
+            - Function objects which are not serializable.
 
     Args:
         llama_index_model: A LlamaIndex object to be saved. Supported model types are:
