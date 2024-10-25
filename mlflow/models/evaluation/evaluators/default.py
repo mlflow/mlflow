@@ -28,7 +28,7 @@ from mlflow.metrics import (
 from mlflow.metrics.genai.genai_metric import _GENAI_CUSTOM_METRICS_FILE_NAME
 from mlflow.models.evaluation.artifacts import JsonEvaluationArtifact
 from mlflow.models.evaluation.base import EvaluationMetric, EvaluationResult, _ModelType
-from mlflow.models.evaluation.default_evaluator import (
+from mlflow.models.evaluation.evaluators.base import (
     _LATENCY_METRIC_NAME,
     BuiltInEvaluator,
     _extract_predict_fn,

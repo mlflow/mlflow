@@ -184,7 +184,6 @@ def _evaluate_custom_artifacts(custom_artifact_tuple, eval_df, builtin_metrics):
     return artifacts
 
 
-# TODO: Move this to the /evaluators directory
 class BuiltInEvaluator(ModelEvaluator):
     """
     The base class for all evaluators that are built-in to MLflow.
