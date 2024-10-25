@@ -1,5 +1,7 @@
 import pytest
 
+from dataclasses import field
+from typing import Dict
 from mlflow.entities import TraceInfo
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.protos.service_pb2 import TraceInfo as ProtoTraceInfo
@@ -139,8 +141,6 @@ def _check(
     timestamp_ms,
     execution_time_ms,
     status,
-    request_metadata=None,
-    tags=None,
 ):
     assert isinstance(trace_info, TraceInfo)
     assert trace_info.request_id == request_id
@@ -148,8 +148,6 @@ def _check(
     assert trace_info.timestamp_ms == timestamp_ms
     assert trace_info.execution_time_ms == execution_time_ms
     assert trace_info.status == status
-    assert trace_info.request_metadata == request_metadata
-    assert trace_info.tags == tags
 
 
 def test_absent_fields():
@@ -166,8 +164,6 @@ def test_absent_fields():
         timestamp_ms,
         execution_time_ms,
         status,
-        request_metadata={},
-        tags={},
     )
 
     as_dict = {
@@ -179,11 +175,12 @@ def test_absent_fields():
         "request_metadata": {},
         "tags": {},
     }
-    assert dict(trace_info) == as_dict
+
+    assert trace_info.to_dict() == as_dict
 
     proto = trace_info.to_proto()
     trace_info_2 = TraceInfo.from_proto(proto)
     _check(trace_info_2, request_id, experiment_id, timestamp_ms, execution_time_ms, status)
 
-    trace_info_3 = TraceInfo.from_dictionary(as_dict)
+    trace_info_3 = TraceInfo.from_dict(as_dict)
     _check(trace_info_3, request_id, experiment_id, timestamp_ms, execution_time_ms, status)

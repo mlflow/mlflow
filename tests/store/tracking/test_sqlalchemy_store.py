@@ -12,11 +12,13 @@ from pathlib import Path
 from typing import List, Union
 from unittest import mock
 
+import pytest
+import sqlalchemy
+from packaging.version import Version
+
 import mlflow
 import mlflow.db
 import mlflow.store.db.base_sql_model
-import pytest
-import sqlalchemy
 from mlflow import entities
 from mlflow.entities import (
     Experiment,
@@ -94,7 +96,6 @@ from mlflow.utils.validation import (
     MAX_INPUT_TAG_VALUE_SIZE,
     MAX_TAG_VAL_LENGTH,
 )
-from packaging.version import Version
 
 from tests.integration.utils import invoke_cli_runner
 from tests.store.tracking.test_file_store import assert_dataset_inputs_equal
