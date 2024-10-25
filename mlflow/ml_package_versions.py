@@ -272,8 +272,8 @@ _ML_PACKAGE_VERSIONS = {
             "maximum": "2.5.6"
         },
         "autologging": {
-            "minimum": "2.5.6",
-            "maximum": "2.5.6"
+            "minimum": "2.5.17",
+            "maximum": "2.5.17"
         }
     },
     "langchain": {

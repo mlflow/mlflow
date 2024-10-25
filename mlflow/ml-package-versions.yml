@@ -709,17 +709,15 @@ dspy:
     run: |
       pytest tests/dspy --ignore tests/dspy/test_dspy_autolog.py
   autologging:
-    minimum: "2.5.6"
-    maximum: "2.5.6"
+    minimum: "2.5.17"
+    maximum: "2.5.17"
     python:
-      ">= 2.5.6": "3.9"
+      ">= 2.5.17": "3.9"
     requirements:
       ">= 0.0.0": [
           "openai",
           # https://github.com/stanfordnlp/dspy/issues/1624
           "litellm<=1.49.2",
-          # TODO: Remove once https://github.com/stanfordnlp/dspy/pull/1689 is merged in DSPy
-          "git+https://github.com/B-Step62/dspy.git@callback",
         ]
     run: |
       pytest tests/dspy/test_dspy_autolog.py
