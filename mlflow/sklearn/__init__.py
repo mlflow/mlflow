@@ -335,7 +335,6 @@ def save_model(
 def log_model(
     sk_model,
     artifact_path: Optional[str] = None,
-    name: Optional[str] = None,
     conda_env=None,
     code_paths=None,
     serialization_format=SERIALIZATION_FORMAT_CLOUDPICKLE,
@@ -353,6 +352,7 @@ def log_model(
     model_type: Optional[str] = None,
     step: int = 0,
     model_id: Optional[str] = None,
+    name: Optional[str] = None,
 ):
     """
     Log a scikit-learn model as an MLflow artifact for the current run. Produces an MLflow Model
@@ -365,7 +365,6 @@ def log_model(
     Args:
         sk_model: scikit-learn model to be saved.
         artifact_path: Deprecated. Use `name` instead.
-        name: {{ name }}
         conda_env: {{ conda_env }}
         code_paths: {{ code_paths }}
         serialization_format: The format in which to serialize the model. This should be one of
@@ -394,6 +393,7 @@ def log_model(
         model_type: {{ model_type }}
         step: {{ step }}
         model_id: {{ model_id }}
+        name: {{ name }}
 
     Returns:
         A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
