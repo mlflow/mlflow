@@ -433,9 +433,9 @@ class Recipe:
                 ) from None
             else:
                 raise MlflowException(
-                    f"Failed to construct Recipe {class_name}. Error: {e!r}",
+                    f"Failed to construct Recipe {class_name}",
                     error_code=INTERNAL_ERROR,
-                ) from None
+                ) from e
 
         recipe_name = get_recipe_name(recipe_root_path)
         _logger.info(f"Creating MLflow Recipe '{recipe_name}' with profile: '{profile}'")
