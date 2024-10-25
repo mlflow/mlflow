@@ -235,7 +235,9 @@ def _construct_payload_from_str(prompt: str, endpoint_type: str) -> Dict[str, An
         )
 
 
-def _parse_response(response: Dict[str, Any], endpoint_type: Optional[str]) -> str:
+def _parse_response(
+    response: Dict[str, Any], endpoint_type: Optional[str]
+) -> Union[Optional[str], Dict[str, Any]]:
     if endpoint_type == "llm/v1/completions":
         return _parse_completions_response_format(response)
     elif endpoint_type == "llm/v1/chat":
