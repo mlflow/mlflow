@@ -74,7 +74,7 @@ class TraceInfo(_MlflowObject):
             request_id=proto.request_id,
             experiment_id=proto.experiment_id,
             timestamp_ms=proto.timestamp_ms,
-            execution_time_ms=proto.execution_time_ms,
+            execution_time_ms=proto.execution_time_ms if proto.HasField("execution_time_ms") else None,
             status=TraceStatus.from_proto(proto.status),
             request_metadata={attr.key: attr.value for attr in proto.request_metadata},
             tags={tag.key: tag.value for tag in proto.tags},
