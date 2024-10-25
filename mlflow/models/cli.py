@@ -1,7 +1,6 @@
 import logging
 
 import click
-from packaging.requirements import InvalidRequirement, Requirement
 
 from mlflow.models import python_api
 from mlflow.models.flavor_backend_registry import get_flavor_backend
@@ -311,11 +310,6 @@ def update_pip_requirements(model_uri, operation, requirement_strings):
     and remove all the specified package names. Any requirements that are not
     found in the existing files will be ignored.
     """
-    try:
-        requirements = [Requirement(s.strip().lower()) for s in requirement_strings]
-    except InvalidRequirement as e:
-        raise click.BadArgumentUsage(f"Invalid requirement: {e}")
-
-    update_model_requirements(model_uri, operation, requirements)
+    update_model_requirements(model_uri, operation, requirement_strings)
 
     _logger.info(f"Successfully updated the requirements for the model at {model_uri}!")

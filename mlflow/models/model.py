@@ -11,6 +11,7 @@ from typing import Any, Callable, Dict, List, Literal, NamedTuple, Optional, Uni
 from urllib.parse import urlparse
 
 import yaml
+from packaging.requirements import InvalidRequirement, Requirement
 
 import mlflow
 from mlflow.artifacts import download_artifacts
@@ -959,7 +960,7 @@ def update_model_requirements(
     found in the existing files will be ignored.
 
     Args:
-        model_uri (str): The location, in URI format, of the MLflow model. For example:
+        model_uri: The location, in URI format, of the MLflow model. For example:
 
             - ``/Users/me/path/to/local/model``
             - ``relative/path/to/local/model``
@@ -971,10 +972,9 @@ def update_model_requirements(
             `Referencing Artifacts <https://www.mlflow.org/docs/latest/concepts.html#
             artifact-locations>`_.
 
-        operation (Literal["add", "remove]): The operation to perform.
-            Must be one of "add" or "remove".
+        operation: The operation to perform. Must be one of "add" or "remove".
 
-        requirement_list (List[str]): A list of requirements to add or remove from the model.
+        requirement_list: A list of requirements to add or remove from the model.
             For example: ["numpy==1.20.3", "pandas>=1.3.3"]
     """
     if ModelsArtifactRepository.is_models_uri(model_uri):
@@ -996,14 +996,25 @@ def update_model_requirements(
     old_conda_reqs = _get_requirements_from_file(conda_yaml_path)
     old_requirements_reqs = _get_requirements_from_file(requirements_txt_path)
 
+    requirements = []
+    invalid_requirements = {}
+    for s in requirement_list:
+        try:
+            requirements.append(Requirement(s.strip().lower()))
+        except InvalidRequirement as e:
+            invalid_requirements[s] = e
+    if invalid_requirements:
+        raise MlflowException.invalid_parameter_value(
+            f"Found invalid requirements: {invalid_requirements}"
+        )
     if operation == "add":
-        updated_conda_reqs = _add_or_overwrite_requirements(requirement_list, old_conda_reqs)
+        updated_conda_reqs = _add_or_overwrite_requirements(requirements, old_conda_reqs)
         updated_requirements_reqs = _add_or_overwrite_requirements(
-            requirement_list, old_requirements_reqs
+            requirements, old_requirements_reqs
         )
     else:
-        updated_conda_reqs = _remove_requirements(requirement_list, old_conda_reqs)
-        updated_requirements_reqs = _remove_requirements(requirement_list, old_requirements_reqs)
+        updated_conda_reqs = _remove_requirements(requirements, old_conda_reqs)
+        updated_requirements_reqs = _remove_requirements(requirements, old_requirements_reqs)
 
     _write_requirements_to_file(conda_yaml_path, updated_conda_reqs)
     _write_requirements_to_file(requirements_txt_path, updated_requirements_reqs)

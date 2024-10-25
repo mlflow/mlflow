@@ -408,6 +408,9 @@ nitpick_ignore = [
     ("py:class", "array"),
     ("py:class", "boolean"),
     ("py:class", "null"),
+    # for docstring of mlflow.models.update_model_requirements
+    ("py:class", "add"),
+    ("py:class", "remove"),
 ]
 
 
