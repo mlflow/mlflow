@@ -4103,7 +4103,7 @@ def test_start_and_end_trace(store: SqlAlchemyStore):
     assert trace_info.request_id is not None
     assert trace_info.experiment_id == experiment_id
     assert trace_info.timestamp_ms == 1234
-    # assert trace_info.execution_time_ms is None
+    assert trace_info.execution_time_ms is None
     assert trace_info.status == TraceStatus.IN_PROGRESS
     assert trace_info.request_metadata == {"rq1": "foo", "rq2": "bar"}
     artifact_location = trace_info.tags[MLFLOW_ARTIFACT_LOCATION]
