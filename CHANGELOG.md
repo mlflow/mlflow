@@ -1,5 +1,36 @@
 # CHANGELOG
 
+## 2.17.1 (2024-10-25)
+
+MLflow 2.17.1 includes several major features and improvements
+
+Features:
+
+- [Tracking] Support custom chat endpoint without endpoint type set as llm judge (#13538, @B-Step62)
+- [Tracking] OpenAI Swarm tracing support (#13497, @B-Step62)
+- [Tracking] Adding connections to UC as a dependency (#13491, @sunishsheth2009)
+- [Tracking] Add UC_Connection to Resources (#13481, @sunishsheth2009)
+- [] Add Genie Spaces to Resources (#13441, @aravind-segu)
+
+Bug fixes:
+
+- [Tracking] Fix tool span inputs/outputs format in LangChain autolog (#13527, @B-Step62)
+- [Models] Fix code_path handling for LlamaIndex flavor (#13486, @B-Step62)
+- [Models] Fix signature inference for subclass and Optional dataclasses (#13440, @bbqiu)
+- [Models] Support new Transformers task for llm/v1/embedding (#13468, @B-Step62)
+- [Tracking] Update to throw a warning instead of error when set_retriever_schema is called twice (#13422, @sunishsheth2009)
+- [] Support dependency extraction from RunnableCallables (#13423, @aravind-segu)
+
+Documentation updates:
+
+- [Docs] Fixed typo in docs: endpoing -> endpoint (#13478, @JAMNESIA)
+- [Docs] Improve CLI docs - attention about setting MLFLOW_TRACKING_URI (#13465, @BartoszLitwiniuk)
+- [] Update docs and infer_signature (#13407, @serena-ruan)
+
+Small bug fixes and documentation updates:
+
+#13293, #13510, #13501, #13506, #13446, @harupy; #13341, #13342, @WeichenXu123; #13396, @dvorst; #13535, @chenmoneygithub; #13503, #13469, #13416, @B-Step62; #13519, #13516, @serena-ruan; #13504, @sunishsheth2009; #13508, @KamilStachera; #13397, @kriscon-db
+
 ## 2.17.0 (2024-09-26)
 
 We are excited to announce the release of MLflow 2.17.0! This release includes several enhancements to extend the
