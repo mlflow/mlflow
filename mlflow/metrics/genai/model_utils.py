@@ -1,6 +1,7 @@
 import logging
 import os
 import urllib.parse
+from typing import Any, Dict, Optional, Union
 
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
@@ -9,9 +10,32 @@ from mlflow.utils.openai_utils import REQUEST_URL_CHAT
 _logger = logging.getLogger(__name__)
 
 
+def get_endpoint_type(endpoint_uri: str) -> Optional[str]:
+    """
+    Get the type of the endpoint if it is MLflow deployment
+    endpoint. For other endpoints e.g. OpenAI, or if the
+    endpoint does not specify type, return None.
+    """
+    schema, path = _parse_model_uri(endpoint_uri)
+
+    if schema != "endpoints":
+        return None
+
+    from pydantic import BaseModel
+
+    from mlflow.deployments import get_deploy_client
+
+    client = get_deploy_client()
+
+    endpoint = client.get_endpoint(path)
+    # TODO: Standardize the return type of `get_endpoint` and remove this check
+    endpoint = endpoint.dict() if isinstance(endpoint, BaseModel) else endpoint
+    return endpoint.get("task", endpoint.get("endpoint_type"))
+
+
 # TODO: improve this name
-def score_model_on_payload(model_uri, payload, eval_parameters=None):
-    """Call the model identified by the given uri with the given payload."""
+def score_model_on_payload(model_uri, payload, eval_parameters=None, endpoint_type=None):
+    """Call the model identified by the given uri with the given string prompt."""
 
     if eval_parameters is None:
         eval_parameters = {}
@@ -22,7 +46,7 @@ def score_model_on_payload(model_uri, payload, eval_parameters=None):
     elif prefix == "gateway":
         return _call_gateway_api(suffix, payload, eval_parameters)
     elif prefix == "endpoints":
-        return _call_deployments_api(suffix, payload, eval_parameters)
+        return call_deployments_api(suffix, payload, eval_parameters, endpoint_type)
     elif prefix in ("model", "runs"):
         # TODO: call _load_model_or_server
         raise NotImplementedError
@@ -121,72 +145,51 @@ is set correctly and the input payload is valid.\n
 - Input payload: {payload}"""
 
 
-def _call_deployments_api(deployment_uri, payload, eval_parameters, wrap_payload=True):
+def call_deployments_api(
+    deployment_uri: str,
+    input_data: Union[str, Dict[str, Any]],
+    eval_parameters: Optional[Dict[str, Any]] = None,
+    endpoint_type: Optional[str] = None,
+):
     """Call the deployment endpoint with the given payload and parameters.
 
     Args:
         deployment_uri: The URI of the deployment endpoint.
-        payload: The input payload to send to the endpoint.
+        input_data: The input string or dictionary to send to the endpoint.
+            - If it is a string, MLflow tries to construct the payload based on the endpoint type.
+            - If it is a dictionary, MLflow directly sends it to the endpoint.
         eval_parameters: The evaluation parameters to send to the endpoint.
-        wrap_payload: Whether to wrap the payload in a expected key by the endpoint,
-            e.g. "prompt" for completions or "messages" for chat. If False, the specified
-            payload is directly sent to the endpoint combined with the eval_parameters.
+        endpoint_type: The type of the endpoint. If specified, must be 'llm/v1/completions'
+            or 'llm/v1/chat'. If not specified, MLflow tries to get the endpoint type
+            from the endpoint, and if not found, directly sends the payload to the endpoint.
 
     Returns:
         The unpacked response from the endpoint.
     """
-    from pydantic import BaseModel
-
     from mlflow.deployments import get_deploy_client
 
     client = get_deploy_client()
 
-    endpoint = client.get_endpoint(deployment_uri)
-    # TODO: Standardize the return type of `get_endpoint` and remove this check
-    endpoint = endpoint.dict() if isinstance(endpoint, BaseModel) else endpoint
-    endpoint_type = endpoint.get("task", endpoint.get("endpoint_type"))
-
-    if endpoint_type == "llm/v1/completions":
-        if wrap_payload:
-            payload = {"prompt": payload}
-        chat_inputs = {**payload, **eval_parameters}
-        try:
-            response = client.predict(endpoint=deployment_uri, inputs=chat_inputs)
-        except Exception as e:
-            raise MlflowException(
-                _PREDICT_ERROR_MSG.format(e=e, uri=deployment_uri, payload=chat_inputs)
-            ) from e
-        return _parse_completions_response_format(response)
-    elif endpoint_type == "llm/v1/chat":
-        if wrap_payload:
-            payload = {"messages": [{"role": "user", "content": payload}]}
-        completion_inputs = {**payload, **eval_parameters}
-        try:
-            response = client.predict(endpoint=deployment_uri, inputs=completion_inputs)
-        except Exception as e:
-            raise MlflowException(
-                _PREDICT_ERROR_MSG.format(e=e, uri=deployment_uri, payload=completion_inputs)
-            ) from e
-        return _parse_chat_response_format(response)
-    elif endpoint_type is None:
-        # If the endpoint type is not specified, we don't assume any format
-        # and directly send the payload to the endpoint. This is primary for Databricks
-        # Managed Agent Evaluation, where the endpoint type may not be specified but the
-        # eval harness ensures that the payload is formatted to the chat format, as well
-        # as parsing the response.
-        inputs = {**payload, **eval_parameters}
-        try:
-            return client.predict(endpoint=deployment_uri, inputs=inputs)
-        except Exception as e:
-            raise MlflowException(
-                _PREDICT_ERROR_MSG.format(e=e, uri=deployment_uri, payload=inputs)
-            ) from e
+    if isinstance(input_data, str):
+        payload = _construct_payload_from_str(input_data, endpoint_type)
+    elif isinstance(input_data, dict):
+        # If the input is a dictionary, we assume it is already in the correct format
+        payload = input_data
     else:
         raise MlflowException(
-            f"Unsupported endpoint type: {endpoint_type}. Endpoint type, if specified, "
-            "must be 'llm/v1/completions' or 'llm/v1/chat'.",
+            f"Invalid input data type {type(input_data)}. Must be a string or a dictionary.",
             error_code=INVALID_PARAMETER_VALUE,
         )
+    payload = {**payload, **(eval_parameters or {})}
+
+    try:
+        response = client.predict(endpoint=deployment_uri, inputs=payload)
+    except Exception as e:
+        raise MlflowException(
+            _PREDICT_ERROR_MSG.format(e=e, uri=deployment_uri, payload=payload)
+        ) from e
+
+    return _parse_response(response, endpoint_type)
 
 
 def _call_gateway_api(gateway_uri, payload, eval_parameters):
@@ -213,6 +216,34 @@ def _call_gateway_api(gateway_uri, payload, eval_parameters):
             "route of type 'llm/v1/completions' or 'llm/v1/chat' instead.",
             error_code=INVALID_PARAMETER_VALUE,
         )
+
+
+def _construct_payload_from_str(prompt: str, endpoint_type: str) -> Dict[str, Any]:
+    """
+    Construct the payload from the input string based on the endpoint type.
+    If the endpoint type is not specified or unsupported one, raise an exception.
+    """
+    if endpoint_type == "llm/v1/completions":
+        return {"prompt": prompt}
+    elif endpoint_type == "llm/v1/chat":
+        return {"messages": [{"role": "user", "content": prompt}]}
+    else:
+        raise MlflowException(
+            f"Unsupported endpoint type: {endpoint_type}. If string input is provided, "
+            "the endpoint type must be 'llm/v1/completions' or 'llm/v1/chat'.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+
+
+def _parse_response(
+    response: Dict[str, Any], endpoint_type: Optional[str]
+) -> Union[Optional[str], Dict[str, Any]]:
+    if endpoint_type == "llm/v1/completions":
+        return _parse_completions_response_format(response)
+    elif endpoint_type == "llm/v1/chat":
+        return _parse_chat_response_format(response)
+    else:
+        return response
 
 
 def _parse_chat_response_format(response):

@@ -2182,15 +2182,18 @@ def test_evaluate_on_model_endpoint_invalid_payload(mock_deploy_client):
     ],
 )
 def test_evaluate_on_model_endpoint_invalid_input_data(input_data, error_message):
-    with pytest.raises(MlflowException, match=error_message):
-        with mlflow.start_run():
-            mlflow.evaluate(
-                model="endpoints:/chat",
-                data=input_data,
-                model_type="question-answering",
-                targets="ground_truth",
-                inference_params={"max_tokens": 10, "temperature": 0.5},
-            )
+    with mock.patch("mlflow.deployments.get_deploy_client") as mock_deploy_client:
+        mock_deploy_client.return_value.get_endpoint.return_value = {"task": "llm/v1/chat"}
+
+        with pytest.raises(MlflowException, match=error_message):
+            with mlflow.start_run():
+                mlflow.evaluate(
+                    model="endpoints:/chat",
+                    data=input_data,
+                    model_type="question-answering",
+                    targets="ground_truth",
+                    inference_params={"max_tokens": 10, "temperature": 0.5},
+                )
 
 
 @pytest.mark.parametrize(

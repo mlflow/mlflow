@@ -737,12 +737,20 @@ class ModelFromDeploymentEndpoint(PythonModel):
         Returns:
             The prediction result from the MLflow Deployments endpoint as a dictionary.
         """
-        from mlflow.metrics.genai.model_utils import _call_deployments_api
+        from mlflow.metrics.genai.model_utils import call_deployments_api, get_endpoint_type
+
+        endpoint_type = get_endpoint_type(f"endpoints:/{self.endpoint}")
 
         if isinstance(data, str):
-            prediction = _call_deployments_api(self.endpoint, data, self.params)
+            # If the input payload is string, MLflow needs to construct the JSON
+            # payload based on the endpoint type. If the endpoint type is not
+            # set on the endpoint, we will default to chat format.
+            endpoint_type = endpoint_type or "llm/v1/chat"
+            prediction = call_deployments_api(self.endpoint, data, self.params, endpoint_type)
         elif isinstance(data, dict):
-            prediction = _call_deployments_api(self.endpoint, data, self.params, wrap_payload=False)
+            # If the input is dictionary, we assume the input is already in the
+            # compatible format for the endpoint.
+            prediction = call_deployments_api(self.endpoint, data, self.params, endpoint_type)
         else:
             raise MlflowException(
                 f"Invalid input data type: {type(data)}. The feature column of the evaluation "
