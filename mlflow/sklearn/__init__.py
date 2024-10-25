@@ -423,16 +423,8 @@ def log_model(
             mlflow.sklearn.log_model(sk_model, "sk_models", signature=signature)
 
     """
-    if name is not None and artifact_path is not None:
-        raise MlflowException.invalid_parameter_value(
-            "Both `artifact_path` (deprecated) and `name` parameters were specified. "
-            "Please only specify `name`."
-        )
-    elif artifact_path is not None:
-        _logger.warning("`artifact_path` is deprecated. Please use `name` instead.")
-
-    name = name or artifact_path
     return Model.log(
+        artifact_path=artifact_path,
         name=name,
         flavor=mlflow.sklearn,
         sk_model=sk_model,

@@ -40,11 +40,12 @@ _logger = logging.getLogger(__name__)
 def log_model(
     spark_model,
     sample_input,
-    name: Optional[str] = None,
-    registered_model_name=None,
+    artifact_path: Optional[str] = None,
     signature: ModelSignature = None,
     input_example: ModelInputExample = None,
     metadata=None,
+    registered_model_name=None,
+    name: Optional[str] = None,
     params: Optional[Dict[str, Any]] = None,
     tags: Optional[Dict[str, Any]] = None,
     model_type: Optional[str] = None,
@@ -66,10 +67,7 @@ def log_model(
             cannot contain any custom transformers.
         sample_input: Sample PySpark DataFrame input that the model can evaluate. This is
             required by MLeap for data schema inference.
-        name: {{ name }}
-        registered_model_name: If given, create a model version under
-            ``registered_model_name``, also creating a registered model if one
-            with the given name does not exist.
+        artifact_path: Deprecated. Use `name` instead.
         signature: :py:class:`ModelSignature <mlflow.models.ModelSignature>`
             describes model input and output :py:class:`Schema <mlflow.types.Schema>`.
             The model signature can be :py:func:`inferred <mlflow.models.infer_signature>`
@@ -86,6 +84,11 @@ def log_model(
                 signature = infer_signature(train, predictions)
         input_example: {{ input_example }}
         metadata: {{ metadata }}
+        registered_model_name: If given, create a model version under
+            ``registered_model_name``, also creating a registered model if one
+            with the given name does not exist.
+
+        name: {{ name }}
         params: {{ params }}
         tags: {{ tags }}
         model_type: {{ model_type }}
@@ -137,6 +140,7 @@ def log_model(
         )
     """
     return Model.log(
+        artifact_path=artifact_path,
         name=name,
         flavor=mlflow.mleap,
         spark_model=spark_model,

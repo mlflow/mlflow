@@ -678,6 +678,7 @@ class Model:
     @classmethod
     def log(
         cls,
+        artifact_path,
         name,
         flavor,
         registered_model_name=None,
@@ -697,6 +698,7 @@ class Model:
         active run.
 
         Args:
+            artifact_path: Deprecated. Use `name` instead.
             name: The name of the model.
             flavor: Flavor module to save the model with. The module must have
                 the ``save_model`` function that will persist the model as a valid
@@ -723,6 +725,16 @@ class Model:
             A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
             metadata of the logged model.
         """
+        if name is not None and artifact_path is not None:
+            raise MlflowException.invalid_parameter_value(
+                "Both `artifact_path` (deprecated) and `name` parameters were specified. "
+                "Please only specify `name`."
+            )
+        elif artifact_path is not None:
+            _logger.warning("`artifact_path` is deprecated. Please use `name` instead.")
+
+        name = name or artifact_path
+
         if (model_id, name).count(None) == 2:
             raise MlflowException(
                 "Either `model_id` or `name` must be specified when logging a model. "

@@ -792,7 +792,7 @@ def save_model(
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
 def log_model(
     transformers_model,
-    name: Optional[str] = None,
+    artifact_path: Optional[str] = None,
     processor=None,
     task: Optional[str] = None,
     torch_dtype: Optional[torch.dtype] = None,
@@ -811,6 +811,7 @@ def log_model(
     example_no_conversion: Optional[bool] = None,
     prompt_template: Optional[str] = None,
     save_pretrained: bool = True,
+    name: Optional[str] = None,
     params: Optional[Dict[str, Any]] = None,
     tags: Optional[Dict[str, Any]] = None,
     model_type: Optional[str] = None,
@@ -883,7 +884,7 @@ def log_model(
                         artifact_path="model",
                     )
 
-        name: {{ name }}
+        artifact_path: Deprecated. Use `name` instead.
         processor: An optional ``Processor`` subclass object. Some model architectures,
             particularly multi-modal types, utilize Processors to combine text
             encoding and image or audio encoding in a single entrypoint.
@@ -1019,6 +1020,7 @@ def log_model(
         example_no_conversion: {{ example_no_conversion }}
         prompt_template: {{ prompt_template }}
         save_pretrained: {{ save_pretrained }}
+        name: {{ name }}
         params: {{ params }}
         tags: {{ tags }}
         model_type: {{ model_type }}
@@ -1027,6 +1029,7 @@ def log_model(
         kwargs: Additional arguments for :py:class:`mlflow.models.model.Model`
     """
     return Model.log(
+        artifact_path=artifact_path,
         name=name,
         flavor=sys.modules[__name__],  # Get the current module.
         registered_model_name=registered_model_name,

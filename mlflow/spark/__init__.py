@@ -144,7 +144,7 @@ def get_default_conda_env(is_spark_connect_model=False):
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name="pyspark"))
 def log_model(
     spark_model,
-    name: Optional[str] = None,
+    artifact_path: Optional[str] = None,
     conda_env=None,
     code_paths=None,
     dfs_tmpdir=None,
@@ -156,6 +156,7 @@ def log_model(
     pip_requirements=None,
     extra_pip_requirements=None,
     metadata=None,
+    name: Optional[str] = None,
     params: Optional[Dict[str, Any]] = None,
     tags: Optional[Dict[str, Any]] = None,
     model_type: Optional[str] = None,
@@ -172,7 +173,8 @@ def log_model(
         spark_model: Spark model to be saved - MLflow can only save descendants of
             pyspark.ml.Model or pyspark.ml.Transformer which implement
             MLReadable and MLWritable.
-        name: {{ name }}
+
+        artifact_path: Deprecated. Use `name` instead.
         conda_env: {{ conda_env }}
         code_paths: {{ code_paths }}
         dfs_tmpdir: Temporary directory path on Distributed (Hadoop) File System (DFS) or local
@@ -251,6 +253,7 @@ def log_model(
         pip_requirements: {{ pip_requirements }}
         extra_pip_requirements: {{ extra_pip_requirements }}
         metadata: {{ metadata }}
+        name: {{ name }}
         params: {{ params }}
         tags: {{ tags }}
         model_type: {{ model_type }}
@@ -289,6 +292,7 @@ def log_model(
 
     if _is_spark_connect_model(spark_model):
         return Model.log(
+            artifact_path=artifact_path,
             name=name,
             flavor=mlflow.spark,
             spark_model=spark_model,
@@ -336,6 +340,7 @@ def log_model(
         append_to_uri_path(run_root_artifact_uri, name),
     ):
         return Model.log(
+            artifact_path=artifact_path,
             name=name,
             flavor=mlflow.spark,
             spark_model=spark_model,

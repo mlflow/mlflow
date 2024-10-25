@@ -304,7 +304,7 @@ def _get_transformers_model_name(model_name_or_path):
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
 def log_model(
     model,
-    name: Optional[str] = None,
+    artifact_path: Optional[str] = None,
     task: Optional[str] = None,
     inference_config: Optional[Dict[str, Any]] = None,
     code_paths: Optional[List[str]] = None,
@@ -317,6 +317,7 @@ def log_model(
     conda_env=None,
     metadata: Optional[Dict[str, Any]] = None,
     example_no_conversion: Optional[bool] = None,
+    name: Optional[str] = None,
     params: Optional[Dict[str, Any]] = None,
     tags: Optional[Dict[str, Any]] = None,
     model_type: Optional[str] = None,
@@ -357,7 +358,7 @@ def log_model(
 
     Args:
         model: A trained ``sentence-transformers`` model.
-        name: {{ name }}
+        artifact_path: Deprecated. Use `name` instead.
         task: MLflow inference task type for ``sentence-transformers`` model. Candidate task type
             is `llm/v1/embeddings`.
         inference_config:
@@ -390,6 +391,7 @@ def log_model(
         conda_env: {{ conda_env }}
         metadata: {{ metadata }}
         example_no_conversion: {{ example_no_conversion }}
+        name: {{ name }}
         params: {{ params }}
         tags: {{ tags }}
         model_type: {{ model_type }}
@@ -400,6 +402,7 @@ def log_model(
         metadata = _verify_task_and_update_metadata(task, metadata)
 
     return Model.log(
+        artifact_path=artifact_path,
         name=name,
         flavor=mlflow.sentence_transformers,
         registered_model_name=registered_model_name,

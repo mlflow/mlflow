@@ -448,7 +448,7 @@ def load_model(model_uri, dst_path=None):
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
 def log_model(
     onnx_model,
-    name: Optional[str] = None,
+    artifact_path: Optional[str] = None,
     conda_env=None,
     code_paths=None,
     registered_model_name=None,
@@ -461,6 +461,7 @@ def log_model(
     onnx_session_options=None,
     metadata=None,
     save_as_external_data=True,
+    name: Optional[str] = None,
     params: Optional[Dict[str, Any]] = None,
     tags: Optional[Dict[str, Any]] = None,
     model_type: Optional[str] = None,
@@ -472,7 +473,7 @@ def log_model(
 
     Args:
         onnx_model: ONNX model to be saved.
-        name: {{ name }}
+        artifact_path: Deprecated. Use `name` instead.
         conda_env: {{ conda_env }}
         code_paths: {{ code_paths }}
         registered_model_name: If given, create a model version under
@@ -518,6 +519,7 @@ def log_model(
             https://onnxruntime.ai/docs/api/python/api_summary.html#sessionoptions
         metadata: {{ metadata }}
         save_as_external_data: Save tensors to external file(s).
+        name: {{ name }}
         params: {{ params }}
         tags: {{ tags }}
         model_type: {{ model_type }}
@@ -529,6 +531,7 @@ def log_model(
         metadata of the logged model.
     """
     return Model.log(
+        artifact_path=artifact_path,
         name=name,
         flavor=mlflow.onnx,
         onnx_model=onnx_model,

@@ -97,7 +97,7 @@ def get_default_conda_env():
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
 def log_model(
     model,
-    name: Optional[str] = None,
+    artifact_path: Optional[str] = None,
     conda_env=None,
     code_paths=None,
     registered_model_name=None,
@@ -109,6 +109,7 @@ def log_model(
     metadata=None,
     model_config: Optional[Dict[str, Any]] = None,
     example_no_conversion=None,
+    name: Optional[str] = None,
     params: Optional[Dict[str, Any]] = None,
     tags: Optional[Dict[str, Any]] = None,
     model_type: Optional[str] = None,
@@ -120,7 +121,7 @@ def log_model(
 
     Args:
         model: A promptflow model loaded by `promptflow.load_flow()`.
-        name: {{ name }}
+        artifact_path: Deprecated. Use `name` instead.
         conda_env: {{ conda_env }}
         code_paths: {{ code_paths }}
         registered_model_name: If given, create a model version under
@@ -176,6 +177,7 @@ def log_model(
                         flow, artifact_path="promptflow_model", model_config=model_config
                     )
         example_no_conversion: {{ example_no_conversion }}
+        name: {{ name }}
         params: {{ params }}
         tags: {{ tags }}
         model_type: {{ model_type }}
@@ -186,8 +188,8 @@ def log_model(
         A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
         metadata of the logged model.
     """
-
     return Model.log(
+        artifact_path=artifact_path,
         name=name,
         flavor=mlflow.promptflow,
         registered_model_name=registered_model_name,

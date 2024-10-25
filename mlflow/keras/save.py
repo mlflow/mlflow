@@ -279,7 +279,7 @@ def save_model(
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
 def log_model(
     model,
-    name: Optional[str] = None,
+    artifact_path: Optional[str] = None,
     save_exported_model=False,
     conda_env=None,
     signature: ModelSignature = None,
@@ -290,6 +290,7 @@ def log_model(
     extra_pip_requirements=None,
     save_model_kwargs=None,
     metadata=None,
+    name: Optional[str] = None,
     params: Optional[Dict[str, Any]] = None,
     tags: Optional[Dict[str, Any]] = None,
     model_type: Optional[str] = None,
@@ -304,7 +305,7 @@ def log_model(
 
     Args:
         model: an instance of `keras.Model`. The Keras model to be saved.
-        name: {{ name }}
+        artifact_path: Deprecated. Use `name` instead.
         save_exported_model: defaults to False. If True, save Keras model in exported
             model format, otherwise save in `.keras` format. For more information, please
             refer to [Keras doc](https://keras.io/guides/serialization_and_saving/).
@@ -325,6 +326,7 @@ def log_model(
             `keras.Model.save` method.
         metadata: Custom metadata dictionary passed to the model and stored in the MLmodel
             file.
+        name: {{ name }}
         params: {{ params }}
         tags: {{ tags }}
         model_type: {{ model_type }}
@@ -348,6 +350,7 @@ def log_model(
             mlflow.keras.log_model(model, "model")
     """
     return Model.log(
+        artifact_path=artifact_path,
         name=name,
         flavor=mlflow.keras,
         model=model,
