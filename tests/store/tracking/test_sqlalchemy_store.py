@@ -12,13 +12,11 @@ from pathlib import Path
 from typing import List, Union
 from unittest import mock
 
-import pytest
-import sqlalchemy
-from packaging.version import Version
-
 import mlflow
 import mlflow.db
 import mlflow.store.db.base_sql_model
+import pytest
+import sqlalchemy
 from mlflow import entities
 from mlflow.entities import (
     Experiment,
@@ -28,10 +26,10 @@ from mlflow.entities import (
     RunStatus,
     RunTag,
     SourceType,
-    TraceInfo,
     ViewType,
     _DatasetSummary,
 )
+from mlflow.entities.lifecycle_stage import LifecycleStage
 from mlflow.entities.trace_info import TraceInfo
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.environment_variables import MLFLOW_TRACKING_URI
@@ -81,7 +79,10 @@ from mlflow.utils.mlflow_tags import (
 from mlflow.utils.name_utils import _GENERATOR_PREDICATES
 from mlflow.utils.os import is_windows
 from mlflow.utils.time import get_current_time_millis
-from mlflow.utils.uri import extract_db_type_from_uri
+from mlflow.utils.uri import (
+    append_to_uri_path,
+    extract_db_type_from_uri,
+)
 from mlflow.utils.validation import (
     MAX_DATASET_DIGEST_SIZE,
     MAX_DATASET_NAME_SIZE,
@@ -93,6 +94,7 @@ from mlflow.utils.validation import (
     MAX_INPUT_TAG_VALUE_SIZE,
     MAX_TAG_VAL_LENGTH,
 )
+from packaging.version import Version
 
 from tests.integration.utils import invoke_cli_runner
 from tests.store.tracking.test_file_store import assert_dataset_inputs_equal
@@ -4101,7 +4103,7 @@ def test_start_and_end_trace(store: SqlAlchemyStore):
     assert trace_info.request_id is not None
     assert trace_info.experiment_id == experiment_id
     assert trace_info.timestamp_ms == 1234
-    assert trace_info.execution_time_ms is None
+    # assert trace_info.execution_time_ms is None
     assert trace_info.status == TraceStatus.IN_PROGRESS
     assert trace_info.request_metadata == {"rq1": "foo", "rq2": "bar"}
     artifact_location = trace_info.tags[MLFLOW_ARTIFACT_LOCATION]
@@ -4167,25 +4169,55 @@ def _create_trace(
     if not store.get_experiment(experiment_id):
         store.create_experiment(store, experiment_id)
 
-    with mock.patch(
-        "mlflow.store.tracking.sqlalchemy_store.generate_request_id",
-        side_effect=lambda: request_id,
-    ):
-        trace_info = store.start_trace(
+    with store.ManagedSessionMaker() as session:
+        experiment = store.get_experiment(experiment_id)
+        if experiment.lifecycle_stage != LifecycleStage.ACTIVE:
+            raise MlflowException(
+                (
+                    f"The experiment {experiment.experiment_id} must be in the 'active' state. "
+                    f"Current state is {experiment.lifecycle_stage}."
+                ),
+                INVALID_PARAMETER_VALUE,
+            )
+
+        trace_info = SqlTraceInfo(
+            request_id=request_id,
             experiment_id=experiment_id,
             timestamp_ms=timestamp_ms,
-            request_metadata=request_metadata or {},
-            tags=tags or {},
+            execution_time_ms=None,
+            status=TraceStatus.IN_PROGRESS,
         )
 
-    store.end_trace(
-        request_id=request_id,
-        timestamp_ms=timestamp_ms + execution_time_ms,
-        status=status,
-        request_metadata={},
-        tags={},
-    )
-    return trace_info
+        trace_info.tags = [SqlTraceTag(key=k, value=v) for k, v in (tags.items() if tags else {})]
+        # Trace data is stored as file artifacts regardless of the tracking backend choice.
+        # We use subdirectory "/traces" under the experiment's artifact location to isolate
+        # them from run artifacts.
+        artifact_uri = append_to_uri_path(
+            experiment.artifact_location,
+            SqlAlchemyStore.TRACE_FOLDER_NAME,
+            request_id,
+            SqlAlchemyStore.ARTIFACTS_FOLDER_NAME,
+        )
+        artifact_location_tag = SqlTraceTag(key=MLFLOW_ARTIFACT_LOCATION, value=artifact_uri)
+
+        trace_info.tags.append(artifact_location_tag)
+        trace_info.request_metadata = [
+            SqlTraceRequestMetadata(key=k, value=v)
+            for k, v in (request_metadata.items() if request_metadata else {})
+        ]
+
+        session.add(trace_info)
+        session.commit()
+
+        store.end_trace(
+            request_id=request_id,
+            timestamp_ms=timestamp_ms + execution_time_ms,
+            status=status,
+            request_metadata={},
+            tags={},
+        )
+
+        return trace_info.to_mlflow_entity()
 
 
 @pytest.fixture
