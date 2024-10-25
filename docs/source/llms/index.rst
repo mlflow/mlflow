@@ -45,7 +45,7 @@ Note that there are additional tutorials within the `"Explore the Native LLM Fla
                 </a>
             </div>
             <div class="simple-card">
-                <a href="chat-model-guide/index.html" >
+                <a href="chat-model-tool-calling/index.html" >
                     <div class="header">
                         Tool Calling Models
                     </div>
