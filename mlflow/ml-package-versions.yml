@@ -203,7 +203,10 @@ catboost:
   package_info:
     pip_release: "catboost"
     install_dev: |
-      pip install git+https://github.com/catboost/catboost.git#subdirectory=catboost/python-package
+      git clone --depth=1 https://github.com/catboost/catboost.git
+      cd = catboost/python-package
+      sed -i 's/from wheel.bdist_wheel import bdist_wheel as _bdist_wheel/from setuptools.command.bdist_wheel import bdist_wheel as _bdist_wheel/' setup.py
+      pip install .
 
   models:
     minimum: "1.0.0"
