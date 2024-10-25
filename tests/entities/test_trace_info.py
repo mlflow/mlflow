@@ -166,8 +166,8 @@ def test_absent_fields():
         timestamp_ms,
         execution_time_ms,
         status,
-        request_metadata=None,
-        tags=None,
+        request_metadata={},
+        tags={},
     )
 
     as_dict = {
