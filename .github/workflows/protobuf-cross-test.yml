@@ -72,6 +72,9 @@ jobs:
           pip install -r requirements/test-requirements.txt
           # Test the latest minor version in protobuf_major_version
           pip install "protobuf==${{ matrix.protobuf_major_version }}.*"
+          # 4.46.0 is broken because of https://github.com/huggingface/transformers/issues/34370
+          # TODO: remove this once above issue is resolved
+          pip install 'transformers!=4.46.0'
       - uses: ./.github/actions/show-versions
       - uses: ./.github/actions/pipdeptree
       - name: Run tests
