@@ -196,7 +196,7 @@ def get_default_conda_env():
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name="johnsnowlabs"))
 def log_model(
     spark_model,
-    name: Optional[str] = None,
+    artifact_path: Optional[str] = None,
     conda_env=None,
     code_paths=None,
     dfs_tmpdir=None,
@@ -209,6 +209,7 @@ def log_model(
     extra_pip_requirements=None,
     metadata=None,
     store_license=False,
+    name: Optional[str] = None,
     params: Optional[Dict[str, Any]] = None,
     tags: Optional[Dict[str, Any]] = None,
     model_type: Optional[str] = None,
@@ -226,7 +227,7 @@ def log_model(
     Args:
         spark_model: NLUPipeline obtained via `nlp.load()
             <https://nlp.johnsnowlabs.com/docs/en/jsl/load_api>`_
-        name: {{ name }}
+        artifact_path: Deprecated. Use `name` instead.
         conda_env: Either a dictionary representation of a Conda environment or the path to a
             Conda environment yaml file. If provided, this describes the environment
             this model should be run in. At minimum, it should specify the dependencies
@@ -280,6 +281,7 @@ def log_model(
         metadata:  {{ metadata }}
         store_license: If True, the license will be stored with the model and used and re-loading
             it.
+        name: {{ name }}
         params: {{ params }}
         tags: {{ tags }}
         model_type: {{ model_type }}
@@ -344,6 +346,7 @@ def log_model(
         append_to_uri_path(run_root_artifact_uri, name),
     ):
         return Model.log(
+            artifact_path=artifact_path,
             name=name,
             flavor=mlflow.johnsnowlabs,
             spark_model=spark_model,

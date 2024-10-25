@@ -237,7 +237,7 @@ def save_model(
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
 def log_model(
     fastai_learner,
-    name: Optional[str] = None,
+    artifact_path: Optional[str] = None,
     conda_env=None,
     code_paths=None,
     registered_model_name=None,
@@ -247,6 +247,7 @@ def log_model(
     pip_requirements=None,
     extra_pip_requirements=None,
     metadata=None,
+    name: Optional[str] = None,
     params: Optional[Dict[str, Any]] = None,
     tags: Optional[Dict[str, Any]] = None,
     model_type: Optional[str] = None,
@@ -258,7 +259,7 @@ def log_model(
 
     Args:
         fastai_learner: Fastai model (an instance of `fastai.Learner`_) to be saved.
-        name: {{ name }}
+        artifact_path: Deprecated. Use `name` instead.
         conda_env: {{ conda_env }}
         code_paths: A list of local filesystem paths to Python file dependencies (or directories
             containing file dependencies). These files are *prepended* to the system
@@ -287,6 +288,7 @@ def log_model(
         pip_requirements: {{ pip_requirements }}
         extra_pip_requirements: {{ extra_pip_requirements }}
         metadata: {{ metadata }}
+        name: {{ name }}
         params: {{ params }}
         tags: {{ tags }}
         model_type: {{ model_type }}
@@ -334,6 +336,7 @@ def log_model(
         artifacts: ['model/MLmodel', 'model/conda.yaml', 'model/model.fastai']
     """
     return Model.log(
+        artifact_path=artifact_path,
         name=name,
         flavor=mlflow.fastai,
         registered_model_name=registered_model_name,

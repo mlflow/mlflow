@@ -303,7 +303,7 @@ def save_model(
 @trace_disabled  # Suppress traces while loading model
 def log_model(
     llama_index_model,
-    name: Optional[str] = None,
+    artifact_path: Optional[str] = None,
     engine_type: Optional[str] = None,
     model_config: Optional[Dict[str, Any]] = None,
     code_paths: Optional[List[str]] = None,
@@ -315,6 +315,7 @@ def log_model(
     extra_pip_requirements: Optional[Union[List[str], str]] = None,
     conda_env=None,
     metadata: Optional[Dict[str, Any]] = None,
+    name: Optional[str] = None,
     params: Optional[Dict[str, Any]] = None,
     tags: Optional[Dict[str, Any]] = None,
     model_type: Optional[str] = None,
@@ -340,7 +341,7 @@ def log_model(
             4. A string representing the path to a script contains LlamaIndex model definition
                 of the one of the above types.
 
-        name: {{ name }}
+        artifact_path: Deprecated. Use `name` instead.
         engine_type: Required when saving an Index object to determine the inference interface
             for the index when loaded as a pyfunc model. This field is **not** required when
             saving other LlamaIndex objects. The supported values are as follows:
@@ -421,6 +422,7 @@ def log_model(
         extra_pip_requirements: {{ extra_pip_requirements }}
         conda_env: {{ conda_env }}
         metadata: {{ metadata }}
+        name: {{ name }}
         params: {{ params }}
         tags: {{ tags }}
         model_type: {{ model_type }}
@@ -428,8 +430,8 @@ def log_model(
         model_id: {{ model_id }}
         kwargs: Additional arguments for :py:class:`mlflow.models.model.Model`
     """
-
     return Model.log(
+        artifact_path=artifact_path,
         name=name,
         engine_type=engine_type,
         model_config=model_config,
