@@ -1656,6 +1656,13 @@ def _is_spark_connect():
     return is_remote()
 
 
+# This location is used to prebuild python environment in Databricks runtime.
+# The location for prebuilding env should be located under /local_disk0
+# because the python env will be uploaded to NFS and mounted to Serverless UDF sandbox,
+# for serverless client image case, it doesn't have "/local_disk0" directory
+_PREBUILD_ENV_ROOT_LOCATION = "/tmp"
+
+
 def spark_udf(
     spark,
     model_uri,

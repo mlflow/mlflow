@@ -476,13 +476,19 @@ def expand_config(config):
         )
         validate_test_coverage(name, flavor_config)
         for category, cfg in flavor_config.categories:
-            versions = filter_versions(
-                all_versions,
-                cfg.minimum,
-                cfg.maximum,
-                cfg.unsupported or [],
-                allow_unreleased_max_version=cfg.allow_unreleased_max_version or False,
-            )
+            try:
+                versions = filter_versions(
+                    all_versions,
+                    cfg.minimum,
+                    cfg.maximum,
+                    cfg.unsupported or [],
+                    allow_unreleased_max_version=cfg.allow_unreleased_max_version or False,
+                )
+            except Exception as e:
+                raise ValueError(
+                    f"Failed to filter versions for '{name}' / '{category}',"
+                    f"{cfg}, {all_versions}"
+                ) from e
             versions = get_latest_micro_versions(versions)
 
             # Always test the minimum version

@@ -42,6 +42,9 @@ jobs:
             httpx psutil sentence-transformers transformers torchvision openai databricks-sdk
           # Ensure pydantic v2 is installed
           pip freeze | tail -n +1 | grep -q '^pydantic==2\.'
+          # 4.46.0 is broken because of https://github.com/huggingface/transformers/issues/34370
+          # TODO: remove this once above issue is resolved
+          pip install 'transformers!=4.46.0'
       - name: Run tests with pydantic v2
         run: |
           pytest tests/gateway

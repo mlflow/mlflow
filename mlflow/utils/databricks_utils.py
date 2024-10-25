@@ -261,6 +261,35 @@ def is_in_databricks_serverless():
     return dbr_version and dbr_version.startswith("client.")
 
 
+def is_in_databricks_shared_cluster_runtime():
+    from mlflow.utils.spark_utils import is_spark_connect_mode
+
+    return (
+        is_in_databricks_runtime() and is_spark_connect_mode() and not is_in_databricks_serverless()
+    )
+
+
+def is_databricks_connect(spark):
+    """
+    Return True if current Spark-connect client connects to Databricks cluster.
+    """
+    from mlflow.utils.spark_utils import is_spark_connect_mode
+
+    if not is_spark_connect_mode():
+        return False
+
+    if is_in_databricks_serverless() or is_in_databricks_shared_cluster_runtime():
+        return True
+    try:
+        # TODO: Remove the `spark.client._builder` attribute usage once
+        #  Spark-connect has public attribute for this information.
+        return is_spark_connect_mode() and any(
+            k == "x-databricks-cluster-id" for k, v in spark.client._builder.metadata()
+        )
+    except Exception:
+        return False
+
+
 def is_dbfs_fuse_available():
     if not is_in_databricks_runtime():
         return False
