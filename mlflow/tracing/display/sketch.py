@@ -2,7 +2,7 @@ sketch = """
 <html>
   <head>
     <script>
-      const traceData = {traces};
+      const traceData = JSON.parse({traces});
       const traceRenderer = document.getElementById('trace-renderer');
       window.addEventListener('message', (event) => {
         if (event.data.type === 'READY') {
