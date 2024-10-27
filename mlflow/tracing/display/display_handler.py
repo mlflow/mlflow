@@ -4,6 +4,7 @@ from typing import TYPE_CHECKING
 
 from mlflow.environment_variables import MLFLOW_MAX_TRACES_TO_DISPLAY_IN_NOTEBOOK
 from mlflow.utils.databricks_utils import is_in_databricks_runtime
+from mlflow.tracing.display.sketch import sketch
 
 _logger = logging.getLogger(__name__)
 
@@ -71,7 +72,7 @@ class IPythonTraceDisplayHandler:
         # this should do nothing if not in an IPython environment
         try:
             from IPython import get_ipython
-            from IPython.display import display
+            from IPython.display import display, HTML
 
             if get_ipython() is None:
                 return
@@ -82,11 +83,16 @@ class IPythonTraceDisplayHandler:
                 self.traces_to_display = {}
                 return
 
-            display(
-                self.get_mimebundle(traces_to_display),
-                display_id=True,
-                raw=True,
-            )
+            if is_in_databricks_runtime():
+                display(
+                    self.get_mimebundle(traces_to_display),
+                    display_id=True,
+                    raw=True,
+                )
+            else:
+                display(HTML(sketch.format(
+                    traces=self.get_mimebundle(traces_to_display),
+                )))
 
             # reset state
             self.traces_to_display = {}
@@ -99,19 +105,22 @@ class IPythonTraceDisplayHandler:
 
     def get_mimebundle(self, traces: list["Trace"]):
         if len(traces) == 1:
-            return traces[0]._repr_mimebundle_()
+            if is_in_databricks_runtime:
+                return traces[0]._repr_mimebundle_()
+            return json.dumps(traces[0].to_json())
         else:
-            return {
-                "application/databricks.mlflow.trace": _serialize_trace_list(traces),
-                "text/plain": repr(traces),
-            }
+            if is_in_databricks_runtime:
+                return {
+                    "application/databricks.mlflow.trace": _serialize_trace_list(traces),
+                    "text/plain": repr(traces),
+                }
+            return json.dumps([json.loads(trace.to_json()) for trace in traces])
 
     def display_traces(self, traces: list["Trace"]):
         # This only works in Databricks notebooks
         if not is_in_databricks_runtime() or self.disabled:
             return
 
-        # this should do nothing if not in an IPython environment
         try:
             from IPython import get_ipython
 
