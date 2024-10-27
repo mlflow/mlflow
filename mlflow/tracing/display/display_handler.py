@@ -71,12 +71,18 @@ class IPythonTraceDisplayHandler:
             from IPython import get_ipython
             from IPython.display import display, HTML
 
+            print("Running post run hook")
+
             if get_ipython() is None:
+                print("ipy is none")
                 return
 
             MAX_TRACES_TO_DISPLAY = MLFLOW_MAX_TRACES_TO_DISPLAY_IN_NOTEBOOK.get()
+            print("max traces to display", MAX_TRACES_TO_DISPLAY)
             traces_to_display = list(self.traces_to_display.values())[:MAX_TRACES_TO_DISPLAY]
+            print("traces to display", traces_to_display)
             if len(traces_to_display) == 0:
+                print("no traces to display")
                 self.traces_to_display = {}
                 return
 
@@ -87,9 +93,11 @@ class IPythonTraceDisplayHandler:
                     raw=True,
                 )
             else:
-                display(HTML(sketch.format(
+                html = HTML(sketch.format(
                     traces=self.get_mimebundle(traces_to_display),
-                )))
+                ))
+                print("displaying traces", html)
+                display(html)
 
             # reset state
             self.traces_to_display = {}
