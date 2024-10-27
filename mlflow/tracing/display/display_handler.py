@@ -115,8 +115,8 @@ class IPythonTraceDisplayHandler:
             print("one trace")
             if is_in_databricks_runtime:
                 return traces[0]._repr_mimebundle_()
-            print('to json', json.dumps(traces[0].to_json()))
-            return json.dumps(traces[0].to_json())
+            print('to json', traces[0].to_json())
+            return traces[0].to_json()
         else:
             if is_in_databricks_runtime:
                 return {
