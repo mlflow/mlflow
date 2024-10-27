@@ -72,22 +72,16 @@ class IPythonTraceDisplayHandler:
             from IPython import get_ipython
             from IPython.display import display, HTML
 
-            print("Running post run hook")
-
             if get_ipython() is None:
-                print("ipy is none")
                 return
 
             MAX_TRACES_TO_DISPLAY = MLFLOW_MAX_TRACES_TO_DISPLAY_IN_NOTEBOOK.get()
             print("max traces to display", MAX_TRACES_TO_DISPLAY)
             traces_to_display = list(self.traces_to_display.values())[:MAX_TRACES_TO_DISPLAY]
-            print("traces to display", traces_to_display)
             if len(traces_to_display) == 0:
-                print("no traces to display")
                 self.traces_to_display = {}
                 return
 
-            print("checking if in dbr", is_in_databricks_runtime())
             if is_in_databricks_runtime():
                 display(
                     self.get_mimebundle(traces_to_display),
@@ -96,9 +90,8 @@ class IPythonTraceDisplayHandler:
                 )
             else:
                 html = HTML(sketch.format(
-                    traces=self.get_mimebundle(traces_to_display),
+                    traces=self.get_mimebundle(traces_to_display).replace("{", "{{").replace("}", "}}")
                 ))
-                print("displaying traces", html)
                 display(html)
 
             # reset state
@@ -112,10 +105,8 @@ class IPythonTraceDisplayHandler:
 
     def get_mimebundle(self, traces: list["Trace"]):
         if len(traces) == 1:
-            print("one trace")
             if is_in_databricks_runtime():
                 return traces[0]._repr_mimebundle_()
-            print('to json', traces[0].to_json())
             return traces[0].to_json()
         else:
             if is_in_databricks_runtime():
@@ -124,7 +115,6 @@ class IPythonTraceDisplayHandler:
                     "text/plain": repr(traces),
                 }
             thing = json.dumps([json.loads(trace.to_json()) for trace in traces])
-            print("many traces", thing)
             
             return thing
 
