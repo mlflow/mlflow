@@ -44,9 +44,6 @@ class IPythonTraceDisplayHandler:
 
     def __init__(self):
         # This only works in Databricks notebooks
-        if not is_in_databricks_runtime():
-            return
-
         self.traces_to_display = {}
         try:
             from IPython import get_ipython
