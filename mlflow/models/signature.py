@@ -312,7 +312,7 @@ def _extract_type_hints(f, input_arg_index):
         hints = get_type_hints(f)
     except (
         TypeError,
-        NameError,  # Handles this issue: https://github.com/python/typing/issues/797
+        NameError,  # To handle this issue: https://github.com/python/typing/issues/797
     ):
         # ---
         # from __future__ import annotations # postpones evaluation of 'list[str]'
