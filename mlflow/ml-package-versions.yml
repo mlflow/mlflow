@@ -597,8 +597,8 @@ transformers:
       # `accelerate>=0.32.0` and `peft>=0.13.0` are incompatible with `huggingface_hub==0.17.3`.
       "== 4.34.1": ["accelerate<0.32.0", "peft<0.13.0"]
       # Pin torchvision to <0.20.0 to avoid https://github.com/pytorch/torchchat/issues/1158
-      ">= 4.42, < 4.46.0": ["torchvision<0.20.0"]
-      "== dev": ["tf-keras"]
+      "< 4.38": ["tensorflow<2.14"] # Older versions of transformers are incompatible with tensorflow >= 2.14
+      ">= 4.38": ["tf-keras"] # Transformers doesn't support Keras 3.0. tf-keras needs to be installed.
     pre_test: |
       export PYTHONPATH=./
       python tests/transformers/helper.py
@@ -643,7 +643,8 @@ transformers:
       # Installing `transformers==4.34.1` with `datasets` results in installing `huggingface_hub==0.17.3`.
       # `accelerate>=0.32.0` is incompatible with `huggingface_hub==0.17.3`.
       "== 4.34.1": ["accelerate<0.32.0", "sentence-transformers<3.1.0"]
-      "== dev": ["tf-keras"]
+      "< 4.38": ["tensorflow<2.14"] # Older versions of transformers are incompatible with tensorflow >= 2.14
+      ">= 4.38": ["tf-keras"] # Transformers doesn't support Keras 3.0. tf-keras needs to be installed.
     run: |
       pytest tests/transformers/test_transformers_autolog.py
 
