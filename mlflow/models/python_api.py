@@ -105,6 +105,7 @@ def predict(
     env_manager=_EnvManager.VIRTUALENV,
     install_mlflow=False,
     pip_requirements_override=None,
+    # TODO: add an option to force recreating the env
 ):
     """
     Generate predictions in json format using a saved MLflow model. For information about the input

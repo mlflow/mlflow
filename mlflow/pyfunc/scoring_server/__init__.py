@@ -489,6 +489,7 @@ def _predict(model_uri, input_path, output_path, content_type):
             input_schema=pyfunc_model.metadata.get_input_schema(),
         )
         df = parsed_json_input.data
+        params = parsed_json_input.params
         should_parse_as_unified_llm_input = parsed_json_input.is_unified_llm_input
     elif content_type == "csv":
         df = parse_csv_input(input_path) if input_path is not None else parse_csv_input(sys.stdin)
