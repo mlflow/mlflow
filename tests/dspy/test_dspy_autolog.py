@@ -63,10 +63,12 @@ def test_autolog_cot():
     assert spans[0].span_type == SpanType.CHAIN
     assert spans[0].status.status_code == "OK"
     assert spans[0].inputs == {"question": "How are you?"}
+    assert spans[0].outputs == {"answer": "test output", "reasoning": "No more responses"}
     assert spans[0].attributes["signature"] == "question -> answer"
     assert spans[1].name == "Predict.forward"
     assert spans[1].span_type == SpanType.LLM
     assert spans[1].inputs == {"question": "How are you?", "signature": mock.ANY}
+    assert spans[1].outputs == {"answer": "test output", "reasoning": "No more responses"}
     assert spans[2].name == "ChatAdapter.format"
     assert spans[2].span_type == SpanType.PARSER
     assert spans[2].inputs == {

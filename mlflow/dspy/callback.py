@@ -39,6 +39,12 @@ class MlflowCallback(BaseCallback):
     def on_module_end(
         self, call_id: str, outputs: Optional[Any], exception: Optional[Exception] = None
     ):
+        # NB: DSPy's Prediction object is a customized dictionary-like object, but its repr
+        # is not easy to read on UI. Therefore, we unpack it to a dictionary.
+        # https://github.com/stanfordnlp/dspy/blob/6fe693528323c9c10c82d90cb26711a985e18b29/dspy/primitives/prediction.py#L21-L28
+        if isinstance(outputs, dspy.Prediction):
+            outputs = outputs._store
+
         self._end_span(call_id, outputs, exception)
 
     def on_lm_start(self, call_id: str, instance: Any, inputs: Dict[str, Any]):
@@ -66,7 +72,7 @@ class MlflowCallback(BaseCallback):
     ):
         self._end_span(call_id, outputs, exception)
 
-    def on_format_start(self, call_id: str, instance: Any, inputs: Dict[str, Any]):
+    def on_adapter_format_start(self, call_id: str, instance: Any, inputs: Dict[str, Any]):
         self._start_span(
             call_id,
             name=f"{instance.__class__.__name__}.format",
@@ -75,12 +81,12 @@ class MlflowCallback(BaseCallback):
             attributes={},
         )
 
-    def on_format_end(
+    def on_adapter_format_end(
         self, call_id: str, outputs: Optional[Any], exception: Optional[Exception] = None
     ):
         self._end_span(call_id, outputs, exception)
 
-    def on_parse_start(self, call_id: str, instance: Any, inputs: Dict[str, Any]):
+    def on_adapter_parse_start(self, call_id: str, instance: Any, inputs: Dict[str, Any]):
         self._start_span(
             call_id,
             name=f"{instance.__class__.__name__}.parse",
@@ -89,7 +95,7 @@ class MlflowCallback(BaseCallback):
             attributes={},
         )
 
-    def on_parse_end(
+    def on_adapter_parse_end(
         self, call_id: str, outputs: Optional[Any], exception: Optional[Exception] = None
     ):
         self._end_span(call_id, outputs, exception)
