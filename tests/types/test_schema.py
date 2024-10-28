@@ -478,7 +478,7 @@ def test_all_numpy_dtypes():
         enforced_array = _enforce_tensor_spec(nparray, spec)
         assert isinstance(enforced_array, np.ndarray)
 
-    bool_ = ["bool", "bool_", "bool8"]
+    bool_ = ["bool", "bool_"]
     object_ = ["object"]
     signed_int = [
         "byte",
