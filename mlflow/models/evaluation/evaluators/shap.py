@@ -244,7 +244,7 @@ class ShapEvaluator(BuiltInEvaluator):
                 show=False,
                 color_bar=True,
                 # Workaround for https://github.com/shap/shap/issues/3901
-                color="cool" if Version(np.__version__).major >= 2 else None,
+                color="cool",
             )
             _adjust_color_bar()
             _adjust_axis_tick()
