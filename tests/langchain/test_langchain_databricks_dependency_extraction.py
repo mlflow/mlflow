@@ -514,6 +514,10 @@ def test_parsing_dependency_from_databricks(monkeypatch, use_partner_package):
     ]
 
 
+@pytest.mark.skipif(
+    Version(langchain.__version__) < Version("0.2.0"),
+    reason="unitycatalog-langchain depends on langchain>=0.2.0",
+)
 def test_parsing_unitycatalog_tool_as_dependency(monkeypatch: pytest.MonkeyPatch):
     from databricks.sdk.service.catalog import FunctionInfo
     from langchain.agents import initialize_agent

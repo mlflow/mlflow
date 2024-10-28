@@ -739,10 +739,6 @@ langchain:
           "uvicorn",
           # Required for testing Databricks dependency extraction
           "databricks-vectorsearch",
-          # Required for testing uc tools
-          "git+https://github.com/unitycatalog/unitycatalog.git#subdirectory=ai/core",
-          # TODO: update this to unitycatalog repo before merge
-          "git+https://github.com/serena-ruan/unitycatalog.git@tools#subdirectory=ai/integrations/langchain",
         ]
       # langchain-openai 0.1.22 is imcomptible with earlier langchain-core due to
       # https://github.com/langchain-ai/langchain/commit/b83f1eb0d56dbf99605a1fce93953ee09d77aabf
@@ -751,6 +747,10 @@ langchain:
           "langchain-huggingface",
           # Install langchain-databricks from the main branch
           "git+https://github.com/langchain-ai/langchain-databricks.git@main#egg=langchain-databricks&subdirectory=libs/databricks",
+          # Required for testing uc tools
+          "git+https://github.com/unitycatalog/unitycatalog.git#subdirectory=ai/core",
+          # TODO: update this to unitycatalog repo before merge
+          "git+https://github.com/serena-ruan/unitycatalog.git@tools#subdirectory=ai/integrations/langchain",
         ]
     run: |
       # Run all langchain tests except autologging
