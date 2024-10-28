@@ -301,9 +301,6 @@ jobs:
       - uses: ./.github/actions/pipdeptree
       - name: Run tests
         run: |
-          # debug
-          pytest tests/pyfunc/test_model_export_with_class_and_artifacts.py -k pep585
-
           pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} --durations=30 \
             tests/pyfunc --ignore tests/pyfunc/test_spark_connect.py
 

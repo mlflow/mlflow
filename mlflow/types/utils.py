@@ -739,7 +739,7 @@ def _is_list_str(type_hint: Any) -> bool:
     if _is_pep585_supported():
         try:
             return type_hint == list[str]
-        except TypeError:
+        except Exception:
             # Should be unreachable but for safety
             return False
 
@@ -753,7 +753,7 @@ def _is_list_dict_str(type_hint: Any) -> bool:
     if _is_pep585_supported():
         try:
             return type_hint == list[dict[str, str]]
-        except TypeError:
+        except Exception:
             # Should be unreachable but for safety
             return False
 
