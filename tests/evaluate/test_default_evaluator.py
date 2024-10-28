@@ -3265,12 +3265,12 @@ def test_evaluate_with_latency():
     assert all(isinstance(grade, float) for grade in logged_data["latency"])
 
 
+def pd_series_model(inputs: list[str]) -> pd.Series:
+    return pd.Series(inputs)
+
+
 def test_evaluate_with_latency_and_pd_series():
     with mlflow.start_run() as run:
-
-        def pd_series_model(inputs: list[str]) -> pd.Series:
-            return pd.Series(inputs)
-
         model_info = mlflow.pyfunc.log_model(
             "model", python_model=pd_series_model, input_example=["a", "b"]
         )
