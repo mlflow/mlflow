@@ -205,7 +205,7 @@ catboost:
     install_dev: |
       # TODO: Remove the commit once https://github.com/catboost/catboost/issues/2242 is fixed
       pip install \
-        git+https://github.com/catboost/catboost.git@f8921d839eccf11e533a46347dde5b5b25b17190#subdirectory=catboost/python-package
+        git+https://github.com/catboost/catboost.git@f8921d839eccf11e533a46347dde5b5b25b17190#subdirectory=catboost/python-package \
         'numpy<2'
 
   models:
