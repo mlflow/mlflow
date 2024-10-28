@@ -12,7 +12,7 @@ module.exports = async ({ context, github }) => {
     const { data: pullRequest } = await github.rest.pulls.get({
       owner: context.repo.owner,
       repo: context.repo.repo,
-      pull_number: comment.issue.number,
+      pull_number: context.issue.number,
     });
     if (!isAllowed(pullRequest.author_association)) {
       core.setFailed(
