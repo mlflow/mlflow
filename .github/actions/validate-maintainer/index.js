@@ -9,7 +9,7 @@ module.exports = async ({ context, github }) => {
       core.setFailed(`${comment.author_association} is not allowed to use this workflow.`);
     }
 
-    const { data: pullRequest } = await github.pulls.get({
+    const { data: pullRequest } = await github.rest.pulls.get({
       owner: context.repo.owner,
       repo: context.repo.repo,
       pull_number: comment.issue.number,
