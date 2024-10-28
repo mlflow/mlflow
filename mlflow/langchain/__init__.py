@@ -70,6 +70,7 @@ from mlflow.utils.autologging_utils import (
     safe_patch,
 )
 from mlflow.utils.databricks_utils import (
+    _get_databricks_serverless_env_vars,
     is_in_databricks_model_serving_environment,
     is_in_databricks_serverless_runtime,
     is_mlflow_tracing_enabled_in_model_serving,
@@ -126,28 +127,6 @@ def get_default_conda_env():
         :func:`save_model()` and :func:`log_model()`.
     """
     return _mlflow_conda_env(additional_pip_deps=get_default_pip_requirements())
-
-
-def _get_databricks_serverless_env_vars():
-    """
-    Returns the environment variables required to to initialize WorkspaceClient in a subprocess
-    with serverless compute.
-
-    Note:
-        Databricks authentication related environment variables are set in the
-        _capture_imported_modules function.
-    """
-    envs = {}
-    if "SPARK_REMOTE" in os.environ:
-        envs["SPARK_LOCAL_REMOTE"] = os.environ["SPARK_REMOTE"]
-    else:
-        logger.warning(
-            "Missing required environment variable `SPARK_LOCAL_REMOTE` or `SPARK_REMOTE`."
-            "These are necessary to initialize the WorkspaceClient with serverless compute in "
-            "a subprocess in Databricks for UC function execution. Setting the value to 'true'."
-        )
-        envs["SPARK_LOCAL_REMOTE"] = "true"
-    return envs
 
 
 @experimental
