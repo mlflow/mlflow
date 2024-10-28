@@ -8,7 +8,7 @@ from mlflow.utils import env_manager as em
 from mlflow.utils.file_utils import _copy_project
 from mlflow.version import VERSION
 
-UBUNTU_BASE_IMAGE = "ubuntu:20.04"
+UBUNTU_BASE_IMAGE = "ubuntu:22.04"
 PYTHON_SLIM_BASE_IMAGE = "python:{version}-slim"
 
 

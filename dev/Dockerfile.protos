@@ -2,7 +2,7 @@
 # $ DOCKER_BUILDKIT=1 docker build -f dev/Dockerfile.protos -t gen-protos .
 # $ docker run --rm -w /app -v $(pwd):/app gen-protos python ./dev/generate_protos.py
 
-FROM ubuntu:20.04
+FROM ubuntu:22.04
 ENV PATH="/root/protoc/bin:${PATH}"
 RUN apt-get update \
     && apt-get install -y --no-install-recommends curl unzip ca-certificates \
