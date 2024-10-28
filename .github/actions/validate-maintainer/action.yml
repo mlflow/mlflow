@@ -8,4 +8,4 @@ runs:
           const validateMaintainer = require(
             `${process.env.GITHUB_WORKSPACE}/.github/actions/validate-maintainer/index.js`
           );
-          await validateMaintainer({ context, github });
+          await validateMaintainer({ context, github, core });

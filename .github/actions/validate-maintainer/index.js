@@ -2,7 +2,7 @@ function isAllowed(author_association) {
   return ["owner", "member", "collaborator"].includes(author_association.toLowerCase());
 }
 
-module.exports = async ({ context, github }) => {
+module.exports = async ({ context, github, core }) => {
   if (context.eventName === "issue_comment") {
     const { comment } = context.payload;
     if (!isAllowed(comment.author_association)) {
