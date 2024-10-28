@@ -293,11 +293,6 @@ def infer_python_version(package: str, version: str) -> str:
     Infer the minimum Python version required by the package.
     """
     candidates = ("3.9", "3.10")
-
-    # TODO: Figure out how to fix transformers tests for Python 3.9 and remove this.
-    if package == "transformers":
-        candidates = ("3.8", *candidates)
-
     if rp := _requires_python(package, version):
         spec = SpecifierSet(rp)
         return next(filter(spec.contains, candidates), candidates[0])
