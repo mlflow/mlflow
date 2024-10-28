@@ -2,20 +2,19 @@ sketch = """
 <html>
   <head>
     <script>
-      const traceData = JSON.parse({traces});
-      const traceRenderer = document.getElementById('trace-renderer');
-      window.addEventListener('message', (event) => {
-        if (event.data.type === 'READY') {
-          traceRenderer.contentWindow.postMessage({ 
+      var traceData = JSON.parse({traces});
+      window.addEventListener('message', (event) => {{
+        if (event.data.type === 'READY') {{
+          document.getElementById('trace-renderer').contentWindow.postMessage({{ 
             type: 'UPDATE_TRACE', 
-            trace: traceData, 
-          });
-        }
-      });
+            traceData: traceData, 
+          }}, "*");
+        }}
+      }});
     </script>
   </head>
   <div>
-    <iframe id="trace-renderer" src="http://localhost:3000/static-files/lib/ml-model-trace-renderer/index.html" />
+    <iframe id="trace-renderer" style="width: 100%; height: 500px;" src="http://localhost:3000/static-files/lib/ml-model-trace-renderer/index.html" />
   </div>
 </html>
 """
