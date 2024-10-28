@@ -156,6 +156,7 @@ required-version = "0.6.4"
 force-exclude = true
 extend-include = ["*.ipynb"]
 extend-exclude = [
+  "examples/llama_index/workflow",
   "examples/recipes",
   "mlflow/protos",
   "mlflow/ml_package_versions.py",
