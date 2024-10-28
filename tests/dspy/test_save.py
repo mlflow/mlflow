@@ -4,6 +4,7 @@ from unittest import mock
 import dspy
 import dspy.teleprompt
 import pytest
+from dspy.utils import DSPDummyLM, dummy_rm
 
 import mlflow
 from mlflow.models import Model, ModelSignature
@@ -65,7 +66,7 @@ def test_save_compiled_model():
         return 1.0
 
     random_answers = ["4", "6", "8", "10"]
-    lm = dspy.utils.DSPDummyLM(answers=random_answers)
+    lm = DSPDummyLM(answers=random_answers)
     dspy.settings.configure(lm=lm)
 
     dspy_model = CoT()
@@ -110,8 +111,8 @@ def test_dspy_save_preserves_object_state():
         return 1.0
 
     random_answers = ["4", "6", "8", "10"]
-    lm = dspy.utils.DSPDummyLM(answers=random_answers)
-    rm = dspy.utils.dummy_rm(passages=["dummy1", "dummy2", "dummy3"])
+    lm = DSPDummyLM(answers=random_answers)
+    rm = dummy_rm(passages=["dummy1", "dummy2", "dummy3"])
     dspy.settings.configure(lm=lm, rm=rm)
 
     train_data = ["What is 2 + 2?", "What is 3 + 3?", "What is 4 + 4?", "What is 5 + 5?"]
@@ -181,7 +182,7 @@ def test_load_logged_model_in_native_dspy():
         "What is 5 + 5?",
     ]
     random_answers = ["4", "6", "8", "10"]
-    lm = dspy.utils.DSPDummyLM(answers=random_answers)
+    lm = DSPDummyLM(answers=random_answers)
     dspy.settings.configure(lm=lm)
 
     with mlflow.start_run() as run:
@@ -206,7 +207,7 @@ def test_serving_logged_model():
 
     dspy_model = CoT()
     random_answers = ["4", "6", "8", "10"]
-    lm = dspy.utils.DSPDummyLM(answers=random_answers)
+    lm = DSPDummyLM(answers=random_answers)
     dspy.settings.configure(lm=lm)
 
     input_examples = {"inputs": ["What is 2 + 2?"]}
@@ -256,7 +257,7 @@ def test_save_chat_model_with_string_output():
 
     dspy_model = CoT()
     random_answers = ["4", "4", "4", "4"]
-    lm = dspy.utils.DSPDummyLM(answers=random_answers)
+    lm = DSPDummyLM(answers=random_answers)
     dspy.settings.configure(lm=lm)
 
     input_examples = {"messages": [{"role": "user", "content": "What is 2 + 2?"}]}
@@ -291,7 +292,7 @@ def test_serve_chat_model():
 
     dspy_model = CoT()
     random_answers = ["4", "6", "8", "10"]
-    lm = dspy.utils.DSPDummyLM(answers=random_answers)
+    lm = DSPDummyLM(answers=random_answers)
     dspy.settings.configure(lm=lm)
 
     input_examples = {"messages": [{"role": "user", "content": "What is 2 + 2?"}]}
@@ -356,7 +357,7 @@ def test_infer_signature_from_input_examples():
     artifact_path = "model"
     dspy_model = CoT()
     random_answers = ["4", "6", "8", "10"]
-    dspy.settings.configure(lm=dspy.utils.DSPDummyLM(answers=random_answers))
+    dspy.settings.configure(lm=DSPDummyLM(answers=random_answers))
     with mlflow.start_run():
         mlflow.dspy.log_model(dspy_model, artifact_path, input_example="what is 2 + 2?")
 
