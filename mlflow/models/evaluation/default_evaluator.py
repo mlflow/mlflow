@@ -223,8 +223,8 @@ class BuiltInEvaluator(ModelEvaluator):
                     timestamp=timestamp,
                     step=0,
                     model_id=self.model_id,
-                    dataset_name=self.dataset_input and self.dataset_input.dataset.name,
-                    dataset_digest=self.dataset_input and self.dataset_input.dataset.digest,
+                    dataset_name=self.dataset.name,
+                    dataset_digest=self.dataset.digest,
                     run_id=self.run_id,
                 )
                 for key, value in self.aggregate_metrics.items()
@@ -787,7 +787,6 @@ class BuiltInEvaluator(ModelEvaluator):
         custom_artifacts=None,
         predictions=None,
         model_id=None,
-        dataset_input=None,
         **kwargs,
     ) -> EvaluationResult:
         if model is None and predictions is None and dataset.predictions_data is None:
@@ -812,7 +811,6 @@ class BuiltInEvaluator(ModelEvaluator):
         self.run_id = run_id
         self.model_type = model_type
         self.model_id = model_id
-        self.dataset_input = dataset_input
         self.evaluator_config = evaluator_config
 
         self.predictions = predictions

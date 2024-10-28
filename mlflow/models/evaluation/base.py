@@ -975,7 +975,6 @@ def _evaluate(
     model_type,
     model_id,
     dataset,
-    dataset_input,
     run_id,
     # The `evaluator_name_list` and `evaluator_name_to_conf_map` are not used by MLflow at all,
     # but we need to keep these for backward compatibility.
@@ -1012,7 +1011,6 @@ def _evaluate(
                 model_type=model_type,
                 model_id=model_id,
                 dataset=dataset,
-                dataset_input=dataset_input,
                 run_id=run_id,
                 evaluator_config=eval_.config,
                 custom_metrics=custom_metrics,
@@ -1718,7 +1716,6 @@ def evaluate(  # noqa: D417
 
         from mlflow.data.pyfunc_dataset_mixin import PyFuncConvertibleDatasetMixin
 
-        dataset_input = None
         if isinstance(data, Dataset) and issubclass(data.__class__, PyFuncConvertibleDatasetMixin):
             dataset = data.to_evaluation_dataset(dataset_path, feature_names)
 
@@ -1751,7 +1748,6 @@ def evaluate(  # noqa: D417
                 model_type=model_type,
                 model_id=model_id,
                 dataset=dataset,
-                dataset_input=dataset_input,
                 run_id=run_id,
                 evaluator_name_list=evaluator_name_list,
                 evaluator_name_to_conf_map=evaluator_name_to_conf_map,
