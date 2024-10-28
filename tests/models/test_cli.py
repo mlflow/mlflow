@@ -814,12 +814,12 @@ def test_change_conda_env_root_location(tmp_path, sk_model):
     # Test with model1_path
     model1_path = tmp_path / "model1"
 
-    _test_model(env_root1_path, model1_path, "1.0.1")
-    _test_model(env_root2_path, model1_path, "1.0.1")
+    _test_model(env_root1_path, model1_path, "1.4.0")
+    _test_model(env_root2_path, model1_path, "1.4.0")
 
     # Test with model2_path
     model2_path = tmp_path / "model2"
-    _test_model(env_root1_path, model2_path, "1.0.2")
+    _test_model(env_root1_path, model2_path, "1.4.2")
 
 
 @pytest.mark.parametrize(
