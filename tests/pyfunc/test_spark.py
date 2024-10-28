@@ -230,7 +230,7 @@ def test_spark_udf_env_manager_can_restore_env(spark, model_path, sklearn_versio
         pip_requirements=[
             f"pyspark=={pyspark.__version__}",
             f"scikit-learn=={sklearn_version}",
-            # pytest test is required to load the custom model from this file
+            # pytest is required to load the custom model from this file
             f"pytest=={pytest.__version__}",
         ],
     )
