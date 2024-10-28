@@ -508,10 +508,8 @@ def test_all_numpy_dtypes():
     floating = ["half", "float16", "single", "float32", "double", "float64"]
     complex_ = [
         "csingle",
-        "singlecomplex",
         "complex64",
         "cdouble",
-        "cfloat",
         "complex128",
     ]
     bytes_ = ["bytes_"]
