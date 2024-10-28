@@ -1,0 +1,11 @@
+name: "validate-author"
+runs:
+  using: "composite"
+  steps:
+    - uses: actions/github-script@v7
+      with:
+        script: |
+          const validateAuthor = require(
+            `${process.env.GITHUB_WORKSPACE}/.github/actions/validate-author/index.js`
+          );
+          await validateAuthor({ context, github, core });

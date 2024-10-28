@@ -34,6 +34,7 @@ jobs:
         with:
           sparse-checkout: |
             .github
+      - uses: ./.github/actions/validate-author
       - name: judge
         id: judge
         uses: actions/github-script@v7
@@ -42,11 +43,6 @@ jobs:
             core.debug(JSON.stringify(context, null, 2));
             const autoformat = require('./.github/workflows/autoformat.js');
             const { comment } = context.payload;
-            const pullInfo = await autoformat.getPullInformation(context, github);
-            const isMaintainer = autoformat.isMlflowMaintainer(comment.author_association) && autoformat.isMlflowMaintainer(pullInfo.author_association);
-            if (!isMaintainer) {
-              core.setFailed("Only MLflow maintainers can trigger this workflow in their PRs.");
-            }
             const shouldAutoformat = autoformat.shouldAutoformat(comment);
             if (shouldAutoformat) {
               await autoformat.createReaction(context, github);
