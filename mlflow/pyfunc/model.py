@@ -27,6 +27,7 @@ from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.pyfunc.utils.input_converter import _hydrate_dataclass
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.types.llm import ChatMessage, ChatParams, ChatResponse
+from mlflow.types.utils import _is_list_dict_str, _is_list_str
 from mlflow.utils.annotations import experimental
 from mlflow.utils.environment import (
     _CONDA_ENV_FILE_NAME,
@@ -587,7 +588,7 @@ class _PythonModelPyfuncWrapper:
         import pandas as pd
 
         hints = self.python_model._get_type_hints()
-        if hints.input == List[str]:
+        if _is_list_str(hints.input):
             if isinstance(model_input, pd.DataFrame):
                 first_string_column = _get_first_string_column(model_input)
                 if first_string_column is None:
@@ -600,7 +601,7 @@ class _PythonModelPyfuncWrapper:
                     return [next(iter(d.values())) for d in model_input]
                 elif all(isinstance(x, str) for x in model_input):
                     return model_input
-        elif hints.input == List[Dict[str, str]]:
+        elif _is_list_dict_str(hints.input):
             if isinstance(model_input, pd.DataFrame):
                 if (
                     len(self.signature.inputs) == 1

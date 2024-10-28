@@ -1552,7 +1552,7 @@ def test_pyfunc_model_infer_signature_from_type_hints(model_path):
     assert pyfunc_model.metadata.get_input_schema().to_dict() == [
         {"type": "string", "required": True}
     ]
-    pd.testing.assert_frame_equal(pyfunc_model.predict(["a", "b"]), pd.DataFrame(["a", "b"]))
+    assert pyfunc_model.predict(["a", "b"]) == ["a", "b"]
 
 
 def test_streamable_model_save_load(iris_data, tmp_path):

@@ -310,7 +310,10 @@ def _extract_type_hints(f, input_arg_index):
     arg_name = _get_arg_names(f)[input_arg_index]
     try:
         hints = get_type_hints(f)
-    except TypeError:
+    except (
+        TypeError,
+        NameError,  # To handle this issue: https://github.com/python/typing/issues/797
+    ):
         # ---
         # from __future__ import annotations # postpones evaluation of 'list[str]'
         #

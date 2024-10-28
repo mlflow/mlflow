@@ -210,7 +210,7 @@ def test_spark_udf(spark, model_path):
                 assert expected == actual
 
 
-@pytest.mark.parametrize("sklearn_version", ["0.22.1", "0.24.0"])
+@pytest.mark.parametrize("sklearn_version", ["1.3.2", "1.4.2"])
 @pytest.mark.parametrize("env_manager", ["virtualenv", "conda"])
 def test_spark_udf_env_manager_can_restore_env(spark, model_path, sklearn_version, env_manager):
     class EnvRestoringTestModel(mlflow.pyfunc.PythonModel):
@@ -228,10 +228,10 @@ def test_spark_udf_env_manager_can_restore_env(spark, model_path, sklearn_versio
         path=model_path,
         python_model=EnvRestoringTestModel(),
         pip_requirements=[
-            "pyspark==3.2.0",
-            "pandas==1.3.0",
+            f"pyspark=={pyspark.__version__}",
             f"scikit-learn=={sklearn_version}",
-            "pytest==6.2.5",
+            # pytest is required to load the custom model from this file
+            f"pytest=={pytest.__version__}",
         ],
     )
     # tests/helper_functions.py
