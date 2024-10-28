@@ -31,7 +31,11 @@ runs:
             python_version="3.8.18"
           fi
         elif [[ "$python_version" == "3.9" ]]; then
-          python_version="3.9.18"
+          if [ ${{ runner.os }} == "Windows" ]; then
+            python_version="3.9.13"
+          else
+            python_version="3.9.18"
+          fi
         elif [[ "$python_version" == "3.10" ]]; then
           python_version="3.10.14"
         else

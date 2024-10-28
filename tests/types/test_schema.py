@@ -478,7 +478,7 @@ def test_all_numpy_dtypes():
         enforced_array = _enforce_tensor_spec(nparray, spec)
         assert isinstance(enforced_array, np.ndarray)
 
-    bool_ = ["bool", "bool_", "bool8"]
+    bool_ = ["bool", "bool_"]
     object_ = ["object"]
     signed_int = [
         "byte",
@@ -505,18 +505,15 @@ def test_all_numpy_dtypes():
         "uint64",
         "ulonglong",
     ]
-    floating = ["half", "float16", "single", "float32", "double", "float_", "float64"]
+    floating = ["half", "float16", "single", "float32", "double", "float64"]
     complex_ = [
         "csingle",
-        "singlecomplex",
         "complex64",
         "cdouble",
-        "cfloat",
-        "complex_",
         "complex128",
     ]
-    bytes_ = ["bytes_", "string_"]
-    str_ = ["str_", "unicode_"]
+    bytes_ = ["bytes_"]
+    str_ = ["str_"]
     platform_dependent = [
         # Complex
         "clongdouble",
