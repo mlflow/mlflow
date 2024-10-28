@@ -4,8 +4,7 @@ function isAllowed(author_association) {
 
 module.exports = async ({ context, github, core }) => {
   if (context.eventName === "issue_comment") {
-    const { comment } = context.payload;
-    if (!isAllowed(comment.author_association)) {
+    if (!isAllowed(context.payload.comment.author_association)) {
       core.setFailed(`${comment.author_association} is not allowed to use this workflow.`);
     }
 
@@ -20,6 +19,6 @@ module.exports = async ({ context, github, core }) => {
       );
     }
   } else {
-    core.setFailed("Unsupported event: " + context.eventName);
+    core.setFailed(`Unsupported event: ${context.eventName}`);
   }
 };
