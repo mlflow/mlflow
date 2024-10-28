@@ -421,7 +421,6 @@ from urllib.parse import urlparse
 import numpy as np
 import pandas
 import yaml
-from databricks.sdk import WorkspaceClient
 from packaging.version import Version
 
 import mlflow
@@ -1767,6 +1766,8 @@ def _download_prebuilt_env_if_needed(prebuilt_env_uri):
             return local_model_env_path
 
         try:
+            from databricks.sdk import WorkspaceClient
+
             ws = WorkspaceClient()
             # Download model env file from UC volume.
             with ws.files.download(model_env_uc_path).contents as rf, open(
