@@ -339,6 +339,9 @@ def get_dbconnect_udf_sandbox_info(spark):
             runtime_version=runtime_version,
             image_version=get_databricks_runtime_version(),
             platform_machine=platform.machine(),
+            # In databricks runtime, driver and executor should have the
+            # same version.
+            mlflow_version=mlflow.__version__,
         )
     else:
         image_version = runtime_version
@@ -360,6 +363,7 @@ def get_dbconnect_udf_sandbox_info(spark):
         _dbconnect_udf_sandbox_info_cache = DBConnectUDFSandboxInfo(
             spark=spark,
             image_version=image_version,
+            runtime_version=runtime_version,
             platform_machine=platform_machine,
             mlflow_version=mlflow_version,
         )
