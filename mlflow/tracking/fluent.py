@@ -170,7 +170,7 @@ def set_experiment(
                 try:
                     experiment_id = client.create_experiment(experiment_name)
                     _logger.info(
-                        "Experiment with name '%s' does not exist. Created a new experiment.",
+                        "Experiment with name '%s' does not exist. Creating a new experiment.",
                         experiment_name,
                     )
                 except MlflowException as e:
