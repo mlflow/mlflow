@@ -49,6 +49,9 @@ jobs:
           submodules: recursive
       - uses: ./.github/actions/untracked
       - uses: ./.github/actions/setup-python
+        with:
+          # TODO: Remove this once Python 3.8 support is dropped
+          python-version: 3.9
       - name: Install dependencies
         run: |
           source ./dev/install-common-deps.sh --skinny
