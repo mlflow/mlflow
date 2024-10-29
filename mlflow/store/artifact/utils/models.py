@@ -93,7 +93,7 @@ def _parse_model_uri(uri):
         return ParsedModelUri(parts[0])
 
 
-def _parse_model_id(possible_model_uri: str) -> Optional[str]:
+def _parse_model_id_if_present(possible_model_uri: str) -> Optional[str]:
     """
     Parses the model ID from the given string. If the string is not a models:/ URI, returns None.
 

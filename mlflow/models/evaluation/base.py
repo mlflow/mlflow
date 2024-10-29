@@ -26,7 +26,7 @@ from mlflow.entities.input_tag import InputTag
 from mlflow.entities.logged_model_input import LoggedModelInput
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
-from mlflow.store.artifact.utils.models import _parse_model_id
+from mlflow.store.artifact.utils.models import _parse_model_id_if_present
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.tracking.client import MlflowClient
 from mlflow.utils import _get_fully_qualified_class_name
@@ -1664,7 +1664,7 @@ def evaluate(  # noqa: D417
 
     model_id = None
     if isinstance(model, str):
-        model_id = _parse_model_id(model)
+        model_id = _parse_model_id_if_present(model)
         if _is_model_deployment_endpoint_uri(model):
             model = _get_model_from_deployment_endpoint_uri(model, inference_params)
         else:
