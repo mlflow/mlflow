@@ -522,12 +522,8 @@ def test_parsing_unitycatalog_tool_as_dependency(monkeypatch: pytest.MonkeyPatch
     from databricks.sdk.service.catalog import FunctionInfo
     from langchain.agents import initialize_agent
     from langchain_openai.llms import OpenAI
-
-    try:
-        from unitycatalog.ai.core.databricks import DatabricksFunctionClient
-        from unitycatalog.ai.langchain.toolkit import UCFunctionToolkit
-    except Exception:
-        return
+    from unitycatalog.ai.core.databricks import DatabricksFunctionClient
+    from unitycatalog.ai.langchain.toolkit import UCFunctionToolkit
 
     # When get is called return a function
     def mock_function_get(self, function_name):
