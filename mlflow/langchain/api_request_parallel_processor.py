@@ -222,6 +222,7 @@ def process_api_requests(
     """
     Processes API requests in parallel.
     """
+    from mlflow.tracking.fluent import _get_active_run_stack, _set_active_run_stack
 
     # initialize trackers
     retry_queue = queue.Queue()
@@ -266,11 +267,23 @@ def process_api_requests(
             else:
                 next_request = None
 
+            active_run_stack = _get_active_run_stack()
+
+            def call_api(requester, status_tracker, callback_handlers):
+                # langchain inference tracing will read current active run,
+                # but active run stack is thread local, to make it work,
+                # copy current thread active run stack to inference worker thread.
+                _set_active_run_stack(active_run_stack.copy())
+                return requester.call_api(
+                    status_tracker=status_tracker, callback_handlers=callback_handlers
+                )
+
             # if enough capacity available, call API
             if next_request:
                 # call API
                 executor.submit(
-                    next_request.call_api,
+                    call_api,
+                    requester=next_request,
                     status_tracker=status_tracker,
                     callback_handlers=callback_handlers,
                 )

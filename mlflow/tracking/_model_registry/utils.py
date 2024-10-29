@@ -76,6 +76,8 @@ def set_registry_uri(uri: str) -> None:
     """
     global _registry_uri
     _registry_uri = uri
+    if uri:
+        MLFLOW_REGISTRY_URI.set(_registry_uri)
 
 
 def _get_registry_uri_from_spark_session():
