@@ -23,8 +23,10 @@ from mlflow.data.evaluation_dataset import (
 )
 from mlflow.entities.dataset_input import DatasetInput
 from mlflow.entities.input_tag import InputTag
+from mlflow.entities.logged_model_input import LoggedModelInput
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
+from mlflow.store.artifact.utils.models import _parse_model_id_if_present
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.tracking.client import MlflowClient
 from mlflow.utils import _get_fully_qualified_class_name
@@ -971,6 +973,7 @@ def _evaluate(
     *,
     model,
     model_type,
+    model_id,
     dataset,
     run_id,
     # The `evaluator_name_list` and `evaluator_name_to_conf_map` are not used by MLflow at all,
@@ -1006,6 +1009,7 @@ def _evaluate(
             eval_result = eval_.evaluator.evaluate(
                 model=model,
                 model_type=model_type,
+                model_id=model_id,
                 dataset=dataset,
                 run_id=run_id,
                 evaluator_config=eval_.config,
@@ -1658,7 +1662,9 @@ def evaluate(  # noqa: D417
                 error_code=INVALID_PARAMETER_VALUE,
             )
 
+    model_id = None
     if isinstance(model, str):
+        model_id = _parse_model_id_if_present(model)
         if _is_model_deployment_endpoint_uri(model):
             model = _get_model_from_deployment_endpoint_uri(model, inference_params)
         else:
@@ -1723,7 +1729,9 @@ def evaluate(  # noqa: D417
             client = MlflowClient()
             tags = [InputTag(key=MLFLOW_DATASET_CONTEXT, value=context)] if context else []
             dataset_input = DatasetInput(dataset=data._to_mlflow_entity(), tags=tags)
-            client.log_inputs(run_id, [dataset_input])
+            client.log_inputs(
+                run_id, [dataset_input], models=[LoggedModelInput(model_id)] if model_id else None
+            )
         else:
             dataset = EvaluationDataset(
                 data,
@@ -1738,6 +1746,7 @@ def evaluate(  # noqa: D417
             evaluate_result = _evaluate(
                 model=model,
                 model_type=model_type,
+                model_id=model_id,
                 dataset=dataset,
                 run_id=run_id,
                 evaluator_name_list=evaluator_name_list,

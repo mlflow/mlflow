@@ -3,7 +3,11 @@ from typing import NamedTuple, Optional
 
 import mlflow.tracking
 from mlflow.exceptions import MlflowException
-from mlflow.utils.uri import get_databricks_profile_uri_from_artifact_uri, is_databricks_uri
+from mlflow.utils.uri import (
+    get_databricks_profile_uri_from_artifact_uri,
+    is_databricks_uri,
+    is_models_uri,
+)
 
 _MODELS_URI_SUFFIX_LATEST = "latest"
 
@@ -87,6 +91,23 @@ def _parse_model_uri(uri):
     else:
         # The URI is of the form "models:/<model_id>"
         return ParsedModelUri(parts[0])
+
+
+def _parse_model_id_if_present(possible_model_uri: str) -> Optional[str]:
+    """
+    Parses the model ID from the given string. If the string is not a models:/ URI, returns None.
+
+    Args:
+        possible_model_uri: The string that may be a models:/ URI.
+
+    Returns:
+        The model ID if the string is a models:/ URI, otherwise None.
+    """
+    if is_models_uri(possible_model_uri):
+        parsed_model_uri = _parse_model_uri(possible_model_uri)
+        return parsed_model_uri.model_id
+
+    return None
 
 
 def get_model_name_and_version(client, models_uri):
