@@ -54,7 +54,7 @@ Tracing provides a way to record the inputs, outputs, and metadata associated wi
 
 MLflow offers a number of different options to enable tracing of your GenAI applications. 
 
-- **Automated tracing**: MLflow provides a fully automated integration with various GenAI libraries such as LangChain, OpenAI, LlamaIndex, DSPy, AutoGen, and more, that can activate by simply enabling ``mlflow.<library>.autolog()``.
+- **Automated tracing**: MLflow provides fully automated integrations with various GenAI libraries such as LangChain, OpenAI, LlamaIndex, DSPy, AutoGen, and more that can be activated by simply enabling ``mlflow.<library>.autolog()``.
 - **Manual trace instrumentation with high-level fluent APIs**: Decorators, function wrappers and context managers via the fluent API allow you to add tracing functionality with minor code modifications.
 - **Low-level client APIs for tracing**: The MLflow client API provides a thread-safe way to handle trace implementations, even in aysnchronous modes of operation.
 
@@ -334,7 +334,7 @@ for model/API invocations to the active MLflow Experiment.
         |
 
         The MLflow DSPy flavor's autologging feature has a direct integration with MLflow tracing. When DSPy autologging is enabled with :py:func:`mlflow.dspy.autolog`, invocation of components
-        such as LMs, Adapters, Modules, will automatically record generated traces during interactive development.
+        such as LMs, Adapters and Modules, will automatically record generated traces during interactive development.
 
         .. code-block:: python
 
@@ -356,7 +356,7 @@ for model/API invocations to the active MLflow Experiment.
             class SummarizeSignature(dspy.Signature):
                 """Given a passage, generate a summary."""
 
-                passage = dspy.InputField(desc="a passage to summarize")
+                passage: str = dspy.InputField(desc="a passage to summarize")
                 summary: str = dspy.OutputField(desc="a one-line summary of the passage")
 
 

@@ -1,5 +1,4 @@
 import importlib
-import os
 import time
 from unittest import mock
 
@@ -18,7 +17,6 @@ from mlflow.entities import SpanType
 from tests.tracing.helper import get_traces
 
 _DSPY_VERSION = Version(importlib.metadata.version("dspy"))
-_IS_DSPY_DEV_VERSION = os.environ.get("IS_DSPY_DEV_VERSION", "false").lower() == "true"
 
 
 def test_autolog_lm():
@@ -136,7 +134,10 @@ def test_mlflow_callback_exception():
 
 
 @pytest.mark.skipif(
-    _DSPY_VERSION >= Version("2.5.19") or _IS_DSPY_DEV_VERSION,
+    # NB: We also need to filter out version < 2.5.17 because installing DSPy
+    # from source will have hard-coded version number 2.5.15.
+    # https://github.com/stanfordnlp/dspy/blob/803dff03c42d2f436aa67398ce5aba17e7b45611/pyproject.toml#L8-L9
+    _DSPY_VERSION >= Version("2.5.19") or _DSPY_VERSION < Version("2.5.17"),
     reason="dspy.ReAct is broken in >=2.5.19",
 )
 def test_autolog_react():
