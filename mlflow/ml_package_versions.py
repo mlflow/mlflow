@@ -338,6 +338,15 @@ _ML_PACKAGE_VERSIONS = {
             "minimum": "1.3.0",
             "maximum": "1.16.1"
         }
+    },
+    "litellm": {
+        "package_info": {
+            "pip_release": "litellm"
+        },
+        "autologging": {
+            "minimum": "1.51.0",
+            "maximum": "1.51.0"
+        }
     }
 }
 
@@ -363,5 +372,6 @@ FLAVOR_TO_MODULE_NAME = {
     "langchain": "langchain",
     "llama_index": "llama_index.core",
     "autogen": "autogen",
+    "litellm": "litellm",
     "pyspark.ml": "pyspark"
 }
