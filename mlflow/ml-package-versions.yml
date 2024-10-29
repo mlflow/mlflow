@@ -213,7 +213,9 @@ catboost:
       sudo apt-get install -y ninja-build
 
       # Install catboost from source
-      pip install git+https://github.com/catboost/catboost.git#subdirectory=catboost/python-package 'numpy<2'
+      pip install conan==1.59.0
+      pip install git+https://github.com/catboost/catboost.git#subdirectory=catboost/python-package --install-option=--no-widget --install-option=--no-cuda
+      pip install 'numpy<2'
 
   models:
     minimum: "1.0.0"
