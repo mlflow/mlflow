@@ -231,7 +231,7 @@ class PythonSubscriber(metaclass=ExceptionSafeClass):
         # if the main thread happens to end the run & pop from the active run stack after we check
         # the stack size but before we peek
 
-        # Note Spark dataframe autologging is hard to support thread-local behavior,
+        # Note Spark datasource autologging is hard to support thread-local behavior,
         # because the spark event listener callback (jvm side) does not have the python caller
         # thread information, so set the tag to the latest active run ignoring threading
         # information, this way keeps the consistent behavior with released MLflow.
