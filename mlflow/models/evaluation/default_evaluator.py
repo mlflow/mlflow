@@ -242,13 +242,15 @@ class BuiltInEvaluator(ModelEvaluator):
             pyplot.clf()
             do_plot()
             pyplot.savefig(artifact_file_local_path, bbox_inches="tight")
+        except Exception as e:
+            _logger.warning(f"Failed to log image artifact {artifact_name!r}: {e!r}")
+        else:
+            mlflow.log_artifact(artifact_file_local_path)
+            artifact = ImageEvaluationArtifact(uri=mlflow.get_artifact_uri(artifact_file_name))
+            artifact._load(artifact_file_local_path)
+            self.artifacts[artifact_name] = artifact
         finally:
             pyplot.close(pyplot.gcf())
-
-        mlflow.log_artifact(artifact_file_local_path)
-        artifact = ImageEvaluationArtifact(uri=mlflow.get_artifact_uri(artifact_file_name))
-        artifact._load(artifact_file_local_path)
-        self.artifacts[artifact_name] = artifact
 
     def _evaluate_sklearn_model_score_if_scorable(self, model, y_true, sample_weights):
         model_loader_module, raw_model = _extract_raw_model(model)
