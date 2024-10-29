@@ -174,15 +174,13 @@ def test_regressor_evaluation(
 
     assert set(artifacts) == {
         "explainer",
-        # TODO: Uncomment once https://github.com/shap/shap/issues/3901 is fixed.
-        # "shap_beeswarm_plot.png",
+        "shap_beeswarm_plot.png",
         "shap_feature_importance_plot.png",
         "shap_summary_plot.png",
     }
 
     assert result.artifacts.keys() == {
-        # TODO: Uncomment once https://github.com/shap/shap/issues/3901 is fixed.
-        # "shap_beeswarm_plot",
+        "shap_beeswarm_plot",
         "shap_feature_importance_plot",
         "shap_summary_plot",
     }
@@ -277,8 +275,7 @@ def test_multi_classifier_evaluation(
     ]
 
     assert set(artifacts) == {
-        # TODO: Uncomment once https://github.com/shap/shap/issues/3901 is fixed.
-        # "shap_beeswarm_plot.png",
+        "shap_beeswarm_plot.png",
         "per_class_metrics.csv",
         "roc_curve_plot.png",
         "precision_recall_curve_plot.png",
@@ -292,8 +289,7 @@ def test_multi_classifier_evaluation(
         "roc_curve_plot",
         "precision_recall_curve_plot",
         "confusion_matrix",
-        # TODO: Uncomment once https://github.com/shap/shap/issues/3901 is fixed.
-        # "shap_beeswarm_plot",
+        "shap_beeswarm_plot",
         "shap_summary_plot",
         "shap_feature_importance_plot",
     }
@@ -376,8 +372,7 @@ def test_bin_classifier_evaluation(
     assert set(artifacts) == {
         "shap_feature_importance_plot.png",
         "lift_curve_plot.png",
-        # TODO: Uncomment once https://github.com/shap/shap/issues/3901 is fixed.
-        # "shap_beeswarm_plot.png",
+        "shap_beeswarm_plot.png",
         "precision_recall_curve_plot.png",
         "confusion_matrix.png",
         "shap_summary_plot.png",
@@ -388,8 +383,7 @@ def test_bin_classifier_evaluation(
         "precision_recall_curve_plot",
         "lift_curve_plot",
         "confusion_matrix",
-        # TODO: Uncomment once https://github.com/shap/shap/issues/3901 is fixed.
-        # "shap_beeswarm_plot",
+        "shap_beeswarm_plot",
         "shap_summary_plot",
         "shap_feature_importance_plot",
     }
@@ -556,14 +550,12 @@ def test_svm_classifier_evaluation(svm_model_uri, breast_cancer_dataset):
     assert set(artifacts) == {
         "confusion_matrix.png",
         "shap_feature_importance_plot.png",
-        # TODO: Uncomment once https://github.com/shap/shap/issues/3901 is fixed.
-        # "shap_beeswarm_plot.png",
+        "shap_beeswarm_plot.png",
         "shap_summary_plot.png",
     }
     assert result.artifacts.keys() == {
         "confusion_matrix",
-        # TODO: Uncomment once https://github.com/shap/shap/issues/3901 is fixed.
-        # "shap_beeswarm_plot",
+        "shap_beeswarm_plot",
         "shap_summary_plot",
         "shap_feature_importance_plot",
     }
@@ -644,8 +636,7 @@ def test_pipeline_model_kernel_explainer_on_categorical_features(pipeline_model_
         )
     run_data = get_run_data(run.info.run_id)
     assert {
-        # TODO: Uncomment once https://github.com/shap/shap/issues/3901 is fixed.
-        # "shap_beeswarm_plot.png",
+        "shap_beeswarm_plot.png",
         "shap_feature_importance_plot.png",
         "shap_summary_plot.png",
         "explainer",
@@ -1788,8 +1779,7 @@ def test_evaluation_works_with_model_pipelines_that_modify_input_data():
 
         _, _, _, artifacts = get_run_data(run.info.run_id)
         assert set(artifacts) >= {
-            # TODO: Uncomment once https://github.com/shap/shap/issues/3901 is fixed.
-            # "shap_beeswarm_plot.png",
+            "shap_beeswarm_plot.png",
             "shap_feature_importance_plot.png",
             "shap_summary_plot.png",
         }
@@ -2557,8 +2547,7 @@ def test_default_evaluator_for_pyfunc_model(breast_cancer_dataset):
     assert set(run_data.artifacts) == {
         "confusion_matrix.png",
         "shap_feature_importance_plot.png",
-        # TODO: Uncomment once https://github.com/shap/shap/issues/3901 is fixed.
-        # "shap_beeswarm_plot.png",
+        "shap_beeswarm_plot.png",
         "shap_summary_plot.png",
     }
 
