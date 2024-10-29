@@ -43,3 +43,4 @@ jobs:
       - run: |
           python examples/mlflow-3/sklearn_example.py
           python examples/mlflow-3/sklearn_autolog.py
+          python examples/mlflow-3/evaluate_example.py
