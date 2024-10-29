@@ -182,6 +182,9 @@ jobs:
           submodules: recursive
       - uses: ./.github/actions/untracked
       - uses: ./.github/actions/setup-python
+        with:
+          # TODO: Remove this once Python 3.8 support is dropped
+          python-version: 3.9
       - uses: ./.github/actions/setup-pyenv
       - uses: ./.github/actions/setup-java
       - uses: ./.github/actions/cache-pip
@@ -193,6 +196,8 @@ jobs:
           # 4.46.0 is broken because of https://github.com/huggingface/transformers/issues/34370
           # TODO: remove this once above issue is resolved
           pip install 'transformers!=4.46.0'
+          # transformers doesn't support Keras 3 yet. tf-keras needs to be installed as a workaround.
+          pip install tf-keras
       - uses: ./.github/actions/show-versions
       - uses: ./.github/actions/pipdeptree
       - name: Run tests
