@@ -541,7 +541,10 @@ def _infer_requirements(model_uri, flavor, raise_on_error=False, extra_env_vars=
             unrecognized_packages,
         )
 
-    # for pandas < 2.1.2, we need to pin numpy < 2 as pandas is not compatible with numpy 2.x
+    # Fix pandas incompatibility issue with numpy 2.x
+    # pandas == 2.2.*: compatible with numpy >= 2
+    # pandas >= 2.1.2: incompatible with numpy >= 2, but it pins numpy < 2
+    # pandas < 2.1.2: incompatible with numpy >= 2 and doesn't pin numpy, so we need to pin numpy
     if any(
         package == "pandas" and _get_pinned_requirement(package).split("==")[1] < "2.1.2"
         for package in packages
