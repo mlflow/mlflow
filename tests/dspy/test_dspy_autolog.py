@@ -1,3 +1,4 @@
+import importlib
 import time
 from unittest import mock
 
@@ -8,11 +9,14 @@ from dspy.primitives.example import Example
 from dspy.teleprompt import BootstrapFewShot
 from dspy.utils.callback import BaseCallback, with_callbacks
 from dspy.utils.dummies import DummyLM
+from packaging.version import Version
 
 import mlflow
 from mlflow.entities import SpanType
 
 from tests.tracing.helper import get_traces
+
+_DSPY_VERSION = Version(importlib.metadata.version("dspy"))
 
 
 def test_autolog_lm():
@@ -129,6 +133,7 @@ def test_mlflow_callback_exception():
     assert spans[3].status.status_code == "ERROR"
 
 
+@pytest.mark.skipif(_DSPY_VERSION >= Version("2.5.19"), reason="dspy.ReAct is broken in >=2.5.19")
 def test_autolog_react():
     mlflow.dspy.autolog()
 
@@ -144,7 +149,7 @@ def test_autolog_react():
                     "Action_2": "Finish[Mount Everest]",
                 },
             ]
-        )
+        ),
     )
 
     class BasicQA(dspy.Signature):

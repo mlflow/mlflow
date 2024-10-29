@@ -699,8 +699,6 @@ dspy:
   models:
     minimum: "2.5.6"
     maximum: "2.5.6"
-    python:
-      ">= 2.5.6": "3.9"
     requirements:
       ">= 0.0.0": ["openai"]
     run: |
@@ -708,8 +706,6 @@ dspy:
   autologging:
     minimum: "2.5.17"
     maximum: "2.5.17"
-    python:
-      ">= 2.5.17": "3.9"
     requirements:
       ">= 0.0.0": ["openai"]
     run: |

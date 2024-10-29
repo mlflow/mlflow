@@ -11,8 +11,8 @@ def autolog(
     silent: bool = False,
 ):
     """
-    Enables (or disables) and configures autologging from DSPy to MLflow. Currently, MLflow
-    only supports autologging for tracing.
+    Enables (or disables) and configures autologging from DSPy to MLflow. Currently, the
+    MLflow DSPy flavor only supports autologging for tracing.
 
     Args:
         log_traces: If ``True``, traces are logged for DSPy models by using. If ``False``,
@@ -35,7 +35,8 @@ def autolog(
 
     # Enable tracing by setting the MlflowCallback
     if log_traces and not disable:
-        dspy.settings.configure(callbacks=[*dspy.settings.callbacks, MlflowCallback()])
+        if not any(isinstance(c, MlflowCallback) for c in dspy.settings.callbacks):
+            dspy.settings.configure(callbacks=[*dspy.settings.callbacks, MlflowCallback()])
     else:
         dspy.settings.configure(
             callbacks=[c for c in dspy.settings.callbacks if not isinstance(c, MlflowCallback)]
