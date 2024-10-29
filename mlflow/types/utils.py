@@ -763,15 +763,16 @@ def _is_list_dict_str(type_hint: Any) -> bool:
 def _infer_schema_from_type_hint(type_hint, examples=None):
     has_examples = examples is not None
     if has_examples:
-        _validate_is_list(examples)
         _validate_non_empty(examples)
 
     if _is_list_str(type_hint):
         if has_examples:
+            _validate_is_list(examples)
             _validate_is_all_string(examples)
         return Schema([ColSpec(type="string", name=None)])
     elif _is_list_dict_str(type_hint):
         if has_examples:
+            _validate_is_list(examples)
             _validate_dict_examples(examples)
             return Schema([ColSpec(type="string", name=name) for name in examples[0]])
         else:
