@@ -2038,3 +2038,17 @@ def test_model_as_code_pycache_cleaned_up():
 
     path = _download_artifact_from_uri(model_info.model_uri)
     assert list(Path(path).rglob("__pycache__")) == []
+
+
+def test_model_pip_requirements_pin_numpy_when_pandas_included():
+    class TestModel(mlflow.pyfunc.PythonModel):
+        def predict(self, context, model_input, params=None):
+            return model_input
+
+    with mlflow.start_run():
+        mlflow.pyfunc.log_model("model", python_model=TestModel(), input_example="abc")
+        expected_mlflow_version = _mlflow_major_version_string()
+        _assert_pip_requirements(
+            mlflow.get_artifact_uri("model"),
+            [expected_mlflow_version, f"pandas=={pandas.__version__}", f"numpy=={np.__version__}"],
+        )
