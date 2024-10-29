@@ -143,7 +143,12 @@ class MlflowCallback(BaseCallback):
         outputs: Optional[Any],
         exception: Optional[Exception] = None,
     ):
-        span = self._call_id_to_span.pop(call_id)
+        span = self._call_id_to_span.pop(call_id, None)
+
+        if not span:
+            _logger.warning(f"Failed to end a span. Span not found for call_id: {call_id}")
+            return
+
         status = SpanStatusCode.OK if exception is None else SpanStatusCode.ERROR
 
         if exception:

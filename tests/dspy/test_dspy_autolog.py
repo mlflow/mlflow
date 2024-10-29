@@ -1,4 +1,5 @@
 import importlib
+import os
 import time
 from unittest import mock
 
@@ -17,6 +18,7 @@ from mlflow.entities import SpanType
 from tests.tracing.helper import get_traces
 
 _DSPY_VERSION = Version(importlib.metadata.version("dspy"))
+_IS_DSPY_DEV_VERSION = os.environ.get("IS_DSPY_DEV_VERSION", "false").lower() == "true"
 
 
 def test_autolog_lm():
@@ -133,7 +135,10 @@ def test_mlflow_callback_exception():
     assert spans[3].status.status_code == "ERROR"
 
 
-@pytest.mark.skipif(_DSPY_VERSION >= Version("2.5.19"), reason="dspy.ReAct is broken in >=2.5.19")
+@pytest.mark.skipif(
+    _DSPY_VERSION >= Version("2.5.19") or _IS_DSPY_DEV_VERSION,
+    reason="dspy.ReAct is broken in >=2.5.19",
+)
 def test_autolog_react():
     mlflow.dspy.autolog()
 

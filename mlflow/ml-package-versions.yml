@@ -696,6 +696,10 @@ dspy:
     pip_release: "dspy"
     install_dev: |
       pip install git+https://github.com/stanfordnlp/dspy.git
+      # To distinguish dev version within the test. DSPy does not have proper version number
+      # management and installing from the main branch gives random version number.
+      # https://github.com/stanfordnlp/dspy/blob/803dff03c42d2f436aa67398ce5aba17e7b45611/pyproject.toml#L8-L9
+      export IS_DSPY_DEV_VERSION=true
   models:
     minimum: "2.5.6"
     maximum: "2.5.6"
