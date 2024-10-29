@@ -2096,3 +2096,22 @@ def test_model_pip_requirements_pin_numpy_when_pandas_included():
             [expected_mlflow_version, f"cloudpickle=={cloudpickle.__version__}"],
             strict=True,
         )
+
+
+def test_environment_variables_used_during_model_logging(monkeypatch):
+    class MyModel(mlflow.pyfunc.PythonModel):
+        def predict(self, context, model_input, params=None):
+            monkeypatch.setenv("TEST_ENV", "test_env")
+            os.environ.get("TRY_GET_ENV")
+            return model_input
+
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model("model", python_model=MyModel(), input_example="data")
+    assert all(x in model_info.env_vars for x in ["TEST_ENV", "TRY_GET_ENV"])
+    pyfunc_model = mlflow.pyfunc.load_model(model_info.model_uri)
+    assert pyfunc_model.metadata.env_vars == model_info.env_vars
+
+    # if no input_example provided, we do not run predict, and no env vars are captured
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model("model", python_model=MyModel())
+    assert model_info.env_vars is None

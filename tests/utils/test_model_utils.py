@@ -13,6 +13,7 @@ from mlflow.mleap import FLAVOR_NAME as MLEAP_FLAVOR_NAME
 from mlflow.models import Model
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST, ErrorCode
 from mlflow.utils.file_utils import TempDir
+from mlflow.utils.model_utils import env_var_tracker
 
 
 @pytest.fixture(scope="module")
@@ -115,3 +116,21 @@ def test_add_code_to_system_path_not_copyable_file(sklearn_knn_model, model_path
             path=model_path,
             code_paths=["tests/utils/test_resources/dummy_module.py"],
         )
+
+
+def test_env_var_tracker(monkeypatch):
+    monkeypatch.setenv("ENV1", "env1")
+    assert "ENV1" in os.environ
+    assert "ENV2" not in os.environ
+
+    with env_var_tracker():
+        assert os.environ["ENV1"] == "env1"
+        assert "ENV1" in os.environ.get_env_vars()
+        assert "ENV2" not in os.environ.get_env_vars()
+        monkeypatch.setenv("ENV2", "env2")
+        assert "ENV2" in os.environ.get_env_vars()
+        os.environ.get("ENV3")
+        assert "ENV3" in os.environ.get_env_vars()
+
+    assert not hasattr(os.environ, "get_env_vars")
+    assert all(x in os.environ for x in ["ENV1", "ENV2"])

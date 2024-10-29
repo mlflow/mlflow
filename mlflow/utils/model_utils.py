@@ -1,3 +1,4 @@
+import contextlib
 import json
 import os
 import shutil
@@ -428,3 +429,41 @@ def _validate_pyfunc_model_config(model_config):
             "valid file path or of type ``dict`` with string keys.",
             error_code=INVALID_PARAMETER_VALUE,
         )
+
+
+class EnvTracker(dict):
+    """
+    Track environment variables accessed.
+    """
+
+    def __init__(self, *args, **kwargs):
+        self.env_vars = set()
+        super().__init__(*args, **kwargs)
+
+    def __setitem__(self, key, value):
+        super().__setitem__(key, value)
+        self.env_vars.add(key)
+
+    def __getitem__(self, key):
+        self.env_vars.add(key)
+        return super().__getitem__(key)
+
+    def get(self, key, *args, **kwargs):
+        self.env_vars.add(key)
+        return super().get(key, *args, **kwargs)
+
+    def get_env_vars(self):
+        return self.env_vars
+
+
+@contextlib.contextmanager
+def env_var_tracker():
+    """
+    Context manager for temporarily tracking environment variables accessed.
+    It tracks both environment variables set and accessed during the context manager's lifetime.
+    """
+    try:
+        os.environ = EnvTracker(os.environ)
+        yield os.environ
+    finally:
+        os.environ = {**os.environ}
