@@ -89,9 +89,9 @@ _logger = logging.getLogger(__name__)
 run_id_to_system_metrics_monitor = {}
 
 
-_active_run_stack = ThreadLocalVariable(init_value=[])
+_active_run_stack = ThreadLocalVariable(init_value_creator=lambda: [])
 
-_last_active_run_id = ThreadLocalVariable(init_value=None)
+_last_active_run_id = ThreadLocalVariable(init_value_creator=lambda: None)
 
 _experiment_lock = threading.Lock()
 
@@ -2151,7 +2151,7 @@ def search_runs(
 
 
 def _get_or_start_run():
-    active_run_stack = _get_active_run_stack()
+    active_run_stack = _active_run_stack.get()
     if len(active_run_stack) > 0:
         return active_run_stack[-1]
     return start_run()

@@ -7,9 +7,9 @@ class ThreadLocalVariable:
     Class for creating a thread local variable.
     """
 
-    def __init__(self, init_value, reset_in_subprocess=True):
+    def __init__(self, init_value_creator, reset_in_subprocess=True):
         self.reset_in_subprocess = reset_in_subprocess
-        self.init_value = init_value
+        self.init_value_creator = init_value_creator
         self.thread_local = threading.local()
 
     def get(self):
@@ -23,13 +23,15 @@ class ThreadLocalVariable:
             value, pid = self.thread_local.value
             if self.reset_in_subprocess and pid != os.getpid():
                 # `get` is called in a forked subprocess, reset it.
-                self.set(self.init_value)
-                return self.init_value
+                init_value = self.init_value_creator()
+                self.set(init_value)
+                return init_value
             else:
                 return value
         else:
-            self.set(self.init_value)
-            return self.init_value
+            init_value = self.init_value_creator()
+            self.set(init_value)
+            return init_value
 
     def set(self, value):
         """
