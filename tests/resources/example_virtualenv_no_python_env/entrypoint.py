@@ -20,8 +20,8 @@ parser.add_argument(
 args = parser.parse_args()
 if args.test:
     assert "VIRTUAL_ENV" in os.environ
-    assert sys.version_info[:3] == (3, 8, 18), sys.version_info
-    assert sklearn.__version__ == "1.0.2", sklearn.__version__
+    assert sys.version_info[:3] == (3, 9, 18), sys.version_info
+    assert sklearn.__version__ == "1.4.2", sklearn.__version__
 
 X = np.array([[-1, -1], [-2, -1], [1, 1], [2, 1]])
 y = np.array([1, 1, 2, 2])
