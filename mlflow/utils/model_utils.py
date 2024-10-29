@@ -446,10 +446,9 @@ class EnvTracker(dict):
         self.env_vars.add(key)
 
     def __getitem__(self, key):
-        result = super().__getitem__(key)
-        if result is not None:
+        if key in self:
             self.env_vars.add(key)
-        return result
+        return super().__getitem__(key)
 
     def get(self, key, *args, **kwargs):
         if key in self:
