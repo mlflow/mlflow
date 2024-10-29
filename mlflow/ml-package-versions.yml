@@ -202,20 +202,6 @@ lightgbm:
 catboost:
   package_info:
     pip_release: "catboost"
-    install_dev: |
-      # Install CMake
-      CMAKE_VERSION=3.24.0
-      wget https://github.com/Kitware/CMake/releases/download/v$CMAKE_VERSION/cmake-$CMAKE_VERSION-linux-x86_64.sh
-      chmod +x cmake-$CMAKE_VERSION-linux-x86_64.sh
-      sudo ./cmake-$CMAKE_VERSION-linux-x86_64.sh --skip-license --prefix=/usr/local
-      # Install Ninja
-      sudo apt-get update
-      sudo apt-get install -y ninja-build
-
-      # Install catboost from source
-      pip install conan==1.59.0
-      pip install git+https://github.com/catboost/catboost.git#subdirectory=catboost/python-package --install-option=--no-widget --install-option=--no-cuda
-      pip install 'numpy<2'
 
   models:
     minimum: "1.0.0"
