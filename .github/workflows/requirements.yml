@@ -81,6 +81,9 @@ jobs:
         run: |
           source ./dev/install-common-deps.sh --ml
           pip install '.[gateway]'
+          # 4.46.0 is broken because of https://github.com/huggingface/transformers/issues/34370
+          # TODO: remove this once above issue is resolved
+          pip install 'transformers!=4.46.0'
       - name: Run tests
         run: |
           source dev/setup-ssh.sh

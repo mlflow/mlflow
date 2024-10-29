@@ -321,6 +321,7 @@ Harnessing the power of LLMs becomes effortless with flavors designed specifical
     sentence-transformers/index
     langchain/index
     llama-index/index
+    dspy/index
 
 Explore the Native LLM Flavors
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -383,6 +384,17 @@ Select the integration below to read the documentation on how to leverage MLflow
                     <p>
                         Learn about MLflow's native integration with LlamaIndex and see example notebooks that leverage 
                         MLflow and LlamaIndex to build advanced QA systems, chatbots, and other AI-driven applications.
+                    </p>
+                </a>
+            </div>
+            <div class="simple-card">
+                <a href="dspy/index.html">
+                    <div class="header-with-image">
+                        <img src="../_static/images/logos/dspy-logo.png" alt="DSPy Logo" style="width: 90%"/>
+                    </div>
+                    <p>
+                        Learn about MLflow's native integration with DSPy and see example notebooks that leverage 
+                        MLflow and DSPy to optimize your GenAI applications.
                     </p>
                 </a>
             </div>

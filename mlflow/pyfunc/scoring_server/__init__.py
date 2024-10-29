@@ -56,6 +56,7 @@ from mlflow.pyfunc.utils.serving_data_parser import is_unified_llm_input
 from mlflow.server.handlers import catch_mlflow_exception
 
 _SERVER_MODEL_PATH = "__pyfunc_model_path__"
+SERVING_MODEL_CONFIG = "SERVING_MODEL_CONFIG"
 
 CONTENT_TYPE_CSV = "text/csv"
 CONTENT_TYPE_JSON = "application/json"
@@ -89,6 +90,14 @@ SCORING_PROTOCOL_CHANGE_INFO = (
     " Model scoring protocol in MLflow 2.0, see"
     " https://mlflow.org/docs/latest/models.html#deploy-mlflow-models."
 )
+
+
+def load_model_with_mlflow_config(model_uri):
+    extra_kwargs = {}
+    if model_config_json := os.environ.get(SERVING_MODEL_CONFIG):
+        extra_kwargs["model_config"] = json.loads(model_config_json)
+
+    return load_model(model_uri, **extra_kwargs)
 
 
 # Keep this method to maintain compatibility with MLServer
@@ -474,7 +483,9 @@ def _predict(model_uri, input_path, output_path, content_type):
             with open(input_path) as f:
                 input_str = f.read()
         data, params = _split_data_and_params(input_str)
-        df = infer_and_parse_data(data)
+        # schema needs to be passed to correctly match the behavior
+        # of schema enforcement during pyfunc predict
+        df = infer_and_parse_data(data, schema=pyfunc_model.metadata.get_input_schema())
     elif content_type == "csv":
         df = parse_csv_input(input_path) if input_path is not None else parse_csv_input(sys.stdin)
         params = None

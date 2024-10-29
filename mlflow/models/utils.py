@@ -353,8 +353,8 @@ class _Example:
             else:
                 example_type = "sparse_matrix_csr"
             self.info["type"] = example_type
+            self.serving_input = {INPUTS: model_input.toarray()}
             model_input = _handle_sparse_matrix(model_input)
-            self.serving_input = None
         elif isinstance(model_input, pd.DataFrame):
             model_input = _convert_dataframe_to_split_dict(model_input)
             self.serving_input = {DF_SPLIT: model_input}
@@ -365,7 +365,7 @@ class _Example:
                     "pandas_orient": orient,
                 }
             )
-        elif np.isscalar(model_input):
+        elif np.isscalar(model_input) or isinstance(model_input, dt.datetime):
             self.info["type"] = "json_object"
             self.serving_input = {INPUTS: model_input}
         else:
@@ -379,6 +379,7 @@ class _Example:
                 "- dict\n"
                 "- list\n"
                 "- scalars\n"
+                "- datetime.datetime\n"
                 f"but got '{type(model_input)}'",
             )
 
@@ -1786,8 +1787,8 @@ def _mock_dbutils(globals_dict):
 # This function addresses this by dynamically importing the `code path` module under a unique,
 # dynamically generated module name. This bypasses the caching mechanism, as each import is
 # considered a separate module by the Python interpreter.
-def _load_model_code_path(code_path: str, config: Optional[Union[str, Dict[str, Any]]]):
-    with _config_context(config):
+def _load_model_code_path(code_path: str, model_config: Optional[Union[str, Dict[str, Any]]]):
+    with _config_context(model_config):
         try:
             new_module_name = f"code_model_{uuid.uuid4().hex}"
             spec = importlib.util.spec_from_file_location(new_module_name, code_path)
