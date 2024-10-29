@@ -13,7 +13,7 @@ from mlflow.entities.run_status import RunStatus
 from mlflow.environment_variables import _MLFLOW_AUTOLOGGING_TESTING
 from mlflow.tracking.client import MlflowClient
 from mlflow.utils import gorilla, is_iterator
-from mlflow.utils.autologging_utils import _has_active_training_session, _logger
+from mlflow.utils.autologging_utils import _logger
 from mlflow.utils.autologging_utils.events import AutologgingEventLogger
 from mlflow.utils.autologging_utils.logging_and_warnings import (
     set_mlflow_events_and_warnings_behavior_globally,
@@ -201,6 +201,7 @@ def with_managed_run(autologging_integration, patch_function, tags=None):
         tags: A dictionary of string tags to set on each managed run created during the
             execution of `patch_function`.
     """
+    from mlflow.utils.autologging_utils import _has_active_training_session
 
     def create_managed_run():
         managed_run = mlflow.start_run(tags=tags)
