@@ -99,12 +99,16 @@ def _extract_score_and_justification(text):
 
 
 def _score_model_on_one_payload(
-    payload,
-    eval_model,
-    parameters,
+    payload: str,
+    eval_model: str,
+    parameters: Optional[Dict[str, Any]],
 ):
     try:
-        raw_result = model_utils.score_model_on_payload(eval_model, payload, parameters)
+        # If the endpoint does not specify type, default to chat format
+        endpoint_type = model_utils.get_endpoint_type(eval_model) or "llm/v1/chat"
+        raw_result = model_utils.score_model_on_payload(
+            eval_model, payload, parameters, endpoint_type
+        )
         return _extract_score_and_justification(raw_result)
     except ImportError:
         raise

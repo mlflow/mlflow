@@ -290,7 +290,7 @@ def test_docker_build_image_local(tmp_path):
     dockerfile = tmp_path.joinpath("Dockerfile")
     dockerfile.write_text(
         """
-FROM python:3.8
+FROM python:3.9
 RUN pip --version
 """
     )
@@ -315,7 +315,7 @@ def test_docker_build_image_remote(tmp_path):
         """
 name: test
 docker_env:
-  image: python:3.8
+  image: python:3.9
 entry_points:
   main:
     command: python --version
@@ -323,4 +323,4 @@ entry_points:
     )
     submitted_run = mlflow.projects.run(str(tmp_path))
     run = mlflow.get_run(submitted_run.run_id)
-    assert run.data.tags[MLFLOW_DOCKER_IMAGE_URI] == "python:3.8"
+    assert run.data.tags[MLFLOW_DOCKER_IMAGE_URI] == "python:3.9"

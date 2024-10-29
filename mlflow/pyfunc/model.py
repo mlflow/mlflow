@@ -27,6 +27,7 @@ from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.pyfunc.utils.input_converter import _hydrate_dataclass
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.types.llm import ChatMessage, ChatParams, ChatResponse
+from mlflow.types.utils import _is_list_dict_str, _is_list_str
 from mlflow.utils.annotations import experimental
 from mlflow.utils.environment import (
     _CONDA_ENV_FILE_NAME,
@@ -587,7 +588,7 @@ class _PythonModelPyfuncWrapper:
         import pandas as pd
 
         hints = self.python_model._get_type_hints()
-        if hints.input == List[str]:
+        if _is_list_str(hints.input):
             if isinstance(model_input, pd.DataFrame):
                 first_string_column = _get_first_string_column(model_input)
                 if first_string_column is None:
@@ -600,7 +601,7 @@ class _PythonModelPyfuncWrapper:
                     return [next(iter(d.values())) for d in model_input]
                 elif all(isinstance(x, str) for x in model_input):
                     return model_input
-        elif hints.input == List[Dict[str, str]]:
+        elif _is_list_dict_str(hints.input):
             if isinstance(model_input, pd.DataFrame):
                 if (
                     len(self.signature.inputs) == 1
@@ -737,12 +738,20 @@ class ModelFromDeploymentEndpoint(PythonModel):
         Returns:
             The prediction result from the MLflow Deployments endpoint as a dictionary.
         """
-        from mlflow.metrics.genai.model_utils import _call_deployments_api
+        from mlflow.metrics.genai.model_utils import call_deployments_api, get_endpoint_type
+
+        endpoint_type = get_endpoint_type(f"endpoints:/{self.endpoint}")
 
         if isinstance(data, str):
-            prediction = _call_deployments_api(self.endpoint, data, self.params)
+            # If the input payload is string, MLflow needs to construct the JSON
+            # payload based on the endpoint type. If the endpoint type is not
+            # set on the endpoint, we will default to chat format.
+            endpoint_type = endpoint_type or "llm/v1/chat"
+            prediction = call_deployments_api(self.endpoint, data, self.params, endpoint_type)
         elif isinstance(data, dict):
-            prediction = _call_deployments_api(self.endpoint, data, self.params, wrap_payload=False)
+            # If the input is dictionary, we assume the input is already in the
+            # compatible format for the endpoint.
+            prediction = call_deployments_api(self.endpoint, data, self.params, endpoint_type)
         else:
             raise MlflowException(
                 f"Invalid input data type: {type(data)}. The feature column of the evaluation "

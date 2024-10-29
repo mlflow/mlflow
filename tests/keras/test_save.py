@@ -54,9 +54,11 @@ def test_keras_save_model_export():
     # Test the loaded pyfunc model produces the same output for the same input as the model.
     logged_model = f"runs:/{run.info.run_id}/{model_path}"
     loaded_pyfunc_model = mlflow.pyfunc.load_model(logged_model)
+    predict_outputs = loaded_pyfunc_model.predict(test_input)
+    assert isinstance(predict_outputs, np.ndarray)
     np.testing.assert_allclose(
         keras.ops.convert_to_numpy(model(test_input)),
-        loaded_pyfunc_model.predict(test_input),
+        predict_outputs,
     )
 
 
