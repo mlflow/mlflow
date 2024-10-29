@@ -1498,7 +1498,7 @@ def test_set_experiment_thread_safety(tmp_path):
     origin_create_experiment = MlflowClient.create_experiment
 
     def patched_create_experiment(self, *args, **kwargs):
-        time.sleep(2)
+        time.sleep(0.5)
         return origin_create_experiment(self, *args, **kwargs)
 
     with mock.patch(

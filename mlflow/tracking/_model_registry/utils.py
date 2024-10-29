@@ -77,6 +77,8 @@ def set_registry_uri(uri: str) -> None:
     global _registry_uri
     _registry_uri = uri
     if uri:
+        # Export registry uri to as 'MLFLOW_REGISTRY_URI' environment variable
+        # so that subprocess can inherit it.
         MLFLOW_REGISTRY_URI.set(_registry_uri)
 
 
