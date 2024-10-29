@@ -678,7 +678,7 @@ def _get_new_training_session_class():
                 return _TrainingSession._session_stack[-1]
             return None
 
-    _training_session_classes.append(_TrainingSession)
+    _training_sessions.append(_TrainingSession)
     return _TrainingSession
 
 
