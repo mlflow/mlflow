@@ -153,7 +153,7 @@ def test_autolog_react():
         question = dspy.InputField()
         answer = dspy.OutputField(desc="often between 1 and 5 words")
 
-    react = dspy.ReAct(BasicQA)
+    react = dspy.ReAct(BasicQA, tools=[])
     result = react(question="What is the highest mountain in the world?")
     assert result["answer"] == "Mount Everest"
 
