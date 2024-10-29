@@ -1500,7 +1500,7 @@ def test_set_experiment_thread_safety(tmp_path):
     def patched_create_experiment(self, *args, **kwargs):
         # The sleep is for triggering `mlflow.set_experiment`
         # multiple thread / process execution race condition stably.
-        time.sleep(0.5)
+        time.sleep(0.1)
         return origin_create_experiment(self, *args, **kwargs)
 
     with mock.patch(

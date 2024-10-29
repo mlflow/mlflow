@@ -17,6 +17,7 @@ from mlflow.utils.autologging_utils import (
     autologging_is_disabled,
 )
 from mlflow.utils.databricks_utils import get_repl_id as get_databricks_repl_id
+from mlflow.tracking.fluent import _active_run_stack
 from mlflow.utils.validation import MAX_TAG_VAL_LENGTH
 
 _JAVA_PACKAGE = "org.mlflow.spark.autologging"
@@ -225,13 +226,25 @@ class PythonSubscriber(metaclass=ExceptionSafeClass):
         """
         if autologging_is_disabled(FLAVOR_NAME):
             return
-        # If there's an active run, simply set the tag on it
+        # If there are active runs, simply set the tag on the latest active run
         # Note that there's a TOCTOU race condition here - active_run() here can actually throw
         # if the main thread happens to end the run & pop from the active run stack after we check
         # the stack size but before we peek
-        active_run = mlflow.active_run()
-        if active_run:
-            _set_run_tag_async(active_run.info.run_id, path, version, data_format)
+
+        # Note Spark dataframe autologging is hard to support thread-local behavior,
+        # because the spark event listener callback (jvm side) does not have the python caller
+        # thread information, so set the tag to the latest active run ignoring threading
+        # information, this way keeps the consistent behavior with released MLflow.
+        latest_active_run = None
+        for active_run_stack in _active_run_stack._value_dict.values():
+            for active_run in active_run_stack:
+                if latest_active_run is None:
+                    latest_active_run = active_run
+                elif active_run.start_time > latest_active_run.start_time:
+                    latest_active_run = active_run
+
+        if latest_active_run:
+            _set_run_tag_async(latest_active_run.info.run_id, path, version, data_format)
         else:
             add_table_info_to_context_provider(path, version, data_format)
 
