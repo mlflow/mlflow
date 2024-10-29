@@ -89,9 +89,9 @@ _logger = logging.getLogger(__name__)
 run_id_to_system_metrics_monitor = {}
 
 
-_active_run_stack = ThreadLocalVariable(init_value_creator=lambda: [])
+_active_run_stack = ThreadLocalVariable(default_factory=lambda: [])
 
-_last_active_run_id = ThreadLocalVariable(init_value_creator=lambda: None)
+_last_active_run_id = ThreadLocalVariable(default_factory=lambda: None)
 
 _experiment_lock = threading.Lock()
 
@@ -191,7 +191,7 @@ def set_experiment(
     global _active_experiment_id
     _active_experiment_id = experiment.experiment_id
 
-    # export the active experiment ID as 'MLFLOW_EXPERIMENT_ID' environment variable
+    # Set 'MLFLOW_EXPERIMENT_ID' environment variable
     # so that subprocess can inherit it.
     MLFLOW_EXPERIMENT_ID.set(_active_experiment_id)
 

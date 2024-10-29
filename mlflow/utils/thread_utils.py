@@ -5,11 +5,15 @@ import threading
 class ThreadLocalVariable:
     """
     Class for creating a thread local variable.
+
+    Args:
+        default_factory: A function used to create the default value
+        reset_in_subprocess: Indicating whether the variable is reset in subprocess.
     """
 
-    def __init__(self, init_value_creator, reset_in_subprocess=True):
+    def __init__(self, default_factory, reset_in_subprocess=True):
         self.reset_in_subprocess = reset_in_subprocess
-        self.init_value_creator = init_value_creator
+        self.default_factory = default_factory
         self.thread_local = threading.local()
 
     def get(self):
@@ -23,13 +27,13 @@ class ThreadLocalVariable:
             value, pid = self.thread_local.value
             if self.reset_in_subprocess and pid != os.getpid():
                 # `get` is called in a forked subprocess, reset it.
-                init_value = self.init_value_creator()
+                init_value = self.default_factory()
                 self.set(init_value)
                 return init_value
             else:
                 return value
         else:
-            init_value = self.init_value_creator()
+            init_value = self.default_factory()
             self.set(init_value)
             return init_value
 
