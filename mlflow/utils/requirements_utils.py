@@ -541,9 +541,11 @@ def _infer_requirements(model_uri, flavor, raise_on_error=False, extra_env_vars=
             unrecognized_packages,
         )
 
-    # for pandas < 2.1.0, we need to pin numpy < 2 as pandas is not compatible with numpy 2.x
-    # in general, we just pin numpy to the current version
-    if any(package == "pandas" for package in packages):
+    # for pandas < 2.1.2, we need to pin numpy < 2 as pandas is not compatible with numpy 2.x
+    if any(
+        package == "pandas" and _get_pinned_requirement(package).split("==")[1] < "2.1.2"
+        for package in packages
+    ):
         packages.add("numpy")
 
     return sorted(map(_get_pinned_requirement, packages))

@@ -53,6 +53,7 @@ from mlflow.tracking.artifact_utils import (
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.model_utils import _get_flavor_configuration
+from mlflow.utils.requirements_utils import _get_installed_version
 
 import tests
 from tests.helper_functions import (
@@ -2045,20 +2046,46 @@ def test_model_pip_requirements_pin_numpy_when_pandas_included():
         def predict(self, context, model_input, params=None):
             return model_input
 
+    expected_mlflow_version = _mlflow_major_version_string()
+
+    # no numpy when pandas > 2.1.2
     with mlflow.start_run():
         mlflow.pyfunc.log_model("model", python_model=TestModel(), input_example="abc")
-        expected_mlflow_version = _mlflow_major_version_string()
         _assert_pip_requirements(
             mlflow.get_artifact_uri("model"),
             [
                 expected_mlflow_version,
+                f"cloudpickle=={cloudpickle.__version__}",
                 f"pandas=={pandas.__version__}",
+            ],
+            strict=True,
+        )
+
+    original_get_installed_version = _get_installed_version
+
+    def mock_get_installed_version(package, module=None):
+        if package == "pandas":
+            return "2.1.0"
+        return original_get_installed_version(package, module)
+
+    # include numpy when pandas < 2.1.2
+    with mlflow.start_run(), mock.patch(
+        "mlflow.utils.requirements_utils._get_installed_version",
+        side_effect=mock_get_installed_version,
+    ):
+        mlflow.pyfunc.log_model("model", python_model=TestModel(), input_example="abc")
+        _assert_pip_requirements(
+            mlflow.get_artifact_uri("model"),
+            [
+                expected_mlflow_version,
+                "pandas==2.1.0",
                 f"numpy=={np.__version__}",
                 f"cloudpickle=={cloudpickle.__version__}",
             ],
             strict=True,
         )
 
+    # no input_example, so pandas not included in requirements
     with mlflow.start_run():
         mlflow.pyfunc.log_model("model", python_model=TestModel())
         _assert_pip_requirements(
