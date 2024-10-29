@@ -41,7 +41,7 @@ def autolog(
             callbacks=[c for c in dspy.settings.callbacks if not isinstance(c, MlflowCallback)]
         )
 
-    # patch teleprompter and evaluate not to generate traces
+    # Patch teleprompter and evaluate not to generate traces
     def patched_compile(original, self, *args, **kwargs):
         @trace_disabled
         def _compile(self, *args, **kwargs):
@@ -49,9 +49,9 @@ def autolog(
 
         return _compile(self, *args, **kwargs)
 
-    from dspy.teleprompt import BootstrapFewShot
+    from dspy.teleprompt import Teleprompter
 
-    for cls in [BootstrapFewShot]:  # Teleprompter.__subclasses__():
+    for cls in Teleprompter.__subclasses__():
         safe_patch(
             FLAVOR_NAME,
             cls,

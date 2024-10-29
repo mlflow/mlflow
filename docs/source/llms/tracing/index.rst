@@ -351,9 +351,32 @@ for model/API invocations to the active MLflow Experiment.
             lm = dspy.LM("openai/gpt-4o-mini")
             dspy.configure(lm=lm)
 
-            cot = dspy.ChainOfThought("question -> response")
-            cot(question="should curly braces appear on their own line?")
 
+            # Define a simple summarizer model and run it
+            class SummarizeSignature(dspy.Signature):
+                """Given a passage, generate a summary."""
+
+                passage = dspy.InputField(desc="a passage to summarize")
+                summary: str = dspy.OutputField(desc="a one-line summary of the passage")
+
+
+            class Summarize(dspy.Module):
+                def __init__(self):
+                    self.summarize = dspy.ChainOfThought(SummarizeSignature)
+
+                def forward(self, passage: str):
+                    return self.summarize(passage=passage)
+
+
+            summarizer = Summarize()
+            summarizer(
+                passage=(
+                    "MLflow Tracing is a feature that enhances LLM observability in your Generative AI (GenAI) applications "
+                    "by capturing detailed information about the execution of your application's services. Tracing provides "
+                    "a way to record the inputs, outputs, and metadata associated with each intermediate step of a request, "
+                    "enabling you to easily pinpoint the source of bugs and unexpected behaviors."
+                )
+            )
 
         .. figure:: ../../_static/images/llms/tracing/dspy-tracing.png
             :alt: DSPy Tracing

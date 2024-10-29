@@ -184,6 +184,7 @@ class MlflowCallback(BaseCallback):
 
     def _unpack_kwargs(self, inputs: Dict[str, Any]) -> Dict[str, Any]:
         """Unpacks the kwargs from the inputs dictionary"""
+        # NB: Not using pop() to avoid modifying the original inputs dictionary
         kwargs = inputs.get("kwargs", {})
         inputs_wo_kwargs = {k: v for k, v in inputs.items() if k != "kwargs"}
         return {**inputs_wo_kwargs, **kwargs}

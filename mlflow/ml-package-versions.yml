@@ -701,11 +701,7 @@ dspy:
     python:
       ">= 2.5.6": "3.9"
     requirements:
-      ">= 0.0.0": [
-          "openai",
-          # https://github.com/stanfordnlp/dspy/issues/1624
-          "litellm<=1.49.2",
-        ]
+      ">= 0.0.0": ["openai"]
     run: |
       pytest tests/dspy --ignore tests/dspy/test_dspy_autolog.py
   autologging:
@@ -714,11 +710,7 @@ dspy:
     python:
       ">= 2.5.17": "3.9"
     requirements:
-      ">= 0.0.0": [
-          "openai",
-          # https://github.com/stanfordnlp/dspy/issues/1624
-          "litellm<=1.49.2",
-        ]
+      ">= 0.0.0": ["openai"]
     run: |
       pytest tests/dspy/test_dspy_autolog.py
 
