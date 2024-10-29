@@ -239,13 +239,7 @@ class ShapEvaluator(BuiltInEvaluator):
             pyplot.yticks(fontsize=10)
 
         def plot_beeswarm():
-            shap.plots.beeswarm(
-                shap_values,
-                show=False,
-                color_bar=True,
-                # Workaround for https://github.com/shap/shap/issues/3901
-                color="cool",
-            )
+            shap.plots.beeswarm(shap_values, show=False, color_bar=True)
             _adjust_color_bar()
             _adjust_axis_tick()
 
