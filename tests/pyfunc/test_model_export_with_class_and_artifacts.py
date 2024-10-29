@@ -2050,5 +2050,19 @@ def test_model_pip_requirements_pin_numpy_when_pandas_included():
         expected_mlflow_version = _mlflow_major_version_string()
         _assert_pip_requirements(
             mlflow.get_artifact_uri("model"),
-            [expected_mlflow_version, f"pandas=={pandas.__version__}", f"numpy=={np.__version__}"],
+            [
+                expected_mlflow_version,
+                f"pandas=={pandas.__version__}",
+                f"numpy=={np.__version__}",
+                f"cloudpickle=={cloudpickle.__version__}",
+            ],
+            strict=True,
+        )
+
+    with mlflow.start_run():
+        mlflow.pyfunc.log_model("model", python_model=TestModel())
+        _assert_pip_requirements(
+            mlflow.get_artifact_uri("model"),
+            [expected_mlflow_version, f"cloudpickle=={cloudpickle.__version__}"],
+            strict=True,
         )
