@@ -865,6 +865,11 @@ class Model:
                 mlflow.tracking.fluent.log_artifact(
                     env_var_path, mlflow_model.artifact_path, run_id
                 )
+                _logger.info(
+                    f"Logged environment variables to file {ENV_VAR_FILE_NAME} in "
+                    "the model's artifact folder, please check if you need to set these "
+                    "environment variables when serving the model.",
+                )
 
         return model_info
 
