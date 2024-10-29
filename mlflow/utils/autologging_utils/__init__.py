@@ -113,7 +113,7 @@ _logger = logging.getLogger(__name__)
 
 def autologging_conf_lock(fn):
     """
-    Appliy a global lock on functions that enable / disable autologging.
+    Apply a global lock on functions that enable / disable autologging.
     """
     global _autolog_conf_global_lock
 
