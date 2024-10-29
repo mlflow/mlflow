@@ -636,7 +636,8 @@ def test_pipeline_model_kernel_explainer_on_categorical_features(pipeline_model_
         )
     run_data = get_run_data(run.info.run_id)
     assert {
-        "shap_beeswarm_plot.png",
+        # TODO: Uncomment once https://github.com/shap/shap/issues/3901 is fixed
+        # "shap_beeswarm_plot.png",
         "shap_feature_importance_plot.png",
         "shap_summary_plot.png",
         "explainer",
@@ -1779,7 +1780,8 @@ def test_evaluation_works_with_model_pipelines_that_modify_input_data():
 
         _, _, _, artifacts = get_run_data(run.info.run_id)
         assert set(artifacts) >= {
-            "shap_beeswarm_plot.png",
+            # TODO: Uncomment once https://github.com/shap/shap/issues/3901 is fixed
+            # "shap_beeswarm_plot.png",
             "shap_feature_importance_plot.png",
             "shap_summary_plot.png",
         }
