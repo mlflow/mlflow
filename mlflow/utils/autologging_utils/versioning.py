@@ -1,4 +1,5 @@
 import importlib
+import importlib.metadata
 import re
 from typing import Literal
 
@@ -66,9 +67,12 @@ def is_flavor_supported_for_associated_package_versions(flavor_name):
     try:
         actual_version = importlib.import_module(module_name).__version__
     except AttributeError:
-        # Some package do not expose __version__ attribute. For this case, we assume the package
-        # version is supported by MLflow.
-        return True
+        try:
+            actual_version = importlib.metadata.version(module_name)
+        except importlib.metadata.PackageNotFoundError:
+            # Some package do not publish version info in a standard format.
+            # For this case, we assume the package version is supported by MLflow.
+            return True
 
     # In Databricks, treat 'pyspark 3.x.y.dev0' as 'pyspark 3.x.y'
     if module_name == "pyspark" and is_in_databricks_runtime():
