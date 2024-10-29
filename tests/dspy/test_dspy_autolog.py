@@ -3,6 +3,7 @@ from unittest import mock
 
 import dspy
 import pytest
+from dspy.evaluate import Evaluate
 from dspy.primitives.example import Example
 from dspy.teleprompt import BootstrapFewShot
 from dspy.utils.callback import BaseCallback, with_callbacks
@@ -295,7 +296,7 @@ def test_autolog_custom_module():
     ]
 
 
-def test_autolog_tracing_disabled_during_compile():
+def test_autolog_tracing_disabled_during_compile_evaluate():
     mlflow.dspy.autolog()
 
     dspy.settings.configure(
@@ -328,6 +329,13 @@ def test_autolog_tracing_disabled_during_compile():
     teleprompter = BootstrapFewShot()
     teleprompter.compile(RAG(), trainset=trainset)
 
+    assert mlflow.get_last_active_trace() is None
+
+    # Evaluate the model
+    evaluator = Evaluate(devset=trainset)
+    score = evaluator(RAG(), metric=lambda example, pred, _: example.answer == pred.answer)
+
+    assert score == 0.0
     assert mlflow.get_last_active_trace() is None
 
 

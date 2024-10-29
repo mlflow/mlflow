@@ -42,13 +42,14 @@ def autolog(
         )
 
     # Patch teleprompter and evaluate not to generate traces
-    def patched_compile(original, self, *args, **kwargs):
+    def trace_disabled_fn(original, self, *args, **kwargs):
         @trace_disabled
-        def _compile(self, *args, **kwargs):
+        def _fn(self, *args, **kwargs):
             return original(self, *args, **kwargs)
 
-        return _compile(self, *args, **kwargs)
+        return _fn(self, *args, **kwargs)
 
+    from dspy.evaluate import Evaluate
     from dspy.teleprompt import Teleprompter
 
     for cls in Teleprompter.__subclasses__():
@@ -56,8 +57,15 @@ def autolog(
             FLAVOR_NAME,
             cls,
             "compile",
-            patched_compile,
+            trace_disabled_fn,
         )
+
+    safe_patch(
+        FLAVOR_NAME,
+        Evaluate,
+        "__call__",
+        trace_disabled_fn,
+    )
 
 
 @autologging_integration(FLAVOR_NAME)

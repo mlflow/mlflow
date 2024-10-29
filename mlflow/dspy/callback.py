@@ -43,7 +43,7 @@ class MlflowCallback(BaseCallback):
         # is not easy to read on UI. Therefore, we unpack it to a dictionary.
         # https://github.com/stanfordnlp/dspy/blob/6fe693528323c9c10c82d90cb26711a985e18b29/dspy/primitives/prediction.py#L21-L28
         if isinstance(outputs, dspy.Prediction):
-            outputs = outputs._store
+            outputs = outputs.toDict()
 
         self._end_span(call_id, outputs, exception)
 
