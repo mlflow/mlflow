@@ -31,6 +31,9 @@ def autolog(
     """
     import litellm
 
+    # This needs to be called before doing any safe-patching (otherwise safe-patch will be no-op).
+    _autolog(log_traces=log_traces, disable=disable, silent=silent)
+
     if log_traces and not disable:
         litellm.success_callback = _append_mlflow_callbacks(litellm.success_callback)
         litellm.failure_callback = _append_mlflow_callbacks(litellm.failure_callback)
@@ -66,8 +69,6 @@ def autolog(
 
         # Remove all patches applied to async functions (not via safe_patch())
         _unpatch()
-
-    _autolog(log_traces=log_traces, disable=disable, silent=silent)
 
 
 # NB: The @autologging_integration annotation must be applied here, and the callback injection
@@ -142,9 +143,8 @@ def _patch_thread_start():
     logging_threads = []
 
     def patched_thread(self, *args, **kwargs):
-        print("patched thread")
         target = getattr(self, "_target", None)
-        # success_handler is for normal request, and run_success_logging_and_cache_storage is for streaming
+        # success_handler is for normal request, and run_success_... is for streaming
         # - https://github.com/BerriAI/litellm/blob/4f8a3fd4cfc20cf43b38379928b41c2691c85d36/litellm/utils.py#L946
         # - https://github.com/BerriAI/litellm/blob/4f8a3fd4cfc20cf43b38379928b41c2691c85d36/litellm/utils.py#L7526
         if target and target.__name__ in [

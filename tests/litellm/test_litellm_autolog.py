@@ -5,6 +5,7 @@ import litellm
 import pytest
 
 import mlflow
+from mlflow.entities.span import SpanType
 from mlflow.utils.databricks_utils import is_in_databricks_runtime
 
 from tests.tracing.helper import get_traces
@@ -52,6 +53,7 @@ def test_litellm_tracing_success(is_in_databricks):
     assert len(spans) == 1
     assert spans[0].name == "litellm-completion"
     assert spans[0].status.status_code == "OK"
+    assert spans[0].span_type == SpanType.LLM
     assert spans[0].inputs == {"messages": [{"role": "system", "content": "Hello"}]}
     assert spans[0].outputs == response.model_dump()
     assert spans[0].attributes["model"] == "gpt-4o-mini"
@@ -107,6 +109,7 @@ def test_litellm_tracing_streaming(is_in_databricks):
     assert len(spans) == 1
     assert spans[0].name == "litellm-completion"
     assert spans[0].status.status_code == "OK"
+    assert spans[0].span_type == SpanType.LLM
     assert spans[0].inputs == {
         "messages": [{"role": "system", "content": "Hello"}],
         "stream": True,

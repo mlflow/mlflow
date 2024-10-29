@@ -344,8 +344,8 @@ _ML_PACKAGE_VERSIONS = {
             "pip_release": "litellm"
         },
         "autologging": {
-            "minimum": "1.51.0",
-            "maximum": "1.51.0"
+            "minimum": "1.52.0",
+            "maximum": "1.52.0"
         }
     }
 }
