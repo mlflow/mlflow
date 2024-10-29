@@ -433,7 +433,8 @@ def _validate_pyfunc_model_config(model_config):
 
 class EnvTracker(dict):
     """
-    Track environment variables accessed.
+    Track environment variables set and accessed during the context manager's lifetime.
+    Note that if the environment variable does not exist, it will not be tracked.
     """
 
     def __init__(self, *args, **kwargs):
@@ -445,11 +446,14 @@ class EnvTracker(dict):
         self.env_vars.add(key)
 
     def __getitem__(self, key):
-        self.env_vars.add(key)
-        return super().__getitem__(key)
+        result = super().__getitem__(key)
+        if result is not None:
+            self.env_vars.add(key)
+        return result
 
     def get(self, key, *args, **kwargs):
-        self.env_vars.add(key)
+        if key in self:
+            self.env_vars.add(key)
         return super().get(key, *args, **kwargs)
 
     def get_env_vars(self):

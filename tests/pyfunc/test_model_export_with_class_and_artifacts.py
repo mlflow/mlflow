@@ -2107,7 +2107,8 @@ def test_environment_variables_used_during_model_logging(monkeypatch):
 
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model("model", python_model=MyModel(), input_example="data")
-    assert all(x in model_info.env_vars for x in ["TEST_ENV", "TRY_GET_ENV"])
+    assert "TEST_ENV" in model_info.env_vars
+    assert "TRY_GET_ENV" not in model_info.env_vars
     pyfunc_model = mlflow.pyfunc.load_model(model_info.model_uri)
     assert pyfunc_model.metadata.env_vars == model_info.env_vars
 

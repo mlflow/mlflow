@@ -129,8 +129,14 @@ def test_env_var_tracker(monkeypatch):
         assert "ENV2" not in os.environ.get_env_vars()
         monkeypatch.setenv("ENV2", "env2")
         assert "ENV2" in os.environ.get_env_vars()
-        os.environ.get("ENV3")
-        assert "ENV3" in os.environ.get_env_vars()
+        os.environ.get("ENV3", "abc")
+        assert "ENV3" not in os.environ.get_env_vars()
+        try:
+            os.environ["ENV4"]
+        except KeyError:
+            pass
+        assert "ENV4" not in os.environ.get_env_vars()
 
     assert not hasattr(os.environ, "get_env_vars")
     assert all(x in os.environ for x in ["ENV1", "ENV2"])
+    assert all(x not in os.environ for x in ["ENV3", "ENV4"])
