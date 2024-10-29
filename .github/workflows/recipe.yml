@@ -44,12 +44,16 @@ jobs:
           submodules: recursive
       - uses: ./.github/actions/untracked
       - uses: ./.github/actions/setup-python
+        with:
+          # TODO: Remove this once Python 3.8 support is dropped
+          python-version: 3.9
       - uses: ./.github/actions/setup-pyenv
       - name: Install dependencies
         run: |
           source ./dev/install-common-deps.sh
           # FLAML is incompatible with xgboost 2.1.0: https://github.com/microsoft/FLAML/issues/1314
           pip install pyspark 'xgboost<2.1.0'
+          pip install 'numpy<2.0'
       - name: Run tests
         run: |
           pytest tests/recipes
