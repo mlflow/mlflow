@@ -13,7 +13,7 @@ from mlflow.entities.run_status import RunStatus
 from mlflow.environment_variables import _MLFLOW_AUTOLOGGING_TESTING
 from mlflow.tracking.client import MlflowClient
 from mlflow.utils import gorilla, is_iterator
-from mlflow.utils.autologging_utils import _logger
+from mlflow.utils.autologging_utils import _has_active_training_session, _logger
 from mlflow.utils.autologging_utils.events import AutologgingEventLogger
 from mlflow.utils.autologging_utils.logging_and_warnings import (
     set_mlflow_events_and_warnings_behavior_globally,
@@ -221,7 +221,7 @@ def with_managed_run(autologging_integration, patch_function, tags=None):
                 self.managed_run = None
 
             def _patch_implementation(self, original, *args, **kwargs):
-                if not mlflow.active_run():
+                if not mlflow.active_run() and not _has_active_training_session():
                     self.managed_run = create_managed_run()
 
                 result = super()._patch_implementation(original, *args, **kwargs)
@@ -242,7 +242,7 @@ def with_managed_run(autologging_integration, patch_function, tags=None):
 
         def patch_with_managed_run(original, *args, **kwargs):
             managed_run = None
-            if not mlflow.active_run():
+            if not mlflow.active_run() and not _has_active_training_session():
                 managed_run = create_managed_run()
 
             try:
