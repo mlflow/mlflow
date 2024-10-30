@@ -689,10 +689,6 @@ def test_pyfunc_serve_and_score(sklearn_knn_model):
     np.testing.assert_array_almost_equal(scores, model.predict(inference_dataframe))
 
 
-@pytest.mark.skipif(
-    Version(sklearn.__version__) != Version("1.2.2"),
-    reason="'sklearn.metrics._dist_metrics' doesn't have attribute 'EuclideanDistance'",
-)
 def test_sklearn_compatible_with_mlflow_2_4_0(sklearn_knn_model, tmp_path):
     model, inference_dataframe = sklearn_knn_model
     model_predict = model.predict(inference_dataframe)
@@ -709,7 +705,7 @@ flavors:
     loader_module: mlflow.sklearn
     model_path: model.pkl
     predict_fn: predict
-    python_version: 3.8.16
+    python_version: 3.9.18
   sklearn:
     code: null
     pickled_model: model.pkl
@@ -723,7 +719,7 @@ utc_time_created: '2023-07-04 07:19:43.561797'
     )
     tmp_path.joinpath("python_env.yaml").write_text(
         """
-python: 3.8.16
+python: 3.9.18
 build_dependencies:
    - pip==23.1.2
    - setuptools==56.0.0
