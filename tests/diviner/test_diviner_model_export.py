@@ -447,9 +447,10 @@ def test_pmdarima_pyfunc_serve_and_score_groups(grouped_prophet, diviner_groups)
 
 def test_log_model_with_code_paths(grouped_pmdarima):
     artifact_path = "model"
-    with mlflow.start_run(), mock.patch(
-        "mlflow.diviner._add_code_from_conf_to_system_path"
-    ) as add_mock:
+    with (
+        mlflow.start_run(),
+        mock.patch("mlflow.diviner._add_code_from_conf_to_system_path") as add_mock,
+    ):
         mlflow.diviner.log_model(grouped_pmdarima, artifact_path, code_paths=[__file__])
         model_uri = mlflow.get_artifact_uri(artifact_path)
         _compare_logged_code_paths(__file__, model_uri, mlflow.diviner.FLAVOR_NAME)

@@ -80,11 +80,12 @@ def score_model(spark, data_path, model_uri):
 @cli_args.MODEL_URI
 @click.argument("data-path")
 def run(data_path, model_uri):
-    with pyspark.sql.SparkSession.builder.config(
-        key="spark.python.worker.reuse", value=True
-    ).config(key="spark.ui.enabled", value=False).master(
-        "local-cluster[2, 1, 1024]"
-    ).getOrCreate() as spark:
+    with (
+        pyspark.sql.SparkSession.builder.config(key="spark.python.worker.reuse", value=True)
+        .config(key="spark.ui.enabled", value=False)
+        .master("local-cluster[2, 1, 1024]")
+        .getOrCreate() as spark
+    ):
         # ignore spark log output
         spark.sparkContext.setLogLevel("OFF")
         print(score_model(spark, data_path, model_uri))
