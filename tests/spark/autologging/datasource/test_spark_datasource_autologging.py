@@ -1,7 +1,6 @@
 import time
 from unittest import mock
 
-import pytest
 from pyspark.sql import Row
 from pyspark.sql.types import IntegerType, StructField, StructType
 

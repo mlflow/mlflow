@@ -6,18 +6,17 @@ import uuid
 
 from py4j.java_gateway import CallbackServerParameters
 
-import mlflow
 from mlflow import MlflowClient
 from mlflow.exceptions import MlflowException
 from mlflow.spark import FLAVOR_NAME
 from mlflow.tracking.context.abstract_context import RunContextProvider
+from mlflow.tracking.fluent import _active_run_stack
 from mlflow.utils import _truncate_and_ellipsize
 from mlflow.utils.autologging_utils import (
     ExceptionSafeClass,
     autologging_is_disabled,
 )
 from mlflow.utils.databricks_utils import get_repl_id as get_databricks_repl_id
-from mlflow.tracking.fluent import _active_run_stack
 from mlflow.utils.validation import MAX_TAG_VAL_LENGTH
 
 _JAVA_PACKAGE = "org.mlflow.spark.autologging"
@@ -238,9 +237,10 @@ class PythonSubscriber(metaclass=ExceptionSafeClass):
         latest_active_run = None
         for active_run_stack in _active_run_stack._value_dict.values():
             for active_run in active_run_stack:
-                if latest_active_run is None:
-                    latest_active_run = active_run
-                elif active_run.start_time > latest_active_run.start_time:
+                if (
+                    latest_active_run is None
+                    or active_run.start_time > latest_active_run.start_time
+                ):
                     latest_active_run = active_run
 
         if latest_active_run:
