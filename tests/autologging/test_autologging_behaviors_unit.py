@@ -331,12 +331,12 @@ def test_autolog_function_thread_safety(patch_destination):
 
     @autologging_integration("test_integration")
     def test_autolog(disable=False, silent=False):
-        time.sleep(2)
+        time.sleep(0.2)
         safe_patch("test_integration", patch_destination, "fn", patch_impl)
 
     thread1 = threading.Thread(target=test_autolog, kwargs={"disable": False})
     thread1.start()
-    time.sleep(1)
+    time.sleep(0.1)
     thread2 = threading.Thread(target=test_autolog, kwargs={"disable": True})
     thread2.start()
 
