@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Optional, Union
 
 import yaml
 from langchain.callbacks.manager import AsyncCallbackManagerForChainRun, CallbackManagerForChainRun
@@ -45,24 +45,24 @@ class _RetrieverChain(Chain):
         arbitrary_types_allowed = True
 
     @property
-    def input_keys(self) -> List[str]:
+    def input_keys(self) -> list[str]:
         """Return the input keys."""
         return [self.input_key]
 
     @property
-    def output_keys(self) -> List[str]:
+    def output_keys(self) -> list[str]:
         """Return the output keys."""
         return [self.output_key]
 
-    def _get_docs(self, question: str) -> List[Document]:
+    def _get_docs(self, question: str) -> list[Document]:
         """Get documents from the retriever."""
         return self.retriever.get_relevant_documents(question)
 
     def _call(
         self,
-        inputs: Dict[str, Any],
+        inputs: dict[str, Any],
         run_manager: Optional[CallbackManagerForChainRun] = None,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Run _get_docs on input query.
         Returns the retrieved documents under the key 'source_documents'.
 
@@ -79,15 +79,15 @@ class _RetrieverChain(Chain):
         list_of_str_page_content = [doc.page_content for doc in docs]
         return {self.output_key: json.dumps(list_of_str_page_content)}
 
-    async def _aget_docs(self, question: str) -> List[Document]:
+    async def _aget_docs(self, question: str) -> list[Document]:
         """Get documents from the retriever."""
         return await self.retriever.aget_relevant_documents(question)
 
     async def _acall(
         self,
-        inputs: Dict[str, Any],
+        inputs: dict[str, Any],
         run_manager: Optional[AsyncCallbackManagerForChainRun] = None,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Run _get_docs on input query.
         Returns the retrieved documents under the key 'source_documents'.
 

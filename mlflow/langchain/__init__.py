@@ -21,7 +21,7 @@ import logging
 import os
 import tempfile
 import warnings
-from typing import Any, Dict, Iterator, List, Optional, Union
+from typing import Any, Iterator, Optional, Union
 
 import cloudpickle
 import pandas as pd
@@ -667,9 +667,9 @@ class _LangChainModelWrapper:
 
     def predict(
         self,
-        data: Union[pd.DataFrame, List[Union[str, Dict[str, Any]]], Any],
-        params: Optional[Dict[str, Any]] = None,
-    ) -> List[Union[str, Dict[str, Any]]]:
+        data: Union[pd.DataFrame, list[Union[str, dict[str, Any]]], Any],
+        params: Optional[dict[str, Any]] = None,
+    ) -> list[Union[str, dict[str, Any]]]:
         """
         Args:
             data: Model input data.
@@ -733,11 +733,11 @@ class _LangChainModelWrapper:
     @experimental
     def _predict_with_callbacks(
         self,
-        data: Union[pd.DataFrame, List[Union[str, Dict[str, Any]]], Any],
-        params: Optional[Dict[str, Any]] = None,
+        data: Union[pd.DataFrame, list[Union[str, dict[str, Any]]], Any],
+        params: Optional[dict[str, Any]] = None,
         callback_handlers=None,
         convert_chat_responses=False,
-    ) -> List[Union[str, Dict[str, Any]]]:
+    ) -> list[Union[str, dict[str, Any]]]:
         """
         Args:
             data: Model input data.
@@ -803,8 +803,8 @@ class _LangChainModelWrapper:
     def predict_stream(
         self,
         data: Any,
-        params: Optional[Dict[str, Any]] = None,
-    ) -> Iterator[Union[str, Dict[str, Any]]]:
+        params: Optional[dict[str, Any]] = None,
+    ) -> Iterator[Union[str, dict[str, Any]]]:
         """
         Args:
             data: Model input data, only single input is allowed.
@@ -827,10 +827,10 @@ class _LangChainModelWrapper:
     def _predict_stream_with_callbacks(
         self,
         data: Any,
-        params: Optional[Dict[str, Any]] = None,
+        params: Optional[dict[str, Any]] = None,
         callback_handlers=None,
         convert_chat_responses=False,
-    ) -> Iterator[Union[str, Dict[str, Any]]]:
+    ) -> Iterator[Union[str, dict[str, Any]]]:
         """
         Args:
             data: Model input data, only single input is allowed.
@@ -857,7 +857,7 @@ class _LangChainModelWrapper:
         )
 
 
-def _load_pyfunc(path: str, model_config: Optional[Dict[str, Any]] = None):  # noqa: D417
+def _load_pyfunc(path: str, model_config: Optional[dict[str, Any]] = None):  # noqa: D417
     """Load PyFunc implementation for LangChain. Called by ``pyfunc.load_model``.
 
     Args:

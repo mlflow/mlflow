@@ -1,6 +1,6 @@
 import logging
 from dataclasses import dataclass
-from typing import Any, Callable, Dict, Optional
+from typing import Any, Callable, Optional
 
 import numpy as np
 
@@ -24,7 +24,7 @@ class MetricDefinition:
     name: str
     index: int
     version: Optional[str] = None
-    genai_metric_args: Optional[Dict[str, Any]] = None
+    genai_metric_args: Optional[dict[str, Any]] = None
 
     @classmethod
     def from_index_and_metric(cls, index: int, metric: EvaluationMetric):

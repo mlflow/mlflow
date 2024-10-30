@@ -1,4 +1,4 @@
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 from mlflow.entities.model_registry import ModelVersion, RegisteredModel
 from mlflow.exceptions import MlflowException
@@ -19,7 +19,7 @@ def register_model(
     name,
     await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
     *,
-    tags: Optional[Dict[str, Any]] = None,
+    tags: Optional[dict[str, Any]] = None,
 ) -> ModelVersion:
     """Create a new model version in model registry for the model files specified by ``model_uri``.
 
@@ -84,7 +84,7 @@ def _register_model(
     name,
     await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
     *,
-    tags: Optional[Dict[str, Any]] = None,
+    tags: Optional[dict[str, Any]] = None,
     local_model_path=None,
 ) -> ModelVersion:
     client = MlflowClient()
@@ -126,8 +126,8 @@ def _register_model(
 def search_registered_models(
     max_results: Optional[int] = None,
     filter_string: Optional[str] = None,
-    order_by: Optional[List[str]] = None,
-) -> List[RegisteredModel]:
+    order_by: Optional[list[str]] = None,
+) -> list[RegisteredModel]:
     """Search for registered models that satisfy the filter criteria.
 
     Args:
@@ -231,8 +231,8 @@ def search_registered_models(
 def search_model_versions(
     max_results: Optional[int] = None,
     filter_string: Optional[str] = None,
-    order_by: Optional[List[str]] = None,
-) -> List[ModelVersion]:
+    order_by: Optional[list[str]] = None,
+) -> list[ModelVersion]:
     """Search for model versions that satisfy the filter criteria.
 
     .. warning:
