@@ -775,12 +775,12 @@ def test_tracing_source_run_in_batch():
 
     model = create_openai_llmchain()
     input = {"product": "MLflow"}
-    with mlflow.start_run():
+    with mlflow.start_run() as run:
         model.batch([input] * 2)
 
     traces = get_traces()
-    breakpoint()
-    pass
+    for trace in traces:
+        assert trace.info.request_metadata[TraceMetadataKey.SOURCE_RUN] == run.info.run_id
 
 
 @pytest.mark.parametrize("invoke_arg", ["args", "kwargs", None])
