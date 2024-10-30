@@ -23,14 +23,7 @@ runs:
         if [ -z "$python_version" ]; then
           python_version=$(cat requirements/python-version.txt)
         fi
-        if [[ "$python_version" == "3.8" ]]; then
-          if [ ${{ runner.os }} == "Windows" ]; then
-            # GitHub Actions does not have a Python 3.8.12 binary for Windows as of Oct. 27 2022
-            python_version="3.8.10"
-          else
-            python_version="3.8.18"
-          fi
-        elif [[ "$python_version" == "3.9" ]]; then
+        if [[ "$python_version" == "3.9" ]]; then
           if [ ${{ runner.os }} == "Windows" ]; then
             python_version="3.9.13"
           else

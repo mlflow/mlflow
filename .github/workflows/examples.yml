@@ -74,9 +74,6 @@ jobs:
           echo "examples_changed=$EXAMPLES_CHANGED" >> $GITHUB_OUTPUT
 
       - uses: ./.github/actions/setup-python
-        with:
-          # TODO: Remove this once Python 3.8 support is dropped
-          python-version: 3.9
       - uses: ./.github/actions/setup-pyenv
 
       - name: Install dependencies
