@@ -9,7 +9,6 @@ from mlflow.utils import env_manager as _EnvManager
 from mlflow.utils.annotations import experimental
 from mlflow.utils.databricks_utils import (
     is_databricks_connect,
-    is_in_databricks_runtime,
 )
 from mlflow.utils.file_utils import TempDir
 
@@ -106,6 +105,7 @@ def predict(
     env_manager=_EnvManager.VIRTUALENV,
     install_mlflow=False,
     pip_requirements_override=None,
+    # TODO: add an option to force recreating the env
 ):
     """
     Generate predictions in json format using a saved MLflow model. For information about the input
@@ -174,15 +174,7 @@ def predict(
             f"Content type must be one of {_CONTENT_TYPE_JSON} or {_CONTENT_TYPE_CSV}."
         )
 
-    spark_session = None
-    if is_in_databricks_runtime():
-        try:
-            from pyspark.sql import SparkSession
-
-            spark_session = SparkSession.getActiveSession()
-        except Exception:
-            pass
-    is_dbconnect_mode = is_databricks_connect(spark_session)
+    is_dbconnect_mode = is_databricks_connect()
     if is_dbconnect_mode:
         if env_manager != _EnvManager.VIRTUALENV:
             raise MlflowException(
