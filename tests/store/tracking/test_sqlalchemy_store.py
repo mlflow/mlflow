@@ -3872,6 +3872,10 @@ def _assert_create_experiment_appends_to_artifact_uri_path_correctly(
             )
             exp_id = store.create_experiment(name="exp")
             exp = store.get_experiment(exp_id)
+
+            if hasattr(store, "__del__"):
+                store.__del__()
+
             cwd = Path.cwd().as_posix()
             drive = Path.cwd().drive
             if is_windows() and expected_artifact_uri_format.startswith("file:"):
@@ -3982,6 +3986,10 @@ def _assert_create_run_appends_to_artifact_uri_path_correctly(
                 tags=[],
                 run_name="name",
             )
+
+            if hasattr(store, "__del__"):
+                store.__del__()
+
             cwd = Path.cwd().as_posix()
             drive = Path.cwd().drive
             if is_windows() and expected_artifact_uri_format.startswith("file:"):
