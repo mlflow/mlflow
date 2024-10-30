@@ -1676,6 +1676,7 @@ def evaluate(  # noqa: D417
             error_code=INVALID_PARAMETER_VALUE,
         )
     elif isinstance(model, PyFuncModel):
+        model_id = model.model_id
         if model_config:
             raise MlflowException(
                 message="Indicating ``model_config`` when passing a `PyFuncModel`` object as "

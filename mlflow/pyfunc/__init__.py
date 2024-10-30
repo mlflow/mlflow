@@ -489,6 +489,7 @@ from mlflow.pyfunc.model import (
     get_default_conda_env,  # noqa: F401
     get_default_pip_requirements,
 )
+from mlflow.store.artifact.utils.models import _parse_model_id_if_present
 from mlflow.tracing.provider import trace_disabled
 from mlflow.tracing.utils import _try_get_prediction_context
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
@@ -720,6 +721,7 @@ class PyFuncModel:
         model_impl: Any,
         predict_fn: str = "predict",
         predict_stream_fn: Optional[str] = None,
+        model_id: Optional[str] = None,
     ):
         if not hasattr(model_impl, predict_fn):
             raise MlflowException(f"Model implementation is missing required {predict_fn} method.")
@@ -736,6 +738,7 @@ class PyFuncModel:
             self._predict_stream_fn = getattr(model_impl, predict_stream_fn)
         else:
             self._predict_stream_fn = None
+        self._model_id = model_id
 
     @property
     @developer_stable
@@ -746,6 +749,16 @@ class PyFuncModel:
         NOTE: This is a stable developer API.
         """
         return self.__model_impl
+
+    @property
+    def model_id(self) -> Optional[str]:
+        """
+        The model ID of the model.
+
+        Returns:
+            The model ID of the model.
+        """
+        return self._model_id
 
     def _update_dependencies_schemas_in_prediction_context(self, context: Context):
         if self._model_meta and self._model_meta.metadata:
@@ -1097,6 +1110,7 @@ def load_model(
         model_impl=model_impl,
         predict_fn=predict_fn,
         predict_stream_fn=predict_stream_fn,
+        model_id=_parse_model_id_if_present(model_uri),
     )
 
 
