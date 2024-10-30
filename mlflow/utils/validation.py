@@ -155,7 +155,7 @@ def bad_character_message():
         "Names may only contain alphanumerics, underscores (_), dashes (-), periods (.),"
         " spaces ( ){} and slashes (/)."
     )
-    return msg.format(", colon(:)") if is_windows() else msg.format("")
+    return msg.format("") if is_windows() else msg.format(", colon(:)")
 
 
 def path_not_unique(name):
