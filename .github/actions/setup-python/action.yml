@@ -25,7 +25,7 @@ runs:
         fi
         if [[ "$python_version" == "3.9" ]]; then
           if [ ${{ runner.os }} == "Windows" ]; then
-            python_version="3.9.13"
+            python_version="3.12.4"
           else
             python_version="3.9.18"
           fi
