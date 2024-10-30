@@ -476,16 +476,21 @@ def init(model: PyFuncModel):
 def _predict(model_uri, input_path, output_path, content_type):
     pyfunc_model = load_model(model_uri)
 
+    should_parse_as_unified_llm_input = False
     if content_type == "json":
         if input_path is None:
             input_str = sys.stdin.read()
         else:
             with open(input_path) as f:
                 input_str = f.read()
-        data, params = _split_data_and_params(input_str)
-        # schema needs to be passed to correctly match the behavior
-        # of schema enforcement during pyfunc predict
-        df = infer_and_parse_data(data, schema=pyfunc_model.metadata.get_input_schema())
+        parsed_json_input = _parse_json_data(
+            data=input_str,
+            metadata=pyfunc_model.metadata,
+            input_schema=pyfunc_model.metadata.get_input_schema(),
+        )
+        df = parsed_json_input.data
+        params = parsed_json_input.params
+        should_parse_as_unified_llm_input = parsed_json_input.is_unified_llm_input
     elif content_type == "csv":
         df = parse_csv_input(input_path) if input_path is not None else parse_csv_input(sys.stdin)
         params = None
@@ -498,11 +503,15 @@ def _predict(model_uri, input_path, output_path, content_type):
         _log_warning_if_params_not_in_predict_signature(_logger, params)
         raw_predictions = pyfunc_model.predict(df)
 
+    parse_output_func = (
+        unwrapped_predictions_to_json if should_parse_as_unified_llm_input else predictions_to_json
+    )
+
     if output_path is None:
-        predictions_to_json(raw_predictions, sys.stdout)
+        parse_output_func(raw_predictions, sys.stdout)
     else:
         with open(output_path, "w") as fout:
-            predictions_to_json(raw_predictions, fout)
+            parse_output_func(raw_predictions, fout)
 
 
 def _serve(model_uri, port, host):

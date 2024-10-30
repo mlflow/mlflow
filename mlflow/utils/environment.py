@@ -19,7 +19,14 @@ from mlflow.environment_variables import (
 )
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
+from mlflow.tracking import get_tracking_uri
 from mlflow.utils import PYTHON_VERSION, insecure_hash
+from mlflow.utils.databricks_utils import (
+    _get_databricks_serverless_env_vars,
+    get_databricks_env_vars,
+    is_databricks_connect,
+    is_in_databricks_runtime,
+)
 from mlflow.utils.os import is_windows
 from mlflow.utils.process import _exec_cmd
 from mlflow.utils.requirements_utils import (
@@ -829,6 +836,10 @@ class Environment:
         if command_env is None:
             command_env = os.environ.copy()
         command_env = {**self._extra_env, **command_env}
+        if is_in_databricks_runtime():
+            command_env.update(get_databricks_env_vars(get_tracking_uri()))
+        if is_databricks_connect():
+            command_env.update(_get_databricks_serverless_env_vars())
         if not isinstance(command, list):
             command = [command]
 
