@@ -65,7 +65,7 @@ from mlflow.utils.mlflow_tags import (
     MLFLOW_RUN_NAME,
     MLFLOW_RUN_NOTE,
 )
-from mlflow.utils.thread_utils import get_thread_local_var, set_thread_local_var
+from mlflow.utils.thread_utils import ThreadLocalVariable
 from mlflow.utils.time import get_current_time_millis
 from mlflow.utils.validation import _validate_experiment_id_type, _validate_run_id
 
@@ -89,21 +89,9 @@ _logger = logging.getLogger(__name__)
 run_id_to_system_metrics_monitor = {}
 
 
-def _get_active_run_stack():
-    return get_thread_local_var("active_run_stack", init_value=[])
+_active_run_stack = ThreadLocalVariable(default_factory=lambda: [])
 
-
-def _set_active_run_stack(run_stack):
-    set_thread_local_var("active_run_stack", run_stack)
-
-
-def _get_last_active_run_id():
-    return get_thread_local_var("last_active_run_id", init_value=None)
-
-
-def _set_last_active_run_id(run_id):
-    set_thread_local_var("last_active_run_id", run_id)
-
+_last_active_run_id = ThreadLocalVariable(default_factory=lambda: None)
 
 _experiment_lock = threading.Lock()
 
@@ -203,7 +191,8 @@ def set_experiment(
     global _active_experiment_id
     _active_experiment_id = experiment.experiment_id
 
-    # export the active experiment ID so that subprocess can inherit it.
+    # Set 'MLFLOW_EXPERIMENT_ID' environment variable
+    # so that subprocess can inherit it.
     MLFLOW_EXPERIMENT_ID.set(_active_experiment_id)
 
     return experiment
@@ -346,7 +335,7 @@ def start_run(
                                      run_id params.child tags.mlflow.runName
         0  7d175204675e40328e46d9a6a5a7ee6a          yes           CHILD_RUN
     """
-    active_run_stack = _get_active_run_stack()
+    active_run_stack = _active_run_stack.get()
     _validate_experiment_id_type(experiment_id)
     # back compat for int experiment_id
     experiment_id = str(experiment_id) if isinstance(experiment_id, int) else experiment_id
@@ -512,13 +501,13 @@ def end_run(status: str = RunStatus.to_string(RunStatus.FINISHED)) -> None:
         --
         Active run: None
     """
-    active_run_stack = _get_active_run_stack()
+    active_run_stack = _active_run_stack.get()
     if len(active_run_stack) > 0:
         # Clear out the global existing run environment variable as well.
         MLFLOW_RUN_ID.unset()
         run = active_run_stack.pop()
         last_active_run_id = run.info.run_id
-        _set_last_active_run_id(last_active_run_id)
+        _last_active_run_id.set(last_active_run_id)
         MlflowClient().set_terminated(last_active_run_id, status)
         if last_active_run_id in run_id_to_system_metrics_monitor:
             system_metrics_monitor = run_id_to_system_metrics_monitor.pop(last_active_run_id)
@@ -557,7 +546,7 @@ def active_run() -> Optional[ActiveRun]:
 
         Active run_id: 6f252757005748708cd3aad75d1ff462
     """
-    active_run_stack = _get_active_run_stack()
+    active_run_stack = _active_run_stack.get()
     return active_run_stack[-1] if len(active_run_stack) > 0 else None
 
 
@@ -618,7 +607,7 @@ def last_active_run() -> Optional[Run]:
     if _active_run is not None:
         return _active_run
 
-    last_active_run_id = _get_last_active_run_id()
+    last_active_run_id = _last_active_run_id.get()
     if last_active_run_id is None:
         return None
     return get_run(last_active_run_id)
@@ -2162,7 +2151,7 @@ def search_runs(
 
 
 def _get_or_start_run():
-    active_run_stack = _get_active_run_stack()
+    active_run_stack = _active_run_stack.get()
     if len(active_run_stack) > 0:
         return active_run_stack[-1]
     return start_run()
