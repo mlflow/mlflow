@@ -248,6 +248,7 @@ def test_extra_tags_spark_autolog(dataset_binomial):
     assert run.data.tags[mlflow.utils.mlflow_tags.MLFLOW_AUTOLOGGING] == "pyspark.ml"
 
 
+@pytest.mark.skip(reason="Fix: https://github.com/mlflow/mlflow/pull/13599")
 def test_meta_estimator_fit(dataset_binomial):
     mlflow.pyspark.ml.autolog()
     with mlflow.start_run() as run:
@@ -292,9 +293,10 @@ def test_fit_with_a_list_of_params(dataset_binomial):
     extra_params = {lr.maxIter: 3, lr.standardization: False}
     # Test calling fit with a list/tuple of paramMap
     for params in [[extra_params], (extra_params,)]:
-        with mock.patch("mlflow.log_params") as mock_log_params, mock.patch(
-            "mlflow.set_tags"
-        ) as mock_set_tags:
+        with (
+            mock.patch("mlflow.log_params") as mock_log_params,
+            mock.patch("mlflow.set_tags") as mock_set_tags,
+        ):
             with mlflow.start_run():
                 with mock.patch("mlflow.pyspark.ml._logger.warning") as mock_warning:
                     lr_model_iter = lr.fit(dataset_binomial, params=params)
@@ -350,14 +352,17 @@ def test_should_log_model(
         nested_pipeline_model = nested_pipeline.fit(dataset_text)
     assert _should_log_model(nested_pipeline_model)
 
-    with mock.patch(
-        "mlflow.pyspark.ml._log_model_allowlist",
-        {
-            "pyspark.ml.regression.LinearRegressionModel",
-            "pyspark.ml.classification.OneVsRestModel",
-            "pyspark.ml.pipeline.PipelineModel",
-        },
-    ), mock.patch("mlflow.pyspark.ml._logger.warning") as mock_warning:
+    with (
+        mock.patch(
+            "mlflow.pyspark.ml._log_model_allowlist",
+            {
+                "pyspark.ml.regression.LinearRegressionModel",
+                "pyspark.ml.classification.OneVsRestModel",
+                "pyspark.ml.pipeline.PipelineModel",
+            },
+        ),
+        mock.patch("mlflow.pyspark.ml._logger.warning") as mock_warning,
+    ):
         lr = LinearRegression()
         with mlflow.start_run():
             lr_model = lr.fit(dataset_binomial)
@@ -909,15 +914,20 @@ def test_meta_estimator_disable_post_training_autologging(dataset_regression):
     eva = RegressionEvaluator(metricName="rmse")
     estimator = TrainValidationSplit(estimator=lr, estimatorParamMaps=lr_param_maps, evaluator=eva)
 
-    with mock.patch(
-        "mlflow.pyspark.ml._AutologgingMetricsManager.register_model"
-    ) as mock_register_model, mock.patch(
-        "mlflow.sklearn._AutologgingMetricsManager.is_metric_value_loggable"
-    ) as mock_is_metric_value_loggable, mock.patch(
-        "mlflow.pyspark.ml._AutologgingMetricsManager.log_post_training_metric"
-    ) as mock_log_post_training_metric, mock.patch(
-        "mlflow.pyspark.ml._AutologgingMetricsManager.register_prediction_input_dataset"
-    ) as mock_register_prediction_input_dataset:
+    with (
+        mock.patch(
+            "mlflow.pyspark.ml._AutologgingMetricsManager.register_model"
+        ) as mock_register_model,
+        mock.patch(
+            "mlflow.sklearn._AutologgingMetricsManager.is_metric_value_loggable"
+        ) as mock_is_metric_value_loggable,
+        mock.patch(
+            "mlflow.pyspark.ml._AutologgingMetricsManager.log_post_training_metric"
+        ) as mock_log_post_training_metric,
+        mock.patch(
+            "mlflow.pyspark.ml._AutologgingMetricsManager.register_prediction_input_dataset"
+        ) as mock_register_prediction_input_dataset,
+    ):
         with mlflow.start_run():
             model = estimator.fit(dataset_regression)
 

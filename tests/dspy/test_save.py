@@ -4,7 +4,7 @@ from unittest import mock
 import dspy
 import dspy.teleprompt
 import pytest
-from dspy.utils import DSPDummyLM, dummy_rm
+from dspy.utils.dummies import DSPDummyLM, dummy_rm
 
 import mlflow
 from mlflow.models import Model, ModelSignature
@@ -331,9 +331,10 @@ def test_serve_chat_model():
 def test_code_paths_is_used():
     artifact_path = "model"
     dspy_model = CoT()
-    with mlflow.start_run(), mock.patch(
-        "mlflow.dspy.load._add_code_from_conf_to_system_path"
-    ) as add_mock:
+    with (
+        mlflow.start_run(),
+        mock.patch("mlflow.dspy.load._add_code_from_conf_to_system_path") as add_mock,
+    ):
         mlflow.dspy.log_model(dspy_model, artifact_path, code_paths=[__file__])
         model_uri = mlflow.get_artifact_uri(artifact_path)
         _compare_logged_code_paths(__file__, model_uri, "dspy")

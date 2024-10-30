@@ -270,6 +270,10 @@ _ML_PACKAGE_VERSIONS = {
         "models": {
             "minimum": "2.5.6",
             "maximum": "2.5.6"
+        },
+        "autologging": {
+            "minimum": "2.5.17",
+            "maximum": "2.5.17"
         }
     },
     "langchain": {
@@ -355,6 +359,7 @@ FLAVOR_TO_MODULE_NAME = {
     "paddle": "paddle",
     "transformers": "transformers",
     "openai": "openai",
+    "dspy": "dspy",
     "langchain": "langchain",
     "llama_index": "llama_index.core",
     "autogen": "autogen",

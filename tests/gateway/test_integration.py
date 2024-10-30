@@ -741,10 +741,10 @@ def test_invalid_response_structure_raises(gateway):
     ):
         return _cached_get_request_session(1, 1, 0.5, retry_codes, True, os.getpid(), True)
 
-    with patch(
-        "mlflow.utils.request_utils._get_request_session", _mock_request_session
-    ), patch.object(OpenAIProvider, "chat", mock_chat), pytest.raises(
-        MlflowException, match=".*Max retries exceeded.*"
+    with (
+        patch("mlflow.utils.request_utils._get_request_session", _mock_request_session),
+        patch.object(OpenAIProvider, "chat", mock_chat),
+        pytest.raises(MlflowException, match=".*Max retries exceeded.*"),
     ):
         query(route=route.name, data=data)
 
@@ -778,10 +778,10 @@ def test_invalid_response_structure_no_raises(gateway):
     ):
         return _cached_get_request_session(0, 1, 0.5, retry_codes, False, os.getpid(), True)
 
-    with patch(
-        "mlflow.utils.request_utils._get_request_session", _mock_request_session
-    ), patch.object(OpenAIProvider, "chat", mock_chat), pytest.raises(
-        requests.exceptions.HTTPError, match=".*Internal Server Error.*"
+    with (
+        patch("mlflow.utils.request_utils._get_request_session", _mock_request_session),
+        patch.object(OpenAIProvider, "chat", mock_chat),
+        pytest.raises(requests.exceptions.HTTPError, match=".*Internal Server Error.*"),
     ):
         query(route=route.name, data=data)
 
@@ -826,10 +826,10 @@ def test_invalid_query_request_raises(gateway):
     ):
         return _cached_get_request_session(2, 1, 0.5, retry_codes, True, os.getpid(), True)
 
-    with patch(
-        "mlflow.utils.request_utils._get_request_session", _mock_request_session
-    ), patch.object(OpenAIProvider, "chat", new=mock_chat), pytest.raises(
-        requests.exceptions.HTTPError, match="Unprocessable Entity for"
+    with (
+        patch("mlflow.utils.request_utils._get_request_session", _mock_request_session),
+        patch.object(OpenAIProvider, "chat", new=mock_chat),
+        pytest.raises(requests.exceptions.HTTPError, match="Unprocessable Entity for"),
     ):
         query(route=route.name, data=data)
 

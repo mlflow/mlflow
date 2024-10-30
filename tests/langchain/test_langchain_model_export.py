@@ -1546,9 +1546,10 @@ def test_save_load_chain_with_model_paths():
     with mlflow.start_run():
         model_info = mlflow.langchain.log_model(model, "model_path")
     artifact_path = "model_path"
-    with mlflow.start_run(), mock.patch(
-        "mlflow.langchain._add_code_from_conf_to_system_path"
-    ) as add_mock:
+    with (
+        mlflow.start_run(),
+        mock.patch("mlflow.langchain._add_code_from_conf_to_system_path") as add_mock,
+    ):
         model_info = mlflow.langchain.log_model(model, artifact_path, code_paths=[__file__])
         mlflow.langchain.load_model(model_info.model_uri)
         model_uri = mlflow.get_artifact_uri(artifact_path=artifact_path)
@@ -2734,9 +2735,10 @@ def test_save_load_chain_as_code_with_model_paths(chain_model_signature, chain_p
         ]
     }
     artifact_path = "model_path"
-    with mlflow.start_run(), mock.patch(
-        "mlflow.langchain._add_code_from_conf_to_system_path"
-    ) as add_mock:
+    with (
+        mlflow.start_run(),
+        mock.patch("mlflow.langchain._add_code_from_conf_to_system_path") as add_mock,
+    ):
         model_info = mlflow.langchain.log_model(
             chain_path,
             artifact_path,
