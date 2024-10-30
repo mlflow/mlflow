@@ -695,16 +695,17 @@ dspy:
   models:
     minimum: "2.5.6"
     maximum: "2.5.6"
-    python:
-      ">= 2.5.6": "3.9"
     requirements:
-      ">= 0.0.0": [
-          "openai",
-          # https://github.com/stanfordnlp/dspy/issues/1624
-          "litellm<=1.49.2",
-        ]
+      ">= 0.0.0": ["openai"]
     run: |
-      pytest tests/dspy
+      pytest tests/dspy --ignore tests/dspy/test_dspy_autolog.py
+  autologging:
+    minimum: "2.5.17"
+    maximum: "2.5.17"
+    requirements:
+      ">= 0.0.0": ["openai"]
+    run: |
+      pytest tests/dspy/test_dspy_autolog.py
 
 langchain:
   package_info:
