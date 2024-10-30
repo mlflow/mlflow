@@ -2050,9 +2050,9 @@ def test_model_pip_requirements_pin_numpy_when_pandas_included():
 
     # no numpy when pandas > 2.1.2
     with mlflow.start_run():
-        mlflow.pyfunc.log_model("model", python_model=TestModel(), input_example="abc")
+        model_info = mlflow.pyfunc.log_model("model", python_model=TestModel(), input_example="abc")
         _assert_pip_requirements(
-            mlflow.get_artifact_uri("model"),
+            model_info.model_uri,
             [
                 expected_mlflow_version,
                 f"cloudpickle=={cloudpickle.__version__}",
@@ -2076,9 +2076,9 @@ def test_model_pip_requirements_pin_numpy_when_pandas_included():
             side_effect=mock_get_installed_version,
         ),
     ):
-        mlflow.pyfunc.log_model("model", python_model=TestModel(), input_example="abc")
+        model_info = mlflow.pyfunc.log_model("model", python_model=TestModel(), input_example="abc")
         _assert_pip_requirements(
-            mlflow.get_artifact_uri("model"),
+            model_info.model_uri,
             [
                 expected_mlflow_version,
                 "pandas==2.1.0",
@@ -2090,9 +2090,9 @@ def test_model_pip_requirements_pin_numpy_when_pandas_included():
 
     # no input_example, so pandas not included in requirements
     with mlflow.start_run():
-        mlflow.pyfunc.log_model("model", python_model=TestModel())
+        model_info = mlflow.pyfunc.log_model("model", python_model=TestModel())
         _assert_pip_requirements(
-            mlflow.get_artifact_uri("model"),
+            model_info.model_uri,
             [expected_mlflow_version, f"cloudpickle=={cloudpickle.__version__}"],
             strict=True,
         )
