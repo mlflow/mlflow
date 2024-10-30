@@ -91,6 +91,7 @@ _AUTOLOGGING_SUPPORTED_VERSION_WARNING_SUPPRESS_LIST = [
     "langchain",
     "llama_index",
     "openai",
+    "dspy",
 ]
 
 _logger = logging.getLogger(__name__)
@@ -372,10 +373,10 @@ def _check_and_log_warning_for_unsupported_package_versions(integration_name):
     """
     if (
         integration_name in FLAVOR_TO_MODULE_NAME
+        and integration_name not in _AUTOLOGGING_SUPPORTED_VERSION_WARNING_SUPPRESS_LIST
         and not get_autologging_config(integration_name, "disable", True)
         and not get_autologging_config(integration_name, "disable_for_unsupported_versions", False)
         and not is_flavor_supported_for_associated_package_versions(integration_name)
-        and integration_name not in _AUTOLOGGING_SUPPORTED_VERSION_WARNING_SUPPRESS_LIST
     ):
         min_var, max_var, pip_release = get_min_max_version_and_pip_release(integration_name)
         module = importlib.import_module(FLAVOR_TO_MODULE_NAME[integration_name])
@@ -444,22 +445,25 @@ def autologging_integration(name):
             # Reroute non-MLflow warnings encountered during autologging enablement to an
             # MLflow event logger, and enforce silent mode if applicable (i.e. if the corresponding
             # autologging integration was called with `silent=True`)
-            with set_mlflow_events_and_warnings_behavior_globally(
-                # MLflow warnings emitted during autologging setup / enablement are likely
-                # actionable and relevant to the user, so they should be emitted as normal
-                # when `silent=False`. For reference, see recommended warning and event logging
-                # behaviors from https://docs.python.org/3/howto/logging.html#when-to-use-logging
-                reroute_warnings=False,
-                disable_event_logs=is_silent_mode,
-                disable_warnings=is_silent_mode,
-            ), set_non_mlflow_warnings_behavior_for_current_thread(
-                # non-MLflow warnings emitted during autologging setup / enablement are not
-                # actionable for the user, as they are a byproduct of the autologging
-                # implementation. Accordingly, they should be rerouted to `logger.warning()`.
-                # For reference, see recommended warning and event logging
-                # behaviors from https://docs.python.org/3/howto/logging.html#when-to-use-logging
-                reroute_warnings=True,
-                disable_warnings=is_silent_mode,
+            with (
+                set_mlflow_events_and_warnings_behavior_globally(
+                    # MLflow warnings emitted during autologging setup / enablement are likely
+                    # actionable and relevant to the user, so they should be emitted as normal
+                    # when `silent=False`. For reference, see recommended warning and event logging
+                    # behaviors from https://docs.python.org/3/howto/logging.html#when-to-use-logging
+                    reroute_warnings=False,
+                    disable_event_logs=is_silent_mode,
+                    disable_warnings=is_silent_mode,
+                ),
+                set_non_mlflow_warnings_behavior_for_current_thread(
+                    # non-MLflow warnings emitted during autologging setup / enablement are not
+                    # actionable for the user, as they are a byproduct of the autologging
+                    # implementation. Accordingly, they should be rerouted to `logger.warning()`.
+                    # For reference, see recommended warning and event logging
+                    # behaviors from https://docs.python.org/3/howto/logging.html#when-to-use-logging
+                    reroute_warnings=True,
+                    disable_warnings=is_silent_mode,
+                ),
             ):
                 _check_and_log_warning_for_unsupported_package_versions(name)
 

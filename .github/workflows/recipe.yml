@@ -50,6 +50,7 @@ jobs:
           source ./dev/install-common-deps.sh
           # FLAML is incompatible with xgboost 2.1.0: https://github.com/microsoft/FLAML/issues/1314
           pip install pyspark 'xgboost<2.1.0'
+          pip install 'numpy<2.0'
       - name: Run tests
         run: |
           pytest tests/recipes
@@ -80,6 +81,7 @@ jobs:
           # TODO: Importing datasets in a pandas UDF (created by mlflow.pyfunc.spark_udf) crashes
           # the Python worker. To avoid this, uninstall `datasets`. This is a temporary workaround.
           pip uninstall -y datasets
+          pip install 'numpy<2.0'
       - name: Download Hadoop winutils for Spark
         run: |
           git clone https://github.com/cdarlint/winutils /tmp/winutils

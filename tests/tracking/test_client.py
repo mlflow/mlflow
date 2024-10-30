@@ -629,17 +629,23 @@ def test_log_trace_with_databricks_tracking_uri(
         with trace_manager.get_trace("tr-0") as trace:
             trace.info.tags.update({"tag": "tag_value"})
 
-    with mock.patch(
-        "mlflow.tracking._tracking_service.client.TrackingServiceClient._upload_trace_data"
-    ) as mock_upload_trace_data, mock.patch(
-        "mlflow.tracking._tracking_service.client.TrackingServiceClient.set_trace_tags",
-    ), mock.patch(
-        "mlflow.tracking._tracking_service.client.TrackingServiceClient.set_trace_tag",
-    ), mock.patch(
-        "mlflow.tracking._tracking_service.client.TrackingServiceClient.get_trace_info",
-    ), mock.patch(
-        "mlflow.tracing.trace_manager.InMemoryTraceManager.update_trace_info",
-        side_effect=_mock_update_trace_info,
+    with (
+        mock.patch(
+            "mlflow.tracking._tracking_service.client.TrackingServiceClient._upload_trace_data"
+        ) as mock_upload_trace_data,
+        mock.patch(
+            "mlflow.tracking._tracking_service.client.TrackingServiceClient.set_trace_tags",
+        ),
+        mock.patch(
+            "mlflow.tracking._tracking_service.client.TrackingServiceClient.set_trace_tag",
+        ),
+        mock.patch(
+            "mlflow.tracking._tracking_service.client.TrackingServiceClient.get_trace_info",
+        ),
+        mock.patch(
+            "mlflow.tracing.trace_manager.InMemoryTraceManager.update_trace_info",
+            side_effect=_mock_update_trace_info,
+        ),
     ):
         model.predict(1, 2)
 
@@ -1169,11 +1175,12 @@ def test_create_model_version_explicitly_set_run_link(
     )
 
     # mocks to make sure that even if you're in a notebook, this setting is respected.
-    with mock.patch(
-        "mlflow.utils.databricks_utils.is_in_databricks_notebook", return_value=True
-    ), mock.patch(
-        "mlflow.utils.databricks_utils.get_workspace_info_from_dbutils",
-        return_value=(hostname, workspace_id),
+    with (
+        mock.patch("mlflow.utils.databricks_utils.is_in_databricks_notebook", return_value=True),
+        mock.patch(
+            "mlflow.utils.databricks_utils.get_workspace_info_from_dbutils",
+            return_value=(hostname, workspace_id),
+        ),
     ):
         client = MlflowClient(tracking_uri="databricks", registry_uri="otherplace")
         model_version = client.create_model_version("name", "source", "runid", run_link=run_link)
@@ -1196,11 +1203,12 @@ def test_create_model_version_run_link_in_notebook_with_default_profile(
         workspace_id,
     )
 
-    with mock.patch(
-        "mlflow.utils.databricks_utils.is_in_databricks_notebook", return_value=True
-    ), mock.patch(
-        "mlflow.utils.databricks_utils.get_workspace_info_from_dbutils",
-        return_value=(hostname, workspace_id),
+    with (
+        mock.patch("mlflow.utils.databricks_utils.is_in_databricks_notebook", return_value=True),
+        mock.patch(
+            "mlflow.utils.databricks_utils.get_workspace_info_from_dbutils",
+            return_value=(hostname, workspace_id),
+        ),
     ):
         client = MlflowClient(tracking_uri="databricks", registry_uri="otherplace")
         mock_registry_store.create_model_version.return_value = ModelVersion(
@@ -1269,11 +1277,12 @@ def test_create_model_version_run_link_with_configured_profile(
         workspace_id,
     )
 
-    with mock.patch(
-        "mlflow.utils.databricks_utils.is_in_databricks_notebook", return_value=False
-    ), mock.patch(
-        "mlflow.utils.databricks_utils.get_workspace_info_from_databricks_secrets",
-        return_value=(hostname, workspace_id),
+    with (
+        mock.patch("mlflow.utils.databricks_utils.is_in_databricks_notebook", return_value=False),
+        mock.patch(
+            "mlflow.utils.databricks_utils.get_workspace_info_from_databricks_secrets",
+            return_value=(hostname, workspace_id),
+        ),
     ):
         client = MlflowClient(tracking_uri="databricks", registry_uri="otherplace")
         mock_registry_store.create_model_version.return_value = ModelVersion(
@@ -1626,12 +1635,15 @@ def test_store_trace_span_tag_when_not_dict_input_outputs():
 def test_store_trace_span_tag_when_exception_raised():
     client = MlflowClient()
 
-    with mock.patch(
-        "mlflow.tracking._tracking_service.client.TrackingServiceClient._upload_trace_data"
-    ) as mock_upload_trace_data, mock.patch(
-        "mlflow.tracking._tracking_service.client.TrackingServiceClient.set_trace_tag",
-        side_effect=MlflowException("Failed to log parameters"),
-    ) as mock_set_trace_tag:
+    with (
+        mock.patch(
+            "mlflow.tracking._tracking_service.client.TrackingServiceClient._upload_trace_data"
+        ) as mock_upload_trace_data,
+        mock.patch(
+            "mlflow.tracking._tracking_service.client.TrackingServiceClient.set_trace_tag",
+            side_effect=MlflowException("Failed to log parameters"),
+        ) as mock_set_trace_tag,
+    ):
         # This should not raise an exception
         span = client.start_trace("trace_name", inputs={"input": "a" * 1000000})
         client.end_trace(span.request_id, outputs={"result": "b" * 1000000})

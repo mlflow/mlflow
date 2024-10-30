@@ -2710,9 +2710,11 @@ def test_log_batch_internal_error(store: SqlAlchemyStore):
         raise Exception("Some internal error")
 
     package = "mlflow.store.tracking.sqlalchemy_store.SqlAlchemyStore"
-    with mock.patch(package + "._log_metrics") as metric_mock, mock.patch(
-        package + "._log_params"
-    ) as param_mock, mock.patch(package + "._set_tags") as tags_mock:
+    with (
+        mock.patch(package + "._log_metrics") as metric_mock,
+        mock.patch(package + "._log_params") as param_mock,
+        mock.patch(package + "._set_tags") as tags_mock,
+    ):
         metric_mock.side_effect = _raise_exception_fn
         param_mock.side_effect = _raise_exception_fn
         tags_mock.side_effect = _raise_exception_fn
