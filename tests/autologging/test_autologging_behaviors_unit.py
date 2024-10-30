@@ -388,7 +388,7 @@ def test_disable_autolog_thread_local(patch_destination):
         thread.start()
         thread.join()
 
-        # `disable_autologging` should not affect other threads.
+        # `disable_autologging` (thread-local mode) should not affect other threads.
         assert result == 2
 
 

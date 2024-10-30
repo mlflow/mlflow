@@ -56,7 +56,7 @@ from mlflow.utils.model_utils import (
     _validate_and_prepare_target_save_path,
 )
 from mlflow.utils.requirements_utils import _get_pinned_requirement
-from mlflow.utils.thread_utils import get_thread_local_var, set_thread_local_var
+from mlflow.utils.thread_utils import ThreadLocalVariable
 from mlflow.utils.validation import _is_numeric
 
 FLAVOR_NAME = "statsmodels"
@@ -89,7 +89,7 @@ _model_size_threshold_for_emitting_warning = 100 * 1024 * 1024  # 100 MB
 
 
 # Thread local variable key for flag indicating `save_model` is called from autologging routine
-_SAVE_MODEL_CALLED_FROM_AUTOLOG_KEY = "SAVE_MODEL_CALLED_FROM_AUTOLOG"
+_SAVE_MODEL_CALLED_FROM_AUTOLOG = ThreadLocalVariable(default_factory=lambda: False)
 
 
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
@@ -151,7 +151,7 @@ def save_model(
 
     # Save a statsmodels model
     statsmodels_model.save(model_data_path, remove_data)
-    if get_thread_local_var(_SAVE_MODEL_CALLED_FROM_AUTOLOG_KEY, False) and not remove_data:
+    if _SAVE_MODEL_CALLED_FROM_AUTOLOG.get() and not remove_data:
         saved_model_size = os.path.getsize(model_data_path)
         if saved_model_size >= _model_size_threshold_for_emitting_warning:
             _logger.warning(
@@ -555,7 +555,7 @@ def autolog(
             if should_autolog:
                 # Log the model
                 if get_autologging_config(FLAVOR_NAME, "log_models", True):
-                    set_thread_local_var(_SAVE_MODEL_CALLED_FROM_AUTOLOG_KEY, True)
+                    _SAVE_MODEL_CALLED_FROM_AUTOLOG.set(True)
                     registered_model_name = get_autologging_config(
                         FLAVOR_NAME, "registered_model_name", None
                     )
@@ -566,7 +566,7 @@ def autolog(
                             registered_model_name=registered_model_name,
                         )
                     finally:
-                        set_thread_local_var(_SAVE_MODEL_CALLED_FROM_AUTOLOG_KEY, False)
+                        _SAVE_MODEL_CALLED_FROM_AUTOLOG.set(False)
 
                 # Log the most common metrics
                 if isinstance(model, statsmodels.base.wrapper.ResultsWrapper):

@@ -42,7 +42,9 @@ def patched_inference(func_name, original, self, *args, **kwargs):
     # NB: Running the original inference with disabling autologging, so we only patch the top-level
     # component and avoid duplicate logging for child components.
     def _invoke(self, *args, **kwargs):
-        with disable_autologging():
+        # Original function might launch multiple worker threads, to avoid breaking change,
+        # we need to disable autologging globally.
+        with disable_autologging(is_global=True):
             return original(self, *args, **kwargs)
 
     config = AutoLoggingConfig.init(mlflow.langchain.FLAVOR_NAME)

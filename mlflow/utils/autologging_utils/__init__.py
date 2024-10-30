@@ -46,11 +46,22 @@ from mlflow.utils.autologging_utils.versioning import (
     get_min_max_version_and_pip_release,
     is_flavor_supported_for_associated_package_versions,
 )
+from mlflow.utils.thread_utils import ThreadLocalVariable
 
 INPUT_EXAMPLE_SAMPLE_ROWS = 5
 ENSURE_AUTOLOGGING_ENABLED_TEXT = (
     "please ensure that autologging is enabled before constructing the dataset."
 )
+
+# Flag indicating whether autologging is globally disabled for all integrations.
+_AUTOLOGGING_GLOBALLY_DISABLED = False
+# Exempts autologging flavors from the `_AUTOLOGGING_GLOBALLY_DISABLED` flag
+_AUTOLOGGING_GLOBALLY_DISABLED_EXEMPTIONS = []
+
+# Flag indicating whether autologging is thread-locally disabled for all integrations.
+_AUTOLOGGING_THREAD_LOCALLY_DISABLED = ThreadLocalVariable(default_factory=lambda: False)
+# Exempts autologging flavors from the `_AUTOLOGGING_THREAD_LOCALLY_DISABLED` flag
+_AUTOLOGGING_THREAD_LOCALLY_DISABLED_EXEMPTIONS = ThreadLocalVariable(default_factory=lambda: [])
 
 # Autologging config key indicating whether or not a particular autologging integration
 # was configured (i.e. its various `log_models`, `disable`, etc. configuration options
@@ -99,15 +110,6 @@ _AUTOLOGGING_SUPPORTED_VERSION_WARNING_SUPPRESS_LIST = [
 # Global lock for turning on / off autologging
 # Note "RLock" is required instead of plain lock, for avoid dead-lock
 _autolog_conf_global_lock = threading.RLock()
-
-# Thread local variable key for flag indicating whether autologging is globally
-# disabled for all integrations.
-_AUTOLOGGING_DISABLED_KEY = "AUTOLOGGING_DISABLED"
-
-# Thread local variable key for exempting autologging flavors from the
-# thread-local `AUTOLOGGING_DISABLED` flag
-_AUTOLOGGING_DISABLED_EXEMPTIONS_KEY = "AUTOLOGGING_DISABLED_EXEMPTIONS"
-
 
 _logger = logging.getLogger(__name__)
 
@@ -551,33 +553,36 @@ def autologging_is_disabled(integration_name):
 
 
 @contextlib.contextmanager
-def disable_autologging(exemptions=None):
+def disable_autologging(exemptions=None, is_global=False):
     """
     Context manager that temporarily disables autologging globally for all integrations upon
     entry and restores the previous autologging configuration upon exit.
 
     Args:
         exemptions: flavors that we do not disable
+        is_global: indicating whether to disable autologging globally or thread-locally.
     """
-    from mlflow.utils.thread_utils import get_thread_local_var, set_thread_local_var
-
     if exemptions is None:
         exemptions = []
+    global _AUTOLOGGING_GLOBALLY_DISABLED
+    global _AUTOLOGGING_GLOBALLY_DISABLED_EXEMPTIONS
 
-    original_autologging_disabled = get_thread_local_var(_AUTOLOGGING_DISABLED_KEY, False)
-    original_autologging_disabled_exemptions = get_thread_local_var(
-        _AUTOLOGGING_DISABLED_EXEMPTIONS_KEY, []
-    )
-
-    set_thread_local_var(_AUTOLOGGING_DISABLED_KEY, True)
-    set_thread_local_var(_AUTOLOGGING_DISABLED_EXEMPTIONS_KEY, exemptions)
-    try:
-        yield
-    finally:
-        set_thread_local_var(_AUTOLOGGING_DISABLED_KEY, original_autologging_disabled)
-        set_thread_local_var(
-            _AUTOLOGGING_DISABLED_EXEMPTIONS_KEY, original_autologging_disabled_exemptions
-        )
+    if is_global:
+        _AUTOLOGGING_GLOBALLY_DISABLED = True
+        _AUTOLOGGING_GLOBALLY_DISABLED_EXEMPTIONS = exemptions
+        try:
+            yield
+        finally:
+            _AUTOLOGGING_GLOBALLY_DISABLED = False
+            _AUTOLOGGING_GLOBALLY_DISABLED_EXEMPTIONS = []
+    else:
+        _AUTOLOGGING_THREAD_LOCALLY_DISABLED.set(True)
+        _AUTOLOGGING_THREAD_LOCALLY_DISABLED_EXEMPTIONS.set(exemptions)
+        try:
+            yield
+        finally:
+            _AUTOLOGGING_THREAD_LOCALLY_DISABLED.set(False)
+            _AUTOLOGGING_THREAD_LOCALLY_DISABLED_EXEMPTIONS.set(exemptions)
 
 
 @contextlib.contextmanager

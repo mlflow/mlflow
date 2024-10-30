@@ -394,10 +394,9 @@ def safe_patch(
         warnings.
         """
         from mlflow.utils.autologging_utils import (
-            _AUTOLOGGING_DISABLED_EXEMPTIONS_KEY,
-            _AUTOLOGGING_DISABLED_KEY,
+            _AUTOLOGGING_THREAD_LOCALLY_DISABLED,
+            _AUTOLOGGING_THREAD_LOCALLY_DISABLED_EXEMPTIONS,
         )
-        from mlflow.utils.thread_utils import get_thread_local_var
 
         # Reroute warnings encountered during the patch function implementation to an MLflow event
         # logger, and enforce silent mode if applicable (i.e. if the corresponding autologging
@@ -450,9 +449,14 @@ def safe_patch(
                 or autologging_is_disabled(autologging_integration)
                 or (user_created_fluent_run_is_active and exclusive)
                 or (
-                    get_thread_local_var(_AUTOLOGGING_DISABLED_KEY, False)
+                    mlflow.utils.autologging_utils._AUTOLOGGING_GLOBALLY_DISABLED
                     and autologging_integration
-                    not in get_thread_local_var(_AUTOLOGGING_DISABLED_EXEMPTIONS_KEY, [])
+                    not in mlflow.utils.autologging_utils._AUTOLOGGING_GLOBALLY_DISABLED_EXEMPTIONS
+                )
+                or (
+                    _AUTOLOGGING_THREAD_LOCALLY_DISABLED.get()
+                    and autologging_integration
+                    not in _AUTOLOGGING_THREAD_LOCALLY_DISABLED_EXEMPTIONS.get()
                 )
                 or (
                     # For typical use-case of "hyper parameter tuning", Optuna might fork multiple
