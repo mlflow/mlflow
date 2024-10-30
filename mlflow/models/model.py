@@ -811,6 +811,7 @@ class Model:
                 run_id=active_run.info.run_id if active_run is not None else None,
                 metadata=metadata,
                 resources=resources,
+                model_id=model.model_id,
             )
             flavor.save_model(path=local_path, mlflow_model=mlflow_model, **kwargs)
             # `save_model` calls `load_model` to infer the model requirements, which may result in
@@ -905,14 +906,11 @@ class Model:
                 await_registration_for=await_registration_for,
                 local_model_path=local_path,
             )
-            return client.get_model_version(registered_model_name, registered_model.version)
-        else:
-            return client.get_logged_model(model.model_id)
-        # model_info = mlflow_model.get_model_info()
-        # if registered_model is not None:
-        #     model_info.registered_model_version = registered_model.version
+        model_info = mlflow_model.get_model_info()
+        if registered_model is not None:
+            model_info.registered_model_version = registered_model.version
 
-        # return model_info
+        return model_info
 
 
 def _copy_model_metadata_for_uc_sharing(local_path, flavor):
