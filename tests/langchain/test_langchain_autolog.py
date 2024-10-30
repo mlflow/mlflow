@@ -769,6 +769,20 @@ def test_langchain_autolog_callback_injection_in_batch(invoke_arg, config, async
             assert set(handler.logs) == {"chain_start", "chain_end"}
 
 
+def test_tracing_source_run_in_batch():
+    # Disable autolog here as it is enabled in other tests.
+    mlflow.langchain.autolog()
+
+    model = create_openai_llmchain()
+    input = {"product": "MLflow"}
+    with mlflow.start_run():
+        model.batch([input] * 2)
+
+    traces = get_traces()
+    breakpoint()
+    pass
+
+
 @pytest.mark.parametrize("invoke_arg", ["args", "kwargs", None])
 @pytest.mark.parametrize(
     "config",
