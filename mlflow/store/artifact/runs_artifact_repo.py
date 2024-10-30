@@ -1,11 +1,16 @@
+import logging
 import urllib.parse
 
+import mlflow
 from mlflow.exceptions import MlflowException
 from mlflow.store.artifact.artifact_repo import ArtifactRepository
+from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
 from mlflow.utils.uri import (
     add_databricks_profile_info_to_artifact_uri,
     get_databricks_profile_uri_from_artifact_uri,
 )
+
+_logger = logging.getLogger(__name__)
 
 
 class RunsArtifactRepository(ArtifactRepository):
@@ -20,8 +25,6 @@ class RunsArtifactRepository(ArtifactRepository):
     """
 
     def __init__(self, artifact_uri):
-        from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
-
         super().__init__(artifact_uri)
         uri = RunsArtifactRepository.get_underlying_uri(artifact_uri)
         self.repo = get_artifact_repository(uri)
@@ -128,7 +131,27 @@ class RunsArtifactRepository(ArtifactRepository):
         Returns:
             Absolute path of the local filesystem location containing the desired artifacts.
         """
-        return self.repo.download_artifacts(artifact_path, dst_path)
+        try:
+            return self.repo.download_artifacts(artifact_path, dst_path)
+        except Exception:
+            _logger.debug(
+                "Failed to download artifacts. "
+                "Attempting to download from the model associated with the run."
+            )
+            run_id = RunsArtifactRepository.parse_runs_uri(self.artifact_uri)[0]
+            client = mlflow.tracking.MlflowClient()
+            run = client.get_run(run_id)
+            # Search for models associated with the run
+            models = client.search_logged_models(
+                experiment_ids=[run.info.experiment_id],
+                filter_string=f"run_id = {run_id}",
+            )
+            if len(models) != 1:  # no model or multiple models found
+                raise
+
+            model = models[0]
+            repo = get_artifact_repository(model.artifact_location)
+            return repo.download_artifacts(artifact_path, dst_path)
 
     def _download_file(self, remote_file_path, local_path):
         """
