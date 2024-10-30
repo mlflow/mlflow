@@ -26,7 +26,7 @@ env:
   MLFLOW_HOME: /home/runner/work/mlflow/mlflow
   MLFLOW_CONDA_HOME: /usr/share/miniconda
   SPARK_LOCAL_IP: localhost
-  PYTHON_VERSION: "3.8"
+  PYTHON_VERSION: "3.10" # mininum supported version + 1
 
 defaults:
   run:
@@ -81,6 +81,8 @@ jobs:
         run: |
           source ./dev/install-common-deps.sh --ml
           pip install '.[gateway]'
+          # transformers doesn't support Keras 3 yet. tf-keras needs to be installed as a workaround.
+          pip install tf-keras
       - name: Run tests
         run: |
           source dev/setup-ssh.sh
