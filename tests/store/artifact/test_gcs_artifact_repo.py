@@ -390,9 +390,10 @@ def test_create_multipart_upload(mock_client):
   <UploadId>{upload_id}</UploadId>
 </InitiateMultipartUploadResult>"""
 
-    with gcs_mpu_arguments_patch, mock.patch(
-        "requests.Session.request", return_value=resp
-    ) as request_mock:
+    with (
+        gcs_mpu_arguments_patch,
+        mock.patch("requests.Session.request", return_value=resp) as request_mock,
+    ):
         create = repo.create_multipart_upload(
             file_name, num_parts=5, artifact_path=artifact_root_path
         )
@@ -440,9 +441,10 @@ def test_complete_multipart_upload(mock_client):
     )
 
     resp = mock.Mock(status_code=200)
-    with gcs_mpu_arguments_patch, mock.patch(
-        "requests.Session.request", return_value=resp
-    ) as request_mock:
+    with (
+        gcs_mpu_arguments_patch,
+        mock.patch("requests.Session.request", return_value=resp) as request_mock,
+    ):
         repo.complete_multipart_upload(file_name, upload_id, parts, artifact_root_path)
         request_mock.assert_called_once()
         args, kwargs = request_mock.call_args
@@ -472,9 +474,10 @@ def test_abort_multipart_upload(mock_client):
     )
 
     resp = mock.Mock(status_code=204)
-    with gcs_mpu_arguments_patch, mock.patch(
-        "requests.Session.request", return_value=resp
-    ) as request_mock:
+    with (
+        gcs_mpu_arguments_patch,
+        mock.patch("requests.Session.request", return_value=resp) as request_mock,
+    ):
         repo.abort_multipart_upload(file_name, upload_id, artifact_root_path)
         request_mock.assert_called_once()
         args, kwargs = request_mock.call_args
@@ -487,9 +490,10 @@ def test_abort_multipart_upload(mock_client):
 
 @pytest.mark.parametrize("throw", [True, False])
 def test_retryable_log_artifacts(throw, tmp_path):
-    with mock.patch("google.cloud.storage.Client") as mock_gcs_client_factory, mock.patch(
-        "google.oauth2.credentials.Credentials"
-    ) as mock_gcs_credentials_factory:
+    with (
+        mock.patch("google.cloud.storage.Client") as mock_gcs_client_factory,
+        mock.patch("google.oauth2.credentials.Credentials") as mock_gcs_credentials_factory,
+    ):
         gcs_client_mock = mock.Mock()
         gcs_bucket_mock = mock.Mock()
         gcs_client_mock.bucket.return_value = gcs_bucket_mock

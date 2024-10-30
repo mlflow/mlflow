@@ -1770,9 +1770,10 @@ def _download_prebuilt_env_if_needed(prebuilt_env_uri):
 
             ws = WorkspaceClient()
             # Download model env file from UC volume.
-            with ws.files.download(model_env_uc_path).contents as rf, open(
-                local_model_env_path, "wb"
-            ) as wf:
+            with (
+                ws.files.download(model_env_uc_path).contents as rf,
+                open(local_model_env_path, "wb") as wf,
+            ):
                 while chunk := rf.read(4096 * 1024):
                     wf.write(chunk)
             return local_model_env_path

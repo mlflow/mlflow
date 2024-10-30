@@ -186,10 +186,9 @@ def test_split_step_skips_profiling_when_specified(tmp_path, monkeypatch):
     input_dataframe.to_parquet(str(ingest_output_dir / "dataset.parquet"))
 
     monkeypatch.setenv(MLFLOW_RECIPES_EXECUTION_DIRECTORY.name, str(tmp_path))
-    with mock.patch(
-        "mlflow.recipes.utils.step.get_pandas_data_profiles"
-    ) as mock_profiling, mock.patch(
-        "mlflow.recipes.step.get_recipe_name", return_value="fake_name"
+    with (
+        mock.patch("mlflow.recipes.utils.step.get_pandas_data_profiles") as mock_profiling,
+        mock.patch("mlflow.recipes.step.get_recipe_name", return_value="fake_name"),
     ):
         split_step = SplitStep({"target_col": "y", "skip_data_profiling": True}, "fake_root")
         split_step.run(str(split_output_dir))
@@ -350,8 +349,11 @@ def test_custom_error_split_method(tmp_recipe_root_path: Path, tmp_recipe_exec_p
 
     recipe_config = read_yaml(tmp_recipe_root_path, _RECIPE_CONFIG_FILE_NAME)
     split_step = SplitStep.from_recipe_config(recipe_config, str(tmp_recipe_root_path))
-    with mock.patch.dict("sys.modules", {"steps.split": m_split}), pytest.raises(
-        MlflowException,
-        match=r"Value returned back: \['VALIDATE' 'TESTING'\]",
+    with (
+        mock.patch.dict("sys.modules", {"steps.split": m_split}),
+        pytest.raises(
+            MlflowException,
+            match=r"Value returned back: \['VALIDATE' 'TESTING'\]",
+        ),
     ):
         split_step.run(str(split_output_dir))

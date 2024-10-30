@@ -67,8 +67,9 @@ def test_create_recipe_fails_with_path_containing_space(tmp_path):
     os.makedirs(space_path, exist_ok=True)
     shutil.copytree(src=os.getcwd(), dst=str(space_path), dirs_exist_ok=True)
 
-    with chdir(space_path), pytest.raises(
-        MlflowException, match="Recipe directory path cannot contain spaces"
+    with (
+        chdir(space_path),
+        pytest.raises(MlflowException, match="Recipe directory path cannot contain spaces"),
     ):
         Recipe(profile="local")
 
