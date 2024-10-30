@@ -444,10 +444,3 @@ Benefits of the MLflow LLM Tracking System
 
   - Ensures consistent and transparent tracking across all LLM interactions.
   - Facilitates informed decision-making and optimization in LLM deployment and utilization.
-
-
-.. toctree::
-    :maxdepth: 1
-    :hidden:
-
-    gateway/index
