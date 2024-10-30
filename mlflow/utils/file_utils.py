@@ -518,9 +518,12 @@ def make_tarfile(output_filename, source_dir, archive_name, custom_filter=None):
             tar.add(source_dir, arcname=archive_name, filter=_filter_timestamps)
         # When gzipping the tar, don't include the tar's filename or modification time in the
         # zipped archive (see https://docs.python.org/3/library/gzip.html#gzip.GzipFile)
-        with gzip.GzipFile(
-            filename="", fileobj=open(output_filename, "wb"), mode="wb", mtime=0
-        ) as gzipped_tar, open(unzipped_filename, "rb") as tar:
+        with (
+            gzip.GzipFile(
+                filename="", fileobj=open(output_filename, "wb"), mode="wb", mtime=0
+            ) as gzipped_tar,
+            open(unzipped_filename, "rb") as tar,
+        ):
             gzipped_tar.write(tar.read())
     finally:
         os.close(unzipped_file_handle)

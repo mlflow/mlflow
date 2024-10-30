@@ -556,9 +556,10 @@ def test_query_timeout_not_retried(mixed_gateway):
     data = {"prompt": "Test", "temperature": 0.4}
     route = "completions"
 
-    with mock.patch(
-        "mlflow.gateway.constants.MLFLOW_GATEWAY_CLIENT_QUERY_TIMEOUT_SECONDS", new=1
-    ), mock.patch("requests.Session.request", side_effect=Timeout) as mocked_request:
+    with (
+        mock.patch("mlflow.gateway.constants.MLFLOW_GATEWAY_CLIENT_QUERY_TIMEOUT_SECONDS", new=1),
+        mock.patch("requests.Session.request", side_effect=Timeout) as mocked_request,
+    ):
         with pytest.raises(MlflowException, match="The provider has timed out while generating"):
             gateway_client.query(route=route, data=data)
 

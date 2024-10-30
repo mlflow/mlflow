@@ -659,11 +659,15 @@ def test_ingest_throws_when_spark_unavailable_for_spark_based_dataset(spark_df, 
     dataset_path = tmp_path / "test.delta"
     spark_df.write.format("delta").save(str(dataset_path))
 
-    with mock.patch(
-        "mlflow.recipes.steps.ingest.datasets._get_active_spark_session",
-        side_effect=Exception("Spark unavailable"),
-    ), pytest.raises(
-        MlflowException, match="Encountered an error while searching for an active Spark session"
+    with (
+        mock.patch(
+            "mlflow.recipes.steps.ingest.datasets._get_active_spark_session",
+            side_effect=Exception("Spark unavailable"),
+        ),
+        pytest.raises(
+            MlflowException,
+            match="Encountered an error while searching for an active Spark session",
+        ),
     ):
         IngestStep.from_recipe_config(
             recipe_config={
