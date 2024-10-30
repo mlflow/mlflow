@@ -2069,9 +2069,12 @@ def test_model_pip_requirements_pin_numpy_when_pandas_included():
         return original_get_installed_version(package, module)
 
     # include numpy when pandas < 2.1.2
-    with mlflow.start_run(), mock.patch(
-        "mlflow.utils.requirements_utils._get_installed_version",
-        side_effect=mock_get_installed_version,
+    with (
+        mlflow.start_run(),
+        mock.patch(
+            "mlflow.utils.requirements_utils._get_installed_version",
+            side_effect=mock_get_installed_version,
+        ),
     ):
         mlflow.pyfunc.log_model("model", python_model=TestModel(), input_example="abc")
         _assert_pip_requirements(
