@@ -48,8 +48,6 @@ jobs:
       - name: Install dependencies
         run: |
           source ./dev/install-common-deps.sh
-          # FLAML is incompatible with xgboost 2.1.0: https://github.com/microsoft/FLAML/issues/1314
-          pip install pyspark 'xgboost<2.1.0'
           pip install 'numpy<2.0'
       - name: Run tests
         run: |
@@ -76,8 +74,6 @@ jobs:
           pip install -r requirements/test-requirements.txt
           pip install --no-dependencies tests/resources/mlflow-test-plugin
           pip install .
-          # FLAML is incompatible with xgboost 2.1.0: https://github.com/microsoft/FLAML/issues/1314
-          pip install pyspark 'xgboost<2.1.0'
           # TODO: Importing datasets in a pandas UDF (created by mlflow.pyfunc.spark_udf) crashes
           # the Python worker. To avoid this, uninstall `datasets`. This is a temporary workaround.
           pip uninstall -y datasets
