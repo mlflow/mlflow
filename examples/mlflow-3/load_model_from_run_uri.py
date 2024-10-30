@@ -12,4 +12,4 @@ with mlflow.start_run() as run:
     mlflow.sklearn.log_model(model, "model", signature=signature)
     runs_uri = f"runs:/{run.info.run_id}/model"
     model = mlflow.sklearn.load_model(runs_uri)
-    print(model)
+    print(model.predict(X))
