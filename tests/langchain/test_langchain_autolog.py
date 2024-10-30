@@ -770,7 +770,6 @@ def test_langchain_autolog_callback_injection_in_batch(invoke_arg, config, async
 
 
 def test_tracing_source_run_in_batch():
-    # Disable autolog here as it is enabled in other tests.
     mlflow.langchain.autolog()
 
     model = create_openai_llmchain()
