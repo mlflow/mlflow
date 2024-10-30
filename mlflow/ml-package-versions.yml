@@ -749,8 +749,7 @@ langchain:
           "git+https://github.com/langchain-ai/langchain-databricks.git@main#egg=langchain-databricks&subdirectory=libs/databricks",
           # Required for testing uc tools
           "git+https://github.com/unitycatalog/unitycatalog.git#subdirectory=ai/core",
-          # TODO: update this to unitycatalog repo before merge
-          "git+https://github.com/serena-ruan/unitycatalog.git@tools#subdirectory=ai/integrations/langchain",
+          "git+https://github.com/unitycatalog/unitycatalog.git#subdirectory=ai/integrations/langchain",
         ]
     run: |
       # Run all langchain tests except autologging
