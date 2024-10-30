@@ -975,9 +975,10 @@ def test_create_deployment_throws_exception_after_endpoint_creation_fails(
             )
         return result
 
-    with mock.patch(
-        "botocore.client.BaseClient._make_api_call", new=fail_endpoint_creations
-    ), pytest.raises(MlflowException, match="deployment operation failed") as exc:
+    with (
+        mock.patch("botocore.client.BaseClient._make_api_call", new=fail_endpoint_creations),
+        pytest.raises(MlflowException, match="deployment operation failed") as exc,
+    ):
         sagemaker_deployment_client.create_deployment(
             name="test-app",
             model_uri=pretrained_model.model_uri,
@@ -1224,9 +1225,10 @@ def test_update_deployment_in_replace_mode_throws_exception_after_endpoint_updat
             )
         return result
 
-    with mock.patch(
-        "botocore.client.BaseClient._make_api_call", new=fail_endpoint_updates
-    ), pytest.raises(MlflowException, match="deployment operation failed") as exc:
+    with (
+        mock.patch("botocore.client.BaseClient._make_api_call", new=fail_endpoint_updates),
+        pytest.raises(MlflowException, match="deployment operation failed") as exc,
+    ):
         sagemaker_deployment_client.update_deployment(
             name=name,
             model_uri=pretrained_model.model_uri,

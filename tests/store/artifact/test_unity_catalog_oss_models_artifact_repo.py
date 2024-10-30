@@ -52,11 +52,16 @@ def test_uc_models_artifact_repo_scoped_token_oss(monkeypatch):
         }
     }
     fake_local_path = "/tmp/fake_path"
-    with mock.patch("mlflow.utils.oss_registry_utils.get_oss_host_creds"), mock.patch.object(
-        MlflowClient, "get_model_version_download_uri", return_value=artifact_location
-    ), mock.patch("mlflow.utils.rest_utils.http_request") as request_mock, mock.patch(
-        "mlflow.store.artifact.optimized_s3_artifact_repo.OptimizedS3ArtifactRepository"
-    ) as optimized_s3_artifact_repo_class_mock:
+    with (
+        mock.patch("mlflow.utils.oss_registry_utils.get_oss_host_creds"),
+        mock.patch.object(
+            MlflowClient, "get_model_version_download_uri", return_value=artifact_location
+        ),
+        mock.patch("mlflow.utils.rest_utils.http_request") as request_mock,
+        mock.patch(
+            "mlflow.store.artifact.optimized_s3_artifact_repo.OptimizedS3ArtifactRepository"
+        ) as optimized_s3_artifact_repo_class_mock,
+    ):
         mock_s3_repo = mock.MagicMock(autospec=OptimizedS3ArtifactRepository)
         mock_s3_repo.download_artifacts.return_value = fake_local_path
         optimized_s3_artifact_repo_class_mock.return_value = mock_s3_repo
