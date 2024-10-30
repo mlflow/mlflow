@@ -15,6 +15,7 @@ from packaging.requirements import InvalidRequirement, Requirement
 
 import mlflow
 from mlflow.artifacts import download_artifacts
+from mlflow.environment_variables import MLFLOW_RECORD_ENV_VARS_IN_MODEL_LOGGING
 from mlflow.exceptions import MlflowException
 from mlflow.models.resources import Resource, ResourceType, _ResourceBuilder
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, RESOURCE_DOES_NOT_EXIST
@@ -585,6 +586,7 @@ class Model:
             utc_time_created=self.utc_time_created,
             mlflow_version=self.mlflow_version,
             metadata=self.metadata,
+            env_vars=self.env_vars,
         )
 
     def get_tags_dict(self) -> dict[str, Any]:
@@ -858,7 +860,8 @@ class Model:
                             f"Got error: {e}",
                             exc_info=_logger.isEnabledFor(logging.DEBUG),
                         )
-                    model_info.env_vars = list(env.get_env_vars()) or None
+                    if hasattr(env, "get_env_vars"):
+                        model_info.env_vars = list(env.get_env_vars()) or None
             if model_info.env_vars:
                 env_var_path = Path(local_path, ENV_VAR_FILE_NAME)
                 env_var_path.write_text("\n".join(model_info.env_vars) + "\n")
@@ -866,9 +869,11 @@ class Model:
                     env_var_path, mlflow_model.artifact_path, run_id
                 )
                 _logger.info(
-                    f"Logged environment variables to file {ENV_VAR_FILE_NAME} in "
-                    "the model's artifact folder, please check if you need to set these "
-                    "environment variables when serving the model.",
+                    "Logged environment variables used during model logging to file "
+                    f"{ENV_VAR_FILE_NAME} in the model's artifact folder, please check "
+                    "if you need to set these environment variables when deploying the model. "
+                    "To disable logging them, set environmenv variable "
+                    f"`{MLFLOW_RECORD_ENV_VARS_IN_MODEL_LOGGING.name}` to `false`."
                 )
 
         return model_info

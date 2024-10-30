@@ -27,6 +27,7 @@ import mlflow.pyfunc.model
 import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 import mlflow.sklearn
 from mlflow.entities import Trace
+from mlflow.environment_variables import MLFLOW_RECORD_ENV_VARS_IN_MODEL_LOGGING
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model, infer_signature
 from mlflow.models.dependencies_schemas import DependenciesSchemasType
@@ -2101,18 +2102,26 @@ def test_model_pip_requirements_pin_numpy_when_pandas_included():
 def test_environment_variables_used_during_model_logging(monkeypatch):
     class MyModel(mlflow.pyfunc.PythonModel):
         def predict(self, context, model_input, params=None):
-            monkeypatch.setenv("TEST_ENV", "test_env")
-            os.environ.get("TRY_GET_ENV")
+            monkeypatch.setenv("TEST_API_KEY", "test_env")
+            monkeypatch.setenv("INVALID_ENV_VAR", "var")
+            os.environ.get("INVALID_API_KEY")
             return model_input
 
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model("model", python_model=MyModel(), input_example="data")
-    assert "TEST_ENV" in model_info.env_vars
-    assert "TRY_GET_ENV" not in model_info.env_vars
+    assert "TEST_API_KEY" in model_info.env_vars
+    assert "INVALID_ENV_VAR" not in model_info.env_vars
+    assert "INVALID_API_KEY" not in model_info.env_vars
     pyfunc_model = mlflow.pyfunc.load_model(model_info.model_uri)
     assert pyfunc_model.metadata.env_vars == model_info.env_vars
 
     # if no input_example provided, we do not run predict, and no env vars are captured
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model("model", python_model=MyModel())
+    assert model_info.env_vars is None
+
+    # disable logging by setting environment variable
+    monkeypatch.setenv(MLFLOW_RECORD_ENV_VARS_IN_MODEL_LOGGING.name, "false")
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model("model", python_model=MyModel(), input_example="data")
     assert model_info.env_vars is None

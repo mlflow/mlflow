@@ -8,6 +8,7 @@ from sklearn import datasets
 
 import mlflow.sklearn
 import mlflow.utils.model_utils as mlflow_model_utils
+from mlflow.environment_variables import MLFLOW_RECORD_ENV_VARS_IN_MODEL_LOGGING
 from mlflow.exceptions import MlflowException
 from mlflow.mleap import FLAVOR_NAME as MLEAP_FLAVOR_NAME
 from mlflow.models import Model
@@ -119,24 +120,29 @@ def test_add_code_to_system_path_not_copyable_file(sklearn_knn_model, model_path
 
 
 def test_env_var_tracker(monkeypatch):
-    monkeypatch.setenv("ENV1", "env1")
-    assert "ENV1" in os.environ
-    assert "ENV2" not in os.environ
+    monkeypatch.setenv("DATABRICKS_HOST", "host")
+    assert "DATABRICKS_HOST" in os.environ
+    assert "TEST_API_KEY" not in os.environ
 
     with env_var_tracker():
-        assert os.environ["ENV1"] == "env1"
-        assert "ENV1" in os.environ.get_env_vars()
-        assert "ENV2" not in os.environ.get_env_vars()
-        monkeypatch.setenv("ENV2", "env2")
-        assert "ENV2" in os.environ.get_env_vars()
-        os.environ.get("ENV3", "abc")
-        assert "ENV3" not in os.environ.get_env_vars()
+        assert os.environ["DATABRICKS_HOST"] == "host"
+        assert "DATABRICKS_HOST" in os.environ.get_env_vars()
+        assert "TEST_API_KEY" not in os.environ.get_env_vars()
+        monkeypatch.setenv("TEST_API_KEY", "key")
+        assert "TEST_API_KEY" in os.environ.get_env_vars()
+        os.environ.get("INVALID_API_KEY", "abc")
+        assert "INVALID_API_KEY" not in os.environ.get_env_vars()
         try:
-            os.environ["ENV4"]
+            os.environ["DATABRICKS_CLIENT"]
         except KeyError:
             pass
-        assert "ENV4" not in os.environ.get_env_vars()
+        assert "DATABRICKS_CLIENT" not in os.environ.get_env_vars()
 
     assert not hasattr(os.environ, "get_env_vars")
-    assert all(x in os.environ for x in ["ENV1", "ENV2"])
-    assert all(x not in os.environ for x in ["ENV3", "ENV4"])
+    assert all(x in os.environ for x in ["DATABRICKS_HOST", "TEST_API_KEY"])
+    assert all(x not in os.environ for x in ["INVALID_API_KEY", "DATABRICKS_CLIENT"])
+
+    monkeypatch.setenv(MLFLOW_RECORD_ENV_VARS_IN_MODEL_LOGGING.name, "false")
+    with env_var_tracker() as env:
+        monkeypatch.setenv("ANOTHER_TEST_API_KEY", "key")
+        assert not hasattr(env, "get_env_vars")

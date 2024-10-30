@@ -431,6 +431,9 @@ def _validate_pyfunc_model_config(model_config):
         )
 
 
+ALLOWED_ENV_VARS = {"API_KEY", "DATABRICKS"}
+
+
 class EnvTracker(dict):
     """
     Track environment variables set and accessed during the context manager's lifetime.
@@ -443,15 +446,16 @@ class EnvTracker(dict):
 
     def __setitem__(self, key, value):
         super().__setitem__(key, value)
-        self.env_vars.add(key)
+        if any(env_var in key for env_var in ALLOWED_ENV_VARS):
+            self.env_vars.add(key)
 
     def __getitem__(self, key):
-        if key in self:
+        if key in self and any(env_var in key for env_var in ALLOWED_ENV_VARS):
             self.env_vars.add(key)
         return super().__getitem__(key)
 
     def get(self, key, *args, **kwargs):
-        if key in self:
+        if key in self and any(env_var in key for env_var in ALLOWED_ENV_VARS):
             self.env_vars.add(key)
         return super().get(key, *args, **kwargs)
 
@@ -465,8 +469,13 @@ def env_var_tracker():
     Context manager for temporarily tracking environment variables accessed.
     It tracks both environment variables set and accessed during the context manager's lifetime.
     """
-    try:
-        os.environ = EnvTracker(os.environ)
+    from mlflow.environment_variables import MLFLOW_RECORD_ENV_VARS_IN_MODEL_LOGGING
+
+    if MLFLOW_RECORD_ENV_VARS_IN_MODEL_LOGGING.get():
+        try:
+            os.environ = EnvTracker(os.environ)
+            yield os.environ
+        finally:
+            os.environ = {**os.environ}
+    else:
         yield os.environ
-    finally:
-        os.environ = {**os.environ}
