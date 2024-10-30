@@ -489,8 +489,11 @@ def test_langchain_evaluate_fails_with_an_exception():
     llm = FakeListLLM(responses=["response"])
     chain = prompt | llm
 
-    with mock.patch("mlflow.langchain.log_model") as log_model_mock, mock.patch.object(
-        DefaultEvaluator, "evaluate", side_effect=MlflowException("evaluate mock error")
+    with (
+        mock.patch("mlflow.langchain.log_model") as log_model_mock,
+        mock.patch.object(
+            DefaultEvaluator, "evaluate", side_effect=MlflowException("evaluate mock error")
+        ),
     ):
 
         def model(inputs):
@@ -1061,11 +1064,14 @@ def test_evaluator_evaluation_interface(multiclass_logistic_regressor_model_uri,
             metrics={"m1": 5, "m2": 6},
             artifacts={"a1": FakeArtifact1(uri="uri1"), "a2": FakeArtifact2(uri="uri2")},
         )
-        with mock.patch.object(
-            FakeEvaluator1, "can_evaluate", return_value=False
-        ) as mock_can_evaluate, mock.patch.object(
-            FakeEvaluator1, "evaluate", return_value=evaluator1_return_value
-        ) as mock_evaluate:
+        with (
+            mock.patch.object(
+                FakeEvaluator1, "can_evaluate", return_value=False
+            ) as mock_can_evaluate,
+            mock.patch.object(
+                FakeEvaluator1, "evaluate", return_value=evaluator1_return_value
+            ) as mock_evaluate,
+        ):
             with mlflow.start_run():
                 with pytest.raises(
                     MlflowException,
@@ -1083,11 +1089,14 @@ def test_evaluator_evaluation_interface(multiclass_logistic_regressor_model_uri,
                     model_type="classifier", evaluator_config=evaluator1_config
                 )
                 mock_evaluate.assert_not_called()
-        with mock.patch.object(
-            FakeEvaluator1, "can_evaluate", return_value=True
-        ) as mock_can_evaluate, mock.patch.object(
-            FakeEvaluator1, "evaluate", return_value=evaluator1_return_value
-        ) as mock_evaluate:
+        with (
+            mock.patch.object(
+                FakeEvaluator1, "can_evaluate", return_value=True
+            ) as mock_can_evaluate,
+            mock.patch.object(
+                FakeEvaluator1, "evaluate", return_value=evaluator1_return_value
+            ) as mock_evaluate,
+        ):
             with mlflow.start_run() as run:
                 eval1_result = evaluate(
                     multiclass_logistic_regressor_model_uri,
@@ -1153,15 +1162,20 @@ def test_evaluate_with_multi_evaluators(
         # evaluators, and the evaluation results should equal to the case of
         # evaluators=["test_evaluator1", "test_evaluator2"]
         for evaluators in [None, ["test_evaluator1", "test_evaluator2"]]:
-            with mock.patch.object(
-                FakeEvaluator1, "can_evaluate", return_value=True
-            ) as mock_can_evaluate1, mock.patch.object(
-                FakeEvaluator1, "evaluate", return_value=evaluator1_return_value
-            ) as mock_evaluate1, mock.patch.object(
-                FakeEvaluator2, "can_evaluate", return_value=True
-            ) as mock_can_evaluate2, mock.patch.object(
-                FakeEvaluator2, "evaluate", return_value=evaluator2_return_value
-            ) as mock_evaluate2:
+            with (
+                mock.patch.object(
+                    FakeEvaluator1, "can_evaluate", return_value=True
+                ) as mock_can_evaluate1,
+                mock.patch.object(
+                    FakeEvaluator1, "evaluate", return_value=evaluator1_return_value
+                ) as mock_evaluate1,
+                mock.patch.object(
+                    FakeEvaluator2, "can_evaluate", return_value=True
+                ) as mock_can_evaluate2,
+                mock.patch.object(
+                    FakeEvaluator2, "evaluate", return_value=evaluator2_return_value
+                ) as mock_evaluate2,
+            ):
                 with mlflow.start_run() as run:
                     eval_result = evaluate(
                         multiclass_logistic_regressor_model_uri,
@@ -1209,9 +1223,12 @@ def test_custom_evaluators_no_model_or_preds(multiclass_logistic_regressor_model
     with mock.patch.object(
         _model_evaluation_registry, "_registry", {"test_evaluator1": FakeEvaluator1}
     ):
-        with mock.patch.object(
-            FakeEvaluator1, "can_evaluate", return_value=True
-        ) as mock_can_evaluate, mock.patch.object(FakeEvaluator1, "evaluate") as mock_evaluate:
+        with (
+            mock.patch.object(
+                FakeEvaluator1, "can_evaluate", return_value=True
+            ) as mock_can_evaluate,
+            mock.patch.object(FakeEvaluator1, "evaluate") as mock_evaluate,
+        ):
             with mlflow.start_run() as run:
                 evaluate(
                     model=None,
@@ -1468,15 +1485,19 @@ def test_evaluate_terminates_model_servers(multiclass_logistic_regressor_model_u
     served_model_1 = _ServedPyFuncModel(model_meta=model.metadata, client=client, server_pid=1)
     served_model_2 = _ServedPyFuncModel(model_meta=model.metadata, client=client, server_pid=2)
 
-    with mock.patch.object(
-        _model_evaluation_registry,
-        "_registry",
-        {"test_evaluator1": FakeEvaluator1},
-    ), mock.patch.object(FakeEvaluator1, "can_evaluate", return_value=True), mock.patch.object(
-        FakeEvaluator1, "evaluate", return_value=EvaluationResult(metrics={}, artifacts={})
-    ), mock.patch("mlflow.pyfunc._load_model_or_server") as server_loader, mock.patch(
-        "os.kill"
-    ) as os_mock:
+    with (
+        mock.patch.object(
+            _model_evaluation_registry,
+            "_registry",
+            {"test_evaluator1": FakeEvaluator1},
+        ),
+        mock.patch.object(FakeEvaluator1, "can_evaluate", return_value=True),
+        mock.patch.object(
+            FakeEvaluator1, "evaluate", return_value=EvaluationResult(metrics={}, artifacts={})
+        ),
+        mock.patch("mlflow.pyfunc._load_model_or_server") as server_loader,
+        mock.patch("os.kill") as os_mock,
+    ):
         server_loader.side_effect = [served_model_1, served_model_2]
         evaluate(
             multiclass_logistic_regressor_model_uri,

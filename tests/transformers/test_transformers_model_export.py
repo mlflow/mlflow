@@ -817,9 +817,10 @@ def test_transformers_pt_model_log_without_conda_env_uses_default_env_with_expec
 
 def test_log_model_with_code_paths(small_qa_pipeline):
     artifact_path = "model"
-    with mlflow.start_run(), mock.patch(
-        "mlflow.transformers._add_code_from_conf_to_system_path"
-    ) as add_mock:
+    with (
+        mlflow.start_run(),
+        mock.patch("mlflow.transformers._add_code_from_conf_to_system_path") as add_mock,
+    ):
         mlflow.transformers.log_model(small_qa_pipeline, artifact_path, code_paths=[__file__])
         model_uri = mlflow.get_artifact_uri(artifact_path)
         _compare_logged_code_paths(__file__, model_uri, mlflow.transformers.FLAVOR_NAME)

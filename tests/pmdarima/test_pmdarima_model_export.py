@@ -407,9 +407,10 @@ def test_pmdarima_pyfunc_return_correct_structure(auto_arima_model, model_path):
 
 def test_log_model_with_code_paths(auto_arima_model):
     artifact_path = "model"
-    with mlflow.start_run(), mock.patch(
-        "mlflow.pmdarima._add_code_from_conf_to_system_path"
-    ) as add_mock:
+    with (
+        mlflow.start_run(),
+        mock.patch("mlflow.pmdarima._add_code_from_conf_to_system_path") as add_mock,
+    ):
         mlflow.pmdarima.log_model(auto_arima_model, artifact_path, code_paths=[__file__])
         model_uri = mlflow.get_artifact_uri(artifact_path)
         _compare_logged_code_paths(__file__, model_uri, mlflow.pmdarima.FLAVOR_NAME)

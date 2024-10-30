@@ -56,11 +56,14 @@ def generate_async_logging_queue(clazz):
 def test_single_thread_publish_consume_queue(monkeypatch):
     monkeypatch.setenv("MLFLOW_ASYNC_LOGGING_BUFFERING_SECONDS", "3")
 
-    with patch.object(
-        AsyncLoggingQueue, "_batch_logging_worker_threadpool", create=True
-    ) as mock_worker_threadpool, patch.object(
-        AsyncLoggingQueue, "_batch_status_check_threadpool", create=True
-    ) as mock_check_threadpool:
+    with (
+        patch.object(
+            AsyncLoggingQueue, "_batch_logging_worker_threadpool", create=True
+        ) as mock_worker_threadpool,
+        patch.object(
+            AsyncLoggingQueue, "_batch_status_check_threadpool", create=True
+        ) as mock_check_threadpool,
+    ):
         mock_worker_threadpool.submit = MagicMock()
         mock_check_threadpool.submit = MagicMock()
         mock_worker_threadpool.shutdown = MagicMock()

@@ -321,12 +321,13 @@ def test_http_request_request_headers_user_agent(request):
     # The test plugin's request header provider always returns False from in_context to avoid
     # polluting request headers in developers' environments. The following mock overrides this to
     # perform the integration test.
-    with mock.patch.object(
-        PluginRequestHeaderProvider, "in_context", return_value=True
-    ), mock.patch.object(
-        PluginRequestHeaderProvider,
-        "request_headers",
-        return_value={_USER_AGENT: "test_user_agent"},
+    with (
+        mock.patch.object(PluginRequestHeaderProvider, "in_context", return_value=True),
+        mock.patch.object(
+            PluginRequestHeaderProvider,
+            "request_headers",
+            return_value={_USER_AGENT: "test_user_agent"},
+        ),
     ):
         host_only = MlflowHostCreds("http://my-host", server_cert_path="/some/path")
         expected_headers = {
@@ -358,12 +359,13 @@ def test_http_request_request_headers_user_agent_and_extra_header(request):
     # The test plugin's request header provider always returns False from in_context to avoid
     # polluting request headers in developers' environments. The following mock overrides this to
     # perform the integration test.
-    with mock.patch.object(
-        PluginRequestHeaderProvider, "in_context", return_value=True
-    ), mock.patch.object(
-        PluginRequestHeaderProvider,
-        "request_headers",
-        return_value={_USER_AGENT: "test_user_agent", "header": "value"},
+    with (
+        mock.patch.object(PluginRequestHeaderProvider, "in_context", return_value=True),
+        mock.patch.object(
+            PluginRequestHeaderProvider,
+            "request_headers",
+            return_value={_USER_AGENT: "test_user_agent", "header": "value"},
+        ),
     ):
         host_only = MlflowHostCreds("http://my-host", server_cert_path="/some/path")
         expected_headers = {

@@ -105,18 +105,20 @@ def test_statsmodels_autolog_logs_summary_artifact():
 def test_statsmodels_autolog_emit_warning_when_model_is_large():
     mlflow.statsmodels.autolog()
 
-    with mock.patch(
-        "mlflow.statsmodels._model_size_threshold_for_emitting_warning", float("inf")
-    ), mock.patch("mlflow.statsmodels._logger.warning") as mock_warning:
+    with (
+        mock.patch("mlflow.statsmodels._model_size_threshold_for_emitting_warning", float("inf")),
+        mock.patch("mlflow.statsmodels._logger.warning") as mock_warning,
+    ):
         ols_model()
         assert all(
             not call_args[0][0].startswith("The fitted model is larger than")
             for call_args in mock_warning.call_args_list
         )
 
-    with mock.patch("mlflow.statsmodels._model_size_threshold_for_emitting_warning", 1), mock.patch(
-        "mlflow.statsmodels._logger.warning"
-    ) as mock_warning:
+    with (
+        mock.patch("mlflow.statsmodels._model_size_threshold_for_emitting_warning", 1),
+        mock.patch("mlflow.statsmodels._logger.warning") as mock_warning,
+    ):
         ols_model()
         assert any(
             call_args[0][0].startswith("The fitted model is larger than")
@@ -143,15 +145,17 @@ def test_statsmodels_autolog_failed_metrics_warning():
         def as_text(self):
             return "mock summary."
 
-    with mock.patch(
-        "statsmodels.regression.linear_model.OLSResults.f_pvalue", metric_raise_error
-    ), mock.patch(
-        "statsmodels.regression.linear_model.OLSResults.fvalue", metric_raise_error
-    ), mock.patch(
-        # Prevent `OLSResults.summary` from calling `fvalue` and `f_pvalue` that raise an exception
-        "statsmodels.regression.linear_model.OLSResults.summary",
-        return_value=MockSummary(),
-    ), mock.patch("mlflow.statsmodels._logger.warning") as mock_warning:
+    with (
+        mock.patch("statsmodels.regression.linear_model.OLSResults.f_pvalue", metric_raise_error),
+        mock.patch("statsmodels.regression.linear_model.OLSResults.fvalue", metric_raise_error),
+        mock.patch(
+            # Prevent `OLSResults.summary` from calling `fvalue` and `f_pvalue` that raise an
+            # exception
+            "statsmodels.regression.linear_model.OLSResults.summary",
+            return_value=MockSummary(),
+        ),
+        mock.patch("mlflow.statsmodels._logger.warning") as mock_warning,
+    ):
         ols_model()
         mock_warning.assert_called_once_with("Failed to autolog metrics: f_pvalue, fvalue.")
 

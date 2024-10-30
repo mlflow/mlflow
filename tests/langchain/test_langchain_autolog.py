@@ -532,9 +532,10 @@ def test_loaded_runnable_sequence_autolog():
 def test_retriever_autolog(tmp_path, async_logging_enabled):
     mlflow.langchain.autolog(log_models=True)
     model, query = create_retriever(tmp_path)
-    with mock.patch("mlflow.langchain.log_model") as log_model_mock, mock.patch(
-        "mlflow.langchain._langchain_autolog._logger.info"
-    ) as logger_mock:
+    with (
+        mock.patch("mlflow.langchain.log_model") as log_model_mock,
+        mock.patch("mlflow.langchain._langchain_autolog._logger.info") as logger_mock,
+    ):
         model.get_relevant_documents(query)
         log_model_mock.assert_not_called()
         logger_mock.assert_called_once_with(UNSUPPORT_LOG_MODEL_MESSAGE)
@@ -570,9 +571,10 @@ def test_unsupported_log_model_models_autolog(tmp_path):
         | StrOutputParser()
     )
     question = "What is MLflow?"
-    with mock.patch("mlflow.langchain._langchain_autolog._logger.info") as logger_mock, mock.patch(
-        "mlflow.langchain.log_model"
-    ) as log_model_mock:
+    with (
+        mock.patch("mlflow.langchain._langchain_autolog._logger.info") as logger_mock,
+        mock.patch("mlflow.langchain.log_model") as log_model_mock,
+    ):
         assert retrieval_chain.invoke(question) == TEST_CONTENT
         logger_mock.assert_called_once_with(UNSUPPORT_LOG_MODEL_MESSAGE)
         log_model_mock.assert_not_called()

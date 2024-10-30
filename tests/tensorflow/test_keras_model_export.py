@@ -671,9 +671,10 @@ def test_pyfunc_serve_and_score_transformers():
 
 def test_log_model_with_code_paths(model):
     artifact_path = "model"
-    with mlflow.start_run(), mock.patch(
-        "mlflow.tensorflow._add_code_from_conf_to_system_path"
-    ) as add_mock:
+    with (
+        mlflow.start_run(),
+        mock.patch("mlflow.tensorflow._add_code_from_conf_to_system_path") as add_mock,
+    ):
         mlflow.tensorflow.log_model(model, artifact_path, code_paths=[__file__])
         model_uri = mlflow.get_artifact_uri(artifact_path)
         _compare_logged_code_paths(__file__, model_uri, mlflow.tensorflow.FLAVOR_NAME)

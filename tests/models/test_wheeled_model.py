@@ -107,9 +107,10 @@ def validate_updated_conda_dependencies(original_model_path, wheeled_model_path)
     wheeled_model_path = os.path.join(wheeled_model_path, _CONDA_ENV_FILE_NAME)
     original_conda_env_path = os.path.join(original_model_path, _CONDA_ENV_FILE_NAME)
 
-    with open(wheeled_model_path) as wheeled_conda_env, open(
-        original_conda_env_path
-    ) as original_conda_env:
+    with (
+        open(wheeled_model_path) as wheeled_conda_env,
+        open(original_conda_env_path) as original_conda_env,
+    ):
         wheeled_conda_env = yaml.safe_load(wheeled_conda_env)
         original_conda_env = yaml.safe_load(original_conda_env)
 

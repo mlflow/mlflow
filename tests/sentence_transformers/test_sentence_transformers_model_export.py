@@ -325,9 +325,10 @@ def test_model_log_without_conda_env_uses_default_env_with_expected_dependencies
 
 def test_log_model_with_code_paths(basic_model):
     artifact_path = "model"
-    with mlflow.start_run(), mock.patch(
-        "mlflow.sentence_transformers._add_code_from_conf_to_system_path"
-    ) as add_mock:
+    with (
+        mlflow.start_run(),
+        mock.patch("mlflow.sentence_transformers._add_code_from_conf_to_system_path") as add_mock,
+    ):
         mlflow.sentence_transformers.log_model(basic_model, artifact_path, code_paths=[__file__])
         model_uri = mlflow.get_artifact_uri(artifact_path)
         _compare_logged_code_paths(__file__, model_uri, mlflow.sentence_transformers.FLAVOR_NAME)

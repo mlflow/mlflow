@@ -40,9 +40,10 @@ async def test_completions():
     config = completions_config()
     mock_client = mock_http_client(MockAsyncResponse(resp))
 
-    with mock.patch("time.time", return_value=1677858242), mock.patch(
-        "aiohttp.ClientSession", return_value=mock_client
-    ) as mock_build_client:
+    with (
+        mock.patch("time.time", return_value=1677858242),
+        mock.patch("aiohttp.ClientSession", return_value=mock_client) as mock_build_client,
+    ):
         provider = MlflowModelServingProvider(RouteConfig(**config))
         payload = {
             "prompt": "Is this a test?",
@@ -253,9 +254,10 @@ async def test_chat():
     config = chat_config()
     mock_client = mock_http_client(MockAsyncResponse(resp))
 
-    with mock.patch("time.time", return_value=1700242674), mock.patch(
-        "aiohttp.ClientSession", return_value=mock_client
-    ) as mock_build_client:
+    with (
+        mock.patch("time.time", return_value=1700242674),
+        mock.patch("aiohttp.ClientSession", return_value=mock_client) as mock_build_client,
+    ):
         provider = MlflowModelServingProvider(RouteConfig(**config))
         payload = {"messages": [{"role": "user", "content": "Is this a test?"}]}
         response = await provider.chat(chat.RequestPayload(**payload))

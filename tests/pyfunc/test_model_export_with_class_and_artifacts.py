@@ -977,10 +977,13 @@ def test_log_model_with_unsupported_argument_combinations_throws_exception():
 
     python_model = ModuleScopedSklearnModel(predict_fn=None)
     loader_module = __name__
-    with mlflow.start_run(), pytest.raises(
-        MlflowException,
-        match="The following sets of parameters cannot be specified together",
-    ) as exc_info:
+    with (
+        mlflow.start_run(),
+        pytest.raises(
+            MlflowException,
+            match="The following sets of parameters cannot be specified together",
+        ) as exc_info,
+    ):
         mlflow.pyfunc.log_model(
             "pyfunc_model",
             python_model=python_model,
@@ -989,10 +992,13 @@ def test_log_model_with_unsupported_argument_combinations_throws_exception():
     assert str(python_model) in str(exc_info)
     assert str(loader_module) in str(exc_info)
 
-    with mlflow.start_run(), pytest.raises(
-        MlflowException,
-        match="The following sets of parameters cannot be specified together",
-    ) as exc_info:
+    with (
+        mlflow.start_run(),
+        pytest.raises(
+            MlflowException,
+            match="The following sets of parameters cannot be specified together",
+        ) as exc_info,
+    ):
         mlflow.pyfunc.log_model(
             "pyfunc_model",
             python_model=python_model,
@@ -1000,9 +1006,12 @@ def test_log_model_with_unsupported_argument_combinations_throws_exception():
             artifacts={"artifact1": "/path/to/artifact"},
         )
 
-    with mlflow.start_run(), pytest.raises(
-        MlflowException,
-        match="Either `loader_module` or `python_model` must be specified",
+    with (
+        mlflow.start_run(),
+        pytest.raises(
+            MlflowException,
+            match="Either `loader_module` or `python_model` must be specified",
+        ),
     ):
         mlflow.pyfunc.log_model("pyfunc_model", python_model=None, loader_module=None)
 
@@ -1045,9 +1054,10 @@ def test_load_model_with_differing_cloudpickle_version_at_micro_granularity_logs
         log_messages.append(message_text % args % kwargs)
 
     loader_cloudpickle_version = "0.5.7"
-    with mock.patch("mlflow.pyfunc._logger.warning") as warn_mock, mock.patch(
-        "cloudpickle.__version__"
-    ) as cloudpickle_version_mock:
+    with (
+        mock.patch("mlflow.pyfunc._logger.warning") as warn_mock,
+        mock.patch("cloudpickle.__version__") as cloudpickle_version_mock,
+    ):
         cloudpickle_version_mock.__str__ = lambda *args, **kwargs: loader_cloudpickle_version
         warn_mock.side_effect = custom_warn
         mlflow.pyfunc.load_model(model_uri=model_path)

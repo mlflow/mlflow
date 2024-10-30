@@ -349,9 +349,10 @@ def test_pyfunc_serve_and_score(h2o_iris_model):
 
 def test_log_model_with_code_paths(h2o_iris_model):
     artifact_path = "model_uri"
-    with mlflow.start_run(), mock.patch(
-        "mlflow.h2o._add_code_from_conf_to_system_path"
-    ) as add_mock:
+    with (
+        mlflow.start_run(),
+        mock.patch("mlflow.h2o._add_code_from_conf_to_system_path") as add_mock,
+    ):
         mlflow.h2o.log_model(h2o_iris_model.model, artifact_path, code_paths=[__file__])
         model_uri = mlflow.get_artifact_uri(artifact_path)
         _compare_logged_code_paths(__file__, model_uri, mlflow.h2o.FLAVOR_NAME)

@@ -80,9 +80,10 @@ def test_autologging_integrations_expose_configs_and_support_disablement(integra
 
 @pytest.mark.parametrize("integration", AUTOLOGGING_INTEGRATIONS_TO_TEST.keys())
 def test_autologging_integrations_use_safe_patch_for_monkey_patching(integration):
-    with mock.patch("mlflow.utils.gorilla.apply", wraps=gorilla.apply) as gorilla_mock, mock.patch(
-        integration.__name__ + ".safe_patch", wraps=safe_patch
-    ) as safe_patch_mock:
+    with (
+        mock.patch("mlflow.utils.gorilla.apply", wraps=gorilla.apply) as gorilla_mock,
+        mock.patch(integration.__name__ + ".safe_patch", wraps=safe_patch) as safe_patch_mock,
+    ):
         # In `mlflow.xgboost.autolog()` and `mlflow.lightgbm.autolog()`,
         # we enable autologging for XGBoost and LightGBM sklearn models
         # using `mlflow.sklearn._autolog()`. So besides `safe_patch` calls in

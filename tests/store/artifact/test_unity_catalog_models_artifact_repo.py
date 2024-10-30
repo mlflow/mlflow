@@ -77,9 +77,12 @@ def test_uc_models_artifact_repo_init_not_using_databricks_registry_raises():
     ],
 )
 def test_uc_models_artifact_repo_with_stage_uri_raises(model_uri, expected_error_msg):
-    with mock.patch("mlflow.utils.databricks_utils.get_databricks_host_creds"), pytest.raises(
-        MlflowException,
-        match=expected_error_msg,
+    with (
+        mock.patch("mlflow.utils.databricks_utils.get_databricks_host_creds"),
+        pytest.raises(
+            MlflowException,
+            match=expected_error_msg,
+        ),
     ):
         UnityCatalogModelsArtifactRepository(
             artifact_uri=model_uri, registry_uri=_DATABRICKS_UNITY_CATALOG_SCHEME
@@ -123,11 +126,16 @@ def test_uc_models_artifact_repo_download_artifacts_uses_temporary_creds_aws(mon
         }
     }
     fake_local_path = "/tmp/fake_path"
-    with mock.patch("mlflow.utils.databricks_utils.get_databricks_host_creds"), mock.patch.object(
-        MlflowClient, "get_model_version_download_uri", return_value=artifact_location
-    ), mock.patch("mlflow.utils.rest_utils.http_request") as request_mock, mock.patch(
-        "mlflow.store.artifact.optimized_s3_artifact_repo.OptimizedS3ArtifactRepository"
-    ) as optimized_s3_artifact_repo_class_mock:
+    with (
+        mock.patch("mlflow.utils.databricks_utils.get_databricks_host_creds"),
+        mock.patch.object(
+            MlflowClient, "get_model_version_download_uri", return_value=artifact_location
+        ),
+        mock.patch("mlflow.utils.rest_utils.http_request") as request_mock,
+        mock.patch(
+            "mlflow.store.artifact.optimized_s3_artifact_repo.OptimizedS3ArtifactRepository"
+        ) as optimized_s3_artifact_repo_class_mock,
+    ):
         mock_s3_repo = mock.MagicMock(autospec=OptimizedS3ArtifactRepository)
         mock_s3_repo.download_artifacts.return_value = fake_local_path
         optimized_s3_artifact_repo_class_mock.return_value = mock_s3_repo
@@ -169,11 +177,15 @@ def test_uc_models_artifact_repo_download_artifacts_uses_temporary_creds_azure(m
         },
     }
     fake_local_path = "/tmp/fake_path"
-    with mock.patch.object(
-        MlflowClient, "get_model_version_download_uri", return_value=artifact_location
-    ), mock.patch("mlflow.utils.rest_utils.http_request") as request_mock, mock.patch(
-        "mlflow.store.artifact.azure_data_lake_artifact_repo.AzureDataLakeArtifactRepository"
-    ) as adls_artifact_repo_class_mock:
+    with (
+        mock.patch.object(
+            MlflowClient, "get_model_version_download_uri", return_value=artifact_location
+        ),
+        mock.patch("mlflow.utils.rest_utils.http_request") as request_mock,
+        mock.patch(
+            "mlflow.store.artifact.azure_data_lake_artifact_repo.AzureDataLakeArtifactRepository"
+        ) as adls_artifact_repo_class_mock,
+    ):
         mock_adls_repo = mock.MagicMock(autospec=AzureDataLakeArtifactRepository)
         mock_adls_repo.download_artifacts.return_value = fake_local_path
         adls_artifact_repo_class_mock.return_value = mock_adls_repo
@@ -213,13 +225,17 @@ def test_uc_models_artifact_repo_download_artifacts_uses_temporary_creds_gcp(mon
         },
     }
     fake_local_path = "/tmp/fake_path"
-    with mock.patch("mlflow.utils.databricks_utils.get_databricks_host_creds"), mock.patch.object(
-        MlflowClient, "get_model_version_download_uri", return_value=artifact_location
-    ), mock.patch("mlflow.utils.rest_utils.http_request") as request_mock, mock.patch(
-        "google.cloud.storage.Client"
-    ) as gcs_client_class_mock, mock.patch(
-        "mlflow.store.artifact.gcs_artifact_repo.GCSArtifactRepository"
-    ) as gcs_artifact_repo_class_mock:
+    with (
+        mock.patch("mlflow.utils.databricks_utils.get_databricks_host_creds"),
+        mock.patch.object(
+            MlflowClient, "get_model_version_download_uri", return_value=artifact_location
+        ),
+        mock.patch("mlflow.utils.rest_utils.http_request") as request_mock,
+        mock.patch("google.cloud.storage.Client") as gcs_client_class_mock,
+        mock.patch(
+            "mlflow.store.artifact.gcs_artifact_repo.GCSArtifactRepository"
+        ) as gcs_artifact_repo_class_mock,
+    ):
         mock_gcs_client = mock.MagicMock(autospec=Client)
         gcs_client_class_mock.return_value = mock_gcs_client
         mock_gcs_repo = mock.MagicMock(autospec=GCSArtifactRepository)
@@ -281,11 +297,16 @@ def test_uc_models_artifact_repo_list_artifacts_uses_temporary_creds(monkeypatch
         },
     }
     fake_local_path = "/tmp/fake_path"
-    with mock.patch("mlflow.utils.databricks_utils.get_databricks_host_creds"), mock.patch.object(
-        MlflowClient, "get_model_version_download_uri", return_value=artifact_location
-    ), mock.patch("mlflow.utils.rest_utils.http_request") as request_mock, mock.patch(
-        "mlflow.store.artifact.azure_data_lake_artifact_repo.AzureDataLakeArtifactRepository"
-    ) as adls_artifact_repo_class_mock:
+    with (
+        mock.patch("mlflow.utils.databricks_utils.get_databricks_host_creds"),
+        mock.patch.object(
+            MlflowClient, "get_model_version_download_uri", return_value=artifact_location
+        ),
+        mock.patch("mlflow.utils.rest_utils.http_request") as request_mock,
+        mock.patch(
+            "mlflow.store.artifact.azure_data_lake_artifact_repo.AzureDataLakeArtifactRepository"
+        ) as adls_artifact_repo_class_mock,
+    ):
         mock_adls_repo = mock.MagicMock(autospec=AzureDataLakeArtifactRepository)
         fake_fileinfo = FileInfo(fake_local_path, is_dir=False, file_size=1)
         mock_adls_repo.list_artifacts.return_value = [fake_fileinfo]
@@ -341,16 +362,20 @@ def test_store_use_presigned_url_store_when_disabled():
             access_key_id="key", secret_access_key="secret", session_token="token"
         )
     )
-    with mock.patch(
-        f"{store_package}.UnityCatalogModelsArtifactRepository._get_scoped_token",
-        return_value=creds,
-    ) as temp_cred_mock, mock.patch(
-        f"{store_package}.UnityCatalogModelsArtifactRepository._get_blob_storage_path",
-        return_value=storage_location,
-    ) as get_location_mock, mock.patch(
-        f"{store_package}.get_artifact_repo_from_storage_info",
-        side_effect=get_artifact_repo_from_storage_info,
-    ) as get_artifact_repo_mock:
+    with (
+        mock.patch(
+            f"{store_package}.UnityCatalogModelsArtifactRepository._get_scoped_token",
+            return_value=creds,
+        ) as temp_cred_mock,
+        mock.patch(
+            f"{store_package}.UnityCatalogModelsArtifactRepository._get_blob_storage_path",
+            return_value=storage_location,
+        ) as get_location_mock,
+        mock.patch(
+            f"{store_package}.get_artifact_repo_from_storage_info",
+            side_effect=get_artifact_repo_from_storage_info,
+        ) as get_artifact_repo_mock,
+    ):
         aws_store = uc_store._get_artifact_repo()
 
         assert type(aws_store) is OptimizedS3ArtifactRepository

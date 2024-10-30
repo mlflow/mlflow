@@ -111,9 +111,12 @@ def test_uri_parameter():
     """Tests parameter resolution for parameters of type `uri`."""
     project = load_project()
     entry_point = project.get_entry_point("download_uri")
-    with mock.patch(
-        "mlflow.tracking.artifact_utils._download_artifact_from_uri"
-    ) as download_uri_mock, TempDir() as tmp:
+    with (
+        mock.patch(
+            "mlflow.tracking.artifact_utils._download_artifact_from_uri"
+        ) as download_uri_mock,
+        TempDir() as tmp,
+    ):
         dst_dir = tmp.path()
         # Test that we don't attempt to locally download parameters of type URI
         entry_point.compute_command(
@@ -216,9 +219,12 @@ def test_path_params():
         assert extra_2 == {"alpha": "0.001"}
         assert download_uri_mock.call_count == 0
 
-    with mock.patch(
-        "mlflow.tracking.artifact_utils._download_artifact_from_uri"
-    ) as download_uri_mock, TempDir() as tmp:
+    with (
+        mock.patch(
+            "mlflow.tracking.artifact_utils._download_artifact_from_uri"
+        ) as download_uri_mock,
+        TempDir() as tmp,
+    ):
         dest_path = tmp.path()
         download_path = f"{dest_path}/data_file.csv"
         download_uri_mock.return_value = download_path
@@ -228,9 +234,12 @@ def test_path_params():
         assert extra_3 == {"alpha": "0.001"}
         assert download_uri_mock.call_count == 1
 
-    with mock.patch(
-        "mlflow.tracking.artifact_utils._download_artifact_from_uri"
-    ) as download_uri_mock, TempDir() as tmp:
+    with (
+        mock.patch(
+            "mlflow.tracking.artifact_utils._download_artifact_from_uri"
+        ) as download_uri_mock,
+        TempDir() as tmp,
+    ):
         dest_path = tmp.path()
         download_path = f"{dest_path}/images.tgz"
         download_uri_mock.return_value = download_path

@@ -100,9 +100,11 @@ def test_tracking_uri_validation_failure(command):
 def test_tracking_uri_validation_sql_driver_uris(command):
     handlers._tracking_store = None
     handlers._model_registry_store = None
-    with mock.patch("mlflow.server._run_server") as run_server_mock, mock.patch(
-        "mlflow.store.tracking.sqlalchemy_store.SqlAlchemyStore"
-    ), mock.patch("mlflow.store.model_registry.sqlalchemy_store.SqlAlchemyStore"):
+    with (
+        mock.patch("mlflow.server._run_server") as run_server_mock,
+        mock.patch("mlflow.store.tracking.sqlalchemy_store.SqlAlchemyStore"),
+        mock.patch("mlflow.store.model_registry.sqlalchemy_store.SqlAlchemyStore"),
+    ):
         result = CliRunner().invoke(
             command,
             [
@@ -132,11 +134,13 @@ def test_registry_store_uri_different_from_tracking_store(command):
     handlers._tracking_store_registry = TrackingStoreRegistryWrapper()
     handlers._model_registry_store_registry = ModelRegistryStoreRegistryWrapper()
 
-    with mock.patch("mlflow.server._run_server") as run_server_mock, mock.patch(
-        "mlflow.store.tracking.file_store.FileStore"
-    ) as tracking_store, mock.patch(
-        "mlflow.store.model_registry.sqlalchemy_store.SqlAlchemyStore"
-    ) as registry_store:
+    with (
+        mock.patch("mlflow.server._run_server") as run_server_mock,
+        mock.patch("mlflow.store.tracking.file_store.FileStore") as tracking_store,
+        mock.patch(
+            "mlflow.store.model_registry.sqlalchemy_store.SqlAlchemyStore"
+        ) as registry_store,
+    ):
         result = CliRunner().invoke(
             command,
             [
@@ -537,9 +541,11 @@ def test_mlflow_artifact_service_unavailable_when_no_server_artifacts_is_specifi
 
 
 def test_mlflow_artifact_only_prints_warning_for_configs():
-    with mock.patch("mlflow.server._run_server") as run_server_mock, mock.patch(
-        "mlflow.store.tracking.sqlalchemy_store.SqlAlchemyStore"
-    ), mock.patch("mlflow.store.model_registry.sqlalchemy_store.SqlAlchemyStore"):
+    with (
+        mock.patch("mlflow.server._run_server") as run_server_mock,
+        mock.patch("mlflow.store.tracking.sqlalchemy_store.SqlAlchemyStore"),
+        mock.patch("mlflow.store.model_registry.sqlalchemy_store.SqlAlchemyStore"),
+    ):
         result = CliRunner(mix_stderr=False).invoke(
             server,
             ["--artifacts-only", "--backend-store-uri", "sqlite:///my.db"],

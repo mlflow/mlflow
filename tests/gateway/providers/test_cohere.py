@@ -65,9 +65,10 @@ def chat_payload(stream: bool = False):
 async def test_chat():
     resp = chat_response()
     config = chat_config()
-    with mock.patch("time.time", return_value=1677858242), mock.patch(
-        "aiohttp.ClientSession.post", return_value=MockAsyncResponse(resp)
-    ) as mock_post:
+    with (
+        mock.patch("time.time", return_value=1677858242),
+        mock.patch("aiohttp.ClientSession.post", return_value=MockAsyncResponse(resp)) as mock_post,
+    ):
         provider = CohereProvider(RouteConfig(**config))
         payload = chat_payload()
         response = await provider.chat(chat.RequestPayload(**payload))
@@ -112,9 +113,10 @@ async def test_chat():
 async def test_chat_with_system_messages():
     resp = chat_response()
     config = chat_config()
-    with mock.patch("time.time", return_value=1677858242), mock.patch(
-        "aiohttp.ClientSession.post", return_value=MockAsyncResponse(resp)
-    ) as mock_post:
+    with (
+        mock.patch("time.time", return_value=1677858242),
+        mock.patch("aiohttp.ClientSession.post", return_value=MockAsyncResponse(resp)) as mock_post,
+    ):
         provider = CohereProvider(RouteConfig(**config))
         payload = {
             "messages": [
@@ -178,9 +180,12 @@ async def test_chat_stream():
     resp = chat_stream_response()
     config = chat_config()
 
-    with mock.patch("time.time", return_value=1677858242), mock.patch(
-        "aiohttp.ClientSession.post", return_value=MockAsyncStreamingResponse(resp)
-    ) as mock_post:
+    with (
+        mock.patch("time.time", return_value=1677858242),
+        mock.patch(
+            "aiohttp.ClientSession.post", return_value=MockAsyncStreamingResponse(resp)
+        ) as mock_post,
+    ):
         provider = CohereProvider(RouteConfig(**config))
         payload = chat_payload(stream=True)
         response = provider.chat_stream(chat.RequestPayload(**payload))
@@ -274,9 +279,10 @@ def completions_response():
 async def test_completions():
     resp = completions_response()
     config = completions_config()
-    with mock.patch("time.time", return_value=1677858242), mock.patch(
-        "aiohttp.ClientSession.post", return_value=MockAsyncResponse(resp)
-    ) as mock_post:
+    with (
+        mock.patch("time.time", return_value=1677858242),
+        mock.patch("aiohttp.ClientSession.post", return_value=MockAsyncResponse(resp)) as mock_post,
+    ):
         provider = CohereProvider(RouteConfig(**config))
         payload = {
             "prompt": "This is a test",
@@ -344,9 +350,12 @@ async def test_completions_stream():
     resp = completions_stream_response()
     config = completions_config()
 
-    with mock.patch("time.time", return_value=1677858242), mock.patch(
-        "aiohttp.ClientSession.post", return_value=MockAsyncStreamingResponse(resp)
-    ) as mock_post:
+    with (
+        mock.patch("time.time", return_value=1677858242),
+        mock.patch(
+            "aiohttp.ClientSession.post", return_value=MockAsyncStreamingResponse(resp)
+        ) as mock_post,
+    ):
         provider = CohereProvider(RouteConfig(**config))
         payload = {
             "prompt": "This is a test",

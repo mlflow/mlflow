@@ -378,48 +378,65 @@ def get_context():
     monkeypatch.syspath_prepend(str(tmp_path))
 
     # Simulate a case where the REPL context object is not initialized.
-    with mock.patch(
-        "dbruntime.databricks_repl_context.get_context",
-        return_value=None,
-    ) as mock_get_context, mock.patch(
-        "mlflow.utils.databricks_utils._get_command_context", return_value=command_context_mock
-    ) as mock_get_command_context:
+    with (
+        mock.patch(
+            "dbruntime.databricks_repl_context.get_context",
+            return_value=None,
+        ) as mock_get_context,
+        mock.patch(
+            "mlflow.utils.databricks_utils._get_command_context", return_value=command_context_mock
+        ) as mock_get_command_context,
+    ):
         assert databricks_utils.get_job_id() == "job_id"
         assert mock_get_command_context.call_count == 1
 
-    with mock.patch(
-        "dbruntime.databricks_repl_context.get_context",
-        return_value=mock.MagicMock(jobId="job_id"),
-    ) as mock_get_context, mock.patch("mlflow.utils.databricks_utils._get_dbutils") as mock_dbutils:
+    with (
+        mock.patch(
+            "dbruntime.databricks_repl_context.get_context",
+            return_value=mock.MagicMock(jobId="job_id"),
+        ) as mock_get_context,
+        mock.patch("mlflow.utils.databricks_utils._get_dbutils") as mock_dbutils,
+    ):
         assert databricks_utils.get_job_id() == "job_id"
         mock_get_context.assert_called_once()
         mock_dbutils.assert_not_called()
 
-    with mock.patch(
-        "dbruntime.databricks_repl_context.get_context",
-        return_value=mock.MagicMock(notebookId="notebook_id", notebookPath="/Repos/notebook_path"),
-    ) as mock_get_context, mock.patch(
-        "mlflow.utils.databricks_utils._get_property_from_spark_context"
-    ) as mock_spark_context:
+    with (
+        mock.patch(
+            "dbruntime.databricks_repl_context.get_context",
+            return_value=mock.MagicMock(
+                notebookId="notebook_id", notebookPath="/Repos/notebook_path"
+            ),
+        ) as mock_get_context,
+        mock.patch(
+            "mlflow.utils.databricks_utils._get_property_from_spark_context"
+        ) as mock_spark_context,
+    ):
         assert databricks_utils.get_notebook_id() == "notebook_id"
         assert databricks_utils.is_in_databricks_repo_notebook()
         assert mock_get_context.call_count == 2
         mock_spark_context.assert_not_called()
 
-    with mock.patch(
-        "dbruntime.databricks_repl_context.get_context",
-        return_value=mock.MagicMock(notebookId="notebook_id", notebookPath="/Users/notebook_path"),
-    ) as mock_get_context, mock.patch(
-        "mlflow.utils.databricks_utils._get_property_from_spark_context"
-    ) as mock_spark_context:
+    with (
+        mock.patch(
+            "dbruntime.databricks_repl_context.get_context",
+            return_value=mock.MagicMock(
+                notebookId="notebook_id", notebookPath="/Users/notebook_path"
+            ),
+        ) as mock_get_context,
+        mock.patch(
+            "mlflow.utils.databricks_utils._get_property_from_spark_context"
+        ) as mock_spark_context,
+    ):
         assert not databricks_utils.is_in_databricks_repo_notebook()
 
-    with mock.patch(
-        "dbruntime.databricks_repl_context.get_context",
-        return_value=mock.MagicMock(isInCluster=True),
-    ) as mock_get_context, mock.patch(
-        "mlflow.utils._spark_utils._get_active_spark_session"
-    ) as mock_spark_session:
+    with (
+        mock.patch(
+            "dbruntime.databricks_repl_context.get_context",
+            return_value=mock.MagicMock(isInCluster=True),
+        ) as mock_get_context,
+        mock.patch("mlflow.utils._spark_utils._get_active_spark_session") as mock_spark_session,
+    ):
         assert databricks_utils.is_in_cluster()
         mock_get_context.assert_called_once()
         mock_spark_session.assert_not_called()
@@ -438,14 +455,18 @@ def test_is_running_in_ipython_environment_works(get_ipython):
 
 
 def test_get_mlflow_credential_context_by_run_id():
-    with mock.patch(
-        "mlflow.tracking.artifact_utils.get_artifact_uri", return_value="dbfs:/path/to/artifact"
-    ) as mock_get_artifact_uri, mock.patch(
-        "mlflow.utils.uri.get_databricks_profile_uri_from_artifact_uri",
-        return_value="databricks://path/to/profile",
-    ) as mock_get_databricks_profile, mock.patch(
-        "mlflow.utils.databricks_utils.MlflowCredentialContext"
-    ) as mock_credential_context:
+    with (
+        mock.patch(
+            "mlflow.tracking.artifact_utils.get_artifact_uri", return_value="dbfs:/path/to/artifact"
+        ) as mock_get_artifact_uri,
+        mock.patch(
+            "mlflow.utils.uri.get_databricks_profile_uri_from_artifact_uri",
+            return_value="databricks://path/to/profile",
+        ) as mock_get_databricks_profile,
+        mock.patch(
+            "mlflow.utils.databricks_utils.MlflowCredentialContext"
+        ) as mock_credential_context,
+    ):
         get_mlflow_credential_context_by_run_id(run_id="abc")
         mock_get_artifact_uri.assert_called_once_with(run_id="abc")
         mock_get_databricks_profile.assert_called_once_with("dbfs:/path/to/artifact")
@@ -463,9 +484,10 @@ def test_check_databricks_secret_scope_access():
 def test_check_databricks_secret_scope_access_error():
     mock_dbutils = mock.MagicMock()
     mock_dbutils.secrets.list.side_effect = Exception("no scope access")
-    with mock.patch(
-        "mlflow.utils.databricks_utils._get_dbutils", return_value=mock_dbutils
-    ), mock.patch("mlflow.utils.databricks_utils._logger.warning") as mock_warning:
+    with (
+        mock.patch("mlflow.utils.databricks_utils._get_dbutils", return_value=mock_dbutils),
+        mock.patch("mlflow.utils.databricks_utils._logger.warning") as mock_warning,
+    ):
         check_databricks_secret_scope_access("scope")
         mock_warning.assert_called_once_with(
             "Unable to access Databricks secret scope 'scope' for OpenAI credentials that will be "

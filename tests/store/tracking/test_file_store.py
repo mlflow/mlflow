@@ -1868,13 +1868,14 @@ def test_malformed_metric(store):
         run_name="first name",
     ).info.run_id
     store.log_metric(run_id, Metric("test", 1, 0, 0))
-    with mock.patch(
-        "mlflow.store.tracking.file_store.read_file_lines", return_value=["0 1 0 2\n"]
-    ), pytest.raises(
-        MlflowException,
-        match=f"Metric 'test' is malformed; persisted metric data contained "
-        f"4 fields. Expected 2 or 3 fields. "
-        f"Experiment id: {exp_id}",
+    with (
+        mock.patch("mlflow.store.tracking.file_store.read_file_lines", return_value=["0 1 0 2\n"]),
+        pytest.raises(
+            MlflowException,
+            match=f"Metric 'test' is malformed; persisted metric data contained "
+            f"4 fields. Expected 2 or 3 fields. "
+            f"Experiment id: {exp_id}",
+        ),
     ):
         store.get_metric_history(run_id, "test")
 
@@ -1981,11 +1982,11 @@ def test_log_batch_internal_error(store):
     def _raise_exception_fn(*args, **kwargs):
         raise Exception("Some internal error")
 
-    with mock.patch(
-        FILESTORE_PACKAGE + ".FileStore._log_run_metric"
-    ) as log_metric_mock, mock.patch(
-        FILESTORE_PACKAGE + ".FileStore._log_run_param"
-    ) as log_param_mock, mock.patch(FILESTORE_PACKAGE + ".FileStore._set_run_tag") as set_tag_mock:
+    with (
+        mock.patch(FILESTORE_PACKAGE + ".FileStore._log_run_metric") as log_metric_mock,
+        mock.patch(FILESTORE_PACKAGE + ".FileStore._log_run_param") as log_param_mock,
+        mock.patch(FILESTORE_PACKAGE + ".FileStore._set_run_tag") as set_tag_mock,
+    ):
         log_metric_mock.side_effect = _raise_exception_fn
         log_param_mock.side_effect = _raise_exception_fn
         set_tag_mock.side_effect = _raise_exception_fn
@@ -2923,12 +2924,15 @@ def test_get_trace_info(store_and_trace_info):
 
     mock_trace_info = deepcopy(trace_info)
     mock_trace_info.request_id = "invalid_request_id"
-    with mock.patch(
-        "mlflow.store.tracking.file_store.FileStore._get_trace_info_from_dir",
-        return_value=mock_trace_info,
-    ), pytest.raises(
-        MlflowException,
-        match=rf"Trace with request ID '{trace.request_id}' metadata is in invalid state.",
+    with (
+        mock.patch(
+            "mlflow.store.tracking.file_store.FileStore._get_trace_info_from_dir",
+            return_value=mock_trace_info,
+        ),
+        pytest.raises(
+            MlflowException,
+            match=rf"Trace with request ID '{trace.request_id}' metadata is in invalid state.",
+        ),
     ):
         store.get_trace_info(trace.request_id)
 

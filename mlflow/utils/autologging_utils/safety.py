@@ -404,25 +404,28 @@ def safe_patch(
         # `contextlib.ContextDecorator`, which creates generator expressions that cannot be pickled
         # during model serialization by ML frameworks such as scikit-learn
         is_silent_mode = get_autologging_config(autologging_integration, "silent", False)
-        with set_mlflow_events_and_warnings_behavior_globally(
-            # MLflow warnings emitted during autologging training sessions are likely not
-            # actionable and result from the autologging implementation invoking another MLflow
-            # API. Accordingly, we reroute these warnings to the MLflow event logger with level
-            # WARNING For reference, see recommended warning and event logging behaviors from
-            # https://docs.python.org/3/howto/logging.html#when-to-use-logging
-            reroute_warnings=True,
-            disable_event_logs=is_silent_mode,
-            disable_warnings=is_silent_mode,
-        ), set_non_mlflow_warnings_behavior_for_current_thread(
-            # non-MLflow Warnings emitted during the autologging preamble (before the original /
-            # underlying ML function is called) and postamble (after the original / underlying ML
-            # function is called) are likely not actionable and result from the autologging
-            # implementation invoking an API from a dependent library. Accordingly, we reroute
-            # these warnings to the MLflow event logger with level WARNING. For reference, see
-            # recommended warning and event logging behaviors from
-            # https://docs.python.org/3/howto/logging.html#when-to-use-logging
-            reroute_warnings=True,
-            disable_warnings=is_silent_mode,
+        with (
+            set_mlflow_events_and_warnings_behavior_globally(
+                # MLflow warnings emitted during autologging training sessions are likely not
+                # actionable and result from the autologging implementation invoking another MLflow
+                # API. Accordingly, we reroute these warnings to the MLflow event logger with level
+                # WARNING For reference, see recommended warning and event logging behaviors from
+                # https://docs.python.org/3/howto/logging.html#when-to-use-logging
+                reroute_warnings=True,
+                disable_event_logs=is_silent_mode,
+                disable_warnings=is_silent_mode,
+            ),
+            set_non_mlflow_warnings_behavior_for_current_thread(
+                # non-MLflow Warnings emitted during the autologging preamble (before the original /
+                # underlying ML function is called) and postamble (after the original / underlying
+                # ML function is called) are likely not actionable and result from the autologging
+                # implementation invoking an API from a dependent library. Accordingly, we reroute
+                # these warnings to the MLflow event logger with level WARNING. For reference, see
+                # recommended warning and event logging behaviors from
+                # https://docs.python.org/3/howto/logging.html#when-to-use-logging
+                reroute_warnings=True,
+                disable_warnings=is_silent_mode,
+            ),
         ):
             if is_testing():
                 preexisting_run_for_testing = mlflow.active_run()

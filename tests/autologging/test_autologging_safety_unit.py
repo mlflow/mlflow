@@ -399,10 +399,13 @@ def test_safe_patch_validates_arguments_to_original_function_in_test_mode(
 
     safe_patch(test_autologging_integration, patch_destination, "fn", patch_impl)
 
-    with pytest.raises(Exception, match="does not match expected input"), mock.patch(
-        "mlflow.utils.autologging_utils.safety._validate_args",
-        wraps=autologging_utils.safety._validate_args,
-    ) as validate_mock:
+    with (
+        pytest.raises(Exception, match="does not match expected input"),
+        mock.patch(
+            "mlflow.utils.autologging_utils.safety._validate_args",
+            wraps=autologging_utils.safety._validate_args,
+        ) as validate_mock,
+    ):
         patch_destination.fn("a", "b", "c")
 
     assert validate_mock.call_count == 1

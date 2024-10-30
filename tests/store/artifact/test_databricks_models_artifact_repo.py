@@ -94,10 +94,13 @@ def test_init_with_invalid_artifact_uris(invalid_artifact_uri):
 def test_init_with_version_uri_and_profile_is_inferred():
     # First mock for `is_using_databricks_registry` to pass
     # Second mock to set `databricks_profile_uri` during instantiation
-    with mock.patch(
-        "mlflow.store.artifact.utils.models.mlflow.get_registry_uri",
-        return_value=MOCK_PROFILE,
-    ), mock.patch("mlflow.tracking.get_registry_uri", return_value=MOCK_PROFILE):
+    with (
+        mock.patch(
+            "mlflow.store.artifact.utils.models.mlflow.get_registry_uri",
+            return_value=MOCK_PROFILE,
+        ),
+        mock.patch("mlflow.tracking.get_registry_uri", return_value=MOCK_PROFILE),
+    ):
         repo = DatabricksModelsArtifactRepository(MOCK_MODEL_ROOT_URI_WITHOUT_PROFILE)
         assert repo.artifact_uri == MOCK_MODEL_ROOT_URI_WITHOUT_PROFILE
         assert repo.model_name == MOCK_MODEL_NAME
@@ -124,10 +127,14 @@ def test_init_with_stage_uri_and_profile_is_inferred(stage_uri_without_profile):
     get_latest_versions_patch = mock.patch.object(
         MlflowClient, "get_latest_versions", return_value=[model_version_detailed]
     )
-    with get_latest_versions_patch, mock.patch(
-        "mlflow.store.artifact.utils.models.mlflow.get_registry_uri",
-        return_value=MOCK_PROFILE,
-    ), mock.patch("mlflow.tracking.get_registry_uri", return_value=MOCK_PROFILE):
+    with (
+        get_latest_versions_patch,
+        mock.patch(
+            "mlflow.store.artifact.utils.models.mlflow.get_registry_uri",
+            return_value=MOCK_PROFILE,
+        ),
+        mock.patch("mlflow.tracking.get_registry_uri", return_value=MOCK_PROFILE),
+    ):
         repo = DatabricksModelsArtifactRepository(stage_uri_without_profile)
         assert repo.artifact_uri == stage_uri_without_profile
         assert repo.model_name == MOCK_MODEL_NAME
@@ -237,13 +244,16 @@ def test_download_file(databricks_model_artifact_repo, remote_file_path, local_p
     }
     expected_headers = {"header_name": "header_value"}
     signed_uri_response_mock.text = json.dumps(signed_uri_mock)
-    with mock.patch(
-        DATABRICKS_MODEL_ARTIFACT_REPOSITORY + "._call_endpoint",
-        return_value=signed_uri_response_mock,
-    ) as call_endpoint_mock, mock.patch(
-        DATABRICKS_MODEL_ARTIFACT_REPOSITORY_PACKAGE + ".download_file_using_http_uri",
-        return_value=None,
-    ) as download_mock:
+    with (
+        mock.patch(
+            DATABRICKS_MODEL_ARTIFACT_REPOSITORY + "._call_endpoint",
+            return_value=signed_uri_response_mock,
+        ) as call_endpoint_mock,
+        mock.patch(
+            DATABRICKS_MODEL_ARTIFACT_REPOSITORY_PACKAGE + ".download_file_using_http_uri",
+            return_value=None,
+        ) as download_mock,
+    ):
         databricks_model_artifact_repo.download_artifacts(remote_file_path, local_path)
         call_endpoint_mock.assert_called_with(ANY, REGISTRY_ARTIFACT_PRESIGNED_URI_ENDPOINT)
         download_mock.assert_called_with(
@@ -269,21 +279,27 @@ def test_parallelized_download_file_using_http_uri_succcess(
         "headers": [{"name": "header_name", "value": "header_value"}],
     }
 
-    with mock.patch(
-        DATABRICKS_MODEL_ARTIFACT_REPOSITORY + ".list_artifacts",
-        return_value=[
-            FileInfo(remote_file_path, True, MLFLOW_MULTIPART_DOWNLOAD_CHUNK_SIZE.get() + 1)
-        ],
-    ), mock.patch(
-        DATABRICKS_MODEL_ARTIFACT_REPOSITORY + "._get_signed_download_uri",
-        return_value=(signed_uri_mock["signed_uri"], signed_uri_mock["headers"]),
-    ), mock.patch(
-        "mlflow.utils.databricks_utils.get_databricks_env_vars",
-        return_value={},
-    ), mock.patch(
-        DATABRICKS_MODEL_ARTIFACT_REPOSITORY_PACKAGE + ".parallelized_download_file_using_http_uri",
-        return_value={},
-    ) as download_file_mock:
+    with (
+        mock.patch(
+            DATABRICKS_MODEL_ARTIFACT_REPOSITORY + ".list_artifacts",
+            return_value=[
+                FileInfo(remote_file_path, True, MLFLOW_MULTIPART_DOWNLOAD_CHUNK_SIZE.get() + 1)
+            ],
+        ),
+        mock.patch(
+            DATABRICKS_MODEL_ARTIFACT_REPOSITORY + "._get_signed_download_uri",
+            return_value=(signed_uri_mock["signed_uri"], signed_uri_mock["headers"]),
+        ),
+        mock.patch(
+            "mlflow.utils.databricks_utils.get_databricks_env_vars",
+            return_value={},
+        ),
+        mock.patch(
+            DATABRICKS_MODEL_ARTIFACT_REPOSITORY_PACKAGE
+            + ".parallelized_download_file_using_http_uri",
+            return_value={},
+        ) as download_file_mock,
+    ):
         databricks_model_artifact_repo._download_file(remote_file_path, "")
         download_file_mock.assert_called()
 
@@ -304,23 +320,30 @@ def test_parallelized_download_file_using_http_uri_with_error_downloads(
     }
     error_downloads = {_Chunk(1, 2, 3, "test"): Exception("Internal Server Error")}
 
-    with mock.patch(
-        DATABRICKS_MODEL_ARTIFACT_REPOSITORY + ".list_artifacts",
-        return_value=[
-            FileInfo(remote_file_path, True, MLFLOW_MULTIPART_DOWNLOAD_CHUNK_SIZE.get() + 1)
-        ],
-    ), mock.patch(
-        DATABRICKS_MODEL_ARTIFACT_REPOSITORY + "._get_signed_download_uri",
-        return_value=(signed_uri_mock["signed_uri"], signed_uri_mock["headers"]),
-    ), mock.patch(
-        "mlflow.utils.databricks_utils.get_databricks_env_vars",
-        return_value={},
-    ), mock.patch(
-        DATABRICKS_MODEL_ARTIFACT_REPOSITORY_PACKAGE + ".parallelized_download_file_using_http_uri",
-        return_value=error_downloads,
-    ), mock.patch(
-        "mlflow.utils.file_utils.download_chunk", side_effect=Exception("Retry failed")
-    ) as mock_download_chunk:
+    with (
+        mock.patch(
+            DATABRICKS_MODEL_ARTIFACT_REPOSITORY + ".list_artifacts",
+            return_value=[
+                FileInfo(remote_file_path, True, MLFLOW_MULTIPART_DOWNLOAD_CHUNK_SIZE.get() + 1)
+            ],
+        ),
+        mock.patch(
+            DATABRICKS_MODEL_ARTIFACT_REPOSITORY + "._get_signed_download_uri",
+            return_value=(signed_uri_mock["signed_uri"], signed_uri_mock["headers"]),
+        ),
+        mock.patch(
+            "mlflow.utils.databricks_utils.get_databricks_env_vars",
+            return_value={},
+        ),
+        mock.patch(
+            DATABRICKS_MODEL_ARTIFACT_REPOSITORY_PACKAGE
+            + ".parallelized_download_file_using_http_uri",
+            return_value=error_downloads,
+        ),
+        mock.patch(
+            "mlflow.utils.file_utils.download_chunk", side_effect=Exception("Retry failed")
+        ) as mock_download_chunk,
+    ):
         with pytest.raises(MlflowException, match="Retry failed"):
             databricks_model_artifact_repo._download_file(remote_file_path, "")
 
@@ -349,24 +372,31 @@ def test_parallelized_download_file_using_http_uri_with_failed_downloads(
     }
     failed_downloads = {_Chunk(1, 2, 3, "test"): Exception("Internal Server Error")}
 
-    with mock.patch(
-        DATABRICKS_MODEL_ARTIFACT_REPOSITORY + ".list_artifacts",
-        return_value=[
-            FileInfo(remote_file_path, True, MLFLOW_MULTIPART_DOWNLOAD_CHUNK_SIZE.get() + 1)
-        ],
-    ), mock.patch(
-        DATABRICKS_MODEL_ARTIFACT_REPOSITORY + "._get_signed_download_uri",
-        return_value=(signed_uri_mock["signed_uri"], signed_uri_mock["headers"]),
-    ), mock.patch(
-        "mlflow.utils.databricks_utils.get_databricks_env_vars",
-        return_value={},
-    ), mock.patch(
-        DATABRICKS_MODEL_ARTIFACT_REPOSITORY_PACKAGE + ".parallelized_download_file_using_http_uri",
-        return_value=failed_downloads,
-    ), mock.patch(
-        "mlflow.utils.file_utils.download_chunk",
-        return_value=None,
-    ) as download_chunk_mock:
+    with (
+        mock.patch(
+            DATABRICKS_MODEL_ARTIFACT_REPOSITORY + ".list_artifacts",
+            return_value=[
+                FileInfo(remote_file_path, True, MLFLOW_MULTIPART_DOWNLOAD_CHUNK_SIZE.get() + 1)
+            ],
+        ),
+        mock.patch(
+            DATABRICKS_MODEL_ARTIFACT_REPOSITORY + "._get_signed_download_uri",
+            return_value=(signed_uri_mock["signed_uri"], signed_uri_mock["headers"]),
+        ),
+        mock.patch(
+            "mlflow.utils.databricks_utils.get_databricks_env_vars",
+            return_value={},
+        ),
+        mock.patch(
+            DATABRICKS_MODEL_ARTIFACT_REPOSITORY_PACKAGE
+            + ".parallelized_download_file_using_http_uri",
+            return_value=failed_downloads,
+        ),
+        mock.patch(
+            "mlflow.utils.file_utils.download_chunk",
+            return_value=None,
+        ) as download_chunk_mock,
+    ):
         databricks_model_artifact_repo._download_file(remote_file_path, "")
         download_chunk_mock.assert_called()
 

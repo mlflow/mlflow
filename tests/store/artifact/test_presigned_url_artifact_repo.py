@@ -100,9 +100,10 @@ def test_list_artifacts_failure():
     exc_code = "NOT_FOUND"
     exc_message = "The directory being accessed is not found."
     exc = RestException({"error_code": exc_code, "message": exc_message})
-    with mock.patch(
-        f"{PRESIGNED_URL_ARTIFACT_REPOSITORY}.call_endpoint", side_effect=exc
-    ), pytest.raises(RestException) as exc_info:  # noqa: PT011
+    with (
+        mock.patch(f"{PRESIGNED_URL_ARTIFACT_REPOSITORY}.call_endpoint", side_effect=exc),
+        pytest.raises(RestException) as exc_info,  # noqa: PT011
+    ):
         artifact_repo._download_from_cloud(remote_file_path, "local_file")
 
     assert exc_info.value.error_code == exc_code
@@ -206,17 +207,20 @@ def test_get_write_credentials():
 def test_download_from_cloud():
     artifact_repo = PresignedUrlArtifactRepository(_DATABRICKS_UC_SCHEME, MODEL_NAME, MODEL_VERSION)
     remote_file_path = "some/remote/file/path"
-    with mock.patch(
-        f"{PRESIGNED_URL_ARTIFACT_REPOSITORY}.PresignedUrlArtifactRepository._get_download_presigned_url_and_headers",
-        return_value=CreateDownloadUrlResponse(
-            url=_make_pesigned_url(remote_file_path),
-            headers=[
-                HttpHeader(name=k, value=v) for k, v in _make_headers(remote_file_path).items()
-            ],
-        ),
-    ) as mock_request, mock.patch(
-        f"{PRESIGNED_URL_ARTIFACT_REPOSITORY}.download_file_using_http_uri"
-    ) as mock_download:
+    with (
+        mock.patch(
+            f"{PRESIGNED_URL_ARTIFACT_REPOSITORY}.PresignedUrlArtifactRepository._get_download_presigned_url_and_headers",
+            return_value=CreateDownloadUrlResponse(
+                url=_make_pesigned_url(remote_file_path),
+                headers=[
+                    HttpHeader(name=k, value=v) for k, v in _make_headers(remote_file_path).items()
+                ],
+            ),
+        ) as mock_request,
+        mock.patch(
+            f"{PRESIGNED_URL_ARTIFACT_REPOSITORY}.download_file_using_http_uri"
+        ) as mock_download,
+    ):
         local_file = "local_file"
         artifact_repo._download_from_cloud(remote_file_path, local_file)
 
@@ -235,9 +239,10 @@ def test_download_from_cloud_fail():
     exc_code = "ENDPOINT_NOT_FOUND"
     exc_message = f"Endpoint not found for {endpoint.lstrip('api')}."
     exc = RestException({"error_code": exc_code, "message": exc_message})
-    with mock.patch(
-        f"{PRESIGNED_URL_ARTIFACT_REPOSITORY}.call_endpoint", side_effect=exc
-    ), pytest.raises(RestException) as exc_info:  # noqa: PT011
+    with (
+        mock.patch(f"{PRESIGNED_URL_ARTIFACT_REPOSITORY}.call_endpoint", side_effect=exc),
+        pytest.raises(RestException) as exc_info,  # noqa: PT011
+    ):
         artifact_repo._download_from_cloud(remote_file_path, "local_file")
 
     assert exc_info.value.error_code == exc_code
@@ -256,13 +261,16 @@ def test_log_artifact():
             for k, v in _make_headers(total_remote_path).items()
         ],
     )
-    with mock.patch(
-        f"{PRESIGNED_URL_ARTIFACT_REPOSITORY}.PresignedUrlArtifactRepository._get_write_credential_infos",
-        return_value=[creds],
-    ) as mock_request, mock.patch(
-        f"{PRESIGNED_URL_ARTIFACT_REPOSITORY}.PresignedUrlArtifactRepository._upload_to_cloud",
-        return_value=None,
-    ) as mock_upload:
+    with (
+        mock.patch(
+            f"{PRESIGNED_URL_ARTIFACT_REPOSITORY}.PresignedUrlArtifactRepository._get_write_credential_infos",
+            return_value=[creds],
+        ) as mock_request,
+        mock.patch(
+            f"{PRESIGNED_URL_ARTIFACT_REPOSITORY}.PresignedUrlArtifactRepository._upload_to_cloud",
+            return_value=None,
+        ) as mock_upload,
+    ):
         artifact_repo.log_artifact(local_file, artifact_path)
         mock_request.assert_called_once_with(remote_file_paths=[total_remote_path])
         mock_upload.assert_called_once_with(
@@ -280,11 +288,14 @@ def test_upload_to_cloud(tmp_path):
         f.write(content)
     remote_file_path = "some/remote/file/path"
     resp = mock.create_autospec(requests.Response, return_value=None)
-    with mock.patch(
-        f"{PRESIGNED_URL_ARTIFACT_REPOSITORY}.cloud_storage_http_request", return_value=resp
-    ) as mock_cloud, mock.patch(
-        f"{PRESIGNED_URL_ARTIFACT_REPOSITORY}.augmented_raise_for_status"
-    ) as mock_status:
+    with (
+        mock.patch(
+            f"{PRESIGNED_URL_ARTIFACT_REPOSITORY}.cloud_storage_http_request", return_value=resp
+        ) as mock_cloud,
+        mock.patch(
+            f"{PRESIGNED_URL_ARTIFACT_REPOSITORY}.augmented_raise_for_status"
+        ) as mock_status,
+    ):
         cred_info = ArtifactCredentialInfo(
             signed_uri=_make_pesigned_url(remote_file_path),
             headers=[
@@ -309,9 +320,10 @@ def test_upload_to_cloud_fail():
     exc_code = "ENDPOINT_NOT_FOUND"
     exc_message = f"Endpoint not found for {endpoint.lstrip('api')}."
     exc = RestException({"error_code": exc_code, "message": exc_message})
-    with mock.patch(
-        f"{PRESIGNED_URL_ARTIFACT_REPOSITORY}.call_endpoint", side_effect=exc
-    ), pytest.raises(RestException) as exc_info:  # noqa: PT011
+    with (
+        mock.patch(f"{PRESIGNED_URL_ARTIFACT_REPOSITORY}.call_endpoint", side_effect=exc),
+        pytest.raises(RestException) as exc_info,  # noqa: PT011
+    ):
         artifact_repo._download_from_cloud(remote_file_path, "local_file")
 
     assert exc_info.value.error_code == exc_code

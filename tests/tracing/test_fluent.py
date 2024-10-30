@@ -342,9 +342,12 @@ def test_trace_in_model_evaluation(mock_store, monkeypatch, async_logging_enable
     model = TestModel()
 
     # mock _upload_trace_data to avoid generating trace data file
-    with mock.patch(
-        "mlflow.tracking._tracking_service.client.TrackingServiceClient._upload_trace_data"
-    ), mlflow.start_run() as run:
+    with (
+        mock.patch(
+            "mlflow.tracking._tracking_service.client.TrackingServiceClient._upload_trace_data"
+        ),
+        mlflow.start_run() as run,
+    ):
         run_id = run.info.run_id
         request_id_1 = "tr-eval-123"
         with set_prediction_context(Context(request_id=request_id_1, is_evaluate=True)):

@@ -428,15 +428,18 @@ def test_load_spark_model_from_models_uri(
     model_name = "mycatalog.myschema.mymodel"
     fake_model_version = ModelVersion(name=model_name, version=str(3), creation_timestamp=0)
 
-    with mock.patch(
-        f"{MODELS_ARTIFACT_REPOSITORY}.get_underlying_uri"
-    ) as mock_get_underlying_uri, mock.patch.object(
-        artifact_repo_class, "download_artifacts", return_value=model_dir
-    ) as mock_download_artifacts, mock.patch(
-        "mlflow.get_registry_uri", return_value=registry_uri
-    ), mock.patch.object(
-        mlflow.tracking.MlflowClient, "get_model_version_by_alias", return_value=fake_model_version
-    ) as get_model_version_by_alias_mock:
+    with (
+        mock.patch(f"{MODELS_ARTIFACT_REPOSITORY}.get_underlying_uri") as mock_get_underlying_uri,
+        mock.patch.object(
+            artifact_repo_class, "download_artifacts", return_value=model_dir
+        ) as mock_download_artifacts,
+        mock.patch("mlflow.get_registry_uri", return_value=registry_uri),
+        mock.patch.object(
+            mlflow.tracking.MlflowClient,
+            "get_model_version_by_alias",
+            return_value=fake_model_version,
+        ) as get_model_version_by_alias_mock,
+    ):
         mlflow.spark.save_model(
             path=model_dir,
             spark_model=spark_model_estimator.model,
@@ -836,17 +839,20 @@ def test_model_logged_via_mlflowdbfs_when_appropriate(
         else:
             return og_getdbutils()
 
-    with mock.patch(
-        "mlflow.utils._spark_utils._get_active_spark_session", return_value=mock_spark_session
-    ), mock.patch("mlflow.get_artifact_uri", return_value=artifact_uri), mock.patch(
-        "mlflow.spark._HadoopFileSystem.is_filesystem_available", return_value=mlflowdbfs_available
-    ), mock.patch(
-        "mlflow.utils.databricks_utils.MlflowCredentialContext", autospec=True
-    ), mock.patch(
-        "mlflow.utils.databricks_utils._get_dbutils", mock_get_dbutils
-    ), mock.patch.object(spark_model_iris.model, "save") as mock_save, mock.patch(
-        "mlflow.models.infer_pip_requirements", return_value=[]
-    ) as mock_infer:
+    with (
+        mock.patch(
+            "mlflow.utils._spark_utils._get_active_spark_session", return_value=mock_spark_session
+        ),
+        mock.patch("mlflow.get_artifact_uri", return_value=artifact_uri),
+        mock.patch(
+            "mlflow.spark._HadoopFileSystem.is_filesystem_available",
+            return_value=mlflowdbfs_available,
+        ),
+        mock.patch("mlflow.utils.databricks_utils.MlflowCredentialContext", autospec=True),
+        mock.patch("mlflow.utils.databricks_utils._get_dbutils", mock_get_dbutils),
+        mock.patch.object(spark_model_iris.model, "save") as mock_save,
+        mock.patch("mlflow.models.infer_pip_requirements", return_value=[]) as mock_infer,
+    ):
         with mlflow.start_run():
             if db_runtime_version:
                 monkeypatch.setenv("DATABRICKS_RUNTIME_VERSION", db_runtime_version)
@@ -889,21 +895,26 @@ def test_model_logging_uses_mlflowdbfs_if_appropriate_when_hdfs_check_fails(
         else:
             return og_getdbutils()
 
-    with mock.patch(
-        "mlflow.utils._spark_utils._get_active_spark_session",
-        return_value=mock_spark_session,
-    ), mock.patch(
-        "mlflow.get_artifact_uri",
-        return_value="dbfs:/databricks/mlflow-tracking/a/b",
-    ), mock.patch(
-        "mlflow.spark._HadoopFileSystem.is_filesystem_available",
-        side_effect=Exception("MlflowDbfsClient operation failed!"),
-    ), mock.patch(
-        "mlflow.utils.databricks_utils.MlflowCredentialContext", autospec=True
-    ), mock.patch(
-        "mlflow.utils.databricks_utils._get_dbutils",
-        mock_get_dbutils,
-    ), mock.patch.object(spark_model_iris.model, "save") as mock_save:
+    with (
+        mock.patch(
+            "mlflow.utils._spark_utils._get_active_spark_session",
+            return_value=mock_spark_session,
+        ),
+        mock.patch(
+            "mlflow.get_artifact_uri",
+            return_value="dbfs:/databricks/mlflow-tracking/a/b",
+        ),
+        mock.patch(
+            "mlflow.spark._HadoopFileSystem.is_filesystem_available",
+            side_effect=Exception("MlflowDbfsClient operation failed!"),
+        ),
+        mock.patch("mlflow.utils.databricks_utils.MlflowCredentialContext", autospec=True),
+        mock.patch(
+            "mlflow.utils.databricks_utils._get_dbutils",
+            mock_get_dbutils,
+        ),
+        mock.patch.object(spark_model_iris.model, "save") as mock_save,
+    ):
         with mlflow.start_run():
             monkeypatch.setenv("DATABRICKS_RUNTIME_VERSION", "12.0")
             mlflow.spark.log_model(spark_model_iris.model, "model")
@@ -917,10 +928,13 @@ def test_model_logging_uses_mlflowdbfs_if_appropriate_when_hdfs_check_fails(
 
 def test_log_model_with_code_paths(spark_model_iris):
     artifact_path = "model"
-    with mlflow.start_run(), mock.patch(
-        "mlflow.spark._add_code_from_conf_to_system_path",
-        wraps=_add_code_from_conf_to_system_path,
-    ) as add_mock:
+    with (
+        mlflow.start_run(),
+        mock.patch(
+            "mlflow.spark._add_code_from_conf_to_system_path",
+            wraps=_add_code_from_conf_to_system_path,
+        ) as add_mock,
+    ):
         mlflow.spark.log_model(spark_model_iris.model, artifact_path, code_paths=[__file__])
         model_uri = mlflow.get_artifact_uri(artifact_path)
         _compare_logged_code_paths(__file__, model_uri, mlflow.spark.FLAVOR_NAME)

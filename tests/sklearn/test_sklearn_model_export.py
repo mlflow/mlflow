@@ -263,9 +263,16 @@ def test_log_model_call_register_model_to_uc(configure_client_for_uc, sklearn_lo
         creation_timestamp=123,
         status=ModelVersionStatus.to_string(ModelVersionStatus.READY),
     )
-    with mock.patch.object(UcModelRegistryStore, "create_registered_model"), mock.patch.object(
-        UcModelRegistryStore, "create_model_version", return_value=mock_model_version, autospec=True
-    ) as mock_create_mv, TempDir(chdr=True, remove_on_exit=True) as tmp:
+    with (
+        mock.patch.object(UcModelRegistryStore, "create_registered_model"),
+        mock.patch.object(
+            UcModelRegistryStore,
+            "create_model_version",
+            return_value=mock_model_version,
+            autospec=True,
+        ) as mock_create_mv,
+        TempDir(chdr=True, remove_on_exit=True) as tmp,
+    ):
         with mlflow.start_run():
             conda_env = os.path.join(tmp.path(), "conda_env.yaml")
             _mlflow_conda_env(conda_env, additional_pip_deps=["scikit-learn"])
@@ -770,9 +777,10 @@ scipy
 
 def test_log_model_with_code_paths(sklearn_knn_model):
     artifact_path = "model"
-    with mlflow.start_run(), mock.patch(
-        "mlflow.sklearn._add_code_from_conf_to_system_path"
-    ) as add_mock:
+    with (
+        mlflow.start_run(),
+        mock.patch("mlflow.sklearn._add_code_from_conf_to_system_path") as add_mock,
+    ):
         mlflow.sklearn.log_model(sklearn_knn_model.model, artifact_path, code_paths=[__file__])
         model_uri = mlflow.get_artifact_uri(artifact_path)
         _compare_logged_code_paths(__file__, model_uri, mlflow.sklearn.FLAVOR_NAME)
