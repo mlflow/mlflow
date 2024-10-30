@@ -15,7 +15,7 @@ from packaging.requirements import InvalidRequirement, Requirement
 
 import mlflow
 from mlflow.artifacts import download_artifacts
-from mlflow.entities import LoggedModelOutput, LoggedModelStatus, Metric
+from mlflow.entities import LoggedModel, LoggedModelOutput, LoggedModelStatus, Metric
 from mlflow.exceptions import MlflowException
 from mlflow.models.resources import Resource, ResourceType, _ResourceBuilder
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, RESOURCE_DOES_NOT_EXIST
@@ -97,7 +97,7 @@ class ModelInfo:
         signature_dict: Optional[Dict[str, Any]] = None,
         metadata: Optional[Dict[str, Any]] = None,
         registered_model_version: Optional[int] = None,
-        model_id: Optional[str] = None,
+        logged_model: LoggedModel = None,
     ):
         self._artifact_path = artifact_path
         self._flavors = flavors
@@ -111,7 +111,7 @@ class ModelInfo:
         self._mlflow_version = mlflow_version
         self._metadata = metadata
         self._registered_model_version = registered_model_version
-        self._model_id = model_id
+        self._logged_model = logged_model
 
     @property
     def artifact_path(self):
@@ -305,14 +305,14 @@ class ModelInfo:
         self._registered_model_version = value
 
     @property
-    def model_id(self) -> Optional[str]:
+    def model_id(self) -> str:
         """
         The model ID of the logged model.
 
         :getter: Gets the model ID of the logged model
         :type: Optional[str]
         """
-        return self._model_id
+        return self._logged_model.model_id
 
 
 class Model:
@@ -552,7 +552,7 @@ class Model:
             serialized_resource = value
         self._resources = serialized_resource
 
-    def get_model_info(self):
+    def get_model_info(self, logged_model: LoggedModel) -> ModelInfo:
         """
         Create a :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
         model metadata.
@@ -569,7 +569,7 @@ class Model:
             utc_time_created=self.utc_time_created,
             mlflow_version=self.mlflow_version,
             metadata=self.metadata,
-            model_id=self.model_id,
+            logged_model=logged_model,
         )
 
     def get_tags_dict(self):
@@ -898,7 +898,7 @@ class Model:
                 from mlflow.models import validate_serving_input
 
                 try:
-                    model_info = mlflow_model.get_model_info()
+                    model_info = mlflow_model.get_model_info(model)
                     validate_serving_input(model_info.model_uri, serving_input)
                 except Exception as e:
                     _logger.warning(
@@ -921,7 +921,7 @@ class Model:
                 await_registration_for=await_registration_for,
                 local_model_path=local_path,
             )
-        model_info = mlflow_model.get_model_info()
+        model_info = mlflow_model.get_model_info(model)
         if registered_model is not None:
             model_info.registered_model_version = registered_model.version
 
