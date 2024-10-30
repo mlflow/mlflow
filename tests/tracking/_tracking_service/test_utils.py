@@ -138,14 +138,17 @@ def test_get_store_sqlalchemy_store(tmp_path, monkeypatch, db_type):
 
     uri = f"{db_type}://hostname/database"
     monkeypatch.setenv(MLFLOW_TRACKING_URI.name, uri)
-    with patch_create_engine as mock_create_engine, mock.patch(
-        "mlflow.store.db.utils._verify_schema"
-    ), mock.patch("mlflow.store.db.utils._initialize_tables"), mock.patch(
-        # In sqlalchemy 1.4.0, `SqlAlchemyStore.search_experiments`, which is called when fetching
-        # the store, results in an error when called with a mocked sqlalchemy engine.
-        # Accordingly, we mock `SqlAlchemyStore.search_experiments`
-        "mlflow.store.tracking.sqlalchemy_store.SqlAlchemyStore.search_experiments",
-        return_value=[],
+    with (
+        patch_create_engine as mock_create_engine,
+        mock.patch("mlflow.store.db.utils._verify_schema"),
+        mock.patch("mlflow.store.db.utils._initialize_tables"),
+        mock.patch(
+            # In sqlalchemy 1.4.0, `SqlAlchemyStore.search_experiments`, which is called when
+            # fetching the store, results in an error when called with a mocked sqlalchemy engine.
+            # Accordingly, we mock `SqlAlchemyStore.search_experiments`
+            "mlflow.store.tracking.sqlalchemy_store.SqlAlchemyStore.search_experiments",
+            return_value=[],
+        ),
     ):
         store = _get_store()
         assert isinstance(store, SqlAlchemyStore)
@@ -164,13 +167,16 @@ def test_get_store_sqlalchemy_store_with_artifact_uri(tmp_path, monkeypatch, db_
     uri = f"{db_type}://hostname/database"
     artifact_uri = "file:artifact/path"
     monkeypatch.setenv(MLFLOW_TRACKING_URI.name, uri)
-    with mock.patch(
-        "sqlalchemy.create_engine",
-    ) as mock_create_engine, mock.patch("mlflow.store.db.utils._verify_schema"), mock.patch(
-        "mlflow.store.db.utils._initialize_tables"
-    ), mock.patch(
-        "mlflow.store.tracking.sqlalchemy_store.SqlAlchemyStore.search_experiments",
-        return_value=[],
+    with (
+        mock.patch(
+            "sqlalchemy.create_engine",
+        ) as mock_create_engine,
+        mock.patch("mlflow.store.db.utils._verify_schema"),
+        mock.patch("mlflow.store.db.utils._initialize_tables"),
+        mock.patch(
+            "mlflow.store.tracking.sqlalchemy_store.SqlAlchemyStore.search_experiments",
+            return_value=[],
+        ),
     ):
         store = _get_store(artifact_uri=artifact_uri)
         assert isinstance(store, SqlAlchemyStore)

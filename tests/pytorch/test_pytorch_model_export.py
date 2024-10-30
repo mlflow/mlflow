@@ -537,8 +537,9 @@ def test_load_model_with_differing_pytorch_version_logs_warning(sequential_model
         log_messages.append(message_text % args % kwargs)
 
     loader_pytorch_version = "0.8.2"
-    with mock.patch("mlflow.pytorch._logger.warning") as warn_mock, mock.patch(
-        "torch.__version__", loader_pytorch_version
+    with (
+        mock.patch("mlflow.pytorch._logger.warning") as warn_mock,
+        mock.patch("torch.__version__", loader_pytorch_version),
     ):
         warn_mock.side_effect = custom_warn
         mlflow.pytorch.load_model(model_uri=model_path)
@@ -689,9 +690,10 @@ def test_load_pyfunc_loads_torch_model_using_pickle_module_specified_at_save_tim
         imported_modules.append(module_name)
         return import_module_fn(module_name)
 
-    with mock.patch("importlib.import_module") as import_mock, mock.patch(
-        "torch.load"
-    ) as torch_load_mock:
+    with (
+        mock.patch("importlib.import_module") as import_mock,
+        mock.patch("torch.load") as torch_load_mock,
+    ):
         import_mock.side_effect = track_module_imports
         pyfunc.load_model(model_path)
 
@@ -720,9 +722,10 @@ def test_load_model_loads_torch_model_using_pickle_module_specified_at_save_time
         imported_modules.append(module_name)
         return import_module_fn(module_name)
 
-    with mock.patch("importlib.import_module") as import_mock, mock.patch(
-        "torch.load"
-    ) as torch_load_mock:
+    with (
+        mock.patch("importlib.import_module") as import_mock,
+        mock.patch("torch.load") as torch_load_mock,
+    ):
         import_mock.side_effect = track_module_imports
         pyfunc.load_model(model_uri=model_uri)
 
@@ -806,9 +809,10 @@ def test_load_model_allows_user_to_override_pickle_module_via_keyword_argument(
         path=model_path, pytorch_model=module_scoped_subclassed_model, pickle_module=pickle
     )
 
-    with mock.patch("torch.load") as torch_load_mock, mock.patch(
-        "mlflow.pytorch._logger.warning"
-    ) as warn_mock:
+    with (
+        mock.patch("torch.load") as torch_load_mock,
+        mock.patch("mlflow.pytorch._logger.warning") as warn_mock,
+    ):
         mlflow.pytorch.load_model(model_uri=model_path, pickle_module=mlflow_pytorch_pickle_module)
         torch_load_mock.assert_called_with(mock.ANY, pickle_module=mlflow_pytorch_pickle_module)
         warn_mock.assert_any_call(mock.ANY, mlflow_pytorch_pickle_module.__name__, pickle.__name__)
@@ -973,8 +977,9 @@ def test_requirements_file_save_model(create_requirements_file, sequential_model
 
 @pytest.mark.parametrize("scripted_model", [True, False])
 def test_log_model_invalid_requirement_file_path(sequential_model):
-    with mlflow.start_run(), pytest.raises(
-        MlflowException, match="No such file or directory: 'non_existing_file.txt'"
+    with (
+        mlflow.start_run(),
+        pytest.raises(MlflowException, match="No such file or directory: 'non_existing_file.txt'"),
     ):
         mlflow.pytorch.log_model(
             sequential_model,
@@ -985,8 +990,9 @@ def test_log_model_invalid_requirement_file_path(sequential_model):
 
 @pytest.mark.parametrize("scripted_model", [True, False])
 def test_log_model_invalid_requirement_file_type(sequential_model):
-    with mlflow.start_run(), pytest.raises(
-        TypeError, match="Path to requirements file should be a string"
+    with (
+        mlflow.start_run(),
+        pytest.raises(TypeError, match="Path to requirements file should be a string"),
     ):
         mlflow.pytorch.log_model(
             sequential_model,
@@ -1064,8 +1070,9 @@ def test_extra_files_save_model(create_extra_files, sequential_model):
 
 @pytest.mark.parametrize("scripted_model", [True, False])
 def test_log_model_invalid_extra_file_path(sequential_model):
-    with mlflow.start_run(), pytest.raises(
-        MlflowException, match="No such file or directory: 'non_existing_file.txt'"
+    with (
+        mlflow.start_run(),
+        pytest.raises(MlflowException, match="No such file or directory: 'non_existing_file.txt'"),
     ):
         mlflow.pytorch.log_model(
             sequential_model,
@@ -1076,8 +1083,9 @@ def test_log_model_invalid_extra_file_path(sequential_model):
 
 @pytest.mark.parametrize("scripted_model", [True, False])
 def test_log_model_invalid_extra_file_type(sequential_model):
-    with mlflow.start_run(), pytest.raises(
-        TypeError, match="Extra files argument should be a list"
+    with (
+        mlflow.start_run(),
+        pytest.raises(TypeError, match="Extra files argument should be a list"),
     ):
         mlflow.pytorch.log_model(
             sequential_model,
@@ -1172,9 +1180,10 @@ def test_log_state_dict(sequential_model, data):
 @pytest.mark.parametrize("scripted_model", [True, False])
 def test_log_model_with_code_paths(sequential_model):
     artifact_path = "model"
-    with mlflow.start_run(), mock.patch(
-        "mlflow.pytorch._add_code_from_conf_to_system_path"
-    ) as add_mock:
+    with (
+        mlflow.start_run(),
+        mock.patch("mlflow.pytorch._add_code_from_conf_to_system_path") as add_mock,
+    ):
         mlflow.pytorch.log_model(sequential_model, artifact_path, code_paths=[__file__])
         model_uri = mlflow.get_artifact_uri(artifact_path)
         _compare_logged_code_paths(__file__, model_uri, mlflow.pytorch.FLAVOR_NAME)
