@@ -872,7 +872,7 @@ class Model:
                     "Logged environment variables used during model logging to file "
                     f"{ENV_VAR_FILE_NAME} in the model's artifact folder, please check "
                     "if you need to set these environment variables when deploying the model. "
-                    "To disable logging them, set environmenv variable "
+                    "To disable logging them, set environment variable "
                     f"`{MLFLOW_RECORD_ENV_VARS_IN_MODEL_LOGGING.name}` to `false`."
                 )
 
