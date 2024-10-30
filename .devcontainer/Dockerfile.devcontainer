@@ -4,7 +4,7 @@ WORKDIR /mlflow
 COPY mlflow/server/js .
 RUN yarn install --silent && yarn build
 
-FROM python:3.8.19
+FROM python:3.9.18
 
 ARG TARGETPLATFORM
 
