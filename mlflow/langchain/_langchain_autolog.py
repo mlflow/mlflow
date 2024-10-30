@@ -387,6 +387,9 @@ def _log_optional_artifacts(autolog_config, run_id, result, self, func_name, *ar
                 mlflow.langchain.FLAVOR_NAME, "registered_model_name", None
             )
             try:
+                # When logging model, inferring model signature triggers model prediction
+                # which might spawn worker threads, to avoid breaking change,
+                # disable autologging globally
                 with disable_autologging(is_global=True):
                     mlflow.langchain.log_model(
                         self,
