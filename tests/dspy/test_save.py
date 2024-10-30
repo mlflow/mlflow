@@ -4,7 +4,7 @@ from unittest import mock
 import dspy
 import dspy.teleprompt
 import pytest
-from dspy.utils import DSPDummyLM, dummy_rm
+from dspy.utils.dummies import DSPDummyLM, dummy_rm
 
 import mlflow
 from mlflow.models import Model, ModelSignature

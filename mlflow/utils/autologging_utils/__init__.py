@@ -91,6 +91,7 @@ _AUTOLOGGING_SUPPORTED_VERSION_WARNING_SUPPRESS_LIST = [
     "langchain",
     "llama_index",
     "openai",
+    "dspy",
 ]
 
 _logger = logging.getLogger(__name__)
@@ -372,10 +373,10 @@ def _check_and_log_warning_for_unsupported_package_versions(integration_name):
     """
     if (
         integration_name in FLAVOR_TO_MODULE_NAME
+        and integration_name not in _AUTOLOGGING_SUPPORTED_VERSION_WARNING_SUPPRESS_LIST
         and not get_autologging_config(integration_name, "disable", True)
         and not get_autologging_config(integration_name, "disable_for_unsupported_versions", False)
         and not is_flavor_supported_for_associated_package_versions(integration_name)
-        and integration_name not in _AUTOLOGGING_SUPPORTED_VERSION_WARNING_SUPPRESS_LIST
     ):
         min_var, max_var, pip_release = get_min_max_version_and_pip_release(integration_name)
         module = importlib.import_module(FLAVOR_TO_MODULE_NAME[integration_name])
