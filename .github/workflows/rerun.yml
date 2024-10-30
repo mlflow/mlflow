@@ -17,7 +17,7 @@ jobs:
   upload:
     runs-on: ubuntu-latest
     timeout-minutes: 5
-    if: github.event.review.state == 'approved'
+    if: github.event.review.state == 'approved' && contains(github.event.review.author_association, 'MEMBER,OWNER,COLLABORATOR')
     steps:
       - name: Upload PR number
         env:
