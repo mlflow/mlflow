@@ -541,17 +541,18 @@ def _infer_requirements(model_uri, flavor, raise_on_error=False, extra_env_vars=
             unrecognized_packages,
         )
 
-    # Fix pandas incompatibility issue with numpy 2.x
+    packages = set(map(_get_pinned_requirement, packages))
+
+    # Handle pandas incompatibility issue with numpy 2.x https://github.com/pandas-dev/pandas/issues/55519
     # pandas == 2.2.*: compatible with numpy >= 2
     # pandas >= 2.1.2: incompatible with numpy >= 2, but it pins numpy < 2
     # pandas < 2.1.2: incompatible with numpy >= 2 and doesn't pin numpy, so we need to pin numpy
     if any(
-        package == "pandas" and _get_pinned_requirement(package).split("==")[1] < "2.1.2"
+        package.startswith("pandas") and Version(package.split("==")[1]) < Version("2.1.2")
         for package in packages
     ):
-        packages.add("numpy")
-
-    return sorted(map(_get_pinned_requirement, packages))
+        packages.add(_get_pinned_requirement("numpy"))
+    return sorted(packages)
 
 
 def _get_local_version_label(version):
