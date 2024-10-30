@@ -97,6 +97,7 @@ class ModelInfo:
         signature_dict: Optional[Dict[str, Any]] = None,
         metadata: Optional[Dict[str, Any]] = None,
         registered_model_version: Optional[int] = None,
+        model_id: Optional[str] = None,
     ):
         self._artifact_path = artifact_path
         self._flavors = flavors
@@ -110,6 +111,7 @@ class ModelInfo:
         self._mlflow_version = mlflow_version
         self._metadata = metadata
         self._registered_model_version = registered_model_version
+        self._model_id = model_id
 
     @property
     def artifact_path(self):
@@ -302,6 +304,16 @@ class ModelInfo:
     def registered_model_version(self, value):
         self._registered_model_version = value
 
+    @property
+    def model_id(self) -> Optional[str]:
+        """
+        The model ID of the logged model.
+
+        :getter: Gets the model ID of the logged model
+        :type: Optional[str]
+        """
+        return self._model_id
+
 
 class Model:
     """
@@ -322,6 +334,7 @@ class Model:
         metadata: Optional[Dict[str, Any]] = None,
         model_size_bytes: Optional[int] = None,
         resources: Optional[Union[str, List[Resource]]] = None,
+        model_id: Optional[str] = None,
         **kwargs,
     ):
         # store model id instead of run_id and path to avoid confusion when model gets exported
@@ -336,6 +349,7 @@ class Model:
         self.metadata = metadata
         self.model_size_bytes = model_size_bytes
         self.resources = resources
+        self.model_id = model_id
         self.__dict__.update(kwargs)
 
     def __eq__(self, other):
@@ -546,7 +560,7 @@ class Model:
         return ModelInfo(
             artifact_path=self.artifact_path,
             flavors=self.flavors,
-            model_uri=f"runs:/{self.run_id}/{self.artifact_path}",
+            model_uri=f"models:/{self.model_id}",
             model_uuid=self.model_uuid,
             run_id=self.run_id,
             saved_input_example_info=self.saved_input_example_info,
@@ -555,6 +569,7 @@ class Model:
             utc_time_created=self.utc_time_created,
             mlflow_version=self.mlflow_version,
             metadata=self.metadata,
+            model_id=self.model_id,
         )
 
     def get_tags_dict(self):
