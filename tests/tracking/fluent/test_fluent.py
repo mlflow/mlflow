@@ -514,7 +514,7 @@ def test_search_model_versions(tmp_path):
 
 @pytest.fixture
 def empty_active_run_stack():
-    with mock.patch("mlflow.tracking.fluent._get_active_run_stack", return_value=[]):
+    with mock.patch("mlflow.tracking.fluent._active_run_stack.get", return_value=[]):
         yield
 
 
@@ -721,7 +721,7 @@ def test_start_run_with_parent():
     mock_source_name = mock.Mock()
 
     active_run_stack_patch = mock.patch(
-        "mlflow.tracking.fluent._get_active_run_stack", lambda: [parent_run]
+        "mlflow.tracking.fluent._active_run_stack.get", lambda: [parent_run]
     )
 
     mock_user = mock.Mock()
@@ -773,7 +773,7 @@ def test_start_run_with_invalid_parent_id():
 
 
 def test_start_run_with_parent_non_nested():
-    with mock.patch("mlflow.tracking.fluent._get_active_run_stack", return_value=[mock.Mock()]):
+    with mock.patch("mlflow.tracking.fluent._active_run_stack.get", return_value=[mock.Mock()]):
         with pytest.raises(Exception, match=r"Run with UUID .+ is already active"):
             start_run()
 
@@ -1498,7 +1498,9 @@ def test_set_experiment_thread_safety(tmp_path):
     origin_create_experiment = MlflowClient.create_experiment
 
     def patched_create_experiment(self, *args, **kwargs):
-        time.sleep(2)
+        # The sleep is for triggering `mlflow.set_experiment`
+        # multiple thread / process execution race condition stably.
+        time.sleep(0.1)
         return origin_create_experiment(self, *args, **kwargs)
 
     with mock.patch(
