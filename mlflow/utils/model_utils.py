@@ -431,7 +431,23 @@ def _validate_pyfunc_model_config(model_config):
         )
 
 
-ALLOWED_ENV_VARS = {"API_KEY", "DATABRICKS"}
+RECORD_ENV_VARS = {
+    # api key related
+    "API_KEY",
+    # databricks auth related
+    "DATABRICKS_HOST",
+    "DATABRICKS_USERNAME",
+    "DATABRICKS_PASSWORD",
+    "DATABRICKS_TOKEN",
+    "DATABRICKS_INSECURE",
+    "DATABRICKS_CLIENT_ID",
+    "DATABRICKS_CLIENT_SECRET",
+    "_DATABRICKS_WORKSPACE_HOST",
+    "_DATABRICKS_WORKSPACE_ID",
+    # dbconnect related
+    "SPARK_REMOTE",
+    "SPARK_LOCAL_REMOTE",
+}
 
 
 class EnvTracker(dict):
@@ -446,16 +462,16 @@ class EnvTracker(dict):
 
     def __setitem__(self, key, value):
         super().__setitem__(key, value)
-        if any(env_var in key for env_var in ALLOWED_ENV_VARS):
+        if any(env_var in key for env_var in RECORD_ENV_VARS):
             self.env_vars.add(key)
 
     def __getitem__(self, key):
-        if key in self and any(env_var in key for env_var in ALLOWED_ENV_VARS):
+        if key in self and any(env_var in key for env_var in RECORD_ENV_VARS):
             self.env_vars.add(key)
         return super().__getitem__(key)
 
     def get(self, key, *args, **kwargs):
-        if key in self and any(env_var in key for env_var in ALLOWED_ENV_VARS):
+        if key in self and any(env_var in key for env_var in RECORD_ENV_VARS):
             self.env_vars.add(key)
         return super().get(key, *args, **kwargs)
 

@@ -133,14 +133,14 @@ def test_env_var_tracker(monkeypatch):
         os.environ.get("INVALID_API_KEY", "abc")
         assert "INVALID_API_KEY" not in os.environ.get_env_vars()
         try:
-            os.environ["DATABRICKS_CLIENT"]
+            os.environ["ANOTHER_API_KEY"]
         except KeyError:
             pass
-        assert "DATABRICKS_CLIENT" not in os.environ.get_env_vars()
+        assert "ANOTHER_API_KEY" not in os.environ.get_env_vars()
 
     assert not hasattr(os.environ, "get_env_vars")
     assert all(x in os.environ for x in ["DATABRICKS_HOST", "TEST_API_KEY"])
-    assert all(x not in os.environ for x in ["INVALID_API_KEY", "DATABRICKS_CLIENT"])
+    assert all(x not in os.environ for x in ["INVALID_API_KEY", "ANOTHER_API_KEY"])
 
     monkeypatch.setenv(MLFLOW_RECORD_ENV_VARS_IN_MODEL_LOGGING.name, "false")
     with env_var_tracker() as env:
