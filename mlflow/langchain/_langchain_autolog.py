@@ -387,7 +387,7 @@ def _log_optional_artifacts(autolog_config, run_id, result, self, func_name, *ar
                 mlflow.langchain.FLAVOR_NAME, "registered_model_name", None
             )
             try:
-                with disable_autologging():
+                with disable_autologging(is_global=True):
                     mlflow.langchain.log_model(
                         self,
                         "model",
