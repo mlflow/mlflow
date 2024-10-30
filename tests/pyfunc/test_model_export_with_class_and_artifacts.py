@@ -1266,7 +1266,7 @@ def test_functional_python_model_callable_object(tmp_path):
     assert loaded_model.predict(["a", "b"]) == ["a", "b"]
 
 
-def list_to_list(x: List[str]) -> List[str]:
+def list_to_list(x: List[str]) -> List[str]:  # UP006
     return x
 
 
@@ -1296,7 +1296,7 @@ def test_functional_python_model_list_to_list_pep585(tmp_path):
     assert loaded_model.predict([{"x": "a"}, {"x": "b"}]) == ["a", "b"]
 
 
-def list_dict_to_list(x: List[Dict[str, str]]) -> List[str]:
+def list_dict_to_list(x: List[Dict[str, str]]) -> List[str]:  # UP006
     return ["".join((*d.keys(), *d.values())) for d in x]  # join keys and values
 
 
