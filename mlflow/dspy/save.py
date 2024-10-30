@@ -23,10 +23,6 @@ from mlflow.models.resources import Resource, _ResourceBuilder
 from mlflow.models.signature import _infer_signature_from_input_example
 from mlflow.models.utils import _save_example
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
-from mlflow.transformers.llm_inference_utils import (
-    _LLM_INFERENCE_TASK_KEY,
-    _METADATA_LLM_INFERENCE_TASK_KEY,
-)
 from mlflow.utils.annotations import experimental
 from mlflow.utils.docstring_utils import LOG_MODEL_PARAM_DOCS, format_docstring
 from mlflow.utils.environment import (
@@ -115,6 +111,11 @@ def save_model(
     """
 
     import dspy
+
+    from mlflow.transformers.llm_inference_utils import (
+        _LLM_INFERENCE_TASK_KEY,
+        _METADATA_LLM_INFERENCE_TASK_KEY,
+    )
 
     if signature:
         num_inputs = len(signature.inputs.inputs)
