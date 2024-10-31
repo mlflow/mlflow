@@ -5,6 +5,7 @@ from mlflow.metrics.base import (
 from mlflow.metrics.metric_definitions import (
     _accuracy_eval_fn,
     _ari_eval_fn,
+    _bleu_eval_fn,
     _f1_score_eval_fn,
     _flesch_kincaid_eval_fn,
     _mae_eval_fn,
@@ -435,6 +436,31 @@ def f1_score() -> EvaluationMetric:
     return make_metric(eval_fn=_f1_score_eval_fn, greater_is_better=True, name="f1_score")
 
 
+@experimental
+def bleu() -> EvaluationMetric:
+    """
+    This function will create a metric for evaluating `bleu`_.
+
+    The BLEU scores range from 0 to 1, with higher scores indicating greater similarity to
+    reference texts. BLEU considers n-gram precision and brevity penalty. While adding more
+    references can boost the score, perfect scores are rare and not essential for effective
+    evaluation.
+
+    Aggregations calculated for this metric:
+        - mean
+        - variance
+        - p90
+
+    .. _bleu: https://huggingface.co/spaces/evaluate-metric/bleu
+    """
+    return make_metric(
+        eval_fn=_bleu_eval_fn,
+        greater_is_better=True,
+        name="bleu",
+        version="v1",
+    )
+
+
 __all__ = [
     "EvaluationMetric",
     "MetricValue",
@@ -459,4 +485,5 @@ __all__ = [
     "token_count",
     "latency",
     "genai",
+    "bleu",
 ]

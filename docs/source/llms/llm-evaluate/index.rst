@@ -116,7 +116,7 @@ There are two types of LLM evaluation metrics in MLflow:
    More details of how these fields are set can be found in the section "Create your Custom LLM-evaluation Metrics".
 
 2. Function-based per-row metrics. These metrics calculate a score for each data record (row in terms of Pandas/Spark dataframe),
-   based on certain functions, like Rouge (:py:func:`mlflow.metrics.rougeL`) or Flesch Kincaid (:py:func:`mlflow.metrics.flesch_kincaid_grade_level`). 
+   based on certain functions, like Rouge (:py:func:`mlflow.metrics.rougeL`) or Flesch Kincaid (:py:func:`mlflow.metrics.flesch_kincaid_grade_level`) or Bilingual Evaluation Understudy (BLEU) (:py:func:`mlflow.metrics.bleu`). 
    These metrics are similar to traditional metrics.
 
 
