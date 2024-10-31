@@ -1,5 +1,21 @@
 # CHANGELOG
 
+## 2.17.2 (2024-10-31)
+
+MLflow 2.17.2 includes several major features and improvements
+
+Bug fixes:
+
+- [Models] Fix RunnableBinding saving (#13566, @B-Step62)
+
+Documentation updates:
+
+- [] ChatModel tool calling tutorial (#13542, @daniellok-db)
+
+Small bug fixes and documentation updates:
+
+#13567, #13580, #13569, @serena-ruan; #13595, @BenWilson2; #13593, @mnijhuis-dnb; #13203, @shichengzhou-db
+
 ## 2.17.1 (2024-10-25)
 
 MLflow 2.17.1 includes several major features and improvements
