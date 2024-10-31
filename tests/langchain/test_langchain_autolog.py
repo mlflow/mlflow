@@ -778,18 +778,25 @@ def test_tracing_source_run_in_batch():
     input = {"product": "MLflow"}
     with mlflow.start_run() as run:
         model.batch([input] * 2)
-        model_info = mlflow.langchain.log_model(model, "model")
-
-    traces = get_traces()
-    for trace in traces:
-        assert trace.info.request_metadata[TraceMetadataKey.SOURCE_RUN] == run.info.run_id
-
-    pyfunc_model = mlflow.pyfunc.load_model(model_info.model_uri)
-    with mlflow.start_run() as run_2:
-        pyfunc_model.predict("input")
 
     trace = mlflow.get_last_active_trace()
-    assert trace.info.request_metadata[TraceMetadataKey.SOURCE_RUN] == run_2.info.run_id
+    trace.info.request_metadata[TraceMetadataKey.SOURCE_RUN] == run.info.run_id
+
+
+def test_tracing_source_run_in_pyfunc_model_predict():
+    mlflow.langchain.autolog()
+
+    model = create_openai_runnable()
+    input = {"product": "MLflow"}
+    with mlflow.start_run():
+        model_info = mlflow.langchain.log_model(model, "model")
+
+    pyfunc_model = mlflow.pyfunc.load_model(model_info.model_uri)
+    with mlflow.start_run() as run:
+        pyfunc_model.predict([input] * 2)
+
+    trace = mlflow.get_last_active_trace()
+    trace.info.request_metadata[TraceMetadataKey.SOURCE_RUN] == run.info.run_id
 
 
 @pytest.mark.parametrize("invoke_arg", ["args", "kwargs", None])
