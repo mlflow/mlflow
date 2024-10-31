@@ -434,13 +434,16 @@ class AbstractStore:
         )
         max_time = time() + await_creation_for
         pending_status = ModelVersionStatus.to_string(ModelVersionStatus.PENDING_REGISTRATION)
-        while mv := self.get_model_version(mv.name, mv.version) and mv.status == pending_status:
+        while mv.status == pending_status:
             if time() > max_time:
                 raise MlflowException(
                     f"Exceeded max wait time for model name: {mv.name} version: {mv.version} "
                     f"to become READY. Status: {mv.status} Wait Time: {await_creation_for}"
                     f".{hint}"
                 )
+            mv = self.get_model_version(mv.name, mv.version)
+            if mv.status != pending_status:
+                break
             sleep(AWAIT_MODEL_VERSION_CREATE_SLEEP_INTERVAL_SECONDS)
         if mv.status != ModelVersionStatus.to_string(ModelVersionStatus.READY):
             raise MlflowException(
