@@ -4,7 +4,7 @@ Sample code to define a query engine with post processors and save it with model
 Ref: https://qdrant.tech/documentation/quickstart/
 """
 
-from typing import List, Optional
+from typing import Optional
 
 from llama_index.core import Document, QueryBundle, VectorStoreIndex
 from llama_index.core.postprocessor import LLMRerank
@@ -27,8 +27,8 @@ class CustomNodePostprocessor(BaseNodePostprocessor):
     call_count: int = 0
 
     def _postprocess_nodes(
-        self, nodes: List[NodeWithScore], query_bundle: Optional[QueryBundle]
-    ) -> List[NodeWithScore]:
+        self, nodes: list[NodeWithScore], query_bundle: Optional[QueryBundle]
+    ) -> list[NodeWithScore]:
         # subtracts 1 from the score
         self.call_count += 1
         return nodes

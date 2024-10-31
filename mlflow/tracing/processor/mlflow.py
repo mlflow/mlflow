@@ -1,7 +1,7 @@
 import json
 import logging
 import time
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 from opentelemetry.context import Context
 from opentelemetry.sdk.trace import ReadableSpan as OTelReadableSpan
@@ -203,8 +203,8 @@ class MlflowSpanProcessor(SimpleSpanProcessor):
         request_id: str,
         span: OTelSpan,
         experiment_id: Optional[str] = None,
-        request_metadata: Optional[Dict[str, Any]] = None,
-        tags: Optional[Dict[str, str]] = None,
+        request_metadata: Optional[dict[str, Any]] = None,
+        tags: Optional[dict[str, str]] = None,
     ) -> TraceInfo:
         return TraceInfo(
             request_id=request_id,

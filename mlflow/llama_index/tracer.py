@@ -2,7 +2,7 @@ import inspect
 import json
 import logging
 from functools import singledispatchmethod
-from typing import Any, Dict, Generator, Optional, Tuple, Union
+from typing import Any, Generator, Optional, Union
 
 import llama_index.core
 import pydantic
@@ -127,7 +127,7 @@ class MlflowSpanHandler(BaseSpanHandler[_LlamaSpan], extra="allow"):
     def __init__(self):
         super().__init__()
         self._stream_resolver = StreamResolver()
-        self._pending_spans: Dict[str, _LlamaSpan] = {}
+        self._pending_spans: dict[str, _LlamaSpan] = {}
 
     @classmethod
     def class_name(cls) -> str:
@@ -245,7 +245,7 @@ class MlflowSpanHandler(BaseSpanHandler[_LlamaSpan], extra="allow"):
             return SpanType.CHAIN
 
     @singledispatchmethod
-    def _get_instance_attributes(self, instance: Any) -> Dict[str, Any]:
+    def _get_instance_attributes(self, instance: Any) -> dict[str, Any]:
         """
         Extract span attributes from LlamaIndex objects.
 
@@ -266,7 +266,7 @@ class MlflowSpanHandler(BaseSpanHandler[_LlamaSpan], extra="allow"):
     def _(self, instance: MultiModalLLM):
         return self._get_llm_attributes(instance)
 
-    def _get_llm_attributes(self, instance) -> Dict[str, Any]:
+    def _get_llm_attributes(self, instance) -> dict[str, Any]:
         attr = {}
         if metadata := instance.metadata:
             attr["model_name"] = metadata.model_name
@@ -403,7 +403,7 @@ class MlflowEventHandler(BaseEventHandler, extra="allow"):
 
     def _extract_token_usage(
         self, response: Union[ChatResponse, CompletionResponse]
-    ) -> Dict[str, int]:
+    ) -> dict[str, int]:
         if raw := response.raw:
             # The raw response can be a Pydantic model or a dictionary
             if isinstance(raw, pydantic.BaseModel):
@@ -434,7 +434,7 @@ class StreamResolver:
     """
 
     def __init__(self):
-        self._span_id_to_span_and_gen: Dict[str, Tuple[LiveSpan, Generator]] = {}
+        self._span_id_to_span_and_gen: dict[str, tuple[LiveSpan, Generator]] = {}
 
     def is_streaming_result(self, result: Any) -> bool:
         return (

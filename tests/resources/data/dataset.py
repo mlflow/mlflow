@@ -1,6 +1,6 @@
 import base64
 import json
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 import numpy as np
 import pandas as pd
@@ -16,7 +16,7 @@ from tests.resources.data.dataset_source import SampleDatasetSource
 class SampleDataset(Dataset):
     def __init__(
         self,
-        data_list: List[int],
+        data_list: list[int],
         source: SampleDatasetSource,
         name: Optional[str] = None,
         digest: Optional[str] = None,
@@ -34,7 +34,7 @@ class SampleDataset(Dataset):
             hash_md5.update(hash_part)
         return base64.b64encode(hash_md5.digest()).decode("ascii")
 
-    def to_dict(self) -> Dict[str, str]:
+    def to_dict(self) -> dict[str, str]:
         """
         Returns:
             A string dictionary containing the following fields: name,
@@ -51,7 +51,7 @@ class SampleDataset(Dataset):
         return config
 
     @property
-    def data_list(self) -> List[int]:
+    def data_list(self) -> list[int]:
         return self._data_list
 
     @property

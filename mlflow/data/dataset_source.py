@@ -1,6 +1,6 @@
 import json
 from abc import abstractmethod
-from typing import Any, Dict
+from typing import Any
 
 
 class DatasetSource:
@@ -64,7 +64,7 @@ class DatasetSource:
         """
 
     @abstractmethod
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Obtains a JSON-compatible dictionary representation of the DatasetSource.
 
         Returns:
@@ -85,7 +85,7 @@ class DatasetSource:
 
     @classmethod
     @abstractmethod
-    def from_dict(cls, source_dict: Dict[Any, Any]) -> "DatasetSource":
+    def from_dict(cls, source_dict: dict[Any, Any]) -> "DatasetSource":
         """Constructs an instance of the DatasetSource from a dictionary representation.
 
         Args:
