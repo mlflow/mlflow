@@ -233,7 +233,8 @@ class PythonSubscriber(metaclass=ExceptionSafeClass):
         # Note Spark datasource autologging is hard to support thread-local behavior,
         # because the spark event listener callback (jvm side) does not have the python caller
         # thread information, therefore the tag is set to the latest active run, ignoring threading
-        # information. This way, consistent behavior is kept with existing functionality for Spark in MLflow.
+        # information. This way, consistent behavior is kept with existing functionality for
+        # Spark in MLflow.
         latest_active_run = None
         for active_run_stack in _active_run_stack._value_dict.values():
             for active_run in active_run_stack:
