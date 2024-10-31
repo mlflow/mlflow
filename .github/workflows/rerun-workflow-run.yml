@@ -1,0 +1,41 @@
+# Triggered by rerun.yml on PR approval.
+name: rerun-workflow-run
+on:
+  workflow_run:
+    workflows: [rerun]
+    types: [completed]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  rerun:
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      actions: write # to rerun github action workflows
+    steps:
+      - uses: actions/checkout@v4 # checks out the default branch (master), not the PR branch
+      - name: Download PR number
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const rerun = require(`${process.env.GITHUB_WORKSPACE}/.github/workflows/rerun.js`);
+            await rerun.download({ context, github });
+
+      - name: Unzip PR number
+        run: unzip pr_number.zip
+
+      - name: Rerun workflows
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const rerun = require(`${process.env.GITHUB_WORKSPACE}/.github/workflows/rerun.js`);
+            await rerun.rerun({ context, github });
