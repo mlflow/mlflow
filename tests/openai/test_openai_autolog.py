@@ -46,8 +46,9 @@ def test_chat_completions_autolog(client, log_models):
     assert span.outputs["id"] == "chatcmpl-123"
 
     if log_models:
-        run_id = trace.info.request_metadata[TraceMetadataKey.SOURCE_RUN]
+        run_id = client.chat.completions._mlflow_run_id
         assert run_id is not None
+        assert trace.info.request_metadata[TraceMetadataKey.SOURCE_RUN] == run_id
         loaded_model = mlflow.openai.load_model(f"runs:/{run_id}/model")
         assert loaded_model == {
             "model": "gpt-4o-mini",
@@ -211,8 +212,9 @@ def test_completions_autolog(client, log_models):
     assert span.outputs["id"] == "cmpl-uqkvlQyYK7bGYrRHQ0eXlWi7"
 
     if log_models:
-        run_id = trace.info.request_metadata[TraceMetadataKey.SOURCE_RUN]
+        run_id = client.completions._mlflow_run_id
         assert run_id is not None
+        assert trace.info.request_metadata[TraceMetadataKey.SOURCE_RUN] == run_id
         loaded_model = mlflow.openai.load_model(f"runs:/{run_id}/model")
         assert loaded_model == {
             "model": "gpt-4o-mini",
@@ -297,8 +299,9 @@ def test_embeddings_autolog(client, log_models):
     assert span.outputs["data"][0]["embedding"] == list(range(1536))
 
     if log_models:
-        run_id = trace.info.request_metadata[TraceMetadataKey.SOURCE_RUN]
+        run_id = client.embeddings._mlflow_run_id
         assert run_id is not None
+        assert trace.info.request_metadata[TraceMetadataKey.SOURCE_RUN] == run_id
         loaded_model = mlflow.openai.load_model(f"runs:/{run_id}/model")
         assert loaded_model == {
             "model": "text-embedding-ada-002",
@@ -323,3 +326,39 @@ def test_autolog_with_registered_model_name(client):
     )
     registered_model = MlflowClient().get_registered_model(registered_model_name)
     assert registered_model.name == registered_model_name
+
+
+@pytest.mark.skipif(not is_v1, reason="Requires OpenAI SDK v1")
+@pytest.mark.parametrize("log_models", [True, False])
+def test_autolog_use_active_run_id(client, log_models):
+    mlflow.openai.autolog(log_models=log_models)
+
+    messages = [{"role": "user", "content": "test"}]
+
+    with mlflow.start_run() as run_1:
+        client.chat.completions.create(messages=messages, model="gpt-4o-mini")
+
+    assert client.chat.completions._mlflow_run_id == run_1.info.run_id
+
+    with mlflow.start_run() as run_2:
+        client.chat.completions.create(messages=messages, model="gpt-4o-mini")
+        client.chat.completions.create(messages=messages, model="gpt-4o-mini")
+
+    assert client.chat.completions._mlflow_run_id == run_2.info.run_id
+
+    with mlflow.start_run() as run_3:
+        mlflow.openai.autolog(
+            log_models=log_models,
+            extra_tags={"foo": "bar"},
+        )
+        client.chat.completions.create(messages=messages, model="gpt-4o-mini")
+
+    assert client.chat.completions._mlflow_run_id == run_3.info.run_id
+
+    traces = get_traces()[::-1]  # reverse order to sort by timestamp in ascending order
+    assert len(traces) == 4
+
+    assert traces[0].info.request_metadata[TraceMetadataKey.SOURCE_RUN] == run_1.info.run_id
+    assert traces[1].info.request_metadata[TraceMetadataKey.SOURCE_RUN] == run_2.info.run_id
+    assert traces[2].info.request_metadata[TraceMetadataKey.SOURCE_RUN] == run_2.info.run_id
+    assert traces[3].info.request_metadata[TraceMetadataKey.SOURCE_RUN] == run_3.info.run_id

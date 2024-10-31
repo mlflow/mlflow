@@ -98,18 +98,20 @@ def patched_call(original, self, *args, **kwargs):
     from openai.types.completion import Completion
 
     config = AutoLoggingConfig.init(flavor_name=mlflow.openai.FLAVOR_NAME)
-    run_id = getattr(self, "_mlflow_run_id", None)
     active_run = mlflow.active_run()
+
+    # Active run should always take precedence over the run_id stored in the model
+    run_id = active_run.info.run_id if active_run else getattr(self, "_mlflow_run_id", None)
+
     mlflow_client = mlflow.MlflowClient()
     request_id = None
 
     # If optional artifacts logging are enabled e.g. log_models, we need to create a run
-    if config.should_log_optional_artifacts() and run_id is None:
+    if config.should_log_optional_artifacts():
         # include run context tags
         resolved_tags = context_registry.resolve_tags(config.extra_tags)
         tags = _resolve_extra_tags(mlflow.openai.FLAVOR_NAME, resolved_tags)
-        if active_run:
-            run_id = active_run.info.run_id
+        if run_id is not None:
             mlflow_client.log_batch(
                 run_id=run_id,
                 tags=[RunTag(key, str(value)) for key, value in tags.items()],
@@ -139,7 +141,9 @@ def patched_call(original, self, *args, **kwargs):
             )
 
         request_id = span.request_id
-        # If a new autolog run is created, associate the trace with the run
+        # Associate run ID to the trace manually, because if a new run is created by
+        # autologging, it is not set as the active run thus not automatically
+        # associated with the trace.
         if run_id is not None:
             tm = InMemoryTraceManager().get_instance()
             tm.set_request_metadata(request_id, TraceMetadataKey.SOURCE_RUN, run_id)
@@ -231,8 +235,7 @@ def patched_call(original, self, *args, **kwargs):
         self._mlflow_model_logged = True
 
     # Even if the model is not logged, we keep a single run per model
-    if not hasattr(self, "_mlflow_run_id"):
-        self._mlflow_run_id = run_id
+    self._mlflow_run_id = run_id
 
     # Terminate the run if it is not managed by the user
     if run_id is not None and (active_run is None or active_run.info.run_id != run_id):
