@@ -51,8 +51,8 @@ async function rerun({ github, context }) {
         slug === "github-actions" &&
         status === "completed" &&
         (conclusion === "failure" || conclusion === "cancelled") &&
-        name !== "rerun" && // Prevent recursive rerun
-        (name === "protect" || // Always rerun protect job
+        name.toLowerCase() !== "rerun" && // Prevent recursive rerun
+        (name.toLowerCase() === "protect" || // Always rerun protect job
           computeExecutionTimeInSeconds(started_at, completed_at) <= 60) // Rerun jobs that took less than 60 seconds (e.g. Maintainer approval check)
     )
     .map(
