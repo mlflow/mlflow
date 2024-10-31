@@ -778,12 +778,13 @@ def test_tracing_source_run_in_batch():
     input = {"product": "MLflow"}
     with mlflow.start_run() as run:
         model.batch([input] * 2)
+        model_info = mlflow.langchain.log_model(model, "model")
 
     traces = get_traces()
     for trace in traces:
         assert trace.info.request_metadata[TraceMetadataKey.SOURCE_RUN] == run.info.run_id
 
-    pyfunc_model = mlflow.pyfunc.load_model(run.info.run_id)
+    pyfunc_model = mlflow.pyfunc.load_model(model_info.model_uri)
     with mlflow.start_run() as run_2:
         pyfunc_model.predict("input")
 

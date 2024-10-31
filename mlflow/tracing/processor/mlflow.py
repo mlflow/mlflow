@@ -95,9 +95,8 @@ class MlflowSpanProcessor(SimpleSpanProcessor):
         # in the following cases:
         #  - langchain model `chain.batch` which uses thread pool to spawn workers.
         #  - MLflow langchain pyfunc model `predict` which calls `api_request_parallel_processor`.
-        # and we only support global mode tracing,
-        # so the following code checks all active runs in all threads to get the latest active run
-        # as the tracing source run.
+        # Therefore, we use `_get_global_active_run()` instead to get the active run from
+        # all threads and set it as the tracing source run.
         latest_active_run = _get_latest_active_run()
         if run := latest_active_run:
             metadata[TraceMetadataKey.SOURCE_RUN] = run.info.run_id

@@ -620,7 +620,9 @@ def last_active_run() -> Optional[Run]:
 
 def _get_latest_active_run():
     """
-    Check active run stack in all threads, find the latest active run and return it.
+    Get active run from global context by checking all threads. The `mlflow.active_run` API
+    only returns active run from current thread. This API is useful for the case where one
+    needs to get a run started from a separate thread.
     """
     latest_active_run = None
     for active_run_stack in _active_run_stack.get_global().values():
