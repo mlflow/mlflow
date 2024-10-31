@@ -46,7 +46,7 @@ class ThreadLocalVariable:
         Set a value for the thread-local variable.
         """
         self.thread_local.value = (value, os.getpid())
-        self.__global_thread_values[threading.currentThread().get_ident()] = value
+        self.__global_thread_values[threading.get_ident()] = value
 
     def get_all_thread_values(self) -> Dict[str, Any]:
         """
