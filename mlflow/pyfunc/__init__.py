@@ -2359,8 +2359,7 @@ Compound types:
 
     tracking_uri = mlflow.get_tracking_uri()
 
-    @pandas_udf(result_type)
-    def udf(
+    def _udf(
         iterator: Iterator[Tuple[Union[pandas.Series, pandas.DataFrame], ...]],
     ) -> Iterator[result_type_hint]:
         # importing here to prevent circular import
@@ -2543,6 +2542,41 @@ Compound types:
             finally:
                 if scoring_server_proc is not None:
                     os.kill(scoring_server_proc.pid, signal.SIGTERM)
+
+    @pandas_udf(result_type)
+    def udf(
+        iterator: Iterator[Tuple[Union[pandas.Series, pandas.DataFrame], ...]],
+    ) -> Iterator[result_type_hint]:
+        import tempfile
+        import sys
+        tmp_dir = tempfile.mkdtemp()
+        stdout_dst = open(os.path.join(tmp_dir, "stdout.log"), "w")
+        stdout_dst_fd = stdout_dst.fileno()
+        stdout_fd = sys.stdout.fileno()
+        os.close(stdout_fd)
+        os.dup2(stdout_dst_fd, stdout_fd)
+        stderr_dst = open(os.path.join(tmp_dir, "stderr.log"), "w")
+        stderr_dst_fd = stderr_dst.fileno()
+        stderr_fd = sys.stderr.fileno()
+        os.close(stderr_fd)
+        os.dup2(stderr_dst_fd, stderr_fd)
+        try:
+            return _udf(iterator)
+        except Exception as e:
+            import traceback
+            stdout_dst.flush()
+            stderr_dst.flush()
+            with open(os.path.join(tmp_dir, "stdout.log"), "r") as f:
+                stdout_data = f.read()
+            with open(os.path.join(tmp_dir, "stderr.log"), "r") as f:
+                stderr_data = f.read()
+            raise RuntimeError(
+                f"spark_udf remote task failed.\n"
+                f"stdout logs:\n{stdout_data}\n"
+                f"stderr logs:\n{stderr_data}\n"
+                f"error: {repr(e)}\n"
+                f"error stack: {traceback.format_exc()}"
+            )
 
     udf.metadata = model_metadata
 
