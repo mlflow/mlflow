@@ -2,7 +2,7 @@ import logging
 import sys
 import warnings
 from collections import defaultdict
-from typing import Any, Optional, Union
+from typing import Any, Dict, List, Optional, Union
 
 import numpy as np
 import pandas as pd
@@ -733,7 +733,7 @@ def _is_pep585_supported() -> bool:
 
 
 def _is_list_str(type_hint: Any) -> bool:
-    if type_hint == list[str]:
+    if type_hint == List[str]:  # noqa: UP006
         return True
 
     if _is_pep585_supported():
@@ -747,7 +747,7 @@ def _is_list_str(type_hint: Any) -> bool:
 
 
 def _is_list_dict_str(type_hint: Any) -> bool:
-    if type_hint == list[dict[str, str]]:
+    if type_hint == List[Dict[str, str]]:  # noqa: UP006
         return True
 
     if _is_pep585_supported():

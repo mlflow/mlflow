@@ -415,7 +415,7 @@ from contextlib import contextmanager
 from copy import deepcopy
 from functools import lru_cache
 from pathlib import Path
-from typing import Any, Iterator, Optional, Union
+from typing import Any, Iterator, Optional, Tuple, Union
 from urllib.parse import urlparse
 
 import numpy as np
@@ -2361,7 +2361,7 @@ Compound types:
 
     @pandas_udf(result_type)
     def udf(
-        iterator: Iterator[tuple[Union[pandas.Series, pandas.DataFrame], ...]],
+        iterator: Iterator[Tuple[Union[pandas.Series, pandas.DataFrame], ...]],  # noqa: UP006
     ) -> Iterator[result_type_hint]:
         # importing here to prevent circular import
         from mlflow.pyfunc.scoring_server.client import (

@@ -1844,7 +1844,7 @@ def test_convert_dataclass_to_schema_invalid():
     with pytest.raises(
         MlflowException,
         match=re.escape(
-            r"Unsupported field type typing.Dict[str, int] in dataclass InvalidDataclass"
+            r"Unsupported field type typing.dict[str, int] in dataclass InvalidDataclass"
         ),
     ):
         convert_dataclass_to_schema(InvalidDataclassWithDict)
