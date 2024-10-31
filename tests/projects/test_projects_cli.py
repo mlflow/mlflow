@@ -5,7 +5,6 @@ import os
 import shutil
 from unittest import mock
 
-import process
 import pytest
 from click.testing import CliRunner
 

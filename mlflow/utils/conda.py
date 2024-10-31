@@ -3,11 +3,11 @@ import json
 import logging
 import os
 
-import process
 import yaml
 
 from mlflow.environment_variables import MLFLOW_CONDA_CREATE_ENV_CMD, MLFLOW_CONDA_HOME
 from mlflow.exceptions import ExecutionException
+from mlflow.utils import process
 from mlflow.utils.environment import Environment
 from mlflow.utils.os import is_windows
 
