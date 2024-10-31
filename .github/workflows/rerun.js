@@ -3,7 +3,7 @@ const fs = require("fs");
 function computeExecutionTimeInSeconds(started_at, completed_at) {
   const startedAt = new Date(started_at);
   const completedAt = new Date(completed_at);
-  return (completedAt - startedAt) / 1000; // Execution time in seconds
+  return (completedAt - startedAt) / 1000;
 }
 
 async function download({ github, context }) {
