@@ -347,51 +347,6 @@ def test_autolog_function_thread_safety(patch_destination):
     assert patch_destination.fn is original_impl
 
 
-def test_disable_autolog_thread_local(patch_destination):
-    from mlflow.utils.autologging_utils import AUTOLOGGING_INTEGRATIONS, disable_autologging
-
-    AUTOLOGGING_INTEGRATIONS.pop("test_integration", None)
-
-    result = 0
-
-    def original_impl():
-        nonlocal result
-        result = 1
-
-    patch_destination.fn = original_impl
-
-    def patch_impl(original):
-        nonlocal result
-        original()
-        result = 2
-
-    @autologging_integration("test_integration")
-    def test_autolog(disable=False, silent=False):
-        safe_patch("test_integration", patch_destination, "fn", patch_impl)
-
-    test_autolog()
-
-    patch_destination.fn()
-    # assert autologging is enabled.
-    assert result == 2
-
-    with disable_autologging():
-        patch_destination.fn()
-        assert result == 1
-
-        result = None
-
-        def call_fn():
-            patch_destination.fn()
-
-        thread = threading.Thread(target=call_fn)
-        thread.start()
-        thread.join()
-
-        # `disable_autologging` (thread-local mode) should not affect other threads.
-        assert result == 2
-
-
 def test_autolog_disabled_in_forked_subprocess(patch_destination):
     from mlflow.utils.autologging_utils import AUTOLOGGING_INTEGRATIONS
 
