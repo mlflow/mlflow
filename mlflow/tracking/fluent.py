@@ -627,7 +627,9 @@ def _get_latest_active_run():
     all_active_runs = [
         run for run_stack in _active_run_stack.get_all_thread_values().values() for run in run_stack
     ]
-    return max(all_active_runs, key=lambda run: run.start_time)
+    if all_active_runs:
+        return max(all_active_runs, key=lambda run: run.start_time)
+    return None
 
 
 def get_run(run_id: str) -> Run:
