@@ -2,7 +2,7 @@ import functools
 import logging
 import os
 import time
-from typing import List, Optional
+from typing import Optional
 
 import numpy as np
 import pandas as pd
@@ -53,7 +53,7 @@ class DefaultEvaluator(BuiltInEvaluator):
     def _evaluate(
         self,
         model: Optional["mlflow.pyfunc.PyFuncModel"],
-        extra_metrics: List[EvaluationMetric],
+        extra_metrics: list[EvaluationMetric],
         custom_artifacts=None,
         **kwargs,
     ) -> Optional[EvaluationResult]:
@@ -89,7 +89,7 @@ class DefaultEvaluator(BuiltInEvaluator):
             metrics=self.aggregate_metrics, artifacts=self.artifacts, run_id=self.run_id
         )
 
-    def _builtin_metrics(self) -> List[Metric]:
+    def _builtin_metrics(self) -> list[Metric]:
         """
         Get a list of builtin metrics for the model type.
         """
@@ -202,7 +202,7 @@ class DefaultEvaluator(BuiltInEvaluator):
 
         return y_pred, other_output_df, predictions_column_name
 
-    def _log_genai_custom_metrics(self, extra_metrics: List[EvaluationMetric]):
+    def _log_genai_custom_metrics(self, extra_metrics: list[EvaluationMetric]):
         genai_custom_metrics = [
             extra_metric.genai_metric_args
             for extra_metric in extra_metrics

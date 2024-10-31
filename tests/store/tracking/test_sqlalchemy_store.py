@@ -9,7 +9,7 @@ import time
 import uuid
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
-from typing import List, Union
+from typing import Union
 from unittest import mock
 
 import pytest
@@ -223,7 +223,7 @@ def _cleanup_database(store: SqlAlchemyStore):
             session.execute(sqlalchemy.sql.text(reset_experiment_id))
 
 
-def _create_experiments(store: SqlAlchemyStore, names) -> Union[str, List]:
+def _create_experiments(store: SqlAlchemyStore, names) -> Union[str, list]:
     if isinstance(names, (list, tuple)):
         ids = []
         for name in names:

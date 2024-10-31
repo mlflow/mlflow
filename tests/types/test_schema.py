@@ -3,7 +3,7 @@ import json
 import math
 import re
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Union
+from typing import Optional, Union
 
 import numpy as np
 import pandas as pd
@@ -1799,7 +1799,7 @@ def test_convert_dataclass_to_schema_complex():
     @dataclass
     class MainTask:
         foo: str = "1"
-        process_configs: List[Config] = field(default_factory=lambda: [Config()])
+        process_configs: list[Config] = field(default_factory=lambda: [Config()])
 
     schema = convert_dataclass_to_schema(MainTask)
     schema_dict = schema.to_dict()
@@ -1839,12 +1839,10 @@ def test_convert_dataclass_to_schema_invalid():
     # Invalid dataclass with Dict
     @dataclass
     class InvalidDataclassWithDict:
-        foo: Dict[str, int] = field(default_factory=dict)
+        foo: dict[str, int] = field(default_factory=dict)
 
     with pytest.raises(
         MlflowException,
-        match=re.escape(
-            r"Unsupported field type typing.Dict[str, int] in dataclass InvalidDataclass"
-        ),
+        match=re.escape(r"Unsupported field type dict[str, int] in dataclass InvalidDataclass"),
     ):
         convert_dataclass_to_schema(InvalidDataclassWithDict)

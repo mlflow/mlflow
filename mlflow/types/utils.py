@@ -125,7 +125,7 @@ def _infer_datatype(data: Any) -> Union[DataType, Array, Object, Map]:
     return _infer_scalar_datatype(data)
 
 
-def _infer_array_datatype(data: Union[List, np.ndarray]) -> Optional[Array]:
+def _infer_array_datatype(data: Union[list, np.ndarray]) -> Optional[Array]:
     """Infer schema from an array. This tries to infer type if there is at least one
     non-null item in the list, assuming the list has a homogeneous type. However,
     if the list is empty or all items are null, returns None as a sign of undetermined.
@@ -733,7 +733,7 @@ def _is_pep585_supported() -> bool:
 
 
 def _is_list_str(type_hint: Any) -> bool:
-    if type_hint == List[str]:
+    if type_hint == List[str]:  # noqa: UP006
         return True
 
     if _is_pep585_supported():
@@ -747,7 +747,7 @@ def _is_list_str(type_hint: Any) -> bool:
 
 
 def _is_list_dict_str(type_hint: Any) -> bool:
-    if type_hint == List[Dict[str, str]]:
+    if type_hint == List[Dict[str, str]]:  # noqa: UP006
         return True
 
     if _is_pep585_supported():
@@ -817,7 +817,7 @@ def _infer_type_and_shape(value):
     )
 
 
-def _infer_param_schema(parameters: Dict[str, Any]):
+def _infer_param_schema(parameters: dict[str, Any]):
     if not isinstance(parameters, dict):
         raise MlflowException.invalid_parameter_value(
             f"Expected parameters to be dict, got {type(parameters).__name__}",
