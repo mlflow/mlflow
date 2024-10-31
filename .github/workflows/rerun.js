@@ -1,5 +1,11 @@
 const fs = require("fs");
 
+function computeExecutionTimeInSeconds(started_at, completed_at) {
+  const startedAt = new Date(started_at);
+  const completedAt = new Date(completed_at);
+  return (completedAt - startedAt) / 1000;
+}
+
 async function download({ github, context }) {
   const allArtifacts = await github.rest.actions.listWorkflowRunArtifacts({
     owner: context.repo.owner,
@@ -41,11 +47,13 @@ async function rerun({ github, context }) {
   const runIdsToRerun = checkRuns
     // Select failed/cancelled github action runs
     .filter(
-      ({ name, status, conclusion, app: { slug } }) =>
+      ({ name, status, conclusion, started_at, completed_at, app: { slug } }) =>
         slug === "github-actions" &&
         status === "completed" &&
         (conclusion === "failure" || conclusion === "cancelled") &&
-        name !== "rerun"
+        name.toLowerCase() !== "rerun" && // Prevent recursive rerun
+        (name.toLowerCase() === "protect" || // Always rerun protect job
+          computeExecutionTimeInSeconds(started_at, completed_at) <= 60) // Rerun jobs that took less than 60 seconds (e.g. Maintainer approval check)
     )
     .map(
       ({
