@@ -112,8 +112,6 @@ def autologging_conf_lock(fn):
     """
     Apply a global lock on functions that enable / disable autologging.
     """
-    global _autolog_conf_global_lock
-
     def wrapper(*args, **kwargs):
         with _autolog_conf_global_lock:
             return fn(*args, **kwargs)
