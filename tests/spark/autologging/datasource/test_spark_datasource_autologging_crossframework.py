@@ -99,7 +99,6 @@ def test_spark_sklearn_autologging_context_provider(spark_session, data_format, 
     assert mlflow.active_run() is None
 
 
-@pytest.mark.skip(reason="Fix: https://github.com/mlflow/mlflow/pull/13599")
 def test_spark_and_sklearn_autologging_all_runs_managed(spark_session, data_format, file_path):
     mlflow.spark.autolog()
     mlflow.sklearn.autolog()

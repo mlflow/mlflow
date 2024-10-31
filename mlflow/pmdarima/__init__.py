@@ -60,7 +60,7 @@ import logging
 import os
 import pickle
 import warnings
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 import pandas as pd
 import yaml
@@ -292,8 +292,8 @@ def log_model(
     extra_pip_requirements=None,
     metadata=None,
     name: Optional[str] = None,
-    params: Optional[Dict[str, Any]] = None,
-    tags: Optional[Dict[str, Any]] = None,
+    params: Optional[dict[str, Any]] = None,
+    tags: Optional[dict[str, Any]] = None,
     model_type: Optional[str] = None,
     step: int = 0,
     model_id: Optional[str] = None,
@@ -536,7 +536,7 @@ class _PmdarimaModelWrapper:
         """
         return self.pmdarima_model
 
-    def predict(self, dataframe, params: Optional[Dict[str, Any]] = None) -> pd.DataFrame:
+    def predict(self, dataframe, params: Optional[dict[str, Any]] = None) -> pd.DataFrame:
         """
         Args:
             dataframe: Model input data.

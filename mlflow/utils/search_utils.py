@@ -5,7 +5,7 @@ import math
 import operator
 import re
 import shlex
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 import sqlparse
 from packaging.version import Version
@@ -680,7 +680,7 @@ class SearchUtils:
         return [run for run in runs if run_matches(run)]
 
     @classmethod
-    def filter_logged_models(cls, models: List[LoggedModel], filter_string: Optional[str] = None):
+    def filter_logged_models(cls, models: list[LoggedModel], filter_string: Optional[str] = None):
         """Filters a set of runs based on a search filter string."""
         if not filter_string:
             return models
@@ -1693,7 +1693,7 @@ class SearchTraceUtils(SearchUtils):
         return [cls._replace_key_to_tag_or_metadata(p) for p in parsed]
 
     @classmethod
-    def _replace_key_to_tag_or_metadata(cls, parsed: Dict[str, Any]):
+    def _replace_key_to_tag_or_metadata(cls, parsed: dict[str, Any]):
         """
         Replace search key to tag or metadata key if it is in the mapping.
         """

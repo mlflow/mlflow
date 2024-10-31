@@ -52,7 +52,7 @@ import posixpath
 import shutil
 import sys
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 import yaml
 
@@ -210,8 +210,8 @@ def log_model(
     metadata=None,
     store_license=False,
     name: Optional[str] = None,
-    params: Optional[Dict[str, Any]] = None,
-    tags: Optional[Dict[str, Any]] = None,
+    params: Optional[dict[str, Any]] = None,
+    tags: Optional[dict[str, Any]] = None,
     model_type: Optional[str] = None,
     step: int = 0,
     model_id: Optional[str] = None,
@@ -902,7 +902,7 @@ class _PyFuncModelWrapper:
         """
         return self.spark_model
 
-    def predict(self, text, params: Optional[Dict[str, Any]] = None):
+    def predict(self, text, params: Optional[dict[str, Any]] = None):
         """Generate predictions given input data in a pandas DataFrame.
 
         Args:

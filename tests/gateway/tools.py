@@ -8,7 +8,7 @@ import threading
 import time
 from collections import namedtuple
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Optional, Union
 from unittest import mock
 
 import aiohttp
@@ -96,7 +96,7 @@ def save_yaml(path, conf):
 
 
 class MockAsyncResponse:
-    def __init__(self, data: Dict[str, Any], status: int = 200):
+    def __init__(self, data: dict[str, Any], status: int = 200):
         # Extract status and headers from data, if present
         self.status = status
         self.headers = data.pop("headers", {"Content-Type": "application/json"})
@@ -108,7 +108,7 @@ class MockAsyncResponse:
         if 400 <= self.status < 600:
             raise aiohttp.ClientResponseError(None, None, status=self.status)
 
-    async def json(self) -> Dict[str, Any]:
+    async def json(self) -> dict[str, Any]:
         return self._content
 
     async def text(self) -> str:
@@ -123,7 +123,7 @@ class MockAsyncResponse:
 
 class MockAsyncStreamingResponse:
     def __init__(
-        self, data: List[bytes], headers: Optional[Dict[str, str]] = None, status: int = 200
+        self, data: list[bytes], headers: Optional[dict[str, str]] = None, status: int = 200
     ):
         self.status = status
         self.headers = headers

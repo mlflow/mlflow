@@ -4,7 +4,6 @@ import inspect
 import logging
 import sys
 import time
-from typing import List
 
 import mlflow
 from mlflow.entities import Metric
@@ -559,7 +558,7 @@ def restrict_langchain_autologging_to_traces_only():
 
 
 @contextlib.contextmanager
-def disable_discrete_autologging(flavors_to_disable: List[str]) -> None:
+def disable_discrete_autologging(flavors_to_disable: list[str]) -> None:
     """
     Context manager for disabling specific autologging integrations temporarily while another
     flavor's autologging is activated. This context wrapper is useful in the event that, for
@@ -586,6 +585,9 @@ def disable_discrete_autologging(flavors_to_disable: List[str]) -> None:
     for flavor in enabled_flavors:
         autolog_func = getattr(mlflow, flavor)
         autolog_func.autolog(disable=False)
+
+
+_training_sessions = []
 
 
 def _get_new_training_session_class():
@@ -679,7 +681,12 @@ def _get_new_training_session_class():
                 return _TrainingSession._session_stack[-1]
             return None
 
+    _training_sessions.append(_TrainingSession)
     return _TrainingSession
+
+
+def _has_active_training_session():
+    return any(s.is_active() for s in _training_sessions)
 
 
 def get_instance_method_first_arg_value(method, call_pos_args, call_kwargs):

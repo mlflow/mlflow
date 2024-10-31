@@ -1,5 +1,26 @@
 # CHANGELOG
 
+## 2.17.2 (2024-10-31)
+
+MLflow 2.17.2 includes several major features and improvements
+
+Features:
+- [Model Registry] DatabricksSDKModelsArtifactRepository support (#13203, @shichengzhou-db)
+- [Tracking] Support extracting new UCFunctionToolkit as model resources (#13567, @serena-ruan)
+
+Bug fixes:
+
+- [Models] Fix RunnableBinding saving (#13566, @B-Step62)
+- [Models] Pin numpy when pandas < 2.1.2 in pip requirements (#13580, @serena-ruan)
+
+Documentation updates:
+
+- [Docs] ChatModel tool calling tutorial (#13542, @daniellok-db)
+
+Small bug fixes and documentation updates:
+
+#13569, @serena-ruan; #13595, @BenWilson2; #13593, @mnijhuis-dnb;
+
 ## 2.17.1 (2024-10-25)
 
 MLflow 2.17.1 includes several major features and improvements

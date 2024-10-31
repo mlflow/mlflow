@@ -1,5 +1,5 @@
 import json
-from typing import List, Union
+from typing import Union
 
 import fastapi
 from pydantic import BaseModel
@@ -21,7 +21,7 @@ class Message(BaseModel):
 
 
 class ChatPayload(BaseModel):
-    messages: List[Message]
+    messages: list[Message]
     temperature: float = 0
     stream: bool = False
 
@@ -127,7 +127,7 @@ async def chat(payload: ChatPayload):
 
 
 class CompletionsPayload(BaseModel):
-    prompt: Union[str, List[str]]
+    prompt: Union[str, list[str]]
     stream: bool = False
 
 
@@ -204,7 +204,7 @@ def completions(payload: CompletionsPayload):
 
 
 class EmbeddingsPayload(BaseModel):
-    input: Union[str, List[str]]
+    input: Union[str, list[str]]
 
 
 @app.post("/embeddings")

@@ -25,7 +25,7 @@ import os
 import tempfile
 from copy import deepcopy
 from functools import partial
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 import yaml
 from packaging.version import Version
@@ -236,8 +236,8 @@ def log_model(
     model_format="xgb",
     metadata=None,
     name: Optional[str] = None,
-    params: Optional[Dict[str, Any]] = None,
-    tags: Optional[Dict[str, Any]] = None,
+    params: Optional[dict[str, Any]] = None,
+    tags: Optional[dict[str, Any]] = None,
     model_type: Optional[str] = None,
     step: int = 0,
     model_id: Optional[str] = None,
@@ -371,7 +371,7 @@ class _XGBModelWrapper:
     def predict(
         self,
         dataframe,
-        params: Optional[Dict[str, Any]] = None,
+        params: Optional[dict[str, Any]] = None,
     ):
         """
         Args:

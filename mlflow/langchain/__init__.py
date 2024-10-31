@@ -21,7 +21,7 @@ import logging
 import os
 import tempfile
 import warnings
-from typing import Any, Dict, Iterator, List, Optional, Union
+from typing import Any, Iterator, Optional, Union
 
 import cloudpickle
 import pandas as pd
@@ -71,6 +71,7 @@ from mlflow.utils.autologging_utils import (
     safe_patch,
 )
 from mlflow.utils.databricks_utils import (
+    _get_databricks_serverless_env_vars,
     is_in_databricks_model_serving_environment,
     is_in_databricks_serverless_runtime,
     is_mlflow_tracing_enabled_in_model_serving,
@@ -128,28 +129,6 @@ def get_default_conda_env():
         :func:`save_model()` and :func:`log_model()`.
     """
     return _mlflow_conda_env(additional_pip_deps=get_default_pip_requirements())
-
-
-def _get_databricks_serverless_env_vars():
-    """
-    Returns the environment variables required to to initialize WorkspaceClient in a subprocess
-    with serverless compute.
-
-    Note:
-        Databricks authentication related environment variables are set in the
-        _capture_imported_modules function.
-    """
-    envs = {}
-    if "SPARK_REMOTE" in os.environ:
-        envs["SPARK_LOCAL_REMOTE"] = os.environ["SPARK_REMOTE"]
-    else:
-        logger.warning(
-            "Missing required environment variable `SPARK_LOCAL_REMOTE` or `SPARK_REMOTE`."
-            "These are necessary to initialize the WorkspaceClient with serverless compute in "
-            "a subprocess in Databricks for UC function execution. Setting the value to 'true'."
-        )
-        envs["SPARK_LOCAL_REMOTE"] = "true"
-    return envs
 
 
 @experimental
@@ -459,8 +438,8 @@ def log_model(
     streamable=None,
     resources=None,
     name: Optional[str] = None,
-    params: Optional[Dict[str, Any]] = None,
-    tags: Optional[Dict[str, Any]] = None,
+    params: Optional[dict[str, Any]] = None,
+    tags: Optional[dict[str, Any]] = None,
     model_type: Optional[str] = None,
     step: int = 0,
     model_id: Optional[str] = None,
@@ -688,9 +667,9 @@ class _LangChainModelWrapper:
 
     def predict(
         self,
-        data: Union[pd.DataFrame, List[Union[str, Dict[str, Any]]], Any],
-        params: Optional[Dict[str, Any]] = None,
-    ) -> List[Union[str, Dict[str, Any]]]:
+        data: Union[pd.DataFrame, list[Union[str, dict[str, Any]]], Any],
+        params: Optional[dict[str, Any]] = None,
+    ) -> list[Union[str, dict[str, Any]]]:
         """
         Args:
             data: Model input data.
@@ -754,11 +733,11 @@ class _LangChainModelWrapper:
     @experimental
     def _predict_with_callbacks(
         self,
-        data: Union[pd.DataFrame, List[Union[str, Dict[str, Any]]], Any],
-        params: Optional[Dict[str, Any]] = None,
+        data: Union[pd.DataFrame, list[Union[str, dict[str, Any]]], Any],
+        params: Optional[dict[str, Any]] = None,
         callback_handlers=None,
         convert_chat_responses=False,
-    ) -> List[Union[str, Dict[str, Any]]]:
+    ) -> list[Union[str, dict[str, Any]]]:
         """
         Args:
             data: Model input data.
@@ -824,8 +803,8 @@ class _LangChainModelWrapper:
     def predict_stream(
         self,
         data: Any,
-        params: Optional[Dict[str, Any]] = None,
-    ) -> Iterator[Union[str, Dict[str, Any]]]:
+        params: Optional[dict[str, Any]] = None,
+    ) -> Iterator[Union[str, dict[str, Any]]]:
         """
         Args:
             data: Model input data, only single input is allowed.
@@ -848,10 +827,10 @@ class _LangChainModelWrapper:
     def _predict_stream_with_callbacks(
         self,
         data: Any,
-        params: Optional[Dict[str, Any]] = None,
+        params: Optional[dict[str, Any]] = None,
         callback_handlers=None,
         convert_chat_responses=False,
-    ) -> Iterator[Union[str, Dict[str, Any]]]:
+    ) -> Iterator[Union[str, dict[str, Any]]]:
         """
         Args:
             data: Model input data, only single input is allowed.
@@ -878,7 +857,7 @@ class _LangChainModelWrapper:
         )
 
 
-def _load_pyfunc(path: str, model_config: Optional[Dict[str, Any]] = None):  # noqa: D417
+def _load_pyfunc(path: str, model_config: Optional[dict[str, Any]] = None):  # noqa: D417
     """Load PyFunc implementation for LangChain. Called by ``pyfunc.load_model``.
 
     Args:
@@ -932,7 +911,7 @@ class _LoadedModelTracker:
     """
 
     def __init__(self):
-        self.model_ids: Dict[int, str] = {}
+        self.model_ids: dict[int, str] = {}
 
     def get(self, model: Any) -> Optional[str]:
         return self.model_ids.get(id(model))

@@ -1,5 +1,5 @@
 from abc import ABCMeta, abstractmethod
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Optional
 
 from mlflow.entities import (
     DatasetInput,
@@ -243,8 +243,8 @@ class AbstractStore:
         self,
         experiment_id: str,
         timestamp_ms: int,
-        request_metadata: Dict[str, str],
-        tags: Dict[str, str],
+        request_metadata: dict[str, str],
+        tags: dict[str, str],
     ) -> TraceInfo:
         """
         Start an initial TraceInfo object in the backend store.
@@ -267,8 +267,8 @@ class AbstractStore:
         request_id: str,
         timestamp_ms: int,
         status: TraceStatus,
-        request_metadata: Dict[str, str],
-        tags: Dict[str, str],
+        request_metadata: dict[str, str],
+        tags: dict[str, str],
     ) -> TraceInfo:
         """
         Update the TraceInfo object in the backend store with the completed trace info.
@@ -293,7 +293,7 @@ class AbstractStore:
         experiment_id: str,
         max_timestamp_millis: Optional[int] = None,
         max_traces: Optional[int] = None,
-        request_ids: Optional[List[str]] = None,
+        request_ids: Optional[list[str]] = None,
     ) -> int:
         """
         Delete traces based on the specified criteria.
@@ -337,7 +337,7 @@ class AbstractStore:
         experiment_id: str,
         max_timestamp_millis: Optional[int] = None,
         max_traces: Optional[int] = None,
-        request_ids: Optional[List[str]] = None,
+        request_ids: Optional[list[str]] = None,
     ) -> int:
         raise NotImplementedError
 
@@ -355,12 +355,12 @@ class AbstractStore:
 
     def search_traces(
         self,
-        experiment_ids: List[str],
+        experiment_ids: list[str],
         filter_string: Optional[str] = None,
         max_results: int = SEARCH_TRACES_DEFAULT_MAX_RESULTS,
-        order_by: Optional[List[str]] = None,
+        order_by: Optional[list[str]] = None,
         page_token: Optional[str] = None,
-    ) -> Tuple[List[TraceInfo], Optional[str]]:
+    ) -> tuple[list[TraceInfo], Optional[str]]:
         """
         Return traces that match the given list of search expressions within the experiments.
 
@@ -659,8 +659,8 @@ class AbstractStore:
     def log_inputs(
         self,
         run_id: str,
-        datasets: Optional[List[DatasetInput]] = None,
-        models: Optional[List[LoggedModelInput]] = None,
+        datasets: Optional[list[DatasetInput]] = None,
+        models: Optional[list[LoggedModelInput]] = None,
     ):
         """
         Log inputs, such as datasets, to the specified run.
@@ -676,7 +676,7 @@ class AbstractStore:
             None.
         """
 
-    def log_outputs(self, run_id: str, models: List[LoggedModelOutput]):
+    def log_outputs(self, run_id: str, models: list[LoggedModelOutput]):
         """
         Log outputs, such as models, to the specified run.
 
@@ -698,8 +698,8 @@ class AbstractStore:
         experiment_id: str,
         name: Optional[str] = None,
         source_run_id: Optional[str] = None,
-        tags: Optional[List[LoggedModelTag]] = None,
-        params: Optional[List[LoggedModelParameter]] = None,
+        tags: Optional[list[LoggedModelTag]] = None,
+        params: Optional[list[LoggedModelParameter]] = None,
         model_type: Optional[str] = None,
     ) -> LoggedModel:
         """
@@ -720,10 +720,10 @@ class AbstractStore:
 
     def search_logged_models(
         self,
-        experiment_ids: List[str],
+        experiment_ids: list[str],
         filter_string: Optional[str] = None,
         max_results: Optional[int] = None,
-        order_by: Optional[List[Dict[str, Any]]] = None,
+        order_by: Optional[list[dict[str, Any]]] = None,
         page_token: Optional[str] = None,
     ) -> PagedList[LoggedModel]:
         """
@@ -768,7 +768,7 @@ class AbstractStore:
         """
         raise NotImplementedError
 
-    def set_logged_model_tags(self, model_id: str, tags: List[LoggedModelTag]) -> None:
+    def set_logged_model_tags(self, model_id: str, tags: list[LoggedModelTag]) -> None:
         """
         Set tags on the specified logged model.
 
