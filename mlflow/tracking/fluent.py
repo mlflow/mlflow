@@ -526,6 +526,8 @@ def active_run() -> Optional[ActiveRun]:
     """
     Get the currently active ``Run``, or None if no such run exists.
 
+    **Note**: The API is thread-local.
+
     **Note**: You cannot access currently-active run attributes
     (parameters, metrics, etc.) through the run returned by ``mlflow.active_run``. In order
     to access such attributes, use the :py:class:`mlflow.client.MlflowClient` as follows:
@@ -614,6 +616,9 @@ def last_active_run() -> Optional[Run]:
 
 
 def _get_latest_active_run():
+    """
+    Check active run stack in all threads, find the latest active run and return it.
+    """
     latest_active_run = None
     for active_run_stack in _active_run_stack.get_global().values():
         for active_run in active_run_stack:

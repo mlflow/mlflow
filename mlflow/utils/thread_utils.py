@@ -1,5 +1,6 @@
 import os
 import threading
+from typing import Any, Dict
 
 
 class ThreadLocalVariable:
@@ -47,7 +48,7 @@ class ThreadLocalVariable:
         self.thread_local.value = (value, os.getpid())
         self.__global_thread_values[threading.currentThread().ident] = value
 
-    def get_global(self):
+    def get_global(self) -> Dict[str, Any]:
         """
         Return global values as a dict, dict key is the thread ID.
         """

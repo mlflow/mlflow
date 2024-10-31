@@ -783,6 +783,13 @@ def test_tracing_source_run_in_batch():
     for trace in traces:
         assert trace.info.request_metadata[TraceMetadataKey.SOURCE_RUN] == run.info.run_id
 
+    pyfunc_model = mlflow.pyfunc.load_model(run.info.run_id)
+    with mlflow.start_run() as run_2:
+        pyfunc_model.predict("input")
+
+    trace = mlflow.get_last_active_trace()
+    assert trace.info.request_metadata[TraceMetadataKey.SOURCE_RUN] == run_2.info.run_id
+
 
 @pytest.mark.parametrize("invoke_arg", ["args", "kwargs", None])
 @pytest.mark.parametrize(
