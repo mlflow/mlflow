@@ -126,23 +126,27 @@ def test_env_var_tracker(monkeypatch):
 
     with env_var_tracker():
         assert os.environ["DATABRICKS_HOST"] == "host"
-        assert "DATABRICKS_HOST" in os.environ.get_env_vars()
-        assert "TEST_API_KEY" not in os.environ.get_env_vars()
+        assert "DATABRICKS_HOST" in os.environ.get_tracked_env_names()
+        assert "TEST_API_KEY" not in os.environ.get_tracked_env_names()
+        # test set env var can be tracked
         monkeypatch.setenv("TEST_API_KEY", "key")
-        assert "TEST_API_KEY" in os.environ.get_env_vars()
+        assert "TEST_API_KEY" in os.environ.get_tracked_env_names()
+        # test non-existing env vars fetched by `get` are not tracked
         os.environ.get("INVALID_API_KEY", "abc")
-        assert "INVALID_API_KEY" not in os.environ.get_env_vars()
+        assert "INVALID_API_KEY" not in os.environ.get_tracked_env_names()
+        # test non-existing env vars are not tracked
         try:
             os.environ["ANOTHER_API_KEY"]
         except KeyError:
             pass
-        assert "ANOTHER_API_KEY" not in os.environ.get_env_vars()
+        assert "ANOTHER_API_KEY" not in os.environ.get_tracked_env_names()
 
-    assert not hasattr(os.environ, "get_env_vars")
+    assert isinstance(os.environ, os._Environ)
+    assert not hasattr(os.environ, "get_tracked_env_names")
     assert all(x in os.environ for x in ["DATABRICKS_HOST", "TEST_API_KEY"])
     assert all(x not in os.environ for x in ["INVALID_API_KEY", "ANOTHER_API_KEY"])
 
     monkeypatch.setenv(MLFLOW_RECORD_ENV_VARS_IN_MODEL_LOGGING.name, "false")
     with env_var_tracker() as env:
         monkeypatch.setenv("ANOTHER_TEST_API_KEY", "key")
-        assert not hasattr(env, "get_env_vars")
+        assert not hasattr(env, "get_tracked_env_names")

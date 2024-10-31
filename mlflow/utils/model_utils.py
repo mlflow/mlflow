@@ -450,35 +450,6 @@ RECORD_ENV_VARS = {
 }
 
 
-class EnvTracker(dict):
-    """
-    Track environment variables set and accessed during the context manager's lifetime.
-    Note that if the environment variable does not exist, it will not be tracked.
-    """
-
-    def __init__(self, *args, **kwargs):
-        self.env_vars = set()
-        super().__init__(*args, **kwargs)
-
-    def __setitem__(self, key, value):
-        super().__setitem__(key, value)
-        if any(env_var in key for env_var in RECORD_ENV_VARS):
-            self.env_vars.add(key)
-
-    def __getitem__(self, key):
-        if key in self and any(env_var in key for env_var in RECORD_ENV_VARS):
-            self.env_vars.add(key)
-        return super().__getitem__(key)
-
-    def get(self, key, *args, **kwargs):
-        if key in self and any(env_var in key for env_var in RECORD_ENV_VARS):
-            self.env_vars.add(key)
-        return super().get(key, *args, **kwargs)
-
-    def get_env_vars(self):
-        return self.env_vars
-
-
 @contextlib.contextmanager
 def env_var_tracker():
     """
@@ -488,10 +459,40 @@ def env_var_tracker():
     from mlflow.environment_variables import MLFLOW_RECORD_ENV_VARS_IN_MODEL_LOGGING
 
     if MLFLOW_RECORD_ENV_VARS_IN_MODEL_LOGGING.get():
+        original_setitem = os._Environ.__setitem__
+        original_getitem = os._Environ.__getitem__
+        original_get = os._Environ.get
+        tracked_env_names = set()
+
+        def updated_set_item(self, key, value):
+            original_setitem(self, key, value)
+            if any(env_var in key for env_var in RECORD_ENV_VARS):
+                tracked_env_names.add(key)
+
+        def updated_get_item(self, key):
+            result = original_getitem(self, key)
+            if any(env_var in key for env_var in RECORD_ENV_VARS):
+                tracked_env_names.add(key)
+            return result
+
+        def updated_get(self, key, *args, **kwargs):
+            if key in self and any(env_var in key for env_var in RECORD_ENV_VARS):
+                tracked_env_names.add(key)
+            return original_get(self, key, *args, **kwargs)
+
+        def get_tracked_env_names(self):
+            return tracked_env_names
+
         try:
-            os.environ = EnvTracker(os.environ)
+            os._Environ.__getitem__ = updated_get_item
+            os._Environ.__setitem__ = updated_set_item
+            os._Environ.get = updated_get
+            os._Environ.get_tracked_env_names = get_tracked_env_names
             yield os.environ
         finally:
-            os.environ = {**os.environ}
+            os._Environ.__getitem__ = original_getitem
+            os._Environ.__setitem__ = original_setitem
+            os._Environ.get = original_get
+            del os._Environ.get_tracked_env_names
     else:
         yield os.environ

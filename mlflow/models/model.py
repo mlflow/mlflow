@@ -860,20 +860,25 @@ class Model:
                             f"Got error: {e}",
                             exc_info=_logger.isEnabledFor(logging.DEBUG),
                         )
-                    if hasattr(env, "get_env_vars"):
-                        model_info.env_vars = list(env.get_env_vars()) or None
+                    if hasattr(env, "get_tracked_env_names"):
+                        model_info.env_vars = list(env.get_tracked_env_names()) or None
             if model_info.env_vars:
                 env_var_path = Path(local_path, ENV_VAR_FILE_NAME)
                 env_var_path.write_text("\n".join(model_info.env_vars) + "\n")
                 mlflow.tracking.fluent.log_artifact(
                     env_var_path, mlflow_model.artifact_path, run_id
                 )
+                if len(model_info.env_vars) <= 3:
+                    env_var_info = ", ".join(model_info.env_vars)
+                else:
+                    env_var_info = ", ".join(model_info.env_vars[:3]) + ", ... "
+                    f"(check file {ENV_VAR_FILE_NAME} in the model's artifact folder for full list"
+                    " of environment variable names)"
                 _logger.info(
-                    "Logged environment variables used during model logging to file "
-                    f"{ENV_VAR_FILE_NAME} in the model's artifact folder, please check "
-                    "if you need to set these environment variables when deploying the model. "
-                    "To disable logging them, set environment variable "
-                    f"`{MLFLOW_RECORD_ENV_VARS_IN_MODEL_LOGGING.name}` to `false`."
+                    "Found the following environment variables used during model logging: "
+                    f"{env_var_info}. Please check if you need to set them when deploying the "
+                    "model. To disable logging environment variable names, set environment variable"
+                    f" `{MLFLOW_RECORD_ENV_VARS_IN_MODEL_LOGGING.name}` to `false`."
                 )
 
         return model_info
