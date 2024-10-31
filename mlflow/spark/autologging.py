@@ -10,7 +10,7 @@ from mlflow import MlflowClient
 from mlflow.exceptions import MlflowException
 from mlflow.spark import FLAVOR_NAME
 from mlflow.tracking.context.abstract_context import RunContextProvider
-from mlflow.tracking.fluent import _active_run_stack
+from mlflow.tracking.fluent import _get_latest_active_run
 from mlflow.utils import _truncate_and_ellipsize
 from mlflow.utils.autologging_utils import (
     ExceptionSafeClass,
@@ -235,14 +235,7 @@ class PythonSubscriber(metaclass=ExceptionSafeClass):
         # thread information, therefore the tag is set to the latest active run, ignoring threading
         # information. This way, consistent behavior is kept with existing functionality for
         # Spark in MLflow.
-        latest_active_run = None
-        for active_run_stack in _active_run_stack._value_dict.values():
-            for active_run in active_run_stack:
-                if (
-                    latest_active_run is None
-                    or active_run.start_time > latest_active_run.start_time
-                ):
-                    latest_active_run = active_run
+        latest_active_run = _get_latest_active_run()
 
         if latest_active_run:
             _set_run_tag_async(latest_active_run.info.run_id, path, version, data_format)
