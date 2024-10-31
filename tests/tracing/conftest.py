@@ -1,7 +1,6 @@
 import subprocess
 import tempfile
 import time
-from typing import Dict
 from unittest import mock
 
 import pytest
@@ -53,7 +52,7 @@ def mock_store(monkeypatch):
     with mock.patch("mlflow.tracking._tracking_service.utils._get_store") as mock_get_store:
         mock_get_store.return_value = store
 
-        _traces: Dict[str, TraceInfo] = {}
+        _traces: dict[str, TraceInfo] = {}
 
         def _mock_start_trace(experiment_id, timestamp_ms, request_metadata, tags):
             trace_info = create_test_trace_info(

@@ -15,7 +15,7 @@ from collections import namedtuple
 from itertools import chain, filterfalse
 from pathlib import Path
 from threading import Timer
-from typing import List, NamedTuple, Optional
+from typing import NamedTuple, Optional
 
 import importlib_metadata
 from packaging.requirements import Requirement
@@ -689,7 +689,7 @@ def _check_requirement_satisfied(requirement_str):
     return None
 
 
-def warn_dependency_requirement_mismatches(model_requirements: List[str]):
+def warn_dependency_requirement_mismatches(model_requirements: list[str]):
     """
     Inspects the model's dependencies and prints a warning if the current Python environment
     doesn't satisfy them.

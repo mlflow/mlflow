@@ -1,5 +1,4 @@
 import time
-from typing import List
 
 from fastapi import HTTPException
 from fastapi.encoders import jsonable_encoder
@@ -13,7 +12,7 @@ from mlflow.gateway.schemas import chat, completions, embeddings
 
 
 class ServingTextResponse(BaseModel):
-    predictions: List[StrictStr]
+    predictions: list[StrictStr]
 
     @validator("predictions", pre=True)
     def extract_choices(cls, predictions):
@@ -35,7 +34,7 @@ class ServingTextResponse(BaseModel):
 
 
 class EmbeddingsResponse(BaseModel):
-    predictions: List[List[StrictFloat]]
+    predictions: list[list[StrictFloat]]
 
     @validator("predictions", pre=True)
     def validate_predictions(cls, predictions):
