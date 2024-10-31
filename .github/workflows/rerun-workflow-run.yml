@@ -21,6 +21,9 @@ jobs:
       actions: write # to rerun github action workflows
     steps:
       - uses: actions/checkout@v4 # checks out the default branch (master), not the PR branch
+        with:
+          sparse-checkout: |
+            .github
       - name: Download PR number
         uses: actions/github-script@v7
         with:
