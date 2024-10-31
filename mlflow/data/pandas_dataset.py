@@ -1,7 +1,7 @@
 import json
 import logging
 from functools import cached_property
-from typing import Any, Dict, Optional, Union
+from typing import Any, Optional, Union
 
 import pandas as pd
 
@@ -69,7 +69,7 @@ class PandasDataset(Dataset, PyFuncConvertibleDatasetMixin):
         """
         return compute_pandas_digest(self._df)
 
-    def to_dict(self) -> Dict[str, str]:
+    def to_dict(self) -> dict[str, str]:
         """Create config dictionary for the dataset.
 
         Returns a string dictionary containing the following fields: name, digest, source, source

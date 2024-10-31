@@ -7,7 +7,7 @@ import posixpath
 import re
 import textwrap
 import warnings
-from typing import Any, AsyncGenerator, List, Optional
+from typing import Any, AsyncGenerator, Optional
 from urllib.parse import urlparse
 
 from starlette.responses import StreamingResponse
@@ -188,7 +188,7 @@ def get_gateway_uri() -> str:
         )
 
 
-def assemble_uri_path(paths: List[str]) -> str:
+def assemble_uri_path(paths: list[str]) -> str:
     """Assemble a correct URI path from a list of path parts.
 
     Args:

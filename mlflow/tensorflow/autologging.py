@@ -1,4 +1,4 @@
-from typing import Dict, Union
+from typing import Union
 
 import numpy as np
 import tensorflow
@@ -51,8 +51,8 @@ def _extract_input_example_from_tensor_or_ndarray(
 
 
 def _extract_sample_numpy_dict(
-    input_numpy_features_dict: Dict[str, np.ndarray],
-) -> Union[Dict[str, np.ndarray], np.ndarray]:
+    input_numpy_features_dict: dict[str, np.ndarray],
+) -> Union[dict[str, np.ndarray], np.ndarray]:
     """
     Extracts `INPUT_EXAMPLE_SAMPLE_ROWS` sample from next_input
     as numpy array of dict(str -> ndarray) type.
@@ -83,7 +83,7 @@ def _extract_sample_numpy_dict(
 
 def _extract_input_example_from_batched_tf_dataset(
     dataset: tensorflow.data.Dataset,
-) -> Union[np.ndarray, Dict[str, np.ndarray]]:
+) -> Union[np.ndarray, dict[str, np.ndarray]]:
     """
     Extracts sample feature tensors from the input dataset as numpy array.
     Input Dataset's tensors must contain tuple of (features, labels) that are

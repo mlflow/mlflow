@@ -1,7 +1,7 @@
 import json
 import logging
 import time
-from typing import Dict, List, Literal, Optional, Set
+from typing import Literal, Optional
 
 import pydantic
 from langchain.agents import AgentExecutor
@@ -47,7 +47,7 @@ class _ChatDeltaMessage(pydantic.BaseModel):
 
 
 class _ChatRequest(pydantic.BaseModel, extra="forbid"):
-    messages: List[_ChatMessage]
+    messages: list[_ChatMessage]
 
 
 class _ChatChoice(pydantic.BaseModel, extra="forbid"):
@@ -95,7 +95,7 @@ class _ChatResponse(pydantic.BaseModel, extra="forbid"):
     # Make the model field optional since we may not be able to get a stable model identifier
     # for an arbitrary LangChain model
     model: Optional[str] = None
-    choices: List[_ChatChoice]
+    choices: list[_ChatChoice]
     usage: _ChatUsage
 
     @staticmethod
@@ -119,7 +119,7 @@ class _ChatChunkResponse(pydantic.BaseModel):
     # Make the model field optional since we may not be able to get a stable model identifier
     # for an arbitrary LangChain model
     model: Optional[str] = None
-    choices: List[_ChatChoiceDelta]
+    choices: list[_ChatChoiceDelta]
 
 
 def try_transform_response_to_chat_format(response):
@@ -214,7 +214,7 @@ def try_transform_response_iter_to_chat_format(chunk_iter):
     return map(_convert, chunk_iter)
 
 
-def _convert_chat_request_or_throw(chat_request: Dict):
+def _convert_chat_request_or_throw(chat_request: dict):
     if IS_PYDANTIC_V1:
         model = _ChatRequest.parse_obj(chat_request)
     else:
@@ -223,7 +223,7 @@ def _convert_chat_request_or_throw(chat_request: Dict):
     return [message.to_langchain_message() for message in model.messages]
 
 
-def _get_lc_model_input_fields(lc_model) -> Set[str]:
+def _get_lc_model_input_fields(lc_model) -> set[str]:
     try:
         if hasattr(lc_model, "input_schema"):
             return set(lc_model.input_schema.__fields__)
@@ -269,7 +269,7 @@ def transform_request_json_for_chat_if_necessary(request_json, lc_model):
     if not should_transform_requst_json_for_chat(lc_model):
         return request_json, False
 
-    def json_dict_might_be_chat_request(json_message: Dict):
+    def json_dict_might_be_chat_request(json_message: dict):
         return (
             isinstance(json_message, dict)
             and "messages" in json_message

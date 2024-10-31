@@ -2,7 +2,7 @@ import json
 import logging
 from dataclasses import asdict
 from functools import lru_cache
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Optional, Union
 
 from opentelemetry.sdk.trace import Event as OTelEvent
 from opentelemetry.sdk.trace import ReadableSpan as OTelReadableSpan
@@ -158,7 +158,7 @@ class Span:
         return encode_trace_id(self._span.context.trace_id)
 
     @property
-    def attributes(self) -> Dict[str, Any]:
+    def attributes(self) -> dict[str, Any]:
         """
         Get all attributes of the span.
 
@@ -168,7 +168,7 @@ class Span:
         return self._attributes.get_all()
 
     @property
-    def events(self) -> List[SpanEvent]:
+    def events(self) -> list[SpanEvent]:
         """
         Get all events of the span.
 
@@ -224,7 +224,7 @@ class Span:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "Span":
+    def from_dict(cls, data: dict[str, Any]) -> "Span":
         """
         Create a Span object from the given dictionary.
         """
@@ -308,7 +308,7 @@ class LiveSpan(Span):
         """Set the output values to the span."""
         self.set_attribute(SpanAttributeKey.OUTPUTS, outputs)
 
-    def set_attributes(self, attributes: Dict[str, Any]):
+    def set_attributes(self, attributes: dict[str, Any]):
         """
         Set the attributes to the span. The attributes must be a dictionary of key-value pairs.
         This method is additive, i.e. it will add new attributes to the existing ones. If an
@@ -380,7 +380,7 @@ class LiveSpan(Span):
 
         self._span.end(end_time=end_time)
 
-    def from_dict(cls, data: Dict[str, Any]) -> "Span":
+    def from_dict(cls, data: dict[str, Any]) -> "Span":
         raise NotImplementedError("The `from_dict` method is not supported for the LiveSpan class.")
 
     def to_immutable_span(self) -> "Span":
@@ -529,13 +529,13 @@ class NoOpSpan(Span):
     def _trace_id(self):
         return None
 
-    def set_inputs(self, inputs: Dict[str, Any]):
+    def set_inputs(self, inputs: dict[str, Any]):
         pass
 
-    def set_outputs(self, outputs: Dict[str, Any]):
+    def set_outputs(self, outputs: dict[str, Any]):
         pass
 
-    def set_attributes(self, attributes: Dict[str, Any]):
+    def set_attributes(self, attributes: dict[str, Any]):
         pass
 
     def set_attribute(self, key: str, value: Any):
@@ -565,7 +565,7 @@ class _SpanAttributesRegistry:
     def __init__(self, otel_span: OTelSpan):
         self._span = otel_span
 
-    def get_all(self) -> Dict[str, Any]:
+    def get_all(self) -> dict[str, Any]:
         return {key: self.get(key) for key in self._span.attributes.keys()}
 
     def get(self, key: str):

@@ -8,7 +8,7 @@ from abc import ABC, ABCMeta, abstractmethod
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 from mlflow.entities.file_info import FileInfo
 from mlflow.entities.multipart_upload import CreateMultipartUploadResponse, MultipartUploadPart
@@ -336,7 +336,7 @@ class ArtifactRepository:
         num_cpus = os.cpu_count() or _NUM_DEFAULT_CPUS
         return min(num_cpus * _NUM_MAX_THREADS_PER_CPU, _NUM_MAX_THREADS)
 
-    def download_trace_data(self) -> Dict[str, Any]:
+    def download_trace_data(self) -> dict[str, Any]:
         """
         Download the trace data.
 
@@ -410,7 +410,7 @@ class MultipartUploadMixin(ABC):
         self,
         local_file: str,
         upload_id: str,
-        parts: List[MultipartUploadPart],
+        parts: list[MultipartUploadPart],
         artifact_path: Optional[str] = None,
     ) -> None:
         """

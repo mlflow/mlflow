@@ -54,7 +54,7 @@ Index  predict_method    coverage     fh
 import logging
 import os
 import pickle
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 import flavor
 import numpy as np
@@ -473,7 +473,7 @@ class _SktimeModelWrapper:
     def __init__(self, sktime_model):
         self.sktime_model = sktime_model
 
-    def predict(self, dataframe, params: Optional[Dict[str, Any]] = None) -> pd.DataFrame:
+    def predict(self, dataframe, params: Optional[dict[str, Any]] = None) -> pd.DataFrame:
         df_schema = dataframe.columns.values.tolist()
 
         if len(dataframe) > 1:

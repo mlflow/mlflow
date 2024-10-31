@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 from mlflow.entities import Span
 
@@ -16,7 +16,7 @@ class TraceData:
             Stored as a JSON string.
     """
 
-    spans: List[Span] = field(default_factory=list)
+    spans: list[Span] = field(default_factory=list)
     request: Optional[str] = None
     response: Optional[str] = None
 
@@ -30,7 +30,7 @@ class TraceData:
             spans=[Span.from_dict(span) for span in d.get("spans", [])],
         )
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "spans": [span.to_dict() for span in self.spans],
             "request": self.request,

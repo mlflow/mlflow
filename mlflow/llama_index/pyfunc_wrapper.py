@@ -1,6 +1,6 @@
 import asyncio
 import threading
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
+from typing import TYPE_CHECKING, Any, Optional, Union
 
 if TYPE_CHECKING:
     from llama_index.core import QueryBundle
@@ -59,7 +59,7 @@ class _LlamaIndexModelWrapperBase:
     def __init__(
         self,
         llama_model,  # Engine or Workflow
-        model_config: Optional[Dict[str, Any]] = None,
+        model_config: Optional[dict[str, Any]] = None,
     ):
         self._llama_model = llama_model
         self.model_config = model_config or {}
@@ -77,18 +77,18 @@ class _LlamaIndexModelWrapperBase:
     def _format_predict_input(self, data):
         raise NotImplementedError
 
-    def _do_inference(self, input, params: Optional[Dict[str, Any]]) -> Dict:
+    def _do_inference(self, input, params: Optional[dict[str, Any]]) -> dict:
         """
         Perform engine inference on a single engine input e.g. not an iterable of
         engine inputs. The engine inputs must already be preprocessed/cleaned.
         """
 
-        if isinstance(input, Dict):
+        if isinstance(input, dict):
             return self._predict_single(**input, **(params or {}))
         else:
             return self._predict_single(input, **(params or {}))
 
-    def predict(self, data, params: Optional[Dict[str, Any]] = None) -> Union[List[str], str]:
+    def predict(self, data, params: Optional[dict[str, Any]] = None) -> Union[list[str], str]:
         data = self._format_predict_input(data)
 
         if isinstance(data, list):
@@ -106,7 +106,7 @@ class ChatEngineWrapper(_LlamaIndexModelWrapperBase):
         return self._llama_model.chat(*args, **kwargs).response
 
     @staticmethod
-    def _convert_chat_message_history_to_chat_message_objects(data: Dict) -> Dict:
+    def _convert_chat_message_history_to_chat_message_objects(data: dict) -> dict:
         from llama_index.core.llms import ChatMessage
 
         if chat_message_history := data.get(_CHAT_MESSAGE_HISTORY_PARAMETER_NAME):
@@ -123,7 +123,7 @@ class ChatEngineWrapper(_LlamaIndexModelWrapperBase):
 
         return data
 
-    def _format_predict_input(self, data) -> Union[str, Dict, List]:
+    def _format_predict_input(self, data) -> Union[str, dict, list]:
         data = _convert_llm_input_data_with_unwrapping(data)
 
         if isinstance(data, str):
@@ -158,7 +158,7 @@ class RetrieverEngineWrapper(_LlamaIndexModelWrapperBase):
     def engine_type(self):
         return RETRIEVER_ENGINE_NAME
 
-    def _predict_single(self, *args, **kwargs) -> List[Dict]:
+    def _predict_single(self, *args, **kwargs) -> list[dict]:
         response = self._llama_model.retrieve(*args, **kwargs)
         return [node.dict() for node in response]
 
@@ -175,7 +175,7 @@ class WorkflowWrapper(_LlamaIndexModelWrapperBase):
     def engine_type(self):
         raise NotImplementedError("LlamaIndex Workflow is not an engine")
 
-    def predict(self, data, params: Optional[Dict[str, Any]] = None) -> Union[List[str], str]:
+    def predict(self, data, params: Optional[dict[str, Any]] = None) -> Union[list[str], str]:
         inputs = self._format_predict_input(data, params)
 
         # LlamaIndex Workflow runs async but MLflow pyfunc doesn't support async inference yet.
@@ -187,18 +187,18 @@ class WorkflowWrapper(_LlamaIndexModelWrapperBase):
         should_unwrap = len(data) == 1 and isinstance(predictions, list)
         return predictions[0] if should_unwrap else predictions
 
-    def _format_predict_input(self, data, params: Optional[Dict[str, Any]] = None) -> List[Dict]:
+    def _format_predict_input(self, data, params: Optional[dict[str, Any]] = None) -> list[dict]:
         inputs = _convert_llm_input_data_with_unwrapping(data)
         params = params or {}
         if isinstance(inputs, dict):
             return [{**inputs, **params}]
         return [{**x, **params} for x in inputs]
 
-    async def _run_predictions(self, inputs: List[Dict[str, Any]]) -> asyncio.Future:
+    async def _run_predictions(self, inputs: list[dict[str, Any]]) -> asyncio.Future:
         tasks = [self._predict_single(x) for x in inputs]
         return await asyncio.gather(*tasks)
 
-    async def _predict_single(self, x: Dict[str, Any]) -> Any:
+    async def _predict_single(self, x: dict[str, Any]) -> Any:
         if not isinstance(x, dict):
             raise ValueError(f"Unsupported input type: {type(x)}. It must be a dictionary.")
         return await self._llama_model.run(**x)
@@ -256,7 +256,7 @@ class WorkflowWrapper(_LlamaIndexModelWrapperBase):
 def create_pyfunc_wrapper(
     model: Any,
     engine_type: Optional[str] = None,
-    model_config: Optional[Dict[str, Any]] = None,
+    model_config: Optional[dict[str, Any]] = None,
 ):
     """
     A factory function that creates a Pyfunc wrapper around a LlamaIndex index/engine/workflow.
@@ -286,7 +286,7 @@ def create_pyfunc_wrapper(
 
 
 def _create_wrapper_from_index(
-    index, engine_type: str, model_config: Optional[Dict[str, Any]] = None
+    index, engine_type: str, model_config: Optional[dict[str, Any]] = None
 ):
     model_config = model_config or {}
     if engine_type == QUERY_ENGINE_NAME:
@@ -304,7 +304,7 @@ def _create_wrapper_from_index(
         )
 
 
-def _create_wrapper_from_engine(engine: Any, model_config: Optional[Dict[str, Any]] = None):
+def _create_wrapper_from_engine(engine: Any, model_config: Optional[dict[str, Any]] = None):
     from llama_index.core.base.base_query_engine import BaseQueryEngine
     from llama_index.core.chat_engine.types import BaseChatEngine
     from llama_index.core.retrievers import BaseRetriever
@@ -321,5 +321,5 @@ def _create_wrapper_from_engine(engine: Any, model_config: Optional[Dict[str, An
         )
 
 
-def _create_wrapper_from_workflow(workflow: Any, model_config: Optional[Dict[str, Any]] = None):
+def _create_wrapper_from_workflow(workflow: Any, model_config: Optional[dict[str, Any]] = None):
     return WorkflowWrapper(workflow, model_config)

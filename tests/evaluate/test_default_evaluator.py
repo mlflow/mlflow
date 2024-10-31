@@ -7,7 +7,6 @@ import re
 from os.path import join as path_join
 from pathlib import Path
 from tempfile import TemporaryDirectory
-from typing import Dict, List
 from unittest import mock
 
 import matplotlib.pyplot as plt
@@ -2611,7 +2610,7 @@ def test_extracting_output_and_other_columns():
     assert prediction_col7 == "text"
 
 
-def language_model_with_context(inputs: List[str]) -> List[Dict[str, str]]:
+def language_model_with_context(inputs: list[str]) -> list[dict[str, str]]:
     return [
         {
             "context": f"context_{input}",

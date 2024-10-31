@@ -19,7 +19,7 @@ import pickle
 import weakref
 from collections import OrderedDict, defaultdict
 from copy import deepcopy
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 import numpy as np
 import yaml
@@ -528,7 +528,7 @@ class _SklearnModelWrapper:
     def predict(
         self,
         data,
-        params: Optional[Dict[str, Any]] = None,
+        params: Optional[dict[str, Any]] = None,
     ):
         """
         Args:

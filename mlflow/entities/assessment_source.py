@@ -1,4 +1,4 @@
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 from mlflow.entities._mlflow_object import _MlflowObject
 from mlflow.exceptions import MlflowException
@@ -10,7 +10,7 @@ class AssessmentSource(_MlflowObject):
     Source of an assessment (human, LLM as a judge with GPT-4, etc).
     """
 
-    def __init__(self, source_type: str, source_id: str, metadata: Optional[Dict[str, Any]] = None):
+    def __init__(self, source_type: str, source_id: str, metadata: Optional[dict[str, Any]] = None):
         """Construct a new mlflow.entities.AssessmentSource instance.
 
         Args:
@@ -34,7 +34,7 @@ class AssessmentSource(_MlflowObject):
         return self._source_id
 
     @property
-    def metadata(self) -> Dict[str, Any]:
+    def metadata(self) -> dict[str, Any]:
         """The additional metadata about the source."""
         return self._metadata
 
@@ -44,7 +44,7 @@ class AssessmentSource(_MlflowObject):
 
         return False
 
-    def to_dictionary(self) -> Dict[str, Any]:
+    def to_dictionary(self) -> dict[str, Any]:
         return {
             "source_type": self.source_type,
             "source_id": self.source_id,
@@ -52,7 +52,7 @@ class AssessmentSource(_MlflowObject):
         }
 
     @classmethod
-    def from_dictionary(cls, source_dict: Dict[str, Any]) -> "AssessmentSource":
+    def from_dictionary(cls, source_dict: dict[str, Any]) -> "AssessmentSource":
         """
         Create a AssessmentSource object from a dictionary.
 

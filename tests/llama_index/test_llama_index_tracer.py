@@ -2,7 +2,6 @@ import asyncio
 import inspect
 import random
 from dataclasses import asdict
-from typing import List
 from unittest.mock import ANY
 
 import importlib_metadata
@@ -41,7 +40,7 @@ def set_handlers():
     remove_llama_index_tracer()
 
 
-def _get_all_traces() -> List[Trace]:
+def _get_all_traces() -> list[Trace]:
     """Utility function to get all traces in the test experiment."""
     return mlflow.MlflowClient().search_traces(experiment_ids=[DEFAULT_EXPERIMENT_ID])
 

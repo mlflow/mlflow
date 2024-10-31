@@ -1,5 +1,5 @@
 import re
-from typing import List, Optional
+from typing import Optional
 
 
 def try_parse_name_and_content(role_prompt):
@@ -40,7 +40,7 @@ def to_content_str_or_list(chat_str: str, hash2images):
     return result if include_image else chat_str
 
 
-def validate_role(role: str, valid_roles: Optional[List[str]] = None):
+def validate_role(role: str, valid_roles: Optional[list[str]] = None):
     if not valid_roles:
         valid_roles = ["assistant", "function", "user", "system"]
 
@@ -56,7 +56,7 @@ def validate_role(role: str, valid_roles: Optional[List[str]] = None):
         raise ValueError(error_message)
 
 
-def parse_chat(chat_str, images: Optional[List] = None, valid_roles: Optional[List[str]] = None):
+def parse_chat(chat_str, images: Optional[list] = None, valid_roles: Optional[list[str]] = None):
     if not valid_roles:
         valid_roles = ["system", "user", "assistant", "function"]
 

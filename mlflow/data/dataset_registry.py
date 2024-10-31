@@ -1,7 +1,7 @@
 import inspect
 import warnings
 from contextlib import suppress
-from typing import Dict, Optional
+from typing import Optional
 
 import mlflow.data
 from mlflow.data.dataset import Dataset
@@ -119,7 +119,7 @@ def register_constructor(constructor_fn: callable, constructor_name: Optional[st
     return registered_constructor_name
 
 
-def get_registered_constructors() -> Dict[str, callable]:
+def get_registered_constructors() -> dict[str, callable]:
     """Obtains the registered dataset constructors.
 
     Returns:

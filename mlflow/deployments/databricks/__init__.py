@@ -1,6 +1,6 @@
 import json
 import posixpath
-from typing import Any, Dict, Iterator, Optional
+from typing import Any, Iterator, Optional
 
 from mlflow.deployments import BaseDeploymentClient
 from mlflow.deployments.constants import (
@@ -125,7 +125,7 @@ class DatabricksDeploymentClient(BaseDeploymentClient):
         method: str,
         prefix: str = "/api/2.0",
         route: Optional[str] = None,
-        json_body: Optional[Dict[str, Any]] = None,
+        json_body: Optional[dict[str, Any]] = None,
         timeout: Optional[int] = None,
     ):
         call_kwargs = {}
@@ -153,7 +153,7 @@ class DatabricksDeploymentClient(BaseDeploymentClient):
         method: str,
         prefix: str = "/api/2.0",
         route: Optional[str] = None,
-        json_body: Optional[Dict[str, Any]] = None,
+        json_body: Optional[dict[str, Any]] = None,
         timeout: Optional[int] = None,
     ) -> Iterator[str]:
         call_kwargs = {}
@@ -246,7 +246,7 @@ class DatabricksDeploymentClient(BaseDeploymentClient):
     @experimental
     def predict_stream(
         self, deployment_name=None, inputs=None, endpoint=None
-    ) -> Iterator[Dict[str, Any]]:
+    ) -> Iterator[dict[str, Any]]:
         """
         Submit a query to a configured provider endpoint, and get streaming response
 

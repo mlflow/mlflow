@@ -1,6 +1,5 @@
 import textwrap
 import warnings
-from typing import Dict
 
 from mlflow.ml_package_versions import _ML_PACKAGE_VERSIONS
 from mlflow.utils.autologging_utils.versioning import (
@@ -12,7 +11,7 @@ def _create_placeholder(key: str):
     return "{{ " + key + " }}"
 
 
-def _replace_keys_with_placeholders(d: Dict) -> Dict:
+def _replace_keys_with_placeholders(d: dict) -> dict:
     return {_create_placeholder(k): v for k, v in d.items()}
 
 
@@ -34,7 +33,7 @@ def _indent(text: str, indent: str) -> str:
         return first_line + "\n" + indented_subsequent_lines
 
 
-def _replace_all(text: str, replacements: Dict[str, str]) -> str:
+def _replace_all(text: str, replacements: dict[str, str]) -> str:
     """
     Replace all instances of replacements.keys() with their corresponding
     values in text. The replacements will be inserted on the same line

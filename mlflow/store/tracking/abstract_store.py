@@ -1,5 +1,5 @@
 from abc import ABCMeta, abstractmethod
-from typing import Dict, List, Optional, Tuple
+from typing import Optional
 
 from mlflow.entities import (
     DatasetInput,
@@ -237,8 +237,8 @@ class AbstractStore:
         self,
         experiment_id: str,
         timestamp_ms: int,
-        request_metadata: Dict[str, str],
-        tags: Dict[str, str],
+        request_metadata: dict[str, str],
+        tags: dict[str, str],
     ) -> TraceInfo:
         """
         Start an initial TraceInfo object in the backend store.
@@ -261,8 +261,8 @@ class AbstractStore:
         request_id: str,
         timestamp_ms: int,
         status: TraceStatus,
-        request_metadata: Dict[str, str],
-        tags: Dict[str, str],
+        request_metadata: dict[str, str],
+        tags: dict[str, str],
     ) -> TraceInfo:
         """
         Update the TraceInfo object in the backend store with the completed trace info.
@@ -287,7 +287,7 @@ class AbstractStore:
         experiment_id: str,
         max_timestamp_millis: Optional[int] = None,
         max_traces: Optional[int] = None,
-        request_ids: Optional[List[str]] = None,
+        request_ids: Optional[list[str]] = None,
     ) -> int:
         """
         Delete traces based on the specified criteria.
@@ -331,7 +331,7 @@ class AbstractStore:
         experiment_id: str,
         max_timestamp_millis: Optional[int] = None,
         max_traces: Optional[int] = None,
-        request_ids: Optional[List[str]] = None,
+        request_ids: Optional[list[str]] = None,
     ) -> int:
         raise NotImplementedError
 
@@ -349,12 +349,12 @@ class AbstractStore:
 
     def search_traces(
         self,
-        experiment_ids: List[str],
+        experiment_ids: list[str],
         filter_string: Optional[str] = None,
         max_results: int = SEARCH_TRACES_DEFAULT_MAX_RESULTS,
-        order_by: Optional[List[str]] = None,
+        order_by: Optional[list[str]] = None,
         page_token: Optional[str] = None,
-    ) -> Tuple[List[TraceInfo], Optional[str]]:
+    ) -> tuple[list[TraceInfo], Optional[str]]:
         """
         Return traces that match the given list of search expressions within the experiments.
 
@@ -668,7 +668,7 @@ class AbstractStore:
         """
 
     @abstractmethod
-    def log_inputs(self, run_id: str, datasets: Optional[List[DatasetInput]] = None):
+    def log_inputs(self, run_id: str, datasets: Optional[list[DatasetInput]] = None):
         """
         Log inputs, such as datasets, to the specified run.
 

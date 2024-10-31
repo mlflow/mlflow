@@ -2,7 +2,7 @@ import logging
 import math
 from collections import namedtuple
 from contextlib import contextmanager
-from typing import List, Optional
+from typing import Optional
 
 import numpy as np
 import pandas as pd
@@ -41,7 +41,7 @@ class ClassifierEvaluator(BuiltInEvaluator):
     def _evaluate(
         self,
         model: Optional["mlflow.pyfunc.PyFuncModel"],
-        extra_metrics: List[EvaluationMetric],
+        extra_metrics: list[EvaluationMetric],
         custom_artifacts=None,
         **kwargs,
     ) -> Optional[EvaluationResult]:

@@ -1,6 +1,6 @@
 import functools
 import logging
-from typing import List, Optional
+from typing import Optional
 
 import numpy as np
 from packaging.version import Version
@@ -51,7 +51,7 @@ class ShapEvaluator(BuiltInEvaluator):
     def _evaluate(
         self,
         model: Optional["mlflow.pyfunc.PyFuncModel"],
-        extra_metrics: List[EvaluationMetric],
+        extra_metrics: list[EvaluationMetric],
         custom_artifacts=None,
         **kwargs,
     ) -> Optional[EvaluationResult]:

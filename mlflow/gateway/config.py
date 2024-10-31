@@ -4,7 +4,7 @@ import os
 import pathlib
 from enum import Enum
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Optional, Union
 
 import pydantic
 import yaml
@@ -127,7 +127,7 @@ class OpenAIConfig(ConfigModel):
         return _resolve_api_key_from_input(value)
 
     @classmethod
-    def _validate_field_compatibility(cls, info: Dict[str, Any]):
+    def _validate_field_compatibility(cls, info: dict[str, Any]):
         if not isinstance(info, dict):
             return info
         api_type = (info.get("openai_api_type") or OpenAIAPIType.OPENAI).lower()
@@ -164,14 +164,14 @@ class OpenAIConfig(ConfigModel):
         from pydantic import model_validator as _model_validator
 
         @_model_validator(mode="before")
-        def validate_field_compatibility(cls, info: Dict[str, Any]):
+        def validate_field_compatibility(cls, info: dict[str, Any]):
             return cls._validate_field_compatibility(info)
 
     else:
         from pydantic import root_validator as _root_validator
 
         @_root_validator(pre=False)
-        def validate_field_compatibility(cls, config: Dict[str, Any]):
+        def validate_field_compatibility(cls, config: dict[str, Any]):
             return cls._validate_field_compatibility(config)
 
 
@@ -339,7 +339,7 @@ class Limit(LimitModel):
 
 
 class LimitsConfig(ConfigModel):
-    limits: Optional[List[Limit]] = []
+    limits: Optional[list[Limit]] = []
 
 
 class RouteConfig(AliasedConfigModel):
@@ -473,7 +473,7 @@ class Route(ConfigModel):
 
 
 class GatewayConfig(AliasedConfigModel):
-    routes: List[RouteConfig] = Field(alias="endpoints")
+    routes: list[RouteConfig] = Field(alias="endpoints")
 
 
 def _load_route_config(path: Union[str, Path]) -> GatewayConfig:

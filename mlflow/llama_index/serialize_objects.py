@@ -2,7 +2,7 @@ import importlib
 import inspect
 import json
 import logging
-from typing import Any, Callable, Dict
+from typing import Any, Callable
 
 from llama_index.core import PromptTemplate
 from llama_index.core.base.embeddings.base import BaseEmbedding
@@ -27,7 +27,7 @@ def _get_object_import_path(o: object) -> str:
     return f"{module_name}.{class_name}"
 
 
-def _sanitize_api_key(object_as_dict: Dict[str, str]) -> Dict[str, str]:
+def _sanitize_api_key(object_as_dict: dict[str, str]) -> dict[str, str]:
     return {k: v for k, v in object_as_dict.items() if "api_key" not in k.lower()}
 
 
@@ -62,7 +62,7 @@ def object_to_dict(o: object):
 
 
 def _construct_prompt_template_object(
-    constructor: Callable, kwargs: Dict[str, any]
+    constructor: Callable, kwargs: dict[str, any]
 ) -> PromptTemplate:
     """Construct a PromptTemplate object based on the constructor and kwargs.
 
@@ -81,7 +81,7 @@ def _construct_prompt_template_object(
         )
 
 
-def dict_to_object(object_representation: Dict[str, Any]) -> object:
+def dict_to_object(object_representation: dict[str, Any]) -> object:
     if "object_constructor" not in object_representation:
         raise ValueError("'object_constructor' key not found in dict.")
     if "object_kwargs" not in object_representation:
@@ -114,7 +114,7 @@ def dict_to_object(object_representation: Dict[str, Any]) -> object:
         return object_class.from_dict(kwargs)
 
 
-def _deserialize_dict_of_objects(path: str) -> Dict[str, any]:
+def _deserialize_dict_of_objects(path: str) -> dict[str, any]:
     with open(path) as f:
         to_deserialize = json.load(f)
 

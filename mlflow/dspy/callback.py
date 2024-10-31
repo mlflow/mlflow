@@ -1,5 +1,5 @@
 import logging
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 import dspy
 from dspy.utils.callback import ACTIVE_CALL_ID, BaseCallback
@@ -18,7 +18,7 @@ class MlflowCallback(BaseCallback):
         self._client = mlflow.MlflowClient()
         self._call_id_to_span = {}
 
-    def on_module_start(self, call_id: str, instance: Any, inputs: Dict[str, Any]):
+    def on_module_start(self, call_id: str, instance: Any, inputs: dict[str, Any]):
         span_type = self._get_span_type_for_module(instance)
         attributes = self._get_span_attribute_for_module(instance)
 
@@ -47,7 +47,7 @@ class MlflowCallback(BaseCallback):
 
         self._end_span(call_id, outputs, exception)
 
-    def on_lm_start(self, call_id: str, instance: Any, inputs: Dict[str, Any]):
+    def on_lm_start(self, call_id: str, instance: Any, inputs: dict[str, Any]):
         span_type = (
             SpanType.CHAT_MODEL if getattr(instance, "model_type", None) == "chat" else SpanType.LLM
         )
@@ -72,7 +72,7 @@ class MlflowCallback(BaseCallback):
     ):
         self._end_span(call_id, outputs, exception)
 
-    def on_adapter_format_start(self, call_id: str, instance: Any, inputs: Dict[str, Any]):
+    def on_adapter_format_start(self, call_id: str, instance: Any, inputs: dict[str, Any]):
         self._start_span(
             call_id,
             name=f"{instance.__class__.__name__}.format",
@@ -86,7 +86,7 @@ class MlflowCallback(BaseCallback):
     ):
         self._end_span(call_id, outputs, exception)
 
-    def on_adapter_parse_start(self, call_id: str, instance: Any, inputs: Dict[str, Any]):
+    def on_adapter_parse_start(self, call_id: str, instance: Any, inputs: dict[str, Any]):
         self._start_span(
             call_id,
             name=f"{instance.__class__.__name__}.parse",
@@ -105,8 +105,8 @@ class MlflowCallback(BaseCallback):
         call_id: str,
         name: str,
         span_type: SpanType,
-        inputs: Dict[str, Any],
-        attributes: Dict[str, Any],
+        inputs: dict[str, Any],
+        attributes: dict[str, Any],
     ):
         # Get parent span in this order:
         # 1. If there is an parent component in DSPy, use its span as parent span.
@@ -187,7 +187,7 @@ class MlflowCallback(BaseCallback):
             }
         return {}
 
-    def _unpack_kwargs(self, inputs: Dict[str, Any]) -> Dict[str, Any]:
+    def _unpack_kwargs(self, inputs: dict[str, Any]) -> dict[str, Any]:
         """Unpacks the kwargs from the inputs dictionary"""
         # NB: Not using pop() to avoid modifying the original inputs dictionary
         kwargs = inputs.get("kwargs", {})

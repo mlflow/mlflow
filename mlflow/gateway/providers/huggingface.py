@@ -1,5 +1,5 @@
 import time
-from typing import Any, Dict
+from typing import Any
 
 from fastapi import HTTPException
 from fastapi.encoders import jsonable_encoder
@@ -26,7 +26,7 @@ class HFTextGenerationInferenceServerProvider(BaseProvider):
         self.huggingface_config: HuggingFaceTextGenerationInferenceConfig = config.model.config
         self.headers = {"Content-Type": "application/json"}
 
-    async def _request(self, path: str, payload: Dict[str, Any]) -> Dict[str, Any]:
+    async def _request(self, path: str, payload: dict[str, Any]) -> dict[str, Any]:
         return await send_request(
             headers=self.headers,
             base_url=self.huggingface_config.hf_server_url,

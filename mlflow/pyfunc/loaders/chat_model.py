@@ -1,4 +1,4 @@
-from typing import Any, Dict, Iterator, Optional
+from typing import Any, Iterator, Optional
 
 from mlflow.exceptions import MlflowException
 from mlflow.models.utils import _convert_llm_ndarray_to_list
@@ -10,7 +10,7 @@ from mlflow.types.llm import ChatMessage, ChatParams, ChatResponse
 from mlflow.utils.annotations import experimental
 
 
-def _load_pyfunc(model_path: str, model_config: Optional[Dict[str, Any]] = None):
+def _load_pyfunc(model_path: str, model_config: Optional[dict[str, Any]] = None):
     context, chat_model, signature = _load_context_model_and_signature(model_path, model_config)
     return _ChatModelPyfuncWrapper(chat_model=chat_model, context=context, signature=signature)
 
@@ -61,8 +61,8 @@ class _ChatModelPyfuncWrapper:
         return messages, params
 
     def predict(
-        self, model_input: Dict[str, Any], params: Optional[Dict[str, Any]] = None
-    ) -> Dict[str, Any]:
+        self, model_input: dict[str, Any], params: Optional[dict[str, Any]] = None
+    ) -> dict[str, Any]:
         """
         Args:
             model_input: Model input data in the form of a chat request.
@@ -77,7 +77,7 @@ class _ChatModelPyfuncWrapper:
         response = self.chat_model.predict(self.context, messages, params)
         return self._response_to_dict(response)
 
-    def _response_to_dict(self, response: ChatResponse) -> Dict[str, Any]:
+    def _response_to_dict(self, response: ChatResponse) -> dict[str, Any]:
         if not isinstance(response, ChatResponse):
             raise MlflowException(
                 "Model returned an invalid response. Expected a ChatResponse, but "
@@ -87,8 +87,8 @@ class _ChatModelPyfuncWrapper:
         return response.to_dict()
 
     def predict_stream(
-        self, model_input: Dict[str, Any], params: Optional[Dict[str, Any]] = None
-    ) -> Iterator[Dict[str, Any]]:
+        self, model_input: dict[str, Any], params: Optional[dict[str, Any]] = None
+    ) -> Iterator[dict[str, Any]]:
         """
         Args:
             model_input: Model input data in the form of a chat request.

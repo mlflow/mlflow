@@ -1,7 +1,7 @@
 import abc
 import logging
 import os
-from typing import List, Optional
+from typing import Optional
 
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import BAD_REQUEST, INTERNAL_ERROR, INVALID_PARAMETER_VALUE
@@ -155,7 +155,7 @@ class BaseRecipe:
             )
         return self._steps[step_names.index(step_name)]
 
-    def _get_subgraph_for_target_step(self, target_step: BaseStep) -> List[BaseStep]:
+    def _get_subgraph_for_target_step(self, target_step: BaseStep) -> list[BaseStep]:
         """
         Return a list of step objects representing a connected DAG containing the target_step.
         The returned list should be a sublist of self._steps.
@@ -312,7 +312,7 @@ class BaseRecipe:
 
         return recipe_dag_file
 
-    def _resolve_recipe_steps(self) -> List[BaseStep]:
+    def _resolve_recipe_steps(self) -> list[BaseStep]:
         """
         Constructs and returns all recipe step objects from the recipe configuration.
         """

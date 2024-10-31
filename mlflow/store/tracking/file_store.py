@@ -6,7 +6,7 @@ import sys
 import time
 import uuid
 from dataclasses import dataclass
-from typing import Dict, List, NamedTuple, Optional, Tuple
+from typing import NamedTuple, Optional
 
 from mlflow.entities import (
     Dataset,
@@ -1138,7 +1138,7 @@ class FileStore(AbstractStore):
         except Exception as e:
             raise MlflowException(e, INTERNAL_ERROR)
 
-    def log_inputs(self, run_id: str, datasets: Optional[List[DatasetInput]] = None):
+    def log_inputs(self, run_id: str, datasets: Optional[list[DatasetInput]] = None):
         """
         Log inputs, such as datasets, to the specified run.
 
@@ -1200,7 +1200,7 @@ class FileStore(AbstractStore):
         source_id: str
         destination_type: int
         destination_id: str
-        tags: Dict[str, str]
+        tags: dict[str, str]
 
         def write_yaml(self, root: str, file_name: str):
             dict_for_yaml = {
@@ -1266,7 +1266,7 @@ class FileStore(AbstractStore):
 
         return RunInputs(dataset_inputs=dataset_inputs)
 
-    def _search_datasets(self, experiment_ids) -> List[_DatasetSummary]:
+    def _search_datasets(self, experiment_ids) -> list[_DatasetSummary]:
         """
         Return all dataset summaries associated to the given experiments.
 
@@ -1378,8 +1378,8 @@ class FileStore(AbstractStore):
         self,
         experiment_id: str,
         timestamp_ms: int,
-        request_metadata: Dict[str, str],
-        tags: Dict[str, str],
+        request_metadata: dict[str, str],
+        tags: dict[str, str],
     ) -> TraceInfo:
         """
         Start an initial TraceInfo object in the backend store.
@@ -1487,8 +1487,8 @@ class FileStore(AbstractStore):
         request_id: str,
         timestamp_ms: int,
         status: TraceStatus,
-        request_metadata: Dict[str, str],
-        tags: Dict[str, str],
+        request_metadata: dict[str, str],
+        tags: dict[str, str],
     ) -> TraceInfo:
         """
         Update the TraceInfo object in the backend store with the completed trace info.
@@ -1526,7 +1526,7 @@ class FileStore(AbstractStore):
         """
         return self._get_trace_info_and_dir(request_id)[0]
 
-    def _get_trace_info_and_dir(self, request_id: str) -> Tuple[TraceInfo, str]:
+    def _get_trace_info_and_dir(self, request_id: str) -> tuple[TraceInfo, str]:
         trace_dir = self._find_trace_dir(request_id, assert_exists=True)
         trace_info = self._get_trace_info_from_dir(trace_dir)
         if trace_info and trace_info.request_id != request_id:
@@ -1600,7 +1600,7 @@ class FileStore(AbstractStore):
         experiment_id: str,
         max_timestamp_millis: Optional[int] = None,
         max_traces: Optional[int] = None,
-        request_ids: Optional[List[str]] = None,
+        request_ids: Optional[list[str]] = None,
     ) -> int:
         """
         Delete traces based on the specified criteria.
@@ -1656,10 +1656,10 @@ class FileStore(AbstractStore):
 
     def search_traces(
         self,
-        experiment_ids: List[str],
+        experiment_ids: list[str],
         filter_string: Optional[str] = None,
         max_results: int = SEARCH_TRACES_DEFAULT_MAX_RESULTS,
-        order_by: Optional[List[str]] = None,
+        order_by: Optional[list[str]] = None,
         page_token: Optional[str] = None,
     ):
         """

@@ -1,4 +1,4 @@
-from typing import List, Literal, Optional
+from typing import Literal, Optional
 
 from pydantic import Field
 
@@ -14,7 +14,7 @@ class RequestMessage(RequestModel):
 class BaseRequestPayload(RequestModel):
     temperature: float = Field(0.0, ge=0, le=2)
     n: int = Field(1, ge=1)
-    stop: Optional[List[str]] = Field(None, min_items=1)
+    stop: Optional[list[str]] = Field(None, min_items=1)
     max_tokens: Optional[int] = Field(None, ge=1)
     stream: Optional[bool] = None
     model: Optional[str] = None
@@ -34,7 +34,7 @@ _REQUEST_PAYLOAD_EXTRA_SCHEMA = {
 
 
 class RequestPayload(BaseRequestPayload):
-    messages: List[RequestMessage] = Field(..., min_items=1)
+    messages: list[RequestMessage] = Field(..., min_items=1)
 
     class Config:
         if IS_PYDANTIC_V2:
@@ -57,7 +57,7 @@ class ToolCall(ResponseModel):
 class ResponseMessage(ResponseModel):
     role: str
     content: Optional[str]
-    tool_calls: Optional[List[ToolCall]] = None
+    tool_calls: Optional[list[ToolCall]] = None
 
 
 class Choice(ResponseModel):
@@ -95,7 +95,7 @@ class ResponsePayload(ResponseModel):
     object: str = "chat.completion"
     created: int
     model: str
-    choices: List[Choice]
+    choices: list[Choice]
     usage: ChatUsage
 
     class Config:
@@ -138,7 +138,7 @@ class StreamResponsePayload(ResponseModel):
     object: str = "chat.completion.chunk"
     created: int
     model: str
-    choices: List[StreamChoice]
+    choices: list[StreamChoice]
 
     class Config:
         if IS_PYDANTIC_V2:

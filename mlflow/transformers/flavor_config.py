@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 import os
-from typing import TYPE_CHECKING, Any, Dict, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import ALREADY_EXISTS, INVALID_PARAMETER_VALUE
@@ -44,7 +44,7 @@ class FlavorKey:
 
 def build_flavor_config(
     pipeline: transformers.Pipeline, processor=None, torch_dtype=None, save_pretrained=True
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Generates the base flavor metadata needed for reconstructing a pipeline from saved
     components. This is important because the ``Pipeline`` class does not have a loader
@@ -171,7 +171,7 @@ def build_flavor_config_from_local_checkpoint(
     task: str,
     processor=None,
     torch_dtype=None,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Generates the flavor metadata from a Hugging Face model repository ID
     e.g. "meta-llama/Meta-Llama-3.1-405B, instead of the pipeline instance in-memory.
@@ -226,8 +226,8 @@ def build_flavor_config_from_local_checkpoint(
 
 
 def update_flavor_conf_to_persist_pretrained_model(
-    original_flavor_conf: Dict[str, Any],
-) -> Dict[str, Any]:
+    original_flavor_conf: dict[str, Any],
+) -> dict[str, Any]:
     """
     Updates the flavor configuration that was saved with save_pretrained=False to the one that
     includes the local path to the model binary file.

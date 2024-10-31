@@ -8,7 +8,7 @@ import time
 import uuid
 from copy import deepcopy
 from pathlib import Path
-from typing import List, NamedTuple
+from typing import NamedTuple
 from unittest import mock
 
 import pytest
@@ -79,11 +79,11 @@ def store_and_trace_info(store):
 
 
 class TraceInfos(NamedTuple):
-    trace_infos: List[TraceInfo]
+    trace_infos: list[TraceInfo]
     store: FileStore
     exp_id: str
-    request_ids: List[str]
-    timestamps: List[int]
+    request_ids: list[str]
+    timestamps: list[int]
 
 
 @pytest.fixture
@@ -2418,7 +2418,7 @@ def test_create_experiment_appends_to_artifact_uri_path_correctly(input_uri, exp
     _assert_create_experiment_appends_to_artifact_uri_path_correctly(input_uri, expected_uri)
 
 
-def assert_dataset_inputs_equal(inputs1: List[DatasetInput], inputs2: List[DatasetInput]):
+def assert_dataset_inputs_equal(inputs1: list[DatasetInput], inputs2: list[DatasetInput]):
     inputs1 = sorted(inputs1, key=lambda inp: (inp.dataset.name, inp.dataset.digest))
     inputs2 = sorted(inputs2, key=lambda inp: (inp.dataset.name, inp.dataset.digest))
     assert len(inputs1) == len(inputs2)

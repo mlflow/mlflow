@@ -3,7 +3,7 @@ from abc import ABC, abstractmethod
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Dict, List, Optional
+from typing import Optional
 
 from mlflow.utils.annotations import experimental
 
@@ -24,7 +24,7 @@ def set_retriever_schema(
     primary_key: str,
     text_column: str,
     doc_uri: Optional[str] = None,
-    other_columns: Optional[List[str]] = None,
+    other_columns: Optional[list[str]] = None,
     name: Optional[str] = "retriever",
 ):
     """
@@ -160,7 +160,7 @@ class Schema(ABC):
 
     @classmethod
     @abstractmethod
-    def from_dict(cls, data: Dict[str, str]):
+    def from_dict(cls, data: dict[str, str]):
         """
         Convert the dictionary to a Resource.
         Subclasses must implement this method.
@@ -186,7 +186,7 @@ class RetrieverSchema(Schema):
         primary_key: str,
         text_column: str,
         doc_uri: Optional[str] = None,
-        other_columns: Optional[List[str]] = None,
+        other_columns: Optional[list[str]] = None,
     ):
         super().__init__(type=DependenciesSchemasType.RETRIEVERS)
         self.name = name
@@ -209,7 +209,7 @@ class RetrieverSchema(Schema):
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, str]):
+    def from_dict(cls, data: dict[str, str]):
         return cls(
             name=data["name"],
             primary_key=data["primary_key"],
@@ -221,9 +221,9 @@ class RetrieverSchema(Schema):
 
 @dataclass
 class DependenciesSchemas:
-    retriever_schemas: List[RetrieverSchema] = field(default_factory=list)
+    retriever_schemas: list[RetrieverSchema] = field(default_factory=list)
 
-    def to_dict(self) -> Dict[str, Dict[DependenciesSchemasType, List[Dict]]]:
+    def to_dict(self) -> dict[str, dict[DependenciesSchemasType, list[dict]]]:
         if not self.retriever_schemas:
             return None
 

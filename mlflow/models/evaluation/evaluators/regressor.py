@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import Optional
 
 import numpy as np
 from sklearn import metrics as sk_metrics
@@ -26,7 +26,7 @@ class RegressorEvaluator(BuiltInEvaluator):
     def _evaluate(
         self,
         model: Optional["mlflow.pyfunc.PyFuncModel"],
-        extra_metrics: List[EvaluationMetric],
+        extra_metrics: list[EvaluationMetric],
         custom_artifacts=None,
         **kwargs,
     ) -> Optional[EvaluationResult]:

@@ -36,7 +36,7 @@ import sys
 import warnings
 from collections import defaultdict
 from pathlib import Path
-from typing import Any, Dict, Iterator, List, Optional, Set, Tuple, TypeVar
+from typing import Any, Iterator, Optional, TypeVar
 
 import requests
 import yaml
@@ -75,11 +75,11 @@ class PackageInfo(BaseModel, extra="forbid"):
 class TestConfig(BaseModel, extra="forbid"):
     minimum: Version
     maximum: Version
-    unsupported: Optional[List[Version]] = None
-    requirements: Optional[Dict[str, List[str]]] = None
-    python: Optional[Dict[str, str]] = None
-    runs_on: Optional[Dict[str, str]] = None
-    java: Optional[Dict[str, str]] = None
+    unsupported: Optional[list[Version]] = None
+    requirements: Optional[dict[str, list[str]]] = None
+    python: Optional[dict[str, str]] = None
+    runs_on: Optional[dict[str, str]] = None
+    java: Optional[dict[str, str]] = None
     run: str
     allow_unreleased_max_version: Optional[bool] = None
     pre_test: Optional[str] = None
@@ -106,7 +106,7 @@ class FlavorConfig(BaseModel, extra="forbid"):
     autologging: Optional[TestConfig] = None
 
     @property
-    def categories(self) -> List[Tuple[str, TestConfig]]:
+    def categories(self) -> list[tuple[str, TestConfig]]:
         cs = []
         if self.models:
             cs.append(("models", self.models))
@@ -262,7 +262,7 @@ def get_matched_requirements(requirements, version=None):
     return sorted(reqs)
 
 
-def get_java_version(java: Optional[Dict[str, str]], version: str) -> str:
+def get_java_version(java: Optional[dict[str, str]], version: str) -> str:
     if java and (match := next(_find_matches(java, version), None)):
         return match
 
@@ -270,7 +270,7 @@ def get_java_version(java: Optional[Dict[str, str]], version: str) -> str:
 
 
 @functools.lru_cache(maxsize=128)
-def pypi_json(package: str) -> Dict[str, Any]:
+def pypi_json(package: str) -> dict[str, Any]:
     resp = requests.get(f"https://pypi.org/pypi/{package}/json")
     resp.raise_for_status()
     return resp.json()
@@ -300,7 +300,7 @@ def infer_python_version(package: str, version: str) -> str:
     return candidates[0]
 
 
-def _find_matches(spec: Dict[str, T], version: str) -> Iterator[T]:
+def _find_matches(spec: dict[str, T], version: str) -> Iterator[T]:
     """
     Args:
         spec: A dictionary with key as version specifier and value as the corresponding value.
@@ -316,14 +316,14 @@ def _find_matches(spec: Dict[str, T], version: str) -> Iterator[T]:
             yield val
 
 
-def get_python_version(python: Optional[Dict[str, str]], package: str, version: str) -> str:
+def get_python_version(python: Optional[dict[str, str]], package: str, version: str) -> str:
     if python and (match := next(_find_matches(python, version), None)):
         return match
 
     return infer_python_version(package, version)
 
 
-def get_runs_on(runs_on: Optional[Dict[str, str]], version: str) -> str:
+def get_runs_on(runs_on: Optional[dict[str, str]], version: str) -> str:
     if runs_on and (match := next(_find_matches(runs_on, version), None)):
         return match
 
@@ -464,7 +464,7 @@ def validate_test_coverage(flavor: str, config: FlavorConfig):
 PYTEST_FILE_PATTERN = re.compile(r"^test_.*\.py$")
 
 
-def _get_test_files(test_dir_or_path: str) -> Set[Path]:
+def _get_test_files(test_dir_or_path: str) -> set[Path]:
     """List all test files in the given directory or file path."""
     path = Path(test_dir_or_path)
     if path.is_dir():
@@ -494,11 +494,11 @@ def _get_test_files_from_pytest_command(cmd, test_dir):
 
 
 def validate_requirements(
-    requirements: Dict[str, List[str]],
+    requirements: dict[str, list[str]],
     name: str,
     category: str,
     package_info: PackageInfo,
-    versions: List[Version],
+    versions: list[Version],
 ) -> None:
     """
     Validate that the requirements specified in the config don't contain unused items.
@@ -530,7 +530,7 @@ def validate_requirements(
             )
 
 
-def expand_config(config: Dict[str, Any], *, is_ref: bool = False) -> Set[MatrixItem]:
+def expand_config(config: dict[str, Any], *, is_ref: bool = False) -> set[MatrixItem]:
     matrix = set()
     for name, flavor_config in config.items():
         flavor = get_flavor(name)

@@ -1,6 +1,6 @@
 import json
 import time
-from typing import Any, AsyncGenerator, AsyncIterable, Dict
+from typing import Any, AsyncGenerator, AsyncIterable
 
 from fastapi import HTTPException
 from fastapi.encoders import jsonable_encoder
@@ -338,14 +338,14 @@ class CohereProvider(BaseProvider):
         self.cohere_config: CohereConfig = config.model.config
 
     @property
-    def auth_headers(self) -> Dict[str, str]:
+    def auth_headers(self) -> dict[str, str]:
         return {"Authorization": f"Bearer {self.cohere_config.cohere_api_key}"}
 
     @property
     def base_url(self) -> str:
         return "https://api.cohere.ai/v1"
 
-    async def _request(self, path: str, payload: Dict[str, Any]) -> Dict[str, Any]:
+    async def _request(self, path: str, payload: dict[str, Any]) -> dict[str, Any]:
         return await send_request(
             headers=self.auth_headers,
             base_url=self.base_url,
@@ -353,7 +353,7 @@ class CohereProvider(BaseProvider):
             payload=payload,
         )
 
-    def _stream_request(self, path: str, payload: Dict[str, Any]) -> AsyncGenerator[bytes, None]:
+    def _stream_request(self, path: str, payload: dict[str, Any]) -> AsyncGenerator[bytes, None]:
         return send_stream_request(
             headers=self.auth_headers,
             base_url=self.base_url,

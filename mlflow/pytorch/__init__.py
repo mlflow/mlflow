@@ -16,7 +16,7 @@ import posixpath
 import shutil
 import warnings
 from functools import partial
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 import numpy as np
 import pandas as pd
@@ -736,7 +736,7 @@ class _PyTorchWrapper:
         """
         return self.pytorch_model
 
-    def predict(self, data, params: Optional[Dict[str, Any]] = None):
+    def predict(self, data, params: Optional[dict[str, Any]] = None):
         """
         Args:
             data: Model input data.

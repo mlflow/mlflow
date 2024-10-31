@@ -1,4 +1,4 @@
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 from mlflow.exceptions import MlflowException
 from mlflow.metrics.genai.base import EvaluationExample
@@ -14,8 +14,8 @@ from mlflow.utils.class_utils import _get_class_from_string
 def answer_similarity(
     model: Optional[str] = None,
     metric_version: Optional[str] = None,
-    examples: Optional[List[EvaluationExample]] = None,
-    metric_metadata: Optional[Dict[str, Any]] = None,
+    examples: Optional[list[EvaluationExample]] = None,
+    metric_metadata: Optional[dict[str, Any]] = None,
 ) -> EvaluationMetric:
     """
     This function will create a genai metric used to evaluate the answer similarity of an LLM
@@ -87,8 +87,8 @@ def answer_similarity(
 def answer_correctness(
     model: Optional[str] = None,
     metric_version: Optional[str] = None,
-    examples: Optional[List[EvaluationExample]] = None,
-    metric_metadata: Optional[Dict[str, Any]] = None,
+    examples: Optional[list[EvaluationExample]] = None,
+    metric_metadata: Optional[dict[str, Any]] = None,
 ) -> EvaluationMetric:
     """
     This function will create a genai metric used to evaluate the answer correctness of an LLM
@@ -159,8 +159,8 @@ def answer_correctness(
 def faithfulness(
     model: Optional[str] = None,
     metric_version: Optional[str] = _get_latest_metric_version(),
-    examples: Optional[List[EvaluationExample]] = None,
-    metric_metadata: Optional[Dict[str, Any]] = None,
+    examples: Optional[list[EvaluationExample]] = None,
+    metric_metadata: Optional[dict[str, Any]] = None,
 ) -> EvaluationMetric:
     """
     This function will create a genai metric used to evaluate the faithfullness of an LLM using the
@@ -230,8 +230,8 @@ def faithfulness(
 def answer_relevance(
     model: Optional[str] = None,
     metric_version: Optional[str] = _get_latest_metric_version(),
-    examples: Optional[List[EvaluationExample]] = None,
-    metric_metadata: Optional[Dict[str, Any]] = None,
+    examples: Optional[list[EvaluationExample]] = None,
+    metric_metadata: Optional[dict[str, Any]] = None,
 ) -> EvaluationMetric:
     """
     This function will create a genai metric used to evaluate the answer relevance of an LLM
@@ -294,8 +294,8 @@ def answer_relevance(
 def relevance(
     model: Optional[str] = None,
     metric_version: Optional[str] = None,
-    examples: Optional[List[EvaluationExample]] = None,
-    metric_metadata: Optional[Dict[str, Any]] = None,
+    examples: Optional[list[EvaluationExample]] = None,
+    metric_metadata: Optional[dict[str, Any]] = None,
 ) -> EvaluationMetric:
     """
     This function will create a genai metric used to evaluate the evaluate the relevance of an

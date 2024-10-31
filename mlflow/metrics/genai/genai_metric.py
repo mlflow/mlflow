@@ -5,7 +5,7 @@ import warnings
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from inspect import Parameter, Signature
 from tempfile import TemporaryDirectory
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Optional, Union
 
 import pandas as pd
 
@@ -41,7 +41,7 @@ justification: Your reasoning for giving this score
 Do not add additional new lines. Do not add any other fields."""
 
 
-def _format_args_string(grading_context_columns: Optional[List[str]], eval_values, indx) -> str:
+def _format_args_string(grading_context_columns: Optional[list[str]], eval_values, indx) -> str:
     import pandas as pd
 
     args_dict = {}
@@ -101,7 +101,7 @@ def _extract_score_and_justification(text):
 def _score_model_on_one_payload(
     payload: str,
     eval_model: str,
-    parameters: Optional[Dict[str, Any]],
+    parameters: Optional[dict[str, Any]],
 ):
     try:
         # If the endpoint does not specify type, default to chat format
@@ -127,7 +127,7 @@ def _score_model_on_one_payload(
 
 def _score_model_on_payloads(
     grading_payloads, model, parameters, max_workers
-) -> Tuple[List[int], List[str]]:
+) -> tuple[list[int], list[str]]:
     scores = [None] * len(grading_payloads)
     justifications = [None] * len(grading_payloads)
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
@@ -194,11 +194,11 @@ def make_genai_metric_from_prompt(
     name: str,
     judge_prompt: Optional[str] = None,
     model: Optional[str] = _get_default_model(),
-    parameters: Optional[Dict[str, Any]] = None,
-    aggregations: Optional[List[str]] = None,
+    parameters: Optional[dict[str, Any]] = None,
+    aggregations: Optional[list[str]] = None,
     greater_is_better: bool = True,
     max_workers: int = 10,
-    metric_metadata: Optional[Dict[str, Any]] = None,
+    metric_metadata: Optional[dict[str, Any]] = None,
 ) -> EvaluationMetric:
     """
     Create a genai metric used to evaluate LLM using LLM as a judge in MLflow. This produces
@@ -323,16 +323,16 @@ def make_genai_metric(
     name: str,
     definition: str,
     grading_prompt: str,
-    examples: Optional[List[EvaluationExample]] = None,
+    examples: Optional[list[EvaluationExample]] = None,
     version: Optional[str] = _get_latest_metric_version(),
     model: Optional[str] = _get_default_model(),
-    grading_context_columns: Optional[Union[str, List[str]]] = None,
+    grading_context_columns: Optional[Union[str, list[str]]] = None,
     include_input: bool = True,
-    parameters: Optional[Dict[str, Any]] = None,
-    aggregations: Optional[List[str]] = None,
+    parameters: Optional[dict[str, Any]] = None,
+    aggregations: Optional[list[str]] = None,
     greater_is_better: bool = True,
     max_workers: int = 10,
-    metric_metadata: Optional[Dict[str, Any]] = None,
+    metric_metadata: Optional[dict[str, Any]] = None,
 ) -> EvaluationMetric:
     """
     Create a genai metric used to evaluate LLM using LLM as a judge in MLflow. The full grading
@@ -519,7 +519,7 @@ def make_genai_metric(
 
     def eval_fn(
         predictions: "pd.Series",
-        metrics: Dict[str, MetricValue],
+        metrics: dict[str, MetricValue],
         inputs: "pd.Series",
         *args,
     ) -> MetricValue:
@@ -602,7 +602,7 @@ def make_genai_metric(
 
     signature_parameters = [
         Parameter("predictions", Parameter.POSITIONAL_OR_KEYWORD, annotation="pd.Series"),
-        Parameter("metrics", Parameter.POSITIONAL_OR_KEYWORD, annotation=Dict[str, MetricValue]),
+        Parameter("metrics", Parameter.POSITIONAL_OR_KEYWORD, annotation=dict[str, MetricValue]),
         Parameter("inputs", Parameter.POSITIONAL_OR_KEYWORD, annotation="pd.Series"),
     ]
 
@@ -665,7 +665,7 @@ def retrieve_custom_metrics(
     run_id: str,
     name: Optional[str] = None,
     version: Optional[str] = None,
-) -> List[EvaluationMetric]:
+) -> list[EvaluationMetric]:
     """
     Retrieve the custom metrics created by users through `make_genai_metric()` or
     `make_genai_metric_from_prompt()` that are associated with a particular evaluation run.

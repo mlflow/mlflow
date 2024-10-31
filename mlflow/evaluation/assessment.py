@@ -1,6 +1,6 @@
 import numbers
 import time
-from typing import Any, Dict, Optional, Union
+from typing import Any, Optional, Union
 
 from mlflow.entities._mlflow_object import _MlflowObject
 from mlflow.entities.assessment import Assessment as AssessmentEntity
@@ -20,7 +20,7 @@ class Assessment(_MlflowObject):
         source: AssessmentSource,
         value: Optional[Union[bool, float, str]] = None,
         rationale: Optional[str] = None,
-        metadata: Optional[Dict[str, Any]] = None,
+        metadata: Optional[dict[str, Any]] = None,
         error_code: Optional[str] = None,
         error_message: Optional[str] = None,
     ):
@@ -88,7 +88,7 @@ class Assessment(_MlflowObject):
         return self._source
 
     @property
-    def metadata(self) -> Dict[str, Any]:
+    def metadata(self) -> dict[str, Any]:
         """The metadata associated with the assessment."""
         return self._metadata
 
@@ -107,7 +107,7 @@ class Assessment(_MlflowObject):
             return self.to_dictionary() == __o.to_dictionary()
         return False
 
-    def to_dictionary(self) -> Dict[str, Any]:
+    def to_dictionary(self) -> dict[str, Any]:
         return {
             "name": self.name,
             "source": self.source.to_dictionary(),
@@ -119,7 +119,7 @@ class Assessment(_MlflowObject):
         }
 
     @classmethod
-    def from_dictionary(cls, assessment_dict: Dict[str, Any]) -> "Assessment":
+    def from_dictionary(cls, assessment_dict: dict[str, Any]) -> "Assessment":
         """
         Create an Assessment object from a dictionary.
 

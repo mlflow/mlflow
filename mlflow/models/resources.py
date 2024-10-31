@@ -1,7 +1,7 @@
 import os
 from abc import ABC, abstractmethod
 from enum import Enum
-from typing import Any, Dict, List
+from typing import Any
 
 import yaml
 
@@ -53,7 +53,7 @@ class Resource(ABC):
 
     @classmethod
     @abstractmethod
-    def from_dict(cls, data: Dict[str, str]):
+    def from_dict(cls, data: dict[str, str]):
         """
         Convert the dictionary to a Resource.
         Subclasses must implement this method.
@@ -97,7 +97,7 @@ class DatabricksUCConnection(DatabricksResource):
         return {self.type.value: [{"name": self.connection_name}]}
 
     @classmethod
-    def from_dict(cls, data: Dict[str, str]):
+    def from_dict(cls, data: dict[str, str]):
         return cls(connection_name=data["name"])
 
 
@@ -120,7 +120,7 @@ class DatabricksServingEndpoint(DatabricksResource):
         return {self.type.value: [{"name": self.endpoint_name}]}
 
     @classmethod
-    def from_dict(cls, data: Dict[str, str]):
+    def from_dict(cls, data: dict[str, str]):
         return cls(endpoint_name=data["name"])
 
 
@@ -144,7 +144,7 @@ class DatabricksVectorSearchIndex(DatabricksResource):
         return {self.type.value: [{"name": self.index_name}]}
 
     @classmethod
-    def from_dict(cls, data: Dict[str, str]):
+    def from_dict(cls, data: dict[str, str]):
         return cls(index_name=data["name"])
 
 
@@ -167,7 +167,7 @@ class DatabricksSQLWarehouse(DatabricksResource):
         return {self.type.value: [{"name": self.warehouse_id}]}
 
     @classmethod
-    def from_dict(cls, data: Dict[str, str]):
+    def from_dict(cls, data: dict[str, str]):
         return cls(warehouse_id=data["name"])
 
 
@@ -190,7 +190,7 @@ class DatabricksFunction(DatabricksResource):
         return {self.type.value: [{"name": self.function_name}]}
 
     @classmethod
-    def from_dict(cls, data: Dict[str, str]):
+    def from_dict(cls, data: dict[str, str]):
         return cls(function_name=data["name"])
 
 
@@ -213,7 +213,7 @@ class DatabricksGenieSpace(DatabricksResource):
         return {self.type.value: [{"name": self.genie_space_id}]}
 
     @classmethod
-    def from_dict(cls, data: Dict[str, str]):
+    def from_dict(cls, data: dict[str, str]):
         return cls(genie_space_id=data["name"])
 
 
@@ -241,8 +241,8 @@ class _ResourceBuilder:
 
     @staticmethod
     def from_resources(
-        resources: List[Resource], api_version: str = DEFAULT_API_VERSION
-    ) -> Dict[str, Dict[ResourceType, List[Dict]]]:
+        resources: list[Resource], api_version: str = DEFAULT_API_VERSION
+    ) -> dict[str, dict[ResourceType, list[dict]]]:
         resource_dict = {}
         for resource in resources:
             resource_data = resource.to_dict()
@@ -255,7 +255,7 @@ class _ResourceBuilder:
         return resource_dict
 
     @staticmethod
-    def from_dict(data) -> Dict[str, Dict[ResourceType, List[Dict]]]:
+    def from_dict(data) -> dict[str, dict[ResourceType, list[dict]]]:
         resources = []
         api_version = data.pop("api_version")
         if api_version == "1":
@@ -272,7 +272,7 @@ class _ResourceBuilder:
         return _ResourceBuilder.from_resources(resources, api_version)
 
     @staticmethod
-    def from_yaml_file(path: str) -> Dict[str, Dict[ResourceType, List[Dict]]]:
+    def from_yaml_file(path: str) -> dict[str, dict[ResourceType, list[dict]]]:
         if not os.path.exists(path):
             raise OSError(f"No such file or directory: '{path}'")
         path = os.path.abspath(path)

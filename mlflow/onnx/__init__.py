@@ -11,7 +11,7 @@ ONNX (native) format
 import logging
 import os
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 import numpy as np
 import pandas as pd
@@ -325,7 +325,7 @@ class _OnnxModelWrapper:
                     feeds[input_name] = feed.astype(np.float32)
         return feeds
 
-    def predict(self, data, params: Optional[Dict[str, Any]] = None):
+    def predict(self, data, params: Optional[dict[str, Any]] = None):
         """
         Args:
             data: Either a pandas DataFrame, numpy.ndarray or a dictionary.

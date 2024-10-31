@@ -1,5 +1,4 @@
 import tempfile
-from typing import List
 
 import pandas as pd
 import pytest
@@ -9,7 +8,7 @@ import mlflow
 from mlflow.exceptions import MlflowException
 
 
-def language_model(inputs: List[str]) -> List[str]:
+def language_model(inputs: list[str]) -> list[str]:
     return inputs
 
 

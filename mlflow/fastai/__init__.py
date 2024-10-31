@@ -17,7 +17,7 @@ import logging
 import os
 import tempfile
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 import numpy as np
 import pandas as pd
@@ -359,7 +359,7 @@ class _FastaiModelWrapper:
     def predict(
         self,
         dataframe,
-        params: Optional[Dict[str, Any]] = None,
+        params: Optional[dict[str, Any]] = None,
     ):
         """
         Args:

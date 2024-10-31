@@ -3,7 +3,7 @@ import os
 import shutil
 import sys
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any
 
 import yaml
 
@@ -334,8 +334,8 @@ def _validate_onnx_session_options(onnx_session_options):
 
 
 def _get_overridden_pyfunc_model_config(
-    pyfunc_config: Dict[str, Any], load_config: Dict[str, Any], logger
-) -> Dict[str, Any]:
+    pyfunc_config: dict[str, Any], load_config: dict[str, Any], logger
+) -> dict[str, Any]:
     """
     Updates the inference configuration according to the model's configuration and the overrides.
     Only arguments already present in the inference configuration can be updated. The environment

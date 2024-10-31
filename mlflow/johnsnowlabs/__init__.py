@@ -52,7 +52,7 @@ import posixpath
 import shutil
 import sys
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 import yaml
 
@@ -875,7 +875,7 @@ class _PyFuncModelWrapper:
         """
         return self.spark_model
 
-    def predict(self, text, params: Optional[Dict[str, Any]] = None):
+    def predict(self, text, params: Optional[dict[str, Any]] = None):
         """Generate predictions given input data in a pandas DataFrame.
 
         Args:

@@ -10,7 +10,7 @@ import logging
 import re
 from copy import deepcopy
 from dataclasses import dataclass, is_dataclass
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union, get_type_hints
+from typing import TYPE_CHECKING, Any, Optional, Union, get_type_hints
 
 import numpy as np
 import pandas as pd
@@ -34,10 +34,10 @@ if TYPE_CHECKING:
         import pyspark.sql.dataframe
 
         MlflowInferableDataset = Union[
-            pd.DataFrame, np.ndarray, Dict[str, np.ndarray], pyspark.sql.dataframe.DataFrame
+            pd.DataFrame, np.ndarray, dict[str, np.ndarray], pyspark.sql.dataframe.DataFrame
         ]
     except ImportError:
-        MlflowInferableDataset = Union[pd.DataFrame, np.ndarray, Dict[str, np.ndarray]]
+        MlflowInferableDataset = Union[pd.DataFrame, np.ndarray, dict[str, np.ndarray]]
 
 _logger = logging.getLogger(__name__)
 
@@ -92,7 +92,7 @@ class ModelSignature:
             self.outputs = outputs
         self.params = params
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """
         Serialize into a 'jsonable' dictionary.
 
@@ -110,7 +110,7 @@ class ModelSignature:
         }
 
     @classmethod
-    def from_dict(cls, signature_dict: Dict[str, Any]):
+    def from_dict(cls, signature_dict: dict[str, Any]):
         """
         Deserialize from dictionary representation.
 
@@ -152,7 +152,7 @@ class ModelSignature:
 def infer_signature(
     model_input: Any = None,
     model_output: "MlflowInferableDataset" = None,
-    params: Optional[Dict[str, Any]] = None,
+    params: Optional[dict[str, Any]] = None,
 ) -> ModelSignature:
     """
     Infer an MLflow model signature from the training data (input), model predictions (output)
@@ -264,9 +264,9 @@ def _is_list_of_string_dict(hint_str):
 
 def _infer_hint_from_str(hint_str):
     if _is_list_str(hint_str):
-        return List[str]
+        return list[str]
     elif _is_list_of_string_dict(hint_str):
-        return List[Dict[str, str]]
+        return list[dict[str, str]]
     else:
         return None
 

@@ -2,7 +2,7 @@ import logging
 import operator
 import os
 from decimal import Decimal
-from typing import Dict, Optional
+from typing import Optional
 
 from mlflow.exceptions import MlflowException
 from mlflow.models.evaluation import EvaluationResult
@@ -255,7 +255,7 @@ class ModelValidationFailedException(MlflowException):
 
 
 def validate_evaluation_results(
-    validation_thresholds: Dict[str, MetricThreshold],
+    validation_thresholds: dict[str, MetricThreshold],
     candidate_result: EvaluationResult,
     baseline_result: Optional[EvaluationResult] = None,
 ):
@@ -350,8 +350,8 @@ def validate_evaluation_results(
 
 def _validate(
     validation_thresholds: MetricThreshold,
-    candidate_metrics: Dict[str, float],
-    baseline_metrics: Dict[str, float],
+    candidate_metrics: dict[str, float],
+    baseline_metrics: dict[str, float],
 ):
     """
     Validate the model based on validation_thresholds by metrics value and

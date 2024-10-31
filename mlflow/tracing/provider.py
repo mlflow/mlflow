@@ -10,7 +10,7 @@ use OpenTelemetry e.g. PromptFlow, Snowpark.
 import functools
 import json
 import logging
-from typing import Optional, Tuple
+from typing import Optional
 
 from opentelemetry import trace
 from opentelemetry.sdk.trace import TracerProvider
@@ -57,7 +57,7 @@ def start_detached_span(
     parent: Optional[trace.Span] = None,
     experiment_id: Optional[str] = None,
     start_time_ns: Optional[int] = None,
-) -> Optional[Tuple[str, trace.Span]]:
+) -> Optional[tuple[str, trace.Span]]:
     """
     Start a new OpenTelemetry span that is not part of the current trace context, but with the
     explicit parent span ID if provided.

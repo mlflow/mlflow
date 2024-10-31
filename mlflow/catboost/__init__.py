@@ -22,7 +22,7 @@ CatBoost (native) format
 import contextlib
 import logging
 import os
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 import yaml
 
@@ -341,7 +341,7 @@ class _CatboostModelWrapper:
         """
         return self.cb_model
 
-    def predict(self, dataframe, params: Optional[Dict[str, Any]] = None):
+    def predict(self, dataframe, params: Optional[dict[str, Any]] = None):
         """
         Args:
             dataframe: Model input data.
