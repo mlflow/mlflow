@@ -47,7 +47,7 @@ async function rerun({ github, context }) {
   const runIdsToRerun = checkRuns
     // Select failed/cancelled github action runs
     .filter(
-      ({ name, status, started_at, completed_at, conclusion, app: { slug } }) =>
+      ({ name, status, conclusion, started_at, completed_at, app: { slug } }) =>
         slug === "github-actions" &&
         status === "completed" &&
         (conclusion === "failure" || conclusion === "cancelled") &&
