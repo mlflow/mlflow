@@ -624,12 +624,11 @@ def _get_latest_active_run():
     only returns active run from current thread. This API is useful for the case where one
     needs to get a run started from a separate thread.
     """
-    latest_active_run = None
-    for active_run_stack in _active_run_stack.get_global().values():
-        for active_run in active_run_stack:
-            if latest_active_run is None or active_run.start_time > latest_active_run.start_time:
-                latest_active_run = active_run
-    return latest_active_run
+    all_active_runs = [
+        run for run_stack in _active_run_stack.get_all_thread_values().values()
+        for run in run_stack
+    ]
+    return max(all_active_runs, key=lambda run: run.start_time)
 
 
 def get_run(run_id: str) -> Run:

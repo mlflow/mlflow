@@ -97,8 +97,8 @@ class MlflowSpanProcessor(SimpleSpanProcessor):
         #  - MLflow langchain pyfunc model `predict` which calls `api_request_parallel_processor`.
         # Therefore, we use `_get_global_active_run()` instead to get the active run from
         # all threads and set it as the tracing source run.
-        latest_active_run = _get_latest_active_run()
-        if run := latest_active_run:
+        run = _get_latest_active_run()
+        if run:
             metadata[TraceMetadataKey.SOURCE_RUN] = run.info.run_id
             if experiment_id is None:
                 # if we're inside a run, the run's experiment id should
