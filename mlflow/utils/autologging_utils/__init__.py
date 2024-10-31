@@ -588,6 +588,9 @@ def disable_discrete_autologging(flavors_to_disable: List[str]) -> None:
         autolog_func.autolog(disable=False)
 
 
+_training_sessions = []
+
+
 def _get_new_training_session_class():
     """
     Returns a session manager class for nested autologging runs.
@@ -679,7 +682,12 @@ def _get_new_training_session_class():
                 return _TrainingSession._session_stack[-1]
             return None
 
+    _training_sessions.append(_TrainingSession)
     return _TrainingSession
+
+
+def _has_active_training_session():
+    return any(s.is_active() for s in _training_sessions)
 
 
 def get_instance_method_first_arg_value(method, call_pos_args, call_kwargs):

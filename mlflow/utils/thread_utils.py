@@ -15,6 +15,9 @@ class ThreadLocalVariable:
         self.reset_in_subprocess = reset_in_subprocess
         self.default_factory = default_factory
         self.thread_local = threading.local()
+        # The `_value_dict` attribute saves all thread-local values, the key is thread ID.
+        # It is used by MLflow Spark datasource autologging.
+        self._value_dict = {}
 
     def get(self):
         """
@@ -42,3 +45,4 @@ class ThreadLocalVariable:
         Set a value for the thread-local variable.
         """
         self.thread_local.value = (value, os.getpid())
+        self._value_dict[threading.currentThread().ident] = value

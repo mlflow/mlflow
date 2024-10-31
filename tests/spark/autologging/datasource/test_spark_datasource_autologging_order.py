@@ -15,7 +15,6 @@ from tests.spark.autologging.utils import (
 )
 
 
-@pytest.mark.skip(reason="Fix: https://github.com/mlflow/mlflow/pull/13599")
 @pytest.mark.parametrize("disable", [False, True])
 def test_enabling_autologging_before_spark_session_works(disable, tmp_path):
     mlflow.spark.autolog(disable=disable)

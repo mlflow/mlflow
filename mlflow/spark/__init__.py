@@ -1124,6 +1124,8 @@ def autolog(disable=False, silent=False):
     to stderr & stdout generated from your MLflow code - datasource information is pulled from
     Spark, so logs relevant to debugging may show up amongst the Spark logs.
 
+    .. Note:: Spark datasource autologging only supports logging to MLflow runs in a single thread
+
     .. code-block:: python
         :caption: Example
 

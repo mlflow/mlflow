@@ -201,6 +201,7 @@ def with_managed_run(autologging_integration, patch_function, tags=None):
         tags: A dictionary of string tags to set on each managed run created during the
             execution of `patch_function`.
     """
+    from mlflow.utils.autologging_utils import _has_active_training_session
 
     def create_managed_run():
         managed_run = mlflow.start_run(tags=tags)
@@ -221,7 +222,11 @@ def with_managed_run(autologging_integration, patch_function, tags=None):
                 self.managed_run = None
 
             def _patch_implementation(self, original, *args, **kwargs):
-                if not mlflow.active_run():
+                # If there is an active training session but there is no active run
+                # in current thread, it means the thread is spawned by `estimator.fit`
+                # as a worker thread, we should disable autologging in
+                # these worker threads, so skip creating managed run.
+                if not mlflow.active_run() and not _has_active_training_session():
                     self.managed_run = create_managed_run()
 
                 result = super()._patch_implementation(original, *args, **kwargs)
@@ -242,7 +247,11 @@ def with_managed_run(autologging_integration, patch_function, tags=None):
 
         def patch_with_managed_run(original, *args, **kwargs):
             managed_run = None
-            if not mlflow.active_run():
+            # If there is an active training session but there is no active run
+            # in current thread, it means the thread is spawned by `estimator.fit`
+            # as a worker thread, we should disable autologging in
+            # these worker threads, so skip creating managed run.
+            if not mlflow.active_run() and not _has_active_training_session():
                 managed_run = create_managed_run()
 
             try:
