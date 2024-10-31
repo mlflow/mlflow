@@ -46,7 +46,6 @@ from mlflow.utils.autologging_utils.versioning import (
     get_min_max_version_and_pip_release,
     is_flavor_supported_for_associated_package_versions,
 )
-from mlflow.utils.thread_utils import ThreadLocalVariable
 
 INPUT_EXAMPLE_SAMPLE_ROWS = 5
 ENSURE_AUTOLOGGING_ENABLED_TEXT = (
@@ -57,11 +56,6 @@ ENSURE_AUTOLOGGING_ENABLED_TEXT = (
 _AUTOLOGGING_GLOBALLY_DISABLED = False
 # Exempts autologging flavors from the `_AUTOLOGGING_GLOBALLY_DISABLED` flag
 _AUTOLOGGING_GLOBALLY_DISABLED_EXEMPTIONS = []
-
-# Flag indicating whether autologging is thread-locally disabled for all integrations.
-_AUTOLOGGING_THREAD_LOCALLY_DISABLED = ThreadLocalVariable(default_factory=lambda: False)
-# Exempts autologging flavors from the `_AUTOLOGGING_THREAD_LOCALLY_DISABLED` flag
-_AUTOLOGGING_THREAD_LOCALLY_DISABLED_EXEMPTIONS = ThreadLocalVariable(default_factory=lambda: [])
 
 # Autologging config key indicating whether or not a particular autologging integration
 # was configured (i.e. its various `log_models`, `disable`, etc. configuration options
@@ -75,7 +69,7 @@ AUTOLOGGING_INTEGRATIONS = {}
 # Record the process id of the process that set the corresponding autologging integration config.
 # key: autologging integration name, value: pid of the process.
 # This is used to disable autologging in forked subprocesses.
-AUTOLOGGING_CONF_PID = {}
+AUTOLOGGING_CONF_PID: dict[str, int] = {}
 
 # Corresponds to `mlflow.langchain.autolog` kwargs. Restricts
 # autologging to only log traces.
@@ -553,36 +547,25 @@ def autologging_is_disabled(integration_name):
 
 
 @contextlib.contextmanager
-def disable_autologging(exemptions=None, is_global=False):
+def disable_autologging(exemptions=None):
     """
     Context manager that temporarily disables autologging globally for all integrations upon
     entry and restores the previous autologging configuration upon exit.
 
     Args:
         exemptions: flavors that we do not disable
-        is_global: indicating whether to disable autologging globally or thread-locally.
     """
     if exemptions is None:
         exemptions = []
     global _AUTOLOGGING_GLOBALLY_DISABLED
     global _AUTOLOGGING_GLOBALLY_DISABLED_EXEMPTIONS
-
-    if is_global:
-        _AUTOLOGGING_GLOBALLY_DISABLED = True
-        _AUTOLOGGING_GLOBALLY_DISABLED_EXEMPTIONS = exemptions
-        try:
-            yield
-        finally:
-            _AUTOLOGGING_GLOBALLY_DISABLED = False
-            _AUTOLOGGING_GLOBALLY_DISABLED_EXEMPTIONS = []
-    else:
-        _AUTOLOGGING_THREAD_LOCALLY_DISABLED.set(True)
-        _AUTOLOGGING_THREAD_LOCALLY_DISABLED_EXEMPTIONS.set(exemptions)
-        try:
-            yield
-        finally:
-            _AUTOLOGGING_THREAD_LOCALLY_DISABLED.set(False)
-            _AUTOLOGGING_THREAD_LOCALLY_DISABLED_EXEMPTIONS.set(exemptions)
+    _AUTOLOGGING_GLOBALLY_DISABLED = True
+    _AUTOLOGGING_GLOBALLY_DISABLED_EXEMPTIONS = exemptions
+    try:
+        yield
+    finally:
+        _AUTOLOGGING_GLOBALLY_DISABLED = False
+        _AUTOLOGGING_GLOBALLY_DISABLED_EXEMPTIONS = []
 
 
 @contextlib.contextmanager

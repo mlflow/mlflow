@@ -212,10 +212,7 @@ def patched_call(original, self, *args, **kwargs):
         )
         try:
             task = mlflow.openai._get_task_name(self.__class__)
-            # When logging model, inferring model signature triggers model prediction
-            # which might spawn worker threads, to avoid breaking change,
-            # disable autologging globally
-            with disable_autologging(is_global=True):
+            with disable_autologging():
                 # If the user is using `openai.OpenAI()` client,
                 # they do not need to set the "OPENAI_API_KEY" environment variable.
                 # This temporarily sets the API key as an environment variable
