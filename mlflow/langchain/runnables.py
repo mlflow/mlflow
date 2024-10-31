@@ -443,7 +443,7 @@ def _save_runnable_binding(model, file_path, loader_fn=None, persist_dir=None):
     model_config = {}
 
     # runnableBinding bound is the real runnable to be invoked
-    model_config["bound"] = _save_runnables(model.bound, save_path, loader_fn, persist_dir)
+    model_config["bound"] = _save_internal_runnables(model.bound, save_path, loader_fn, persist_dir)
 
     # save other fields
     for field, value in model.dict().items():
