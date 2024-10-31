@@ -783,6 +783,7 @@ def test_tracing_source_run_in_batch():
     assert trace.info.request_metadata[TraceMetadataKey.SOURCE_RUN] == run.info.run_id
 
 
+@pytest.mark.skipif(not _LC_COMMUNITY_INSTALLED, reason="This test requires langchain_community")
 def test_tracing_source_run_in_pyfunc_model_predict():
     mlflow.langchain.autolog()
 
