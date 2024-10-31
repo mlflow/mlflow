@@ -6,11 +6,11 @@ import uuid
 
 from py4j.java_gateway import CallbackServerParameters
 
-import mlflow
 from mlflow import MlflowClient
 from mlflow.exceptions import MlflowException
 from mlflow.spark import FLAVOR_NAME
 from mlflow.tracking.context.abstract_context import RunContextProvider
+from mlflow.tracking.fluent import _active_run_stack
 from mlflow.utils import _truncate_and_ellipsize
 from mlflow.utils.autologging_utils import (
     ExceptionSafeClass,
@@ -225,13 +225,27 @@ class PythonSubscriber(metaclass=ExceptionSafeClass):
         """
         if autologging_is_disabled(FLAVOR_NAME):
             return
-        # If there's an active run, simply set the tag on it
+        # If there are active runs, simply set the tag on the latest active run
         # Note that there's a TOCTOU race condition here - active_run() here can actually throw
         # if the main thread happens to end the run & pop from the active run stack after we check
         # the stack size but before we peek
-        active_run = mlflow.active_run()
-        if active_run:
-            _set_run_tag_async(active_run.info.run_id, path, version, data_format)
+
+        # Note Spark datasource autologging is hard to support thread-local behavior,
+        # because the spark event listener callback (jvm side) does not have the python caller
+        # thread information, therefore the tag is set to the latest active run, ignoring threading
+        # information. This way, consistent behavior is kept with existing functionality for
+        # Spark in MLflow.
+        latest_active_run = None
+        for active_run_stack in _active_run_stack._value_dict.values():
+            for active_run in active_run_stack:
+                if (
+                    latest_active_run is None
+                    or active_run.start_time > latest_active_run.start_time
+                ):
+                    latest_active_run = active_run
+
+        if latest_active_run:
+            _set_run_tag_async(latest_active_run.info.run_id, path, version, data_format)
         else:
             add_table_info_to_context_provider(path, version, data_format)
 
