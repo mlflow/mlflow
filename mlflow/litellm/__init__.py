@@ -66,6 +66,9 @@ def autolog(
     else:
         litellm.success_callback = _remove_mlflow_callbacks(litellm.success_callback)
         litellm.failure_callback = _remove_mlflow_callbacks(litellm.failure_callback)
+        # Callback also needs to be removed from 'callbacks' as litellm adds
+        # success/failure callbacks to there as well.
+        litellm.callbacks = _remove_mlflow_callbacks(litellm.callbacks)
 
         # Remove all patches applied to async functions (not via safe_patch())
         _unpatch()
@@ -168,4 +171,6 @@ def _append_mlflow_callbacks(original_callbacks):
 
 
 def _remove_mlflow_callbacks(original_callbacks):
-    return [cb for cb in original_callbacks if cb != "mlflow"]
+    from litellm.integrations.mlflow import MlflowLogger
+
+    return [cb for cb in original_callbacks if not (cb == "mlflow" or isinstance(cb, MlflowLogger))]

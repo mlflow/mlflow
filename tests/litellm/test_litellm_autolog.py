@@ -46,10 +46,11 @@ def test_litellm_tracing_success(is_in_databricks):
     # to ensure that the trace is rendered correctly in notebook.
     _wait_if_not_in_databricks()
 
-    trace = mlflow.get_last_active_trace()
-    assert trace.info.status == "OK"
+    traces = get_traces()
+    assert len(traces) == 1
+    assert traces[0].info.status == "OK"
 
-    spans = trace.data.spans
+    spans = traces[0].data.spans
     assert len(spans) == 1
     assert spans[0].name == "litellm-completion"
     assert spans[0].status.status_code == "OK"
@@ -62,7 +63,6 @@ def test_litellm_tracing_success(is_in_databricks):
     assert spans[0].attributes["cache_hit"] is None
     assert spans[0].attributes["response_cost"] > 0
     assert spans[0].attributes["usage"] is not None
-
 
 def test_litellm_tracing_failure(is_in_databricks):
     mlflow.litellm.autolog()
@@ -174,6 +174,8 @@ async def test_litellm_tracing_async_streaming(is_in_databricks):
 
 def test_litellm_tracing_disable(is_in_databricks):
     mlflow.litellm.autolog()
+    print(litellm.callbacks, litellm.input_callback, litellm._async_success_callback)
+
     litellm.completion("gpt-4o-mini", [{"role": "system", "content": "Hello"}])
     _wait_if_not_in_databricks()
     assert mlflow.get_last_active_trace() is not None
