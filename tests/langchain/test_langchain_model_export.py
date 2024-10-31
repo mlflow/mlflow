@@ -1546,9 +1546,10 @@ def test_save_load_chain_with_model_paths():
     with mlflow.start_run():
         model_info = mlflow.langchain.log_model(model, "model_path")
     artifact_path = "model_path"
-    with mlflow.start_run(), mock.patch(
-        "mlflow.langchain._add_code_from_conf_to_system_path"
-    ) as add_mock:
+    with (
+        mlflow.start_run(),
+        mock.patch("mlflow.langchain._add_code_from_conf_to_system_path") as add_mock,
+    ):
         model_info = mlflow.langchain.log_model(model, artifact_path, code_paths=[__file__])
         mlflow.langchain.load_model(model_info.model_uri)
         model_uri = mlflow.get_artifact_uri(artifact_path=artifact_path)
@@ -2734,9 +2735,10 @@ def test_save_load_chain_as_code_with_model_paths(chain_model_signature, chain_p
         ]
     }
     artifact_path = "model_path"
-    with mlflow.start_run(), mock.patch(
-        "mlflow.langchain._add_code_from_conf_to_system_path"
-    ) as add_mock:
+    with (
+        mlflow.start_run(),
+        mock.patch("mlflow.langchain._add_code_from_conf_to_system_path") as add_mock,
+    ):
         model_info = mlflow.langchain.log_model(
             chain_path,
             artifact_path,
@@ -3221,6 +3223,36 @@ def test_save_load_langchain_binding(fake_chat_model):
     assert PredictionsResponse.from_json(response.content.decode("utf-8")) == {
         "predictions": ["Databricks"]
     }
+
+
+def test_save_load_langchain_binding_llm_with_tool():
+    from langchain_core.tools import tool
+
+    # We need to use ChatOpenAI from langchain_openai as community one does not support bind_tools
+    from langchain_openai import ChatOpenAI
+
+    @tool
+    def add(a: int, b: int) -> int:
+        """Adds a and b.
+
+        Args:
+            a: first int
+            b: second int
+        """
+        return a + b
+
+    runnable_binding = ChatOpenAI(temperature=0.9).bind_tools([add])
+    model = runnable_binding | StrOutputParser()
+    expected_output = '[{"role": "user", "content": "hello"}]'
+    assert model.invoke("hello") == expected_output
+
+    with mlflow.start_run():
+        model_info = mlflow.langchain.log_model(model, "model_path", input_example="hello")
+
+    loaded_model = mlflow.langchain.load_model(model_info.model_uri)
+    assert loaded_model.invoke("hello") == expected_output
+    pyfunc_loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
+    assert pyfunc_loaded_model.predict("hello") == [expected_output]
 
 
 def test_langchain_bindings_save_load_with_config_and_types(fake_chat_model):

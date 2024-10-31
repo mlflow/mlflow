@@ -190,8 +190,11 @@ def test_save_model_with_unsupported_argument_combinations_throws_exception(mode
 
 
 def test_log_model_with_unsupported_argument_combinations_throws_exception():
-    with mlflow.start_run(), pytest.raises(
-        MlflowException, match="Either `loader_module` or `python_model` must be specified"
+    with (
+        mlflow.start_run(),
+        pytest.raises(
+            MlflowException, match="Either `loader_module` or `python_model` must be specified"
+        ),
     ):
         mlflow.pyfunc.log_model("pyfunc_model", data_path="/path/to/data")
 

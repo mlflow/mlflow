@@ -445,22 +445,25 @@ def autologging_integration(name):
             # Reroute non-MLflow warnings encountered during autologging enablement to an
             # MLflow event logger, and enforce silent mode if applicable (i.e. if the corresponding
             # autologging integration was called with `silent=True`)
-            with set_mlflow_events_and_warnings_behavior_globally(
-                # MLflow warnings emitted during autologging setup / enablement are likely
-                # actionable and relevant to the user, so they should be emitted as normal
-                # when `silent=False`. For reference, see recommended warning and event logging
-                # behaviors from https://docs.python.org/3/howto/logging.html#when-to-use-logging
-                reroute_warnings=False,
-                disable_event_logs=is_silent_mode,
-                disable_warnings=is_silent_mode,
-            ), set_non_mlflow_warnings_behavior_for_current_thread(
-                # non-MLflow warnings emitted during autologging setup / enablement are not
-                # actionable for the user, as they are a byproduct of the autologging
-                # implementation. Accordingly, they should be rerouted to `logger.warning()`.
-                # For reference, see recommended warning and event logging
-                # behaviors from https://docs.python.org/3/howto/logging.html#when-to-use-logging
-                reroute_warnings=True,
-                disable_warnings=is_silent_mode,
+            with (
+                set_mlflow_events_and_warnings_behavior_globally(
+                    # MLflow warnings emitted during autologging setup / enablement are likely
+                    # actionable and relevant to the user, so they should be emitted as normal
+                    # when `silent=False`. For reference, see recommended warning and event logging
+                    # behaviors from https://docs.python.org/3/howto/logging.html#when-to-use-logging
+                    reroute_warnings=False,
+                    disable_event_logs=is_silent_mode,
+                    disable_warnings=is_silent_mode,
+                ),
+                set_non_mlflow_warnings_behavior_for_current_thread(
+                    # non-MLflow warnings emitted during autologging setup / enablement are not
+                    # actionable for the user, as they are a byproduct of the autologging
+                    # implementation. Accordingly, they should be rerouted to `logger.warning()`.
+                    # For reference, see recommended warning and event logging
+                    # behaviors from https://docs.python.org/3/howto/logging.html#when-to-use-logging
+                    reroute_warnings=True,
+                    disable_warnings=is_silent_mode,
+                ),
             ):
                 _check_and_log_warning_for_unsupported_package_versions(name)
 
@@ -585,6 +588,9 @@ def disable_discrete_autologging(flavors_to_disable: List[str]) -> None:
         autolog_func.autolog(disable=False)
 
 
+_training_sessions = []
+
+
 def _get_new_training_session_class():
     """
     Returns a session manager class for nested autologging runs.
@@ -676,7 +682,12 @@ def _get_new_training_session_class():
                 return _TrainingSession._session_stack[-1]
             return None
 
+    _training_sessions.append(_TrainingSession)
     return _TrainingSession
+
+
+def _has_active_training_session():
+    return any(s.is_active() for s in _training_sessions)
 
 
 def get_instance_method_first_arg_value(method, call_pos_args, call_kwargs):
