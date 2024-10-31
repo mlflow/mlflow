@@ -3,6 +3,8 @@ Inspired by GPUMonitor, but with the pynvml method
 named replaced by pyrsmi method names
 """
 
+import contextlib
+import io
 import logging
 import sys
 
@@ -50,6 +52,37 @@ class ROCMMonitor(BaseMetricsMonitor):
 
         super().__init__()
 
+        # Check if GPU is virtual. If so, collect power information from physical GPU
+        self.physical_idx = []
+        for i in range(rocml.smi_get_device_count()):
+            try:
+                self.raise_error(rocml.smi_get_device_average_power, i)
+                # physical GPU if no error is raised
+                self.physical_idx.append(i)
+            except SystemError:
+                # virtual if error is raised
+                # all virtual GPUs must share physical GPU with previous virtual/physical GPU
+                assert i >= 1
+                self.physical_idx.append(self.physical_idx[-1])
+
+    @staticmethod
+    def raise_error(func, *args, **kwargs):
+        """Raise error if message containing 'error' is printed out to stdout or stderr."""
+        stdout = io.StringIO()
+        stderr = io.StringIO()
+
+        with contextlib.redirect_stdout(stdout), contextlib.redirect_stderr(stderr):
+            func(*args, **kwargs)
+
+        out = stdout.getvalue()
+        err = stderr.getvalue()
+
+        # Check if there is an error message in either stdout or stderr
+        if "error" in out.lower():
+            raise SystemError(out)
+        if "error" in err.lower():
+            raise SystemError(err)
+
     def collect_metrics(self):
         # Get GPU metrics.
         self.num_gpus = rocml.smi_get_device_count()
@@ -65,7 +98,7 @@ class ROCMMonitor(BaseMetricsMonitor):
             device_utilization = rocml.smi_get_device_utilization(i)
             self._metrics[f"gpu_{i}_utilization_percentage"].append(device_utilization)
 
-            power_watts = rocml.smi_get_device_average_power(i)
+            power_watts = rocml.smi_get_device_average_power(self.physical_idx[i])
             power_capacity_watts = 500  # hard coded for now, should get this from rocm-smi
             self._metrics[f"gpu_{i}_power_usage_watts"].append(power_watts)
             self._metrics[f"gpu_{i}_power_usage_percentage"].append(
