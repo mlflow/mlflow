@@ -542,7 +542,7 @@ def _get_mlflow_model_input_example_dict(mlflow_model: Model, path: str):
         return json.load(handle)
 
 
-def _load_serving_input_example(mlflow_model: Model, path: str):
+def _load_serving_input_example(mlflow_model: Model, path: str) -> Optional[str]:
     """
     Load serving input exaple from a model directory. Returns None if there is no serving input
     example.
