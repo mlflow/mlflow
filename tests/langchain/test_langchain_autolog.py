@@ -771,6 +771,35 @@ def test_langchain_autolog_callback_injection_in_batch(invoke_arg, config, async
             assert set(handler.logs) == {"chain_start", "chain_end"}
 
 
+def test_tracing_source_run_in_batch():
+    mlflow.langchain.autolog()
+
+    model = create_openai_llmchain()
+    input = {"product": "MLflow"}
+    with mlflow.start_run() as run:
+        model.batch([input] * 2)
+
+    trace = mlflow.get_last_active_trace()
+    assert trace.info.request_metadata[TraceMetadataKey.SOURCE_RUN] == run.info.run_id
+
+
+@pytest.mark.skipif(not _LC_COMMUNITY_INSTALLED, reason="This test requires langchain_community")
+def test_tracing_source_run_in_pyfunc_model_predict():
+    mlflow.langchain.autolog()
+
+    model = create_openai_runnable()
+    input = {"product": "MLflow"}
+    with mlflow.start_run():
+        model_info = mlflow.langchain.log_model(model, "model")
+
+    pyfunc_model = mlflow.pyfunc.load_model(model_info.model_uri)
+    with mlflow.start_run() as run:
+        pyfunc_model.predict([input] * 2)
+
+    trace = mlflow.get_last_active_trace()
+    assert trace.info.request_metadata[TraceMetadataKey.SOURCE_RUN] == run.info.run_id
+
+
 @pytest.mark.parametrize("invoke_arg", ["args", "kwargs", None])
 @pytest.mark.parametrize(
     "config",
