@@ -90,7 +90,7 @@ class MlflowSpanProcessor(SimpleSpanProcessor):
         experiment_id = get_otel_attribute(span, SpanAttributeKey.EXPERIMENT_ID)
         metadata = {TRACE_SCHEMA_VERSION_KEY: str(TRACE_SCHEMA_VERSION)}
         # If the span is started within an active MLflow run, we should record it as a trace tag
-        # Note `MLflow.active_run()` can only get thread-local active run,
+        # Note `mlflow.active_run()` can only get thread-local active run,
         # but tracing routine might be applied to model inference worker threads
         # in the following cases:
         #  - langchain model `chain.batch` which uses thread pool to spawn workers.
