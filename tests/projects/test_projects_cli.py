@@ -10,6 +10,7 @@ import pytest
 from click.testing import CliRunner
 
 from mlflow import MlflowClient, cli
+from mlflow.utils import process
 
 from tests.integration.utils import invoke_cli_runner
 from tests.projects.utils import (
