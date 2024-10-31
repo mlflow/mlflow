@@ -2,7 +2,7 @@ import posixpath
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Callable, List, Optional, Tuple
+from typing import Any, Callable, Optional
 
 from mlflow.entities.file_info import FileInfo
 from mlflow.protos.databricks_artifacts_pb2 import (
@@ -38,13 +38,13 @@ class HttpHeader:
 class ArtifactCredentialInfo:
     signed_uri: str
     type: Any
-    headers: List[HttpHeader]
+    headers: list[HttpHeader]
 
 
 @dataclass
 class ListArtifactsPage:
     # List of files in the current page
-    files: List[FileInfo]
+    files: list[FileInfo]
     # Token to fetch the next page of files
     next_page_token: Optional[str] = None
 
@@ -83,9 +83,9 @@ class _Resource(ABC):
     def get_credentials(
         self,
         cred_type: _CredentialType,
-        paths: List[str],
+        paths: list[str],
         page_token: Optional[str] = None,
-    ) -> Tuple[List[ArtifactCredentialInfo], Optional[str]]:
+    ) -> tuple[list[ArtifactCredentialInfo], Optional[str]]:
         """
         Fetches read/write credentials for the specified paths.
         """
@@ -106,11 +106,11 @@ class _Resource(ABC):
         List artifacts under the specified path.
         """
 
-    def list_artifacts(self, path: Optional[str] = None) -> List[FileInfo]:
+    def list_artifacts(self, path: Optional[str] = None) -> list[FileInfo]:
         """
         Handle pagination and return all artifacts under the specified path.
         """
-        files: List[FileInfo] = []
+        files: list[FileInfo] = []
         page_token: Optional[str] = None
         while True:
             page = self._list_artifacts(path, page_token)
@@ -126,9 +126,9 @@ class _LoggedModel(_Resource):
     def get_credentials(
         self,
         cred_type: _CredentialType,
-        paths: List[str],
+        paths: list[str],
         page_token: Optional[str] = None,
-    ) -> Tuple[List[ArtifactCredentialInfo], Optional[str]]:
+    ) -> tuple[list[ArtifactCredentialInfo], Optional[str]]:
         api = (
             GetCredentialsForLoggedModelDownload
             if cred_type == _CredentialType.READ
@@ -194,9 +194,9 @@ class _Run(_Resource):
     def get_credentials(
         self,
         cred_type: _CredentialType,
-        paths: List[str],
+        paths: list[str],
         page_token: Optional[str] = None,
-    ) -> Tuple[List[ArtifactCredentialInfo], Optional[str]]:
+    ) -> tuple[list[ArtifactCredentialInfo], Optional[str]]:
         api = GetCredentialsForRead if cred_type == _CredentialType.READ else GetCredentialsForWrite
         json_body = api(run_id=self.id, path=paths, page_token=page_token)
         response = self.call_endpoint(

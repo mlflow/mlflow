@@ -8,7 +8,7 @@ import uuid
 from collections import Counter
 from dataclasses import asdict, is_dataclass
 from functools import lru_cache
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
 from opentelemetry import trace as trace_api
 from packaging.version import Version
@@ -24,7 +24,7 @@ if TYPE_CHECKING:
     from mlflow.entities import LiveSpan
 
 
-def capture_function_input_args(func, args, kwargs) -> Dict[str, Any]:
+def capture_function_input_args(func, args, kwargs) -> dict[str, Any]:
     # Avoid capturing `self`
     func_signature = inspect.signature(func)
     bound_arguments = func_signature.bind(*args, **kwargs)
@@ -150,7 +150,7 @@ def build_otel_context(trace_id: int, span_id: int) -> trace_api.SpanContext:
     )
 
 
-def deduplicate_span_names_in_place(spans: List[LiveSpan]):
+def deduplicate_span_names_in_place(spans: list[LiveSpan]):
     """
     Deduplicate span names in the trace data by appending an index number to the span name.
 
@@ -225,7 +225,7 @@ def maybe_get_dependencies_schemas() -> Optional[dict]:
         return context.dependencies_schemas
 
 
-def exclude_immutable_tags(tags: Dict[str, str]) -> Dict[str, str]:
+def exclude_immutable_tags(tags: dict[str, str]) -> dict[str, str]:
     """Exclude immutable tags e.g. "mlflow.user" from the given tags."""
     return {k: v for k, v in tags.items() if k not in IMMUTABLE_TAGS}
 

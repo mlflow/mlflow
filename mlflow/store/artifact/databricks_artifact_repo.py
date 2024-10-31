@@ -4,7 +4,7 @@ import logging
 import os
 import posixpath
 import uuid
-from typing import Any, Dict, List
+from typing import Any
 
 import requests
 
@@ -161,7 +161,7 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
         response_proto = api.Response()
         return call_endpoint(db_creds, endpoint, method, json_body, response_proto)
 
-    def _get_credential_infos(self, cred_type: _CredentialType, paths: List[str]):
+    def _get_credential_infos(self, cred_type: _CredentialType, paths: list[str]):
         """
         Issue one or more requests for artifact credentials, providing read or write
         access to the specified resource relative artifact `paths` within the MLflow
@@ -203,7 +203,7 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
         ]
         return self._get_credential_infos(_CredentialType.WRITE, relative_remote_paths)
 
-    def download_trace_data(self) -> Dict[str, Any]:
+    def download_trace_data(self) -> dict[str, Any]:
         cred = self._call_endpoint(
             DatabricksMlflowArtifactsService,
             GetCredentialsForTraceDataDownload,

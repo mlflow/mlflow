@@ -6,7 +6,7 @@ import threading
 import time
 import uuid
 from functools import reduce
-from typing import Dict, List, Optional, Tuple
+from typing import Optional
 
 import sqlalchemy
 import sqlalchemy.sql.expression as sql
@@ -1413,7 +1413,7 @@ class SqlAlchemyStore(AbstractStore):
             _validate_tag(MLFLOW_LOGGED_MODELS, value)
             session.merge(SqlTag(key=MLFLOW_LOGGED_MODELS, value=value, run_uuid=run_id))
 
-    def log_inputs(self, run_id: str, datasets: Optional[List[DatasetInput]] = None):
+    def log_inputs(self, run_id: str, datasets: Optional[list[DatasetInput]] = None):
         """
         Log inputs, such as datasets, to the specified run.
 
@@ -1443,7 +1443,7 @@ class SqlAlchemyStore(AbstractStore):
                 raise MlflowException(e, INTERNAL_ERROR)
 
     def _log_inputs_impl(
-        self, experiment_id, run_id, dataset_inputs: Optional[List[DatasetInput]] = None
+        self, experiment_id, run_id, dataset_inputs: Optional[list[DatasetInput]] = None
     ):
         if dataset_inputs is None or len(dataset_inputs) == 0:
             return
@@ -1564,8 +1564,8 @@ class SqlAlchemyStore(AbstractStore):
         self,
         experiment_id: str,
         timestamp_ms: int,
-        request_metadata: Dict[str, str],
-        tags: Dict[str, str],
+        request_metadata: dict[str, str],
+        tags: dict[str, str],
     ) -> TraceInfo:
         """
         Create an initial TraceInfo object in the database.
@@ -1619,8 +1619,8 @@ class SqlAlchemyStore(AbstractStore):
         request_id: str,
         timestamp_ms: int,
         status: TraceStatus,
-        request_metadata: Dict[str, str],
-        tags: Dict[str, str],
+        request_metadata: dict[str, str],
+        tags: dict[str, str],
     ) -> TraceInfo:
         """
         Update the TraceInfo object in the database with the completed trace info.
@@ -1678,12 +1678,12 @@ class SqlAlchemyStore(AbstractStore):
 
     def search_traces(
         self,
-        experiment_ids: List[str],
+        experiment_ids: list[str],
         filter_string: Optional[str] = None,
         max_results: int = SEARCH_TRACES_DEFAULT_MAX_RESULTS,
-        order_by: Optional[List[str]] = None,
+        order_by: Optional[list[str]] = None,
         page_token: Optional[str] = None,
-    ) -> Tuple[List[TraceInfo], Optional[str]]:
+    ) -> tuple[list[TraceInfo], Optional[str]]:
         """
         Return traces that match the given list of search expressions within the experiments.
 
@@ -1798,7 +1798,7 @@ class SqlAlchemyStore(AbstractStore):
         experiment_id: str,
         max_timestamp_millis: Optional[int] = None,
         max_traces: Optional[int] = None,
-        request_ids: Optional[List[str]] = None,
+        request_ids: Optional[list[str]] = None,
     ) -> int:
         """
         Delete traces based on the specified criteria.
@@ -2075,7 +2075,7 @@ def _get_search_experiments_order_by_clauses(order_by):
     return [col.asc() if ascending else col.desc() for col, ascending in order_by_clauses]
 
 
-def _get_orderby_clauses_for_search_traces(order_by_list: List[str], session):
+def _get_orderby_clauses_for_search_traces(order_by_list: list[str], session):
     """Sorts a set of traces based on their natural ordering and an overriding set of order_bys.
     Traces are ordered first by timestamp_ms descending, then by request_id for tie-breaking.
     """

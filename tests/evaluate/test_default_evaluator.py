@@ -7,7 +7,6 @@ import re
 from os.path import join as path_join
 from pathlib import Path
 from tempfile import TemporaryDirectory
-from typing import Dict, List
 from unittest import mock
 
 import matplotlib.pyplot as plt
@@ -2611,7 +2610,7 @@ def test_extracting_output_and_other_columns():
     assert prediction_col7 == "text"
 
 
-def language_model_with_context(inputs: List[str]) -> List[Dict[str, str]]:
+def language_model_with_context(inputs: list[str]) -> list[dict[str, str]]:
     return [
         {
             "context": f"context_{input}",
@@ -3916,6 +3915,48 @@ def test_precanned_metrics_work():
             "rouge1/v1/mean": 1.0,
             "rouge1/v1/variance": 0.0,
             "rouge1/v1/p90": 1.0,
+        }
+
+
+def test_precanned_bleu_metrics_work():
+    metric = mlflow.metrics.bleu()
+    with mlflow.start_run():
+        eval_df = pd.DataFrame(
+            {
+                "inputs": [
+                    "What is MLflow?",
+                    "What is Spark?",
+                    "What is Python?",
+                ],
+                "ground_truth": [
+                    "MLflow is an open-source platform",
+                    "Apache Spark is an open-source, distributed computing system",
+                    "Python is a high-level programming language",
+                ],
+                "prediction": [
+                    "MLflow is an open-source platform",
+                    "Apache Spark is an open-source, distributed computing system",
+                    "Python is a high-level programming language",
+                ],
+            }
+        )
+
+        results = mlflow.evaluate(
+            data=eval_df,
+            evaluators="default",
+            predictions="prediction",
+            extra_metrics=[metric],
+            evaluator_config={
+                "col_mapping": {
+                    "targets": "ground_truth",
+                }
+            },
+        )
+
+        assert results.metrics == {
+            "bleu/v1/mean": 1.0,
+            "bleu/v1/variance": 0.0,
+            "bleu/v1/p90": 1.0,
         }
 
 

@@ -24,7 +24,7 @@ import time
 import traceback
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Optional, Union
 
 import langchain.chains
 from langchain.callbacks.base import BaseCallbackHandler
@@ -105,7 +105,7 @@ class APIRequest:
     convert_chat_responses: bool
     did_perform_chat_conversion: bool
     stream: bool
-    params: Dict[str, Any]
+    params: dict[str, Any]
     prediction_context: Optional[Context] = None
 
     def _predict_single_input(self, single_input, callback_handlers, **kwargs):
@@ -126,7 +126,7 @@ class APIRequest:
         else:
             return try_transform_response_to_chat_format(response)
 
-    def single_call_api(self, callback_handlers: Optional[List[BaseCallbackHandler]]):
+    def single_call_api(self, callback_handlers: Optional[list[BaseCallbackHandler]]):
         from langchain.schema import BaseRetriever
 
         from mlflow.langchain.utils import langgraph_types, lc_runnables_types
@@ -190,7 +190,7 @@ class APIRequest:
         return convert_to_serializable(response)
 
     def call_api(
-        self, status_tracker: StatusTracker, callback_handlers: Optional[List[BaseCallbackHandler]]
+        self, status_tracker: StatusTracker, callback_handlers: Optional[list[BaseCallbackHandler]]
     ):
         """
         Calls the LangChain API and stores results.
@@ -213,16 +213,15 @@ class APIRequest:
 
 def process_api_requests(
     lc_model,
-    requests: Optional[List[Union[Any, Dict[str, Any]]]] = None,
+    requests: Optional[list[Union[Any, dict[str, Any]]]] = None,
     max_workers: int = 10,
-    callback_handlers: Optional[List[BaseCallbackHandler]] = None,
+    callback_handlers: Optional[list[BaseCallbackHandler]] = None,
     convert_chat_responses: bool = False,
-    params: Optional[Dict[str, Any]] = None,
+    params: Optional[dict[str, Any]] = None,
 ):
     """
     Processes API requests in parallel.
     """
-    from mlflow.tracking.fluent import _active_run_stack
 
     # initialize trackers
     retry_queue = queue.Queue()
@@ -267,23 +266,11 @@ def process_api_requests(
             else:
                 next_request = None
 
-            active_run_stack = _active_run_stack.get()
-
-            def call_api(requester, status_tracker, callback_handlers):
-                # langchain inference tracing will read current active run,
-                # but active run stack is thread local, to make it work,
-                # copy current thread active run stack to inference worker thread.
-                _active_run_stack.set(active_run_stack.copy())
-                return requester.call_api(
-                    status_tracker=status_tracker, callback_handlers=callback_handlers
-                )
-
             # if enough capacity available, call API
             if next_request:
                 # call API
                 executor.submit(
-                    call_api,
-                    requester=next_request,
+                    next_request.call_api,
                     status_tracker=status_tracker,
                     callback_handlers=callback_handlers,
                 )
@@ -307,10 +294,10 @@ def process_api_requests(
 
 def process_stream_request(
     lc_model,
-    request_json: Union[Any, Dict[str, Any]],
-    callback_handlers: Optional[List[BaseCallbackHandler]] = None,
+    request_json: Union[Any, dict[str, Any]],
+    callback_handlers: Optional[list[BaseCallbackHandler]] = None,
     convert_chat_responses: bool = False,
-    params: Optional[Dict[str, Any]] = None,
+    params: Optional[dict[str, Any]] = None,
 ):
     """
     Process single stream request.

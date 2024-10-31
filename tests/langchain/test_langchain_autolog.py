@@ -1,6 +1,6 @@
 import os
 from operator import itemgetter
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 from unittest import mock
 
 import langchain
@@ -138,8 +138,8 @@ def create_fake_chat_model():
 
         def _call(
             self,
-            messages: List[BaseMessage],
-            stop: Optional[List[str]] = None,
+            messages: list[BaseMessage],
+            stop: Optional[list[str]] = None,
             run_manager: Optional[CallbackManagerForLLMRun] = None,
             **kwargs: Any,
         ) -> str:
@@ -585,11 +585,11 @@ class CustomCallbackHandler(BaseCallbackHandler):
         self.logs = []
 
     def on_chain_start(
-        self, serialized: Dict[str, Any], inputs: Dict[str, Any], **kwargs: Any
+        self, serialized: dict[str, Any], inputs: dict[str, Any], **kwargs: Any
     ) -> None:
         self.logs.append("chain_start")
 
-    def on_chain_end(self, outputs: Dict[str, Any], **kwargs: Any) -> None:
+    def on_chain_end(self, outputs: dict[str, Any], **kwargs: Any) -> None:
         self.logs.append("chain_end")
 
 
@@ -598,11 +598,11 @@ class AsyncCustomCallbackHandler(AsyncCallbackHandler):
         self.logs = []
 
     async def on_chain_start(
-        self, serialized: Dict[str, Any], inputs: Dict[str, Any], **kwargs: Any
+        self, serialized: dict[str, Any], inputs: dict[str, Any], **kwargs: Any
     ) -> None:
         self.logs.append("chain_start")
 
-    async def on_chain_end(self, outputs: Dict[str, Any], **kwargs: Any) -> None:
+    async def on_chain_end(self, outputs: dict[str, Any], **kwargs: Any) -> None:
         self.logs.append("chain_end")
 
 
@@ -627,7 +627,7 @@ def _reset_callback_handlers(handlers):
             handler.logs = []
 
 
-def _extract_callback_handlers(config) -> Optional[List[BaseCallbackHandler]]:
+def _extract_callback_handlers(config) -> Optional[list[BaseCallbackHandler]]:
     if isinstance(config, list):
         callbacks = []
         for c in config:
@@ -769,6 +769,35 @@ def test_langchain_autolog_callback_injection_in_batch(invoke_arg, config, async
     if handlers and invoke_arg:
         for handler in handlers:
             assert set(handler.logs) == {"chain_start", "chain_end"}
+
+
+def test_tracing_source_run_in_batch():
+    mlflow.langchain.autolog()
+
+    model = create_openai_llmchain()
+    input = {"product": "MLflow"}
+    with mlflow.start_run() as run:
+        model.batch([input] * 2)
+
+    trace = mlflow.get_last_active_trace()
+    assert trace.info.request_metadata[TraceMetadataKey.SOURCE_RUN] == run.info.run_id
+
+
+@pytest.mark.skipif(not _LC_COMMUNITY_INSTALLED, reason="This test requires langchain_community")
+def test_tracing_source_run_in_pyfunc_model_predict():
+    mlflow.langchain.autolog()
+
+    model = create_openai_runnable()
+    input = {"product": "MLflow"}
+    with mlflow.start_run():
+        model_info = mlflow.langchain.log_model(model, "model")
+
+    pyfunc_model = mlflow.pyfunc.load_model(model_info.model_uri)
+    with mlflow.start_run() as run:
+        pyfunc_model.predict([input] * 2)
+
+    trace = mlflow.get_last_active_trace()
+    assert trace.info.request_metadata[TraceMetadataKey.SOURCE_RUN] == run.info.run_id
 
 
 @pytest.mark.parametrize("invoke_arg", ["args", "kwargs", None])

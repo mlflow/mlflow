@@ -1,4 +1,4 @@
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 from mlflow.pyfunc.loaders.chat_model import _ChatModelPyfuncWrapper
 from mlflow.pyfunc.model import (
@@ -8,7 +8,7 @@ from mlflow.pyfunc.model import (
 )
 
 
-def _load_pyfunc(local_path: str, model_config: Optional[Dict[str, Any]] = None):
+def _load_pyfunc(local_path: str, model_config: Optional[dict[str, Any]] = None):
     context, model, signature = _load_context_model_and_signature(local_path, model_config)
     if isinstance(model, ChatModel):
         return _ChatModelPyfuncWrapper(model, context, signature)

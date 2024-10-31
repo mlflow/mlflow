@@ -24,7 +24,7 @@ import logging
 import os
 import tempfile
 from copy import deepcopy
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 import yaml
 from packaging.version import Version
@@ -283,8 +283,8 @@ def log_model(
     extra_pip_requirements=None,
     metadata=None,
     name: Optional[str] = None,
-    params: Optional[Dict[str, Any]] = None,
-    tags: Optional[Dict[str, Any]] = None,
+    params: Optional[dict[str, Any]] = None,
+    tags: Optional[dict[str, Any]] = None,
     model_type: Optional[str] = None,
     step: int = 0,
     model_id: Optional[str] = None,
@@ -496,7 +496,7 @@ class _LGBModelWrapper:
         """
         return self.lgb_model
 
-    def predict(self, dataframe, params: Optional[Dict[str, Any]] = None):
+    def predict(self, dataframe, params: Optional[dict[str, Any]] = None):
         """
         Args:
             dataframe: Model input data.

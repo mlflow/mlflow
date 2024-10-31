@@ -18,7 +18,7 @@ import os
 import pathlib
 import sys
 import traceback
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 import mlflow
 from mlflow.exceptions import MlflowException
@@ -46,8 +46,8 @@ def log_model(
     metadata=None,
     registered_model_name=None,
     name: Optional[str] = None,
-    params: Optional[Dict[str, Any]] = None,
-    tags: Optional[Dict[str, Any]] = None,
+    params: Optional[dict[str, Any]] = None,
+    tags: Optional[dict[str, Any]] = None,
     model_type: Optional[str] = None,
     step: int = 0,
     model_id: Optional[str] = None,

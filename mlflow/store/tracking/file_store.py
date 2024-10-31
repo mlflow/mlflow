@@ -7,7 +7,7 @@ import time
 import uuid
 from collections import defaultdict
 from dataclasses import dataclass
-from typing import Any, Dict, List, NamedTuple, Optional, Tuple
+from typing import Any, NamedTuple, Optional
 
 from mlflow.entities import (
     Dataset,
@@ -1209,8 +1209,8 @@ class FileStore(AbstractStore):
     def log_inputs(
         self,
         run_id: str,
-        datasets: Optional[List[DatasetInput]] = None,
-        models: Optional[List[LoggedModelInput]] = None,
+        datasets: Optional[list[DatasetInput]] = None,
+        models: Optional[list[LoggedModelInput]] = None,
     ):
         """
         Log inputs, such as datasets and models, to the specified run.
@@ -1273,7 +1273,7 @@ class FileStore(AbstractStore):
                 )
                 fs_input.write_yaml(input_dir, FileStore.META_DATA_FILE_NAME)
 
-    def log_outputs(self, run_id: str, models: List[LoggedModelOutput]):
+    def log_outputs(self, run_id: str, models: list[LoggedModelOutput]):
         """
         Log outputs, such as models, to the specified run.
 
@@ -1332,7 +1332,7 @@ class FileStore(AbstractStore):
         source_id: str
         destination_type: int
         destination_id: str
-        tags: Dict[str, str]
+        tags: dict[str, str]
 
         def write_yaml(self, root: str, file_name: str):
             dict_for_yaml = {
@@ -1360,7 +1360,7 @@ class FileStore(AbstractStore):
         source_id: str
         destination_type: int
         destination_id: str
-        tags: Dict[str, str]
+        tags: dict[str, str]
         step: int
 
         def write_yaml(self, root: str, file_name: str):
@@ -1399,7 +1399,7 @@ class FileStore(AbstractStore):
 
     def _get_dataset_inputs(
         self, run_info: RunInfo, inputs_parent_path: str, experiment_dir_path: str
-    ) -> List[DatasetInput]:
+    ) -> list[DatasetInput]:
         datasets_parent_path = os.path.join(experiment_dir_path, FileStore.DATASETS_FOLDER_NAME)
         if not os.path.exists(datasets_parent_path):
             return []
@@ -1438,7 +1438,7 @@ class FileStore(AbstractStore):
 
     def _get_model_inputs(
         self, inputs_parent_path: str, experiment_dir_path: str
-    ) -> List[LoggedModelInput]:
+    ) -> list[LoggedModelInput]:
         model_inputs = []
         for input_dir in os.listdir(inputs_parent_path):
             input_dir_full_path = os.path.join(inputs_parent_path, input_dir)
@@ -1465,7 +1465,7 @@ class FileStore(AbstractStore):
 
     def _get_model_outputs(
         self, outputs_parent_path: str, experiment_dir: str
-    ) -> List[LoggedModelOutput]:
+    ) -> list[LoggedModelOutput]:
         model_outputs = []
         for output_dir in os.listdir(outputs_parent_path):
             output_dir_full_path = os.path.join(outputs_parent_path, output_dir)
@@ -1480,7 +1480,7 @@ class FileStore(AbstractStore):
 
         return model_outputs
 
-    def _search_datasets(self, experiment_ids) -> List[_DatasetSummary]:
+    def _search_datasets(self, experiment_ids) -> list[_DatasetSummary]:
         """
         Return all dataset summaries associated to the given experiments.
 
@@ -1592,8 +1592,8 @@ class FileStore(AbstractStore):
         self,
         experiment_id: str,
         timestamp_ms: int,
-        request_metadata: Dict[str, str],
-        tags: Dict[str, str],
+        request_metadata: dict[str, str],
+        tags: dict[str, str],
     ) -> TraceInfo:
         """
         Start an initial TraceInfo object in the backend store.
@@ -1701,8 +1701,8 @@ class FileStore(AbstractStore):
         request_id: str,
         timestamp_ms: int,
         status: TraceStatus,
-        request_metadata: Dict[str, str],
-        tags: Dict[str, str],
+        request_metadata: dict[str, str],
+        tags: dict[str, str],
     ) -> TraceInfo:
         """
         Update the TraceInfo object in the backend store with the completed trace info.
@@ -1740,7 +1740,7 @@ class FileStore(AbstractStore):
         """
         return self._get_trace_info_and_dir(request_id)[0]
 
-    def _get_trace_info_and_dir(self, request_id: str) -> Tuple[TraceInfo, str]:
+    def _get_trace_info_and_dir(self, request_id: str) -> tuple[TraceInfo, str]:
         trace_dir = self._find_trace_dir(request_id, assert_exists=True)
         trace_info = self._get_trace_info_from_dir(trace_dir)
         if trace_info and trace_info.request_id != request_id:
@@ -1814,7 +1814,7 @@ class FileStore(AbstractStore):
         experiment_id: str,
         max_timestamp_millis: Optional[int] = None,
         max_traces: Optional[int] = None,
-        request_ids: Optional[List[str]] = None,
+        request_ids: Optional[list[str]] = None,
     ) -> int:
         """
         Delete traces based on the specified criteria.
@@ -1870,10 +1870,10 @@ class FileStore(AbstractStore):
 
     def search_traces(
         self,
-        experiment_ids: List[str],
+        experiment_ids: list[str],
         filter_string: Optional[str] = None,
         max_results: int = SEARCH_TRACES_DEFAULT_MAX_RESULTS,
-        order_by: Optional[List[str]] = None,
+        order_by: Optional[list[str]] = None,
         page_token: Optional[str] = None,
     ):
         """
@@ -1937,8 +1937,8 @@ class FileStore(AbstractStore):
         experiment_id: str,
         name: Optional[str] = None,
         source_run_id: Optional[str] = None,
-        tags: Optional[List[LoggedModelTag]] = None,
-        params: Optional[List[LoggedModelParameter]] = None,
+        tags: Optional[list[LoggedModelTag]] = None,
+        params: Optional[list[LoggedModelParameter]] = None,
         model_type: Optional[str] = None,
     ) -> LoggedModel:
         """
@@ -1992,7 +1992,7 @@ class FileStore(AbstractStore):
         # Persist model metadata and create directories for logging metrics, tags
         model_dir = self._get_model_dir(experiment_id, model_id)
         mkdir(model_dir)
-        model_info_dict: Dict[str, Any] = self._make_persisted_model_dict(model)
+        model_info_dict: dict[str, Any] = self._make_persisted_model_dict(model)
         write_yaml(model_dir, FileStore.META_DATA_FILE_NAME, model_info_dict)
         mkdir(model_dir, FileStore.METRICS_FOLDER_NAME)
         self.set_logged_model_tags(model_id=model_id, tags=tags or [])
@@ -2024,7 +2024,7 @@ class FileStore(AbstractStore):
         write_yaml(model_dir, FileStore.META_DATA_FILE_NAME, model_info_dict, overwrite=True)
         return self.get_logged_model(model_id)
 
-    def set_logged_model_tags(self, model_id: str, tags: List[LoggedModelTag]) -> None:
+    def set_logged_model_tags(self, model_id: str, tags: list[LoggedModelTag]) -> None:
         """
         Set tags on the specified logged model.
 
@@ -2067,19 +2067,19 @@ class FileStore(AbstractStore):
             FileStore.ARTIFACTS_FOLDER_NAME,
         )
 
-    def _make_persisted_model_dict(self, model: LoggedModel) -> Dict[str, Any]:
+    def _make_persisted_model_dict(self, model: LoggedModel) -> dict[str, Any]:
         model_dict = model.to_dictionary()
         model_dict.pop("tags", None)
         model_dict.pop("metrics", None)
         return model_dict
 
-    def _get_model_dict(self, model_id: str) -> Dict[str, Any]:
+    def _get_model_dict(self, model_id: str) -> dict[str, Any]:
         exp_id, model_dir = self._find_model_root(model_id)
         if model_dir is None:
             raise MlflowException(
                 f"Model '{model_id}' not found", databricks_pb2.RESOURCE_DOES_NOT_EXIST
             )
-        model_dict: Dict[str, Any] = self._get_model_info_from_dir(model_dir)
+        model_dict: dict[str, Any] = self._get_model_info_from_dir(model_dir)
         if model_dict["experiment_id"] != exp_id:
             raise MlflowException(
                 f"Model '{model_id}' metadata is in invalid state.", databricks_pb2.INVALID_STATE
@@ -2111,7 +2111,7 @@ class FileStore(AbstractStore):
     def _get_model_from_dir(self, model_dir: str) -> LoggedModel:
         return LoggedModel.from_dictionary(self._get_model_info_from_dir(model_dir))
 
-    def _get_model_info_from_dir(self, model_dir: str) -> Dict[str, Any]:
+    def _get_model_info_from_dir(self, model_dir: str) -> dict[str, Any]:
         model_dict = FileStore._read_yaml(model_dir, FileStore.META_DATA_FILE_NAME)
         model_dict["tags"] = self._get_all_model_tags(model_dir)
         model_dict["metrics"] = self._get_all_model_metrics(
@@ -2119,14 +2119,14 @@ class FileStore(AbstractStore):
         )
         return model_dict
 
-    def _get_all_model_tags(self, model_dir: str) -> List[LoggedModelTag]:
+    def _get_all_model_tags(self, model_dir: str) -> list[LoggedModelTag]:
         parent_path, tag_files = self._get_resource_files(model_dir, FileStore.TAGS_FOLDER_NAME)
         tags = []
         for tag_file in tag_files:
             tags.append(self._get_tag_from_file(parent_path, tag_file))
         return tags
 
-    def _get_all_model_metrics(self, model_id: str, model_dir: str) -> List[Metric]:
+    def _get_all_model_metrics(self, model_id: str, model_dir: str) -> list[Metric]:
         parent_path, metric_files = self._get_resource_files(
             model_dir, FileStore.METRICS_FOLDER_NAME
         )
@@ -2142,7 +2142,7 @@ class FileStore(AbstractStore):
     @staticmethod
     def _get_model_metrics_from_file(
         model_id: str, parent_path: str, metric_name: str
-    ) -> List[Metric]:
+    ) -> list[Metric]:
         _validate_metric_name(metric_name)
         metric_objs = [
             FileStore._get_model_metric_from_line(model_id, metric_name, line)
@@ -2192,12 +2192,12 @@ class FileStore(AbstractStore):
 
     def search_logged_models(
         self,
-        experiment_ids: List[str],
+        experiment_ids: list[str],
         filter_string: Optional[str] = None,
         max_results: Optional[int] = None,
-        order_by: Optional[List[Dict[str, Any]]] = None,
+        order_by: Optional[list[list[str, Any]]] = None,
         page_token: Optional[str] = None,
-    ) -> List[LoggedModel]:
+    ) -> list[LoggedModel]:
         """
         Search for logged models that match the specified search criteria.
 
@@ -2231,7 +2231,7 @@ class FileStore(AbstractStore):
         filtered = SearchUtils.filter_logged_models(models, filter_string)
         return SearchUtils.sort_logged_models(filtered, order_by)[:max_results]
 
-    def _list_models(self, experiment_id: str) -> List[LoggedModel]:
+    def _list_models(self, experiment_id: str) -> list[LoggedModel]:
         self._check_root_dir()
         if not self._has_experiment(experiment_id):
             return []

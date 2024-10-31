@@ -9,7 +9,7 @@ import tempfile
 import traceback
 import warnings
 from abc import abstractmethod
-from typing import Any, Callable, List, NamedTuple, Optional, Tuple, Union
+from typing import Any, Callable, NamedTuple, Optional, Union
 
 import numpy as np
 import pandas as pd
@@ -201,7 +201,7 @@ class BuiltInEvaluator(ModelEvaluator):
     def _evaluate(
         self,
         model: Optional["mlflow.pyfunc.PyFuncModel"],
-        extra_metrics: List[EvaluationMetric],
+        extra_metrics: list[EvaluationMetric],
         custom_artifacts=None,
         **kwargs,
     ) -> Optional[EvaluationResult]:
@@ -361,7 +361,7 @@ class BuiltInEvaluator(ModelEvaluator):
         eval_df: pd.DataFrame,
         input_df: pd.DataFrame,
         other_output_df: Optional[pd.DataFrame],
-    ) -> Tuple[bool, List[Union[str, pd.DataFrame]]]:
+    ) -> tuple[bool, list[Union[str, pd.DataFrame]]]:
         """
         Given a metric_tuple, read the signature of the metric function and get the appropriate
         arguments from the input/output columns, other calculated metrics, and evaluator_config.
@@ -459,7 +459,7 @@ class BuiltInEvaluator(ModelEvaluator):
 
     def evaluate_and_log_custom_artifacts(
         self,
-        custom_artifacts: List[_CustomArtifact],
+        custom_artifacts: list[_CustomArtifact],
         prediction: pd.Series,
         target: Optional[np.array] = None,
     ):
@@ -568,7 +568,7 @@ class BuiltInEvaluator(ModelEvaluator):
 
     def _order_metrics(
         self,
-        metrics: List[EvaluationMetric],
+        metrics: list[EvaluationMetric],
         eval_df: pd.DataFrame,
         other_output_df: Optional[pd.DataFrame],
     ):
@@ -609,7 +609,7 @@ class BuiltInEvaluator(ModelEvaluator):
 
     def _test_first_row(
         self,
-        metrics: List[MetricDefinition],
+        metrics: list[MetricDefinition],
         eval_df: pd.DataFrame,
         other_output_df: Optional[pd.DataFrame],
     ):
@@ -641,7 +641,7 @@ class BuiltInEvaluator(ModelEvaluator):
 
     def evaluate_metrics(
         self,
-        metrics: List[EvaluationMetric],
+        metrics: list[EvaluationMetric],
         prediction: pd.Series,
         target: Optional[np.array] = None,
         other_output_df: Optional[pd.DataFrame] = None,

@@ -324,7 +324,7 @@ Endpoints
 ---------
 
 `Endpoints` are central to how the MLflow AI Gateway functions. Each endpoint acts as a proxy endpoint for the
-user, forwarding requests to the underlying :ref:`deployments_models` and :ref:`providers` specified in the configuration file.
+user, forwarding requests to the underlying :ref:`deployments_models` and :ref:`deployments-providers` specified in the configuration file.
 
 an endpoint in the MLflow AI Gateway consists of the following fields:
 
@@ -334,7 +334,7 @@ an endpoint in the MLflow AI Gateway consists of the following fields:
 
 * **model**: Defines the model to which this endpoint will forward requests. The model contains the following details:
 
-    * **provider**: Specifies the name of the :ref:`provider <providers>` for this model. For example, ``openai`` for OpenAI's ``GPT-4o`` models.
+    * **provider**: Specifies the name of the :ref:`provider <deployments-providers>` for this model. For example, ``openai`` for OpenAI's ``GPT-4o`` models.
     * **name**: The name of the model to use. For example, ``gpt-4o-mini`` for OpenAI's ``GPT-4o-Mini`` model.
     * **config**: Contains any additional configuration details required for the model. This includes specifying the API base URL and the API key.
 
@@ -377,7 +377,7 @@ Models
 
 The ``model`` section within an ``endpoint`` specifies which model to use for generating responses.
 This configuration block needs to contain a ``name`` field which is used to specify the exact model instance to be used.
-Additionally, a :ref:`provider <providers>` needs to be specified, one that you have an authenticated access api key for.
+Additionally, a :ref:`provider <deployments-providers>` needs to be specified, one that you have an authenticated access api key for.
 
 Different endpoint types are often associated with specific models.
 For instance, the ``llm/v1/chat`` and ``llm/v1/completions`` endpoints are generally associated with
@@ -799,7 +799,7 @@ The standard parameters for chat endpoints with type ``llm/v1/chat`` are:
 | **messages**                  | array[message] | Yes      | N/A           | A list of messages in a conversation from which to    |
 |                               |                |          |               | a new message (chat completion). For information      |
 |                               |                |          |               | about the message structure, see                      |
-|                               |                |          |               | :ref:`chat_message_structure`.                        |
+|                               |                |          |               | :ref:`deployments_chat_message_structure`.            |
 +-------------------------------+----------------+----------+---------------+-------------------------------------------------------+
 | **n**                         | integer        | No       | 1             | The number of chat completions to generate for the    |
 |                               |                |          |               | specified prompt, between 1 and 5.                    |
@@ -847,7 +847,7 @@ The standard parameters for completions endpoints with type ``llm/v1/embeddings`
 
 Additional Query Parameters
 ---------------------------
-In addition to the :ref:`standard_query_parameters`, you can pass any additional parameters supported by the endpoint's provider as part of your query. For example:
+In addition to the :ref:`standard_deployments_parameters`, you can pass any additional parameters supported by the endpoint's provider as part of your query. For example:
 
 - ``logit_bias`` (supported by OpenAI, Cohere)
 - ``top_k`` (supported by MosaicML, Anthropic, PaLM, Cohere)
