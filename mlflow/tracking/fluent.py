@@ -613,6 +613,18 @@ def last_active_run() -> Optional[Run]:
     return get_run(last_active_run_id)
 
 
+def _get_latest_active_run():
+    latest_active_run = None
+    for active_run_stack in _active_run_stack._value_dict.values():
+        for active_run in active_run_stack:
+            if (
+                    latest_active_run is None
+                    or active_run.start_time > latest_active_run.start_time
+            ):
+                latest_active_run = active_run
+    return latest_active_run
+
+
 def get_run(run_id: str) -> Run:
     """
     Fetch the run from backend store. The resulting Run contains a collection of run metadata --

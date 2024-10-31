@@ -86,7 +86,7 @@ class MlflowSpanProcessor(SimpleSpanProcessor):
         span.set_attribute(SpanAttributeKey.REQUEST_ID, json.dumps(request_id))
 
     def _start_trace(self, span: OTelSpan, start_time_ns: Optional[int]) -> TraceInfo:
-        from mlflow.tracking.fluent import _active_run_stack
+        from mlflow.tracking.fluent import _get_latest_active_run
 
         experiment_id = get_otel_attribute(span, SpanAttributeKey.EXPERIMENT_ID)
         metadata = {TRACE_SCHEMA_VERSION_KEY: str(TRACE_SCHEMA_VERSION)}
@@ -97,14 +97,7 @@ class MlflowSpanProcessor(SimpleSpanProcessor):
         # and we only support global mode tracing,
         # so the following code checks all active runs in all threads to get the latest active run
         # as the tracing source run.
-        latest_active_run = None
-        for active_run_stack in _active_run_stack._value_dict.values():
-            for active_run in active_run_stack:
-                if (
-                    latest_active_run is None
-                    or active_run.start_time > latest_active_run.start_time
-                ):
-                    latest_active_run = active_run
+        latest_active_run = _get_latest_active_run()
         if run := latest_active_run:
             metadata[TraceMetadataKey.SOURCE_RUN] = run.info.run_id
             if experiment_id is None:
