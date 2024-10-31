@@ -7,7 +7,7 @@ import warnings
 from datetime import datetime
 from pathlib import Path
 from pprint import pformat
-from typing import Any, Callable, Dict, List, Literal, NamedTuple, Optional, Union
+from typing import Any, Callable, Literal, NamedTuple, Optional, Union
 from urllib.parse import urlparse
 
 import yaml
@@ -85,16 +85,16 @@ class ModelInfo:
     def __init__(
         self,
         artifact_path: str,
-        flavors: Dict[str, Any],
+        flavors: dict[str, Any],
         model_uri: str,
         model_uuid: str,
         run_id: str,
-        saved_input_example_info: Optional[Dict[str, Any]],
+        saved_input_example_info: Optional[dict[str, Any]],
         signature,  # Optional[ModelSignature]
         utc_time_created: str,
         mlflow_version: str,
-        signature_dict: Optional[Dict[str, Any]] = None,
-        metadata: Optional[Dict[str, Any]] = None,
+        signature_dict: Optional[dict[str, Any]] = None,
+        metadata: Optional[dict[str, Any]] = None,
         registered_model_version: Optional[int] = None,
     ):
         self._artifact_path = artifact_path
@@ -243,7 +243,7 @@ class ModelInfo:
 
     @experimental
     @property
-    def metadata(self) -> Optional[Dict[str, Any]]:
+    def metadata(self) -> Optional[dict[str, Any]]:
         """
         User defined metadata added to the model.
 
@@ -315,12 +315,12 @@ class Model:
         utc_time_created=None,
         flavors=None,
         signature=None,  # ModelSignature
-        saved_input_example_info: Optional[Dict[str, Any]] = None,
+        saved_input_example_info: Optional[dict[str, Any]] = None,
         model_uuid: Union[str, Callable, None] = lambda: uuid.uuid4().hex,
         mlflow_version: Union[str, None] = mlflow.version.VERSION,
-        metadata: Optional[Dict[str, Any]] = None,
+        metadata: Optional[dict[str, Any]] = None,
         model_size_bytes: Optional[int] = None,
-        resources: Optional[Union[str, List[Resource]]] = None,
+        resources: Optional[Union[str, list[Resource]]] = None,
         **kwargs,
     ):
         # store model id instead of run_id and path to avoid confusion when model gets exported
@@ -418,7 +418,7 @@ class Model:
 
     @experimental
     @property
-    def metadata(self) -> Optional[Dict[str, Any]]:
+    def metadata(self) -> Optional[dict[str, Any]]:
         """
         Custom metadata dictionary passed to the model and stored in the MLmodel file.
 
@@ -463,7 +463,7 @@ class Model:
 
     @experimental
     @metadata.setter
-    def metadata(self, value: Optional[Dict[str, Any]]):
+    def metadata(self, value: Optional[dict[str, Any]]):
         self._metadata = value
 
     @property
@@ -488,7 +488,7 @@ class Model:
             self._signature = value
 
     @property
-    def saved_input_example_info(self) -> Optional[Dict[str, Any]]:
+    def saved_input_example_info(self) -> Optional[dict[str, Any]]:
         """
         A dictionary that contains the metadata of the saved input example, e.g.,
         ``{"artifact_path": "input_example.json", "type": "dataframe", "pandas_orient": "split"}``.
@@ -496,7 +496,7 @@ class Model:
         return self._saved_input_example_info
 
     @saved_input_example_info.setter
-    def saved_input_example_info(self, value: Dict[str, Any]):
+    def saved_input_example_info(self, value: dict[str, Any]):
         self._saved_input_example_info = value
 
     @property
@@ -516,7 +516,7 @@ class Model:
 
     @experimental
     @property
-    def resources(self) -> Dict[str, Dict[ResourceType, List[Dict]]]:
+    def resources(self) -> dict[str, dict[ResourceType, list[dict]]]:
         """
         An optional dictionary that contains the resources required to serve the model.
 
@@ -528,10 +528,10 @@ class Model:
 
     @experimental
     @resources.setter
-    def resources(self, value: Optional[Union[str, List[Resource]]]):
+    def resources(self, value: Optional[Union[str, list[Resource]]]):
         if isinstance(value, (Path, str)):
             serialized_resource = _ResourceBuilder.from_yaml_file(value)
-        elif isinstance(value, List) and all(isinstance(resource, Resource) for resource in value):
+        elif isinstance(value, list) and all(isinstance(resource, Resource) for resource in value):
             serialized_resource = _ResourceBuilder.from_resources(value)
         else:
             serialized_resource = value
@@ -938,7 +938,7 @@ def get_model_requirements_files(resolved_uri: str) -> Files:
 def update_model_requirements(
     model_uri: str,
     operation: Literal["add", "remove"],
-    requirement_list: List[str],
+    requirement_list: list[str],
 ) -> None:
     """
     Add or remove requirements from a model's conda.yaml and requirements.txt files.

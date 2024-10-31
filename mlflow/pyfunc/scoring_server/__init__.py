@@ -20,7 +20,7 @@ import os
 import shlex
 import sys
 import traceback
-from typing import Any, Dict, NamedTuple, Optional, Tuple
+from typing import Any, NamedTuple, Optional
 
 from mlflow.environment_variables import MLFLOW_SCORING_SERVER_REQUEST_TIMEOUT
 
@@ -402,7 +402,7 @@ def invocations(data, content_type, model, input_schema):
 
 class ParsedJsonInput(NamedTuple):
     data: Any
-    params: Optional[Dict]
+    params: Optional[dict]
     is_unified_llm_input: bool
 
 
@@ -525,7 +525,7 @@ def get_cmd(
     host: Optional[int] = None,
     timeout: Optional[int] = None,
     nworkers: Optional[int] = None,
-) -> Tuple[str, Dict[str, str]]:
+) -> tuple[str, dict[str, str]]:
     local_uri = path_to_local_file_uri(model_uri)
     timeout = timeout or MLFLOW_SCORING_SERVER_REQUEST_TIMEOUT.get()
 

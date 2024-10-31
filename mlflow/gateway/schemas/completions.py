@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import Optional
 
 from mlflow.gateway.base_models import ResponseModel
 from mlflow.gateway.config import IS_PYDANTIC_V2
@@ -57,7 +57,7 @@ class ResponsePayload(ResponseModel):
     object: str = "text_completion"
     created: int
     model: str
-    choices: List[Choice]
+    choices: list[Choice]
     usage: CompletionsUsage
 
     class Config:
@@ -100,7 +100,7 @@ class StreamResponsePayload(ResponseModel):
     object: str = "text_completion_chunk"
     created: int
     model: str
-    choices: List[StreamChoice]
+    choices: list[StreamChoice]
 
     class Config:
         if IS_PYDANTIC_V2:

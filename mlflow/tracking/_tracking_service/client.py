@@ -9,7 +9,7 @@ import logging
 import os
 from concurrent.futures import ThreadPoolExecutor
 from itertools import zip_longest
-from typing import Dict, List, Optional
+from typing import Optional
 
 from mlflow.entities import (
     ExperimentTag,
@@ -177,8 +177,8 @@ class TrackingServiceClient:
         self,
         experiment_id: str,
         timestamp_ms: int,
-        request_metadata: Dict[str, str],
-        tags: Dict[str, str],
+        request_metadata: dict[str, str],
+        tags: dict[str, str],
     ):
         """
         Start an initial TraceInfo object in the backend store.
@@ -205,8 +205,8 @@ class TrackingServiceClient:
         request_id: str,
         timestamp_ms: int,
         status: TraceStatus,
-        request_metadata: Dict[str, str],
-        tags: Dict[str, str],
+        request_metadata: dict[str, str],
+        tags: dict[str, str],
     ) -> TraceInfo:
         """
         Update the TraceInfo object in the backend store with the completed trace info.
@@ -238,7 +238,7 @@ class TrackingServiceClient:
         experiment_id: str,
         max_timestamp_millis: Optional[int] = None,
         max_traces: Optional[int] = None,
-        request_ids: Optional[List[str]] = None,
+        request_ids: Optional[list[str]] = None,
     ) -> int:
         return self.store.delete_traces(
             experiment_id=experiment_id,
@@ -292,10 +292,10 @@ class TrackingServiceClient:
 
     def _search_traces(
         self,
-        experiment_ids: List[str],
+        experiment_ids: list[str],
         filter_string: Optional[str] = None,
         max_results: int = SEARCH_TRACES_DEFAULT_MAX_RESULTS,
-        order_by: Optional[List[str]] = None,
+        order_by: Optional[list[str]] = None,
         page_token: Optional[str] = None,
     ):
         return self.store.search_traces(
@@ -308,10 +308,10 @@ class TrackingServiceClient:
 
     def search_traces(
         self,
-        experiment_ids: List[str],
+        experiment_ids: list[str],
         filter_string: Optional[str] = None,
         max_results: int = SEARCH_TRACES_DEFAULT_MAX_RESULTS,
-        order_by: Optional[List[str]] = None,
+        order_by: Optional[list[str]] = None,
         page_token: Optional[str] = None,
         run_id: Optional[str] = None,
     ) -> PagedList[Trace]:
@@ -770,7 +770,7 @@ class TrackingServiceClient:
             # Merge all the run operations into a single run operations object
             return get_combined_run_operations(run_operations_list)
 
-    def log_inputs(self, run_id: str, datasets: Optional[List[DatasetInput]] = None):
+    def log_inputs(self, run_id: str, datasets: Optional[list[DatasetInput]] = None):
         """Log one or more dataset inputs to a run.
 
         Args:

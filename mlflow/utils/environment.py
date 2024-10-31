@@ -6,7 +6,7 @@ import re
 import subprocess
 import sys
 import tempfile
-from typing import List, Optional
+from typing import Optional
 
 import yaml
 from packaging.requirements import InvalidRequirement, Requirement
@@ -764,7 +764,7 @@ def _get_pip_install_mlflow():
 
 def _get_requirements_from_file(
     file_path: pathlib.Path,
-) -> List[Requirement]:
+) -> list[Requirement]:
     data = file_path.read_text()
     if file_path.name == _CONDA_ENV_FILE_NAME:
         conda_env = yaml.safe_load(data)
@@ -776,7 +776,7 @@ def _get_requirements_from_file(
 
 def _write_requirements_to_file(
     file_path: pathlib.Path,
-    new_reqs: List[str],
+    new_reqs: list[str],
 ) -> None:
     if file_path.name == _CONDA_ENV_FILE_NAME:
         conda_env = yaml.safe_load(file_path.read_text())
@@ -788,9 +788,9 @@ def _write_requirements_to_file(
 
 
 def _add_or_overwrite_requirements(
-    new_reqs: List[Requirement],
-    old_reqs: List[Requirement],
-) -> List[str]:
+    new_reqs: list[Requirement],
+    old_reqs: list[Requirement],
+) -> list[str]:
     deduped_new_reqs = _deduplicate_requirements([str(req) for req in new_reqs])
     deduped_new_reqs = [Requirement(req) for req in deduped_new_reqs]
 
@@ -801,9 +801,9 @@ def _add_or_overwrite_requirements(
 
 
 def _remove_requirements(
-    reqs_to_remove: List[Requirement],
-    old_reqs: List[Requirement],
-) -> List[str]:
+    reqs_to_remove: list[Requirement],
+    old_reqs: list[Requirement],
+) -> list[str]:
     old_reqs_dict = {req.name: str(req) for req in old_reqs}
     for req in reqs_to_remove:
         if req.name not in old_reqs_dict:

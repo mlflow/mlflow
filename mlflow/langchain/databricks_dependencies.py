@@ -2,7 +2,7 @@ import importlib
 import inspect
 import logging
 import warnings
-from typing import Any, Generator, List, Optional, Set
+from typing import Any, Generator, Optional
 
 from packaging import version
 
@@ -165,7 +165,7 @@ def _extract_databricks_dependencies_from_tool_nodes(tool_node) -> Generator[Res
 
 
 def _isinstance_with_multiple_modules(
-    object: Any, class_name: str, from_modules: List[str]
+    object: Any, class_name: str, from_modules: list[str]
 ) -> bool:
     """
     Databricks components are defined in different modules in LangChain e.g.
@@ -233,7 +233,7 @@ def _extract_dependency_list_from_lc_model(lc_model) -> Generator[Resource, None
 
 def _traverse_runnable(
     lc_model,
-    visited: Optional[Set[int]] = None,
+    visited: Optional[set[int]] = None,
 ) -> Generator[Resource, None, None]:
     """
     This function contains the logic to traverse a langchain_core.runnables.RunnableSerializable
@@ -351,7 +351,7 @@ def _get_nodes_from_runnable_callable(lc_model):
     return nodes
 
 
-def _detect_databricks_dependencies(lc_model, log_errors_as_warnings=True) -> List[Resource]:
+def _detect_databricks_dependencies(lc_model, log_errors_as_warnings=True) -> list[Resource]:
     """
     Detects the databricks dependencies of a langchain model and returns a list of
     detected endpoint names and index names.

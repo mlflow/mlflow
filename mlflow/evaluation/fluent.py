@@ -1,5 +1,5 @@
 import uuid
-from typing import List, Optional
+from typing import Optional
 
 from mlflow.entities.evaluation import Evaluation as EvaluationEntity
 from mlflow.evaluation.evaluation import Evaluation
@@ -9,8 +9,8 @@ from mlflow.tracking.fluent import _get_or_start_run
 
 
 def log_evaluations(
-    *, evaluations: List[Evaluation], run_id: Optional[str] = None
-) -> List[EvaluationEntity]:
+    *, evaluations: list[Evaluation], run_id: Optional[str] = None
+) -> list[EvaluationEntity]:
     """
     Logs one or more evaluations to an MLflow Run.
 

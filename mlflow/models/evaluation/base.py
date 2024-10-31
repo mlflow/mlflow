@@ -13,7 +13,7 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 from inspect import Parameter, Signature
 from types import FunctionType
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Optional, Union
 
 import mlflow
 from mlflow.data.dataset import Dataset
@@ -192,9 +192,9 @@ def _generate_eval_metric_class(eval_fn, require_strict_signature=False):
         def genai_call_method(
             self,
             *,
-            predictions: Union[pd.Series, str, List[str]],
-            inputs: Union[pd.Series, str, List[str]],
-            metrics: Optional[Dict[str, MetricValue]] = None,
+            predictions: Union[pd.Series, str, list[str]],
+            inputs: Union[pd.Series, str, list[str]],
+            metrics: Optional[dict[str, MetricValue]] = None,
             **kwargs,
         ) -> MetricValue:
             if missed_kwargs := set(allowed_kwargs_names) - set(kwargs.keys()):
@@ -224,22 +224,22 @@ def _generate_eval_metric_class(eval_fn, require_strict_signature=False):
                 Parameter(
                     "predictions",
                     Parameter.KEYWORD_ONLY,
-                    annotation=Union[pd.Series, str, List[str]],
+                    annotation=Union[pd.Series, str, list[str]],
                 ),
                 Parameter(
                     "inputs",
                     Parameter.KEYWORD_ONLY,
-                    annotation=Union[pd.Series, str, List[str]],
+                    annotation=Union[pd.Series, str, list[str]],
                 ),
                 Parameter(
                     "metrics",
                     Parameter.KEYWORD_ONLY,
-                    annotation=Optional[Dict[str, MetricValue]],
+                    annotation=Optional[dict[str, MetricValue]],
                     default=None,
                 ),
                 *[
                     Parameter(
-                        name, Parameter.KEYWORD_ONLY, annotation=Union[pd.Series, str, List[str]]
+                        name, Parameter.KEYWORD_ONLY, annotation=Union[pd.Series, str, list[str]]
                     )
                     for name in allowed_kwargs_names
                 ],
@@ -650,14 +650,14 @@ class EvaluationResult:
             artifact._save(os.path.join(artifacts_dir, filename))
 
     @property
-    def metrics(self) -> Dict[str, Any]:
+    def metrics(self) -> dict[str, Any]:
         """
         A dictionary mapping scalar metric names to scalar metric values
         """
         return self._metrics
 
     @property
-    def artifacts(self) -> Dict[str, "mlflow.models.EvaluationArtifact"]:
+    def artifacts(self) -> dict[str, "mlflow.models.EvaluationArtifact"]:
         """
         A dictionary mapping standardized artifact names (e.g. "roc_data") to
         artifact content and location information
@@ -666,7 +666,7 @@ class EvaluationResult:
 
     @experimental
     @property
-    def tables(self) -> Dict[str, "pd.DataFrame"]:
+    def tables(self) -> dict[str, "pd.DataFrame"]:
         """
         A dictionary mapping standardized artifact names (e.g. "eval_results_table") to
         corresponding table content as pandas DataFrame.
@@ -785,10 +785,10 @@ def _start_run_or_reuse_active_run():
 class EvaluatorBundle:
     name: str
     evaluator: ModelEvaluator
-    config: Dict[str, Any]
+    config: dict[str, Any]
 
 
-def _resolve_default_evaluator(model_type, default_config) -> List[EvaluatorBundle]:
+def _resolve_default_evaluator(model_type, default_config) -> list[EvaluatorBundle]:
     """
     Determine which built-in evaluators should be used for the given model type by default.
 
@@ -823,10 +823,10 @@ def _resolve_default_evaluator(model_type, default_config) -> List[EvaluatorBund
 
 
 def resolve_evaluators_and_configs(
-    evaluators: Union[str, List[str], None],
-    evaluator_config: Union[Dict[str, Any], None],
+    evaluators: Union[str, list[str], None],
+    evaluator_config: Union[dict[str, Any], None],
     model_type: Optional[str] = None,
-) -> List[EvaluatorBundle]:
+) -> list[EvaluatorBundle]:
     """
     The `evaluators` and `evaluator_config` arguments of the `evaluate` API can be specified
     in multiple ways. This function normalizes the arguments into a single format for easier
@@ -1060,7 +1060,7 @@ def _is_model_deployment_endpoint_uri(model: Any) -> bool:
 
 
 def _get_model_from_deployment_endpoint_uri(
-    endpoint_uri: str, params: Optional[Dict[str, Any]] = None
+    endpoint_uri: str, params: Optional[dict[str, Any]] = None
 ):
     from mlflow.metrics.genai.model_utils import _parse_model_uri
     from mlflow.pyfunc.model import ModelFromDeploymentEndpoint, _PythonModelPyfuncWrapper
@@ -1689,7 +1689,7 @@ def evaluate(  # noqa: D417
             error_code=INVALID_PARAMETER_VALUE,
         )
 
-    evaluators: List[EvaluatorBundle] = resolve_evaluators_and_configs(
+    evaluators: list[EvaluatorBundle] = resolve_evaluators_and_configs(
         evaluators, evaluator_config, model_type
     )
 
