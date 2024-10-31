@@ -12,7 +12,7 @@ import uuid
 import warnings
 from contextlib import contextmanager
 from copy import deepcopy
-from typing import Any, Optional, Union
+from typing import Any, Dict, List, Optional, Union
 
 import numpy as np
 import pandas as pd
@@ -83,7 +83,7 @@ ModelInputExample = Union[
 ]
 
 PyFuncLLMSingleInput = Union[
-    dict[str, Any],
+    Dict[str, Any],  # noqa: UP006
     bool,
     bytes,
     float,
@@ -92,7 +92,7 @@ PyFuncLLMSingleInput = Union[
 ]
 
 PyFuncLLMOutputChunk = Union[
-    dict[str, Any],
+    Dict[str, Any],  # noqa: UP006
     str,
 ]
 
@@ -102,8 +102,8 @@ PyFuncInput = Union[
     np.ndarray,
     "csc_matrix",
     "csr_matrix",
-    list[Any],
-    dict[str, Any],
+    List[Any],  # noqa: UP006
+    Dict[str, Any],  # noqa: UP006
     dt.datetime,
     bool,
     bytes,
