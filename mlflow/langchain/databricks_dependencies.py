@@ -50,6 +50,24 @@ def _get_vectorstore_from_retriever(retriever) -> Generator[Resource, None, None
         yield DatabricksServingEndpoint(endpoint_name=embeddings.endpoint)
 
 
+def _is_langchain_community_uc_function_toolkit(obj):
+    try:
+        from langchain_community.tools.databricks import UCFunctionToolkit
+    except Exception:
+        return False
+
+    return isinstance(obj, UCFunctionToolkit)
+
+
+def _is_unitycatalog_tool(obj):
+    try:
+        from unitycatalog.ai.langchain.toolkit import UnityCatalogTool
+    except Exception:
+        return False
+
+    return isinstance(obj, UnityCatalogTool)
+
+
 def _extract_databricks_dependencies_from_tools(tools) -> Generator[Resource, None, None]:
     if isinstance(tools, list):
         warehouse_ids = set()
@@ -61,17 +79,17 @@ def _extract_databricks_dependencies_from_tools(tools) -> Generator[Resource, No
                 if hasattr(tool.func, "keywords") and "retriever" in tool.func.keywords:
                     retriever = tool.func.keywords.get("retriever")
                     yield from _get_vectorstore_from_retriever(retriever)
+                elif _is_unitycatalog_tool(tool):
+                    if warehouse_id := tool.client_config.get("warehouse_id"):
+                        warehouse_ids.add(warehouse_id)
+                    yield DatabricksFunction(function_name=tool.uc_function_name)
                 else:
-                    try:
-                        from langchain_community.tools.databricks import UCFunctionToolkit
-                    except Exception:
-                        continue
                     # Tools here are a part of the BaseTool and have no attribute of a
                     # WarehouseID Extract the global variables of the function defined
                     # in the tool to get the UCFunctionToolkit Constants
                     nonlocal_vars = inspect.getclosurevars(tool.func).nonlocals
-                    if "self" in nonlocal_vars and isinstance(
-                        nonlocal_vars.get("self"), UCFunctionToolkit
+                    if "self" in nonlocal_vars and _is_langchain_community_uc_function_toolkit(
+                        nonlocal_vars.get("self")
                     ):
                         uc_function_toolkit = nonlocal_vars.get("self")
                         # As we are iterating through each tool, adding a warehouse id everytime
