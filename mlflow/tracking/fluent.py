@@ -273,7 +273,6 @@ def start_run(
             to MLflow, e.g., cpu/gpu utilization. If None, we will check environment variable
             `MLFLOW_ENABLE_SYSTEM_METRICS_LOGGING` to determine whether to log system metrics.
             System metrics logging is an experimental feature in MLflow 2.8 and subject to change.
-        test: Test.
 
     Returns:
         :py:class:`mlflow.ActiveRun` object that acts as a context manager wrapping the
