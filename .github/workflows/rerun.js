@@ -46,16 +46,15 @@ async function rerun({ github, context }) {
   });
   const runIdsToRerun = checkRuns
     // Select failed/cancelled github action runs
-    .filter(({ name, status, started_at, completed_at, conclusion, app: { slug } }) => {
-      return (
+    .filter(
+      ({ name, status, started_at, completed_at, conclusion, app: { slug } }) =>
         slug === "github-actions" &&
         status === "completed" &&
         (conclusion === "failure" || conclusion === "cancelled") &&
         name !== "rerun" && // Prevent recursive rerun
         (name === "protect" || // Always rerun protect job
           computeExecutionTimeInSeconds(started_at, completed_at) <= 60) // Rerun jobs that took less than 60 seconds (e.g. Maintainer approval check)
-      );
-    })
+    )
     .map(
       ({
         // Example: https://github.com/mlflow/mlflow/actions/runs/10675586265/job/29587793829
