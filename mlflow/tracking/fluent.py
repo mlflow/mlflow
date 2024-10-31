@@ -615,7 +615,7 @@ def last_active_run() -> Optional[Run]:
 
 def _get_latest_active_run():
     latest_active_run = None
-    for active_run_stack in _active_run_stack._value_dict.values():
+    for active_run_stack in _active_run_stack.get_global().values():
         for active_run in active_run_stack:
             if latest_active_run is None or active_run.start_time > latest_active_run.start_time:
                 latest_active_run = active_run
