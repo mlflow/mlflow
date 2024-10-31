@@ -97,7 +97,7 @@ class ModelInfo:
         signature_dict: Optional[dict[str, Any]] = None,
         metadata: Optional[dict[str, Any]] = None,
         registered_model_version: Optional[int] = None,
-        logged_model: LoggedModel = None,
+        logged_model: Optional[LoggedModel] = None,
     ):
         self._artifact_path = artifact_path
         self._flavors = flavors
