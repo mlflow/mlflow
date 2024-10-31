@@ -725,14 +725,14 @@ def _validate_dict_examples(examples, num_items=None):
 
 
 def _is_list_str(type_hint: Any) -> bool:
-    return type_hint == [
+    return type_hint in [
         List[str],  # noqa: UP006
         list[str],
     ]
 
 
 def _is_list_dict_str(type_hint: Any) -> bool:
-    return type_hint == [
+    return type_hint in [
         List[Dict[str, str]],  # noqa: UP006
         list[Dict[str, str]],  # noqa: UP006
         List[dict[str, str]],  # noqa: UP006
