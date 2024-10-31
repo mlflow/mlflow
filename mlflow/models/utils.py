@@ -83,7 +83,7 @@ ModelInputExample = Union[
 ]
 
 PyFuncLLMSingleInput = Union[
-    Dict[str, Any],  # noqa: UP006
+    dict[str, Any],
     bool,
     bytes,
     float,
@@ -92,7 +92,7 @@ PyFuncLLMSingleInput = Union[
 ]
 
 PyFuncLLMOutputChunk = Union[
-    Dict[str, Any],  # noqa: UP006
+    dict[str, Any],
     str,
 ]
 
