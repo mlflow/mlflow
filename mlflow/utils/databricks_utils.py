@@ -5,7 +5,7 @@ import logging
 import os
 import subprocess
 import time
-from typing import NamedTuple, Optional, TypeVar
+from typing import Dict, NamedTuple, Optional, TypeVar
 
 import mlflow.utils
 from mlflow.environment_variables import (
@@ -1029,7 +1029,7 @@ def get_databricks_env_vars(tracking_uri):
     return env_vars
 
 
-def _get_databricks_serverless_env_vars() -> dict[str, str]:
+def _get_databricks_serverless_env_vars() -> Dict[str, str]:
     """
     Returns the environment variables required to to initialize WorkspaceClient in a subprocess
     with serverless compute.
