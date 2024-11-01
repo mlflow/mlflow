@@ -355,11 +355,13 @@ def get_dbconnect_udf_sandbox_info(spark):
                 import mlflow
                 mlflow_version = mlflow.__version__
             except ImportError:
-                mlflow_version = None
+                mlflow_version = ""
 
-            return pd.Series([(platform_machine, mlflow_version)])
+            return pd.Series([f"{platform_machine}\n{mlflow_version}"])
 
-        platform_machine, mlflow_version = spark.range(1).select(f("id")).collect()[0][0]
+        platform_machine, mlflow_version = spark.range(1).select(f("id")).collect()[0][0].split("\n")
+        if mlflow_version == "":
+            mlflow_version = None
         _dbconnect_udf_sandbox_info_cache = DBConnectUDFSandboxInfo(
             spark=spark,
             image_version=image_version,

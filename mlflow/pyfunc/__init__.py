@@ -2098,7 +2098,7 @@ def spark_udf(
     use_dbconnect_artifact = is_dbconnect_mode and not is_in_databricks_shared_cluster_runtime()
 
     if use_dbconnect_artifact:
-        udf_sandbox_info = get_dbconnect_udf_sandbox_info()
+        udf_sandbox_info = get_dbconnect_udf_sandbox_info(spark)
         if Version(udf_sandbox_info.mlflow_version) < Version("2.19.0"):
             raise MlflowException(
                 "Using 'mlflow.pyfunc.spark_udf' in Databricks Serverless or in remote "

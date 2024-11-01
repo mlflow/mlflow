@@ -2,11 +2,13 @@ import builtins
 import json
 import os
 import sys
+import platform
 import time
 from unittest import mock
 
 import pytest
 
+import mlflow
 from mlflow.exceptions import MlflowException
 from mlflow.legacy_databricks_cli.configure.provider import (
     DatabricksConfig,
@@ -24,9 +26,11 @@ from mlflow.utils.databricks_utils import (
     get_workspace_url,
     is_databricks_default_tracking_uri,
     is_running_in_ipython_environment,
+    get_dbconnect_udf_sandbox_info,
 )
 
 from tests.helper_functions import mock_method_chain
+from tests.pyfunc.test_spark import spark
 
 
 def test_no_throw():
@@ -535,3 +539,29 @@ def test_get_workspace_url(input_url, expected_result):
     with mock.patch("mlflow.utils.databricks_utils._get_workspace_url", return_value=input_url):
         result = get_workspace_url()
         assert result == expected_result
+
+
+def test_get_dbconnect_udf_sandbox_info(spark, monkeypatch):
+    monkeypatch.setenv("DATABRICKS_RUNTIME_VERSION", "client.1.2")
+    spark.udf.register(
+        "current_version",
+        lambda: {'current_version': '15.4.x-scala2.12'},
+        returnType="dbr_version string",
+    )
+
+    info = get_dbconnect_udf_sandbox_info(spark)
+    assert info.mlflow_version == mlflow.__version__
+    assert info.image_version == "client.1.2"
+    assert info.runtime_version == "15.4"
+    assert info.platform_machine == platform.machine()
+
+    monkeypatch.delenv("DATABRICKS_RUNTIME_VERSION")
+
+    info = get_dbconnect_udf_sandbox_info(spark)
+    assert info.mlflow_version == mlflow.__version__
+    assert info.image_version == "15.4"
+    assert info.runtime_version == "15.4"
+    assert info.platform_machine == platform.machine()
+
+
+
