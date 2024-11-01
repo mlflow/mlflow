@@ -2099,11 +2099,11 @@ def spark_udf(
 
     if use_dbconnect_artifact:
         udf_sandbox_info = get_dbconnect_udf_sandbox_info()
-        if Version(udf_sandbox_info.mlflow_version) < Version("2.18.0"):
+        if Version(udf_sandbox_info.mlflow_version) < Version("2.19.0"):
             raise MlflowException(
                 "Using 'mlflow.pyfunc.spark_udf' in Databricks Serverless or in remote "
                 "Databricks Connect requires UDF sandbox image installed with MLflow "
-                "of version >= 2.18."
+                "of version >= 2.19."
             )
         if Version(udf_sandbox_info.runtime_version) < Version("16.0"):
             raise MlflowException(
