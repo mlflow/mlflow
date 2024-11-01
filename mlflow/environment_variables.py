@@ -86,7 +86,7 @@ MLFLOW_TRACKING_URI = _EnvironmentVariable("MLFLOW_TRACKING_URI", str, None)
 #: Valid values are "DEBUG", "INFO", "WARNING", "ERROR", and "CRITICAL".
 #: (default: ``"INFO"``)
 LogLevel = Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]
-MLFLOW_LOGGING_LEVEL = _EnvironmentVariable("MLFLOW_LOGGING_LEVEL", LogLevel, "INFO")
+MLFLOW_LOGGER_VERBOSITY_LEVEL = _EnvironmentVariable("MLFLOW_LOGGER_VERBOSITY_LEVEL", LogLevel, "INFO")
 
 #: Specifies the registry URI.
 #: (default: ``None``)
