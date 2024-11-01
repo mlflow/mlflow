@@ -1,3 +1,4 @@
+minimum_pre_commit_version: 4.0.1
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v4.5.0
