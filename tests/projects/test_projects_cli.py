@@ -1,3 +1,4 @@
+import hashlib
 import json
 import logging
 import os
@@ -8,7 +9,7 @@ import pytest
 from click.testing import CliRunner
 
 from mlflow import MlflowClient, cli
-from mlflow.utils import insecure_hash, process
+from mlflow.utils import process
 
 from tests.integration.utils import invoke_cli_runner
 from tests.projects.utils import (
@@ -90,7 +91,7 @@ def test_run_local_conda_env():
     with open(os.path.join(TEST_PROJECT_DIR, "conda.yaml")) as handle:
         conda_env_contents = handle.read()
     expected_env_name = "mlflow-{}".format(
-        insecure_hash.sha1(conda_env_contents.encode("utf-8")).hexdigest()
+        hashlib.sha1(conda_env_contents.encode("utf-8"), usedforsecurity=False).hexdigest()
     )
     try:
         process._exec_cmd(cmd=["conda", "env", "remove", "--name", expected_env_name])
