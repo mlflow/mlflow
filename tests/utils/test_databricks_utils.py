@@ -543,9 +543,11 @@ def test_get_workspace_url(input_url, expected_result):
 
 def test_get_dbconnect_udf_sandbox_info(spark, monkeypatch):
     monkeypatch.setenv("DATABRICKS_RUNTIME_VERSION", "client.1.2")
+    databricks_utils._dbconnect_udf_sandbox_info_cache = None
+
     spark.udf.register(
         "current_version",
-        lambda: {'current_version': '15.4.x-scala2.12'},
+        lambda: {'dbr_version': '15.4.x-scala2.12'},
         returnType="dbr_version string",
     )
 
@@ -556,12 +558,10 @@ def test_get_dbconnect_udf_sandbox_info(spark, monkeypatch):
     assert info.platform_machine == platform.machine()
 
     monkeypatch.delenv("DATABRICKS_RUNTIME_VERSION")
+    databricks_utils._dbconnect_udf_sandbox_info_cache = None
 
     info = get_dbconnect_udf_sandbox_info(spark)
     assert info.mlflow_version == mlflow.__version__
     assert info.image_version == "15.4"
     assert info.runtime_version == "15.4"
     assert info.platform_machine == platform.machine()
-
-
-
