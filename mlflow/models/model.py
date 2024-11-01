@@ -310,9 +310,51 @@ class ModelInfo:
         The model ID of the logged model.
 
         :getter: Gets the model ID of the logged model
-        :type: Optional[str]
         """
         return self._logged_model.model_id
+
+    @property
+    def metrics(self) -> Optional[list[Metric]]:
+        """
+        Returns the metrics of the logged model.
+
+        :getter: Retrieves the metrics of the logged model
+        """
+        return self._logged_model.metrics
+
+    @property
+    def params(self) -> dict[str, str]:
+        """
+        Returns the parameters of the logged model.
+
+        :getter: Retrieves the parameters of the logged model
+        """
+        return self._logged_model.params
+
+    @property
+    def tags(self) -> dict[str, str]:
+        """
+        Returns the tags of the logged model.
+
+        :getter: Retrieves the tags of the logged model
+        """
+        return self._logged_model.tags
+
+    @property
+    def creation_timestamp(self) -> int:
+        """
+        Returns the creation timestamp of the logged model.
+
+        :getter:  the creation timestamp of the logged model
+        """
+        return self._logged_model.creation_timestamp
+
+    @property
+    def name(self) -> str:
+        """
+        Returns the name of the logged model.
+        """
+        return self._logged_model.name
 
 
 class Model:
