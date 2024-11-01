@@ -83,7 +83,14 @@ class _BooleanEnvironmentVariable(_EnvironmentVariable):
 MLFLOW_TRACKING_URI = _EnvironmentVariable("MLFLOW_TRACKING_URI", str, None)
 
 #: Specifies the default logging level for MLflow.
-#: Valid values are "DEBUG", "INFO", "WARNING", "ERROR", and "CRITICAL".
+#:
+#: Valid values include:
+#: - "DEBUG"
+#: - "INFO"
+#: - "WARNING"
+#: - "ERROR"
+#: - "CRITICAL"
+#:
 #: (default: ``"INFO"``)
 LogLevel = Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]
 MLFLOW_LOGGER_VERBOSITY_LEVEL = _EnvironmentVariable("MLFLOW_LOGGER_VERBOSITY_LEVEL", LogLevel, "INFO")
