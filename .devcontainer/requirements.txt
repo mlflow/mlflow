@@ -456,7 +456,7 @@ pluggy==1.5.0
     # via pytest
 portalocker==2.10.0
     # via msal-extensions
-pre-commit>=4.0.1
+pre-commit==4.0.1
     # via -r lint-requirements.txt
 prometheus-client==0.20.0
     # via
