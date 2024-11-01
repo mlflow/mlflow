@@ -24,7 +24,7 @@ import os
 import posixpath
 import re
 import shutil
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 import yaml
 from packaging.version import Version
@@ -1028,7 +1028,7 @@ class _PyFuncModelWrapper:
     def predict(
         self,
         pandas_df,
-        params: Optional[Dict[str, Any]] = None,
+        params: Optional[dict[str, Any]] = None,
     ):
         """
         Generate predictions given input data in a pandas DataFrame.
@@ -1123,6 +1123,8 @@ def autolog(disable=False, silent=False):
     For any unexpected issues with autologging, check Spark driver and executor logs in addition
     to stderr & stdout generated from your MLflow code - datasource information is pulled from
     Spark, so logs relevant to debugging may show up amongst the Spark logs.
+
+    .. Note:: Spark datasource autologging only supports logging to MLflow runs in a single thread
 
     .. code-block:: python
         :caption: Example

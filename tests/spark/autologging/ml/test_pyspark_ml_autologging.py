@@ -248,7 +248,6 @@ def test_extra_tags_spark_autolog(dataset_binomial):
     assert run.data.tags[mlflow.utils.mlflow_tags.MLFLOW_AUTOLOGGING] == "pyspark.ml"
 
 
-@pytest.mark.skip(reason="Fix: https://github.com/mlflow/mlflow/pull/13599")
 def test_meta_estimator_fit(dataset_binomial):
     mlflow.pyspark.ml.autolog()
     with mlflow.start_run() as run:

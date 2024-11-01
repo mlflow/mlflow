@@ -83,7 +83,7 @@ ModelInputExample = Union[
 ]
 
 PyFuncLLMSingleInput = Union[
-    Dict[str, Any],
+    dict[str, Any],
     bool,
     bytes,
     float,
@@ -92,7 +92,7 @@ PyFuncLLMSingleInput = Union[
 ]
 
 PyFuncLLMOutputChunk = Union[
-    Dict[str, Any],
+    dict[str, Any],
     str,
 ]
 
@@ -102,8 +102,8 @@ PyFuncInput = Union[
     np.ndarray,
     "csc_matrix",
     "csr_matrix",
-    List[Any],
-    Dict[str, Any],
+    List[Any],  # noqa: UP006
+    Dict[str, Any],  # noqa: UP006
     dt.datetime,
     bool,
     bytes,
@@ -542,7 +542,7 @@ def _get_mlflow_model_input_example_dict(mlflow_model: Model, path: str):
         return json.load(handle)
 
 
-def _load_serving_input_example(mlflow_model: Model, path: str):
+def _load_serving_input_example(mlflow_model: Model, path: str) -> Optional[str]:
     """
     Load serving input exaple from a model directory. Returns None if there is no serving input
     example.
@@ -1278,7 +1278,7 @@ def _enforce_property(data: Any, property: Property):
     return _enforce_type(data, property.dtype)
 
 
-def _enforce_object(data: Dict[str, Any], obj: Object, required=True):
+def _enforce_object(data: dict[str, Any], obj: Object, required=True):
     if not required and data is None:
         return None
     if HAS_PYSPARK and isinstance(data, Row):
@@ -1478,7 +1478,7 @@ def get_model_version_from_model_uri(model_uri):
     return client.get_model_version(name, version)
 
 
-def _enforce_params_schema(params: Optional[Dict[str, Any]], schema: Optional[ParamSchema]):
+def _enforce_params_schema(params: Optional[dict[str, Any]], schema: Optional[ParamSchema]):
     if schema is None:
         if params in [None, {}]:
             return params
@@ -1659,7 +1659,7 @@ def _convert_llm_ndarray_to_list(data):
     return data
 
 
-def _convert_llm_input_data(data: Any) -> Union[List, Dict]:
+def _convert_llm_input_data(data: Any) -> Union[list, dict]:
     """
     Convert input data to a format that can be passed to the model with GenAI flavors such as
     LangChain and LLamaIndex.
@@ -1726,7 +1726,7 @@ def _validate_and_get_model_code_path(model_code_path: str, temp_dir: str) -> st
 
 
 @contextmanager
-def _config_context(config: Optional[Union[str, Dict[str, Any]]] = None):
+def _config_context(config: Optional[Union[str, dict[str, Any]]] = None):
     # Check if config_path is None and set it to "" so when loading the model
     # the config_path is set to "" so the ModelConfig can correctly check if the
     # config is set or not
@@ -1787,7 +1787,7 @@ def _mock_dbutils(globals_dict):
 # This function addresses this by dynamically importing the `code path` module under a unique,
 # dynamically generated module name. This bypasses the caching mechanism, as each import is
 # considered a separate module by the Python interpreter.
-def _load_model_code_path(code_path: str, model_config: Optional[Union[str, Dict[str, Any]]]):
+def _load_model_code_path(code_path: str, model_config: Optional[Union[str, dict[str, Any]]]):
     with _config_context(model_config):
         try:
             new_module_name = f"code_model_{uuid.uuid4().hex}"
@@ -1817,9 +1817,9 @@ def _load_model_code_path(code_path: str, model_config: Optional[Union[str, Dict
 
 
 def _flatten_nested_params(
-    d: Dict[str, Any], parent_key: str = "", sep: str = "/"
-) -> Dict[str, str]:
-    items: Dict[str, Any] = {}
+    d: dict[str, Any], parent_key: str = "", sep: str = "/"
+) -> dict[str, str]:
+    items: dict[str, Any] = {}
     for k, v in d.items():
         new_key = f"{parent_key}{sep}{k}" if parent_key else k
         if isinstance(v, dict):
@@ -1832,7 +1832,7 @@ def _flatten_nested_params(
 # NB: this function should always be kept in sync with the serving
 # process in scoring_server invocations.
 @experimental
-def validate_serving_input(model_uri: str, serving_input: Union[str, Dict[str, Any]]):
+def validate_serving_input(model_uri: str, serving_input: Union[str, dict[str, Any]]):
     """
     Helper function to validate the model can be served and provided input is valid
     prior to serving the model.

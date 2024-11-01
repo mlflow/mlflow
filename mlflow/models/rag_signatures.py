@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import List, Optional
+from typing import Optional
 
 from mlflow.models import ModelSignature
 from mlflow.types.schema import (
@@ -23,21 +23,21 @@ class Message:
 @dataclass
 @experimental
 class ChatCompletionRequest:
-    messages: List[Message] = field(default_factory=lambda: [Message()])
+    messages: list[Message] = field(default_factory=lambda: [Message()])
 
 
 @dataclass
 @experimental
 class SplitChatMessagesRequest:
     query: str = "What is mlflow?"
-    history: Optional[List[Message]] = field(default_factory=list)
+    history: Optional[list[Message]] = field(default_factory=list)
 
 
 @dataclass
 @experimental
 class MultiturnChatRequest:
     query: str = "What is mlflow?"
-    history: Optional[List[Message]] = field(default_factory=list)
+    history: Optional[list[Message]] = field(default_factory=list)
 
 
 @dataclass
@@ -69,7 +69,7 @@ class ChainCompletionChunk:
 @dataclass
 @experimental
 class ChatCompletionResponse:
-    choices: List[ChainCompletionChoice] = field(default_factory=lambda: [ChainCompletionChoice()])
+    choices: list[ChainCompletionChoice] = field(default_factory=lambda: [ChainCompletionChoice()])
     object: str = "chat.completion"
     # TODO: support ChainCompletionChunk in the future
 

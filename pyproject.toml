@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "mlflow"
-version = "2.17.2.dev0"
+version = "2.17.3.dev0"
 description = "MLflow is an open source platform for the complete machine learning lifecycle"
 readme = "README.rst"
 keywords = ["mlflow", "ai", "databricks"]
@@ -219,6 +219,7 @@ select = [
   "TID252",  # relative-improt
   "TRY302",  # useless-try-except
   "UP004",   # useless-object-inheritance
+  "UP006",   # non-pep585-annotation
   "UP008",   # super-call-with-parameters
   "UP011",   # lru-cache-without-parameters
   "UP012",   # unecessary-encode-utf8

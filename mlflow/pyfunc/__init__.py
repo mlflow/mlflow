@@ -398,6 +398,7 @@ If you need more power, use  the class-based model.
 
 import collections
 import functools
+import hashlib
 import importlib
 import inspect
 import json
@@ -415,7 +416,7 @@ from contextlib import contextmanager
 from copy import deepcopy
 from functools import lru_cache
 from pathlib import Path
-from typing import Any, Dict, Iterator, List, Optional, Tuple, Union
+from typing import Any, Iterator, Optional, Tuple, Union
 from urllib.parse import urlparse
 
 import numpy as np
@@ -508,7 +509,6 @@ from mlflow.utils import (
     databricks_utils,
     find_free_port,
     get_major_minor_py_version,
-    insecure_hash,
 )
 from mlflow.utils import env_manager as _EnvManager
 from mlflow.utils._spark_utils import modified_environ
@@ -766,12 +766,12 @@ class PyFuncModel:
         with set_prediction_context(context):
             yield context
 
-    def predict(self, data: PyFuncInput, params: Optional[Dict[str, Any]] = None) -> PyFuncOutput:
+    def predict(self, data: PyFuncInput, params: Optional[dict[str, Any]] = None) -> PyFuncOutput:
         with self._try_get_or_generate_prediction_context() as context:
             self._update_dependencies_schemas_in_prediction_context(context)
             return self._predict(data, params)
 
-    def _predict(self, data: PyFuncInput, params: Optional[Dict[str, Any]] = None) -> PyFuncOutput:
+    def _predict(self, data: PyFuncInput, params: Optional[dict[str, Any]] = None) -> PyFuncOutput:
         """
         Generates model predictions.
 
@@ -813,14 +813,14 @@ class PyFuncModel:
         return self._predict_fn(data)
 
     def predict_stream(
-        self, data: PyFuncLLMSingleInput, params: Optional[Dict[str, Any]] = None
+        self, data: PyFuncLLMSingleInput, params: Optional[dict[str, Any]] = None
     ) -> Iterator[PyFuncLLMOutputChunk]:
         with self._try_get_or_generate_prediction_context() as context:
             self._update_dependencies_schemas_in_prediction_context(context)
             return self._predict_stream(data, params)
 
     def _predict_stream(
-        self, data: PyFuncLLMSingleInput, params: Optional[Dict[str, Any]] = None
+        self, data: PyFuncLLMSingleInput, params: Optional[dict[str, Any]] = None
     ) -> Iterator[PyFuncLLMOutputChunk]:
         """
         Generates streaming model predictions. Only LLM suports this method.
@@ -981,7 +981,7 @@ def load_model(
     model_uri: str,
     suppress_warnings: bool = False,
     dst_path: Optional[str] = None,
-    model_config: Optional[Union[str, Path, Dict[str, Any]]] = None,
+    model_config: Optional[Union[str, Path, dict[str, Any]]] = None,
 ) -> PyFuncModel:
     """
     Load a model stored in Python function format.
@@ -1143,7 +1143,7 @@ class _ServedPyFuncModel(PyFuncModel):
 
 
 def _load_model_or_server(
-    model_uri: str, env_manager: str, model_config: Optional[Dict[str, Any]] = None
+    model_uri: str, env_manager: str, model_config: Optional[dict[str, Any]] = None
 ):
     """
     Load a model with env restoration. If a non-local ``env_manager`` is specified, prepare an
@@ -1604,7 +1604,7 @@ def _check_udf_return_type(data_type):
 
 
 def _convert_struct_values(
-    result: Union[pandas.DataFrame, Dict[str, Any]],
+    result: Union[pandas.DataFrame, dict[str, Any]],
     result_type,
 ):
     """
@@ -1884,10 +1884,10 @@ def spark_udf(
     model_uri,
     result_type=None,
     env_manager=None,
-    params: Optional[Dict[str, Any]] = None,
-    extra_env: Optional[Dict[str, str]] = None,
+    params: Optional[dict[str, Any]] = None,
+    extra_env: Optional[dict[str, str]] = None,
     prebuilt_env_uri: Optional[str] = None,
-    model_config: Optional[Union[str, Path, Dict[str, Any]]] = None,
+    model_config: Optional[Union[str, Path, dict[str, Any]]] = None,
 ):
     """
     A Spark UDF that can be used to invoke the Python function formatted model.
@@ -2361,7 +2361,7 @@ Compound types:
 
     @pandas_udf(result_type)
     def udf(
-        iterator: Iterator[Tuple[Union[pandas.Series, pandas.DataFrame], ...]],
+        iterator: Iterator[Tuple[Union[pandas.Series, pandas.DataFrame], ...]],  # noqa: UP006
     ) -> Iterator[result_type_hint]:
         # importing here to prevent circular import
         from mlflow.pyfunc.scoring_server.client import (
@@ -2499,7 +2499,7 @@ Compound types:
                     model_path = os.path.join(
                         tempfile.gettempdir(),
                         "mlflow",
-                        insecure_hash.sha1(model_uri.encode()).hexdigest(),
+                        hashlib.sha1(model_uri.encode(), usedforsecurity=False).hexdigest(),
                         # Use pid to avoid conflict when multiple spark UDF tasks
                         str(os.getpid()),
                     )
@@ -2619,7 +2619,7 @@ def save_model(
     model_config=None,
     example_no_conversion=None,
     streamable=None,
-    resources: Optional[Union[str, List[Resource]]] = None,
+    resources: Optional[Union[str, list[Resource]]] = None,
     **kwargs,
 ):
     """
@@ -3035,7 +3035,7 @@ def log_model(
     model_config=None,
     example_no_conversion=None,
     streamable=None,
-    resources: Optional[Union[str, List[Resource]]] = None,
+    resources: Optional[Union[str, list[Resource]]] = None,
 ):
     """
     Log a Pyfunc model with custom inference logic and optional data dependencies as an MLflow

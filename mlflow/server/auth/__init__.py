@@ -12,7 +12,7 @@ import importlib
 import logging
 import re
 import uuid
-from typing import Any, Callable, Dict, Optional, Union
+from typing import Any, Callable, Optional, Union
 
 import sqlalchemy
 from flask import Flask, Response, flash, jsonify, make_response, render_template_string, request
@@ -412,7 +412,7 @@ def _is_proxy_artifact_path(path: str) -> bool:
 
 
 def _get_proxy_artifact_validator(
-    method: str, view_args: Optional[Dict[str, Any]]
+    method: str, view_args: Optional[dict[str, Any]]
 ) -> Optional[Callable[[], bool]]:
     if view_args is None:
         return validate_can_read_experiment_artifact_proxy  # List

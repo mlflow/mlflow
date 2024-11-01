@@ -1,3 +1,4 @@
+import hashlib
 import json
 import os
 import posixpath
@@ -8,7 +9,7 @@ import time
 import uuid
 from copy import deepcopy
 from pathlib import Path
-from typing import List, NamedTuple
+from typing import NamedTuple
 from unittest import mock
 
 import pytest
@@ -43,7 +44,6 @@ from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.store.tracking.file_store import FileStore
 from mlflow.tracing.constant import TraceMetadataKey, TraceTagKey
 from mlflow.tracking._tracking_service.utils import _use_tracking_uri
-from mlflow.utils import insecure_hash
 from mlflow.utils.file_utils import (
     TempDir,
     path_to_local_file_uri,
@@ -79,11 +79,11 @@ def store_and_trace_info(store):
 
 
 class TraceInfos(NamedTuple):
-    trace_infos: List[TraceInfo]
+    trace_infos: list[TraceInfo]
     store: FileStore
     exp_id: str
-    request_ids: List[str]
-    timestamps: List[int]
+    request_ids: list[str]
+    timestamps: list[int]
 
 
 @pytest.fixture
@@ -2418,7 +2418,7 @@ def test_create_experiment_appends_to_artifact_uri_path_correctly(input_uri, exp
     _assert_create_experiment_appends_to_artifact_uri_path_correctly(input_uri, expected_uri)
 
 
-def assert_dataset_inputs_equal(inputs1: List[DatasetInput], inputs2: List[DatasetInput]):
+def assert_dataset_inputs_equal(inputs1: list[DatasetInput], inputs2: list[DatasetInput]):
     inputs1 = sorted(inputs1, key=lambda inp: (inp.dataset.name, inp.dataset.digest))
     inputs2 = sorted(inputs2, key=lambda inp: (inp.dataset.name, inp.dataset.digest))
     assert len(inputs1) == len(inputs2)
@@ -2659,7 +2659,7 @@ def test_log_inputs_uses_expected_input_and_dataset_ids_for_storage(store):
         inputs_dir = os.path.join(run_dir, FileStore.INPUTS_FOLDER_NAME)
         expected_input_storage_ids = []
         for dataset_storage_id in dataset_storage_ids:
-            md5 = insecure_hash.md5(dataset_storage_id.encode("utf-8"))
+            md5 = hashlib.md5(dataset_storage_id.encode("utf-8"), usedforsecurity=False)
             md5.update(run.info.run_id.encode("utf-8"))
             expected_input_storage_ids.append(md5.hexdigest())
         assert set(os.listdir(inputs_dir)) == set(expected_input_storage_ids)

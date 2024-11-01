@@ -1,7 +1,7 @@
 import logging
 import os
 import tempfile
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Optional, Union
 
 import yaml
 
@@ -120,15 +120,15 @@ def save_model(
     llama_index_model,
     path: str,
     engine_type: Optional[str] = None,
-    model_config: Optional[Union[str, Dict[str, Any]]] = None,
+    model_config: Optional[Union[str, dict[str, Any]]] = None,
     code_paths=None,
     mlflow_model: Optional[Model] = None,
     signature: Optional[ModelSignature] = None,
     input_example: Optional[ModelInputExample] = None,
-    pip_requirements: Optional[Union[List[str], str]] = None,
-    extra_pip_requirements: Optional[Union[List[str], str]] = None,
+    pip_requirements: Optional[Union[list[str], str]] = None,
+    extra_pip_requirements: Optional[Union[list[str], str]] = None,
     conda_env=None,
-    metadata: Optional[Dict[str, Any]] = None,
+    metadata: Optional[dict[str, Any]] = None,
 ) -> None:
     """
     Save a LlamaIndex model to a path on the local file system.
@@ -314,16 +314,16 @@ def log_model(
     llama_index_model,
     artifact_path: str,
     engine_type: Optional[str] = None,
-    model_config: Optional[Dict[str, Any]] = None,
-    code_paths: Optional[List[str]] = None,
+    model_config: Optional[dict[str, Any]] = None,
+    code_paths: Optional[list[str]] = None,
     registered_model_name: Optional[str] = None,
     signature: Optional[ModelSignature] = None,
     input_example: Optional[ModelInputExample] = None,
     await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
-    pip_requirements: Optional[Union[List[str], str]] = None,
-    extra_pip_requirements: Optional[Union[List[str], str]] = None,
+    pip_requirements: Optional[Union[list[str], str]] = None,
+    extra_pip_requirements: Optional[Union[list[str], str]] = None,
     conda_env=None,
-    metadata: Optional[Dict[str, Any]] = None,
+    metadata: Optional[dict[str, Any]] = None,
     **kwargs,
 ):
     """
@@ -539,7 +539,7 @@ def load_model(model_uri, dst_path=None):
     return _load_llama_model(local_model_path, flavor_conf)
 
 
-def _load_pyfunc(path, model_config: Optional[Dict[str, Any]] = None):
+def _load_pyfunc(path, model_config: Optional[dict[str, Any]] = None):
     from mlflow.llama_index.pyfunc_wrapper import create_pyfunc_wrapper
 
     index = load_model(path)

@@ -1,6 +1,6 @@
 from abc import abstractmethod
 from dataclasses import dataclass
-from typing import List, Optional
+from typing import Optional
 
 from mlflow.data.evaluation_dataset import EvaluationDataset
 from mlflow.models.utils import PyFuncInput, PyFuncOutput
@@ -8,8 +8,8 @@ from mlflow.models.utils import PyFuncInput, PyFuncOutput
 
 @dataclass
 class PyFuncInputsOutputs:
-    inputs: List[PyFuncInput]
-    outputs: Optional[List[PyFuncOutput]] = None
+    inputs: list[PyFuncInput]
+    outputs: Optional[list[PyFuncOutput]] = None
 
 
 class PyFuncConvertibleDatasetMixin:

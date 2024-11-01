@@ -4,7 +4,7 @@ import logging
 import os
 import posixpath
 import uuid
-from typing import Any, Dict
+from typing import Any
 
 import requests
 
@@ -228,7 +228,7 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
             GetCredentialsForWrite, self.run_id, run_relative_remote_paths
         )
 
-    def download_trace_data(self) -> Dict[str, Any]:
+    def download_trace_data(self) -> dict[str, Any]:
         cred = self._call_endpoint(
             DatabricksMlflowArtifactsService,
             GetCredentialsForTraceDataDownload,
