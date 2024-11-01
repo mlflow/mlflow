@@ -9,8 +9,9 @@ import importlib
 import inspect
 import logging
 import os
+import threading
 from copy import deepcopy
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
+from typing import TYPE_CHECKING, Any, Optional, Union
 
 import mlflow
 from mlflow.data.dataset import Dataset
@@ -64,6 +65,7 @@ from mlflow.utils.mlflow_tags import (
     MLFLOW_RUN_NAME,
     MLFLOW_RUN_NOTE,
 )
+from mlflow.utils.thread_utils import ThreadLocalVariable
 from mlflow.utils.time import get_current_time_millis
 from mlflow.utils.validation import _validate_experiment_id_type, _validate_run_id
 
@@ -76,15 +78,22 @@ if TYPE_CHECKING:
     import plotly
 
 
-_active_run_stack = []
-run_id_to_system_metrics_monitor = {}
 _active_experiment_id = None
-_last_active_run_id = None
 
 SEARCH_MAX_RESULTS_PANDAS = 100000
 NUM_RUNS_PER_PAGE_PANDAS = 10000
 
 _logger = logging.getLogger(__name__)
+
+
+run_id_to_system_metrics_monitor = {}
+
+
+_active_run_stack = ThreadLocalVariable(default_factory=lambda: [])
+
+_last_active_run_id = ThreadLocalVariable(default_factory=lambda: None)
+
+_experiment_lock = threading.Lock()
 
 
 def set_experiment(
@@ -141,38 +150,51 @@ def set_experiment(
         )
 
     client = MlflowClient()
-    if experiment_id is None:
-        experiment = client.get_experiment_by_name(experiment_name)
-        if not experiment:
-            _logger.info(
-                "Experiment with name '%s' does not exist. Creating a new experiment.",
-                experiment_name,
-            )
-            # NB: If two simultaneous threads or processes attempt to set the same experiment
-            # simultaneously, a race condition may be encountered here wherein experiment creation
-            # fails
-            experiment_id = client.create_experiment(experiment_name)
-            experiment = client.get_experiment(experiment_id)
-    else:
-        experiment = client.get_experiment(experiment_id)
-        if experiment is None:
-            raise MlflowException(
-                message=f"Experiment with ID '{experiment_id}' does not exist.",
-                error_code=RESOURCE_DOES_NOT_EXIST,
-            )
 
-    if experiment.lifecycle_stage != LifecycleStage.ACTIVE:
-        raise MlflowException(
-            message=(
-                f"Cannot set a deleted experiment {experiment.name!r} as the active experiment. "
-                "You can restore the experiment, or permanently delete the "
-                "experiment to create a new one."
-            ),
-            error_code=INVALID_PARAMETER_VALUE,
-        )
+    with _experiment_lock:
+        if experiment_id is None:
+            experiment = client.get_experiment_by_name(experiment_name)
+            if not experiment:
+                try:
+                    experiment_id = client.create_experiment(experiment_name)
+                    _logger.info(
+                        "Experiment with name '%s' does not exist. Creating a new experiment.",
+                        experiment_name,
+                    )
+                except MlflowException as e:
+                    if e.error_code == "RESOURCE_ALREADY_EXISTS":
+                        # NB: If two simultaneous processes attempt to set the same experiment
+                        # simultaneously, a race condition may be encountered here wherein
+                        # experiment creation fails
+                        return client.get_experiment_by_name(experiment_name)
+
+                experiment = client.get_experiment(experiment_id)
+        else:
+            experiment = client.get_experiment(experiment_id)
+            if experiment is None:
+                raise MlflowException(
+                    message=f"Experiment with ID '{experiment_id}' does not exist.",
+                    error_code=RESOURCE_DOES_NOT_EXIST,
+                )
+
+        if experiment.lifecycle_stage != LifecycleStage.ACTIVE:
+            raise MlflowException(
+                message=(
+                    f"Cannot set a deleted experiment {experiment.name!r} as the active"
+                    " experiment. "
+                    "You can restore the experiment, or permanently delete the "
+                    "experiment to create a new one."
+                ),
+                error_code=INVALID_PARAMETER_VALUE,
+            )
 
     global _active_experiment_id
     _active_experiment_id = experiment.experiment_id
+
+    # Set 'MLFLOW_EXPERIMENT_ID' environment variable
+    # so that subprocess can inherit it.
+    MLFLOW_EXPERIMENT_ID.set(_active_experiment_id)
+
     return experiment
 
 
@@ -207,7 +229,7 @@ def start_run(
     run_name: Optional[str] = None,
     nested: bool = False,
     parent_run_id: Optional[str] = None,
-    tags: Optional[Dict[str, Any]] = None,
+    tags: Optional[dict[str, Any]] = None,
     description: Optional[str] = None,
     log_system_metrics: Optional[bool] = None,
 ) -> ActiveRun:
@@ -313,17 +335,17 @@ def start_run(
                                      run_id params.child tags.mlflow.runName
         0  7d175204675e40328e46d9a6a5a7ee6a          yes           CHILD_RUN
     """
-    global _active_run_stack
+    active_run_stack = _active_run_stack.get()
     _validate_experiment_id_type(experiment_id)
     # back compat for int experiment_id
     experiment_id = str(experiment_id) if isinstance(experiment_id, int) else experiment_id
-    if len(_active_run_stack) > 0 and not nested:
+    if len(active_run_stack) > 0 and not nested:
         raise Exception(
             (
                 "Run with UUID {} is already active. To start a new run, first end the "
                 + "current run with mlflow.end_run(). To start a nested "
                 + "run, call start_run with nested=True"
-            ).format(_active_run_stack[0].info.run_id)
+            ).format(active_run_stack[0].info.run_id)
         )
     client = MlflowClient()
     if run_id:
@@ -377,8 +399,8 @@ def start_run(
         if parent_run_id:
             _validate_run_id(parent_run_id)
             # Make sure parent_run_id matches the current run id, if there is an active run
-            if len(_active_run_stack) > 0 and parent_run_id != _active_run_stack[-1].info.run_id:
-                current_run_id = _active_run_stack[-1].info.run_id
+            if len(active_run_stack) > 0 and parent_run_id != active_run_stack[-1].info.run_id:
+                current_run_id = active_run_stack[-1].info.run_id
                 raise MlflowException(
                     f"Current run with UUID {current_run_id} does not match the specified "
                     f"parent_run_id {parent_run_id}. To start a new nested run under "
@@ -393,9 +415,7 @@ def start_run(
                     f"because it is in the deleted state."
                 )
         else:
-            parent_run_id = (
-                _active_run_stack[-1].info.run_id if len(_active_run_stack) > 0 else None
-            )
+            parent_run_id = active_run_stack[-1].info.run_id if len(active_run_stack) > 0 else None
 
         exp_id_for_run = experiment_id if experiment_id is not None else _get_experiment_id()
 
@@ -440,15 +460,13 @@ def start_run(
                 active_run_obj.info.run_id,
                 resume_logging=existing_run_id is not None,
             )
-            global run_id_to_system_metrics_monitor
-
             run_id_to_system_metrics_monitor[active_run_obj.info.run_id] = system_monitor
             system_monitor.start()
         except Exception as e:
             _logger.error(f"Failed to start system metrics monitoring: {e}.")
 
-    _active_run_stack.append(ActiveRun(active_run_obj))
-    return _active_run_stack[-1]
+    active_run_stack.append(ActiveRun(active_run_obj))
+    return active_run_stack[-1]
 
 
 def end_run(status: str = RunStatus.to_string(RunStatus.FINISHED)) -> None:
@@ -483,15 +501,16 @@ def end_run(status: str = RunStatus.to_string(RunStatus.FINISHED)) -> None:
         --
         Active run: None
     """
-    global _active_run_stack, _last_active_run_id, run_id_to_system_metrics_monitor
-    if len(_active_run_stack) > 0:
+    active_run_stack = _active_run_stack.get()
+    if len(active_run_stack) > 0:
         # Clear out the global existing run environment variable as well.
         MLFLOW_RUN_ID.unset()
-        run = _active_run_stack.pop()
-        _last_active_run_id = run.info.run_id
-        MlflowClient().set_terminated(_last_active_run_id, status)
-        if _last_active_run_id in run_id_to_system_metrics_monitor:
-            system_metrics_monitor = run_id_to_system_metrics_monitor.pop(_last_active_run_id)
+        run = active_run_stack.pop()
+        last_active_run_id = run.info.run_id
+        _last_active_run_id.set(last_active_run_id)
+        MlflowClient().set_terminated(last_active_run_id, status)
+        if last_active_run_id in run_id_to_system_metrics_monitor:
+            system_metrics_monitor = run_id_to_system_metrics_monitor.pop(last_active_run_id)
             system_metrics_monitor.finish()
 
 
@@ -506,6 +525,11 @@ atexit.register(_safe_end_run)
 def active_run() -> Optional[ActiveRun]:
     """
     Get the currently active ``Run``, or None if no such run exists.
+
+    .. attention::
+        This API is **thread-local** and returns only the active run in the current thread.
+        If your application is multi-threaded and a run is started in a different thread,
+        this API will not retrieve that run.
 
     **Note**: You cannot access currently-active run attributes
     (parameters, metrics, etc.) through the run returned by ``mlflow.active_run``. In order
@@ -527,7 +551,8 @@ def active_run() -> Optional[ActiveRun]:
 
         Active run_id: 6f252757005748708cd3aad75d1ff462
     """
-    return _active_run_stack[-1] if len(_active_run_stack) > 0 else None
+    active_run_stack = _active_run_stack.get()
+    return active_run_stack[-1] if len(active_run_stack) > 0 else None
 
 
 def last_active_run() -> Optional[Run]:
@@ -586,9 +611,25 @@ def last_active_run() -> Optional[Run]:
     _active_run = active_run()
     if _active_run is not None:
         return _active_run
-    if _last_active_run_id is None:
+
+    last_active_run_id = _last_active_run_id.get()
+    if last_active_run_id is None:
         return None
-    return get_run(_last_active_run_id)
+    return get_run(last_active_run_id)
+
+
+def _get_latest_active_run():
+    """
+    Get active run from global context by checking all threads. The `mlflow.active_run` API
+    only returns active run from current thread. This API is useful for the case where one
+    needs to get a run started from a separate thread.
+    """
+    all_active_runs = [
+        run for run_stack in _active_run_stack.get_all_thread_values().values() for run in run_stack
+    ]
+    if all_active_runs:
+        return max(all_active_runs, key=lambda run: run.info.start_time)
+    return None
 
 
 def get_run(run_id: str) -> Run:
@@ -882,7 +923,7 @@ def log_metric(
 
 
 def log_metrics(
-    metrics: Dict[str, float],
+    metrics: dict[str, float],
     step: Optional[int] = None,
     synchronous: Optional[bool] = None,
     run_id: Optional[str] = None,
@@ -938,7 +979,7 @@ def log_metrics(
 
 
 def log_params(
-    params: Dict[str, Any], synchronous: Optional[bool] = None, run_id: Optional[str] = None
+    params: dict[str, Any], synchronous: Optional[bool] = None, run_id: Optional[str] = None
 ) -> Optional[RunOperations]:
     """
     Log a batch of params for the current run. If no run is active, this method will create a
@@ -984,7 +1025,7 @@ def log_params(
 
 
 def log_input(
-    dataset: Dataset, context: Optional[str] = None, tags: Optional[Dict[str, str]] = None
+    dataset: Dataset, context: Optional[str] = None, tags: Optional[dict[str, str]] = None
 ) -> None:
     """
     Log a dataset used in the current run.
@@ -1021,7 +1062,7 @@ def log_input(
     MlflowClient().log_inputs(run_id=run_id, datasets=[dataset_input])
 
 
-def set_experiment_tags(tags: Dict[str, Any]) -> None:
+def set_experiment_tags(tags: dict[str, Any]) -> None:
     """
     Set tags for the current active experiment.
 
@@ -1048,7 +1089,7 @@ def set_experiment_tags(tags: Dict[str, Any]) -> None:
         set_experiment_tag(key, value)
 
 
-def set_tags(tags: Dict[str, Any], synchronous: Optional[bool] = None) -> Optional[RunOperations]:
+def set_tags(tags: dict[str, Any], synchronous: Optional[bool] = None) -> Optional[RunOperations]:
     """
     Log a batch of tags for the current run. If no run is active, this method will create a
     new active run.
@@ -1202,7 +1243,7 @@ def log_text(text: str, artifact_file: str, run_id: Optional[str] = None) -> Non
     MlflowClient().log_text(run_id, text, artifact_file)
 
 
-def log_dict(dictionary: Dict[str, Any], artifact_file: str, run_id: Optional[str] = None) -> None:
+def log_dict(dictionary: dict[str, Any], artifact_file: str, run_id: Optional[str] = None) -> None:
     """
     Log a JSON/YAML-serializable object (e.g. `dict`) as an artifact. The serialization
     format (JSON or YAML) is automatically inferred from the extension of `artifact_file`.
@@ -1245,7 +1286,7 @@ def log_figure(
     figure: Union["matplotlib.figure.Figure", "plotly.graph_objects.Figure"],
     artifact_file: str,
     *,
-    save_kwargs: Optional[Dict[str, Any]] = None,
+    save_kwargs: Optional[dict[str, Any]] = None,
 ) -> None:
     """
     Log a figure as an artifact. The following figure objects are supported:
@@ -1426,7 +1467,7 @@ def log_image(
 
 @experimental
 def log_table(
-    data: Union[Dict[str, Any], "pandas.DataFrame"],
+    data: Union[dict[str, Any], "pandas.DataFrame"],
     artifact_file: str,
     run_id: Optional[str] = None,
 ) -> None:
@@ -1480,8 +1521,8 @@ def log_table(
 @experimental
 def load_table(
     artifact_file: str,
-    run_ids: Optional[List[str]] = None,
-    extra_columns: Optional[List[str]] = None,
+    run_ids: Optional[list[str]] = None,
+    extra_columns: Optional[list[str]] = None,
 ) -> "pandas.DataFrame":
     """
     Load a table from MLflow Tracking as a pandas.DataFrame. The table is loaded from the
@@ -1633,8 +1674,8 @@ def search_experiments(
     view_type: int = ViewType.ACTIVE_ONLY,
     max_results: Optional[int] = None,
     filter_string: Optional[str] = None,
-    order_by: Optional[List[str]] = None,
-) -> List[Experiment]:
+    order_by: Optional[list[str]] = None,
+) -> list[Experiment]:
     """
     Search for experiments that match the specified search query.
 
@@ -1746,7 +1787,7 @@ def search_experiments(
 def create_experiment(
     name: str,
     artifact_location: Optional[str] = None,
-    tags: Optional[Dict[str, Any]] = None,
+    tags: Optional[dict[str, Any]] = None,
 ) -> str:
     """
     Create an experiment.
@@ -1917,15 +1958,15 @@ def get_artifact_uri(artifact_path: Optional[str] = None) -> str:
 
 
 def search_runs(
-    experiment_ids: Optional[List[str]] = None,
+    experiment_ids: Optional[list[str]] = None,
     filter_string: str = "",
     run_view_type: int = ViewType.ACTIVE_ONLY,
     max_results: int = SEARCH_MAX_RESULTS_PANDAS,
-    order_by: Optional[List[str]] = None,
+    order_by: Optional[list[str]] = None,
     output_format: str = "pandas",
     search_all_experiments: bool = False,
-    experiment_names: Optional[List[str]] = None,
-) -> Union[List[Run], "pandas.DataFrame"]:
+    experiment_names: Optional[list[str]] = None,
+) -> Union[list[Run], "pandas.DataFrame"]:
     """
     Search for Runs that fit the specified criteria.
 
@@ -2129,8 +2170,9 @@ def search_runs(
 
 
 def _get_or_start_run():
-    if len(_active_run_stack) > 0:
-        return _active_run_stack[-1]
+    active_run_stack = _active_run_stack.get()
+    if len(active_run_stack) > 0:
+        return active_run_stack[-1]
     return start_run()
 
 
@@ -2181,7 +2223,7 @@ def autolog(
     exclusive: bool = False,
     disable_for_unsupported_versions: bool = False,
     silent: bool = False,
-    extra_tags: Optional[Dict[str, str]] = None,
+    extra_tags: Optional[dict[str, str]] = None,
 ) -> None:
     """
     Enables (or disables) and configures autologging for all supported integrations.

@@ -233,14 +233,18 @@ def test_download_file_in_parallel_when_necessary(
     list_artifacts_result = (
         [FileInfo(path=remote_file_path, is_dir=False, file_size=file_size)] if file_size else []
     )
-    with mock.patch(
-        f"{S3_ARTIFACT_REPOSITORY}.list_artifacts",
-        return_value=list_artifacts_result,
-    ), mock.patch(
-        f"{S3_ARTIFACT_REPOSITORY}._download_from_cloud", return_value=None
-    ) as download_mock, mock.patch(
-        f"{S3_ARTIFACT_REPOSITORY}._parallelized_download_from_cloud", return_value=None
-    ) as parallel_download_mock:
+    with (
+        mock.patch(
+            f"{S3_ARTIFACT_REPOSITORY}.list_artifacts",
+            return_value=list_artifacts_result,
+        ),
+        mock.patch(
+            f"{S3_ARTIFACT_REPOSITORY}._download_from_cloud", return_value=None
+        ) as download_mock,
+        mock.patch(
+            f"{S3_ARTIFACT_REPOSITORY}._parallelized_download_from_cloud", return_value=None
+        ) as parallel_download_mock,
+    ):
         repo.download_artifacts("")
         if is_parallel_download:
             parallel_download_mock.assert_called_with(file_size, remote_file_path, ANY)
@@ -249,11 +253,14 @@ def test_download_file_in_parallel_when_necessary(
 
 
 def test_refresh_credentials():
-    with mock.patch(
-        "mlflow.store.artifact.optimized_s3_artifact_repo._get_s3_client"
-    ) as mock_get_s3_client, mock.patch(
-        "mlflow.store.artifact.optimized_s3_artifact_repo.OptimizedS3ArtifactRepository._get_region_name"
-    ) as mock_get_region_name:
+    with (
+        mock.patch(
+            "mlflow.store.artifact.optimized_s3_artifact_repo._get_s3_client"
+        ) as mock_get_s3_client,
+        mock.patch(
+            "mlflow.store.artifact.optimized_s3_artifact_repo.OptimizedS3ArtifactRepository._get_region_name"
+        ) as mock_get_region_name,
+    ):
         s3_client_mock = mock.Mock()
         mock_get_s3_client.return_value = s3_client_mock
         resp = requests.Response()

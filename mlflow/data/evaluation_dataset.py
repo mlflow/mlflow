@@ -1,3 +1,4 @@
+import hashlib
 import json
 import logging
 import math
@@ -10,7 +11,6 @@ import mlflow
 from mlflow.entities import RunTag
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
-from mlflow.utils import insecure_hash
 from mlflow.utils.string_utils import generate_feature_name_if_not_string
 
 try:
@@ -406,7 +406,7 @@ class EvaluationDataset:
             )
 
         # generate dataset hash
-        md5_gen = insecure_hash.md5()
+        md5_gen = hashlib.md5(usedforsecurity=False)
         _gen_md5_for_arraylike_obj(md5_gen, self._features_data)
         if self._labels_data is not None:
             _gen_md5_for_arraylike_obj(md5_gen, self._labels_data)

@@ -263,9 +263,16 @@ def test_log_model_call_register_model_to_uc(configure_client_for_uc, sklearn_lo
         creation_timestamp=123,
         status=ModelVersionStatus.to_string(ModelVersionStatus.READY),
     )
-    with mock.patch.object(UcModelRegistryStore, "create_registered_model"), mock.patch.object(
-        UcModelRegistryStore, "create_model_version", return_value=mock_model_version, autospec=True
-    ) as mock_create_mv, TempDir(chdr=True, remove_on_exit=True) as tmp:
+    with (
+        mock.patch.object(UcModelRegistryStore, "create_registered_model"),
+        mock.patch.object(
+            UcModelRegistryStore,
+            "create_model_version",
+            return_value=mock_model_version,
+            autospec=True,
+        ) as mock_create_mv,
+        TempDir(chdr=True, remove_on_exit=True) as tmp,
+    ):
         with mlflow.start_run():
             conda_env = os.path.join(tmp.path(), "conda_env.yaml")
             _mlflow_conda_env(conda_env, additional_pip_deps=["scikit-learn"])
@@ -682,10 +689,6 @@ def test_pyfunc_serve_and_score(sklearn_knn_model):
     np.testing.assert_array_almost_equal(scores, model.predict(inference_dataframe))
 
 
-@pytest.mark.skipif(
-    Version(sklearn.__version__) != Version("1.2.2"),
-    reason="'sklearn.metrics._dist_metrics' doesn't have attribute 'EuclideanDistance'",
-)
 def test_sklearn_compatible_with_mlflow_2_4_0(sklearn_knn_model, tmp_path):
     model, inference_dataframe = sklearn_knn_model
     model_predict = model.predict(inference_dataframe)
@@ -702,7 +705,7 @@ flavors:
     loader_module: mlflow.sklearn
     model_path: model.pkl
     predict_fn: predict
-    python_version: 3.8.16
+    python_version: 3.9.18
   sklearn:
     code: null
     pickled_model: model.pkl
@@ -716,7 +719,7 @@ utc_time_created: '2023-07-04 07:19:43.561797'
     )
     tmp_path.joinpath("python_env.yaml").write_text(
         """
-python: 3.8.16
+python: 3.9.18
 build_dependencies:
    - pip==23.1.2
    - setuptools==56.0.0
@@ -770,9 +773,10 @@ scipy
 
 def test_log_model_with_code_paths(sklearn_knn_model):
     artifact_path = "model"
-    with mlflow.start_run(), mock.patch(
-        "mlflow.sklearn._add_code_from_conf_to_system_path"
-    ) as add_mock:
+    with (
+        mlflow.start_run(),
+        mock.patch("mlflow.sklearn._add_code_from_conf_to_system_path") as add_mock,
+    ):
         mlflow.sklearn.log_model(sklearn_knn_model.model, artifact_path, code_paths=[__file__])
         model_uri = mlflow.get_artifact_uri(artifact_path)
         _compare_logged_code_paths(__file__, model_uri, mlflow.sklearn.FLAVOR_NAME)

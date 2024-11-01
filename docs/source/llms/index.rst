@@ -28,6 +28,7 @@ Note that there are additional tutorials within the `"Explore the Native LLM Fla
     custom-pyfunc-for-llms/index
     llm-evaluate/notebooks/index
     chat-model-guide/index
+    notebooks/chat-model-tool-calling.ipynb
 
 
 .. raw:: html
@@ -41,6 +42,16 @@ Note that there are additional tutorials within the `"Explore the Native LLM Fla
                     </div>
                     <p>
                         Learn how to build a custom GenAI Agent with a simplified developer experience using MLflow's <code>ChatModel</code>.
+                    </p>
+                </a>
+            </div>
+            <div class="simple-card">
+                <a href="notebooks/chat-model-tool-calling.html" >
+                    <div class="header">
+                        Tool Calling Models
+                    </div>
+                    <p>
+                        Learn how to build a simple tool-calling model using MLflow's <code>ChatModel</code>.
                     </p>
                 </a>
             </div>
@@ -321,6 +332,7 @@ Harnessing the power of LLMs becomes effortless with flavors designed specifical
     sentence-transformers/index
     langchain/index
     llama-index/index
+    dspy/index
 
 Explore the Native LLM Flavors
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -386,6 +398,17 @@ Select the integration below to read the documentation on how to leverage MLflow
                     </p>
                 </a>
             </div>
+            <div class="simple-card">
+                <a href="dspy/index.html">
+                    <div class="header-with-image">
+                        <img src="../_static/images/logos/dspy-logo.png" alt="DSPy Logo" style="width: 90%"/>
+                    </div>
+                    <p>
+                        Learn about MLflow's native integration with DSPy and see example notebooks that leverage 
+                        MLflow and DSPy to optimize your GenAI applications.
+                    </p>
+                </a>
+            </div>
         </article>
     </section>
 
@@ -421,10 +444,3 @@ Benefits of the MLflow LLM Tracking System
 
   - Ensures consistent and transparent tracking across all LLM interactions.
   - Facilitates informed decision-making and optimization in LLM deployment and utilization.
-
-
-.. toctree::
-    :maxdepth: 1
-    :hidden:
-
-    gateway/index

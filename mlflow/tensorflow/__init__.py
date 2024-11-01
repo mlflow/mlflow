@@ -13,7 +13,7 @@ import logging
 import os
 import shutil
 import tempfile
-from typing import Any, Dict, NamedTuple, Optional
+from typing import Any, NamedTuple, Optional
 
 import numpy as np
 import pandas
@@ -773,7 +773,7 @@ class _TF2Wrapper:
     def predict(
         self,
         data,
-        params: Optional[Dict[str, Any]] = None,
+        params: Optional[dict[str, Any]] = None,
     ):
         """
         Args:
@@ -832,7 +832,7 @@ class _TF2ModuleWrapper:
     def predict(
         self,
         data,
-        params: Optional[Dict[str, Any]] = None,
+        params: Optional[dict[str, Any]] = None,
     ):
         """
         Args:
@@ -871,7 +871,7 @@ class _KerasModelWrapper:
     def predict(
         self,
         data,
-        params: Optional[Dict[str, Any]] = None,
+        params: Optional[dict[str, Any]] = None,
     ):
         """
         Args:
