@@ -1,5 +1,4 @@
 import logging
-import sys
 import warnings
 from collections import defaultdict
 from typing import Any, Dict, List, Optional, Union
@@ -725,39 +724,20 @@ def _validate_dict_examples(examples, num_items=None):
         _validate_keys_match(example, first_keys)
 
 
-def _is_pep585_supported() -> bool:
-    """
-    Is https://peps.python.org/pep-0585 supported in the current Python version?
-    """
-    return sys.version_info[:2] >= (3, 9)
-
-
 def _is_list_str(type_hint: Any) -> bool:
-    if type_hint == List[str]:  # noqa: UP006
-        return True
-
-    if _is_pep585_supported():
-        try:
-            return type_hint == list[str]
-        except Exception:
-            # Should be unreachable but for safety
-            return False
-
-    return False
+    return type_hint in [
+        List[str],  # noqa: UP006
+        list[str],
+    ]
 
 
 def _is_list_dict_str(type_hint: Any) -> bool:
-    if type_hint == List[Dict[str, str]]:  # noqa: UP006
-        return True
-
-    if _is_pep585_supported():
-        try:
-            return type_hint == list[dict[str, str]]
-        except Exception:
-            # Should be unreachable but for safety
-            return False
-
-    return False
+    return type_hint in [
+        List[Dict[str, str]],  # noqa: UP006
+        list[Dict[str, str]],  # noqa: UP006
+        List[dict[str, str]],  # noqa: UP006
+        list[dict[str, str]],
+    ]
 
 
 def _infer_schema_from_type_hint(type_hint, examples=None):
