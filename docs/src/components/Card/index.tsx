@@ -1,5 +1,5 @@
 import clsx from "clsx";
-import styles from "./simple-card.module.css";
+import styles from "./card.module.css";
 
 export const CardGroup = ({ children }): JSX.Element => (
   <div className={styles.CardGroup}>
