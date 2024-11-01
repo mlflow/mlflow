@@ -4,7 +4,7 @@ from typing import Any
 from mlflow.gateway.config import MistralConfig, RouteConfig
 from mlflow.gateway.providers.base import BaseProvider, ProviderAdapter
 from mlflow.gateway.providers.utils import send_request
-from mlflow.gateway.schemas import completions, embeddings
+from mlflow.gateway.schemas import chat, completions, embeddings
 
 
 class MistralAdapter(ProviderAdapter):
@@ -48,6 +48,36 @@ class MistralAdapter(ProviderAdapter):
                 for idx, c in enumerate(resp["choices"])
             ],
             usage=completions.CompletionsUsage(
+                prompt_tokens=resp["usage"]["prompt_tokens"],
+                completion_tokens=resp["usage"]["completion_tokens"],
+                total_tokens=resp["usage"]["total_tokens"],
+            ),
+        )
+
+    @classmethod
+    def model_to_chat(cls, resp, config):
+        # Response example (https://docs.mistral.ai/api/#operation/createChatCompletion)
+        return chat.ResponsePayload(
+            id=resp["id"],
+            object=resp["object"],
+            created=resp["created"],
+            model=resp["model"],
+            choices=[
+                chat.Choice(
+                    index=idx,
+                    message=chat.ResponseMessage(
+                        role=c["message"]["role"],
+                        content=c["message"].get("content"),
+                        tool_calls=(
+                            (calls := c["message"].get("tool_calls"))
+                            and [chat.ToolCall(**c) for c in calls]
+                        ),
+                    ),
+                    finish_reason=c.get("finish_reason"),
+                )
+                for idx, c in enumerate(resp["choices"])
+            ],
+            usage=chat.ChatUsage(
                 prompt_tokens=resp["usage"]["prompt_tokens"],
                 completion_tokens=resp["usage"]["completion_tokens"],
                 total_tokens=resp["usage"]["total_tokens"],
@@ -108,6 +138,10 @@ class MistralAdapter(ProviderAdapter):
         return payload
 
     @classmethod
+    def chat_to_model(cls, payload, config):
+        return {"model": config.model.name, **payload}
+
+    @classmethod
     def embeddings_to_model(cls, payload, config):
         return payload
 
@@ -123,16 +157,28 @@ class MistralProvider(BaseProvider):
         self.mistral_config: MistralConfig = config.model.config
 
     @property
-    def auth_headers(self) -> dict[str, str]:
+    def headers(self) -> dict[str, str]:
         return {"Authorization": f"Bearer {self.mistral_config.mistral_api_key}"}
 
     @property
     def base_url(self) -> str:
         return "https://api.mistral.ai/v1/"
 
+    @property
+    def adapter(self):
+        return MistralAdapter
+
+
+    def get_endpoint_url(self, route_type: str) -> str:
+        if route_type == "llm/v1/chat":
+            return f"{self.base_url}chat/completions"
+        else:
+            raise ValueError(f"Invalid route type {route_type}")
+
+
     async def _request(self, path: str, payload: dict[str, Any]) -> dict[str, Any]:
         return await send_request(
-            headers=self.auth_headers,
+            headers=self.headers,
             base_url=self.base_url,
             path=path,
             payload=payload,

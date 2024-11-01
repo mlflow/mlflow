@@ -220,11 +220,29 @@ class AnthropicProvider(BaseProvider, AnthropicAdapter):
         if config.model.config is None or not isinstance(config.model.config, AnthropicConfig):
             raise TypeError(f"Invalid config type {config.model.config}")
         self.anthropic_config: AnthropicConfig = config.model.config
-        self.headers = {
+
+    @property
+    def headers(self) -> dict[str, str]:
+        return {
             "x-api-key": self.anthropic_config.anthropic_api_key,
             "anthropic-version": self.anthropic_config.anthropic_version,
         }
-        self.base_url = "https://api.anthropic.com/v1/"
+
+    @property
+    def base_url(self) -> str:
+        return "https://api.anthropic.com/v1/"
+
+    @property
+    def adapter(self):
+        return AnthropicAdapter
+
+    def get_endpoint_url(self, route_type: str) -> str:
+        if route_type == "llm/v1/chat":
+            return f"{self.base_url}messages"
+        elif route_type == "llm/v1/completions":
+            return f"{self.base_url}complete"
+        else:
+            raise ValueError(f"Invalid route type {route_type}")
 
     async def chat_stream(
         self, payload: chat.RequestPayload

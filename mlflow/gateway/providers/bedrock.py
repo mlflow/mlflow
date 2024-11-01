@@ -243,7 +243,7 @@ class AmazonBedrockProvider(BaseProvider):
         return AmazonBedrockModelProvider.of_str(provider)
 
     @property
-    def underlying_provider_adapter(self) -> ProviderAdapter:
+    def adapter(self) -> ProviderAdapter:
         provider = self._underlying_provider
         if not provider:
             raise AIGatewayException(
@@ -284,6 +284,6 @@ class AmazonBedrockProvider(BaseProvider):
 
         self.check_for_model_field(payload)
         payload = jsonable_encoder(payload, exclude_none=True, exclude_defaults=True)
-        payload = self.underlying_provider_adapter.completions_to_model(payload, self.config)
+        payload = self.adapter.completions_to_model(payload, self.config)
         response = self._request(payload)
-        return self.underlying_provider_adapter.model_to_completions(response, self.config)
+        return self.adapter.model_to_completions(response, self.config)
