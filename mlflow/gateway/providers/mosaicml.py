@@ -2,11 +2,9 @@ import time
 from contextlib import contextmanager
 from typing import Any
 
-from fastapi import HTTPException
-from fastapi.encoders import jsonable_encoder
-
 from mlflow.exceptions import MlflowException
 from mlflow.gateway.config import MosaicMLConfig, RouteConfig
+from mlflow.gateway.exceptions import AIGatewayException
 from mlflow.gateway.providers.base import BaseProvider
 from mlflow.gateway.providers.utils import rename_payload_keys, send_request
 from mlflow.gateway.schemas import chat, completions, embeddings
@@ -83,6 +81,8 @@ class MosaicMLProvider(BaseProvider):
         return prompt
 
     async def chat(self, payload: chat.RequestPayload) -> chat.ResponsePayload:
+        from fastapi.encoders import jsonable_encoder
+
         # Extract the List[RequestMessage] from the RequestPayload
         messages = payload.messages
         payload = jsonable_encoder(payload, exclude_none=True)
@@ -94,7 +94,7 @@ class MosaicMLProvider(BaseProvider):
         }
         for k1, k2 in key_mapping.items():
             if k2 in payload:
-                raise HTTPException(
+                raise AIGatewayException(
                     status_code=422, detail=f"Invalid parameter {k2}. Use {k1} instead."
                 )
         payload = rename_payload_keys(payload, key_mapping)
@@ -103,7 +103,7 @@ class MosaicMLProvider(BaseProvider):
         try:
             prompt = [self._parse_chat_messages_to_prompt(messages)]
         except MlflowException as e:
-            raise HTTPException(
+            raise AIGatewayException(
                 status_code=422, detail=f"An invalid request structure was submitted. {e.message}"
             )
         # Construct final payload structure
@@ -151,6 +151,8 @@ class MosaicMLProvider(BaseProvider):
         )
 
     async def completions(self, payload: completions.RequestPayload) -> completions.ResponsePayload:
+        from fastapi.encoders import jsonable_encoder
+
         payload = jsonable_encoder(payload, exclude_none=True)
         self.check_for_model_field(payload)
         key_mapping = {
@@ -158,7 +160,7 @@ class MosaicMLProvider(BaseProvider):
         }
         for k1, k2 in key_mapping.items():
             if k2 in payload:
-                raise HTTPException(
+                raise AIGatewayException(
                     status_code=422, detail=f"Invalid parameter {k2}. Use {k1} instead."
                 )
         payload = rename_payload_keys(payload, key_mapping)
@@ -216,12 +218,14 @@ class MosaicMLProvider(BaseProvider):
         )
 
     async def embeddings(self, payload: embeddings.RequestPayload) -> embeddings.ResponsePayload:
+        from fastapi.encoders import jsonable_encoder
+
         payload = jsonable_encoder(payload, exclude_none=True)
         self.check_for_model_field(payload)
         key_mapping = {"input": "inputs"}
         for k1, k2 in key_mapping.items():
             if k2 in payload:
-                raise HTTPException(
+                raise AIGatewayException(
                     status_code=422, detail=f"Invalid parameter {k2}. Use {k1} instead."
                 )
         payload = rename_payload_keys(payload, key_mapping)
@@ -273,6 +277,7 @@ def custom_token_allowance_exceeded_handling():
     Context manager handler for specific error messages that are incorrectly set as server-side
     errors, but are in actuality an issue with the request sent to the external provider.
     """
+    from fastapi import HTTPException
 
     try:
         yield
