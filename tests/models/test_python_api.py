@@ -46,6 +46,12 @@ from mlflow.utils.env_manager import CONDA, VIRTUALENV
             np.array([[1, 2], [3, 4]]),
             _CONTENT_TYPE_JSON,
         ),
+        (
+            # uLLM input, no change
+            {"input": "some_data"},
+            {"input": "some_data"},
+            _CONTENT_TYPE_JSON,
+        ),
     ],
 )
 def test_predict(input_data, expected_data, content_type):

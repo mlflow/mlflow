@@ -9,7 +9,7 @@ import os
 import shutil
 from abc import ABCMeta, abstractmethod
 from pathlib import Path
-from typing import Any, Dict, Iterator, List, Optional, Union
+from typing import Any, Iterator, Optional, Union
 
 import cloudpickle
 import pandas as pd
@@ -27,6 +27,7 @@ from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.pyfunc.utils.input_converter import _hydrate_dataclass
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.types.llm import ChatMessage, ChatParams, ChatResponse
+from mlflow.types.utils import _is_list_dict_str, _is_list_str
 from mlflow.utils.annotations import experimental
 from mlflow.utils.environment import (
     _CONDA_ENV_FILE_NAME,
@@ -112,7 +113,7 @@ class PythonModel:
         return _extract_type_hints(self.predict, input_arg_index=1)
 
     @abstractmethod
-    def predict(self, context, model_input, params: Optional[Dict[str, Any]] = None):
+    def predict(self, context, model_input, params: Optional[dict[str, Any]] = None):
         """
         Evaluates a pyfunc-compatible input and produces a pyfunc-compatible output.
         For more information about the pyfunc input/output API, see the :ref:`pyfunc-inference-api`.
@@ -124,7 +125,7 @@ class PythonModel:
             params: Additional parameters to pass to the model for inference.
         """
 
-    def predict_stream(self, context, model_input, params: Optional[Dict[str, Any]] = None):
+    def predict_stream(self, context, model_input, params: Optional[dict[str, Any]] = None):
         """
         Evaluates a pyfunc-compatible input and produces an iterator of output.
         For more information about the pyfunc input API, see the :ref:`pyfunc-inference-api`.
@@ -156,7 +157,7 @@ class _FunctionPythonModel(PythonModel):
         self,
         context,
         model_input,
-        params: Optional[Dict[str, Any]] = None,
+        params: Optional[dict[str, Any]] = None,
     ):
         """
         Args:
@@ -228,7 +229,7 @@ class ChatModel(PythonModel, metaclass=ABCMeta):
     """
 
     @abstractmethod
-    def predict(self, context, messages: List[ChatMessage], params: ChatParams) -> ChatResponse:
+    def predict(self, context, messages: list[ChatMessage], params: ChatParams) -> ChatResponse:
         """
         Evaluates a chat input and produces a chat output.
 
@@ -249,7 +250,7 @@ class ChatModel(PythonModel, metaclass=ABCMeta):
         """
 
     def predict_stream(
-        self, context, messages: List[ChatMessage], params: ChatParams
+        self, context, messages: list[ChatMessage], params: ChatParams
     ) -> Iterator[ChatResponse]:
         """
         Evaluates a chat input and produces a chat output.
@@ -498,7 +499,7 @@ def _save_model_with_class_artifacts_params(  # noqa: D417
 
 
 def _load_context_model_and_signature(
-    model_path: str, model_config: Optional[Dict[str, Any]] = None
+    model_path: str, model_config: Optional[dict[str, Any]] = None
 ):
     pyfunc_config = _get_flavor_configuration(
         model_path=model_path, flavor_name=mlflow.pyfunc.FLAVOR_NAME
@@ -551,7 +552,7 @@ def _load_context_model_and_signature(
     return context, python_model, signature
 
 
-def _load_pyfunc(model_path: str, model_config: Optional[Dict[str, Any]] = None):
+def _load_pyfunc(model_path: str, model_config: Optional[dict[str, Any]] = None):
     context, python_model, signature = _load_context_model_and_signature(model_path, model_config)
     return _PythonModelPyfuncWrapper(
         python_model=python_model,
@@ -587,7 +588,7 @@ class _PythonModelPyfuncWrapper:
         import pandas as pd
 
         hints = self.python_model._get_type_hints()
-        if hints.input == List[str]:
+        if _is_list_str(hints.input):
             if isinstance(model_input, pd.DataFrame):
                 first_string_column = _get_first_string_column(model_input)
                 if first_string_column is None:
@@ -600,7 +601,7 @@ class _PythonModelPyfuncWrapper:
                     return [next(iter(d.values())) for d in model_input]
                 elif all(isinstance(x, str) for x in model_input):
                     return model_input
-        elif hints.input == List[Dict[str, str]]:
+        elif _is_list_dict_str(hints.input):
             if isinstance(model_input, pd.DataFrame):
                 if (
                     len(self.signature.inputs) == 1
@@ -628,7 +629,7 @@ class _PythonModelPyfuncWrapper:
                 return _hydrate_dataclass(hints.input, model_input.iloc[0])
         return model_input
 
-    def predict(self, model_input, params: Optional[Dict[str, Any]] = None):
+    def predict(self, model_input, params: Optional[dict[str, Any]] = None):
         """
         Args:
             model_input: Model input data as one of dict, str, bool, bytes, float, int, str type.
@@ -645,7 +646,7 @@ class _PythonModelPyfuncWrapper:
         _log_warning_if_params_not_in_predict_signature(_logger, params)
         return self.python_model.predict(self.context, self._convert_input(model_input))
 
-    def predict_stream(self, model_input, params: Optional[Dict[str, Any]] = None):
+    def predict_stream(self, model_input, params: Optional[dict[str, Any]] = None):
         """
         Args:
             model_input: LLM Model single input.
@@ -679,7 +680,7 @@ class ModelFromDeploymentEndpoint(PythonModel):
         self.params = params
 
     def predict(
-        self, context, model_input: Union[pd.DataFrame, Dict[str, Any], List[Dict[str, Any]]]
+        self, context, model_input: Union[pd.DataFrame, dict[str, Any], list[dict[str, Any]]]
     ):
         """
         Run prediction on the input data.
@@ -725,7 +726,7 @@ class ModelFromDeploymentEndpoint(PythonModel):
                 error_code=INVALID_PARAMETER_VALUE,
             )
 
-    def _predict_single(self, data: Union[str, Dict[str, Any]]) -> Dict[str, Any]:
+    def _predict_single(self, data: Union[str, dict[str, Any]]) -> dict[str, Any]:
         """
         Send a single prediction request to the MLflow Deployments endpoint.
 

@@ -58,9 +58,10 @@ def completions_response():
 async def test_completions():
     resp = completions_response()
     config = completions_config()
-    with mock.patch("time.time", return_value=1677858242), mock.patch(
-        TARGET, return_value=MockAsyncResponse(resp)
-    ) as mock_post:
+    with (
+        mock.patch("time.time", return_value=1677858242),
+        mock.patch(TARGET, return_value=MockAsyncResponse(resp)) as mock_post,
+    ):
         provider = MistralProvider(RouteConfig(**config))
         payload = {
             "prompt": TEST_STRING,

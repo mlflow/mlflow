@@ -1,7 +1,7 @@
 import logging
 import os
 import urllib.parse
-from typing import Any, Dict, Optional, Union
+from typing import Any, Optional, Union
 
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
@@ -147,8 +147,8 @@ is set correctly and the input payload is valid.\n
 
 def call_deployments_api(
     deployment_uri: str,
-    input_data: Union[str, Dict[str, Any]],
-    eval_parameters: Optional[Dict[str, Any]] = None,
+    input_data: Union[str, dict[str, Any]],
+    eval_parameters: Optional[dict[str, Any]] = None,
     endpoint_type: Optional[str] = None,
 ):
     """Call the deployment endpoint with the given payload and parameters.
@@ -218,7 +218,7 @@ def _call_gateway_api(gateway_uri, payload, eval_parameters):
         )
 
 
-def _construct_payload_from_str(prompt: str, endpoint_type: str) -> Dict[str, Any]:
+def _construct_payload_from_str(prompt: str, endpoint_type: str) -> dict[str, Any]:
     """
     Construct the payload from the input string based on the endpoint type.
     If the endpoint type is not specified or unsupported one, raise an exception.
@@ -236,8 +236,8 @@ def _construct_payload_from_str(prompt: str, endpoint_type: str) -> Dict[str, An
 
 
 def _parse_response(
-    response: Dict[str, Any], endpoint_type: Optional[str]
-) -> Union[Optional[str], Dict[str, Any]]:
+    response: dict[str, Any], endpoint_type: Optional[str]
+) -> Union[Optional[str], dict[str, Any]]:
     if endpoint_type == "llm/v1/completions":
         return _parse_completions_response_format(response)
     elif endpoint_type == "llm/v1/chat":

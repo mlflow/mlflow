@@ -2,7 +2,7 @@
 
 import os
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Optional, Union
 
 import cloudpickle
 import yaml
@@ -23,10 +23,6 @@ from mlflow.models.resources import Resource, _ResourceBuilder
 from mlflow.models.signature import _infer_signature_from_input_example
 from mlflow.models.utils import _save_example
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
-from mlflow.transformers.llm_inference_utils import (
-    _LLM_INFERENCE_TASK_KEY,
-    _METADATA_LLM_INFERENCE_TASK_KEY,
-)
 from mlflow.utils.annotations import experimental
 from mlflow.utils.docstring_utils import LOG_MODEL_PARAM_DOCS, format_docstring
 from mlflow.utils.environment import (
@@ -77,16 +73,16 @@ def save_model(
     model,
     path: str,
     task: Optional[str] = None,
-    model_config: Optional[Dict[str, Any]] = None,
-    code_paths: Optional[List[str]] = None,
+    model_config: Optional[dict[str, Any]] = None,
+    code_paths: Optional[list[str]] = None,
     mlflow_model: Optional[Model] = None,
-    conda_env: Optional[Union[List[str], str]] = None,
+    conda_env: Optional[Union[list[str], str]] = None,
     signature: Optional[ModelSignature] = None,
     input_example: Optional[ModelInputExample] = None,
-    pip_requirements: Optional[Union[List[str], str]] = None,
-    extra_pip_requirements: Optional[Union[List[str], str]] = None,
-    metadata: Optional[Dict[str, Any]] = None,
-    resources: Optional[Union[str, Path, List[Resource]]] = None,
+    pip_requirements: Optional[Union[list[str], str]] = None,
+    extra_pip_requirements: Optional[Union[list[str], str]] = None,
+    metadata: Optional[dict[str, Any]] = None,
+    resources: Optional[Union[str, Path, list[Resource]]] = None,
 ):
     """
     Save a Dspy model.
@@ -115,6 +111,11 @@ def save_model(
     """
 
     import dspy
+
+    from mlflow.transformers.llm_inference_utils import (
+        _LLM_INFERENCE_TASK_KEY,
+        _METADATA_LLM_INFERENCE_TASK_KEY,
+    )
 
     if signature:
         num_inputs = len(signature.inputs.inputs)
@@ -246,17 +247,17 @@ def log_model(
     dspy_model,
     artifact_path: str,
     task: Optional[str] = None,
-    model_config: Optional[Dict[str, Any]] = None,
-    code_paths: Optional[List[str]] = None,
-    conda_env: Optional[Union[List[str], str]] = None,
+    model_config: Optional[dict[str, Any]] = None,
+    code_paths: Optional[list[str]] = None,
+    conda_env: Optional[Union[list[str], str]] = None,
     signature: Optional[ModelSignature] = None,
     input_example: Optional[ModelInputExample] = None,
     registered_model_name: Optional[str] = None,
     await_registration_for: int = DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
-    pip_requirements: Optional[Union[List[str], str]] = None,
-    extra_pip_requirements: Optional[Union[List[str], str]] = None,
-    metadata: Optional[Dict[str, Any]] = None,
-    resources: Optional[Union[str, Path, List[Resource]]] = None,
+    pip_requirements: Optional[Union[list[str], str]] = None,
+    extra_pip_requirements: Optional[Union[list[str], str]] = None,
+    metadata: Optional[dict[str, Any]] = None,
+    resources: Optional[Union[str, Path, list[Resource]]] = None,
 ):
     """
     Log a Dspy model along with metadata to MLflow.

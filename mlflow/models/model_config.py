@@ -1,5 +1,5 @@
 import os
-from typing import Any, Dict, Optional, Union
+from typing import Any, Optional, Union
 
 import yaml
 
@@ -15,7 +15,7 @@ class ModelConfig:
     overridden when logging a model.
     """
 
-    def __init__(self, *, development_config: Optional[Union[str, Dict[str, Any]]] = None):
+    def __init__(self, *, development_config: Optional[Union[str, dict[str, Any]]] = None):
         config = globals().get("__mlflow_model_config__", None)
         # Here mlflow_model_config have 3 states:
         # 1. None, this means if the mlflow_model_config is None, use development_config if

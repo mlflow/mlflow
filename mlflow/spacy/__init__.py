@@ -12,7 +12,7 @@ spaCy (native) format
 
 import logging
 import os
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 import pandas as pd
 import yaml
@@ -287,7 +287,7 @@ class _SpacyModelWrapper:
     def predict(
         self,
         dataframe,
-        params: Optional[Dict[str, Any]] = None,
+        params: Optional[dict[str, Any]] = None,
     ):
         """Only works for predicting using text categorizer.
         Not suitable for other pipeline components (e.g: parser)

@@ -1,7 +1,7 @@
 import time
 import uuid
 from dataclasses import asdict, dataclass, field, fields
-from typing import Dict, List, Literal, Optional
+from typing import Literal, Optional
 
 from mlflow.types.schema import Array, ColSpec, DataType, Map, Object, Property, Schema
 
@@ -195,7 +195,7 @@ class ChatMessage(_BaseDataclass):
     content: Optional[str] = None
     refusal: Optional[str] = None
     name: Optional[str] = None
-    tool_calls: Optional[List[ToolCall]] = None
+    tool_calls: Optional[list[ToolCall]] = None
     tool_call_id: Optional[str] = None
 
     def __post_init__(self):
@@ -240,7 +240,7 @@ class ParamProperty(ParamType):
     """
 
     description: Optional[str] = None
-    enum: Optional[List[str]] = None
+    enum: Optional[list[str]] = None
     items: Optional[ParamType] = None
 
     def __post_init__(self):
@@ -264,9 +264,9 @@ class ToolParamsSchema(_BaseDataclass):
             **Optional**, defaults to ``None``
     """
 
-    properties: Dict[str, ParamProperty]
+    properties: dict[str, ParamProperty]
     type: Literal["object"] = "object"
-    required: Optional[List[str]] = None
+    required: Optional[list[str]] = None
     additionalProperties: Optional[bool] = None
 
     def __post_init__(self):
@@ -365,7 +365,7 @@ class ChatParams(_BaseDataclass):
 
     temperature: float = 1.0
     max_tokens: Optional[int] = None
-    stop: Optional[List[str]] = None
+    stop: Optional[list[str]] = None
     n: int = 1
     stream: bool = False
 
@@ -374,8 +374,8 @@ class ChatParams(_BaseDataclass):
     frequency_penalty: Optional[float] = None
     presence_penalty: Optional[float] = None
 
-    metadata: Optional[Dict[str, str]] = None
-    tools: Optional[List[ToolDefinition]] = None
+    metadata: Optional[dict[str, str]] = None
+    tools: Optional[list[ToolDefinition]] = None
 
     def __post_init__(self):
         self._validate_field("temperature", float, True)
@@ -430,7 +430,7 @@ class ChatRequest(ChatParams):
             defaults to ``False``
     """
 
-    messages: List[ChatMessage] = field(default_factory=list)
+    messages: list[ChatMessage] = field(default_factory=list)
 
     def __post_init__(self):
         self._convert_dataclass_list("messages", ChatMessage)
@@ -456,7 +456,7 @@ class TopTokenLogProb(_BaseDataclass):
 
     token: str
     logprob: float
-    bytes: Optional[List[int]] = None
+    bytes: Optional[list[int]] = None
 
     def __post_init__(self):
         self._validate_field("token", str, True)
@@ -486,8 +486,8 @@ class TokenLogProb(_BaseDataclass):
 
     token: str
     logprob: float
-    top_logprobs: List[TopTokenLogProb]
-    bytes: Optional[List[int]] = None
+    top_logprobs: list[TopTokenLogProb]
+    bytes: Optional[list[int]] = None
 
     def __post_init__(self):
         self._validate_field("token", str, True)
@@ -505,7 +505,7 @@ class ChatChoiceLogProbs(_BaseDataclass):
         content: A list of message content tokens with log probability information.
     """
 
-    content: Optional[List[TokenLogProb]] = None
+    content: Optional[list[TokenLogProb]] = None
 
     def __post_init__(self):
         self._convert_dataclass_list("content", TokenLogProb, False)
@@ -580,13 +580,13 @@ class ChatResponse(_BaseDataclass):
             **Optional**, defaults to ``None``
     """
 
-    choices: List[ChatChoice]
+    choices: list[ChatChoice]
     usage: Optional[TokenUsageStats] = None
     id: Optional[str] = None
     model: Optional[str] = None
     object: str = "chat.completion"
     created: int = field(default_factory=lambda: int(time.time()))
-    metadata: Optional[Dict[str, str]] = None
+    metadata: Optional[dict[str, str]] = None
 
     def __post_init__(self):
         self._validate_field("id", str, False)

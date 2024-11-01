@@ -1,5 +1,56 @@
 # CHANGELOG
 
+## 2.17.2 (2024-10-31)
+
+MLflow 2.17.2 includes several major features and improvements
+
+Features:
+- [Model Registry] DatabricksSDKModelsArtifactRepository support (#13203, @shichengzhou-db)
+- [Tracking] Support extracting new UCFunctionToolkit as model resources (#13567, @serena-ruan)
+
+Bug fixes:
+
+- [Models] Fix RunnableBinding saving (#13566, @B-Step62)
+- [Models] Pin numpy when pandas < 2.1.2 in pip requirements (#13580, @serena-ruan)
+
+Documentation updates:
+
+- [Docs] ChatModel tool calling tutorial (#13542, @daniellok-db)
+
+Small bug fixes and documentation updates:
+
+#13569, @serena-ruan; #13595, @BenWilson2; #13593, @mnijhuis-dnb;
+
+## 2.17.1 (2024-10-25)
+
+MLflow 2.17.1 includes several major features and improvements
+
+Features:
+
+- [Tracking] Support custom chat endpoint without endpoint type set as llm judge (#13538, @B-Step62)
+- [Tracking] Support tracing for OpenAI Swarm (#13497, @B-Step62)
+- [Tracking] Support UC Connections as model dependency and resources (#13481, #13491 @sunishsheth2009)
+- [Tracking] Support Genie Spaces as model resources (#13441, @aravind-segu)
+- [Models] Support new Transformers task for llm/v1/embedding (#13468, @B-Step62)
+
+Bug fixes:
+
+- [Tracking] Fix tool span inputs/outputs format in LangChain autolog (#13527, @B-Step62)
+- [Models] Fix code_path handling for LlamaIndex flavor (#13486, @B-Step62)
+- [Models] Fix signature inference for subclass and optional dataclasses (#13440, @bbqiu)
+- [Tracking] Fix error thrown in set_retriever_schema's behavior when it's called twice (#13422, @sunishsheth2009)
+- [Tracking] Fix dependency extraction from RunnableCallables (#13423, @aravind-segu)
+
+Documentation updates:
+
+- [Docs] Fixed typo in docs: endpoing -> endpoint (#13478, @JAMNESIA)
+- [Docs] Improve CLI docs - attention about setting MLFLOW_TRACKING_URI (#13465, @BartoszLitwiniuk)
+- [Docs] Add documentation for infer_signature usage with GenAI flavors (#13407, @serena-ruan)
+
+Small bug fixes and documentation updates:
+
+#13293, #13510, #13501, #13506, #13446, @harupy; #13341, #13342, @WeichenXu123; #13396, @dvorst; #13535, @chenmoneygithub; #13503, #13469, #13416, @B-Step62; #13519, #13516, @serena-ruan; #13504, @sunishsheth2009; #13508, @KamilStachera; #13397, @kriscon-db
+
 ## 2.17.0 (2024-09-26)
 
 We are excited to announce the release of MLflow 2.17.0! This release includes several enhancements to extend the

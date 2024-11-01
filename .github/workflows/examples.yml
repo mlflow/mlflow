@@ -80,10 +80,7 @@ jobs:
         if: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || steps.check-diff.outputs.examples_changed == 'true' }}
         run: |
           source ./dev/install-common-deps.sh --ml
-          pip install fastapi uvicorn
-          # 4.46.0 is broken because of https://github.com/huggingface/transformers/issues/34370
-          # TODO: remove this once above issue is resolved
-          pip install 'transformers!=4.46.0'
+          pip install fastapi uvicorn tf-keras
 
       - name: Run example tests
         if: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || steps.check-diff.outputs.examples_changed == 'true' }}
