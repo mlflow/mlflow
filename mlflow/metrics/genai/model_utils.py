@@ -12,10 +12,6 @@ from mlflow.utils.openai_utils import REQUEST_URL_CHAT
 _logger = logging.getLogger(__name__)
 
 
-# List of LLM providers supported as a judge model for GenAI metrics
-_SUPPORTED_LLM_PROVIDERS = {"anthropic", "cohere"}
-
-
 def get_endpoint_type(endpoint_uri: str) -> Optional[str]:
     """
     Get the type of the endpoint if it is MLflow deployment

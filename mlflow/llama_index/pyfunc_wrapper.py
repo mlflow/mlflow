@@ -206,7 +206,6 @@ class WorkflowWrapper(_LlamaIndexModelWrapperBase):
     def _wait_async_task(self, task: asyncio.Future) -> Any:
         """
         A utility function to run async tasks in a blocking manner.
-
         If there is no event loop running already, for example, in a model serving endpoint,
         we can simply create a new event loop and run the task there. However, in a notebook
         environment (or pytest with asyncio decoration), there is already an event loop running
@@ -226,7 +225,6 @@ class WorkflowWrapper(_LlamaIndexModelWrapperBase):
 
             def _run():
                 nonlocal results, exception
-
                 try:
                     loop = asyncio.new_event_loop()
                     asyncio.set_event_loop(loop)
@@ -239,10 +237,8 @@ class WorkflowWrapper(_LlamaIndexModelWrapperBase):
             thread = threading.Thread(target=_run)
             thread.start()
             thread.join()
-
             if exception:
                 raise exception
-
             return results
 
     def _is_event_loop_running(self) -> bool:

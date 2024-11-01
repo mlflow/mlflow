@@ -2,11 +2,10 @@ import json
 import os
 from typing import TYPE_CHECKING, AsyncIterable
 
-from fastapi import HTTPException
-
 from mlflow.environment_variables import MLFLOW_ENABLE_UC_FUNCTIONS
 from mlflow.exceptions import MlflowException
 from mlflow.gateway.config import OpenAIAPIType, OpenAIConfig, RouteConfig
+from mlflow.gateway.exceptions import AIGatewayException
 from mlflow.gateway.providers.base import BaseProvider
 from mlflow.gateway.providers.utils import send_request, send_stream_request
 from mlflow.gateway.schemas import chat, completions, embeddings
@@ -33,7 +32,7 @@ def _get_workspace_client():
 
         return WorkspaceClient()
     except ImportError:
-        raise HTTPException(
+        raise AIGatewayException(
             message="Databricks SDK is required to use Unity Catalog integration",
             error_code=404,
         )
@@ -168,7 +167,7 @@ class OpenAIProvider(BaseProvider):
         workspace_client = _get_workspace_client()
         warehouse_id = os.environ.get("DATABRICKS_WAREHOUSE_ID")
         if warehouse_id is None:
-            raise HTTPException(
+            raise AIGatewayException(
                 status_code=400,
                 detail="DATABRICKS_WAREHOUSE_ID environment variable is not set",
             )
@@ -320,7 +319,7 @@ class OpenAIProvider(BaseProvider):
                     resp["choices"][0]["message"]["tool_calls"] = user_tool_calls
                     break
             else:
-                raise HTTPException(
+                raise AIGatewayException(
                     status_code=500,
                     detail="Max iterations reached",
                 )
