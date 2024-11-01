@@ -93,7 +93,7 @@ class MissingDocstringParam(Rule):
         self.params = params
 
     def _id(self) -> str:
-        return "MLF007"
+        return "MLF0007"
 
     def _message(self) -> str:
         return f"Missing parameters in docstring: {self.params}"
@@ -104,7 +104,7 @@ class ExtraneousDocstringParam(Rule):
         self.params = params
 
     def _id(self) -> str:
-        return "MLF008"
+        return "MLF0008"
 
     def _message(self) -> str:
         return f"Extraneous parameters in docstring: {self.params}"
@@ -115,7 +115,7 @@ class DocstringParamOrder(Rule):
         self.params = params
 
     def _id(self) -> str:
-        return "MLF009"
+        return "MLF0009"
 
     def _message(self) -> str:
         return f"Unordered parameters in docstring: {self.params}"
