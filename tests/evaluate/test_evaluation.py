@@ -1,3 +1,4 @@
+import hashlib
 import inspect
 import io
 import json
@@ -59,7 +60,6 @@ from mlflow.pyfunc.scoring_server.client import ScoringServerClient
 from mlflow.tracing.constant import TraceMetadataKey
 from mlflow.tracing.fluent import TRACE_BUFFER
 from mlflow.tracking.artifact_utils import get_artifact_uri
-from mlflow.utils import insecure_hash
 from mlflow.utils.autologging_utils import (
     MLFLOW_EVALUATE_RESTRICT_LANGCHAIN_AUTOLOG_TO_TRACES_CONFIG,
 )
@@ -863,7 +863,7 @@ def test_dataset_metadata():
 
 def test_gen_md5_for_arraylike_obj():
     def get_md5(data):
-        md5_gen = insecure_hash.md5()
+        md5_gen = hashlib.md5(usedforsecurity=False)
         _gen_md5_for_arraylike_obj(md5_gen, data)
         return md5_gen.hexdigest()
 
@@ -881,7 +881,7 @@ def test_gen_md5_for_arraylike_obj():
 def test_gen_md5_for_arraylike_obj_with_pandas_df_using_float_idx_does_not_raise_keyerror():
     float_indices = np.random.uniform(low=0.5, high=13.3, size=(10,))
     df = pd.DataFrame(np.random.randn(10, 4), index=float_indices, columns=["A", "B", "C", "D"])
-    md5_gen = insecure_hash.md5()
+    md5_gen = hashlib.md5(usedforsecurity=False)
     assert _gen_md5_for_arraylike_obj(md5_gen, df) is None
 
 

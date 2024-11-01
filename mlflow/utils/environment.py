@@ -1,3 +1,4 @@
+import hashlib
 import importlib.metadata
 import logging
 import os
@@ -20,7 +21,7 @@ from mlflow.environment_variables import (
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.tracking import get_tracking_uri
-from mlflow.utils import PYTHON_VERSION, insecure_hash
+from mlflow.utils import PYTHON_VERSION
 from mlflow.utils.databricks_utils import (
     _get_databricks_serverless_env_vars,
     get_databricks_env_vars,
@@ -746,7 +747,7 @@ def _get_mlflow_env_name(s):
         (e.g. "mlflow-da39a3ee5e6b4b0d3255bfef95601890afd80709")
 
     """
-    return "mlflow-" + insecure_hash.sha1(s.encode("utf-8")).hexdigest()
+    return "mlflow-" + hashlib.sha1(s.encode("utf-8"), usedforsecurity=False).hexdigest()
 
 
 def _get_pip_install_mlflow():

@@ -398,6 +398,7 @@ If you need more power, use  the class-based model.
 
 import collections
 import functools
+import hashlib
 import importlib
 import inspect
 import json
@@ -508,7 +509,6 @@ from mlflow.utils import (
     databricks_utils,
     find_free_port,
     get_major_minor_py_version,
-    insecure_hash,
 )
 from mlflow.utils import env_manager as _EnvManager
 from mlflow.utils._spark_utils import modified_environ
@@ -2499,7 +2499,7 @@ Compound types:
                     model_path = os.path.join(
                         tempfile.gettempdir(),
                         "mlflow",
-                        insecure_hash.sha1(model_uri.encode()).hexdigest(),
+                        hashlib.sha1(model_uri.encode(), usedforsecurity=False).hexdigest(),
                         # Use pid to avoid conflict when multiple spark UDF tasks
                         str(os.getpid()),
                     )
