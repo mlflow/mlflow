@@ -322,7 +322,10 @@ def get_dbconnect_udf_sandbox_info(spark):
     global _dbconnect_udf_sandbox_info_cache
     from pyspark.sql.functions import pandas_udf
 
-    if _dbconnect_udf_sandbox_info_cache is not None and spark is _dbconnect_udf_sandbox_info_cache.spark:
+    if (
+        _dbconnect_udf_sandbox_info_cache is not None
+        and spark is _dbconnect_udf_sandbox_info_cache.spark
+    ):
         return _dbconnect_udf_sandbox_info_cache
 
     # version is like '15.4.x-scala2.12'
@@ -349,17 +352,21 @@ def get_dbconnect_udf_sandbox_info(spark):
         @pandas_udf("string")
         def f(_):
             import pandas as pd
+
             platform_machine = platform.machine()
 
             try:
                 import mlflow
+
                 mlflow_version = mlflow.__version__
             except ImportError:
                 mlflow_version = ""
 
             return pd.Series([f"{platform_machine}\n{mlflow_version}"])
 
-        platform_machine, mlflow_version = spark.range(1).select(f("id")).collect()[0][0].split("\n")
+        platform_machine, mlflow_version = (
+            spark.range(1).select(f("id")).collect()[0][0].split("\n")
+        )
         if mlflow_version == "":
             mlflow_version = None
         _dbconnect_udf_sandbox_info_cache = DBConnectUDFSandboxInfo(
