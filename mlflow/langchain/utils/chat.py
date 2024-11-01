@@ -52,7 +52,7 @@ class _ChatRequest(pydantic.BaseModel, extra="forbid"):
 
 class _ChatChoice(pydantic.BaseModel, extra="forbid"):
     index: int
-    message: _ChatMessage = None
+    message: Optional[_ChatMessage] = None
     finish_reason: Optional[str] = None
 
     @staticmethod
