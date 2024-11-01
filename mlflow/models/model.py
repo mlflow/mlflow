@@ -79,7 +79,8 @@ SET_MODEL_ERROR = (
 ENV_VAR_FILE_NAME = "environment_variables.txt"
 ENV_VAR_FILE_HEADER = (
     "# This file records environment variable names that are used during model inference\n"
-    "# make sure you set them when creating a serving endpoint from this model.\n"
+    "# they might need to be set when creating a serving endpoint from this model\n"
+    "# note: it is not guaranteed that all environment variables listed here are required\n"
 )
 
 
@@ -697,8 +698,9 @@ class Model:
         else:
             env_var_path = None
         if os.path.exists(env_var_path):
-            # the first two items are headers in ENV_VAR_FILE_HEADER
-            env_vars = Path(env_var_path).read_text().splitlines()[2:]
+            # comments start with `#` such as ENV_VAR_FILE_HEADER
+            lines = Path(env_var_path).read_text().splitlines()
+            env_vars = [line for line in lines if line and not line.startswith("#")]
         with open(path) as f:
             model_dict = yaml.safe_load(f.read())
         model_dict["env_vars"] = env_vars
@@ -799,7 +801,7 @@ class Model:
                 with env_var_tracker() as env:
                     try:
                         validate_serving_input(
-                            model_uri=f"runs:/{run_id}/{mlflow_model.artifact_path}",
+                            model_uri=local_path,
                             serving_input=serving_input,
                         )
                     except Exception as e:
