@@ -7,6 +7,7 @@ exposed in the :py:mod:`mlflow.tracking` module.
 import json
 import logging
 import os
+import sys
 from concurrent.futures import ThreadPoolExecutor
 from itertools import zip_longest
 from typing import Optional
@@ -921,8 +922,8 @@ class TrackingServiceClient:
             experiment_url = f"{host_url}/#/experiments/{experiment_id}"
         run_url = f"{experiment_url}/runs/{run_id}"
 
-        _logger.info(f"🏃 View run {run_name} at: {run_url}.")
-        _logger.info(f"🧪 View experiment at: {experiment_url}.")
+        sys.stdout.write(f"🏃 View run {run_name} at: {run_url}\n")
+        sys.stdout.write(f"🧪 View experiment at: {experiment_url}\n")
 
     def set_terminated(self, run_id, status=None, end_time=None):
         """Set a run's status to terminated.
