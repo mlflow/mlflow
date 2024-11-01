@@ -466,16 +466,21 @@ def env_var_tracker():
 
         def updated_get_item(self, key):
             result = original_getitem(self, key)
-            if any(env_var in key for env_var in RECORD_ENV_VAR_ALLOWLIST):
-                tracked_env_names.add(key)
+            tracked_env_names.add(key)
             return result
 
         def updated_get(self, key, *args, **kwargs):
-            if key in self and any(env_var in key for env_var in RECORD_ENV_VAR_ALLOWLIST):
+            if key in self:
                 tracked_env_names.add(key)
             return original_get(self, key, *args, **kwargs)
 
         def get_tracked_env_names(self):
+            nonlocal tracked_env_names
+            tracked_env_names = {
+                x
+                for x in tracked_env_names
+                if any(env_var in x for env_var in RECORD_ENV_VAR_ALLOWLIST)
+            }
             return tracked_env_names
 
         try:
