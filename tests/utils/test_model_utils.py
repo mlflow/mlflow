@@ -128,8 +128,11 @@ def test_env_var_tracker(monkeypatch):
         assert os.environ["DATABRICKS_HOST"] == "host"
         assert "DATABRICKS_HOST" in os.environ.get_tracked_env_names()
         assert "TEST_API_KEY" not in os.environ.get_tracked_env_names()
-        # test set env var can be tracked
+        # test set un-used env var not tracked
         monkeypatch.setenv("TEST_API_KEY", "key")
+        assert "TEST_API_KEY" not in os.environ.get_tracked_env_names()
+        # accessed env var is tracked
+        assert os.environ.get("TEST_API_KEY") == "key"
         assert "TEST_API_KEY" in os.environ.get_tracked_env_names()
         # test non-existing env vars fetched by `get` are not tracked
         os.environ.get("INVALID_API_KEY", "abc")

@@ -431,9 +431,10 @@ def _validate_pyfunc_model_config(model_config):
         )
 
 
-RECORD_ENV_VARS = {
+RECORD_ENV_VAR_ALLOWLIST = {
     # api key related
     "API_KEY",
+    "API_TOKEN",
     # databricks auth related
     "DATABRICKS_HOST",
     "DATABRICKS_USERNAME",
@@ -454,29 +455,23 @@ RECORD_ENV_VARS = {
 def env_var_tracker():
     """
     Context manager for temporarily tracking environment variables accessed.
-    It tracks both environment variables set and accessed during the context manager's lifetime.
+    It tracks environment variables accessed during the context manager's lifetime.
     """
     from mlflow.environment_variables import MLFLOW_RECORD_ENV_VARS_IN_MODEL_LOGGING
 
     if MLFLOW_RECORD_ENV_VARS_IN_MODEL_LOGGING.get():
-        original_setitem = os._Environ.__setitem__
         original_getitem = os._Environ.__getitem__
         original_get = os._Environ.get
         tracked_env_names = set()
 
-        def updated_set_item(self, key, value):
-            original_setitem(self, key, value)
-            if any(env_var in key for env_var in RECORD_ENV_VARS):
-                tracked_env_names.add(key)
-
         def updated_get_item(self, key):
             result = original_getitem(self, key)
-            if any(env_var in key for env_var in RECORD_ENV_VARS):
+            if any(env_var in key for env_var in RECORD_ENV_VAR_ALLOWLIST):
                 tracked_env_names.add(key)
             return result
 
         def updated_get(self, key, *args, **kwargs):
-            if key in self and any(env_var in key for env_var in RECORD_ENV_VARS):
+            if key in self and any(env_var in key for env_var in RECORD_ENV_VAR_ALLOWLIST):
                 tracked_env_names.add(key)
             return original_get(self, key, *args, **kwargs)
 
@@ -485,13 +480,11 @@ def env_var_tracker():
 
         try:
             os._Environ.__getitem__ = updated_get_item
-            os._Environ.__setitem__ = updated_set_item
             os._Environ.get = updated_get
             os._Environ.get_tracked_env_names = get_tracked_env_names
             yield os.environ
         finally:
             os._Environ.__getitem__ = original_getitem
-            os._Environ.__setitem__ = original_setitem
             os._Environ.get = original_get
             del os._Environ.get_tracked_env_names
     else:

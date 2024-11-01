@@ -2104,6 +2104,11 @@ def test_environment_variables_used_during_model_logging(monkeypatch):
         def predict(self, context, model_input, params=None):
             monkeypatch.setenv("TEST_API_KEY", "test_env")
             monkeypatch.setenv("INVALID_ENV_VAR", "var")
+            # existing env var is tracked
+            os.environ["TEST_API_KEY"]
+            # existing env var not in allowlist is not tracked
+            os.environ.get("INVALID_ENV_VAR")
+            # non-existing env var is not tracked
             os.environ.get("INVALID_API_KEY")
             return model_input
 
