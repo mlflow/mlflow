@@ -15,7 +15,7 @@ from packaging.requirements import InvalidRequirement, Requirement
 
 import mlflow
 from mlflow.artifacts import download_artifacts
-from mlflow.entities import LoggedModelOutput, LoggedModelStatus, Metric
+from mlflow.entities import LoggedModel, LoggedModelOutput, LoggedModelStatus, Metric
 from mlflow.exceptions import MlflowException
 from mlflow.models.resources import Resource, ResourceType, _ResourceBuilder
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, RESOURCE_DOES_NOT_EXIST
@@ -97,6 +97,7 @@ class ModelInfo:
         signature_dict: Optional[dict[str, Any]] = None,
         metadata: Optional[dict[str, Any]] = None,
         registered_model_version: Optional[int] = None,
+        logged_model: Optional[LoggedModel] = None,
     ):
         self._artifact_path = artifact_path
         self._flavors = flavors
@@ -110,6 +111,7 @@ class ModelInfo:
         self._mlflow_version = mlflow_version
         self._metadata = metadata
         self._registered_model_version = registered_model_version
+        self._logged_model = logged_model
 
     @property
     def artifact_path(self) -> str:
@@ -302,6 +304,58 @@ class ModelInfo:
     def registered_model_version(self, value) -> None:
         self._registered_model_version = value
 
+    @property
+    def model_id(self) -> str:
+        """
+        The model ID of the logged model.
+
+        :getter: Gets the model ID of the logged model
+        """
+        return self._logged_model.model_id
+
+    @property
+    def metrics(self) -> Optional[list[Metric]]:
+        """
+        Returns the metrics of the logged model.
+
+        :getter: Retrieves the metrics of the logged model
+        """
+        return self._logged_model.metrics
+
+    @property
+    def params(self) -> dict[str, str]:
+        """
+        Returns the parameters of the logged model.
+
+        :getter: Retrieves the parameters of the logged model
+        """
+        return self._logged_model.params
+
+    @property
+    def tags(self) -> dict[str, str]:
+        """
+        Returns the tags of the logged model.
+
+        :getter: Retrieves the tags of the logged model
+        """
+        return self._logged_model.tags
+
+    @property
+    def creation_timestamp(self) -> int:
+        """
+        Returns the creation timestamp of the logged model.
+
+        :getter:  the creation timestamp of the logged model
+        """
+        return self._logged_model.creation_timestamp
+
+    @property
+    def name(self) -> str:
+        """
+        Returns the name of the logged model.
+        """
+        return self._logged_model.name
+
 
 class Model:
     """
@@ -322,6 +376,7 @@ class Model:
         metadata: Optional[dict[str, Any]] = None,
         model_size_bytes: Optional[int] = None,
         resources: Optional[Union[str, list[Resource]]] = None,
+        model_id: Optional[str] = None,
         **kwargs,
     ):
         # store model id instead of run_id and path to avoid confusion when model gets exported
@@ -336,6 +391,7 @@ class Model:
         self.metadata = metadata
         self.model_size_bytes = model_size_bytes
         self.resources = resources
+        self.model_id = model_id
         self.__dict__.update(kwargs)
 
     def __eq__(self, other):
@@ -538,7 +594,7 @@ class Model:
             serialized_resource = value
         self._resources = serialized_resource
 
-    def get_model_info(self) -> ModelInfo:
+    def get_model_info(self, logged_model: LoggedModel) -> ModelInfo:
         """
         Create a :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
         model metadata.
@@ -546,7 +602,7 @@ class Model:
         return ModelInfo(
             artifact_path=self.artifact_path,
             flavors=self.flavors,
-            model_uri=f"runs:/{self.run_id}/{self.artifact_path}",
+            model_uri=f"models:/{self.model_id}",
             model_uuid=self.model_uuid,
             run_id=self.run_id,
             saved_input_example_info=self.saved_input_example_info,
@@ -555,6 +611,7 @@ class Model:
             utc_time_created=self.utc_time_created,
             mlflow_version=self.mlflow_version,
             metadata=self.metadata,
+            logged_model=logged_model,
         )
 
     def get_tags_dict(self) -> dict[str, Any]:
@@ -811,6 +868,7 @@ class Model:
                 run_id=active_run.info.run_id if active_run is not None else None,
                 metadata=metadata,
                 resources=resources,
+                model_id=model.model_id,
             )
             flavor.save_model(path=local_path, mlflow_model=mlflow_model, **kwargs)
             # `save_model` calls `load_model` to infer the model requirements, which may result in
@@ -882,7 +940,7 @@ class Model:
                 from mlflow.models import validate_serving_input
 
                 try:
-                    model_info = mlflow_model.get_model_info()
+                    model_info = mlflow_model.get_model_info(model)
                     validate_serving_input(model_info.model_uri, serving_input)
                 except Exception as e:
                     _logger.warning(
@@ -905,14 +963,11 @@ class Model:
                 await_registration_for=await_registration_for,
                 local_model_path=local_path,
             )
-            return client.get_model_version(registered_model_name, registered_model.version)
-        else:
-            return client.get_logged_model(model.model_id)
-        # model_info = mlflow_model.get_model_info()
-        # if registered_model is not None:
-        #     model_info.registered_model_version = registered_model.version
+        model_info = mlflow_model.get_model_info(model)
+        if registered_model is not None:
+            model_info.registered_model_version = registered_model.version
 
-        # return model_info
+        return model_info
 
 
 def _copy_model_metadata_for_uc_sharing(local_path: str, flavor) -> None:
