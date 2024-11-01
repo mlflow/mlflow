@@ -1,9 +1,16 @@
 from dataclasses import dataclass, field
-from typing import List, Optional
+from typing import Optional
 
 from mlflow.models import ModelSignature
-from mlflow.types.schema import Array, ColSpec, DataType, Object, Property, Schema
-from mlflow.utils.annotations import deprecated, experimental
+from mlflow.types.schema import (
+    Array,
+    ColSpec,
+    DataType,
+    Object,
+    Property,
+    Schema,
+)
+from mlflow.utils.annotations import experimental
 
 
 @dataclass
@@ -16,22 +23,21 @@ class Message:
 @dataclass
 @experimental
 class ChatCompletionRequest:
-    messages: List[Message] = field(default_factory=lambda: [Message()])
+    messages: list[Message] = field(default_factory=lambda: [Message()])
 
 
 @dataclass
 @experimental
 class SplitChatMessagesRequest:
     query: str = "What is mlflow?"
-    history: Optional[List[Message]] = field(default_factory=list)
+    history: Optional[list[Message]] = field(default_factory=list)
 
 
-@deprecated(since="2.13.1")
 @dataclass
 @experimental
 class MultiturnChatRequest:
     query: str = "What is mlflow?"
-    history: Optional[List[Message]] = field(default_factory=list)
+    history: Optional[list[Message]] = field(default_factory=list)
 
 
 @dataclass
@@ -63,7 +69,7 @@ class ChainCompletionChunk:
 @dataclass
 @experimental
 class ChatCompletionResponse:
-    choices: List[ChainCompletionChoice] = field(default_factory=lambda: [ChainCompletionChoice()])
+    choices: list[ChainCompletionChoice] = field(default_factory=lambda: [ChainCompletionChoice()])
     object: str = "chat.completion"
     # TODO: support ChainCompletionChunk in the future
 
@@ -81,7 +87,7 @@ CHAT_COMPLETION_REQUEST_SCHEMA = Schema(
             type=Array(
                 Object(
                     [
-                        Property("role", DataType.string, required=False),
+                        Property("role", DataType.string),
                         Property("content", DataType.string),
                     ]
                 )
@@ -97,17 +103,17 @@ CHAT_COMPLETION_RESPONSE_SCHEMA = Schema(
             type=Array(
                 Object(
                     [
-                        Property("index", DataType.long, required=False),
+                        Property("index", DataType.long),
                         Property(
                             "message",
                             Object(
                                 [
-                                    Property("role", DataType.string, required=False),
+                                    Property("role", DataType.string),
                                     Property("content", DataType.string),
                                 ]
                             ),
                         ),
-                        Property("finish_reason", DataType.string, required=False),
+                        Property("finish_reason", DataType.string),
                     ]
                 )
             ),

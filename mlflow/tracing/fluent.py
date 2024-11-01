@@ -6,7 +6,7 @@ import importlib
 import inspect
 import json
 import logging
-from typing import TYPE_CHECKING, Any, Callable, Dict, Generator, List, Optional, Union
+from typing import TYPE_CHECKING, Any, Callable, Generator, Optional, Union
 
 from cachetools import TTLCache
 from opentelemetry import trace as trace_api
@@ -59,7 +59,7 @@ def trace(
     func: Optional[Callable] = None,
     name: Optional[str] = None,
     span_type: str = SpanType.UNKNOWN,
-    attributes: Optional[Dict[str, Any]] = None,
+    attributes: Optional[dict[str, Any]] = None,
 ) -> Callable:
     """
     A decorator that creates a new span for the decorated function.
@@ -185,7 +185,7 @@ def trace(
 def start_span(
     name: str = "span",
     span_type: Optional[str] = SpanType.UNKNOWN,
-    attributes: Optional[Dict[str, Any]] = None,
+    attributes: Optional[dict[str, Any]] = None,
 ) -> Generator[LiveSpan, None, None]:
     """
     Context manager to create a new span and start it as the current span in the context.
@@ -329,11 +329,11 @@ def get_trace(request_id: str) -> Optional[Trace]:
 
 @experimental
 def search_traces(
-    experiment_ids: Optional[List[str]] = None,
+    experiment_ids: Optional[list[str]] = None,
     filter_string: Optional[str] = None,
     max_results: Optional[int] = None,
-    order_by: Optional[List[str]] = None,
-    extract_fields: Optional[List[str]] = None,
+    order_by: Optional[list[str]] = None,
+    extract_fields: Optional[list[str]] = None,
     run_id: Optional[str] = None,
 ) -> "pandas.DataFrame":
     """
@@ -577,7 +577,7 @@ def get_last_active_trace() -> Optional[Trace]:
 
 
 @experimental
-def add_trace(trace: Union[Trace, Dict[str, Any]], target: Optional[LiveSpan] = None):
+def add_trace(trace: Union[Trace, dict[str, Any]], target: Optional[LiveSpan] = None):
     """
     Add a completed trace object into another trace.
 

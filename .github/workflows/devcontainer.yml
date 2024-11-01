@@ -32,6 +32,7 @@ jobs:
     permissions:
       packages: write # to push to ghcr.io
     strategy:
+      fail-fast: false
       matrix:
         arch: [amd64, arm64]
     steps:

@@ -108,14 +108,15 @@ def score_model_in_sagemaker_docker_container(
         return endpoint.invoke(data, content_type)
 
 
-def pyfunc_generate_dockerfile(output_directory, model_uri=None, extra_args=None, env=None):  # noqa: D417
+def pyfunc_generate_dockerfile(output_directory, model_uri=None, extra_args=None, env=None):
     """
     Builds a dockerfile for the specified model.
 
     Args:
+        output_directory: Output directory to generate Dockerfile and model artifacts
         model_uri: URI of model, e.g. runs:/some-run-id/run-relative/path/to/model
         extra_args: List of extra args to pass to `mlflow models build-docker` command
-        output_directory: Output directory to generate Dockerfile and model artifacts
+        env: Environment variables to use.
     """
     cmd = [
         "mlflow",
@@ -133,13 +134,14 @@ def pyfunc_generate_dockerfile(output_directory, model_uri=None, extra_args=None
     subprocess.run(cmd, check=True, env=env)
 
 
-def pyfunc_build_image(model_uri=None, extra_args=None, env=None):  # noqa: D417
+def pyfunc_build_image(model_uri=None, extra_args=None, env=None):
     """
     Builds a docker image containing the specified model, returning the name of the image.
 
     Args:
         model_uri: URI of model, e.g. runs:/some-run-id/run-relative/path/to/model
         extra_args: List of extra args to pass to `mlflow models build-docker` command
+        env: Environment variables to pass to the subprocess building the image.
     """
     name = uuid.uuid4().hex
     cmd = [
@@ -223,22 +225,19 @@ def pyfunc_serve_and_score_model(
 
 
 @contextmanager
-def pyfunc_scoring_endpoint(  # noqa: D417
+def pyfunc_scoring_endpoint(
     model_uri, activity_polling_timeout_seconds=500, extra_args=None, stdout=sys.stdout
 ):
     """
     Args:
         model_uri: URI to the model to be served.
-        data: The data to send to the pyfunc server for testing. This is either a
-            Pandas dataframe or string of the format specified by `content_type`.
-        content_type: The type of the data to send to the pyfunc server for testing. This is
-            one of `mlflow.pyfunc.scoring_server.CONTENT_TYPES`.
         activity_polling_timeout_seconds: The amount of time, in seconds, to wait before
             declaring the scoring process to have failed.
         extra_args: A list of extra arguments to pass to the pyfunc scoring server command. For
             example, passing ``extra_args=["--env-manager", "local"]`` will pass the
             ``--env-manager local`` flag to the scoring server to ensure that conda
             environment activation is skipped.
+        stdout: The output stream to which standard output is redirected. Defaults to `sys.stdout`.
     """
     env = dict(os.environ)
     env.update(LC_ALL="en_US.UTF-8", LANG="en_US.UTF-8")

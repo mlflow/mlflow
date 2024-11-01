@@ -1,4 +1,4 @@
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 from custom_code import iris_classes
 
@@ -8,7 +8,7 @@ import mlflow
 class CustomPredict(mlflow.pyfunc.PythonModel):
     """Custom pyfunc class used to create customized mlflow models"""
 
-    def predict(self, context, model_input, params: Optional[Dict[str, Any]] = None):
+    def predict(self, context, model_input, params: Optional[dict[str, Any]] = None):
         prediction = [x % 3 for x in model_input]
         return iris_classes(prediction)
 

@@ -1,5 +1,5 @@
 import time
-from typing import Any, Dict
+from typing import Any
 
 from fastapi.encoders import jsonable_encoder
 
@@ -125,14 +125,14 @@ class MistralProvider(BaseProvider):
         self.mistral_config: MistralConfig = config.model.config
 
     @property
-    def auth_headers(self) -> Dict[str, str]:
+    def auth_headers(self) -> dict[str, str]:
         return {"Authorization": f"Bearer {self.mistral_config.mistral_api_key}"}
 
     @property
     def base_url(self) -> str:
         return "https://api.mistral.ai/v1/"
 
-    async def _request(self, path: str, payload: Dict[str, Any]) -> Dict[str, Any]:
+    async def _request(self, path: str, payload: dict[str, Any]) -> dict[str, Any]:
         return await send_request(
             headers=self.auth_headers,
             base_url=self.base_url,

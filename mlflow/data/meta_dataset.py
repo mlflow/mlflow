@@ -1,6 +1,6 @@
 import hashlib
 import json
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 from mlflow.data.dataset import Dataset
 from mlflow.data.dataset_source import DatasetSource
@@ -93,7 +93,7 @@ class MetaDataset(Dataset):
         """Returns the schema of the dataset."""
         return self._schema
 
-    def to_dict(self) -> Dict[str, str]:
+    def to_dict(self) -> dict[str, str]:
         """Create config dictionary for the MetaDataset.
 
         Returns a string dictionary containing the following fields: name, digest, source, source

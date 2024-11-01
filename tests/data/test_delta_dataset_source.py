@@ -118,18 +118,23 @@ def test_uc_table_id_retrieval_works(spark_session, tmp_path):
             return "uc_table_id_1"
         return None
 
-    with mock.patch(
-        "mlflow.data.delta_dataset_source.get_full_name_from_sc",
-        side_effect=mock_resolve_table_name,
-    ), mock.patch(
-        "mlflow.data.delta_dataset_source.DeltaDatasetSource._lookup_table_id",
-        side_effect=mock_lookup_table_id,
-    ), mock.patch(
-        "mlflow.data.delta_dataset_source._get_active_spark_session",
-        return_value=None,
-    ), mock.patch(
-        "mlflow.data.delta_dataset_source.DeltaDatasetSource._is_databricks_uc_table",
-        return_value=True,
+    with (
+        mock.patch(
+            "mlflow.data.delta_dataset_source.get_full_name_from_sc",
+            side_effect=mock_resolve_table_name,
+        ),
+        mock.patch(
+            "mlflow.data.delta_dataset_source.DeltaDatasetSource._lookup_table_id",
+            side_effect=mock_lookup_table_id,
+        ),
+        mock.patch(
+            "mlflow.data.delta_dataset_source._get_active_spark_session",
+            return_value=None,
+        ),
+        mock.patch(
+            "mlflow.data.delta_dataset_source.DeltaDatasetSource._is_databricks_uc_table",
+            return_value=True,
+        ),
     ):
         df = pd.DataFrame([[1, 2, 3], [1, 2, 3]], columns=["a", "b", "c"])
         df_spark = spark_session.createDataFrame(df)
@@ -189,22 +194,28 @@ def test_lookup_table_id(
             raise call_endpoint_response
         return call_endpoint_response
 
-    with mock.patch(
-        "mlflow.data.delta_dataset_source.get_full_name_from_sc",
-        side_effect=mock_resolve_table_name,
-    ), mock.patch(
-        "mlflow.data.delta_dataset_source._get_active_spark_session",
-        return_value=None,
-    ), mock.patch(
-        "mlflow.data.delta_dataset_source.get_databricks_host_creds",
-        return_value=None,
-    ), mock.patch(
-        "mlflow.data.delta_dataset_source.DeltaDatasetSource._is_databricks_uc_table",
-        return_value=True,
-    ), mock.patch(
-        "mlflow.data.delta_dataset_source.call_endpoint",
-        side_effect=mock_call_endpoint,
-    ) as mock_endpoint:
+    with (
+        mock.patch(
+            "mlflow.data.delta_dataset_source.get_full_name_from_sc",
+            side_effect=mock_resolve_table_name,
+        ),
+        mock.patch(
+            "mlflow.data.delta_dataset_source._get_active_spark_session",
+            return_value=None,
+        ),
+        mock.patch(
+            "mlflow.data.delta_dataset_source.get_databricks_host_creds",
+            return_value=None,
+        ),
+        mock.patch(
+            "mlflow.data.delta_dataset_source.DeltaDatasetSource._is_databricks_uc_table",
+            return_value=True,
+        ),
+        mock.patch(
+            "mlflow.data.delta_dataset_source.call_endpoint",
+            side_effect=mock_call_endpoint,
+        ) as mock_endpoint,
+    ):
         delta_datasource = DeltaDatasetSource(
             delta_table_name=test_table_name, delta_table_version=1
         )
@@ -224,12 +235,15 @@ def test_lookup_table_id(
     ],
 )
 def test_is_databricks_uc_table(table_name, expected_result):
-    with mock.patch(
-        "mlflow.data.delta_dataset_source.get_full_name_from_sc",
-        return_value=table_name,
-    ), mock.patch(
-        "mlflow.data.delta_dataset_source._get_active_spark_session",
-        return_value=None,
+    with (
+        mock.patch(
+            "mlflow.data.delta_dataset_source.get_full_name_from_sc",
+            return_value=table_name,
+        ),
+        mock.patch(
+            "mlflow.data.delta_dataset_source._get_active_spark_session",
+            return_value=None,
+        ),
     ):
         delta_datasource = DeltaDatasetSource(delta_table_name=table_name, delta_table_version=1)
         assert delta_datasource._is_databricks_uc_table() == expected_result

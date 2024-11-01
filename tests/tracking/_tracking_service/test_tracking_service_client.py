@@ -49,17 +49,27 @@ def newTrackingServiceClient():
     ],
 )
 def test_get_artifact_repo(artifact_uri, databricks_uri, uri_for_repo):
-    with mock.patch(
-        "mlflow.tracking._tracking_service.client.TrackingServiceClient.get_run",
-        return_value=Run(
-            RunInfo(
-                "uuid", "expr_id", "userid", "status", 0, 10, "active", artifact_uri=artifact_uri
+    with (
+        mock.patch(
+            "mlflow.tracking._tracking_service.client.TrackingServiceClient.get_run",
+            return_value=Run(
+                RunInfo(
+                    "uuid",
+                    "expr_id",
+                    "userid",
+                    "status",
+                    0,
+                    10,
+                    "active",
+                    artifact_uri=artifact_uri,
+                ),
+                None,
             ),
-            None,
         ),
-    ), mock.patch(
-        "mlflow.tracking._tracking_service.client.get_artifact_repository", return_value=None
-    ) as get_repo_mock:
+        mock.patch(
+            "mlflow.tracking._tracking_service.client.get_artifact_repository", return_value=None
+        ) as get_repo_mock,
+    ):
         client = TrackingServiceClient(databricks_uri)
         client._get_artifact_repo("some-run-id")
         get_repo_mock.assert_called_once_with(uri_for_repo)
@@ -140,69 +150,72 @@ def test_upload_trace_data(tmp_path, mock_store):
 
 def test_search_traces(tmp_path):
     client = TrackingServiceClient(tmp_path.as_uri())
-    with mock.patch.object(
-        client,
-        "_search_traces",
-        side_effect=[
-            # Page 1
-            (
-                [
-                    TraceInfo(
-                        request_id="test",
-                        experiment_id="test",
-                        timestamp_ms=0,
-                        execution_time_ms=0,
-                        status=TraceStatus.OK,
-                        request_metadata={},
-                        tags={"mlflow.artifactLocation": "test"},
-                    ),
-                    TraceInfo(
-                        request_id="test",
-                        experiment_id="test",
-                        timestamp_ms=0,
-                        execution_time_ms=0,
-                        status=TraceStatus.OK,
-                        request_metadata={},
-                        tags={"mlflow.artifactLocation": "test"},
-                    ),
-                ],
-                "token",
-            ),
-            # Page 2 (last page)
-            (
-                [
-                    TraceInfo(
-                        request_id="test",
-                        experiment_id="test",
-                        timestamp_ms=1,
-                        execution_time_ms=1,
-                        status=TraceStatus.OK,
-                        request_metadata={},
-                        tags={"mlflow.artifactLocation": "test"},
-                    ),
-                    TraceInfo(
-                        request_id="test",
-                        experiment_id="test",
-                        timestamp_ms=1,
-                        execution_time_ms=1,
-                        status=TraceStatus.OK,
-                        request_metadata={},
-                        tags={"mlflow.artifactLocation": "test"},
-                    ),
-                ],
-                None,
-            ),
-        ],
-    ) as mock_search_traces, mock.patch.object(
-        client,
-        "_download_trace_data",
-        side_effect=[
-            TraceData(),
-            TraceData(),
-            TraceData(),
-            TraceData(),
-        ],
-    ) as mock_download_trace_data:
+    with (
+        mock.patch.object(
+            client,
+            "_search_traces",
+            side_effect=[
+                # Page 1
+                (
+                    [
+                        TraceInfo(
+                            request_id="test",
+                            experiment_id="test",
+                            timestamp_ms=0,
+                            execution_time_ms=0,
+                            status=TraceStatus.OK,
+                            request_metadata={},
+                            tags={"mlflow.artifactLocation": "test"},
+                        ),
+                        TraceInfo(
+                            request_id="test",
+                            experiment_id="test",
+                            timestamp_ms=0,
+                            execution_time_ms=0,
+                            status=TraceStatus.OK,
+                            request_metadata={},
+                            tags={"mlflow.artifactLocation": "test"},
+                        ),
+                    ],
+                    "token",
+                ),
+                # Page 2 (last page)
+                (
+                    [
+                        TraceInfo(
+                            request_id="test",
+                            experiment_id="test",
+                            timestamp_ms=1,
+                            execution_time_ms=1,
+                            status=TraceStatus.OK,
+                            request_metadata={},
+                            tags={"mlflow.artifactLocation": "test"},
+                        ),
+                        TraceInfo(
+                            request_id="test",
+                            experiment_id="test",
+                            timestamp_ms=1,
+                            execution_time_ms=1,
+                            status=TraceStatus.OK,
+                            request_metadata={},
+                            tags={"mlflow.artifactLocation": "test"},
+                        ),
+                    ],
+                    None,
+                ),
+            ],
+        ) as mock_search_traces,
+        mock.patch.object(
+            client,
+            "_download_trace_data",
+            side_effect=[
+                TraceData(),
+                TraceData(),
+                TraceData(),
+                TraceData(),
+            ],
+        ) as mock_download_trace_data,
+    ):
         res1 = client.search_traces(experiment_ids=["0"], max_results=2)
         assert len(res1) == 2
         assert res1.token == "token"
@@ -219,78 +232,81 @@ def test_search_traces_download_failures(tmp_path):
     client = TrackingServiceClient(tmp_path.as_uri())
 
     # Scenario 1: Collect max_results traces before exhausting all pages
-    with mock.patch.object(
-        client,
-        "_search_traces",
-        side_effect=[
-            # Page 1
-            (
-                [
-                    TraceInfo(
-                        request_id="test",
-                        experiment_id="test",
-                        timestamp_ms=0,
-                        execution_time_ms=0,
-                        status=TraceStatus.OK,
-                        request_metadata={},
-                        tags={"mlflow.artifactLocation": "test"},
-                    ),
-                    TraceInfo(
-                        request_id="test",
-                        experiment_id="test",
-                        timestamp_ms=0,
-                        execution_time_ms=0,
-                        status=TraceStatus.OK,
-                        request_metadata={},
-                        tags={"mlflow.artifactLocation": "test"},
-                    ),
-                ],
-                "token1",
-            ),
-            # Page 2
-            (
-                [
-                    TraceInfo(
-                        request_id="test",
-                        experiment_id="test",
-                        timestamp_ms=1,
-                        execution_time_ms=1,
-                        status=TraceStatus.OK,
-                        request_metadata={},
-                        tags={"mlflow.artifactLocation": "test"},
-                    )
-                ],
-                "token2",
-            ),
-            # Page 3
-            (
-                [
-                    TraceInfo(
-                        request_id="test",
-                        experiment_id="test",
-                        timestamp_ms=1,
-                        execution_time_ms=1,
-                        status=TraceStatus.OK,
-                        request_metadata={},
-                        tags={"mlflow.artifactLocation": "test"},
-                    )
-                ],
-                "token3",
-            ),
-        ],
-    ) as mock_search_traces, mock.patch.object(
-        client,
-        "_download_trace_data",
-        side_effect=[
-            # Page 1
-            TraceData(),
-            MlflowTraceDataCorrupted(request_id="test"),
-            # Page 2
-            MlflowTraceDataNotFound(request_id="test"),
-            # Page 3
-            TraceData(),
-        ],
-    ) as mock_download_trace_data:
+    with (
+        mock.patch.object(
+            client,
+            "_search_traces",
+            side_effect=[
+                # Page 1
+                (
+                    [
+                        TraceInfo(
+                            request_id="test",
+                            experiment_id="test",
+                            timestamp_ms=0,
+                            execution_time_ms=0,
+                            status=TraceStatus.OK,
+                            request_metadata={},
+                            tags={"mlflow.artifactLocation": "test"},
+                        ),
+                        TraceInfo(
+                            request_id="test",
+                            experiment_id="test",
+                            timestamp_ms=0,
+                            execution_time_ms=0,
+                            status=TraceStatus.OK,
+                            request_metadata={},
+                            tags={"mlflow.artifactLocation": "test"},
+                        ),
+                    ],
+                    "token1",
+                ),
+                # Page 2
+                (
+                    [
+                        TraceInfo(
+                            request_id="test",
+                            experiment_id="test",
+                            timestamp_ms=1,
+                            execution_time_ms=1,
+                            status=TraceStatus.OK,
+                            request_metadata={},
+                            tags={"mlflow.artifactLocation": "test"},
+                        )
+                    ],
+                    "token2",
+                ),
+                # Page 3
+                (
+                    [
+                        TraceInfo(
+                            request_id="test",
+                            experiment_id="test",
+                            timestamp_ms=1,
+                            execution_time_ms=1,
+                            status=TraceStatus.OK,
+                            request_metadata={},
+                            tags={"mlflow.artifactLocation": "test"},
+                        )
+                    ],
+                    "token3",
+                ),
+            ],
+        ) as mock_search_traces,
+        mock.patch.object(
+            client,
+            "_download_trace_data",
+            side_effect=[
+                # Page 1
+                TraceData(),
+                MlflowTraceDataCorrupted(request_id="test"),
+                # Page 2
+                MlflowTraceDataNotFound(request_id="test"),
+                # Page 3
+                TraceData(),
+            ],
+        ) as mock_download_trace_data,
+    ):
         res = client.search_traces(experiment_ids=["0"], max_results=2)
         assert len(res) == 2
         assert res.token == "token3"
@@ -299,61 +315,64 @@ def test_search_traces_download_failures(tmp_path):
 
     # Scenario 2: Exhaust all pages before collecting max_results traces
     client = TrackingServiceClient(tmp_path.as_uri())
-    with mock.patch.object(
-        client,
-        "_search_traces",
-        side_effect=[
-            # Page 1
-            (
-                [
-                    TraceInfo(
-                        request_id="test",
-                        experiment_id="test",
-                        timestamp_ms=0,
-                        execution_time_ms=0,
-                        status=TraceStatus.OK,
-                        request_metadata={},
-                        tags={"mlflow.artifactLocation": "test"},
-                    ),
-                    TraceInfo(
-                        request_id="test",
-                        experiment_id="test",
-                        timestamp_ms=0,
-                        execution_time_ms=0,
-                        status=TraceStatus.OK,
-                        request_metadata={},
-                        tags={"mlflow.artifactLocation": "test"},
-                    ),
-                ],
-                "token1",
-            ),
-            # Page 2 (last page)
-            (
-                [
-                    TraceInfo(
-                        request_id="test",
-                        experiment_id="test",
-                        timestamp_ms=1,
-                        execution_time_ms=1,
-                        status=TraceStatus.OK,
-                        request_metadata={},
-                        tags={"mlflow.artifactLocation": "test"},
-                    )
-                ],
-                None,
-            ),
-        ],
-    ) as mock_search_traces, mock.patch.object(
-        client,
-        "_download_trace_data",
-        side_effect=[
-            # Page 1
-            TraceData(),
-            MlflowTraceDataCorrupted(request_id="test"),
-            # Page 2
-            MlflowTraceDataNotFound(request_id="test"),
-        ],
-    ) as mock_download_trace_data:
+    with (
+        mock.patch.object(
+            client,
+            "_search_traces",
+            side_effect=[
+                # Page 1
+                (
+                    [
+                        TraceInfo(
+                            request_id="test",
+                            experiment_id="test",
+                            timestamp_ms=0,
+                            execution_time_ms=0,
+                            status=TraceStatus.OK,
+                            request_metadata={},
+                            tags={"mlflow.artifactLocation": "test"},
+                        ),
+                        TraceInfo(
+                            request_id="test",
+                            experiment_id="test",
+                            timestamp_ms=0,
+                            execution_time_ms=0,
+                            status=TraceStatus.OK,
+                            request_metadata={},
+                            tags={"mlflow.artifactLocation": "test"},
+                        ),
+                    ],
+                    "token1",
+                ),
+                # Page 2 (last page)
+                (
+                    [
+                        TraceInfo(
+                            request_id="test",
+                            experiment_id="test",
+                            timestamp_ms=1,
+                            execution_time_ms=1,
+                            status=TraceStatus.OK,
+                            request_metadata={},
+                            tags={"mlflow.artifactLocation": "test"},
+                        )
+                    ],
+                    None,
+                ),
+            ],
+        ) as mock_search_traces,
+        mock.patch.object(
+            client,
+            "_download_trace_data",
+            side_effect=[
+                # Page 1
+                TraceData(),
+                MlflowTraceDataCorrupted(request_id="test"),
+                # Page 2
+                MlflowTraceDataNotFound(request_id="test"),
+            ],
+        ) as mock_download_trace_data,
+    ):
         res = client.search_traces(experiment_ids=["0"], max_results=2)
         assert len(res) == 1
         assert res.token is None
@@ -363,30 +382,33 @@ def test_search_traces_download_failures(tmp_path):
 
 def test_search_traces_does_not_swallow_unexpected_exceptions(tmp_path):
     client = TrackingServiceClient(tmp_path.as_uri())
-    with mock.patch.object(
-        client,
-        "_search_traces",
-        side_effect=[
-            (
-                [
-                    TraceInfo(
-                        request_id="test",
-                        experiment_id="test",
-                        timestamp_ms=0,
-                        execution_time_ms=0,
-                        status=TraceStatus.OK,
-                        request_metadata={},
-                        tags={"mlflow.artifactLocation": "test"},
-                    )
-                ],
-                "token1",
-            ),
-        ],
-    ) as mock_search_traces, mock.patch.object(
-        client,
-        "_download_trace_data",
-        side_effect=[ValueError("Unexpected exception")],
-    ) as mock_download_trace_data:
+    with (
+        mock.patch.object(
+            client,
+            "_search_traces",
+            side_effect=[
+                (
+                    [
+                        TraceInfo(
+                            request_id="test",
+                            experiment_id="test",
+                            timestamp_ms=0,
+                            execution_time_ms=0,
+                            status=TraceStatus.OK,
+                            request_metadata={},
+                            tags={"mlflow.artifactLocation": "test"},
+                        )
+                    ],
+                    "token1",
+                ),
+            ],
+        ) as mock_search_traces,
+        mock.patch.object(
+            client,
+            "_download_trace_data",
+            side_effect=[ValueError("Unexpected exception")],
+        ) as mock_download_trace_data,
+    ):
         with pytest.raises(ValueError, match="Unexpected exception"):
             client.search_traces(experiment_ids=["0"], max_results=1)
 

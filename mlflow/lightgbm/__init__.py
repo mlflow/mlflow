@@ -24,7 +24,7 @@ import logging
 import os
 import tempfile
 from copy import deepcopy
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 import yaml
 from packaging.version import Version
@@ -478,7 +478,7 @@ class _LGBModelWrapper:
         """
         return self.lgb_model
 
-    def predict(self, dataframe, params: Optional[Dict[str, Any]] = None):
+    def predict(self, dataframe, params: Optional[dict[str, Any]] = None):
         """
         Args:
             dataframe: Model input data.
@@ -865,7 +865,7 @@ def autolog(
 
             log_model(
                 model,
-                artifact_path="model",
+                "model",
                 signature=signature,
                 input_example=input_example,
                 registered_model_name=registered_model_name,

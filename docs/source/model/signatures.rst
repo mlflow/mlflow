@@ -629,6 +629,196 @@ The same signature can be created explicitly as follows:
         inputs=input_schema, outputs=output_schema, params=params_schema
     )
 
+Model signature examples for GenAI flavors
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+GenAI flavors such as langchain, OpenAI, and transformers normally require an object (dictionary) based model signature.
+Manually defining the structure is complex and error-prone. Instead, you should rely on the `infer_signature` method to automatically
+generate the model signature based on an input example.
+
+When logging a GenAI flavor model, you can pass the input example to the `input_example` parameter of the `log_model` method.
+MLflow will infer the model signature from the provided input and apply it to the logged model. Additionally, this input example 
+helps validate that the model can run predictions successfully, making it **strongly recommended to always include an input example when logging a GenAI model**.
+
+.. note::
+    By default, fields in the input example are inferred as required. To mark a field as optional, you can provide a list of 
+    input examples where some examples contain None values for the optional fields. (e.g. `[{"str": "a"}, {"str": None}]`)
+
+Taking a langchain model as an example, you can log a model with signature with 2 simple steps using the models from code feature:
+
+1. Define the langchain model in a separate python file named `langchain_model.py`:
+
+To log a langchain model successfully, **it is highly recommended to use** `models from code <../models.html#models-from-code>`_ feature.
+
+.. code-block:: python
+
+    import os
+    from operator import itemgetter
+
+    from langchain_core.output_parsers import StrOutputParser
+    from langchain_core.prompts import PromptTemplate
+    from langchain_core.runnables import RunnableLambda
+    from langchain_openai import OpenAI
+
+    import mlflow
+
+    mlflow.set_experiment("Homework Helper")
+
+    mlflow.langchain.autolog()
+
+    prompt = PromptTemplate(
+        template="You are a helpful tutor that evaluates my homework assignments and provides suggestions on areas for me to study further."
+        " Here is the question: {question} and my answer which I got wrong: {answer}",
+        input_variables=["question", "answer"],
+    )
+
+
+    def get_question(input):
+        default = "What is your name?"
+        if isinstance(input_data[0], dict):
+            return input_data[0].get("content").get("question", default)
+        return default
+
+
+    def get_answer(input):
+        default = "My name is Bobo"
+        if isinstance(input_data[0], dict):
+            return input_data[0].get("content").get("answer", default)
+        return default
+
+
+    model = OpenAI(temperature=0.95)
+
+    chain = (
+        {
+            "question": itemgetter("messages") | RunnableLambda(get_question),
+            "answer": itemgetter("messages") | RunnableLambda(get_answer),
+        }
+        | prompt
+        | model
+        # Add this parser to convert the model output to a string
+        # so that MLflow can correctly infer the output schema
+        | StrOutputParser()
+    )
+
+    mlflow.models.set_model(chain)
+
+.. note::
+    MLflow can only infer model signature for :ref:`certain data types <supported-data-types-column>`, so for
+    a langchain model, it is essential to add a parser such as `StrOutputParser` to parse the output to a format 
+    that MLflow accepts. 
+
+2. Log the langchain model with a valid input example:
+
+.. code-block:: python
+    
+    input_example = {
+        "messages": [
+            {
+                "role": "user",
+                "content": {
+                    "question": "What is the primary function of control rods in a nuclear reactor?",
+                    "answer": "To stir the primary coolant so that the neutrons are mixed well.",
+                },
+            },
+        ]
+    }
+
+    chain_path = "langchain_model.py"
+    with mlflow.start_run():
+        model_info = mlflow.langchain.log_model(
+            lc_model=chain_path, artifact_path="model", input_example=input_example
+        )
+
+At this stage, the input_example serves multiple purposes: it is used to infer the model signature, 
+validate that the model functions correctly when reloaded using the PyFunc flavor, and to generate 
+a corresponding serving_input_example. The generated signature is used to validate the model’s 
+functionality prior to deployment as well as providing guidance to callers of the model when 
+it is deployed if they are making requests with invalid data structures.
+For more information on the benefits and usage of the input example, refer to the :ref:`Model Input Example <input-example>` section.
+To learn how to validate the model locally before deployment, refer to the :ref:`Model Serving Payload Example <model-serving-payload-example>` section.
+
+If your model has an optional input field, you can use below input_example as a reference:
+
+.. code-block:: python
+
+    from mlflow.models import infer_signature
+
+    input_example = {
+        "messages": [
+            {
+                # specify name field in the first message
+                "name": "userA",
+                "role": "user",
+                "content": {
+                    "question": "What is the primary function of control rods in a nuclear reactor?",
+                    "answer": "To stir the primary coolant so that the neutrons are mixed well.",
+                },
+            },
+            {
+                # no name field in the second message, so `name` will be inferred as optional
+                "role": "user",
+                "content": {
+                    "question": "What is MLflow?",
+                    "answer": "MLflow is an open-source platform",
+                },
+            },
+        ]
+    }
+
+    print(infer_signature(input_example))
+
+3. Load the model back and make predictions:
+
+.. code-block:: python
+
+    loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
+    result = loaded_model.predict(input_example)
+
+    print(result)
+
+**A** `Dataclass <https://docs.python.org/3/library/dataclasses.html>`_ **object is also supported to define a signature. Passing a Dataclass
+instance to** `infer_signature` **will generate the corresponding model signature equivalent**:
+
+.. code-block:: python
+
+    from dataclasses import dataclass
+    from typing import List
+    from mlflow.models import infer_signature
+
+
+    @dataclass
+    class Message:
+        role: str
+        content: str
+
+
+    @dataclass
+    class ChatCompletionRequest:
+        messages: List[Message]
+
+
+    chat_request = ChatCompletionRequest(
+        messages=[
+            Message(
+                role="user",
+                content="What is the primary function of control rods in a nuclear reactor?",
+            ),
+            Message(role="user", content="What is MLflow?"),
+        ]
+    )
+
+    model_signature = infer_signature(
+        chat_request,
+        "Sample output as a string",
+    )
+    print(model_signature)
+    # inputs:
+    # ['messages': Array({content: string (required), role: string (required)}) (required)]
+    # outputs:
+    # [string (required)]
+    # params:
+    # None
+
 .. _how-to-set-signatures-on-models:
 
 How To Set Signatures on Models
@@ -909,6 +1099,7 @@ The following example demonstrates how to log a model with an example containing
     input_example = (input_data, params)
     mlflow.transformers.log_model(..., input_example=input_example)
 
+.. _model-serving-payload-example:
 
 Model Serving Payload Example
 -----------------------------

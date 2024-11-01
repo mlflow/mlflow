@@ -2,7 +2,7 @@ import random
 import time
 import uuid
 from concurrent.futures import ThreadPoolExecutor
-from typing import Any, List, Optional
+from typing import Any, Optional
 from unittest import mock
 from unittest.mock import MagicMock
 
@@ -468,7 +468,7 @@ def test_tool_success(mock_databricks_serving_with_tracing_env):
     # Tool
     tool_span = spans[0]
     assert tool_span.span_type == "TOOL"
-    assert tool_span.inputs == str(tool_input)
+    assert tool_span.inputs == tool_input
     assert tool_span.outputs is not None
     tool_span_id = tool_span.span_id
 
@@ -529,8 +529,8 @@ def test_tracer_does_not_add_spans_to_trace_after_root_run_has_finished():
 
         def _call(
             self,
-            messages: List[BaseMessage],
-            stop: Optional[List[str]] = None,
+            messages: list[BaseMessage],
+            stop: Optional[list[str]] = None,
             run_manager: Optional[CallbackManagerForLLMRun] = None,
             **kwargs: Any,
         ) -> str:

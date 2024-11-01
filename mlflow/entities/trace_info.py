@@ -1,5 +1,5 @@
 from dataclasses import asdict, dataclass, field
-from typing import Dict, Optional
+from typing import Optional
 
 from mlflow.entities._mlflow_object import _MlflowObject
 from mlflow.entities.trace_status import TraceStatus
@@ -29,8 +29,8 @@ class TraceInfo(_MlflowObject):
     timestamp_ms: int
     execution_time_ms: Optional[int]
     status: TraceStatus
-    request_metadata: Dict[str, str] = field(default_factory=dict)
-    tags: Dict[str, str] = field(default_factory=dict)
+    request_metadata: dict[str, str] = field(default_factory=dict)
+    tags: dict[str, str] = field(default_factory=dict)
 
     def __eq__(self, other):
         if type(other) is type(self):

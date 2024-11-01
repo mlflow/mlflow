@@ -128,7 +128,7 @@ jobs:
   test1:
     needs: set-matrix
     if: ${{ needs.set-matrix.outputs.is_matrix1_empty == 'false' }}
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.runs_on }}
     timeout-minutes: 120
     strategy:
       fail-fast: false
@@ -174,7 +174,7 @@ jobs:
   test2:
     needs: set-matrix
     if: ${{ needs.set-matrix.outputs.is_matrix2_empty == 'false' }}
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.runs_on }}
     timeout-minutes: 120
     strategy:
       fail-fast: false

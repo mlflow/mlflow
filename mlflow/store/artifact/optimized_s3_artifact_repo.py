@@ -13,11 +13,11 @@ from mlflow.environment_variables import (
 )
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_artifacts_pb2 import ArtifactCredentialInfo
+from mlflow.store.artifact.artifact_repo import _retry_with_new_creds
 from mlflow.store.artifact.cloud_artifact_repo import (
     CloudArtifactRepository,
     _complete_futures,
     _compute_num_chunks,
-    _retry_with_new_creds,
     _validate_chunk_size_aws,
 )
 from mlflow.store.artifact.s3_artifact_repo import _get_s3_client
@@ -163,7 +163,7 @@ class OptimizedS3ArtifactRepository(CloudArtifactRepository):
             creds.upload_file(Filename=local_file, Bucket=bucket, Key=key, ExtraArgs=extra_args)
 
         _retry_with_new_creds(
-            try_func=try_func, creds_func=self._refresh_credentials, og_creds=s3_client
+            try_func=try_func, creds_func=self._refresh_credentials, orig_creds=s3_client
         )
 
     def log_artifact(self, local_file, artifact_path=None):
@@ -223,7 +223,7 @@ class OptimizedS3ArtifactRepository(CloudArtifactRepository):
                     return response.headers["ETag"]
 
             return _retry_with_new_creds(
-                try_func=try_func, creds_func=self._refresh_credentials, og_creds=s3_client
+                try_func=try_func, creds_func=self._refresh_credentials, orig_creds=s3_client
             )
 
         try:
@@ -331,7 +331,7 @@ class OptimizedS3ArtifactRepository(CloudArtifactRepository):
             creds.download_file(self.bucket, s3_full_path, local_path)
 
         _retry_with_new_creds(
-            try_func=try_func, creds_func=self._refresh_credentials, og_creds=s3_client
+            try_func=try_func, creds_func=self._refresh_credentials, orig_creds=s3_client
         )
 
     def delete_artifacts(self, artifact_path=None):

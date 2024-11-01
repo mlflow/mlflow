@@ -2,7 +2,6 @@ import os
 import re
 import shutil
 import sys
-from typing import List
 
 import pytest
 from llama_index.core import (
@@ -50,7 +49,7 @@ def mock_openai():
 
 
 #### Settings ####
-def _mock_tokenizer(text: str) -> List[str]:
+def _mock_tokenizer(text: str) -> list[str]:
     """Mock tokenizer."""
     tokens = re.split(r"[ \n]", text)
     result = []

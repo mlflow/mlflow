@@ -1303,3 +1303,51 @@ def test_genai_metrics_with_llm_judge_callable():
         "input",
         "output",
     }
+
+
+@pytest.mark.parametrize("with_endpoint_type", [True, False])
+def test_genai_metric_with_custom_chat_endpoint(with_endpoint_type):
+    similarity_metric = answer_similarity(
+        model="endpoints:/my-chat", metric_version="v1", examples=[mlflow_example]
+    )
+    input = "What is MLflow?"
+
+    with mock.patch("mlflow.deployments.get_deploy_client") as mock_get_deploy_client:
+        mock_client = mock_get_deploy_client.return_value
+        mock_client.get_endpoint.return_value = (
+            {"task": "llm/v1/chat"} if with_endpoint_type else {}
+        )
+        mock_client.predict.return_value = {
+            "id": "chatcmpl-123",
+            "object": "chat.completion",
+            "model": "my-chat",
+            "choices": [
+                {
+                    "index": 0,
+                    "message": {
+                        "role": "assistant",
+                        "content": properly_formatted_openai_response1,
+                    },
+                    "finish_reason": "stop",
+                }
+            ],
+        }
+
+        metric_value = similarity_metric.eval_fn(
+            pd.Series([mlflow_prediction]), {}, pd.Series([input]), pd.Series([mlflow_ground_truth])
+        )
+        assert mock_client.predict.call_count == 1
+        assert mock_client.predict.call_args.kwargs == {
+            "endpoint": "my-chat",
+            "inputs": {
+                "messages": [
+                    {
+                        "role": "user",
+                        "content": mock.ANY,
+                    }
+                ],
+                **AnswerSimilarityMetric.parameters,
+            },
+        }
+    assert metric_value.scores == [3]
+    assert metric_value.justifications == [openai_justification1]

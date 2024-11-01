@@ -6,6 +6,7 @@ import numpy as np
 import openai
 import pandas as pd
 import pytest
+import requests
 import yaml
 from pyspark.sql import SparkSession
 
@@ -56,9 +57,9 @@ def set_envs(monkeypatch, mock_openai):
 def test_log_model():
     with mlflow.start_run():
         model_info = mlflow.openai.log_model(
-            model="gpt-4o-mini",
-            task="chat.completions",
-            artifact_path="model",
+            "gpt-4o-mini",
+            "chat.completions",
+            "model",
             temperature=0.9,
             messages=[{"role": "system", "content": "You are an MLflow expert."}],
         )
@@ -449,8 +450,9 @@ def test_model_argument_accepts_retrieved_model(tmp_path):
 def test_save_model_with_secret_scope(tmp_path, monkeypatch):
     scope = "test"
     monkeypatch.setenv("MLFLOW_OPENAI_SECRET_SCOPE", scope)
-    with mock.patch("mlflow.openai.is_in_databricks_runtime", return_value=True), mock.patch(
-        "mlflow.openai.check_databricks_secret_scope_access"
+    with (
+        mock.patch("mlflow.openai.is_in_databricks_runtime", return_value=True),
+        mock.patch("mlflow.openai.check_databricks_secret_scope_access"),
     ):
         with pytest.warns(FutureWarning, match="MLFLOW_OPENAI_SECRET_SCOPE.+deprecated"):
             mlflow.openai.save_model(model="gpt-4o-mini", task="chat.completions", path=tmp_path)
@@ -461,6 +463,7 @@ def test_save_model_with_secret_scope(tmp_path, monkeypatch):
             "OPENAI_API_KEY": f"{scope}:openai_api_key",
             "OPENAI_API_KEY_PATH": f"{scope}:openai_api_key_path",
             "OPENAI_API_BASE": f"{scope}:openai_api_base",
+            "OPENAI_BASE_URL": f"{scope}:openai_base_url",
             "OPENAI_ORGANIZATION": f"{scope}:openai_organization",
             "OPENAI_API_VERSION": f"{scope}:openai_api_version",
             "OPENAI_DEPLOYMENT_NAME": f"{scope}:openai_deployment_name",
@@ -542,9 +545,9 @@ def test_embeddings_pyfunc_server_and_score():
     df = pd.DataFrame({"text": ["a", "b"]})
     with mlflow.start_run():
         model_info = mlflow.openai.log_model(
-            model="text-embedding-ada-002",
-            task=embeddings(),
-            artifact_path="model",
+            "text-embedding-ada-002",
+            embeddings(),
+            "model",
             input_example=df,
         )
     inference_payload = load_serving_example(model_info.model_uri)
@@ -658,3 +661,18 @@ def test_openai_request_auth_headers(api_type, auth_headers, tmp_path, monkeypat
             timeout=mock.ANY,
             headers=auth_headers,
         )
+
+
+@pytest.mark.parametrize("env_name", ["OPENAI_API_BASE", "OPENAI_BASE_URL"])
+def test_openai_base_url(env_name, tmp_path, monkeypatch, mock_openai):
+    base = mock_openai.rstrip("/")
+    monkeypatch.setenv(env_name, base + "/")
+    mlflow.openai.save_model(model="gpt-4o", task="chat.completions", path=tmp_path)
+    model = mlflow.pyfunc.load_model(tmp_path)
+
+    with mock.patch("requests.post", side_effect=requests.post) as mock_request:
+        resp = model.predict("test")
+        mock_request.assert_called_once()
+        url = mock_request.call_args.kwargs["url"]
+        assert url == f"{base}/chat/completions"
+        assert resp == ['[{"role": "user", "content": "test"}]']

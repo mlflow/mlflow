@@ -342,9 +342,12 @@ def test_trace_in_model_evaluation(mock_store, monkeypatch, async_logging_enable
     model = TestModel()
 
     # mock _upload_trace_data to avoid generating trace data file
-    with mock.patch(
-        "mlflow.tracking._tracking_service.client.TrackingServiceClient._upload_trace_data"
-    ), mlflow.start_run() as run:
+    with (
+        mock.patch(
+            "mlflow.tracking._tracking_service.client.TrackingServiceClient._upload_trace_data"
+        ),
+        mlflow.start_run() as run,
+    ):
         run_id = run.info.run_id
         request_id_1 = "tr-eval-123"
         with set_prediction_context(Context(request_id=request_id_1, is_evaluate=True)):
@@ -1419,8 +1422,8 @@ def test_add_trace_in_databricks_model_serving(mock_databricks_serving_with_trac
 def test_add_trace_logging_model_from_code():
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
+            "model",
             python_model="tests/tracing/sample_code/model_with_add_trace.py",
-            artifact_path="model",
             input_example=[1, 2],
         )
 

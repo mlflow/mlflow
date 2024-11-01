@@ -94,12 +94,15 @@ def test__parallelized_download_from_cloud(
         # Create a fake local path using tmp_path
         fake_local_path = tmp_path / "downloaded_file"
 
-        with mock.patch(
-            "mlflow.store.artifact.cloud_artifact_repo.parallelized_download_file_using_http_uri",
-            return_value=mock_failed_downloads,
-        ), mock.patch(
-            "mlflow.store.artifact.cloud_artifact_repo.as_completed",
-            return_value=futures,
+        with (
+            mock.patch(
+                "mlflow.store.artifact.cloud_artifact_repo.parallelized_download_file_using_http_uri",
+                return_value=mock_failed_downloads,
+            ),
+            mock.patch(
+                "mlflow.store.artifact.cloud_artifact_repo.as_completed",
+                return_value=futures,
+            ),
         ):
             if future_result:
                 with pytest.raises(

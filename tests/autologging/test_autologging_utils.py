@@ -369,8 +369,9 @@ def test_batch_metrics_logger_records_time_correctly(start_run):
 
 
 def test_batch_metrics_logger_logs_timestamps_as_int_milliseconds(start_run):
-    with mock.patch.object(MlflowClient, "log_batch") as log_batch_mock, mock.patch(
-        "time.time", return_value=123.45678901234567890
+    with (
+        mock.patch.object(MlflowClient, "log_batch") as log_batch_mock,
+        mock.patch("time.time", return_value=123.45678901234567890),
     ):
         run_id = mlflow.active_run().info.run_id
         with batch_metrics_logger(run_id) as metrics_logger:
@@ -770,17 +771,19 @@ def test_disable_for_unsupported_versions_warning_sklearn_integration():
 
     with mock.patch("sklearn.__version__", "1.5.1"):
         AUTOLOGGING_INTEGRATIONS.clear()
-        with mock.patch(log_warn_fn_name) as log_warn_fn, mock.patch(
-            log_info_fn_name
-        ) as log_info_fn:
+        with (
+            mock.patch(log_warn_fn_name) as log_warn_fn,
+            mock.patch(log_info_fn_name) as log_info_fn,
+        ):
             mlflow.autolog(disable_for_unsupported_versions=True)
             assert all(not is_sklearn_warning_fired(args) for args in log_warn_fn.call_args_list)
             assert any(
                 is_sklearn_autolog_enabled_info_fired(args) for args in log_info_fn.call_args_list
             )
-        with mock.patch(log_warn_fn_name) as log_warn_fn, mock.patch(
-            log_info_fn_name
-        ) as log_info_fn:
+        with (
+            mock.patch(log_warn_fn_name) as log_warn_fn,
+            mock.patch(log_info_fn_name) as log_info_fn,
+        ):
             mlflow.autolog(disable_for_unsupported_versions=False)
             assert all(not is_sklearn_warning_fired(args) for args in log_warn_fn.call_args_list)
             assert any(
@@ -796,18 +799,20 @@ def test_disable_for_unsupported_versions_warning_sklearn_integration():
 
     with mock.patch("sklearn.__version__", "0.20.2"):
         AUTOLOGGING_INTEGRATIONS.clear()
-        with mock.patch(log_warn_fn_name) as log_warn_fn, mock.patch(
-            log_info_fn_name
-        ) as log_info_fn:
+        with (
+            mock.patch(log_warn_fn_name) as log_warn_fn,
+            mock.patch(log_info_fn_name) as log_info_fn,
+        ):
             mlflow.autolog(disable_for_unsupported_versions=True)
             assert all(not is_sklearn_warning_fired(args) for args in log_warn_fn.call_args_list)
             assert all(
                 not is_sklearn_autolog_enabled_info_fired(args)
                 for args in log_info_fn.call_args_list
             )
-        with mock.patch(log_warn_fn_name) as log_warn_fn, mock.patch(
-            log_info_fn_name
-        ) as log_info_fn:
+        with (
+            mock.patch(log_warn_fn_name) as log_warn_fn,
+            mock.patch(log_info_fn_name) as log_info_fn,
+        ):
             mlflow.autolog(disable_for_unsupported_versions=False)
             assert any(is_sklearn_warning_fired(args) for args in log_warn_fn.call_args_list)
             assert any(

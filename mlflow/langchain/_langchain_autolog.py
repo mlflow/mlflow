@@ -4,7 +4,7 @@ import logging
 import uuid
 import warnings
 from copy import deepcopy
-from typing import Dict, List, Union
+from typing import Union
 
 from langchain_core.callbacks.base import BaseCallbackHandler, BaseCallbackManager
 from packaging.version import Version
@@ -105,9 +105,9 @@ def _get_args_with_mlflow_tracer(func_name, args, kwargs):
 
 
 def _get_runnable_config_with_callback(
-    original_config: Union[None, Dict, List[Dict]],
+    original_config: Union[None, dict, list[dict]],
     new_callback: BaseCallbackHandler,
-) -> Union[Dict, List[Dict]]:
+) -> Union[dict, list[dict]]:
     """
     Create a new RunnableConfig (or a list of them) with the new callback injected.
 
@@ -141,9 +141,9 @@ def _get_runnable_config_with_callback(
 
 
 def _inject_callback(
-    original_callbacks: Union[List[BaseCallbackHandler], BaseCallbackManager],
+    original_callbacks: Union[list[BaseCallbackHandler], BaseCallbackManager],
     new_callback: MlflowLangchainTracer,
-) -> Union[List, BaseCallbackManager]:
+) -> Union[list, BaseCallbackManager]:
     """
     Inject a callback into the original callbacks.
 

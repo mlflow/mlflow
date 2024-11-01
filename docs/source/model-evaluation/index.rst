@@ -23,7 +23,7 @@ The rise of Large Language Models (LLMs) like ChatGPT has transformed the landsc
 
 - **Versatile Model Evaluation**: MLflow supports evaluating various types of LLMs, whether it's an MLflow pyfunc model, a URI pointing to a registered MLflow model, or any python callable representing your model.
 
-- **Comprehensive Metrics**: MLflow offers a range of metrics for LLM evaluation. From metrics that rely on SaaS models like OpenAI for scoring (e.g., :py:func:`mlflow.metrics.genai.answer_relevance`) to function-based per-row metrics such as Rouge (:py:func:`mlflow.metrics.rougeL`) or Flesch Kincaid (:py:func:`mlflow.metrics.flesch_kincaid_grade_level`).
+- **Comprehensive Metrics**: MLflow offers a range of metrics for LLM evaluation. From metrics that rely on SaaS models like OpenAI for scoring (e.g., :py:func:`mlflow.metrics.genai.answer_relevance`) to function-based per-row metrics such as Rouge (:py:func:`mlflow.metrics.rougeL`) or Flesch Kincaid (:py:func:`mlflow.metrics.flesch_kincaid_grade_level`) or Bleu (:py:func:`mlflow.metrics.bleu`).
 
 - **Predefined Metric Collections**: Depending on your LLM use case, MLflow provides predefined metric collections, such as "question-answering" or "text-summarization", simplifying the evaluation process.
 

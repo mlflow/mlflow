@@ -146,6 +146,7 @@ class _OpenAIApiConfig(NamedTuple):
 # for the list of environment variables that openai-python uses
 class _OpenAIEnvVar(str, Enum):
     OPENAI_API_TYPE = "OPENAI_API_TYPE"
+    OPENAI_BASE_URL = "OPENAI_BASE_URL"
     OPENAI_API_BASE = "OPENAI_API_BASE"
     OPENAI_API_KEY = "OPENAI_API_KEY"
     OPENAI_API_KEY_PATH = "OPENAI_API_KEY_PATH"

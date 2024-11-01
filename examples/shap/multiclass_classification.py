@@ -34,4 +34,4 @@ base_values = np.load(os.path.join(dst_path, "base_values.npy"))
 shap_values = np.load(os.path.join(dst_path, "shap_values.npy"))
 
 # show a force plot
-shap.force_plot(base_values[0], shap_values[0, 0, :], X.iloc[0, :], matplotlib=True)
+shap.force_plot(base_values[0], shap_values[0, :, 0], X.iloc[0, :], matplotlib=True)

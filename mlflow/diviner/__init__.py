@@ -20,7 +20,7 @@ import logging
 import os
 import pathlib
 import shutil
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Optional
 
 import pandas as pd
 import yaml
@@ -451,7 +451,7 @@ class _DivinerModelWrapper:
         """
         return self.diviner_model
 
-    def predict(self, dataframe, params: Optional[Dict[str, Any]] = None) -> pd.DataFrame:
+    def predict(self, dataframe, params: Optional[dict[str, Any]] = None) -> pd.DataFrame:
         """A method that allows a pyfunc implementation of this flavor to generate forecasted values
         from the end of a trained Diviner model's training series per group.
 
@@ -538,7 +538,7 @@ class _DivinerModelWrapper:
         predict_col = conf.get("predict_col", None)
         predict_groups = conf.get("groups", None)
 
-        if predict_groups and not isinstance(predict_groups, List):
+        if predict_groups and not isinstance(predict_groups, list):
             raise MlflowException(
                 "Specifying a group subset for prediction requires groups to be defined as a "
                 f"[List[(Tuple|List)[<group_keys>]]. Submitted group type: {type(predict_groups)}.",
@@ -548,7 +548,7 @@ class _DivinerModelWrapper:
         # NB: json serialization of a tuple converts the tuple to a List. Diviner requires a
         # List of Tuples to be input to the group_prediction API. This conversion is for utilizing
         # the pyfunc flavor through the serving API.
-        if predict_groups and not isinstance(predict_groups[0], Tuple):
+        if predict_groups and not isinstance(predict_groups[0], tuple):
             predict_groups = [tuple(group) for group in predict_groups]
 
         if isinstance(self.diviner_model, GroupedProphet):

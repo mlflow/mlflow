@@ -23,6 +23,7 @@ jobs:
         with:
           sparse-checkout: |
             .github
+      - uses: ./.github/actions/validate-author
       - uses: actions/github-script@v7
         id: get-ref
         with:

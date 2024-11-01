@@ -512,3 +512,66 @@ def test_parsing_dependency_from_databricks(monkeypatch, use_partner_package):
         DatabricksServingEndpoint(endpoint_name="embedding-model"),
         DatabricksServingEndpoint(endpoint_name="databricks-llama-2-70b-chat"),
     ]
+
+
+@pytest.mark.skipif(
+    Version(langchain.__version__) < Version("0.2.0"),
+    reason="unitycatalog-langchain depends on langchain>=0.2.0",
+)
+def test_parsing_unitycatalog_tool_as_dependency(monkeypatch: pytest.MonkeyPatch):
+    from databricks.sdk.service.catalog import FunctionInfo
+    from langchain.agents import initialize_agent
+    from langchain_openai.llms import OpenAI
+    from unitycatalog.ai.core.databricks import DatabricksFunctionClient
+    from unitycatalog.ai.langchain.toolkit import UCFunctionToolkit
+
+    # When get is called return a function
+    def mock_function_get(self, function_name):
+        components = function_name.split(".")
+        # Initialize agent used below requires functions to take in exactly one parameter
+        param_dict = {
+            "parameters": [
+                {
+                    "name": "param",
+                    "parameter_type": "PARAM",
+                    "position": 0,
+                    "type_json": '{"name":"param","type":"string","nullable":true,"metadata":{}}',
+                    "type_name": "STRING",
+                    "type_precision": 0,
+                    "type_scale": 0,
+                    "type_text": "string",
+                }
+            ]
+        }
+        # Add the catalog, schema and name to the function Info followed by the parameter
+        return FunctionInfo.from_dict(
+            {
+                "catalog_name": components[0],
+                "schema_name": components[1],
+                "name": components[2],
+                "input_params": param_dict,
+            }
+        )
+
+    monkeypatch.setenv("DATABRICKS_HOST", "my-default-host")
+    monkeypatch.setenv("DATABRICKS_TOKEN", "my-default-token")
+    monkeypatch.setattr("databricks.sdk.service.catalog.FunctionsAPI.get", mock_function_get)
+
+    with mock.patch(
+        "unitycatalog.ai.core.databricks.DatabricksFunctionClient._validate_warehouse_type",
+        return_value=None,
+    ):
+        client = DatabricksFunctionClient(warehouse_id="testId1")
+    toolkit = UCFunctionToolkit(function_names=["rag.test.test_function"], client=client)
+    llm = OpenAI(temperature=0)
+    agent = initialize_agent(
+        toolkit.tools,
+        llm,
+        verbose=True,
+    )
+
+    resources = list(_extract_dependency_list_from_lc_model(agent))
+    assert resources == [
+        DatabricksFunction(function_name="rag.test.test_function"),
+        DatabricksSQLWarehouse(warehouse_id="testId1"),
+    ]

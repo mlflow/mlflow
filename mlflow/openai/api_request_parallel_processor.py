@@ -27,7 +27,6 @@ import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
-from typing import Dict
 
 import requests
 import tiktoken
@@ -97,7 +96,7 @@ class APIRequest:
         self,
         retry_queue: queue.Queue,
         status_tracker: StatusTracker,
-        headers: Dict[str, str],
+        headers: dict[str, str],
     ):
         """Calls the OpenAI API and stores results."""
         _logger.debug(f"Request #{self.index} started")

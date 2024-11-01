@@ -107,9 +107,10 @@ def validate_updated_conda_dependencies(original_model_path, wheeled_model_path)
     wheeled_model_path = os.path.join(wheeled_model_path, _CONDA_ENV_FILE_NAME)
     original_conda_env_path = os.path.join(original_model_path, _CONDA_ENV_FILE_NAME)
 
-    with open(wheeled_model_path) as wheeled_conda_env, open(
-        original_conda_env_path
-    ) as original_conda_env:
+    with (
+        open(wheeled_model_path) as wheeled_conda_env,
+        open(original_conda_env_path) as original_conda_env,
+    ):
         wheeled_conda_env = yaml.safe_load(wheeled_conda_env)
         original_conda_env = yaml.safe_load(original_conda_env)
 
@@ -153,8 +154,8 @@ def test_model_log_load(tmp_path, sklearn_knn_model):
     # Log a model
     with mlflow.start_run():
         mlflow.sklearn.log_model(
-            sk_model=sklearn_knn_model.model,
-            artifact_path=artifact_path,
+            sklearn_knn_model.model,
+            artifact_path,
             registered_model_name=model_name,
         )
         model_path = _download_artifact_from_uri(model_uri, tmp_path)
@@ -189,8 +190,8 @@ def test_model_save_load(tmp_path, sklearn_knn_model):
     # Log a model
     with mlflow.start_run():
         mlflow.sklearn.log_model(
-            sk_model=sklearn_knn_model.model,
-            artifact_path=artifact_path,
+            sklearn_knn_model.model,
+            artifact_path,
             registered_model_name=model_name,
         )
         model_path = _download_artifact_from_uri(model_uri, model_download_path)
@@ -220,8 +221,8 @@ def test_logging_and_saving_wheeled_model_throws(tmp_path, sklearn_knn_model):
     # Log a model
     with mlflow.start_run():
         mlflow.sklearn.log_model(
-            sk_model=sklearn_knn_model.model,
-            artifact_path=artifact_path,
+            sklearn_knn_model.model,
+            artifact_path,
             registered_model_name=model_name,
         )
 
@@ -329,8 +330,8 @@ def test_serving_wheeled_model(sklearn_knn_model):
     # Log a model
     with mlflow.start_run():
         model_info = mlflow.sklearn.log_model(
-            sk_model=model,
-            artifact_path=artifact_path,
+            model,
+            artifact_path,
             registered_model_name=model_name,
             input_example=pd.DataFrame(inference_data),
         )
@@ -397,8 +398,8 @@ def test_wheel_download_dependency_conflicts(tmp_path):
 def test_copy_metadata(mock_is_in_databricks, sklearn_knn_model):
     with mlflow.start_run():
         mlflow.sklearn.log_model(
-            sk_model=sklearn_knn_model.model,
-            artifact_path="model",
+            sklearn_knn_model.model,
+            "model",
             registered_model_name="sklearn_knn_model",
         )
 

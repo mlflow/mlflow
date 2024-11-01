@@ -28,9 +28,9 @@ from mlflow.metrics import latency
 def test_llama_index_evaluate(data, engine_type, single_index):
     with mlflow.start_run():
         model_info = mlflow.llama_index.log_model(
-            llama_index_model=single_index,
+            single_index,
+            "llama_index",
             engine_type=engine_type,
-            artifact_path="llama_index",
         )
 
     pyfunc_model = mlflow.pyfunc.load_model(model_info.model_uri)

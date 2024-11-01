@@ -1,6 +1,6 @@
 import hashlib
 import json
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Optional, Union
 
 from mlflow.entities._mlflow_object import _MlflowObject
 from mlflow.entities.evaluation import Evaluation as EvaluationEntity
@@ -17,16 +17,16 @@ class Evaluation(_MlflowObject):
 
     def __init__(
         self,
-        inputs: Dict[str, Any],
-        outputs: Optional[Dict[str, Any]] = None,
+        inputs: dict[str, Any],
+        outputs: Optional[dict[str, Any]] = None,
         inputs_id: Optional[str] = None,
         request_id: Optional[str] = None,
-        targets: Optional[Dict[str, Any]] = None,
+        targets: Optional[dict[str, Any]] = None,
         error_code: Optional[str] = None,
         error_message: Optional[str] = None,
-        assessments: Optional[List[Assessment]] = None,
-        metrics: Optional[Union[Dict[str, float], List[Metric]]] = None,
-        tags: Optional[Dict[str, str]] = None,
+        assessments: Optional[list[Assessment]] = None,
+        metrics: Optional[Union[dict[str, float], list[Metric]]] = None,
+        tags: Optional[dict[str, str]] = None,
     ):
         """
         Construct a new Evaluation instance.
@@ -69,12 +69,12 @@ class Evaluation(_MlflowObject):
         return self._inputs_id
 
     @property
-    def inputs(self) -> Dict[str, Any]:
+    def inputs(self) -> dict[str, Any]:
         """The evaluation inputs."""
         return self._inputs
 
     @property
-    def outputs(self) -> Optional[Dict[str, Any]]:
+    def outputs(self) -> Optional[dict[str, Any]]:
         """The evaluation outputs."""
         return self._outputs
 
@@ -84,7 +84,7 @@ class Evaluation(_MlflowObject):
         return self._request_id
 
     @property
-    def targets(self) -> Optional[Dict[str, Any]]:
+    def targets(self) -> Optional[dict[str, Any]]:
         """The evaluation targets."""
         return self._targets
 
@@ -99,17 +99,17 @@ class Evaluation(_MlflowObject):
         return self._error_message
 
     @property
-    def assessments(self) -> Optional[List[Assessment]]:
+    def assessments(self) -> Optional[list[Assessment]]:
         """The evaluation assessments."""
         return self._assessments
 
     @property
-    def metrics(self) -> Optional[List[Metric]]:
+    def metrics(self) -> Optional[list[Metric]]:
         """The evaluation metrics."""
         return self._metrics
 
     @property
-    def tags(self) -> Optional[Dict[str, str]]:
+    def tags(self) -> Optional[dict[str, str]]:
         """The evaluation tags."""
         return self._tags
 
@@ -142,7 +142,7 @@ class Evaluation(_MlflowObject):
             tags=self.tags,
         )
 
-    def to_dictionary(self) -> Dict[str, Any]:
+    def to_dictionary(self) -> dict[str, Any]:
         """
         Convert the Evaluation object to a dictionary.
 
@@ -168,7 +168,7 @@ class Evaluation(_MlflowObject):
         return {k: v for k, v in evaluation_dict.items() if v is not None}
 
     @classmethod
-    def from_dictionary(cls, evaluation_dict: Dict[str, Any]):
+    def from_dictionary(cls, evaluation_dict: dict[str, Any]):
         """
         Create an Evaluation object from a dictionary.
 
@@ -203,7 +203,7 @@ class Evaluation(_MlflowObject):
         )
 
 
-def _generate_inputs_id(inputs: Dict[str, Any]) -> str:
+def _generate_inputs_id(inputs: dict[str, Any]) -> str:
     """
     Generates a unique identifier for the inputs.
 

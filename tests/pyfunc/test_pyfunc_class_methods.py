@@ -16,7 +16,7 @@ def test_unwrap_python_model_from_pyfunc_class():
 
     with mlflow.start_run():
         model = MyModel("this is test message", 2)
-        model_uri = log_model(python_model=model, artifact_path="mlruns").model_uri
+        model_uri = log_model("mlruns", python_model=model).model_uri
         loaded_model = load_model(model_uri).unwrap_python_model()
         assert isinstance(loaded_model, MyModel)
         assert loaded_model.param_1 == "this is test message"

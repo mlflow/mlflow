@@ -3,7 +3,6 @@ import pathlib
 import pickle
 import uuid
 from dataclasses import asdict
-from typing import List
 
 import pytest
 
@@ -73,7 +72,7 @@ def get_mock_response(messages, params):
 
 
 class TestChatModel(mlflow.pyfunc.ChatModel):
-    def predict(self, context, messages: List[ChatMessage], params: ChatParams) -> ChatResponse:
+    def predict(self, context, messages: list[ChatMessage], params: ChatParams) -> ChatResponse:
         mock_response = get_mock_response(messages, params)
         return ChatResponse.from_dict(mock_response)
 
@@ -83,20 +82,20 @@ class ChatModelWithContext(mlflow.pyfunc.ChatModel):
         predict_path = pathlib.Path(context.artifacts["predict_fn"])
         self.predict_fn = pickle.loads(predict_path.read_bytes())
 
-    def predict(self, context, messages: List[ChatMessage], params: ChatParams) -> ChatResponse:
+    def predict(self, context, messages: list[ChatMessage], params: ChatParams) -> ChatResponse:
         message = ChatMessage(role="assistant", content=self.predict_fn())
         return ChatResponse.from_dict(get_mock_response([message], params))
 
 
 class ChatModelWithTrace(mlflow.pyfunc.ChatModel):
     @mlflow.trace
-    def predict(self, context, messages: List[ChatMessage], params: ChatParams) -> ChatResponse:
+    def predict(self, context, messages: list[ChatMessage], params: ChatParams) -> ChatResponse:
         mock_response = get_mock_response(messages, params)
         return ChatResponse.from_dict(mock_response)
 
 
 class ChatModelWithMetadata(mlflow.pyfunc.ChatModel):
-    def predict(self, context, messages: List[ChatMessage], params: ChatParams) -> ChatResponse:
+    def predict(self, context, messages: list[ChatMessage], params: ChatParams) -> ChatResponse:
         mock_response = get_mock_response(messages, params)
         return ChatResponse(
             **mock_response,
@@ -105,7 +104,7 @@ class ChatModelWithMetadata(mlflow.pyfunc.ChatModel):
 
 
 class ChatModelWithToolCalling(mlflow.pyfunc.ChatModel):
-    def predict(self, context, messages: List[ChatMessage], params: ChatParams) -> ChatResponse:
+    def predict(self, context, messages: list[ChatMessage], params: ChatParams) -> ChatResponse:
         tools = params.tools
 
         # call the first tool with some value for all the required params

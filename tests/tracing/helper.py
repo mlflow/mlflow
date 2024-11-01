@@ -1,6 +1,6 @@
 import time
 from dataclasses import dataclass
-from typing import List, Optional
+from typing import Optional
 
 import opentelemetry.trace as trace_api
 from opentelemetry.sdk.trace import ReadableSpan
@@ -114,7 +114,7 @@ def create_test_trace_info(
     )
 
 
-def get_traces(experiment_id=DEFAULT_EXPERIMENT_ID) -> List[Trace]:
+def get_traces(experiment_id=DEFAULT_EXPERIMENT_ID) -> list[Trace]:
     # Get all traces from the backend
     return mlflow.MlflowClient().search_traces(experiment_ids=[experiment_id])
 

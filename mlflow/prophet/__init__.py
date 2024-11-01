@@ -15,7 +15,7 @@ Prophet (native) format
 import json
 import logging
 import os
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 import yaml
 
@@ -348,7 +348,7 @@ class _ProphetModelWrapper:
         """
         return self.pr_model
 
-    def predict(self, dataframe, params: Optional[Dict[str, Any]] = None):
+    def predict(self, dataframe, params: Optional[dict[str, Any]] = None):
         """
         Args:
             dataframe: Model input data.

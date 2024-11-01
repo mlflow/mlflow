@@ -13,7 +13,7 @@ import time
 import urllib.parse
 import uuid
 from subprocess import Popen
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 import mlflow
 import mlflow.version
@@ -331,22 +331,28 @@ def _deploy(
             on the sagemaker endpoint.
             .. code-block:: python
                 :caption: Example
+
+                {
                     "AsyncInferenceConfig": {
-                        "ClientConfig": {
-                            "MaxConcurrentInvocationsPerInstance": 4
-                        },
+                        "ClientConfig": {"MaxConcurrentInvocationsPerInstance": 4},
                         "OutputConfig": {
                             "S3OutputPath": "s3://<path-to-output-bucket>",
                             "NotificationConfig": {},
                         },
                     }
+                }
+
         serverless_config: An optional dictionary specifying the serverless configuration
             .. code-block:: python
                 :caption: Example
+
+                {
                     "ServerlessConfig": {
                         "MemorySizeInMB": 2048,
                         "MaxConcurrency": 20,
                     }
+                }
+
         env: An optional dictionary of environment variables to set for the model.
         tags: An optional dictionary of tags to apply to the endpoint.
     """
@@ -1400,8 +1406,8 @@ def _get_sagemaker_config_tags(endpoint_name):
 
 
 def _prepare_sagemaker_tags(
-    config_tags: List[Dict[str, str]],
-    sagemaker_tags: Optional[Dict[str, str]] = None,
+    config_tags: list[dict[str, str]],
+    sagemaker_tags: Optional[dict[str, str]] = None,
 ):
     if not sagemaker_tags:
         return config_tags
@@ -2788,12 +2794,12 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
                 message=f"There was an error while retrieving the deployment: {exc}\n"
             )
 
-    def predict(  # noqa: D417
+    def predict(
         self,
         deployment_name=None,
         inputs=None,
         endpoint=None,
-        params: Optional[Dict[str, Any]] = None,
+        params: Optional[dict[str, Any]] = None,
     ):
         """
         Compute predictions from the specified deployment using the provided PyFunc input.
@@ -2814,6 +2820,7 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
                 inference. For a complete list of supported input types, see
                 :ref:`pyfunc-inference-api`.
             endpoint: Endpoint to predict against. Currently unsupported
+            params: Optional parameters to invoke the endpoint with.
 
         Returns:
             A PyFunc output, such as a Pandas DataFrame, Pandas Series, or NumPy array.

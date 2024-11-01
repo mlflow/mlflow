@@ -1,5 +1,5 @@
 from dataclasses import asdict
-from typing import Any, Dict
+from typing import Any
 
 from langchain_core.output_parsers.transform import BaseTransformOutputParser
 
@@ -13,7 +13,7 @@ from mlflow.utils.annotations import experimental
 
 
 @experimental
-class ChatCompletionsOutputParser(BaseTransformOutputParser[Dict[str, Any]]):
+class ChatCompletionsOutputParser(BaseTransformOutputParser[dict[str, Any]]):
     """
     OutputParser that wraps the string output into a dictionary representation of a
     :py:class:`ChatCompletionResponse`
@@ -29,7 +29,7 @@ class ChatCompletionsOutputParser(BaseTransformOutputParser[Dict[str, Any]]):
         """Return the output parser type for serialization."""
         return "mlflow_simplified_chat_completions"
 
-    def parse(self, text: str) -> Dict[str, Any]:
+    def parse(self, text: str) -> dict[str, Any]:
         return asdict(
             ChatCompletionResponse(
                 choices=[ChainCompletionChoice(message=Message(role="assistant", content=text))],
@@ -39,7 +39,7 @@ class ChatCompletionsOutputParser(BaseTransformOutputParser[Dict[str, Any]]):
 
 
 @experimental
-class StringResponseOutputParser(BaseTransformOutputParser[Dict[str, Any]]):
+class StringResponseOutputParser(BaseTransformOutputParser[dict[str, Any]]):
     """
     OutputParser that wraps the string output into an dictionary representation of a
     :py:class:`StringResponse`
@@ -55,5 +55,5 @@ class StringResponseOutputParser(BaseTransformOutputParser[Dict[str, Any]]):
         """Return the output parser type for serialization."""
         return "mlflow_simplified_str_object"
 
-    def parse(self, text: str) -> Dict[str, Any]:
+    def parse(self, text: str) -> dict[str, Any]:
         return asdict(StringResponse(content=text))

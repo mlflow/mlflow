@@ -1,10 +1,10 @@
-from typing import Any, List
+import hashlib
+from typing import Any
 
 from packaging.version import Version
 
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
-from mlflow.utils import insecure_hash
 
 MAX_ROWS = 10000
 
@@ -85,7 +85,7 @@ def compute_numpy_digest(features, targets=None) -> str:
     return get_normalized_md5_digest(hashable_elements)
 
 
-def get_normalized_md5_digest(elements: List[Any]) -> str:
+def get_normalized_md5_digest(elements: list[Any]) -> str:
     """Computes a normalized digest for a list of hashable elements.
 
     Args:
@@ -101,7 +101,7 @@ def get_normalized_md5_digest(elements: List[Any]) -> str:
             INVALID_PARAMETER_VALUE,
         )
 
-    md5 = insecure_hash.md5()
+    md5 = hashlib.md5(usedforsecurity=False)
     for element in elements:
         md5.update(element)
 

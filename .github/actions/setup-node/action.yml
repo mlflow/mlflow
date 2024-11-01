@@ -1,14 +1,14 @@
 name: "setup-node"
 description: "Set up Node"
 inputs:
-  java-version:
-    description: "node-version"
+  node-version:
+    description: "Node version to use."
     default: 20
     required: false
 
 runs:
   using: "composite"
   steps:
-    - uses: actions/setup-node@v3
+    - uses: actions/setup-node@v4
       with:
         node-version: ${{ inputs.node-version }}

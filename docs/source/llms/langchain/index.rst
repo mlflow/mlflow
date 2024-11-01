@@ -461,3 +461,92 @@ The agent can be loaded and used for inference as follows:
         ]
     }
     agent.invoke(query)
+
+How can I evaluate a LangGraph Agent?
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The `mlflow.evaluate <https://mlflow.org/docs/latest/model-evaluation/index.html>`_ function provides 
+a robust way to evaluate model performance. 
+
+LangGraph agents, especially those with chat functionality, can return multiple messages in one 
+inference call. Given ``mlflow.evaluate`` performs naive comparisons between raw predictions and a specified
+ground truth value, it is the user's responsibility to reconcile potential differences prediction output
+and ground truth.
+
+Often, the best approach is to use a `custom function <https://mlflow.org/docs/latest/llms/llm-evaluate/index.html#evaluating-with-a-custom-function>`_ 
+to process the response. Below we provide an example of a custom function that extracts the last chat 
+message from a LangGraph model. This function is then used in mlflow.evaluate to return a single 
+string response, which can be compared to the `"ground_truth"` column.
+
+.. code-block:: python
+
+    import mlflow
+    import pandas as pd
+    from typing import List
+
+    # Note that we assume the `model_uri` variable is present
+    # Also note that registering and loading the model is optional and you
+    # can simply leverage your langgraph object in the custom function.
+    loaded_model = mlflow.langchain.load_model(model_uri)
+
+    eval_data = pd.DataFrame(
+        {
+            "inputs": [
+                "What is MLflow?",
+                "What is Spark?",
+            ],
+            "ground_truth": [
+                "MLflow is an open-source platform for managing the end-to-end machine learning (ML) lifecycle. It was developed by Databricks, a company that specializes in big data and machine learning solutions. MLflow is designed to address the challenges that data scientists and machine learning engineers face when developing, training, and deploying machine learning models.",
+                "Apache Spark is an open-source, distributed computing system designed for big data processing and analytics. It was developed in response to limitations of the Hadoop MapReduce computing model, offering improvements in speed and ease of use. Spark provides libraries for various tasks such as data ingestion, processing, and analysis through its components like Spark SQL for structured data, Spark Streaming for real-time data processing, and MLlib for machine learning tasks",
+            ],
+        }
+    )
+
+
+    def custom_langgraph_wrapper(inputs: pd.DataFrame) -> List[str]:
+        """Extract the predictions from a chat message sequence."""
+        answers = []
+        for content in inputs["inputs"]:
+            prediction = loaded_model.invoke(
+                {"messages": [{"role": "user", "content": content}]}
+            )
+            last_message_content = prediction["messages"][-1].content
+            answers.append(last_message_content)
+
+        return answers
+
+
+    with mlflow.start_run() as run:
+        results = mlflow.evaluate(
+            custom_langgraph_wrapper,  # Pass our function defined above
+            data=eval_data,
+            targets="ground_truth",
+            model_type="question-answering",
+            extra_metrics=[
+                mlflow.metrics.latency(),
+                mlflow.metrics.genai.answer_correctness("openai:/gpt-4o"),
+            ],
+        )
+    print(results.metrics)
+
+.. code-block:: python
+    :caption: Output
+
+    {
+        "latency/mean": 1.8976624011993408,
+        "latency/variance": 0.10328687906900313,
+        "latency/p90": 2.1547686100006103,
+        "flesch_kincaid_grade_level/v1/mean": 12.1,
+        "flesch_kincaid_grade_level/v1/variance": 0.25,
+        "flesch_kincaid_grade_level/v1/p90": 12.5,
+        "ari_grade_level/v1/mean": 15.850000000000001,
+        "ari_grade_level/v1/variance": 0.06250000000000044,
+        "ari_grade_level/v1/p90": 16.05,
+        "exact_match/v1": 0.0,
+        "answer_correctness/v1/mean": 5.0,
+        "answer_correctness/v1/variance": 0.0,
+        "answer_correctness/v1/p90": 5.0,
+    }
+
+For a complete example of a LangGraph model that works with this evaluation example, see the 
+`MLflow LangGraph blog <https://mlflow.org/blog/langgraph-model-from-code>`_.

@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import AsyncIterable, Tuple, Type
+from typing import AsyncIterable
 
 from fastapi import HTTPException
 
@@ -16,8 +16,8 @@ class BaseProvider(ABC):
     """
 
     NAME: str = ""
-    SUPPORTED_ROUTE_TYPES: Tuple[str, ...]
-    CONFIG_TYPE: Type[ConfigModel]
+    SUPPORTED_ROUTE_TYPES: tuple[str, ...]
+    CONFIG_TYPE: type[ConfigModel]
 
     def __init__(self, config: RouteConfig):
         if self.NAME == "":

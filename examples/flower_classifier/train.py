@@ -175,12 +175,12 @@ def train(
     directly to image base64 encoded image data.
 
     Args:
-        image_height: Height of the input image in pixels.
-        image_width: Width of the input image in pixels.
         image_files: List of image files to be used for training.
         labels: List of labels for the image files.
         domain: Dictionary representing the domain of the response.
             Provides mapping label-name -> label-id.
+        image_width: Width of the input image in pixels.
+        image_height: Height of the input image in pixels.
         epochs: Number of epochs to train the model for.
         batch_size: Batch size used during training.
         test_ratio: Fraction of dataset to be used for validation. This data will not be used

@@ -46,9 +46,10 @@ def completions_response():
 async def test_completions():
     resp = completions_response()
     config = completions_config()
-    with mock.patch("time.time", return_value=1677858242), mock.patch(
-        "aiohttp.ClientSession.post", return_value=MockAsyncResponse(resp)
-    ) as mock_post:
+    with (
+        mock.patch("time.time", return_value=1677858242),
+        mock.patch("aiohttp.ClientSession.post", return_value=MockAsyncResponse(resp)) as mock_post,
+    ):
         provider = PaLMProvider(RouteConfig(**config))
         payload = {
             "prompt": "This is a test",
@@ -169,9 +170,10 @@ def chat_response():
 async def test_chat(payload, expected_llm_input):
     resp = chat_response()
     config = chat_config()
-    with mock.patch("time.time", return_value=1700242674), mock.patch(
-        "aiohttp.ClientSession.post", return_value=MockAsyncResponse(resp)
-    ) as mock_post:
+    with (
+        mock.patch("time.time", return_value=1700242674),
+        mock.patch("aiohttp.ClientSession.post", return_value=MockAsyncResponse(resp)) as mock_post,
+    ):
         provider = PaLMProvider(RouteConfig(**config))
         response = await provider.chat(chat.RequestPayload(**payload))
         assert jsonable_encoder(response) == {

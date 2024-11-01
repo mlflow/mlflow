@@ -1,6 +1,5 @@
 import json
 import logging
-from typing import List
 
 from mlflow.entities import Trace
 from mlflow.environment_variables import MLFLOW_MAX_TRACES_TO_DISPLAY_IN_NOTEBOOK
@@ -9,7 +8,7 @@ from mlflow.utils.databricks_utils import is_in_databricks_runtime
 _logger = logging.getLogger(__name__)
 
 
-def _serialize_trace_list(traces: List[Trace]):
+def _serialize_trace_list(traces: list[Trace]):
     return json.dumps(
         # we can't just call trace.to_json() because this
         # will cause the trace to be serialized twice (once
@@ -80,7 +79,7 @@ class IPythonTraceDisplayHandler:
             # the core functionality if the display fails.
             _logger.debug("Failed to display traces", exc_info=True)
 
-    def get_mimebundle(self, traces: List[Trace]):
+    def get_mimebundle(self, traces: list[Trace]):
         if len(traces) == 1:
             return traces[0]._repr_mimebundle_()
         else:
@@ -89,7 +88,7 @@ class IPythonTraceDisplayHandler:
                 "text/plain": repr(traces),
             }
 
-    def display_traces(self, traces: List[Trace]):
+    def display_traces(self, traces: list[Trace]):
         # This only works in Databricks notebooks
         if not is_in_databricks_runtime():
             return

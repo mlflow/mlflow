@@ -1,5 +1,5 @@
 import json
-from typing import Any, AsyncGenerator, AsyncIterable, Dict
+from typing import Any, AsyncGenerator, AsyncIterable
 
 from fastapi import HTTPException
 from fastapi.encoders import jsonable_encoder
@@ -313,7 +313,7 @@ class TogetherAIProvider(BaseProvider):
     def auth_headers(self):
         return {"Authorization": f"Bearer {self.togetherai_config.togetherai_api_key}"}
 
-    async def _request(self, path: str, payload: Dict[str, Any]) -> Dict[str, Any]:
+    async def _request(self, path: str, payload: dict[str, Any]) -> dict[str, Any]:
         return await send_request(
             headers=self.auth_headers,
             base_url=self.base_url,
@@ -322,7 +322,7 @@ class TogetherAIProvider(BaseProvider):
         )
 
     async def _stream_request(
-        self, path: str, payload: Dict[str, Any]
+        self, path: str, payload: dict[str, Any]
     ) -> AsyncGenerator[bytes, None]:
         return send_stream_request(
             headers=self.auth_headers,

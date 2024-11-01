@@ -77,32 +77,42 @@ def test_downstream_notebook_job_lineage(
     expected_lineage_header_info = LineageHeaderInfo(entities=entity_list) if entity_list else None
 
     # Mock out all necessary dependency
-    with mock.patch(
-        "mlflow.utils.databricks_utils.is_in_databricks_notebook",
-        return_value=is_in_notebook,
-    ), mock.patch(
-        "mlflow.utils.databricks_utils.is_in_databricks_runtime",
-        return_value=is_in_notebook or is_in_job,
-    ), mock.patch(
-        "mlflow.utils.databricks_utils.is_in_databricks_job",
-        return_value=is_in_job,
-    ), mock.patch(
-        "mlflow.utils.databricks_utils.get_notebook_id",
-        return_value=notebook_id,
-    ), mock.patch(
-        "mlflow.utils.databricks_utils.get_job_id",
-        return_value=job_id,
-    ), mock.patch("mlflow.get_registry_uri", return_value="databricks-uc"), mock.patch.object(
-        UnityCatalogModelsArtifactRepository,
-        "_get_blob_storage_path",
-        return_value="fake_blob_storage_path",
-    ), mock.patch(
-        "mlflow.utils._unity_catalog_utils._get_artifact_repo_from_storage_info",
-        return_value=mock_artifact_repo,
-    ), mock.patch(
-        "mlflow.utils.rest_utils.http_request",
-        return_value=mock.MagicMock(status_code=200, text="{}"),
-    ) as mock_http:
+    with (
+        mock.patch(
+            "mlflow.utils.databricks_utils.is_in_databricks_notebook",
+            return_value=is_in_notebook,
+        ),
+        mock.patch(
+            "mlflow.utils.databricks_utils.is_in_databricks_runtime",
+            return_value=is_in_notebook or is_in_job,
+        ),
+        mock.patch(
+            "mlflow.utils.databricks_utils.is_in_databricks_job",
+            return_value=is_in_job,
+        ),
+        mock.patch(
+            "mlflow.utils.databricks_utils.get_notebook_id",
+            return_value=notebook_id,
+        ),
+        mock.patch(
+            "mlflow.utils.databricks_utils.get_job_id",
+            return_value=job_id,
+        ),
+        mock.patch("mlflow.get_registry_uri", return_value="databricks-uc"),
+        mock.patch.object(
+            UnityCatalogModelsArtifactRepository,
+            "_get_blob_storage_path",
+            return_value="fake_blob_storage_path",
+        ),
+        mock.patch(
+            "mlflow.utils._unity_catalog_utils._get_artifact_repo_from_storage_info",
+            return_value=mock_artifact_repo,
+        ),
+        mock.patch(
+            "mlflow.utils.rest_utils.http_request",
+            return_value=mock.MagicMock(status_code=200, text="{}"),
+        ) as mock_http,
+    ):
         mlflow.pyfunc.save_model(path=model_dir, python_model=SimpleModel())
         mlflow.pyfunc.load_model(model_uri)
         extra_headers = lineage_header_info_to_extra_headers(expected_lineage_header_info)

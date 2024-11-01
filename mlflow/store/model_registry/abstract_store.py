@@ -442,6 +442,8 @@ class AbstractStore:
                     f".{hint}"
                 )
             mv = self.get_model_version(mv.name, mv.version)
+            if mv.status != pending_status:
+                break
             sleep(AWAIT_MODEL_VERSION_CREATE_SLEEP_INTERVAL_SECONDS)
         if mv.status != ModelVersionStatus.to_string(ModelVersionStatus.READY):
             raise MlflowException(

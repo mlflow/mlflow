@@ -156,9 +156,13 @@ async def test_uc_functions(monkeypatch):
     mock_statement_result.manifest.truncated = "manifest"
     mock_workspace_client.statement_execution.execute_statement.return_value = mock_statement_result
 
-    with mock.patch("aiohttp.ClientSession", return_value=mock_client_session), mock.patch(
-        "mlflow.gateway.providers.openai._get_workspace_client", return_value=mock_workspace_client
-    ) as mock_workspace_client:
+    with (
+        mock.patch("aiohttp.ClientSession", return_value=mock_client_session),
+        mock.patch(
+            "mlflow.gateway.providers.openai._get_workspace_client",
+            return_value=mock_workspace_client,
+        ) as mock_workspace_client,
+    ):
         provider = OpenAIProvider(RouteConfig(**config))
         payload = {
             "messages": [
@@ -319,9 +323,13 @@ async def test_uc_functions_user_defined_functions(monkeypatch):
     mock_statement_result.manifest.truncated = "manifest"
     mock_workspace_client.statement_execution.execute_statement.return_value = mock_statement_result
 
-    with mock.patch("aiohttp.ClientSession", return_value=mock_client_session), mock.patch(
-        "mlflow.gateway.providers.openai._get_workspace_client", return_value=mock_workspace_client
-    ) as mock_workspace_client:
+    with (
+        mock.patch("aiohttp.ClientSession", return_value=mock_client_session),
+        mock.patch(
+            "mlflow.gateway.providers.openai._get_workspace_client",
+            return_value=mock_workspace_client,
+        ) as mock_workspace_client,
+    ):
         provider = OpenAIProvider(RouteConfig(**config))
         payload = {
             "messages": [

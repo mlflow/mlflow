@@ -127,9 +127,7 @@ def patched_fit(original, self, *args, **kwargs):
         registered_model_name = get_autologging_config(
             mlflow.paddle.FLAVOR_NAME, "registered_model_name", None
         )
-        mlflow.paddle.log_model(
-            pd_model=self, artifact_path="model", registered_model_name=registered_model_name
-        )
+        mlflow.paddle.log_model(self, "model", registered_model_name=registered_model_name)
 
     client.flush(synchronous=True)
 

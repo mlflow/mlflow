@@ -99,8 +99,8 @@ def _log_keras_model(
         signature = None
 
     log_model(
-        model=model,
-        artifact_path="model",
+        model,
+        "model",
         save_exported_model=save_exported_model,
         signature=signature,
         registered_model_name=get_autologging_config("keras", "registered_model_name", None),

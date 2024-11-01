@@ -1,9 +1,11 @@
+minimum_pre_commit_version: 4.0.1
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v4.5.0
     hooks:
       - id: end-of-file-fixer
         files: \.(proto|txt|sh|rst)$
+        exclude: ^examples/
   - repo: https://github.com/pre-commit/mirrors-prettier
     rev: "v2.7.1"
     hooks:
@@ -18,7 +20,7 @@ repos:
         entry: python dev/ruff.py
         language: system
         types_or: [python, jupyter]
-        stages: [commit]
+        stages: [pre-commit]
         require_serial: true
 
       - id: format
@@ -26,7 +28,7 @@ repos:
         entry: python dev/format.py
         language: system
         types_or: [python, jupyter]
-        stages: [commit]
+        stages: [pre-commit]
         require_serial: true
 
       - id: taplo
@@ -34,7 +36,7 @@ repos:
         entry: dev/taplo.sh
         language: system
         types: [toml]
-        stages: [commit]
+        stages: [pre-commit]
         require_serial: true
 
       - id: blacken-docs
@@ -42,15 +44,15 @@ repos:
         entry: blacken-docs
         language: system
         types_or: [rst, markdown]
-        stages: [commit]
+        stages: [pre-commit]
         require_serial: true
 
       - id: custom-python-lint
         name: custom-python-lint
         entry: clint
         language: system
-        types: [python]
-        stages: [commit]
+        types_or: [python, jupyter]
+        stages: [pre-commit]
         require_serial: true
 
       - id: rstcheck
@@ -58,7 +60,7 @@ repos:
         entry: rstcheck
         language: system
         files: README.rst
-        stages: [commit]
+        stages: [pre-commit]
         require_serial: true
 
       - id: must-have-signoff
@@ -72,7 +74,7 @@ repos:
         name: mlflow-typo
         entry: dev/mlflow-typo.sh
         language: system
-        stages: [commit]
+        stages: [pre-commit]
         require_serial: true
 
       - id: generate-skinny-requirements
@@ -83,7 +85,7 @@ repos:
             --requirements-txt-output-location requirements/skinny-requirements.txt
         files: "^requirements/skinny-requirements.yaml$"
         language: system
-        stages: [commit]
+        stages: [pre-commit]
         require_serial: true
         pass_filenames: false
 
@@ -95,7 +97,7 @@ repos:
             --requirements-txt-output-location requirements/core-requirements.txt
         files: "^requirements/core-requirements.yaml$"
         language: system
-        stages: [commit]
+        stages: [pre-commit]
         require_serial: true
         pass_filenames: false
 
@@ -107,7 +109,7 @@ repos:
             --requirements-txt-output-location requirements/gateway-requirements.txt
         files: "^requirements/gateway-requirements.yaml$"
         language: system
-        stages: [commit]
+        stages: [pre-commit]
         require_serial: true
         pass_filenames: false
 
@@ -115,7 +117,7 @@ repos:
         name: pyproject
         entry: python dev/pyproject.py
         language: system
-        stages: [commit]
+        stages: [pre-commit]
         require_serial: true
         pass_filenames: false
 
@@ -124,6 +126,14 @@ repos:
         entry: "python dev/update_ml_package_versions.py --skip-yml"
         files: '^(mlflow/ml-package-versions\.yml|mlflow/ml_package_versions\.py)$'
         language: system
-        stages: [commit]
+        stages: [pre-commit]
         require_serial: true
         pass_filenames: false
+
+      - id: lint-proto
+        name: lint-proto
+        entry: dev/lint-proto.sh
+        files: '\.proto$'
+        language: system
+        stages: [pre-commit]
+        require_serial: true

@@ -256,8 +256,9 @@ def test_log_model(cb_model, tmp_path):
 def test_log_model_calls_register_model(cb_model, tmp_path):
     artifact_path = "model"
     registered_model_name = "registered_model"
-    with mlflow.start_run() as run, mock.patch(
-        "mlflow.tracking._model_registry.fluent._register_model"
+    with (
+        mlflow.start_run() as run,
+        mock.patch("mlflow.tracking._model_registry.fluent._register_model"),
     ):
         conda_env_path = os.path.join(tmp_path, "conda_env.yaml")
         _mlflow_conda_env(conda_env_path, additional_pip_deps=["catboost"])
@@ -452,7 +453,7 @@ def test_pyfunc_serve_and_score_sklearn(reg_model):
 
     with mlflow.start_run():
         model_info = mlflow.sklearn.log_model(
-            model, artifact_path="model", input_example=inference_dataframe.head(3)
+            model, "model", input_example=inference_dataframe.head(3)
         )
 
     inference_payload = load_serving_example(model_info.model_uri)
@@ -470,9 +471,10 @@ def test_pyfunc_serve_and_score_sklearn(reg_model):
 
 def test_log_model_with_code_paths(cb_model):
     artifact_path = "model"
-    with mlflow.start_run(), mock.patch(
-        "mlflow.catboost._add_code_from_conf_to_system_path"
-    ) as add_mock:
+    with (
+        mlflow.start_run(),
+        mock.patch("mlflow.catboost._add_code_from_conf_to_system_path") as add_mock,
+    ):
         mlflow.catboost.log_model(cb_model.model, artifact_path, code_paths=[__file__])
         model_uri = mlflow.get_artifact_uri(artifact_path)
         _compare_logged_code_paths(__file__, model_uri, mlflow.catboost.FLAVOR_NAME)
@@ -502,7 +504,7 @@ def test_model_log_with_metadata(cb_model):
 
     with mlflow.start_run():
         mlflow.catboost.log_model(
-            cb_model.model, artifact_path=artifact_path, metadata={"metadata_key": "metadata_value"}
+            cb_model.model, artifact_path, metadata={"metadata_key": "metadata_value"}
         )
         model_uri = mlflow.get_artifact_uri(artifact_path)
 
@@ -515,9 +517,7 @@ def test_model_log_with_signature_inference(cb_model):
     example = cb_model.inference_dataframe.head(3)
 
     with mlflow.start_run():
-        mlflow.catboost.log_model(
-            cb_model.model, artifact_path=artifact_path, input_example=example
-        )
+        mlflow.catboost.log_model(cb_model.model, artifact_path, input_example=example)
         model_uri = mlflow.get_artifact_uri(artifact_path)
 
     model_info = Model.load(model_uri)

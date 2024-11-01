@@ -8,7 +8,7 @@ from abc import ABC, ABCMeta, abstractmethod
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 from mlflow.entities.file_info import FileInfo
 from mlflow.entities.multipart_upload import CreateMultipartUploadResponse, MultipartUploadPart
@@ -37,6 +37,24 @@ def _truncate_error(err: str, max_length: int = 10_000) -> str:
         return err
     half = max_length // 2
     return err[:half] + "\n\n*** Error message is too long, truncated ***\n\n" + err[-half:]
+
+
+def _retry_with_new_creds(try_func, creds_func, orig_creds=None):
+    """
+    Attempt the try_func with the original credentials (og_creds) if provided, or by generating the
+    credentials using creds_func. If the try_func throws, then try again with new credentials
+    provided by creds_func.
+    """
+    try:
+        first_creds = creds_func() if orig_creds is None else orig_creds
+        return try_func(first_creds)
+    except Exception as e:
+        _logger.info(
+            f"Failed to complete request, possibly due to credential expiration (Error: {e})."
+            " Refreshing credentials and trying again..."
+        )
+        new_creds = creds_func()
+        return try_func(new_creds)
 
 
 @developer_stable
@@ -318,7 +336,7 @@ class ArtifactRepository:
         num_cpus = os.cpu_count() or _NUM_DEFAULT_CPUS
         return min(num_cpus * _NUM_MAX_THREADS_PER_CPU, _NUM_MAX_THREADS)
 
-    def download_trace_data(self) -> Dict[str, Any]:
+    def download_trace_data(self) -> dict[str, Any]:
         """
         Download the trace data.
 
@@ -392,7 +410,7 @@ class MultipartUploadMixin(ABC):
         self,
         local_file: str,
         upload_id: str,
-        parts: List[MultipartUploadPart],
+        parts: list[MultipartUploadPart],
         artifact_path: Optional[str] = None,
     ) -> None:
         """

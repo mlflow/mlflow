@@ -1,5 +1,5 @@
 import json
-from typing import TYPE_CHECKING, Any, Dict, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
 if TYPE_CHECKING:
     import dspy
@@ -24,14 +24,14 @@ class DspyModelWrapper(PythonModel):
     def __init__(
         self,
         model: "dspy.Module",
-        dspy_settings: Dict[str, Any],
-        model_config: Optional[Dict[str, Any]] = None,
+        dspy_settings: dict[str, Any],
+        model_config: Optional[dict[str, Any]] = None,
     ):
         self.model = model
         self.dspy_settings = dspy_settings
         self.model_config = model_config or {}
 
-    def predict(self, inputs: Any, params: Optional[Dict[str, Any]] = None):
+    def predict(self, inputs: Any, params: Optional[dict[str, Any]] = None):
         import numpy as np
         import pandas as pd
 
@@ -65,7 +65,7 @@ class DspyModelWrapper(PythonModel):
 class DspyChatModelWrapper(DspyModelWrapper):
     """MLflow PyFunc wrapper class for Dspy chat models."""
 
-    def predict(self, inputs: Any, params: Optional[Dict[str, Any]] = None):
+    def predict(self, inputs: Any, params: Optional[dict[str, Any]] = None):
         import dspy
         import pandas as pd
 
@@ -83,14 +83,27 @@ class DspyChatModelWrapper(DspyModelWrapper):
         outputs = self.model(converted_inputs)
 
         choices = []
-        if isinstance(outputs, dict):
+        if isinstance(outputs, str):
+            choices.append(
+                {
+                    "index": 0,
+                    "message": {"role": "assistant", "content": outputs},
+                    "finish_reason": "stop",
+                }
+            )
+        elif isinstance(outputs, dict):
             role = outputs.get("role", "assistant")
             choices.append(
-                {"message": {"role": role, "content": json.dumps(outputs)}, "finish_reason": "stop"}
+                {
+                    "index": 0,
+                    "message": {"role": role, "content": json.dumps(outputs)},
+                    "finish_reason": "stop",
+                }
             )
         elif isinstance(outputs, dspy.Prediction):
             choices.append(
                 {
+                    "index": 0,
                     "message": {"role": "assistant", "content": json.dumps(outputs.toDict())},
                     "finish_reason": "stop",
                 }
@@ -101,6 +114,7 @@ class DspyChatModelWrapper(DspyModelWrapper):
                     role = output.get("role", "assistant")
                     choices.append(
                         {
+                            "index": 0,
                             "message": {"role": role, "content": json.dumps(outputs)},
                             "finish_reason": "stop",
                         }
@@ -108,6 +122,7 @@ class DspyChatModelWrapper(DspyModelWrapper):
                 elif isinstance(output, dspy.Prediction):
                     choices.append(
                         {
+                            "index": 0,
                             "message": {"role": role, "content": json.dumps(outputs.toDict())},
                             "finish_reason": "stop",
                         }

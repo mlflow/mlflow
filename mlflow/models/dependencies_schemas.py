@@ -1,12 +1,13 @@
+import logging
 from abc import ABC, abstractmethod
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Dict, List, Optional
+from typing import Optional
 
-from mlflow.exceptions import MlflowException
-from mlflow.protos.databricks_pb2 import ALREADY_EXISTS
 from mlflow.utils.annotations import experimental
+
+_logger = logging.getLogger(__name__)
 
 
 class DependenciesSchemasType(Enum):
@@ -23,7 +24,7 @@ def set_retriever_schema(
     primary_key: str,
     text_column: str,
     doc_uri: Optional[str] = None,
-    other_columns: Optional[List[str]] = None,
+    other_columns: Optional[list[str]] = None,
     name: Optional[str] = "retriever",
 ):
     """
@@ -52,27 +53,44 @@ def set_retriever_schema(
                 other_columns=["title"],
             )
     """
-    retriever_schema = globals().get(DependenciesSchemasType.RETRIEVERS.value, [])
+    retriever_schemas = globals().get(DependenciesSchemasType.RETRIEVERS.value, [])
 
     # Check if a retriever schema with the same name already exists
-    if any(schema["name"] == name for schema in retriever_schema):
-        # reset if there is an error to clear the global state for next run
-        _clear_retriever_schema()
-        raise MlflowException(
-            f"A retriever schema with the name '{name}' already exists.",
-            error_code=ALREADY_EXISTS,
+    existing_schema = next((schema for schema in retriever_schemas if schema["name"] == name), None)
+
+    if existing_schema is not None:
+        # Compare all relevant fields
+        if (
+            existing_schema["primary_key"] == primary_key
+            and existing_schema["text_column"] == text_column
+            and existing_schema["doc_uri"] == doc_uri
+            and existing_schema["other_columns"] == (other_columns or [])
+        ):
+            # No difference, no need to warn or update
+            return
+        else:
+            # Differences found, issue a warning
+            _logger.warning(
+                f"A retriever schema with the name '{name}' already exists. "
+                "Overriding the existing schema."
+            )
+            # Override the fields of the existing schema
+            existing_schema["primary_key"] = primary_key
+            existing_schema["text_column"] = text_column
+            existing_schema["doc_uri"] = doc_uri
+            existing_schema["other_columns"] = other_columns or []
+    else:
+        retriever_schemas.append(
+            {
+                "primary_key": primary_key,
+                "text_column": text_column,
+                "doc_uri": doc_uri,
+                "other_columns": other_columns or [],
+                "name": name,
+            }
         )
 
-    retriever_schema.append(
-        {
-            "primary_key": primary_key,
-            "text_column": text_column,
-            "doc_uri": doc_uri,
-            "other_columns": other_columns or [],
-            "name": name,
-        }
-    )
-    globals()[DependenciesSchemasType.RETRIEVERS.value] = retriever_schema
+    globals()[DependenciesSchemasType.RETRIEVERS.value] = retriever_schemas
 
 
 def _get_retriever_schema():
@@ -82,8 +100,8 @@ def _get_retriever_schema():
     Returns:
         VectorSearchIndex: The vector search index schema.
     """
-    retriever_schema_list = globals().get(DependenciesSchemasType.RETRIEVERS.value, [])
-    if not retriever_schema_list:
+    retriever_schemas = globals().get(DependenciesSchemasType.RETRIEVERS.value, [])
+    if not retriever_schemas:
         return []
 
     return [
@@ -94,7 +112,7 @@ def _get_retriever_schema():
             doc_uri=retriever.get("doc_uri"),
             other_columns=retriever.get("other_columns"),
         )
-        for retriever in retriever_schema_list
+        for retriever in retriever_schemas
     ]
 
 
@@ -142,7 +160,7 @@ class Schema(ABC):
 
     @classmethod
     @abstractmethod
-    def from_dict(cls, data: Dict[str, str]):
+    def from_dict(cls, data: dict[str, str]):
         """
         Convert the dictionary to a Resource.
         Subclasses must implement this method.
@@ -168,7 +186,7 @@ class RetrieverSchema(Schema):
         primary_key: str,
         text_column: str,
         doc_uri: Optional[str] = None,
-        other_columns: Optional[List[str]] = None,
+        other_columns: Optional[list[str]] = None,
     ):
         super().__init__(type=DependenciesSchemasType.RETRIEVERS)
         self.name = name
@@ -191,7 +209,7 @@ class RetrieverSchema(Schema):
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, str]):
+    def from_dict(cls, data: dict[str, str]):
         return cls(
             name=data["name"],
             primary_key=data["primary_key"],
@@ -203,9 +221,9 @@ class RetrieverSchema(Schema):
 
 @dataclass
 class DependenciesSchemas:
-    retriever_schemas: List[RetrieverSchema] = field(default_factory=list)
+    retriever_schemas: list[RetrieverSchema] = field(default_factory=list)
 
-    def to_dict(self) -> Dict[str, Dict[DependenciesSchemasType, List[Dict]]]:
+    def to_dict(self) -> dict[str, dict[DependenciesSchemasType, list[dict]]]:
         if not self.retriever_schemas:
             return None
 

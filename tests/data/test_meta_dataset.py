@@ -81,11 +81,14 @@ def test_meta_dataset_digest():
 def test_meta_dataset_with_uc_source():
     path = "/Volumes/dummy_catalog/dummy_schema/dummy_volume/tmp.yaml"
 
-    with patch(
-        "mlflow.data.uc_volume_dataset_source.UCVolumeDatasetSource._verify_uc_path_is_valid",
-        side_effect=MlflowException(f"{path} does not exist in Databricks Unified Catalog."),
-    ), pytest.raises(
-        MlflowException, match=f"{path} does not exist in Databricks Unified Catalog."
+    with (
+        patch(
+            "mlflow.data.uc_volume_dataset_source.UCVolumeDatasetSource._verify_uc_path_is_valid",
+            side_effect=MlflowException(f"{path} does not exist in Databricks Unified Catalog."),
+        ),
+        pytest.raises(
+            MlflowException, match=f"{path} does not exist in Databricks Unified Catalog."
+        ),
     ):
         uc_volume_source = UCVolumeDatasetSource(path)
 

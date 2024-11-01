@@ -165,10 +165,13 @@ def test_get_or_create_execution_directory_is_idempotent(tmp_path):
     shutil.rmtree(execution_dir_path_1)
 
     # Simulate a failure with Makefile creation
-    with mock.patch(
-        "mlflow.recipes.utils.execution._create_makefile",
-        side_effect=Exception("Makefile creation failed"),
-    ), pytest.raises(Exception, match="Makefile creation failed"):
+    with (
+        mock.patch(
+            "mlflow.recipes.utils.execution._create_makefile",
+            side_effect=Exception("Makefile creation failed"),
+        ),
+        pytest.raises(Exception, match="Makefile creation failed"),
+    ):
         _get_or_create_execution_directory(
             recipe_root_path=tmp_path, recipe_steps=[test_step], template="regression/v1"
         )
@@ -190,10 +193,13 @@ def test_get_or_create_execution_directory_is_idempotent(tmp_path):
     shutil.rmtree(execution_dir_path_1)
 
     # Simulate a failure with step-specific directory creation
-    with mock.patch(
-        "mlflow.recipes.utils.execution._get_step_output_directory_path",
-        side_effect=Exception("Step directory creation failed"),
-    ), pytest.raises(Exception, match="Step directory creation failed"):
+    with (
+        mock.patch(
+            "mlflow.recipes.utils.execution._get_step_output_directory_path",
+            side_effect=Exception("Step directory creation failed"),
+        ),
+        pytest.raises(Exception, match="Step directory creation failed"),
+    ):
         _get_or_create_execution_directory(
             recipe_root_path=tmp_path, recipe_steps=[test_step], template="regression/v1"
         )
@@ -238,9 +244,10 @@ def test_run_recipe_step_sets_environment_as_expected(tmp_path):
         def environment(self):
             return {"C": "D"}
 
-    with mock.patch(
-        "mlflow.recipes.utils.execution._exec_cmd"
-    ) as mock_run_in_subprocess, mock.patch("mlflow.recipes.utils.execution._ExecutionPlan"):
+    with (
+        mock.patch("mlflow.recipes.utils.execution._exec_cmd") as mock_run_in_subprocess,
+        mock.patch("mlflow.recipes.utils.execution._ExecutionPlan"),
+    ):
         process = mock.Mock()
         process.stdout.readline = mock.Mock(side_effect="")
         mock_run_in_subprocess.return_value = process
@@ -271,11 +278,10 @@ def test_run_recipe_step_calls_execution_plan(tmp_path):
         def name(self):
             return "test_step"
 
-    with mock.patch(
-        "mlflow.recipes.utils.execution._exec_cmd"
-    ) as mock_run_in_subprocess, mock.patch(
-        "mlflow.recipes.utils.execution._ExecutionPlan"
-    ) as mock_execution_plan:
+    with (
+        mock.patch("mlflow.recipes.utils.execution._exec_cmd") as mock_run_in_subprocess,
+        mock.patch("mlflow.recipes.utils.execution._ExecutionPlan") as mock_execution_plan,
+    ):
         process = mock.Mock()
         process.poll.return_value = 0
         process.stdout.readline = mock.Mock(side_effect="")

@@ -11,7 +11,7 @@ H20 (native) format
 import logging
 import os
 import warnings
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 import yaml
 
@@ -281,7 +281,7 @@ class _H2OModelWrapper:
         """
         return self.h2o_model
 
-    def predict(self, dataframe, params: Optional[Dict[str, Any]] = None):
+    def predict(self, dataframe, params: Optional[dict[str, Any]] = None):
         """
         Args:
             dataframe: Model input data.

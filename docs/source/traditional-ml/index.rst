@@ -107,7 +107,7 @@ Tutorials and Guides
                     <p>
                         Dive deep into custom multi-model inference via MLflow's custom PyFunc models. Learn how to
                         simplify low-latency inference by passing additional inference parameters to a simple custom PyFunc implementation. 
-                        This tutorial can serve as a jumping off point for many multi-model endpoing (MME) use cases!
+                        This tutorial can serve as a jumping off point for many multi-model endpoint (MME) use cases!
                     </p>
                 </a>
             </div>

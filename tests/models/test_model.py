@@ -260,8 +260,9 @@ def test_load_model_without_mlflow_version():
 
 def test_model_log_with_databricks_runtime():
     dbr_version = "8.3.x"
-    with TempDir(chdr=True) as tmp, mock.patch(
-        "mlflow.models.model.get_databricks_runtime_version", return_value=dbr_version
+    with (
+        TempDir(chdr=True) as tmp,
+        mock.patch("mlflow.models.model.get_databricks_runtime_version", return_value=dbr_version),
     ):
         sig = ModelSignature(
             inputs=Schema([ColSpec("integer", "x"), ColSpec("integer", "y")]),
@@ -493,8 +494,8 @@ def test_save_load_input_example_without_conversion(tmp_path):
     }
     with mlflow.start_run() as run:
         mlflow.pyfunc.log_model(
+            "test_model",
             python_model=MyModel(),
-            artifact_path="test_model",
             input_example=input_example,
         )
         local_path = _download_artifact_from_uri(

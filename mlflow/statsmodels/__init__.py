@@ -17,7 +17,7 @@ import inspect
 import itertools
 import logging
 import os
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 import yaml
 
@@ -337,7 +337,7 @@ class _StatsmodelsModelWrapper:
     def predict(
         self,
         dataframe,
-        params: Optional[Dict[str, Any]] = None,
+        params: Optional[dict[str, Any]] = None,
     ):
         """
         Args:
@@ -561,7 +561,7 @@ def autolog(
                     try:
                         log_model(
                             model,
-                            artifact_path="model",
+                            "model",
                             registered_model_name=registered_model_name,
                         )
                     finally:

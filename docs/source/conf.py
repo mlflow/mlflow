@@ -50,6 +50,11 @@ extensions = [
 # target must define the final url (i.e. no trailing slash).
 redirects = {
     "registry": "model-registry.html",
+    "llms/gateway": "../deployments",
+    "llms/gateway/index.html": "../deployments/index.html",
+    "llms/gateway/guides/index.html": "../../deployments/guides/index.html",
+    "llms/gateway/guides/step1-create-gateway.html": "../../deployments/guides/step1-create-deployments.html",
+    "llms/gateway/guides/step2-query-gateway.html": "../../deployments/guides/step2-query-deployments.html",
 }
 
 # Add any paths that contain templates here, relative to this directory.
@@ -377,6 +382,8 @@ nitpick_ignore = [
     ("py:class", "mlflow.models.dependencies_schemas.set_retriever_schema"),
     ("py:class", "mlflow.metrics.genai.base.EvaluationExample"),
     ("py:class", "mlflow.models.evaluation.base.EvaluationMetric"),
+    ("py:class", "mlflow.models.evaluation.base.EvaluationResult"),
+    ("py:class", "mlflow.models.evaluation.validation.MetricThreshold"),
     ("py:class", "MlflowInferableDataset"),
     ("py:class", "csr_matrix"),
     ("py:class", "csc_matrix"),
@@ -406,6 +413,9 @@ nitpick_ignore = [
     ("py:class", "array"),
     ("py:class", "boolean"),
     ("py:class", "null"),
+    # for docstring of mlflow.models.update_model_requirements
+    ("py:class", "add"),
+    ("py:class", "remove"),
 ]
 
 

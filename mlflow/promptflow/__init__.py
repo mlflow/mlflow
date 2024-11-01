@@ -15,7 +15,7 @@ import logging
 import os
 import shutil
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Optional, Union
 
 import pandas as pd
 import yaml
@@ -107,7 +107,7 @@ def log_model(
     pip_requirements=None,
     extra_pip_requirements=None,
     metadata=None,
-    model_config: Optional[Dict[str, Any]] = None,
+    model_config: Optional[dict[str, Any]] = None,
     example_no_conversion=None,
 ):
     """
@@ -208,7 +208,7 @@ def save_model(
     pip_requirements=None,
     extra_pip_requirements=None,
     metadata=None,
-    model_config: Optional[Dict[str, Any]] = None,
+    model_config: Optional[dict[str, Any]] = None,
     example_no_conversion=None,
 ):
     """
@@ -382,7 +382,7 @@ def _resolve_env_from_flow(flow_dag_path):
 
 
 class _PromptflowModelWrapper:
-    def __init__(self, model, model_config: Optional[Dict[str, Any]] = None):
+    def __init__(self, model, model_config: Optional[dict[str, Any]] = None):
         from promptflow._sdk._mlflow import FlowInvoker
 
         self.model = model
@@ -406,8 +406,8 @@ class _PromptflowModelWrapper:
 
     def predict(  # pylint: disable=unused-argument
         self,
-        data: Union[pd.DataFrame, List[Union[str, Dict[str, Any]]]],
-        params: Optional[Dict[str, Any]] = None,  # pylint: disable=unused-argument
+        data: Union[pd.DataFrame, list[Union[str, dict[str, Any]]]],
+        params: Optional[dict[str, Any]] = None,  # pylint: disable=unused-argument
     ) -> Union[dict, list]:
         """
         Args:
@@ -437,7 +437,7 @@ class _PromptflowModelWrapper:
         raise mlflow.MlflowException.invalid_parameter_value(_INVALID_PREDICT_INPUT_ERROR_MESSAGE)
 
 
-def _load_pyfunc(path, model_config: Optional[Dict[str, Any]] = None):  # noqa: D417
+def _load_pyfunc(path, model_config: Optional[dict[str, Any]] = None):  # noqa: D417
     """
     Load PyFunc implementation for Promptflow. Called by ``pyfunc.load_model``.
 

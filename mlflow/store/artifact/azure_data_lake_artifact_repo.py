@@ -2,7 +2,6 @@ import os
 import posixpath
 import re
 import urllib.parse
-from typing import List
 
 import requests
 
@@ -15,11 +14,11 @@ from mlflow.environment_variables import (
 )
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_artifacts_pb2 import ArtifactCredentialInfo
+from mlflow.store.artifact.artifact_repo import _retry_with_new_creds
 from mlflow.store.artifact.cloud_artifact_repo import (
     CloudArtifactRepository,
     _complete_futures,
     _compute_num_chunks,
-    _retry_with_new_creds,
 )
 
 
@@ -125,7 +124,7 @@ class AzureDataLakeArtifactRepository(CloudArtifactRepository):
                     file_client.upload_data(data=file, overwrite=True)
 
         _retry_with_new_creds(
-            try_func=try_func, creds_func=self._refresh_credentials, og_creds=self.fs_client
+            try_func=try_func, creds_func=self._refresh_credentials, orig_creds=self.fs_client
         )
 
     def list_artifacts(self, path=None):
@@ -166,7 +165,7 @@ class AzureDataLakeArtifactRepository(CloudArtifactRepository):
                 file_client.download_file().readinto(file)
 
         _retry_with_new_creds(
-            try_func=try_func, creds_func=self._refresh_credentials, og_creds=self.fs_client
+            try_func=try_func, creds_func=self._refresh_credentials, orig_creds=self.fs_client
         )
 
     def delete_artifacts(self, artifact_path=None):
@@ -265,13 +264,13 @@ class AzureDataLakeArtifactRepository(CloudArtifactRepository):
             f"{self.base_data_lake_directory}/{artifact_file_path}?{sas_token}"
         )
 
-    def _get_write_credential_infos(self, remote_file_paths) -> List[ArtifactCredentialInfo]:
+    def _get_write_credential_infos(self, remote_file_paths) -> list[ArtifactCredentialInfo]:
         return [
             ArtifactCredentialInfo(signed_uri=self._get_presigned_uri(path))
             for path in remote_file_paths
         ]
 
-    def _get_read_credential_infos(self, remote_file_paths) -> List[ArtifactCredentialInfo]:
+    def _get_read_credential_infos(self, remote_file_paths) -> list[ArtifactCredentialInfo]:
         return [
             ArtifactCredentialInfo(signed_uri=self._get_presigned_uri(path))
             for path in remote_file_paths

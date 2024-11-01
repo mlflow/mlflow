@@ -1,5 +1,5 @@
 import logging
-from typing import Any, Dict, Optional, Sequence
+from typing import Any, Optional, Sequence
 
 from cachetools import TTLCache
 from opentelemetry.sdk.trace import ReadableSpan
@@ -14,7 +14,7 @@ from mlflow.tracing.trace_manager import InMemoryTraceManager
 _logger = logging.getLogger(__name__)
 
 
-def pop_trace(request_id: str) -> Optional[Dict[str, Any]]:
+def pop_trace(request_id: str) -> Optional[dict[str, Any]]:
     """
     Pop the completed trace data from the buffer. This method is used in
     the Databricks model serving so please be careful when modifying it.

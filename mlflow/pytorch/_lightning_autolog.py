@@ -558,8 +558,8 @@ def patched_fit(original, self, *args, **kwargs):
                 mlflow.pytorch.FLAVOR_NAME, "registered_model_name", None
             )
             mlflow.pytorch.log_model(
-                pytorch_model=self.model,
-                artifact_path="model",
+                self.model,
+                "model",
                 registered_model_name=registered_model_name,
             )
 

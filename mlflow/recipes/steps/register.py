@@ -1,6 +1,6 @@
 import logging
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any
 
 import mlflow
 from mlflow.entities import SourceType
@@ -29,7 +29,7 @@ _REGISTERED_MV_INFO_FILE = "registered_model_version.json"
 
 
 class RegisterStep(BaseStep):
-    def __init__(self, step_config: Dict[str, Any], recipe_root: str):
+    def __init__(self, step_config: dict[str, Any], recipe_root: str):
         super().__init__(step_config, recipe_root)
         self.tracking_config = TrackingConfig.from_dict(self.step_config)
 

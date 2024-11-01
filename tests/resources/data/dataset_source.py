@@ -1,4 +1,4 @@
-from typing import Any, Dict
+from typing import Any
 from urllib.parse import urlparse
 
 from mlflow.artifacts import download_artifacts
@@ -39,11 +39,11 @@ class SampleDatasetSource(DatasetSource):
     def _resolve(cls, raw_source: Any) -> DatasetSource:
         return cls(raw_source)
 
-    def to_dict(self) -> Dict[Any, Any]:
+    def to_dict(self) -> dict[Any, Any]:
         return {"uri": self.uri}
 
     @classmethod
-    def from_dict(cls, source_dict: Dict[Any, Any]) -> DatasetSource:
+    def from_dict(cls, source_dict: dict[Any, Any]) -> DatasetSource:
         uri = source_dict.get("uri")
         if uri is None:
             raise MlflowException(

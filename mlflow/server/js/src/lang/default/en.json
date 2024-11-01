@@ -727,6 +727,10 @@
     "defaultMessage": "Cancel",
     "description": "Experiment page > new run modal > \"cancel\" button label"
   },
+  "Ccc4/4": {
+    "defaultMessage": "Artifacts",
+    "description": "Row group title for artifacts of runs on the experiment compare runs page"
+  },
   "CevPsF": {
     "defaultMessage": "Add section above",
     "description": "Experiment page > compare runs > chart section > add section above label"
@@ -982,6 +986,10 @@
   "IKx3DN": {
     "defaultMessage": "Predict on a Pandas DataFrame.",
     "description": "Code comment which states on how we can predict using pandas DataFrame"
+  },
+  "IUAmWX": {
+    "defaultMessage": "No common artifacts to display.",
+    "description": "Text shown when there are no common artifacts between the runs"
   },
   "IWuVOI": {
     "defaultMessage": "Failed to add tag. Error: {userVisibleError}",

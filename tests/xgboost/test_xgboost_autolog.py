@@ -240,8 +240,9 @@ def test_xgb_autolog_with_sklearn_outputs_do_not_reflect_training_dataset_mutati
         X["TESTCOL"] = 5
         return original_xgb_regressor_predict(self, *args, **kwargs)
 
-    with mock.patch("xgboost.XGBRegressor.fit", patched_xgb_regressor_fit), mock.patch(
-        "xgboost.XGBRegressor.predict", patched_xgb_regressor_predict
+    with (
+        mock.patch("xgboost.XGBRegressor.fit", patched_xgb_regressor_fit),
+        mock.patch("xgboost.XGBRegressor.predict", patched_xgb_regressor_predict),
     ):
         xgb.XGBRegressor.fit = patched_xgb_regressor_fit
         xgb.XGBRegressor.predict = patched_xgb_regressor_predict

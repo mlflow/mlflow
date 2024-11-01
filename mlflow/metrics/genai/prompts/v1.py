@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import Any, Dict, List
+from typing import Any, Optional
 
 from mlflow.metrics.genai.base import EvaluationExample
 from mlflow.metrics.genai.prompt_template import PromptTemplate
@@ -69,9 +69,9 @@ class EvaluationModel:
     name: str
     definition: str
     grading_prompt: str
-    examples: List[EvaluationExample] = None
+    examples: Optional[list[EvaluationExample]] = None
     model: str = default_model
-    parameters: Dict[str, Any] = field(default_factory=lambda: default_parameters)
+    parameters: dict[str, Any] = field(default_factory=lambda: default_parameters)
 
     def to_dict(self):
         examples_str = (

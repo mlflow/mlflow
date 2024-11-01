@@ -1,5 +1,5 @@
 import json
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 import numpy as np
 import pandas as pd
@@ -13,7 +13,7 @@ from mlflow_test_plugin.dummy_dataset_source import DummyDatasetSource
 class DummyDataset(Dataset):
     def __init__(
         self,
-        data_list: List[int],
+        data_list: list[int],
         source: DummyDatasetSource,
         name: Optional[str] = None,
         digest: Optional[str] = None,
@@ -28,7 +28,7 @@ class DummyDataset(Dataset):
         """
         return pd.util.hash_array(np.ndarray(self._data_list))
 
-    def _to_dict(self, base_dict: Dict[str, str]) -> Dict[str, str]:
+    def _to_dict(self, base_dict: dict[str, str]) -> dict[str, str]:
         """
         Args:
             base_dict: A string dictionary of base information about the
@@ -46,7 +46,7 @@ class DummyDataset(Dataset):
         }
 
     @property
-    def data_list(self) -> List[int]:
+    def data_list(self) -> list[int]:
         return self._data_list
 
     @property
@@ -65,7 +65,7 @@ class DummyDataset(Dataset):
 
 
 def from_dummy(
-    data_list: List[int], source: str, name: Optional[str] = None, digest: Optional[str] = None
+    data_list: list[int], source: str, name: Optional[str] = None, digest: Optional[str] = None
 ) -> DummyDataset:
     from mlflow.data.dataset_source_registry import resolve_dataset_source
 

@@ -16,11 +16,12 @@ from mlflow.store.artifact.local_artifact_repo import LocalArtifactRepository
     [("dbfs:/path", "file:///dbfs/path"), ("dbfs://databricks/path", "file:///dbfs/path")],
 )
 def test_dbfs_artifact_repo_factory_local_repo(artifact_uri, uri_at_init):
-    with mock.patch(
-        "mlflow.utils.databricks_utils.is_dbfs_fuse_available", return_value=True
-    ), mock.patch(
-        "mlflow.store.artifact.dbfs_artifact_repo.LocalArtifactRepository", autospec=True
-    ) as mock_repo:
+    with (
+        mock.patch("mlflow.utils.databricks_utils.is_dbfs_fuse_available", return_value=True),
+        mock.patch(
+            "mlflow.store.artifact.dbfs_artifact_repo.LocalArtifactRepository", autospec=True
+        ) as mock_repo,
+    ):
         repo = dbfs_artifact_repo_factory(artifact_uri)
         assert isinstance(repo, LocalArtifactRepository)
         mock_repo.assert_called_once_with(uri_at_init)
@@ -42,11 +43,12 @@ def test_dbfs_artifact_repo_factory_local_repo(artifact_uri, uri_at_init):
     ],
 )
 def test_dbfs_artifact_repo_factory_dbfs_rest_repo(artifact_uri):
-    with mock.patch(
-        "mlflow.utils.databricks_utils.is_dbfs_fuse_available", return_value=True
-    ), mock.patch(
-        "mlflow.store.artifact.dbfs_artifact_repo.DbfsRestArtifactRepository", autospec=True
-    ) as mock_repo:
+    with (
+        mock.patch("mlflow.utils.databricks_utils.is_dbfs_fuse_available", return_value=True),
+        mock.patch(
+            "mlflow.store.artifact.dbfs_artifact_repo.DbfsRestArtifactRepository", autospec=True
+        ) as mock_repo,
+    ):
         repo = dbfs_artifact_repo_factory(artifact_uri)
         assert isinstance(repo, DbfsRestArtifactRepository)
         mock_repo.assert_called_once_with(artifact_uri)
@@ -62,15 +64,16 @@ def test_dbfs_artifact_repo_factory_dbfs_rest_repo(artifact_uri):
 )
 def test_dbfs_artifact_repo_factory_acled_paths(artifact_uri):
     repo_pkg_path = "mlflow.store.artifact.databricks_artifact_repo"
-    with mock.patch(
-        "mlflow.utils.databricks_utils.is_dbfs_fuse_available", return_value=True
-    ), mock.patch(
-        "mlflow.store.artifact.dbfs_artifact_repo.DatabricksArtifactRepository", autospec=True
-    ) as mock_repo, mock.patch(
-        repo_pkg_path + ".get_databricks_host_creds", return_value=None
-    ), mock.patch(
-        repo_pkg_path + ".DatabricksArtifactRepository._get_run_artifact_root",
-        return_value="whatever",
+    with (
+        mock.patch("mlflow.utils.databricks_utils.is_dbfs_fuse_available", return_value=True),
+        mock.patch(
+            "mlflow.store.artifact.dbfs_artifact_repo.DatabricksArtifactRepository", autospec=True
+        ) as mock_repo,
+        mock.patch(repo_pkg_path + ".get_databricks_host_creds", return_value=None),
+        mock.patch(
+            repo_pkg_path + ".DatabricksArtifactRepository._get_run_artifact_root",
+            return_value="whatever",
+        ),
     ):
         repo = dbfs_artifact_repo_factory(artifact_uri)
         assert isinstance(repo, DatabricksArtifactRepository)

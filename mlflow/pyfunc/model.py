@@ -9,7 +9,7 @@ import os
 import shutil
 from abc import ABCMeta, abstractmethod
 from pathlib import Path
-from typing import Any, Dict, Iterator, List, Optional, Union
+from typing import Any, Iterator, Optional, Union
 
 import cloudpickle
 import pandas as pd
@@ -27,6 +27,7 @@ from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.pyfunc.utils.input_converter import _hydrate_dataclass
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.types.llm import ChatMessage, ChatParams, ChatResponse
+from mlflow.types.utils import _is_list_dict_str, _is_list_str
 from mlflow.utils.annotations import experimental
 from mlflow.utils.environment import (
     _CONDA_ENV_FILE_NAME,
@@ -112,7 +113,7 @@ class PythonModel:
         return _extract_type_hints(self.predict, input_arg_index=1)
 
     @abstractmethod
-    def predict(self, context, model_input, params: Optional[Dict[str, Any]] = None):
+    def predict(self, context, model_input, params: Optional[dict[str, Any]] = None):
         """
         Evaluates a pyfunc-compatible input and produces a pyfunc-compatible output.
         For more information about the pyfunc input/output API, see the :ref:`pyfunc-inference-api`.
@@ -124,7 +125,7 @@ class PythonModel:
             params: Additional parameters to pass to the model for inference.
         """
 
-    def predict_stream(self, context, model_input, params: Optional[Dict[str, Any]] = None):
+    def predict_stream(self, context, model_input, params: Optional[dict[str, Any]] = None):
         """
         Evaluates a pyfunc-compatible input and produces an iterator of output.
         For more information about the pyfunc input API, see the :ref:`pyfunc-inference-api`.
@@ -156,7 +157,7 @@ class _FunctionPythonModel(PythonModel):
         self,
         context,
         model_input,
-        params: Optional[Dict[str, Any]] = None,
+        params: Optional[dict[str, Any]] = None,
     ):
         """
         Args:
@@ -228,11 +229,13 @@ class ChatModel(PythonModel, metaclass=ABCMeta):
     """
 
     @abstractmethod
-    def predict(self, context, messages: List[ChatMessage], params: ChatParams) -> ChatResponse:  # noqa: D417
+    def predict(self, context, messages: list[ChatMessage], params: ChatParams) -> ChatResponse:
         """
         Evaluates a chat input and produces a chat output.
 
         Args:
+            context: A :class:`~PythonModelContext` instance containing artifacts that the model
+                can use to perform inference.
             messages (List[:py:class:`ChatMessage <mlflow.types.llm.ChatMessage>`]):
                 A list of :py:class:`ChatMessage <mlflow.types.llm.ChatMessage>`
                 objects representing chat history.
@@ -246,8 +249,8 @@ class ChatModel(PythonModel, metaclass=ABCMeta):
             the model's response(s), as well as other metadata.
         """
 
-    def predict_stream(  # noqa: D417
-        self, context, messages: List[ChatMessage], params: ChatParams
+    def predict_stream(
+        self, context, messages: list[ChatMessage], params: ChatParams
     ) -> Iterator[ChatResponse]:
         """
         Evaluates a chat input and produces a chat output.
@@ -255,6 +258,8 @@ class ChatModel(PythonModel, metaclass=ABCMeta):
         By default, this function just yields result of `predict` function.
 
         Args:
+            context: A :class:`~PythonModelContext` instance containing artifacts that the model
+                can use to perform inference.
             messages (List[:py:class:`ChatMessage <mlflow.types.llm.ChatMessage>`]):
                 A list of :py:class:`ChatMessage <mlflow.types.llm.ChatMessage>`
                 objects representing chat history.
@@ -494,7 +499,7 @@ def _save_model_with_class_artifacts_params(  # noqa: D417
 
 
 def _load_context_model_and_signature(
-    model_path: str, model_config: Optional[Dict[str, Any]] = None
+    model_path: str, model_config: Optional[dict[str, Any]] = None
 ):
     pyfunc_config = _get_flavor_configuration(
         model_path=model_path, flavor_name=mlflow.pyfunc.FLAVOR_NAME
@@ -547,7 +552,7 @@ def _load_context_model_and_signature(
     return context, python_model, signature
 
 
-def _load_pyfunc(model_path: str, model_config: Optional[Dict[str, Any]] = None):
+def _load_pyfunc(model_path: str, model_config: Optional[dict[str, Any]] = None):
     context, python_model, signature = _load_context_model_and_signature(model_path, model_config)
     return _PythonModelPyfuncWrapper(
         python_model=python_model,
@@ -583,7 +588,7 @@ class _PythonModelPyfuncWrapper:
         import pandas as pd
 
         hints = self.python_model._get_type_hints()
-        if hints.input == List[str]:
+        if _is_list_str(hints.input):
             if isinstance(model_input, pd.DataFrame):
                 first_string_column = _get_first_string_column(model_input)
                 if first_string_column is None:
@@ -596,7 +601,7 @@ class _PythonModelPyfuncWrapper:
                     return [next(iter(d.values())) for d in model_input]
                 elif all(isinstance(x, str) for x in model_input):
                     return model_input
-        elif hints.input == List[Dict[str, str]]:
+        elif _is_list_dict_str(hints.input):
             if isinstance(model_input, pd.DataFrame):
                 if (
                     len(self.signature.inputs) == 1
@@ -624,7 +629,7 @@ class _PythonModelPyfuncWrapper:
                 return _hydrate_dataclass(hints.input, model_input.iloc[0])
         return model_input
 
-    def predict(self, model_input, params: Optional[Dict[str, Any]] = None):
+    def predict(self, model_input, params: Optional[dict[str, Any]] = None):
         """
         Args:
             model_input: Model input data as one of dict, str, bool, bytes, float, int, str type.
@@ -641,7 +646,7 @@ class _PythonModelPyfuncWrapper:
         _log_warning_if_params_not_in_predict_signature(_logger, params)
         return self.python_model.predict(self.context, self._convert_input(model_input))
 
-    def predict_stream(self, model_input, params: Optional[Dict[str, Any]] = None):
+    def predict_stream(self, model_input, params: Optional[dict[str, Any]] = None):
         """
         Args:
             model_input: LLM Model single input.
@@ -674,13 +679,15 @@ class ModelFromDeploymentEndpoint(PythonModel):
         self.endpoint = endpoint
         self.params = params
 
-    def predict(  # noqa: D417
-        self, context, model_input: Union[pd.DataFrame, Dict[str, Any], List[Dict[str, Any]]]
+    def predict(
+        self, context, model_input: Union[pd.DataFrame, dict[str, Any], list[dict[str, Any]]]
     ):
         """
         Run prediction on the input data.
 
         Args:
+            context: A :class:`~PythonModelContext` instance containing artifacts that the model
+                can use to perform inference.
             model_input: The input data for prediction, either of the following:
                 - Pandas DataFrame: If the default evaluator is used, input is a DF
                     that contains the multiple request payloads in a single column.
@@ -719,7 +726,7 @@ class ModelFromDeploymentEndpoint(PythonModel):
                 error_code=INVALID_PARAMETER_VALUE,
             )
 
-    def _predict_single(self, data: Union[str, Dict[str, Any]]) -> Dict[str, Any]:
+    def _predict_single(self, data: Union[str, dict[str, Any]]) -> dict[str, Any]:
         """
         Send a single prediction request to the MLflow Deployments endpoint.
 
@@ -731,12 +738,20 @@ class ModelFromDeploymentEndpoint(PythonModel):
         Returns:
             The prediction result from the MLflow Deployments endpoint as a dictionary.
         """
-        from mlflow.metrics.genai.model_utils import _call_deployments_api
+        from mlflow.metrics.genai.model_utils import call_deployments_api, get_endpoint_type
+
+        endpoint_type = get_endpoint_type(f"endpoints:/{self.endpoint}")
 
         if isinstance(data, str):
-            prediction = _call_deployments_api(self.endpoint, data, self.params)
+            # If the input payload is string, MLflow needs to construct the JSON
+            # payload based on the endpoint type. If the endpoint type is not
+            # set on the endpoint, we will default to chat format.
+            endpoint_type = endpoint_type or "llm/v1/chat"
+            prediction = call_deployments_api(self.endpoint, data, self.params, endpoint_type)
         elif isinstance(data, dict):
-            prediction = _call_deployments_api(self.endpoint, data, self.params, wrap_payload=False)
+            # If the input is dictionary, we assume the input is already in the
+            # compatible format for the endpoint.
+            prediction = call_deployments_api(self.endpoint, data, self.params, endpoint_type)
         else:
             raise MlflowException(
                 f"Invalid input data type: {type(data)}. The feature column of the evaluation "

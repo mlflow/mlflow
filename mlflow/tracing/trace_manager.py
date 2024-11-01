@@ -2,7 +2,7 @@ import contextlib
 import logging
 import threading
 from dataclasses import dataclass, field
-from typing import Dict, Generator, Optional
+from typing import Generator, Optional
 
 from cachetools import TTLCache
 
@@ -21,7 +21,7 @@ _logger = logging.getLogger(__name__)
 @dataclass
 class _Trace:
     info: TraceInfo
-    span_dict: Dict[str, LiveSpan] = field(default_factory=dict)
+    span_dict: dict[str, LiveSpan] = field(default_factory=dict)
 
     def to_mlflow_trace(self) -> Trace:
         trace_data = TraceData()
@@ -53,12 +53,12 @@ class InMemoryTraceManager:
 
     def __init__(self):
         # Storing request_id -> _Trace mapping
-        self._traces: Dict[str, _Trace] = TTLCache(
+        self._traces: dict[str, _Trace] = TTLCache(
             maxsize=MLFLOW_TRACE_BUFFER_MAX_SIZE.get(),
             ttl=MLFLOW_TRACE_BUFFER_TTL_SECONDS.get(),
         )
         # Store mapping between OpenTelemetry trace ID and MLflow request ID
-        self._trace_id_to_request_id: Dict[int, str] = {}
+        self._trace_id_to_request_id: dict[int, str] = {}
         self._lock = threading.Lock()  # Lock for _traces
 
     def register_trace(self, trace_id: int, trace_info: TraceInfo):

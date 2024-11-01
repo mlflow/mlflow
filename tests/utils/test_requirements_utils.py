@@ -300,13 +300,17 @@ def test_infer_requirements_excludes_mlflow():
 
 
 def test_infer_requirements_prints_warning_for_unrecognized_packages():
-    with mock.patch(
-        "mlflow.utils.requirements_utils._capture_imported_modules",
-        return_value=["sklearn"],
-    ), mock.patch(
-        "mlflow.utils.requirements_utils._PYPI_PACKAGE_INDEX",
-        _PyPIPackageIndex(date="2022-01-01", package_names=set()),
-    ), mock.patch("mlflow.utils.requirements_utils._logger.warning") as mock_warning:
+    with (
+        mock.patch(
+            "mlflow.utils.requirements_utils._capture_imported_modules",
+            return_value=["sklearn"],
+        ),
+        mock.patch(
+            "mlflow.utils.requirements_utils._PYPI_PACKAGE_INDEX",
+            _PyPIPackageIndex(date="2022-01-01", package_names=set()),
+        ),
+        mock.patch("mlflow.utils.requirements_utils._logger.warning") as mock_warning,
+    ):
         _infer_requirements("path/to/model", "sklearn")
 
         mock_warning.assert_called_once()
@@ -318,13 +322,17 @@ def test_infer_requirements_prints_warning_for_unrecognized_packages():
 
 
 def test_infer_requirements_does_not_print_warning_for_recognized_packages():
-    with mock.patch(
-        "mlflow.utils.requirements_utils._capture_imported_modules",
-        return_value=["sklearn"],
-    ), mock.patch(
-        "mlflow.utils.requirements_utils._PYPI_PACKAGE_INDEX",
-        _PyPIPackageIndex(date="2022-01-01", package_names={"scikit-learn"}),
-    ), mock.patch("mlflow.utils.requirements_utils._logger.warning") as mock_warning:
+    with (
+        mock.patch(
+            "mlflow.utils.requirements_utils._capture_imported_modules",
+            return_value=["sklearn"],
+        ),
+        mock.patch(
+            "mlflow.utils.requirements_utils._PYPI_PACKAGE_INDEX",
+            _PyPIPackageIndex(date="2022-01-01", package_names={"scikit-learn"}),
+        ),
+        mock.patch("mlflow.utils.requirements_utils._logger.warning") as mock_warning,
+    ):
         _infer_requirements("path/to/model", "sklearn")
         mock_warning.assert_not_called()
 
@@ -380,21 +388,29 @@ def test_infer_pip_requirements_scopes_databricks_imports():
     mlflow.utils.requirements_utils._MODULES_TO_PACKAGES = None
     mlflow.utils.requirements_utils._PACKAGES_TO_MODULES = None
 
-    with mock.patch(
-        "mlflow.utils.requirements_utils._capture_imported_modules",
-        return_value=[
-            "databricks.automl",
-            "databricks.model_monitoring",
-            "databricks.automl_runtime",
-        ],
-    ), mock.patch(
-        "mlflow.utils.requirements_utils._get_installed_version",
-        return_value="1.0",
-    ), mock.patch(
-        "importlib_metadata.packages_distributions",
-        return_value={
-            "databricks": ["databricks-automl-runtime", "databricks-model-monitoring", "koalas"],
-        },
+    with (
+        mock.patch(
+            "mlflow.utils.requirements_utils._capture_imported_modules",
+            return_value=[
+                "databricks.automl",
+                "databricks.model_monitoring",
+                "databricks.automl_runtime",
+            ],
+        ),
+        mock.patch(
+            "mlflow.utils.requirements_utils._get_installed_version",
+            return_value="1.0",
+        ),
+        mock.patch(
+            "importlib_metadata.packages_distributions",
+            return_value={
+                "databricks": [
+                    "databricks-automl-runtime",
+                    "databricks-model-monitoring",
+                    "koalas",
+                ],
+            },
+        ),
     ):
         assert _infer_requirements("path/to/model", "sklearn") == [
             "databricks-automl-runtime==1.0",
@@ -417,8 +433,8 @@ def test_capture_imported_modules_include_deps_by_params():
 
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
+            "test_model",
             python_model=MyModel(),
-            artifact_path="test_model",
             input_example=(["input1"], params),
         )
 
@@ -447,8 +463,8 @@ def test_capture_imported_modules_includes_gateway_extra(module_to_import, shoul
 
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
+            "test_model",
             python_model=MyModel(),
-            artifact_path="test_model",
             input_example=([1, 2, 3]),
         )
 
@@ -468,8 +484,8 @@ def test_gateway_extra_not_captured_when_importing_deployment_client_only():
 
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
+            "test_model",
             python_model=MyModel(),
-            artifact_path="test_model",
             input_example=([1, 2, 3]),
         )
 
@@ -677,7 +693,9 @@ def test_capture_imported_modules_raises_when_env_var_set(monkeypatch):
             )
 
 
-def test_capture_imported_modules_correct():
+def test_capture_imported_modules_correct(monkeypatch):
+    monkeypatch.setenv("MLFLOW_REQUIREMENTS_INFERENCE_RAISE_ERRORS", "true")
+
     class TestModel(mlflow.pyfunc.PythonModel):
         def predict(self, context, model_input, params=None):
             import pandas  # noqa: F401
@@ -692,8 +710,27 @@ def test_capture_imported_modules_correct():
             input_example="test",
         )
 
-    with mock.patch("mlflow.utils.requirements_utils._logger.warning") as mock_warning:
-        modules = _capture_imported_modules(model_info.model_uri, mlflow.pyfunc.FLAVOR_NAME)
-        mock_warning.assert_not_called()
-        assert "pandas" in modules
-        assert "sklearn" in modules
+    modules = _capture_imported_modules(model_info.model_uri, mlflow.pyfunc.FLAVOR_NAME)
+    assert "pandas" in modules
+    assert "sklearn" in modules
+
+
+def test_capture_imported_modules_extra_env_vars(monkeypatch):
+    monkeypatch.setenv("MLFLOW_REQUIREMENTS_INFERENCE_RAISE_ERRORS", "true")
+
+    class TestModel(mlflow.pyfunc.PythonModel):
+        def predict(self, context, model_input, params=None):
+            assert os.environ["TEST"] == "test"
+            return model_input
+
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model(
+            "model",
+            python_model=TestModel(),
+            input_example="test",
+            pip_requirements=[],
+        )
+
+    _capture_imported_modules(
+        model_info.model_uri, mlflow.pyfunc.FLAVOR_NAME, extra_env_vars={"TEST": "test"}
+    )

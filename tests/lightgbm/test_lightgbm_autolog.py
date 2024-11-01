@@ -235,8 +235,9 @@ def test_lgb_autolog_with_sklearn_outputs_do_not_reflect_training_dataset_mutati
         X["TESTCOL"] = 5
         return original_lgb_classifier_predict(self, *args, **kwargs)
 
-    with mock.patch("lightgbm.LGBMClassifier.fit", patched_lgb_classifier_fit), mock.patch(
-        "lightgbm.LGBMClassifier.predict", patched_lgb_classifier_predict
+    with (
+        mock.patch("lightgbm.LGBMClassifier.fit", patched_lgb_classifier_fit),
+        mock.patch("lightgbm.LGBMClassifier.predict", patched_lgb_classifier_predict),
     ):
         mlflow.lightgbm.autolog(log_models=True, log_model_signatures=True, log_input_examples=True)
 

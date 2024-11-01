@@ -2,8 +2,9 @@ import inspect
 import json
 import logging
 from functools import singledispatchmethod
-from typing import Any, Dict, Generator, Optional, Tuple, Union
+from typing import Any, Generator, Optional, Union
 
+import llama_index.core
 import pydantic
 from llama_index.core.base.agent.types import BaseAgent, BaseAgentWorker, TaskStepOutput
 from llama_index.core.base.base_retriever import BaseRetriever
@@ -41,6 +42,7 @@ from mlflow.tracking.client import MlflowClient
 _logger = logging.getLogger(__name__)
 
 IS_PYDANTIC_V1 = Version(pydantic.__version__).major < 2
+LLAMA_INDEX_VERSION = Version(llama_index.core.__version__)
 
 
 def set_llama_index_tracer():
@@ -125,7 +127,7 @@ class MlflowSpanHandler(BaseSpanHandler[_LlamaSpan], extra="allow"):
     def __init__(self):
         super().__init__()
         self._stream_resolver = StreamResolver()
-        self._pending_spans: Dict[str, _LlamaSpan] = {}
+        self._pending_spans: dict[str, _LlamaSpan] = {}
 
     @classmethod
     def class_name(cls) -> str:
@@ -143,11 +145,14 @@ class MlflowSpanHandler(BaseSpanHandler[_LlamaSpan], extra="allow"):
         parent_span_id: Optional[str] = None,
         **kwargs: Any,
     ) -> _LlamaSpan:
+        with self.lock:
+            parent = self.open_spans.get(parent_span_id) if parent_span_id else None
+
         try:
             input_args = bound_args.arguments
             attributes = self._get_instance_attributes(instance)
             span_type = self._get_span_type(instance) or SpanType.UNKNOWN
-            if parent_span_id and (parent := self.open_spans.get(parent_span_id)):
+            if parent:
                 parent_span = parent._mlflow_span
                 # NB: Initiate the new client every time to handle tracking URI updates.
                 span = MlflowClient().start_span(
@@ -176,9 +181,11 @@ class MlflowSpanHandler(BaseSpanHandler[_LlamaSpan], extra="allow"):
         **kwargs: Any,
     ) -> _LlamaSpan:
         try:
-            llama_span = self.open_spans.get(id_)
+            with self.lock:
+                llama_span = self.open_spans.get(id_)
             if not llama_span:
                 return
+
             span = llama_span._mlflow_span
 
             if self._stream_resolver.is_streaming_result(result):
@@ -203,8 +210,18 @@ class MlflowSpanHandler(BaseSpanHandler[_LlamaSpan], extra="allow"):
 
     def prepare_to_drop_span(self, id_: str, err: Optional[Exception], **kwargs) -> _LlamaSpan:
         """Logic for handling errors during the model execution."""
-        llama_span = self.open_spans.get(id_)
+        with self.lock:
+            llama_span = self.open_spans.get(id_)
         span = llama_span._mlflow_span
+
+        if LLAMA_INDEX_VERSION >= Version("0.10.59"):
+            # LlamaIndex determines if a workflow is terminated or not by propagating an special
+            # exception WorkflowDone. We should treat this exception as a successful termination.
+            from llama_index.core.workflow.errors import WorkflowDone
+
+            if err and isinstance(err, WorkflowDone):
+                return _end_span(span=span, status=SpanStatusCode.OK)
+
         span.add_event(SpanEvent.from_exception(err))
         _end_span(span=span, status="ERROR")
         return llama_span
@@ -228,7 +245,7 @@ class MlflowSpanHandler(BaseSpanHandler[_LlamaSpan], extra="allow"):
             return SpanType.CHAIN
 
     @singledispatchmethod
-    def _get_instance_attributes(self, instance: Any) -> Dict[str, Any]:
+    def _get_instance_attributes(self, instance: Any) -> dict[str, Any]:
         """
         Extract span attributes from LlamaIndex objects.
 
@@ -249,7 +266,7 @@ class MlflowSpanHandler(BaseSpanHandler[_LlamaSpan], extra="allow"):
     def _(self, instance: MultiModalLLM):
         return self._get_llm_attributes(instance)
 
-    def _get_llm_attributes(self, instance) -> Dict[str, Any]:
+    def _get_llm_attributes(self, instance) -> dict[str, Any]:
         attr = {}
         if metadata := instance.metadata:
             attr["model_name"] = metadata.model_name
@@ -386,7 +403,7 @@ class MlflowEventHandler(BaseEventHandler, extra="allow"):
 
     def _extract_token_usage(
         self, response: Union[ChatResponse, CompletionResponse]
-    ) -> Dict[str, int]:
+    ) -> dict[str, int]:
         if raw := response.raw:
             # The raw response can be a Pydantic model or a dictionary
             if isinstance(raw, pydantic.BaseModel):
@@ -417,7 +434,7 @@ class StreamResolver:
     """
 
     def __init__(self):
-        self._span_id_to_span_and_gen: Dict[str, Tuple[LiveSpan, Generator]] = {}
+        self._span_id_to_span_and_gen: dict[str, tuple[LiveSpan, Generator]] = {}
 
     def is_streaming_result(self, result: Any) -> bool:
         return (
