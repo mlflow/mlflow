@@ -31,6 +31,7 @@ from mlflow.utils.databricks_utils import (
 from mlflow.utils.os import is_windows
 
 from tests.helper_functions import mock_method_chain
+from tests.pyfunc.test_spark import spark  # noqa
 
 
 def test_no_throw():
