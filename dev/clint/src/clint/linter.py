@@ -336,6 +336,10 @@ class Linter(ast.NodeVisitor):
         ):
             self._check(Location.from_node(node), rules.KeywordArtifactPath())
 
+    def visit_AnnAssign(self, node: ast.AnnAssign) -> None:
+        if rules.ImplicitOptional.check(node):
+            self._check(Location.from_node(node), rules.ImplicitOptional())
+
 
 def _lint_cell(path: Path, cell: dict[str, Any], index: int) -> list[Violation]:
     type_ = cell.get("cell_type")

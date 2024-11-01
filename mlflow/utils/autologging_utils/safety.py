@@ -6,6 +6,7 @@ import typing
 import uuid
 from abc import abstractmethod
 from contextlib import contextmanager
+from typing import Optional
 
 import mlflow
 import mlflow.utils.autologging_utils
@@ -841,8 +842,8 @@ class ValidationExemptArgument(typing.NamedTuple):
     autologging_integration: str
     function_name: str
     type_function: typing.Callable
-    positional_argument_index: int = None
-    keyword_argument_name: str = None
+    positional_argument_index: Optional[int] = None
+    keyword_argument_name: Optional[str] = None
 
     def matches(
         self,

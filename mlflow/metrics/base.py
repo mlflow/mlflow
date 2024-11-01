@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Union
+from typing import Optional, Union
 
 import numpy as np
 
@@ -28,18 +28,14 @@ class MetricValue:
         aggregate_results: A dictionary mapping the name of the aggregation to its value
     """
 
-    scores: Union[list[str], list[float]] = None
-    justifications: list[str] = None
-    aggregate_results: dict[str, float] = None
+    scores: Optional[Union[list[str], list[float]]] = None
+    justifications: Optional[list[str]] = None
+    aggregate_results: Optional[dict[str, float]] = None
 
-    def __init__(self, scores=None, justifications=None, aggregate_results=None):
-        self.scores = scores
-        self.justifications = justifications
-        self.aggregate_results = aggregate_results
-
+    def __post_init__(self):
         if (
             self.aggregate_results is None
-            and isinstance(scores, (list, tuple))
-            and all(_is_numeric(score) for score in scores)
+            and isinstance(self.scores, (list, tuple))
+            and all(_is_numeric(score) for score in self.scores)
         ):
-            self.aggregate_results = standard_aggregations(scores)
+            self.aggregate_results = standard_aggregations(self.scores)
