@@ -310,12 +310,26 @@ class TogetherAIProvider(BaseProvider):
         return "https://api.together.xyz/v1"
 
     @property
-    def auth_headers(self):
+    def headers(self):
         return {"Authorization": f"Bearer {self.togetherai_config.togetherai_api_key}"}
+
+    @property
+    def adapter(self):
+        return TogetherAIAdapter
+
+    def get_endpoint_url(self, route_type: str) -> str:
+        if route_type == "llm/v1/chat":
+            return f"{self.base_url}/chat/completions"
+        elif route_type == "llm/v1/completions":
+            return f"{self.base_url}/completions"
+        elif route_type == "llm/v1/embeddings":
+            return f"{self.base_url}/embeddings"
+        else:
+            raise ValueError(f"Invalid route type {route_type}")
 
     async def _request(self, path: str, payload: dict[str, Any]) -> dict[str, Any]:
         return await send_request(
-            headers=self.auth_headers,
+            headers=self.headers,
             base_url=self.base_url,
             path=path,
             payload=payload,
@@ -325,7 +339,7 @@ class TogetherAIProvider(BaseProvider):
         self, path: str, payload: dict[str, Any]
     ) -> AsyncGenerator[bytes, None]:
         return send_stream_request(
-            headers=self.auth_headers,
+            headers=self.headers,
             base_url=self.base_url,
             path=path,
             payload=payload,

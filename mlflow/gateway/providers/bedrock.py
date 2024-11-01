@@ -2,9 +2,6 @@ import json
 import time
 from enum import Enum
 
-import boto3
-import botocore.config
-import botocore.exceptions
 from fastapi import HTTPException
 from fastapi.encoders import jsonable_encoder
 
@@ -186,6 +183,10 @@ class AmazonBedrockProvider(BaseProvider):
         )
 
     def get_bedrock_client(self):
+        import boto3
+        import botocore.config
+        import botocore.exceptions
+
         if self._client is not None and not self._client_expired():
             return self._client
 
@@ -262,6 +263,8 @@ class AmazonBedrockProvider(BaseProvider):
         return adapter
 
     def _request(self, body):
+        import botocore.exceptions
+
         try:
             response = self.get_bedrock_client().invoke_model(
                 body=json.dumps(body).encode(),

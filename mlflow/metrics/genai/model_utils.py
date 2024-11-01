@@ -3,11 +3,17 @@ import os
 import urllib.parse
 from typing import Any, Optional, Union
 
+import requests
+
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.utils.openai_utils import REQUEST_URL_CHAT
 
 _logger = logging.getLogger(__name__)
+
+
+# List of LLM providers supported as a judge model for GenAI metrics
+_SUPPORTED_LLM_PROVIDERS = {"anthropic", "cohere"}
 
 
 def get_endpoint_type(endpoint_uri: str) -> Optional[str]:
@@ -44,19 +50,25 @@ def score_model_on_payload(
 ):
     """Call the model identified by the given uri with the given string prompt."""
 
-    if eval_parameters is None:
-        eval_parameters = {}
+    eval_parameters = eval_parameters or {}
+    extra_headers = extra_headers or {}
+
     prefix, suffix = _parse_model_uri(model_uri)
 
     if prefix == "openai":
+        # TODO: Migrate OpenAI schema to use _call_llm_provider_api.
         return _call_openai_api(suffix, payload, eval_parameters, extra_headers, proxy_url)
-    elif prefix == "gateway":
+    if prefix == "gateway":
         return _call_gateway_api(suffix, payload, eval_parameters)
     elif prefix == "endpoints":
         return call_deployments_api(suffix, payload, eval_parameters, endpoint_type)
     elif prefix in ("model", "runs"):
         # TODO: call _load_model_or_server
         raise NotImplementedError
+    elif _is_supported_llm_provider(prefix):
+        return _call_llm_provider_api(
+            prefix, suffix, payload, eval_parameters, extra_headers, proxy_url
+        )
     else:
         raise MlflowException(
             f"Unknown model uri prefix '{prefix}'",
@@ -146,11 +158,124 @@ def _call_openai_api(openai_uri, payload, eval_parameters, extra_headers, proxy_
 
 
 _PREDICT_ERROR_MSG = """\
-Failed to call the deployment endpoint. Please check the deployment URL\
+Failed to call the deployment endpoint. Please check the deployment URL \
 is set correctly and the input payload is valid.\n
 - Error: {e}\n
 - Deployment URI: {uri}\n
 - Input payload: {payload}"""
+
+
+def _is_supported_llm_provider(schema: str) -> bool:
+    from mlflow.gateway.provider_registry import provider_registry
+
+    return schema in provider_registry.keys()
+
+
+def _call_llm_provider_api(
+    provider: str,
+    model: str,
+    input_data: str,
+    eval_parameters: dict[str, Any],
+    extra_headers: dict[str, str],
+    proxy_url: Optional[str] = None,
+) -> str:
+    """
+    Invoke chat endpoint of various LLM providers.
+
+    Under the hood, this function uses the MLflow Gateway to transform the input/output data
+    for different LLM providers.
+
+    Args:
+        provider: The provider name, e.g., "anthropic".
+        model: The model name, e.g., "claude-3-5-sonnet"
+        input_data: The input string prompt to send to the model as a chat message.
+        eval_parameters: The additional parameters to send to the model, e.g. temperature.
+        extra_headers: The additional headers to send to the provider.
+        proxy_url: Proxy URL to be used for the judge model. If not specified, the default
+            URL for the LLM provider will be used.
+    """
+    from mlflow.gateway.schemas import chat
+
+    provider = _get_provider_instance(provider, model)
+
+    chat_request = chat.RequestPayload(
+        model=model,
+        messages=[
+            chat.RequestMessage(role="user", content=input_data),
+        ],
+        temperature=eval_parameters.get("temperature", 0.0),
+        max_tokens=eval_parameters.get("max_tokens"),
+        stream=False,
+    )
+
+    payload = {k: v for k, v in chat_request.model_dump().items() if v is not None}
+    chat_payload = provider.adapter.chat_to_model(payload, provider.config)
+    response = _send_request(
+        endpoint=proxy_url or provider.get_endpoint_url("llm/v1/chat"),
+        headers={**provider.headers, **extra_headers},
+        payload=chat_payload,
+    )
+    chat_response = provider.adapter.model_to_chat(response, provider.config)
+    return chat_response.choices[0].message.content
+
+
+def _get_provider_instance(provider: str, model: str):
+    """Get the provider instance for the given provider name and the model name."""
+    from mlflow.gateway.config import RouteConfig
+
+    def _get_route_config(config):
+        return RouteConfig(
+            name=provider,
+            route_type="llm/v1/chat",
+            model={
+                "provider": provider,
+                "name": model,
+                "config": config.model_dump(),
+            },
+        )
+
+    # TODO: Add more LLM provider that support chat endpoints. These three are the only
+    # providers that satisfies the required conditions:
+    #  1. The provider has a chat endpoint.
+    #  2. The gateway provider implements ProviderAdapter class.
+    if provider == "anthropic":
+        from mlflow.gateway.providers.anthropic import AnthropicConfig, AnthropicProvider
+
+        config = AnthropicConfig(anthropic_api_key=os.environ.get("ANTHROPIC_API_KEY"))
+        return AnthropicProvider(_get_route_config(config))
+
+    elif provider == "cohere":
+        from mlflow.gateway.providers.cohere import CohereConfig, CohereProvider
+
+        config = CohereConfig(cohere_api_key=os.environ.get("COHERE_API_KEY"))
+        return CohereProvider(_get_route_config(config))
+
+    elif provider == "togetherai":
+        from mlflow.gateway.providers.togetherai import TogetherAIConfig, TogetherAIProvider
+
+        config = TogetherAIConfig(togetherai_api_key=os.environ.get("TOGETHERAI_API_KEY"))
+        return TogetherAIProvider(_get_route_config(config))
+
+    raise MlflowException(f"Provider '{provider}' is not supported for evaluation.")
+
+
+def _send_request(
+    endpoint: str, headers: dict[str, str], payload: dict[str, Any]
+) -> dict[str, Any]:
+    try:
+        response = requests.post(
+            url=endpoint,
+            headers=headers,
+            json=payload,
+            timeout=60,
+        )
+        response.raise_for_status()
+    except requests.exceptions.HTTPError as e:
+        raise MlflowException(
+            f"Failed to call LLM endpoint at {endpoint}.\n- Error: {e}\n- Input payload: {payload}."
+        )
+
+    return response.json()
 
 
 def call_deployments_api(

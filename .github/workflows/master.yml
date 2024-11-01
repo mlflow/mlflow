@@ -256,6 +256,10 @@ jobs:
         run: |
           source ./dev/install-common-deps.sh
           pip install pyspark torch transformers langchain langchain-experimental '.[genai]'
+          # TODO: FastAPI is required for using LLM provider like 'anthropic' as a GenAI metrics judge,
+          # because of the global import of fastapi in provider implementation. We can remove this
+          # after the refactoring of the provider implementation.
+          pip install fastapi
       - uses: ./.github/actions/show-versions
       - uses: ./.github/actions/pipdeptree
       - name: Run tests
