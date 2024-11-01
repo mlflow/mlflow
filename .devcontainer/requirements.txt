@@ -425,7 +425,7 @@ pluggy==1.5.0
     # via pytest
 portalocker==2.10.1
     # via msal-extensions
-pre-commit==2.20.0
+pre-commit==4.0.1
     # via -r lint-requirements.txt
 prompt-toolkit==3.0.48
     # via ipython
