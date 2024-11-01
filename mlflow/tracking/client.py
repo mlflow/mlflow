@@ -4868,7 +4868,7 @@ class MlflowClient:
         max_results: Optional[int] = None,
         order_by: Optional[List[Dict[str, Any]]] = None,
         page_token: Optional[str] = None,
-    ):
+    ) -> PagedList[LoggedModel]:
         """
         Search for logged models that match the specified search criteria.
 

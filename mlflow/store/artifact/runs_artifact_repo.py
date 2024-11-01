@@ -4,7 +4,6 @@ import urllib.parse
 import mlflow
 from mlflow.exceptions import MlflowException
 from mlflow.store.artifact.artifact_repo import ArtifactRepository
-from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
 from mlflow.utils.uri import (
     add_databricks_profile_info_to_artifact_uri,
     get_databricks_profile_uri_from_artifact_uri,
@@ -25,6 +24,8 @@ class RunsArtifactRepository(ArtifactRepository):
     """
 
     def __init__(self, artifact_uri):
+        from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
+
         super().__init__(artifact_uri)
         uri = RunsArtifactRepository.get_underlying_uri(artifact_uri)
         self.repo = get_artifact_repository(uri)
@@ -134,24 +135,37 @@ class RunsArtifactRepository(ArtifactRepository):
         try:
             return self.repo.download_artifacts(artifact_path, dst_path)
         except Exception:
+            from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
+
             _logger.debug(
-                "Failed to download artifacts. "
-                "Attempting to download from the model associated with the run."
+                f"Failed to download artifacts from {self.artifact_uri}/{artifact_path}. "
+                "Searching for logged models associated with the run instead."
             )
             run_id = RunsArtifactRepository.parse_runs_uri(self.artifact_uri)[0]
             client = mlflow.tracking.MlflowClient()
             run = client.get_run(run_id)
-            # Search for models associated with the run
-            models = client.search_logged_models(
-                experiment_ids=[run.info.experiment_id],
-                filter_string=f"run_id = {run_id}",
-            )
-            if len(models) != 1:  # no model or multiple models found
-                raise
+            page_token = None
+            while True:
+                page = client.search_logged_models(
+                    experiment_ids=[run.info.experiment_id],
+                    # TODO: Use filter_string once the backend supports it
+                    # filter_string="...",
+                    page_token=page_token,
+                )
+                for model in page:
+                    # Return the first model that matches the run_id and artifact_path
+                    if model.source_run_id == run_id and model.name == artifact_path:
+                        repo = get_artifact_repository(model.artifact_location)
+                        return repo.download_artifacts(
+                            artifact_path=".",  # root directory
+                            dst_path=dst_path,
+                        )
 
-            model = models[0]
-            repo = get_artifact_repository(model.artifact_location)
-            return repo.download_artifacts(artifact_path, dst_path)
+                if not page.token:
+                    break
+                page_token = page.token
+
+            raise  # raise the original exception if no matching model is found
 
     def _download_file(self, remote_file_path, local_path):
         """
