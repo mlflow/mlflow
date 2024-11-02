@@ -1,0 +1,117 @@
+
+.grid-card {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    background: white;
+    font-size: 1rem;
+    color: darkslategray;
+    box-shadow: rgba(3, 8, 20, 0.1) 0px 0.5rem 1rem, rgba(2, 8, 20, 0.1) 0.1px 0.25rem 0.275rem;
+    height: 100%;
+    width: 100%;
+    border-radius: 10px;
+    transition: all 500ms;
+    overflow: hidden;
+    padding: .5rem;
+    margin: 2rem;
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+ }
+  
+.grid-card:hover {
+    box-shadow: rgba(2, 8, 20, 0.1) 0px 0.35em 1.175em, rgba(2, 8, 20, 0.08) 0px 0.175em 0.5em;
+    transform: translateY(-3px) scale(1.1);
+ }
+
+ .new-content-grid {
+    display: grid;
+    gap: 2rem;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    margin-right: 5rem;
+    padding-bottom: 4rem;
+ }
+
+ .grid-card .content-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center; 
+    width: 100%; 
+    margin-top: 1rem;
+}
+
+ .grid-card .header {
+    text-align: center;
+    font-size: 1.5rem;
+    margin-bottom: 1rem;
+    position: relative;
+    line-height: 1.5rem;
+    height: 6rem;
+    overflow: hidden;
+}
+
+.grid-card .header:after {
+    content: '';
+    display: block;
+    margin: 1rem auto 1rem;
+    width: calc(100% - 8rem);
+    border-bottom: 1px solid #000;
+}
+
+.grid-card .card-image {
+    max-width: 80%; 
+    max-height: 6rem; 
+    display: block;
+    margin: 0 auto; 
+    padding-bottom: 2rem;
+}
+
+.grid-card .body {
+    font-size: 0.9rem;
+    margin-bottom: 1rem;
+    width:calc(100% - 4rem);
+}
+
+.grid-card .body a {
+    color: hsl(208, 98%, 43%);
+}
+
+.grid-card .doc, 
+.grid-card .tag {
+    position: absolute;
+    bottom: 1rem;
+    font-size: 0.75rem;
+}
+
+.grid-card .doc {
+    left: 1rem;
+}
+
+.grid-card .tag {
+    right: 1rem;
+}
+
+.grid-card .doc a, 
+.grid-card .tag a {
+    text-decoration: none;
+    font-weight: bold;
+    border: 2px solid lightskyblue;
+    color: darkslategray;
+    border-radius: 12px;
+    padding: 2px 8px;
+    transition: all 0.3s;
+}
+
+.grid-card .doc a:hover, 
+.grid-card .tag a:hover {
+    background: black;
+    text-shadow: none;
+    -webkit-text-fill-color: transparent;
+    -webkit-background-clip: text;
+    -webkit-box-decoration-break: clone;
+    background-clip: text;
+    border-color: darkblue;
+}
+
+

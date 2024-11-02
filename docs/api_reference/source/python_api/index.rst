@@ -11,7 +11,6 @@ exposed in the :py:mod:`mlflow` module, so we recommend starting there.
   :maxdepth: 1
 
   *
-  openai/index.rst
 
 
 See also the :ref:`index of all functions and classes<genindex>`.

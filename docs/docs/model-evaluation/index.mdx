@@ -1,4 +1,5 @@
 import { CardGroup, Card } from "@site/src/components/Card";
+import { APILink } from "@site/src/components/APILink";
 
 # Model Evaluation
 
@@ -14,7 +15,7 @@ MLflow addresses these challenges head-on, offering a suite of automated tools t
 saving time and enhancing accuracy, helping you to have confidence that the solution that you've spent so much time working on will meet the
 needs of the problem you're trying to solve.
 
-## [LLM Model Evaluation](../llms/llm-evaluate)
+## [LLM Model Evaluation](llms/llm-evaluate)
 
 The rise of Large Language Models (LLMs) like ChatGPT has transformed the landscape of text generation, finding applications in question answering, translation, and text summarization. However, evaluating LLMs introduces unique challenges, primarily because there's often no single ground truth to compare against. MLflow's evaluation tools are tailored for LLMs, ensuring a streamlined and accurate evaluation process.
 
@@ -22,8 +23,8 @@ The rise of Large Language Models (LLMs) like ChatGPT has transformed the landsc
 
 * **Versatile Model Evaluation**: MLflow supports evaluating various types of LLMs, whether it's an MLflow pyfunc model, a URI pointing to a registered MLflow model, or any python callable representing your model.
 
-* **Comprehensive Metrics**: MLflow offers a range of metrics for LLM evaluation. From metrics that rely on SaaS models like OpenAI for scoring (e.g., [`mlflow.metrics.genai.answer_relevance`](../../api_reference/mlflow.metrics.html#mlflow.metrics.genai.answer_relevance) to function-based per-row metrics such as Rouge [`mlflow.metrics.rougeL`](../../api_reference/mlflow.metrics.html#mlflow.metrics.rougeL) />
-  or Flesch Kincaid [`mlflow.metrics.flesch_kincaid_grade_level`](../../api_reference/mlflow.metrics.html#mlflow.metrics.flesch_kincaid_grade_level).
+* **Comprehensive Metrics**: MLflow offers a range of metrics for LLM evaluation. From metrics that rely on SaaS models like OpenAI for scoring (e.g., <APILink fn="mlflow.metrics.genai.answer_relevance" /> to function-based per-row metrics such as Rouge <APILink fn="mlflow.metrics.rougeL" />
+  or Flesch Kincaid <APILink fn="mlflow.metrics.flesch_kincaid_grade_level" />.
 
 * **Predefined Metric Collections**: Depending on your LLM use case, MLflow provides predefined metric collections, such as "question-answering" or "text-summarization", simplifying the evaluation process.
 
@@ -31,7 +32,7 @@ The rise of Large Language Models (LLMs) like ChatGPT has transformed the landsc
 
 * **Evaluation with Static Datasets**: As of MLflow 2.8.0, you can evaluate a static dataset without specifying a model. This is especially useful when you've saved model outputs in a dataset and want a swift evaluation without rerunning the model.
 
-* **Integrated Results View**: MLflow's [`mlflow.evaluate`](../../api_reference/mlflow.html#mlflow.evaluate) returns comprehensive evaluation results, which can be viewed directly in the code or through the MLflow UI for a more visual representation.
+* **Integrated Results View**: MLflow's <APILink fn="mlflow.evaluate" /> returns comprehensive evaluation results, which can be viewed directly in the code or through the MLflow UI for a more visual representation.
 
 Harnessing these features, MLflow's LLM evaluation tools eliminate the complexities and ambiguities associated with evaluating large language models. By automating these critical evaluation tasks, MLflow ensures that users can confidently assess the performance of their LLMs, leading to more informed decisions in the deployment and application of these models.
 
