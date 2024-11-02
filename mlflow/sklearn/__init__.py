@@ -1563,6 +1563,7 @@ def _autolog(  # noqa: D417
             registered_model_name = get_autologging_config(
                 FLAVOR_NAME, "registered_model_name", None
             )
+            should_log_params_deeply = not _is_parameter_search_estimator(estimator)
             logged_model = _log_model_with_except_handling(
                 estimator,
                 "model",
@@ -1570,6 +1571,7 @@ def _autolog(  # noqa: D417
                 input_example=input_example,
                 serialization_format=serialization_format,
                 registered_model_name=registered_model_name,
+                params=estimator.get_params(deep=should_log_params_deeply),
             )
             model_id = logged_model.model_id
 
