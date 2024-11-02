@@ -136,6 +136,10 @@ body, body.wy-body-for-nav {
   background-image: none;
 }
 
+* {
+  box-sizing: border-box;
+}
+
 a, a:visited, a:hover {
   color: #198EAC;
 }
