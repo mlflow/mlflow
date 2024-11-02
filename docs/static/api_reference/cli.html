@@ -16,6 +16,8 @@
   <link rel="canonical" href="https://mlflow.org/docs/latest/cli.html">
   
   
+    <link rel="shortcut icon" href="_static/favicon.ico"/>
+    
 
     
 
@@ -45,7 +47,9 @@
         <link rel="index" title="Index"
               href="genindex.html"/>
         <link rel="search" title="Search" href="search.html"/>
-    <link rel="top" title="MLflow 2.17.1.dev0 documentation" href="index.html"/> 
+    <link rel="top" title="MLflow 2.17.1.dev0 documentation" href="index.html"/>
+        <link rel="next" title="R API" href="/R-api.html"/>
+        <link rel="prev" title="mlflow.xgboost" href="/python_api/mlflow.xgboost.html"/> 
 
   
   <script src="_static/js/modernizr.min.js"></script>
@@ -105,8 +109,90 @@
       
 
       
-        <ul>
+        <ul class="current">
 <li class="toctree-l1"><a class="reference internal" href="python_api/index.html">Python API</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Command-Line Interface</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#mlflow">mlflow</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#mlflow-artifacts">artifacts</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#mlflow-artifacts-download">download</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#mlflow-artifacts-list">list</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#mlflow-artifacts-log-artifact">log-artifact</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#mlflow-artifacts-log-artifacts">log-artifacts</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#mlflow-db">db</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#mlflow-db-upgrade">upgrade</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#mlflow-deployments">deployments</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#mlflow-deployments-create">create</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#mlflow-deployments-create-endpoint">create-endpoint</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#mlflow-deployments-delete">delete</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#mlflow-deployments-delete-endpoint">delete-endpoint</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#mlflow-deployments-explain">explain</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#mlflow-deployments-get">get</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#mlflow-deployments-get-endpoint">get-endpoint</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#mlflow-deployments-help">help</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#mlflow-deployments-list">list</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#mlflow-deployments-list-endpoints">list-endpoints</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#mlflow-deployments-predict">predict</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#mlflow-deployments-run-local">run-local</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#mlflow-deployments-start-server">start-server</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#mlflow-deployments-update">update</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#mlflow-deployments-update-endpoint">update-endpoint</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#mlflow-doctor">doctor</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#mlflow-experiments">experiments</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#mlflow-experiments-create">create</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#mlflow-experiments-csv">csv</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#mlflow-experiments-delete">delete</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#mlflow-experiments-rename">rename</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#mlflow-experiments-restore">restore</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#mlflow-experiments-search">search</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#mlflow-gateway">gateway</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#mlflow-gateway-start">start</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#mlflow-gc">gc</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#mlflow-models">models</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#mlflow-models-build-docker">build-docker</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#mlflow-models-generate-dockerfile">generate-dockerfile</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#mlflow-models-predict">predict</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#mlflow-models-prepare-env">prepare-env</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#mlflow-models-serve">serve</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#mlflow-models-update-pip-requirements">update-pip-requirements</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#mlflow-recipes">recipes</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#mlflow-recipes-clean">clean</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#mlflow-recipes-get-artifact">get-artifact</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#mlflow-recipes-inspect">inspect</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#mlflow-recipes-run">run</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#mlflow-run">run</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#mlflow-runs">runs</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#mlflow-runs-delete">delete</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#mlflow-runs-describe">describe</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#mlflow-runs-list">list</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#mlflow-runs-restore">restore</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#mlflow-sagemaker">sagemaker</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#mlflow-sagemaker-build-and-push-container">build-and-push-container</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#mlflow-sagemaker-deploy-transform-job">deploy-transform-job</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#mlflow-sagemaker-push-model">push-model</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#mlflow-sagemaker-terminate-transform-job">terminate-transform-job</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#mlflow-server">server</a></li>
+</ul>
+</li>
+</ul>
+</li>
 <li class="toctree-l1"><a class="reference internal" href="R-api.html">R API</a></li>
 <li class="toctree-l1"><a class="reference internal" href="java_api/index.html">Java API</a></li>
 <li class="toctree-l1"><a class="reference internal" href="rest-api.html">REST API</a></li>
@@ -2504,6 +2590,15 @@ to pass <code class="docutils literal notranslate"><span class="pre">--host</spa
               </div>
             </div>
             <footer>
+  
+    <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
+      
+        <a href="python_api/mlflow.xgboost.html" class="btn btn-neutral" title="mlflow.xgboost" accesskey="p"><span class="db-icon db-icon-chevron-left"></span> Previous</a>
+      
+      
+        <a href="R-api.html" class="btn btn-neutral" title="R API" accesskey="n">Next <span class="db-icon db-icon-chevron-right"></span></a>
+      
+    </div>
   
 
   <hr/>

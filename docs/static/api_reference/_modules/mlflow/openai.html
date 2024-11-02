@@ -16,6 +16,8 @@
   <link rel="canonical" href="https://mlflow.org/docs/latest/_modules/mlflow/openai.html">
   
   
+    <link rel="shortcut icon" href="../../_static/favicon.ico"/>
+    
 
     
 
@@ -109,6 +111,7 @@
       
         <ul>
 <li class="toctree-l1"><a class="reference internal" href="../../python_api/index.html">Python API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../cli.html">Command-Line Interface</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../R-api.html">R API</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../java_api/index.html">Java API</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../rest-api.html">REST API</a></li>
@@ -264,7 +267,7 @@
 <span class="n">_logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
 
 
-<div class="viewcode-block" id="get_default_pip_requirements"><a class="viewcode-back" href="../../python_api/openai/index.html#mlflow.openai.get_default_pip_requirements">[docs]</a><span class="nd">@experimental</span>
+<div class="viewcode-block" id="get_default_pip_requirements"><a class="viewcode-back" href="../../python_api/mlflow.openai.html#mlflow.openai.get_default_pip_requirements">[docs]</a><span class="nd">@experimental</span>
 <span class="k">def</span> <span class="nf">get_default_pip_requirements</span><span class="p">():</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Returns:</span>
@@ -275,7 +278,7 @@
     <span class="k">return</span> <span class="nb">list</span><span class="p">(</span><span class="nb">map</span><span class="p">(</span><span class="n">_get_pinned_requirement</span><span class="p">,</span> <span class="p">[</span><span class="s2">&quot;openai&quot;</span><span class="p">,</span> <span class="s2">&quot;tiktoken&quot;</span><span class="p">,</span> <span class="s2">&quot;tenacity&quot;</span><span class="p">]))</span></div>
 
 
-<div class="viewcode-block" id="get_default_conda_env"><a class="viewcode-back" href="../../python_api/openai/index.html#mlflow.openai.get_default_conda_env">[docs]</a><span class="nd">@experimental</span>
+<div class="viewcode-block" id="get_default_conda_env"><a class="viewcode-back" href="../../python_api/mlflow.openai.html#mlflow.openai.get_default_conda_env">[docs]</a><span class="nd">@experimental</span>
 <span class="k">def</span> <span class="nf">get_default_conda_env</span><span class="p">():</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Returns:</span>
@@ -395,7 +398,7 @@
         <span class="k">return</span> <span class="n">Schema</span><span class="p">([</span><span class="n">ColSpec</span><span class="p">(</span><span class="nb">type</span><span class="o">=</span><span class="s2">&quot;string&quot;</span><span class="p">)])</span>
 
 
-<div class="viewcode-block" id="save_model"><a class="viewcode-back" href="../../python_api/openai/index.html#mlflow.openai.save_model">[docs]</a><span class="nd">@experimental</span>
+<div class="viewcode-block" id="save_model"><a class="viewcode-back" href="../../python_api/mlflow.openai.html#mlflow.openai.save_model">[docs]</a><span class="nd">@experimental</span>
 <span class="nd">@format_docstring</span><span class="p">(</span><span class="n">LOG_MODEL_PARAM_DOCS</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">package_name</span><span class="o">=</span><span class="n">FLAVOR_NAME</span><span class="p">))</span>
 <span class="k">def</span> <span class="nf">save_model</span><span class="p">(</span>
     <span class="n">model</span><span class="p">,</span>
@@ -596,7 +599,7 @@
     <span class="n">_PythonEnv</span><span class="o">.</span><span class="n">current</span><span class="p">()</span><span class="o">.</span><span class="n">to_yaml</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">_PYTHON_ENV_FILE_NAME</span><span class="p">))</span></div>
 
 
-<div class="viewcode-block" id="log_model"><a class="viewcode-back" href="../../python_api/openai/index.html#mlflow.openai.log_model">[docs]</a><span class="nd">@experimental</span>
+<div class="viewcode-block" id="log_model"><a class="viewcode-back" href="../../python_api/mlflow.openai.html#mlflow.openai.log_model">[docs]</a><span class="nd">@experimental</span>
 <span class="nd">@format_docstring</span><span class="p">(</span><span class="n">LOG_MODEL_PARAM_DOCS</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">package_name</span><span class="o">=</span><span class="n">FLAVOR_NAME</span><span class="p">))</span>
 <span class="k">def</span> <span class="nf">log_model</span><span class="p">(</span>
     <span class="n">model</span><span class="p">,</span>
@@ -971,7 +974,7 @@
     <span class="k">return</span> <span class="n">_OpenAIWrapper</span><span class="p">(</span><span class="n">_load_model</span><span class="p">(</span><span class="n">path</span><span class="p">))</span>
 
 
-<div class="viewcode-block" id="load_model"><a class="viewcode-back" href="../../python_api/openai/index.html#mlflow.openai.load_model">[docs]</a><span class="nd">@experimental</span>
+<div class="viewcode-block" id="load_model"><a class="viewcode-back" href="../../python_api/mlflow.openai.html#mlflow.openai.load_model">[docs]</a><span class="nd">@experimental</span>
 <span class="k">def</span> <span class="nf">load_model</span><span class="p">(</span><span class="n">model_uri</span><span class="p">,</span> <span class="n">dst_path</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Load an OpenAI model from a local file or a run.</span>
@@ -1001,7 +1004,7 @@
     <span class="k">return</span> <span class="n">_load_model</span><span class="p">(</span><span class="n">model_data_path</span><span class="p">)</span></div>
 
 
-<div class="viewcode-block" id="autolog"><a class="viewcode-back" href="../../python_api/openai/index.html#mlflow.openai.autolog">[docs]</a><span class="nd">@experimental</span>
+<div class="viewcode-block" id="autolog"><a class="viewcode-back" href="../../python_api/mlflow.openai.html#mlflow.openai.autolog">[docs]</a><span class="nd">@experimental</span>
 <span class="nd">@autologging_integration</span><span class="p">(</span><span class="n">FLAVOR_NAME</span><span class="p">)</span>
 <span class="k">def</span> <span class="nf">autolog</span><span class="p">(</span>
     <span class="n">log_input_examples</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>

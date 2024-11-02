@@ -6,6 +6,7 @@
     "docusaurus": "docusaurus",
     "start": "yarn build && yarn serve",
     "build": "docusaurus build",
+    "build-api-docs": "python scripts/build-api-docs.py",
     "swizzle": "docusaurus swizzle",
     "deploy": "docusaurus deploy",
     "clear": "docusaurus clear",

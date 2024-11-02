@@ -8,6 +8,7 @@ Placeholder landing page for the API docs
     :hidden:
 
     python_api/index
+    cli
     R-api
     java_api/index
     rest-api
