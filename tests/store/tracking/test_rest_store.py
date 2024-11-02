@@ -560,7 +560,7 @@ def test_start_trace():
         assert res.request_id == request_id
         assert res.experiment_id == experiment_id
         assert res.timestamp_ms == timestamp_ms
-        assert res.execution_time_ms is None
+        assert res.execution_time_ms == 0
         assert res.status == TraceStatus.UNSPECIFIED
         assert res.request_metadata == {k: str(v) for k, v in metadata.items()}
         assert res.tags == {k: str(v) for k, v in tags.items()}

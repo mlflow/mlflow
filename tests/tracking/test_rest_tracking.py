@@ -2017,7 +2017,7 @@ def test_start_and_end_trace(mlflow_client):
     assert trace_info.request_id is not None
     assert trace_info.experiment_id == experiment_id
     assert trace_info.timestamp_ms == 1000
-    assert trace_info.execution_time_ms is None
+    assert trace_info.execution_time_ms == 0
     assert trace_info.status == TraceStatus.IN_PROGRESS
     assert trace_info.request_metadata == {
         "meta1": "apple",
