@@ -1,7 +1,6 @@
 import React from "react";
 import APIModules from "../../api_modules.json";
 import useBaseUrl from "@docusaurus/useBaseUrl";
-import { useLocation } from "@docusaurus/router";
 import Link from "@docusaurus/Link";
 
 const getModule = (fn: string) => {
