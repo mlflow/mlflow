@@ -195,7 +195,7 @@ class ModelVersion(_ModelRegistryEntity):
         # TODO: Include params, metrics, and model ID in proto
         return model_version
 
-    def to_proto(self) -> ProtoModelVersion:
+    def to_proto(self):
         # input: ModelVersion entity
         # returns mlflow.protos.model_registry_pb2.ModelVersion
         model_version = ProtoModelVersion()
