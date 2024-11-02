@@ -32,7 +32,7 @@ export function APILink({
   const docLink = useBaseUrl(`/${APIModules[module]}.html#${fn}`);
   return (
     <Link to={docLink} target="_blank">
-      {children ?? <code>{fn}</code>}
+      {children ?? <code>{fn}()</code>}
     </Link>
   );
 }
