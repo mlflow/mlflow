@@ -1564,6 +1564,12 @@ def _autolog(  # noqa: D417
                 FLAVOR_NAME, "registered_model_name", None
             )
             should_log_params_deeply = not _is_parameter_search_estimator(estimator)
+            params = estimator.get_params(deep=should_log_params_deeply)
+            if hasattr(estimator, "best_params_"):
+                params |= {
+                    f"best_{param_name}": param_value
+                    for param_name, param_value in estimator.best_params_.items()
+                }
             logged_model = _log_model_with_except_handling(
                 estimator,
                 "model",
