@@ -21,7 +21,8 @@ from mlflow.entities import Document as MlflowDocument
 from mlflow.entities import LiveSpan, SpanEvent, SpanStatus, SpanStatusCode, SpanType
 from mlflow.exceptions import MlflowException
 from mlflow.pyfunc.context import Context, maybe_set_prediction_context
-from mlflow.tracing.constant import SpanAttributeKey
+from mlflow.tracing.constant import TraceMetadataKey
+from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.utils.autologging_utils import ExceptionSafeAbstractClass
 
 _logger = logging.getLogger(__name__)
@@ -89,11 +90,6 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
         attributes: Optional[dict[str, Any]] = None,
     ) -> LiveSpan:
         """Start MLflow Span (or Trace if it is root component)"""
-        if self._model_id:
-            attributes = {
-                **(attributes or {}),
-                SpanAttributeKey.MODEL_ID: self._model_id,
-            }
         with maybe_set_prediction_context(self._prediction_context):
             parent = self._get_parent_span(parent_run_id)
             if parent:
@@ -105,6 +101,7 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
                     inputs=inputs,
                     attributes=attributes,
                 )
+                request_id = parent.request_id
             else:
                 # When parent_run_id is None, this is root component so start trace
                 dependencies_schemas = (
@@ -119,7 +116,12 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
                     attributes=attributes,
                     tags=dependencies_schemas,
                 )
+                request_id = span.request_id
                 self._active_request_ids.add(span.request_id)
+
+            if self._model_id is not None:
+                tm = InMemoryTraceManager().get_instance()
+                tm.set_request_metadata(request_id, TraceMetadataKey.SOURCE_RUN, self._model_id)
 
             self._run_span_mapping[str(run_id)] = span
         return span
