@@ -28,7 +28,6 @@ from mlflow.entities import (
     RunStatus,
     RunTag,
     SourceType,
-    TraceInfo,
     ViewType,
     _DatasetSummary,
 )
@@ -4171,14 +4170,13 @@ def _create_trace(
         "mlflow.store.tracking.sqlalchemy_store.generate_request_id",
         side_effect=lambda: request_id,
     ):
-        # In case if under the hood of `store` is a GO implementation it is not possible to mock `generate.request_id`.
-        # Let's send generated `request_id` via special tag='request_id' so GO implementation can catch it.
+        # In case if under the hood of `store` is a GO implementation it is
+        # not possible to mock `generate.request_id`. Let's send generated
+        # `request_id` via special tag='request_id' so GO implementation can catch it.
         if tags:
             tags["request_id"] = request_id
         else:
-            tags = {
-                "request_id": request_id
-            }
+            tags = {"request_id": request_id}
 
         trace_info = store.start_trace(
             experiment_id=experiment_id,

@@ -16,11 +16,12 @@ from typing import Dict
 from unittest import mock
 
 import flask
-import mlflow.experiments
-import mlflow.pyfunc
 import pandas as pd
 import pytest
 import requests
+
+import mlflow.experiments
+import mlflow.pyfunc
 from mlflow import MlflowClient
 from mlflow.artifacts import download_artifacts
 from mlflow.data.pandas_dataset import from_pandas
