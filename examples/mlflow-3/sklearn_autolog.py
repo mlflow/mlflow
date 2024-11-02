@@ -28,6 +28,7 @@ model_id = outputs.model_outputs[0].model_id
 print(model_id)
 model = mlflow.get_logged_model(model_id)
 print(model)
+print(model.params)
 
 # GridSearchCV
 model = LogisticRegression()
