@@ -101,7 +101,6 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
                     inputs=inputs,
                     attributes=attributes,
                 )
-                request_id = parent.request_id
             else:
                 # When parent_run_id is None, this is root component so start trace
                 dependencies_schemas = (
@@ -116,12 +115,11 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
                     attributes=attributes,
                     tags=dependencies_schemas,
                 )
-                request_id = span.request_id
                 self._active_request_ids.add(span.request_id)
 
             if self._model_id is not None:
                 tm = InMemoryTraceManager().get_instance()
-                tm.set_request_metadata(request_id, TraceMetadataKey.SOURCE_RUN, self._model_id)
+                tm.set_request_metadata(span.request_id, TraceMetadataKey.MODEL_ID, self._model_id)
 
             self._run_span_mapping[str(run_id)] = span
         return span
