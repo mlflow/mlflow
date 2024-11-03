@@ -26,4 +26,5 @@ def build_and_copy_docs():
     shutil.copytree(source_folder, destination_folder)
     print(f"Copied files from {source_folder} to {destination_folder}.")
 
+
 build_and_copy_docs()
