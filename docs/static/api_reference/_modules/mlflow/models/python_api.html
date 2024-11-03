@@ -1,0 +1,594 @@
+
+
+<!DOCTYPE html>
+<!-- source: docs/source/_modules/mlflow/models/python_api -->
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>mlflow.models.python_api</title>
+  
+   
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+  <link rel="canonical" href="https://mlflow.org/docs/latest/_modules/mlflow/models/python_api.html">
+  
+  
+    <link rel="shortcut icon" href="../../../_static/favicon.ico"/>
+    
+
+    
+
+  
+    
+
+  
+
+  
+  
+    
+
+  
+
+  
+  
+    <link href="https://fonts.googleapis.com/css?family=Source+Sans+Pro:300,400,600" rel="stylesheet">
+    <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/css/custom.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/css/cards.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/css/grids.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/css/mobile.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/css/simple-cards.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/css/tabs.css" type="text/css" />
+    
+  
+        <link rel="index" title="Index"
+              href="../../../genindex.html"/>
+        <link rel="search" title="Search" href="../../../search.html"/>
+    <link rel="top" title="MLflow 2.17.1.dev0 documentation" href="../../../index.html"/>
+        <link rel="up" title="Module code" href="../../index.html"/> 
+
+  
+  <script src="../../../_static/js/modernizr.min.js"></script>
+
+</head>
+<script type="text/javascript" src="../../../_static/jquery.js"></script>
+<script type="text/javascript" src="../../../_static/underscore.js"></script>
+<script type="text/javascript" src="../../../_static/doctools.js"></script>
+<script type="text/javascript" src="../../../_static/tabs.js"></script>
+<script type="text/javascript" src="../../../_static/languagesections.js"></script>
+<script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+<script type="text/javascript" src="../../../_static/runllm.js"></script>
+
+<body class="wy-body-for-nav" role="document">
+  
+
+  
+  <nav class="wy-nav-top header" role="navigation" aria-label="top navigation">
+    <ul>
+  <li class="menu-toggle">
+    <i data-toggle="wy-nav-top" class="wy-nav-top-menu-button db-icon db-icon-menu pull-left"></i>
+    <a href="../../../index.html" class="wy-nav-top-logo"
+      ><img src="../../../_static/MLflow-logo-final-black.png" alt="MLflow"
+    /></a>
+    <span class="version">2.17.1.dev0</span>
+  </li>
+</ul>
+  </nav>
+  <page>
+    
+
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side relative">
+      <div class="wy-side-scroll">
+  <div class="wy-side-nav-search">
+    
+
+    
+
+    
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+  <input type="text" name="q" placeholder="Search" />
+  <input type="hidden" name="check_keywords" value="yes" />
+  <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+
+    
+  </div>
+
+  <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+    
+      <a href="../../../index.html" class="main-navigation-home"><img src="../../../_static/icons/nav-home.svg"> MLflow</a>
+    
+
+    
+      
+
+      
+        <ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../python_api/index.html">Python API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../cli.html">Command-Line Interface</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../R-api.html">R API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../java_api/index.html">Java API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../rest-api.html">REST API</a></li>
+</ul>
+
+      
+    
+  </div>
+
+  <div role="contentinfo">
+    
+
+    <p>
+      <a id='feedbacklink' href="https://github.com/mlflow/mlflow/blob/master/CONTRIBUTING.md" target="_blank">Contribute</a>
+    </p>
+  </div>
+</div>
+    </nav>
+
+    <main class="wy-grid-for-nav">
+      <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+        <div class="wy-nav-content">
+          <div class="rst-content">
+            
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href="../../../index.html">Documentation</a> <span class="db-icon db-icon-chevron-right"></span></li>
+    
+        <li><a href="../../index.html">Module code</a> <span class="db-icon db-icon-chevron-right"></span></li>
+    
+    
+      <li>mlflow.models.python_api</li>
+    
+    
+    <!-- <li class="wy-breadcrumbs-aside">
+      <a href="https://github.com/mlflow/mlflow/blob/master/docs/source/_modules/mlflow/models/python_api" class="fa fa-github"> Edit on GitHub</a>
+    </li> -->
+    
+  </ul>
+</div>
+            <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+              <div itemprop="articleBody">
+                
+  <h1>Source code for mlflow.models.python_api</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span> <span class="nn">json</span>
+<span class="kn">import</span> <span class="nn">logging</span>
+<span class="kn">import</span> <span class="nn">os</span>
+<span class="kn">from</span> <span class="nn">datetime</span> <span class="kn">import</span> <span class="n">datetime</span>
+<span class="kn">from</span> <span class="nn">io</span> <span class="kn">import</span> <span class="n">StringIO</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">ForwardRef</span><span class="p">,</span> <span class="n">get_args</span><span class="p">,</span> <span class="n">get_origin</span>
+
+<span class="kn">from</span> <span class="nn">mlflow.exceptions</span> <span class="kn">import</span> <span class="n">MlflowException</span>
+<span class="kn">from</span> <span class="nn">mlflow.models.flavor_backend_registry</span> <span class="kn">import</span> <span class="n">get_flavor_backend</span>
+<span class="kn">from</span> <span class="nn">mlflow.utils</span> <span class="kn">import</span> <span class="n">env_manager</span> <span class="k">as</span> <span class="n">_EnvManager</span>
+<span class="kn">from</span> <span class="nn">mlflow.utils.file_utils</span> <span class="kn">import</span> <span class="n">TempDir</span>
+<span class="kn">from</span> <span class="nn">mlflow.utils.proto_json_utils</span> <span class="kn">import</span> <span class="n">dump_input_data</span>
+
+<span class="n">_logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
+
+
+<div class="viewcode-block" id="build_docker"><a class="viewcode-back" href="../../../python_api/mlflow.models.html#mlflow.models.build_docker">[docs]</a><span class="k">def</span> <span class="nf">build_docker</span><span class="p">(</span>
+    <span class="n">model_uri</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">name</span><span class="o">=</span><span class="s2">&quot;mlflow-pyfunc&quot;</span><span class="p">,</span>
+    <span class="n">env_manager</span><span class="o">=</span><span class="n">_EnvManager</span><span class="o">.</span><span class="n">VIRTUALENV</span><span class="p">,</span>
+    <span class="n">mlflow_home</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">install_java</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+    <span class="n">install_mlflow</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+    <span class="n">enable_mlserver</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+    <span class="n">base_image</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+<span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Builds a Docker image whose default entrypoint serves an MLflow model at port 8080, using the</span>
+<span class="sd">    python_function flavor. The container serves the model referenced by ``model_uri``, if</span>
+<span class="sd">    specified. If ``model_uri`` is not specified, an MLflow Model directory must be mounted as a</span>
+<span class="sd">    volume into the /opt/ml/model directory in the container.</span>
+
+<span class="sd">    .. important::</span>
+
+<span class="sd">        Since MLflow 2.10.1, the Docker image built with ``--model-uri`` does **not install Java**</span>
+<span class="sd">        for improved performance, unless the model flavor is one of ``[&quot;johnsnowlabs&quot;, &quot;h2o&quot;,</span>
+<span class="sd">        &quot;mleap&quot;, &quot;spark&quot;]``. If you need to install Java for other flavors, e.g. custom Python model</span>
+<span class="sd">        that uses SparkML, please specify ``install-java=True`` to enforce Java installation.</span>
+<span class="sd">        For earlier versions, Java is always installed to the image.</span>
+
+
+<span class="sd">    .. warning::</span>
+
+<span class="sd">        If ``model_uri`` is unspecified, the resulting image doesn&#39;t support serving models with</span>
+<span class="sd">        the RFunc or Java MLeap model servers.</span>
+
+<span class="sd">    NB: by default, the container will start nginx and gunicorn processes. If you don&#39;t need the</span>
+<span class="sd">    nginx process to be started (for instance if you deploy your container to Google Cloud Run),</span>
+<span class="sd">    you can disable it via the DISABLE_NGINX environment variable:</span>
+
+<span class="sd">    .. code:: bash</span>
+
+<span class="sd">        docker run -p 5001:8080 -e DISABLE_NGINX=true &quot;my-image-name&quot;</span>
+
+<span class="sd">    See https://www.mlflow.org/docs/latest/python_api/mlflow.pyfunc.html for more information on the</span>
+<span class="sd">    &#39;python_function&#39; flavor.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        model_uri: URI to the model. A local path, a &#39;runs:/&#39; URI, or a remote storage URI (e.g.,</span>
+<span class="sd">            an &#39;s3://&#39; URI). For more information about supported remote URIs for model artifacts,</span>
+<span class="sd">            see https://mlflow.org/docs/latest/tracking.html#artifact-stores&quot;</span>
+<span class="sd">        name: Name of the Docker image to build. Defaults to &#39;mlflow-pyfunc&#39;.</span>
+<span class="sd">        env_manager: If specified, create an environment for MLmodel using the specified environment</span>
+<span class="sd">            manager. The following values are supported: (1) virtualenv (default): use virtualenv</span>
+<span class="sd">            and pyenv for Python version management (2) conda: use conda (3) local: use the local</span>
+<span class="sd">            environment without creating a new one.</span>
+<span class="sd">        mlflow_home: Path to local clone of MLflow project. Use for development only.</span>
+<span class="sd">        install_java: If specified, install Java in the image. Default is False in order to</span>
+<span class="sd">            reduce both the image size and the build time. Model flavors requiring Java will enable</span>
+<span class="sd">            this setting automatically, such as the Spark flavor. (This argument is only available</span>
+<span class="sd">            in MLflow 2.10.1 and later. In earlier versions, Java is always installed to the image.)</span>
+<span class="sd">        install_mlflow: If specified and there is a conda or virtualenv environment to be activated</span>
+<span class="sd">            mlflow will be installed into the environment after it has been activated.</span>
+<span class="sd">            The version of installed mlflow will be the same as the one used to invoke this command.</span>
+<span class="sd">        enable_mlserver: If specified, the image will be built with the Seldon MLserver as backend.</span>
+<span class="sd">        base_image: Base image for the Docker image. If not specified, the default image is either</span>
+<span class="sd">            UBUNTU_BASE_IMAGE = &quot;ubuntu:20.04&quot; or PYTHON_SLIM_BASE_IMAGE = &quot;python:{version}-slim&quot;</span>
+<span class="sd">            Note: If custom image is used, there are no guarantees that the image will work. You</span>
+<span class="sd">            may find greater compatibility by building your image on top of the ubuntu images. In</span>
+<span class="sd">            addition, you must install Java and virtualenv to have the image work properly.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">get_flavor_backend</span><span class="p">(</span><span class="n">model_uri</span><span class="p">,</span> <span class="n">docker_build</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">env_manager</span><span class="o">=</span><span class="n">env_manager</span><span class="p">)</span><span class="o">.</span><span class="n">build_image</span><span class="p">(</span>
+        <span class="n">model_uri</span><span class="p">,</span>
+        <span class="n">name</span><span class="p">,</span>
+        <span class="n">mlflow_home</span><span class="o">=</span><span class="n">mlflow_home</span><span class="p">,</span>
+        <span class="n">install_java</span><span class="o">=</span><span class="n">install_java</span><span class="p">,</span>
+        <span class="n">install_mlflow</span><span class="o">=</span><span class="n">install_mlflow</span><span class="p">,</span>
+        <span class="n">enable_mlserver</span><span class="o">=</span><span class="n">enable_mlserver</span><span class="p">,</span>
+        <span class="n">base_image</span><span class="o">=</span><span class="n">base_image</span><span class="p">,</span>
+    <span class="p">)</span></div>
+
+
+<span class="n">_CONTENT_TYPE_CSV</span> <span class="o">=</span> <span class="s2">&quot;csv&quot;</span>
+<span class="n">_CONTENT_TYPE_JSON</span> <span class="o">=</span> <span class="s2">&quot;json&quot;</span>
+
+
+<div class="viewcode-block" id="predict"><a class="viewcode-back" href="../../../python_api/mlflow.models.html#mlflow.models.predict">[docs]</a><span class="k">def</span> <span class="nf">predict</span><span class="p">(</span>
+    <span class="n">model_uri</span><span class="p">,</span>
+    <span class="n">input_data</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">input_path</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">content_type</span><span class="o">=</span><span class="n">_CONTENT_TYPE_JSON</span><span class="p">,</span>
+    <span class="n">output_path</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">env_manager</span><span class="o">=</span><span class="n">_EnvManager</span><span class="o">.</span><span class="n">VIRTUALENV</span><span class="p">,</span>
+    <span class="n">install_mlflow</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+    <span class="n">pip_requirements_override</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+<span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Generate predictions in json format using a saved MLflow model. For information about the input</span>
+<span class="sd">    data formats accepted by this function, see the following documentation:</span>
+<span class="sd">    https://www.mlflow.org/docs/latest/models.html#built-in-deployment-tools.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        model_uri: URI to the model. A local path, a local or remote URI e.g. runs:/, s3://.</span>
+<span class="sd">        input_data: Input data for prediction. Must be valid input for the PyFunc model. Refer</span>
+<span class="sd">            to the :py:func:`mlflow.pyfunc.PyFuncModel.predict()` for the supported input types.</span>
+<span class="sd">        input_path: Path to a file containing input data. If provided, &#39;input_data&#39; must be None.</span>
+<span class="sd">        content_type: Content type of the input data. Can be one of {‘json’, ‘csv’}.</span>
+<span class="sd">        output_path: File to output results to as json. If not provided, output to stdout.</span>
+<span class="sd">        env_manager: Specify a way to create an environment for MLmodel inference:</span>
+
+<span class="sd">            - &quot;virtualenv&quot; (default): use virtualenv (and pyenv for Python version management)</span>
+<span class="sd">            - &quot;local&quot;: use the local environment</span>
+<span class="sd">            - &quot;conda&quot;: use conda</span>
+
+<span class="sd">        install_mlflow: If specified and there is a conda or virtualenv environment to be activated</span>
+<span class="sd">            mlflow will be installed into the environment after it has been activated. The version</span>
+<span class="sd">            of installed mlflow will be the same as the one used to invoke this command.</span>
+<span class="sd">        pip_requirements_override: If specified, install the specified python dependencies to the</span>
+<span class="sd">            model inference environment. This is particularly useful when you want to add extra</span>
+<span class="sd">            dependencies or try different versions of the dependencies defined in the logged model.</span>
+
+<span class="sd">    Code example:</span>
+
+<span class="sd">    .. code-block:: python</span>
+
+<span class="sd">        import mlflow</span>
+
+<span class="sd">        run_id = &quot;...&quot;</span>
+
+<span class="sd">        mlflow.models.predict(</span>
+<span class="sd">            model_uri=f&quot;runs:/{run_id}/model&quot;,</span>
+<span class="sd">            input_data={&quot;x&quot;: 1, &quot;y&quot;: 2},</span>
+<span class="sd">            content_type=&quot;json&quot;,</span>
+<span class="sd">        )</span>
+
+<span class="sd">        # Run prediction with additional pip dependencies</span>
+<span class="sd">        mlflow.models.predict(</span>
+<span class="sd">            model_uri=f&quot;runs:/{run_id}/model&quot;,</span>
+<span class="sd">            input_data=&#39;{&quot;x&quot;: 1, &quot;y&quot;: 2}&#39;,</span>
+<span class="sd">            content_type=&quot;json&quot;,</span>
+<span class="sd">            pip_requirements_override=[&quot;scikit-learn==0.23.2&quot;],</span>
+<span class="sd">        )</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">content_type</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">[</span><span class="n">_CONTENT_TYPE_JSON</span><span class="p">,</span> <span class="n">_CONTENT_TYPE_CSV</span><span class="p">]:</span>
+        <span class="k">raise</span> <span class="n">MlflowException</span><span class="o">.</span><span class="n">invalid_parameter_value</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;Content type must be one of </span><span class="si">{</span><span class="n">_CONTENT_TYPE_JSON</span><span class="si">}</span><span class="s2"> or </span><span class="si">{</span><span class="n">_CONTENT_TYPE_CSV</span><span class="si">}</span><span class="s2">.&quot;</span>
+        <span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_predict</span><span class="p">(</span><span class="n">_input_path</span><span class="p">:</span> <span class="nb">str</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">get_flavor_backend</span><span class="p">(</span>
+            <span class="n">model_uri</span><span class="p">,</span> <span class="n">env_manager</span><span class="o">=</span><span class="n">env_manager</span><span class="p">,</span> <span class="n">install_mlflow</span><span class="o">=</span><span class="n">install_mlflow</span>
+        <span class="p">)</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span>
+            <span class="n">model_uri</span><span class="o">=</span><span class="n">model_uri</span><span class="p">,</span>
+            <span class="n">input_path</span><span class="o">=</span><span class="n">_input_path</span><span class="p">,</span>
+            <span class="n">output_path</span><span class="o">=</span><span class="n">output_path</span><span class="p">,</span>
+            <span class="n">content_type</span><span class="o">=</span><span class="n">content_type</span><span class="p">,</span>
+            <span class="n">pip_requirements_override</span><span class="o">=</span><span class="n">pip_requirements_override</span><span class="p">,</span>
+        <span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">input_data</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">input_path</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="n">MlflowException</span><span class="o">.</span><span class="n">invalid_parameter_value</span><span class="p">(</span>
+            <span class="s2">&quot;Both input_data and input_path are provided. Only one of them should be specified.&quot;</span>
+        <span class="p">)</span>
+    <span class="k">elif</span> <span class="n">input_data</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">input_data</span> <span class="o">=</span> <span class="n">_serialize_input_data</span><span class="p">(</span><span class="n">input_data</span><span class="p">,</span> <span class="n">content_type</span><span class="p">)</span>
+
+        <span class="c1"># Write input data to a temporary file</span>
+        <span class="k">with</span> <span class="n">TempDir</span><span class="p">()</span> <span class="k">as</span> <span class="n">tmp</span><span class="p">:</span>
+            <span class="n">input_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">tmp</span><span class="o">.</span><span class="n">path</span><span class="p">(),</span> <span class="sa">f</span><span class="s2">&quot;input.</span><span class="si">{</span><span class="n">content_type</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">input_path</span><span class="p">,</span> <span class="s2">&quot;w&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+                <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">input_data</span><span class="p">)</span>
+
+            <span class="n">_predict</span><span class="p">(</span><span class="n">input_path</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">_predict</span><span class="p">(</span><span class="n">input_path</span><span class="p">)</span></div>
+
+
+<span class="k">def</span> <span class="nf">_get_pyfunc_supported_input_types</span><span class="p">():</span>
+    <span class="c1"># Importing here as the util module depends on optional packages not available in mlflow-skinny</span>
+    <span class="kn">import</span> <span class="nn">mlflow.models.utils</span> <span class="k">as</span> <span class="nn">base_module</span>
+
+    <span class="n">supported_input_types</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">input_type</span> <span class="ow">in</span> <span class="n">get_args</span><span class="p">(</span><span class="n">base_module</span><span class="o">.</span><span class="n">PyFuncInput</span><span class="p">):</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">input_type</span><span class="p">,</span> <span class="nb">type</span><span class="p">):</span>
+            <span class="n">supported_input_types</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">input_type</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">input_type</span><span class="p">,</span> <span class="n">ForwardRef</span><span class="p">):</span>
+            <span class="n">name</span> <span class="o">=</span> <span class="n">input_type</span><span class="o">.</span><span class="n">__forward_arg__</span>
+            <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">base_module</span><span class="p">,</span> <span class="n">name</span><span class="p">):</span>
+                <span class="bp">cls</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">base_module</span><span class="p">,</span> <span class="n">name</span><span class="p">)</span>
+                <span class="n">supported_input_types</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="bp">cls</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># typing instances like List, Dict, Tuple, etc.</span>
+            <span class="n">supported_input_types</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">get_origin</span><span class="p">(</span><span class="n">input_type</span><span class="p">))</span>
+    <span class="k">return</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">supported_input_types</span><span class="p">)</span>
+
+
+<span class="k">def</span> <span class="nf">_serialize_input_data</span><span class="p">(</span><span class="n">input_data</span><span class="p">,</span> <span class="n">content_type</span><span class="p">):</span>
+    <span class="c1"># build-docker command is available in mlflow-skinny (which doesn&#39;t contain pandas)</span>
+    <span class="c1"># so we shouldn&#39;t import pandas at the top level</span>
+    <span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
+
+    <span class="n">valid_input_types</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="n">_CONTENT_TYPE_CSV</span><span class="p">:</span> <span class="p">(</span><span class="nb">str</span><span class="p">,</span> <span class="nb">list</span><span class="p">,</span> <span class="nb">dict</span><span class="p">,</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">),</span>
+        <span class="n">_CONTENT_TYPE_JSON</span><span class="p">:</span> <span class="n">_get_pyfunc_supported_input_types</span><span class="p">(),</span>
+    <span class="p">}</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">content_type</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">input_data</span><span class="p">,</span> <span class="n">valid_input_types</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="n">MlflowException</span><span class="o">.</span><span class="n">invalid_parameter_value</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;Input data must be one of </span><span class="si">{</span><span class="n">valid_input_types</span><span class="si">}</span><span class="s2"> when content type is &#39;</span><span class="si">{</span><span class="n">content_type</span><span class="si">}</span><span class="s2">&#39;, &quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;but got </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">input_data</span><span class="p">)</span><span class="si">}</span><span class="s2">.&quot;</span>
+        <span class="p">)</span>
+
+    <span class="c1"># If the input is already string, check if the input string can be deserialized correctly</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">input_data</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+        <span class="n">_validate_string</span><span class="p">(</span><span class="n">input_data</span><span class="p">,</span> <span class="n">content_type</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">input_data</span>
+
+    <span class="k">try</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">content_type</span> <span class="o">==</span> <span class="n">_CONTENT_TYPE_CSV</span><span class="p">:</span>
+            <span class="c1"># We should not set header=False here because the scoring server expects the</span>
+            <span class="c1"># first row to be the header</span>
+            <span class="k">return</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">input_data</span><span class="p">)</span><span class="o">.</span><span class="n">to_csv</span><span class="p">(</span><span class="n">index</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">_serialize_to_json</span><span class="p">(</span><span class="n">input_data</span><span class="p">)</span>
+    <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="n">MlflowException</span><span class="o">.</span><span class="n">invalid_parameter_value</span><span class="p">(</span>
+            <span class="n">message</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;Input data could not be serialized to </span><span class="si">{</span><span class="n">content_type</span><span class="si">}</span><span class="s2">.&quot;</span>
+        <span class="p">)</span> <span class="kn">from</span> <span class="nn">e</span>
+
+
+<span class="k">def</span> <span class="nf">_serialize_to_json</span><span class="p">(</span><span class="n">input_data</span><span class="p">):</span>
+    <span class="c1"># imported inside function to avoid circular import</span>
+    <span class="kn">from</span> <span class="nn">mlflow.pyfunc.scoring_server</span> <span class="kn">import</span> <span class="n">SUPPORTED_FORMATS</span>
+    <span class="kn">from</span> <span class="nn">mlflow.pyfunc.utils.serving_data_parser</span> <span class="kn">import</span> <span class="n">SUPPORTED_LLM_FORMATS</span>
+
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">input_data</span><span class="p">,</span> <span class="nb">dict</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">any</span><span class="p">(</span>
+        <span class="n">key</span> <span class="ow">in</span> <span class="n">input_data</span> <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">SUPPORTED_FORMATS</span> <span class="o">|</span> <span class="n">SUPPORTED_LLM_FORMATS</span>
+    <span class="p">):</span>
+        <span class="k">return</span> <span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="n">input_data</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">original_input_data</span> <span class="o">=</span> <span class="n">input_data</span>
+
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">input_data</span><span class="p">,</span> <span class="p">(</span><span class="n">datetime</span><span class="p">,</span> <span class="nb">bool</span><span class="p">,</span> <span class="nb">bytes</span><span class="p">,</span> <span class="nb">float</span><span class="p">,</span> <span class="nb">int</span><span class="p">,</span> <span class="nb">str</span><span class="p">)):</span>
+            <span class="n">input_data</span> <span class="o">=</span> <span class="p">[</span><span class="n">input_data</span><span class="p">]</span>
+
+        <span class="n">input_data</span> <span class="o">=</span> <span class="n">dump_input_data</span><span class="p">(</span><span class="n">input_data</span><span class="p">)</span>
+
+        <span class="n">_logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;Your input data has been transformed to comply with the expected input format for &quot;</span>
+            <span class="s2">&quot;the MLflow scoring server. If you want to deploy the model to online serving, make &quot;</span>
+            <span class="s2">&quot;sure to apply the same preprocessing in your inference client. Please also refer to &quot;</span>
+            <span class="s2">&quot;https://www.mlflow.org/docs/latest/deployment/deploy-model-locally.html#json-input &quot;</span>
+            <span class="s2">&quot;for more details on the supported input format.&quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;</span><span class="se">\n\n</span><span class="s2">Original input data:</span><span class="se">\n</span><span class="si">{</span><span class="n">original_input_data</span><span class="si">}</span><span class="s2">&quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;</span><span class="se">\n\n</span><span class="s2">Transformed input data:</span><span class="se">\n</span><span class="si">{</span><span class="n">input_data</span><span class="si">}</span><span class="s2">&quot;</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="n">input_data</span>
+
+
+<span class="k">def</span> <span class="nf">_validate_string</span><span class="p">(</span><span class="n">input_data</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">content_type</span><span class="p">:</span> <span class="nb">str</span><span class="p">):</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">content_type</span> <span class="o">==</span> <span class="n">_CONTENT_TYPE_CSV</span><span class="p">:</span>
+            <span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
+
+            <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="n">StringIO</span><span class="p">(</span><span class="n">input_data</span><span class="p">))</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">input_data</span><span class="p">)</span>
+    <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+        <span class="n">target</span> <span class="o">=</span> <span class="s2">&quot;JSON&quot;</span> <span class="k">if</span> <span class="n">content_type</span> <span class="o">==</span> <span class="n">_CONTENT_TYPE_JSON</span> <span class="k">else</span> <span class="s2">&quot;Pandas DataFrame&quot;</span>
+        <span class="k">raise</span> <span class="n">MlflowException</span><span class="o">.</span><span class="n">invalid_parameter_value</span><span class="p">(</span>
+            <span class="n">message</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;Failed to deserialize input string data to </span><span class="si">{</span><span class="n">target</span><span class="si">}</span><span class="s2">.&quot;</span>
+        <span class="p">)</span> <span class="kn">from</span> <span class="nn">e</span>
+</pre></div>
+
+              </div>
+            </div>
+            <footer>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+      <p class="copyright">
+          &copy; MLflow Project, a Series of LF Projects, LLC. All rights reserved.
+      </p>
+
+  </div> 
+
+</footer>
+          </div>
+        </div>
+      </section>
+    </main>
+  </page>
+
+  
+
+
+  
+  <script type="text/javascript">
+    var DOCUMENTATION_OPTIONS = {
+      URL_ROOT:'../../../',
+      VERSION:'2.17.1.dev0',
+      COLLAPSE_INDEX:false,
+      FILE_SUFFIX:'.html',
+      LINK_SUFFIX: '.html',
+      HAS_SOURCE:  true
+    };
+  </script>
+
+  
+
+  <script type="text/javascript" src="../../../_static/js/clipboard.min.js"></script>
+  <script type="text/javascript" src="../../../_static/js/jquery.waypoints.min.js"></script>
+
+  
+  
+  
+  <script type="text/javascript">var CLIPPY_SVG_PATH = "../../../_static/clippy.svg";</script>
+  <script type="text/javascript" src="../../../_static/js/custom.js"></script>
+  
+
+  
+  
+  <script type="text/javascript">
+    jQuery(function () {
+      SphinxRtdTheme.StickyNav.enable();
+    });
+
+  </script>
+  
+
+  
+  <script type="text/javascript">
+    document.addEventListener("DOMContentLoaded", function() {
+        function copyToClipboard(text) {
+            const textarea = document.createElement('textarea');
+            textarea.value = text;
+            document.body.appendChild(textarea);
+            textarea.select();
+            document.execCommand('copy');
+            document.body.removeChild(textarea);
+        }
+        // Get the code block designator class entries
+        const allHighlights = document.querySelectorAll('.highlight');
+        // Disable copyable links for notebook cell numbering and for cell outputs
+        const highlights = Array.from(allHighlights).filter(highlight => !highlight.closest('.highlight-none') && 
+            !highlight.closest('.nboutput'));
+    
+        highlights.forEach(function(highlight) {
+            const copyIcon = document.createElement('span');
+            copyIcon.classList.add('copy-icon');
+            copyIcon.innerHTML = '&#xf0ea;';
+
+            copyIcon.addEventListener('click', function() {
+                const code = highlight.querySelector('pre').textContent;
+                copyToClipboard(code);
+
+                // Flash effect on click
+                this.style.color = '#0194E2';
+                setTimeout(() => {
+                    this.style.color = ''; 
+                }, 100);
+
+                // Display "Code copied to clipboard" near the clicked icon
+                const message = document.createElement('span');
+                message.textContent = "Copied!";
+                message.classList.add('copy-message'); 
+
+                // Append the message to the icon
+                this.appendChild(message);
+
+                setTimeout(() => {
+                    this.removeChild(message);
+                }, 500);
+            });
+
+            highlight.appendChild(copyIcon);
+        });
+    });
+  </script>
+
+
+<script type="text/javascript">
+    document.addEventListener("DOMContentLoaded", function() {
+        // Force download for notebook-download-btn
+        const downloadButtons = document.querySelectorAll('.notebook-download-btn');
+        downloadButtons.forEach(function(button) {
+            button.addEventListener('click', function(event) {
+                event.preventDefault(); // Prevent default behavior
+
+                // Fetch the raw content of the notebook from GitHub
+                fetch(button.href)
+                    .then(response => response.blob())
+                    .then(blob => {
+                        const url = window.URL.createObjectURL(blob);
+                        const link = document.createElement('a');
+                        link.style.display = 'none';
+                        link.href = url;
+                        const filename = button.href.split('/').pop();
+                        link.download = filename; 
+
+                        document.body.appendChild(link);
+                        link.click();
+
+                        window.URL.revokeObjectURL(url);
+                        document.body.removeChild(link);
+                    })
+                    .catch(err => console.error('Error fetching the notebook:', err));
+            });
+        });
+    });
+</script> 
+</body>
+</html>

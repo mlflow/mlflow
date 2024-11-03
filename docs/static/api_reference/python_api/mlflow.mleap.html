@@ -1,0 +1,556 @@
+
+
+<!DOCTYPE html>
+<!-- source: docs/source/python_api/mlflow.mleap.rst -->
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>mlflow.mleap</title>
+  
+   
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+  <link rel="canonical" href="https://mlflow.org/docs/latest/python_api/mlflow.mleap.html">
+  
+  
+    <link rel="shortcut icon" href="../_static/favicon.ico"/>
+    
+
+    
+
+  
+    
+
+  
+
+  
+  
+    
+
+  
+
+  
+  
+    <link href="https://fonts.googleapis.com/css?family=Source+Sans+Pro:300,400,600" rel="stylesheet">
+    <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/css/custom.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/css/cards.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/css/grids.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/css/mobile.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/css/simple-cards.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/css/tabs.css" type="text/css" />
+    
+  
+        <link rel="index" title="Index"
+              href="../genindex.html"/>
+        <link rel="search" title="Search" href="../search.html"/>
+    <link rel="top" title="MLflow 2.17.1.dev0 documentation" href="../index.html"/>
+        <link rel="up" title="Python API" href="index.html"/>
+        <link rel="next" title="mlflow.models" href="/mlflow.models.html"/>
+        <link rel="prev" title="mlflow.metrics" href="/mlflow.metrics.html"/> 
+
+  
+  <script src="../_static/js/modernizr.min.js"></script>
+
+</head>
+<script type="text/javascript" src="../_static/jquery.js"></script>
+<script type="text/javascript" src="../_static/underscore.js"></script>
+<script type="text/javascript" src="../_static/doctools.js"></script>
+<script type="text/javascript" src="../_static/languagesections.js"></script>
+<script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+<script type="text/javascript" src="../_static/runllm.js"></script>
+
+<body class="wy-body-for-nav" role="document">
+  
+
+  
+  <nav class="wy-nav-top header" role="navigation" aria-label="top navigation">
+    <ul>
+  <li class="menu-toggle">
+    <i data-toggle="wy-nav-top" class="wy-nav-top-menu-button db-icon db-icon-menu pull-left"></i>
+    <a href="../index.html" class="wy-nav-top-logo"
+      ><img src="../_static/MLflow-logo-final-black.png" alt="MLflow"
+    /></a>
+    <span class="version">2.17.1.dev0</span>
+  </li>
+</ul>
+  </nav>
+  <page>
+    
+
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side relative">
+      <div class="wy-side-scroll">
+  <div class="wy-side-nav-search">
+    
+
+    
+
+    
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+  <input type="text" name="q" placeholder="Search" />
+  <input type="hidden" name="check_keywords" value="yes" />
+  <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+
+    
+  </div>
+
+  <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+    
+      <a href="../index.html" class="main-navigation-home"><img src="../_static/icons/nav-home.svg"> MLflow</a>
+    
+
+    
+      
+
+      
+        <ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">Python API</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="mlflow.html">mlflow</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.html#mlflow-tracing-apis">MLflow Tracing APIs</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.artifacts.html">mlflow.artifacts</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.autogen.html">mlflow.autogen</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.catboost.html">mlflow.catboost</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.client.html">mlflow.client</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.config.html">mlflow.config</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.data.html">mlflow.data</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.deployments.html">mlflow.deployments</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.diviner.html">mlflow.diviner</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.dspy.html">mlflow.dspy</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.entities.html">mlflow.entities</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.environment_variables.html">mlflow.environment_variables</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.fastai.html">mlflow.fastai</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.gateway.html">mlflow.gateway</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.gluon.html">mlflow.gluon</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.h2o.html">mlflow.h2o</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.johnsnowlabs.html">mlflow.johnsnowlabs</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.keras.html">mlflow.keras</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.langchain.html">mlflow.langchain</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.lightgbm.html">mlflow.lightgbm</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.llama_index.html">mlflow.llama_index</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.metrics.html">mlflow.metrics</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">mlflow.mleap</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.models.html">mlflow.models</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.onnx.html">mlflow.onnx</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.openai.html">mlflow.openai</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.paddle.html">mlflow.paddle</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.pmdarima.html">mlflow.pmdarima</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.projects.html">mlflow.projects</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.promptflow.html">mlflow.promptflow</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.prophet.html">mlflow.prophet</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.pyfunc.html">mlflow.pyfunc</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.pyspark.ml.html">mlflow.pyspark.ml</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.pytorch.html">mlflow.pytorch</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.recipes.html">mlflow.recipes</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.sagemaker.html">mlflow.sagemaker</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.sentence_transformers.html">mlflow.sentence_transformers</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.server.html">mlflow.server</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.shap.html">mlflow.shap</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.sklearn.html">mlflow.sklearn</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.spacy.html">mlflow.spacy</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.spark.html">mlflow.spark</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.statsmodels.html">mlflow.statsmodels</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.system_metrics.html">mlflow.system_metrics</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.tensorflow.html">mlflow.tensorflow</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.tracing.html">mlflow.tracing</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.transformers.html">mlflow.transformers</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.types.html">mlflow.types</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.utils.html">mlflow.utils</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.xgboost.html">mlflow.xgboost</a></li>
+<li class="toctree-l2"><a class="reference internal" href="index.html#log-levels">Log Levels</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../cli.html">Command-Line Interface</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../R-api.html">R API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../java_api/index.html">Java API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../rest-api.html">REST API</a></li>
+</ul>
+
+      
+    
+  </div>
+
+  <div role="contentinfo">
+    
+
+    <p>
+      <a id='feedbacklink' href="https://github.com/mlflow/mlflow/blob/master/CONTRIBUTING.md" target="_blank">Contribute</a>
+    </p>
+  </div>
+</div>
+    </nav>
+
+    <main class="wy-grid-for-nav">
+      <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+        <div class="wy-nav-content">
+          <div class="rst-content">
+            
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href="../index.html">Documentation</a> <span class="db-icon db-icon-chevron-right"></span></li>
+    
+        <li><a href="index.html">Python API</a> <span class="db-icon db-icon-chevron-right"></span></li>
+    
+    
+      <li>mlflow.mleap</li>
+    
+    
+    <!-- <li class="wy-breadcrumbs-aside">
+      <a href="https://github.com/mlflow/mlflow/blob/master/docs/source/python_api/mlflow.mleap.rst" class="fa fa-github"> Edit on GitHub</a>
+    </li> -->
+    
+  </ul>
+</div>
+            <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+              <div itemprop="articleBody">
+                
+  <div class="section" id="module-mlflow.mleap">
+<span id="mlflow-mleap"></span><h1>mlflow.mleap<a class="headerlink" href="#module-mlflow.mleap" title="Permalink to this headline"> </a></h1>
+<p>The <code class="docutils literal notranslate"><span class="pre">mlflow.mleap</span></code> module provides an API for saving Spark MLLib models using the
+<a class="reference external" href="https://github.com/combust/mleap">MLeap</a> persistence mechanism.</p>
+<dl class="py exception">
+<dt id="mlflow.mleap.MLeapSerializationException">
+<em class="property"><span class="pre">exception</span> </em><code class="sig-prename descclassname"><span class="pre">mlflow.mleap.</span></code><code class="sig-name descname"><span class="pre">MLeapSerializationException</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">message</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">error_code</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/mlflow/mleap.html#MLeapSerializationException"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mlflow.mleap.MLeapSerializationException" title="Permalink to this definition"> </a></dt>
+<dd><p>Bases: <a class="reference internal" href="exceptions/mlflow.exceptions.html#mlflow.exceptions.MlflowException" title="mlflow.exceptions.MlflowException"><code class="xref py py-class docutils literal notranslate"><span class="pre">mlflow.exceptions.MlflowException</span></code></a></p>
+<p>Exception thrown when a model or DataFrame cannot be serialized in MLeap format.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt id="mlflow.mleap.add_to_model">
+<code class="sig-prename descclassname"><span class="pre">mlflow.mleap.</span></code><code class="sig-name descname"><span class="pre">add_to_model</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">mlflow_model</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">path</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">spark_model</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sample_input</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/mlflow/mleap.html#add_to_model"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mlflow.mleap.add_to_model" title="Permalink to this definition"> </a></dt>
+<dd><div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p><code class="docutils literal notranslate"><span class="pre">mlflow.mleap.add_to_model</span></code> is deprecated since 2.6.0. This method will be removed in a future release. Use <code class="docutils literal notranslate"><span class="pre">mlflow.onnx</span></code> instead.</p>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>This method requires all argument be specified by keyword.</p>
+</div>
+<p>Add the MLeap flavor to an existing MLflow model.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>mlflow_model</strong> – <a class="reference internal" href="mlflow.models.html#mlflow.models.Model" title="mlflow.models.Model"><code class="xref py py-mod docutils literal notranslate"><span class="pre">mlflow.models.Model</span></code></a> to which this flavor is being added.</p></li>
+<li><p><strong>path</strong> – Path of the model to which this flavor is being added.</p></li>
+<li><p><strong>spark_model</strong> – Spark PipelineModel to be saved. This model must be MLeap-compatible and
+cannot contain any custom transformers.</p></li>
+<li><p><strong>sample_input</strong> – Sample PySpark DataFrame input that the model can evaluate. This is
+required by MLeap for data schema inference.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt id="mlflow.mleap.log_model">
+<code class="sig-prename descclassname"><span class="pre">mlflow.mleap.</span></code><code class="sig-name descname"><span class="pre">log_model</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">spark_model</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sample_input</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">artifact_path</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">registered_model_name</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">signature</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">mlflow.models.signature.ModelSignature</span></span> <span class="o"><span class="pre">=</span></span> <span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">input_example</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">Union</span><span class="p"><span class="pre">[</span></span><span class="pre">pandas.core.frame.DataFrame</span><span class="p"><span class="pre">,</span> </span><span class="pre">numpy.ndarray</span><span class="p"><span class="pre">,</span> </span><span class="pre">dict</span><span class="p"><span class="pre">,</span> </span><span class="pre">list</span><span class="p"><span class="pre">,</span> </span><span class="pre">csr_matrix</span><span class="p"><span class="pre">,</span> </span><span class="pre">csc_matrix</span><span class="p"><span class="pre">,</span> </span><span class="pre">str</span><span class="p"><span class="pre">,</span> </span><span class="pre">bytes</span><span class="p"><span class="pre">,</span> </span><span class="pre">tuple</span><span class="p"><span class="pre">]</span></span></span> <span class="o"><span class="pre">=</span></span> <span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">metadata</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/mlflow/mleap.html#log_model"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mlflow.mleap.log_model" title="Permalink to this definition"> </a></dt>
+<dd><div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p><code class="docutils literal notranslate"><span class="pre">mlflow.mleap.log_model</span></code> is deprecated since 2.6.0. This method will be removed in a future release. Use <code class="docutils literal notranslate"><span class="pre">mlflow.onnx</span></code> instead.</p>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>This method requires all argument be specified by keyword.</p>
+</div>
+<p>Log a Spark MLLib model in MLeap format as an MLflow artifact
+for the current run. The logged model will have the MLeap flavor.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>You cannot load the MLeap model flavor in Python; you must download it using the
+Java API method <code class="docutils literal notranslate"><span class="pre">downloadArtifacts(String</span> <span class="pre">runId)</span></code> and load the model
+using the method <code class="docutils literal notranslate"><span class="pre">MLeapLoader.loadPipeline(String</span> <span class="pre">modelRootPath)</span></code>.</p>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>spark_model</strong> – Spark PipelineModel to be saved. This model must be MLeap-compatible and
+cannot contain any custom transformers.</p></li>
+<li><p><strong>sample_input</strong> – Sample PySpark DataFrame input that the model can evaluate. This is
+required by MLeap for data schema inference.</p></li>
+<li><p><strong>artifact_path</strong> – Run-relative artifact path.</p></li>
+<li><p><strong>registered_model_name</strong> – If given, create a model version under
+<code class="docutils literal notranslate"><span class="pre">registered_model_name</span></code>, also creating a registered model if one
+with the given name does not exist.</p></li>
+<li><p><strong>signature</strong> – <p><a class="reference internal" href="mlflow.models.html#mlflow.models.ModelSignature" title="mlflow.models.ModelSignature"><code class="xref py py-class docutils literal notranslate"><span class="pre">ModelSignature</span></code></a>
+describes model input and output <a class="reference internal" href="mlflow.types.html#mlflow.types.Schema" title="mlflow.types.Schema"><code class="xref py py-class docutils literal notranslate"><span class="pre">Schema</span></code></a>.
+The model signature can be <a class="reference internal" href="mlflow.models.html#mlflow.models.infer_signature" title="mlflow.models.infer_signature"><code class="xref py py-func docutils literal notranslate"><span class="pre">inferred</span></code></a>
+from datasets with valid model input (e.g. the training dataset with target
+column omitted) and valid model output (e.g. model predictions generated on
+the training dataset), for example:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">mlflow.models</span> <span class="kn">import</span> <span class="n">infer_signature</span>
+
+<span class="n">train</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">drop_column</span><span class="p">(</span><span class="s2">&quot;target_label&quot;</span><span class="p">)</span>
+<span class="n">predictions</span> <span class="o">=</span> <span class="o">...</span>  <span class="c1"># compute model predictions</span>
+<span class="n">signature</span> <span class="o">=</span> <span class="n">infer_signature</span><span class="p">(</span><span class="n">train</span><span class="p">,</span> <span class="n">predictions</span><span class="p">)</span>
+</pre></div>
+</div>
+</p></li>
+<li><p><strong>input_example</strong> – {{ input_example }}</p></li>
+<li><p><strong>metadata</strong> – {{ metadata }}</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>A <a class="reference internal" href="mlflow.models.html#mlflow.models.model.ModelInfo" title="mlflow.models.model.ModelInfo"><code class="xref py py-class docutils literal notranslate"><span class="pre">ModelInfo</span></code></a> instance that contains the
+metadata of the logged model.</p>
+</dd>
+</dl>
+<div class="literal-block-wrapper docutils container" id="id1">
+<div class="code-block-caption"><span class="caption-text">Example</span><a class="headerlink" href="#id1" title="Permalink to this code"> </a></div>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">mlflow</span>
+<span class="kn">import</span> <span class="nn">mlflow.mleap</span>
+<span class="kn">import</span> <span class="nn">pyspark</span>
+<span class="kn">from</span> <span class="nn">pyspark.ml</span> <span class="kn">import</span> <span class="n">Pipeline</span>
+<span class="kn">from</span> <span class="nn">pyspark.ml.classification</span> <span class="kn">import</span> <span class="n">LogisticRegression</span>
+<span class="kn">from</span> <span class="nn">pyspark.ml.feature</span> <span class="kn">import</span> <span class="n">HashingTF</span><span class="p">,</span> <span class="n">Tokenizer</span>
+
+<span class="c1"># training DataFrame</span>
+<span class="n">training</span> <span class="o">=</span> <span class="n">spark</span><span class="o">.</span><span class="n">createDataFrame</span><span class="p">(</span>
+    <span class="p">[</span>
+        <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="s2">&quot;a b c d e spark&quot;</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">),</span>
+        <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="s2">&quot;b d&quot;</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">),</span>
+        <span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="s2">&quot;spark f g h&quot;</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">),</span>
+        <span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="s2">&quot;hadoop mapreduce&quot;</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">),</span>
+    <span class="p">],</span>
+    <span class="p">[</span><span class="s2">&quot;id&quot;</span><span class="p">,</span> <span class="s2">&quot;text&quot;</span><span class="p">,</span> <span class="s2">&quot;label&quot;</span><span class="p">],</span>
+<span class="p">)</span>
+<span class="c1"># testing DataFrame</span>
+<span class="n">test_df</span> <span class="o">=</span> <span class="n">spark</span><span class="o">.</span><span class="n">createDataFrame</span><span class="p">(</span>
+    <span class="p">[(</span><span class="mi">4</span><span class="p">,</span> <span class="s2">&quot;spark i j k&quot;</span><span class="p">),</span> <span class="p">(</span><span class="mi">5</span><span class="p">,</span> <span class="s2">&quot;l m n&quot;</span><span class="p">),</span> <span class="p">(</span><span class="mi">6</span><span class="p">,</span> <span class="s2">&quot;spark hadoop spark&quot;</span><span class="p">),</span> <span class="p">(</span><span class="mi">7</span><span class="p">,</span> <span class="s2">&quot;apache hadoop&quot;</span><span class="p">)],</span>
+    <span class="p">[</span><span class="s2">&quot;id&quot;</span><span class="p">,</span> <span class="s2">&quot;text&quot;</span><span class="p">],</span>
+<span class="p">)</span>
+<span class="c1"># Create an MLlib pipeline</span>
+<span class="n">tokenizer</span> <span class="o">=</span> <span class="n">Tokenizer</span><span class="p">(</span><span class="n">inputCol</span><span class="o">=</span><span class="s2">&quot;text&quot;</span><span class="p">,</span> <span class="n">outputCol</span><span class="o">=</span><span class="s2">&quot;words&quot;</span><span class="p">)</span>
+<span class="n">hashingTF</span> <span class="o">=</span> <span class="n">HashingTF</span><span class="p">(</span><span class="n">inputCol</span><span class="o">=</span><span class="n">tokenizer</span><span class="o">.</span><span class="n">getOutputCol</span><span class="p">(),</span> <span class="n">outputCol</span><span class="o">=</span><span class="s2">&quot;features&quot;</span><span class="p">)</span>
+<span class="n">lr</span> <span class="o">=</span> <span class="n">LogisticRegression</span><span class="p">(</span><span class="n">maxIter</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">regParam</span><span class="o">=</span><span class="mf">0.001</span><span class="p">)</span>
+<span class="n">pipeline</span> <span class="o">=</span> <span class="n">Pipeline</span><span class="p">(</span><span class="n">stages</span><span class="o">=</span><span class="p">[</span><span class="n">tokenizer</span><span class="p">,</span> <span class="n">hashingTF</span><span class="p">,</span> <span class="n">lr</span><span class="p">])</span>
+<span class="n">model</span> <span class="o">=</span> <span class="n">pipeline</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">training</span><span class="p">)</span>
+<span class="c1"># log parameters</span>
+<span class="n">mlflow</span><span class="o">.</span><span class="n">log_param</span><span class="p">(</span><span class="s2">&quot;max_iter&quot;</span><span class="p">,</span> <span class="mi">10</span><span class="p">)</span>
+<span class="n">mlflow</span><span class="o">.</span><span class="n">log_param</span><span class="p">(</span><span class="s2">&quot;reg_param&quot;</span><span class="p">,</span> <span class="mf">0.001</span><span class="p">)</span>
+<span class="c1"># log the Spark MLlib model in MLeap format</span>
+<span class="n">mlflow</span><span class="o">.</span><span class="n">mleap</span><span class="o">.</span><span class="n">log_model</span><span class="p">(</span>
+    <span class="n">spark_model</span><span class="o">=</span><span class="n">model</span><span class="p">,</span> <span class="n">sample_input</span><span class="o">=</span><span class="n">test_df</span><span class="p">,</span> <span class="n">artifact_path</span><span class="o">=</span><span class="s2">&quot;mleap-model&quot;</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</dd></dl>
+
+<dl class="py function">
+<dt id="mlflow.mleap.save_model">
+<code class="sig-prename descclassname"><span class="pre">mlflow.mleap.</span></code><code class="sig-name descname"><span class="pre">save_model</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">spark_model</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sample_input</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">path</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mlflow_model</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">signature</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">mlflow.models.signature.ModelSignature</span></span> <span class="o"><span class="pre">=</span></span> <span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">input_example</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">Union</span><span class="p"><span class="pre">[</span></span><span class="pre">pandas.core.frame.DataFrame</span><span class="p"><span class="pre">,</span> </span><span class="pre">numpy.ndarray</span><span class="p"><span class="pre">,</span> </span><span class="pre">dict</span><span class="p"><span class="pre">,</span> </span><span class="pre">list</span><span class="p"><span class="pre">,</span> </span><span class="pre">csr_matrix</span><span class="p"><span class="pre">,</span> </span><span class="pre">csc_matrix</span><span class="p"><span class="pre">,</span> </span><span class="pre">str</span><span class="p"><span class="pre">,</span> </span><span class="pre">bytes</span><span class="p"><span class="pre">,</span> </span><span class="pre">tuple</span><span class="p"><span class="pre">]</span></span></span> <span class="o"><span class="pre">=</span></span> <span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">metadata</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/mlflow/mleap.html#save_model"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mlflow.mleap.save_model" title="Permalink to this definition"> </a></dt>
+<dd><div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p><code class="docutils literal notranslate"><span class="pre">mlflow.mleap.save_model</span></code> is deprecated since 2.6.0. This method will be removed in a future release. Use <code class="docutils literal notranslate"><span class="pre">mlflow.onnx</span></code> instead.</p>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>This method requires all argument be specified by keyword.</p>
+</div>
+<p>Save a Spark MLlib PipelineModel in MLeap format at a local path.
+The saved model will have the MLeap flavor.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>You cannot load the MLeap model flavor in Python; you must download it using the
+Java API method <code class="docutils literal notranslate"><span class="pre">downloadArtifacts(String</span> <span class="pre">runId)</span></code> and load the model
+using the method <code class="docutils literal notranslate"><span class="pre">MLeapLoader.loadPipeline(String</span> <span class="pre">modelRootPath)</span></code>.</p>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>spark_model</strong> – Spark PipelineModel to be saved. This model must be MLeap-compatible and
+cannot contain any custom transformers.</p></li>
+<li><p><strong>sample_input</strong> – Sample PySpark DataFrame input that the model can evaluate. This is
+required by MLeap for data schema inference.</p></li>
+<li><p><strong>path</strong> – Local path where the model is to be saved.</p></li>
+<li><p><strong>mlflow_model</strong> – <a class="reference internal" href="mlflow.models.html#mlflow.models.Model" title="mlflow.models.Model"><code class="xref py py-mod docutils literal notranslate"><span class="pre">mlflow.models.Model</span></code></a> to which this flavor is being added.</p></li>
+<li><p><strong>signature</strong> – <p><a class="reference internal" href="mlflow.models.html#mlflow.models.ModelSignature" title="mlflow.models.ModelSignature"><code class="xref py py-class docutils literal notranslate"><span class="pre">ModelSignature</span></code></a>
+describes model input and output <a class="reference internal" href="mlflow.types.html#mlflow.types.Schema" title="mlflow.types.Schema"><code class="xref py py-class docutils literal notranslate"><span class="pre">Schema</span></code></a>.
+The model signature can be <a class="reference internal" href="mlflow.models.html#mlflow.models.infer_signature" title="mlflow.models.infer_signature"><code class="xref py py-func docutils literal notranslate"><span class="pre">inferred</span></code></a>
+from datasets with valid model input (e.g. the training dataset with target
+column omitted) and valid model output (e.g. model predictions generated on
+the training dataset), for example:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">mlflow.models</span> <span class="kn">import</span> <span class="n">infer_signature</span>
+
+<span class="n">train</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">drop_column</span><span class="p">(</span><span class="s2">&quot;target_label&quot;</span><span class="p">)</span>
+<span class="n">predictions</span> <span class="o">=</span> <span class="o">...</span>  <span class="c1"># compute model predictions</span>
+<span class="n">signature</span> <span class="o">=</span> <span class="n">infer_signature</span><span class="p">(</span><span class="n">train</span><span class="p">,</span> <span class="n">predictions</span><span class="p">)</span>
+</pre></div>
+</div>
+</p></li>
+<li><p><strong>input_example</strong> – {{ input_example }}</p></li>
+<li><p><strong>metadata</strong> – {{ metadata }}</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+</div>
+
+
+              </div>
+            </div>
+            <footer>
+  
+    <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
+      
+        <a href="mlflow.metrics.html" class="btn btn-neutral" title="mlflow.metrics" accesskey="p"><span class="db-icon db-icon-chevron-left"></span> Previous</a>
+      
+      
+        <a href="mlflow.models.html" class="btn btn-neutral" title="mlflow.models" accesskey="n">Next <span class="db-icon db-icon-chevron-right"></span></a>
+      
+    </div>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+      <p class="copyright">
+          &copy; MLflow Project, a Series of LF Projects, LLC. All rights reserved.
+      </p>
+
+  </div> 
+
+</footer>
+          </div>
+        </div>
+      </section>
+    </main>
+  </page>
+
+  
+
+
+  
+  <script type="text/javascript">
+    var DOCUMENTATION_OPTIONS = {
+      URL_ROOT:'../',
+      VERSION:'2.17.1.dev0',
+      COLLAPSE_INDEX:false,
+      FILE_SUFFIX:'.html',
+      LINK_SUFFIX: '.html',
+      HAS_SOURCE:  true
+    };
+  </script>
+
+  
+
+  <script type="text/javascript" src="../_static/js/clipboard.min.js"></script>
+  <script type="text/javascript" src="../_static/js/jquery.waypoints.min.js"></script>
+
+  
+  
+  
+  <script type="text/javascript">var CLIPPY_SVG_PATH = "../_static/clippy.svg";</script>
+  <script type="text/javascript" src="../_static/js/custom.js"></script>
+  
+
+  
+  
+  <script type="text/javascript">
+    jQuery(function () {
+      SphinxRtdTheme.StickyNav.enable();
+    });
+
+  </script>
+  
+
+  
+  <script type="text/javascript">
+    document.addEventListener("DOMContentLoaded", function() {
+        function copyToClipboard(text) {
+            const textarea = document.createElement('textarea');
+            textarea.value = text;
+            document.body.appendChild(textarea);
+            textarea.select();
+            document.execCommand('copy');
+            document.body.removeChild(textarea);
+        }
+        // Get the code block designator class entries
+        const allHighlights = document.querySelectorAll('.highlight');
+        // Disable copyable links for notebook cell numbering and for cell outputs
+        const highlights = Array.from(allHighlights).filter(highlight => !highlight.closest('.highlight-none') && 
+            !highlight.closest('.nboutput'));
+    
+        highlights.forEach(function(highlight) {
+            const copyIcon = document.createElement('span');
+            copyIcon.classList.add('copy-icon');
+            copyIcon.innerHTML = '&#xf0ea;';
+
+            copyIcon.addEventListener('click', function() {
+                const code = highlight.querySelector('pre').textContent;
+                copyToClipboard(code);
+
+                // Flash effect on click
+                this.style.color = '#0194E2';
+                setTimeout(() => {
+                    this.style.color = ''; 
+                }, 100);
+
+                // Display "Code copied to clipboard" near the clicked icon
+                const message = document.createElement('span');
+                message.textContent = "Copied!";
+                message.classList.add('copy-message'); 
+
+                // Append the message to the icon
+                this.appendChild(message);
+
+                setTimeout(() => {
+                    this.removeChild(message);
+                }, 500);
+            });
+
+            highlight.appendChild(copyIcon);
+        });
+    });
+  </script>
+
+
+<script type="text/javascript">
+    document.addEventListener("DOMContentLoaded", function() {
+        // Force download for notebook-download-btn
+        const downloadButtons = document.querySelectorAll('.notebook-download-btn');
+        downloadButtons.forEach(function(button) {
+            button.addEventListener('click', function(event) {
+                event.preventDefault(); // Prevent default behavior
+
+                // Fetch the raw content of the notebook from GitHub
+                fetch(button.href)
+                    .then(response => response.blob())
+                    .then(blob => {
+                        const url = window.URL.createObjectURL(blob);
+                        const link = document.createElement('a');
+                        link.style.display = 'none';
+                        link.href = url;
+                        const filename = button.href.split('/').pop();
+                        link.download = filename; 
+
+                        document.body.appendChild(link);
+                        link.click();
+
+                        window.URL.revokeObjectURL(url);
+                        document.body.removeChild(link);
+                    })
+                    .catch(err => console.error('Error fetching the notebook:', err));
+            });
+        });
+    });
+</script> 
+</body>
+</html>

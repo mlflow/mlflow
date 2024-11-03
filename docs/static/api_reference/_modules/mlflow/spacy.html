@@ -1,0 +1,660 @@
+
+
+<!DOCTYPE html>
+<!-- source: docs/source/_modules/mlflow/spacy -->
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>mlflow.spacy</title>
+  
+   
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+  <link rel="canonical" href="https://mlflow.org/docs/latest/_modules/mlflow/spacy.html">
+  
+  
+    <link rel="shortcut icon" href="../../_static/favicon.ico"/>
+    
+
+    
+
+  
+    
+
+  
+
+  
+  
+    
+
+  
+
+  
+  
+    <link href="https://fonts.googleapis.com/css?family=Source+Sans+Pro:300,400,600" rel="stylesheet">
+    <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/css/custom.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/css/cards.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/css/grids.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/css/mobile.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/css/simple-cards.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/css/tabs.css" type="text/css" />
+    
+  
+        <link rel="index" title="Index"
+              href="../../genindex.html"/>
+        <link rel="search" title="Search" href="../../search.html"/>
+    <link rel="top" title="MLflow 2.17.1.dev0 documentation" href="../../index.html"/>
+        <link rel="up" title="Module code" href="../index.html"/> 
+
+  
+  <script src="../../_static/js/modernizr.min.js"></script>
+
+</head>
+<script type="text/javascript" src="../../_static/jquery.js"></script>
+<script type="text/javascript" src="../../_static/underscore.js"></script>
+<script type="text/javascript" src="../../_static/doctools.js"></script>
+<script type="text/javascript" src="../../_static/tabs.js"></script>
+<script type="text/javascript" src="../../_static/languagesections.js"></script>
+<script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+<script type="text/javascript" src="../../_static/runllm.js"></script>
+
+<body class="wy-body-for-nav" role="document">
+  
+
+  
+  <nav class="wy-nav-top header" role="navigation" aria-label="top navigation">
+    <ul>
+  <li class="menu-toggle">
+    <i data-toggle="wy-nav-top" class="wy-nav-top-menu-button db-icon db-icon-menu pull-left"></i>
+    <a href="../../index.html" class="wy-nav-top-logo"
+      ><img src="../../_static/MLflow-logo-final-black.png" alt="MLflow"
+    /></a>
+    <span class="version">2.17.1.dev0</span>
+  </li>
+</ul>
+  </nav>
+  <page>
+    
+
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side relative">
+      <div class="wy-side-scroll">
+  <div class="wy-side-nav-search">
+    
+
+    
+
+    
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+  <input type="text" name="q" placeholder="Search" />
+  <input type="hidden" name="check_keywords" value="yes" />
+  <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+
+    
+  </div>
+
+  <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+    
+      <a href="../../index.html" class="main-navigation-home"><img src="../../_static/icons/nav-home.svg"> MLflow</a>
+    
+
+    
+      
+
+      
+        <ul>
+<li class="toctree-l1"><a class="reference internal" href="../../python_api/index.html">Python API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../cli.html">Command-Line Interface</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../R-api.html">R API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../java_api/index.html">Java API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../rest-api.html">REST API</a></li>
+</ul>
+
+      
+    
+  </div>
+
+  <div role="contentinfo">
+    
+
+    <p>
+      <a id='feedbacklink' href="https://github.com/mlflow/mlflow/blob/master/CONTRIBUTING.md" target="_blank">Contribute</a>
+    </p>
+  </div>
+</div>
+    </nav>
+
+    <main class="wy-grid-for-nav">
+      <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+        <div class="wy-nav-content">
+          <div class="rst-content">
+            
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href="../../index.html">Documentation</a> <span class="db-icon db-icon-chevron-right"></span></li>
+    
+        <li><a href="../index.html">Module code</a> <span class="db-icon db-icon-chevron-right"></span></li>
+    
+    
+      <li>mlflow.spacy</li>
+    
+    
+    <!-- <li class="wy-breadcrumbs-aside">
+      <a href="https://github.com/mlflow/mlflow/blob/master/docs/source/_modules/mlflow/spacy" class="fa fa-github"> Edit on GitHub</a>
+    </li> -->
+    
+  </ul>
+</div>
+            <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+              <div itemprop="articleBody">
+                
+  <h1>Source code for mlflow.spacy</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">The ``mlflow.spacy`` module provides an API for logging and loading spaCy models.</span>
+<span class="sd">This module exports spacy models with the following flavors:</span>
+
+<span class="sd">spaCy (native) format</span>
+<span class="sd">    This is the main flavor that can be loaded back into spaCy.</span>
+<span class="sd">:py:mod:`mlflow.pyfunc`</span>
+<span class="sd">    Produced for use by generic pyfunc-based deployment tools and batch inference, this</span>
+<span class="sd">    flavor is created only if spaCy&#39;s model pipeline has at least one</span>
+<span class="sd">    `TextCategorizer &lt;https://spacy.io/api/textcategorizer&gt;`_.</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">import</span> <span class="nn">logging</span>
+<span class="kn">import</span> <span class="nn">os</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">Optional</span>
+
+<span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
+<span class="kn">import</span> <span class="nn">yaml</span>
+
+<span class="kn">import</span> <span class="nn">mlflow</span>
+<span class="kn">from</span> <span class="nn">mlflow</span> <span class="kn">import</span> <span class="n">pyfunc</span>
+<span class="kn">from</span> <span class="nn">mlflow.exceptions</span> <span class="kn">import</span> <span class="n">MlflowException</span>
+<span class="kn">from</span> <span class="nn">mlflow.models</span> <span class="kn">import</span> <span class="n">Model</span><span class="p">,</span> <span class="n">ModelSignature</span>
+<span class="kn">from</span> <span class="nn">mlflow.models.model</span> <span class="kn">import</span> <span class="n">MLMODEL_FILE_NAME</span>
+<span class="kn">from</span> <span class="nn">mlflow.models.signature</span> <span class="kn">import</span> <span class="n">_infer_signature_from_input_example</span>
+<span class="kn">from</span> <span class="nn">mlflow.models.utils</span> <span class="kn">import</span> <span class="n">ModelInputExample</span><span class="p">,</span> <span class="n">_save_example</span>
+<span class="kn">from</span> <span class="nn">mlflow.tracking.artifact_utils</span> <span class="kn">import</span> <span class="n">_download_artifact_from_uri</span>
+<span class="kn">from</span> <span class="nn">mlflow.utils.docstring_utils</span> <span class="kn">import</span> <span class="n">LOG_MODEL_PARAM_DOCS</span><span class="p">,</span> <span class="n">format_docstring</span>
+<span class="kn">from</span> <span class="nn">mlflow.utils.environment</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">_CONDA_ENV_FILE_NAME</span><span class="p">,</span>
+    <span class="n">_CONSTRAINTS_FILE_NAME</span><span class="p">,</span>
+    <span class="n">_PYTHON_ENV_FILE_NAME</span><span class="p">,</span>
+    <span class="n">_REQUIREMENTS_FILE_NAME</span><span class="p">,</span>
+    <span class="n">_mlflow_conda_env</span><span class="p">,</span>
+    <span class="n">_process_conda_env</span><span class="p">,</span>
+    <span class="n">_process_pip_requirements</span><span class="p">,</span>
+    <span class="n">_PythonEnv</span><span class="p">,</span>
+    <span class="n">_validate_env_arguments</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">mlflow.utils.file_utils</span> <span class="kn">import</span> <span class="n">get_total_file_size</span><span class="p">,</span> <span class="n">write_to</span>
+<span class="kn">from</span> <span class="nn">mlflow.utils.model_utils</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">_add_code_from_conf_to_system_path</span><span class="p">,</span>
+    <span class="n">_get_flavor_configuration</span><span class="p">,</span>
+    <span class="n">_validate_and_copy_code_paths</span><span class="p">,</span>
+    <span class="n">_validate_and_prepare_target_save_path</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">mlflow.utils.requirements_utils</span> <span class="kn">import</span> <span class="n">_get_pinned_requirement</span>
+
+<span class="n">FLAVOR_NAME</span> <span class="o">=</span> <span class="s2">&quot;spacy&quot;</span>
+
+<span class="n">_MODEL_DATA_SUBPATH</span> <span class="o">=</span> <span class="s2">&quot;model.spacy&quot;</span>
+
+<span class="n">_logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
+
+
+<div class="viewcode-block" id="get_default_pip_requirements"><a class="viewcode-back" href="../../python_api/mlflow.spacy.html#mlflow.spacy.get_default_pip_requirements">[docs]</a><span class="k">def</span> <span class="nf">get_default_pip_requirements</span><span class="p">():</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Returns:</span>
+<span class="sd">        A list of default pip requirements for MLflow Models produced by this flavor.</span>
+<span class="sd">        Calls to :func:`save_model()` and :func:`log_model()` produce a pip environment</span>
+<span class="sd">        that, at minimum, contains these requirements.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="p">[</span><span class="n">_get_pinned_requirement</span><span class="p">(</span><span class="s2">&quot;spacy&quot;</span><span class="p">)]</span></div>
+
+
+<div class="viewcode-block" id="get_default_conda_env"><a class="viewcode-back" href="../../python_api/mlflow.spacy.html#mlflow.spacy.get_default_conda_env">[docs]</a><span class="k">def</span> <span class="nf">get_default_conda_env</span><span class="p">():</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Returns:</span>
+<span class="sd">        The default Conda environment for MLflow Models produced by calls to</span>
+<span class="sd">        :func:`save_model()` and :func:`log_model()`.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">_mlflow_conda_env</span><span class="p">(</span><span class="n">additional_pip_deps</span><span class="o">=</span><span class="n">get_default_pip_requirements</span><span class="p">())</span></div>
+
+
+<div class="viewcode-block" id="save_model"><a class="viewcode-back" href="../../python_api/mlflow.spacy.html#mlflow.spacy.save_model">[docs]</a><span class="nd">@format_docstring</span><span class="p">(</span><span class="n">LOG_MODEL_PARAM_DOCS</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">package_name</span><span class="o">=</span><span class="n">FLAVOR_NAME</span><span class="p">))</span>
+<span class="k">def</span> <span class="nf">save_model</span><span class="p">(</span>
+    <span class="n">spacy_model</span><span class="p">,</span>
+    <span class="n">path</span><span class="p">,</span>
+    <span class="n">conda_env</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">code_paths</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">mlflow_model</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">signature</span><span class="p">:</span> <span class="n">ModelSignature</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">input_example</span><span class="p">:</span> <span class="n">ModelInputExample</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">pip_requirements</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">extra_pip_requirements</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">metadata</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+<span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Save a spaCy model to a path on the local file system.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        spacy_model: spaCy model to be saved.</span>
+<span class="sd">        path: Local path where the model is to be saved.</span>
+<span class="sd">        conda_env: {{ conda_env }}</span>
+<span class="sd">        code_paths: {{ code_paths }}</span>
+<span class="sd">        mlflow_model: :py:mod:`mlflow.models.Model` this flavor is being added to.</span>
+
+<span class="sd">        signature: :py:class:`ModelSignature &lt;mlflow.models.ModelSignature&gt;`</span>
+<span class="sd">                   describes model input and output :py:class:`Schema &lt;mlflow.types.Schema&gt;`.</span>
+<span class="sd">                   The model signature can be :py:func:`inferred &lt;mlflow.models.infer_signature&gt;`</span>
+<span class="sd">                   from datasets with valid model input (e.g. the training dataset with target</span>
+<span class="sd">                   column omitted) and valid model output (e.g. model predictions generated on</span>
+<span class="sd">                   the training dataset), for example:</span>
+
+<span class="sd">                   .. code-block:: python</span>
+
+<span class="sd">                      from mlflow.models import infer_signature</span>
+
+<span class="sd">                      train = df.drop_column(&quot;target_label&quot;)</span>
+<span class="sd">                      predictions = ...  # compute model predictions</span>
+<span class="sd">                      signature = infer_signature(train, predictions)</span>
+<span class="sd">        input_example: {{ input_example }}</span>
+<span class="sd">        pip_requirements: {{ pip_requirements }}</span>
+<span class="sd">        extra_pip_requirements: {{ extra_pip_requirements }}</span>
+<span class="sd">        metadata: {{ metadata }}</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="kn">import</span> <span class="nn">spacy</span>
+
+    <span class="n">_validate_env_arguments</span><span class="p">(</span><span class="n">conda_env</span><span class="p">,</span> <span class="n">pip_requirements</span><span class="p">,</span> <span class="n">extra_pip_requirements</span><span class="p">)</span>
+
+    <span class="n">path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
+    <span class="n">_validate_and_prepare_target_save_path</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
+
+    <span class="n">model_data_subpath</span> <span class="o">=</span> <span class="n">_MODEL_DATA_SUBPATH</span>
+    <span class="n">model_data_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">model_data_subpath</span><span class="p">)</span>
+    <span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="n">model_data_path</span><span class="p">)</span>
+    <span class="n">code_dir_subpath</span> <span class="o">=</span> <span class="n">_validate_and_copy_code_paths</span><span class="p">(</span><span class="n">code_paths</span><span class="p">,</span> <span class="n">path</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">mlflow_model</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">mlflow_model</span> <span class="o">=</span> <span class="n">Model</span><span class="p">()</span>
+    <span class="n">saved_example</span> <span class="o">=</span> <span class="n">_save_example</span><span class="p">(</span><span class="n">mlflow_model</span><span class="p">,</span> <span class="n">input_example</span><span class="p">,</span> <span class="n">path</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">signature</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">saved_example</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">wrapped_model</span> <span class="o">=</span> <span class="n">_SpacyModelWrapper</span><span class="p">(</span><span class="n">spacy_model</span><span class="p">)</span>
+        <span class="n">signature</span> <span class="o">=</span> <span class="n">_infer_signature_from_input_example</span><span class="p">(</span><span class="n">saved_example</span><span class="p">,</span> <span class="n">wrapped_model</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">signature</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">mlflow_model</span><span class="o">.</span><span class="n">signature</span> <span class="o">=</span> <span class="n">signature</span>
+    <span class="k">if</span> <span class="n">metadata</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">mlflow_model</span><span class="o">.</span><span class="n">metadata</span> <span class="o">=</span> <span class="n">metadata</span>
+
+    <span class="c1"># Save spacy-model</span>
+    <span class="n">spacy_model</span><span class="o">.</span><span class="n">to_disk</span><span class="p">(</span><span class="n">path</span><span class="o">=</span><span class="n">model_data_path</span><span class="p">)</span>
+    <span class="c1"># Save the pyfunc flavor if at least one text categorizer in spaCy pipeline</span>
+    <span class="k">if</span> <span class="nb">any</span><span class="p">(</span>
+        <span class="nb">isinstance</span><span class="p">(</span><span class="n">pipe_component</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">spacy</span><span class="o">.</span><span class="n">pipeline</span><span class="o">.</span><span class="n">TextCategorizer</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">pipe_component</span> <span class="ow">in</span> <span class="n">spacy_model</span><span class="o">.</span><span class="n">pipeline</span>
+    <span class="p">):</span>
+        <span class="n">pyfunc</span><span class="o">.</span><span class="n">add_to_model</span><span class="p">(</span>
+            <span class="n">mlflow_model</span><span class="p">,</span>
+            <span class="n">loader_module</span><span class="o">=</span><span class="s2">&quot;mlflow.spacy&quot;</span><span class="p">,</span>
+            <span class="n">data</span><span class="o">=</span><span class="n">model_data_subpath</span><span class="p">,</span>
+            <span class="n">conda_env</span><span class="o">=</span><span class="n">_CONDA_ENV_FILE_NAME</span><span class="p">,</span>
+            <span class="n">python_env</span><span class="o">=</span><span class="n">_PYTHON_ENV_FILE_NAME</span><span class="p">,</span>
+            <span class="n">code</span><span class="o">=</span><span class="n">code_dir_subpath</span><span class="p">,</span>
+        <span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">_logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+            <span class="s2">&quot;Generating only the spacy flavor for the provided spacy model. This means the model &quot;</span>
+            <span class="s2">&quot;can be loaded back via `mlflow.spacy.load_model`, but cannot be loaded back using &quot;</span>
+            <span class="s2">&quot;pyfunc APIs like `mlflow.pyfunc.load_model` or via the `mlflow models` CLI commands. &quot;</span>
+            <span class="s2">&quot;MLflow will only generate the pyfunc flavor for spacy models containing a pipeline &quot;</span>
+            <span class="s2">&quot;component that is an instance of spacy.pipeline.TextCategorizer.&quot;</span>
+        <span class="p">)</span>
+
+    <span class="n">mlflow_model</span><span class="o">.</span><span class="n">add_flavor</span><span class="p">(</span>
+        <span class="n">FLAVOR_NAME</span><span class="p">,</span> <span class="n">spacy_version</span><span class="o">=</span><span class="n">spacy</span><span class="o">.</span><span class="n">__version__</span><span class="p">,</span> <span class="n">data</span><span class="o">=</span><span class="n">model_data_subpath</span><span class="p">,</span> <span class="n">code</span><span class="o">=</span><span class="n">code_dir_subpath</span>
+    <span class="p">)</span>
+    <span class="k">if</span> <span class="n">size</span> <span class="o">:=</span> <span class="n">get_total_file_size</span><span class="p">(</span><span class="n">path</span><span class="p">):</span>
+        <span class="n">mlflow_model</span><span class="o">.</span><span class="n">model_size_bytes</span> <span class="o">=</span> <span class="n">size</span>
+    <span class="n">mlflow_model</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">MLMODEL_FILE_NAME</span><span class="p">))</span>
+
+    <span class="k">if</span> <span class="n">conda_env</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">pip_requirements</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">default_reqs</span> <span class="o">=</span> <span class="n">get_default_pip_requirements</span><span class="p">()</span>
+            <span class="c1"># To ensure `_load_pyfunc` can successfully load the model during the dependency</span>
+            <span class="c1"># inference, `mlflow_model.save` must be called beforehand to save an MLmodel file.</span>
+            <span class="n">inferred_reqs</span> <span class="o">=</span> <span class="n">mlflow</span><span class="o">.</span><span class="n">models</span><span class="o">.</span><span class="n">infer_pip_requirements</span><span class="p">(</span>
+                <span class="n">model_data_path</span><span class="p">,</span>
+                <span class="n">FLAVOR_NAME</span><span class="p">,</span>
+                <span class="n">fallback</span><span class="o">=</span><span class="n">default_reqs</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="n">default_reqs</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">inferred_reqs</span><span class="p">)</span><span class="o">.</span><span class="n">union</span><span class="p">(</span><span class="n">default_reqs</span><span class="p">))</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">default_reqs</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="n">conda_env</span><span class="p">,</span> <span class="n">pip_requirements</span><span class="p">,</span> <span class="n">pip_constraints</span> <span class="o">=</span> <span class="n">_process_pip_requirements</span><span class="p">(</span>
+            <span class="n">default_reqs</span><span class="p">,</span>
+            <span class="n">pip_requirements</span><span class="p">,</span>
+            <span class="n">extra_pip_requirements</span><span class="p">,</span>
+        <span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">conda_env</span><span class="p">,</span> <span class="n">pip_requirements</span><span class="p">,</span> <span class="n">pip_constraints</span> <span class="o">=</span> <span class="n">_process_conda_env</span><span class="p">(</span><span class="n">conda_env</span><span class="p">)</span>
+
+    <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">_CONDA_ENV_FILE_NAME</span><span class="p">),</span> <span class="s2">&quot;w&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+        <span class="n">yaml</span><span class="o">.</span><span class="n">safe_dump</span><span class="p">(</span><span class="n">conda_env</span><span class="p">,</span> <span class="n">stream</span><span class="o">=</span><span class="n">f</span><span class="p">,</span> <span class="n">default_flow_style</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+
+    <span class="c1"># Save `constraints.txt` if necessary</span>
+    <span class="k">if</span> <span class="n">pip_constraints</span><span class="p">:</span>
+        <span class="n">write_to</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">_CONSTRAINTS_FILE_NAME</span><span class="p">),</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">pip_constraints</span><span class="p">))</span>
+
+    <span class="c1"># Save `requirements.txt`</span>
+    <span class="n">write_to</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">_REQUIREMENTS_FILE_NAME</span><span class="p">),</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">pip_requirements</span><span class="p">))</span>
+
+    <span class="n">_PythonEnv</span><span class="o">.</span><span class="n">current</span><span class="p">()</span><span class="o">.</span><span class="n">to_yaml</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">_PYTHON_ENV_FILE_NAME</span><span class="p">))</span></div>
+
+
+<div class="viewcode-block" id="log_model"><a class="viewcode-back" href="../../python_api/mlflow.spacy.html#mlflow.spacy.log_model">[docs]</a><span class="nd">@format_docstring</span><span class="p">(</span><span class="n">LOG_MODEL_PARAM_DOCS</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">package_name</span><span class="o">=</span><span class="n">FLAVOR_NAME</span><span class="p">))</span>
+<span class="k">def</span> <span class="nf">log_model</span><span class="p">(</span>
+    <span class="n">spacy_model</span><span class="p">,</span>
+    <span class="n">artifact_path</span><span class="p">,</span>
+    <span class="n">conda_env</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">code_paths</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">registered_model_name</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">signature</span><span class="p">:</span> <span class="n">ModelSignature</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">input_example</span><span class="p">:</span> <span class="n">ModelInputExample</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">pip_requirements</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">extra_pip_requirements</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">metadata</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="o">**</span><span class="n">kwargs</span><span class="p">,</span>
+<span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Log a spaCy model as an MLflow artifact for the current run.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        spacy_model: spaCy model to be saved.</span>
+<span class="sd">        artifact_path: Run-relative artifact path.</span>
+<span class="sd">        conda_env: {{ conda_env }}</span>
+<span class="sd">        code_paths: {{ code_paths }}</span>
+<span class="sd">        registered_model_name: If given, create a model version under</span>
+<span class="sd">                               ``registered_model_name``, also creating a registered model if one</span>
+<span class="sd">                               with the given name does not exist.</span>
+
+<span class="sd">        signature: :py:class:`ModelSignature &lt;mlflow.models.ModelSignature&gt;`</span>
+<span class="sd">                   describes model input and output :py:class:`Schema &lt;mlflow.types.Schema&gt;`.</span>
+<span class="sd">                   The model signature can be :py:func:`inferred &lt;mlflow.models.infer_signature&gt;`</span>
+<span class="sd">                   from datasets with valid model input (e.g. the training dataset with target</span>
+<span class="sd">                   column omitted) and valid model output (e.g. model predictions generated on</span>
+<span class="sd">                   the training dataset), for example:</span>
+
+<span class="sd">                   .. code-block:: python</span>
+
+<span class="sd">                      from mlflow.models import infer_signature</span>
+
+<span class="sd">                      train = df.drop_column(&quot;target_label&quot;)</span>
+<span class="sd">                      predictions = ...  # compute model predictions</span>
+<span class="sd">                      signature = infer_signature(train, predictions)</span>
+<span class="sd">        input_example: {{ input_example }}</span>
+<span class="sd">        pip_requirements: {{ pip_requirements }}</span>
+<span class="sd">        extra_pip_requirements: {{ extra_pip_requirements }}</span>
+<span class="sd">        metadata: {{ metadata }}</span>
+<span class="sd">        kwargs: kwargs to pass to ``spacy.save_model`` method.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        A :py:class:`ModelInfo &lt;mlflow.models.model.ModelInfo&gt;` instance that contains the</span>
+<span class="sd">        metadata of the logged model.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">Model</span><span class="o">.</span><span class="n">log</span><span class="p">(</span>
+        <span class="n">artifact_path</span><span class="o">=</span><span class="n">artifact_path</span><span class="p">,</span>
+        <span class="n">flavor</span><span class="o">=</span><span class="n">mlflow</span><span class="o">.</span><span class="n">spacy</span><span class="p">,</span>
+        <span class="n">registered_model_name</span><span class="o">=</span><span class="n">registered_model_name</span><span class="p">,</span>
+        <span class="n">spacy_model</span><span class="o">=</span><span class="n">spacy_model</span><span class="p">,</span>
+        <span class="n">conda_env</span><span class="o">=</span><span class="n">conda_env</span><span class="p">,</span>
+        <span class="n">code_paths</span><span class="o">=</span><span class="n">code_paths</span><span class="p">,</span>
+        <span class="n">signature</span><span class="o">=</span><span class="n">signature</span><span class="p">,</span>
+        <span class="n">input_example</span><span class="o">=</span><span class="n">input_example</span><span class="p">,</span>
+        <span class="n">pip_requirements</span><span class="o">=</span><span class="n">pip_requirements</span><span class="p">,</span>
+        <span class="n">extra_pip_requirements</span><span class="o">=</span><span class="n">extra_pip_requirements</span><span class="p">,</span>
+        <span class="n">metadata</span><span class="o">=</span><span class="n">metadata</span><span class="p">,</span>
+        <span class="o">**</span><span class="n">kwargs</span><span class="p">,</span>
+    <span class="p">)</span></div>
+
+
+<span class="k">def</span> <span class="nf">_load_model</span><span class="p">(</span><span class="n">path</span><span class="p">):</span>
+    <span class="kn">import</span> <span class="nn">spacy</span>
+
+    <span class="n">path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">spacy</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
+
+
+<span class="k">class</span> <span class="nc">_SpacyModelWrapper</span><span class="p">:</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">spacy_model</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">spacy_model</span> <span class="o">=</span> <span class="n">spacy_model</span>
+
+    <span class="k">def</span> <span class="nf">get_raw_model</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Returns the underlying model.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">spacy_model</span>
+
+    <span class="k">def</span> <span class="nf">predict</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">dataframe</span><span class="p">,</span>
+        <span class="n">params</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Only works for predicting using text categorizer.</span>
+<span class="sd">        Not suitable for other pipeline components (e.g: parser)</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            dataframe: pandas dataframe containing texts to be categorized</span>
+<span class="sd">                       expected shape is (n_rows,1 column)</span>
+<span class="sd">            params: Additional parameters to pass to the model for inference.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            dataframe with predictions</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">dataframe</span><span class="o">.</span><span class="n">columns</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">MlflowException</span><span class="p">(</span><span class="s2">&quot;Shape of input dataframe must be (n_rows, 1column)&quot;</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span>
+            <span class="p">{</span><span class="s2">&quot;predictions&quot;</span><span class="p">:</span> <span class="n">dataframe</span><span class="o">.</span><span class="n">iloc</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="k">lambda</span> <span class="n">text</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">spacy_model</span><span class="p">(</span><span class="n">text</span><span class="p">)</span><span class="o">.</span><span class="n">cats</span><span class="p">)}</span>
+        <span class="p">)</span>
+
+
+<span class="k">def</span> <span class="nf">_load_pyfunc</span><span class="p">(</span><span class="n">path</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Load PyFunc implementation. Called by ``pyfunc.load_model``.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        path: Local filesystem path to the MLflow Model with the ``spacy`` flavor.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">_SpacyModelWrapper</span><span class="p">(</span><span class="n">_load_model</span><span class="p">(</span><span class="n">path</span><span class="p">))</span>
+
+
+<div class="viewcode-block" id="load_model"><a class="viewcode-back" href="../../python_api/mlflow.spacy.html#mlflow.spacy.load_model">[docs]</a><span class="k">def</span> <span class="nf">load_model</span><span class="p">(</span><span class="n">model_uri</span><span class="p">,</span> <span class="n">dst_path</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Load a spaCy model from a local file (if ``run_id`` is ``None``) or a run.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        model_uri: The location, in URI format, of the MLflow model. For example:</span>
+
+<span class="sd">                      - ``/Users/me/path/to/local/model``</span>
+<span class="sd">                      - ``relative/path/to/local/model``</span>
+<span class="sd">                      - ``s3://my_bucket/path/to/model``</span>
+<span class="sd">                      - ``runs:/&lt;mlflow_run_id&gt;/run-relative/path/to/model``</span>
+<span class="sd">                      - ``models:/&lt;model_name&gt;/&lt;model_version&gt;``</span>
+<span class="sd">                      - ``models:/&lt;model_name&gt;/&lt;stage&gt;``</span>
+
+<span class="sd">                      For more information about supported URI schemes, see</span>
+<span class="sd">                      `Referencing Artifacts &lt;https://www.mlflow.org/docs/latest/concepts.html#</span>
+<span class="sd">                      artifact-locations&gt;`_.</span>
+<span class="sd">        dst_path: The local filesystem path to which to download the model artifact.</span>
+<span class="sd">                  This directory must already exist. If unspecified, a local output</span>
+<span class="sd">                  path will be created.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        A spaCy loaded model</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">local_model_path</span> <span class="o">=</span> <span class="n">_download_artifact_from_uri</span><span class="p">(</span><span class="n">artifact_uri</span><span class="o">=</span><span class="n">model_uri</span><span class="p">,</span> <span class="n">output_path</span><span class="o">=</span><span class="n">dst_path</span><span class="p">)</span>
+    <span class="n">flavor_conf</span> <span class="o">=</span> <span class="n">_get_flavor_configuration</span><span class="p">(</span><span class="n">model_path</span><span class="o">=</span><span class="n">local_model_path</span><span class="p">,</span> <span class="n">flavor_name</span><span class="o">=</span><span class="n">FLAVOR_NAME</span><span class="p">)</span>
+    <span class="n">_add_code_from_conf_to_system_path</span><span class="p">(</span><span class="n">local_model_path</span><span class="p">,</span> <span class="n">flavor_conf</span><span class="p">)</span>
+    <span class="c1"># Flavor configurations for models saved in MLflow version &lt;= 0.8.0 may not contain a</span>
+    <span class="c1"># `data` key; in this case, we assume the model artifact path to be `model.spacy`</span>
+    <span class="n">spacy_model_file_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">local_model_path</span><span class="p">,</span> <span class="n">flavor_conf</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;data&quot;</span><span class="p">,</span> <span class="s2">&quot;model.spacy&quot;</span><span class="p">))</span>
+    <span class="k">return</span> <span class="n">_load_model</span><span class="p">(</span><span class="n">path</span><span class="o">=</span><span class="n">spacy_model_file_path</span><span class="p">)</span></div>
+</pre></div>
+
+              </div>
+            </div>
+            <footer>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+      <p class="copyright">
+          &copy; MLflow Project, a Series of LF Projects, LLC. All rights reserved.
+      </p>
+
+  </div> 
+
+</footer>
+          </div>
+        </div>
+      </section>
+    </main>
+  </page>
+
+  
+
+
+  
+  <script type="text/javascript">
+    var DOCUMENTATION_OPTIONS = {
+      URL_ROOT:'../../',
+      VERSION:'2.17.1.dev0',
+      COLLAPSE_INDEX:false,
+      FILE_SUFFIX:'.html',
+      LINK_SUFFIX: '.html',
+      HAS_SOURCE:  true
+    };
+  </script>
+
+  
+
+  <script type="text/javascript" src="../../_static/js/clipboard.min.js"></script>
+  <script type="text/javascript" src="../../_static/js/jquery.waypoints.min.js"></script>
+
+  
+  
+  
+  <script type="text/javascript">var CLIPPY_SVG_PATH = "../../_static/clippy.svg";</script>
+  <script type="text/javascript" src="../../_static/js/custom.js"></script>
+  
+
+  
+  
+  <script type="text/javascript">
+    jQuery(function () {
+      SphinxRtdTheme.StickyNav.enable();
+    });
+
+  </script>
+  
+
+  
+  <script type="text/javascript">
+    document.addEventListener("DOMContentLoaded", function() {
+        function copyToClipboard(text) {
+            const textarea = document.createElement('textarea');
+            textarea.value = text;
+            document.body.appendChild(textarea);
+            textarea.select();
+            document.execCommand('copy');
+            document.body.removeChild(textarea);
+        }
+        // Get the code block designator class entries
+        const allHighlights = document.querySelectorAll('.highlight');
+        // Disable copyable links for notebook cell numbering and for cell outputs
+        const highlights = Array.from(allHighlights).filter(highlight => !highlight.closest('.highlight-none') && 
+            !highlight.closest('.nboutput'));
+    
+        highlights.forEach(function(highlight) {
+            const copyIcon = document.createElement('span');
+            copyIcon.classList.add('copy-icon');
+            copyIcon.innerHTML = '&#xf0ea;';
+
+            copyIcon.addEventListener('click', function() {
+                const code = highlight.querySelector('pre').textContent;
+                copyToClipboard(code);
+
+                // Flash effect on click
+                this.style.color = '#0194E2';
+                setTimeout(() => {
+                    this.style.color = ''; 
+                }, 100);
+
+                // Display "Code copied to clipboard" near the clicked icon
+                const message = document.createElement('span');
+                message.textContent = "Copied!";
+                message.classList.add('copy-message'); 
+
+                // Append the message to the icon
+                this.appendChild(message);
+
+                setTimeout(() => {
+                    this.removeChild(message);
+                }, 500);
+            });
+
+            highlight.appendChild(copyIcon);
+        });
+    });
+  </script>
+
+
+<script type="text/javascript">
+    document.addEventListener("DOMContentLoaded", function() {
+        // Force download for notebook-download-btn
+        const downloadButtons = document.querySelectorAll('.notebook-download-btn');
+        downloadButtons.forEach(function(button) {
+            button.addEventListener('click', function(event) {
+                event.preventDefault(); // Prevent default behavior
+
+                // Fetch the raw content of the notebook from GitHub
+                fetch(button.href)
+                    .then(response => response.blob())
+                    .then(blob => {
+                        const url = window.URL.createObjectURL(blob);
+                        const link = document.createElement('a');
+                        link.style.display = 'none';
+                        link.href = url;
+                        const filename = button.href.split('/').pop();
+                        link.download = filename; 
+
+                        document.body.appendChild(link);
+                        link.click();
+
+                        window.URL.revokeObjectURL(url);
+                        document.body.removeChild(link);
+                    })
+                    .catch(err => console.error('Error fetching the notebook:', err));
+            });
+        });
+    });
+</script> 
+</body>
+</html>

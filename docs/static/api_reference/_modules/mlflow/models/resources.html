@@ -1,0 +1,511 @@
+
+
+<!DOCTYPE html>
+<!-- source: docs/source/_modules/mlflow/models/resources -->
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>mlflow.models.resources</title>
+  
+   
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+  <link rel="canonical" href="https://mlflow.org/docs/latest/_modules/mlflow/models/resources.html">
+  
+  
+    <link rel="shortcut icon" href="../../../_static/favicon.ico"/>
+    
+
+    
+
+  
+    
+
+  
+
+  
+  
+    
+
+  
+
+  
+  
+    <link href="https://fonts.googleapis.com/css?family=Source+Sans+Pro:300,400,600" rel="stylesheet">
+    <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/css/custom.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/css/cards.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/css/grids.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/css/mobile.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/css/simple-cards.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/css/tabs.css" type="text/css" />
+    
+  
+        <link rel="index" title="Index"
+              href="../../../genindex.html"/>
+        <link rel="search" title="Search" href="../../../search.html"/>
+    <link rel="top" title="MLflow 2.17.1.dev0 documentation" href="../../../index.html"/>
+        <link rel="up" title="Module code" href="../../index.html"/> 
+
+  
+  <script src="../../../_static/js/modernizr.min.js"></script>
+
+</head>
+<script type="text/javascript" src="../../../_static/jquery.js"></script>
+<script type="text/javascript" src="../../../_static/underscore.js"></script>
+<script type="text/javascript" src="../../../_static/doctools.js"></script>
+<script type="text/javascript" src="../../../_static/tabs.js"></script>
+<script type="text/javascript" src="../../../_static/languagesections.js"></script>
+<script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+<script type="text/javascript" src="../../../_static/runllm.js"></script>
+
+<body class="wy-body-for-nav" role="document">
+  
+
+  
+  <nav class="wy-nav-top header" role="navigation" aria-label="top navigation">
+    <ul>
+  <li class="menu-toggle">
+    <i data-toggle="wy-nav-top" class="wy-nav-top-menu-button db-icon db-icon-menu pull-left"></i>
+    <a href="../../../index.html" class="wy-nav-top-logo"
+      ><img src="../../../_static/MLflow-logo-final-black.png" alt="MLflow"
+    /></a>
+    <span class="version">2.17.1.dev0</span>
+  </li>
+</ul>
+  </nav>
+  <page>
+    
+
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side relative">
+      <div class="wy-side-scroll">
+  <div class="wy-side-nav-search">
+    
+
+    
+
+    
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+  <input type="text" name="q" placeholder="Search" />
+  <input type="hidden" name="check_keywords" value="yes" />
+  <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+
+    
+  </div>
+
+  <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+    
+      <a href="../../../index.html" class="main-navigation-home"><img src="../../../_static/icons/nav-home.svg"> MLflow</a>
+    
+
+    
+      
+
+      
+        <ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../python_api/index.html">Python API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../cli.html">Command-Line Interface</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../R-api.html">R API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../java_api/index.html">Java API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../rest-api.html">REST API</a></li>
+</ul>
+
+      
+    
+  </div>
+
+  <div role="contentinfo">
+    
+
+    <p>
+      <a id='feedbacklink' href="https://github.com/mlflow/mlflow/blob/master/CONTRIBUTING.md" target="_blank">Contribute</a>
+    </p>
+  </div>
+</div>
+    </nav>
+
+    <main class="wy-grid-for-nav">
+      <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+        <div class="wy-nav-content">
+          <div class="rst-content">
+            
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href="../../../index.html">Documentation</a> <span class="db-icon db-icon-chevron-right"></span></li>
+    
+        <li><a href="../../index.html">Module code</a> <span class="db-icon db-icon-chevron-right"></span></li>
+    
+    
+      <li>mlflow.models.resources</li>
+    
+    
+    <!-- <li class="wy-breadcrumbs-aside">
+      <a href="https://github.com/mlflow/mlflow/blob/master/docs/source/_modules/mlflow/models/resources" class="fa fa-github"> Edit on GitHub</a>
+    </li> -->
+    
+  </ul>
+</div>
+            <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+              <div itemprop="articleBody">
+                
+  <h1>Source code for mlflow.models.resources</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span> <span class="nn">os</span>
+<span class="kn">from</span> <span class="nn">abc</span> <span class="kn">import</span> <span class="n">ABC</span><span class="p">,</span> <span class="n">abstractmethod</span>
+<span class="kn">from</span> <span class="nn">dataclasses</span> <span class="kn">import</span> <span class="n">dataclass</span>
+<span class="kn">from</span> <span class="nn">enum</span> <span class="kn">import</span> <span class="n">Enum</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">List</span>
+
+<span class="kn">import</span> <span class="nn">yaml</span>
+
+<span class="n">DEFAULT_API_VERSION</span> <span class="o">=</span> <span class="s2">&quot;1&quot;</span>
+
+
+<div class="viewcode-block" id="ResourceType"><a class="viewcode-back" href="../../../python_api/mlflow.models.html#mlflow.models.ResourceType">[docs]</a><span class="k">class</span> <span class="nc">ResourceType</span><span class="p">(</span><span class="n">Enum</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Enum to define the different types of resources needed to serve a model.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">VECTOR_SEARCH_INDEX</span> <span class="o">=</span> <span class="s2">&quot;vector_search_index&quot;</span>
+    <span class="n">SERVING_ENDPOINT</span> <span class="o">=</span> <span class="s2">&quot;serving_endpoint&quot;</span>
+    <span class="n">SQL_WAREHOUSE</span> <span class="o">=</span> <span class="s2">&quot;sql_warehouse&quot;</span>
+    <span class="n">FUNCTION</span> <span class="o">=</span> <span class="s2">&quot;function&quot;</span></div>
+
+
+<div class="viewcode-block" id="Resource"><a class="viewcode-back" href="../../../python_api/mlflow.models.html#mlflow.models.Resource">[docs]</a><span class="nd">@dataclass</span>
+<span class="k">class</span> <span class="nc">Resource</span><span class="p">(</span><span class="n">ABC</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Base class for defining the resources needed to serve a model.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        type (ResourceType): The resource type.</span>
+<span class="sd">        target_uri (str): The target URI where these resources are hosted.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="nb">type</span><span class="p">:</span> <span class="n">ResourceType</span>
+    <span class="n">target_uri</span><span class="p">:</span> <span class="nb">str</span>
+
+<div class="viewcode-block" id="Resource.to_dict"><a class="viewcode-back" href="../../../python_api/mlflow.models.html#mlflow.models.Resource.to_dict">[docs]</a>    <span class="nd">@abstractmethod</span>
+    <span class="k">def</span> <span class="nf">to_dict</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Convert the resource to a dictionary.</span>
+<span class="sd">        Subclasses must implement this method.</span>
+<span class="sd">        &quot;&quot;&quot;</span></div>
+
+<div class="viewcode-block" id="Resource.from_dict"><a class="viewcode-back" href="../../../python_api/mlflow.models.html#mlflow.models.Resource.from_dict">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">from_dict</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">data</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Convert the dictionary to a Resource.</span>
+<span class="sd">        Subclasses must implement this method.</span>
+<span class="sd">        &quot;&quot;&quot;</span></div></div>
+
+
+<span class="nd">@dataclass</span>
+<span class="k">class</span> <span class="nc">DatabricksResource</span><span class="p">(</span><span class="n">Resource</span><span class="p">,</span> <span class="n">ABC</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Base class to define all the Databricks resources to serve a model.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">target_uri</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;databricks&quot;</span>
+
+
+<span class="nd">@dataclass</span>
+<span class="k">class</span> <span class="nc">DatabricksServingEndpoint</span><span class="p">(</span><span class="n">DatabricksResource</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Define Databricks LLM endpoint resource to serve a model.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        endpoint_name (str): The name of all the databricks endpoints used by the model.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="nb">type</span><span class="p">:</span> <span class="n">ResourceType</span> <span class="o">=</span> <span class="n">ResourceType</span><span class="o">.</span><span class="n">SERVING_ENDPOINT</span>
+    <span class="n">endpoint_name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="k">def</span> <span class="nf">to_dict</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="p">{</span><span class="bp">self</span><span class="o">.</span><span class="n">type</span><span class="o">.</span><span class="n">value</span><span class="p">:</span> <span class="p">[{</span><span class="s2">&quot;name&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">endpoint_name</span><span class="p">}]}</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">endpoint_name</span> <span class="k">else</span> <span class="p">{}</span>
+
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">from_dict</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">data</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]):</span>
+        <span class="k">return</span> <span class="bp">cls</span><span class="p">(</span><span class="n">endpoint_name</span><span class="o">=</span><span class="n">data</span><span class="p">[</span><span class="s2">&quot;name&quot;</span><span class="p">])</span>
+
+
+<span class="nd">@dataclass</span>
+<span class="k">class</span> <span class="nc">DatabricksVectorSearchIndex</span><span class="p">(</span><span class="n">DatabricksResource</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Define Databricks vector search index name resource to serve a model.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        index_name (str): The name of all the databricks vector search index names</span>
+<span class="sd">        used by the model.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="nb">type</span><span class="p">:</span> <span class="n">ResourceType</span> <span class="o">=</span> <span class="n">ResourceType</span><span class="o">.</span><span class="n">VECTOR_SEARCH_INDEX</span>
+    <span class="n">index_name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="k">def</span> <span class="nf">to_dict</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="p">{</span><span class="bp">self</span><span class="o">.</span><span class="n">type</span><span class="o">.</span><span class="n">value</span><span class="p">:</span> <span class="p">[{</span><span class="s2">&quot;name&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">index_name</span><span class="p">}]}</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">index_name</span> <span class="k">else</span> <span class="p">{}</span>
+
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">from_dict</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">data</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]):</span>
+        <span class="k">return</span> <span class="bp">cls</span><span class="p">(</span><span class="n">index_name</span><span class="o">=</span><span class="n">data</span><span class="p">[</span><span class="s2">&quot;name&quot;</span><span class="p">])</span>
+
+
+<span class="nd">@dataclass</span>
+<span class="k">class</span> <span class="nc">DatabricksSQLWarehouse</span><span class="p">(</span><span class="n">DatabricksResource</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Define Databricks sql warehouse resource to serve a model.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        warehouse_id (str): The id of the sql warehouse used by the model</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="nb">type</span><span class="p">:</span> <span class="n">ResourceType</span> <span class="o">=</span> <span class="n">ResourceType</span><span class="o">.</span><span class="n">SQL_WAREHOUSE</span>
+    <span class="n">warehouse_id</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="k">def</span> <span class="nf">to_dict</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="p">{</span><span class="bp">self</span><span class="o">.</span><span class="n">type</span><span class="o">.</span><span class="n">value</span><span class="p">:</span> <span class="p">[{</span><span class="s2">&quot;name&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">warehouse_id</span><span class="p">}]}</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">warehouse_id</span> <span class="k">else</span> <span class="p">{}</span>
+
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">from_dict</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">data</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]):</span>
+        <span class="k">return</span> <span class="bp">cls</span><span class="p">(</span><span class="n">warehouse_id</span><span class="o">=</span><span class="n">data</span><span class="p">[</span><span class="s2">&quot;name&quot;</span><span class="p">])</span>
+
+
+<span class="nd">@dataclass</span>
+<span class="k">class</span> <span class="nc">DatabricksFunction</span><span class="p">(</span><span class="n">DatabricksResource</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Define Databricks UC Function to serve a model.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        function_name (str): The name of the function used by the model</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="nb">type</span><span class="p">:</span> <span class="n">ResourceType</span> <span class="o">=</span> <span class="n">ResourceType</span><span class="o">.</span><span class="n">FUNCTION</span>
+    <span class="n">function_name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="k">def</span> <span class="nf">to_dict</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="p">{</span><span class="bp">self</span><span class="o">.</span><span class="n">type</span><span class="o">.</span><span class="n">value</span><span class="p">:</span> <span class="p">[{</span><span class="s2">&quot;name&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">function_name</span><span class="p">}]}</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">function_name</span> <span class="k">else</span> <span class="p">{}</span>
+
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">from_dict</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">data</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]):</span>
+        <span class="k">return</span> <span class="bp">cls</span><span class="p">(</span><span class="n">function_name</span><span class="o">=</span><span class="n">data</span><span class="p">[</span><span class="s2">&quot;name&quot;</span><span class="p">])</span>
+
+
+<span class="k">def</span> <span class="nf">_get_resource_class_by_type</span><span class="p">(</span><span class="n">target_uri</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">resource_type</span><span class="p">:</span> <span class="n">ResourceType</span><span class="p">):</span>
+    <span class="n">resource_classes</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s2">&quot;databricks&quot;</span><span class="p">:</span> <span class="p">{</span>
+            <span class="n">ResourceType</span><span class="o">.</span><span class="n">SERVING_ENDPOINT</span><span class="o">.</span><span class="n">value</span><span class="p">:</span> <span class="n">DatabricksServingEndpoint</span><span class="p">,</span>
+            <span class="n">ResourceType</span><span class="o">.</span><span class="n">VECTOR_SEARCH_INDEX</span><span class="o">.</span><span class="n">value</span><span class="p">:</span> <span class="n">DatabricksVectorSearchIndex</span><span class="p">,</span>
+            <span class="n">ResourceType</span><span class="o">.</span><span class="n">SQL_WAREHOUSE</span><span class="o">.</span><span class="n">value</span><span class="p">:</span> <span class="n">DatabricksSQLWarehouse</span><span class="p">,</span>
+            <span class="n">ResourceType</span><span class="o">.</span><span class="n">FUNCTION</span><span class="o">.</span><span class="n">value</span><span class="p">:</span> <span class="n">DatabricksFunction</span><span class="p">,</span>
+        <span class="p">}</span>
+    <span class="p">}</span>
+    <span class="n">resource</span> <span class="o">=</span> <span class="n">resource_classes</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">target_uri</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">resource</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unsupported target URI: </span><span class="si">{</span><span class="n">target_uri</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">resource</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">resource_type</span><span class="p">)</span>
+
+
+<span class="k">class</span> <span class="nc">_ResourceBuilder</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Private builder class to build the resources dictionary.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">from_resources</span><span class="p">(</span>
+        <span class="n">resources</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Resource</span><span class="p">],</span> <span class="n">api_version</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">DEFAULT_API_VERSION</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Dict</span><span class="p">[</span><span class="n">ResourceType</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="n">Dict</span><span class="p">]]]:</span>
+        <span class="n">resource_dict</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">for</span> <span class="n">resource</span> <span class="ow">in</span> <span class="n">resources</span><span class="p">:</span>
+            <span class="n">resource_data</span> <span class="o">=</span> <span class="n">resource</span><span class="o">.</span><span class="n">to_dict</span><span class="p">()</span>
+            <span class="k">for</span> <span class="n">resource_type</span><span class="p">,</span> <span class="n">values</span> <span class="ow">in</span> <span class="n">resource_data</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+                <span class="n">target_dict</span> <span class="o">=</span> <span class="n">resource_dict</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="n">resource</span><span class="o">.</span><span class="n">target_uri</span><span class="p">,</span> <span class="p">{})</span>
+                <span class="n">target_list</span> <span class="o">=</span> <span class="n">target_dict</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="n">resource_type</span><span class="p">,</span> <span class="p">[])</span>
+                <span class="n">target_list</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">values</span><span class="p">)</span>
+
+        <span class="n">resource_dict</span><span class="p">[</span><span class="s2">&quot;api_version&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">api_version</span>
+        <span class="k">return</span> <span class="n">resource_dict</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">from_dict</span><span class="p">(</span><span class="n">data</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Dict</span><span class="p">[</span><span class="n">ResourceType</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="n">Dict</span><span class="p">]]]:</span>
+        <span class="n">resources</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">api_version</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s2">&quot;api_version&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">api_version</span> <span class="o">==</span> <span class="s2">&quot;1&quot;</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">target_uri</span><span class="p">,</span> <span class="n">config</span> <span class="ow">in</span> <span class="n">data</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+                <span class="k">for</span> <span class="n">resource_type</span><span class="p">,</span> <span class="n">values</span> <span class="ow">in</span> <span class="n">config</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+                    <span class="n">resource_class</span> <span class="o">=</span> <span class="n">_get_resource_class_by_type</span><span class="p">(</span><span class="n">target_uri</span><span class="p">,</span> <span class="n">resource_type</span><span class="p">)</span>
+                    <span class="k">if</span> <span class="n">resource_class</span><span class="p">:</span>
+                        <span class="n">resources</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">resource_class</span><span class="o">.</span><span class="n">from_dict</span><span class="p">(</span><span class="n">value</span><span class="p">)</span> <span class="k">for</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">values</span><span class="p">)</span>
+                    <span class="k">else</span><span class="p">:</span>
+                        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unsupported resource type: </span><span class="si">{</span><span class="n">resource_type</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unsupported API version: </span><span class="si">{</span><span class="n">api_version</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">_ResourceBuilder</span><span class="o">.</span><span class="n">from_resources</span><span class="p">(</span><span class="n">resources</span><span class="p">,</span> <span class="n">api_version</span><span class="p">)</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">from_yaml_file</span><span class="p">(</span><span class="n">path</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Dict</span><span class="p">[</span><span class="n">ResourceType</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="n">Dict</span><span class="p">]]]:</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">path</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">OSError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;No such file or directory: &#39;</span><span class="si">{</span><span class="n">path</span><span class="si">}</span><span class="s2">&#39;&quot;</span><span class="p">)</span>
+        <span class="n">path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
+        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">path</span><span class="p">)</span> <span class="k">as</span> <span class="n">file</span><span class="p">:</span>
+            <span class="n">data</span> <span class="o">=</span> <span class="n">yaml</span><span class="o">.</span><span class="n">safe_load</span><span class="p">(</span><span class="n">file</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">_ResourceBuilder</span><span class="o">.</span><span class="n">from_dict</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+</pre></div>
+
+              </div>
+            </div>
+            <footer>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+      <p class="copyright">
+          &copy; MLflow Project, a Series of LF Projects, LLC. All rights reserved.
+      </p>
+
+  </div> 
+
+</footer>
+          </div>
+        </div>
+      </section>
+    </main>
+  </page>
+
+  
+
+
+  
+  <script type="text/javascript">
+    var DOCUMENTATION_OPTIONS = {
+      URL_ROOT:'../../../',
+      VERSION:'2.17.1.dev0',
+      COLLAPSE_INDEX:false,
+      FILE_SUFFIX:'.html',
+      LINK_SUFFIX: '.html',
+      HAS_SOURCE:  true
+    };
+  </script>
+
+  
+
+  <script type="text/javascript" src="../../../_static/js/clipboard.min.js"></script>
+  <script type="text/javascript" src="../../../_static/js/jquery.waypoints.min.js"></script>
+
+  
+  
+  
+  <script type="text/javascript">var CLIPPY_SVG_PATH = "../../../_static/clippy.svg";</script>
+  <script type="text/javascript" src="../../../_static/js/custom.js"></script>
+  
+
+  
+  
+  <script type="text/javascript">
+    jQuery(function () {
+      SphinxRtdTheme.StickyNav.enable();
+    });
+
+  </script>
+  
+
+  
+  <script type="text/javascript">
+    document.addEventListener("DOMContentLoaded", function() {
+        function copyToClipboard(text) {
+            const textarea = document.createElement('textarea');
+            textarea.value = text;
+            document.body.appendChild(textarea);
+            textarea.select();
+            document.execCommand('copy');
+            document.body.removeChild(textarea);
+        }
+        // Get the code block designator class entries
+        const allHighlights = document.querySelectorAll('.highlight');
+        // Disable copyable links for notebook cell numbering and for cell outputs
+        const highlights = Array.from(allHighlights).filter(highlight => !highlight.closest('.highlight-none') && 
+            !highlight.closest('.nboutput'));
+    
+        highlights.forEach(function(highlight) {
+            const copyIcon = document.createElement('span');
+            copyIcon.classList.add('copy-icon');
+            copyIcon.innerHTML = '&#xf0ea;';
+
+            copyIcon.addEventListener('click', function() {
+                const code = highlight.querySelector('pre').textContent;
+                copyToClipboard(code);
+
+                // Flash effect on click
+                this.style.color = '#0194E2';
+                setTimeout(() => {
+                    this.style.color = ''; 
+                }, 100);
+
+                // Display "Code copied to clipboard" near the clicked icon
+                const message = document.createElement('span');
+                message.textContent = "Copied!";
+                message.classList.add('copy-message'); 
+
+                // Append the message to the icon
+                this.appendChild(message);
+
+                setTimeout(() => {
+                    this.removeChild(message);
+                }, 500);
+            });
+
+            highlight.appendChild(copyIcon);
+        });
+    });
+  </script>
+
+
+<script type="text/javascript">
+    document.addEventListener("DOMContentLoaded", function() {
+        // Force download for notebook-download-btn
+        const downloadButtons = document.querySelectorAll('.notebook-download-btn');
+        downloadButtons.forEach(function(button) {
+            button.addEventListener('click', function(event) {
+                event.preventDefault(); // Prevent default behavior
+
+                // Fetch the raw content of the notebook from GitHub
+                fetch(button.href)
+                    .then(response => response.blob())
+                    .then(blob => {
+                        const url = window.URL.createObjectURL(blob);
+                        const link = document.createElement('a');
+                        link.style.display = 'none';
+                        link.href = url;
+                        const filename = button.href.split('/').pop();
+                        link.download = filename; 
+
+                        document.body.appendChild(link);
+                        link.click();
+
+                        window.URL.revokeObjectURL(url);
+                        document.body.removeChild(link);
+                    })
+                    .catch(err => console.error('Error fetching the notebook:', err));
+            });
+        });
+    });
+</script> 
+</body>
+</html>

@@ -1,0 +1,411 @@
+
+
+<!DOCTYPE html>
+<!-- source: docs/source/_modules/mlflow/entities/trace_info -->
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>mlflow.entities.trace_info</title>
+  
+   
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+  <link rel="canonical" href="https://mlflow.org/docs/latest/_modules/mlflow/entities/trace_info.html">
+  
+  
+    <link rel="shortcut icon" href="../../../_static/favicon.ico"/>
+    
+
+    
+
+  
+    
+
+  
+
+  
+  
+    
+
+  
+
+  
+  
+    <link href="https://fonts.googleapis.com/css?family=Source+Sans+Pro:300,400,600" rel="stylesheet">
+    <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/css/custom.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/css/cards.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/css/grids.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/css/mobile.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/css/simple-cards.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/css/tabs.css" type="text/css" />
+    
+  
+        <link rel="index" title="Index"
+              href="../../../genindex.html"/>
+        <link rel="search" title="Search" href="../../../search.html"/>
+    <link rel="top" title="MLflow 2.17.1.dev0 documentation" href="../../../index.html"/>
+        <link rel="up" title="Module code" href="../../index.html"/> 
+
+  
+  <script src="../../../_static/js/modernizr.min.js"></script>
+
+</head>
+<script type="text/javascript" src="../../../_static/jquery.js"></script>
+<script type="text/javascript" src="../../../_static/underscore.js"></script>
+<script type="text/javascript" src="../../../_static/doctools.js"></script>
+<script type="text/javascript" src="../../../_static/tabs.js"></script>
+<script type="text/javascript" src="../../../_static/languagesections.js"></script>
+<script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+<script type="text/javascript" src="../../../_static/runllm.js"></script>
+
+<body class="wy-body-for-nav" role="document">
+  
+
+  
+  <nav class="wy-nav-top header" role="navigation" aria-label="top navigation">
+    <ul>
+  <li class="menu-toggle">
+    <i data-toggle="wy-nav-top" class="wy-nav-top-menu-button db-icon db-icon-menu pull-left"></i>
+    <a href="../../../index.html" class="wy-nav-top-logo"
+      ><img src="../../../_static/MLflow-logo-final-black.png" alt="MLflow"
+    /></a>
+    <span class="version">2.17.1.dev0</span>
+  </li>
+</ul>
+  </nav>
+  <page>
+    
+
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side relative">
+      <div class="wy-side-scroll">
+  <div class="wy-side-nav-search">
+    
+
+    
+
+    
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+  <input type="text" name="q" placeholder="Search" />
+  <input type="hidden" name="check_keywords" value="yes" />
+  <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+
+    
+  </div>
+
+  <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+    
+      <a href="../../../index.html" class="main-navigation-home"><img src="../../../_static/icons/nav-home.svg"> MLflow</a>
+    
+
+    
+      
+
+      
+        <ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../python_api/index.html">Python API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../cli.html">Command-Line Interface</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../R-api.html">R API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../java_api/index.html">Java API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../rest-api.html">REST API</a></li>
+</ul>
+
+      
+    
+  </div>
+
+  <div role="contentinfo">
+    
+
+    <p>
+      <a id='feedbacklink' href="https://github.com/mlflow/mlflow/blob/master/CONTRIBUTING.md" target="_blank">Contribute</a>
+    </p>
+  </div>
+</div>
+    </nav>
+
+    <main class="wy-grid-for-nav">
+      <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+        <div class="wy-nav-content">
+          <div class="rst-content">
+            
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href="../../../index.html">Documentation</a> <span class="db-icon db-icon-chevron-right"></span></li>
+    
+        <li><a href="../../index.html">Module code</a> <span class="db-icon db-icon-chevron-right"></span></li>
+    
+    
+      <li>mlflow.entities.trace_info</li>
+    
+    
+    <!-- <li class="wy-breadcrumbs-aside">
+      <a href="https://github.com/mlflow/mlflow/blob/master/docs/source/_modules/mlflow/entities/trace_info" class="fa fa-github"> Edit on GitHub</a>
+    </li> -->
+    
+  </ul>
+</div>
+            <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+              <div itemprop="articleBody">
+                
+  <h1>Source code for mlflow.entities.trace_info</h1><div class="highlight"><pre>
+<span></span><span class="kn">from</span> <span class="nn">dataclasses</span> <span class="kn">import</span> <span class="n">asdict</span><span class="p">,</span> <span class="n">dataclass</span><span class="p">,</span> <span class="n">field</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">Optional</span>
+
+<span class="kn">from</span> <span class="nn">mlflow.entities._mlflow_object</span> <span class="kn">import</span> <span class="n">_MlflowObject</span>
+<span class="kn">from</span> <span class="nn">mlflow.entities.trace_status</span> <span class="kn">import</span> <span class="n">TraceStatus</span>
+<span class="kn">from</span> <span class="nn">mlflow.protos.service_pb2</span> <span class="kn">import</span> <span class="n">TraceInfo</span> <span class="k">as</span> <span class="n">ProtoTraceInfo</span>
+<span class="kn">from</span> <span class="nn">mlflow.protos.service_pb2</span> <span class="kn">import</span> <span class="n">TraceRequestMetadata</span> <span class="k">as</span> <span class="n">ProtoTraceRequestMetadata</span>
+<span class="kn">from</span> <span class="nn">mlflow.protos.service_pb2</span> <span class="kn">import</span> <span class="n">TraceTag</span> <span class="k">as</span> <span class="n">ProtoTraceTag</span>
+
+
+<div class="viewcode-block" id="TraceInfo"><a class="viewcode-back" href="../../../python_api/mlflow.entities.html#mlflow.entities.TraceInfo">[docs]</a><span class="nd">@dataclass</span>
+<span class="k">class</span> <span class="nc">TraceInfo</span><span class="p">(</span><span class="n">_MlflowObject</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Metadata about a trace.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        request_id: id of the trace.</span>
+<span class="sd">        experiment_id: id of the experiment.</span>
+<span class="sd">        timestamp_ms: start time of the trace, in milliseconds.</span>
+<span class="sd">        execution_time_ms: duration of the trace, in milliseconds.</span>
+<span class="sd">        status: status of the trace.</span>
+<span class="sd">        request_metadata: Key-value pairs associated with the trace. Request metadata are designed</span>
+<span class="sd">            for immutable values like run ID associated with the trace.</span>
+<span class="sd">        tags: Tags associated with the trace. Tags are designed for mutable values like trace name,</span>
+<span class="sd">            that can be updated by the users after the trace is created, unlike request_metadata.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">request_id</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="n">experiment_id</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="n">timestamp_ms</span><span class="p">:</span> <span class="nb">int</span>
+    <span class="n">execution_time_ms</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span>
+    <span class="n">status</span><span class="p">:</span> <span class="n">TraceStatus</span>
+    <span class="n">request_metadata</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="nb">dict</span><span class="p">)</span>
+    <span class="n">tags</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="nb">dict</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="fm">__eq__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
+        <span class="k">if</span> <span class="nb">type</span><span class="p">(</span><span class="n">other</span><span class="p">)</span> <span class="ow">is</span> <span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="vm">__dict__</span> <span class="o">==</span> <span class="n">other</span><span class="o">.</span><span class="vm">__dict__</span>
+        <span class="k">return</span> <span class="kc">False</span>
+
+<div class="viewcode-block" id="TraceInfo.to_proto"><a class="viewcode-back" href="../../../python_api/mlflow.entities.html#mlflow.entities.TraceInfo.to_proto">[docs]</a>    <span class="k">def</span> <span class="nf">to_proto</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="kn">from</span> <span class="nn">mlflow.tracing.constant</span> <span class="kn">import</span> <span class="n">MAX_CHARS_IN_TRACE_INFO_METADATA_AND_TAGS</span>
+
+        <span class="n">proto</span> <span class="o">=</span> <span class="n">ProtoTraceInfo</span><span class="p">()</span>
+        <span class="n">proto</span><span class="o">.</span><span class="n">request_id</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">request_id</span>
+        <span class="n">proto</span><span class="o">.</span><span class="n">experiment_id</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">experiment_id</span>
+        <span class="n">proto</span><span class="o">.</span><span class="n">timestamp_ms</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">timestamp_ms</span>
+        <span class="c1"># NB: Proto setter does not support nullable fields (even with &#39;optional&#39; keyword),</span>
+        <span class="c1"># so we substitute None with 0 for execution_time_ms. This should be not too confusing</span>
+        <span class="c1"># as we only put None when starting a trace i.e. the execution time is actually 0.</span>
+        <span class="n">proto</span><span class="o">.</span><span class="n">execution_time_ms</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">execution_time_ms</span> <span class="ow">or</span> <span class="mi">0</span>
+        <span class="n">proto</span><span class="o">.</span><span class="n">status</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">status</span><span class="o">.</span><span class="n">to_proto</span><span class="p">()</span>
+
+        <span class="n">request_metadata</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">request_metadata</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="n">attr</span> <span class="o">=</span> <span class="n">ProtoTraceRequestMetadata</span><span class="p">()</span>
+            <span class="n">attr</span><span class="o">.</span><span class="n">key</span> <span class="o">=</span> <span class="n">key</span><span class="p">[:</span><span class="n">MAX_CHARS_IN_TRACE_INFO_METADATA_AND_TAGS</span><span class="p">]</span>
+            <span class="n">attr</span><span class="o">.</span><span class="n">value</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">value</span><span class="p">)[:</span><span class="n">MAX_CHARS_IN_TRACE_INFO_METADATA_AND_TAGS</span><span class="p">]</span>
+            <span class="n">request_metadata</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">attr</span><span class="p">)</span>
+        <span class="n">proto</span><span class="o">.</span><span class="n">request_metadata</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">request_metadata</span><span class="p">)</span>
+
+        <span class="n">tags</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">tags</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="n">tag</span> <span class="o">=</span> <span class="n">ProtoTraceTag</span><span class="p">()</span>
+            <span class="n">tag</span><span class="o">.</span><span class="n">key</span> <span class="o">=</span> <span class="n">key</span><span class="p">[:</span><span class="n">MAX_CHARS_IN_TRACE_INFO_METADATA_AND_TAGS</span><span class="p">]</span>
+            <span class="n">tag</span><span class="o">.</span><span class="n">value</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">value</span><span class="p">)[:</span><span class="n">MAX_CHARS_IN_TRACE_INFO_METADATA_AND_TAGS</span><span class="p">]</span>
+            <span class="n">tags</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">tag</span><span class="p">)</span>
+
+        <span class="n">proto</span><span class="o">.</span><span class="n">tags</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">tags</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">proto</span></div>
+
+<div class="viewcode-block" id="TraceInfo.from_proto"><a class="viewcode-back" href="../../../python_api/mlflow.entities.html#mlflow.entities.TraceInfo.from_proto">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">from_proto</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">proto</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">cls</span><span class="p">(</span>
+            <span class="n">request_id</span><span class="o">=</span><span class="n">proto</span><span class="o">.</span><span class="n">request_id</span><span class="p">,</span>
+            <span class="n">experiment_id</span><span class="o">=</span><span class="n">proto</span><span class="o">.</span><span class="n">experiment_id</span><span class="p">,</span>
+            <span class="n">timestamp_ms</span><span class="o">=</span><span class="n">proto</span><span class="o">.</span><span class="n">timestamp_ms</span><span class="p">,</span>
+            <span class="n">execution_time_ms</span><span class="o">=</span><span class="n">proto</span><span class="o">.</span><span class="n">execution_time_ms</span><span class="p">,</span>
+            <span class="n">status</span><span class="o">=</span><span class="n">TraceStatus</span><span class="o">.</span><span class="n">from_proto</span><span class="p">(</span><span class="n">proto</span><span class="o">.</span><span class="n">status</span><span class="p">),</span>
+            <span class="n">request_metadata</span><span class="o">=</span><span class="p">{</span><span class="n">attr</span><span class="o">.</span><span class="n">key</span><span class="p">:</span> <span class="n">attr</span><span class="o">.</span><span class="n">value</span> <span class="k">for</span> <span class="n">attr</span> <span class="ow">in</span> <span class="n">proto</span><span class="o">.</span><span class="n">request_metadata</span><span class="p">},</span>
+            <span class="n">tags</span><span class="o">=</span><span class="p">{</span><span class="n">tag</span><span class="o">.</span><span class="n">key</span><span class="p">:</span> <span class="n">tag</span><span class="o">.</span><span class="n">value</span> <span class="k">for</span> <span class="n">tag</span> <span class="ow">in</span> <span class="n">proto</span><span class="o">.</span><span class="n">tags</span><span class="p">},</span>
+        <span class="p">)</span></div>
+
+<div class="viewcode-block" id="TraceInfo.to_dict"><a class="viewcode-back" href="../../../python_api/mlflow.entities.html#mlflow.entities.TraceInfo.to_dict">[docs]</a>    <span class="k">def</span> <span class="nf">to_dict</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Convert trace info to a dictionary for persistence.</span>
+<span class="sd">        Update status field to the string value for serialization.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">trace_info_dict</span> <span class="o">=</span> <span class="n">asdict</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+        <span class="n">trace_info_dict</span><span class="p">[</span><span class="s2">&quot;status&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">status</span><span class="o">.</span><span class="n">value</span>
+        <span class="k">return</span> <span class="n">trace_info_dict</span></div>
+
+<div class="viewcode-block" id="TraceInfo.from_dict"><a class="viewcode-back" href="../../../python_api/mlflow.entities.html#mlflow.entities.TraceInfo.from_dict">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">from_dict</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">trace_info_dict</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Convert trace info dictionary to TraceInfo object.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="s2">&quot;status&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">trace_info_dict</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;status is required in trace info dictionary.&quot;</span><span class="p">)</span>
+        <span class="n">trace_info_dict</span><span class="p">[</span><span class="s2">&quot;status&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">TraceStatus</span><span class="p">(</span><span class="n">trace_info_dict</span><span class="p">[</span><span class="s2">&quot;status&quot;</span><span class="p">])</span>
+        <span class="k">return</span> <span class="bp">cls</span><span class="p">(</span><span class="o">**</span><span class="n">trace_info_dict</span><span class="p">)</span></div></div>
+</pre></div>
+
+              </div>
+            </div>
+            <footer>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+      <p class="copyright">
+          &copy; MLflow Project, a Series of LF Projects, LLC. All rights reserved.
+      </p>
+
+  </div> 
+
+</footer>
+          </div>
+        </div>
+      </section>
+    </main>
+  </page>
+
+  
+
+
+  
+  <script type="text/javascript">
+    var DOCUMENTATION_OPTIONS = {
+      URL_ROOT:'../../../',
+      VERSION:'2.17.1.dev0',
+      COLLAPSE_INDEX:false,
+      FILE_SUFFIX:'.html',
+      LINK_SUFFIX: '.html',
+      HAS_SOURCE:  true
+    };
+  </script>
+
+  
+
+  <script type="text/javascript" src="../../../_static/js/clipboard.min.js"></script>
+  <script type="text/javascript" src="../../../_static/js/jquery.waypoints.min.js"></script>
+
+  
+  
+  
+  <script type="text/javascript">var CLIPPY_SVG_PATH = "../../../_static/clippy.svg";</script>
+  <script type="text/javascript" src="../../../_static/js/custom.js"></script>
+  
+
+  
+  
+  <script type="text/javascript">
+    jQuery(function () {
+      SphinxRtdTheme.StickyNav.enable();
+    });
+
+  </script>
+  
+
+  
+  <script type="text/javascript">
+    document.addEventListener("DOMContentLoaded", function() {
+        function copyToClipboard(text) {
+            const textarea = document.createElement('textarea');
+            textarea.value = text;
+            document.body.appendChild(textarea);
+            textarea.select();
+            document.execCommand('copy');
+            document.body.removeChild(textarea);
+        }
+        // Get the code block designator class entries
+        const allHighlights = document.querySelectorAll('.highlight');
+        // Disable copyable links for notebook cell numbering and for cell outputs
+        const highlights = Array.from(allHighlights).filter(highlight => !highlight.closest('.highlight-none') && 
+            !highlight.closest('.nboutput'));
+    
+        highlights.forEach(function(highlight) {
+            const copyIcon = document.createElement('span');
+            copyIcon.classList.add('copy-icon');
+            copyIcon.innerHTML = '&#xf0ea;';
+
+            copyIcon.addEventListener('click', function() {
+                const code = highlight.querySelector('pre').textContent;
+                copyToClipboard(code);
+
+                // Flash effect on click
+                this.style.color = '#0194E2';
+                setTimeout(() => {
+                    this.style.color = ''; 
+                }, 100);
+
+                // Display "Code copied to clipboard" near the clicked icon
+                const message = document.createElement('span');
+                message.textContent = "Copied!";
+                message.classList.add('copy-message'); 
+
+                // Append the message to the icon
+                this.appendChild(message);
+
+                setTimeout(() => {
+                    this.removeChild(message);
+                }, 500);
+            });
+
+            highlight.appendChild(copyIcon);
+        });
+    });
+  </script>
+
+
+<script type="text/javascript">
+    document.addEventListener("DOMContentLoaded", function() {
+        // Force download for notebook-download-btn
+        const downloadButtons = document.querySelectorAll('.notebook-download-btn');
+        downloadButtons.forEach(function(button) {
+            button.addEventListener('click', function(event) {
+                event.preventDefault(); // Prevent default behavior
+
+                // Fetch the raw content of the notebook from GitHub
+                fetch(button.href)
+                    .then(response => response.blob())
+                    .then(blob => {
+                        const url = window.URL.createObjectURL(blob);
+                        const link = document.createElement('a');
+                        link.style.display = 'none';
+                        link.href = url;
+                        const filename = button.href.split('/').pop();
+                        link.download = filename; 
+
+                        document.body.appendChild(link);
+                        link.click();
+
+                        window.URL.revokeObjectURL(url);
+                        document.body.removeChild(link);
+                    })
+                    .catch(err => console.error('Error fetching the notebook:', err));
+            });
+        });
+    });
+</script> 
+</body>
+</html>

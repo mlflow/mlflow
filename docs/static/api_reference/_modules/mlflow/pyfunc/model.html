@@ -1,0 +1,1066 @@
+
+
+<!DOCTYPE html>
+<!-- source: docs/source/_modules/mlflow/pyfunc/model -->
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>mlflow.pyfunc.model</title>
+  
+   
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+  <link rel="canonical" href="https://mlflow.org/docs/latest/_modules/mlflow/pyfunc/model.html">
+  
+  
+    <link rel="shortcut icon" href="../../../_static/favicon.ico"/>
+    
+
+    
+
+  
+    
+
+  
+
+  
+  
+    
+
+  
+
+  
+  
+    <link href="https://fonts.googleapis.com/css?family=Source+Sans+Pro:300,400,600" rel="stylesheet">
+    <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/css/custom.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/css/cards.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/css/grids.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/css/mobile.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/css/simple-cards.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/css/tabs.css" type="text/css" />
+    
+  
+        <link rel="index" title="Index"
+              href="../../../genindex.html"/>
+        <link rel="search" title="Search" href="../../../search.html"/>
+    <link rel="top" title="MLflow 2.17.1.dev0 documentation" href="../../../index.html"/>
+        <link rel="up" title="mlflow.pyfunc" href="../pyfunc.html"/> 
+
+  
+  <script src="../../../_static/js/modernizr.min.js"></script>
+
+</head>
+<script type="text/javascript" src="../../../_static/jquery.js"></script>
+<script type="text/javascript" src="../../../_static/underscore.js"></script>
+<script type="text/javascript" src="../../../_static/doctools.js"></script>
+<script type="text/javascript" src="../../../_static/tabs.js"></script>
+<script type="text/javascript" src="../../../_static/languagesections.js"></script>
+<script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+<script type="text/javascript" src="../../../_static/runllm.js"></script>
+
+<body class="wy-body-for-nav" role="document">
+  
+
+  
+  <nav class="wy-nav-top header" role="navigation" aria-label="top navigation">
+    <ul>
+  <li class="menu-toggle">
+    <i data-toggle="wy-nav-top" class="wy-nav-top-menu-button db-icon db-icon-menu pull-left"></i>
+    <a href="../../../index.html" class="wy-nav-top-logo"
+      ><img src="../../../_static/MLflow-logo-final-black.png" alt="MLflow"
+    /></a>
+    <span class="version">2.17.1.dev0</span>
+  </li>
+</ul>
+  </nav>
+  <page>
+    
+
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side relative">
+      <div class="wy-side-scroll">
+  <div class="wy-side-nav-search">
+    
+
+    
+
+    
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+  <input type="text" name="q" placeholder="Search" />
+  <input type="hidden" name="check_keywords" value="yes" />
+  <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+
+    
+  </div>
+
+  <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+    
+      <a href="../../../index.html" class="main-navigation-home"><img src="../../../_static/icons/nav-home.svg"> MLflow</a>
+    
+
+    
+      
+
+      
+        <ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../python_api/index.html">Python API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../cli.html">Command-Line Interface</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../R-api.html">R API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../java_api/index.html">Java API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../rest-api.html">REST API</a></li>
+</ul>
+
+      
+    
+  </div>
+
+  <div role="contentinfo">
+    
+
+    <p>
+      <a id='feedbacklink' href="https://github.com/mlflow/mlflow/blob/master/CONTRIBUTING.md" target="_blank">Contribute</a>
+    </p>
+  </div>
+</div>
+    </nav>
+
+    <main class="wy-grid-for-nav">
+      <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+        <div class="wy-nav-content">
+          <div class="rst-content">
+            
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href="../../../index.html">Documentation</a> <span class="db-icon db-icon-chevron-right"></span></li>
+    
+        <li><a href="../../index.html">Module code</a> <span class="db-icon db-icon-chevron-right"></span></li>
+    
+        <li><a href="../pyfunc.html">mlflow.pyfunc</a> <span class="db-icon db-icon-chevron-right"></span></li>
+    
+    
+      <li>mlflow.pyfunc.model</li>
+    
+    
+    <!-- <li class="wy-breadcrumbs-aside">
+      <a href="https://github.com/mlflow/mlflow/blob/master/docs/source/_modules/mlflow/pyfunc/model" class="fa fa-github"> Edit on GitHub</a>
+    </li> -->
+    
+  </ul>
+</div>
+            <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+              <div itemprop="articleBody">
+                
+  <h1>Source code for mlflow.pyfunc.model</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">The ``mlflow.pyfunc.model`` module defines logic for saving and loading custom &quot;python_function&quot;</span>
+<span class="sd">models with a user-defined ``PythonModel`` subclass.</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">import</span> <span class="nn">inspect</span>
+<span class="kn">import</span> <span class="nn">logging</span>
+<span class="kn">import</span> <span class="nn">os</span>
+<span class="kn">import</span> <span class="nn">shutil</span>
+<span class="kn">from</span> <span class="nn">abc</span> <span class="kn">import</span> <span class="n">ABCMeta</span><span class="p">,</span> <span class="n">abstractmethod</span>
+<span class="kn">from</span> <span class="nn">pathlib</span> <span class="kn">import</span> <span class="n">Path</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">Iterator</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Union</span>
+
+<span class="kn">import</span> <span class="nn">cloudpickle</span>
+<span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
+<span class="kn">import</span> <span class="nn">yaml</span>
+
+<span class="kn">import</span> <span class="nn">mlflow.pyfunc</span>
+<span class="kn">import</span> <span class="nn">mlflow.utils</span>
+<span class="kn">from</span> <span class="nn">mlflow.exceptions</span> <span class="kn">import</span> <span class="n">MlflowException</span>
+<span class="kn">from</span> <span class="nn">mlflow.models</span> <span class="kn">import</span> <span class="n">Model</span>
+<span class="kn">from</span> <span class="nn">mlflow.models.model</span> <span class="kn">import</span> <span class="n">MLMODEL_FILE_NAME</span><span class="p">,</span> <span class="n">MODEL_CODE_PATH</span>
+<span class="kn">from</span> <span class="nn">mlflow.models.rag_signatures</span> <span class="kn">import</span> <span class="n">ChatCompletionRequest</span><span class="p">,</span> <span class="n">SplitChatMessagesRequest</span>
+<span class="kn">from</span> <span class="nn">mlflow.models.signature</span> <span class="kn">import</span> <span class="n">_extract_type_hints</span>
+<span class="kn">from</span> <span class="nn">mlflow.models.utils</span> <span class="kn">import</span> <span class="n">_load_model_code_path</span>
+<span class="kn">from</span> <span class="nn">mlflow.protos.databricks_pb2</span> <span class="kn">import</span> <span class="n">INVALID_PARAMETER_VALUE</span>
+<span class="kn">from</span> <span class="nn">mlflow.pyfunc.utils.input_converter</span> <span class="kn">import</span> <span class="n">_hydrate_dataclass</span>
+<span class="kn">from</span> <span class="nn">mlflow.tracking.artifact_utils</span> <span class="kn">import</span> <span class="n">_download_artifact_from_uri</span>
+<span class="kn">from</span> <span class="nn">mlflow.types.llm</span> <span class="kn">import</span> <span class="n">ChatMessage</span><span class="p">,</span> <span class="n">ChatParams</span><span class="p">,</span> <span class="n">ChatResponse</span>
+<span class="kn">from</span> <span class="nn">mlflow.utils.annotations</span> <span class="kn">import</span> <span class="n">experimental</span>
+<span class="kn">from</span> <span class="nn">mlflow.utils.environment</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">_CONDA_ENV_FILE_NAME</span><span class="p">,</span>
+    <span class="n">_CONSTRAINTS_FILE_NAME</span><span class="p">,</span>
+    <span class="n">_PYTHON_ENV_FILE_NAME</span><span class="p">,</span>
+    <span class="n">_REQUIREMENTS_FILE_NAME</span><span class="p">,</span>
+    <span class="n">_mlflow_conda_env</span><span class="p">,</span>
+    <span class="n">_process_conda_env</span><span class="p">,</span>
+    <span class="n">_process_pip_requirements</span><span class="p">,</span>
+    <span class="n">_PythonEnv</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">mlflow.utils.file_utils</span> <span class="kn">import</span> <span class="n">TempDir</span><span class="p">,</span> <span class="n">get_total_file_size</span><span class="p">,</span> <span class="n">write_to</span>
+<span class="kn">from</span> <span class="nn">mlflow.utils.model_utils</span> <span class="kn">import</span> <span class="n">_get_flavor_configuration</span><span class="p">,</span> <span class="n">_validate_infer_and_copy_code_paths</span>
+<span class="kn">from</span> <span class="nn">mlflow.utils.requirements_utils</span> <span class="kn">import</span> <span class="n">_get_pinned_requirement</span>
+
+<span class="n">CONFIG_KEY_ARTIFACTS</span> <span class="o">=</span> <span class="s2">&quot;artifacts&quot;</span>
+<span class="n">CONFIG_KEY_ARTIFACT_RELATIVE_PATH</span> <span class="o">=</span> <span class="s2">&quot;path&quot;</span>
+<span class="n">CONFIG_KEY_ARTIFACT_URI</span> <span class="o">=</span> <span class="s2">&quot;uri&quot;</span>
+<span class="n">CONFIG_KEY_PYTHON_MODEL</span> <span class="o">=</span> <span class="s2">&quot;python_model&quot;</span>
+<span class="n">CONFIG_KEY_CLOUDPICKLE_VERSION</span> <span class="o">=</span> <span class="s2">&quot;cloudpickle_version&quot;</span>
+<span class="n">_SAVED_PYTHON_MODEL_SUBPATH</span> <span class="o">=</span> <span class="s2">&quot;python_model.pkl&quot;</span>
+
+
+<span class="n">_logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
+
+
+<div class="viewcode-block" id="get_default_pip_requirements"><a class="viewcode-back" href="../../../python_api/mlflow.pyfunc.html#mlflow.pyfunc.get_default_pip_requirements">[docs]</a><span class="k">def</span> <span class="nf">get_default_pip_requirements</span><span class="p">():</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Returns:</span>
+<span class="sd">        A list of default pip requirements for MLflow Models produced by this flavor. Calls to</span>
+<span class="sd">        :func:`save_model()` and :func:`log_model()` produce a pip environment that, at minimum,</span>
+<span class="sd">        contains these requirements.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="p">[</span><span class="n">_get_pinned_requirement</span><span class="p">(</span><span class="s2">&quot;cloudpickle&quot;</span><span class="p">)]</span></div>
+
+
+<div class="viewcode-block" id="get_default_conda_env"><a class="viewcode-back" href="../../../python_api/mlflow.pyfunc.html#mlflow.pyfunc.get_default_conda_env">[docs]</a><span class="k">def</span> <span class="nf">get_default_conda_env</span><span class="p">():</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Returns:</span>
+<span class="sd">        The default Conda environment for MLflow Models produced by calls to</span>
+<span class="sd">        :func:`save_model() &lt;mlflow.pyfunc.save_model&gt;`</span>
+<span class="sd">        and :func:`log_model() &lt;mlflow.pyfunc.log_model&gt;` when a user-defined subclass of</span>
+<span class="sd">        :class:`PythonModel` is provided.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">_mlflow_conda_env</span><span class="p">(</span><span class="n">additional_pip_deps</span><span class="o">=</span><span class="n">get_default_pip_requirements</span><span class="p">())</span></div>
+
+
+<span class="k">def</span> <span class="nf">_log_warning_if_params_not_in_predict_signature</span><span class="p">(</span><span class="n">logger</span><span class="p">,</span> <span class="n">params</span><span class="p">):</span>
+    <span class="k">if</span> <span class="n">params</span><span class="p">:</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+            <span class="s2">&quot;The underlying model does not support passing additional parameters to the predict&quot;</span>
+            <span class="sa">f</span><span class="s2">&quot; function. `params` </span><span class="si">{</span><span class="n">params</span><span class="si">}</span><span class="s2"> will be ignored.&quot;</span>
+        <span class="p">)</span>
+
+
+<div class="viewcode-block" id="PythonModel"><a class="viewcode-back" href="../../../python_api/mlflow.pyfunc.html#mlflow.pyfunc.PythonModel">[docs]</a><span class="k">class</span> <span class="nc">PythonModel</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Represents a generic Python model that evaluates inputs and produces API-compatible outputs.</span>
+<span class="sd">    By subclassing :class:`~PythonModel`, users can create customized MLflow models with the</span>
+<span class="sd">    &quot;python_function&quot; (&quot;pyfunc&quot;) flavor, leveraging custom inference logic and artifact</span>
+<span class="sd">    dependencies.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">__metaclass__</span> <span class="o">=</span> <span class="n">ABCMeta</span>
+
+<div class="viewcode-block" id="PythonModel.load_context"><a class="viewcode-back" href="../../../python_api/mlflow.pyfunc.html#mlflow.pyfunc.PythonModel.load_context">[docs]</a>    <span class="k">def</span> <span class="nf">load_context</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">context</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Loads artifacts from the specified :class:`~PythonModelContext` that can be used by</span>
+<span class="sd">        :func:`~PythonModel.predict` when evaluating inputs. When loading an MLflow model with</span>
+<span class="sd">        :func:`~load_model`, this method is called as soon as the :class:`~PythonModel` is</span>
+<span class="sd">        constructed.</span>
+
+<span class="sd">        The same :class:`~PythonModelContext` will also be available during calls to</span>
+<span class="sd">        :func:`~PythonModel.predict`, but it may be more efficient to override this method</span>
+<span class="sd">        and load artifacts from the context at model load time.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            context: A :class:`~PythonModelContext` instance containing artifacts that the model</span>
+<span class="sd">                     can use to perform inference.</span>
+<span class="sd">        &quot;&quot;&quot;</span></div>
+
+    <span class="k">def</span> <span class="nf">_get_type_hints</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">_extract_type_hints</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">predict</span><span class="p">,</span> <span class="n">input_arg_index</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+
+<div class="viewcode-block" id="PythonModel.predict"><a class="viewcode-back" href="../../../python_api/mlflow.pyfunc.html#mlflow.pyfunc.PythonModel.predict">[docs]</a>    <span class="nd">@abstractmethod</span>
+    <span class="k">def</span> <span class="nf">predict</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">context</span><span class="p">,</span> <span class="n">model_input</span><span class="p">,</span> <span class="n">params</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Evaluates a pyfunc-compatible input and produces a pyfunc-compatible output.</span>
+<span class="sd">        For more information about the pyfunc input/output API, see the :ref:`pyfunc-inference-api`.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            context: A :class:`~PythonModelContext` instance containing artifacts that the model</span>
+<span class="sd">                     can use to perform inference.</span>
+<span class="sd">            model_input: A pyfunc-compatible input for the model to evaluate.</span>
+<span class="sd">            params: Additional parameters to pass to the model for inference.</span>
+<span class="sd">        &quot;&quot;&quot;</span></div>
+
+<div class="viewcode-block" id="PythonModel.predict_stream"><a class="viewcode-back" href="../../../python_api/mlflow.pyfunc.html#mlflow.pyfunc.PythonModel.predict_stream">[docs]</a>    <span class="k">def</span> <span class="nf">predict_stream</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">context</span><span class="p">,</span> <span class="n">model_input</span><span class="p">,</span> <span class="n">params</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Evaluates a pyfunc-compatible input and produces an iterator of output.</span>
+<span class="sd">        For more information about the pyfunc input API, see the :ref:`pyfunc-inference-api`.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            context: A :class:`~PythonModelContext` instance containing artifacts that the model</span>
+<span class="sd">                     can use to perform inference.</span>
+<span class="sd">            model_input: A pyfunc-compatible input for the model to evaluate.</span>
+<span class="sd">            params: Additional parameters to pass to the model for inference.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span></div></div>
+
+
+<span class="k">class</span> <span class="nc">_FunctionPythonModel</span><span class="p">(</span><span class="n">PythonModel</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    When a user specifies a ``python_model`` argument that is a function, we wrap the function</span>
+<span class="sd">    in an instance of this class.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">func</span><span class="p">,</span> <span class="n">hints</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">signature</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">func</span> <span class="o">=</span> <span class="n">func</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">hints</span> <span class="o">=</span> <span class="n">hints</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">signature</span> <span class="o">=</span> <span class="n">signature</span>
+
+    <span class="k">def</span> <span class="nf">_get_type_hints</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">_extract_type_hints</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">func</span><span class="p">,</span> <span class="n">input_arg_index</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">predict</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">context</span><span class="p">,</span>
+        <span class="n">model_input</span><span class="p">,</span>
+        <span class="n">params</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Args:</span>
+<span class="sd">            context: A instance containing artifacts that the model</span>
+<span class="sd">                can use to perform inference.</span>
+<span class="sd">            model_input: A pyfunc-compatible input for the model to evaluate.</span>
+<span class="sd">            params: Additional parameters to pass to the model for inference.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            Model predictions.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">inspect</span><span class="o">.</span><span class="n">signature</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">func</span><span class="p">)</span><span class="o">.</span><span class="n">parameters</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;params&quot;</span><span class="p">):</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">func</span><span class="p">(</span><span class="n">model_input</span><span class="p">,</span> <span class="n">params</span><span class="o">=</span><span class="n">params</span><span class="p">)</span>
+        <span class="n">_log_warning_if_params_not_in_predict_signature</span><span class="p">(</span><span class="n">_logger</span><span class="p">,</span> <span class="n">params</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">func</span><span class="p">(</span><span class="n">model_input</span><span class="p">)</span>
+
+
+<div class="viewcode-block" id="PythonModelContext"><a class="viewcode-back" href="../../../python_api/mlflow.pyfunc.html#mlflow.pyfunc.PythonModelContext">[docs]</a><span class="k">class</span> <span class="nc">PythonModelContext</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    A collection of artifacts that a :class:`~PythonModel` can use when performing inference.</span>
+<span class="sd">    :class:`~PythonModelContext` objects are created *implicitly* by the</span>
+<span class="sd">    :func:`save_model() &lt;mlflow.pyfunc.save_model&gt;` and</span>
+<span class="sd">    :func:`log_model() &lt;mlflow.pyfunc.log_model&gt;` persistence methods, using the contents specified</span>
+<span class="sd">    by the ``artifacts`` parameter of these methods.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">artifacts</span><span class="p">,</span> <span class="n">model_config</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Args:</span>
+<span class="sd">            artifacts: A dictionary of ``&lt;name, artifact_path&gt;`` entries, where ``artifact_path``</span>
+<span class="sd">                is an absolute filesystem path to a given artifact.</span>
+<span class="sd">            model_config: The model configuration to make available to the model at</span>
+<span class="sd">                loading time.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_artifacts</span> <span class="o">=</span> <span class="n">artifacts</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_model_config</span> <span class="o">=</span> <span class="n">model_config</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">artifacts</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        A dictionary containing ``&lt;name, artifact_path&gt;`` entries, where ``artifact_path`` is an</span>
+<span class="sd">        absolute filesystem path to the artifact.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_artifacts</span>
+
+    <span class="nd">@experimental</span>
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">model_config</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        A dictionary containing ``&lt;config, value&gt;`` entries, where ``config`` is the name</span>
+<span class="sd">        of the model configuration keys and ``value`` is the value of the given configuration.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_model_config</span></div>
+
+
+<div class="viewcode-block" id="ChatModel"><a class="viewcode-back" href="../../../python_api/mlflow.pyfunc.html#mlflow.pyfunc.ChatModel">[docs]</a><span class="nd">@experimental</span>
+<span class="k">class</span> <span class="nc">ChatModel</span><span class="p">(</span><span class="n">PythonModel</span><span class="p">,</span> <span class="n">metaclass</span><span class="o">=</span><span class="n">ABCMeta</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    A subclass of :class:`~PythonModel` that makes it more convenient to implement models</span>
+<span class="sd">    that are compatible with popular LLM chat APIs. By subclassing :class:`~ChatModel`,</span>
+<span class="sd">    users can create MLflow models with a ``predict()`` method that is more convenient</span>
+<span class="sd">    for chat tasks than the generic :class:`~PythonModel` API. ChatModels automatically</span>
+<span class="sd">    define input/output signatures and an input example, so manually specifying these values</span>
+<span class="sd">    when calling :func:`mlflow.pyfunc.save_model() &lt;mlflow.pyfunc.save_model&gt;` is not necessary.</span>
+
+<span class="sd">    See the documentation of the ``predict()`` method below for details on that parameters and</span>
+<span class="sd">    outputs that are expected by the ``ChatModel`` API.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="ChatModel.predict"><a class="viewcode-back" href="../../../python_api/mlflow.pyfunc.html#mlflow.pyfunc.ChatModel.predict">[docs]</a>    <span class="nd">@abstractmethod</span>
+    <span class="k">def</span> <span class="nf">predict</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">context</span><span class="p">,</span> <span class="n">messages</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">ChatMessage</span><span class="p">],</span> <span class="n">params</span><span class="p">:</span> <span class="n">ChatParams</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ChatResponse</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Evaluates a chat input and produces a chat output.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            context: A :class:`~PythonModelContext` instance containing artifacts that the model</span>
+<span class="sd">                can use to perform inference.</span>
+<span class="sd">            messages (List[:py:class:`ChatMessage &lt;mlflow.types.llm.ChatMessage&gt;`]):</span>
+<span class="sd">                A list of :py:class:`ChatMessage &lt;mlflow.types.llm.ChatMessage&gt;`</span>
+<span class="sd">                objects representing chat history.</span>
+<span class="sd">            params (:py:class:`ChatParams &lt;mlflow.types.llm.ChatParams&gt;`):</span>
+<span class="sd">                A :py:class:`ChatParams &lt;mlflow.types.llm.ChatParams&gt;` object</span>
+<span class="sd">                containing various parameters used to modify model behavior during</span>
+<span class="sd">                inference.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            A :py:class:`ChatResponse &lt;mlflow.types.llm.ChatResponse&gt;` object containing</span>
+<span class="sd">            the model&#39;s response(s), as well as other metadata.</span>
+<span class="sd">        &quot;&quot;&quot;</span></div>
+
+<div class="viewcode-block" id="ChatModel.predict_stream"><a class="viewcode-back" href="../../../python_api/mlflow.pyfunc.html#mlflow.pyfunc.ChatModel.predict_stream">[docs]</a>    <span class="k">def</span> <span class="nf">predict_stream</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">context</span><span class="p">,</span> <span class="n">messages</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">ChatMessage</span><span class="p">],</span> <span class="n">params</span><span class="p">:</span> <span class="n">ChatParams</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Iterator</span><span class="p">[</span><span class="n">ChatResponse</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Evaluates a chat input and produces a chat output.</span>
+<span class="sd">        Overrides this function to implement a real stream prediction.</span>
+<span class="sd">        By default, this function just yields result of `predict` function.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            context: A :class:`~PythonModelContext` instance containing artifacts that the model</span>
+<span class="sd">                can use to perform inference.</span>
+<span class="sd">            messages (List[:py:class:`ChatMessage &lt;mlflow.types.llm.ChatMessage&gt;`]):</span>
+<span class="sd">                A list of :py:class:`ChatMessage &lt;mlflow.types.llm.ChatMessage&gt;`</span>
+<span class="sd">                objects representing chat history.</span>
+<span class="sd">            params (:py:class:`ChatParams &lt;mlflow.types.llm.ChatParams&gt;`):</span>
+<span class="sd">                A :py:class:`ChatParams &lt;mlflow.types.llm.ChatParams&gt;` object</span>
+<span class="sd">                containing various parameters used to modify model behavior during</span>
+<span class="sd">                inference.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            An iterator over :py:class:`ChatResponse &lt;mlflow.types.llm.ChatResponse&gt;` object</span>
+<span class="sd">            containing the model&#39;s response(s), as well as other metadata.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">yield</span> <span class="bp">self</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">context</span><span class="p">,</span> <span class="n">messages</span><span class="p">,</span> <span class="n">params</span><span class="p">)</span></div></div>
+
+
+<span class="k">def</span> <span class="nf">_save_model_with_class_artifacts_params</span><span class="p">(</span>  <span class="c1"># noqa: D417</span>
+    <span class="n">path</span><span class="p">,</span>
+    <span class="n">python_model</span><span class="p">,</span>
+    <span class="n">signature</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">hints</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">artifacts</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">conda_env</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">code_paths</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">mlflow_model</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">pip_requirements</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">extra_pip_requirements</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">model_config</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">streamable</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">model_code_path</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">infer_code_paths</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+<span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Args:</span>
+<span class="sd">        path: The path to which to save the Python model.</span>
+<span class="sd">        python_model: An instance of a subclass of :class:`~PythonModel`. ``python_model``</span>
+<span class="sd">            defines how the model loads artifacts and how it performs inference.</span>
+<span class="sd">        artifacts: A dictionary containing ``&lt;name, artifact_uri&gt;`` entries. Remote artifact URIs</span>
+<span class="sd">            are resolved to absolute filesystem paths, producing a dictionary of</span>
+<span class="sd">            ``&lt;name, absolute_path&gt;`` entries, (e.g. {&quot;file&quot;: &quot;aboslute_path&quot;}).</span>
+<span class="sd">            ``python_model`` can reference these resolved entries as the ``artifacts`` property</span>
+<span class="sd">            of the ``context`` attribute. If ``&lt;artifact_name, &#39;hf:/repo_id&#39;&gt;``(e.g.</span>
+<span class="sd">            {&quot;bert-tiny-model&quot;: &quot;hf:/prajjwal1/bert-tiny&quot;}) is provided, then the model can be</span>
+<span class="sd">            fetched from huggingface hub using repo_id `prajjwal1/bert-tiny` directly. If ``None``,</span>
+<span class="sd">            no artifacts are added to the model.</span>
+<span class="sd">        conda_env: Either a dictionary representation of a Conda environment or the path to a Conda</span>
+<span class="sd">            environment yaml file. If provided, this decsribes the environment this model should be</span>
+<span class="sd">            run in. At minimum, it should specify the dependencies contained in</span>
+<span class="sd">            :func:`get_default_conda_env()`. If ``None``, the default</span>
+<span class="sd">            :func:`get_default_conda_env()` environment is added to the model.</span>
+<span class="sd">        code_paths: A list of local filesystem paths to Python file dependencies (or directories</span>
+<span class="sd">            containing file dependencies). These files are *prepended* to the system path before the</span>
+<span class="sd">            model is loaded.</span>
+<span class="sd">        mlflow_model: The model to which to add the ``mlflow.pyfunc`` flavor.</span>
+<span class="sd">        model_config: The model configuration for the flavor. Model configuration is available</span>
+<span class="sd">            during model loading time.</span>
+
+<span class="sd">            .. Note:: Experimental: This parameter may change or be removed in a future release</span>
+<span class="sd">                without warning.</span>
+
+<span class="sd">        model_code_path: The path to the code that is being logged as a PyFunc model. Can be used</span>
+<span class="sd">            to load python_model when python_model is None.</span>
+
+<span class="sd">            .. Note:: Experimental: This parameter may change or be removed in a future release</span>
+<span class="sd">                without warning.</span>
+
+<span class="sd">        streamable: A boolean value indicating if the model supports streaming prediction,</span>
+<span class="sd">                    If None, MLflow will try to inspect if the model supports streaming</span>
+<span class="sd">                    by checking if `predict_stream` method exists. Default None.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">mlflow_model</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">mlflow_model</span> <span class="o">=</span> <span class="n">Model</span><span class="p">()</span>
+
+    <span class="n">custom_model_config_kwargs</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="n">CONFIG_KEY_CLOUDPICKLE_VERSION</span><span class="p">:</span> <span class="n">cloudpickle</span><span class="o">.</span><span class="n">__version__</span><span class="p">,</span>
+    <span class="p">}</span>
+    <span class="k">if</span> <span class="nb">callable</span><span class="p">(</span><span class="n">python_model</span><span class="p">):</span>
+        <span class="n">python_model</span> <span class="o">=</span> <span class="n">_FunctionPythonModel</span><span class="p">(</span><span class="n">python_model</span><span class="p">,</span> <span class="n">hints</span><span class="p">,</span> <span class="n">signature</span><span class="p">)</span>
+    <span class="n">saved_python_model_subpath</span> <span class="o">=</span> <span class="n">_SAVED_PYTHON_MODEL_SUBPATH</span>
+
+    <span class="c1"># If model_code_path is defined, we load the model into python_model, but we don&#39;t want to</span>
+    <span class="c1"># pickle/save the python_model since the module won&#39;t be able to be imported.</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">model_code_path</span><span class="p">:</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">saved_python_model_subpath</span><span class="p">),</span> <span class="s2">&quot;wb&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">out</span><span class="p">:</span>
+                <span class="n">cloudpickle</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">python_model</span><span class="p">,</span> <span class="n">out</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="c1"># cloudpickle sometimes raises TypeError instead of PicklingError.</span>
+            <span class="c1"># catching generic Exception and checking message to handle both cases.</span>
+            <span class="k">if</span> <span class="s2">&quot;cannot pickle&quot;</span> <span class="ow">in</span> <span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">)</span><span class="o">.</span><span class="n">lower</span><span class="p">():</span>
+                <span class="k">raise</span> <span class="n">MlflowException</span><span class="p">(</span>
+                    <span class="s2">&quot;Failed to serialize Python model. Please audit your &quot;</span>
+                    <span class="s2">&quot;class variables (e.g. in `__init__()`) for any &quot;</span>
+                    <span class="s2">&quot;unpicklable objects. If you&#39;re trying to save an external model &quot;</span>
+                    <span class="s2">&quot;in your custom pyfunc, Please use the `artifacts` parameter &quot;</span>
+                    <span class="s2">&quot;in `mlflow.pyfunc.save_model()`, and load your external model &quot;</span>
+                    <span class="s2">&quot;in the `load_context()` method instead. For example:</span><span class="se">\n\n</span><span class="s2">&quot;</span>
+                    <span class="s2">&quot;class MyModel(mlflow.pyfunc.PythonModel):</span><span class="se">\n</span><span class="s2">&quot;</span>
+                    <span class="s2">&quot;    def load_context(self, context):</span><span class="se">\n</span><span class="s2">&quot;</span>
+                    <span class="s2">&quot;        model_path = context.artifacts[&#39;my_model_path&#39;]</span><span class="se">\n</span><span class="s2">&quot;</span>
+                    <span class="s2">&quot;        // custom load logic here</span><span class="se">\n</span><span class="s2">&quot;</span>
+                    <span class="s2">&quot;        self.model = load_model(model_path)</span><span class="se">\n\n</span><span class="s2">&quot;</span>
+                    <span class="s2">&quot;For more information, see our full tutorial at: &quot;</span>
+                    <span class="s2">&quot;https://mlflow.org/docs/latest/traditional-ml/creating-custom-pyfunc/index.html&quot;</span>
+                    <span class="sa">f</span><span class="s2">&quot;</span><span class="se">\n\n</span><span class="s2">Full serialization error: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span>
+                <span class="p">)</span> <span class="kn">from</span> <span class="kc">None</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="n">e</span>
+
+        <span class="n">custom_model_config_kwargs</span><span class="p">[</span><span class="n">CONFIG_KEY_PYTHON_MODEL</span><span class="p">]</span> <span class="o">=</span> <span class="n">saved_python_model_subpath</span>
+
+    <span class="k">if</span> <span class="n">artifacts</span><span class="p">:</span>
+        <span class="n">saved_artifacts_config</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">with</span> <span class="n">TempDir</span><span class="p">()</span> <span class="k">as</span> <span class="n">tmp_artifacts_dir</span><span class="p">:</span>
+            <span class="n">saved_artifacts_dir_subpath</span> <span class="o">=</span> <span class="s2">&quot;artifacts&quot;</span>
+            <span class="n">hf_prefix</span> <span class="o">=</span> <span class="s2">&quot;hf:/&quot;</span>
+            <span class="k">for</span> <span class="n">artifact_name</span><span class="p">,</span> <span class="n">artifact_uri</span> <span class="ow">in</span> <span class="n">artifacts</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+                <span class="k">if</span> <span class="n">artifact_uri</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="n">hf_prefix</span><span class="p">):</span>
+                    <span class="k">try</span><span class="p">:</span>
+                        <span class="kn">from</span> <span class="nn">huggingface_hub</span> <span class="kn">import</span> <span class="n">snapshot_download</span>
+                    <span class="k">except</span> <span class="ne">ImportError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+                        <span class="k">raise</span> <span class="n">MlflowException</span><span class="p">(</span>
+                            <span class="s2">&quot;Failed to import huggingface_hub. Please install huggingface_hub &quot;</span>
+                            <span class="sa">f</span><span class="s2">&quot;to log the model with artifact_uri </span><span class="si">{</span><span class="n">artifact_uri</span><span class="si">}</span><span class="s2">. Error: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span>
+                        <span class="p">)</span>
+
+                    <span class="n">repo_id</span> <span class="o">=</span> <span class="n">artifact_uri</span><span class="p">[</span><span class="nb">len</span><span class="p">(</span><span class="n">hf_prefix</span><span class="p">)</span> <span class="p">:]</span>
+                    <span class="k">try</span><span class="p">:</span>
+                        <span class="n">snapshot_location</span> <span class="o">=</span> <span class="n">snapshot_download</span><span class="p">(</span>
+                            <span class="n">repo_id</span><span class="o">=</span><span class="n">repo_id</span><span class="p">,</span>
+                            <span class="n">local_dir</span><span class="o">=</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span>
+                                <span class="n">path</span><span class="p">,</span> <span class="n">saved_artifacts_dir_subpath</span><span class="p">,</span> <span class="n">artifact_name</span>
+                            <span class="p">),</span>
+                            <span class="n">local_dir_use_symlinks</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+                        <span class="p">)</span>
+                    <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+                        <span class="k">raise</span> <span class="n">MlflowException</span><span class="o">.</span><span class="n">invalid_parameter_value</span><span class="p">(</span>
+                            <span class="s2">&quot;Failed to download snapshot from Hugging Face Hub with artifact_uri: &quot;</span>
+                            <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">artifact_uri</span><span class="si">}</span><span class="s2">. Error: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span>
+                        <span class="p">)</span>
+                    <span class="n">saved_artifact_subpath</span> <span class="o">=</span> <span class="p">(</span>
+                        <span class="n">Path</span><span class="p">(</span><span class="n">snapshot_location</span><span class="p">)</span><span class="o">.</span><span class="n">relative_to</span><span class="p">(</span><span class="n">Path</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">realpath</span><span class="p">(</span><span class="n">path</span><span class="p">)))</span><span class="o">.</span><span class="n">as_posix</span><span class="p">()</span>
+                    <span class="p">)</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">tmp_artifact_path</span> <span class="o">=</span> <span class="n">_download_artifact_from_uri</span><span class="p">(</span>
+                        <span class="n">artifact_uri</span><span class="o">=</span><span class="n">artifact_uri</span><span class="p">,</span> <span class="n">output_path</span><span class="o">=</span><span class="n">tmp_artifacts_dir</span><span class="o">.</span><span class="n">path</span><span class="p">()</span>
+                    <span class="p">)</span>
+
+                    <span class="n">relative_path</span> <span class="o">=</span> <span class="p">(</span>
+                        <span class="n">Path</span><span class="p">(</span><span class="n">tmp_artifact_path</span><span class="p">)</span>
+                        <span class="o">.</span><span class="n">relative_to</span><span class="p">(</span><span class="n">Path</span><span class="p">(</span><span class="n">tmp_artifacts_dir</span><span class="o">.</span><span class="n">path</span><span class="p">()))</span>
+                        <span class="o">.</span><span class="n">as_posix</span><span class="p">()</span>
+                    <span class="p">)</span>
+
+                    <span class="n">saved_artifact_subpath</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span>
+                        <span class="n">saved_artifacts_dir_subpath</span><span class="p">,</span> <span class="n">relative_path</span>
+                    <span class="p">)</span>
+
+                <span class="n">saved_artifacts_config</span><span class="p">[</span><span class="n">artifact_name</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
+                    <span class="n">CONFIG_KEY_ARTIFACT_RELATIVE_PATH</span><span class="p">:</span> <span class="n">saved_artifact_subpath</span><span class="p">,</span>
+                    <span class="n">CONFIG_KEY_ARTIFACT_URI</span><span class="p">:</span> <span class="n">artifact_uri</span><span class="p">,</span>
+                <span class="p">}</span>
+
+            <span class="n">shutil</span><span class="o">.</span><span class="n">move</span><span class="p">(</span><span class="n">tmp_artifacts_dir</span><span class="o">.</span><span class="n">path</span><span class="p">(),</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">saved_artifacts_dir_subpath</span><span class="p">))</span>
+        <span class="n">custom_model_config_kwargs</span><span class="p">[</span><span class="n">CONFIG_KEY_ARTIFACTS</span><span class="p">]</span> <span class="o">=</span> <span class="n">saved_artifacts_config</span>
+
+    <span class="k">if</span> <span class="n">streamable</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">streamable</span> <span class="o">=</span> <span class="n">python_model</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="n">predict_stream</span> <span class="o">!=</span> <span class="n">PythonModel</span><span class="o">.</span><span class="n">predict_stream</span>
+
+    <span class="k">if</span> <span class="n">model_code_path</span><span class="p">:</span>
+        <span class="n">loader_module</span> <span class="o">=</span> <span class="n">mlflow</span><span class="o">.</span><span class="n">pyfunc</span><span class="o">.</span><span class="n">loaders</span><span class="o">.</span><span class="n">code_model</span><span class="o">.</span><span class="vm">__name__</span>
+    <span class="k">elif</span> <span class="n">python_model</span><span class="p">:</span>
+        <span class="n">loader_module</span> <span class="o">=</span> <span class="n">_get_pyfunc_loader_module</span><span class="p">(</span><span class="n">python_model</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="n">MlflowException</span><span class="p">(</span>
+            <span class="s2">&quot;Either `python_model` or `model_code_path` must be provided to save the model.&quot;</span><span class="p">,</span>
+            <span class="n">error_code</span><span class="o">=</span><span class="n">INVALID_PARAMETER_VALUE</span><span class="p">,</span>
+        <span class="p">)</span>
+
+    <span class="n">mlflow</span><span class="o">.</span><span class="n">pyfunc</span><span class="o">.</span><span class="n">add_to_model</span><span class="p">(</span>
+        <span class="n">model</span><span class="o">=</span><span class="n">mlflow_model</span><span class="p">,</span>
+        <span class="n">loader_module</span><span class="o">=</span><span class="n">loader_module</span><span class="p">,</span>
+        <span class="n">code</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">conda_env</span><span class="o">=</span><span class="n">_CONDA_ENV_FILE_NAME</span><span class="p">,</span>
+        <span class="n">python_env</span><span class="o">=</span><span class="n">_PYTHON_ENV_FILE_NAME</span><span class="p">,</span>
+        <span class="n">model_config</span><span class="o">=</span><span class="n">model_config</span><span class="p">,</span>
+        <span class="n">streamable</span><span class="o">=</span><span class="n">streamable</span><span class="p">,</span>
+        <span class="n">model_code_path</span><span class="o">=</span><span class="n">model_code_path</span><span class="p">,</span>
+        <span class="o">**</span><span class="n">custom_model_config_kwargs</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="k">if</span> <span class="n">size</span> <span class="o">:=</span> <span class="n">get_total_file_size</span><span class="p">(</span><span class="n">path</span><span class="p">):</span>
+        <span class="n">mlflow_model</span><span class="o">.</span><span class="n">model_size_bytes</span> <span class="o">=</span> <span class="n">size</span>
+    <span class="n">mlflow_model</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">MLMODEL_FILE_NAME</span><span class="p">))</span>
+
+    <span class="n">saved_code_subpath</span> <span class="o">=</span> <span class="n">_validate_infer_and_copy_code_paths</span><span class="p">(</span>
+        <span class="n">code_paths</span><span class="p">,</span>
+        <span class="n">path</span><span class="p">,</span>
+        <span class="n">infer_code_paths</span><span class="p">,</span>
+        <span class="n">mlflow</span><span class="o">.</span><span class="n">pyfunc</span><span class="o">.</span><span class="n">FLAVOR_NAME</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">mlflow_model</span><span class="o">.</span><span class="n">flavors</span><span class="p">[</span><span class="n">mlflow</span><span class="o">.</span><span class="n">pyfunc</span><span class="o">.</span><span class="n">FLAVOR_NAME</span><span class="p">][</span><span class="n">mlflow</span><span class="o">.</span><span class="n">pyfunc</span><span class="o">.</span><span class="n">CODE</span><span class="p">]</span> <span class="o">=</span> <span class="n">saved_code_subpath</span>
+
+    <span class="c1"># `mlflow_model.code` is updated, re-generate `MLmodel` file.</span>
+    <span class="n">mlflow_model</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">MLMODEL_FILE_NAME</span><span class="p">))</span>
+
+    <span class="k">if</span> <span class="n">conda_env</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">pip_requirements</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">default_reqs</span> <span class="o">=</span> <span class="n">get_default_pip_requirements</span><span class="p">()</span>
+            <span class="c1"># To ensure `_load_pyfunc` can successfully load the model during the dependency</span>
+            <span class="c1"># inference, `mlflow_model.save` must be called beforehand to save an MLmodel file.</span>
+            <span class="n">inferred_reqs</span> <span class="o">=</span> <span class="n">mlflow</span><span class="o">.</span><span class="n">models</span><span class="o">.</span><span class="n">infer_pip_requirements</span><span class="p">(</span>
+                <span class="n">path</span><span class="p">,</span>
+                <span class="n">mlflow</span><span class="o">.</span><span class="n">pyfunc</span><span class="o">.</span><span class="n">FLAVOR_NAME</span><span class="p">,</span>
+                <span class="n">fallback</span><span class="o">=</span><span class="n">default_reqs</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="n">default_reqs</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">inferred_reqs</span><span class="p">)</span><span class="o">.</span><span class="n">union</span><span class="p">(</span><span class="n">default_reqs</span><span class="p">))</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">default_reqs</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="n">conda_env</span><span class="p">,</span> <span class="n">pip_requirements</span><span class="p">,</span> <span class="n">pip_constraints</span> <span class="o">=</span> <span class="n">_process_pip_requirements</span><span class="p">(</span>
+            <span class="n">default_reqs</span><span class="p">,</span>
+            <span class="n">pip_requirements</span><span class="p">,</span>
+            <span class="n">extra_pip_requirements</span><span class="p">,</span>
+        <span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">conda_env</span><span class="p">,</span> <span class="n">pip_requirements</span><span class="p">,</span> <span class="n">pip_constraints</span> <span class="o">=</span> <span class="n">_process_conda_env</span><span class="p">(</span><span class="n">conda_env</span><span class="p">)</span>
+
+    <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">_CONDA_ENV_FILE_NAME</span><span class="p">),</span> <span class="s2">&quot;w&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+        <span class="n">yaml</span><span class="o">.</span><span class="n">safe_dump</span><span class="p">(</span><span class="n">conda_env</span><span class="p">,</span> <span class="n">stream</span><span class="o">=</span><span class="n">f</span><span class="p">,</span> <span class="n">default_flow_style</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+
+    <span class="c1"># Save `constraints.txt` if necessary</span>
+    <span class="k">if</span> <span class="n">pip_constraints</span><span class="p">:</span>
+        <span class="n">write_to</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">_CONSTRAINTS_FILE_NAME</span><span class="p">),</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">pip_constraints</span><span class="p">))</span>
+
+    <span class="c1"># Save `requirements.txt`</span>
+    <span class="n">write_to</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">_REQUIREMENTS_FILE_NAME</span><span class="p">),</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">pip_requirements</span><span class="p">))</span>
+
+    <span class="n">_PythonEnv</span><span class="o">.</span><span class="n">current</span><span class="p">()</span><span class="o">.</span><span class="n">to_yaml</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">_PYTHON_ENV_FILE_NAME</span><span class="p">))</span>
+
+
+<span class="k">def</span> <span class="nf">_load_context_model_and_signature</span><span class="p">(</span>
+    <span class="n">model_path</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">model_config</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span>
+<span class="p">):</span>
+    <span class="n">pyfunc_config</span> <span class="o">=</span> <span class="n">_get_flavor_configuration</span><span class="p">(</span>
+        <span class="n">model_path</span><span class="o">=</span><span class="n">model_path</span><span class="p">,</span> <span class="n">flavor_name</span><span class="o">=</span><span class="n">mlflow</span><span class="o">.</span><span class="n">pyfunc</span><span class="o">.</span><span class="n">FLAVOR_NAME</span>
+    <span class="p">)</span>
+    <span class="n">signature</span> <span class="o">=</span> <span class="n">mlflow</span><span class="o">.</span><span class="n">models</span><span class="o">.</span><span class="n">Model</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">model_path</span><span class="p">)</span><span class="o">.</span><span class="n">signature</span>
+
+    <span class="k">if</span> <span class="n">MODEL_CODE_PATH</span> <span class="ow">in</span> <span class="n">pyfunc_config</span><span class="p">:</span>
+        <span class="n">conf_model_code_path</span> <span class="o">=</span> <span class="n">pyfunc_config</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">MODEL_CODE_PATH</span><span class="p">)</span>
+        <span class="n">model_code_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">model_path</span><span class="p">,</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">basename</span><span class="p">(</span><span class="n">conf_model_code_path</span><span class="p">))</span>
+        <span class="n">python_model</span> <span class="o">=</span> <span class="n">_load_model_code_path</span><span class="p">(</span><span class="n">model_code_path</span><span class="p">,</span> <span class="n">model_config</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="nb">callable</span><span class="p">(</span><span class="n">python_model</span><span class="p">):</span>
+            <span class="n">python_model</span> <span class="o">=</span> <span class="n">_FunctionPythonModel</span><span class="p">(</span><span class="n">python_model</span><span class="p">,</span> <span class="n">signature</span><span class="o">=</span><span class="n">signature</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">python_model_cloudpickle_version</span> <span class="o">=</span> <span class="n">pyfunc_config</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">CONFIG_KEY_CLOUDPICKLE_VERSION</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">python_model_cloudpickle_version</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">mlflow</span><span class="o">.</span><span class="n">pyfunc</span><span class="o">.</span><span class="n">_logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+                <span class="s2">&quot;The version of CloudPickle used to save the model could not be found in the &quot;</span>
+                <span class="s2">&quot;MLmodel configuration&quot;</span>
+            <span class="p">)</span>
+        <span class="k">elif</span> <span class="n">python_model_cloudpickle_version</span> <span class="o">!=</span> <span class="n">cloudpickle</span><span class="o">.</span><span class="n">__version__</span><span class="p">:</span>
+            <span class="c1"># CloudPickle does not have a well-defined cross-version compatibility policy. Micro</span>
+            <span class="c1"># version releases have been known to cause incompatibilities. Therefore, we match on</span>
+            <span class="c1"># the full library version</span>
+            <span class="n">mlflow</span><span class="o">.</span><span class="n">pyfunc</span><span class="o">.</span><span class="n">_logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+                <span class="s2">&quot;The version of CloudPickle that was used to save the model, `CloudPickle </span><span class="si">%s</span><span class="s2">`, &quot;</span>
+                <span class="s2">&quot;differs from the version of CloudPickle that is currently running, `CloudPickle &quot;</span>
+                <span class="s2">&quot;</span><span class="si">%s</span><span class="s2">`, and may be incompatible&quot;</span><span class="p">,</span>
+                <span class="n">python_model_cloudpickle_version</span><span class="p">,</span>
+                <span class="n">cloudpickle</span><span class="o">.</span><span class="n">__version__</span><span class="p">,</span>
+            <span class="p">)</span>
+
+        <span class="n">python_model_subpath</span> <span class="o">=</span> <span class="n">pyfunc_config</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">CONFIG_KEY_PYTHON_MODEL</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">python_model_subpath</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">MlflowException</span><span class="p">(</span><span class="s2">&quot;Python model path was not specified in the model configuration&quot;</span><span class="p">)</span>
+        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">model_path</span><span class="p">,</span> <span class="n">python_model_subpath</span><span class="p">),</span> <span class="s2">&quot;rb&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+            <span class="n">python_model</span> <span class="o">=</span> <span class="n">cloudpickle</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
+
+    <span class="n">artifacts</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="k">for</span> <span class="n">saved_artifact_name</span><span class="p">,</span> <span class="n">saved_artifact_info</span> <span class="ow">in</span> <span class="n">pyfunc_config</span><span class="o">.</span><span class="n">get</span><span class="p">(</span>
+        <span class="n">CONFIG_KEY_ARTIFACTS</span><span class="p">,</span> <span class="p">{}</span>
+    <span class="p">)</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+        <span class="n">artifacts</span><span class="p">[</span><span class="n">saved_artifact_name</span><span class="p">]</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span>
+            <span class="n">model_path</span><span class="p">,</span> <span class="n">saved_artifact_info</span><span class="p">[</span><span class="n">CONFIG_KEY_ARTIFACT_RELATIVE_PATH</span><span class="p">]</span>
+        <span class="p">)</span>
+
+    <span class="n">context</span> <span class="o">=</span> <span class="n">PythonModelContext</span><span class="p">(</span><span class="n">artifacts</span><span class="o">=</span><span class="n">artifacts</span><span class="p">,</span> <span class="n">model_config</span><span class="o">=</span><span class="n">model_config</span><span class="p">)</span>
+    <span class="n">python_model</span><span class="o">.</span><span class="n">load_context</span><span class="p">(</span><span class="n">context</span><span class="o">=</span><span class="n">context</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">context</span><span class="p">,</span> <span class="n">python_model</span><span class="p">,</span> <span class="n">signature</span>
+
+
+<span class="k">def</span> <span class="nf">_load_pyfunc</span><span class="p">(</span><span class="n">model_path</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">model_config</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">):</span>
+    <span class="n">context</span><span class="p">,</span> <span class="n">python_model</span><span class="p">,</span> <span class="n">signature</span> <span class="o">=</span> <span class="n">_load_context_model_and_signature</span><span class="p">(</span><span class="n">model_path</span><span class="p">,</span> <span class="n">model_config</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">_PythonModelPyfuncWrapper</span><span class="p">(</span>
+        <span class="n">python_model</span><span class="o">=</span><span class="n">python_model</span><span class="p">,</span>
+        <span class="n">context</span><span class="o">=</span><span class="n">context</span><span class="p">,</span>
+        <span class="n">signature</span><span class="o">=</span><span class="n">signature</span><span class="p">,</span>
+    <span class="p">)</span>
+
+
+<span class="k">def</span> <span class="nf">_get_first_string_column</span><span class="p">(</span><span class="n">pdf</span><span class="p">):</span>
+    <span class="n">iter_string_columns</span> <span class="o">=</span> <span class="p">(</span><span class="n">col</span> <span class="k">for</span> <span class="n">col</span><span class="p">,</span> <span class="n">val</span> <span class="ow">in</span> <span class="n">pdf</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">items</span><span class="p">()</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">val</span><span class="p">,</span> <span class="nb">str</span><span class="p">))</span>
+    <span class="k">return</span> <span class="nb">next</span><span class="p">(</span><span class="n">iter_string_columns</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+
+
+<span class="k">class</span> <span class="nc">_PythonModelPyfuncWrapper</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Wrapper class that creates a predict function such that</span>
+<span class="sd">    predict(model_input: pd.DataFrame) -&gt; model&#39;s output as pd.DataFrame (pandas DataFrame)</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">python_model</span><span class="p">,</span> <span class="n">context</span><span class="p">,</span> <span class="n">signature</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Args:</span>
+<span class="sd">            python_model: An instance of a subclass of :class:`~PythonModel`.</span>
+<span class="sd">            context: A :class:`~PythonModelContext` instance containing artifacts that</span>
+<span class="sd">                     ``python_model`` may use when performing inference.</span>
+<span class="sd">            signature: :class:`~ModelSignature` instance describing model input and output.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">python_model</span> <span class="o">=</span> <span class="n">python_model</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">context</span> <span class="o">=</span> <span class="n">context</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">signature</span> <span class="o">=</span> <span class="n">signature</span>
+
+    <span class="k">def</span> <span class="nf">_convert_input</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">model_input</span><span class="p">):</span>
+        <span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
+
+        <span class="n">hints</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">python_model</span><span class="o">.</span><span class="n">_get_type_hints</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">hints</span><span class="o">.</span><span class="n">input</span> <span class="o">==</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">model_input</span><span class="p">,</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">):</span>
+                <span class="n">first_string_column</span> <span class="o">=</span> <span class="n">_get_first_string_column</span><span class="p">(</span><span class="n">model_input</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">first_string_column</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="k">raise</span> <span class="n">MlflowException</span><span class="o">.</span><span class="n">invalid_parameter_value</span><span class="p">(</span>
+                        <span class="s2">&quot;Expected model input to contain at least one string column&quot;</span>
+                    <span class="p">)</span>
+                <span class="k">return</span> <span class="n">model_input</span><span class="p">[</span><span class="n">first_string_column</span><span class="p">]</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
+            <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">model_input</span><span class="p">,</span> <span class="nb">list</span><span class="p">):</span>
+                <span class="k">if</span> <span class="nb">all</span><span class="p">(</span><span class="nb">isinstance</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="nb">dict</span><span class="p">)</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">model_input</span><span class="p">):</span>
+                    <span class="k">return</span> <span class="p">[</span><span class="nb">next</span><span class="p">(</span><span class="nb">iter</span><span class="p">(</span><span class="n">d</span><span class="o">.</span><span class="n">values</span><span class="p">()))</span> <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="n">model_input</span><span class="p">]</span>
+                <span class="k">elif</span> <span class="nb">all</span><span class="p">(</span><span class="nb">isinstance</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="nb">str</span><span class="p">)</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">model_input</span><span class="p">):</span>
+                    <span class="k">return</span> <span class="n">model_input</span>
+        <span class="k">elif</span> <span class="n">hints</span><span class="o">.</span><span class="n">input</span> <span class="o">==</span> <span class="n">List</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]]:</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">model_input</span><span class="p">,</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">):</span>
+                <span class="k">if</span> <span class="p">(</span>
+                    <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">signature</span><span class="o">.</span><span class="n">inputs</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span>
+                    <span class="ow">and</span> <span class="nb">next</span><span class="p">(</span><span class="nb">iter</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">signature</span><span class="o">.</span><span class="n">inputs</span><span class="p">))</span><span class="o">.</span><span class="n">name</span> <span class="ow">is</span> <span class="kc">None</span>
+                <span class="p">):</span>
+                    <span class="n">first_string_column</span> <span class="o">=</span> <span class="n">_get_first_string_column</span><span class="p">(</span><span class="n">model_input</span><span class="p">)</span>
+                    <span class="k">return</span> <span class="n">model_input</span><span class="p">[[</span><span class="n">first_string_column</span><span class="p">]]</span><span class="o">.</span><span class="n">to_dict</span><span class="p">(</span><span class="n">orient</span><span class="o">=</span><span class="s2">&quot;records&quot;</span><span class="p">)</span>
+                <span class="n">columns</span> <span class="o">=</span> <span class="p">[</span><span class="n">x</span><span class="o">.</span><span class="n">name</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">signature</span><span class="o">.</span><span class="n">inputs</span><span class="p">]</span>
+                <span class="k">return</span> <span class="n">model_input</span><span class="p">[</span><span class="n">columns</span><span class="p">]</span><span class="o">.</span><span class="n">to_dict</span><span class="p">(</span><span class="n">orient</span><span class="o">=</span><span class="s2">&quot;records&quot;</span><span class="p">)</span>
+            <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">model_input</span><span class="p">,</span> <span class="nb">list</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">all</span><span class="p">(</span><span class="nb">isinstance</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="nb">dict</span><span class="p">)</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">model_input</span><span class="p">):</span>
+                <span class="n">keys</span> <span class="o">=</span> <span class="p">[</span><span class="n">x</span><span class="o">.</span><span class="n">name</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">signature</span><span class="o">.</span><span class="n">inputs</span><span class="p">]</span>
+                <span class="k">return</span> <span class="p">[{</span><span class="n">k</span><span class="p">:</span> <span class="n">d</span><span class="p">[</span><span class="n">k</span><span class="p">]</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">keys</span><span class="p">}</span> <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="n">model_input</span><span class="p">]</span>
+        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">hints</span><span class="o">.</span><span class="n">input</span><span class="p">,</span> <span class="nb">type</span><span class="p">)</span> <span class="ow">and</span> <span class="p">(</span>
+            <span class="nb">issubclass</span><span class="p">(</span><span class="n">hints</span><span class="o">.</span><span class="n">input</span><span class="p">,</span> <span class="n">ChatCompletionRequest</span><span class="p">)</span>
+            <span class="ow">or</span> <span class="nb">issubclass</span><span class="p">(</span><span class="n">hints</span><span class="o">.</span><span class="n">input</span><span class="p">,</span> <span class="n">SplitChatMessagesRequest</span><span class="p">)</span>
+        <span class="p">):</span>
+            <span class="c1"># If the type hint is a RAG dataclass, we hydrate it</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">model_input</span><span class="p">,</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">):</span>
+                <span class="c1"># If there are multiple rows, we should throw</span>
+                <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">model_input</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+                    <span class="k">raise</span> <span class="n">MlflowException</span><span class="p">(</span>
+                        <span class="s2">&quot;Expected a single input for dataclass type hint, but got multiple rows&quot;</span>
+                    <span class="p">)</span>
+                <span class="c1"># Since single input is expected, we take the first row</span>
+                <span class="k">return</span> <span class="n">_hydrate_dataclass</span><span class="p">(</span><span class="n">hints</span><span class="o">.</span><span class="n">input</span><span class="p">,</span> <span class="n">model_input</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+        <span class="k">return</span> <span class="n">model_input</span>
+
+    <span class="k">def</span> <span class="nf">predict</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">model_input</span><span class="p">,</span> <span class="n">params</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Args:</span>
+<span class="sd">            model_input: Model input data as one of dict, str, bool, bytes, float, int, str type.</span>
+<span class="sd">            params: Additional parameters to pass to the model for inference.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            Model predictions as an iterator of chunks. The chunks in the iterator must be type of</span>
+<span class="sd">            dict or string. Chunk dict fields are determined by the model implementation.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">inspect</span><span class="o">.</span><span class="n">signature</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">python_model</span><span class="o">.</span><span class="n">predict</span><span class="p">)</span><span class="o">.</span><span class="n">parameters</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;params&quot;</span><span class="p">):</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">python_model</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">context</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_convert_input</span><span class="p">(</span><span class="n">model_input</span><span class="p">),</span> <span class="n">params</span><span class="o">=</span><span class="n">params</span>
+            <span class="p">)</span>
+        <span class="n">_log_warning_if_params_not_in_predict_signature</span><span class="p">(</span><span class="n">_logger</span><span class="p">,</span> <span class="n">params</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">python_model</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">context</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_convert_input</span><span class="p">(</span><span class="n">model_input</span><span class="p">))</span>
+
+    <span class="k">def</span> <span class="nf">predict_stream</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">model_input</span><span class="p">,</span> <span class="n">params</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Args:</span>
+<span class="sd">            model_input: LLM Model single input.</span>
+<span class="sd">            params: Additional parameters to pass to the model for inference.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            Streaming predictions.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">inspect</span><span class="o">.</span><span class="n">signature</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">python_model</span><span class="o">.</span><span class="n">predict_stream</span><span class="p">)</span><span class="o">.</span><span class="n">parameters</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;params&quot;</span><span class="p">):</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">python_model</span><span class="o">.</span><span class="n">predict_stream</span><span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">context</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_convert_input</span><span class="p">(</span><span class="n">model_input</span><span class="p">),</span> <span class="n">params</span><span class="o">=</span><span class="n">params</span>
+            <span class="p">)</span>
+        <span class="n">_log_warning_if_params_not_in_predict_signature</span><span class="p">(</span><span class="n">_logger</span><span class="p">,</span> <span class="n">params</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">python_model</span><span class="o">.</span><span class="n">predict_stream</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">context</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_convert_input</span><span class="p">(</span><span class="n">model_input</span><span class="p">))</span>
+
+
+<span class="k">def</span> <span class="nf">_get_pyfunc_loader_module</span><span class="p">(</span><span class="n">python_model</span><span class="p">):</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">python_model</span><span class="p">,</span> <span class="n">ChatModel</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">mlflow</span><span class="o">.</span><span class="n">pyfunc</span><span class="o">.</span><span class="n">loaders</span><span class="o">.</span><span class="n">chat_model</span><span class="o">.</span><span class="vm">__name__</span>
+    <span class="k">return</span> <span class="vm">__name__</span>
+
+
+<span class="k">class</span> <span class="nc">ModelFromDeploymentEndpoint</span><span class="p">(</span><span class="n">PythonModel</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    A PythonModel wrapper for invoking an MLflow Deployments endpoint.</span>
+<span class="sd">    This class is particularly used for running evaluation against an MLflow Deployments endpoint.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">endpoint</span><span class="p">,</span> <span class="n">params</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">endpoint</span> <span class="o">=</span> <span class="n">endpoint</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">params</span> <span class="o">=</span> <span class="n">params</span>
+
+    <span class="k">def</span> <span class="nf">predict</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">context</span><span class="p">,</span> <span class="n">model_input</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">,</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span> <span class="n">List</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]]</span>
+    <span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Run prediction on the input data.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            context: A :class:`~PythonModelContext` instance containing artifacts that the model</span>
+<span class="sd">                can use to perform inference.</span>
+<span class="sd">            model_input: The input data for prediction, either of the following:</span>
+<span class="sd">                - Pandas DataFrame: If the default evaluator is used, input is a DF</span>
+<span class="sd">                    that contains the multiple request payloads in a single column.</span>
+<span class="sd">                - A dictionary: If the model_type is &quot;databricks-agents&quot; and the</span>
+<span class="sd">                    Databricks RAG evaluator is used, this PythonModel can be invoked</span>
+<span class="sd">                    with a single dict corresponding to the ChatCompletionsRequest schema.</span>
+<span class="sd">                - A list of dictionaries: Currently we don&#39;t have any evaluator that</span>
+<span class="sd">                    gives this input format, but we keep this for future use cases and</span>
+<span class="sd">                    compatibility with normal pyfunc models.</span>
+
+<span class="sd">        Return:</span>
+<span class="sd">            The prediction result. The return type will be consistent with the model input type,</span>
+<span class="sd">            e.g., if the input is a Pandas DataFrame, the return will be a Pandas Series.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">model_input</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_predict_single</span><span class="p">(</span><span class="n">model_input</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">model_input</span><span class="p">,</span> <span class="nb">list</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">all</span><span class="p">(</span><span class="nb">isinstance</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="nb">dict</span><span class="p">)</span> <span class="k">for</span> <span class="n">data</span> <span class="ow">in</span> <span class="n">model_input</span><span class="p">):</span>
+            <span class="k">return</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">_predict_single</span><span class="p">(</span><span class="n">data</span><span class="p">)</span> <span class="k">for</span> <span class="n">data</span> <span class="ow">in</span> <span class="n">model_input</span><span class="p">]</span>
+        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">model_input</span><span class="p">,</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">):</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">model_input</span><span class="o">.</span><span class="n">columns</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="n">MlflowException</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;The number of input columns must be 1, but got </span><span class="si">{</span><span class="n">model_input</span><span class="o">.</span><span class="n">columns</span><span class="si">}</span><span class="s2">. &quot;</span>
+                    <span class="s2">&quot;Multi-column input is not supported for evaluating an MLflow Deployments &quot;</span>
+                    <span class="s2">&quot;endpoint. Please include the input text or payload in a single column.&quot;</span><span class="p">,</span>
+                    <span class="n">error_code</span><span class="o">=</span><span class="n">INVALID_PARAMETER_VALUE</span><span class="p">,</span>
+                <span class="p">)</span>
+            <span class="n">input_column</span> <span class="o">=</span> <span class="n">model_input</span><span class="o">.</span><span class="n">columns</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+
+            <span class="n">predictions</span> <span class="o">=</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">_predict_single</span><span class="p">(</span><span class="n">data</span><span class="p">)</span> <span class="k">for</span> <span class="n">data</span> <span class="ow">in</span> <span class="n">model_input</span><span class="p">[</span><span class="n">input_column</span><span class="p">]]</span>
+            <span class="k">return</span> <span class="n">pd</span><span class="o">.</span><span class="n">Series</span><span class="p">(</span><span class="n">predictions</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">MlflowException</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;Invalid input data type: </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">model_input</span><span class="p">)</span><span class="si">}</span><span class="s2">. The input data must be either &quot;</span>
+                <span class="s2">&quot;a Pandas DataFrame, a dictionary, or a list of dictionaries containing the &quot;</span>
+                <span class="s2">&quot;request payloads for evaluating an MLflow Deployments endpoint.&quot;</span><span class="p">,</span>
+                <span class="n">error_code</span><span class="o">=</span><span class="n">INVALID_PARAMETER_VALUE</span><span class="p">,</span>
+            <span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_predict_single</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]])</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Send a single prediction request to the MLflow Deployments endpoint.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            data: The single input data for prediction. If the input data is a string, we will</span>
+<span class="sd">                construct the request payload from it. If the input data is a dictionary, we</span>
+<span class="sd">                will directly use it as the request payload.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            The prediction result from the MLflow Deployments endpoint as a dictionary.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="kn">from</span> <span class="nn">mlflow.metrics.genai.model_utils</span> <span class="kn">import</span> <span class="n">_call_deployments_api</span>
+
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+            <span class="n">prediction</span> <span class="o">=</span> <span class="n">_call_deployments_api</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">endpoint</span><span class="p">,</span> <span class="n">data</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
+            <span class="n">prediction</span> <span class="o">=</span> <span class="n">_call_deployments_api</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">endpoint</span><span class="p">,</span> <span class="n">data</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">,</span> <span class="n">wrap_payload</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">MlflowException</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;Invalid input data type: </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">data</span><span class="p">)</span><span class="si">}</span><span class="s2">. The feature column of the evaluation &quot;</span>
+                <span class="s2">&quot;dataset must contain only strings or dictionaries containing the request &quot;</span>
+                <span class="s2">&quot;payload for evaluating an MLflow Deployments endpoint.&quot;</span><span class="p">,</span>
+                <span class="n">error_code</span><span class="o">=</span><span class="n">INVALID_PARAMETER_VALUE</span><span class="p">,</span>
+            <span class="p">)</span>
+        <span class="k">return</span> <span class="n">prediction</span>
+</pre></div>
+
+              </div>
+            </div>
+            <footer>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+      <p class="copyright">
+          &copy; MLflow Project, a Series of LF Projects, LLC. All rights reserved.
+      </p>
+
+  </div> 
+
+</footer>
+          </div>
+        </div>
+      </section>
+    </main>
+  </page>
+
+  
+
+
+  
+  <script type="text/javascript">
+    var DOCUMENTATION_OPTIONS = {
+      URL_ROOT:'../../../',
+      VERSION:'2.17.1.dev0',
+      COLLAPSE_INDEX:false,
+      FILE_SUFFIX:'.html',
+      LINK_SUFFIX: '.html',
+      HAS_SOURCE:  true
+    };
+  </script>
+
+  
+
+  <script type="text/javascript" src="../../../_static/js/clipboard.min.js"></script>
+  <script type="text/javascript" src="../../../_static/js/jquery.waypoints.min.js"></script>
+
+  
+  
+  
+  <script type="text/javascript">var CLIPPY_SVG_PATH = "../../../_static/clippy.svg";</script>
+  <script type="text/javascript" src="../../../_static/js/custom.js"></script>
+  
+
+  
+  
+  <script type="text/javascript">
+    jQuery(function () {
+      SphinxRtdTheme.StickyNav.enable();
+    });
+
+  </script>
+  
+
+  
+  <script type="text/javascript">
+    document.addEventListener("DOMContentLoaded", function() {
+        function copyToClipboard(text) {
+            const textarea = document.createElement('textarea');
+            textarea.value = text;
+            document.body.appendChild(textarea);
+            textarea.select();
+            document.execCommand('copy');
+            document.body.removeChild(textarea);
+        }
+        // Get the code block designator class entries
+        const allHighlights = document.querySelectorAll('.highlight');
+        // Disable copyable links for notebook cell numbering and for cell outputs
+        const highlights = Array.from(allHighlights).filter(highlight => !highlight.closest('.highlight-none') && 
+            !highlight.closest('.nboutput'));
+    
+        highlights.forEach(function(highlight) {
+            const copyIcon = document.createElement('span');
+            copyIcon.classList.add('copy-icon');
+            copyIcon.innerHTML = '&#xf0ea;';
+
+            copyIcon.addEventListener('click', function() {
+                const code = highlight.querySelector('pre').textContent;
+                copyToClipboard(code);
+
+                // Flash effect on click
+                this.style.color = '#0194E2';
+                setTimeout(() => {
+                    this.style.color = ''; 
+                }, 100);
+
+                // Display "Code copied to clipboard" near the clicked icon
+                const message = document.createElement('span');
+                message.textContent = "Copied!";
+                message.classList.add('copy-message'); 
+
+                // Append the message to the icon
+                this.appendChild(message);
+
+                setTimeout(() => {
+                    this.removeChild(message);
+                }, 500);
+            });
+
+            highlight.appendChild(copyIcon);
+        });
+    });
+  </script>
+
+
+<script type="text/javascript">
+    document.addEventListener("DOMContentLoaded", function() {
+        // Force download for notebook-download-btn
+        const downloadButtons = document.querySelectorAll('.notebook-download-btn');
+        downloadButtons.forEach(function(button) {
+            button.addEventListener('click', function(event) {
+                event.preventDefault(); // Prevent default behavior
+
+                // Fetch the raw content of the notebook from GitHub
+                fetch(button.href)
+                    .then(response => response.blob())
+                    .then(blob => {
+                        const url = window.URL.createObjectURL(blob);
+                        const link = document.createElement('a');
+                        link.style.display = 'none';
+                        link.href = url;
+                        const filename = button.href.split('/').pop();
+                        link.download = filename; 
+
+                        document.body.appendChild(link);
+                        link.click();
+
+                        window.URL.revokeObjectURL(url);
+                        document.body.removeChild(link);
+                    })
+                    .catch(err => console.error('Error fetching the notebook:', err));
+            });
+        });
+    });
+</script> 
+</body>
+</html>

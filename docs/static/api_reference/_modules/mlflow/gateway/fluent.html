@@ -1,0 +1,565 @@
+
+
+<!DOCTYPE html>
+<!-- source: docs/source/_modules/mlflow/gateway/fluent -->
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>mlflow.gateway.fluent</title>
+  
+   
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+  <link rel="canonical" href="https://mlflow.org/docs/latest/_modules/mlflow/gateway/fluent.html">
+  
+  
+    <link rel="shortcut icon" href="../../../_static/favicon.ico"/>
+    
+
+    
+
+  
+    
+
+  
+
+  
+  
+    
+
+  
+
+  
+  
+    <link href="https://fonts.googleapis.com/css?family=Source+Sans+Pro:300,400,600" rel="stylesheet">
+    <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/css/custom.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/css/cards.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/css/grids.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/css/mobile.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/css/simple-cards.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/css/tabs.css" type="text/css" />
+    
+  
+        <link rel="index" title="Index"
+              href="../../../genindex.html"/>
+        <link rel="search" title="Search" href="../../../search.html"/>
+    <link rel="top" title="MLflow 2.17.1.dev0 documentation" href="../../../index.html"/>
+        <link rel="up" title="Module code" href="../../index.html"/> 
+
+  
+  <script src="../../../_static/js/modernizr.min.js"></script>
+
+</head>
+<script type="text/javascript" src="../../../_static/jquery.js"></script>
+<script type="text/javascript" src="../../../_static/underscore.js"></script>
+<script type="text/javascript" src="../../../_static/doctools.js"></script>
+<script type="text/javascript" src="../../../_static/tabs.js"></script>
+<script type="text/javascript" src="../../../_static/languagesections.js"></script>
+<script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+<script type="text/javascript" src="../../../_static/runllm.js"></script>
+
+<body class="wy-body-for-nav" role="document">
+  
+
+  
+  <nav class="wy-nav-top header" role="navigation" aria-label="top navigation">
+    <ul>
+  <li class="menu-toggle">
+    <i data-toggle="wy-nav-top" class="wy-nav-top-menu-button db-icon db-icon-menu pull-left"></i>
+    <a href="../../../index.html" class="wy-nav-top-logo"
+      ><img src="../../../_static/MLflow-logo-final-black.png" alt="MLflow"
+    /></a>
+    <span class="version">2.17.1.dev0</span>
+  </li>
+</ul>
+  </nav>
+  <page>
+    
+
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side relative">
+      <div class="wy-side-scroll">
+  <div class="wy-side-nav-search">
+    
+
+    
+
+    
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+  <input type="text" name="q" placeholder="Search" />
+  <input type="hidden" name="check_keywords" value="yes" />
+  <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+
+    
+  </div>
+
+  <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+    
+      <a href="../../../index.html" class="main-navigation-home"><img src="../../../_static/icons/nav-home.svg"> MLflow</a>
+    
+
+    
+      
+
+      
+        <ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../python_api/index.html">Python API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../cli.html">Command-Line Interface</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../R-api.html">R API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../java_api/index.html">Java API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../rest-api.html">REST API</a></li>
+</ul>
+
+      
+    
+  </div>
+
+  <div role="contentinfo">
+    
+
+    <p>
+      <a id='feedbacklink' href="https://github.com/mlflow/mlflow/blob/master/CONTRIBUTING.md" target="_blank">Contribute</a>
+    </p>
+  </div>
+</div>
+    </nav>
+
+    <main class="wy-grid-for-nav">
+      <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+        <div class="wy-nav-content">
+          <div class="rst-content">
+            
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href="../../../index.html">Documentation</a> <span class="db-icon db-icon-chevron-right"></span></li>
+    
+        <li><a href="../../index.html">Module code</a> <span class="db-icon db-icon-chevron-right"></span></li>
+    
+    
+      <li>mlflow.gateway.fluent</li>
+    
+    
+    <!-- <li class="wy-breadcrumbs-aside">
+      <a href="https://github.com/mlflow/mlflow/blob/master/docs/source/_modules/mlflow/gateway/fluent" class="fa fa-github"> Edit on GitHub</a>
+    </li> -->
+    
+  </ul>
+</div>
+            <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+              <div itemprop="articleBody">
+                
+  <h1>Source code for mlflow.gateway.fluent</h1><div class="highlight"><pre>
+<span></span><span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Optional</span>
+
+<span class="kn">from</span> <span class="nn">mlflow.gateway.client</span> <span class="kn">import</span> <span class="n">MlflowGatewayClient</span>
+<span class="kn">from</span> <span class="nn">mlflow.gateway.config</span> <span class="kn">import</span> <span class="n">LimitsConfig</span><span class="p">,</span> <span class="n">Route</span>
+<span class="kn">from</span> <span class="nn">mlflow.gateway.constants</span> <span class="kn">import</span> <span class="n">MLFLOW_GATEWAY_SEARCH_ROUTES_PAGE_SIZE</span>
+<span class="kn">from</span> <span class="nn">mlflow.gateway.utils</span> <span class="kn">import</span> <span class="n">gateway_deprecated</span>
+<span class="kn">from</span> <span class="nn">mlflow.utils</span> <span class="kn">import</span> <span class="n">get_results_from_paginated_fn</span>
+
+
+<div class="viewcode-block" id="get_route"><a class="viewcode-back" href="../../../python_api/mlflow.gateway.html#mlflow.gateway.get_route">[docs]</a><span class="nd">@gateway_deprecated</span>
+<span class="k">def</span> <span class="nf">get_route</span><span class="p">(</span><span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Route</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Retrieves a specific route from the MLflow Gateway service.</span>
+
+<span class="sd">    This function creates an instance of MlflowGatewayClient and uses it to fetch a route by its</span>
+<span class="sd">    name from the Gateway service.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        name: The name of the route to fetch.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        An instance of the Route class representing the fetched route.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">MlflowGatewayClient</span><span class="p">()</span><span class="o">.</span><span class="n">get_route</span><span class="p">(</span><span class="n">name</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="search_routes"><a class="viewcode-back" href="../../../python_api/mlflow.gateway.html#mlflow.gateway.search_routes">[docs]</a><span class="nd">@gateway_deprecated</span>
+<span class="k">def</span> <span class="nf">search_routes</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">Route</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Searches for routes in the MLflow Gateway service.</span>
+
+<span class="sd">    This function creates an instance of MlflowGatewayClient and uses it to fetch a list of routes</span>
+<span class="sd">    from the Gateway service.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        A list of Route instances.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="nf">pagination_wrapper_func</span><span class="p">(</span><span class="n">_</span><span class="p">,</span> <span class="n">next_page_token</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">MlflowGatewayClient</span><span class="p">()</span><span class="o">.</span><span class="n">search_routes</span><span class="p">(</span><span class="n">page_token</span><span class="o">=</span><span class="n">next_page_token</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">get_results_from_paginated_fn</span><span class="p">(</span>
+        <span class="n">paginated_fn</span><span class="o">=</span><span class="n">pagination_wrapper_func</span><span class="p">,</span>
+        <span class="n">max_results_per_page</span><span class="o">=</span><span class="n">MLFLOW_GATEWAY_SEARCH_ROUTES_PAGE_SIZE</span><span class="p">,</span>
+        <span class="n">max_results</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="create_route"><a class="viewcode-back" href="../../../python_api/mlflow.gateway.html#mlflow.gateway.create_route">[docs]</a><span class="nd">@gateway_deprecated</span>
+<span class="k">def</span> <span class="nf">create_route</span><span class="p">(</span>
+    <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">route_type</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">model</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Route</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Create a new route in the Gateway.</span>
+
+<span class="sd">    .. warning::</span>
+
+<span class="sd">        This API is ``only available`` when running within Databricks. When running elsewhere,</span>
+<span class="sd">        route configuration is handled via updates to the route configuration YAML file that</span>
+<span class="sd">        is specified during Gateway server start.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        name: The name of the route. This parameter is required for all routes.</span>
+<span class="sd">        route_type: The type of the route (e.g., &#39;llm/v1/chat&#39;, &#39;llm/v1/completions&#39;,</span>
+<span class="sd">            &#39;llm/v1/embeddings&#39;). This parameter is required for routes that are</span>
+<span class="sd">            not managed by Databricks (the provider isn&#39;t &#39;databricks&#39;).</span>
+<span class="sd">        model: A dictionary representing the model details to be associated with the route.</span>
+<span class="sd">            This parameter is required for all routes. This dictionary should define:</span>
+<span class="sd">            - The model name (e.g., &quot;gpt-4o-mini&quot;)</span>
+<span class="sd">            - The provider (e.g., &quot;openai&quot;, &quot;anthropic&quot;)</span>
+<span class="sd">            - The configuration for the model used in the route</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        A serialized representation of the `Route` data structure,</span>
+<span class="sd">        providing information about the name, type, and model details for the</span>
+<span class="sd">        newly created route endpoint.</span>
+
+<span class="sd">    .. note::</span>
+
+<span class="sd">        See the official Databricks documentation for MLflow Gateway for examples of supported</span>
+<span class="sd">        model configurations and how to dynamically create new routes within Databricks.</span>
+
+<span class="sd">    Example usage from within Databricks:</span>
+
+<span class="sd">    .. code-block:: python</span>
+
+<span class="sd">        from mlflow.gateway import set_gateway_uri, create_route</span>
+
+<span class="sd">        set_gateway_uri(gateway_uri=&quot;databricks&quot;)</span>
+
+<span class="sd">        openai_api_key = ...</span>
+
+<span class="sd">        create_route(</span>
+<span class="sd">            name=&quot;my-route&quot;,</span>
+<span class="sd">            route_type=&quot;llm/v1/completions&quot;,</span>
+<span class="sd">            model={</span>
+<span class="sd">                &quot;name&quot;: &quot;question-answering-bot&quot;,</span>
+<span class="sd">                &quot;provider&quot;: &quot;openai&quot;,</span>
+<span class="sd">                &quot;openai_config&quot;: {</span>
+<span class="sd">                    &quot;openai_api_key&quot;: openai_api_key,</span>
+<span class="sd">                },</span>
+<span class="sd">            },</span>
+<span class="sd">        )</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">MlflowGatewayClient</span><span class="p">()</span><span class="o">.</span><span class="n">create_route</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">route_type</span><span class="p">,</span> <span class="n">model</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="delete_route"><a class="viewcode-back" href="../../../python_api/mlflow.gateway.html#mlflow.gateway.delete_route">[docs]</a><span class="nd">@gateway_deprecated</span>
+<span class="k">def</span> <span class="nf">delete_route</span><span class="p">(</span><span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Delete an existing route in the Gateway.</span>
+
+<span class="sd">    .. warning::</span>
+
+<span class="sd">        This API is **only available** when running within Databricks. When running elsewhere,</span>
+<span class="sd">        route deletion is handled by removing the corresponding entry from the route</span>
+<span class="sd">        configuration YAML file that is specified during Gateway server start.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        name: The name of the route to delete.</span>
+
+<span class="sd">    Example usage from within Databricks:</span>
+
+<span class="sd">    .. code-block:: python</span>
+
+<span class="sd">        from mlflow.gateway import set_gateway_uri, delete_route</span>
+
+<span class="sd">        set_gateway_uri(gateway_uri=&quot;databricks&quot;)</span>
+
+<span class="sd">        delete_route(&quot;my-new-route&quot;)</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">MlflowGatewayClient</span><span class="p">()</span><span class="o">.</span><span class="n">delete_route</span><span class="p">(</span><span class="n">name</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="set_limits"><a class="viewcode-back" href="../../../python_api/mlflow.gateway.html#mlflow.gateway.set_limits">[docs]</a><span class="nd">@gateway_deprecated</span>
+<span class="k">def</span> <span class="nf">set_limits</span><span class="p">(</span><span class="n">route</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">limits</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]])</span> <span class="o">-&gt;</span> <span class="n">LimitsConfig</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Set limits on an existing route in the Gateway.</span>
+
+<span class="sd">    .. warning::</span>
+
+<span class="sd">        This API is **only available** when running within Databricks.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        route: The name of the route to set limits on.</span>
+<span class="sd">        limits: Limits to set on the route.</span>
+
+<span class="sd">    Example usage from within Databricks:</span>
+
+<span class="sd">    .. code-block:: python</span>
+
+<span class="sd">        from mlflow.gateway import set_gateway_uri, set_limits</span>
+
+<span class="sd">        set_gateway_uri(gateway_uri=&quot;databricks&quot;)</span>
+
+<span class="sd">        set_limits(&quot;my-new-route&quot;, [{&quot;key&quot;: &quot;user&quot;, &quot;renewal_period&quot;: &quot;minute&quot;, &quot;calls&quot;: 50}])</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">MlflowGatewayClient</span><span class="p">()</span><span class="o">.</span><span class="n">set_limits</span><span class="p">(</span><span class="n">route</span><span class="o">=</span><span class="n">route</span><span class="p">,</span> <span class="n">limits</span><span class="o">=</span><span class="n">limits</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="get_limits"><a class="viewcode-back" href="../../../python_api/mlflow.gateway.html#mlflow.gateway.get_limits">[docs]</a><span class="nd">@gateway_deprecated</span>
+<span class="k">def</span> <span class="nf">get_limits</span><span class="p">(</span><span class="n">route</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">LimitsConfig</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Get limits of an existing route in the Gateway.</span>
+
+<span class="sd">    .. warning::</span>
+
+<span class="sd">        This API is **only available** when connected to a Databricks-hosted AI Gateway.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        route: The name of the route to get limits of.</span>
+
+<span class="sd">    Example usage from within Databricks:</span>
+
+<span class="sd">    .. code-block:: python</span>
+
+<span class="sd">        from mlflow.gateway import set_gateway_uri, get_limits</span>
+
+<span class="sd">        set_gateway_uri(gateway_uri=&quot;databricks&quot;)</span>
+
+<span class="sd">        get_limits(&quot;my-new-route&quot;)</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">MlflowGatewayClient</span><span class="p">()</span><span class="o">.</span><span class="n">get_limits</span><span class="p">(</span><span class="n">route</span><span class="o">=</span><span class="n">route</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="query"><a class="viewcode-back" href="../../../python_api/mlflow.gateway.html#mlflow.gateway.query">[docs]</a><span class="nd">@gateway_deprecated</span>
+<span class="k">def</span> <span class="nf">query</span><span class="p">(</span><span class="n">route</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">data</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Issues a query request to a configured service through a named route on the Gateway Server.</span>
+<span class="sd">    This function will interface with a configured route name (examples below) and return the</span>
+<span class="sd">    response from the provider in a standardized format.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        route: The name of the configured route. Route names can be obtained by running</span>
+<span class="sd">            `mlflow.gateway.search_routes()`</span>
+<span class="sd">        data: The request payload to be submitted to the route. The exact configuration of</span>
+<span class="sd">            the expected structure varies based on the route configuration.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        The response from the configured route endpoint provider in a standardized format.</span>
+
+<span class="sd">    Chat example:</span>
+
+<span class="sd">    .. code-block:: python</span>
+
+<span class="sd">        from mlflow.gateway import query, set_gateway_uri</span>
+
+<span class="sd">        set_gateway_uri(gateway_uri=&quot;http://my.gateway:9000&quot;)</span>
+<span class="sd">        response = query(</span>
+<span class="sd">            &quot;my_chat_route&quot;,</span>
+<span class="sd">            {&quot;messages&quot;: [{&quot;role&quot;: &quot;user&quot;, &quot;content&quot;: &quot;What is the best day of the week?&quot;}]},</span>
+<span class="sd">        )</span>
+
+<span class="sd">    Completions example:</span>
+
+<span class="sd">    .. code-block:: python</span>
+
+<span class="sd">        from mlflow.gateway import query, set_gateway_uri</span>
+
+<span class="sd">        set_gateway_uri(gateway_uri=&quot;http://my.gateway:9000&quot;)</span>
+<span class="sd">        response = query(&quot;a_completions_route&quot;, {&quot;prompt&quot;: &quot;Where do we go from&quot;})</span>
+
+<span class="sd">    Embeddings example:</span>
+
+<span class="sd">    .. code-block:: python</span>
+
+<span class="sd">        from mlflow.gateway import query, set_gateway_uri</span>
+
+<span class="sd">        set_gateway_uri(gateway_uri=&quot;http://my.gateway:9000&quot;)</span>
+<span class="sd">        response = query(</span>
+<span class="sd">            &quot;embeddings_route&quot;, {&quot;text&quot;: [&quot;I like spaghetti&quot;, &quot;and sushi&quot;, &quot;but not together&quot;]}</span>
+<span class="sd">        )</span>
+
+<span class="sd">    Additional parameters that are valid for a given provider and route configuration can be</span>
+<span class="sd">    included with the request as shown below, using an openai completions route request as</span>
+<span class="sd">    an example:</span>
+
+<span class="sd">    .. code-block:: python</span>
+
+<span class="sd">        from mlflow.gateway import query, set_gateway_uri</span>
+
+<span class="sd">        set_gateway_uri(gateway_uri=&quot;http://my.gateway:9000&quot;)</span>
+<span class="sd">        response = query(</span>
+<span class="sd">            &quot;a_completions_route&quot;,</span>
+<span class="sd">            {</span>
+<span class="sd">                &quot;prompt&quot;: &quot;Give me an example of a properly formatted pytest unit test&quot;,</span>
+<span class="sd">                &quot;temperature&quot;: 0.6,</span>
+<span class="sd">                &quot;max_tokens&quot;: 1000,</span>
+<span class="sd">            },</span>
+<span class="sd">        )</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">MlflowGatewayClient</span><span class="p">()</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">route</span><span class="p">,</span> <span class="n">data</span><span class="p">)</span></div>
+</pre></div>
+
+              </div>
+            </div>
+            <footer>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+      <p class="copyright">
+          &copy; MLflow Project, a Series of LF Projects, LLC. All rights reserved.
+      </p>
+
+  </div> 
+
+</footer>
+          </div>
+        </div>
+      </section>
+    </main>
+  </page>
+
+  
+
+
+  
+  <script type="text/javascript">
+    var DOCUMENTATION_OPTIONS = {
+      URL_ROOT:'../../../',
+      VERSION:'2.17.1.dev0',
+      COLLAPSE_INDEX:false,
+      FILE_SUFFIX:'.html',
+      LINK_SUFFIX: '.html',
+      HAS_SOURCE:  true
+    };
+  </script>
+
+  
+
+  <script type="text/javascript" src="../../../_static/js/clipboard.min.js"></script>
+  <script type="text/javascript" src="../../../_static/js/jquery.waypoints.min.js"></script>
+
+  
+  
+  
+  <script type="text/javascript">var CLIPPY_SVG_PATH = "../../../_static/clippy.svg";</script>
+  <script type="text/javascript" src="../../../_static/js/custom.js"></script>
+  
+
+  
+  
+  <script type="text/javascript">
+    jQuery(function () {
+      SphinxRtdTheme.StickyNav.enable();
+    });
+
+  </script>
+  
+
+  
+  <script type="text/javascript">
+    document.addEventListener("DOMContentLoaded", function() {
+        function copyToClipboard(text) {
+            const textarea = document.createElement('textarea');
+            textarea.value = text;
+            document.body.appendChild(textarea);
+            textarea.select();
+            document.execCommand('copy');
+            document.body.removeChild(textarea);
+        }
+        // Get the code block designator class entries
+        const allHighlights = document.querySelectorAll('.highlight');
+        // Disable copyable links for notebook cell numbering and for cell outputs
+        const highlights = Array.from(allHighlights).filter(highlight => !highlight.closest('.highlight-none') && 
+            !highlight.closest('.nboutput'));
+    
+        highlights.forEach(function(highlight) {
+            const copyIcon = document.createElement('span');
+            copyIcon.classList.add('copy-icon');
+            copyIcon.innerHTML = '&#xf0ea;';
+
+            copyIcon.addEventListener('click', function() {
+                const code = highlight.querySelector('pre').textContent;
+                copyToClipboard(code);
+
+                // Flash effect on click
+                this.style.color = '#0194E2';
+                setTimeout(() => {
+                    this.style.color = ''; 
+                }, 100);
+
+                // Display "Code copied to clipboard" near the clicked icon
+                const message = document.createElement('span');
+                message.textContent = "Copied!";
+                message.classList.add('copy-message'); 
+
+                // Append the message to the icon
+                this.appendChild(message);
+
+                setTimeout(() => {
+                    this.removeChild(message);
+                }, 500);
+            });
+
+            highlight.appendChild(copyIcon);
+        });
+    });
+  </script>
+
+
+<script type="text/javascript">
+    document.addEventListener("DOMContentLoaded", function() {
+        // Force download for notebook-download-btn
+        const downloadButtons = document.querySelectorAll('.notebook-download-btn');
+        downloadButtons.forEach(function(button) {
+            button.addEventListener('click', function(event) {
+                event.preventDefault(); // Prevent default behavior
+
+                // Fetch the raw content of the notebook from GitHub
+                fetch(button.href)
+                    .then(response => response.blob())
+                    .then(blob => {
+                        const url = window.URL.createObjectURL(blob);
+                        const link = document.createElement('a');
+                        link.style.display = 'none';
+                        link.href = url;
+                        const filename = button.href.split('/').pop();
+                        link.download = filename; 
+
+                        document.body.appendChild(link);
+                        link.click();
+
+                        window.URL.revokeObjectURL(url);
+                        document.body.removeChild(link);
+                    })
+                    .catch(err => console.error('Error fetching the notebook:', err));
+            });
+        });
+    });
+</script> 
+</body>
+</html>

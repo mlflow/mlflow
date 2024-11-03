@@ -961,7 +961,7 @@ def autolog(
             "spark.mlflow.pysparkml.autolog.logModelAllowlistFile".
 
             **The default log model allowlist in mlflow**
-                .. literalinclude:: ../../../mlflow/pyspark/ml/log_model_allowlist.txt
+                .. literalinclude:: ../../../../mlflow/pyspark/ml/log_model_allowlist.txt
                     :language: text
 
         extra_tags: A dictionary of extra tags to set on each managed run created by autologging.

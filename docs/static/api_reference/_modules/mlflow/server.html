@@ -1,0 +1,610 @@
+
+
+<!DOCTYPE html>
+<!-- source: docs/source/_modules/mlflow/server -->
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>mlflow.server</title>
+  
+   
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+  <link rel="canonical" href="https://mlflow.org/docs/latest/_modules/mlflow/server.html">
+  
+  
+    <link rel="shortcut icon" href="../../_static/favicon.ico"/>
+    
+
+    
+
+  
+    
+
+  
+
+  
+  
+    
+
+  
+
+  
+  
+    <link href="https://fonts.googleapis.com/css?family=Source+Sans+Pro:300,400,600" rel="stylesheet">
+    <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/css/custom.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/css/cards.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/css/grids.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/css/mobile.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/css/simple-cards.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/css/tabs.css" type="text/css" />
+    
+  
+        <link rel="index" title="Index"
+              href="../../genindex.html"/>
+        <link rel="search" title="Search" href="../../search.html"/>
+    <link rel="top" title="MLflow 2.17.1.dev0 documentation" href="../../index.html"/>
+        <link rel="up" title="Module code" href="../index.html"/> 
+
+  
+  <script src="../../_static/js/modernizr.min.js"></script>
+
+</head>
+<script type="text/javascript" src="../../_static/jquery.js"></script>
+<script type="text/javascript" src="../../_static/underscore.js"></script>
+<script type="text/javascript" src="../../_static/doctools.js"></script>
+<script type="text/javascript" src="../../_static/tabs.js"></script>
+<script type="text/javascript" src="../../_static/languagesections.js"></script>
+<script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+<script type="text/javascript" src="../../_static/runllm.js"></script>
+
+<body class="wy-body-for-nav" role="document">
+  
+
+  
+  <nav class="wy-nav-top header" role="navigation" aria-label="top navigation">
+    <ul>
+  <li class="menu-toggle">
+    <i data-toggle="wy-nav-top" class="wy-nav-top-menu-button db-icon db-icon-menu pull-left"></i>
+    <a href="../../index.html" class="wy-nav-top-logo"
+      ><img src="../../_static/MLflow-logo-final-black.png" alt="MLflow"
+    /></a>
+    <span class="version">2.17.1.dev0</span>
+  </li>
+</ul>
+  </nav>
+  <page>
+    
+
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side relative">
+      <div class="wy-side-scroll">
+  <div class="wy-side-nav-search">
+    
+
+    
+
+    
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+  <input type="text" name="q" placeholder="Search" />
+  <input type="hidden" name="check_keywords" value="yes" />
+  <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+
+    
+  </div>
+
+  <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+    
+      <a href="../../index.html" class="main-navigation-home"><img src="../../_static/icons/nav-home.svg"> MLflow</a>
+    
+
+    
+      
+
+      
+        <ul>
+<li class="toctree-l1"><a class="reference internal" href="../../python_api/index.html">Python API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../cli.html">Command-Line Interface</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../R-api.html">R API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../java_api/index.html">Java API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../rest-api.html">REST API</a></li>
+</ul>
+
+      
+    
+  </div>
+
+  <div role="contentinfo">
+    
+
+    <p>
+      <a id='feedbacklink' href="https://github.com/mlflow/mlflow/blob/master/CONTRIBUTING.md" target="_blank">Contribute</a>
+    </p>
+  </div>
+</div>
+    </nav>
+
+    <main class="wy-grid-for-nav">
+      <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+        <div class="wy-nav-content">
+          <div class="rst-content">
+            
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href="../../index.html">Documentation</a> <span class="db-icon db-icon-chevron-right"></span></li>
+    
+        <li><a href="../index.html">Module code</a> <span class="db-icon db-icon-chevron-right"></span></li>
+    
+    
+      <li>mlflow.server</li>
+    
+    
+    <!-- <li class="wy-breadcrumbs-aside">
+      <a href="https://github.com/mlflow/mlflow/blob/master/docs/source/_modules/mlflow/server" class="fa fa-github"> Edit on GitHub</a>
+    </li> -->
+    
+  </ul>
+</div>
+            <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+              <div itemprop="articleBody">
+                
+  <h1>Source code for mlflow.server</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span> <span class="nn">importlib</span>
+<span class="kn">import</span> <span class="nn">importlib.metadata</span>
+<span class="kn">import</span> <span class="nn">os</span>
+<span class="kn">import</span> <span class="nn">shlex</span>
+<span class="kn">import</span> <span class="nn">sys</span>
+<span class="kn">import</span> <span class="nn">textwrap</span>
+<span class="kn">import</span> <span class="nn">types</span>
+
+<span class="kn">from</span> <span class="nn">flask</span> <span class="kn">import</span> <span class="n">Flask</span><span class="p">,</span> <span class="n">Response</span><span class="p">,</span> <span class="n">send_from_directory</span>
+<span class="kn">from</span> <span class="nn">packaging.version</span> <span class="kn">import</span> <span class="n">Version</span>
+
+<span class="kn">from</span> <span class="nn">mlflow.exceptions</span> <span class="kn">import</span> <span class="n">MlflowException</span>
+<span class="kn">from</span> <span class="nn">mlflow.server</span> <span class="kn">import</span> <span class="n">handlers</span>
+<span class="kn">from</span> <span class="nn">mlflow.server.handlers</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">STATIC_PREFIX_ENV_VAR</span><span class="p">,</span>
+    <span class="n">_add_static_prefix</span><span class="p">,</span>
+    <span class="n">create_promptlab_run_handler</span><span class="p">,</span>
+    <span class="n">gateway_proxy_handler</span><span class="p">,</span>
+    <span class="n">get_artifact_handler</span><span class="p">,</span>
+    <span class="n">get_metric_history_bulk_handler</span><span class="p">,</span>
+    <span class="n">get_metric_history_bulk_interval_handler</span><span class="p">,</span>
+    <span class="n">get_model_version_artifact_handler</span><span class="p">,</span>
+    <span class="n">get_trace_artifact_handler</span><span class="p">,</span>
+    <span class="n">search_datasets_handler</span><span class="p">,</span>
+    <span class="n">upload_artifact_handler</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">mlflow.utils.os</span> <span class="kn">import</span> <span class="n">is_windows</span>
+<span class="kn">from</span> <span class="nn">mlflow.utils.plugins</span> <span class="kn">import</span> <span class="n">get_entry_points</span>
+<span class="kn">from</span> <span class="nn">mlflow.utils.process</span> <span class="kn">import</span> <span class="n">_exec_cmd</span>
+<span class="kn">from</span> <span class="nn">mlflow.version</span> <span class="kn">import</span> <span class="n">VERSION</span>
+
+<span class="c1"># NB: These are internal environment variables used for communication between</span>
+<span class="c1"># the cli and the forked gunicorn processes.</span>
+<span class="n">BACKEND_STORE_URI_ENV_VAR</span> <span class="o">=</span> <span class="s2">&quot;_MLFLOW_SERVER_FILE_STORE&quot;</span>
+<span class="n">REGISTRY_STORE_URI_ENV_VAR</span> <span class="o">=</span> <span class="s2">&quot;_MLFLOW_SERVER_REGISTRY_STORE&quot;</span>
+<span class="n">ARTIFACT_ROOT_ENV_VAR</span> <span class="o">=</span> <span class="s2">&quot;_MLFLOW_SERVER_ARTIFACT_ROOT&quot;</span>
+<span class="n">ARTIFACTS_DESTINATION_ENV_VAR</span> <span class="o">=</span> <span class="s2">&quot;_MLFLOW_SERVER_ARTIFACT_DESTINATION&quot;</span>
+<span class="n">PROMETHEUS_EXPORTER_ENV_VAR</span> <span class="o">=</span> <span class="s2">&quot;prometheus_multiproc_dir&quot;</span>
+<span class="n">SERVE_ARTIFACTS_ENV_VAR</span> <span class="o">=</span> <span class="s2">&quot;_MLFLOW_SERVER_SERVE_ARTIFACTS&quot;</span>
+<span class="n">ARTIFACTS_ONLY_ENV_VAR</span> <span class="o">=</span> <span class="s2">&quot;_MLFLOW_SERVER_ARTIFACTS_ONLY&quot;</span>
+
+<span class="n">REL_STATIC_DIR</span> <span class="o">=</span> <span class="s2">&quot;js/build&quot;</span>
+
+<span class="n">app</span> <span class="o">=</span> <span class="n">Flask</span><span class="p">(</span><span class="vm">__name__</span><span class="p">,</span> <span class="n">static_folder</span><span class="o">=</span><span class="n">REL_STATIC_DIR</span><span class="p">)</span>
+<span class="n">IS_FLASK_V1</span> <span class="o">=</span> <span class="n">Version</span><span class="p">(</span><span class="n">importlib</span><span class="o">.</span><span class="n">metadata</span><span class="o">.</span><span class="n">version</span><span class="p">(</span><span class="s2">&quot;flask&quot;</span><span class="p">))</span> <span class="o">&lt;</span> <span class="n">Version</span><span class="p">(</span><span class="s2">&quot;2.0&quot;</span><span class="p">)</span>
+
+
+<span class="k">for</span> <span class="n">http_path</span><span class="p">,</span> <span class="n">handler</span><span class="p">,</span> <span class="n">methods</span> <span class="ow">in</span> <span class="n">handlers</span><span class="o">.</span><span class="n">get_endpoints</span><span class="p">():</span>
+    <span class="n">app</span><span class="o">.</span><span class="n">add_url_rule</span><span class="p">(</span><span class="n">http_path</span><span class="p">,</span> <span class="n">handler</span><span class="o">.</span><span class="vm">__name__</span><span class="p">,</span> <span class="n">handler</span><span class="p">,</span> <span class="n">methods</span><span class="o">=</span><span class="n">methods</span><span class="p">)</span>
+
+<span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">getenv</span><span class="p">(</span><span class="n">PROMETHEUS_EXPORTER_ENV_VAR</span><span class="p">):</span>
+    <span class="kn">from</span> <span class="nn">mlflow.server.prometheus_exporter</span> <span class="kn">import</span> <span class="n">activate_prometheus_exporter</span>
+
+    <span class="n">prometheus_metrics_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">getenv</span><span class="p">(</span><span class="n">PROMETHEUS_EXPORTER_ENV_VAR</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">prometheus_metrics_path</span><span class="p">):</span>
+        <span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="n">prometheus_metrics_path</span><span class="p">)</span>
+    <span class="n">activate_prometheus_exporter</span><span class="p">(</span><span class="n">app</span><span class="p">)</span>
+
+
+<span class="c1"># Provide a health check endpoint to ensure the application is responsive</span>
+<span class="nd">@app</span><span class="o">.</span><span class="n">route</span><span class="p">(</span><span class="s2">&quot;/health&quot;</span><span class="p">)</span>
+<span class="k">def</span> <span class="nf">health</span><span class="p">():</span>
+    <span class="k">return</span> <span class="s2">&quot;OK&quot;</span><span class="p">,</span> <span class="mi">200</span>
+
+
+<span class="c1"># Provide an endpoint to query the version of mlflow running on the server</span>
+<span class="nd">@app</span><span class="o">.</span><span class="n">route</span><span class="p">(</span><span class="s2">&quot;/version&quot;</span><span class="p">)</span>
+<span class="k">def</span> <span class="nf">version</span><span class="p">():</span>
+    <span class="k">return</span> <span class="n">VERSION</span><span class="p">,</span> <span class="mi">200</span>
+
+
+<span class="c1"># Serve the &quot;get-artifact&quot; route.</span>
+<span class="nd">@app</span><span class="o">.</span><span class="n">route</span><span class="p">(</span><span class="n">_add_static_prefix</span><span class="p">(</span><span class="s2">&quot;/get-artifact&quot;</span><span class="p">))</span>
+<span class="k">def</span> <span class="nf">serve_artifacts</span><span class="p">():</span>
+    <span class="k">return</span> <span class="n">get_artifact_handler</span><span class="p">()</span>
+
+
+<span class="c1"># Serve the &quot;model-versions/get-artifact&quot; route.</span>
+<span class="nd">@app</span><span class="o">.</span><span class="n">route</span><span class="p">(</span><span class="n">_add_static_prefix</span><span class="p">(</span><span class="s2">&quot;/model-versions/get-artifact&quot;</span><span class="p">))</span>
+<span class="k">def</span> <span class="nf">serve_model_version_artifact</span><span class="p">():</span>
+    <span class="k">return</span> <span class="n">get_model_version_artifact_handler</span><span class="p">()</span>
+
+
+<span class="c1"># Serve the &quot;metrics/get-history-bulk&quot; route.</span>
+<span class="nd">@app</span><span class="o">.</span><span class="n">route</span><span class="p">(</span><span class="n">_add_static_prefix</span><span class="p">(</span><span class="s2">&quot;/ajax-api/2.0/mlflow/metrics/get-history-bulk&quot;</span><span class="p">))</span>
+<span class="k">def</span> <span class="nf">serve_get_metric_history_bulk</span><span class="p">():</span>
+    <span class="k">return</span> <span class="n">get_metric_history_bulk_handler</span><span class="p">()</span>
+
+
+<span class="c1"># Serve the &quot;metrics/get-history-bulk-interval&quot; route.</span>
+<span class="nd">@app</span><span class="o">.</span><span class="n">route</span><span class="p">(</span><span class="n">_add_static_prefix</span><span class="p">(</span><span class="s2">&quot;/ajax-api/2.0/mlflow/metrics/get-history-bulk-interval&quot;</span><span class="p">))</span>
+<span class="k">def</span> <span class="nf">serve_get_metric_history_bulk_interval</span><span class="p">():</span>
+    <span class="k">return</span> <span class="n">get_metric_history_bulk_interval_handler</span><span class="p">()</span>
+
+
+<span class="c1"># Serve the &quot;experiments/search-datasets&quot; route.</span>
+<span class="nd">@app</span><span class="o">.</span><span class="n">route</span><span class="p">(</span><span class="n">_add_static_prefix</span><span class="p">(</span><span class="s2">&quot;/ajax-api/2.0/mlflow/experiments/search-datasets&quot;</span><span class="p">),</span> <span class="n">methods</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;POST&quot;</span><span class="p">])</span>
+<span class="k">def</span> <span class="nf">serve_search_datasets</span><span class="p">():</span>
+    <span class="k">return</span> <span class="n">search_datasets_handler</span><span class="p">()</span>
+
+
+<span class="c1"># Serve the &quot;runs/create-promptlab-run&quot; route.</span>
+<span class="nd">@app</span><span class="o">.</span><span class="n">route</span><span class="p">(</span><span class="n">_add_static_prefix</span><span class="p">(</span><span class="s2">&quot;/ajax-api/2.0/mlflow/runs/create-promptlab-run&quot;</span><span class="p">),</span> <span class="n">methods</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;POST&quot;</span><span class="p">])</span>
+<span class="k">def</span> <span class="nf">serve_create_promptlab_run</span><span class="p">():</span>
+    <span class="k">return</span> <span class="n">create_promptlab_run_handler</span><span class="p">()</span>
+
+
+<span class="nd">@app</span><span class="o">.</span><span class="n">route</span><span class="p">(</span><span class="n">_add_static_prefix</span><span class="p">(</span><span class="s2">&quot;/ajax-api/2.0/mlflow/gateway-proxy&quot;</span><span class="p">),</span> <span class="n">methods</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;POST&quot;</span><span class="p">,</span> <span class="s2">&quot;GET&quot;</span><span class="p">])</span>
+<span class="k">def</span> <span class="nf">serve_gateway_proxy</span><span class="p">():</span>
+    <span class="k">return</span> <span class="n">gateway_proxy_handler</span><span class="p">()</span>
+
+
+<span class="nd">@app</span><span class="o">.</span><span class="n">route</span><span class="p">(</span><span class="n">_add_static_prefix</span><span class="p">(</span><span class="s2">&quot;/ajax-api/2.0/mlflow/upload-artifact&quot;</span><span class="p">),</span> <span class="n">methods</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;POST&quot;</span><span class="p">])</span>
+<span class="k">def</span> <span class="nf">serve_upload_artifact</span><span class="p">():</span>
+    <span class="k">return</span> <span class="n">upload_artifact_handler</span><span class="p">()</span>
+
+
+<span class="c1"># Serve the &quot;/get-trace-artifact&quot; route to allow frontend to fetch trace artifacts</span>
+<span class="c1"># and render them in the Trace UI. The request body should contain the request_id</span>
+<span class="c1"># of the trace.</span>
+<span class="nd">@app</span><span class="o">.</span><span class="n">route</span><span class="p">(</span><span class="n">_add_static_prefix</span><span class="p">(</span><span class="s2">&quot;/ajax-api/2.0/mlflow/get-trace-artifact&quot;</span><span class="p">),</span> <span class="n">methods</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;GET&quot;</span><span class="p">])</span>
+<span class="k">def</span> <span class="nf">serve_get_trace_artifact</span><span class="p">():</span>
+    <span class="k">return</span> <span class="n">get_trace_artifact_handler</span><span class="p">()</span>
+
+
+<span class="c1"># We expect the react app to be built assuming it is hosted at /static-files, so that requests for</span>
+<span class="c1"># CSS/JS resources will be made to e.g. /static-files/main.css and we can handle them here.</span>
+<span class="c1"># The files are hashed based on source code, so ok to send Cache-Control headers via max_age.</span>
+<span class="nd">@app</span><span class="o">.</span><span class="n">route</span><span class="p">(</span><span class="n">_add_static_prefix</span><span class="p">(</span><span class="s2">&quot;/static-files/&lt;path:path&gt;&quot;</span><span class="p">))</span>
+<span class="k">def</span> <span class="nf">serve_static_file</span><span class="p">(</span><span class="n">path</span><span class="p">):</span>
+    <span class="k">if</span> <span class="n">IS_FLASK_V1</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">send_from_directory</span><span class="p">(</span><span class="n">app</span><span class="o">.</span><span class="n">static_folder</span><span class="p">,</span> <span class="n">path</span><span class="p">,</span> <span class="n">cache_timeout</span><span class="o">=</span><span class="mi">2419200</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">send_from_directory</span><span class="p">(</span><span class="n">app</span><span class="o">.</span><span class="n">static_folder</span><span class="p">,</span> <span class="n">path</span><span class="p">,</span> <span class="n">max_age</span><span class="o">=</span><span class="mi">2419200</span><span class="p">)</span>
+
+
+<span class="c1"># Serve the index.html for the React App for all other routes.</span>
+<span class="nd">@app</span><span class="o">.</span><span class="n">route</span><span class="p">(</span><span class="n">_add_static_prefix</span><span class="p">(</span><span class="s2">&quot;/&quot;</span><span class="p">))</span>
+<span class="k">def</span> <span class="nf">serve</span><span class="p">():</span>
+    <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">app</span><span class="o">.</span><span class="n">static_folder</span><span class="p">,</span> <span class="s2">&quot;index.html&quot;</span><span class="p">)):</span>
+        <span class="k">return</span> <span class="n">send_from_directory</span><span class="p">(</span><span class="n">app</span><span class="o">.</span><span class="n">static_folder</span><span class="p">,</span> <span class="s2">&quot;index.html&quot;</span><span class="p">)</span>
+
+    <span class="n">text</span> <span class="o">=</span> <span class="n">textwrap</span><span class="o">.</span><span class="n">dedent</span><span class="p">(</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Unable to display MLflow UI - landing page (index.html) not found.</span>
+
+<span class="sd">    You are very likely running the MLflow server using a source installation of the Python MLflow</span>
+<span class="sd">    package.</span>
+
+<span class="sd">    If you are a developer making MLflow source code changes and intentionally running a source</span>
+<span class="sd">    installation of MLflow, you can view the UI by running the Javascript dev server:</span>
+<span class="sd">    https://github.com/mlflow/mlflow/blob/master/CONTRIBUTING.md#running-the-javascript-dev-server</span>
+
+<span class="sd">    Otherwise, uninstall MLflow via &#39;pip uninstall mlflow&#39;, reinstall an official MLflow release</span>
+<span class="sd">    from PyPI via &#39;pip install mlflow&#39;, and rerun the MLflow server.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="p">)</span>
+    <span class="k">return</span> <span class="n">Response</span><span class="p">(</span><span class="n">text</span><span class="p">,</span> <span class="n">mimetype</span><span class="o">=</span><span class="s2">&quot;text/plain&quot;</span><span class="p">)</span>
+
+
+<span class="k">def</span> <span class="nf">_find_app</span><span class="p">(</span><span class="n">app_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+    <span class="n">apps</span> <span class="o">=</span> <span class="n">get_entry_points</span><span class="p">(</span><span class="s2">&quot;mlflow.app&quot;</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">app</span> <span class="ow">in</span> <span class="n">apps</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">app</span><span class="o">.</span><span class="n">name</span> <span class="o">==</span> <span class="n">app_name</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">app</span><span class="o">.</span><span class="n">value</span>
+
+    <span class="k">raise</span> <span class="n">MlflowException</span><span class="p">(</span>
+        <span class="sa">f</span><span class="s2">&quot;Failed to find app &#39;</span><span class="si">{</span><span class="n">app_name</span><span class="si">}</span><span class="s2">&#39;. Available apps: </span><span class="si">{</span><span class="p">[</span><span class="n">a</span><span class="o">.</span><span class="n">name</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="n">a</span><span class="w"> </span><span class="ow">in</span><span class="w"> </span><span class="n">apps</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span>
+    <span class="p">)</span>
+
+
+<span class="k">def</span> <span class="nf">_is_factory</span><span class="p">(</span><span class="n">app</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Returns True if the given app is a factory function, False otherwise.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        app: The app to check, e.g. &quot;mlflow.server.app:app</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">module</span><span class="p">,</span> <span class="n">obj_name</span> <span class="o">=</span> <span class="n">app</span><span class="o">.</span><span class="n">rsplit</span><span class="p">(</span><span class="s2">&quot;:&quot;</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+    <span class="n">mod</span> <span class="o">=</span> <span class="n">importlib</span><span class="o">.</span><span class="n">import_module</span><span class="p">(</span><span class="n">module</span><span class="p">)</span>
+    <span class="n">obj</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">mod</span><span class="p">,</span> <span class="n">obj_name</span><span class="p">)</span>
+    <span class="k">return</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="n">types</span><span class="o">.</span><span class="n">FunctionType</span><span class="p">)</span>
+
+
+<div class="viewcode-block" id="get_app_client"><a class="viewcode-back" href="../../python_api/mlflow.server.html#mlflow.server.get_app_client">[docs]</a><span class="k">def</span> <span class="nf">get_app_client</span><span class="p">(</span><span class="n">app_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Instantiate a client provided by an app.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        app_name: The app name defined in `setup.py`, e.g., &quot;basic-auth&quot;.</span>
+<span class="sd">        args: Additional arguments passed to the app client constructor.</span>
+<span class="sd">        kwargs: Additional keyword arguments passed to the app client constructor.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        An app client instance.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">clients</span> <span class="o">=</span> <span class="n">get_entry_points</span><span class="p">(</span><span class="s2">&quot;mlflow.app.client&quot;</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">client</span> <span class="ow">in</span> <span class="n">clients</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">client</span><span class="o">.</span><span class="n">name</span> <span class="o">==</span> <span class="n">app_name</span><span class="p">:</span>
+            <span class="bp">cls</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">load</span><span class="p">()</span>
+            <span class="k">return</span> <span class="bp">cls</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+
+    <span class="k">raise</span> <span class="n">MlflowException</span><span class="p">(</span>
+        <span class="sa">f</span><span class="s2">&quot;Failed to find client for &#39;</span><span class="si">{</span><span class="n">app_name</span><span class="si">}</span><span class="s2">&#39;. Available clients: </span><span class="si">{</span><span class="p">[</span><span class="n">c</span><span class="o">.</span><span class="n">name</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="n">c</span><span class="w"> </span><span class="ow">in</span><span class="w"> </span><span class="n">clients</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span>
+    <span class="p">)</span></div>
+
+
+<span class="k">def</span> <span class="nf">_build_waitress_command</span><span class="p">(</span><span class="n">waitress_opts</span><span class="p">,</span> <span class="n">host</span><span class="p">,</span> <span class="n">port</span><span class="p">,</span> <span class="n">app_name</span><span class="p">,</span> <span class="n">is_factory</span><span class="p">):</span>
+    <span class="n">opts</span> <span class="o">=</span> <span class="n">shlex</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="n">waitress_opts</span><span class="p">)</span> <span class="k">if</span> <span class="n">waitress_opts</span> <span class="k">else</span> <span class="p">[]</span>
+    <span class="k">return</span> <span class="p">[</span>
+        <span class="n">sys</span><span class="o">.</span><span class="n">executable</span><span class="p">,</span>
+        <span class="s2">&quot;-m&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;waitress&quot;</span><span class="p">,</span>
+        <span class="o">*</span><span class="n">opts</span><span class="p">,</span>
+        <span class="sa">f</span><span class="s2">&quot;--host=</span><span class="si">{</span><span class="n">host</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span>
+        <span class="sa">f</span><span class="s2">&quot;--port=</span><span class="si">{</span><span class="n">port</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;--ident=mlflow&quot;</span><span class="p">,</span>
+        <span class="o">*</span><span class="p">([</span><span class="s2">&quot;--call&quot;</span><span class="p">]</span> <span class="k">if</span> <span class="n">is_factory</span> <span class="k">else</span> <span class="p">[]),</span>
+        <span class="n">app_name</span><span class="p">,</span>
+    <span class="p">]</span>
+
+
+<span class="k">def</span> <span class="nf">_build_gunicorn_command</span><span class="p">(</span><span class="n">gunicorn_opts</span><span class="p">,</span> <span class="n">host</span><span class="p">,</span> <span class="n">port</span><span class="p">,</span> <span class="n">workers</span><span class="p">,</span> <span class="n">app_name</span><span class="p">):</span>
+    <span class="n">bind_address</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">host</span><span class="si">}</span><span class="s2">:</span><span class="si">{</span><span class="n">port</span><span class="si">}</span><span class="s2">&quot;</span>
+    <span class="n">opts</span> <span class="o">=</span> <span class="n">shlex</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="n">gunicorn_opts</span><span class="p">)</span> <span class="k">if</span> <span class="n">gunicorn_opts</span> <span class="k">else</span> <span class="p">[]</span>
+    <span class="k">return</span> <span class="p">[</span>
+        <span class="n">sys</span><span class="o">.</span><span class="n">executable</span><span class="p">,</span>
+        <span class="s2">&quot;-m&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;gunicorn&quot;</span><span class="p">,</span>
+        <span class="o">*</span><span class="n">opts</span><span class="p">,</span>
+        <span class="s2">&quot;-b&quot;</span><span class="p">,</span>
+        <span class="n">bind_address</span><span class="p">,</span>
+        <span class="s2">&quot;-w&quot;</span><span class="p">,</span>
+        <span class="nb">str</span><span class="p">(</span><span class="n">workers</span><span class="p">),</span>
+        <span class="n">app_name</span><span class="p">,</span>
+    <span class="p">]</span>
+
+
+<span class="k">def</span> <span class="nf">_run_server</span><span class="p">(</span>  <span class="c1"># noqa: D417</span>
+    <span class="n">file_store_path</span><span class="p">,</span>
+    <span class="n">registry_store_uri</span><span class="p">,</span>
+    <span class="n">default_artifact_root</span><span class="p">,</span>
+    <span class="n">serve_artifacts</span><span class="p">,</span>
+    <span class="n">artifacts_only</span><span class="p">,</span>
+    <span class="n">artifacts_destination</span><span class="p">,</span>
+    <span class="n">host</span><span class="p">,</span>
+    <span class="n">port</span><span class="p">,</span>
+    <span class="n">static_prefix</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">workers</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">gunicorn_opts</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">waitress_opts</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">expose_prometheus</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">app_name</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+<span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Run the MLflow server, wrapping it in gunicorn or waitress on windows</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        static_prefix: If set, the index.html asset will be served from the path static_prefix.</span>
+<span class="sd">                       If left None, the index.html asset will be served from the root path.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        None</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">env_map</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="k">if</span> <span class="n">file_store_path</span><span class="p">:</span>
+        <span class="n">env_map</span><span class="p">[</span><span class="n">BACKEND_STORE_URI_ENV_VAR</span><span class="p">]</span> <span class="o">=</span> <span class="n">file_store_path</span>
+    <span class="k">if</span> <span class="n">registry_store_uri</span><span class="p">:</span>
+        <span class="n">env_map</span><span class="p">[</span><span class="n">REGISTRY_STORE_URI_ENV_VAR</span><span class="p">]</span> <span class="o">=</span> <span class="n">registry_store_uri</span>
+    <span class="k">if</span> <span class="n">default_artifact_root</span><span class="p">:</span>
+        <span class="n">env_map</span><span class="p">[</span><span class="n">ARTIFACT_ROOT_ENV_VAR</span><span class="p">]</span> <span class="o">=</span> <span class="n">default_artifact_root</span>
+    <span class="k">if</span> <span class="n">serve_artifacts</span><span class="p">:</span>
+        <span class="n">env_map</span><span class="p">[</span><span class="n">SERVE_ARTIFACTS_ENV_VAR</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;true&quot;</span>
+    <span class="k">if</span> <span class="n">artifacts_only</span><span class="p">:</span>
+        <span class="n">env_map</span><span class="p">[</span><span class="n">ARTIFACTS_ONLY_ENV_VAR</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;true&quot;</span>
+    <span class="k">if</span> <span class="n">artifacts_destination</span><span class="p">:</span>
+        <span class="n">env_map</span><span class="p">[</span><span class="n">ARTIFACTS_DESTINATION_ENV_VAR</span><span class="p">]</span> <span class="o">=</span> <span class="n">artifacts_destination</span>
+    <span class="k">if</span> <span class="n">static_prefix</span><span class="p">:</span>
+        <span class="n">env_map</span><span class="p">[</span><span class="n">STATIC_PREFIX_ENV_VAR</span><span class="p">]</span> <span class="o">=</span> <span class="n">static_prefix</span>
+
+    <span class="k">if</span> <span class="n">expose_prometheus</span><span class="p">:</span>
+        <span class="n">env_map</span><span class="p">[</span><span class="n">PROMETHEUS_EXPORTER_ENV_VAR</span><span class="p">]</span> <span class="o">=</span> <span class="n">expose_prometheus</span>
+
+    <span class="k">if</span> <span class="n">app_name</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">app</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">:app&quot;</span>
+        <span class="n">is_factory</span> <span class="o">=</span> <span class="kc">False</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">app</span> <span class="o">=</span> <span class="n">_find_app</span><span class="p">(</span><span class="n">app_name</span><span class="p">)</span>
+        <span class="n">is_factory</span> <span class="o">=</span> <span class="n">_is_factory</span><span class="p">(</span><span class="n">app</span><span class="p">)</span>
+        <span class="c1"># `waitress` doesn&#39;t support `()` syntax for factory functions.</span>
+        <span class="c1"># Instead, we need to use the `--call` flag.</span>
+        <span class="n">app</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">app</span><span class="si">}</span><span class="s2">()&quot;</span> <span class="k">if</span> <span class="p">(</span><span class="ow">not</span> <span class="n">is_windows</span><span class="p">()</span> <span class="ow">and</span> <span class="n">is_factory</span><span class="p">)</span> <span class="k">else</span> <span class="n">app</span>
+
+    <span class="c1"># TODO: eventually may want waitress on non-win32</span>
+    <span class="k">if</span> <span class="n">sys</span><span class="o">.</span><span class="n">platform</span> <span class="o">==</span> <span class="s2">&quot;win32&quot;</span><span class="p">:</span>
+        <span class="n">full_command</span> <span class="o">=</span> <span class="n">_build_waitress_command</span><span class="p">(</span><span class="n">waitress_opts</span><span class="p">,</span> <span class="n">host</span><span class="p">,</span> <span class="n">port</span><span class="p">,</span> <span class="n">app</span><span class="p">,</span> <span class="n">is_factory</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">full_command</span> <span class="o">=</span> <span class="n">_build_gunicorn_command</span><span class="p">(</span><span class="n">gunicorn_opts</span><span class="p">,</span> <span class="n">host</span><span class="p">,</span> <span class="n">port</span><span class="p">,</span> <span class="n">workers</span> <span class="ow">or</span> <span class="mi">4</span><span class="p">,</span> <span class="n">app</span><span class="p">)</span>
+    <span class="n">_exec_cmd</span><span class="p">(</span><span class="n">full_command</span><span class="p">,</span> <span class="n">extra_env</span><span class="o">=</span><span class="n">env_map</span><span class="p">,</span> <span class="n">capture_output</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+</pre></div>
+
+              </div>
+            </div>
+            <footer>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+      <p class="copyright">
+          &copy; MLflow Project, a Series of LF Projects, LLC. All rights reserved.
+      </p>
+
+  </div> 
+
+</footer>
+          </div>
+        </div>
+      </section>
+    </main>
+  </page>
+
+  
+
+
+  
+  <script type="text/javascript">
+    var DOCUMENTATION_OPTIONS = {
+      URL_ROOT:'../../',
+      VERSION:'2.17.1.dev0',
+      COLLAPSE_INDEX:false,
+      FILE_SUFFIX:'.html',
+      LINK_SUFFIX: '.html',
+      HAS_SOURCE:  true
+    };
+  </script>
+
+  
+
+  <script type="text/javascript" src="../../_static/js/clipboard.min.js"></script>
+  <script type="text/javascript" src="../../_static/js/jquery.waypoints.min.js"></script>
+
+  
+  
+  
+  <script type="text/javascript">var CLIPPY_SVG_PATH = "../../_static/clippy.svg";</script>
+  <script type="text/javascript" src="../../_static/js/custom.js"></script>
+  
+
+  
+  
+  <script type="text/javascript">
+    jQuery(function () {
+      SphinxRtdTheme.StickyNav.enable();
+    });
+
+  </script>
+  
+
+  
+  <script type="text/javascript">
+    document.addEventListener("DOMContentLoaded", function() {
+        function copyToClipboard(text) {
+            const textarea = document.createElement('textarea');
+            textarea.value = text;
+            document.body.appendChild(textarea);
+            textarea.select();
+            document.execCommand('copy');
+            document.body.removeChild(textarea);
+        }
+        // Get the code block designator class entries
+        const allHighlights = document.querySelectorAll('.highlight');
+        // Disable copyable links for notebook cell numbering and for cell outputs
+        const highlights = Array.from(allHighlights).filter(highlight => !highlight.closest('.highlight-none') && 
+            !highlight.closest('.nboutput'));
+    
+        highlights.forEach(function(highlight) {
+            const copyIcon = document.createElement('span');
+            copyIcon.classList.add('copy-icon');
+            copyIcon.innerHTML = '&#xf0ea;';
+
+            copyIcon.addEventListener('click', function() {
+                const code = highlight.querySelector('pre').textContent;
+                copyToClipboard(code);
+
+                // Flash effect on click
+                this.style.color = '#0194E2';
+                setTimeout(() => {
+                    this.style.color = ''; 
+                }, 100);
+
+                // Display "Code copied to clipboard" near the clicked icon
+                const message = document.createElement('span');
+                message.textContent = "Copied!";
+                message.classList.add('copy-message'); 
+
+                // Append the message to the icon
+                this.appendChild(message);
+
+                setTimeout(() => {
+                    this.removeChild(message);
+                }, 500);
+            });
+
+            highlight.appendChild(copyIcon);
+        });
+    });
+  </script>
+
+
+<script type="text/javascript">
+    document.addEventListener("DOMContentLoaded", function() {
+        // Force download for notebook-download-btn
+        const downloadButtons = document.querySelectorAll('.notebook-download-btn');
+        downloadButtons.forEach(function(button) {
+            button.addEventListener('click', function(event) {
+                event.preventDefault(); // Prevent default behavior
+
+                // Fetch the raw content of the notebook from GitHub
+                fetch(button.href)
+                    .then(response => response.blob())
+                    .then(blob => {
+                        const url = window.URL.createObjectURL(blob);
+                        const link = document.createElement('a');
+                        link.style.display = 'none';
+                        link.href = url;
+                        const filename = button.href.split('/').pop();
+                        link.download = filename; 
+
+                        document.body.appendChild(link);
+                        link.click();
+
+                        window.URL.revokeObjectURL(url);
+                        document.body.removeChild(link);
+                    })
+                    .catch(err => console.error('Error fetching the notebook:', err));
+            });
+        });
+    });
+</script> 
+</body>
+</html>

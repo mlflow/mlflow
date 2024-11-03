@@ -1,0 +1,770 @@
+
+
+<!DOCTYPE html>
+<!-- source: docs/source/python_api/mlflow.shap.rst -->
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>mlflow.shap</title>
+  
+   
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+  <link rel="canonical" href="https://mlflow.org/docs/latest/python_api/mlflow.shap.html">
+  
+  
+    <link rel="shortcut icon" href="../_static/favicon.ico"/>
+    
+
+    
+
+  
+    
+
+  
+
+  
+  
+    
+
+  
+
+  
+  
+    <link href="https://fonts.googleapis.com/css?family=Source+Sans+Pro:300,400,600" rel="stylesheet">
+    <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/css/custom.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/css/cards.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/css/grids.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/css/mobile.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/css/simple-cards.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/css/tabs.css" type="text/css" />
+    
+  
+        <link rel="index" title="Index"
+              href="../genindex.html"/>
+        <link rel="search" title="Search" href="../search.html"/>
+    <link rel="top" title="MLflow 2.17.1.dev0 documentation" href="../index.html"/>
+        <link rel="up" title="Python API" href="index.html"/>
+        <link rel="next" title="mlflow.sklearn" href="/mlflow.sklearn.html"/>
+        <link rel="prev" title="mlflow.server" href="/mlflow.server.html"/> 
+
+  
+  <script src="../_static/js/modernizr.min.js"></script>
+
+</head>
+<script type="text/javascript" src="../_static/jquery.js"></script>
+<script type="text/javascript" src="../_static/underscore.js"></script>
+<script type="text/javascript" src="../_static/doctools.js"></script>
+<script type="text/javascript" src="../_static/languagesections.js"></script>
+<script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+<script type="text/javascript" src="../_static/runllm.js"></script>
+
+<body class="wy-body-for-nav" role="document">
+  
+
+  
+  <nav class="wy-nav-top header" role="navigation" aria-label="top navigation">
+    <ul>
+  <li class="menu-toggle">
+    <i data-toggle="wy-nav-top" class="wy-nav-top-menu-button db-icon db-icon-menu pull-left"></i>
+    <a href="../index.html" class="wy-nav-top-logo"
+      ><img src="../_static/MLflow-logo-final-black.png" alt="MLflow"
+    /></a>
+    <span class="version">2.17.1.dev0</span>
+  </li>
+</ul>
+  </nav>
+  <page>
+    
+
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side relative">
+      <div class="wy-side-scroll">
+  <div class="wy-side-nav-search">
+    
+
+    
+
+    
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+  <input type="text" name="q" placeholder="Search" />
+  <input type="hidden" name="check_keywords" value="yes" />
+  <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+
+    
+  </div>
+
+  <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+    
+      <a href="../index.html" class="main-navigation-home"><img src="../_static/icons/nav-home.svg"> MLflow</a>
+    
+
+    
+      
+
+      
+        <ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">Python API</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="mlflow.html">mlflow</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.html#mlflow-tracing-apis">MLflow Tracing APIs</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.artifacts.html">mlflow.artifacts</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.autogen.html">mlflow.autogen</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.catboost.html">mlflow.catboost</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.client.html">mlflow.client</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.config.html">mlflow.config</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.data.html">mlflow.data</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.deployments.html">mlflow.deployments</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.diviner.html">mlflow.diviner</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.dspy.html">mlflow.dspy</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.entities.html">mlflow.entities</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.environment_variables.html">mlflow.environment_variables</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.fastai.html">mlflow.fastai</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.gateway.html">mlflow.gateway</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.gluon.html">mlflow.gluon</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.h2o.html">mlflow.h2o</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.johnsnowlabs.html">mlflow.johnsnowlabs</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.keras.html">mlflow.keras</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.langchain.html">mlflow.langchain</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.lightgbm.html">mlflow.lightgbm</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.llama_index.html">mlflow.llama_index</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.metrics.html">mlflow.metrics</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.mleap.html">mlflow.mleap</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.models.html">mlflow.models</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.onnx.html">mlflow.onnx</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.openai.html">mlflow.openai</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.paddle.html">mlflow.paddle</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.pmdarima.html">mlflow.pmdarima</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.projects.html">mlflow.projects</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.promptflow.html">mlflow.promptflow</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.prophet.html">mlflow.prophet</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.pyfunc.html">mlflow.pyfunc</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.pyspark.ml.html">mlflow.pyspark.ml</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.pytorch.html">mlflow.pytorch</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.recipes.html">mlflow.recipes</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.sagemaker.html">mlflow.sagemaker</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.sentence_transformers.html">mlflow.sentence_transformers</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.server.html">mlflow.server</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">mlflow.shap</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.sklearn.html">mlflow.sklearn</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.spacy.html">mlflow.spacy</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.spark.html">mlflow.spark</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.statsmodels.html">mlflow.statsmodels</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.system_metrics.html">mlflow.system_metrics</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.tensorflow.html">mlflow.tensorflow</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.tracing.html">mlflow.tracing</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.transformers.html">mlflow.transformers</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.types.html">mlflow.types</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.utils.html">mlflow.utils</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.xgboost.html">mlflow.xgboost</a></li>
+<li class="toctree-l2"><a class="reference internal" href="index.html#log-levels">Log Levels</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../cli.html">Command-Line Interface</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../R-api.html">R API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../java_api/index.html">Java API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../rest-api.html">REST API</a></li>
+</ul>
+
+      
+    
+  </div>
+
+  <div role="contentinfo">
+    
+
+    <p>
+      <a id='feedbacklink' href="https://github.com/mlflow/mlflow/blob/master/CONTRIBUTING.md" target="_blank">Contribute</a>
+    </p>
+  </div>
+</div>
+    </nav>
+
+    <main class="wy-grid-for-nav">
+      <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+        <div class="wy-nav-content">
+          <div class="rst-content">
+            
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href="../index.html">Documentation</a> <span class="db-icon db-icon-chevron-right"></span></li>
+    
+        <li><a href="index.html">Python API</a> <span class="db-icon db-icon-chevron-right"></span></li>
+    
+    
+      <li>mlflow.shap</li>
+    
+    
+    <!-- <li class="wy-breadcrumbs-aside">
+      <a href="https://github.com/mlflow/mlflow/blob/master/docs/source/python_api/mlflow.shap.rst" class="fa fa-github"> Edit on GitHub</a>
+    </li> -->
+    
+  </ul>
+</div>
+            <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+              <div itemprop="articleBody">
+                
+  <div class="section" id="module-mlflow.shap">
+<span id="mlflow-shap"></span><h1>mlflow.shap<a class="headerlink" href="#module-mlflow.shap" title="Permalink to this headline"> </a></h1>
+<dl class="py function">
+<dt id="mlflow.shap.get_default_conda_env">
+<code class="sig-prename descclassname"><span class="pre">mlflow.shap.</span></code><code class="sig-name descname"><span class="pre">get_default_conda_env</span></code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/mlflow/shap.html#get_default_conda_env"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mlflow.shap.get_default_conda_env" title="Permalink to this definition"> </a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p>The default Conda environment for MLflow Models produced by calls to
+<a class="reference internal" href="#mlflow.shap.save_explainer" title="mlflow.shap.save_explainer"><code class="xref py py-func docutils literal notranslate"><span class="pre">save_explainer()</span></code></a> and <a class="reference internal" href="#mlflow.shap.log_explainer" title="mlflow.shap.log_explainer"><code class="xref py py-func docutils literal notranslate"><span class="pre">log_explainer()</span></code></a>.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt id="mlflow.shap.get_default_pip_requirements">
+<code class="sig-prename descclassname"><span class="pre">mlflow.shap.</span></code><code class="sig-name descname"><span class="pre">get_default_pip_requirements</span></code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/mlflow/shap.html#get_default_pip_requirements"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mlflow.shap.get_default_pip_requirements" title="Permalink to this definition"> </a></dt>
+<dd><p>A list of default pip requirements for MLflow Models produced by this flavor. Calls to
+<a class="reference internal" href="#mlflow.shap.save_explainer" title="mlflow.shap.save_explainer"><code class="xref py py-func docutils literal notranslate"><span class="pre">save_explainer()</span></code></a> and <a class="reference internal" href="#mlflow.shap.log_explainer" title="mlflow.shap.log_explainer"><code class="xref py py-func docutils literal notranslate"><span class="pre">log_explainer()</span></code></a> produce a pip environment that, at
+minimum, contains these requirements.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt id="mlflow.shap.get_underlying_model_flavor">
+<code class="sig-prename descclassname"><span class="pre">mlflow.shap.</span></code><code class="sig-name descname"><span class="pre">get_underlying_model_flavor</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">model</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/mlflow/shap.html#get_underlying_model_flavor"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mlflow.shap.get_underlying_model_flavor" title="Permalink to this definition"> </a></dt>
+<dd><p>Find the underlying models flavor.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>model</strong> – underlying model of the explainer.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt id="mlflow.shap.load_explainer">
+<code class="sig-prename descclassname"><span class="pre">mlflow.shap.</span></code><code class="sig-name descname"><span class="pre">load_explainer</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">model_uri</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/mlflow/shap.html#load_explainer"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mlflow.shap.load_explainer" title="Permalink to this definition"> </a></dt>
+<dd><p>Load a SHAP explainer from a local file or a run.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>model_uri</strong> – <p>The location, in URI format, of the MLflow model. For example:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">/Users/me/path/to/local/model</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">relative/path/to/local/model</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">s3://my_bucket/path/to/model</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">runs:/&lt;mlflow_run_id&gt;/run-relative/path/to/model</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">models:/&lt;model_name&gt;/&lt;model_version&gt;</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">models:/&lt;model_name&gt;/&lt;stage&gt;</span></code></p></li>
+</ul>
+<p>For more information about supported URI schemes, see
+<a class="reference external" href="https://www.mlflow.org/docs/latest/concepts.html#artifact-locations">Referencing Artifacts</a>.</p>
+</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>A SHAP explainer.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt id="mlflow.shap.log_explainer">
+<code class="sig-prename descclassname"><span class="pre">mlflow.shap.</span></code><code class="sig-name descname"><span class="pre">log_explainer</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">explainer</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">artifact_path</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">serialize_model_using_mlflow</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">conda_env</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">code_paths</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">registered_model_name</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">signature</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">mlflow.models.signature.ModelSignature</span></span> <span class="o"><span class="pre">=</span></span> <span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">input_example</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">Union</span><span class="p"><span class="pre">[</span></span><span class="pre">pandas.core.frame.DataFrame</span><span class="p"><span class="pre">,</span> </span><span class="pre">numpy.ndarray</span><span class="p"><span class="pre">,</span> </span><span class="pre">dict</span><span class="p"><span class="pre">,</span> </span><span class="pre">list</span><span class="p"><span class="pre">,</span> </span><span class="pre">csr_matrix</span><span class="p"><span class="pre">,</span> </span><span class="pre">csc_matrix</span><span class="p"><span class="pre">,</span> </span><span class="pre">str</span><span class="p"><span class="pre">,</span> </span><span class="pre">bytes</span><span class="p"><span class="pre">,</span> </span><span class="pre">tuple</span><span class="p"><span class="pre">]</span></span></span> <span class="o"><span class="pre">=</span></span> <span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">await_registration_for</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">300</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pip_requirements</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">extra_pip_requirements</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">metadata</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/mlflow/shap.html#log_explainer"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mlflow.shap.log_explainer" title="Permalink to this definition"> </a></dt>
+<dd><p>Log an SHAP explainer as an MLflow artifact for the current run.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>explainer</strong> – SHAP explainer to be saved.</p></li>
+<li><p><strong>artifact_path</strong> – Run-relative artifact path.</p></li>
+<li><p><strong>serialize_model_using_mlflow</strong> – When set to True, MLflow will extract the underlying
+model and serialize it as an MLmodel, otherwise it uses SHAP’s internal serialization.
+Defaults to True. Currently MLflow serialization is only supported for models of
+‘sklearn’ or ‘pytorch’ flavors.</p></li>
+<li><p><strong>conda_env</strong> – <p>Either a dictionary representation of a Conda environment or the path to a conda
+environment yaml file. If provided, this describes the environment this model should be run in.
+At a minimum, it should specify the dependencies contained in <a class="reference internal" href="#mlflow.shap.get_default_conda_env" title="mlflow.shap.get_default_conda_env"><code class="xref py py-func docutils literal notranslate"><span class="pre">get_default_conda_env()</span></code></a>.
+If <code class="docutils literal notranslate"><span class="pre">None</span></code>, a conda environment with pip requirements inferred by
+<a class="reference internal" href="mlflow.models.html#mlflow.models.infer_pip_requirements" title="mlflow.models.infer_pip_requirements"><code class="xref py py-func docutils literal notranslate"><span class="pre">mlflow.models.infer_pip_requirements()</span></code></a> is added
+to the model. If the requirement inference fails, it falls back to using
+<a class="reference internal" href="#mlflow.shap.get_default_pip_requirements" title="mlflow.shap.get_default_pip_requirements"><code class="xref py py-func docutils literal notranslate"><span class="pre">get_default_pip_requirements()</span></code></a>. pip requirements from <code class="docutils literal notranslate"><span class="pre">conda_env</span></code> are written to a pip
+<code class="docutils literal notranslate"><span class="pre">requirements.txt</span></code> file and the full conda environment is written to <code class="docutils literal notranslate"><span class="pre">conda.yaml</span></code>.
+The following is an <em>example</em> dictionary representation of a conda environment:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+    <span class="s2">&quot;name&quot;</span><span class="p">:</span> <span class="s2">&quot;mlflow-env&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;channels&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;conda-forge&quot;</span><span class="p">],</span>
+    <span class="s2">&quot;dependencies&quot;</span><span class="p">:</span> <span class="p">[</span>
+        <span class="s2">&quot;python=3.8.15&quot;</span><span class="p">,</span>
+        <span class="p">{</span>
+            <span class="s2">&quot;pip&quot;</span><span class="p">:</span> <span class="p">[</span>
+                <span class="s2">&quot;shap==x.y.z&quot;</span>
+            <span class="p">],</span>
+        <span class="p">},</span>
+    <span class="p">],</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</p></li>
+<li><p><strong>code_paths</strong> – <p>A list of local filesystem paths to Python file dependencies (or directories
+containing file dependencies). These files are <em>prepended</em> to the system path when the model
+is loaded. Files declared as dependencies for a given model should have relative
+imports declared from a common root path if multiple files are defined with import dependencies
+between them to avoid import errors when loading the model.</p>
+<p>For a detailed explanation of <code class="docutils literal notranslate"><span class="pre">code_paths</span></code> functionality, recommended usage patterns and
+limitations, see the
+<a class="reference external" href="https://mlflow.org/docs/latest/model/dependencies.html?highlight=code_paths#saving-extra-code-with-an-mlflow-model">code_paths usage guide</a>.</p>
+</p></li>
+<li><p><strong>registered_model_name</strong> – If given, create a model version under <code class="docutils literal notranslate"><span class="pre">registered_model_name</span></code>,
+also creating a registered model if one with the given name does not exist.</p></li>
+<li><p><strong>signature</strong> – <p><a class="reference internal" href="mlflow.models.html#mlflow.models.ModelSignature" title="mlflow.models.ModelSignature"><code class="xref py py-class docutils literal notranslate"><span class="pre">ModelSignature</span></code></a> describes model input
+and output <a class="reference internal" href="mlflow.types.html#mlflow.types.Schema" title="mlflow.types.Schema"><code class="xref py py-class docutils literal notranslate"><span class="pre">Schema</span></code></a>. The model signature can be
+<a class="reference internal" href="mlflow.models.html#mlflow.models.infer_signature" title="mlflow.models.infer_signature"><code class="xref py py-func docutils literal notranslate"><span class="pre">inferred</span></code></a> from datasets with valid model input
+(e.g. the training dataset with target column omitted) and valid model output
+(e.g. model predictions generated on the training dataset), for example:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">mlflow.models</span> <span class="kn">import</span> <span class="n">infer_signature</span>
+
+<span class="n">train</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">drop_column</span><span class="p">(</span><span class="s2">&quot;target_label&quot;</span><span class="p">)</span>
+<span class="n">predictions</span> <span class="o">=</span> <span class="o">...</span>  <span class="c1"># compute model predictions</span>
+<span class="n">signature</span> <span class="o">=</span> <span class="n">infer_signature</span><span class="p">(</span><span class="n">train</span><span class="p">,</span> <span class="n">predictions</span><span class="p">)</span>
+</pre></div>
+</div>
+</p></li>
+<li><p><strong>input_example</strong> – one or several instances of valid model input. The input example is used
+as a hint of what data to feed the model. It will be converted to a Pandas
+DataFrame and then serialized to json using the Pandas split-oriented
+format, or a numpy array where the example will be serialized to json
+by converting it to a list. Bytes are base64-encoded. When the <code class="docutils literal notranslate"><span class="pre">signature</span></code> parameter is
+<code class="docutils literal notranslate"><span class="pre">None</span></code>, the input example is used to infer a model signature.</p></li>
+<li><p><strong>await_registration_for</strong> – Number of seconds to wait for the model version to finish
+being created and is in <code class="docutils literal notranslate"><span class="pre">READY</span></code> status. By default, the function waits for five
+minutes. Specify 0 or None to skip waiting.</p></li>
+<li><p><strong>pip_requirements</strong> – Either an iterable of pip requirement strings
+(e.g. <code class="docutils literal notranslate"><span class="pre">[&quot;shap&quot;,</span> <span class="pre">&quot;-r</span> <span class="pre">requirements.txt&quot;,</span> <span class="pre">&quot;-c</span> <span class="pre">constraints.txt&quot;]</span></code>) or the string path to
+a pip requirements file on the local filesystem (e.g. <code class="docutils literal notranslate"><span class="pre">&quot;requirements.txt&quot;</span></code>). If provided, this
+describes the environment this model should be run in. If <code class="docutils literal notranslate"><span class="pre">None</span></code>, a default list of requirements
+is inferred by <a class="reference internal" href="mlflow.models.html#mlflow.models.infer_pip_requirements" title="mlflow.models.infer_pip_requirements"><code class="xref py py-func docutils literal notranslate"><span class="pre">mlflow.models.infer_pip_requirements()</span></code></a> from the current software environment.
+If the requirement inference fails, it falls back to using <a class="reference internal" href="#mlflow.shap.get_default_pip_requirements" title="mlflow.shap.get_default_pip_requirements"><code class="xref py py-func docutils literal notranslate"><span class="pre">get_default_pip_requirements()</span></code></a>.
+Both requirements and constraints are automatically parsed and written to <code class="docutils literal notranslate"><span class="pre">requirements.txt</span></code> and
+<code class="docutils literal notranslate"><span class="pre">constraints.txt</span></code> files, respectively, and stored as part of the model. Requirements are also
+written to the <code class="docutils literal notranslate"><span class="pre">pip</span></code> section of the model’s conda environment (<code class="docutils literal notranslate"><span class="pre">conda.yaml</span></code>) file.</p></li>
+<li><p><strong>extra_pip_requirements</strong> – <p>Either an iterable of pip
+requirement strings
+(e.g. <code class="docutils literal notranslate"><span class="pre">[&quot;pandas&quot;,</span> <span class="pre">&quot;-r</span> <span class="pre">requirements.txt&quot;,</span> <span class="pre">&quot;-c</span> <span class="pre">constraints.txt&quot;]</span></code>) or the string path to
+a pip requirements file on the local filesystem (e.g. <code class="docutils literal notranslate"><span class="pre">&quot;requirements.txt&quot;</span></code>). If provided, this
+describes additional pip requirements that are appended to a default set of pip requirements
+generated automatically based on the user’s current software environment. Both requirements and
+constraints are automatically parsed and written to <code class="docutils literal notranslate"><span class="pre">requirements.txt</span></code> and <code class="docutils literal notranslate"><span class="pre">constraints.txt</span></code>
+files, respectively, and stored as part of the model. Requirements are also written to the <code class="docutils literal notranslate"><span class="pre">pip</span></code>
+section of the model’s conda environment (<code class="docutils literal notranslate"><span class="pre">conda.yaml</span></code>) file.</p>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>The following arguments can’t be specified at the same time:</p>
+<ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">conda_env</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">pip_requirements</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">extra_pip_requirements</span></code></p></li>
+</ul>
+</div>
+<p><a class="reference external" href="https://github.com/mlflow/mlflow/blob/master/examples/pip_requirements/pip_requirements.py">This example</a> demonstrates how to specify pip requirements using
+<code class="docutils literal notranslate"><span class="pre">pip_requirements</span></code> and <code class="docutils literal notranslate"><span class="pre">extra_pip_requirements</span></code>.</p>
+</p></li>
+<li><p><strong>metadata</strong> – Custom metadata dictionary passed to the model and stored in the MLmodel file.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt id="mlflow.shap.log_explanation">
+<code class="sig-prename descclassname"><span class="pre">mlflow.shap.</span></code><code class="sig-name descname"><span class="pre">log_explanation</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">predict_function</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">features</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">artifact_path</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/mlflow/shap.html#log_explanation"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mlflow.shap.log_explanation" title="Permalink to this definition"> </a></dt>
+<dd><p>Given a <code class="docutils literal notranslate"><span class="pre">predict_function</span></code> capable of computing ML model output on the provided <code class="docutils literal notranslate"><span class="pre">features</span></code>,
+computes and logs explanations of an ML model’s output. Explanations are logged as a directory
+of artifacts containing the following items generated by <a class="reference external" href="https://github.com/slundberg/shap">SHAP</a> (SHapley Additive
+exPlanations).</p>
+<blockquote>
+<div><ul class="simple">
+<li><p>Base values</p></li>
+<li><p>SHAP values (computed using <a class="reference external" href="https://shap.readthedocs.io/en/latest/generated/shap.KernelExplainer.html#shap.KernelExplainer">shap.KernelExplainer</a>)</p></li>
+<li><p>Summary bar plot (shows the average impact of each feature on model output)</p></li>
+</ul>
+</div></blockquote>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>predict_function</strong> – <p>A function to compute the output of a model (e.g. <code class="docutils literal notranslate"><span class="pre">predict_proba</span></code> method of
+scikit-learn classifiers). Must have the following signature:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">predict_function</span><span class="p">(</span><span class="n">X</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pred</span><span class="p">:</span> <span class="o">...</span>
+</pre></div>
+</div>
+<ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">X</span></code>: An array-like object whose shape should be (# samples, # features).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">pred</span></code>: An array-like object whose shape should be (# samples) for a regressor or
+(# classes, # samples) for a classifier. For a classifier, the values in <code class="docutils literal notranslate"><span class="pre">pred</span></code>
+should correspond to the predicted probability of each class.</p></li>
+</ul>
+<p>Acceptable array-like object types:</p>
+<blockquote>
+<div><ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">numpy.array</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">pandas.DataFrame</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">shap.common.DenseData</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">scipy.sparse</span> <span class="pre">matrix</span></code></p></li>
+</ul>
+</div></blockquote>
+</p></li>
+<li><p><strong>features</strong> – <p>A matrix of features to compute SHAP values with. The provided features should
+have shape (# samples, # features), and can be either of the array-like object
+types listed above.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Background data for <a class="reference external" href="https://shap.readthedocs.io/en/latest/generated/shap.KernelExplainer.html#shap.KernelExplainer">shap.KernelExplainer</a> is generated by subsampling <code class="docutils literal notranslate"><span class="pre">features</span></code>
+with <a class="reference external" href="https://github.com/slundberg/shap/blob/v0.36.0/shap/utils/_legacy.py#L9">shap.kmeans</a>. The background data size is limited to 100 rows for performance
+reasons.</p>
+</div>
+</p></li>
+<li><p><strong>artifact_path</strong> – The run-relative artifact path to which the explanation is saved.
+If unspecified, defaults to “model_explanations_shap”.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Artifact URI of the logged explanations.</p>
+</dd>
+</dl>
+<div class="literal-block-wrapper docutils container" id="id3">
+<div class="code-block-caption"><span class="caption-text">Example</span><a class="headerlink" href="#id3" title="Permalink to this code"> </a></div>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">os</span>
+
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
+<span class="kn">from</span> <span class="nn">sklearn.datasets</span> <span class="kn">import</span> <span class="n">load_diabetes</span>
+<span class="kn">from</span> <span class="nn">sklearn.linear_model</span> <span class="kn">import</span> <span class="n">LinearRegression</span>
+
+<span class="kn">import</span> <span class="nn">mlflow</span>
+<span class="kn">from</span> <span class="nn">mlflow</span> <span class="kn">import</span> <span class="n">MlflowClient</span>
+
+<span class="c1"># prepare training data</span>
+<span class="n">X</span><span class="p">,</span> <span class="n">y</span> <span class="o">=</span> <span class="n">dataset</span> <span class="o">=</span> <span class="n">load_diabetes</span><span class="p">(</span><span class="n">return_X_y</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">as_frame</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="n">X</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">dataset</span><span class="o">.</span><span class="n">data</span><span class="p">[:</span><span class="mi">50</span><span class="p">,</span> <span class="p">:</span><span class="mi">8</span><span class="p">],</span> <span class="n">columns</span><span class="o">=</span><span class="n">dataset</span><span class="o">.</span><span class="n">feature_names</span><span class="p">[:</span><span class="mi">8</span><span class="p">])</span>
+<span class="n">y</span> <span class="o">=</span> <span class="n">dataset</span><span class="o">.</span><span class="n">target</span><span class="p">[:</span><span class="mi">50</span><span class="p">]</span>
+
+<span class="c1"># train a model</span>
+<span class="n">model</span> <span class="o">=</span> <span class="n">LinearRegression</span><span class="p">()</span>
+<span class="n">model</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">y</span><span class="p">)</span>
+
+<span class="c1"># log an explanation</span>
+<span class="k">with</span> <span class="n">mlflow</span><span class="o">.</span><span class="n">start_run</span><span class="p">()</span> <span class="k">as</span> <span class="n">run</span><span class="p">:</span>
+    <span class="n">mlflow</span><span class="o">.</span><span class="n">shap</span><span class="o">.</span><span class="n">log_explanation</span><span class="p">(</span><span class="n">model</span><span class="o">.</span><span class="n">predict</span><span class="p">,</span> <span class="n">X</span><span class="p">)</span>
+
+<span class="c1"># list artifacts</span>
+<span class="n">client</span> <span class="o">=</span> <span class="n">MlflowClient</span><span class="p">()</span>
+<span class="n">artifact_path</span> <span class="o">=</span> <span class="s2">&quot;model_explanations_shap&quot;</span>
+<span class="n">artifacts</span> <span class="o">=</span> <span class="p">[</span><span class="n">x</span><span class="o">.</span><span class="n">path</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">client</span><span class="o">.</span><span class="n">list_artifacts</span><span class="p">(</span><span class="n">run</span><span class="o">.</span><span class="n">info</span><span class="o">.</span><span class="n">run_id</span><span class="p">,</span> <span class="n">artifact_path</span><span class="p">)]</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;# artifacts:&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">artifacts</span><span class="p">)</span>
+
+<span class="c1"># load back the logged explanation</span>
+<span class="n">dst_path</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">download_artifacts</span><span class="p">(</span><span class="n">run</span><span class="o">.</span><span class="n">info</span><span class="o">.</span><span class="n">run_id</span><span class="p">,</span> <span class="n">artifact_path</span><span class="p">)</span>
+<span class="n">base_values</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">dst_path</span><span class="p">,</span> <span class="s2">&quot;base_values.npy&quot;</span><span class="p">))</span>
+<span class="n">shap_values</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">dst_path</span><span class="p">,</span> <span class="s2">&quot;shap_values.npy&quot;</span><span class="p">))</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2"># base_values:&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">base_values</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2"># shap_values:&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">shap_values</span><span class="p">[:</span><span class="mi">3</span><span class="p">])</span>
+</pre></div>
+</div>
+</div>
+<div class="literal-block-wrapper docutils container" id="id4">
+<div class="code-block-caption"><span class="caption-text">Output</span><a class="headerlink" href="#id4" title="Permalink to this code"> </a></div>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span># artifacts:
+[&#39;model_explanations_shap/base_values.npy&#39;,
+ &#39;model_explanations_shap/shap_values.npy&#39;,
+ &#39;model_explanations_shap/summary_bar_plot.png&#39;]
+
+# base_values:
+20.502000000000002
+
+# shap_values:
+[[ 2.09975523  0.4746513   7.63759026  0.        ]
+ [ 2.00883109 -0.18816665 -0.14419184  0.        ]
+ [ 2.00891772 -0.18816665 -0.14419184  0.        ]]
+</pre></div>
+</div>
+</div>
+<div class="figure align-default" id="id5">
+<img alt="../_images/shap-ui-screenshot.png" src="../_images/shap-ui-screenshot.png" />
+<p class="caption"><span class="caption-text">Logged artifacts</span><a class="headerlink" href="#id5" title="Permalink to this image"> </a></p>
+</div>
+</dd></dl>
+
+<dl class="py function">
+<dt id="mlflow.shap.save_explainer">
+<code class="sig-prename descclassname"><span class="pre">mlflow.shap.</span></code><code class="sig-name descname"><span class="pre">save_explainer</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">explainer</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">path</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">serialize_model_using_mlflow</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">conda_env</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">code_paths</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mlflow_model</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">signature</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">mlflow.models.signature.ModelSignature</span></span> <span class="o"><span class="pre">=</span></span> <span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">input_example</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">Union</span><span class="p"><span class="pre">[</span></span><span class="pre">pandas.core.frame.DataFrame</span><span class="p"><span class="pre">,</span> </span><span class="pre">numpy.ndarray</span><span class="p"><span class="pre">,</span> </span><span class="pre">dict</span><span class="p"><span class="pre">,</span> </span><span class="pre">list</span><span class="p"><span class="pre">,</span> </span><span class="pre">csr_matrix</span><span class="p"><span class="pre">,</span> </span><span class="pre">csc_matrix</span><span class="p"><span class="pre">,</span> </span><span class="pre">str</span><span class="p"><span class="pre">,</span> </span><span class="pre">bytes</span><span class="p"><span class="pre">,</span> </span><span class="pre">tuple</span><span class="p"><span class="pre">]</span></span></span> <span class="o"><span class="pre">=</span></span> <span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pip_requirements</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">extra_pip_requirements</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">metadata</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/mlflow/shap.html#save_explainer"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mlflow.shap.save_explainer" title="Permalink to this definition"> </a></dt>
+<dd><p>Save a SHAP explainer to a path on the local file system. Produces an MLflow Model
+containing the following flavors:</p>
+<blockquote>
+<div><ul class="simple">
+<li><p><a class="reference internal" href="#module-mlflow.shap" title="mlflow.shap"><code class="xref py py-mod docutils literal notranslate"><span class="pre">mlflow.shap</span></code></a></p></li>
+<li><p><a class="reference internal" href="mlflow.pyfunc.html#module-mlflow.pyfunc" title="mlflow.pyfunc"><code class="xref py py-mod docutils literal notranslate"><span class="pre">mlflow.pyfunc</span></code></a></p></li>
+</ul>
+</div></blockquote>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>explainer</strong> – SHAP explainer to be saved.</p></li>
+<li><p><strong>path</strong> – Local path where the explainer is to be saved.</p></li>
+<li><p><strong>serialize_model_using_mlflow</strong> – When set to True, MLflow will extract the underlying
+model and serialize it as an MLmodel, otherwise it uses SHAP’s internal serialization.
+Defaults to True. Currently MLflow serialization is only supported for models of
+‘sklearn’ or ‘pytorch’ flavors.</p></li>
+<li><p><strong>conda_env</strong> – <p>Either a dictionary representation of a Conda environment or the path to a conda
+environment yaml file. If provided, this describes the environment this model should be run in.
+At a minimum, it should specify the dependencies contained in <a class="reference internal" href="#mlflow.shap.get_default_conda_env" title="mlflow.shap.get_default_conda_env"><code class="xref py py-func docutils literal notranslate"><span class="pre">get_default_conda_env()</span></code></a>.
+If <code class="docutils literal notranslate"><span class="pre">None</span></code>, a conda environment with pip requirements inferred by
+<a class="reference internal" href="mlflow.models.html#mlflow.models.infer_pip_requirements" title="mlflow.models.infer_pip_requirements"><code class="xref py py-func docutils literal notranslate"><span class="pre">mlflow.models.infer_pip_requirements()</span></code></a> is added
+to the model. If the requirement inference fails, it falls back to using
+<a class="reference internal" href="#mlflow.shap.get_default_pip_requirements" title="mlflow.shap.get_default_pip_requirements"><code class="xref py py-func docutils literal notranslate"><span class="pre">get_default_pip_requirements()</span></code></a>. pip requirements from <code class="docutils literal notranslate"><span class="pre">conda_env</span></code> are written to a pip
+<code class="docutils literal notranslate"><span class="pre">requirements.txt</span></code> file and the full conda environment is written to <code class="docutils literal notranslate"><span class="pre">conda.yaml</span></code>.
+The following is an <em>example</em> dictionary representation of a conda environment:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+    <span class="s2">&quot;name&quot;</span><span class="p">:</span> <span class="s2">&quot;mlflow-env&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;channels&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;conda-forge&quot;</span><span class="p">],</span>
+    <span class="s2">&quot;dependencies&quot;</span><span class="p">:</span> <span class="p">[</span>
+        <span class="s2">&quot;python=3.8.15&quot;</span><span class="p">,</span>
+        <span class="p">{</span>
+            <span class="s2">&quot;pip&quot;</span><span class="p">:</span> <span class="p">[</span>
+                <span class="s2">&quot;shap==x.y.z&quot;</span>
+            <span class="p">],</span>
+        <span class="p">},</span>
+    <span class="p">],</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</p></li>
+<li><p><strong>code_paths</strong> – <p>A list of local filesystem paths to Python file dependencies (or directories
+containing file dependencies). These files are <em>prepended</em> to the system path when the model
+is loaded. Files declared as dependencies for a given model should have relative
+imports declared from a common root path if multiple files are defined with import dependencies
+between them to avoid import errors when loading the model.</p>
+<p>For a detailed explanation of <code class="docutils literal notranslate"><span class="pre">code_paths</span></code> functionality, recommended usage patterns and
+limitations, see the
+<a class="reference external" href="https://mlflow.org/docs/latest/model/dependencies.html?highlight=code_paths#saving-extra-code-with-an-mlflow-model">code_paths usage guide</a>.</p>
+</p></li>
+<li><p><strong>mlflow_model</strong> – <a class="reference internal" href="mlflow.models.html#mlflow.models.Model" title="mlflow.models.Model"><code class="xref py py-mod docutils literal notranslate"><span class="pre">mlflow.models.Model</span></code></a> this flavor is being added to.</p></li>
+<li><p><strong>signature</strong> – <p><a class="reference internal" href="mlflow.models.html#mlflow.models.ModelSignature" title="mlflow.models.ModelSignature"><code class="xref py py-class docutils literal notranslate"><span class="pre">ModelSignature</span></code></a> describes model input
+and output <a class="reference internal" href="mlflow.types.html#mlflow.types.Schema" title="mlflow.types.Schema"><code class="xref py py-class docutils literal notranslate"><span class="pre">Schema</span></code></a>. The model signature can be
+<a class="reference internal" href="mlflow.models.html#mlflow.models.infer_signature" title="mlflow.models.infer_signature"><code class="xref py py-func docutils literal notranslate"><span class="pre">inferred</span></code></a> from datasets with valid model input
+(e.g. the training dataset with target column omitted) and valid model output (e.g.
+model predictions generated on the training dataset), for example:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">mlflow.models</span> <span class="kn">import</span> <span class="n">infer_signature</span>
+
+<span class="n">train</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">drop_column</span><span class="p">(</span><span class="s2">&quot;target_label&quot;</span><span class="p">)</span>
+<span class="n">predictions</span> <span class="o">=</span> <span class="o">...</span>  <span class="c1"># compute model predictions</span>
+<span class="n">signature</span> <span class="o">=</span> <span class="n">infer_signature</span><span class="p">(</span><span class="n">train</span><span class="p">,</span> <span class="n">predictions</span><span class="p">)</span>
+</pre></div>
+</div>
+</p></li>
+<li><p><strong>input_example</strong> – one or several instances of valid model input. The input example is used
+as a hint of what data to feed the model. It will be converted to a Pandas
+DataFrame and then serialized to json using the Pandas split-oriented
+format, or a numpy array where the example will be serialized to json
+by converting it to a list. Bytes are base64-encoded. When the <code class="docutils literal notranslate"><span class="pre">signature</span></code> parameter is
+<code class="docutils literal notranslate"><span class="pre">None</span></code>, the input example is used to infer a model signature.</p></li>
+<li><p><strong>pip_requirements</strong> – Either an iterable of pip requirement strings
+(e.g. <code class="docutils literal notranslate"><span class="pre">[&quot;shap&quot;,</span> <span class="pre">&quot;-r</span> <span class="pre">requirements.txt&quot;,</span> <span class="pre">&quot;-c</span> <span class="pre">constraints.txt&quot;]</span></code>) or the string path to
+a pip requirements file on the local filesystem (e.g. <code class="docutils literal notranslate"><span class="pre">&quot;requirements.txt&quot;</span></code>). If provided, this
+describes the environment this model should be run in. If <code class="docutils literal notranslate"><span class="pre">None</span></code>, a default list of requirements
+is inferred by <a class="reference internal" href="mlflow.models.html#mlflow.models.infer_pip_requirements" title="mlflow.models.infer_pip_requirements"><code class="xref py py-func docutils literal notranslate"><span class="pre">mlflow.models.infer_pip_requirements()</span></code></a> from the current software environment.
+If the requirement inference fails, it falls back to using <a class="reference internal" href="#mlflow.shap.get_default_pip_requirements" title="mlflow.shap.get_default_pip_requirements"><code class="xref py py-func docutils literal notranslate"><span class="pre">get_default_pip_requirements()</span></code></a>.
+Both requirements and constraints are automatically parsed and written to <code class="docutils literal notranslate"><span class="pre">requirements.txt</span></code> and
+<code class="docutils literal notranslate"><span class="pre">constraints.txt</span></code> files, respectively, and stored as part of the model. Requirements are also
+written to the <code class="docutils literal notranslate"><span class="pre">pip</span></code> section of the model’s conda environment (<code class="docutils literal notranslate"><span class="pre">conda.yaml</span></code>) file.</p></li>
+<li><p><strong>extra_pip_requirements</strong> – <p>Either an iterable of pip
+requirement strings
+(e.g. <code class="docutils literal notranslate"><span class="pre">[&quot;pandas&quot;,</span> <span class="pre">&quot;-r</span> <span class="pre">requirements.txt&quot;,</span> <span class="pre">&quot;-c</span> <span class="pre">constraints.txt&quot;]</span></code>) or the string path to
+a pip requirements file on the local filesystem (e.g. <code class="docutils literal notranslate"><span class="pre">&quot;requirements.txt&quot;</span></code>). If provided, this
+describes additional pip requirements that are appended to a default set of pip requirements
+generated automatically based on the user’s current software environment. Both requirements and
+constraints are automatically parsed and written to <code class="docutils literal notranslate"><span class="pre">requirements.txt</span></code> and <code class="docutils literal notranslate"><span class="pre">constraints.txt</span></code>
+files, respectively, and stored as part of the model. Requirements are also written to the <code class="docutils literal notranslate"><span class="pre">pip</span></code>
+section of the model’s conda environment (<code class="docutils literal notranslate"><span class="pre">conda.yaml</span></code>) file.</p>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>The following arguments can’t be specified at the same time:</p>
+<ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">conda_env</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">pip_requirements</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">extra_pip_requirements</span></code></p></li>
+</ul>
+</div>
+<p><a class="reference external" href="https://github.com/mlflow/mlflow/blob/master/examples/pip_requirements/pip_requirements.py">This example</a> demonstrates how to specify pip requirements using
+<code class="docutils literal notranslate"><span class="pre">pip_requirements</span></code> and <code class="docutils literal notranslate"><span class="pre">extra_pip_requirements</span></code>.</p>
+</p></li>
+<li><p><strong>metadata</strong> – Custom metadata dictionary passed to the model and stored in the MLmodel file.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+</div>
+
+
+              </div>
+            </div>
+            <footer>
+  
+    <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
+      
+        <a href="mlflow.server.html" class="btn btn-neutral" title="mlflow.server" accesskey="p"><span class="db-icon db-icon-chevron-left"></span> Previous</a>
+      
+      
+        <a href="mlflow.sklearn.html" class="btn btn-neutral" title="mlflow.sklearn" accesskey="n">Next <span class="db-icon db-icon-chevron-right"></span></a>
+      
+    </div>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+      <p class="copyright">
+          &copy; MLflow Project, a Series of LF Projects, LLC. All rights reserved.
+      </p>
+
+  </div> 
+
+</footer>
+          </div>
+        </div>
+      </section>
+    </main>
+  </page>
+
+  
+
+
+  
+  <script type="text/javascript">
+    var DOCUMENTATION_OPTIONS = {
+      URL_ROOT:'../',
+      VERSION:'2.17.1.dev0',
+      COLLAPSE_INDEX:false,
+      FILE_SUFFIX:'.html',
+      LINK_SUFFIX: '.html',
+      HAS_SOURCE:  true
+    };
+  </script>
+
+  
+
+  <script type="text/javascript" src="../_static/js/clipboard.min.js"></script>
+  <script type="text/javascript" src="../_static/js/jquery.waypoints.min.js"></script>
+
+  
+  
+  
+  <script type="text/javascript">var CLIPPY_SVG_PATH = "../_static/clippy.svg";</script>
+  <script type="text/javascript" src="../_static/js/custom.js"></script>
+  
+
+  
+  
+  <script type="text/javascript">
+    jQuery(function () {
+      SphinxRtdTheme.StickyNav.enable();
+    });
+
+  </script>
+  
+
+  
+  <script type="text/javascript">
+    document.addEventListener("DOMContentLoaded", function() {
+        function copyToClipboard(text) {
+            const textarea = document.createElement('textarea');
+            textarea.value = text;
+            document.body.appendChild(textarea);
+            textarea.select();
+            document.execCommand('copy');
+            document.body.removeChild(textarea);
+        }
+        // Get the code block designator class entries
+        const allHighlights = document.querySelectorAll('.highlight');
+        // Disable copyable links for notebook cell numbering and for cell outputs
+        const highlights = Array.from(allHighlights).filter(highlight => !highlight.closest('.highlight-none') && 
+            !highlight.closest('.nboutput'));
+    
+        highlights.forEach(function(highlight) {
+            const copyIcon = document.createElement('span');
+            copyIcon.classList.add('copy-icon');
+            copyIcon.innerHTML = '&#xf0ea;';
+
+            copyIcon.addEventListener('click', function() {
+                const code = highlight.querySelector('pre').textContent;
+                copyToClipboard(code);
+
+                // Flash effect on click
+                this.style.color = '#0194E2';
+                setTimeout(() => {
+                    this.style.color = ''; 
+                }, 100);
+
+                // Display "Code copied to clipboard" near the clicked icon
+                const message = document.createElement('span');
+                message.textContent = "Copied!";
+                message.classList.add('copy-message'); 
+
+                // Append the message to the icon
+                this.appendChild(message);
+
+                setTimeout(() => {
+                    this.removeChild(message);
+                }, 500);
+            });
+
+            highlight.appendChild(copyIcon);
+        });
+    });
+  </script>
+
+
+<script type="text/javascript">
+    document.addEventListener("DOMContentLoaded", function() {
+        // Force download for notebook-download-btn
+        const downloadButtons = document.querySelectorAll('.notebook-download-btn');
+        downloadButtons.forEach(function(button) {
+            button.addEventListener('click', function(event) {
+                event.preventDefault(); // Prevent default behavior
+
+                // Fetch the raw content of the notebook from GitHub
+                fetch(button.href)
+                    .then(response => response.blob())
+                    .then(blob => {
+                        const url = window.URL.createObjectURL(blob);
+                        const link = document.createElement('a');
+                        link.style.display = 'none';
+                        link.href = url;
+                        const filename = button.href.split('/').pop();
+                        link.download = filename; 
+
+                        document.body.appendChild(link);
+                        link.click();
+
+                        window.URL.revokeObjectURL(url);
+                        document.body.removeChild(link);
+                    })
+                    .catch(err => console.error('Error fetching the notebook:', err));
+            });
+        });
+    });
+</script> 
+</body>
+</html>

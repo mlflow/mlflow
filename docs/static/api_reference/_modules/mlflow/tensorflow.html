@@ -1,0 +1,1793 @@
+
+
+<!DOCTYPE html>
+<!-- source: docs/source/_modules/mlflow/tensorflow -->
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>mlflow.tensorflow</title>
+  
+   
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+  <link rel="canonical" href="https://mlflow.org/docs/latest/_modules/mlflow/tensorflow.html">
+  
+  
+    <link rel="shortcut icon" href="../../_static/favicon.ico"/>
+    
+
+    
+
+  
+    
+
+  
+
+  
+  
+    
+
+  
+
+  
+  
+    <link href="https://fonts.googleapis.com/css?family=Source+Sans+Pro:300,400,600" rel="stylesheet">
+    <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/css/custom.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/css/cards.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/css/grids.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/css/mobile.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/css/simple-cards.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/css/tabs.css" type="text/css" />
+    
+  
+        <link rel="index" title="Index"
+              href="../../genindex.html"/>
+        <link rel="search" title="Search" href="../../search.html"/>
+    <link rel="top" title="MLflow 2.17.1.dev0 documentation" href="../../index.html"/>
+        <link rel="up" title="Module code" href="../index.html"/> 
+
+  
+  <script src="../../_static/js/modernizr.min.js"></script>
+
+</head>
+<script type="text/javascript" src="../../_static/jquery.js"></script>
+<script type="text/javascript" src="../../_static/underscore.js"></script>
+<script type="text/javascript" src="../../_static/doctools.js"></script>
+<script type="text/javascript" src="../../_static/tabs.js"></script>
+<script type="text/javascript" src="../../_static/languagesections.js"></script>
+<script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+<script type="text/javascript" src="../../_static/runllm.js"></script>
+
+<body class="wy-body-for-nav" role="document">
+  
+
+  
+  <nav class="wy-nav-top header" role="navigation" aria-label="top navigation">
+    <ul>
+  <li class="menu-toggle">
+    <i data-toggle="wy-nav-top" class="wy-nav-top-menu-button db-icon db-icon-menu pull-left"></i>
+    <a href="../../index.html" class="wy-nav-top-logo"
+      ><img src="../../_static/MLflow-logo-final-black.png" alt="MLflow"
+    /></a>
+    <span class="version">2.17.1.dev0</span>
+  </li>
+</ul>
+  </nav>
+  <page>
+    
+
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side relative">
+      <div class="wy-side-scroll">
+  <div class="wy-side-nav-search">
+    
+
+    
+
+    
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+  <input type="text" name="q" placeholder="Search" />
+  <input type="hidden" name="check_keywords" value="yes" />
+  <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+
+    
+  </div>
+
+  <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+    
+      <a href="../../index.html" class="main-navigation-home"><img src="../../_static/icons/nav-home.svg"> MLflow</a>
+    
+
+    
+      
+
+      
+        <ul>
+<li class="toctree-l1"><a class="reference internal" href="../../python_api/index.html">Python API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../cli.html">Command-Line Interface</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../R-api.html">R API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../java_api/index.html">Java API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../rest-api.html">REST API</a></li>
+</ul>
+
+      
+    
+  </div>
+
+  <div role="contentinfo">
+    
+
+    <p>
+      <a id='feedbacklink' href="https://github.com/mlflow/mlflow/blob/master/CONTRIBUTING.md" target="_blank">Contribute</a>
+    </p>
+  </div>
+</div>
+    </nav>
+
+    <main class="wy-grid-for-nav">
+      <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+        <div class="wy-nav-content">
+          <div class="rst-content">
+            
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href="../../index.html">Documentation</a> <span class="db-icon db-icon-chevron-right"></span></li>
+    
+        <li><a href="../index.html">Module code</a> <span class="db-icon db-icon-chevron-right"></span></li>
+    
+    
+      <li>mlflow.tensorflow</li>
+    
+    
+    <!-- <li class="wy-breadcrumbs-aside">
+      <a href="https://github.com/mlflow/mlflow/blob/master/docs/source/_modules/mlflow/tensorflow" class="fa fa-github"> Edit on GitHub</a>
+    </li> -->
+    
+  </ul>
+</div>
+            <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+              <div itemprop="articleBody">
+                
+  <h1>Source code for mlflow.tensorflow</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">The ``mlflow.tensorflow`` module provides an API for logging and loading TensorFlow models.</span>
+<span class="sd">This module exports TensorFlow models with the following flavors:</span>
+
+<span class="sd">TensorFlow (native) format</span>
+<span class="sd">    This is the main flavor that can be loaded back into TensorFlow.</span>
+<span class="sd">:py:mod:`mlflow.pyfunc`</span>
+<span class="sd">    Produced for use by generic pyfunc-based deployment tools and batch inference.</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">import</span> <span class="nn">importlib</span>
+<span class="kn">import</span> <span class="nn">logging</span>
+<span class="kn">import</span> <span class="nn">os</span>
+<span class="kn">import</span> <span class="nn">shutil</span>
+<span class="kn">import</span> <span class="nn">tempfile</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">NamedTuple</span><span class="p">,</span> <span class="n">Optional</span>
+
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">pandas</span>
+<span class="kn">import</span> <span class="nn">yaml</span>
+<span class="kn">from</span> <span class="nn">packaging.version</span> <span class="kn">import</span> <span class="n">Version</span>
+
+<span class="kn">import</span> <span class="nn">mlflow</span>
+<span class="kn">from</span> <span class="nn">mlflow</span> <span class="kn">import</span> <span class="n">pyfunc</span>
+<span class="kn">from</span> <span class="nn">mlflow.data.code_dataset_source</span> <span class="kn">import</span> <span class="n">CodeDatasetSource</span>
+<span class="kn">from</span> <span class="nn">mlflow.data.numpy_dataset</span> <span class="kn">import</span> <span class="n">from_numpy</span>
+<span class="kn">from</span> <span class="nn">mlflow.data.tensorflow_dataset</span> <span class="kn">import</span> <span class="n">from_tensorflow</span>
+<span class="kn">from</span> <span class="nn">mlflow.exceptions</span> <span class="kn">import</span> <span class="n">INVALID_PARAMETER_VALUE</span><span class="p">,</span> <span class="n">MlflowException</span>
+<span class="kn">from</span> <span class="nn">mlflow.models</span> <span class="kn">import</span> <span class="n">Model</span><span class="p">,</span> <span class="n">ModelInputExample</span><span class="p">,</span> <span class="n">ModelSignature</span><span class="p">,</span> <span class="n">infer_signature</span>
+<span class="kn">from</span> <span class="nn">mlflow.models.model</span> <span class="kn">import</span> <span class="n">MLMODEL_FILE_NAME</span>
+<span class="kn">from</span> <span class="nn">mlflow.models.signature</span> <span class="kn">import</span> <span class="n">_infer_signature_from_input_example</span>
+<span class="kn">from</span> <span class="nn">mlflow.models.utils</span> <span class="kn">import</span> <span class="n">_save_example</span>
+<span class="kn">from</span> <span class="nn">mlflow.tensorflow.callback</span> <span class="kn">import</span> <span class="n">MlflowCallback</span><span class="p">,</span> <span class="n">MlflowModelCheckpointCallback</span>  <span class="c1"># noqa: F401</span>
+<span class="kn">from</span> <span class="nn">mlflow.tracking._model_registry</span> <span class="kn">import</span> <span class="n">DEFAULT_AWAIT_MAX_SLEEP_SECONDS</span>
+<span class="kn">from</span> <span class="nn">mlflow.tracking.artifact_utils</span> <span class="kn">import</span> <span class="n">_download_artifact_from_uri</span>
+<span class="kn">from</span> <span class="nn">mlflow.tracking.context</span> <span class="kn">import</span> <span class="n">registry</span> <span class="k">as</span> <span class="n">context_registry</span>
+<span class="kn">from</span> <span class="nn">mlflow.tracking.fluent</span> <span class="kn">import</span> <span class="n">_shut_down_async_logging</span>
+<span class="kn">from</span> <span class="nn">mlflow.types.schema</span> <span class="kn">import</span> <span class="n">TensorSpec</span>
+<span class="kn">from</span> <span class="nn">mlflow.utils</span> <span class="kn">import</span> <span class="n">is_iterator</span>
+<span class="kn">from</span> <span class="nn">mlflow.utils.autologging_utils</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">PatchFunction</span><span class="p">,</span>
+    <span class="n">autologging_integration</span><span class="p">,</span>
+    <span class="n">get_autologging_config</span><span class="p">,</span>
+    <span class="n">log_fn_args_as_params</span><span class="p">,</span>
+    <span class="n">picklable_exception_safe_function</span><span class="p">,</span>
+    <span class="n">resolve_input_example_and_signature</span><span class="p">,</span>
+    <span class="n">safe_patch</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">mlflow.utils.checkpoint_utils</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">_WEIGHT_ONLY_CHECKPOINT_SUFFIX</span><span class="p">,</span>
+    <span class="n">download_checkpoint_artifact</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">mlflow.utils.docstring_utils</span> <span class="kn">import</span> <span class="n">LOG_MODEL_PARAM_DOCS</span><span class="p">,</span> <span class="n">format_docstring</span>
+<span class="kn">from</span> <span class="nn">mlflow.utils.environment</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">_CONDA_ENV_FILE_NAME</span><span class="p">,</span>
+    <span class="n">_CONSTRAINTS_FILE_NAME</span><span class="p">,</span>
+    <span class="n">_PYTHON_ENV_FILE_NAME</span><span class="p">,</span>
+    <span class="n">_REQUIREMENTS_FILE_NAME</span><span class="p">,</span>
+    <span class="n">_mlflow_conda_env</span><span class="p">,</span>
+    <span class="n">_process_conda_env</span><span class="p">,</span>
+    <span class="n">_process_pip_requirements</span><span class="p">,</span>
+    <span class="n">_PythonEnv</span><span class="p">,</span>
+    <span class="n">_validate_env_arguments</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">mlflow.utils.file_utils</span> <span class="kn">import</span> <span class="n">TempDir</span><span class="p">,</span> <span class="n">get_total_file_size</span><span class="p">,</span> <span class="n">write_to</span>
+<span class="kn">from</span> <span class="nn">mlflow.utils.model_utils</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">_add_code_from_conf_to_system_path</span><span class="p">,</span>
+    <span class="n">_get_flavor_configuration</span><span class="p">,</span>
+    <span class="n">_validate_and_copy_code_paths</span><span class="p">,</span>
+    <span class="n">_validate_and_prepare_target_save_path</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">mlflow.utils.requirements_utils</span> <span class="kn">import</span> <span class="n">_get_pinned_requirement</span>
+
+<span class="n">FLAVOR_NAME</span> <span class="o">=</span> <span class="s2">&quot;tensorflow&quot;</span>
+
+<span class="n">_logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
+
+<span class="c1"># For tracking if the run was started by autologging.</span>
+<span class="n">_AUTOLOG_RUN_ID</span> <span class="o">=</span> <span class="kc">None</span>
+
+<span class="c1"># File name to which custom objects cloudpickle is saved - used during save and load</span>
+<span class="n">_CUSTOM_OBJECTS_SAVE_PATH</span> <span class="o">=</span> <span class="s2">&quot;custom_objects.cloudpickle&quot;</span>
+<span class="c1"># File name to which custom objects stored in tensorflow _GLOBAL_CUSTOM_OBJECTS</span>
+<span class="c1"># is saved - it is automatically detected and used during save and load</span>
+<span class="n">_GLOBAL_CUSTOM_OBJECTS_SAVE_PATH</span> <span class="o">=</span> <span class="s2">&quot;global_custom_objects.cloudpickle&quot;</span>
+<span class="n">_KERAS_MODULE_SPEC_PATH</span> <span class="o">=</span> <span class="s2">&quot;keras_module.txt&quot;</span>
+<span class="n">_KERAS_SAVE_FORMAT_PATH</span> <span class="o">=</span> <span class="s2">&quot;save_format.txt&quot;</span>
+<span class="c1"># File name to which keras model is saved</span>
+<span class="n">_MODEL_SAVE_PATH</span> <span class="o">=</span> <span class="s2">&quot;model&quot;</span>
+
+
+<span class="n">_MODEL_TYPE_KERAS</span> <span class="o">=</span> <span class="s2">&quot;keras&quot;</span>
+<span class="n">_MODEL_TYPE_TF1_ESTIMATOR</span> <span class="o">=</span> <span class="s2">&quot;tf1-estimator&quot;</span>
+<span class="n">_MODEL_TYPE_TF2_MODULE</span> <span class="o">=</span> <span class="s2">&quot;tf2-module&quot;</span>
+
+
+<span class="n">_KERAS_MODEL_DATA_PATH</span> <span class="o">=</span> <span class="s2">&quot;data&quot;</span>
+<span class="n">_TF2MODEL_SUBPATH</span> <span class="o">=</span> <span class="s2">&quot;tf2model&quot;</span>
+
+
+<span class="n">MLflowCallback</span> <span class="o">=</span> <span class="n">MlflowCallback</span>  <span class="c1"># for backwards compatibility</span>
+
+
+<div class="viewcode-block" id="get_default_pip_requirements"><a class="viewcode-back" href="../../python_api/mlflow.tensorflow.html#mlflow.tensorflow.get_default_pip_requirements">[docs]</a><span class="k">def</span> <span class="nf">get_default_pip_requirements</span><span class="p">(</span><span class="n">include_cloudpickle</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Returns</span>
+<span class="sd">        A list of default pip requirements for MLflow Models produced by this flavor.</span>
+<span class="sd">        Calls to :func:`save_model()` and :func:`log_model()` produce a pip environment</span>
+<span class="sd">        that, at minimum, contains these requirements.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">pip_deps</span> <span class="o">=</span> <span class="p">[</span><span class="n">_get_pinned_requirement</span><span class="p">(</span><span class="s2">&quot;tensorflow&quot;</span><span class="p">)]</span>
+    <span class="k">if</span> <span class="n">include_cloudpickle</span><span class="p">:</span>
+        <span class="n">pip_deps</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">_get_pinned_requirement</span><span class="p">(</span><span class="s2">&quot;cloudpickle&quot;</span><span class="p">))</span>
+
+    <span class="k">return</span> <span class="n">pip_deps</span></div>
+
+
+<div class="viewcode-block" id="get_default_conda_env"><a class="viewcode-back" href="../../python_api/mlflow.tensorflow.html#mlflow.tensorflow.get_default_conda_env">[docs]</a><span class="k">def</span> <span class="nf">get_default_conda_env</span><span class="p">():</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Returns:</span>
+<span class="sd">        The default Conda environment for MLflow Models produced by calls to</span>
+<span class="sd">        :func:`save_model()` and :func:`log_model()`.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">_mlflow_conda_env</span><span class="p">(</span><span class="n">additional_pip_deps</span><span class="o">=</span><span class="n">get_default_pip_requirements</span><span class="p">())</span></div>
+
+
+<div class="viewcode-block" id="get_global_custom_objects"><a class="viewcode-back" href="../../python_api/mlflow.tensorflow.html#mlflow.tensorflow.get_global_custom_objects">[docs]</a><span class="k">def</span> <span class="nf">get_global_custom_objects</span><span class="p">():</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Returns:</span>
+<span class="sd">        A live reference to the global dictionary of custom objects.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="kn">from</span> <span class="nn">tensorflow.keras.saving</span> <span class="kn">import</span> <span class="n">get_custom_objects</span>
+
+        <span class="k">return</span> <span class="n">get_custom_objects</span><span class="p">()</span>
+    <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+        <span class="k">pass</span></div>
+
+
+<div class="viewcode-block" id="log_model"><a class="viewcode-back" href="../../python_api/mlflow.tensorflow.html#mlflow.tensorflow.log_model">[docs]</a><span class="nd">@format_docstring</span><span class="p">(</span><span class="n">LOG_MODEL_PARAM_DOCS</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">package_name</span><span class="o">=</span><span class="n">FLAVOR_NAME</span><span class="p">))</span>
+<span class="k">def</span> <span class="nf">log_model</span><span class="p">(</span>
+    <span class="n">model</span><span class="p">,</span>
+    <span class="n">artifact_path</span><span class="p">,</span>
+    <span class="n">custom_objects</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">conda_env</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">code_paths</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">signature</span><span class="p">:</span> <span class="n">ModelSignature</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">input_example</span><span class="p">:</span> <span class="n">ModelInputExample</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">registered_model_name</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">await_registration_for</span><span class="o">=</span><span class="n">DEFAULT_AWAIT_MAX_SLEEP_SECONDS</span><span class="p">,</span>
+    <span class="n">pip_requirements</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">extra_pip_requirements</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">saved_model_kwargs</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">keras_model_kwargs</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">metadata</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+<span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Log a TF2 core model (inheriting tf.Module) or a Keras model in MLflow Model format.</span>
+
+<span class="sd">    .. note::</span>
+
+<span class="sd">        If you log a Keras or TensorFlow model without a signature, inference with</span>
+<span class="sd">        :py:func:`mlflow.pyfunc.spark_udf()` will not work unless the model&#39;s pyfunc</span>
+<span class="sd">        representation accepts pandas DataFrames as inference inputs.</span>
+
+<span class="sd">        You can infer a model&#39;s signature by calling the :py:func:`mlflow.models.infer_signature()`</span>
+<span class="sd">        API on features from the model&#39;s test dataset. You can also manually create a model</span>
+<span class="sd">        signature, for example:</span>
+
+<span class="sd">        .. code-block:: python</span>
+<span class="sd">            :caption: Example of creating signature for saving TensorFlow and `tf.Keras` models</span>
+
+<span class="sd">            from mlflow.types.schema import Schema, TensorSpec</span>
+<span class="sd">            from mlflow.models import ModelSignature</span>
+<span class="sd">            import numpy as np</span>
+
+<span class="sd">            input_schema = Schema(</span>
+<span class="sd">                [</span>
+<span class="sd">                    TensorSpec(np.dtype(np.uint64), (-1, 5), &quot;field1&quot;),</span>
+<span class="sd">                    TensorSpec(np.dtype(np.float32), (-1, 3, 2), &quot;field2&quot;),</span>
+<span class="sd">                ]</span>
+<span class="sd">            )</span>
+<span class="sd">            # Create the signature for a model that requires 2 inputs:</span>
+<span class="sd">            #  - Input with name &quot;field1&quot;, shape (-1, 5), type &quot;np.uint64&quot;</span>
+<span class="sd">            #  - Input with name &quot;field2&quot;, shape (-1, 3, 2), type &quot;np.float32&quot;</span>
+<span class="sd">            signature = ModelSignature(inputs=input_schema)</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        model: The TF2 core model (inheriting tf.Module) or Keras model to be saved.</span>
+<span class="sd">        artifact_path: The run-relative path to which to log model artifacts.</span>
+<span class="sd">        custom_objects: A Keras ``custom_objects`` dictionary mapping names (strings) to</span>
+<span class="sd">            custom classes or functions associated with the Keras model. MLflow saves</span>
+<span class="sd">            these custom layers using CloudPickle and restores them automatically</span>
+<span class="sd">            when the model is loaded with :py:func:`mlflow.tensorflow.load_model` and</span>
+<span class="sd">            :py:func:`mlflow.pyfunc.load_model`.</span>
+<span class="sd">        conda_env: {{ conda_env }}</span>
+<span class="sd">        code_paths: {{ code_paths }}</span>
+<span class="sd">        signature: {{ signature }}</span>
+<span class="sd">        input_example: {{ input_example }}</span>
+<span class="sd">        registered_model_name: If given, create a model version under</span>
+<span class="sd">            ``registered_model_name``, also creating a registered model if one</span>
+<span class="sd">            with the given name does not exist.</span>
+<span class="sd">        await_registration_for: Number of seconds to wait for the model version to finish</span>
+<span class="sd">            being created and is in ``READY`` status. By default, the function</span>
+<span class="sd">            waits for five minutes. Specify 0 or None to skip waiting.</span>
+<span class="sd">        pip_requirements: {{ pip_requirements }}</span>
+<span class="sd">        extra_pip_requirements: {{ extra_pip_requirements }}</span>
+<span class="sd">        saved_model_kwargs: a dict of kwargs to pass to ``tensorflow.saved_model.save`` method.</span>
+<span class="sd">        keras_model_kwargs: a dict of kwargs to pass to ``keras_model.save`` method.</span>
+<span class="sd">        metadata: {{ metadata }}</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">        A :py:class:`ModelInfo &lt;mlflow.models.model.ModelInfo&gt;` instance that contains the</span>
+<span class="sd">        metadata of the logged model.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">return</span> <span class="n">Model</span><span class="o">.</span><span class="n">log</span><span class="p">(</span>
+        <span class="n">artifact_path</span><span class="o">=</span><span class="n">artifact_path</span><span class="p">,</span>
+        <span class="n">flavor</span><span class="o">=</span><span class="n">mlflow</span><span class="o">.</span><span class="n">tensorflow</span><span class="p">,</span>
+        <span class="n">model</span><span class="o">=</span><span class="n">model</span><span class="p">,</span>
+        <span class="n">conda_env</span><span class="o">=</span><span class="n">conda_env</span><span class="p">,</span>
+        <span class="n">code_paths</span><span class="o">=</span><span class="n">code_paths</span><span class="p">,</span>
+        <span class="n">custom_objects</span><span class="o">=</span><span class="n">custom_objects</span><span class="p">,</span>
+        <span class="n">registered_model_name</span><span class="o">=</span><span class="n">registered_model_name</span><span class="p">,</span>
+        <span class="n">signature</span><span class="o">=</span><span class="n">signature</span><span class="p">,</span>
+        <span class="n">input_example</span><span class="o">=</span><span class="n">input_example</span><span class="p">,</span>
+        <span class="n">await_registration_for</span><span class="o">=</span><span class="n">await_registration_for</span><span class="p">,</span>
+        <span class="n">pip_requirements</span><span class="o">=</span><span class="n">pip_requirements</span><span class="p">,</span>
+        <span class="n">extra_pip_requirements</span><span class="o">=</span><span class="n">extra_pip_requirements</span><span class="p">,</span>
+        <span class="n">saved_model_kwargs</span><span class="o">=</span><span class="n">saved_model_kwargs</span><span class="p">,</span>
+        <span class="n">keras_model_kwargs</span><span class="o">=</span><span class="n">keras_model_kwargs</span><span class="p">,</span>
+        <span class="n">metadata</span><span class="o">=</span><span class="n">metadata</span><span class="p">,</span>
+    <span class="p">)</span></div>
+
+
+<span class="k">def</span> <span class="nf">_save_keras_custom_objects</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">custom_objects</span><span class="p">,</span> <span class="n">file_name</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Save custom objects dictionary to a cloudpickle file so a model can be easily loaded later.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        path: An absolute path that points to the data directory within /path/to/model.</span>
+<span class="sd">        custom_objects: Keras ``custom_objects`` is a dictionary mapping</span>
+<span class="sd">            names (strings) to custom classes or functions to be considered</span>
+<span class="sd">            during deserialization. MLflow saves these custom layers using</span>
+<span class="sd">            CloudPickle and restores them automatically when the model is</span>
+<span class="sd">            loaded with :py:func:`mlflow.keras.load_model` and</span>
+<span class="sd">            :py:func:`mlflow.pyfunc.load_model`.</span>
+<span class="sd">        file_name: The file name to save the custom objects to.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="kn">import</span> <span class="nn">cloudpickle</span>
+
+    <span class="n">custom_objects_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">file_name</span><span class="p">)</span>
+    <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">custom_objects_path</span><span class="p">,</span> <span class="s2">&quot;wb&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">out_f</span><span class="p">:</span>
+        <span class="n">cloudpickle</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">custom_objects</span><span class="p">,</span> <span class="n">out_f</span><span class="p">)</span>
+
+
+<span class="n">_NO_MODEL_SIGNATURE_WARNING</span> <span class="o">=</span> <span class="p">(</span>
+    <span class="s2">&quot;You are saving a TensorFlow Core model or Keras model &quot;</span>
+    <span class="s2">&quot;without a signature. Inference with mlflow.pyfunc.spark_udf() will not work &quot;</span>
+    <span class="s2">&quot;unless the model&#39;s pyfunc representation accepts pandas DataFrames as &quot;</span>
+    <span class="s2">&quot;inference inputs.&quot;</span>
+<span class="p">)</span>
+
+
+<div class="viewcode-block" id="save_model"><a class="viewcode-back" href="../../python_api/mlflow.tensorflow.html#mlflow.tensorflow.save_model">[docs]</a><span class="nd">@format_docstring</span><span class="p">(</span><span class="n">LOG_MODEL_PARAM_DOCS</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">package_name</span><span class="o">=</span><span class="n">FLAVOR_NAME</span><span class="p">))</span>
+<span class="k">def</span> <span class="nf">save_model</span><span class="p">(</span>
+    <span class="n">model</span><span class="p">,</span>
+    <span class="n">path</span><span class="p">,</span>
+    <span class="n">conda_env</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">code_paths</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">mlflow_model</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">custom_objects</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">signature</span><span class="p">:</span> <span class="n">ModelSignature</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">input_example</span><span class="p">:</span> <span class="n">ModelInputExample</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">pip_requirements</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">extra_pip_requirements</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">saved_model_kwargs</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">keras_model_kwargs</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">metadata</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+<span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Save a TF2 core model (inheriting tf.Module) or Keras model in MLflow Model format to a path on</span>
+<span class="sd">    the local file system.</span>
+
+<span class="sd">    .. note::</span>
+<span class="sd">        If you save a Keras or TensorFlow model without a signature, inference with</span>
+<span class="sd">        :py:func:`mlflow.pyfunc.spark_udf()` will not work unless the model&#39;s pyfunc</span>
+<span class="sd">        representation accepts pandas DataFrames as inference inputs.</span>
+<span class="sd">        You can infer a model&#39;s signature by calling the :py:func:`mlflow.models.infer_signature()`</span>
+<span class="sd">        API on features from the model&#39;s test dataset. You can also manually create a model</span>
+<span class="sd">        signature, for example:</span>
+
+<span class="sd">        .. code-block:: python</span>
+<span class="sd">            :caption: Example of creating signature for saving TensorFlow and `tf.Keras` models</span>
+
+<span class="sd">            from mlflow.types.schema import Schema, TensorSpec</span>
+<span class="sd">            from mlflow.models import ModelSignature</span>
+<span class="sd">            import numpy as np</span>
+
+<span class="sd">            input_schema = Schema(</span>
+<span class="sd">                [</span>
+<span class="sd">                    TensorSpec(np.dtype(np.uint64), (-1, 5), &quot;field1&quot;),</span>
+<span class="sd">                    TensorSpec(np.dtype(np.float32), (-1, 3, 2), &quot;field2&quot;),</span>
+<span class="sd">                ]</span>
+<span class="sd">            )</span>
+<span class="sd">            # Create the signature for a model that requires 2 inputs:</span>
+<span class="sd">            #  - Input with name &quot;field1&quot;, shape (-1, 5), type &quot;np.uint64&quot;</span>
+<span class="sd">            #  - Input with name &quot;field2&quot;, shape (-1, 3, 2), type &quot;np.float32&quot;</span>
+<span class="sd">            signature = ModelSignature(inputs=input_schema)</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        model: The Keras model or Tensorflow module to be saved.</span>
+<span class="sd">        path: Local path where the MLflow model is to be saved.</span>
+<span class="sd">        conda_env: {{ conda_env }}</span>
+<span class="sd">        code_paths: {{ code_paths }}</span>
+<span class="sd">        mlflow_model: MLflow model configuration to which to add the ``tensorflow`` flavor.</span>
+<span class="sd">        custom_objects: A Keras ``custom_objects`` dictionary mapping names (strings) to</span>
+<span class="sd">            custom classes or functions associated with the Keras model. MLflow saves</span>
+<span class="sd">            these custom layers using CloudPickle and restores them automatically</span>
+<span class="sd">            when the model is loaded with :py:func:`mlflow.tensorflow.load_model` and</span>
+<span class="sd">            :py:func:`mlflow.pyfunc.load_model`.</span>
+<span class="sd">        signature: {{ signature }}</span>
+<span class="sd">        input_example: {{ input_example }}</span>
+<span class="sd">        pip_requirements: {{ pip_requirements }}</span>
+<span class="sd">        extra_pip_requirements: {{ extra_pip_requirements }}</span>
+<span class="sd">        saved_model_kwargs: a dict of kwargs to pass to ``tensorflow.saved_model.save`` method</span>
+<span class="sd">            if the model to be saved is a Tensorflow module.</span>
+<span class="sd">        keras_model_kwargs: a dict of kwargs to pass to ``model.save`` method if the model</span>
+<span class="sd">            to be saved is a keras model.</span>
+<span class="sd">        metadata: {{ metadata }}</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="kn">import</span> <span class="nn">tensorflow</span> <span class="k">as</span> <span class="nn">tf</span>
+    <span class="kn">from</span> <span class="nn">tensorflow.keras.models</span> <span class="kn">import</span> <span class="n">Model</span> <span class="k">as</span> <span class="n">KerasModel</span>
+
+    <span class="c1"># check if path exists</span>
+    <span class="n">path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
+    <span class="n">_validate_and_prepare_target_save_path</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
+
+    <span class="n">code_dir_subpath</span> <span class="o">=</span> <span class="n">_validate_and_copy_code_paths</span><span class="p">(</span><span class="n">code_paths</span><span class="p">,</span> <span class="n">path</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">mlflow_model</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">mlflow_model</span> <span class="o">=</span> <span class="n">Model</span><span class="p">()</span>
+    <span class="n">saved_example</span> <span class="o">=</span> <span class="n">_save_example</span><span class="p">(</span><span class="n">mlflow_model</span><span class="p">,</span> <span class="n">input_example</span><span class="p">,</span> <span class="n">path</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">signature</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">saved_example</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">wrapped_model</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">KerasModel</span><span class="p">):</span>
+            <span class="n">wrapped_model</span> <span class="o">=</span> <span class="n">_KerasModelWrapper</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">signature</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">tf</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
+            <span class="n">wrapped_model</span> <span class="o">=</span> <span class="n">_TF2ModuleWrapper</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">signature</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">wrapped_model</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">signature</span> <span class="o">=</span> <span class="n">_infer_signature_from_input_example</span><span class="p">(</span><span class="n">saved_example</span><span class="p">,</span> <span class="n">wrapped_model</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="n">signature</span> <span class="ow">is</span> <span class="kc">False</span><span class="p">:</span>
+        <span class="n">signature</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="k">if</span> <span class="n">signature</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">_logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="n">_NO_MODEL_SIGNATURE_WARNING</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">num_inputs</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">signature</span><span class="o">.</span><span class="n">inputs</span><span class="o">.</span><span class="n">inputs</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">num_inputs</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">MlflowException</span><span class="p">(</span>
+                <span class="s2">&quot;The model signature&#39;s input schema must contain at least one field.&quot;</span><span class="p">,</span>
+                <span class="n">error_code</span><span class="o">=</span><span class="n">INVALID_PARAMETER_VALUE</span><span class="p">,</span>
+            <span class="p">)</span>
+        <span class="k">for</span> <span class="n">field</span> <span class="ow">in</span> <span class="n">signature</span><span class="o">.</span><span class="n">inputs</span><span class="o">.</span><span class="n">inputs</span><span class="p">:</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">field</span><span class="p">,</span> <span class="n">TensorSpec</span><span class="p">):</span>
+                <span class="k">raise</span> <span class="n">MlflowException</span><span class="p">(</span>
+                    <span class="s2">&quot;All fields in the model signature&#39;s input schema must be of type TensorSpec.&quot;</span><span class="p">,</span>
+                    <span class="n">error_code</span><span class="o">=</span><span class="n">INVALID_PARAMETER_VALUE</span><span class="p">,</span>
+                <span class="p">)</span>
+            <span class="k">if</span> <span class="n">field</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">!=</span> <span class="o">-</span><span class="mi">1</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="n">MlflowException</span><span class="p">(</span>
+                    <span class="s2">&quot;All fields in the model signature&#39;s input schema must have a shape &quot;</span>
+                    <span class="s2">&quot;in which the first dimension is a variable dimension.&quot;</span><span class="p">,</span>
+                    <span class="n">error_code</span><span class="o">=</span><span class="n">INVALID_PARAMETER_VALUE</span><span class="p">,</span>
+                <span class="p">)</span>
+
+    <span class="n">_validate_env_arguments</span><span class="p">(</span><span class="n">conda_env</span><span class="p">,</span> <span class="n">pip_requirements</span><span class="p">,</span> <span class="n">extra_pip_requirements</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">signature</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">mlflow_model</span><span class="o">.</span><span class="n">signature</span> <span class="o">=</span> <span class="n">signature</span>
+    <span class="k">if</span> <span class="n">metadata</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">mlflow_model</span><span class="o">.</span><span class="n">metadata</span> <span class="o">=</span> <span class="n">metadata</span>
+
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">KerasModel</span><span class="p">):</span>
+        <span class="n">keras_model_kwargs</span> <span class="o">=</span> <span class="n">keras_model_kwargs</span> <span class="ow">or</span> <span class="p">{}</span>
+
+        <span class="n">data_subpath</span> <span class="o">=</span> <span class="n">_KERAS_MODEL_DATA_PATH</span>
+        <span class="c1"># construct new data folder in existing path</span>
+        <span class="n">data_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">data_subpath</span><span class="p">)</span>
+        <span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="n">data_path</span><span class="p">)</span>
+        <span class="n">model_subpath</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">data_subpath</span><span class="p">,</span> <span class="n">_MODEL_SAVE_PATH</span><span class="p">)</span>
+
+        <span class="n">keras_module</span> <span class="o">=</span> <span class="n">importlib</span><span class="o">.</span><span class="n">import_module</span><span class="p">(</span><span class="s2">&quot;tensorflow.keras&quot;</span><span class="p">)</span>
+        <span class="c1"># save custom objects if there are custom objects</span>
+        <span class="k">if</span> <span class="n">custom_objects</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">_save_keras_custom_objects</span><span class="p">(</span><span class="n">data_path</span><span class="p">,</span> <span class="n">custom_objects</span><span class="p">,</span> <span class="n">_CUSTOM_OBJECTS_SAVE_PATH</span><span class="p">)</span>
+        <span class="c1"># save custom objects stored within _GLOBAL_CUSTOM_OBJECTS</span>
+        <span class="k">if</span> <span class="n">global_custom_objects</span> <span class="o">:=</span> <span class="n">get_global_custom_objects</span><span class="p">():</span>
+            <span class="n">_save_keras_custom_objects</span><span class="p">(</span>
+                <span class="n">data_path</span><span class="p">,</span> <span class="n">global_custom_objects</span><span class="p">,</span> <span class="n">_GLOBAL_CUSTOM_OBJECTS_SAVE_PATH</span>
+            <span class="p">)</span>
+
+        <span class="c1"># save keras module spec to path/data/keras_module.txt</span>
+        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">data_path</span><span class="p">,</span> <span class="n">_KERAS_MODULE_SPEC_PATH</span><span class="p">),</span> <span class="s2">&quot;w&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+            <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">keras_module</span><span class="o">.</span><span class="vm">__name__</span><span class="p">)</span>
+
+        <span class="c1"># Use the SavedModel format if `save_format` is unspecified</span>
+        <span class="n">save_format</span> <span class="o">=</span> <span class="n">keras_model_kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;save_format&quot;</span><span class="p">,</span> <span class="s2">&quot;tf&quot;</span><span class="p">)</span>
+
+        <span class="c1"># save keras save_format to path/data/save_format.txt</span>
+        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">data_path</span><span class="p">,</span> <span class="n">_KERAS_SAVE_FORMAT_PATH</span><span class="p">),</span> <span class="s2">&quot;w&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+            <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">save_format</span><span class="p">)</span>
+
+        <span class="c1"># save keras model</span>
+        <span class="c1"># To maintain prior behavior, when the format is HDF5, we save</span>
+        <span class="c1"># with the h5 file extension. Otherwise, model_path is a directory</span>
+        <span class="c1"># where the saved_model.pb will be stored (for SavedModel format)</span>
+        <span class="c1"># For tensorflow 2.16.0 (including dev version),</span>
+        <span class="c1"># it only supports saving model in .h5 or .keras format</span>
+        <span class="k">if</span> <span class="n">save_format</span> <span class="o">==</span> <span class="s2">&quot;h5&quot;</span><span class="p">:</span>
+            <span class="n">file_extension</span> <span class="o">=</span> <span class="s2">&quot;.h5&quot;</span>
+        <span class="k">elif</span> <span class="n">Version</span><span class="p">(</span><span class="n">tf</span><span class="o">.</span><span class="n">__version__</span><span class="p">)</span><span class="o">.</span><span class="n">release</span> <span class="o">&gt;=</span> <span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">16</span><span class="p">):</span>
+            <span class="n">file_extension</span> <span class="o">=</span> <span class="s2">&quot;.keras&quot;</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">file_extension</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span>
+        <span class="n">model_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">model_subpath</span><span class="p">)</span> <span class="o">+</span> <span class="n">file_extension</span>
+        <span class="k">if</span> <span class="n">path</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;/dbfs/&quot;</span><span class="p">):</span>
+            <span class="c1"># The Databricks Filesystem uses a FUSE implementation that does not support</span>
+            <span class="c1"># random writes. It causes an error.</span>
+            <span class="k">with</span> <span class="n">tempfile</span><span class="o">.</span><span class="n">NamedTemporaryFile</span><span class="p">(</span><span class="n">suffix</span><span class="o">=</span><span class="s2">&quot;.h5&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+                <span class="n">model</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="n">f</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="o">**</span><span class="n">keras_model_kwargs</span><span class="p">)</span>
+                <span class="n">f</span><span class="o">.</span><span class="n">flush</span><span class="p">()</span>  <span class="c1"># force flush the data</span>
+                <span class="n">shutil</span><span class="o">.</span><span class="n">copy2</span><span class="p">(</span><span class="n">src</span><span class="o">=</span><span class="n">f</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="n">dst</span><span class="o">=</span><span class="n">model_path</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">model</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="n">model_path</span><span class="p">,</span> <span class="o">**</span><span class="n">keras_model_kwargs</span><span class="p">)</span>
+
+        <span class="n">pyfunc_options</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s2">&quot;data&quot;</span><span class="p">:</span> <span class="n">data_subpath</span><span class="p">,</span>
+        <span class="p">}</span>
+
+        <span class="n">flavor_options</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="o">**</span><span class="n">pyfunc_options</span><span class="p">,</span>
+            <span class="s2">&quot;model_type&quot;</span><span class="p">:</span> <span class="n">_MODEL_TYPE_KERAS</span><span class="p">,</span>
+            <span class="s2">&quot;keras_version&quot;</span><span class="p">:</span> <span class="n">tf</span><span class="o">.</span><span class="n">__version__</span><span class="p">,</span>
+            <span class="s2">&quot;save_format&quot;</span><span class="p">:</span> <span class="n">save_format</span><span class="p">,</span>
+        <span class="p">}</span>
+    <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">tf</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
+        <span class="n">saved_model_kwargs</span> <span class="o">=</span> <span class="n">saved_model_kwargs</span> <span class="ow">or</span> <span class="p">{}</span>
+        <span class="n">model_dir_subpath</span> <span class="o">=</span> <span class="n">_TF2MODEL_SUBPATH</span>
+        <span class="n">model_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">model_dir_subpath</span><span class="p">)</span>
+        <span class="n">tf</span><span class="o">.</span><span class="n">saved_model</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">model_path</span><span class="p">,</span> <span class="o">**</span><span class="n">saved_model_kwargs</span><span class="p">)</span>
+        <span class="n">pyfunc_options</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="n">flavor_options</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s2">&quot;saved_model_dir&quot;</span><span class="p">:</span> <span class="n">model_dir_subpath</span><span class="p">,</span>
+            <span class="s2">&quot;model_type&quot;</span><span class="p">:</span> <span class="n">_MODEL_TYPE_TF2_MODULE</span><span class="p">,</span>
+        <span class="p">}</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="n">MlflowException</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unknown model type: </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">model</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+    <span class="c1"># update flavor info to mlflow_model</span>
+    <span class="n">mlflow_model</span><span class="o">.</span><span class="n">add_flavor</span><span class="p">(</span><span class="n">FLAVOR_NAME</span><span class="p">,</span> <span class="n">code</span><span class="o">=</span><span class="n">code_dir_subpath</span><span class="p">,</span> <span class="o">**</span><span class="n">flavor_options</span><span class="p">)</span>
+
+    <span class="c1"># append loader_module, data and env data to mlflow_model</span>
+    <span class="n">pyfunc</span><span class="o">.</span><span class="n">add_to_model</span><span class="p">(</span>
+        <span class="n">mlflow_model</span><span class="p">,</span>
+        <span class="n">loader_module</span><span class="o">=</span><span class="s2">&quot;mlflow.tensorflow&quot;</span><span class="p">,</span>
+        <span class="n">conda_env</span><span class="o">=</span><span class="n">_CONDA_ENV_FILE_NAME</span><span class="p">,</span>
+        <span class="n">python_env</span><span class="o">=</span><span class="n">_PYTHON_ENV_FILE_NAME</span><span class="p">,</span>
+        <span class="n">code</span><span class="o">=</span><span class="n">code_dir_subpath</span><span class="p">,</span>
+        <span class="o">**</span><span class="n">pyfunc_options</span><span class="p">,</span>
+    <span class="p">)</span>
+
+    <span class="c1"># add model file size to mlflow_model</span>
+    <span class="k">if</span> <span class="n">size</span> <span class="o">:=</span> <span class="n">get_total_file_size</span><span class="p">(</span><span class="n">path</span><span class="p">):</span>
+        <span class="n">mlflow_model</span><span class="o">.</span><span class="n">model_size_bytes</span> <span class="o">=</span> <span class="n">size</span>
+
+    <span class="c1"># save mlflow_model to path/MLmodel</span>
+    <span class="n">mlflow_model</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">MLMODEL_FILE_NAME</span><span class="p">))</span>
+
+    <span class="n">include_cloudpickle</span> <span class="o">=</span> <span class="n">custom_objects</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">get_global_custom_objects</span><span class="p">()</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+    <span class="k">if</span> <span class="n">conda_env</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">pip_requirements</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">default_reqs</span> <span class="o">=</span> <span class="n">get_default_pip_requirements</span><span class="p">(</span><span class="n">include_cloudpickle</span><span class="p">)</span>
+            <span class="c1"># To ensure `_load_pyfunc` can successfully load the model during the dependency</span>
+            <span class="c1"># inference, `mlflow_model.save` must be called beforehand to save an MLmodel file.</span>
+            <span class="n">inferred_reqs</span> <span class="o">=</span> <span class="n">mlflow</span><span class="o">.</span><span class="n">models</span><span class="o">.</span><span class="n">infer_pip_requirements</span><span class="p">(</span>
+                <span class="n">path</span><span class="p">,</span> <span class="n">FLAVOR_NAME</span><span class="p">,</span> <span class="n">fallback</span><span class="o">=</span><span class="n">default_reqs</span>
+            <span class="p">)</span>
+            <span class="n">default_reqs</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">inferred_reqs</span><span class="p">)</span><span class="o">.</span><span class="n">union</span><span class="p">(</span><span class="n">default_reqs</span><span class="p">))</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">default_reqs</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="n">conda_env</span><span class="p">,</span> <span class="n">pip_requirements</span><span class="p">,</span> <span class="n">pip_constraints</span> <span class="o">=</span> <span class="n">_process_pip_requirements</span><span class="p">(</span>
+            <span class="n">default_reqs</span><span class="p">,</span>
+            <span class="n">pip_requirements</span><span class="p">,</span>
+            <span class="n">extra_pip_requirements</span><span class="p">,</span>
+        <span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">conda_env</span><span class="p">,</span> <span class="n">pip_requirements</span><span class="p">,</span> <span class="n">pip_constraints</span> <span class="o">=</span> <span class="n">_process_conda_env</span><span class="p">(</span><span class="n">conda_env</span><span class="p">)</span>
+
+    <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">_CONDA_ENV_FILE_NAME</span><span class="p">),</span> <span class="s2">&quot;w&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+        <span class="n">yaml</span><span class="o">.</span><span class="n">safe_dump</span><span class="p">(</span><span class="n">conda_env</span><span class="p">,</span> <span class="n">stream</span><span class="o">=</span><span class="n">f</span><span class="p">,</span> <span class="n">default_flow_style</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+
+    <span class="c1"># Save `constraints.txt` if necessary</span>
+    <span class="k">if</span> <span class="n">pip_constraints</span><span class="p">:</span>
+        <span class="n">write_to</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">_CONSTRAINTS_FILE_NAME</span><span class="p">),</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">pip_constraints</span><span class="p">))</span>
+
+    <span class="c1"># Save `requirements.txt`</span>
+    <span class="n">write_to</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">_REQUIREMENTS_FILE_NAME</span><span class="p">),</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">pip_requirements</span><span class="p">))</span>
+
+    <span class="n">_PythonEnv</span><span class="o">.</span><span class="n">current</span><span class="p">()</span><span class="o">.</span><span class="n">to_yaml</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">_PYTHON_ENV_FILE_NAME</span><span class="p">))</span></div>
+
+
+<span class="k">def</span> <span class="nf">_load_custom_objects</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">file_name</span><span class="p">):</span>
+    <span class="n">custom_objects_path</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">isdir</span><span class="p">(</span><span class="n">path</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">isfile</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">file_name</span><span class="p">)):</span>
+            <span class="n">custom_objects_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">file_name</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">custom_objects_path</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="kn">import</span> <span class="nn">cloudpickle</span>
+
+        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">custom_objects_path</span><span class="p">,</span> <span class="s2">&quot;rb&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">cloudpickle</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
+
+
+<span class="k">def</span> <span class="nf">_load_keras_model</span><span class="p">(</span><span class="n">model_path</span><span class="p">,</span> <span class="n">keras_module</span><span class="p">,</span> <span class="n">save_format</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+    <span class="n">keras_models</span> <span class="o">=</span> <span class="n">importlib</span><span class="o">.</span><span class="n">import_module</span><span class="p">(</span><span class="n">keras_module</span><span class="o">.</span><span class="vm">__name__</span> <span class="o">+</span> <span class="s2">&quot;.models&quot;</span><span class="p">)</span>
+    <span class="n">custom_objects</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s2">&quot;custom_objects&quot;</span><span class="p">,</span> <span class="p">{})</span>
+    <span class="k">if</span> <span class="n">saved_custom_objects</span> <span class="o">:=</span> <span class="n">_load_custom_objects</span><span class="p">(</span><span class="n">model_path</span><span class="p">,</span> <span class="n">_CUSTOM_OBJECTS_SAVE_PATH</span><span class="p">):</span>
+        <span class="n">saved_custom_objects</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">custom_objects</span><span class="p">)</span>
+        <span class="n">custom_objects</span> <span class="o">=</span> <span class="n">saved_custom_objects</span>
+
+    <span class="k">if</span> <span class="n">global_custom_objects</span> <span class="o">:=</span> <span class="n">_load_custom_objects</span><span class="p">(</span><span class="n">model_path</span><span class="p">,</span> <span class="n">_GLOBAL_CUSTOM_OBJECTS_SAVE_PATH</span><span class="p">):</span>
+        <span class="n">global_custom_objects</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">custom_objects</span><span class="p">)</span>
+        <span class="n">custom_objects</span> <span class="o">=</span> <span class="n">global_custom_objects</span>
+
+    <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">isdir</span><span class="p">(</span><span class="n">model_path</span><span class="p">):</span>
+        <span class="n">model_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">model_path</span><span class="p">,</span> <span class="n">_MODEL_SAVE_PATH</span><span class="p">)</span>
+
+    <span class="c1"># If the save_format is HDF5, then we save with h5 file</span>
+    <span class="c1"># extension to align with prior behavior of mlflow logging</span>
+    <span class="k">if</span> <span class="n">save_format</span> <span class="o">==</span> <span class="s2">&quot;h5&quot;</span><span class="p">:</span>
+        <span class="n">model_path</span> <span class="o">+=</span> <span class="s2">&quot;.h5&quot;</span>
+    <span class="c1"># Since TF 2.16.0, it only supports saving model in .h5 or .keras format.</span>
+    <span class="c1"># But for backwards compatibility, we still save model without suffix</span>
+    <span class="c1"># for older versions of TF.</span>
+    <span class="k">elif</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">model_path</span> <span class="o">+</span> <span class="s2">&quot;.keras&quot;</span><span class="p">):</span>
+        <span class="n">model_path</span> <span class="o">+=</span> <span class="s2">&quot;.keras&quot;</span>
+
+    <span class="kn">import</span> <span class="nn">tensorflow</span> <span class="k">as</span> <span class="nn">tf</span>
+
+    <span class="c1"># Using naive tuple-based comparison here rather than packaging.version.Version, because</span>
+    <span class="c1"># the latter consider dev version e.g. 2.16.0.dev2023010 as ahead of 2.16. While that is</span>
+    <span class="c1"># &#39;correct&#39;, we rather want to treat it is a part of 2.16 here.</span>
+    <span class="k">if</span> <span class="n">save_format</span> <span class="o">==</span> <span class="s2">&quot;h5&quot;</span> <span class="ow">and</span> <span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">)</span> <span class="o">&lt;=</span> <span class="n">Version</span><span class="p">(</span><span class="n">tf</span><span class="o">.</span><span class="n">__version__</span><span class="p">)</span><span class="o">.</span><span class="n">release</span> <span class="o">&lt;</span> <span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">16</span><span class="p">):</span>
+        <span class="c1"># NOTE: TF 2.2.3 does not work with unicode paths in python2. Pass in h5py.File instead</span>
+        <span class="c1"># of string to avoid issues.</span>
+        <span class="kn">import</span> <span class="nn">h5py</span>
+
+        <span class="k">with</span> <span class="n">h5py</span><span class="o">.</span><span class="n">File</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="n">model_path</span><span class="p">),</span> <span class="s2">&quot;r&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">model_path</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">keras_models</span><span class="o">.</span><span class="n">load_model</span><span class="p">(</span><span class="n">model_path</span><span class="p">,</span> <span class="n">custom_objects</span><span class="o">=</span><span class="n">custom_objects</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="c1"># NOTE: Older versions of Keras only handle filepath.</span>
+        <span class="k">return</span> <span class="n">keras_models</span><span class="o">.</span><span class="n">load_model</span><span class="p">(</span><span class="n">model_path</span><span class="p">,</span> <span class="n">custom_objects</span><span class="o">=</span><span class="n">custom_objects</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+
+
+<span class="k">def</span> <span class="nf">_get_flavor_conf</span><span class="p">(</span><span class="n">model_conf</span><span class="p">):</span>
+    <span class="k">if</span> <span class="s2">&quot;keras&quot;</span> <span class="ow">in</span> <span class="n">model_conf</span><span class="o">.</span><span class="n">flavors</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">model_conf</span><span class="o">.</span><span class="n">flavors</span><span class="p">[</span><span class="s2">&quot;keras&quot;</span><span class="p">]</span>
+    <span class="k">return</span> <span class="n">model_conf</span><span class="o">.</span><span class="n">flavors</span><span class="p">[</span><span class="n">FLAVOR_NAME</span><span class="p">]</span>
+
+
+<span class="k">def</span> <span class="nf">_infer_model_type</span><span class="p">(</span><span class="n">model_conf</span><span class="p">):</span>
+    <span class="n">model_type</span> <span class="o">=</span> <span class="n">_get_flavor_conf</span><span class="p">(</span><span class="n">model_conf</span><span class="p">)</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;model_type&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">model_type</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">model_type</span>
+    <span class="c1"># Loading model logged by old version mlflow, which deos not record model_type</span>
+    <span class="c1"># Inferring model type by checking whether model_conf contains &quot;keras&quot; flavor.</span>
+    <span class="k">if</span> <span class="s2">&quot;keras&quot;</span> <span class="ow">in</span> <span class="n">model_conf</span><span class="o">.</span><span class="n">flavors</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">_MODEL_TYPE_KERAS</span>
+    <span class="k">return</span> <span class="n">_MODEL_TYPE_TF1_ESTIMATOR</span>
+
+
+<div class="viewcode-block" id="load_model"><a class="viewcode-back" href="../../python_api/mlflow.tensorflow.html#mlflow.tensorflow.load_model">[docs]</a><span class="k">def</span> <span class="nf">load_model</span><span class="p">(</span><span class="n">model_uri</span><span class="p">,</span> <span class="n">dst_path</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">saved_model_kwargs</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">keras_model_kwargs</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Load an MLflow model that contains the TensorFlow flavor from the specified path.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        model_uri: The location, in URI format, of the MLflow model. For example:</span>
+
+<span class="sd">            - ``/Users/me/path/to/local/model``</span>
+<span class="sd">            - ``relative/path/to/local/model``</span>
+<span class="sd">            - ``s3://my_bucket/path/to/model``</span>
+<span class="sd">            - ``runs:/&lt;mlflow_run_id&gt;/run-relative/path/to/model``</span>
+<span class="sd">            - ``models:/&lt;model_name&gt;/&lt;model_version&gt;``</span>
+<span class="sd">            - ``models:/&lt;model_name&gt;/&lt;stage&gt;``</span>
+
+<span class="sd">            For more information about supported URI schemes, see</span>
+<span class="sd">            `Referencing Artifacts &lt;https://www.mlflow.org/docs/latest/concepts.html#</span>
+<span class="sd">            artifact-locations&gt;`_.</span>
+<span class="sd">        dst_path: The local filesystem path to which to download the model artifact.</span>
+<span class="sd">            This directory must already exist. If unspecified, a local output</span>
+<span class="sd">            path will be created.</span>
+<span class="sd">        saved_model_kwargs: kwargs to pass to ``tensorflow.saved_model.load`` method.</span>
+<span class="sd">            Only available when you are loading a tensorflow2 core model.</span>
+<span class="sd">        keras_model_kwargs: kwargs to pass to ``keras.models.load_model`` method.</span>
+<span class="sd">            Only available when you are loading a Keras model.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">        A callable graph (tf.function) that takes inputs and returns inferences.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="kn">import</span> <span class="nn">tensorflow</span> <span class="k">as</span> <span class="nn">tf</span>
+
+    <span class="n">local_model_path</span> <span class="o">=</span> <span class="n">_download_artifact_from_uri</span><span class="p">(</span><span class="n">artifact_uri</span><span class="o">=</span><span class="n">model_uri</span><span class="p">,</span> <span class="n">output_path</span><span class="o">=</span><span class="n">dst_path</span><span class="p">)</span>
+
+    <span class="n">model_configuration_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">local_model_path</span><span class="p">,</span> <span class="n">MLMODEL_FILE_NAME</span><span class="p">)</span>
+    <span class="n">model_conf</span> <span class="o">=</span> <span class="n">Model</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">model_configuration_path</span><span class="p">)</span>
+
+    <span class="n">flavor_conf</span> <span class="o">=</span> <span class="n">_get_flavor_conf</span><span class="p">(</span><span class="n">model_conf</span><span class="p">)</span>
+
+    <span class="n">_add_code_from_conf_to_system_path</span><span class="p">(</span><span class="n">local_model_path</span><span class="p">,</span> <span class="n">flavor_conf</span><span class="p">)</span>
+
+    <span class="n">model_type</span> <span class="o">=</span> <span class="n">_infer_model_type</span><span class="p">(</span><span class="n">model_conf</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">model_type</span> <span class="o">==</span> <span class="n">_MODEL_TYPE_KERAS</span><span class="p">:</span>
+        <span class="n">keras_model_kwargs</span> <span class="o">=</span> <span class="n">keras_model_kwargs</span> <span class="ow">or</span> <span class="p">{}</span>
+        <span class="n">keras_module</span> <span class="o">=</span> <span class="n">importlib</span><span class="o">.</span><span class="n">import_module</span><span class="p">(</span><span class="n">flavor_conf</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;keras_module&quot;</span><span class="p">,</span> <span class="s2">&quot;tensorflow.keras&quot;</span><span class="p">))</span>
+        <span class="c1"># For backwards compatibility, we assume h5 when the save_format is absent</span>
+        <span class="n">save_format</span> <span class="o">=</span> <span class="n">flavor_conf</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;save_format&quot;</span><span class="p">,</span> <span class="s2">&quot;h5&quot;</span><span class="p">)</span>
+        <span class="n">model_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">local_model_path</span><span class="p">,</span> <span class="n">flavor_conf</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;data&quot;</span><span class="p">,</span> <span class="n">_MODEL_SAVE_PATH</span><span class="p">))</span>
+        <span class="k">return</span> <span class="n">_load_keras_model</span><span class="p">(</span>
+            <span class="n">model_path</span><span class="o">=</span><span class="n">model_path</span><span class="p">,</span>
+            <span class="n">keras_module</span><span class="o">=</span><span class="n">keras_module</span><span class="p">,</span>
+            <span class="n">save_format</span><span class="o">=</span><span class="n">save_format</span><span class="p">,</span>
+            <span class="o">**</span><span class="n">keras_model_kwargs</span><span class="p">,</span>
+        <span class="p">)</span>
+    <span class="k">if</span> <span class="n">model_type</span> <span class="o">==</span> <span class="n">_MODEL_TYPE_TF1_ESTIMATOR</span><span class="p">:</span>
+        <span class="n">tf_saved_model_dir</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">local_model_path</span><span class="p">,</span> <span class="n">flavor_conf</span><span class="p">[</span><span class="s2">&quot;saved_model_dir&quot;</span><span class="p">])</span>
+        <span class="n">tf_meta_graph_tags</span> <span class="o">=</span> <span class="n">flavor_conf</span><span class="p">[</span><span class="s2">&quot;meta_graph_tags&quot;</span><span class="p">]</span>
+        <span class="n">tf_signature_def_key</span> <span class="o">=</span> <span class="n">flavor_conf</span><span class="p">[</span><span class="s2">&quot;signature_def_key&quot;</span><span class="p">]</span>
+        <span class="k">return</span> <span class="n">_load_tf1_estimator_saved_model</span><span class="p">(</span>
+            <span class="n">tf_saved_model_dir</span><span class="o">=</span><span class="n">tf_saved_model_dir</span><span class="p">,</span>
+            <span class="n">tf_meta_graph_tags</span><span class="o">=</span><span class="n">tf_meta_graph_tags</span><span class="p">,</span>
+            <span class="n">tf_signature_def_key</span><span class="o">=</span><span class="n">tf_signature_def_key</span><span class="p">,</span>
+        <span class="p">)</span>
+    <span class="k">if</span> <span class="n">model_type</span> <span class="o">==</span> <span class="n">_MODEL_TYPE_TF2_MODULE</span><span class="p">:</span>
+        <span class="n">saved_model_kwargs</span> <span class="o">=</span> <span class="n">saved_model_kwargs</span> <span class="ow">or</span> <span class="p">{}</span>
+        <span class="n">tf_saved_model_dir</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">local_model_path</span><span class="p">,</span> <span class="n">flavor_conf</span><span class="p">[</span><span class="s2">&quot;saved_model_dir&quot;</span><span class="p">])</span>
+        <span class="k">return</span> <span class="n">tf</span><span class="o">.</span><span class="n">saved_model</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">tf_saved_model_dir</span><span class="p">,</span> <span class="o">**</span><span class="n">saved_model_kwargs</span><span class="p">)</span>
+
+    <span class="k">raise</span> <span class="n">MlflowException</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unknown model_type: </span><span class="si">{</span><span class="n">model_type</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span></div>
+
+
+<span class="k">def</span> <span class="nf">_load_tf1_estimator_saved_model</span><span class="p">(</span><span class="n">tf_saved_model_dir</span><span class="p">,</span> <span class="n">tf_meta_graph_tags</span><span class="p">,</span> <span class="n">tf_signature_def_key</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Load a specified TensorFlow model consisting of a TensorFlow metagraph and signature definition</span>
+<span class="sd">    from a serialized TensorFlow ``SavedModel`` collection.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        tf_saved_model_dir: The local filesystem path or run-relative artifact path to the model.</span>
+<span class="sd">        tf_meta_graph_tags: A list of tags identifying the model&#39;s metagraph within the</span>
+<span class="sd">            serialized ``SavedModel`` object. For more information, see the</span>
+<span class="sd">            ``tags`` parameter of the `tf.saved_model.builder.SavedModelBuilder</span>
+<span class="sd">            method &lt;https://www.tensorflow.org/api_docs/python/tf/saved_model/</span>
+<span class="sd">            builder/SavedModelBuilder#add_meta_graph&gt;`_.</span>
+<span class="sd">        tf_signature_def_key: A string identifying the input/output signature associated with the</span>
+<span class="sd">            model. This is a key within the serialized ``SavedModel``&#39;s</span>
+<span class="sd">            signature definition mapping. For more information, see the</span>
+<span class="sd">            ``signature_def_map`` parameter of the</span>
+<span class="sd">            ``tf.saved_model.builder.SavedModelBuilder`` method.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        A callable graph (tensorflow.function) that takes inputs and returns inferences.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="kn">import</span> <span class="nn">tensorflow</span> <span class="k">as</span> <span class="nn">tf</span>
+
+    <span class="n">loaded</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">saved_model</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">tags</span><span class="o">=</span><span class="n">tf_meta_graph_tags</span><span class="p">,</span> <span class="n">export_dir</span><span class="o">=</span><span class="n">tf_saved_model_dir</span><span class="p">)</span>
+    <span class="n">loaded_sig</span> <span class="o">=</span> <span class="n">loaded</span><span class="o">.</span><span class="n">signatures</span>
+    <span class="k">if</span> <span class="n">tf_signature_def_key</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">loaded_sig</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="n">MlflowException</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;Could not find signature def key </span><span class="si">{</span><span class="n">tf_signature_def_key</span><span class="si">}</span><span class="s2">. &quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;Available keys are: </span><span class="si">{</span><span class="nb">list</span><span class="p">(</span><span class="n">loaded_sig</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span><span class="si">}</span><span class="s2">&quot;</span>
+        <span class="p">)</span>
+    <span class="k">return</span> <span class="n">loaded_sig</span><span class="p">[</span><span class="n">tf_signature_def_key</span><span class="p">]</span>
+
+
+<span class="k">def</span> <span class="nf">_load_pyfunc</span><span class="p">(</span><span class="n">path</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Load PyFunc implementation. Called by ``pyfunc.load_model``. This function loads an MLflow</span>
+<span class="sd">    model with the TensorFlow flavor into a new TensorFlow graph and exposes it behind the</span>
+<span class="sd">    ``pyfunc.predict`` interface.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        path: Local filesystem path to the MLflow Model with the ``tensorflow`` flavor.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="kn">import</span> <span class="nn">tensorflow</span> <span class="k">as</span> <span class="nn">tf</span>
+
+    <span class="n">model_meta_path1</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">MLMODEL_FILE_NAME</span><span class="p">)</span>
+    <span class="n">model_meta_path2</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">dirname</span><span class="p">(</span><span class="n">path</span><span class="p">),</span> <span class="n">MLMODEL_FILE_NAME</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">isfile</span><span class="p">(</span><span class="n">model_meta_path1</span><span class="p">):</span>
+        <span class="n">model_meta</span> <span class="o">=</span> <span class="n">Model</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">model_meta_path1</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">isfile</span><span class="p">(</span><span class="n">model_meta_path2</span><span class="p">):</span>
+        <span class="n">model_meta</span> <span class="o">=</span> <span class="n">Model</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">model_meta_path2</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="n">MlflowException</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Cannot find file </span><span class="si">{</span><span class="n">MLMODEL_FILE_NAME</span><span class="si">}</span><span class="s2"> for the logged model.&quot;</span><span class="p">)</span>
+
+    <span class="n">model_type</span> <span class="o">=</span> <span class="n">_infer_model_type</span><span class="p">(</span><span class="n">model_meta</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">model_type</span> <span class="o">==</span> <span class="n">_MODEL_TYPE_KERAS</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">isfile</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">_KERAS_MODULE_SPEC_PATH</span><span class="p">)):</span>
+            <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">_KERAS_MODULE_SPEC_PATH</span><span class="p">))</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+                <span class="n">keras_module</span> <span class="o">=</span> <span class="n">importlib</span><span class="o">.</span><span class="n">import_module</span><span class="p">(</span><span class="n">f</span><span class="o">.</span><span class="n">read</span><span class="p">())</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="kn">from</span> <span class="nn">tensorflow</span> <span class="kn">import</span> <span class="n">keras</span>
+
+            <span class="n">keras_module</span> <span class="o">=</span> <span class="n">keras</span>
+
+        <span class="c1"># By default, we assume the save_format is h5 for backwards compatibility</span>
+        <span class="n">save_format</span> <span class="o">=</span> <span class="s2">&quot;h5&quot;</span>
+        <span class="n">save_format_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">_KERAS_SAVE_FORMAT_PATH</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">isfile</span><span class="p">(</span><span class="n">save_format_path</span><span class="p">):</span>
+            <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">save_format_path</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+                <span class="n">save_format</span> <span class="o">=</span> <span class="n">f</span><span class="o">.</span><span class="n">read</span><span class="p">()</span>
+
+        <span class="c1"># In SavedModel format, loaded model should be compiled.</span>
+        <span class="n">should_compile</span> <span class="o">=</span> <span class="n">save_format</span> <span class="o">==</span> <span class="s2">&quot;tf&quot;</span>
+        <span class="n">m</span> <span class="o">=</span> <span class="n">_load_keras_model</span><span class="p">(</span>
+            <span class="n">path</span><span class="p">,</span> <span class="n">keras_module</span><span class="o">=</span><span class="n">keras_module</span><span class="p">,</span> <span class="n">save_format</span><span class="o">=</span><span class="n">save_format</span><span class="p">,</span> <span class="nb">compile</span><span class="o">=</span><span class="n">should_compile</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="n">_KerasModelWrapper</span><span class="p">(</span><span class="n">m</span><span class="p">,</span> <span class="n">model_meta</span><span class="o">.</span><span class="n">signature</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">model_type</span> <span class="o">==</span> <span class="n">_MODEL_TYPE_TF1_ESTIMATOR</span><span class="p">:</span>
+        <span class="n">flavor_conf</span> <span class="o">=</span> <span class="n">_get_flavor_configuration</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">FLAVOR_NAME</span><span class="p">)</span>
+
+        <span class="n">tf_saved_model_dir</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">flavor_conf</span><span class="p">[</span><span class="s2">&quot;saved_model_dir&quot;</span><span class="p">])</span>
+        <span class="n">tf_meta_graph_tags</span> <span class="o">=</span> <span class="n">flavor_conf</span><span class="p">[</span><span class="s2">&quot;meta_graph_tags&quot;</span><span class="p">]</span>
+        <span class="n">tf_signature_def_key</span> <span class="o">=</span> <span class="n">flavor_conf</span><span class="p">[</span><span class="s2">&quot;signature_def_key&quot;</span><span class="p">]</span>
+
+        <span class="n">loaded_model</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">saved_model</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">export_dir</span><span class="o">=</span><span class="n">tf_saved_model_dir</span><span class="p">,</span> <span class="n">tags</span><span class="o">=</span><span class="n">tf_meta_graph_tags</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">_TF2Wrapper</span><span class="p">(</span><span class="n">model</span><span class="o">=</span><span class="n">loaded_model</span><span class="p">,</span> <span class="n">infer</span><span class="o">=</span><span class="n">loaded_model</span><span class="o">.</span><span class="n">signatures</span><span class="p">[</span><span class="n">tf_signature_def_key</span><span class="p">])</span>
+    <span class="k">if</span> <span class="n">model_type</span> <span class="o">==</span> <span class="n">_MODEL_TYPE_TF2_MODULE</span><span class="p">:</span>
+        <span class="n">flavor_conf</span> <span class="o">=</span> <span class="n">_get_flavor_configuration</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">FLAVOR_NAME</span><span class="p">)</span>
+        <span class="n">tf_saved_model_dir</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">flavor_conf</span><span class="p">[</span><span class="s2">&quot;saved_model_dir&quot;</span><span class="p">])</span>
+        <span class="n">loaded_model</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">saved_model</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">tf_saved_model_dir</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">_TF2ModuleWrapper</span><span class="p">(</span><span class="n">model</span><span class="o">=</span><span class="n">loaded_model</span><span class="p">,</span> <span class="n">signature</span><span class="o">=</span><span class="n">model_meta</span><span class="o">.</span><span class="n">signature</span><span class="p">)</span>
+
+    <span class="k">raise</span> <span class="n">MlflowException</span><span class="p">(</span><span class="s2">&quot;Unknown model_type.&quot;</span><span class="p">)</span>
+
+
+<span class="k">class</span> <span class="nc">_TF2Wrapper</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Wrapper class that exposes a TensorFlow model for inference via a ``predict`` function such that</span>
+<span class="sd">    ``predict(data: pandas.DataFrame) -&gt; pandas.DataFrame``. For TensorFlow versions &gt;= 2.0.0.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">model</span><span class="p">,</span> <span class="n">infer</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Args:</span>
+<span class="sd">            model: A Tensorflow SavedModel.</span>
+<span class="sd">            infer: Tensorflow function returned by a saved model that is used for inference.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># Note: we need to retain the model reference in TF2Wrapper object, because the infer</span>
+        <span class="c1">#  function in tensorflow will be `ConcreteFunction` which only retains WeakRefs to the</span>
+        <span class="c1">#  variables they close over.</span>
+        <span class="c1">#  See https://www.tensorflow.org/guide/function#deleting_tfvariables_between_function_calls</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">model</span> <span class="o">=</span> <span class="n">model</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">infer</span> <span class="o">=</span> <span class="n">infer</span>
+
+    <span class="k">def</span> <span class="nf">get_raw_model</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Returns the underlying model.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span>
+
+    <span class="k">def</span> <span class="nf">predict</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">data</span><span class="p">,</span>
+        <span class="n">params</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Args:</span>
+<span class="sd">            data: Model input data.</span>
+<span class="sd">            params: Additional parameters to pass to the model for inference.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            Model predictions.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="kn">import</span> <span class="nn">tensorflow</span> <span class="k">as</span> <span class="nn">tf</span>
+
+        <span class="n">feed_dict</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
+            <span class="n">feed_dict</span> <span class="o">=</span> <span class="p">{</span><span class="n">k</span><span class="p">:</span> <span class="n">tf</span><span class="o">.</span><span class="n">constant</span><span class="p">(</span><span class="n">v</span><span class="p">)</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">data</span><span class="o">.</span><span class="n">items</span><span class="p">()}</span>
+        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">pandas</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">):</span>
+            <span class="k">for</span> <span class="n">df_col_name</span> <span class="ow">in</span> <span class="nb">list</span><span class="p">(</span><span class="n">data</span><span class="p">):</span>
+                <span class="c1"># If there are multiple columns with the same name, selecting the shared name</span>
+                <span class="c1"># from the DataFrame will result in another DataFrame containing the columns</span>
+                <span class="c1"># with the shared name. TensorFlow cannot make eager tensors out of pandas</span>
+                <span class="c1"># DataFrames, so we convert the DataFrame to a numpy array here.</span>
+                <span class="n">val</span> <span class="o">=</span> <span class="n">data</span><span class="p">[</span><span class="n">df_col_name</span><span class="p">]</span>
+                <span class="n">val</span> <span class="o">=</span> <span class="n">val</span><span class="o">.</span><span class="n">values</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">val</span><span class="p">,</span> <span class="n">pandas</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">)</span> <span class="k">else</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">val</span><span class="o">.</span><span class="n">to_list</span><span class="p">())</span>
+                <span class="n">feed_dict</span><span class="p">[</span><span class="n">df_col_name</span><span class="p">]</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">constant</span><span class="p">(</span><span class="n">val</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;Only dict and DataFrame input types are supported&quot;</span><span class="p">)</span>
+
+        <span class="n">raw_preds</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">infer</span><span class="p">(</span><span class="o">**</span><span class="n">feed_dict</span><span class="p">)</span>
+        <span class="n">pred_dict</span> <span class="o">=</span> <span class="p">{</span><span class="n">col_name</span><span class="p">:</span> <span class="n">raw_preds</span><span class="p">[</span><span class="n">col_name</span><span class="p">]</span><span class="o">.</span><span class="n">numpy</span><span class="p">()</span> <span class="k">for</span> <span class="n">col_name</span> <span class="ow">in</span> <span class="n">raw_preds</span><span class="o">.</span><span class="n">keys</span><span class="p">()}</span>
+        <span class="k">for</span> <span class="n">col</span> <span class="ow">in</span> <span class="n">pred_dict</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+            <span class="c1"># If the output tensor is not 1-dimensional</span>
+            <span class="c1"># AND all elements have length of 1, flatten the array with `ravel()`</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">pred_dict</span><span class="p">[</span><span class="n">col</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">1</span> <span class="ow">and</span> <span class="nb">all</span><span class="p">(</span>
+                <span class="nb">len</span><span class="p">(</span><span class="n">element</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span> <span class="k">for</span> <span class="n">element</span> <span class="ow">in</span> <span class="n">pred_dict</span><span class="p">[</span><span class="n">col</span><span class="p">]</span>
+            <span class="p">):</span>
+                <span class="n">pred_dict</span><span class="p">[</span><span class="n">col</span><span class="p">]</span> <span class="o">=</span> <span class="n">pred_dict</span><span class="p">[</span><span class="n">col</span><span class="p">]</span><span class="o">.</span><span class="n">ravel</span><span class="p">()</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">pred_dict</span><span class="p">[</span><span class="n">col</span><span class="p">]</span> <span class="o">=</span> <span class="n">pred_dict</span><span class="p">[</span><span class="n">col</span><span class="p">]</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
+
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">pred_dict</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">pandas</span><span class="o">.</span><span class="n">DataFrame</span><span class="o">.</span><span class="n">from_dict</span><span class="p">(</span><span class="n">data</span><span class="o">=</span><span class="n">pred_dict</span><span class="p">)</span>
+
+
+<span class="k">class</span> <span class="nc">_TF2ModuleWrapper</span><span class="p">:</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">model</span><span class="p">,</span> <span class="n">signature</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">model</span> <span class="o">=</span> <span class="n">model</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">signature</span> <span class="o">=</span> <span class="n">signature</span>
+
+    <span class="k">def</span> <span class="nf">get_raw_model</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Returns the underlying model.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span>
+
+    <span class="k">def</span> <span class="nf">predict</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">data</span><span class="p">,</span>
+        <span class="n">params</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Args:</span>
+<span class="sd">            data: Model input data.</span>
+<span class="sd">            params: Additional parameters to pass to the model for inference.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            Model predictions.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="kn">import</span> <span class="nn">tensorflow</span> <span class="k">as</span> <span class="nn">tf</span>
+
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="nb">list</span><span class="p">)):</span>
+            <span class="n">data</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">convert_to_tensor</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">MlflowException</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;Unsupported input data type: </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">data</span><span class="p">)</span><span class="si">}</span><span class="s2">, the input data must be &quot;</span>
+                <span class="s2">&quot;numpy array or a list.&quot;</span>
+            <span class="p">)</span>
+        <span class="n">result</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">result</span><span class="p">,</span> <span class="n">tf</span><span class="o">.</span><span class="n">Tensor</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">result</span><span class="o">.</span><span class="n">numpy</span><span class="p">()</span>
+        <span class="k">return</span> <span class="n">result</span>
+
+
+<span class="k">class</span> <span class="nc">_KerasModelWrapper</span><span class="p">:</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">keras_model</span><span class="p">,</span> <span class="n">signature</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">keras_model</span> <span class="o">=</span> <span class="n">keras_model</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">signature</span> <span class="o">=</span> <span class="n">signature</span>
+
+    <span class="k">def</span> <span class="nf">get_raw_model</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Returns the underlying model.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">keras_model</span>
+
+    <span class="k">def</span> <span class="nf">predict</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">data</span><span class="p">,</span>
+        <span class="n">params</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Args:</span>
+<span class="sd">            data: Model input data.</span>
+<span class="sd">            params: Additional parameters to pass to the model for inference.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">            Model predictions.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">pandas</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">):</span>
+            <span class="c1"># This line is for backwards compatibility:</span>
+            <span class="c1"># If model signature is not None, when calling</span>
+            <span class="c1"># `keras_pyfunc_model.predict(pandas_dataframe)`, `_enforce_schema` will convert</span>
+            <span class="c1"># dataframe input into dict input, so in the case `_KerasModelWrapper.predict`</span>
+            <span class="c1"># will receive a dict type input.</span>
+            <span class="c1"># If model signature is None, `_enforce_schema` can do nothing, and if the input</span>
+            <span class="c1"># is dataframe, `_KerasModelWrapper.predict` will receive a dataframe input,</span>
+            <span class="c1"># we need to handle this case, to keep backwards compatibility.</span>
+            <span class="k">return</span> <span class="n">pandas</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">keras_model</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">data</span><span class="o">.</span><span class="n">values</span><span class="p">),</span> <span class="n">index</span><span class="o">=</span><span class="n">data</span><span class="o">.</span><span class="n">index</span><span class="p">)</span>
+
+        <span class="n">supported_input_types</span> <span class="o">=</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="nb">list</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">,</span> <span class="nb">dict</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">supported_input_types</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="n">MlflowException</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;Unsupported input data type: </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">data</span><span class="p">)</span><span class="si">}</span><span class="s2">. &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;Must be one of: </span><span class="si">{</span><span class="p">[</span><span class="n">x</span><span class="o">.</span><span class="vm">__name__</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="n">x</span><span class="w"> </span><span class="ow">in</span><span class="w"> </span><span class="n">supported_input_types</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span>
+                <span class="n">INVALID_PARAMETER_VALUE</span><span class="p">,</span>
+            <span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">keras_model</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+
+
+<span class="k">def</span> <span class="nf">_assoc_list_to_map</span><span class="p">(</span><span class="n">lst</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Convert an association list to a dictionary.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">d</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="k">for</span> <span class="n">run_id</span><span class="p">,</span> <span class="n">metric</span> <span class="ow">in</span> <span class="n">lst</span><span class="p">:</span>
+        <span class="n">d</span><span class="p">[</span><span class="n">run_id</span><span class="p">]</span> <span class="o">=</span> <span class="n">d</span><span class="p">[</span><span class="n">run_id</span><span class="p">]</span> <span class="o">+</span> <span class="p">[</span><span class="n">metric</span><span class="p">]</span> <span class="k">if</span> <span class="n">run_id</span> <span class="ow">in</span> <span class="n">d</span> <span class="k">else</span> <span class="p">[</span><span class="n">metric</span><span class="p">]</span>
+    <span class="k">return</span> <span class="n">d</span>
+
+
+<span class="nd">@picklable_exception_safe_function</span>
+<span class="k">def</span> <span class="nf">_get_tensorboard_callback</span><span class="p">(</span><span class="n">lst</span><span class="p">):</span>
+    <span class="kn">import</span> <span class="nn">tensorflow</span> <span class="k">as</span> <span class="nn">tf</span>
+
+    <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">lst</span><span class="p">:</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">tf</span><span class="o">.</span><span class="n">keras</span><span class="o">.</span><span class="n">callbacks</span><span class="o">.</span><span class="n">TensorBoard</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">x</span>
+    <span class="k">return</span> <span class="kc">None</span>
+
+
+<span class="c1"># A representation of a TensorBoard event logging directory with two attributes:</span>
+<span class="c1"># :location - string: The filesystem location of the logging directory</span>
+<span class="c1"># :is_temp - boolean: `True` if the logging directory was created for temporary use by MLflow,</span>
+<span class="c1">#                     `False` otherwise</span>
+<span class="k">class</span> <span class="nc">_TensorBoardLogDir</span><span class="p">(</span><span class="n">NamedTuple</span><span class="p">):</span>
+    <span class="n">location</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="n">is_temp</span><span class="p">:</span> <span class="nb">bool</span>
+
+
+<span class="k">def</span> <span class="nf">_setup_callbacks</span><span class="p">(</span><span class="n">callbacks</span><span class="p">,</span> <span class="n">log_every_epoch</span><span class="p">,</span> <span class="n">log_every_n_steps</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Adds TensorBoard and MlfLowTfKeras callbacks to the</span>
+<span class="sd">    input list, and returns the new list and appropriate log directory.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="kn">from</span> <span class="nn">mlflow.tensorflow.autologging</span> <span class="kn">import</span> <span class="n">_TensorBoard</span>
+    <span class="kn">from</span> <span class="nn">mlflow.tensorflow.callback</span> <span class="kn">import</span> <span class="n">MlflowCallback</span><span class="p">,</span> <span class="n">MlflowModelCheckpointCallback</span>
+
+    <span class="n">tb</span> <span class="o">=</span> <span class="n">_get_tensorboard_callback</span><span class="p">(</span><span class="n">callbacks</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">callback</span> <span class="ow">in</span> <span class="n">callbacks</span><span class="p">:</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">callback</span><span class="p">,</span> <span class="n">MlflowCallback</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="n">MlflowException</span><span class="p">(</span>
+                <span class="s2">&quot;MLflow autologging must be turned off if an `MlflowCallback` is explicitly added &quot;</span>
+                <span class="s2">&quot;to the callback list. You are creating an `MlflowCallback` while having &quot;</span>
+                <span class="s2">&quot;autologging enabled. Please either call `mlflow.tensorflow.autolog(disable=True)` &quot;</span>
+                <span class="s2">&quot;to disable autologging or remove `MlflowCallback` from the callback list. &quot;</span>
+            <span class="p">)</span>
+    <span class="k">if</span> <span class="n">tb</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">log_dir</span> <span class="o">=</span> <span class="n">_TensorBoardLogDir</span><span class="p">(</span><span class="n">location</span><span class="o">=</span><span class="n">tempfile</span><span class="o">.</span><span class="n">mkdtemp</span><span class="p">(),</span> <span class="n">is_temp</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="n">callbacks</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">_TensorBoard</span><span class="p">(</span><span class="n">log_dir</span><span class="o">.</span><span class="n">location</span><span class="p">))</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">log_dir</span> <span class="o">=</span> <span class="n">_TensorBoardLogDir</span><span class="p">(</span><span class="n">location</span><span class="o">=</span><span class="n">tb</span><span class="o">.</span><span class="n">log_dir</span><span class="p">,</span> <span class="n">is_temp</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+
+    <span class="n">callbacks</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+        <span class="n">MlflowCallback</span><span class="p">(</span>
+            <span class="n">log_every_epoch</span><span class="o">=</span><span class="n">log_every_epoch</span><span class="p">,</span>
+            <span class="n">log_every_n_steps</span><span class="o">=</span><span class="n">log_every_n_steps</span><span class="p">,</span>
+        <span class="p">)</span>
+    <span class="p">)</span>
+
+    <span class="n">model_checkpoint</span> <span class="o">=</span> <span class="n">get_autologging_config</span><span class="p">(</span><span class="n">mlflow</span><span class="o">.</span><span class="n">tensorflow</span><span class="o">.</span><span class="n">FLAVOR_NAME</span><span class="p">,</span> <span class="s2">&quot;checkpoint&quot;</span><span class="p">,</span> <span class="kc">True</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">model_checkpoint</span><span class="p">:</span>
+        <span class="n">checkpoint_monitor</span> <span class="o">=</span> <span class="n">get_autologging_config</span><span class="p">(</span>
+            <span class="n">mlflow</span><span class="o">.</span><span class="n">tensorflow</span><span class="o">.</span><span class="n">FLAVOR_NAME</span><span class="p">,</span> <span class="s2">&quot;checkpoint_monitor&quot;</span><span class="p">,</span> <span class="s2">&quot;val_loss&quot;</span>
+        <span class="p">)</span>
+        <span class="n">checkpoint_mode</span> <span class="o">=</span> <span class="n">get_autologging_config</span><span class="p">(</span>
+            <span class="n">mlflow</span><span class="o">.</span><span class="n">tensorflow</span><span class="o">.</span><span class="n">FLAVOR_NAME</span><span class="p">,</span> <span class="s2">&quot;checkpoint_mode&quot;</span><span class="p">,</span> <span class="s2">&quot;min&quot;</span>
+        <span class="p">)</span>
+        <span class="n">checkpoint_save_best_only</span> <span class="o">=</span> <span class="n">get_autologging_config</span><span class="p">(</span>
+            <span class="n">mlflow</span><span class="o">.</span><span class="n">tensorflow</span><span class="o">.</span><span class="n">FLAVOR_NAME</span><span class="p">,</span> <span class="s2">&quot;checkpoint_save_best_only&quot;</span><span class="p">,</span> <span class="kc">True</span>
+        <span class="p">)</span>
+        <span class="n">checkpoint_save_weights_only</span> <span class="o">=</span> <span class="n">get_autologging_config</span><span class="p">(</span>
+            <span class="n">mlflow</span><span class="o">.</span><span class="n">tensorflow</span><span class="o">.</span><span class="n">FLAVOR_NAME</span><span class="p">,</span> <span class="s2">&quot;checkpoint_save_weights_only&quot;</span><span class="p">,</span> <span class="kc">False</span>
+        <span class="p">)</span>
+        <span class="n">checkpoint_save_freq</span> <span class="o">=</span> <span class="n">get_autologging_config</span><span class="p">(</span>
+            <span class="n">mlflow</span><span class="o">.</span><span class="n">tensorflow</span><span class="o">.</span><span class="n">FLAVOR_NAME</span><span class="p">,</span> <span class="s2">&quot;checkpoint_save_freq&quot;</span><span class="p">,</span> <span class="s2">&quot;epoch&quot;</span>
+        <span class="p">)</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">any</span><span class="p">(</span><span class="nb">isinstance</span><span class="p">(</span><span class="n">callback</span><span class="p">,</span> <span class="n">MlflowModelCheckpointCallback</span><span class="p">)</span> <span class="k">for</span> <span class="n">callback</span> <span class="ow">in</span> <span class="n">callbacks</span><span class="p">):</span>
+            <span class="n">callbacks</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                <span class="n">MlflowModelCheckpointCallback</span><span class="p">(</span>
+                    <span class="n">monitor</span><span class="o">=</span><span class="n">checkpoint_monitor</span><span class="p">,</span>
+                    <span class="n">mode</span><span class="o">=</span><span class="n">checkpoint_mode</span><span class="p">,</span>
+                    <span class="n">save_best_only</span><span class="o">=</span><span class="n">checkpoint_save_best_only</span><span class="p">,</span>
+                    <span class="n">save_weights_only</span><span class="o">=</span><span class="n">checkpoint_save_weights_only</span><span class="p">,</span>
+                    <span class="n">save_freq</span><span class="o">=</span><span class="n">checkpoint_save_freq</span><span class="p">,</span>
+                <span class="p">)</span>
+            <span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">callbacks</span><span class="p">,</span> <span class="n">log_dir</span>
+
+
+<div class="viewcode-block" id="autolog"><a class="viewcode-back" href="../../python_api/mlflow.tensorflow.html#mlflow.tensorflow.autolog">[docs]</a><span class="nd">@autologging_integration</span><span class="p">(</span><span class="n">FLAVOR_NAME</span><span class="p">)</span>
+<span class="k">def</span> <span class="nf">autolog</span><span class="p">(</span>
+    <span class="n">every_n_iter</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
+    <span class="n">log_models</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+    <span class="n">log_datasets</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+    <span class="n">disable</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+    <span class="n">exclusive</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+    <span class="n">disable_for_unsupported_versions</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+    <span class="n">silent</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+    <span class="n">registered_model_name</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">log_input_examples</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+    <span class="n">log_model_signatures</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+    <span class="n">saved_model_kwargs</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">keras_model_kwargs</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">extra_tags</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">log_every_epoch</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+    <span class="n">log_every_n_steps</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">checkpoint</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+    <span class="n">checkpoint_monitor</span><span class="o">=</span><span class="s2">&quot;val_loss&quot;</span><span class="p">,</span>
+    <span class="n">checkpoint_mode</span><span class="o">=</span><span class="s2">&quot;min&quot;</span><span class="p">,</span>
+    <span class="n">checkpoint_save_best_only</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+    <span class="n">checkpoint_save_weights_only</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+    <span class="n">checkpoint_save_freq</span><span class="o">=</span><span class="s2">&quot;epoch&quot;</span><span class="p">,</span>
+<span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Enables autologging for ``tf.keras``.</span>
+<span class="sd">    Note that only ``tensorflow&gt;=2.3`` are supported.</span>
+<span class="sd">    As an example, try running the</span>
+<span class="sd">    `Keras/TensorFlow example &lt;https://github.com/mlflow/mlflow/blob/master/examples/keras/train.py&gt;`_.</span>
+
+<span class="sd">    For each TensorFlow module, autologging captures the following information:</span>
+
+<span class="sd">    **tf.keras**</span>
+<span class="sd">     - **Metrics** and **Parameters**</span>
+
+<span class="sd">      - Training and validation loss.</span>
+<span class="sd">      - User-specified metrics.</span>
+<span class="sd">      - Optimizer config, e.g., learning_rate, momentum, etc.</span>
+<span class="sd">      - Training configs, e.g., epochs, batch_size, etc.</span>
+
+<span class="sd">     - **Artifacts**</span>
+
+<span class="sd">      - Model summary on training start.</span>
+<span class="sd">      - Saved Keras model in `MLflow Model &lt;https://mlflow.org/docs/latest/models.html&gt;`_ format.</span>
+<span class="sd">      - TensorBoard logs on training end.</span>
+
+<span class="sd">    **tf.keras.callbacks.EarlyStopping**</span>
+<span class="sd">     - **Metrics** and **Parameters**</span>
+
+<span class="sd">      - Metrics from the ``EarlyStopping`` callbacks: ``stopped_epoch``, ``restored_epoch``,</span>
+<span class="sd">        ``restore_best_weight``, etc</span>
+<span class="sd">      - ``fit()`` or ``fit_generator()`` parameters associated with ``EarlyStopping``:</span>
+<span class="sd">        ``min_delta``, ``patience``, ``baseline``, ``restore_best_weights``, etc</span>
+
+<span class="sd">    Refer to the autologging tracking documentation for more</span>
+<span class="sd">    information on `TensorFlow workflows</span>
+<span class="sd">    &lt;https://www.mlflow.org/docs/latest/tracking.html#tensorflow-and-keras-experimental&gt;`_.</span>
+
+<span class="sd">    Note that autologging cannot be used together with explicit MLflow callback, i.e.,</span>
+<span class="sd">    `mlflow.tensorflow.MlflowCallback`, because it will cause the same metrics to be logged twice.</span>
+<span class="sd">    If you want to include `mlflow.tensorflow.MlflowCallback` in the callback list, please turn off</span>
+<span class="sd">    autologging by calling `mlflow.tensorflow.autolog(disable=True)`.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        every_n_iter: deprecated, please use ``log_every_epoch`` instead. Per ``every_n_iter``</span>
+<span class="sd">            steps, metrics will be logged.</span>
+<span class="sd">        log_models: If ``True``, trained models are logged as MLflow model artifacts.</span>
+<span class="sd">            If ``False``, trained models are not logged.</span>
+<span class="sd">        log_datasets: If ``True``, dataset information is logged to MLflow Tracking.</span>
+<span class="sd">            If ``False``, dataset information is not logged.</span>
+<span class="sd">        disable: If ``True``, disables the TensorFlow autologging integration. If ``False``,</span>
+<span class="sd">            enables the TensorFlow integration autologging integration.</span>
+<span class="sd">        exclusive: If ``True``, autologged content is not logged to user-created fluent runs.</span>
+<span class="sd">            If ``False``, autologged content is logged to the active fluent run,</span>
+<span class="sd">            which may be user-created.</span>
+<span class="sd">        disable_for_unsupported_versions: If ``True``, disable autologging for versions of</span>
+<span class="sd">            tensorflow that have not been tested against this version of the MLflow</span>
+<span class="sd">            client or are incompatible.</span>
+<span class="sd">        silent: If ``True``, suppress all event logs and warnings from MLflow during TensorFlow</span>
+<span class="sd">            autologging. If ``False``, show all events and warnings during TensorFlow</span>
+<span class="sd">            autologging.</span>
+<span class="sd">        registered_model_name: If given, each time a model is trained, it is registered as a</span>
+<span class="sd">            new model version of the registered model with this name.</span>
+<span class="sd">            The registered model is created if it does not already exist.</span>
+<span class="sd">        log_input_examples: If ``True``, input examples from training datasets are collected and</span>
+<span class="sd">            logged along with tf/keras model artifacts during training. If</span>
+<span class="sd">            ``False``, input examples are not logged.</span>
+<span class="sd">        log_model_signatures: If ``True``,</span>
+<span class="sd">            :py:class:`ModelSignatures &lt;mlflow.models.ModelSignature&gt;`</span>
+<span class="sd">            describing model inputs and outputs are collected and logged along</span>
+<span class="sd">            with tf/keras model artifacts during training. If ``False``,</span>
+<span class="sd">            signatures are not logged. Note that logging TensorFlow models</span>
+<span class="sd">            with signatures changes their pyfunc inference behavior when</span>
+<span class="sd">            Pandas DataFrames are passed to ``predict()``.</span>
+<span class="sd">            When a signature is present, an ``np.ndarray``</span>
+<span class="sd">            (for single-output models) or a mapping from</span>
+<span class="sd">            ``str`` -&gt; ``np.ndarray`` (for multi-output models) is returned;</span>
+<span class="sd">            when a signature is not present, a Pandas DataFrame is returned.</span>
+<span class="sd">        saved_model_kwargs: a dict of kwargs to pass to ``tensorflow.saved_model.save`` method.</span>
+<span class="sd">        keras_model_kwargs: a dict of kwargs to pass to ``keras_model.save`` method.</span>
+<span class="sd">        extra_tags: A dictionary of extra tags to set on each managed run created by autologging.</span>
+<span class="sd">        log_every_epoch: If True, training metrics will be logged at the end of each epoch.</span>
+<span class="sd">        log_every_n_steps: If set, training metrics will be logged every `n` training steps.</span>
+<span class="sd">            `log_every_n_steps` must be `None` when `log_every_epoch=True`.</span>
+<span class="sd">        checkpoint: Enable automatic model checkpointing.</span>
+<span class="sd">        checkpoint_monitor: In automatic model checkpointing, the metric name to monitor if</span>
+<span class="sd">            you set `model_checkpoint_save_best_only` to True.</span>
+<span class="sd">        checkpoint_mode: one of {&quot;min&quot;, &quot;max&quot;}. In automatic model checkpointing,</span>
+<span class="sd">            if save_best_only=True, the decision to overwrite the current save file is made based on</span>
+<span class="sd">            either the maximization or the minimization of the monitored quantity.</span>
+<span class="sd">        checkpoint_save_best_only: If True, automatic model checkpointing only saves when</span>
+<span class="sd">            the model is considered the &quot;best&quot; model according to the quantity</span>
+<span class="sd">            monitored and previous checkpoint model is overwritten.</span>
+<span class="sd">        checkpoint_save_weights_only: In automatic model checkpointing, if True, then</span>
+<span class="sd">            only the model’s weights will be saved. Otherwise, the optimizer states,</span>
+<span class="sd">            lr-scheduler states, etc are added in the checkpoint too.</span>
+<span class="sd">        checkpoint_save_freq: `&quot;epoch&quot;` or integer. When using `&quot;epoch&quot;`, the callback</span>
+<span class="sd">            saves the model after each epoch. When using integer, the callback</span>
+<span class="sd">            saves the model at end of this many batches. Note that if the saving isn&#39;t aligned to</span>
+<span class="sd">            epochs, the monitored metric may potentially be less reliable (it</span>
+<span class="sd">            could reflect as little as 1 batch, since the metrics get reset</span>
+<span class="sd">            every epoch). Defaults to `&quot;epoch&quot;`.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="kn">import</span> <span class="nn">tensorflow</span> <span class="k">as</span> <span class="nn">tf</span>
+
+    <span class="k">if</span> <span class="n">every_n_iter</span> <span class="o">!=</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="n">_logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+            <span class="s2">&quot;The `every_n_iter` parameter is deprecated, please use `log_every_epoch` and &quot;</span>
+            <span class="s2">&quot;`log_every_n_steps` instead. Automatically set `log_every_n_steps` to `every_n_iter`.&quot;</span>
+        <span class="p">)</span>
+        <span class="n">log_every_epoch</span> <span class="o">=</span> <span class="kc">False</span>
+        <span class="n">log_every_n_steps</span> <span class="o">=</span> <span class="n">every_n_iter</span>
+
+    <span class="k">if</span> <span class="n">Version</span><span class="p">(</span><span class="n">tf</span><span class="o">.</span><span class="n">__version__</span><span class="p">)</span> <span class="o">&lt;</span> <span class="n">Version</span><span class="p">(</span><span class="s2">&quot;2.3&quot;</span><span class="p">):</span>
+        <span class="n">_logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span>
+            <span class="s2">&quot;Could not log to MLflow because your Tensorflow version is below 2.3, detected &quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;version: </span><span class="si">{</span><span class="n">tf</span><span class="o">.</span><span class="n">__version__</span><span class="si">}</span><span class="s2">.&quot;</span>
+        <span class="p">)</span>
+        <span class="k">return</span>
+
+    <span class="nd">@picklable_exception_safe_function</span>
+    <span class="k">def</span> <span class="nf">_get_early_stop_callback</span><span class="p">(</span><span class="n">callbacks</span><span class="p">):</span>
+        <span class="k">for</span> <span class="n">callback</span> <span class="ow">in</span> <span class="n">callbacks</span><span class="p">:</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">callback</span><span class="p">,</span> <span class="n">tf</span><span class="o">.</span><span class="n">keras</span><span class="o">.</span><span class="n">callbacks</span><span class="o">.</span><span class="n">EarlyStopping</span><span class="p">):</span>
+                <span class="k">return</span> <span class="n">callback</span>
+        <span class="k">return</span> <span class="kc">None</span>
+
+    <span class="k">def</span> <span class="nf">_log_early_stop_callback_params</span><span class="p">(</span><span class="n">callback</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">callback</span><span class="p">:</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">earlystopping_params</span> <span class="o">=</span> <span class="p">{</span>
+                    <span class="s2">&quot;monitor&quot;</span><span class="p">:</span> <span class="n">callback</span><span class="o">.</span><span class="n">monitor</span><span class="p">,</span>
+                    <span class="s2">&quot;min_delta&quot;</span><span class="p">:</span> <span class="n">callback</span><span class="o">.</span><span class="n">min_delta</span><span class="p">,</span>
+                    <span class="s2">&quot;patience&quot;</span><span class="p">:</span> <span class="n">callback</span><span class="o">.</span><span class="n">patience</span><span class="p">,</span>
+                    <span class="s2">&quot;baseline&quot;</span><span class="p">:</span> <span class="n">callback</span><span class="o">.</span><span class="n">baseline</span><span class="p">,</span>
+                    <span class="s2">&quot;restore_best_weights&quot;</span><span class="p">:</span> <span class="n">callback</span><span class="o">.</span><span class="n">restore_best_weights</span><span class="p">,</span>
+                <span class="p">}</span>
+                <span class="n">mlflow</span><span class="o">.</span><span class="n">log_params</span><span class="p">(</span><span class="n">earlystopping_params</span><span class="p">)</span>
+            <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+                <span class="k">return</span>
+
+    <span class="k">def</span> <span class="nf">_get_early_stop_callback_attrs</span><span class="p">(</span><span class="n">callback</span><span class="p">):</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">callback</span><span class="o">.</span><span class="n">stopped_epoch</span><span class="p">,</span> <span class="n">callback</span><span class="o">.</span><span class="n">restore_best_weights</span><span class="p">,</span> <span class="n">callback</span><span class="o">.</span><span class="n">patience</span>
+        <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span>
+
+    <span class="k">def</span> <span class="nf">_log_early_stop_callback_metrics</span><span class="p">(</span><span class="n">callback</span><span class="p">,</span> <span class="n">history</span><span class="p">):</span>
+        <span class="kn">from</span> <span class="nn">mlflow</span> <span class="kn">import</span> <span class="n">log_metrics</span>
+
+        <span class="k">if</span> <span class="n">callback</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">callback</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">stop_training</span><span class="p">:</span>
+            <span class="k">return</span>
+
+        <span class="n">callback_attrs</span> <span class="o">=</span> <span class="n">_get_early_stop_callback_attrs</span><span class="p">(</span><span class="n">callback</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">callback_attrs</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span>
+
+        <span class="n">stopped_epoch</span><span class="p">,</span> <span class="n">restore_best_weights</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">callback_attrs</span>
+        <span class="n">log_metrics</span><span class="p">({</span><span class="s2">&quot;stopped_epoch&quot;</span><span class="p">:</span> <span class="n">stopped_epoch</span><span class="p">},</span> <span class="n">synchronous</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">restore_best_weights</span> <span class="ow">or</span> <span class="n">callback</span><span class="o">.</span><span class="n">best_weights</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span>
+
+        <span class="n">monitored_metric</span> <span class="o">=</span> <span class="n">history</span><span class="o">.</span><span class="n">history</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">callback</span><span class="o">.</span><span class="n">monitor</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">monitored_metric</span><span class="p">:</span>
+            <span class="k">return</span>
+
+        <span class="n">initial_epoch</span> <span class="o">=</span> <span class="n">history</span><span class="o">.</span><span class="n">epoch</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="c1"># If `monitored_metric` contains multiple best values (e.g. [0.1, 0.1, 0.2] where 0.1 is</span>
+        <span class="c1"># the minimum loss), the epoch corresponding to the first occurrence of the best value is</span>
+        <span class="c1"># the best epoch. In keras &gt; 2.6.0, the best epoch can be obtained via the `best_epoch`</span>
+        <span class="c1"># attribute of an `EarlyStopping` instance: https://github.com/keras-team/keras/pull/15197</span>
+        <span class="n">restored_epoch</span> <span class="o">=</span> <span class="n">initial_epoch</span> <span class="o">+</span> <span class="n">monitored_metric</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="n">callback</span><span class="o">.</span><span class="n">best</span><span class="p">)</span>
+        <span class="n">log_metrics</span><span class="p">({</span><span class="s2">&quot;restored_epoch&quot;</span><span class="p">:</span> <span class="n">restored_epoch</span><span class="p">},</span> <span class="n">synchronous</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+        <span class="n">restored_index</span> <span class="o">=</span> <span class="n">history</span><span class="o">.</span><span class="n">epoch</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="n">restored_epoch</span><span class="p">)</span>
+        <span class="n">restored_metrics</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="n">key</span><span class="p">:</span> <span class="n">metrics</span><span class="p">[</span><span class="n">restored_index</span><span class="p">]</span> <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">metrics</span> <span class="ow">in</span> <span class="n">history</span><span class="o">.</span><span class="n">history</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
+        <span class="p">}</span>
+        <span class="c1"># Checking that a metric history exists</span>
+        <span class="n">metric_key</span> <span class="o">=</span> <span class="nb">next</span><span class="p">(</span><span class="nb">iter</span><span class="p">(</span><span class="n">history</span><span class="o">.</span><span class="n">history</span><span class="p">),</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">metric_key</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">log_metrics</span><span class="p">(</span><span class="n">restored_metrics</span><span class="p">,</span> <span class="n">stopped_epoch</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="n">synchronous</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_log_keras_model</span><span class="p">(</span><span class="n">history</span><span class="p">,</span> <span class="n">args</span><span class="p">):</span>
+        <span class="k">def</span> <span class="nf">_infer_model_signature</span><span class="p">(</span><span class="n">input_data_slice</span><span class="p">):</span>
+            <span class="c1"># In certain TensorFlow versions, calling `predict()` on model may modify</span>
+            <span class="c1"># the `stop_training` attribute, so we save and restore it accordingly</span>
+            <span class="n">original_stop_training</span> <span class="o">=</span> <span class="n">history</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">stop_training</span>
+            <span class="n">model_output</span> <span class="o">=</span> <span class="n">history</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">input_data_slice</span><span class="p">)</span>
+            <span class="n">history</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">stop_training</span> <span class="o">=</span> <span class="n">original_stop_training</span>
+            <span class="k">return</span> <span class="n">infer_signature</span><span class="p">(</span><span class="n">input_data_slice</span><span class="p">,</span> <span class="n">model_output</span><span class="p">)</span>
+
+        <span class="kn">from</span> <span class="nn">mlflow.tensorflow.autologging</span> <span class="kn">import</span> <span class="n">extract_tf_keras_input_example</span>
+
+        <span class="k">def</span> <span class="nf">_get_tf_keras_input_example_slice</span><span class="p">():</span>
+            <span class="n">input_training_data</span> <span class="o">=</span> <span class="n">args</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="n">keras_input_example_slice</span> <span class="o">=</span> <span class="n">extract_tf_keras_input_example</span><span class="p">(</span><span class="n">input_training_data</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">keras_input_example_slice</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="n">MlflowException</span><span class="p">(</span>
+                    <span class="s2">&quot;Cannot log input example or model signature for input with type&quot;</span>
+                    <span class="sa">f</span><span class="s2">&quot; </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">input_training_data</span><span class="p">)</span><span class="si">}</span><span class="s2">. TensorFlow Keras autologging can&quot;</span>
+                    <span class="s2">&quot; only log input examples and model signatures for the following&quot;</span>
+                    <span class="s2">&quot; input types: numpy.ndarray, dict[string -&gt; numpy.ndarray],&quot;</span>
+                    <span class="s2">&quot; tensorflow.keras.utils.Sequence, and&quot;</span>
+                    <span class="s2">&quot; tensorflow.data.Dataset (TensorFlow &gt;= 2.1.0 required)&quot;</span><span class="p">,</span>
+                    <span class="n">INVALID_PARAMETER_VALUE</span><span class="p">,</span>
+                <span class="p">)</span>
+            <span class="k">return</span> <span class="n">keras_input_example_slice</span>
+
+        <span class="n">input_example</span><span class="p">,</span> <span class="n">signature</span> <span class="o">=</span> <span class="n">resolve_input_example_and_signature</span><span class="p">(</span>
+            <span class="n">_get_tf_keras_input_example_slice</span><span class="p">,</span>
+            <span class="n">_infer_model_signature</span><span class="p">,</span>
+            <span class="n">log_input_examples</span><span class="p">,</span>
+            <span class="n">log_model_signatures</span><span class="p">,</span>
+            <span class="n">_logger</span><span class="p">,</span>
+        <span class="p">)</span>
+
+        <span class="n">log_model</span><span class="p">(</span>
+            <span class="n">history</span><span class="o">.</span><span class="n">model</span><span class="p">,</span>
+            <span class="s2">&quot;model&quot;</span><span class="p">,</span>
+            <span class="n">input_example</span><span class="o">=</span><span class="n">input_example</span><span class="p">,</span>
+            <span class="n">signature</span><span class="o">=</span><span class="n">signature</span><span class="p">,</span>
+            <span class="n">registered_model_name</span><span class="o">=</span><span class="n">get_autologging_config</span><span class="p">(</span>
+                <span class="n">FLAVOR_NAME</span><span class="p">,</span> <span class="s2">&quot;registered_model_name&quot;</span><span class="p">,</span> <span class="kc">None</span>
+            <span class="p">),</span>
+            <span class="n">saved_model_kwargs</span><span class="o">=</span><span class="n">saved_model_kwargs</span><span class="p">,</span>
+            <span class="n">keras_model_kwargs</span><span class="o">=</span><span class="n">keras_model_kwargs</span><span class="p">,</span>
+        <span class="p">)</span>
+
+    <span class="k">class</span> <span class="nc">FitPatch</span><span class="p">(</span><span class="n">PatchFunction</span><span class="p">):</span>
+        <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log_dir</span> <span class="o">=</span> <span class="kc">None</span>
+
+        <span class="k">def</span> <span class="nf">_patch_implementation</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">original</span><span class="p">,</span> <span class="n">inst</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+            <span class="n">unlogged_params</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;self&quot;</span><span class="p">,</span> <span class="s2">&quot;x&quot;</span><span class="p">,</span> <span class="s2">&quot;y&quot;</span><span class="p">,</span> <span class="s2">&quot;callbacks&quot;</span><span class="p">,</span> <span class="s2">&quot;validation_data&quot;</span><span class="p">,</span> <span class="s2">&quot;verbose&quot;</span><span class="p">]</span>
+
+            <span class="n">batch_size</span> <span class="o">=</span> <span class="kc">None</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">is_single_input_model</span> <span class="o">=</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">inst</span><span class="o">.</span><span class="n">input_shape</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">)</span>
+                <span class="n">training_data</span> <span class="o">=</span> <span class="n">kwargs</span><span class="p">[</span><span class="s2">&quot;x&quot;</span><span class="p">]</span> <span class="k">if</span> <span class="s2">&quot;x&quot;</span> <span class="ow">in</span> <span class="n">kwargs</span> <span class="k">else</span> <span class="n">args</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+                <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">training_data</span><span class="p">,</span> <span class="n">tf</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">Dataset</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">hasattr</span><span class="p">(</span>
+                    <span class="n">training_data</span><span class="p">,</span> <span class="s2">&quot;_batch_size&quot;</span>
+                <span class="p">):</span>
+                    <span class="n">batch_size</span> <span class="o">=</span> <span class="n">training_data</span><span class="o">.</span><span class="n">_batch_size</span><span class="o">.</span><span class="n">numpy</span><span class="p">()</span>
+                <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">training_data</span><span class="p">,</span> <span class="n">tf</span><span class="o">.</span><span class="n">keras</span><span class="o">.</span><span class="n">utils</span><span class="o">.</span><span class="n">Sequence</span><span class="p">):</span>
+                    <span class="n">first_batch_inputs</span><span class="p">,</span> <span class="o">*</span><span class="n">_</span> <span class="o">=</span> <span class="n">training_data</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+                    <span class="k">if</span> <span class="n">is_single_input_model</span><span class="p">:</span>
+                        <span class="n">batch_size</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">first_batch_inputs</span><span class="p">)</span>
+                    <span class="k">else</span><span class="p">:</span>
+                        <span class="n">batch_size</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">first_batch_inputs</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+                <span class="k">elif</span> <span class="n">is_iterator</span><span class="p">(</span><span class="n">training_data</span><span class="p">):</span>
+                    <span class="n">peek</span> <span class="o">=</span> <span class="nb">next</span><span class="p">(</span><span class="n">training_data</span><span class="p">)</span>
+                    <span class="n">batch_size</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">peek</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="k">if</span> <span class="n">is_single_input_model</span> <span class="k">else</span> <span class="nb">len</span><span class="p">(</span><span class="n">peek</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">0</span><span class="p">])</span>
+
+                    <span class="k">def</span> <span class="nf">__restore_generator</span><span class="p">(</span><span class="n">prev_generator</span><span class="p">):</span>
+                        <span class="k">yield</span> <span class="n">peek</span>
+                        <span class="k">yield from</span> <span class="n">prev_generator</span>
+
+                    <span class="n">restored_generator</span> <span class="o">=</span> <span class="n">__restore_generator</span><span class="p">(</span><span class="n">training_data</span><span class="p">)</span>
+                    <span class="k">if</span> <span class="s2">&quot;x&quot;</span> <span class="ow">in</span> <span class="n">kwargs</span><span class="p">:</span>
+                        <span class="n">kwargs</span><span class="p">[</span><span class="s2">&quot;x&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">restored_generator</span>
+                    <span class="k">else</span><span class="p">:</span>
+                        <span class="n">args</span> <span class="o">=</span> <span class="p">(</span><span class="n">restored_generator</span><span class="p">,)</span> <span class="o">+</span> <span class="n">args</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span>
+            <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+                <span class="n">_logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+                    <span class="s2">&quot;Encountered unexpected error while inferring batch size from training&quot;</span>
+                    <span class="s2">&quot; dataset: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span>
+                    <span class="n">e</span><span class="p">,</span>
+                <span class="p">)</span>
+
+            <span class="k">if</span> <span class="n">batch_size</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">mlflow</span><span class="o">.</span><span class="n">log_param</span><span class="p">(</span><span class="s2">&quot;batch_size&quot;</span><span class="p">,</span> <span class="n">batch_size</span><span class="p">)</span>
+                <span class="n">unlogged_params</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;batch_size&quot;</span><span class="p">)</span>
+
+            <span class="n">log_fn_args_as_params</span><span class="p">(</span><span class="n">original</span><span class="p">,</span> <span class="n">args</span><span class="p">,</span> <span class="n">kwargs</span><span class="p">,</span> <span class="n">unlogged_params</span><span class="p">)</span>
+
+            <span class="c1"># Check if the &#39;callback&#39; argument of fit() is set positionally</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">args</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="mi">6</span><span class="p">:</span>
+                <span class="c1"># Convert the positional training function arguments to a list in order to</span>
+                <span class="c1"># mutate the contents</span>
+                <span class="n">args</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">args</span><span class="p">)</span>
+                <span class="c1"># Make a shallow copy of the preexisting callbacks to avoid permanently</span>
+                <span class="c1"># modifying their contents for future training invocations. Introduce</span>
+                <span class="c1"># TensorBoard &amp; tf.keras callbacks if necessary</span>
+                <span class="n">callbacks</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">args</span><span class="p">[</span><span class="mi">5</span><span class="p">])</span>
+                <span class="n">callbacks</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">log_dir</span> <span class="o">=</span> <span class="n">_setup_callbacks</span><span class="p">(</span>
+                    <span class="n">callbacks</span><span class="p">,</span>
+                    <span class="n">log_every_epoch</span><span class="o">=</span><span class="n">log_every_epoch</span><span class="p">,</span>
+                    <span class="n">log_every_n_steps</span><span class="o">=</span><span class="n">log_every_n_steps</span><span class="p">,</span>
+                <span class="p">)</span>
+                <span class="c1"># Replace the callbacks positional entry in the copied arguments and convert</span>
+                <span class="c1"># the arguments back to tuple form for usage in the training function</span>
+                <span class="n">args</span><span class="p">[</span><span class="mi">5</span><span class="p">]</span> <span class="o">=</span> <span class="n">callbacks</span>
+                <span class="n">args</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">args</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="c1"># Make a shallow copy of the preexisting callbacks and introduce TensorBoard</span>
+                <span class="c1"># &amp; tf.keras callbacks if necessary</span>
+                <span class="n">callbacks</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;callbacks&quot;</span><span class="p">)</span> <span class="ow">or</span> <span class="p">[])</span>
+                <span class="n">kwargs</span><span class="p">[</span><span class="s2">&quot;callbacks&quot;</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">log_dir</span> <span class="o">=</span> <span class="n">_setup_callbacks</span><span class="p">(</span>
+                    <span class="n">callbacks</span><span class="p">,</span>
+                    <span class="n">log_every_epoch</span><span class="o">=</span><span class="n">log_every_epoch</span><span class="p">,</span>
+                    <span class="n">log_every_n_steps</span><span class="o">=</span><span class="n">log_every_n_steps</span><span class="p">,</span>
+                <span class="p">)</span>
+
+            <span class="n">early_stop_callback</span> <span class="o">=</span> <span class="n">_get_early_stop_callback</span><span class="p">(</span><span class="n">callbacks</span><span class="p">)</span>
+            <span class="n">_log_early_stop_callback_params</span><span class="p">(</span><span class="n">early_stop_callback</span><span class="p">)</span>
+
+            <span class="k">if</span> <span class="n">log_datasets</span><span class="p">:</span>
+                <span class="k">try</span><span class="p">:</span>
+                    <span class="n">context_tags</span> <span class="o">=</span> <span class="n">context_registry</span><span class="o">.</span><span class="n">resolve_tags</span><span class="p">()</span>
+                    <span class="n">source</span> <span class="o">=</span> <span class="n">CodeDatasetSource</span><span class="p">(</span><span class="n">tags</span><span class="o">=</span><span class="n">context_tags</span><span class="p">)</span>
+
+                    <span class="n">x</span> <span class="o">=</span> <span class="n">kwargs</span><span class="p">[</span><span class="s2">&quot;x&quot;</span><span class="p">]</span> <span class="k">if</span> <span class="s2">&quot;x&quot;</span> <span class="ow">in</span> <span class="n">kwargs</span> <span class="k">else</span> <span class="n">args</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+                    <span class="k">if</span> <span class="s2">&quot;y&quot;</span> <span class="ow">in</span> <span class="n">kwargs</span><span class="p">:</span>
+                        <span class="n">y</span> <span class="o">=</span> <span class="n">kwargs</span><span class="p">[</span><span class="s2">&quot;y&quot;</span><span class="p">]</span>
+                    <span class="k">elif</span> <span class="nb">len</span><span class="p">(</span><span class="n">args</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="mi">2</span><span class="p">:</span>
+                        <span class="n">y</span> <span class="o">=</span> <span class="n">args</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+                    <span class="k">else</span><span class="p">:</span>
+                        <span class="n">y</span> <span class="o">=</span> <span class="kc">None</span>
+
+                    <span class="k">if</span> <span class="s2">&quot;validation_data&quot;</span> <span class="ow">in</span> <span class="n">kwargs</span><span class="p">:</span>
+                        <span class="n">validation_data</span> <span class="o">=</span> <span class="n">kwargs</span><span class="p">[</span><span class="s2">&quot;validation_data&quot;</span><span class="p">]</span>
+                    <span class="k">elif</span> <span class="nb">len</span><span class="p">(</span><span class="n">args</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="mi">8</span><span class="p">:</span>
+                        <span class="n">validation_data</span> <span class="o">=</span> <span class="n">args</span><span class="p">[</span><span class="mi">7</span><span class="p">]</span>
+                    <span class="k">else</span><span class="p">:</span>
+                        <span class="n">validation_data</span> <span class="o">=</span> <span class="kc">None</span>
+                    <span class="n">_log_tensorflow_dataset</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">source</span><span class="p">,</span> <span class="s2">&quot;train&quot;</span><span class="p">,</span> <span class="n">targets</span><span class="o">=</span><span class="n">y</span><span class="p">)</span>
+                    <span class="k">if</span> <span class="n">validation_data</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                        <span class="n">_log_tensorflow_dataset</span><span class="p">(</span><span class="n">validation_data</span><span class="p">,</span> <span class="n">source</span><span class="p">,</span> <span class="s2">&quot;eval&quot;</span><span class="p">)</span>
+
+                <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+                    <span class="n">_logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+                        <span class="s2">&quot;Failed to log training dataset information to &quot;</span>
+                        <span class="s2">&quot;MLflow Tracking. Reason: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span>
+                        <span class="n">e</span><span class="p">,</span>
+                    <span class="p">)</span>
+
+            <span class="n">history</span> <span class="o">=</span> <span class="n">original</span><span class="p">(</span><span class="n">inst</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+
+            <span class="k">if</span> <span class="n">log_models</span><span class="p">:</span>
+                <span class="n">_log_keras_model</span><span class="p">(</span><span class="n">history</span><span class="p">,</span> <span class="n">args</span><span class="p">)</span>
+
+            <span class="n">_log_early_stop_callback_metrics</span><span class="p">(</span>
+                <span class="n">callback</span><span class="o">=</span><span class="n">early_stop_callback</span><span class="p">,</span>
+                <span class="n">history</span><span class="o">=</span><span class="n">history</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="c1"># Ensure all data are logged.</span>
+            <span class="c1"># Shut down the async logging (instead of flushing)</span>
+            <span class="c1"># to avoid leaving zombie threads between patchings.</span>
+            <span class="n">_shut_down_async_logging</span><span class="p">()</span>
+
+            <span class="n">mlflow</span><span class="o">.</span><span class="n">log_artifacts</span><span class="p">(</span>
+                <span class="n">local_dir</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">log_dir</span><span class="o">.</span><span class="n">location</span><span class="p">,</span>
+                <span class="n">artifact_path</span><span class="o">=</span><span class="s2">&quot;tensorboard_logs&quot;</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">log_dir</span><span class="o">.</span><span class="n">is_temp</span><span class="p">:</span>
+                <span class="n">shutil</span><span class="o">.</span><span class="n">rmtree</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">log_dir</span><span class="o">.</span><span class="n">location</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">history</span>
+
+        <span class="k">def</span> <span class="nf">_on_exception</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">exception</span><span class="p">):</span>
+            <span class="k">if</span> <span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">log_dir</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+                <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">log_dir</span><span class="o">.</span><span class="n">is_temp</span>
+                <span class="ow">and</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">log_dir</span><span class="o">.</span><span class="n">location</span><span class="p">)</span>
+            <span class="p">):</span>
+                <span class="n">shutil</span><span class="o">.</span><span class="n">rmtree</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">log_dir</span><span class="o">.</span><span class="n">location</span><span class="p">)</span>
+
+    <span class="n">managed</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="p">(</span><span class="n">tf</span><span class="o">.</span><span class="n">keras</span><span class="o">.</span><span class="n">Model</span><span class="p">,</span> <span class="s2">&quot;fit&quot;</span><span class="p">,</span> <span class="n">FitPatch</span><span class="p">),</span>
+    <span class="p">]</span>
+
+    <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">managed</span><span class="p">:</span>
+        <span class="n">safe_patch</span><span class="p">(</span><span class="n">FLAVOR_NAME</span><span class="p">,</span> <span class="o">*</span><span class="n">p</span><span class="p">,</span> <span class="n">manage_run</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">extra_tags</span><span class="o">=</span><span class="n">extra_tags</span><span class="p">)</span></div>
+
+
+<span class="k">def</span> <span class="nf">_log_tensorflow_dataset</span><span class="p">(</span><span class="n">tensorflow_dataset</span><span class="p">,</span> <span class="n">source</span><span class="p">,</span> <span class="n">context</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">targets</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="kn">import</span> <span class="nn">tensorflow</span> <span class="k">as</span> <span class="nn">tf</span>
+
+    <span class="c1"># create a dataset</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">tensorflow_dataset</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">):</span>
+        <span class="n">dataset</span> <span class="o">=</span> <span class="n">from_numpy</span><span class="p">(</span><span class="n">features</span><span class="o">=</span><span class="n">tensorflow_dataset</span><span class="p">,</span> <span class="n">targets</span><span class="o">=</span><span class="n">targets</span><span class="p">,</span> <span class="n">source</span><span class="o">=</span><span class="n">source</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="n">name</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">tensorflow_dataset</span><span class="p">,</span> <span class="n">tf</span><span class="o">.</span><span class="n">Tensor</span><span class="p">):</span>
+        <span class="n">dataset</span> <span class="o">=</span> <span class="n">from_tensorflow</span><span class="p">(</span>
+            <span class="n">features</span><span class="o">=</span><span class="n">tensorflow_dataset</span><span class="p">,</span> <span class="n">targets</span><span class="o">=</span><span class="n">targets</span><span class="p">,</span> <span class="n">source</span><span class="o">=</span><span class="n">source</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="n">name</span>
+        <span class="p">)</span>
+    <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">tensorflow_dataset</span><span class="p">,</span> <span class="n">tf</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">Dataset</span><span class="p">):</span>
+        <span class="n">dataset</span> <span class="o">=</span> <span class="n">from_tensorflow</span><span class="p">(</span><span class="n">features</span><span class="o">=</span><span class="n">tensorflow_dataset</span><span class="p">,</span> <span class="n">source</span><span class="o">=</span><span class="n">source</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="n">name</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">tensorflow_dataset</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">):</span>
+        <span class="n">x</span> <span class="o">=</span> <span class="n">tensorflow_dataset</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">y</span> <span class="o">=</span> <span class="n">tensorflow_dataset</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+        <span class="c1"># check if x and y are tensors</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">tf</span><span class="o">.</span><span class="n">Tensor</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">y</span><span class="p">,</span> <span class="n">tf</span><span class="o">.</span><span class="n">Tensor</span><span class="p">):</span>
+            <span class="n">dataset</span> <span class="o">=</span> <span class="n">from_tensorflow</span><span class="p">(</span><span class="n">features</span><span class="o">=</span><span class="n">x</span><span class="p">,</span> <span class="n">source</span><span class="o">=</span><span class="n">source</span><span class="p">,</span> <span class="n">targets</span><span class="o">=</span><span class="n">y</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="n">name</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">dataset</span> <span class="o">=</span> <span class="n">from_numpy</span><span class="p">(</span><span class="n">features</span><span class="o">=</span><span class="n">x</span><span class="p">,</span> <span class="n">targets</span><span class="o">=</span><span class="n">y</span><span class="p">,</span> <span class="n">source</span><span class="o">=</span><span class="n">source</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="n">name</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">_logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+            <span class="s2">&quot;Unrecognized dataset type </span><span class="si">%s</span><span class="s2">. Dataset logging skipped.&quot;</span><span class="p">,</span> <span class="nb">type</span><span class="p">(</span><span class="n">tensorflow_dataset</span><span class="p">)</span>
+        <span class="p">)</span>
+        <span class="k">return</span>
+
+    <span class="n">mlflow</span><span class="o">.</span><span class="n">log_input</span><span class="p">(</span><span class="n">dataset</span><span class="p">,</span> <span class="n">context</span><span class="p">)</span>
+
+
+<div class="viewcode-block" id="load_checkpoint"><a class="viewcode-back" href="../../python_api/mlflow.tensorflow.html#mlflow.tensorflow.load_checkpoint">[docs]</a><span class="k">def</span> <span class="nf">load_checkpoint</span><span class="p">(</span><span class="n">model</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">run_id</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">epoch</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">global_step</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    If you enable &quot;checkpoint&quot; in autologging, during Keras model</span>
+<span class="sd">    training execution, checkpointed models are logged as MLflow artifacts.</span>
+<span class="sd">    Using this API, you can load the checkpointed model.</span>
+
+<span class="sd">    If you want to load the latest checkpoint, set both `epoch` and `global_step` to None.</span>
+<span class="sd">    If &quot;checkpoint_save_freq&quot; is set to &quot;epoch&quot; in autologging,</span>
+<span class="sd">    you can set `epoch` param to the epoch of the checkpoint to load specific epoch checkpoint.</span>
+<span class="sd">    If &quot;checkpoint_save_freq&quot; is set to an integer in autologging,</span>
+<span class="sd">    you can set `global_step` param to the global step of the checkpoint to load specific</span>
+<span class="sd">    global step checkpoint.</span>
+<span class="sd">    `epoch` param and `global_step` can&#39;t be set together.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        model: A Keras model, this argument is required</span>
+<span class="sd">            only when the saved checkpoint is &quot;weight-only&quot;.</span>
+<span class="sd">        run_id: The id of the run which model is logged to. If not provided,</span>
+<span class="sd">            current active run is used.</span>
+<span class="sd">        epoch: The epoch of the checkpoint to be loaded, if you set</span>
+<span class="sd">            &quot;checkpoint_save_freq&quot; to &quot;epoch&quot;.</span>
+<span class="sd">        global_step: The global step of the checkpoint to be loaded, if</span>
+<span class="sd">            you set &quot;checkpoint_save_freq&quot; to an integer.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        The instance of a Keras model restored from the specified checkpoint.</span>
+
+<span class="sd">    .. code-block:: python</span>
+<span class="sd">        :caption: Example</span>
+
+<span class="sd">        import mlflow</span>
+
+<span class="sd">        mlflow.tensorflow.autolog(checkpoint=True, checkpoint_save_best_only=False)</span>
+
+<span class="sd">        model = create_tf_keras_model()  # Create a Keras model</span>
+<span class="sd">        with mlflow.start_run() as run:</span>
+<span class="sd">            model.fit(data, label, epoch=10)</span>
+
+<span class="sd">        run_id = run.info.run_id</span>
+
+<span class="sd">        # load latest checkpoint model</span>
+<span class="sd">        latest_checkpoint_model = mlflow.tensorflow.load_checkpoint(run_id=run_id)</span>
+
+<span class="sd">        # load history checkpoint model logged in second epoch</span>
+<span class="sd">        checkpoint_model = mlflow.tensorflow.load_checkpoint(run_id=run_id, epoch=2)</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="kn">import</span> <span class="nn">tensorflow</span> <span class="k">as</span> <span class="nn">tf</span>
+
+    <span class="k">with</span> <span class="n">TempDir</span><span class="p">()</span> <span class="k">as</span> <span class="n">tmp_dir</span><span class="p">:</span>
+        <span class="n">downloaded_checkpoint_filepath</span> <span class="o">=</span> <span class="n">download_checkpoint_artifact</span><span class="p">(</span>
+            <span class="n">run_id</span><span class="o">=</span><span class="n">run_id</span><span class="p">,</span> <span class="n">epoch</span><span class="o">=</span><span class="n">epoch</span><span class="p">,</span> <span class="n">global_step</span><span class="o">=</span><span class="n">global_step</span><span class="p">,</span> <span class="n">dst_path</span><span class="o">=</span><span class="n">tmp_dir</span><span class="o">.</span><span class="n">path</span><span class="p">()</span>
+        <span class="p">)</span>
+
+        <span class="n">fname</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">splitext</span><span class="p">(</span><span class="n">downloaded_checkpoint_filepath</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="k">if</span> <span class="n">fname</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="n">_WEIGHT_ONLY_CHECKPOINT_SUFFIX</span><span class="p">):</span>
+            <span class="c1"># the model is saved as weights only</span>
+            <span class="k">if</span> <span class="n">model</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="n">MlflowException</span><span class="p">(</span>
+                    <span class="s2">&quot;The latest checkpoint is weights-only, &#39;model&#39; argument must be provided&quot;</span>
+                <span class="p">)</span>
+            <span class="n">model</span><span class="o">.</span><span class="n">load_weights</span><span class="p">(</span><span class="n">downloaded_checkpoint_filepath</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">model</span>
+        <span class="k">return</span> <span class="n">tf</span><span class="o">.</span><span class="n">keras</span><span class="o">.</span><span class="n">models</span><span class="o">.</span><span class="n">load_model</span><span class="p">(</span><span class="n">downloaded_checkpoint_filepath</span><span class="p">)</span></div>
+</pre></div>
+
+              </div>
+            </div>
+            <footer>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+      <p class="copyright">
+          &copy; MLflow Project, a Series of LF Projects, LLC. All rights reserved.
+      </p>
+
+  </div> 
+
+</footer>
+          </div>
+        </div>
+      </section>
+    </main>
+  </page>
+
+  
+
+
+  
+  <script type="text/javascript">
+    var DOCUMENTATION_OPTIONS = {
+      URL_ROOT:'../../',
+      VERSION:'2.17.1.dev0',
+      COLLAPSE_INDEX:false,
+      FILE_SUFFIX:'.html',
+      LINK_SUFFIX: '.html',
+      HAS_SOURCE:  true
+    };
+  </script>
+
+  
+
+  <script type="text/javascript" src="../../_static/js/clipboard.min.js"></script>
+  <script type="text/javascript" src="../../_static/js/jquery.waypoints.min.js"></script>
+
+  
+  
+  
+  <script type="text/javascript">var CLIPPY_SVG_PATH = "../../_static/clippy.svg";</script>
+  <script type="text/javascript" src="../../_static/js/custom.js"></script>
+  
+
+  
+  
+  <script type="text/javascript">
+    jQuery(function () {
+      SphinxRtdTheme.StickyNav.enable();
+    });
+
+  </script>
+  
+
+  
+  <script type="text/javascript">
+    document.addEventListener("DOMContentLoaded", function() {
+        function copyToClipboard(text) {
+            const textarea = document.createElement('textarea');
+            textarea.value = text;
+            document.body.appendChild(textarea);
+            textarea.select();
+            document.execCommand('copy');
+            document.body.removeChild(textarea);
+        }
+        // Get the code block designator class entries
+        const allHighlights = document.querySelectorAll('.highlight');
+        // Disable copyable links for notebook cell numbering and for cell outputs
+        const highlights = Array.from(allHighlights).filter(highlight => !highlight.closest('.highlight-none') && 
+            !highlight.closest('.nboutput'));
+    
+        highlights.forEach(function(highlight) {
+            const copyIcon = document.createElement('span');
+            copyIcon.classList.add('copy-icon');
+            copyIcon.innerHTML = '&#xf0ea;';
+
+            copyIcon.addEventListener('click', function() {
+                const code = highlight.querySelector('pre').textContent;
+                copyToClipboard(code);
+
+                // Flash effect on click
+                this.style.color = '#0194E2';
+                setTimeout(() => {
+                    this.style.color = ''; 
+                }, 100);
+
+                // Display "Code copied to clipboard" near the clicked icon
+                const message = document.createElement('span');
+                message.textContent = "Copied!";
+                message.classList.add('copy-message'); 
+
+                // Append the message to the icon
+                this.appendChild(message);
+
+                setTimeout(() => {
+                    this.removeChild(message);
+                }, 500);
+            });
+
+            highlight.appendChild(copyIcon);
+        });
+    });
+  </script>
+
+
+<script type="text/javascript">
+    document.addEventListener("DOMContentLoaded", function() {
+        // Force download for notebook-download-btn
+        const downloadButtons = document.querySelectorAll('.notebook-download-btn');
+        downloadButtons.forEach(function(button) {
+            button.addEventListener('click', function(event) {
+                event.preventDefault(); // Prevent default behavior
+
+                // Fetch the raw content of the notebook from GitHub
+                fetch(button.href)
+                    .then(response => response.blob())
+                    .then(blob => {
+                        const url = window.URL.createObjectURL(blob);
+                        const link = document.createElement('a');
+                        link.style.display = 'none';
+                        link.href = url;
+                        const filename = button.href.split('/').pop();
+                        link.download = filename; 
+
+                        document.body.appendChild(link);
+                        link.click();
+
+                        window.URL.revokeObjectURL(url);
+                        document.body.removeChild(link);
+                    })
+                    .catch(err => console.error('Error fetching the notebook:', err));
+            });
+        });
+    });
+</script> 
+</body>
+</html>

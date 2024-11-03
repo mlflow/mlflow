@@ -1,0 +1,439 @@
+
+
+<!DOCTYPE html>
+<!-- source: docs/source/_modules/mlflow/utils/doctor -->
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>mlflow.utils.doctor</title>
+  
+   
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+  <link rel="canonical" href="https://mlflow.org/docs/latest/_modules/mlflow/utils/doctor.html">
+  
+  
+    <link rel="shortcut icon" href="../../../_static/favicon.ico"/>
+    
+
+    
+
+  
+    
+
+  
+
+  
+  
+    
+
+  
+
+  
+  
+    <link href="https://fonts.googleapis.com/css?family=Source+Sans+Pro:300,400,600" rel="stylesheet">
+    <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/css/custom.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/css/cards.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/css/grids.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/css/mobile.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/css/simple-cards.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/css/tabs.css" type="text/css" />
+    
+  
+        <link rel="index" title="Index"
+              href="../../../genindex.html"/>
+        <link rel="search" title="Search" href="../../../search.html"/>
+    <link rel="top" title="MLflow 2.17.1.dev0 documentation" href="../../../index.html"/>
+        <link rel="up" title="Module code" href="../../index.html"/> 
+
+  
+  <script src="../../../_static/js/modernizr.min.js"></script>
+
+</head>
+<script type="text/javascript" src="../../../_static/jquery.js"></script>
+<script type="text/javascript" src="../../../_static/underscore.js"></script>
+<script type="text/javascript" src="../../../_static/doctools.js"></script>
+<script type="text/javascript" src="../../../_static/tabs.js"></script>
+<script type="text/javascript" src="../../../_static/languagesections.js"></script>
+<script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+<script type="text/javascript" src="../../../_static/runllm.js"></script>
+
+<body class="wy-body-for-nav" role="document">
+  
+
+  
+  <nav class="wy-nav-top header" role="navigation" aria-label="top navigation">
+    <ul>
+  <li class="menu-toggle">
+    <i data-toggle="wy-nav-top" class="wy-nav-top-menu-button db-icon db-icon-menu pull-left"></i>
+    <a href="../../../index.html" class="wy-nav-top-logo"
+      ><img src="../../../_static/MLflow-logo-final-black.png" alt="MLflow"
+    /></a>
+    <span class="version">2.17.1.dev0</span>
+  </li>
+</ul>
+  </nav>
+  <page>
+    
+
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side relative">
+      <div class="wy-side-scroll">
+  <div class="wy-side-nav-search">
+    
+
+    
+
+    
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+  <input type="text" name="q" placeholder="Search" />
+  <input type="hidden" name="check_keywords" value="yes" />
+  <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+
+    
+  </div>
+
+  <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+    
+      <a href="../../../index.html" class="main-navigation-home"><img src="../../../_static/icons/nav-home.svg"> MLflow</a>
+    
+
+    
+      
+
+      
+        <ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../python_api/index.html">Python API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../cli.html">Command-Line Interface</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../R-api.html">R API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../java_api/index.html">Java API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../rest-api.html">REST API</a></li>
+</ul>
+
+      
+    
+  </div>
+
+  <div role="contentinfo">
+    
+
+    <p>
+      <a id='feedbacklink' href="https://github.com/mlflow/mlflow/blob/master/CONTRIBUTING.md" target="_blank">Contribute</a>
+    </p>
+  </div>
+</div>
+    </nav>
+
+    <main class="wy-grid-for-nav">
+      <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+        <div class="wy-nav-content">
+          <div class="rst-content">
+            
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href="../../../index.html">Documentation</a> <span class="db-icon db-icon-chevron-right"></span></li>
+    
+        <li><a href="../../index.html">Module code</a> <span class="db-icon db-icon-chevron-right"></span></li>
+    
+    
+      <li>mlflow.utils.doctor</li>
+    
+    
+    <!-- <li class="wy-breadcrumbs-aside">
+      <a href="https://github.com/mlflow/mlflow/blob/master/docs/source/_modules/mlflow/utils/doctor" class="fa fa-github"> Edit on GitHub</a>
+    </li> -->
+    
+  </ul>
+</div>
+            <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+              <div itemprop="articleBody">
+                
+  <h1>Source code for mlflow.utils.doctor</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span> <span class="nn">os</span>
+<span class="kn">import</span> <span class="nn">platform</span>
+
+<span class="kn">import</span> <span class="nn">click</span>
+<span class="kn">import</span> <span class="nn">importlib_metadata</span>
+<span class="kn">import</span> <span class="nn">yaml</span>
+<span class="kn">from</span> <span class="nn">packaging.requirements</span> <span class="kn">import</span> <span class="n">Requirement</span>
+
+<span class="kn">import</span> <span class="nn">mlflow</span>
+<span class="kn">from</span> <span class="nn">mlflow.utils.databricks_utils</span> <span class="kn">import</span> <span class="n">get_databricks_runtime_version</span>
+
+
+<div class="viewcode-block" id="doctor"><a class="viewcode-back" href="../../../python_api/mlflow.html#mlflow.doctor">[docs]</a><span class="k">def</span> <span class="nf">doctor</span><span class="p">(</span><span class="n">mask_envs</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Prints out useful information for debugging issues with MLflow.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        mask_envs: If True, mask the MLflow environment variable values</span>
+<span class="sd">            (e.g. `&quot;MLFLOW_ENV_VAR&quot;: &quot;***&quot;`) in the output to prevent leaking sensitive</span>
+<span class="sd">            information.</span>
+
+<span class="sd">    .. warning::</span>
+
+<span class="sd">        - This API should only be used for debugging purposes.</span>
+<span class="sd">        - The output may contain sensitive information such as a database URI containing a password.</span>
+
+<span class="sd">    .. code-block:: python</span>
+<span class="sd">        :caption: Example</span>
+
+<span class="sd">        import mlflow</span>
+
+<span class="sd">        with mlflow.start_run():</span>
+<span class="sd">            mlflow.doctor()</span>
+
+<span class="sd">    .. code-block:: text</span>
+<span class="sd">        :caption: Output</span>
+
+<span class="sd">        System information: Linux #58~20.04.1-Ubuntu SMP Thu Oct 13 13:09:46 UTC 2022</span>
+<span class="sd">        Python version: 3.8.13</span>
+<span class="sd">        MLflow version: 2.0.1</span>
+<span class="sd">        MLflow module location: /usr/local/lib/python3.8/site-packages/mlflow/__init__.py</span>
+<span class="sd">        Tracking URI: sqlite:///mlflow.db</span>
+<span class="sd">        Registry URI: sqlite:///mlflow.db</span>
+<span class="sd">        MLflow environment variables:</span>
+<span class="sd">          MLFLOW_TRACKING_URI: sqlite:///mlflow.db</span>
+<span class="sd">        MLflow dependencies:</span>
+<span class="sd">          Flask: 2.2.2</span>
+<span class="sd">          Jinja2: 3.0.3</span>
+<span class="sd">          alembic: 1.8.1</span>
+<span class="sd">          click: 8.1.3</span>
+<span class="sd">          cloudpickle: 2.2.0</span>
+<span class="sd">          databricks-cli: 0.17.4.dev0</span>
+<span class="sd">          docker: 6.0.0</span>
+<span class="sd">          entrypoints: 0.4</span>
+<span class="sd">          gitpython: 3.1.29</span>
+<span class="sd">          gunicorn: 20.1.0</span>
+<span class="sd">          importlib-metadata: 5.0.0</span>
+<span class="sd">          markdown: 3.4.1</span>
+<span class="sd">          matplotlib: 3.6.1</span>
+<span class="sd">          numpy: 1.23.4</span>
+<span class="sd">          packaging: 21.3</span>
+<span class="sd">          pandas: 1.5.1</span>
+<span class="sd">          protobuf: 3.19.6</span>
+<span class="sd">          pyarrow: 9.0.0</span>
+<span class="sd">          pytz: 2022.6</span>
+<span class="sd">          pyyaml: 6.0</span>
+<span class="sd">          querystring-parser: 1.2.4</span>
+<span class="sd">          requests: 2.28.1</span>
+<span class="sd">          scikit-learn: 1.1.3</span>
+<span class="sd">          scipy: 1.9.3</span>
+<span class="sd">          shap: 0.41.0</span>
+<span class="sd">          sqlalchemy: 1.4.42</span>
+<span class="sd">          sqlparse: 0.4.3</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">items</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="p">(</span><span class="s2">&quot;System information&quot;</span><span class="p">,</span> <span class="s2">&quot; &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">((</span><span class="n">platform</span><span class="o">.</span><span class="n">system</span><span class="p">(),</span> <span class="n">platform</span><span class="o">.</span><span class="n">version</span><span class="p">()))),</span>
+        <span class="p">(</span><span class="s2">&quot;Python version&quot;</span><span class="p">,</span> <span class="n">platform</span><span class="o">.</span><span class="n">python_version</span><span class="p">()),</span>
+        <span class="p">(</span><span class="s2">&quot;MLflow version&quot;</span><span class="p">,</span> <span class="n">mlflow</span><span class="o">.</span><span class="n">__version__</span><span class="p">),</span>
+        <span class="p">(</span><span class="s2">&quot;MLflow module location&quot;</span><span class="p">,</span> <span class="n">mlflow</span><span class="o">.</span><span class="vm">__file__</span><span class="p">),</span>
+        <span class="p">(</span><span class="s2">&quot;Tracking URI&quot;</span><span class="p">,</span> <span class="n">mlflow</span><span class="o">.</span><span class="n">get_tracking_uri</span><span class="p">()),</span>
+        <span class="p">(</span><span class="s2">&quot;Registry URI&quot;</span><span class="p">,</span> <span class="n">mlflow</span><span class="o">.</span><span class="n">get_registry_uri</span><span class="p">()),</span>
+    <span class="p">]</span>
+
+    <span class="k">if</span> <span class="p">(</span><span class="n">runtime</span> <span class="o">:=</span> <span class="n">get_databricks_runtime_version</span><span class="p">())</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">items</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="s2">&quot;Databricks runtime version&quot;</span><span class="p">,</span> <span class="n">runtime</span><span class="p">))</span>
+
+    <span class="n">active_run</span> <span class="o">=</span> <span class="n">mlflow</span><span class="o">.</span><span class="n">active_run</span><span class="p">()</span>
+    <span class="k">if</span> <span class="n">active_run</span><span class="p">:</span>
+        <span class="n">items</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span>
+            <span class="p">[</span>
+                <span class="p">(</span><span class="s2">&quot;Active experiment ID&quot;</span><span class="p">,</span> <span class="n">active_run</span><span class="o">.</span><span class="n">info</span><span class="o">.</span><span class="n">experiment_id</span><span class="p">),</span>
+                <span class="p">(</span><span class="s2">&quot;Active run ID&quot;</span><span class="p">,</span> <span class="n">active_run</span><span class="o">.</span><span class="n">info</span><span class="o">.</span><span class="n">run_id</span><span class="p">),</span>
+                <span class="p">(</span><span class="s2">&quot;Active run artifact URI&quot;</span><span class="p">,</span> <span class="n">active_run</span><span class="o">.</span><span class="n">info</span><span class="o">.</span><span class="n">artifact_uri</span><span class="p">),</span>
+            <span class="p">]</span>
+        <span class="p">)</span>
+
+    <span class="n">mlflow_envs</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="n">k</span><span class="p">:</span> <span class="p">(</span><span class="s2">&quot;***&quot;</span> <span class="k">if</span> <span class="n">mask_envs</span> <span class="k">else</span> <span class="n">v</span><span class="p">)</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">items</span><span class="p">()</span> <span class="k">if</span> <span class="n">k</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;MLFLOW_&quot;</span><span class="p">)</span>
+    <span class="p">}</span>
+    <span class="k">if</span> <span class="n">mlflow_envs</span><span class="p">:</span>
+        <span class="n">items</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+            <span class="p">(</span>
+                <span class="s2">&quot;MLflow environment variables&quot;</span><span class="p">,</span>
+                <span class="n">yaml</span><span class="o">.</span><span class="n">dump</span><span class="p">({</span><span class="s2">&quot;_&quot;</span><span class="p">:</span> <span class="n">mlflow_envs</span><span class="p">},</span> <span class="n">indent</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;&#39;&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">lstrip</span><span class="p">(</span><span class="s2">&quot;_:&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">rstrip</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">),</span>
+            <span class="p">)</span>
+        <span class="p">)</span>
+
+    <span class="n">mlflow_dependencies</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="k">for</span> <span class="n">req</span> <span class="ow">in</span> <span class="n">importlib_metadata</span><span class="o">.</span><span class="n">requires</span><span class="p">(</span><span class="s2">&quot;mlflow&quot;</span><span class="p">):</span>
+        <span class="n">req</span> <span class="o">=</span> <span class="n">Requirement</span><span class="p">(</span><span class="n">req</span><span class="p">)</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">dist</span> <span class="o">=</span> <span class="n">importlib_metadata</span><span class="o">.</span><span class="n">distribution</span><span class="p">(</span><span class="n">req</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
+        <span class="k">except</span> <span class="n">importlib_metadata</span><span class="o">.</span><span class="n">PackageNotFoundError</span><span class="p">:</span>
+            <span class="k">continue</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">mlflow_dependencies</span><span class="p">[</span><span class="n">req</span><span class="o">.</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">dist</span><span class="o">.</span><span class="n">version</span>
+
+    <span class="n">items</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+        <span class="p">(</span>
+            <span class="s2">&quot;MLflow dependencies&quot;</span><span class="p">,</span>
+            <span class="n">yaml</span><span class="o">.</span><span class="n">dump</span><span class="p">({</span><span class="s2">&quot;_&quot;</span><span class="p">:</span> <span class="n">mlflow_dependencies</span><span class="p">},</span> <span class="n">indent</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+            <span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;&#39;&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">)</span>
+            <span class="o">.</span><span class="n">lstrip</span><span class="p">(</span><span class="s2">&quot;_:&quot;</span><span class="p">)</span>
+            <span class="o">.</span><span class="n">rstrip</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">),</span>
+        <span class="p">)</span>
+    <span class="p">)</span>
+    <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">val</span> <span class="ow">in</span> <span class="n">items</span><span class="p">:</span>
+        <span class="n">click</span><span class="o">.</span><span class="n">secho</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">fg</span><span class="o">=</span><span class="s2">&quot;blue&quot;</span><span class="p">,</span> <span class="n">nl</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+        <span class="n">click</span><span class="o">.</span><span class="n">echo</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;: </span><span class="si">{</span><span class="n">val</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span></div>
+</pre></div>
+
+              </div>
+            </div>
+            <footer>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+      <p class="copyright">
+          &copy; MLflow Project, a Series of LF Projects, LLC. All rights reserved.
+      </p>
+
+  </div> 
+
+</footer>
+          </div>
+        </div>
+      </section>
+    </main>
+  </page>
+
+  
+
+
+  
+  <script type="text/javascript">
+    var DOCUMENTATION_OPTIONS = {
+      URL_ROOT:'../../../',
+      VERSION:'2.17.1.dev0',
+      COLLAPSE_INDEX:false,
+      FILE_SUFFIX:'.html',
+      LINK_SUFFIX: '.html',
+      HAS_SOURCE:  true
+    };
+  </script>
+
+  
+
+  <script type="text/javascript" src="../../../_static/js/clipboard.min.js"></script>
+  <script type="text/javascript" src="../../../_static/js/jquery.waypoints.min.js"></script>
+
+  
+  
+  
+  <script type="text/javascript">var CLIPPY_SVG_PATH = "../../../_static/clippy.svg";</script>
+  <script type="text/javascript" src="../../../_static/js/custom.js"></script>
+  
+
+  
+  
+  <script type="text/javascript">
+    jQuery(function () {
+      SphinxRtdTheme.StickyNav.enable();
+    });
+
+  </script>
+  
+
+  
+  <script type="text/javascript">
+    document.addEventListener("DOMContentLoaded", function() {
+        function copyToClipboard(text) {
+            const textarea = document.createElement('textarea');
+            textarea.value = text;
+            document.body.appendChild(textarea);
+            textarea.select();
+            document.execCommand('copy');
+            document.body.removeChild(textarea);
+        }
+        // Get the code block designator class entries
+        const allHighlights = document.querySelectorAll('.highlight');
+        // Disable copyable links for notebook cell numbering and for cell outputs
+        const highlights = Array.from(allHighlights).filter(highlight => !highlight.closest('.highlight-none') && 
+            !highlight.closest('.nboutput'));
+    
+        highlights.forEach(function(highlight) {
+            const copyIcon = document.createElement('span');
+            copyIcon.classList.add('copy-icon');
+            copyIcon.innerHTML = '&#xf0ea;';
+
+            copyIcon.addEventListener('click', function() {
+                const code = highlight.querySelector('pre').textContent;
+                copyToClipboard(code);
+
+                // Flash effect on click
+                this.style.color = '#0194E2';
+                setTimeout(() => {
+                    this.style.color = ''; 
+                }, 100);
+
+                // Display "Code copied to clipboard" near the clicked icon
+                const message = document.createElement('span');
+                message.textContent = "Copied!";
+                message.classList.add('copy-message'); 
+
+                // Append the message to the icon
+                this.appendChild(message);
+
+                setTimeout(() => {
+                    this.removeChild(message);
+                }, 500);
+            });
+
+            highlight.appendChild(copyIcon);
+        });
+    });
+  </script>
+
+
+<script type="text/javascript">
+    document.addEventListener("DOMContentLoaded", function() {
+        // Force download for notebook-download-btn
+        const downloadButtons = document.querySelectorAll('.notebook-download-btn');
+        downloadButtons.forEach(function(button) {
+            button.addEventListener('click', function(event) {
+                event.preventDefault(); // Prevent default behavior
+
+                // Fetch the raw content of the notebook from GitHub
+                fetch(button.href)
+                    .then(response => response.blob())
+                    .then(blob => {
+                        const url = window.URL.createObjectURL(blob);
+                        const link = document.createElement('a');
+                        link.style.display = 'none';
+                        link.href = url;
+                        const filename = button.href.split('/').pop();
+                        link.download = filename; 
+
+                        document.body.appendChild(link);
+                        link.click();
+
+                        window.URL.revokeObjectURL(url);
+                        document.body.removeChild(link);
+                    })
+                    .catch(err => console.error('Error fetching the notebook:', err));
+            });
+        });
+    });
+</script> 
+</body>
+</html>

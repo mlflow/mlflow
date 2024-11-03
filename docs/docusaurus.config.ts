@@ -9,14 +9,21 @@ const config: Config = {
 
   // Set the production url of your site here
   url: "https://mlflow.org",
-  // Set the /<baseUrl>/ pathname under which your site is served
-  // For GitHub pages deployment, it is often '/<projectName>/'
-  baseUrl: process.env.CIRCLECI_BASE_URL || "/",
+
+  // when building for production, check this environment
+  // variable to determine the correct base URL
+  baseUrl:
+    process.env.CIRCLECI_BASE_URL ??
+    (process.env.MLFLOW_DOCS_VERSION
+      ? `/docs/${process.env.MLFLOW_DOCS_VERSION}/`
+      : "/"),
 
   // GitHub pages deployment config.
   // If you aren't using GitHub pages, you don't need these.
   organizationName: "mlflow", // Usually your GitHub org/user name.
   projectName: "mlflow", // Usually your repo name.
+
+  staticDirectories: ["static"],
 
   // change to throw when migration is done
   onBrokenLinks: "warn",
@@ -35,6 +42,7 @@ const config: Config = {
       "classic",
       {
         docs: {
+          routeBasePath: "/",
           sidebarPath: "./sidebars.ts",
         },
         theme: {

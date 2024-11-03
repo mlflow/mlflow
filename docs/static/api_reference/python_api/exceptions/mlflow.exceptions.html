@@ -1,0 +1,378 @@
+
+
+<!DOCTYPE html>
+<!-- source: docs/source/python_api/exceptions/mlflow.exceptions.rst -->
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>mlflow.exceptions</title>
+  
+   
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+  <link rel="canonical" href="https://mlflow.org/docs/latest/python_api/exceptions/mlflow.exceptions.html">
+  
+  
+    <link rel="shortcut icon" href="../../_static/favicon.ico"/>
+    
+
+    
+
+  
+    
+
+  
+
+  
+  
+    
+
+  
+
+  
+  
+    <link href="https://fonts.googleapis.com/css?family=Source+Sans+Pro:300,400,600" rel="stylesheet">
+    <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/css/custom.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/css/cards.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/css/grids.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/css/mobile.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/css/simple-cards.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/css/tabs.css" type="text/css" />
+    
+  
+        <link rel="index" title="Index"
+              href="../../genindex.html"/>
+        <link rel="search" title="Search" href="../../search.html"/>
+    <link rel="top" title="MLflow 2.17.1.dev0 documentation" href="../../index.html"/> 
+
+  
+  <script src="../../_static/js/modernizr.min.js"></script>
+
+</head>
+<script type="text/javascript" src="../../_static/jquery.js"></script>
+<script type="text/javascript" src="../../_static/underscore.js"></script>
+<script type="text/javascript" src="../../_static/doctools.js"></script>
+<script type="text/javascript" src="../../_static/languagesections.js"></script>
+<script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+<script type="text/javascript" src="../../_static/runllm.js"></script>
+
+<body class="wy-body-for-nav" role="document">
+  
+
+  
+  <nav class="wy-nav-top header" role="navigation" aria-label="top navigation">
+    <ul>
+  <li class="menu-toggle">
+    <i data-toggle="wy-nav-top" class="wy-nav-top-menu-button db-icon db-icon-menu pull-left"></i>
+    <a href="../../index.html" class="wy-nav-top-logo"
+      ><img src="../../_static/MLflow-logo-final-black.png" alt="MLflow"
+    /></a>
+    <span class="version">2.17.1.dev0</span>
+  </li>
+</ul>
+  </nav>
+  <page>
+    
+
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side relative">
+      <div class="wy-side-scroll">
+  <div class="wy-side-nav-search">
+    
+
+    
+
+    
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+  <input type="text" name="q" placeholder="Search" />
+  <input type="hidden" name="check_keywords" value="yes" />
+  <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+
+    
+  </div>
+
+  <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+    
+      <a href="../../index.html" class="main-navigation-home"><img src="../../_static/icons/nav-home.svg"> MLflow</a>
+    
+
+    
+      
+
+      
+        <ul>
+<li class="toctree-l1"><a class="reference internal" href="../index.html">Python API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../cli.html">Command-Line Interface</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../R-api.html">R API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../java_api/index.html">Java API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../rest-api.html">REST API</a></li>
+</ul>
+
+      
+    
+  </div>
+
+  <div role="contentinfo">
+    
+
+    <p>
+      <a id='feedbacklink' href="https://github.com/mlflow/mlflow/blob/master/CONTRIBUTING.md" target="_blank">Contribute</a>
+    </p>
+  </div>
+</div>
+    </nav>
+
+    <main class="wy-grid-for-nav">
+      <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+        <div class="wy-nav-content">
+          <div class="rst-content">
+            
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href="../../index.html">Documentation</a> <span class="db-icon db-icon-chevron-right"></span></li>
+    
+    
+      <li>mlflow.exceptions</li>
+    
+    
+    <!-- <li class="wy-breadcrumbs-aside">
+      <a href="https://github.com/mlflow/mlflow/blob/master/docs/source/python_api/exceptions/mlflow.exceptions.rst" class="fa fa-github"> Edit on GitHub</a>
+    </li> -->
+    
+  </ul>
+</div>
+            <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+              <div itemprop="articleBody">
+                
+  <div class="section" id="mlflow-exceptions">
+<h1>mlflow.exceptions<a class="headerlink" href="#mlflow-exceptions" title="Permalink to this headline"> </a></h1>
+<dl class="py exception">
+<dt id="mlflow.exceptions.MlflowException">
+<em class="property"><span class="pre">exception</span> </em><code class="sig-prename descclassname"><span class="pre">mlflow.exceptions.</span></code><code class="sig-name descname"><span class="pre">MlflowException</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">message</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">error_code</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#mlflow.exceptions.MlflowException" title="Permalink to this definition"> </a></dt>
+<dd><p>Generic exception thrown when an MLflow operation fails</p>
+</dd></dl>
+
+<span class="target" id="module-mlflow.exceptions"></span><dl class="py exception">
+<dt id="mlflow.exceptions.ExecutionException">
+<em class="property"><span class="pre">exception</span> </em><code class="sig-prename descclassname"><span class="pre">mlflow.exceptions.</span></code><code class="sig-name descname"><span class="pre">ExecutionException</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">message</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">error_code</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/mlflow/exceptions.html#ExecutionException"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mlflow.exceptions.ExecutionException" title="Permalink to this definition"> </a></dt>
+<dd><p>Bases: <a class="reference internal" href="#mlflow.exceptions.MlflowException" title="mlflow.exceptions.MlflowException"><code class="xref py py-class docutils literal notranslate"><span class="pre">mlflow.exceptions.MlflowException</span></code></a></p>
+<p>Exception thrown when executing a project fails</p>
+</dd></dl>
+
+<dl class="py exception">
+<dt id="mlflow.exceptions.InvalidUrlException">
+<em class="property"><span class="pre">exception</span> </em><code class="sig-prename descclassname"><span class="pre">mlflow.exceptions.</span></code><code class="sig-name descname"><span class="pre">InvalidUrlException</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">message</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">error_code</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/mlflow/exceptions.html#InvalidUrlException"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mlflow.exceptions.InvalidUrlException" title="Permalink to this definition"> </a></dt>
+<dd><p>Bases: <a class="reference internal" href="#mlflow.exceptions.MlflowException" title="mlflow.exceptions.MlflowException"><code class="xref py py-class docutils literal notranslate"><span class="pre">mlflow.exceptions.MlflowException</span></code></a></p>
+<p>Exception thrown when a http request fails to send due to an invalid URL</p>
+</dd></dl>
+
+<dl class="py exception">
+<dt id="mlflow.exceptions.MissingConfigException">
+<em class="property"><span class="pre">exception</span> </em><code class="sig-prename descclassname"><span class="pre">mlflow.exceptions.</span></code><code class="sig-name descname"><span class="pre">MissingConfigException</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">message</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">error_code</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/mlflow/exceptions.html#MissingConfigException"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mlflow.exceptions.MissingConfigException" title="Permalink to this definition"> </a></dt>
+<dd><p>Bases: <a class="reference internal" href="#mlflow.exceptions.MlflowException" title="mlflow.exceptions.MlflowException"><code class="xref py py-class docutils literal notranslate"><span class="pre">mlflow.exceptions.MlflowException</span></code></a></p>
+<p>Exception thrown when expected configuration file/directory not found</p>
+</dd></dl>
+
+<dl class="py exception">
+<dt id="mlflow.exceptions.MlflowTraceDataCorrupted">
+<em class="property"><span class="pre">exception</span> </em><code class="sig-prename descclassname"><span class="pre">mlflow.exceptions.</span></code><code class="sig-name descname"><span class="pre">MlflowTraceDataCorrupted</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">request_id</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">Optional</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></span> <span class="o"><span class="pre">=</span></span> <span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">artifact_path</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">Optional</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></span> <span class="o"><span class="pre">=</span></span> <span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/mlflow/exceptions.html#MlflowTraceDataCorrupted"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mlflow.exceptions.MlflowTraceDataCorrupted" title="Permalink to this definition"> </a></dt>
+<dd><p>Bases: <a class="reference internal" href="#mlflow.exceptions.MlflowTraceDataException" title="mlflow.exceptions.MlflowTraceDataException"><code class="xref py py-class docutils literal notranslate"><span class="pre">mlflow.exceptions.MlflowTraceDataException</span></code></a></p>
+<p>Exception thrown when trace data is corrupted</p>
+</dd></dl>
+
+<dl class="py exception">
+<dt id="mlflow.exceptions.MlflowTraceDataException">
+<em class="property"><span class="pre">exception</span> </em><code class="sig-prename descclassname"><span class="pre">mlflow.exceptions.</span></code><code class="sig-name descname"><span class="pre">MlflowTraceDataException</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">error_code</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">request_id</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">Optional</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></span> <span class="o"><span class="pre">=</span></span> <span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">artifact_path</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">Optional</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></span> <span class="o"><span class="pre">=</span></span> <span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/mlflow/exceptions.html#MlflowTraceDataException"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mlflow.exceptions.MlflowTraceDataException" title="Permalink to this definition"> </a></dt>
+<dd><p>Bases: <a class="reference internal" href="#mlflow.exceptions.MlflowTracingException" title="mlflow.exceptions.MlflowTracingException"><code class="xref py py-class docutils literal notranslate"><span class="pre">mlflow.exceptions.MlflowTracingException</span></code></a></p>
+<p>Exception thrown for trace data related error</p>
+</dd></dl>
+
+<dl class="py exception">
+<dt id="mlflow.exceptions.MlflowTraceDataNotFound">
+<em class="property"><span class="pre">exception</span> </em><code class="sig-prename descclassname"><span class="pre">mlflow.exceptions.</span></code><code class="sig-name descname"><span class="pre">MlflowTraceDataNotFound</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">request_id</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">Optional</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></span> <span class="o"><span class="pre">=</span></span> <span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">artifact_path</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">Optional</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></span> <span class="o"><span class="pre">=</span></span> <span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/mlflow/exceptions.html#MlflowTraceDataNotFound"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mlflow.exceptions.MlflowTraceDataNotFound" title="Permalink to this definition"> </a></dt>
+<dd><p>Bases: <a class="reference internal" href="#mlflow.exceptions.MlflowTraceDataException" title="mlflow.exceptions.MlflowTraceDataException"><code class="xref py py-class docutils literal notranslate"><span class="pre">mlflow.exceptions.MlflowTraceDataException</span></code></a></p>
+<p>Exception thrown when trace data is not found</p>
+</dd></dl>
+
+<dl class="py exception">
+<dt id="mlflow.exceptions.MlflowTracingException">
+<em class="property"><span class="pre">exception</span> </em><code class="sig-prename descclassname"><span class="pre">mlflow.exceptions.</span></code><code class="sig-name descname"><span class="pre">MlflowTracingException</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">message</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">error_code</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/mlflow/exceptions.html#MlflowTracingException"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mlflow.exceptions.MlflowTracingException" title="Permalink to this definition"> </a></dt>
+<dd><p>Bases: <a class="reference internal" href="#mlflow.exceptions.MlflowException" title="mlflow.exceptions.MlflowException"><code class="xref py py-class docutils literal notranslate"><span class="pre">mlflow.exceptions.MlflowException</span></code></a></p>
+<p>Exception thrown from tracing logic</p>
+<p>Tracing logic should not block the main execution flow in general, hence this exception
+is used to distinguish tracing related errors and handle them properly.</p>
+</dd></dl>
+
+<dl class="py exception">
+<dt id="mlflow.exceptions.RestException">
+<em class="property"><span class="pre">exception</span> </em><code class="sig-prename descclassname"><span class="pre">mlflow.exceptions.</span></code><code class="sig-name descname"><span class="pre">RestException</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">json</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/mlflow/exceptions.html#RestException"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mlflow.exceptions.RestException" title="Permalink to this definition"> </a></dt>
+<dd><p>Bases: <a class="reference internal" href="#mlflow.exceptions.MlflowException" title="mlflow.exceptions.MlflowException"><code class="xref py py-class docutils literal notranslate"><span class="pre">mlflow.exceptions.MlflowException</span></code></a></p>
+<p>Exception thrown on non 200-level responses from the REST API</p>
+</dd></dl>
+
+<dl class="py function">
+<dt id="mlflow.exceptions.get_error_code">
+<code class="sig-prename descclassname"><span class="pre">mlflow.exceptions.</span></code><code class="sig-name descname"><span class="pre">get_error_code</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">http_status</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/mlflow/exceptions.html#get_error_code"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mlflow.exceptions.get_error_code" title="Permalink to this definition"> </a></dt>
+<dd></dd></dl>
+
+</div>
+
+
+              </div>
+            </div>
+            <footer>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+      <p class="copyright">
+          &copy; MLflow Project, a Series of LF Projects, LLC. All rights reserved.
+      </p>
+
+  </div> 
+
+</footer>
+          </div>
+        </div>
+      </section>
+    </main>
+  </page>
+
+  
+
+
+  
+  <script type="text/javascript">
+    var DOCUMENTATION_OPTIONS = {
+      URL_ROOT:'../../',
+      VERSION:'2.17.1.dev0',
+      COLLAPSE_INDEX:false,
+      FILE_SUFFIX:'.html',
+      LINK_SUFFIX: '.html',
+      HAS_SOURCE:  true
+    };
+  </script>
+
+  
+
+  <script type="text/javascript" src="../../_static/js/clipboard.min.js"></script>
+  <script type="text/javascript" src="../../_static/js/jquery.waypoints.min.js"></script>
+
+  
+  
+  
+  <script type="text/javascript">var CLIPPY_SVG_PATH = "../../_static/clippy.svg";</script>
+  <script type="text/javascript" src="../../_static/js/custom.js"></script>
+  
+
+  
+  
+  <script type="text/javascript">
+    jQuery(function () {
+      SphinxRtdTheme.StickyNav.enable();
+    });
+
+  </script>
+  
+
+  
+  <script type="text/javascript">
+    document.addEventListener("DOMContentLoaded", function() {
+        function copyToClipboard(text) {
+            const textarea = document.createElement('textarea');
+            textarea.value = text;
+            document.body.appendChild(textarea);
+            textarea.select();
+            document.execCommand('copy');
+            document.body.removeChild(textarea);
+        }
+        // Get the code block designator class entries
+        const allHighlights = document.querySelectorAll('.highlight');
+        // Disable copyable links for notebook cell numbering and for cell outputs
+        const highlights = Array.from(allHighlights).filter(highlight => !highlight.closest('.highlight-none') && 
+            !highlight.closest('.nboutput'));
+    
+        highlights.forEach(function(highlight) {
+            const copyIcon = document.createElement('span');
+            copyIcon.classList.add('copy-icon');
+            copyIcon.innerHTML = '&#xf0ea;';
+
+            copyIcon.addEventListener('click', function() {
+                const code = highlight.querySelector('pre').textContent;
+                copyToClipboard(code);
+
+                // Flash effect on click
+                this.style.color = '#0194E2';
+                setTimeout(() => {
+                    this.style.color = ''; 
+                }, 100);
+
+                // Display "Code copied to clipboard" near the clicked icon
+                const message = document.createElement('span');
+                message.textContent = "Copied!";
+                message.classList.add('copy-message'); 
+
+                // Append the message to the icon
+                this.appendChild(message);
+
+                setTimeout(() => {
+                    this.removeChild(message);
+                }, 500);
+            });
+
+            highlight.appendChild(copyIcon);
+        });
+    });
+  </script>
+
+
+<script type="text/javascript">
+    document.addEventListener("DOMContentLoaded", function() {
+        // Force download for notebook-download-btn
+        const downloadButtons = document.querySelectorAll('.notebook-download-btn');
+        downloadButtons.forEach(function(button) {
+            button.addEventListener('click', function(event) {
+                event.preventDefault(); // Prevent default behavior
+
+                // Fetch the raw content of the notebook from GitHub
+                fetch(button.href)
+                    .then(response => response.blob())
+                    .then(blob => {
+                        const url = window.URL.createObjectURL(blob);
+                        const link = document.createElement('a');
+                        link.style.display = 'none';
+                        link.href = url;
+                        const filename = button.href.split('/').pop();
+                        link.download = filename; 
+
+                        document.body.appendChild(link);
+                        link.click();
+
+                        window.URL.revokeObjectURL(url);
+                        document.body.removeChild(link);
+                    })
+                    .catch(err => console.error('Error fetching the notebook:', err));
+            });
+        });
+    });
+</script> 
+</body>
+</html>

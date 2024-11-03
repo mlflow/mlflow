@@ -1,0 +1,596 @@
+
+
+<!DOCTYPE html>
+<!-- source: docs/source/_modules/mlflow/mleap -->
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>mlflow.mleap</title>
+  
+   
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+  <link rel="canonical" href="https://mlflow.org/docs/latest/_modules/mlflow/mleap.html">
+  
+  
+    <link rel="shortcut icon" href="../../_static/favicon.ico"/>
+    
+
+    
+
+  
+    
+
+  
+
+  
+  
+    
+
+  
+
+  
+  
+    <link href="https://fonts.googleapis.com/css?family=Source+Sans+Pro:300,400,600" rel="stylesheet">
+    <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/css/custom.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/css/cards.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/css/grids.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/css/mobile.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/css/simple-cards.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/css/tabs.css" type="text/css" />
+    
+  
+        <link rel="index" title="Index"
+              href="../../genindex.html"/>
+        <link rel="search" title="Search" href="../../search.html"/>
+    <link rel="top" title="MLflow 2.17.1.dev0 documentation" href="../../index.html"/>
+        <link rel="up" title="Module code" href="../index.html"/> 
+
+  
+  <script src="../../_static/js/modernizr.min.js"></script>
+
+</head>
+<script type="text/javascript" src="../../_static/jquery.js"></script>
+<script type="text/javascript" src="../../_static/underscore.js"></script>
+<script type="text/javascript" src="../../_static/doctools.js"></script>
+<script type="text/javascript" src="../../_static/tabs.js"></script>
+<script type="text/javascript" src="../../_static/languagesections.js"></script>
+<script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+<script type="text/javascript" src="../../_static/runllm.js"></script>
+
+<body class="wy-body-for-nav" role="document">
+  
+
+  
+  <nav class="wy-nav-top header" role="navigation" aria-label="top navigation">
+    <ul>
+  <li class="menu-toggle">
+    <i data-toggle="wy-nav-top" class="wy-nav-top-menu-button db-icon db-icon-menu pull-left"></i>
+    <a href="../../index.html" class="wy-nav-top-logo"
+      ><img src="../../_static/MLflow-logo-final-black.png" alt="MLflow"
+    /></a>
+    <span class="version">2.17.1.dev0</span>
+  </li>
+</ul>
+  </nav>
+  <page>
+    
+
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side relative">
+      <div class="wy-side-scroll">
+  <div class="wy-side-nav-search">
+    
+
+    
+
+    
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+  <input type="text" name="q" placeholder="Search" />
+  <input type="hidden" name="check_keywords" value="yes" />
+  <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+
+    
+  </div>
+
+  <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+    
+      <a href="../../index.html" class="main-navigation-home"><img src="../../_static/icons/nav-home.svg"> MLflow</a>
+    
+
+    
+      
+
+      
+        <ul>
+<li class="toctree-l1"><a class="reference internal" href="../../python_api/index.html">Python API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../cli.html">Command-Line Interface</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../R-api.html">R API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../java_api/index.html">Java API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../rest-api.html">REST API</a></li>
+</ul>
+
+      
+    
+  </div>
+
+  <div role="contentinfo">
+    
+
+    <p>
+      <a id='feedbacklink' href="https://github.com/mlflow/mlflow/blob/master/CONTRIBUTING.md" target="_blank">Contribute</a>
+    </p>
+  </div>
+</div>
+    </nav>
+
+    <main class="wy-grid-for-nav">
+      <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+        <div class="wy-nav-content">
+          <div class="rst-content">
+            
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href="../../index.html">Documentation</a> <span class="db-icon db-icon-chevron-right"></span></li>
+    
+        <li><a href="../index.html">Module code</a> <span class="db-icon db-icon-chevron-right"></span></li>
+    
+    
+      <li>mlflow.mleap</li>
+    
+    
+    <!-- <li class="wy-breadcrumbs-aside">
+      <a href="https://github.com/mlflow/mlflow/blob/master/docs/source/_modules/mlflow/mleap" class="fa fa-github"> Edit on GitHub</a>
+    </li> -->
+    
+  </ul>
+</div>
+            <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+              <div itemprop="articleBody">
+                
+  <h1>Source code for mlflow.mleap</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">The ``mlflow.mleap`` module provides an API for saving Spark MLLib models using the</span>
+<span class="sd">`MLeap &lt;https://github.com/combust/mleap&gt;`_ persistence mechanism.</span>
+
+<span class="sd">.. warning:</span>
+
+<span class="sd">    The mleap flavor is deprecated and will be removed in a future release of MLflow.</span>
+
+<span class="sd">.. note:</span>
+
+<span class="sd">    You cannot load the MLeap model flavor in Python; you must download it using the</span>
+<span class="sd">    Java API method ``downloadArtifacts(String runId)`` and load the model</span>
+<span class="sd">    using the method ``MLeapLoader.loadPipeline(String modelRootPath)``.</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">import</span> <span class="nn">logging</span>
+<span class="kn">import</span> <span class="nn">os</span>
+<span class="kn">import</span> <span class="nn">pathlib</span>
+<span class="kn">import</span> <span class="nn">sys</span>
+<span class="kn">import</span> <span class="nn">traceback</span>
+
+<span class="kn">import</span> <span class="nn">mlflow</span>
+<span class="kn">from</span> <span class="nn">mlflow.exceptions</span> <span class="kn">import</span> <span class="n">MlflowException</span>
+<span class="kn">from</span> <span class="nn">mlflow.models</span> <span class="kn">import</span> <span class="n">Model</span><span class="p">,</span> <span class="n">ModelInputExample</span><span class="p">,</span> <span class="n">ModelSignature</span>
+<span class="kn">from</span> <span class="nn">mlflow.models.model</span> <span class="kn">import</span> <span class="n">MLMODEL_FILE_NAME</span>
+<span class="kn">from</span> <span class="nn">mlflow.models.utils</span> <span class="kn">import</span> <span class="n">_save_example</span>
+<span class="kn">from</span> <span class="nn">mlflow.utils</span> <span class="kn">import</span> <span class="n">reraise</span>
+<span class="kn">from</span> <span class="nn">mlflow.utils.annotations</span> <span class="kn">import</span> <span class="n">deprecated</span><span class="p">,</span> <span class="n">keyword_only</span>
+<span class="kn">from</span> <span class="nn">mlflow.utils.file_utils</span> <span class="kn">import</span> <span class="n">path_to_local_file_uri</span>
+<span class="kn">from</span> <span class="nn">mlflow.utils.os</span> <span class="kn">import</span> <span class="n">is_windows</span>
+
+<span class="n">FLAVOR_NAME</span> <span class="o">=</span> <span class="s2">&quot;mleap&quot;</span>
+
+<span class="n">_logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
+
+
+<div class="viewcode-block" id="log_model"><a class="viewcode-back" href="../../python_api/mlflow.mleap.html#mlflow.mleap.log_model">[docs]</a><span class="nd">@deprecated</span><span class="p">(</span><span class="n">alternative</span><span class="o">=</span><span class="s2">&quot;mlflow.onnx&quot;</span><span class="p">,</span> <span class="n">since</span><span class="o">=</span><span class="s2">&quot;2.6.0&quot;</span><span class="p">)</span>
+<span class="nd">@keyword_only</span>
+<span class="k">def</span> <span class="nf">log_model</span><span class="p">(</span>
+    <span class="n">spark_model</span><span class="p">,</span>
+    <span class="n">sample_input</span><span class="p">,</span>
+    <span class="n">artifact_path</span><span class="p">,</span>
+    <span class="n">registered_model_name</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">signature</span><span class="p">:</span> <span class="n">ModelSignature</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">input_example</span><span class="p">:</span> <span class="n">ModelInputExample</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">metadata</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+<span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Log a Spark MLLib model in MLeap format as an MLflow artifact</span>
+<span class="sd">    for the current run. The logged model will have the MLeap flavor.</span>
+
+<span class="sd">    .. note::</span>
+
+<span class="sd">        You cannot load the MLeap model flavor in Python; you must download it using the</span>
+<span class="sd">        Java API method ``downloadArtifacts(String runId)`` and load the model</span>
+<span class="sd">        using the method ``MLeapLoader.loadPipeline(String modelRootPath)``.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        spark_model: Spark PipelineModel to be saved. This model must be MLeap-compatible and</span>
+<span class="sd">            cannot contain any custom transformers.</span>
+<span class="sd">        sample_input: Sample PySpark DataFrame input that the model can evaluate. This is</span>
+<span class="sd">            required by MLeap for data schema inference.</span>
+<span class="sd">        artifact_path: Run-relative artifact path.</span>
+<span class="sd">        registered_model_name: If given, create a model version under</span>
+<span class="sd">            ``registered_model_name``, also creating a registered model if one</span>
+<span class="sd">            with the given name does not exist.</span>
+<span class="sd">        signature: :py:class:`ModelSignature &lt;mlflow.models.ModelSignature&gt;`</span>
+<span class="sd">            describes model input and output :py:class:`Schema &lt;mlflow.types.Schema&gt;`.</span>
+<span class="sd">            The model signature can be :py:func:`inferred &lt;mlflow.models.infer_signature&gt;`</span>
+<span class="sd">            from datasets with valid model input (e.g. the training dataset with target</span>
+<span class="sd">            column omitted) and valid model output (e.g. model predictions generated on</span>
+<span class="sd">            the training dataset), for example:</span>
+
+<span class="sd">            .. code-block:: python</span>
+
+<span class="sd">                from mlflow.models import infer_signature</span>
+
+<span class="sd">                train = df.drop_column(&quot;target_label&quot;)</span>
+<span class="sd">                predictions = ...  # compute model predictions</span>
+<span class="sd">                signature = infer_signature(train, predictions)</span>
+<span class="sd">        input_example: {{ input_example }}</span>
+<span class="sd">        metadata: {{ metadata }}</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        A :py:class:`ModelInfo &lt;mlflow.models.model.ModelInfo&gt;` instance that contains the</span>
+<span class="sd">        metadata of the logged model.</span>
+
+
+<span class="sd">    .. code-block:: python</span>
+<span class="sd">        :caption: Example</span>
+
+<span class="sd">        import mlflow</span>
+<span class="sd">        import mlflow.mleap</span>
+<span class="sd">        import pyspark</span>
+<span class="sd">        from pyspark.ml import Pipeline</span>
+<span class="sd">        from pyspark.ml.classification import LogisticRegression</span>
+<span class="sd">        from pyspark.ml.feature import HashingTF, Tokenizer</span>
+
+<span class="sd">        # training DataFrame</span>
+<span class="sd">        training = spark.createDataFrame(</span>
+<span class="sd">            [</span>
+<span class="sd">                (0, &quot;a b c d e spark&quot;, 1.0),</span>
+<span class="sd">                (1, &quot;b d&quot;, 0.0),</span>
+<span class="sd">                (2, &quot;spark f g h&quot;, 1.0),</span>
+<span class="sd">                (3, &quot;hadoop mapreduce&quot;, 0.0),</span>
+<span class="sd">            ],</span>
+<span class="sd">            [&quot;id&quot;, &quot;text&quot;, &quot;label&quot;],</span>
+<span class="sd">        )</span>
+<span class="sd">        # testing DataFrame</span>
+<span class="sd">        test_df = spark.createDataFrame(</span>
+<span class="sd">            [(4, &quot;spark i j k&quot;), (5, &quot;l m n&quot;), (6, &quot;spark hadoop spark&quot;), (7, &quot;apache hadoop&quot;)],</span>
+<span class="sd">            [&quot;id&quot;, &quot;text&quot;],</span>
+<span class="sd">        )</span>
+<span class="sd">        # Create an MLlib pipeline</span>
+<span class="sd">        tokenizer = Tokenizer(inputCol=&quot;text&quot;, outputCol=&quot;words&quot;)</span>
+<span class="sd">        hashingTF = HashingTF(inputCol=tokenizer.getOutputCol(), outputCol=&quot;features&quot;)</span>
+<span class="sd">        lr = LogisticRegression(maxIter=10, regParam=0.001)</span>
+<span class="sd">        pipeline = Pipeline(stages=[tokenizer, hashingTF, lr])</span>
+<span class="sd">        model = pipeline.fit(training)</span>
+<span class="sd">        # log parameters</span>
+<span class="sd">        mlflow.log_param(&quot;max_iter&quot;, 10)</span>
+<span class="sd">        mlflow.log_param(&quot;reg_param&quot;, 0.001)</span>
+<span class="sd">        # log the Spark MLlib model in MLeap format</span>
+<span class="sd">        mlflow.mleap.log_model(</span>
+<span class="sd">            spark_model=model, sample_input=test_df, artifact_path=&quot;mleap-model&quot;</span>
+<span class="sd">        )</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">Model</span><span class="o">.</span><span class="n">log</span><span class="p">(</span>
+        <span class="n">artifact_path</span><span class="o">=</span><span class="n">artifact_path</span><span class="p">,</span>
+        <span class="n">flavor</span><span class="o">=</span><span class="n">mlflow</span><span class="o">.</span><span class="n">mleap</span><span class="p">,</span>
+        <span class="n">spark_model</span><span class="o">=</span><span class="n">spark_model</span><span class="p">,</span>
+        <span class="n">sample_input</span><span class="o">=</span><span class="n">sample_input</span><span class="p">,</span>
+        <span class="n">registered_model_name</span><span class="o">=</span><span class="n">registered_model_name</span><span class="p">,</span>
+        <span class="n">signature</span><span class="o">=</span><span class="n">signature</span><span class="p">,</span>
+        <span class="n">input_example</span><span class="o">=</span><span class="n">input_example</span><span class="p">,</span>
+        <span class="n">metadata</span><span class="o">=</span><span class="n">metadata</span><span class="p">,</span>
+    <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="save_model"><a class="viewcode-back" href="../../python_api/mlflow.mleap.html#mlflow.mleap.save_model">[docs]</a><span class="nd">@deprecated</span><span class="p">(</span><span class="n">alternative</span><span class="o">=</span><span class="s2">&quot;mlflow.onnx&quot;</span><span class="p">,</span> <span class="n">since</span><span class="o">=</span><span class="s2">&quot;2.6.0&quot;</span><span class="p">)</span>
+<span class="nd">@keyword_only</span>
+<span class="k">def</span> <span class="nf">save_model</span><span class="p">(</span>
+    <span class="n">spark_model</span><span class="p">,</span>
+    <span class="n">sample_input</span><span class="p">,</span>
+    <span class="n">path</span><span class="p">,</span>
+    <span class="n">mlflow_model</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">signature</span><span class="p">:</span> <span class="n">ModelSignature</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">input_example</span><span class="p">:</span> <span class="n">ModelInputExample</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">metadata</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+<span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Save a Spark MLlib PipelineModel in MLeap format at a local path.</span>
+<span class="sd">    The saved model will have the MLeap flavor.</span>
+
+<span class="sd">    .. note::</span>
+
+<span class="sd">        You cannot load the MLeap model flavor in Python; you must download it using the</span>
+<span class="sd">        Java API method ``downloadArtifacts(String runId)`` and load the model</span>
+<span class="sd">        using the method ``MLeapLoader.loadPipeline(String modelRootPath)``.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        spark_model: Spark PipelineModel to be saved. This model must be MLeap-compatible and</span>
+<span class="sd">            cannot contain any custom transformers.</span>
+<span class="sd">        sample_input: Sample PySpark DataFrame input that the model can evaluate. This is</span>
+<span class="sd">            required by MLeap for data schema inference.</span>
+<span class="sd">        path: Local path where the model is to be saved.</span>
+<span class="sd">        mlflow_model: :py:mod:`mlflow.models.Model` to which this flavor is being added.</span>
+<span class="sd">        signature: :py:class:`ModelSignature &lt;mlflow.models.ModelSignature&gt;`</span>
+<span class="sd">            describes model input and output :py:class:`Schema &lt;mlflow.types.Schema&gt;`.</span>
+<span class="sd">            The model signature can be :py:func:`inferred &lt;mlflow.models.infer_signature&gt;`</span>
+<span class="sd">            from datasets with valid model input (e.g. the training dataset with target</span>
+<span class="sd">            column omitted) and valid model output (e.g. model predictions generated on</span>
+<span class="sd">            the training dataset), for example:</span>
+
+<span class="sd">            .. code-block:: python</span>
+
+<span class="sd">                from mlflow.models import infer_signature</span>
+
+<span class="sd">                train = df.drop_column(&quot;target_label&quot;)</span>
+<span class="sd">                predictions = ...  # compute model predictions</span>
+<span class="sd">                signature = infer_signature(train, predictions)</span>
+<span class="sd">        input_example: {{ input_example }}</span>
+<span class="sd">        metadata: {{ metadata }}</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">mlflow_model</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">mlflow_model</span> <span class="o">=</span> <span class="n">Model</span><span class="p">()</span>
+
+    <span class="n">add_to_model</span><span class="p">(</span>
+        <span class="n">mlflow_model</span><span class="o">=</span><span class="n">mlflow_model</span><span class="p">,</span> <span class="n">path</span><span class="o">=</span><span class="n">path</span><span class="p">,</span> <span class="n">spark_model</span><span class="o">=</span><span class="n">spark_model</span><span class="p">,</span> <span class="n">sample_input</span><span class="o">=</span><span class="n">sample_input</span>
+    <span class="p">)</span>
+    <span class="k">if</span> <span class="n">signature</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">mlflow_model</span><span class="o">.</span><span class="n">signature</span> <span class="o">=</span> <span class="n">signature</span>
+    <span class="k">if</span> <span class="n">input_example</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">_save_example</span><span class="p">(</span><span class="n">mlflow_model</span><span class="p">,</span> <span class="n">input_example</span><span class="p">,</span> <span class="n">path</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">metadata</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">mlflow_model</span><span class="o">.</span><span class="n">metadata</span> <span class="o">=</span> <span class="n">metadata</span>
+    <span class="n">mlflow_model</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">MLMODEL_FILE_NAME</span><span class="p">))</span></div>
+
+
+<div class="viewcode-block" id="add_to_model"><a class="viewcode-back" href="../../python_api/mlflow.mleap.html#mlflow.mleap.add_to_model">[docs]</a><span class="nd">@deprecated</span><span class="p">(</span><span class="n">alternative</span><span class="o">=</span><span class="s2">&quot;mlflow.onnx&quot;</span><span class="p">,</span> <span class="n">since</span><span class="o">=</span><span class="s2">&quot;2.6.0&quot;</span><span class="p">)</span>
+<span class="nd">@keyword_only</span>
+<span class="k">def</span> <span class="nf">add_to_model</span><span class="p">(</span><span class="n">mlflow_model</span><span class="p">,</span> <span class="n">path</span><span class="p">,</span> <span class="n">spark_model</span><span class="p">,</span> <span class="n">sample_input</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Add the MLeap flavor to an existing MLflow model.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        mlflow_model: :py:mod:`mlflow.models.Model` to which this flavor is being added.</span>
+<span class="sd">        path: Path of the model to which this flavor is being added.</span>
+<span class="sd">        spark_model: Spark PipelineModel to be saved. This model must be MLeap-compatible and</span>
+<span class="sd">            cannot contain any custom transformers.</span>
+<span class="sd">        sample_input: Sample PySpark DataFrame input that the model can evaluate. This is</span>
+<span class="sd">            required by MLeap for data schema inference.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="kn">import</span> <span class="nn">mleap.version</span>
+
+    <span class="c1"># This import statement adds `serializeToBundle` and `deserializeFromBundle` to `Transformer`:</span>
+    <span class="c1"># https://github.com/combust/mleap/blob/37f6f61634798118e2c2eb820ceeccf9d234b810/python/mleap/pyspark/spark_support.py#L32-L33</span>
+    <span class="kn">from</span> <span class="nn">mleap.pyspark.spark_support</span> <span class="kn">import</span> <span class="n">SimpleSparkSerializer</span>  <span class="c1"># noqa: F401</span>
+    <span class="kn">from</span> <span class="nn">py4j.protocol</span> <span class="kn">import</span> <span class="n">Py4JError</span>
+    <span class="kn">from</span> <span class="nn">pyspark.ml.pipeline</span> <span class="kn">import</span> <span class="n">PipelineModel</span>
+    <span class="kn">from</span> <span class="nn">pyspark.sql</span> <span class="kn">import</span> <span class="n">DataFrame</span>
+
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">spark_model</span><span class="p">,</span> <span class="n">PipelineModel</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="s2">&quot;Not a PipelineModel. MLeap can save only PipelineModels.&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">sample_input</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="s2">&quot;A sample input must be specified in order to add the MLeap flavor.&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">sample_input</span><span class="p">,</span> <span class="n">DataFrame</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;The sample input must be a PySpark dataframe of type `</span><span class="si">{</span><span class="n">DataFrame</span><span class="o">.</span><span class="vm">__module__</span><span class="si">}</span><span class="s2">`&quot;</span>
+        <span class="p">)</span>
+
+    <span class="c1"># MLeap&#39;s model serialization routine requires an absolute output path</span>
+    <span class="n">path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
+
+    <span class="n">mleap_path_full</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="s2">&quot;mleap&quot;</span><span class="p">)</span>
+    <span class="n">mleap_datapath_sub</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="s2">&quot;mleap&quot;</span><span class="p">,</span> <span class="s2">&quot;model&quot;</span><span class="p">)</span>
+    <span class="n">mleap_datapath_full</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">mleap_datapath_sub</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">mleap_path_full</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;MLeap model data path already exists at: </span><span class="si">{</span><span class="n">mleap_path_full</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="n">mleap_path_full</span><span class="p">)</span>
+
+    <span class="n">dataset</span> <span class="o">=</span> <span class="n">spark_model</span><span class="o">.</span><span class="n">transform</span><span class="p">(</span><span class="n">sample_input</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">is_windows</span><span class="p">():</span>
+        <span class="c1"># NB: On Windows, MLeap requires the &quot;file://&quot; prefix in order to correctly</span>
+        <span class="c1"># parse the model data path, even though the result is not a correct URI.</span>
+        <span class="c1"># None of &quot;file:&quot;, &quot;file:/&quot;, or &quot;file:///&quot;, which would be canonically correct,</span>
+        <span class="c1"># work properly</span>
+        <span class="n">model_path</span> <span class="o">=</span> <span class="s2">&quot;file://&quot;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">pathlib</span><span class="o">.</span><span class="n">Path</span><span class="p">(</span><span class="n">mleap_datapath_full</span><span class="p">)</span><span class="o">.</span><span class="n">as_posix</span><span class="p">())</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">model_path</span> <span class="o">=</span> <span class="n">path_to_local_file_uri</span><span class="p">(</span><span class="n">mleap_datapath_full</span><span class="p">)</span>
+
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">spark_model</span><span class="o">.</span><span class="n">serializeToBundle</span><span class="p">(</span><span class="n">path</span><span class="o">=</span><span class="n">model_path</span><span class="p">,</span> <span class="n">dataset</span><span class="o">=</span><span class="n">dataset</span><span class="p">)</span>
+    <span class="k">except</span> <span class="n">Py4JError</span><span class="p">:</span>
+        <span class="n">_handle_py4j_error</span><span class="p">(</span>
+            <span class="n">MLeapSerializationException</span><span class="p">,</span>
+            <span class="s2">&quot;MLeap encountered an error while serializing the model. Ensure that the model is&quot;</span>
+            <span class="s2">&quot; compatible with MLeap (i.e does not contain any custom transformers).&quot;</span><span class="p">,</span>
+        <span class="p">)</span>
+
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">mleap_version</span> <span class="o">=</span> <span class="n">mleap</span><span class="o">.</span><span class="n">version</span><span class="o">.</span><span class="n">__version__</span>
+        <span class="n">_logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+            <span class="s2">&quot;Detected old mleap version </span><span class="si">%s</span><span class="s2">. Support for logging models in mleap format with &quot;</span>
+            <span class="s2">&quot;mleap versions 0.15.0 and below is deprecated and will be removed in a future &quot;</span>
+            <span class="s2">&quot;MLflow release. Please upgrade to a newer mleap version.&quot;</span><span class="p">,</span>
+            <span class="n">mleap_version</span><span class="p">,</span>
+        <span class="p">)</span>
+    <span class="k">except</span> <span class="ne">AttributeError</span><span class="p">:</span>
+        <span class="n">mleap_version</span> <span class="o">=</span> <span class="n">mleap</span><span class="o">.</span><span class="n">version</span>
+    <span class="n">mlflow_model</span><span class="o">.</span><span class="n">add_flavor</span><span class="p">(</span><span class="n">FLAVOR_NAME</span><span class="p">,</span> <span class="n">mleap_version</span><span class="o">=</span><span class="n">mleap_version</span><span class="p">,</span> <span class="n">model_data</span><span class="o">=</span><span class="n">mleap_datapath_sub</span><span class="p">)</span></div>
+
+
+<span class="k">def</span> <span class="nf">_handle_py4j_error</span><span class="p">(</span><span class="n">reraised_error_type</span><span class="p">,</span> <span class="n">reraised_error_text</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Logs information about an exception that is currently being handled</span>
+<span class="sd">    and reraises it with the specified error text as a message.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">traceback</span><span class="o">.</span><span class="n">print_exc</span><span class="p">()</span>
+    <span class="n">tb</span> <span class="o">=</span> <span class="n">sys</span><span class="o">.</span><span class="n">exc_info</span><span class="p">()[</span><span class="mi">2</span><span class="p">]</span>
+    <span class="n">reraise</span><span class="p">(</span><span class="n">reraised_error_type</span><span class="p">,</span> <span class="n">reraised_error_type</span><span class="p">(</span><span class="n">reraised_error_text</span><span class="p">),</span> <span class="n">tb</span><span class="p">)</span>
+
+
+<div class="viewcode-block" id="MLeapSerializationException"><a class="viewcode-back" href="../../python_api/mlflow.mleap.html#mlflow.mleap.MLeapSerializationException">[docs]</a><span class="k">class</span> <span class="nc">MLeapSerializationException</span><span class="p">(</span><span class="n">MlflowException</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Exception thrown when a model or DataFrame cannot be serialized in MLeap format.&quot;&quot;&quot;</span></div>
+</pre></div>
+
+              </div>
+            </div>
+            <footer>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+      <p class="copyright">
+          &copy; MLflow Project, a Series of LF Projects, LLC. All rights reserved.
+      </p>
+
+  </div> 
+
+</footer>
+          </div>
+        </div>
+      </section>
+    </main>
+  </page>
+
+  
+
+
+  
+  <script type="text/javascript">
+    var DOCUMENTATION_OPTIONS = {
+      URL_ROOT:'../../',
+      VERSION:'2.17.1.dev0',
+      COLLAPSE_INDEX:false,
+      FILE_SUFFIX:'.html',
+      LINK_SUFFIX: '.html',
+      HAS_SOURCE:  true
+    };
+  </script>
+
+  
+
+  <script type="text/javascript" src="../../_static/js/clipboard.min.js"></script>
+  <script type="text/javascript" src="../../_static/js/jquery.waypoints.min.js"></script>
+
+  
+  
+  
+  <script type="text/javascript">var CLIPPY_SVG_PATH = "../../_static/clippy.svg";</script>
+  <script type="text/javascript" src="../../_static/js/custom.js"></script>
+  
+
+  
+  
+  <script type="text/javascript">
+    jQuery(function () {
+      SphinxRtdTheme.StickyNav.enable();
+    });
+
+  </script>
+  
+
+  
+  <script type="text/javascript">
+    document.addEventListener("DOMContentLoaded", function() {
+        function copyToClipboard(text) {
+            const textarea = document.createElement('textarea');
+            textarea.value = text;
+            document.body.appendChild(textarea);
+            textarea.select();
+            document.execCommand('copy');
+            document.body.removeChild(textarea);
+        }
+        // Get the code block designator class entries
+        const allHighlights = document.querySelectorAll('.highlight');
+        // Disable copyable links for notebook cell numbering and for cell outputs
+        const highlights = Array.from(allHighlights).filter(highlight => !highlight.closest('.highlight-none') && 
+            !highlight.closest('.nboutput'));
+    
+        highlights.forEach(function(highlight) {
+            const copyIcon = document.createElement('span');
+            copyIcon.classList.add('copy-icon');
+            copyIcon.innerHTML = '&#xf0ea;';
+
+            copyIcon.addEventListener('click', function() {
+                const code = highlight.querySelector('pre').textContent;
+                copyToClipboard(code);
+
+                // Flash effect on click
+                this.style.color = '#0194E2';
+                setTimeout(() => {
+                    this.style.color = ''; 
+                }, 100);
+
+                // Display "Code copied to clipboard" near the clicked icon
+                const message = document.createElement('span');
+                message.textContent = "Copied!";
+                message.classList.add('copy-message'); 
+
+                // Append the message to the icon
+                this.appendChild(message);
+
+                setTimeout(() => {
+                    this.removeChild(message);
+                }, 500);
+            });
+
+            highlight.appendChild(copyIcon);
+        });
+    });
+  </script>
+
+
+<script type="text/javascript">
+    document.addEventListener("DOMContentLoaded", function() {
+        // Force download for notebook-download-btn
+        const downloadButtons = document.querySelectorAll('.notebook-download-btn');
+        downloadButtons.forEach(function(button) {
+            button.addEventListener('click', function(event) {
+                event.preventDefault(); // Prevent default behavior
+
+                // Fetch the raw content of the notebook from GitHub
+                fetch(button.href)
+                    .then(response => response.blob())
+                    .then(blob => {
+                        const url = window.URL.createObjectURL(blob);
+                        const link = document.createElement('a');
+                        link.style.display = 'none';
+                        link.href = url;
+                        const filename = button.href.split('/').pop();
+                        link.download = filename; 
+
+                        document.body.appendChild(link);
+                        link.click();
+
+                        window.URL.revokeObjectURL(url);
+                        document.body.removeChild(link);
+                    })
+                    .catch(err => console.error('Error fetching the notebook:', err));
+            });
+        });
+    });
+</script> 
+</body>
+</html>
