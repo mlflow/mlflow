@@ -1,0 +1,717 @@
+
+
+<!DOCTYPE html>
+<!-- source: docs/source/_modules/mlflow/data/spark_dataset -->
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>mlflow.data.spark_dataset</title>
+  
+   
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+  <link rel="canonical" href="https://mlflow.org/docs/latest/_modules/mlflow/data/spark_dataset.html">
+  
+  
+    <link rel="shortcut icon" href="../../../_static/favicon.ico"/>
+    
+
+    
+
+  
+    
+
+  
+
+  
+  
+    
+
+  
+
+  
+  
+    <link href="https://fonts.googleapis.com/css?family=Source+Sans+Pro:300,400,600" rel="stylesheet">
+    <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/css/custom.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/css/cards.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/css/grids.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/css/mobile.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/css/simple-cards.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/css/tabs.css" type="text/css" />
+    
+  
+        <link rel="index" title="Index"
+              href="../../../genindex.html"/>
+        <link rel="search" title="Search" href="../../../search.html"/>
+    <link rel="top" title="MLflow 2.17.1.dev0 documentation" href="../../../index.html"/>
+        <link rel="up" title="mlflow.data" href="../data.html"/> 
+
+  
+  <script src="../../../_static/js/modernizr.min.js"></script>
+
+</head>
+<script type="text/javascript" src="../../../_static/jquery.js"></script>
+<script type="text/javascript" src="../../../_static/underscore.js"></script>
+<script type="text/javascript" src="../../../_static/doctools.js"></script>
+<script type="text/javascript" src="../../../_static/tabs.js"></script>
+<script type="text/javascript" src="../../../_static/languagesections.js"></script>
+<script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+<script type="text/javascript" src="../../../_static/runllm.js"></script>
+
+<body class="wy-body-for-nav" role="document">
+  
+
+  
+  <nav class="wy-nav-top header" role="navigation" aria-label="top navigation">
+    <ul>
+  <li class="menu-toggle">
+    <i data-toggle="wy-nav-top" class="wy-nav-top-menu-button db-icon db-icon-menu pull-left"></i>
+    <a href="../../../index.html" class="wy-nav-top-logo"
+      ><img src="../../../_static/MLflow-logo-final-black.png" alt="MLflow"
+    /></a>
+    <span class="version">2.17.1.dev0</span>
+  </li>
+</ul>
+  </nav>
+  <page>
+    
+
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side relative">
+      <div class="wy-side-scroll">
+  <div class="wy-side-nav-search">
+    
+
+    
+
+    
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+  <input type="text" name="q" placeholder="Search" />
+  <input type="hidden" name="check_keywords" value="yes" />
+  <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+
+    
+  </div>
+
+  <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+    
+      <a href="../../../index.html" class="main-navigation-home"><img src="../../../_static/icons/nav-home.svg"> MLflow</a>
+    
+
+    
+      
+
+      
+        <ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../python_api/index.html">Python API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../cli.html">Command-Line Interface</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../R-api.html">R API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../java_api/index.html">Java API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../rest-api.html">REST API</a></li>
+</ul>
+
+      
+    
+  </div>
+
+  <div role="contentinfo">
+    
+
+    <p>
+      <a id='feedbacklink' href="https://github.com/mlflow/mlflow/blob/master/CONTRIBUTING.md" target="_blank">Contribute</a>
+    </p>
+  </div>
+</div>
+    </nav>
+
+    <main class="wy-grid-for-nav">
+      <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+        <div class="wy-nav-content">
+          <div class="rst-content">
+            
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href="../../../index.html">Documentation</a> <span class="db-icon db-icon-chevron-right"></span></li>
+    
+        <li><a href="../../index.html">Module code</a> <span class="db-icon db-icon-chevron-right"></span></li>
+    
+        <li><a href="../data.html">mlflow.data</a> <span class="db-icon db-icon-chevron-right"></span></li>
+    
+    
+      <li>mlflow.data.spark_dataset</li>
+    
+    
+    <!-- <li class="wy-breadcrumbs-aside">
+      <a href="https://github.com/mlflow/mlflow/blob/master/docs/source/_modules/mlflow/data/spark_dataset" class="fa fa-github"> Edit on GitHub</a>
+    </li> -->
+    
+  </ul>
+</div>
+            <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+              <div itemprop="articleBody">
+                
+  <h1>Source code for mlflow.data.spark_dataset</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span> <span class="nn">json</span>
+<span class="kn">import</span> <span class="nn">logging</span>
+<span class="kn">from</span> <span class="nn">functools</span> <span class="kn">import</span> <span class="n">cached_property</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">TYPE_CHECKING</span><span class="p">,</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Union</span>
+
+<span class="kn">from</span> <span class="nn">packaging.version</span> <span class="kn">import</span> <span class="n">Version</span>
+
+<span class="kn">from</span> <span class="nn">mlflow.data.dataset</span> <span class="kn">import</span> <span class="n">Dataset</span>
+<span class="kn">from</span> <span class="nn">mlflow.data.dataset_source</span> <span class="kn">import</span> <span class="n">DatasetSource</span>
+<span class="kn">from</span> <span class="nn">mlflow.data.delta_dataset_source</span> <span class="kn">import</span> <span class="n">DeltaDatasetSource</span>
+<span class="kn">from</span> <span class="nn">mlflow.data.digest_utils</span> <span class="kn">import</span> <span class="n">get_normalized_md5_digest</span>
+<span class="kn">from</span> <span class="nn">mlflow.data.evaluation_dataset</span> <span class="kn">import</span> <span class="n">EvaluationDataset</span>
+<span class="kn">from</span> <span class="nn">mlflow.data.pyfunc_dataset_mixin</span> <span class="kn">import</span> <span class="n">PyFuncConvertibleDatasetMixin</span><span class="p">,</span> <span class="n">PyFuncInputsOutputs</span>
+<span class="kn">from</span> <span class="nn">mlflow.data.spark_dataset_source</span> <span class="kn">import</span> <span class="n">SparkDatasetSource</span>
+<span class="kn">from</span> <span class="nn">mlflow.exceptions</span> <span class="kn">import</span> <span class="n">MlflowException</span>
+<span class="kn">from</span> <span class="nn">mlflow.protos.databricks_pb2</span> <span class="kn">import</span> <span class="n">INTERNAL_ERROR</span><span class="p">,</span> <span class="n">INVALID_PARAMETER_VALUE</span>
+<span class="kn">from</span> <span class="nn">mlflow.types</span> <span class="kn">import</span> <span class="n">Schema</span>
+<span class="kn">from</span> <span class="nn">mlflow.types.utils</span> <span class="kn">import</span> <span class="n">_infer_schema</span>
+
+<span class="k">if</span> <span class="n">TYPE_CHECKING</span><span class="p">:</span>
+    <span class="kn">import</span> <span class="nn">pyspark</span>
+
+<span class="n">_logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
+
+
+<div class="viewcode-block" id="SparkDataset"><a class="viewcode-back" href="../../../python_api/mlflow.data.html#mlflow.data.SparkDataset">[docs]</a><span class="k">class</span> <span class="nc">SparkDataset</span><span class="p">(</span><span class="n">Dataset</span><span class="p">,</span> <span class="n">PyFuncConvertibleDatasetMixin</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Represents a Spark dataset (e.g. data derived from a Spark Table / file directory or Delta</span>
+<span class="sd">    Table) for use with MLflow Tracking.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">df</span><span class="p">:</span> <span class="s2">&quot;pyspark.sql.DataFrame&quot;</span><span class="p">,</span>
+        <span class="n">source</span><span class="p">:</span> <span class="n">DatasetSource</span><span class="p">,</span>
+        <span class="n">targets</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">name</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">digest</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">predictions</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">):</span>
+        <span class="k">if</span> <span class="n">targets</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">targets</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">df</span><span class="o">.</span><span class="n">columns</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">MlflowException</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;The specified Spark dataset does not contain the specified targets column&quot;</span>
+                <span class="sa">f</span><span class="s2">&quot; &#39;</span><span class="si">{</span><span class="n">targets</span><span class="si">}</span><span class="s2">&#39;.&quot;</span><span class="p">,</span>
+                <span class="n">INVALID_PARAMETER_VALUE</span><span class="p">,</span>
+            <span class="p">)</span>
+        <span class="k">if</span> <span class="n">predictions</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">predictions</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">df</span><span class="o">.</span><span class="n">columns</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">MlflowException</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;The specified Spark dataset does not contain the specified predictions column&quot;</span>
+                <span class="sa">f</span><span class="s2">&quot; &#39;</span><span class="si">{</span><span class="n">predictions</span><span class="si">}</span><span class="s2">&#39;.&quot;</span><span class="p">,</span>
+                <span class="n">INVALID_PARAMETER_VALUE</span><span class="p">,</span>
+            <span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_df</span> <span class="o">=</span> <span class="n">df</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_targets</span> <span class="o">=</span> <span class="n">targets</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_predictions</span> <span class="o">=</span> <span class="n">predictions</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">source</span><span class="o">=</span><span class="n">source</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="n">name</span><span class="p">,</span> <span class="n">digest</span><span class="o">=</span><span class="n">digest</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_compute_digest</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Computes a digest for the dataset. Called if the user doesn&#39;t supply</span>
+<span class="sd">        a digest when constructing the dataset.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># Retrieve a semantic hash of the DataFrame&#39;s logical plan, which is much more efficient</span>
+        <span class="c1"># and deterministic than hashing DataFrame records</span>
+        <span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+        <span class="kn">import</span> <span class="nn">pyspark</span>
+
+        <span class="c1"># Spark 3.1.0+ has a semanticHash() method on DataFrame</span>
+        <span class="k">if</span> <span class="n">Version</span><span class="p">(</span><span class="n">pyspark</span><span class="o">.</span><span class="n">__version__</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="n">Version</span><span class="p">(</span><span class="s2">&quot;3.1.0&quot;</span><span class="p">):</span>
+            <span class="n">semantic_hash</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_df</span><span class="o">.</span><span class="n">semanticHash</span><span class="p">()</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">semantic_hash</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_df</span><span class="o">.</span><span class="n">_jdf</span><span class="o">.</span><span class="n">queryExecution</span><span class="p">()</span><span class="o">.</span><span class="n">analyzed</span><span class="p">()</span><span class="o">.</span><span class="n">semanticHash</span><span class="p">()</span>
+        <span class="k">return</span> <span class="n">get_normalized_md5_digest</span><span class="p">([</span><span class="n">np</span><span class="o">.</span><span class="n">int64</span><span class="p">(</span><span class="n">semantic_hash</span><span class="p">)])</span>
+
+<div class="viewcode-block" id="SparkDataset.to_dict"><a class="viewcode-back" href="../../../python_api/mlflow.data.html#mlflow.data.SparkDataset.to_dict">[docs]</a>    <span class="k">def</span> <span class="nf">to_dict</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Create config dictionary for the dataset.</span>
+
+<span class="sd">        Returns a string dictionary containing the following fields: name, digest, source, source</span>
+<span class="sd">        type, schema, and profile.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">schema</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">({</span><span class="s2">&quot;mlflow_colspec&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">schema</span><span class="o">.</span><span class="n">to_dict</span><span class="p">()})</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">schema</span> <span class="k">else</span> <span class="kc">None</span>
+        <span class="n">config</span> <span class="o">=</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">to_dict</span><span class="p">()</span>
+        <span class="n">config</span><span class="o">.</span><span class="n">update</span><span class="p">(</span>
+            <span class="p">{</span>
+                <span class="s2">&quot;schema&quot;</span><span class="p">:</span> <span class="n">schema</span><span class="p">,</span>
+                <span class="s2">&quot;profile&quot;</span><span class="p">:</span> <span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">profile</span><span class="p">),</span>
+            <span class="p">}</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="n">config</span></div>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">df</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;The Spark DataFrame instance.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            The Spark DataFrame instance.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_df</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">targets</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;The name of the Spark DataFrame column containing targets (labels) for supervised</span>
+<span class="sd">        learning.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            The string name of the Spark DataFrame column containing targets.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_targets</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">predictions</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        The name of the predictions column. May be ``None`` if no predictions column</span>
+<span class="sd">        was specified when the dataset was created.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_predictions</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">source</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Union</span><span class="p">[</span><span class="n">SparkDatasetSource</span><span class="p">,</span> <span class="n">DeltaDatasetSource</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Spark dataset source information.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            An instance of</span>
+<span class="sd">            :py:class:`SparkDatasetSource &lt;mlflow.data.spark_dataset_source.SparkDatasetSource&gt;` or</span>
+<span class="sd">            :py:class:`DeltaDatasetSource &lt;mlflow.data.delta_dataset_source.DeltaDatasetSource&gt;`.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_source</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">profile</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Any</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        A profile of the dataset. May be None if no profile is available.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="kn">from</span> <span class="nn">pyspark.rdd</span> <span class="kn">import</span> <span class="n">BoundedFloat</span>
+
+            <span class="c1"># Use Spark RDD countApprox to get approximate count since count() may be expensive.</span>
+            <span class="c1"># Note that we call the Scala RDD API because the PySpark API does not respect the</span>
+            <span class="c1"># specified timeout. Reference code:</span>
+            <span class="c1"># https://spark.apache.org/docs/3.4.0/api/python/_modules/pyspark/rdd.html</span>
+            <span class="c1"># #RDD.countApprox. This is confirmed to work in all Spark 3.x versions</span>
+            <span class="n">py_rdd</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">df</span><span class="o">.</span><span class="n">rdd</span>
+            <span class="n">drdd</span> <span class="o">=</span> <span class="n">py_rdd</span><span class="o">.</span><span class="n">mapPartitions</span><span class="p">(</span><span class="k">lambda</span> <span class="n">it</span><span class="p">:</span> <span class="p">[</span><span class="nb">float</span><span class="p">(</span><span class="nb">sum</span><span class="p">(</span><span class="mi">1</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">it</span><span class="p">))])</span>
+            <span class="n">jrdd</span> <span class="o">=</span> <span class="n">drdd</span><span class="o">.</span><span class="n">mapPartitions</span><span class="p">(</span><span class="k">lambda</span> <span class="n">it</span><span class="p">:</span> <span class="p">[</span><span class="nb">float</span><span class="p">(</span><span class="nb">sum</span><span class="p">(</span><span class="n">it</span><span class="p">))])</span><span class="o">.</span><span class="n">_to_java_object_rdd</span><span class="p">()</span>
+            <span class="n">jdrdd</span> <span class="o">=</span> <span class="n">drdd</span><span class="o">.</span><span class="n">ctx</span><span class="o">.</span><span class="n">_jvm</span><span class="o">.</span><span class="n">JavaDoubleRDD</span><span class="o">.</span><span class="n">fromRDD</span><span class="p">(</span><span class="n">jrdd</span><span class="o">.</span><span class="n">rdd</span><span class="p">())</span>
+            <span class="n">timeout_millis</span> <span class="o">=</span> <span class="mi">5000</span>
+            <span class="n">confidence</span> <span class="o">=</span> <span class="mf">0.9</span>
+            <span class="n">approx_count_operation</span> <span class="o">=</span> <span class="n">jdrdd</span><span class="o">.</span><span class="n">sumApprox</span><span class="p">(</span><span class="n">timeout_millis</span><span class="p">,</span> <span class="n">confidence</span><span class="p">)</span>
+            <span class="n">approx_count_result</span> <span class="o">=</span> <span class="n">approx_count_operation</span><span class="o">.</span><span class="n">initialValue</span><span class="p">()</span>
+            <span class="n">approx_count_float</span> <span class="o">=</span> <span class="n">BoundedFloat</span><span class="p">(</span>
+                <span class="n">mean</span><span class="o">=</span><span class="n">approx_count_result</span><span class="o">.</span><span class="n">mean</span><span class="p">(),</span>
+                <span class="n">confidence</span><span class="o">=</span><span class="n">approx_count_result</span><span class="o">.</span><span class="n">confidence</span><span class="p">(),</span>
+                <span class="n">low</span><span class="o">=</span><span class="n">approx_count_result</span><span class="o">.</span><span class="n">low</span><span class="p">(),</span>
+                <span class="n">high</span><span class="o">=</span><span class="n">approx_count_result</span><span class="o">.</span><span class="n">high</span><span class="p">(),</span>
+            <span class="p">)</span>
+            <span class="n">approx_count</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">approx_count_float</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">approx_count</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="c1"># An approximate count of zero likely indicates that the count timed</span>
+                <span class="c1"># out before an estimate could be made. In this case, we use the value</span>
+                <span class="c1"># &quot;unknown&quot; so that users don&#39;t think the dataset is empty</span>
+                <span class="n">approx_count</span> <span class="o">=</span> <span class="s2">&quot;unknown&quot;</span>
+
+            <span class="k">return</span> <span class="p">{</span>
+                <span class="s2">&quot;approx_count&quot;</span><span class="p">:</span> <span class="n">approx_count</span><span class="p">,</span>
+            <span class="p">}</span>
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="n">_logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+                <span class="s2">&quot;Encountered an unexpected exception while computing Spark dataset profile.&quot;</span>
+                <span class="s2">&quot; Exception: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span>
+                <span class="n">e</span><span class="p">,</span>
+            <span class="p">)</span>
+
+    <span class="nd">@cached_property</span>
+    <span class="k">def</span> <span class="nf">schema</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Schema</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        The MLflow ColSpec schema of the Spark dataset.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">_infer_schema</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_df</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="n">_logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;Failed to infer schema for Spark dataset. Exception: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">e</span><span class="p">)</span>
+            <span class="k">return</span> <span class="kc">None</span>
+
+    <span class="k">def</span> <span class="nf">to_pyfunc</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">PyFuncInputsOutputs</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Converts the Spark DataFrame to pandas and splits the resulting</span>
+<span class="sd">        :py:class:`pandas.DataFrame` into: 1. a :py:class:`pandas.DataFrame` of features and</span>
+<span class="sd">        2. a :py:class:`pandas.Series` of targets.</span>
+
+<span class="sd">        To avoid overuse of driver memory, only the first 10,000 DataFrame rows are selected.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">df</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_df</span><span class="o">.</span><span class="n">limit</span><span class="p">(</span><span class="mi">10000</span><span class="p">)</span><span class="o">.</span><span class="n">toPandas</span><span class="p">()</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_targets</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_targets</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">df</span><span class="o">.</span><span class="n">columns</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="n">MlflowException</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;Failed to convert Spark dataset to pyfunc inputs and outputs because&quot;</span>
+                    <span class="sa">f</span><span class="s2">&quot; the pandas representation of the Spark dataset does not contain the&quot;</span>
+                    <span class="sa">f</span><span class="s2">&quot; specified targets column &#39;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_targets</span><span class="si">}</span><span class="s2">&#39;.&quot;</span><span class="p">,</span>
+                    <span class="c1"># This is an internal error because we should have validated the presence of</span>
+                    <span class="c1"># the target column in the Hugging Face dataset at construction time</span>
+                    <span class="n">INTERNAL_ERROR</span><span class="p">,</span>
+                <span class="p">)</span>
+            <span class="n">inputs</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">drop</span><span class="p">(</span><span class="n">columns</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_targets</span><span class="p">)</span>
+            <span class="n">outputs</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">_targets</span><span class="p">]</span>
+            <span class="k">return</span> <span class="n">PyFuncInputsOutputs</span><span class="p">(</span><span class="n">inputs</span><span class="o">=</span><span class="n">inputs</span><span class="p">,</span> <span class="n">outputs</span><span class="o">=</span><span class="n">outputs</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">PyFuncInputsOutputs</span><span class="p">(</span><span class="n">inputs</span><span class="o">=</span><span class="n">df</span><span class="p">,</span> <span class="n">outputs</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">to_evaluation_dataset</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">feature_names</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">EvaluationDataset</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Converts the dataset to an EvaluationDataset for model evaluation. Required</span>
+<span class="sd">        for use with mlflow.evaluate().</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">EvaluationDataset</span><span class="p">(</span>
+            <span class="n">data</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_df</span><span class="o">.</span><span class="n">limit</span><span class="p">(</span><span class="mi">10000</span><span class="p">)</span><span class="o">.</span><span class="n">toPandas</span><span class="p">(),</span>
+            <span class="n">targets</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_targets</span><span class="p">,</span>
+            <span class="n">path</span><span class="o">=</span><span class="n">path</span><span class="p">,</span>
+            <span class="n">feature_names</span><span class="o">=</span><span class="n">feature_names</span><span class="p">,</span>
+            <span class="n">predictions</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_predictions</span><span class="p">,</span>
+        <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="load_delta"><a class="viewcode-back" href="../../../python_api/mlflow.data.html#mlflow.data.load_delta">[docs]</a><span class="k">def</span> <span class="nf">load_delta</span><span class="p">(</span>
+    <span class="n">path</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">table_name</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">version</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">targets</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">name</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">digest</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">SparkDataset</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Loads a :py:class:`SparkDataset &lt;mlflow.data.spark_dataset.SparkDataset&gt;` from a Delta table</span>
+<span class="sd">    for use with MLflow Tracking.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        path: The path to the Delta table. Either ``path`` or ``table_name`` must be specified.</span>
+<span class="sd">        table_name: The name of the Delta table. Either ``path`` or ``table_name`` must be</span>
+<span class="sd">            specified.</span>
+<span class="sd">        version: The Delta table version. If not specified, the version will be inferred.</span>
+<span class="sd">        targets: Optional. The name of the Delta table column containing targets (labels) for</span>
+<span class="sd">            supervised learning.</span>
+<span class="sd">        name: The name of the dataset. E.g. &quot;wiki_train&quot;. If unspecified, a name is</span>
+<span class="sd">            automatically generated.</span>
+<span class="sd">        digest: The digest (hash, fingerprint) of the dataset. If unspecified, a digest</span>
+<span class="sd">            is automatically computed.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        An instance of :py:class:`SparkDataset &lt;mlflow.data.spark_dataset.SparkDataset&gt;`.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="kn">from</span> <span class="nn">mlflow.data.spark_delta_utils</span> <span class="kn">import</span> <span class="p">(</span>
+        <span class="n">_try_get_delta_table_latest_version_from_path</span><span class="p">,</span>
+        <span class="n">_try_get_delta_table_latest_version_from_table_name</span><span class="p">,</span>
+    <span class="p">)</span>
+
+    <span class="k">if</span> <span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">table_name</span><span class="p">)</span><span class="o">.</span><span class="n">count</span><span class="p">(</span><span class="kc">None</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="n">MlflowException</span><span class="p">(</span>
+            <span class="s2">&quot;Must specify exactly one of `table_name` or `path`.&quot;</span><span class="p">,</span>
+            <span class="n">INVALID_PARAMETER_VALUE</span><span class="p">,</span>
+        <span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">version</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">path</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">version</span> <span class="o">=</span> <span class="n">_try_get_delta_table_latest_version_from_path</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">version</span> <span class="o">=</span> <span class="n">_try_get_delta_table_latest_version_from_table_name</span><span class="p">(</span><span class="n">table_name</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">name</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">table_name</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">name</span> <span class="o">=</span> <span class="n">table_name</span> <span class="o">+</span> <span class="p">(</span><span class="sa">f</span><span class="s2">&quot;@v</span><span class="si">{</span><span class="n">version</span><span class="si">}</span><span class="s2">&quot;</span> <span class="k">if</span> <span class="n">version</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="s2">&quot;&quot;</span><span class="p">)</span>
+
+    <span class="n">source</span> <span class="o">=</span> <span class="n">DeltaDatasetSource</span><span class="p">(</span><span class="n">path</span><span class="o">=</span><span class="n">path</span><span class="p">,</span> <span class="n">delta_table_name</span><span class="o">=</span><span class="n">table_name</span><span class="p">,</span> <span class="n">delta_table_version</span><span class="o">=</span><span class="n">version</span><span class="p">)</span>
+    <span class="n">df</span> <span class="o">=</span> <span class="n">source</span><span class="o">.</span><span class="n">load</span><span class="p">()</span>
+
+    <span class="k">return</span> <span class="n">SparkDataset</span><span class="p">(</span>
+        <span class="n">df</span><span class="o">=</span><span class="n">df</span><span class="p">,</span>
+        <span class="n">source</span><span class="o">=</span><span class="n">source</span><span class="p">,</span>
+        <span class="n">targets</span><span class="o">=</span><span class="n">targets</span><span class="p">,</span>
+        <span class="n">name</span><span class="o">=</span><span class="n">name</span><span class="p">,</span>
+        <span class="n">digest</span><span class="o">=</span><span class="n">digest</span><span class="p">,</span>
+    <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="from_spark"><a class="viewcode-back" href="../../../python_api/mlflow.data.html#mlflow.data.from_spark">[docs]</a><span class="k">def</span> <span class="nf">from_spark</span><span class="p">(</span>
+    <span class="n">df</span><span class="p">:</span> <span class="s2">&quot;pyspark.sql.DataFrame&quot;</span><span class="p">,</span>
+    <span class="n">path</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">table_name</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">version</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">sql</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">targets</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">name</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">digest</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">predictions</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">SparkDataset</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Given a Spark DataFrame, constructs a</span>
+<span class="sd">    :py:class:`SparkDataset &lt;mlflow.data.spark_dataset.SparkDataset&gt;` object for use with</span>
+<span class="sd">    MLflow Tracking.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        df: The Spark DataFrame from which to construct a SparkDataset.</span>
+<span class="sd">        path: The path of the Spark or Delta source that the DataFrame originally came from. Note</span>
+<span class="sd">            that the path does not have to match the DataFrame exactly, since the DataFrame may have</span>
+<span class="sd">            been modified by Spark operations. This is used to reload the dataset upon request via</span>
+<span class="sd">            :py:func:`SparkDataset.source.load()</span>
+<span class="sd">            &lt;mlflow.data.spark_dataset_source.SparkDatasetSource.load&gt;`. If none of ``path``,</span>
+<span class="sd">            ``table_name``, or ``sql`` are specified, a CodeDatasetSource is used, which will source</span>
+<span class="sd">            information from the run context.</span>
+<span class="sd">        table_name: The name of the Spark or Delta table that the DataFrame originally came from.</span>
+<span class="sd">            Note that the table does not have to match the DataFrame exactly, since the DataFrame</span>
+<span class="sd">            may have been modified by Spark operations. This is used to reload the dataset upon</span>
+<span class="sd">            request via :py:func:`SparkDataset.source.load()</span>
+<span class="sd">            &lt;mlflow.data.spark_dataset_source.SparkDatasetSource.load&gt;`. If none of ``path``,</span>
+<span class="sd">            ``table_name``, or ``sql`` are specified, a CodeDatasetSource is used, which will source</span>
+<span class="sd">            information from the run context.</span>
+<span class="sd">        version: If the DataFrame originally came from a Delta table, specifies the version of the</span>
+<span class="sd">            Delta table. This is used to reload the dataset upon request via</span>
+<span class="sd">            :py:func:`SparkDataset.source.load()</span>
+<span class="sd">            &lt;mlflow.data.spark_dataset_source.SparkDatasetSource.load&gt;`. ``version`` cannot be</span>
+<span class="sd">            specified if ``sql`` is specified.</span>
+<span class="sd">        sql: The Spark SQL statement that was originally used to construct the DataFrame. Note that</span>
+<span class="sd">            the Spark SQL statement does not have to match the DataFrame exactly, since the</span>
+<span class="sd">            DataFrame may have been modified by Spark operations. This is used to reload the dataset</span>
+<span class="sd">            upon request via :py:func:`SparkDataset.source.load()</span>
+<span class="sd">            &lt;mlflow.data.spark_dataset_source.SparkDatasetSource.load&gt;`. If none of ``path``,</span>
+<span class="sd">            ``table_name``, or ``sql`` are specified, a CodeDatasetSource is used, which will source</span>
+<span class="sd">            information from the run context.</span>
+<span class="sd">        targets: Optional. The name of the Data Frame column containing targets (labels) for</span>
+<span class="sd">            supervised learning.</span>
+<span class="sd">        name: The name of the dataset. E.g. &quot;wiki_train&quot;. If unspecified, a name is automatically</span>
+<span class="sd">            generated.</span>
+<span class="sd">        digest: The digest (hash, fingerprint) of the dataset. If unspecified, a digest is</span>
+<span class="sd">            automatically computed.</span>
+<span class="sd">        predictions: Optional. The name of the column containing model predictions,</span>
+<span class="sd">            if the dataset contains model predictions. If specified, this column</span>
+<span class="sd">            must be present in the dataframe (``df``).</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        An instance of :py:class:`SparkDataset &lt;mlflow.data.spark_dataset.SparkDataset&gt;`.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="kn">from</span> <span class="nn">mlflow.data.code_dataset_source</span> <span class="kn">import</span> <span class="n">CodeDatasetSource</span>
+    <span class="kn">from</span> <span class="nn">mlflow.data.spark_delta_utils</span> <span class="kn">import</span> <span class="p">(</span>
+        <span class="n">_is_delta_table</span><span class="p">,</span>
+        <span class="n">_is_delta_table_path</span><span class="p">,</span>
+        <span class="n">_try_get_delta_table_latest_version_from_path</span><span class="p">,</span>
+        <span class="n">_try_get_delta_table_latest_version_from_table_name</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="kn">from</span> <span class="nn">mlflow.tracking.context</span> <span class="kn">import</span> <span class="n">registry</span>
+
+    <span class="k">if</span> <span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">table_name</span><span class="p">,</span> <span class="n">sql</span><span class="p">)</span><span class="o">.</span><span class="n">count</span><span class="p">(</span><span class="kc">None</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">2</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="n">MlflowException</span><span class="p">(</span>
+            <span class="s2">&quot;Must specify at most one of `path`, `table_name`, or `sql`.&quot;</span><span class="p">,</span>
+            <span class="n">INVALID_PARAMETER_VALUE</span><span class="p">,</span>
+        <span class="p">)</span>
+
+    <span class="k">if</span> <span class="p">(</span><span class="n">sql</span><span class="p">,</span> <span class="n">version</span><span class="p">)</span><span class="o">.</span><span class="n">count</span><span class="p">(</span><span class="kc">None</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="n">MlflowException</span><span class="p">(</span>
+            <span class="s2">&quot;`version` may not be specified when `sql` is specified. `version` may only be&quot;</span>
+            <span class="s2">&quot; specified when `table_name` or `path` is specified.&quot;</span><span class="p">,</span>
+            <span class="n">INVALID_PARAMETER_VALUE</span><span class="p">,</span>
+        <span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">sql</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">source</span> <span class="o">=</span> <span class="n">SparkDatasetSource</span><span class="p">(</span><span class="n">sql</span><span class="o">=</span><span class="n">sql</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="n">path</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">_is_delta_table_path</span><span class="p">(</span><span class="n">path</span><span class="p">):</span>
+            <span class="n">version</span> <span class="o">=</span> <span class="n">version</span> <span class="ow">or</span> <span class="n">_try_get_delta_table_latest_version_from_path</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
+            <span class="n">source</span> <span class="o">=</span> <span class="n">DeltaDatasetSource</span><span class="p">(</span><span class="n">path</span><span class="o">=</span><span class="n">path</span><span class="p">,</span> <span class="n">delta_table_version</span><span class="o">=</span><span class="n">version</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">version</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">source</span> <span class="o">=</span> <span class="n">SparkDatasetSource</span><span class="p">(</span><span class="n">path</span><span class="o">=</span><span class="n">path</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">MlflowException</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;Version &#39;</span><span class="si">{</span><span class="n">version</span><span class="si">}</span><span class="s2">&#39; was specified, but the path &#39;</span><span class="si">{</span><span class="n">path</span><span class="si">}</span><span class="s2">&#39; does not refer&quot;</span>
+                <span class="sa">f</span><span class="s2">&quot; to a Delta table.&quot;</span><span class="p">,</span>
+                <span class="n">INVALID_PARAMETER_VALUE</span><span class="p">,</span>
+            <span class="p">)</span>
+    <span class="k">elif</span> <span class="n">table_name</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">_is_delta_table</span><span class="p">(</span><span class="n">table_name</span><span class="p">):</span>
+            <span class="n">version</span> <span class="o">=</span> <span class="n">version</span> <span class="ow">or</span> <span class="n">_try_get_delta_table_latest_version_from_table_name</span><span class="p">(</span><span class="n">table_name</span><span class="p">)</span>
+            <span class="n">source</span> <span class="o">=</span> <span class="n">DeltaDatasetSource</span><span class="p">(</span>
+                <span class="n">delta_table_name</span><span class="o">=</span><span class="n">table_name</span><span class="p">,</span>
+                <span class="n">delta_table_version</span><span class="o">=</span><span class="n">version</span><span class="p">,</span>
+            <span class="p">)</span>
+        <span class="k">elif</span> <span class="n">version</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">source</span> <span class="o">=</span> <span class="n">SparkDatasetSource</span><span class="p">(</span><span class="n">table_name</span><span class="o">=</span><span class="n">table_name</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">MlflowException</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;Version &#39;</span><span class="si">{</span><span class="n">version</span><span class="si">}</span><span class="s2">&#39; was specified, but could not find a Delta table with name&quot;</span>
+                <span class="sa">f</span><span class="s2">&quot; &#39;</span><span class="si">{</span><span class="n">table_name</span><span class="si">}</span><span class="s2">&#39;.&quot;</span><span class="p">,</span>
+                <span class="n">INVALID_PARAMETER_VALUE</span><span class="p">,</span>
+            <span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">context_tags</span> <span class="o">=</span> <span class="n">registry</span><span class="o">.</span><span class="n">resolve_tags</span><span class="p">()</span>
+        <span class="n">source</span> <span class="o">=</span> <span class="n">CodeDatasetSource</span><span class="p">(</span><span class="n">tags</span><span class="o">=</span><span class="n">context_tags</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">SparkDataset</span><span class="p">(</span>
+        <span class="n">df</span><span class="o">=</span><span class="n">df</span><span class="p">,</span>
+        <span class="n">source</span><span class="o">=</span><span class="n">source</span><span class="p">,</span>
+        <span class="n">targets</span><span class="o">=</span><span class="n">targets</span><span class="p">,</span>
+        <span class="n">name</span><span class="o">=</span><span class="n">name</span><span class="p">,</span>
+        <span class="n">digest</span><span class="o">=</span><span class="n">digest</span><span class="p">,</span>
+        <span class="n">predictions</span><span class="o">=</span><span class="n">predictions</span><span class="p">,</span>
+    <span class="p">)</span></div>
+</pre></div>
+
+              </div>
+            </div>
+            <footer>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+      <p class="copyright">
+          &copy; MLflow Project, a Series of LF Projects, LLC. All rights reserved.
+      </p>
+
+  </div> 
+
+</footer>
+          </div>
+        </div>
+      </section>
+    </main>
+  </page>
+
+  
+
+
+  
+  <script type="text/javascript">
+    var DOCUMENTATION_OPTIONS = {
+      URL_ROOT:'../../../',
+      VERSION:'2.17.1.dev0',
+      COLLAPSE_INDEX:false,
+      FILE_SUFFIX:'.html',
+      LINK_SUFFIX: '.html',
+      HAS_SOURCE:  true
+    };
+  </script>
+
+  
+
+  <script type="text/javascript" src="../../../_static/js/clipboard.min.js"></script>
+  <script type="text/javascript" src="../../../_static/js/jquery.waypoints.min.js"></script>
+
+  
+  
+  
+  <script type="text/javascript">var CLIPPY_SVG_PATH = "../../../_static/clippy.svg";</script>
+  <script type="text/javascript" src="../../../_static/js/custom.js"></script>
+  
+
+  
+  
+  <script type="text/javascript">
+    jQuery(function () {
+      SphinxRtdTheme.StickyNav.enable();
+    });
+
+  </script>
+  
+
+  
+  <script type="text/javascript">
+    document.addEventListener("DOMContentLoaded", function() {
+        function copyToClipboard(text) {
+            const textarea = document.createElement('textarea');
+            textarea.value = text;
+            document.body.appendChild(textarea);
+            textarea.select();
+            document.execCommand('copy');
+            document.body.removeChild(textarea);
+        }
+        // Get the code block designator class entries
+        const allHighlights = document.querySelectorAll('.highlight');
+        // Disable copyable links for notebook cell numbering and for cell outputs
+        const highlights = Array.from(allHighlights).filter(highlight => !highlight.closest('.highlight-none') && 
+            !highlight.closest('.nboutput'));
+    
+        highlights.forEach(function(highlight) {
+            const copyIcon = document.createElement('span');
+            copyIcon.classList.add('copy-icon');
+            copyIcon.innerHTML = '&#xf0ea;';
+
+            copyIcon.addEventListener('click', function() {
+                const code = highlight.querySelector('pre').textContent;
+                copyToClipboard(code);
+
+                // Flash effect on click
+                this.style.color = '#0194E2';
+                setTimeout(() => {
+                    this.style.color = ''; 
+                }, 100);
+
+                // Display "Code copied to clipboard" near the clicked icon
+                const message = document.createElement('span');
+                message.textContent = "Copied!";
+                message.classList.add('copy-message'); 
+
+                // Append the message to the icon
+                this.appendChild(message);
+
+                setTimeout(() => {
+                    this.removeChild(message);
+                }, 500);
+            });
+
+            highlight.appendChild(copyIcon);
+        });
+    });
+  </script>
+
+
+<script type="text/javascript">
+    document.addEventListener("DOMContentLoaded", function() {
+        // Force download for notebook-download-btn
+        const downloadButtons = document.querySelectorAll('.notebook-download-btn');
+        downloadButtons.forEach(function(button) {
+            button.addEventListener('click', function(event) {
+                event.preventDefault(); // Prevent default behavior
+
+                // Fetch the raw content of the notebook from GitHub
+                fetch(button.href)
+                    .then(response => response.blob())
+                    .then(blob => {
+                        const url = window.URL.createObjectURL(blob);
+                        const link = document.createElement('a');
+                        link.style.display = 'none';
+                        link.href = url;
+                        const filename = button.href.split('/').pop();
+                        link.download = filename; 
+
+                        document.body.appendChild(link);
+                        link.click();
+
+                        window.URL.revokeObjectURL(url);
+                        document.body.removeChild(link);
+                    })
+                    .catch(err => console.error('Error fetching the notebook:', err));
+            });
+        });
+    });
+</script> 
+</body>
+</html>

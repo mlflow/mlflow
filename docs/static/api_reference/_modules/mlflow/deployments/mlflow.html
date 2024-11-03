@@ -1,0 +1,647 @@
+
+
+<!DOCTYPE html>
+<!-- source: docs/source/_modules/mlflow/deployments/mlflow -->
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>mlflow.deployments.mlflow</title>
+  
+   
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+  <link rel="canonical" href="https://mlflow.org/docs/latest/_modules/mlflow/deployments/mlflow.html">
+  
+  
+    <link rel="shortcut icon" href="../../../_static/favicon.ico"/>
+    
+
+    
+
+  
+    
+
+  
+
+  
+  
+    
+
+  
+
+  
+  
+    <link href="https://fonts.googleapis.com/css?family=Source+Sans+Pro:300,400,600" rel="stylesheet">
+    <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/css/custom.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/css/cards.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/css/grids.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/css/mobile.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/css/simple-cards.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/css/tabs.css" type="text/css" />
+    
+  
+        <link rel="index" title="Index"
+              href="../../../genindex.html"/>
+        <link rel="search" title="Search" href="../../../search.html"/>
+    <link rel="top" title="MLflow 2.17.1.dev0 documentation" href="../../../index.html"/>
+        <link rel="up" title="mlflow.deployments" href="../deployments.html"/> 
+
+  
+  <script src="../../../_static/js/modernizr.min.js"></script>
+
+</head>
+<script type="text/javascript" src="../../../_static/jquery.js"></script>
+<script type="text/javascript" src="../../../_static/underscore.js"></script>
+<script type="text/javascript" src="../../../_static/doctools.js"></script>
+<script type="text/javascript" src="../../../_static/tabs.js"></script>
+<script type="text/javascript" src="../../../_static/languagesections.js"></script>
+<script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+<script type="text/javascript" src="../../../_static/runllm.js"></script>
+
+<body class="wy-body-for-nav" role="document">
+  
+
+  
+  <nav class="wy-nav-top header" role="navigation" aria-label="top navigation">
+    <ul>
+  <li class="menu-toggle">
+    <i data-toggle="wy-nav-top" class="wy-nav-top-menu-button db-icon db-icon-menu pull-left"></i>
+    <a href="../../../index.html" class="wy-nav-top-logo"
+      ><img src="../../../_static/MLflow-logo-final-black.png" alt="MLflow"
+    /></a>
+    <span class="version">2.17.1.dev0</span>
+  </li>
+</ul>
+  </nav>
+  <page>
+    
+
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side relative">
+      <div class="wy-side-scroll">
+  <div class="wy-side-nav-search">
+    
+
+    
+
+    
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+  <input type="text" name="q" placeholder="Search" />
+  <input type="hidden" name="check_keywords" value="yes" />
+  <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+
+    
+  </div>
+
+  <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+    
+      <a href="../../../index.html" class="main-navigation-home"><img src="../../../_static/icons/nav-home.svg"> MLflow</a>
+    
+
+    
+      
+
+      
+        <ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../python_api/index.html">Python API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../cli.html">Command-Line Interface</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../R-api.html">R API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../java_api/index.html">Java API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../rest-api.html">REST API</a></li>
+</ul>
+
+      
+    
+  </div>
+
+  <div role="contentinfo">
+    
+
+    <p>
+      <a id='feedbacklink' href="https://github.com/mlflow/mlflow/blob/master/CONTRIBUTING.md" target="_blank">Contribute</a>
+    </p>
+  </div>
+</div>
+    </nav>
+
+    <main class="wy-grid-for-nav">
+      <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+        <div class="wy-nav-content">
+          <div class="rst-content">
+            
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href="../../../index.html">Documentation</a> <span class="db-icon db-icon-chevron-right"></span></li>
+    
+        <li><a href="../../index.html">Module code</a> <span class="db-icon db-icon-chevron-right"></span></li>
+    
+        <li><a href="../deployments.html">mlflow.deployments</a> <span class="db-icon db-icon-chevron-right"></span></li>
+    
+    
+      <li>mlflow.deployments.mlflow</li>
+    
+    
+    <!-- <li class="wy-breadcrumbs-aside">
+      <a href="https://github.com/mlflow/mlflow/blob/master/docs/source/_modules/mlflow/deployments/mlflow" class="fa fa-github"> Edit on GitHub</a>
+    </li> -->
+    
+  </ul>
+</div>
+            <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+              <div itemprop="articleBody">
+                
+  <h1>Source code for mlflow.deployments.mlflow</h1><div class="highlight"><pre>
+<span></span><span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">TYPE_CHECKING</span><span class="p">,</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Optional</span>
+
+<span class="kn">import</span> <span class="nn">requests</span>
+
+<span class="kn">from</span> <span class="nn">mlflow</span> <span class="kn">import</span> <span class="n">MlflowException</span>
+<span class="kn">from</span> <span class="nn">mlflow.deployments</span> <span class="kn">import</span> <span class="n">BaseDeploymentClient</span>
+<span class="kn">from</span> <span class="nn">mlflow.deployments.constants</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">MLFLOW_DEPLOYMENT_CLIENT_REQUEST_RETRY_CODES</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">mlflow.deployments.server.constants</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">MLFLOW_DEPLOYMENTS_CRUD_ENDPOINT_BASE</span><span class="p">,</span>
+    <span class="n">MLFLOW_DEPLOYMENTS_ENDPOINTS_BASE</span><span class="p">,</span>
+    <span class="n">MLFLOW_DEPLOYMENTS_QUERY_SUFFIX</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">mlflow.deployments.utils</span> <span class="kn">import</span> <span class="n">resolve_endpoint_url</span>
+<span class="kn">from</span> <span class="nn">mlflow.environment_variables</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">MLFLOW_DEPLOYMENT_PREDICT_TIMEOUT</span><span class="p">,</span>
+    <span class="n">MLFLOW_HTTP_REQUEST_TIMEOUT</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">mlflow.protos.databricks_pb2</span> <span class="kn">import</span> <span class="n">BAD_REQUEST</span>
+<span class="kn">from</span> <span class="nn">mlflow.store.entities.paged_list</span> <span class="kn">import</span> <span class="n">PagedList</span>
+<span class="kn">from</span> <span class="nn">mlflow.utils.annotations</span> <span class="kn">import</span> <span class="n">experimental</span>
+<span class="kn">from</span> <span class="nn">mlflow.utils.credentials</span> <span class="kn">import</span> <span class="n">get_default_host_creds</span>
+<span class="kn">from</span> <span class="nn">mlflow.utils.rest_utils</span> <span class="kn">import</span> <span class="n">augmented_raise_for_status</span><span class="p">,</span> <span class="n">http_request</span>
+<span class="kn">from</span> <span class="nn">mlflow.utils.uri</span> <span class="kn">import</span> <span class="n">join_paths</span>
+
+<span class="k">if</span> <span class="n">TYPE_CHECKING</span><span class="p">:</span>
+    <span class="kn">from</span> <span class="nn">mlflow.deployments.server.config</span> <span class="kn">import</span> <span class="n">Endpoint</span>
+
+
+<div class="viewcode-block" id="MlflowDeploymentClient"><a class="viewcode-back" href="../../../python_api/mlflow.deployments.html#mlflow.deployments.MlflowDeploymentClient">[docs]</a><span class="nd">@experimental</span>
+<span class="k">class</span> <span class="nc">MlflowDeploymentClient</span><span class="p">(</span><span class="n">BaseDeploymentClient</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Client for interacting with the MLflow AI Gateway.</span>
+
+<span class="sd">    Example:</span>
+
+<span class="sd">    First, start the MLflow AI Gateway:</span>
+
+<span class="sd">    .. code-block:: bash</span>
+
+<span class="sd">        mlflow gateway start --config-path path/to/config.yaml</span>
+
+<span class="sd">    Then, create a client and use it to interact with the server:</span>
+
+<span class="sd">    .. code-block:: python</span>
+
+<span class="sd">        from mlflow.deployments import get_deploy_client</span>
+
+<span class="sd">        client = get_deploy_client(&quot;http://localhost:5000&quot;)</span>
+<span class="sd">        endpoints = client.list_endpoints()</span>
+<span class="sd">        assert [e.dict() for e in endpoints] == [</span>
+<span class="sd">            {</span>
+<span class="sd">                &quot;name&quot;: &quot;chat&quot;,</span>
+<span class="sd">                &quot;endpoint_type&quot;: &quot;llm/v1/chat&quot;,</span>
+<span class="sd">                &quot;model&quot;: {&quot;name&quot;: &quot;gpt-4o-mini&quot;, &quot;provider&quot;: &quot;openai&quot;},</span>
+<span class="sd">                &quot;endpoint_url&quot;: &quot;http://localhost:5000/gateway/chat/invocations&quot;,</span>
+<span class="sd">            },</span>
+<span class="sd">        ]</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="MlflowDeploymentClient.create_deployment"><a class="viewcode-back" href="../../../python_api/mlflow.deployments.html#mlflow.deployments.MlflowDeploymentClient.create_deployment">[docs]</a>    <span class="k">def</span> <span class="nf">create_deployment</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">model_uri</span><span class="p">,</span> <span class="n">flavor</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">config</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">endpoint</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        .. warning::</span>
+<span class="sd">            This method is not implemented for `MlflowDeploymentClient`.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span></div>
+
+<div class="viewcode-block" id="MlflowDeploymentClient.update_deployment"><a class="viewcode-back" href="../../../python_api/mlflow.deployments.html#mlflow.deployments.MlflowDeploymentClient.update_deployment">[docs]</a>    <span class="k">def</span> <span class="nf">update_deployment</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">model_uri</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">flavor</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">config</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">endpoint</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        .. warning::</span>
+<span class="sd">            This method is not implemented for `MlflowDeploymentClient`.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span></div>
+
+<div class="viewcode-block" id="MlflowDeploymentClient.delete_deployment"><a class="viewcode-back" href="../../../python_api/mlflow.deployments.html#mlflow.deployments.MlflowDeploymentClient.delete_deployment">[docs]</a>    <span class="k">def</span> <span class="nf">delete_deployment</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">config</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">endpoint</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        .. warning::</span>
+<span class="sd">            This method is not implemented for `MlflowDeploymentClient`.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span></div>
+
+<div class="viewcode-block" id="MlflowDeploymentClient.list_deployments"><a class="viewcode-back" href="../../../python_api/mlflow.deployments.html#mlflow.deployments.MlflowDeploymentClient.list_deployments">[docs]</a>    <span class="k">def</span> <span class="nf">list_deployments</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">endpoint</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        .. warning::</span>
+<span class="sd">            This method is not implemented for `MlflowDeploymentClient`.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span></div>
+
+<div class="viewcode-block" id="MlflowDeploymentClient.get_deployment"><a class="viewcode-back" href="../../../python_api/mlflow.deployments.html#mlflow.deployments.MlflowDeploymentClient.get_deployment">[docs]</a>    <span class="k">def</span> <span class="nf">get_deployment</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">endpoint</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        .. warning::</span>
+<span class="sd">            This method is not implemented for `MLflowDeploymentClient`.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span></div>
+
+<div class="viewcode-block" id="MlflowDeploymentClient.create_endpoint"><a class="viewcode-back" href="../../../python_api/mlflow.deployments.html#mlflow.deployments.MlflowDeploymentClient.create_endpoint">[docs]</a>    <span class="k">def</span> <span class="nf">create_endpoint</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">config</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        .. warning::</span>
+<span class="sd">            This method is not implemented for `MlflowDeploymentClient`.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span></div>
+
+<div class="viewcode-block" id="MlflowDeploymentClient.update_endpoint"><a class="viewcode-back" href="../../../python_api/mlflow.deployments.html#mlflow.deployments.MlflowDeploymentClient.update_endpoint">[docs]</a>    <span class="k">def</span> <span class="nf">update_endpoint</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">endpoint</span><span class="p">,</span> <span class="n">config</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        .. warning::</span>
+<span class="sd">            This method is not implemented for `MlflowDeploymentClient`.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span></div>
+
+<div class="viewcode-block" id="MlflowDeploymentClient.delete_endpoint"><a class="viewcode-back" href="../../../python_api/mlflow.deployments.html#mlflow.deployments.MlflowDeploymentClient.delete_endpoint">[docs]</a>    <span class="k">def</span> <span class="nf">delete_endpoint</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">endpoint</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        .. warning::</span>
+<span class="sd">            This method is not implemented for `MlflowDeploymentClient`.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span></div>
+
+    <span class="k">def</span> <span class="nf">_call_endpoint</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">method</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">route</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">json_body</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">timeout</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">):</span>
+        <span class="n">call_kwargs</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">if</span> <span class="n">method</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="o">==</span> <span class="s2">&quot;get&quot;</span><span class="p">:</span>
+            <span class="n">call_kwargs</span><span class="p">[</span><span class="s2">&quot;params&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">json_body</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">call_kwargs</span><span class="p">[</span><span class="s2">&quot;json&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">json_body</span>
+
+        <span class="n">response</span> <span class="o">=</span> <span class="n">http_request</span><span class="p">(</span>
+            <span class="n">host_creds</span><span class="o">=</span><span class="n">get_default_host_creds</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">target_uri</span><span class="p">),</span>
+            <span class="n">endpoint</span><span class="o">=</span><span class="n">route</span><span class="p">,</span>
+            <span class="n">method</span><span class="o">=</span><span class="n">method</span><span class="p">,</span>
+            <span class="n">timeout</span><span class="o">=</span><span class="n">MLFLOW_HTTP_REQUEST_TIMEOUT</span><span class="o">.</span><span class="n">get</span><span class="p">()</span> <span class="k">if</span> <span class="n">timeout</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">timeout</span><span class="p">,</span>
+            <span class="n">retry_codes</span><span class="o">=</span><span class="n">MLFLOW_DEPLOYMENT_CLIENT_REQUEST_RETRY_CODES</span><span class="p">,</span>
+            <span class="n">raise_on_status</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+            <span class="o">**</span><span class="n">call_kwargs</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="n">augmented_raise_for_status</span><span class="p">(</span><span class="n">response</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">response</span><span class="o">.</span><span class="n">json</span><span class="p">()</span>
+
+<div class="viewcode-block" id="MlflowDeploymentClient.get_endpoint"><a class="viewcode-back" href="../../../python_api/mlflow.deployments.html#mlflow.deployments.MlflowDeploymentClient.get_endpoint">[docs]</a>    <span class="nd">@experimental</span>
+    <span class="k">def</span> <span class="nf">get_endpoint</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">endpoint</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;Endpoint&quot;</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Gets a specified endpoint configured for the MLflow AI Gateway.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            endpoint: The name of the endpoint to retrieve.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            An `Endpoint` object representing the endpoint.</span>
+
+<span class="sd">        Example:</span>
+
+<span class="sd">        .. code-block:: python</span>
+
+<span class="sd">            from mlflow.deployments import get_deploy_client</span>
+
+<span class="sd">            client = get_deploy_client(&quot;http://localhost:5000&quot;)</span>
+<span class="sd">            endpoint = client.get_endpoint(endpoint=&quot;chat&quot;)</span>
+<span class="sd">            assert endpoint.dict() == {</span>
+<span class="sd">                &quot;name&quot;: &quot;chat&quot;,</span>
+<span class="sd">                &quot;endpoint_type&quot;: &quot;llm/v1/chat&quot;,</span>
+<span class="sd">                &quot;model&quot;: {&quot;name&quot;: &quot;gpt-4o-mini&quot;, &quot;provider&quot;: &quot;openai&quot;},</span>
+<span class="sd">                &quot;endpoint_url&quot;: &quot;http://localhost:5000/gateway/chat/invocations&quot;,</span>
+<span class="sd">            }</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># Delayed import to avoid importing mlflow.gateway in the module scope</span>
+        <span class="kn">from</span> <span class="nn">mlflow.deployments.server.config</span> <span class="kn">import</span> <span class="n">Endpoint</span>
+
+        <span class="n">route</span> <span class="o">=</span> <span class="n">join_paths</span><span class="p">(</span><span class="n">MLFLOW_DEPLOYMENTS_CRUD_ENDPOINT_BASE</span><span class="p">,</span> <span class="n">endpoint</span><span class="p">)</span>
+        <span class="n">response</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_call_endpoint</span><span class="p">(</span><span class="s2">&quot;GET&quot;</span><span class="p">,</span> <span class="n">route</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">Endpoint</span><span class="p">(</span>
+            <span class="o">**</span><span class="p">{</span>
+                <span class="o">**</span><span class="n">response</span><span class="p">,</span>
+                <span class="s2">&quot;endpoint_url&quot;</span><span class="p">:</span> <span class="n">resolve_endpoint_url</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">target_uri</span><span class="p">,</span> <span class="n">response</span><span class="p">[</span><span class="s2">&quot;endpoint_url&quot;</span><span class="p">]),</span>
+            <span class="p">}</span>
+        <span class="p">)</span></div>
+
+    <span class="k">def</span> <span class="nf">_list_endpoints</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">page_token</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;PagedList[Endpoint]&quot;</span><span class="p">:</span>
+        <span class="c1"># Delayed import to avoid importing mlflow.gateway in the module scope</span>
+        <span class="kn">from</span> <span class="nn">mlflow.deployments.server.config</span> <span class="kn">import</span> <span class="n">Endpoint</span>
+
+        <span class="n">params</span> <span class="o">=</span> <span class="kc">None</span> <span class="k">if</span> <span class="n">page_token</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="p">{</span><span class="s2">&quot;page_token&quot;</span><span class="p">:</span> <span class="n">page_token</span><span class="p">}</span>
+        <span class="n">response_json</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_call_endpoint</span><span class="p">(</span>
+            <span class="s2">&quot;GET&quot;</span><span class="p">,</span> <span class="n">MLFLOW_DEPLOYMENTS_CRUD_ENDPOINT_BASE</span><span class="p">,</span> <span class="n">json_body</span><span class="o">=</span><span class="n">params</span>
+        <span class="p">)</span>
+        <span class="n">routes</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="n">Endpoint</span><span class="p">(</span>
+                <span class="o">**</span><span class="p">{</span>
+                    <span class="o">**</span><span class="n">resp</span><span class="p">,</span>
+                    <span class="s2">&quot;endpoint_url&quot;</span><span class="p">:</span> <span class="n">resolve_endpoint_url</span><span class="p">(</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">target_uri</span><span class="p">,</span>
+                        <span class="n">resp</span><span class="p">[</span><span class="s2">&quot;endpoint_url&quot;</span><span class="p">],</span>
+                    <span class="p">),</span>
+                <span class="p">}</span>
+            <span class="p">)</span>
+            <span class="k">for</span> <span class="n">resp</span> <span class="ow">in</span> <span class="n">response_json</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;endpoints&quot;</span><span class="p">,</span> <span class="p">[])</span>
+        <span class="p">]</span>
+        <span class="n">next_page_token</span> <span class="o">=</span> <span class="n">response_json</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;next_page_token&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">PagedList</span><span class="p">(</span><span class="n">routes</span><span class="p">,</span> <span class="n">next_page_token</span><span class="p">)</span>
+
+<div class="viewcode-block" id="MlflowDeploymentClient.list_endpoints"><a class="viewcode-back" href="../../../python_api/mlflow.deployments.html#mlflow.deployments.MlflowDeploymentClient.list_endpoints">[docs]</a>    <span class="nd">@experimental</span>
+    <span class="k">def</span> <span class="nf">list_endpoints</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;List[Endpoint]&quot;</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        List endpoints configured for the MLflow AI Gateway.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            A list of ``Endpoint`` objects.</span>
+
+<span class="sd">        Example:</span>
+
+<span class="sd">        .. code-block:: python</span>
+
+<span class="sd">            from mlflow.deployments import get_deploy_client</span>
+
+<span class="sd">            client = get_deploy_client(&quot;http://localhost:5000&quot;)</span>
+
+<span class="sd">            endpoints = client.list_endpoints()</span>
+<span class="sd">            assert [e.dict() for e in endpoints] == [</span>
+<span class="sd">                {</span>
+<span class="sd">                    &quot;name&quot;: &quot;chat&quot;,</span>
+<span class="sd">                    &quot;endpoint_type&quot;: &quot;llm/v1/chat&quot;,</span>
+<span class="sd">                    &quot;model&quot;: {&quot;name&quot;: &quot;gpt-4o-mini&quot;, &quot;provider&quot;: &quot;openai&quot;},</span>
+<span class="sd">                    &quot;endpoint_url&quot;: &quot;http://localhost:5000/gateway/chat/invocations&quot;,</span>
+<span class="sd">                },</span>
+<span class="sd">            ]</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">endpoints</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">next_page_token</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">while</span> <span class="kc">True</span><span class="p">:</span>
+            <span class="n">page</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_list_endpoints</span><span class="p">(</span><span class="n">next_page_token</span><span class="p">)</span>
+            <span class="n">endpoints</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">page</span><span class="p">)</span>
+            <span class="n">next_page_token</span> <span class="o">=</span> <span class="n">page</span><span class="o">.</span><span class="n">token</span>
+            <span class="k">if</span> <span class="n">next_page_token</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">break</span>
+        <span class="k">return</span> <span class="n">endpoints</span></div>
+
+<div class="viewcode-block" id="MlflowDeploymentClient.predict"><a class="viewcode-back" href="../../../python_api/mlflow.deployments.html#mlflow.deployments.MlflowDeploymentClient.predict">[docs]</a>    <span class="nd">@experimental</span>
+    <span class="k">def</span> <span class="nf">predict</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">deployment_name</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">inputs</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">endpoint</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Submit a query to a configured provider endpoint.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            deployment_name: Unused.</span>
+<span class="sd">            inputs: The inputs to the query, as a dictionary.</span>
+<span class="sd">            endpoint: The name of the endpoint to query.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            A dictionary containing the response from the endpoint.</span>
+
+<span class="sd">        Example:</span>
+
+<span class="sd">        .. code-block:: python</span>
+
+<span class="sd">            from mlflow.deployments import get_deploy_client</span>
+
+<span class="sd">            client = get_deploy_client(&quot;http://localhost:5000&quot;)</span>
+
+<span class="sd">            response = client.predict(</span>
+<span class="sd">                endpoint=&quot;chat&quot;,</span>
+<span class="sd">                inputs={&quot;messages&quot;: [{&quot;role&quot;: &quot;user&quot;, &quot;content&quot;: &quot;Hello&quot;}]},</span>
+<span class="sd">            )</span>
+<span class="sd">            assert response == {</span>
+<span class="sd">                &quot;id&quot;: &quot;chatcmpl-8OLoQuaeJSLybq3NBoe0w5eyqjGb9&quot;,</span>
+<span class="sd">                &quot;object&quot;: &quot;chat.completion&quot;,</span>
+<span class="sd">                &quot;created&quot;: 1700814410,</span>
+<span class="sd">                &quot;model&quot;: &quot;gpt-4o-mini&quot;,</span>
+<span class="sd">                &quot;choices&quot;: [</span>
+<span class="sd">                    {</span>
+<span class="sd">                        &quot;index&quot;: 0,</span>
+<span class="sd">                        &quot;message&quot;: {</span>
+<span class="sd">                            &quot;role&quot;: &quot;assistant&quot;,</span>
+<span class="sd">                            &quot;content&quot;: &quot;Hello! How can I assist you today?&quot;,</span>
+<span class="sd">                        },</span>
+<span class="sd">                        &quot;finish_reason&quot;: &quot;stop&quot;,</span>
+<span class="sd">                    }</span>
+<span class="sd">                ],</span>
+<span class="sd">                &quot;usage&quot;: {</span>
+<span class="sd">                    &quot;prompt_tokens&quot;: 9,</span>
+<span class="sd">                    &quot;completion_tokens&quot;: 9,</span>
+<span class="sd">                    &quot;total_tokens&quot;: 18,</span>
+<span class="sd">                },</span>
+<span class="sd">            }</span>
+
+<span class="sd">        Additional parameters that are valid for a given provider and endpoint configuration can be</span>
+<span class="sd">        included with the request as shown below, using an openai completions endpoint request as</span>
+<span class="sd">        an example:</span>
+
+<span class="sd">        .. code-block:: python</span>
+
+<span class="sd">            from mlflow.deployments import get_deploy_client</span>
+
+<span class="sd">            client = get_deploy_client(&quot;http://localhost:5000&quot;)</span>
+<span class="sd">            client.predict(</span>
+<span class="sd">                endpoint=&quot;completions&quot;,</span>
+<span class="sd">                inputs={</span>
+<span class="sd">                    &quot;prompt&quot;: &quot;Hello!&quot;,</span>
+<span class="sd">                    &quot;temperature&quot;: 0.3,</span>
+<span class="sd">                    &quot;max_tokens&quot;: 500,</span>
+<span class="sd">                },</span>
+<span class="sd">            )</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">query_route</span> <span class="o">=</span> <span class="n">join_paths</span><span class="p">(</span>
+            <span class="n">MLFLOW_DEPLOYMENTS_ENDPOINTS_BASE</span><span class="p">,</span> <span class="n">endpoint</span><span class="p">,</span> <span class="n">MLFLOW_DEPLOYMENTS_QUERY_SUFFIX</span>
+        <span class="p">)</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_call_endpoint</span><span class="p">(</span>
+                <span class="s2">&quot;POST&quot;</span><span class="p">,</span> <span class="n">query_route</span><span class="p">,</span> <span class="n">inputs</span><span class="p">,</span> <span class="n">MLFLOW_DEPLOYMENT_PREDICT_TIMEOUT</span><span class="o">.</span><span class="n">get</span><span class="p">()</span>
+            <span class="p">)</span>
+        <span class="k">except</span> <span class="n">MlflowException</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">e</span><span class="o">.</span><span class="n">__cause__</span><span class="p">,</span> <span class="n">requests</span><span class="o">.</span><span class="n">exceptions</span><span class="o">.</span><span class="n">Timeout</span><span class="p">):</span>
+                <span class="k">raise</span> <span class="n">MlflowException</span><span class="p">(</span>
+                    <span class="n">message</span><span class="o">=</span><span class="p">(</span>
+                        <span class="s2">&quot;The provider has timed out while generating a response to your &quot;</span>
+                        <span class="s2">&quot;query. Please evaluate the available parameters for the query &quot;</span>
+                        <span class="s2">&quot;that you are submitting. Some parameter values and inputs can &quot;</span>
+                        <span class="s2">&quot;increase the computation time beyond the allowable route &quot;</span>
+                        <span class="sa">f</span><span class="s2">&quot;timeout of </span><span class="si">{</span><span class="n">MLFLOW_DEPLOYMENT_PREDICT_TIMEOUT</span><span class="si">}</span><span class="s2"> &quot;</span>
+                        <span class="s2">&quot;seconds.&quot;</span>
+                    <span class="p">),</span>
+                    <span class="n">error_code</span><span class="o">=</span><span class="n">BAD_REQUEST</span><span class="p">,</span>
+                <span class="p">)</span>
+            <span class="k">raise</span> <span class="n">e</span></div></div>
+
+
+<span class="k">def</span> <span class="nf">run_local</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">model_uri</span><span class="p">,</span> <span class="n">flavor</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">config</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="k">pass</span>
+
+
+<span class="k">def</span> <span class="nf">target_help</span><span class="p">():</span>
+    <span class="k">pass</span>
+</pre></div>
+
+              </div>
+            </div>
+            <footer>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+      <p class="copyright">
+          &copy; MLflow Project, a Series of LF Projects, LLC. All rights reserved.
+      </p>
+
+  </div> 
+
+</footer>
+          </div>
+        </div>
+      </section>
+    </main>
+  </page>
+
+  
+
+
+  
+  <script type="text/javascript">
+    var DOCUMENTATION_OPTIONS = {
+      URL_ROOT:'../../../',
+      VERSION:'2.17.1.dev0',
+      COLLAPSE_INDEX:false,
+      FILE_SUFFIX:'.html',
+      LINK_SUFFIX: '.html',
+      HAS_SOURCE:  true
+    };
+  </script>
+
+  
+
+  <script type="text/javascript" src="../../../_static/js/clipboard.min.js"></script>
+  <script type="text/javascript" src="../../../_static/js/jquery.waypoints.min.js"></script>
+
+  
+  
+  
+  <script type="text/javascript">var CLIPPY_SVG_PATH = "../../../_static/clippy.svg";</script>
+  <script type="text/javascript" src="../../../_static/js/custom.js"></script>
+  
+
+  
+  
+  <script type="text/javascript">
+    jQuery(function () {
+      SphinxRtdTheme.StickyNav.enable();
+    });
+
+  </script>
+  
+
+  
+  <script type="text/javascript">
+    document.addEventListener("DOMContentLoaded", function() {
+        function copyToClipboard(text) {
+            const textarea = document.createElement('textarea');
+            textarea.value = text;
+            document.body.appendChild(textarea);
+            textarea.select();
+            document.execCommand('copy');
+            document.body.removeChild(textarea);
+        }
+        // Get the code block designator class entries
+        const allHighlights = document.querySelectorAll('.highlight');
+        // Disable copyable links for notebook cell numbering and for cell outputs
+        const highlights = Array.from(allHighlights).filter(highlight => !highlight.closest('.highlight-none') && 
+            !highlight.closest('.nboutput'));
+    
+        highlights.forEach(function(highlight) {
+            const copyIcon = document.createElement('span');
+            copyIcon.classList.add('copy-icon');
+            copyIcon.innerHTML = '&#xf0ea;';
+
+            copyIcon.addEventListener('click', function() {
+                const code = highlight.querySelector('pre').textContent;
+                copyToClipboard(code);
+
+                // Flash effect on click
+                this.style.color = '#0194E2';
+                setTimeout(() => {
+                    this.style.color = ''; 
+                }, 100);
+
+                // Display "Code copied to clipboard" near the clicked icon
+                const message = document.createElement('span');
+                message.textContent = "Copied!";
+                message.classList.add('copy-message'); 
+
+                // Append the message to the icon
+                this.appendChild(message);
+
+                setTimeout(() => {
+                    this.removeChild(message);
+                }, 500);
+            });
+
+            highlight.appendChild(copyIcon);
+        });
+    });
+  </script>
+
+
+<script type="text/javascript">
+    document.addEventListener("DOMContentLoaded", function() {
+        // Force download for notebook-download-btn
+        const downloadButtons = document.querySelectorAll('.notebook-download-btn');
+        downloadButtons.forEach(function(button) {
+            button.addEventListener('click', function(event) {
+                event.preventDefault(); // Prevent default behavior
+
+                // Fetch the raw content of the notebook from GitHub
+                fetch(button.href)
+                    .then(response => response.blob())
+                    .then(blob => {
+                        const url = window.URL.createObjectURL(blob);
+                        const link = document.createElement('a');
+                        link.style.display = 'none';
+                        link.href = url;
+                        const filename = button.href.split('/').pop();
+                        link.download = filename; 
+
+                        document.body.appendChild(link);
+                        link.click();
+
+                        window.URL.revokeObjectURL(url);
+                        document.body.removeChild(link);
+                    })
+                    .catch(err => console.error('Error fetching the notebook:', err));
+            });
+        });
+    });
+</script> 
+</body>
+</html>

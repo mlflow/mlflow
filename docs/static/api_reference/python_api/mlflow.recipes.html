@@ -1,0 +1,515 @@
+
+
+<!DOCTYPE html>
+<!-- source: docs/source/python_api/mlflow.recipes.rst -->
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>mlflow.recipes</title>
+  
+   
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+  <link rel="canonical" href="https://mlflow.org/docs/latest/python_api/mlflow.recipes.html">
+  
+  
+    <link rel="shortcut icon" href="../_static/favicon.ico"/>
+    
+
+    
+
+  
+    
+
+  
+
+  
+  
+    
+
+  
+
+  
+  
+    <link href="https://fonts.googleapis.com/css?family=Source+Sans+Pro:300,400,600" rel="stylesheet">
+    <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/css/custom.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/css/cards.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/css/grids.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/css/mobile.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/css/simple-cards.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/css/tabs.css" type="text/css" />
+    
+  
+        <link rel="index" title="Index"
+              href="../genindex.html"/>
+        <link rel="search" title="Search" href="../search.html"/>
+    <link rel="top" title="MLflow 2.17.1.dev0 documentation" href="../index.html"/>
+        <link rel="up" title="Python API" href="index.html"/>
+        <link rel="next" title="mlflow.sagemaker" href="/mlflow.sagemaker.html"/>
+        <link rel="prev" title="mlflow.pytorch" href="/mlflow.pytorch.html"/> 
+
+  
+  <script src="../_static/js/modernizr.min.js"></script>
+
+</head>
+<script type="text/javascript" src="../_static/jquery.js"></script>
+<script type="text/javascript" src="../_static/underscore.js"></script>
+<script type="text/javascript" src="../_static/doctools.js"></script>
+<script type="text/javascript" src="../_static/languagesections.js"></script>
+<script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+<script type="text/javascript" src="../_static/runllm.js"></script>
+
+<body class="wy-body-for-nav" role="document">
+  
+
+  
+  <nav class="wy-nav-top header" role="navigation" aria-label="top navigation">
+    <ul>
+  <li class="menu-toggle">
+    <i data-toggle="wy-nav-top" class="wy-nav-top-menu-button db-icon db-icon-menu pull-left"></i>
+    <a href="../index.html" class="wy-nav-top-logo"
+      ><img src="../_static/MLflow-logo-final-black.png" alt="MLflow"
+    /></a>
+    <span class="version">2.17.1.dev0</span>
+  </li>
+</ul>
+  </nav>
+  <page>
+    
+
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side relative">
+      <div class="wy-side-scroll">
+  <div class="wy-side-nav-search">
+    
+
+    
+
+    
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+  <input type="text" name="q" placeholder="Search" />
+  <input type="hidden" name="check_keywords" value="yes" />
+  <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+
+    
+  </div>
+
+  <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+    
+      <a href="../index.html" class="main-navigation-home"><img src="../_static/icons/nav-home.svg"> MLflow</a>
+    
+
+    
+      
+
+      
+        <ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">Python API</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="mlflow.html">mlflow</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.html#mlflow-tracing-apis">MLflow Tracing APIs</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.artifacts.html">mlflow.artifacts</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.autogen.html">mlflow.autogen</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.catboost.html">mlflow.catboost</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.client.html">mlflow.client</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.config.html">mlflow.config</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.data.html">mlflow.data</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.deployments.html">mlflow.deployments</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.diviner.html">mlflow.diviner</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.dspy.html">mlflow.dspy</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.entities.html">mlflow.entities</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.environment_variables.html">mlflow.environment_variables</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.fastai.html">mlflow.fastai</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.gateway.html">mlflow.gateway</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.gluon.html">mlflow.gluon</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.h2o.html">mlflow.h2o</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.johnsnowlabs.html">mlflow.johnsnowlabs</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.keras.html">mlflow.keras</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.langchain.html">mlflow.langchain</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.lightgbm.html">mlflow.lightgbm</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.llama_index.html">mlflow.llama_index</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.metrics.html">mlflow.metrics</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.mleap.html">mlflow.mleap</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.models.html">mlflow.models</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.onnx.html">mlflow.onnx</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.openai.html">mlflow.openai</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.paddle.html">mlflow.paddle</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.pmdarima.html">mlflow.pmdarima</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.projects.html">mlflow.projects</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.promptflow.html">mlflow.promptflow</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.prophet.html">mlflow.prophet</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.pyfunc.html">mlflow.pyfunc</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.pyspark.ml.html">mlflow.pyspark.ml</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.pytorch.html">mlflow.pytorch</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">mlflow.recipes</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.sagemaker.html">mlflow.sagemaker</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.sentence_transformers.html">mlflow.sentence_transformers</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.server.html">mlflow.server</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.shap.html">mlflow.shap</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.sklearn.html">mlflow.sklearn</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.spacy.html">mlflow.spacy</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.spark.html">mlflow.spark</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.statsmodels.html">mlflow.statsmodels</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.system_metrics.html">mlflow.system_metrics</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.tensorflow.html">mlflow.tensorflow</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.tracing.html">mlflow.tracing</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.transformers.html">mlflow.transformers</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.types.html">mlflow.types</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.utils.html">mlflow.utils</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.xgboost.html">mlflow.xgboost</a></li>
+<li class="toctree-l2"><a class="reference internal" href="index.html#log-levels">Log Levels</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../cli.html">Command-Line Interface</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../R-api.html">R API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../java_api/index.html">Java API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../rest-api.html">REST API</a></li>
+</ul>
+
+      
+    
+  </div>
+
+  <div role="contentinfo">
+    
+
+    <p>
+      <a id='feedbacklink' href="https://github.com/mlflow/mlflow/blob/master/CONTRIBUTING.md" target="_blank">Contribute</a>
+    </p>
+  </div>
+</div>
+    </nav>
+
+    <main class="wy-grid-for-nav">
+      <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+        <div class="wy-nav-content">
+          <div class="rst-content">
+            
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href="../index.html">Documentation</a> <span class="db-icon db-icon-chevron-right"></span></li>
+    
+        <li><a href="index.html">Python API</a> <span class="db-icon db-icon-chevron-right"></span></li>
+    
+    
+      <li>mlflow.recipes</li>
+    
+    
+    <!-- <li class="wy-breadcrumbs-aside">
+      <a href="https://github.com/mlflow/mlflow/blob/master/docs/source/python_api/mlflow.recipes.rst" class="fa fa-github"> Edit on GitHub</a>
+    </li> -->
+    
+  </ul>
+</div>
+            <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+              <div itemprop="articleBody">
+                
+  <div class="section" id="module-mlflow.recipes">
+<span id="mlflow-recipes"></span><span id="recipes-apis"></span><h1>mlflow.recipes<a class="headerlink" href="#module-mlflow.recipes" title="Permalink to this headline"> </a></h1>
+<p>MLflow Recipes is a framework that enables you to quickly develop high-quality models and deploy
+them to production. Compared to ad-hoc ML workflows, MLflow Recipes offers several major benefits:</p>
+<ul class="simple">
+<li><p><strong>Recipe templates</strong>: <span class="xref std std-ref">Predefined templates</span> for common ML tasks,
+such as <span class="xref std std-ref">regression modeling</span>, enable you to get started quickly and
+focus on building great models, eliminating the large amount of boilerplate code that is
+traditionally required to curate datasets, engineer features, train &amp; tune models, and package
+models for production deployment.</p></li>
+<li><p><strong>Recipe engine</strong>: The intelligent recipe execution engine accelerates model development by
+caching results from each step of the process and re-running the minimal set of steps as changes
+are made.</p></li>
+<li><p><strong>Production-ready structure</strong>: The modular, git-integrated <span class="xref std std-ref">recipe structure</span> dramatically simplifies the handoff from development to
+production by ensuring that all model code, data, and configurations are easily reviewable and
+deployable by ML engineers.</p></li>
+</ul>
+<p>For more information, see the <span class="xref std std-ref">MLflow Recipes overview</span>.</p>
+<dl class="py class">
+<dt id="mlflow.recipes.Recipe">
+<em class="property"><span class="pre">class</span> </em><code class="sig-prename descclassname"><span class="pre">mlflow.recipes.</span></code><code class="sig-name descname"><span class="pre">Recipe</span></code><a class="reference internal" href="../_modules/mlflow/recipes/recipe.html#Recipe"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mlflow.recipes.Recipe" title="Permalink to this definition"> </a></dt>
+<dd><p>A factory class that creates an instance of a recipe for a particular ML problem
+(e.g. regression, classification) or MLOps task (e.g. batch scoring) based on the current
+working directory and supplied configuration.</p>
+<div class="literal-block-wrapper docutils container" id="id1">
+<div class="code-block-caption"><span class="caption-text">Example</span><a class="headerlink" href="#id1" title="Permalink to this code"> </a></div>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">os</span>
+<span class="kn">from</span> <span class="nn">mlflow.recipes</span> <span class="kn">import</span> <span class="n">Recipe</span>
+
+<span class="n">os</span><span class="o">.</span><span class="n">chdir</span><span class="p">(</span><span class="s2">&quot;~/recipes-regression-template&quot;</span><span class="p">)</span>
+<span class="n">regression_recipe</span> <span class="o">=</span> <span class="n">Recipe</span><span class="p">(</span><span class="n">profile</span><span class="o">=</span><span class="s2">&quot;local&quot;</span><span class="p">)</span>
+<span class="n">regression_recipe</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">step</span><span class="o">=</span><span class="s2">&quot;train&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<dl class="py method">
+<dt id="mlflow.recipes.Recipe.__new__">
+<em class="property"><span class="pre">static</span> </em><code class="sig-name descname"><span class="pre">__new__</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">cls</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">profile</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">str</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/mlflow/recipes/recipe.html#Recipe.__new__"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mlflow.recipes.Recipe.__new__" title="Permalink to this definition"> </a></dt>
+<dd><p>Creates an instance of an MLflow Recipe for a particular ML problem or MLOps task based
+on the current working directory and supplied configuration. The current working directory
+must be the root directory of an MLflow Recipe repository or a subdirectory of an
+MLflow Recipe repository.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>profile</strong> – The name of the profile to use for configuring the problem-specific or
+task-specific recipe. Profiles customize the configuration of
+one or more recipe steps, and recipe executions with different profiles
+often produce different results.</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>A recipe for a particular ML problem or MLOps task. For example, an instance of
+<a class="reference external" href="https://github.com/mlflow/recipes-regression-template">RegressionRecipe</a>
+for regression problems.</p>
+</dd>
+</dl>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">os</span>
+<span class="kn">from</span> <span class="nn">mlflow.recipes</span> <span class="kn">import</span> <span class="n">Recipe</span>
+
+<span class="n">os</span><span class="o">.</span><span class="n">chdir</span><span class="p">(</span><span class="s2">&quot;~/recipes-regression-template&quot;</span><span class="p">)</span>
+<span class="n">regression_recipe</span> <span class="o">=</span> <span class="n">Recipe</span><span class="p">(</span><span class="n">profile</span><span class="o">=</span><span class="s2">&quot;local&quot;</span><span class="p">)</span>
+<span class="n">regression_recipe</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">step</span><span class="o">=</span><span class="s2">&quot;train&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt id="mlflow.recipes.recipe.BaseRecipe">
+<em class="property"><span class="pre">class</span> </em><code class="sig-prename descclassname"><span class="pre">mlflow.recipes.recipe.</span></code><code class="sig-name descname"><span class="pre">BaseRecipe</span></code><a class="reference internal" href="../_modules/mlflow/recipes/recipe.html#BaseRecipe"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mlflow.recipes.recipe.BaseRecipe" title="Permalink to this definition"> </a></dt>
+<dd><p>Base Recipe</p>
+<dl class="py method">
+<dt id="mlflow.recipes.recipe.BaseRecipe.clean">
+<code class="sig-name descname"><span class="pre">clean</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">step</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">Optional</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></span> <span class="o"><span class="pre">=</span></span> <span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> &#x2192; <span class="pre">None</span><a class="reference internal" href="../_modules/mlflow/recipes/recipe.html#BaseRecipe.clean"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mlflow.recipes.recipe.BaseRecipe.clean" title="Permalink to this definition"> </a></dt>
+<dd><p>Removes the outputs of the specified step from the cache, or removes the cached outputs
+of all steps if no particular step is specified. After cached outputs are cleaned
+for a particular step, the step will be re-executed in its entirety the next time it is
+invoked via <code class="docutils literal notranslate"><span class="pre">BaseRecipe.run()</span></code>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>step</strong> – String name of the step to clean within the recipe. If not specified,
+cached outputs are removed for all recipe steps.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="mlflow.recipes.recipe.BaseRecipe.get_artifact">
+<code class="sig-name descname"><span class="pre">get_artifact</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">artifact_name</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">str</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/mlflow/recipes/recipe.html#BaseRecipe.get_artifact"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mlflow.recipes.recipe.BaseRecipe.get_artifact" title="Permalink to this definition"> </a></dt>
+<dd><p>Read an artifact from recipe output. artifact names can be obtained from
+<cite>Recipe.inspect()</cite> or <cite>Recipe.run()</cite> output.</p>
+<p>Returns None if the specified artifact is not found.
+Raise an error if the artifact is not supported.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt id="mlflow.recipes.recipe.BaseRecipe.inspect">
+<code class="sig-name descname"><span class="pre">inspect</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">step</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">Optional</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></span> <span class="o"><span class="pre">=</span></span> <span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> &#x2192; <span class="pre">None</span><a class="reference internal" href="../_modules/mlflow/recipes/recipe.html#BaseRecipe.inspect"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mlflow.recipes.recipe.BaseRecipe.inspect" title="Permalink to this definition"> </a></dt>
+<dd><p>Displays main output from a step, or a recipe DAG if no step is specified.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>step</strong> – String name to display a step output within the recipe. If a step is not
+specified, the DAG of the recipe is shown instead.</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="mlflow.recipes.recipe.BaseRecipe.name">
+<em class="property"><span class="pre">property</span> </em><code class="sig-name descname"><span class="pre">name</span></code><a class="headerlink" href="#mlflow.recipes.recipe.BaseRecipe.name" title="Permalink to this definition"> </a></dt>
+<dd><p>Returns the name of the recipe.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt id="mlflow.recipes.recipe.BaseRecipe.profile">
+<em class="property"><span class="pre">property</span> </em><code class="sig-name descname"><span class="pre">profile</span></code><a class="headerlink" href="#mlflow.recipes.recipe.BaseRecipe.profile" title="Permalink to this definition"> </a></dt>
+<dd><p>Returns the profile under which the recipe and its steps will execute.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt id="mlflow.recipes.recipe.BaseRecipe.run">
+<code class="sig-name descname"><span class="pre">run</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">step</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">Optional</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></span> <span class="o"><span class="pre">=</span></span> <span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> &#x2192; <span class="pre">None</span><a class="reference internal" href="../_modules/mlflow/recipes/recipe.html#BaseRecipe.run"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mlflow.recipes.recipe.BaseRecipe.run" title="Permalink to this definition"> </a></dt>
+<dd><p>Runs a step in the recipe, or the entire recipe if a step is not specified.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>step</strong> – String name to run a step within the recipe. The step and its dependencies
+will be run sequentially. If a step is not specified, the entire recipe is
+executed.</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>None</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+</div>
+
+
+              </div>
+            </div>
+            <footer>
+  
+    <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
+      
+        <a href="mlflow.pytorch.html" class="btn btn-neutral" title="mlflow.pytorch" accesskey="p"><span class="db-icon db-icon-chevron-left"></span> Previous</a>
+      
+      
+        <a href="mlflow.sagemaker.html" class="btn btn-neutral" title="mlflow.sagemaker" accesskey="n">Next <span class="db-icon db-icon-chevron-right"></span></a>
+      
+    </div>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+      <p class="copyright">
+          &copy; MLflow Project, a Series of LF Projects, LLC. All rights reserved.
+      </p>
+
+  </div> 
+
+</footer>
+          </div>
+        </div>
+      </section>
+    </main>
+  </page>
+
+  
+
+
+  
+  <script type="text/javascript">
+    var DOCUMENTATION_OPTIONS = {
+      URL_ROOT:'../',
+      VERSION:'2.17.1.dev0',
+      COLLAPSE_INDEX:false,
+      FILE_SUFFIX:'.html',
+      LINK_SUFFIX: '.html',
+      HAS_SOURCE:  true
+    };
+  </script>
+
+  
+
+  <script type="text/javascript" src="../_static/js/clipboard.min.js"></script>
+  <script type="text/javascript" src="../_static/js/jquery.waypoints.min.js"></script>
+
+  
+  
+  
+  <script type="text/javascript">var CLIPPY_SVG_PATH = "../_static/clippy.svg";</script>
+  <script type="text/javascript" src="../_static/js/custom.js"></script>
+  
+
+  
+  
+  <script type="text/javascript">
+    jQuery(function () {
+      SphinxRtdTheme.StickyNav.enable();
+    });
+
+  </script>
+  
+
+  
+  <script type="text/javascript">
+    document.addEventListener("DOMContentLoaded", function() {
+        function copyToClipboard(text) {
+            const textarea = document.createElement('textarea');
+            textarea.value = text;
+            document.body.appendChild(textarea);
+            textarea.select();
+            document.execCommand('copy');
+            document.body.removeChild(textarea);
+        }
+        // Get the code block designator class entries
+        const allHighlights = document.querySelectorAll('.highlight');
+        // Disable copyable links for notebook cell numbering and for cell outputs
+        const highlights = Array.from(allHighlights).filter(highlight => !highlight.closest('.highlight-none') && 
+            !highlight.closest('.nboutput'));
+    
+        highlights.forEach(function(highlight) {
+            const copyIcon = document.createElement('span');
+            copyIcon.classList.add('copy-icon');
+            copyIcon.innerHTML = '&#xf0ea;';
+
+            copyIcon.addEventListener('click', function() {
+                const code = highlight.querySelector('pre').textContent;
+                copyToClipboard(code);
+
+                // Flash effect on click
+                this.style.color = '#0194E2';
+                setTimeout(() => {
+                    this.style.color = ''; 
+                }, 100);
+
+                // Display "Code copied to clipboard" near the clicked icon
+                const message = document.createElement('span');
+                message.textContent = "Copied!";
+                message.classList.add('copy-message'); 
+
+                // Append the message to the icon
+                this.appendChild(message);
+
+                setTimeout(() => {
+                    this.removeChild(message);
+                }, 500);
+            });
+
+            highlight.appendChild(copyIcon);
+        });
+    });
+  </script>
+
+
+<script type="text/javascript">
+    document.addEventListener("DOMContentLoaded", function() {
+        // Force download for notebook-download-btn
+        const downloadButtons = document.querySelectorAll('.notebook-download-btn');
+        downloadButtons.forEach(function(button) {
+            button.addEventListener('click', function(event) {
+                event.preventDefault(); // Prevent default behavior
+
+                // Fetch the raw content of the notebook from GitHub
+                fetch(button.href)
+                    .then(response => response.blob())
+                    .then(blob => {
+                        const url = window.URL.createObjectURL(blob);
+                        const link = document.createElement('a');
+                        link.style.display = 'none';
+                        link.href = url;
+                        const filename = button.href.split('/').pop();
+                        link.download = filename; 
+
+                        document.body.appendChild(link);
+                        link.click();
+
+                        window.URL.revokeObjectURL(url);
+                        document.body.removeChild(link);
+                    })
+                    .catch(err => console.error('Error fetching the notebook:', err));
+            });
+        });
+    });
+</script> 
+</body>
+</html>

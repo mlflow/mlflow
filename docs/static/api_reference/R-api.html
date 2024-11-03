@@ -1,0 +1,3210 @@
+
+
+<!DOCTYPE html>
+<!-- source: docs/source/R-api.rst -->
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>R API</title>
+  
+   
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+  <link rel="canonical" href="https://mlflow.org/docs/latest/R-api.html">
+  
+  
+    <link rel="shortcut icon" href="_static/favicon.ico"/>
+    
+
+    
+
+  
+    
+
+  
+
+  
+  
+    
+
+  
+
+  
+  
+    <link href="https://fonts.googleapis.com/css?family=Source+Sans+Pro:300,400,600" rel="stylesheet">
+    <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+    <link rel="stylesheet" href="_static/css/custom.css" type="text/css" />
+    <link rel="stylesheet" href="_static/css/cards.css" type="text/css" />
+    <link rel="stylesheet" href="_static/css/grids.css" type="text/css" />
+    <link rel="stylesheet" href="_static/css/mobile.css" type="text/css" />
+    <link rel="stylesheet" href="_static/css/simple-cards.css" type="text/css" />
+    <link rel="stylesheet" href="_static/css/tabs.css" type="text/css" />
+    
+  
+        <link rel="index" title="Index"
+              href="genindex.html"/>
+        <link rel="search" title="Search" href="search.html"/>
+    <link rel="top" title="MLflow 2.17.1.dev0 documentation" href="index.html"/>
+        <link rel="next" title="Java API" href="/java_api/index.html"/>
+        <link rel="prev" title="Command-Line Interface" href="/cli.html"/> 
+
+  
+  <script src="_static/js/modernizr.min.js"></script>
+
+</head>
+<script type="text/javascript" src="_static/jquery.js"></script>
+<script type="text/javascript" src="_static/underscore.js"></script>
+<script type="text/javascript" src="_static/doctools.js"></script>
+<script type="text/javascript" src="_static/languagesections.js"></script>
+<script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+<script type="text/javascript" src="_static/runllm.js"></script>
+
+<body class="wy-body-for-nav" role="document">
+  
+
+  
+  <nav class="wy-nav-top header" role="navigation" aria-label="top navigation">
+    <ul>
+  <li class="menu-toggle">
+    <i data-toggle="wy-nav-top" class="wy-nav-top-menu-button db-icon db-icon-menu pull-left"></i>
+    <a href="index.html" class="wy-nav-top-logo"
+      ><img src="_static/MLflow-logo-final-black.png" alt="MLflow"
+    /></a>
+    <span class="version">2.17.1.dev0</span>
+  </li>
+</ul>
+  </nav>
+  <page>
+    
+
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side relative">
+      <div class="wy-side-scroll">
+  <div class="wy-side-nav-search">
+    
+
+    
+
+    
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+  <input type="text" name="q" placeholder="Search" />
+  <input type="hidden" name="check_keywords" value="yes" />
+  <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+
+    
+  </div>
+
+  <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+    
+      <a href="index.html" class="main-navigation-home"><img src="_static/icons/nav-home.svg"> MLflow</a>
+    
+
+    
+      
+
+      
+        <ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="python_api/index.html">Python API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="cli.html">Command-Line Interface</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">R API</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#prerequisites">Prerequisites</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#build-context-tags-from-databricks-job-info"><code class="docutils literal notranslate"><span class="pre">build_context_tags_from_databricks_job_info</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#arguments">Arguments</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#value">Value</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#build-context-tags-from-databricks-notebook-info"><code class="docutils literal notranslate"><span class="pre">build_context_tags_from_databricks_notebook_info</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#arguments-1">Arguments</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#value-1">Value</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#mlflow-client"><code class="docutils literal notranslate"><span class="pre">mlflow_client</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#arguments-2">Arguments</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#mlflow-create-experiment"><code class="docutils literal notranslate"><span class="pre">mlflow_create_experiment</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#arguments-3">Arguments</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#mlflow-create-model-version"><code class="docutils literal notranslate"><span class="pre">mlflow_create_model_version</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#arguments-4">Arguments</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#mlflow-create-registered-model"><code class="docutils literal notranslate"><span class="pre">mlflow_create_registered_model</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#arguments-5">Arguments</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#mlflow-delete-experiment"><code class="docutils literal notranslate"><span class="pre">mlflow_delete_experiment</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#arguments-6">Arguments</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#mlflow-delete-model-version"><code class="docutils literal notranslate"><span class="pre">mlflow_delete_model_version</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#arguments-7">Arguments</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#mlflow-delete-registered-model"><code class="docutils literal notranslate"><span class="pre">mlflow_delete_registered_model</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#arguments-8">Arguments</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#mlflow-delete-run"><code class="docutils literal notranslate"><span class="pre">mlflow_delete_run</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#arguments-9">Arguments</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#mlflow-delete-tag"><code class="docutils literal notranslate"><span class="pre">mlflow_delete_tag</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#arguments-10">Arguments</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#mlflow-download-artifacts"><code class="docutils literal notranslate"><span class="pre">mlflow_download_artifacts</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#arguments-11">Arguments</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#mlflow-end-run"><code class="docutils literal notranslate"><span class="pre">mlflow_end_run</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#arguments-12">Arguments</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#mlflow-get-experiment"><code class="docutils literal notranslate"><span class="pre">mlflow_get_experiment</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#arguments-13">Arguments</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#mlflow-get-latest-versions"><code class="docutils literal notranslate"><span class="pre">mlflow_get_latest_versions</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#arguments-14">Arguments</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#mlflow-get-metric-history"><code class="docutils literal notranslate"><span class="pre">mlflow_get_metric_history</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#arguments-15">Arguments</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#mlflow-get-model-version"><code class="docutils literal notranslate"><span class="pre">mlflow_get_model_version</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#arguments-16">Arguments</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#mlflow-get-registered-model"><code class="docutils literal notranslate"><span class="pre">mlflow_get_registered_model</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#arguments-17">Arguments</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#mlflow-get-run"><code class="docutils literal notranslate"><span class="pre">mlflow_get_run</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#arguments-18">Arguments</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#mlflow-get-tracking-uri"><code class="docutils literal notranslate"><span class="pre">mlflow_get_tracking_uri</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="#mlflow-id"><code class="docutils literal notranslate"><span class="pre">mlflow_id</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#arguments-19">Arguments</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#mlflow-list-artifacts"><code class="docutils literal notranslate"><span class="pre">mlflow_list_artifacts</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#arguments-20">Arguments</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#mlflow-load-flavor"><code class="docutils literal notranslate"><span class="pre">mlflow_load_flavor</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#arguments-21">Arguments</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#mlflow-load-model"><code class="docutils literal notranslate"><span class="pre">mlflow_load_model</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#arguments-22">Arguments</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#details">Details</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#mlflow-log-artifact"><code class="docutils literal notranslate"><span class="pre">mlflow_log_artifact</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#arguments-23">Arguments</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#details-1">Details</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#mlflow-log-batch"><code class="docutils literal notranslate"><span class="pre">mlflow_log_batch</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#arguments-24">Arguments</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#mlflow-log-metric"><code class="docutils literal notranslate"><span class="pre">mlflow_log_metric</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#arguments-25">Arguments</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#mlflow-log-model"><code class="docutils literal notranslate"><span class="pre">mlflow_log_model</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#arguments-26">Arguments</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#mlflow-log-param"><code class="docutils literal notranslate"><span class="pre">mlflow_log_param</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#arguments-27">Arguments</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#mlflow-param"><code class="docutils literal notranslate"><span class="pre">mlflow_param</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#arguments-28">Arguments</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#examples">Examples</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#mlflow-predict"><code class="docutils literal notranslate"><span class="pre">mlflow_predict</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#arguments-29">Arguments</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#mlflow-register-external-observer"><code class="docutils literal notranslate"><span class="pre">mlflow_register_external_observer</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#arguments-30">Arguments</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#examples-1">Examples</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#mlflow-rename-experiment"><code class="docutils literal notranslate"><span class="pre">mlflow_rename_experiment</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#arguments-31">Arguments</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#mlflow-rename-registered-model"><code class="docutils literal notranslate"><span class="pre">mlflow_rename_registered_model</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#arguments-32">Arguments</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#mlflow-restore-experiment"><code class="docutils literal notranslate"><span class="pre">mlflow_restore_experiment</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#arguments-33">Arguments</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#details-2">Details</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#mlflow-restore-run"><code class="docutils literal notranslate"><span class="pre">mlflow_restore_run</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#arguments-34">Arguments</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#mlflow-rfunc-serve"><code class="docutils literal notranslate"><span class="pre">mlflow_rfunc_serve</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#arguments-35">Arguments</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#details-3">Details</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#examples-2">Examples</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#mlflow-run"><code class="docutils literal notranslate"><span class="pre">mlflow_run</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#arguments-36">Arguments</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#value-2">Value</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#examples-3">Examples</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#mlflow-save-model-crate"><code class="docutils literal notranslate"><span class="pre">mlflow_save_model.crate</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#arguments-37">Arguments</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#mlflow-search-experiments"><code class="docutils literal notranslate"><span class="pre">mlflow_search_experiments</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#arguments-38">Arguments</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#mlflow-search-registered-models"><code class="docutils literal notranslate"><span class="pre">mlflow_search_registered_models</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#arguments-39">Arguments</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#mlflow-search-runs"><code class="docutils literal notranslate"><span class="pre">mlflow_search_runs</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#arguments-40">Arguments</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#mlflow-server"><code class="docutils literal notranslate"><span class="pre">mlflow_server</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#arguments-41">Arguments</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#mlflow-set-experiment-tag"><code class="docutils literal notranslate"><span class="pre">mlflow_set_experiment_tag</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#arguments-42">Arguments</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#mlflow-set-experiment"><code class="docutils literal notranslate"><span class="pre">mlflow_set_experiment</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#arguments-43">Arguments</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#mlflow-set-model-version-tag"><code class="docutils literal notranslate"><span class="pre">mlflow_set_model_version_tag</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#arguments-44">Arguments</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#mlflow-set-tag"><code class="docutils literal notranslate"><span class="pre">mlflow_set_tag</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#arguments-45">Arguments</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#mlflow-set-tracking-uri"><code class="docutils literal notranslate"><span class="pre">mlflow_set_tracking_uri</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#arguments-46">Arguments</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#mlflow-source"><code class="docutils literal notranslate"><span class="pre">mlflow_source</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#arguments-47">Arguments</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#mlflow-start-run"><code class="docutils literal notranslate"><span class="pre">mlflow_start_run</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#arguments-48">Arguments</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#examples-4">Examples</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#mlflow-transition-model-version-stage"><code class="docutils literal notranslate"><span class="pre">mlflow_transition_model_version_stage</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#arguments-49">Arguments</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#mlflow-ui"><code class="docutils literal notranslate"><span class="pre">mlflow_ui</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#arguments-50">Arguments</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#examples-5">Examples</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#mlflow-update-model-version"><code class="docutils literal notranslate"><span class="pre">mlflow_update_model_version</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#arguments-51">Arguments</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#mlflow-update-registered-model"><code class="docutils literal notranslate"><span class="pre">mlflow_update_registered_model</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#arguments-52">Arguments</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="java_api/index.html">Java API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="rest-api.html">REST API</a></li>
+</ul>
+
+      
+    
+  </div>
+
+  <div role="contentinfo">
+    
+
+    <p>
+      <a id='feedbacklink' href="https://github.com/mlflow/mlflow/blob/master/CONTRIBUTING.md" target="_blank">Contribute</a>
+    </p>
+  </div>
+</div>
+    </nav>
+
+    <main class="wy-grid-for-nav">
+      <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+        <div class="wy-nav-content">
+          <div class="rst-content">
+            
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href="index.html">Documentation</a> <span class="db-icon db-icon-chevron-right"></span></li>
+    
+    
+      <li>R API</li>
+    
+    
+    <!-- <li class="wy-breadcrumbs-aside">
+      <a href="https://github.com/mlflow/mlflow/blob/master/docs/source/R-api.rst" class="fa fa-github"> Edit on GitHub</a>
+    </li> -->
+    
+  </ul>
+</div>
+            <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+              <div itemprop="articleBody">
+                
+  <div class="section" id="r-api">
+<span id="id1"></span><h1>R API<a class="headerlink" href="#r-api" title="Permalink to this headline"> </a></h1>
+<p>The MLflow <a class="reference external" href="https://www.r-project.org/about.html">R</a> API allows you to use MLflow <span class="xref std std-doc">Tracking</span>, <span class="xref std std-doc">Projects</span> and <span class="xref std std-doc">Models</span>.</p>
+<div class="section" id="prerequisites">
+<h2>Prerequisites<a class="headerlink" href="#prerequisites" title="Permalink to this headline"> </a></h2>
+<p>To use the MLflow R API, you must install <a class="reference external" href="https://pypi.org/project/mlflow/">the MLflow Python package</a>.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pip<span class="w"> </span>install<span class="w"> </span>mlflow
+</pre></div>
+</div>
+<p>Installing with an Available Conda Environment example:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>conda<span class="w"> </span>create<span class="w"> </span>-n<span class="w"> </span>mlflow-env<span class="w"> </span>python
+conda<span class="w"> </span>activate<span class="w"> </span>mlflow-env
+pip<span class="w"> </span>install<span class="w"> </span>mlflow
+</pre></div>
+</div>
+<p>The above provided commands create a new Conda environment named mlflow-env, specifying the default Python version. It then activates this environment, making it the active working environment. Finally, it installs the MLflow package using pip, ensuring that MLflow is isolated within this environment, allowing for independent Python and package management for MLflow-related tasks.</p>
+<p>Optionally, you can set the <code class="docutils literal notranslate"><span class="pre">MLFLOW_PYTHON_BIN</span></code> and <code class="docutils literal notranslate"><span class="pre">MLFLOW_BIN</span></code> environment variables to specify the Python and MLflow binaries to use. By default, the R client automatically finds them using <code class="docutils literal notranslate"><span class="pre">Sys.which('python')</span></code> and <code class="docutils literal notranslate"><span class="pre">Sys.which('mlflow')</span></code>.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">export</span><span class="w"> </span><span class="nv">MLFLOW_PYTHON_BIN</span><span class="o">=</span>/path/to/bin/python
+<span class="nb">export</span><span class="w"> </span><span class="nv">MLFLOW_BIN</span><span class="o">=</span>/path/to/bin/mlflow
+</pre></div>
+</div>
+<p>You can use the R API to start the <a class="reference internal" href="#mlflow-ui">user interface</a>, <a class="reference internal" href="#mlflow-create-experiment">create experiment</a> and <a class="reference internal" href="#mlflow-search-experiments">search experiments</a>, <a class="reference internal" href="#mlflow-save-model-crate">save models</a>, <a class="reference internal" href="#mlflow-run">run projects</a> and <a class="reference internal" href="#mlflow-rfunc-serve">serve models</a> among many other functions available in the R API.</p>
+</div>
+<div class="section" id="build-context-tags-from-databricks-job-info">
+<h2><code class="docutils literal notranslate"><span class="pre">build_context_tags_from_databricks_job_info</span></code><a class="headerlink" href="#build-context-tags-from-databricks-job-info" title="Permalink to this headline"> </a></h2>
+<p>Get information from a Databricks job execution context</p>
+<p>Parses the data from a job execution context when running on Databricks
+in a non-interactive mode. This function extracts relevant data that
+MLflow needs in order to properly utilize the MLflow APIs from this
+context.</p>
+<div class="highlight-r notranslate"><div class="highlight"><pre><span></span><span class="nf">build_context_tags_from_databricks_job_info</span><span class="p">(</span><span class="n">job_info</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="section" id="arguments">
+<h3>Arguments<a class="headerlink" href="#arguments" title="Permalink to this headline"> </a></h3>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 18%" />
+<col style="width: 82%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Argument</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">job_info</span></code></p></td>
+<td><p>The job-related metadata from a running Databricks job</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="section" id="value">
+<h3>Value<a class="headerlink" href="#value" title="Permalink to this headline"> </a></h3>
+<p>A list of tags to be set by the run context when creating MLflow runs in
+the current Databricks Job environment</p>
+</div>
+</div>
+<div class="section" id="build-context-tags-from-databricks-notebook-info">
+<h2><code class="docutils literal notranslate"><span class="pre">build_context_tags_from_databricks_notebook_info</span></code><a class="headerlink" href="#build-context-tags-from-databricks-notebook-info" title="Permalink to this headline"> </a></h2>
+<p>Get information from Databricks Notebook environment</p>
+<p>Retrieves the notebook id, path, url, name, version, and type from the
+Databricks Notebook execution environment and sets them to a list to be
+used for setting the configured environment for executing an MLflow run
+in R from Databricks.</p>
+<div class="highlight-r notranslate"><div class="highlight"><pre><span></span><span class="nf">build_context_tags_from_databricks_notebook_info</span><span class="p">(</span><span class="n">notebook_info</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="section" id="arguments-1">
+<span id="id2"></span><h3>Arguments<a class="headerlink" href="#arguments-1" title="Permalink to this headline"> </a></h3>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 45%" />
+<col style="width: 55%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Argument</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">notebook_info</span></code></p></td>
+<td><p>The configuration data from the
+Databricks Notebook environment</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="section" id="value-1">
+<span id="id3"></span><h3>Value<a class="headerlink" href="#value-1" title="Permalink to this headline"> </a></h3>
+<p>A list of tags to be set by the run context when creating MLflow runs in
+the current Databricks Notebook environment</p>
+</div>
+</div>
+<div class="section" id="mlflow-client">
+<h2><code class="docutils literal notranslate"><span class="pre">mlflow_client</span></code><a class="headerlink" href="#mlflow-client" title="Permalink to this headline"> </a></h2>
+<p>Initialize an MLflow Client</p>
+<p>Initializes and returns an MLflow client that communicates with the
+tracking server or store at the specified URI.</p>
+<div class="highlight-r notranslate"><div class="highlight"><pre><span></span><span class="nf">mlflow_client</span><span class="p">(</span><span class="n">tracking_uri</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">NULL</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="section" id="arguments-2">
+<span id="id4"></span><h3>Arguments<a class="headerlink" href="#arguments-2" title="Permalink to this headline"> </a></h3>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 45%" />
+<col style="width: 55%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Argument</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">tracking_uri</span></code></p></td>
+<td><p>The tracking URI. If not provided,
+defaults to the service set by
+<code class="docutils literal notranslate"><span class="pre">mlflow_set_tracking_uri()</span></code>.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<div class="section" id="mlflow-create-experiment">
+<h2><code class="docutils literal notranslate"><span class="pre">mlflow_create_experiment</span></code><a class="headerlink" href="#mlflow-create-experiment" title="Permalink to this headline"> </a></h2>
+<p>Create Experiment</p>
+<p>Creates an MLflow experiment and returns its id.</p>
+<div class="highlight-r notranslate"><div class="highlight"><pre><span></span><span class="nf">mlflow_create_experiment</span><span class="p">(</span>
+<span class="w">  </span><span class="n">name</span><span class="p">,</span>
+<span class="w">  </span><span class="n">artifact_location</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">NULL</span><span class="p">,</span>
+<span class="w">  </span><span class="n">client</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">NULL</span><span class="p">,</span>
+<span class="w">  </span><span class="n">tags</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">NULL</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+<div class="section" id="arguments-3">
+<span id="id5"></span><h3>Arguments<a class="headerlink" href="#arguments-3" title="Permalink to this headline"> </a></h3>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 45%" />
+<col style="width: 55%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Argument</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">name</span></code></p></td>
+<td><p>The name of the experiment to
+create.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">artifact_location</span></code></p></td>
+<td><p>Location where all artifacts for
+this experiment are stored. If not
+provided, the remote server will
+select an appropriate default.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">client</span></code></p></td>
+<td><p>(Optional) An MLflow client object
+returned from
+<a class="reference external" href="#mlflow-client">mlflow_client</a> .
+If specified, MLflow will use the
+tracking server associated with the
+passed-in client. If unspecified
+(the common case), MLflow will use
+the tracking server associated with
+the current tracking URI.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">tags</span></code></p></td>
+<td><p>Experiment tags to set on the
+experiment upon experiment creation.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<div class="section" id="mlflow-create-model-version">
+<h2><code class="docutils literal notranslate"><span class="pre">mlflow_create_model_version</span></code><a class="headerlink" href="#mlflow-create-model-version" title="Permalink to this headline"> </a></h2>
+<p>Create a model version</p>
+<p>Create a model version</p>
+<div class="highlight-r notranslate"><div class="highlight"><pre><span></span><span class="nf">mlflow_create_model_version</span><span class="p">(</span>
+<span class="w">  </span><span class="n">name</span><span class="p">,</span>
+<span class="w">  </span><span class="n">source</span><span class="p">,</span>
+<span class="w">  </span><span class="n">run_id</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">NULL</span><span class="p">,</span>
+<span class="w">  </span><span class="n">tags</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">NULL</span><span class="p">,</span>
+<span class="w">  </span><span class="n">run_link</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">NULL</span><span class="p">,</span>
+<span class="w">  </span><span class="n">description</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">NULL</span><span class="p">,</span>
+<span class="w">  </span><span class="n">client</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">NULL</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+<div class="section" id="arguments-4">
+<span id="id6"></span><h3>Arguments<a class="headerlink" href="#arguments-4" title="Permalink to this headline"> </a></h3>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 45%" />
+<col style="width: 55%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Argument</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">name</span></code></p></td>
+<td><p>Register model under this name.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">source</span></code></p></td>
+<td><p>URI indicating the location of the
+model artifacts.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">run_id</span></code></p></td>
+<td><p>MLflow run ID for correlation, if
+<code class="docutils literal notranslate"><span class="pre">source</span></code> was generated by an
+experiment run in MLflow Tracking.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">tags</span></code></p></td>
+<td><p>Additional metadata.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">run_link</span></code></p></td>
+<td><p>MLflow run link - This is the exact
+link of the run that generated this
+model version.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">description</span></code></p></td>
+<td><p>Description for model version.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">client</span></code></p></td>
+<td><p>(Optional) An MLflow client object
+returned from
+<a class="reference external" href="#mlflow-client">mlflow_client</a> .
+If specified, MLflow will use the
+tracking server associated with the
+passed-in client. If unspecified
+(the common case), MLflow will use
+the tracking server associated with
+the current tracking URI.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<div class="section" id="mlflow-create-registered-model">
+<h2><code class="docutils literal notranslate"><span class="pre">mlflow_create_registered_model</span></code><a class="headerlink" href="#mlflow-create-registered-model" title="Permalink to this headline"> </a></h2>
+<p>Create registered model</p>
+<p>Creates a new registered model in the model registry</p>
+<div class="highlight-r notranslate"><div class="highlight"><pre><span></span><span class="nf">mlflow_create_registered_model</span><span class="p">(</span>
+<span class="w">  </span><span class="n">name</span><span class="p">,</span>
+<span class="w">  </span><span class="n">tags</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">NULL</span><span class="p">,</span>
+<span class="w">  </span><span class="n">description</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">NULL</span><span class="p">,</span>
+<span class="w">  </span><span class="n">client</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">NULL</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+<div class="section" id="arguments-5">
+<span id="id7"></span><h3>Arguments<a class="headerlink" href="#arguments-5" title="Permalink to this headline"> </a></h3>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 45%" />
+<col style="width: 55%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Argument</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">name</span></code></p></td>
+<td><p>The name of the model to create.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">tags</span></code></p></td>
+<td><p>Additional metadata for the
+registered model (Optional).</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">description</span></code></p></td>
+<td><p>Description for the registered model
+(Optional).</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">client</span></code></p></td>
+<td><p>(Optional) An MLflow client object
+returned from
+<a class="reference external" href="#mlflow-client">mlflow_client</a> .
+If specified, MLflow will use the
+tracking server associated with the
+passed-in client. If unspecified
+(the common case), MLflow will use
+the tracking server associated with
+the current tracking URI.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<div class="section" id="mlflow-delete-experiment">
+<h2><code class="docutils literal notranslate"><span class="pre">mlflow_delete_experiment</span></code><a class="headerlink" href="#mlflow-delete-experiment" title="Permalink to this headline"> </a></h2>
+<p>Delete Experiment</p>
+<p>Marks an experiment and associated runs, params, metrics, etc. for
+deletion. If the experiment uses FileStore, artifacts associated with
+experiment are also deleted.</p>
+<div class="highlight-r notranslate"><div class="highlight"><pre><span></span><span class="nf">mlflow_delete_experiment</span><span class="p">(</span><span class="n">experiment_id</span><span class="p">,</span><span class="w"> </span><span class="n">client</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">NULL</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="section" id="arguments-6">
+<span id="id8"></span><h3>Arguments<a class="headerlink" href="#arguments-6" title="Permalink to this headline"> </a></h3>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 45%" />
+<col style="width: 55%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Argument</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">experiment_id</span></code></p></td>
+<td><p>ID of the associated experiment.
+This field is required.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">client</span></code></p></td>
+<td><p>(Optional) An MLflow client object
+returned from
+<a class="reference external" href="#mlflow-client">mlflow_client</a> .
+If specified, MLflow will use the
+tracking server associated with the
+passed-in client. If unspecified
+(the common case), MLflow will use
+the tracking server associated with
+the current tracking URI.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<div class="section" id="mlflow-delete-model-version">
+<h2><code class="docutils literal notranslate"><span class="pre">mlflow_delete_model_version</span></code><a class="headerlink" href="#mlflow-delete-model-version" title="Permalink to this headline"> </a></h2>
+<p>Delete a model version</p>
+<p>Delete a model version</p>
+<div class="highlight-r notranslate"><div class="highlight"><pre><span></span><span class="nf">mlflow_delete_model_version</span><span class="p">(</span><span class="n">name</span><span class="p">,</span><span class="w"> </span><span class="n">version</span><span class="p">,</span><span class="w"> </span><span class="n">client</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">NULL</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="section" id="arguments-7">
+<span id="id9"></span><h3>Arguments<a class="headerlink" href="#arguments-7" title="Permalink to this headline"> </a></h3>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 45%" />
+<col style="width: 55%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Argument</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">name</span></code></p></td>
+<td><p>Name of the registered model.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">version</span></code></p></td>
+<td><p>Model version number.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">client</span></code></p></td>
+<td><p>(Optional) An MLflow client object
+returned from
+<a class="reference external" href="#mlflow-client">mlflow_client</a> .
+If specified, MLflow will use the
+tracking server associated with the
+passed-in client. If unspecified
+(the common case), MLflow will use
+the tracking server associated with
+the current tracking URI.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<div class="section" id="mlflow-delete-registered-model">
+<h2><code class="docutils literal notranslate"><span class="pre">mlflow_delete_registered_model</span></code><a class="headerlink" href="#mlflow-delete-registered-model" title="Permalink to this headline"> </a></h2>
+<p>Delete registered model</p>
+<p>Deletes an existing registered model by name</p>
+<div class="highlight-r notranslate"><div class="highlight"><pre><span></span><span class="nf">mlflow_delete_registered_model</span><span class="p">(</span><span class="n">name</span><span class="p">,</span><span class="w"> </span><span class="n">client</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">NULL</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="section" id="arguments-8">
+<span id="id10"></span><h3>Arguments<a class="headerlink" href="#arguments-8" title="Permalink to this headline"> </a></h3>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 45%" />
+<col style="width: 55%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Argument</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">name</span></code></p></td>
+<td><p>The name of the model to delete</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">client</span></code></p></td>
+<td><p>(Optional) An MLflow client object
+returned from
+<a class="reference external" href="#mlflow-client">mlflow_client</a> .
+If specified, MLflow will use the
+tracking server associated with the
+passed-in client. If unspecified
+(the common case), MLflow will use
+the tracking server associated with
+the current tracking URI.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<div class="section" id="mlflow-delete-run">
+<h2><code class="docutils literal notranslate"><span class="pre">mlflow_delete_run</span></code><a class="headerlink" href="#mlflow-delete-run" title="Permalink to this headline"> </a></h2>
+<p>Delete a Run</p>
+<p>Deletes the run with the specified ID.</p>
+<div class="highlight-r notranslate"><div class="highlight"><pre><span></span><span class="nf">mlflow_delete_run</span><span class="p">(</span><span class="n">run_id</span><span class="p">,</span><span class="w"> </span><span class="n">client</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">NULL</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="section" id="arguments-9">
+<span id="id11"></span><h3>Arguments<a class="headerlink" href="#arguments-9" title="Permalink to this headline"> </a></h3>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 45%" />
+<col style="width: 55%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Argument</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">run_id</span></code></p></td>
+<td><p>Run ID.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">client</span></code></p></td>
+<td><p>(Optional) An MLflow client object
+returned from
+<a class="reference external" href="#mlflow-client">mlflow_client</a> .
+If specified, MLflow will use the
+tracking server associated with the
+passed-in client. If unspecified
+(the common case), MLflow will use
+the tracking server associated with
+the current tracking URI.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<div class="section" id="mlflow-delete-tag">
+<h2><code class="docutils literal notranslate"><span class="pre">mlflow_delete_tag</span></code><a class="headerlink" href="#mlflow-delete-tag" title="Permalink to this headline"> </a></h2>
+<p>Delete Tag</p>
+<p>Deletes a tag on a run. This is irreversible. Tags are run metadata that
+can be updated during a run and after a run completes.</p>
+<div class="highlight-r notranslate"><div class="highlight"><pre><span></span><span class="nf">mlflow_delete_tag</span><span class="p">(</span><span class="n">key</span><span class="p">,</span><span class="w"> </span><span class="n">run_id</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">NULL</span><span class="p">,</span><span class="w"> </span><span class="n">client</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">NULL</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="section" id="arguments-10">
+<span id="id12"></span><h3>Arguments<a class="headerlink" href="#arguments-10" title="Permalink to this headline"> </a></h3>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 45%" />
+<col style="width: 55%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Argument</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">key</span></code></p></td>
+<td><p>Name of the tag. Maximum size is 255
+bytes. This field is required.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">run_id</span></code></p></td>
+<td><p>Run ID.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">client</span></code></p></td>
+<td><p>(Optional) An MLflow client object
+returned from
+<a class="reference external" href="#mlflow-client">mlflow_client</a> .
+If specified, MLflow will use the
+tracking server associated with the
+passed-in client. If unspecified
+(the common case), MLflow will use
+the tracking server associated with
+the current tracking URI.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<div class="section" id="mlflow-download-artifacts">
+<h2><code class="docutils literal notranslate"><span class="pre">mlflow_download_artifacts</span></code><a class="headerlink" href="#mlflow-download-artifacts" title="Permalink to this headline"> </a></h2>
+<p>Download Artifacts</p>
+<p>Download an artifact file or directory from a run to a local directory
+if applicable, and return a local path for it.</p>
+<div class="highlight-r notranslate"><div class="highlight"><pre><span></span><span class="nf">mlflow_download_artifacts</span><span class="p">(</span><span class="n">path</span><span class="p">,</span><span class="w"> </span><span class="n">run_id</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">NULL</span><span class="p">,</span><span class="w"> </span><span class="n">client</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">NULL</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="section" id="arguments-11">
+<span id="id13"></span><h3>Arguments<a class="headerlink" href="#arguments-11" title="Permalink to this headline"> </a></h3>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 45%" />
+<col style="width: 55%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Argument</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">path</span></code></p></td>
+<td><p>Relative source path to the desired
+artifact.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">run_id</span></code></p></td>
+<td><p>Run ID.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">client</span></code></p></td>
+<td><p>(Optional) An MLflow client object
+returned from
+<a class="reference external" href="#mlflow-client">mlflow_client</a> .
+If specified, MLflow will use the
+tracking server associated with the
+passed-in client. If unspecified
+(the common case), MLflow will use
+the tracking server associated with
+the current tracking URI.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<div class="section" id="mlflow-end-run">
+<h2><code class="docutils literal notranslate"><span class="pre">mlflow_end_run</span></code><a class="headerlink" href="#mlflow-end-run" title="Permalink to this headline"> </a></h2>
+<p>End a Run</p>
+<p>Terminates a run. Attempts to end the current active run if <code class="docutils literal notranslate"><span class="pre">run_id</span></code>
+is not specified.</p>
+<div class="highlight-r notranslate"><div class="highlight"><pre><span></span><span class="nf">mlflow_end_run</span><span class="p">(</span>
+<span class="w">  </span><span class="n">status</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nf">c</span><span class="p">(</span><span class="s">&quot;FINISHED&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;FAILED&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;KILLED&quot;</span><span class="p">),</span>
+<span class="w">  </span><span class="n">end_time</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">NULL</span><span class="p">,</span>
+<span class="w">  </span><span class="n">run_id</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">NULL</span><span class="p">,</span>
+<span class="w">  </span><span class="n">client</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">NULL</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+<div class="section" id="arguments-12">
+<span id="id14"></span><h3>Arguments<a class="headerlink" href="#arguments-12" title="Permalink to this headline"> </a></h3>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 45%" />
+<col style="width: 55%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Argument</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">status</span></code></p></td>
+<td><p>Updated status of the run. Defaults
+to <code class="docutils literal notranslate"><span class="pre">FINISHED</span></code>. Can also be set to
+“FAILED” or “KILLED”.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">end_time</span></code></p></td>
+<td><p>Unix timestamp of when the run ended
+in milliseconds.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">run_id</span></code></p></td>
+<td><p>Run ID.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">client</span></code></p></td>
+<td><p>(Optional) An MLflow client object
+returned from
+<a class="reference external" href="#mlflow-client">mlflow_client</a> .
+If specified, MLflow will use the
+tracking server associated with the
+passed-in client. If unspecified
+(the common case), MLflow will use
+the tracking server associated with
+the current tracking URI.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<div class="section" id="mlflow-get-experiment">
+<h2><code class="docutils literal notranslate"><span class="pre">mlflow_get_experiment</span></code><a class="headerlink" href="#mlflow-get-experiment" title="Permalink to this headline"> </a></h2>
+<p>Get Experiment</p>
+<p>Gets metadata for an experiment and a list of runs for the experiment.
+Attempts to obtain the active experiment if both <code class="docutils literal notranslate"><span class="pre">experiment_id</span></code> and
+<code class="docutils literal notranslate"><span class="pre">name</span></code> are unspecified.</p>
+<div class="highlight-r notranslate"><div class="highlight"><pre><span></span><span class="nf">mlflow_get_experiment</span><span class="p">(</span><span class="n">experiment_id</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">NULL</span><span class="p">,</span><span class="w"> </span><span class="n">name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">NULL</span><span class="p">,</span><span class="w"> </span><span class="n">client</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">NULL</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="section" id="arguments-13">
+<span id="id15"></span><h3>Arguments<a class="headerlink" href="#arguments-13" title="Permalink to this headline"> </a></h3>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 45%" />
+<col style="width: 55%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Argument</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">experiment_id</span></code></p></td>
+<td><p>ID of the experiment.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">name</span></code></p></td>
+<td><p>The experiment name. Only one of
+<code class="docutils literal notranslate"><span class="pre">name</span></code> or <code class="docutils literal notranslate"><span class="pre">experiment_id</span></code> should
+be specified.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">client</span></code></p></td>
+<td><p>(Optional) An MLflow client object
+returned from
+<a class="reference external" href="#mlflow-client">mlflow_client</a> .
+If specified, MLflow will use the
+tracking server associated with the
+passed-in client. If unspecified
+(the common case), MLflow will use
+the tracking server associated with
+the current tracking URI.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<div class="section" id="mlflow-get-latest-versions">
+<h2><code class="docutils literal notranslate"><span class="pre">mlflow_get_latest_versions</span></code><a class="headerlink" href="#mlflow-get-latest-versions" title="Permalink to this headline"> </a></h2>
+<p>Get latest model versions</p>
+<p>Retrieves a list of the latest model versions for a given model.</p>
+<div class="highlight-r notranslate"><div class="highlight"><pre><span></span><span class="nf">mlflow_get_latest_versions</span><span class="p">(</span><span class="n">name</span><span class="p">,</span><span class="w"> </span><span class="n">stages</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nf">list</span><span class="p">(),</span><span class="w"> </span><span class="n">client</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">NULL</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="section" id="arguments-14">
+<span id="id16"></span><h3>Arguments<a class="headerlink" href="#arguments-14" title="Permalink to this headline"> </a></h3>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 45%" />
+<col style="width: 55%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Argument</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">name</span></code></p></td>
+<td><p>Name of the model.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">stages</span></code></p></td>
+<td><p>A list of desired stages. If the
+input list is NULL, return latest
+versions for ALL_STAGES.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">client</span></code></p></td>
+<td><p>(Optional) An MLflow client object
+returned from
+<a class="reference external" href="#mlflow-client">mlflow_client</a> .
+If specified, MLflow will use the
+tracking server associated with the
+passed-in client. If unspecified
+(the common case), MLflow will use
+the tracking server associated with
+the current tracking URI.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<div class="section" id="mlflow-get-metric-history">
+<h2><code class="docutils literal notranslate"><span class="pre">mlflow_get_metric_history</span></code><a class="headerlink" href="#mlflow-get-metric-history" title="Permalink to this headline"> </a></h2>
+<p>Get Metric History</p>
+<p>Get a list of all values for the specified metric for a given run.</p>
+<div class="highlight-r notranslate"><div class="highlight"><pre><span></span><span class="nf">mlflow_get_metric_history</span><span class="p">(</span><span class="n">metric_key</span><span class="p">,</span><span class="w"> </span><span class="n">run_id</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">NULL</span><span class="p">,</span><span class="w"> </span><span class="n">client</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">NULL</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="section" id="arguments-15">
+<span id="id17"></span><h3>Arguments<a class="headerlink" href="#arguments-15" title="Permalink to this headline"> </a></h3>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 45%" />
+<col style="width: 55%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Argument</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">metric_key</span></code></p></td>
+<td><p>Name of the metric.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">run_id</span></code></p></td>
+<td><p>Run ID.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">client</span></code></p></td>
+<td><p>(Optional) An MLflow client object
+returned from
+<a class="reference external" href="#mlflow-client">mlflow_client</a> .
+If specified, MLflow will use the
+tracking server associated with the
+passed-in client. If unspecified
+(the common case), MLflow will use
+the tracking server associated with
+the current tracking URI.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<div class="section" id="mlflow-get-model-version">
+<h2><code class="docutils literal notranslate"><span class="pre">mlflow_get_model_version</span></code><a class="headerlink" href="#mlflow-get-model-version" title="Permalink to this headline"> </a></h2>
+<p>Get a model version</p>
+<p>Get a model version</p>
+<div class="highlight-r notranslate"><div class="highlight"><pre><span></span><span class="nf">mlflow_get_model_version</span><span class="p">(</span><span class="n">name</span><span class="p">,</span><span class="w"> </span><span class="n">version</span><span class="p">,</span><span class="w"> </span><span class="n">client</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">NULL</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="section" id="arguments-16">
+<span id="id18"></span><h3>Arguments<a class="headerlink" href="#arguments-16" title="Permalink to this headline"> </a></h3>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 45%" />
+<col style="width: 55%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Argument</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">name</span></code></p></td>
+<td><p>Name of the registered model.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">version</span></code></p></td>
+<td><p>Model version number.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">client</span></code></p></td>
+<td><p>(Optional) An MLflow client object
+returned from
+<a class="reference external" href="#mlflow-client">mlflow_client</a> .
+If specified, MLflow will use the
+tracking server associated with the
+passed-in client. If unspecified
+(the common case), MLflow will use
+the tracking server associated with
+the current tracking URI.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<div class="section" id="mlflow-get-registered-model">
+<h2><code class="docutils literal notranslate"><span class="pre">mlflow_get_registered_model</span></code><a class="headerlink" href="#mlflow-get-registered-model" title="Permalink to this headline"> </a></h2>
+<p>Get a registered model</p>
+<p>Retrieves a registered model from the Model Registry.</p>
+<div class="highlight-r notranslate"><div class="highlight"><pre><span></span><span class="nf">mlflow_get_registered_model</span><span class="p">(</span><span class="n">name</span><span class="p">,</span><span class="w"> </span><span class="n">client</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">NULL</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="section" id="arguments-17">
+<span id="id19"></span><h3>Arguments<a class="headerlink" href="#arguments-17" title="Permalink to this headline"> </a></h3>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 45%" />
+<col style="width: 55%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Argument</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">name</span></code></p></td>
+<td><p>The name of the model to retrieve.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">client</span></code></p></td>
+<td><p>(Optional) An MLflow client object
+returned from
+<a class="reference external" href="#mlflow-client">mlflow_client</a> .
+If specified, MLflow will use the
+tracking server associated with the
+passed-in client. If unspecified
+(the common case), MLflow will use
+the tracking server associated with
+the current tracking URI.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<div class="section" id="mlflow-get-run">
+<h2><code class="docutils literal notranslate"><span class="pre">mlflow_get_run</span></code><a class="headerlink" href="#mlflow-get-run" title="Permalink to this headline"> </a></h2>
+<p>Get Run</p>
+<p>Gets metadata, params, tags, and metrics for a run. Returns a single
+value for each metric key: the most recently logged metric value at the
+largest step.</p>
+<div class="highlight-r notranslate"><div class="highlight"><pre><span></span><span class="nf">mlflow_get_run</span><span class="p">(</span><span class="n">run_id</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">NULL</span><span class="p">,</span><span class="w"> </span><span class="n">client</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">NULL</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="section" id="arguments-18">
+<span id="id20"></span><h3>Arguments<a class="headerlink" href="#arguments-18" title="Permalink to this headline"> </a></h3>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 45%" />
+<col style="width: 55%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Argument</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">run_id</span></code></p></td>
+<td><p>Run ID.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">client</span></code></p></td>
+<td><p>(Optional) An MLflow client object
+returned from
+<a class="reference external" href="#mlflow-client">mlflow_client</a> .
+If specified, MLflow will use the
+tracking server associated with the
+passed-in client. If unspecified
+(the common case), MLflow will use
+the tracking server associated with
+the current tracking URI.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<div class="section" id="mlflow-get-tracking-uri">
+<h2><code class="docutils literal notranslate"><span class="pre">mlflow_get_tracking_uri</span></code><a class="headerlink" href="#mlflow-get-tracking-uri" title="Permalink to this headline"> </a></h2>
+<p>Get Remote Tracking URI</p>
+<p>Gets the remote tracking URI.</p>
+<div class="highlight-r notranslate"><div class="highlight"><pre><span></span><span class="nf">mlflow_get_tracking_uri</span><span class="p">()</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="mlflow-id">
+<h2><code class="docutils literal notranslate"><span class="pre">mlflow_id</span></code><a class="headerlink" href="#mlflow-id" title="Permalink to this headline"> </a></h2>
+<p>Get Run or Experiment ID</p>
+<p>Extracts the ID of the run or experiment.</p>
+<div class="highlight-r notranslate"><div class="highlight"><pre><span></span><span class="nf">mlflow_id</span><span class="p">(</span><span class="n">object</span><span class="p">)</span>
+<span class="nf">list</span><span class="p">(</span><span class="nf">list</span><span class="p">(</span><span class="s">&quot;mlflow_id&quot;</span><span class="p">),</span><span class="w"> </span><span class="nf">list</span><span class="p">(</span><span class="s">&quot;mlflow_run&quot;</span><span class="p">))(</span><span class="n">object</span><span class="p">)</span>
+<span class="nf">list</span><span class="p">(</span><span class="nf">list</span><span class="p">(</span><span class="s">&quot;mlflow_id&quot;</span><span class="p">),</span><span class="w"> </span><span class="nf">list</span><span class="p">(</span><span class="s">&quot;mlflow_experiment&quot;</span><span class="p">))(</span><span class="n">object</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="section" id="arguments-19">
+<span id="id21"></span><h3>Arguments<a class="headerlink" href="#arguments-19" title="Permalink to this headline"> </a></h3>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 17%" />
+<col style="width: 83%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Argument</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">object</span></code></p></td>
+<td><p>An <code class="docutils literal notranslate"><span class="pre">mlflow_run</span></code> or <code class="docutils literal notranslate"><span class="pre">mlflow_experiment</span></code> object.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<div class="section" id="mlflow-list-artifacts">
+<h2><code class="docutils literal notranslate"><span class="pre">mlflow_list_artifacts</span></code><a class="headerlink" href="#mlflow-list-artifacts" title="Permalink to this headline"> </a></h2>
+<p>List Artifacts</p>
+<p>Gets a list of artifacts.</p>
+<div class="highlight-r notranslate"><div class="highlight"><pre><span></span><span class="nf">mlflow_list_artifacts</span><span class="p">(</span><span class="n">path</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">NULL</span><span class="p">,</span><span class="w"> </span><span class="n">run_id</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">NULL</span><span class="p">,</span><span class="w"> </span><span class="n">client</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">NULL</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="section" id="arguments-20">
+<span id="id22"></span><h3>Arguments<a class="headerlink" href="#arguments-20" title="Permalink to this headline"> </a></h3>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 45%" />
+<col style="width: 55%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Argument</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">path</span></code></p></td>
+<td><p>The run’s relative artifact path to
+list from. If not specified, it is
+set to the root artifact path</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">run_id</span></code></p></td>
+<td><p>Run ID.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">client</span></code></p></td>
+<td><p>(Optional) An MLflow client object
+returned from
+<a class="reference external" href="#mlflow-client">mlflow_client</a> .
+If specified, MLflow will use the
+tracking server associated with the
+passed-in client. If unspecified
+(the common case), MLflow will use
+the tracking server associated with
+the current tracking URI.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<div class="section" id="mlflow-load-flavor">
+<h2><code class="docutils literal notranslate"><span class="pre">mlflow_load_flavor</span></code><a class="headerlink" href="#mlflow-load-flavor" title="Permalink to this headline"> </a></h2>
+<p>Load MLflow Model Flavor</p>
+<p>Loads an MLflow model using a specific flavor. This method is called
+internally by <a class="reference external" href="#mlflow-load-model">mlflow_load_model</a> , but is
+exposed for package authors to extend the supported MLflow models. See
+<a class="reference external" href="https://mlflow.org/docs/latest/models.html#storage-format">https://mlflow.org/docs/latest/models.html#storage-format</a> for more info
+on MLflow model flavors.</p>
+<div class="highlight-r notranslate"><div class="highlight"><pre><span></span><span class="nf">mlflow_load_flavor</span><span class="p">(</span><span class="n">flavor</span><span class="p">,</span><span class="w"> </span><span class="n">model_path</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="section" id="arguments-21">
+<span id="id23"></span><h3>Arguments<a class="headerlink" href="#arguments-21" title="Permalink to this headline"> </a></h3>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 45%" />
+<col style="width: 55%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Argument</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">flavor</span></code></p></td>
+<td><p>An MLflow flavor object loaded by
+<a class="reference external" href="#mlflow-load-model">mlflo
+w_load_model</a>
+, with class loaded from the flavor
+field in an MLmodel file.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">model_path</span></code></p></td>
+<td><p>The path to the MLflow model wrapped
+in the correct class.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<div class="section" id="mlflow-load-model">
+<h2><code class="docutils literal notranslate"><span class="pre">mlflow_load_model</span></code><a class="headerlink" href="#mlflow-load-model" title="Permalink to this headline"> </a></h2>
+<p>Load MLflow Model</p>
+<p>Loads an MLflow model. MLflow models can have multiple model flavors.
+Not all flavors / models can be loaded in R. This method by default
+searches for a flavor supported by R/MLflow.</p>
+<div class="highlight-r notranslate"><div class="highlight"><pre><span></span><span class="nf">mlflow_load_model</span><span class="p">(</span><span class="n">model_uri</span><span class="p">,</span><span class="w"> </span><span class="n">flavor</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">NULL</span><span class="p">,</span><span class="w"> </span><span class="n">client</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nf">mlflow_client</span><span class="p">())</span>
+</pre></div>
+</div>
+<div class="section" id="arguments-22">
+<span id="id24"></span><h3>Arguments<a class="headerlink" href="#arguments-22" title="Permalink to this headline"> </a></h3>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 45%" />
+<col style="width: 55%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Argument</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">model_uri</span></code></p></td>
+<td><p>The location, in URI format, of the
+MLflow model.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">flavor</span></code></p></td>
+<td><p>Optional flavor specification
+(string). Can be used to load a
+particular flavor in case there are
+multiple flavors available.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">client</span></code></p></td>
+<td><p>(Optional) An MLflow client object
+returned from
+<a class="reference external" href="#mlflow-client">mlflow_client</a> .
+If specified, MLflow will use the
+tracking server associated with the
+passed-in client. If unspecified
+(the common case), MLflow will use
+the tracking server associated with
+the current tracking URI.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="section" id="details">
+<h3>Details<a class="headerlink" href="#details" title="Permalink to this headline"> </a></h3>
+<p>The URI scheme must be supported by MLflow - i.e. there has to be an
+MLflow artifact repository corresponding to the scheme of the URI. The
+content is expected to point to a directory containing MLmodel. The
+following are examples of valid model uris:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">file:///absolute/path/to/local/model</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">file:relative/path/to/local/model</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">s3://my_bucket/path/to/model</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">runs:/&lt;mlflow_run_id&gt;/run-relative/path/to/model</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">models:/&lt;model_name&gt;/&lt;model_version&gt;</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">models:/&lt;model_name&gt;/&lt;stage&gt;</span></code></p></li>
+</ul>
+<p>For more information about supported URI schemes, see the Artifacts
+Documentation at
+<a class="reference external" href="https://www.mlflow.org/docs/latest/tracking.html#artifact-stores">https://www.mlflow.org/docs/latest/tracking.html#artifact-stores</a>.</p>
+</div>
+</div>
+<div class="section" id="mlflow-log-artifact">
+<h2><code class="docutils literal notranslate"><span class="pre">mlflow_log_artifact</span></code><a class="headerlink" href="#mlflow-log-artifact" title="Permalink to this headline"> </a></h2>
+<p>Log Artifact</p>
+<p>Logs a specific file or directory as an artifact for a run.</p>
+<div class="highlight-r notranslate"><div class="highlight"><pre><span></span><span class="nf">mlflow_log_artifact</span><span class="p">(</span><span class="n">path</span><span class="p">,</span><span class="w"> </span><span class="n">artifact_path</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">NULL</span><span class="p">,</span><span class="w"> </span><span class="n">run_id</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">NULL</span><span class="p">,</span><span class="w"> </span><span class="n">client</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">NULL</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="section" id="arguments-23">
+<span id="id25"></span><h3>Arguments<a class="headerlink" href="#arguments-23" title="Permalink to this headline"> </a></h3>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 45%" />
+<col style="width: 55%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Argument</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">path</span></code></p></td>
+<td><p>The file or directory to log as an
+artifact.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">artifact_path</span></code></p></td>
+<td><p>Destination path within the run’s
+artifact URI.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">run_id</span></code></p></td>
+<td><p>Run ID.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">client</span></code></p></td>
+<td><p>(Optional) An MLflow client object
+returned from
+<a class="reference external" href="#mlflow-client">mlflow_client</a> .
+If specified, MLflow will use the
+tracking server associated with the
+passed-in client. If unspecified
+(the common case), MLflow will use
+the tracking server associated with
+the current tracking URI.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="section" id="details-1">
+<span id="id26"></span><h3>Details<a class="headerlink" href="#details-1" title="Permalink to this headline"> </a></h3>
+<p>When logging to Amazon S3, ensure that you have the s3:PutObject,
+s3:GetObject, s3:ListBucket, and s3:GetBucketLocation permissions on
+your bucket.</p>
+<p>Additionally, at least the <code class="docutils literal notranslate"><span class="pre">AWS_ACCESS_KEY_ID</span></code> and
+<code class="docutils literal notranslate"><span class="pre">AWS_SECRET_ACCESS_KEY</span></code> environment variables must be set to the
+corresponding key and secrets provided by Amazon IAM.</p>
+</div>
+</div>
+<div class="section" id="mlflow-log-batch">
+<h2><code class="docutils literal notranslate"><span class="pre">mlflow_log_batch</span></code><a class="headerlink" href="#mlflow-log-batch" title="Permalink to this headline"> </a></h2>
+<p>Log Batch</p>
+<p>Log a batch of metrics, params, and/or tags for a run. The server will
+respond with an error (non-200 status code) if any data failed to be
+persisted. In case of error (due to internal server error or an invalid
+request), partial data may be written.</p>
+<div class="highlight-r notranslate"><div class="highlight"><pre><span></span><span class="nf">mlflow_log_batch</span><span class="p">(</span>
+<span class="w">  </span><span class="n">metrics</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">NULL</span><span class="p">,</span>
+<span class="w">  </span><span class="n">params</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">NULL</span><span class="p">,</span>
+<span class="w">  </span><span class="n">tags</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">NULL</span><span class="p">,</span>
+<span class="w">  </span><span class="n">run_id</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">NULL</span><span class="p">,</span>
+<span class="w">  </span><span class="n">client</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">NULL</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+<div class="section" id="arguments-24">
+<span id="id27"></span><h3>Arguments<a class="headerlink" href="#arguments-24" title="Permalink to this headline"> </a></h3>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 45%" />
+<col style="width: 55%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Argument</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">metrics</span></code></p></td>
+<td><p>A dataframe of metrics to log,
+containing the following columns:
+“key”, “value”, “step”, “timestamp”.
+This dataframe cannot contain any
+missing (‘NA’) entries.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">params</span></code></p></td>
+<td><p>A dataframe of params to log,
+containing the following columns:
+“key”, “value”. This dataframe
+cannot contain any missing (‘NA’)
+entries.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">tags</span></code></p></td>
+<td><p>A dataframe of tags to log,
+containing the following columns:
+“key”, “value”. This dataframe
+cannot contain any missing (‘NA’)
+entries.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">run_id</span></code></p></td>
+<td><p>Run ID.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">client</span></code></p></td>
+<td><p>(Optional) An MLflow client object
+returned from
+<a class="reference external" href="#mlflow-client">mlflow_client</a> .
+If specified, MLflow will use the
+tracking server associated with the
+passed-in client. If unspecified
+(the common case), MLflow will use
+the tracking server associated with
+the current tracking URI.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<div class="section" id="mlflow-log-metric">
+<h2><code class="docutils literal notranslate"><span class="pre">mlflow_log_metric</span></code><a class="headerlink" href="#mlflow-log-metric" title="Permalink to this headline"> </a></h2>
+<p>Log Metric</p>
+<p>Logs a metric for a run. Metrics key-value pair that records a single
+float measure. During a single execution of a run, a particular metric
+can be logged several times. The MLflow Backend keeps track of
+historical metric values along two axes: timestamp and step.</p>
+<div class="highlight-r notranslate"><div class="highlight"><pre><span></span><span class="nf">mlflow_log_metric</span><span class="p">(</span>
+<span class="w">  </span><span class="n">key</span><span class="p">,</span>
+<span class="w">  </span><span class="n">value</span><span class="p">,</span>
+<span class="w">  </span><span class="n">timestamp</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">NULL</span><span class="p">,</span>
+<span class="w">  </span><span class="n">step</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">NULL</span><span class="p">,</span>
+<span class="w">  </span><span class="n">run_id</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">NULL</span><span class="p">,</span>
+<span class="w">  </span><span class="n">client</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">NULL</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+<div class="section" id="arguments-25">
+<span id="id28"></span><h3>Arguments<a class="headerlink" href="#arguments-25" title="Permalink to this headline"> </a></h3>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 45%" />
+<col style="width: 55%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Argument</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">key</span></code></p></td>
+<td><p>Name of the metric.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">value</span></code></p></td>
+<td><p>Float value for the metric being
+logged.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">timestamp</span></code></p></td>
+<td><p>Timestamp at which to log the
+metric. Timestamp is rounded to the
+nearest integer. If unspecified, the
+number of milliseconds since the
+Unix epoch is used.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">step</span></code></p></td>
+<td><p>Step at which to log the metric.
+Step is rounded to the nearest
+integer. If unspecified, the default
+value of zero is used.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">run_id</span></code></p></td>
+<td><p>Run ID.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">client</span></code></p></td>
+<td><p>(Optional) An MLflow client object
+returned from
+<a class="reference external" href="#mlflow-client">mlflow_client</a> .
+If specified, MLflow will use the
+tracking server associated with the
+passed-in client. If unspecified
+(the common case), MLflow will use
+the tracking server associated with
+the current tracking URI.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<div class="section" id="mlflow-log-model">
+<h2><code class="docutils literal notranslate"><span class="pre">mlflow_log_model</span></code><a class="headerlink" href="#mlflow-log-model" title="Permalink to this headline"> </a></h2>
+<p>Log Model</p>
+<p>Logs a model for this run. Similar to <code class="docutils literal notranslate"><span class="pre">mlflow_save_model()</span></code> but stores
+model as an artifact within the active run.</p>
+<div class="highlight-r notranslate"><div class="highlight"><pre><span></span><span class="nf">mlflow_log_model</span><span class="p">(</span><span class="n">model</span><span class="p">,</span><span class="w"> </span><span class="n">artifact_path</span><span class="p">,</span><span class="w"> </span><span class="kc">...</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="section" id="arguments-26">
+<span id="id29"></span><h3>Arguments<a class="headerlink" href="#arguments-26" title="Permalink to this headline"> </a></h3>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 45%" />
+<col style="width: 55%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Argument</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">model</span></code></p></td>
+<td><p>The model that will perform a
+prediction.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">artifact_path</span></code></p></td>
+<td><p>Destination path where this MLflow
+compatible model will be saved.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">...</span></code></p></td>
+<td><p>Optional additional arguments passed
+to <code class="docutils literal notranslate"><span class="pre">mlflow_save_model()</span></code> when
+persisting the model. For example,
+<code class="docutils literal notranslate"><span class="pre">conda_env</span> <span class="pre">=</span> <span class="pre">/path/to/conda.yaml</span></code>
+may be passed to specify a conda
+dependencies file for flavors
+(e.g. keras) that support conda
+environments.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<div class="section" id="mlflow-log-param">
+<h2><code class="docutils literal notranslate"><span class="pre">mlflow_log_param</span></code><a class="headerlink" href="#mlflow-log-param" title="Permalink to this headline"> </a></h2>
+<p>Log Parameter</p>
+<p>Logs a parameter for a run. Examples are params and hyperparams used for
+ML training, or constant dates and values used in an ETL pipeline. A
+param is a STRING key-value pair. For a run, a single parameter is
+allowed to be logged only once.</p>
+<div class="highlight-r notranslate"><div class="highlight"><pre><span></span><span class="nf">mlflow_log_param</span><span class="p">(</span><span class="n">key</span><span class="p">,</span><span class="w"> </span><span class="n">value</span><span class="p">,</span><span class="w"> </span><span class="n">run_id</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">NULL</span><span class="p">,</span><span class="w"> </span><span class="n">client</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">NULL</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="section" id="arguments-27">
+<span id="id30"></span><h3>Arguments<a class="headerlink" href="#arguments-27" title="Permalink to this headline"> </a></h3>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 45%" />
+<col style="width: 55%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Argument</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">key</span></code></p></td>
+<td><p>Name of the parameter.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">value</span></code></p></td>
+<td><p>String value of the parameter.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">run_id</span></code></p></td>
+<td><p>Run ID.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">client</span></code></p></td>
+<td><p>(Optional) An MLflow client object
+returned from
+<a class="reference external" href="#mlflow-client">mlflow_client</a> .
+If specified, MLflow will use the
+tracking server associated with the
+passed-in client. If unspecified
+(the common case), MLflow will use
+the tracking server associated with
+the current tracking URI.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<div class="section" id="mlflow-param">
+<h2><code class="docutils literal notranslate"><span class="pre">mlflow_param</span></code><a class="headerlink" href="#mlflow-param" title="Permalink to this headline"> </a></h2>
+<p>Read Command-Line Parameter</p>
+<p>Reads a command-line parameter passed to an MLflow project MLflow allows
+you to define named, typed input parameters to your R scripts via the
+mlflow_param API. This is useful for experimentation, e.g. tracking
+multiple invocations of the same script with different parameters.</p>
+<div class="highlight-r notranslate"><div class="highlight"><pre><span></span><span class="nf">mlflow_param</span><span class="p">(</span><span class="n">name</span><span class="p">,</span><span class="w"> </span><span class="n">default</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">NULL</span><span class="p">,</span><span class="w"> </span><span class="n">type</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">NULL</span><span class="p">,</span><span class="w"> </span><span class="n">description</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">NULL</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="section" id="arguments-28">
+<span id="id31"></span><h3>Arguments<a class="headerlink" href="#arguments-28" title="Permalink to this headline"> </a></h3>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 45%" />
+<col style="width: 55%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Argument</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">name</span></code></p></td>
+<td><p>The name of the parameter.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">default</span></code></p></td>
+<td><p>The default value of the parameter.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">type</span></code></p></td>
+<td><p>Type of this parameter. Required if
+<code class="docutils literal notranslate"><span class="pre">default</span></code> is not set. If
+specified, must be one of “numeric”,
+“integer”, or “string”.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">description</span></code></p></td>
+<td><p>Optional description for the
+parameter.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="section" id="examples">
+<h3>Examples<a class="headerlink" href="#examples" title="Permalink to this headline"> </a></h3>
+<div class="highlight-r notranslate"><div class="highlight"><pre><span></span><span class="c1"># This parametrized script trains a GBM model on the Iris dataset and can be run as an MLflow</span>
+<span class="c1"># project. You can run this script (assuming it&#39;s saved at /some/directory/params_example.R)</span>
+<span class="c1"># with custom parameters via:</span>
+<span class="c1"># mlflow_run(entry_point = &quot;params_example.R&quot;, uri = &quot;/some/directory&quot;,</span>
+<span class="c1">#   parameters = list(num_trees = 200, learning_rate = 0.1))</span>
+<span class="nf">install.packages</span><span class="p">(</span><span class="s">&quot;gbm&quot;</span><span class="p">)</span>
+<span class="nf">library</span><span class="p">(</span><span class="n">mlflow</span><span class="p">)</span>
+<span class="nf">library</span><span class="p">(</span><span class="n">gbm</span><span class="p">)</span>
+<span class="c1"># define and read input parameters</span>
+<span class="n">num_trees</span><span class="w"> </span><span class="o">&lt;-</span><span class="w"> </span><span class="nf">mlflow_param</span><span class="p">(</span><span class="n">name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;num_trees&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">default</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="m">200</span><span class="p">,</span><span class="w"> </span><span class="n">type</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;integer&quot;</span><span class="p">)</span>
+<span class="n">lr</span><span class="w"> </span><span class="o">&lt;-</span><span class="w"> </span><span class="nf">mlflow_param</span><span class="p">(</span><span class="n">name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;learning_rate&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">default</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="m">0.1</span><span class="p">,</span><span class="w"> </span><span class="n">type</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;numeric&quot;</span><span class="p">)</span>
+<span class="c1"># use params to fit a model</span>
+<span class="n">ir.adaboost</span><span class="w"> </span><span class="o">&lt;-</span><span class="w"> </span><span class="nf">gbm</span><span class="p">(</span><span class="n">Species</span><span class="w"> </span><span class="o">~</span><span class="n">.</span><span class="p">,</span><span class="w"> </span><span class="n">data</span><span class="o">=</span><span class="n">iris</span><span class="p">,</span><span class="w"> </span><span class="n">n.trees</span><span class="o">=</span><span class="n">num_trees</span><span class="p">,</span><span class="w"> </span><span class="n">shrinkage</span><span class="o">=</span><span class="n">lr</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="section" id="mlflow-predict">
+<h2><code class="docutils literal notranslate"><span class="pre">mlflow_predict</span></code><a class="headerlink" href="#mlflow-predict" title="Permalink to this headline"> </a></h2>
+<p>Generate Prediction with MLflow Model</p>
+<p>Performs prediction over a model loaded using <code class="docutils literal notranslate"><span class="pre">mlflow_load_model()</span></code> ,
+to be used by package authors to extend the supported MLflow models.</p>
+<div class="highlight-r notranslate"><div class="highlight"><pre><span></span><span class="nf">mlflow_predict</span><span class="p">(</span><span class="n">model</span><span class="p">,</span><span class="w"> </span><span class="n">data</span><span class="p">,</span><span class="w"> </span><span class="kc">...</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="section" id="arguments-29">
+<span id="id32"></span><h3>Arguments<a class="headerlink" href="#arguments-29" title="Permalink to this headline"> </a></h3>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 16%" />
+<col style="width: 84%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Argument</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">model</span></code></p></td>
+<td><p>The loaded MLflow model flavor.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">data</span></code></p></td>
+<td><p>A data frame to perform scoring.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">...</span></code></p></td>
+<td><p>Optional additional arguments passed to underlying
+predict methods.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<div class="section" id="mlflow-register-external-observer">
+<h2><code class="docutils literal notranslate"><span class="pre">mlflow_register_external_observer</span></code><a class="headerlink" href="#mlflow-register-external-observer" title="Permalink to this headline"> </a></h2>
+<p>Register an external MLflow observer</p>
+<p>Registers an external MLflow observer that will receive a
+<code class="docutils literal notranslate"><span class="pre">register_tracking_event(event_name,</span> <span class="pre">data)</span></code> callback on any model
+tracking event such as “create_run”, “delete_run”, or “log_metric”. Each
+observer should have a <code class="docutils literal notranslate"><span class="pre">register_tracking_event(event_name,</span> <span class="pre">data)</span></code>
+callback accepting a character vector <code class="docutils literal notranslate"><span class="pre">event_name</span></code> specifying the name
+of the tracking event, and <code class="docutils literal notranslate"><span class="pre">data</span></code> containing a list of attributes of
+the event. The callback should be non-blocking, and ideally should
+complete instantaneously. Any exception thrown from the callback will be
+ignored.</p>
+<div class="highlight-r notranslate"><div class="highlight"><pre><span></span><span class="nf">mlflow_register_external_observer</span><span class="p">(</span><span class="n">observer</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="section" id="arguments-30">
+<span id="id33"></span><h3>Arguments<a class="headerlink" href="#arguments-30" title="Permalink to this headline"> </a></h3>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 27%" />
+<col style="width: 73%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Argument</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">observer</span></code></p></td>
+<td><p>The observer object (see example)</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="section" id="examples-1">
+<span id="id34"></span><h3>Examples<a class="headerlink" href="#examples-1" title="Permalink to this headline"> </a></h3>
+<div class="highlight-r notranslate"><div class="highlight"><pre><span></span><span class="nf">library</span><span class="p">(</span><span class="n">mlflow</span><span class="p">)</span>
+
+<span class="n">observer</span><span class="w"> </span><span class="o">&lt;-</span><span class="w"> </span><span class="nf">structure</span><span class="p">(</span><span class="nf">list</span><span class="p">())</span>
+<span class="n">observer</span><span class="o">$</span><span class="n">register_tracking_event</span><span class="w"> </span><span class="o">&lt;-</span><span class="w"> </span><span class="nf">function</span><span class="p">(</span><span class="n">event_name</span><span class="p">,</span><span class="w"> </span><span class="n">data</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="nf">print</span><span class="p">(</span><span class="n">event_name</span><span class="p">)</span>
+<span class="nf">print</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+<span class="p">}</span>
+<span class="nf">mlflow_register_external_observer</span><span class="p">(</span><span class="n">observer</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="section" id="mlflow-rename-experiment">
+<h2><code class="docutils literal notranslate"><span class="pre">mlflow_rename_experiment</span></code><a class="headerlink" href="#mlflow-rename-experiment" title="Permalink to this headline"> </a></h2>
+<p>Rename Experiment</p>
+<p>Renames an experiment.</p>
+<div class="highlight-r notranslate"><div class="highlight"><pre><span></span><span class="nf">mlflow_rename_experiment</span><span class="p">(</span><span class="n">new_name</span><span class="p">,</span><span class="w"> </span><span class="n">experiment_id</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">NULL</span><span class="p">,</span><span class="w"> </span><span class="n">client</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">NULL</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="section" id="arguments-31">
+<span id="id35"></span><h3>Arguments<a class="headerlink" href="#arguments-31" title="Permalink to this headline"> </a></h3>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 45%" />
+<col style="width: 55%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Argument</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">new_name</span></code></p></td>
+<td><p>The experiment’s name will be
+changed to this. The new name must
+be unique.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">experiment_id</span></code></p></td>
+<td><p>ID of the associated experiment.
+This field is required.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">client</span></code></p></td>
+<td><p>(Optional) An MLflow client object
+returned from
+<a class="reference external" href="#mlflow-client">mlflow_client</a> .
+If specified, MLflow will use the
+tracking server associated with the
+passed-in client. If unspecified
+(the common case), MLflow will use
+the tracking server associated with
+the current tracking URI.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<div class="section" id="mlflow-rename-registered-model">
+<h2><code class="docutils literal notranslate"><span class="pre">mlflow_rename_registered_model</span></code><a class="headerlink" href="#mlflow-rename-registered-model" title="Permalink to this headline"> </a></h2>
+<p>Rename a registered model</p>
+<p>Renames a model in the Model Registry.</p>
+<div class="highlight-r notranslate"><div class="highlight"><pre><span></span><span class="nf">mlflow_rename_registered_model</span><span class="p">(</span><span class="n">name</span><span class="p">,</span><span class="w"> </span><span class="n">new_name</span><span class="p">,</span><span class="w"> </span><span class="n">client</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">NULL</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="section" id="arguments-32">
+<span id="id36"></span><h3>Arguments<a class="headerlink" href="#arguments-32" title="Permalink to this headline"> </a></h3>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 45%" />
+<col style="width: 55%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Argument</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">name</span></code></p></td>
+<td><p>The current name of the model.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">new_name</span></code></p></td>
+<td><p>The new name for the model.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">client</span></code></p></td>
+<td><p>(Optional) An MLflow client object
+returned from
+<a class="reference external" href="#mlflow-client">mlflow_client</a> .
+If specified, MLflow will use the
+tracking server associated with the
+passed-in client. If unspecified
+(the common case), MLflow will use
+the tracking server associated with
+the current tracking URI.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<div class="section" id="mlflow-restore-experiment">
+<h2><code class="docutils literal notranslate"><span class="pre">mlflow_restore_experiment</span></code><a class="headerlink" href="#mlflow-restore-experiment" title="Permalink to this headline"> </a></h2>
+<p>Restore Experiment</p>
+<p>Restores an experiment marked for deletion. This also restores
+associated metadata, runs, metrics, and params. If experiment uses
+FileStore, underlying artifacts associated with experiment are also
+restored.</p>
+<div class="highlight-r notranslate"><div class="highlight"><pre><span></span><span class="nf">mlflow_restore_experiment</span><span class="p">(</span><span class="n">experiment_id</span><span class="p">,</span><span class="w"> </span><span class="n">client</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">NULL</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="section" id="arguments-33">
+<span id="id37"></span><h3>Arguments<a class="headerlink" href="#arguments-33" title="Permalink to this headline"> </a></h3>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 45%" />
+<col style="width: 55%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Argument</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">experiment_id</span></code></p></td>
+<td><p>ID of the associated experiment.
+This field is required.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">client</span></code></p></td>
+<td><p>(Optional) An MLflow client object
+returned from
+<a class="reference external" href="#mlflow-client">mlflow_client</a> .
+If specified, MLflow will use the
+tracking server associated with the
+passed-in client. If unspecified
+(the common case), MLflow will use
+the tracking server associated with
+the current tracking URI.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="section" id="details-2">
+<span id="id38"></span><h3>Details<a class="headerlink" href="#details-2" title="Permalink to this headline"> </a></h3>
+<p>Throws <code class="docutils literal notranslate"><span class="pre">RESOURCE_DOES_NOT_EXIST</span></code> if the experiment was never created
+or was permanently deleted.</p>
+</div>
+</div>
+<div class="section" id="mlflow-restore-run">
+<h2><code class="docutils literal notranslate"><span class="pre">mlflow_restore_run</span></code><a class="headerlink" href="#mlflow-restore-run" title="Permalink to this headline"> </a></h2>
+<p>Restore a Run</p>
+<p>Restores the run with the specified ID.</p>
+<div class="highlight-r notranslate"><div class="highlight"><pre><span></span><span class="nf">mlflow_restore_run</span><span class="p">(</span><span class="n">run_id</span><span class="p">,</span><span class="w"> </span><span class="n">client</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">NULL</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="section" id="arguments-34">
+<span id="id39"></span><h3>Arguments<a class="headerlink" href="#arguments-34" title="Permalink to this headline"> </a></h3>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 45%" />
+<col style="width: 55%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Argument</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">run_id</span></code></p></td>
+<td><p>Run ID.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">client</span></code></p></td>
+<td><p>(Optional) An MLflow client object
+returned from
+<a class="reference external" href="#mlflow-client">mlflow_client</a> .
+If specified, MLflow will use the
+tracking server associated with the
+passed-in client. If unspecified
+(the common case), MLflow will use
+the tracking server associated with
+the current tracking URI.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<div class="section" id="mlflow-rfunc-serve">
+<h2><code class="docutils literal notranslate"><span class="pre">mlflow_rfunc_serve</span></code><a class="headerlink" href="#mlflow-rfunc-serve" title="Permalink to this headline"> </a></h2>
+<p>Serve an RFunc MLflow Model</p>
+<p>Serves an RFunc MLflow model as a local REST API server. This interface
+provides similar functionality to <code class="docutils literal notranslate"><span class="pre">mlflow</span> <span class="pre">models</span> <span class="pre">serve</span></code> cli command,
+however, it can only be used to deploy models that include RFunc flavor.
+The deployed server supports standard mlflow models interface with /ping
+and /invocation endpoints. In addition, R function models also support
+deprecated /predict endpoint for generating predictions. The /predict
+endpoint will be removed in a future version of mlflow.</p>
+<div class="highlight-r notranslate"><div class="highlight"><pre><span></span><span class="nf">mlflow_rfunc_serve</span><span class="p">(</span>
+<span class="w">  </span><span class="n">model_uri</span><span class="p">,</span>
+<span class="w">  </span><span class="n">host</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;127.0.0.1&quot;</span><span class="p">,</span>
+<span class="w">  </span><span class="n">port</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="m">8090</span><span class="p">,</span>
+<span class="w">  </span><span class="n">daemonized</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">FALSE</span><span class="p">,</span>
+<span class="w">  </span><span class="n">browse</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">!</span><span class="n">daemonized</span><span class="p">,</span>
+<span class="w">  </span><span class="kc">...</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+<div class="section" id="arguments-35">
+<span id="id40"></span><h3>Arguments<a class="headerlink" href="#arguments-35" title="Permalink to this headline"> </a></h3>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 45%" />
+<col style="width: 55%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Argument</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">model_uri</span></code></p></td>
+<td><p>The location, in URI format, of the
+MLflow model.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">host</span></code></p></td>
+<td><p>Address to use to serve model, as a
+string.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">port</span></code></p></td>
+<td><p>Port to use to serve model, as
+numeric.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">daemonized</span></code></p></td>
+<td><p>Makes <code class="docutils literal notranslate"><span class="pre">httpuv</span></code> server daemonized
+so R interactive sessions are not
+blocked to handle requests. To
+terminate a daemonized server, call
+<code class="docutils literal notranslate"><span class="pre">httpuv::stopDaemonizedServer()</span></code>
+with the handle returned from this
+call.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">browse</span></code></p></td>
+<td><p>Launch browser with serving landing
+page?</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">...</span></code></p></td>
+<td><p>Optional arguments passed to
+<code class="docutils literal notranslate"><span class="pre">mlflow_predict()</span></code>.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="section" id="details-3">
+<span id="id41"></span><h3>Details<a class="headerlink" href="#details-3" title="Permalink to this headline"> </a></h3>
+<p>The URI scheme must be supported by MLflow - i.e. there has to be an
+MLflow artifact repository corresponding to the scheme of the URI. The
+content is expected to point to a directory containing MLmodel. The
+following are examples of valid model uris:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">file:///absolute/path/to/local/model</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">file:relative/path/to/local/model</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">s3://my_bucket/path/to/model</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">runs:/&lt;mlflow_run_id&gt;/run-relative/path/to/model</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">models:/&lt;model_name&gt;/&lt;model_version&gt;</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">models:/&lt;model_name&gt;/&lt;stage&gt;</span></code></p></li>
+</ul>
+<p>For more information about supported URI schemes, see the Artifacts
+Documentation at
+<a class="reference external" href="https://www.mlflow.org/docs/latest/tracking.html#artifact-stores">https://www.mlflow.org/docs/latest/tracking.html#artifact-stores</a>.</p>
+</div>
+<div class="section" id="examples-2">
+<span id="id42"></span><h3>Examples<a class="headerlink" href="#examples-2" title="Permalink to this headline"> </a></h3>
+<div class="highlight-r notranslate"><div class="highlight"><pre><span></span><span class="nf">library</span><span class="p">(</span><span class="n">mlflow</span><span class="p">)</span>
+
+<span class="c1"># save simple model with constant prediction</span>
+<span class="nf">mlflow_save_model</span><span class="p">(</span><span class="nf">function</span><span class="p">(</span><span class="n">df</span><span class="p">)</span><span class="w"> </span><span class="m">1</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;mlflow_constant&quot;</span><span class="p">)</span>
+
+<span class="c1"># serve an existing model over a web interface</span>
+<span class="nf">mlflow_rfunc_serve</span><span class="p">(</span><span class="s">&quot;mlflow_constant&quot;</span><span class="p">)</span>
+
+<span class="c1"># request prediction from server</span>
+<span class="n">httr</span><span class="o">::</span><span class="nf">POST</span><span class="p">(</span><span class="s">&quot;http://127.0.0.1:8090/predict/&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="section" id="mlflow-run">
+<h2><code class="docutils literal notranslate"><span class="pre">mlflow_run</span></code><a class="headerlink" href="#mlflow-run" title="Permalink to this headline"> </a></h2>
+<p>Run an MLflow Project</p>
+<p>Wrapper for the <code class="docutils literal notranslate"><span class="pre">mlflow</span> <span class="pre">run</span></code> CLI command. See
+<a class="reference external" href="https://www.mlflow.org/docs/latest/cli.html#mlflow-run">https://www.mlflow.org/docs/latest/cli.html#mlflow-run</a> for more info.</p>
+<div class="highlight-r notranslate"><div class="highlight"><pre><span></span><span class="nf">mlflow_run</span><span class="p">(</span>
+<span class="w">  </span><span class="n">uri</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;.&quot;</span><span class="p">,</span>
+<span class="w">  </span><span class="n">entry_point</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">NULL</span><span class="p">,</span>
+<span class="w">  </span><span class="n">version</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">NULL</span><span class="p">,</span>
+<span class="w">  </span><span class="n">parameters</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">NULL</span><span class="p">,</span>
+<span class="w">  </span><span class="n">experiment_id</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">NULL</span><span class="p">,</span>
+<span class="w">  </span><span class="n">experiment_name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">NULL</span><span class="p">,</span>
+<span class="w">  </span><span class="n">backend</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">NULL</span><span class="p">,</span>
+<span class="w">  </span><span class="n">backend_config</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">NULL</span><span class="p">,</span>
+<span class="w">  </span><span class="n">env_manager</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">NULL</span><span class="p">,</span>
+<span class="w">  </span><span class="n">storage_dir</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">NULL</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+<div class="section" id="arguments-36">
+<span id="id43"></span><h3>Arguments<a class="headerlink" href="#arguments-36" title="Permalink to this headline"> </a></h3>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 45%" />
+<col style="width: 55%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Argument</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">uri</span></code></p></td>
+<td><p>A directory containing modeling
+scripts, defaults to the current
+directory.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">entry_point</span></code></p></td>
+<td><p>Entry point within project, defaults
+to <code class="docutils literal notranslate"><span class="pre">main</span></code> if not specified.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">version</span></code></p></td>
+<td><p>Version of the project to run, as a
+Git commit reference for Git
+projects.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">parameters</span></code></p></td>
+<td><p>A list of parameters.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">experiment_id</span></code></p></td>
+<td><p>ID of the experiment under which to
+launch the run.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">experiment_name</span></code></p></td>
+<td><p>Name of the experiment under which
+to launch the run.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">backend</span></code></p></td>
+<td><p>Execution backend to use for run.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">backend_config</span></code></p></td>
+<td><p>Path to JSON file which will be
+passed to the backend. For the
+Databricks backend, it should
+describe the cluster to use when
+launching a run on Databricks.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">env_manager</span></code></p></td>
+<td><p>If specified, create an environment
+for the project using the specified
+environment manager. Available
+options are ‘local’, ‘virtualenv’,
+and ‘conda’.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">storage_dir</span></code></p></td>
+<td><p>Valid only when <code class="docutils literal notranslate"><span class="pre">backend</span></code> is
+local. MLflow downloads artifacts
+from distributed URIs passed to
+parameters of type <code class="docutils literal notranslate"><span class="pre">path</span></code> to
+subdirectories of <code class="docutils literal notranslate"><span class="pre">storage_dir</span></code>.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="section" id="value-2">
+<span id="id44"></span><h3>Value<a class="headerlink" href="#value-2" title="Permalink to this headline"> </a></h3>
+<p>The run associated with this run.</p>
+</div>
+<div class="section" id="examples-3">
+<span id="id45"></span><h3>Examples<a class="headerlink" href="#examples-3" title="Permalink to this headline"> </a></h3>
+<div class="highlight-r notranslate"><div class="highlight"><pre><span></span><span class="c1"># This parametrized script trains a GBM model on the Iris dataset and can be run as an MLflow</span>
+<span class="c1"># project. You can run this script (assuming it&#39;s saved at /some/directory/params_example.R)</span>
+<span class="c1"># with custom parameters via:</span>
+<span class="c1"># mlflow_run(entry_point = &quot;params_example.R&quot;, uri = &quot;/some/directory&quot;,</span>
+<span class="c1">#   parameters = list(num_trees = 200, learning_rate = 0.1))</span>
+<span class="nf">install.packages</span><span class="p">(</span><span class="s">&quot;gbm&quot;</span><span class="p">)</span>
+<span class="nf">library</span><span class="p">(</span><span class="n">mlflow</span><span class="p">)</span>
+<span class="nf">library</span><span class="p">(</span><span class="n">gbm</span><span class="p">)</span>
+<span class="c1"># define and read input parameters</span>
+<span class="n">num_trees</span><span class="w"> </span><span class="o">&lt;-</span><span class="w"> </span><span class="nf">mlflow_param</span><span class="p">(</span><span class="n">name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;num_trees&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">default</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="m">200</span><span class="p">,</span><span class="w"> </span><span class="n">type</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;integer&quot;</span><span class="p">)</span>
+<span class="n">lr</span><span class="w"> </span><span class="o">&lt;-</span><span class="w"> </span><span class="nf">mlflow_param</span><span class="p">(</span><span class="n">name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;learning_rate&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">default</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="m">0.1</span><span class="p">,</span><span class="w"> </span><span class="n">type</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;numeric&quot;</span><span class="p">)</span>
+<span class="c1"># use params to fit a model</span>
+<span class="n">ir.adaboost</span><span class="w"> </span><span class="o">&lt;-</span><span class="w"> </span><span class="nf">gbm</span><span class="p">(</span><span class="n">Species</span><span class="w"> </span><span class="o">~</span><span class="n">.</span><span class="p">,</span><span class="w"> </span><span class="n">data</span><span class="o">=</span><span class="n">iris</span><span class="p">,</span><span class="w"> </span><span class="n">n.trees</span><span class="o">=</span><span class="n">num_trees</span><span class="p">,</span><span class="w"> </span><span class="n">shrinkage</span><span class="o">=</span><span class="n">lr</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="section" id="mlflow-save-model-crate">
+<h2><code class="docutils literal notranslate"><span class="pre">mlflow_save_model.crate</span></code><a class="headerlink" href="#mlflow-save-model-crate" title="Permalink to this headline"> </a></h2>
+<p>Save Model for MLflow</p>
+<p>Saves model in MLflow format that can later be used for prediction and
+serving. This method is generic to allow package authors to save custom
+model types.</p>
+<div class="highlight-r notranslate"><div class="highlight"><pre><span></span><span class="nf">list</span><span class="p">(</span><span class="nf">list</span><span class="p">(</span><span class="s">&quot;mlflow_save_model&quot;</span><span class="p">),</span><span class="w"> </span><span class="nf">list</span><span class="p">(</span><span class="s">&quot;crate&quot;</span><span class="p">))(</span><span class="n">model</span><span class="p">,</span><span class="w"> </span><span class="n">path</span><span class="p">,</span><span class="w"> </span><span class="n">model_spec</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nf">list</span><span class="p">(),</span><span class="w"> </span><span class="kc">...</span><span class="p">)</span>
+<span class="nf">mlflow_save_model</span><span class="p">(</span><span class="n">model</span><span class="p">,</span><span class="w"> </span><span class="n">path</span><span class="p">,</span><span class="w"> </span><span class="n">model_spec</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nf">list</span><span class="p">(),</span><span class="w"> </span><span class="kc">...</span><span class="p">)</span>
+<span class="nf">list</span><span class="p">(</span><span class="nf">list</span><span class="p">(</span><span class="s">&quot;mlflow_save_model&quot;</span><span class="p">),</span><span class="w"> </span><span class="nf">list</span><span class="p">(</span><span class="s">&quot;H2OModel&quot;</span><span class="p">))(</span><span class="n">model</span><span class="p">,</span><span class="w"> </span><span class="n">path</span><span class="p">,</span><span class="w"> </span><span class="n">model_spec</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nf">list</span><span class="p">(),</span><span class="w"> </span><span class="n">conda_env</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">NULL</span><span class="p">,</span><span class="w"> </span><span class="kc">...</span><span class="p">)</span>
+<span class="nf">list</span><span class="p">(</span><span class="nf">list</span><span class="p">(</span><span class="s">&quot;mlflow_save_model&quot;</span><span class="p">),</span><span class="w"> </span><span class="nf">list</span><span class="p">(</span><span class="s">&quot;keras.engine.training.Model&quot;</span><span class="p">))(</span><span class="n">model</span><span class="p">,</span><span class="w"> </span><span class="n">path</span><span class="p">,</span><span class="w"> </span><span class="n">model_spec</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nf">list</span><span class="p">(),</span><span class="w"> </span><span class="n">conda_env</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">NULL</span><span class="p">,</span><span class="w"> </span><span class="kc">...</span><span class="p">)</span>
+<span class="nf">list</span><span class="p">(</span><span class="nf">list</span><span class="p">(</span><span class="s">&quot;mlflow_save_model&quot;</span><span class="p">),</span><span class="w"> </span><span class="nf">list</span><span class="p">(</span><span class="s">&quot;xgb.Booster&quot;</span><span class="p">))(</span><span class="n">model</span><span class="p">,</span><span class="w"> </span><span class="n">path</span><span class="p">,</span><span class="w"> </span><span class="n">model_spec</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nf">list</span><span class="p">(),</span><span class="w"> </span><span class="n">conda_env</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">NULL</span><span class="p">,</span><span class="w"> </span><span class="kc">...</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="section" id="arguments-37">
+<span id="id46"></span><h3>Arguments<a class="headerlink" href="#arguments-37" title="Permalink to this headline"> </a></h3>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 24%" />
+<col style="width: 76%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Argument</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">model</span></code></p></td>
+<td><p>The model that will perform a prediction.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">path</span></code></p></td>
+<td><p>Destination path where this MLflow compatible
+model will be saved.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">model_spec</span></code></p></td>
+<td><p>MLflow model config this model flavor is being
+added to.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">...</span></code></p></td>
+<td><p>Optional additional arguments.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">conda_env</span></code></p></td>
+<td><p>Path to Conda dependencies file.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<div class="section" id="mlflow-search-experiments">
+<h2><code class="docutils literal notranslate"><span class="pre">mlflow_search_experiments</span></code><a class="headerlink" href="#mlflow-search-experiments" title="Permalink to this headline"> </a></h2>
+<p>Search Experiments</p>
+<p>Search for experiments that satisfy specified criteria.</p>
+<div class="highlight-r notranslate"><div class="highlight"><pre><span></span><span class="nf">mlflow_search_experiments</span><span class="p">(</span>
+<span class="w">  </span><span class="n">filter</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">NULL</span><span class="p">,</span>
+<span class="w">  </span><span class="n">experiment_view_type</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nf">c</span><span class="p">(</span><span class="s">&quot;ACTIVE_ONLY&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;DELETED_ONLY&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;ALL&quot;</span><span class="p">),</span>
+<span class="w">  </span><span class="n">max_results</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="m">1000</span><span class="p">,</span>
+<span class="w">  </span><span class="n">order_by</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nf">list</span><span class="p">(),</span>
+<span class="w">  </span><span class="n">page_token</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">NULL</span><span class="p">,</span>
+<span class="w">  </span><span class="n">client</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">NULL</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+<div class="section" id="arguments-38">
+<span id="id47"></span><h3>Arguments<a class="headerlink" href="#arguments-38" title="Permalink to this headline"> </a></h3>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 45%" />
+<col style="width: 55%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Argument</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">filter</span></code></p></td>
+<td><p>A filter expression used to identify
+specific experiments. The syntax is
+a subset of SQL which allows only
+ANDing together binary operations.
+Examples: “attribute.name =
+‘MyExperiment’”, “tags.problem_type
+= ‘iris_regression’”</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">experiment_view_type</span></code></p></td>
+<td><p>Experiment view type. Only
+experiments matching this view type
+are returned.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">max_results</span></code></p></td>
+<td><p>Maximum number of experiments to
+retrieve.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">order_by</span></code></p></td>
+<td><p>List of properties to order by.
+Example: “attribute.name”.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">page_token</span></code></p></td>
+<td><p>Pagination token to go to the next
+page based on a previous query.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">client</span></code></p></td>
+<td><p>(Optional) An MLflow client object
+returned from
+<a class="reference external" href="#mlflow-client">mlflow_client</a> .
+If specified, MLflow will use the
+tracking server associated with the
+passed-in client. If unspecified
+(the common case), MLflow will use
+the tracking server associated with
+the current tracking URI.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<div class="section" id="mlflow-search-registered-models">
+<h2><code class="docutils literal notranslate"><span class="pre">mlflow_search_registered_models</span></code><a class="headerlink" href="#mlflow-search-registered-models" title="Permalink to this headline"> </a></h2>
+<p>List registered models</p>
+<p>Retrieves a list of registered models.</p>
+<div class="highlight-r notranslate"><div class="highlight"><pre><span></span><span class="nf">mlflow_search_registered_models</span><span class="p">(</span>
+<span class="w">  </span><span class="n">filter</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">NULL</span><span class="p">,</span>
+<span class="w">  </span><span class="n">max_results</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="m">100</span><span class="p">,</span>
+<span class="w">  </span><span class="n">order_by</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nf">list</span><span class="p">(),</span>
+<span class="w">  </span><span class="n">page_token</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">NULL</span><span class="p">,</span>
+<span class="w">  </span><span class="n">client</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">NULL</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+<div class="section" id="arguments-39">
+<span id="id48"></span><h3>Arguments<a class="headerlink" href="#arguments-39" title="Permalink to this headline"> </a></h3>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 45%" />
+<col style="width: 55%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Argument</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">filter</span></code></p></td>
+<td><p>A filter expression used to identify
+specific registered models. The
+syntax is a subset of SQL which
+allows only ANDing together binary
+operations. Example: “name =
+‘my_model_name’ and tag.key =
+‘value1’”</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">max_results</span></code></p></td>
+<td><p>Maximum number of registered models
+to retrieve.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">order_by</span></code></p></td>
+<td><p>List of registered model properties
+to order by. Example: “name”.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">page_token</span></code></p></td>
+<td><p>Pagination token to go to the next
+page based on a previous query.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">client</span></code></p></td>
+<td><p>(Optional) An MLflow client object
+returned from
+<a class="reference external" href="#mlflow-client">mlflow_client</a> .
+If specified, MLflow will use the
+tracking server associated with the
+passed-in client. If unspecified
+(the common case), MLflow will use
+the tracking server associated with
+the current tracking URI.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<div class="section" id="mlflow-search-runs">
+<h2><code class="docutils literal notranslate"><span class="pre">mlflow_search_runs</span></code><a class="headerlink" href="#mlflow-search-runs" title="Permalink to this headline"> </a></h2>
+<p>Search Runs</p>
+<p>Search for runs that satisfy expressions. Search expressions can use
+Metric and Param keys.</p>
+<div class="highlight-r notranslate"><div class="highlight"><pre><span></span><span class="nf">mlflow_search_runs</span><span class="p">(</span>
+<span class="w">  </span><span class="n">filter</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">NULL</span><span class="p">,</span>
+<span class="w">  </span><span class="n">run_view_type</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nf">c</span><span class="p">(</span><span class="s">&quot;ACTIVE_ONLY&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;DELETED_ONLY&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;ALL&quot;</span><span class="p">),</span>
+<span class="w">  </span><span class="n">experiment_ids</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">NULL</span><span class="p">,</span>
+<span class="w">  </span><span class="n">order_by</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nf">list</span><span class="p">(),</span>
+<span class="w">  </span><span class="n">client</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">NULL</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+<div class="section" id="arguments-40">
+<span id="id49"></span><h3>Arguments<a class="headerlink" href="#arguments-40" title="Permalink to this headline"> </a></h3>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 45%" />
+<col style="width: 55%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Argument</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">filter</span></code></p></td>
+<td><p>A filter expression over params,
+metrics, and tags, allowing
+returning a subset of runs. The
+syntax is a subset of SQL which
+allows only ANDing together binary
+operations between a
+param/metric/tag and a constant.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">run_view_type</span></code></p></td>
+<td><p>Run view type.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">experiment_ids</span></code></p></td>
+<td><p>List of string experiment IDs (or a
+single string experiment ID) to
+search over. Attempts to use active
+experiment if not specified.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">order_by</span></code></p></td>
+<td><p>List of properties to order by.
+Example: “metrics.acc DESC”.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">client</span></code></p></td>
+<td><p>(Optional) An MLflow client object
+returned from
+<a class="reference external" href="#mlflow-client">mlflow_client</a> .
+If specified, MLflow will use the
+tracking server associated with the
+passed-in client. If unspecified
+(the common case), MLflow will use
+the tracking server associated with
+the current tracking URI.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<div class="section" id="mlflow-server">
+<h2><code class="docutils literal notranslate"><span class="pre">mlflow_server</span></code><a class="headerlink" href="#mlflow-server" title="Permalink to this headline"> </a></h2>
+<p>Run MLflow Tracking Server</p>
+<p>Wrapper for <code class="docutils literal notranslate"><span class="pre">mlflow</span> <span class="pre">server</span></code>.</p>
+<div class="highlight-r notranslate"><div class="highlight"><pre><span></span><span class="nf">mlflow_server</span><span class="p">(</span>
+<span class="w">  </span><span class="n">file_store</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;mlruns&quot;</span><span class="p">,</span>
+<span class="w">  </span><span class="n">default_artifact_root</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">NULL</span><span class="p">,</span>
+<span class="w">  </span><span class="n">host</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;127.0.0.1&quot;</span><span class="p">,</span>
+<span class="w">  </span><span class="n">port</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="m">5000</span><span class="p">,</span>
+<span class="w">  </span><span class="n">workers</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">NULL</span><span class="p">,</span>
+<span class="w">  </span><span class="n">static_prefix</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">NULL</span><span class="p">,</span>
+<span class="w">  </span><span class="n">serve_artifacts</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">FALSE</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+<div class="section" id="arguments-41">
+<span id="id50"></span><h3>Arguments<a class="headerlink" href="#arguments-41" title="Permalink to this headline"> </a></h3>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 45%" />
+<col style="width: 55%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Argument</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">file_store</span></code></p></td>
+<td><p>The root of the backing file store
+for experiment and run data.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">default_artifact_root</span></code></p></td>
+<td><p>Local or S3 URI to store artifacts
+in, for newly created experiments.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">host</span></code></p></td>
+<td><p>The network address to listen on
+(default: 127.0.0.1).</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">port</span></code></p></td>
+<td><p>The port to listen on (default:
+5000).</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">workers</span></code></p></td>
+<td><p>Number of gunicorn worker processes
+to handle requests (default: 4).</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">static_prefix</span></code></p></td>
+<td><p>A prefix which will be prepended to
+the path of all static paths.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">serve_artifacts</span></code></p></td>
+<td><p>A flag specifying whether or not to
+enable artifact serving (default:
+FALSE).</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<div class="section" id="mlflow-set-experiment-tag">
+<h2><code class="docutils literal notranslate"><span class="pre">mlflow_set_experiment_tag</span></code><a class="headerlink" href="#mlflow-set-experiment-tag" title="Permalink to this headline"> </a></h2>
+<p>Set Experiment Tag</p>
+<p>Sets a tag on an experiment with the specified ID. Tags are experiment
+metadata that can be updated.</p>
+<div class="highlight-r notranslate"><div class="highlight"><pre><span></span><span class="nf">mlflow_set_experiment_tag</span><span class="p">(</span><span class="n">key</span><span class="p">,</span><span class="w"> </span><span class="n">value</span><span class="p">,</span><span class="w"> </span><span class="n">experiment_id</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">NULL</span><span class="p">,</span><span class="w"> </span><span class="n">client</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">NULL</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="section" id="arguments-42">
+<span id="id51"></span><h3>Arguments<a class="headerlink" href="#arguments-42" title="Permalink to this headline"> </a></h3>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 45%" />
+<col style="width: 55%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Argument</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">key</span></code></p></td>
+<td><p>Name of the tag. All storage
+backends are guaranteed to support
+key values up to 250 bytes in size.
+This field is required.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">value</span></code></p></td>
+<td><p>String value of the tag being
+logged. All storage backends are
+guaranteed to support key values up
+to 5000 bytes in size. This field is
+required.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">experiment_id</span></code></p></td>
+<td><p>ID of the experiment.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">client</span></code></p></td>
+<td><p>(Optional) An MLflow client object
+returned from
+<a class="reference external" href="#mlflow-client">mlflow_client</a> .
+If specified, MLflow will use the
+tracking server associated with the
+passed-in client. If unspecified
+(the common case), MLflow will use
+the tracking server associated with
+the current tracking URI.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<div class="section" id="mlflow-set-experiment">
+<h2><code class="docutils literal notranslate"><span class="pre">mlflow_set_experiment</span></code><a class="headerlink" href="#mlflow-set-experiment" title="Permalink to this headline"> </a></h2>
+<p>Set Experiment</p>
+<p>Sets an experiment as the active experiment. Either the name or ID of
+the experiment can be provided. If the a name is provided but the
+experiment does not exist, this function creates an experiment with
+provided name. Returns the ID of the active experiment.</p>
+<div class="highlight-r notranslate"><div class="highlight"><pre><span></span><span class="nf">mlflow_set_experiment</span><span class="p">(</span>
+<span class="w">  </span><span class="n">experiment_name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">NULL</span><span class="p">,</span>
+<span class="w">  </span><span class="n">experiment_id</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">NULL</span><span class="p">,</span>
+<span class="w">  </span><span class="n">artifact_location</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">NULL</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+<div class="section" id="arguments-43">
+<span id="id52"></span><h3>Arguments<a class="headerlink" href="#arguments-43" title="Permalink to this headline"> </a></h3>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 45%" />
+<col style="width: 55%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Argument</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">experiment_name</span></code></p></td>
+<td><p>Name of experiment to be activated.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">experiment_id</span></code></p></td>
+<td><p>ID of experiment to be activated.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">artifact_location</span></code></p></td>
+<td><p>Location where all artifacts for
+this experiment are stored. If not
+provided, the remote server will
+select an appropriate default.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<div class="section" id="mlflow-set-model-version-tag">
+<h2><code class="docutils literal notranslate"><span class="pre">mlflow_set_model_version_tag</span></code><a class="headerlink" href="#mlflow-set-model-version-tag" title="Permalink to this headline"> </a></h2>
+<p>Set Model version tag</p>
+<p>Set a tag for the model version. When stage is set, tag will be set for
+latest model version of the stage. Setting both version and stage
+parameter will result in error.</p>
+<div class="highlight-r notranslate"><div class="highlight"><pre><span></span><span class="nf">mlflow_set_model_version_tag</span><span class="p">(</span>
+<span class="w">  </span><span class="n">name</span><span class="p">,</span>
+<span class="w">  </span><span class="n">version</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">NULL</span><span class="p">,</span>
+<span class="w">  </span><span class="n">key</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">NULL</span><span class="p">,</span>
+<span class="w">  </span><span class="n">value</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">NULL</span><span class="p">,</span>
+<span class="w">  </span><span class="n">stage</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">NULL</span><span class="p">,</span>
+<span class="w">  </span><span class="n">client</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">NULL</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+<div class="section" id="arguments-44">
+<span id="id53"></span><h3>Arguments<a class="headerlink" href="#arguments-44" title="Permalink to this headline"> </a></h3>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 45%" />
+<col style="width: 55%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Argument</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">name</span></code></p></td>
+<td><p>Registered model name.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">version</span></code></p></td>
+<td><p>Registered model version.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">key</span></code></p></td>
+<td><p>Tag key to log. key is required.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">value</span></code></p></td>
+<td><p>Tag value to log. value is required.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">stage</span></code></p></td>
+<td><p>Registered model stage.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">client</span></code></p></td>
+<td><p>(Optional) An MLflow client object
+returned from
+<a class="reference external" href="#mlflow-client">mlflow_client</a> .
+If specified, MLflow will use the
+tracking server associated with the
+passed-in client. If unspecified
+(the common case), MLflow will use
+the tracking server associated with
+the current tracking URI.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<div class="section" id="mlflow-set-tag">
+<h2><code class="docutils literal notranslate"><span class="pre">mlflow_set_tag</span></code><a class="headerlink" href="#mlflow-set-tag" title="Permalink to this headline"> </a></h2>
+<p>Set Tag</p>
+<p>Sets a tag on a run. Tags are run metadata that can be updated during a
+run and after a run completes.</p>
+<div class="highlight-r notranslate"><div class="highlight"><pre><span></span><span class="nf">mlflow_set_tag</span><span class="p">(</span><span class="n">key</span><span class="p">,</span><span class="w"> </span><span class="n">value</span><span class="p">,</span><span class="w"> </span><span class="n">run_id</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">NULL</span><span class="p">,</span><span class="w"> </span><span class="n">client</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">NULL</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="section" id="arguments-45">
+<span id="id54"></span><h3>Arguments<a class="headerlink" href="#arguments-45" title="Permalink to this headline"> </a></h3>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 45%" />
+<col style="width: 55%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Argument</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">key</span></code></p></td>
+<td><p>Name of the tag. Maximum size is 255
+bytes. This field is required.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">value</span></code></p></td>
+<td><p>String value of the tag being
+logged. Maximum size is 500 bytes.
+This field is required.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">run_id</span></code></p></td>
+<td><p>Run ID.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">client</span></code></p></td>
+<td><p>(Optional) An MLflow client object
+returned from
+<a class="reference external" href="#mlflow-client">mlflow_client</a> .
+If specified, MLflow will use the
+tracking server associated with the
+passed-in client. If unspecified
+(the common case), MLflow will use
+the tracking server associated with
+the current tracking URI.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<div class="section" id="mlflow-set-tracking-uri">
+<h2><code class="docutils literal notranslate"><span class="pre">mlflow_set_tracking_uri</span></code><a class="headerlink" href="#mlflow-set-tracking-uri" title="Permalink to this headline"> </a></h2>
+<p>Set Remote Tracking URI</p>
+<p>Specifies the URI to the remote MLflow server that will be used to track
+experiments.</p>
+<div class="highlight-r notranslate"><div class="highlight"><pre><span></span><span class="nf">mlflow_set_tracking_uri</span><span class="p">(</span><span class="n">uri</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="section" id="arguments-46">
+<span id="id55"></span><h3>Arguments<a class="headerlink" href="#arguments-46" title="Permalink to this headline"> </a></h3>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 18%" />
+<col style="width: 82%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Argument</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">uri</span></code></p></td>
+<td><p>The URI to the remote MLflow server.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<div class="section" id="mlflow-source">
+<h2><code class="docutils literal notranslate"><span class="pre">mlflow_source</span></code><a class="headerlink" href="#mlflow-source" title="Permalink to this headline"> </a></h2>
+<p>Source a Script with MLflow Params</p>
+<p>This function should not be used interactively. It is designed to be
+called via <code class="docutils literal notranslate"><span class="pre">Rscript</span></code> from the terminal or through the MLflow CLI.</p>
+<div class="highlight-r notranslate"><div class="highlight"><pre><span></span><span class="nf">mlflow_source</span><span class="p">(</span><span class="n">uri</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="section" id="arguments-47">
+<span id="id56"></span><h3>Arguments<a class="headerlink" href="#arguments-47" title="Permalink to this headline"> </a></h3>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 13%" />
+<col style="width: 88%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Argument</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">uri</span></code></p></td>
+<td><p>Path to an R script, can be a quoted or unquoted string.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<div class="section" id="mlflow-start-run">
+<h2><code class="docutils literal notranslate"><span class="pre">mlflow_start_run</span></code><a class="headerlink" href="#mlflow-start-run" title="Permalink to this headline"> </a></h2>
+<p>Start Run</p>
+<p>Starts a new run. If <code class="docutils literal notranslate"><span class="pre">client</span></code> is not provided, this function infers
+contextual information such as source name and version, and also
+registers the created run as the active run. If <code class="docutils literal notranslate"><span class="pre">client</span></code> is provided,
+no inference is done, and additional arguments such as <code class="docutils literal notranslate"><span class="pre">start_time</span></code>
+can be provided.</p>
+<div class="highlight-r notranslate"><div class="highlight"><pre><span></span><span class="nf">mlflow_start_run</span><span class="p">(</span>
+<span class="w">  </span><span class="n">run_id</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">NULL</span><span class="p">,</span>
+<span class="w">  </span><span class="n">experiment_id</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">NULL</span><span class="p">,</span>
+<span class="w">  </span><span class="n">start_time</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">NULL</span><span class="p">,</span>
+<span class="w">  </span><span class="n">tags</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">NULL</span><span class="p">,</span>
+<span class="w">  </span><span class="n">client</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">NULL</span><span class="p">,</span>
+<span class="w">  </span><span class="n">nested</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">FALSE</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+<div class="section" id="arguments-48">
+<span id="id57"></span><h3>Arguments<a class="headerlink" href="#arguments-48" title="Permalink to this headline"> </a></h3>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 45%" />
+<col style="width: 55%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Argument</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">run_id</span></code></p></td>
+<td><p>If specified, get the run with the
+specified UUID and log metrics and
+params under that run. The run’s end
+time is unset and its status is set
+to running, but the run’s other
+attributes remain unchanged.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">experiment_id</span></code></p></td>
+<td><p>Used only when <code class="docutils literal notranslate"><span class="pre">run_id</span></code> is
+unspecified. ID of the experiment
+under which to create the current
+run. If unspecified, the run is
+created under a new experiment with
+a randomly generated name.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">start_time</span></code></p></td>
+<td><p>Unix timestamp of when the run
+started in milliseconds. Only used
+when <code class="docutils literal notranslate"><span class="pre">client</span></code> is specified.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">tags</span></code></p></td>
+<td><p>Additional metadata for run in
+key-value pairs. Only used when
+<code class="docutils literal notranslate"><span class="pre">client</span></code> is specified.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">client</span></code></p></td>
+<td><p>(Optional) An MLflow client object
+returned from
+<a class="reference external" href="#mlflow-client">mlflow_client</a> .
+If specified, MLflow will use the
+tracking server associated with the
+passed-in client. If unspecified
+(the common case), MLflow will use
+the tracking server associated with
+the current tracking URI.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">nested</span></code></p></td>
+<td><p>Controls whether the run to be
+started is nested in a parent run.
+<code class="docutils literal notranslate"><span class="pre">TRUE</span></code> creates a nest run.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="section" id="examples-4">
+<span id="id58"></span><h3>Examples<a class="headerlink" href="#examples-4" title="Permalink to this headline"> </a></h3>
+<div class="highlight-r notranslate"><div class="highlight"><pre><span></span><span class="nf">with</span><span class="p">(</span><span class="nf">mlflow_start_run</span><span class="p">(),</span><span class="w"> </span><span class="p">{</span>
+<span class="nf">mlflow_log_metric</span><span class="p">(</span><span class="s">&quot;test&quot;</span><span class="p">,</span><span class="w"> </span><span class="m">10</span><span class="p">)</span>
+<span class="p">})</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="section" id="mlflow-transition-model-version-stage">
+<h2><code class="docutils literal notranslate"><span class="pre">mlflow_transition_model_version_stage</span></code><a class="headerlink" href="#mlflow-transition-model-version-stage" title="Permalink to this headline"> </a></h2>
+<p>Transition ModelVersion Stage</p>
+<p>Transition a model version to a different stage.</p>
+<div class="highlight-r notranslate"><div class="highlight"><pre><span></span><span class="nf">mlflow_transition_model_version_stage</span><span class="p">(</span>
+<span class="w">  </span><span class="n">name</span><span class="p">,</span>
+<span class="w">  </span><span class="n">version</span><span class="p">,</span>
+<span class="w">  </span><span class="n">stage</span><span class="p">,</span>
+<span class="w">  </span><span class="n">archive_existing_versions</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">FALSE</span><span class="p">,</span>
+<span class="w">  </span><span class="n">client</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">NULL</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+<div class="section" id="arguments-49">
+<span id="id59"></span><h3>Arguments<a class="headerlink" href="#arguments-49" title="Permalink to this headline"> </a></h3>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 45%" />
+<col style="width: 55%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Argument</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">name</span></code></p></td>
+<td><p>Name of the registered model.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">version</span></code></p></td>
+<td><p>Model version number.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">stage</span></code></p></td>
+<td><p>Transition <code class="docutils literal notranslate"><span class="pre">model_version</span></code> to this
+stage.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">archive_existing_versions</span></code></p></td>
+<td><p>(Optional)</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">client</span></code></p></td>
+<td><p>(Optional) An MLflow client object
+returned from
+<a class="reference external" href="#mlflow-client">mlflow_client</a> .
+If specified, MLflow will use the
+tracking server associated with the
+passed-in client. If unspecified
+(the common case), MLflow will use
+the tracking server associated with
+the current tracking URI.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<div class="section" id="mlflow-ui">
+<h2><code class="docutils literal notranslate"><span class="pre">mlflow_ui</span></code><a class="headerlink" href="#mlflow-ui" title="Permalink to this headline"> </a></h2>
+<p>Run MLflow User Interface</p>
+<p>Launches the MLflow user interface.</p>
+<div class="highlight-r notranslate"><div class="highlight"><pre><span></span><span class="nf">mlflow_ui</span><span class="p">(</span><span class="n">client</span><span class="p">,</span><span class="w"> </span><span class="kc">...</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="section" id="arguments-50">
+<span id="id60"></span><h3>Arguments<a class="headerlink" href="#arguments-50" title="Permalink to this headline"> </a></h3>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 45%" />
+<col style="width: 55%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Argument</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">client</span></code></p></td>
+<td><p>(Optional) An MLflow client object
+returned from
+<a class="reference external" href="#mlflow-client">mlflow_client</a> .
+If specified, MLflow will use the
+tracking server associated with the
+passed-in client. If unspecified
+(the common case), MLflow will use
+the tracking server associated with
+the current tracking URI.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">...</span></code></p></td>
+<td><p>Optional arguments passed to
+<code class="docutils literal notranslate"><span class="pre">mlflow_server()</span></code> when <code class="docutils literal notranslate"><span class="pre">x</span></code> is a
+path to a file store.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="section" id="examples-5">
+<span id="id61"></span><h3>Examples<a class="headerlink" href="#examples-5" title="Permalink to this headline"> </a></h3>
+<div class="highlight-r notranslate"><div class="highlight"><pre><span></span><span class="nf">library</span><span class="p">(</span><span class="n">mlflow</span><span class="p">)</span>
+
+<span class="c1"># launch mlflow ui locally</span>
+<span class="nf">mlflow_ui</span><span class="p">()</span>
+
+<span class="c1"># launch mlflow ui for existing mlflow server</span>
+<span class="nf">mlflow_set_tracking_uri</span><span class="p">(</span><span class="s">&quot;http://tracking-server:5000&quot;</span><span class="p">)</span>
+<span class="nf">mlflow_ui</span><span class="p">()</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="section" id="mlflow-update-model-version">
+<h2><code class="docutils literal notranslate"><span class="pre">mlflow_update_model_version</span></code><a class="headerlink" href="#mlflow-update-model-version" title="Permalink to this headline"> </a></h2>
+<p>Update model version</p>
+<p>Updates a model version</p>
+<div class="highlight-r notranslate"><div class="highlight"><pre><span></span><span class="nf">mlflow_update_model_version</span><span class="p">(</span><span class="n">name</span><span class="p">,</span><span class="w"> </span><span class="n">version</span><span class="p">,</span><span class="w"> </span><span class="n">description</span><span class="p">,</span><span class="w"> </span><span class="n">client</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">NULL</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="section" id="arguments-51">
+<span id="id62"></span><h3>Arguments<a class="headerlink" href="#arguments-51" title="Permalink to this headline"> </a></h3>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 45%" />
+<col style="width: 55%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Argument</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">name</span></code></p></td>
+<td><p>Name of the registered model.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">version</span></code></p></td>
+<td><p>Model version number.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">description</span></code></p></td>
+<td><p>Description of this model version.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">client</span></code></p></td>
+<td><p>(Optional) An MLflow client object
+returned from
+<a class="reference external" href="#mlflow-client">mlflow_client</a> .
+If specified, MLflow will use the
+tracking server associated with the
+passed-in client. If unspecified
+(the common case), MLflow will use
+the tracking server associated with
+the current tracking URI.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<div class="section" id="mlflow-update-registered-model">
+<h2><code class="docutils literal notranslate"><span class="pre">mlflow_update_registered_model</span></code><a class="headerlink" href="#mlflow-update-registered-model" title="Permalink to this headline"> </a></h2>
+<p>Update a registered model</p>
+<p>Updates a model in the Model Registry.</p>
+<div class="highlight-r notranslate"><div class="highlight"><pre><span></span><span class="nf">mlflow_update_registered_model</span><span class="p">(</span><span class="n">name</span><span class="p">,</span><span class="w"> </span><span class="n">description</span><span class="p">,</span><span class="w"> </span><span class="n">client</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">NULL</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="section" id="arguments-52">
+<span id="id63"></span><h3>Arguments<a class="headerlink" href="#arguments-52" title="Permalink to this headline"> </a></h3>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 45%" />
+<col style="width: 55%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Argument</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">name</span></code></p></td>
+<td><p>The name of the registered model.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">description</span></code></p></td>
+<td><p>The updated description for this
+registered model.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">client</span></code></p></td>
+<td><p>(Optional) An MLflow client object
+returned from
+<a class="reference external" href="#mlflow-client">mlflow_client</a> .
+If specified, MLflow will use the
+tracking server associated with the
+passed-in client. If unspecified
+(the common case), MLflow will use
+the tracking server associated with
+the current tracking URI.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</div>
+
+
+              </div>
+            </div>
+            <footer>
+  
+    <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
+      
+        <a href="cli.html" class="btn btn-neutral" title="Command-Line Interface" accesskey="p"><span class="db-icon db-icon-chevron-left"></span> Previous</a>
+      
+      
+        <a href="java_api/index.html" class="btn btn-neutral" title="Java API" accesskey="n">Next <span class="db-icon db-icon-chevron-right"></span></a>
+      
+    </div>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+      <p class="copyright">
+          &copy; MLflow Project, a Series of LF Projects, LLC. All rights reserved.
+      </p>
+
+  </div> 
+
+</footer>
+          </div>
+        </div>
+      </section>
+    </main>
+  </page>
+
+  
+
+
+  
+  <script type="text/javascript">
+    var DOCUMENTATION_OPTIONS = {
+      URL_ROOT:'./',
+      VERSION:'2.17.1.dev0',
+      COLLAPSE_INDEX:false,
+      FILE_SUFFIX:'.html',
+      LINK_SUFFIX: '.html',
+      HAS_SOURCE:  true
+    };
+  </script>
+
+  
+
+  <script type="text/javascript" src="_static/js/clipboard.min.js"></script>
+  <script type="text/javascript" src="_static/js/jquery.waypoints.min.js"></script>
+
+  
+  
+  
+  <script type="text/javascript">var CLIPPY_SVG_PATH = "_static/clippy.svg";</script>
+  <script type="text/javascript" src="_static/js/custom.js"></script>
+  
+
+  
+  
+  <script type="text/javascript">
+    jQuery(function () {
+      SphinxRtdTheme.StickyNav.enable();
+    });
+
+  </script>
+  
+
+  
+  <script type="text/javascript">
+    document.addEventListener("DOMContentLoaded", function() {
+        function copyToClipboard(text) {
+            const textarea = document.createElement('textarea');
+            textarea.value = text;
+            document.body.appendChild(textarea);
+            textarea.select();
+            document.execCommand('copy');
+            document.body.removeChild(textarea);
+        }
+        // Get the code block designator class entries
+        const allHighlights = document.querySelectorAll('.highlight');
+        // Disable copyable links for notebook cell numbering and for cell outputs
+        const highlights = Array.from(allHighlights).filter(highlight => !highlight.closest('.highlight-none') && 
+            !highlight.closest('.nboutput'));
+    
+        highlights.forEach(function(highlight) {
+            const copyIcon = document.createElement('span');
+            copyIcon.classList.add('copy-icon');
+            copyIcon.innerHTML = '&#xf0ea;';
+
+            copyIcon.addEventListener('click', function() {
+                const code = highlight.querySelector('pre').textContent;
+                copyToClipboard(code);
+
+                // Flash effect on click
+                this.style.color = '#0194E2';
+                setTimeout(() => {
+                    this.style.color = ''; 
+                }, 100);
+
+                // Display "Code copied to clipboard" near the clicked icon
+                const message = document.createElement('span');
+                message.textContent = "Copied!";
+                message.classList.add('copy-message'); 
+
+                // Append the message to the icon
+                this.appendChild(message);
+
+                setTimeout(() => {
+                    this.removeChild(message);
+                }, 500);
+            });
+
+            highlight.appendChild(copyIcon);
+        });
+    });
+  </script>
+
+
+<script type="text/javascript">
+    document.addEventListener("DOMContentLoaded", function() {
+        // Force download for notebook-download-btn
+        const downloadButtons = document.querySelectorAll('.notebook-download-btn');
+        downloadButtons.forEach(function(button) {
+            button.addEventListener('click', function(event) {
+                event.preventDefault(); // Prevent default behavior
+
+                // Fetch the raw content of the notebook from GitHub
+                fetch(button.href)
+                    .then(response => response.blob())
+                    .then(blob => {
+                        const url = window.URL.createObjectURL(blob);
+                        const link = document.createElement('a');
+                        link.style.display = 'none';
+                        link.href = url;
+                        const filename = button.href.split('/').pop();
+                        link.download = filename; 
+
+                        document.body.appendChild(link);
+                        link.click();
+
+                        window.URL.revokeObjectURL(url);
+                        document.body.removeChild(link);
+                    })
+                    .catch(err => console.error('Error fetching the notebook:', err));
+            });
+        });
+    });
+</script> 
+</body>
+</html>

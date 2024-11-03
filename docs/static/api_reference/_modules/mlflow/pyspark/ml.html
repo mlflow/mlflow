@@ -1,0 +1,1575 @@
+
+
+<!DOCTYPE html>
+<!-- source: docs/source/_modules/mlflow/pyspark/ml -->
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>mlflow.pyspark.ml</title>
+  
+   
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+  <link rel="canonical" href="https://mlflow.org/docs/latest/_modules/mlflow/pyspark/ml.html">
+  
+  
+    <link rel="shortcut icon" href="../../../_static/favicon.ico"/>
+    
+
+    
+
+  
+    
+
+  
+
+  
+  
+    
+
+  
+
+  
+  
+    <link href="https://fonts.googleapis.com/css?family=Source+Sans+Pro:300,400,600" rel="stylesheet">
+    <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/css/custom.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/css/cards.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/css/grids.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/css/mobile.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/css/simple-cards.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/css/tabs.css" type="text/css" />
+    
+  
+        <link rel="index" title="Index"
+              href="../../../genindex.html"/>
+        <link rel="search" title="Search" href="../../../search.html"/>
+    <link rel="top" title="MLflow 2.17.1.dev0 documentation" href="../../../index.html"/>
+        <link rel="up" title="Module code" href="../../index.html"/> 
+
+  
+  <script src="../../../_static/js/modernizr.min.js"></script>
+
+</head>
+<script type="text/javascript" src="../../../_static/jquery.js"></script>
+<script type="text/javascript" src="../../../_static/underscore.js"></script>
+<script type="text/javascript" src="../../../_static/doctools.js"></script>
+<script type="text/javascript" src="../../../_static/tabs.js"></script>
+<script type="text/javascript" src="../../../_static/languagesections.js"></script>
+<script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+<script type="text/javascript" src="../../../_static/runllm.js"></script>
+
+<body class="wy-body-for-nav" role="document">
+  
+
+  
+  <nav class="wy-nav-top header" role="navigation" aria-label="top navigation">
+    <ul>
+  <li class="menu-toggle">
+    <i data-toggle="wy-nav-top" class="wy-nav-top-menu-button db-icon db-icon-menu pull-left"></i>
+    <a href="../../../index.html" class="wy-nav-top-logo"
+      ><img src="../../../_static/MLflow-logo-final-black.png" alt="MLflow"
+    /></a>
+    <span class="version">2.17.1.dev0</span>
+  </li>
+</ul>
+  </nav>
+  <page>
+    
+
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side relative">
+      <div class="wy-side-scroll">
+  <div class="wy-side-nav-search">
+    
+
+    
+
+    
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+  <input type="text" name="q" placeholder="Search" />
+  <input type="hidden" name="check_keywords" value="yes" />
+  <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+
+    
+  </div>
+
+  <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+    
+      <a href="../../../index.html" class="main-navigation-home"><img src="../../../_static/icons/nav-home.svg"> MLflow</a>
+    
+
+    
+      
+
+      
+        <ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../python_api/index.html">Python API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../cli.html">Command-Line Interface</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../R-api.html">R API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../java_api/index.html">Java API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../rest-api.html">REST API</a></li>
+</ul>
+
+      
+    
+  </div>
+
+  <div role="contentinfo">
+    
+
+    <p>
+      <a id='feedbacklink' href="https://github.com/mlflow/mlflow/blob/master/CONTRIBUTING.md" target="_blank">Contribute</a>
+    </p>
+  </div>
+</div>
+    </nav>
+
+    <main class="wy-grid-for-nav">
+      <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+        <div class="wy-nav-content">
+          <div class="rst-content">
+            
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href="../../../index.html">Documentation</a> <span class="db-icon db-icon-chevron-right"></span></li>
+    
+        <li><a href="../../index.html">Module code</a> <span class="db-icon db-icon-chevron-right"></span></li>
+    
+    
+      <li>mlflow.pyspark.ml</li>
+    
+    
+    <!-- <li class="wy-breadcrumbs-aside">
+      <a href="https://github.com/mlflow/mlflow/blob/master/docs/source/_modules/mlflow/pyspark/ml" class="fa fa-github"> Edit on GitHub</a>
+    </li> -->
+    
+  </ul>
+</div>
+            <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+              <div itemprop="articleBody">
+                
+  <h1>Source code for mlflow.pyspark.ml</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span> <span class="nn">json</span>
+<span class="kn">import</span> <span class="nn">logging</span>
+<span class="kn">import</span> <span class="nn">os</span>
+<span class="kn">import</span> <span class="nn">sys</span>
+<span class="kn">import</span> <span class="nn">traceback</span>
+<span class="kn">import</span> <span class="nn">weakref</span>
+<span class="kn">from</span> <span class="nn">collections</span> <span class="kn">import</span> <span class="n">OrderedDict</span><span class="p">,</span> <span class="n">defaultdict</span><span class="p">,</span> <span class="n">namedtuple</span>
+<span class="kn">from</span> <span class="nn">itertools</span> <span class="kn">import</span> <span class="n">zip_longest</span>
+<span class="kn">from</span> <span class="nn">urllib.parse</span> <span class="kn">import</span> <span class="n">urlparse</span>
+
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+
+<span class="kn">import</span> <span class="nn">mlflow</span>
+<span class="kn">from</span> <span class="nn">mlflow.data.code_dataset_source</span> <span class="kn">import</span> <span class="n">CodeDatasetSource</span>
+<span class="kn">from</span> <span class="nn">mlflow.data.spark_dataset</span> <span class="kn">import</span> <span class="n">SparkDataset</span>
+<span class="kn">from</span> <span class="nn">mlflow.entities</span> <span class="kn">import</span> <span class="n">Metric</span><span class="p">,</span> <span class="n">Param</span>
+<span class="kn">from</span> <span class="nn">mlflow.entities.dataset_input</span> <span class="kn">import</span> <span class="n">DatasetInput</span>
+<span class="kn">from</span> <span class="nn">mlflow.entities.input_tag</span> <span class="kn">import</span> <span class="n">InputTag</span>
+<span class="kn">from</span> <span class="nn">mlflow.exceptions</span> <span class="kn">import</span> <span class="n">MlflowException</span>
+<span class="kn">from</span> <span class="nn">mlflow.tracking.client</span> <span class="kn">import</span> <span class="n">MlflowClient</span>
+<span class="kn">from</span> <span class="nn">mlflow.utils</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">_chunk_dict</span><span class="p">,</span>
+    <span class="n">_get_fully_qualified_class_name</span><span class="p">,</span>
+    <span class="n">_inspect_original_var_name</span><span class="p">,</span>
+    <span class="n">_truncate_dict</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">mlflow.utils.autologging_utils</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">INPUT_EXAMPLE_SAMPLE_ROWS</span><span class="p">,</span>
+    <span class="n">_get_new_training_session_class</span><span class="p">,</span>
+    <span class="n">autologging_integration</span><span class="p">,</span>
+    <span class="n">get_method_call_arg_value</span><span class="p">,</span>
+    <span class="n">resolve_input_example_and_signature</span><span class="p">,</span>
+    <span class="n">safe_patch</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">mlflow.utils.file_utils</span> <span class="kn">import</span> <span class="n">TempDir</span>
+<span class="kn">from</span> <span class="nn">mlflow.utils.mlflow_tags</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">MLFLOW_AUTOLOGGING</span><span class="p">,</span>
+    <span class="n">MLFLOW_DATASET_CONTEXT</span><span class="p">,</span>
+    <span class="n">MLFLOW_PARENT_RUN_ID</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">mlflow.utils.os</span> <span class="kn">import</span> <span class="n">is_windows</span>
+<span class="kn">from</span> <span class="nn">mlflow.utils.rest_utils</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">MlflowHostCreds</span><span class="p">,</span>
+    <span class="n">augmented_raise_for_status</span><span class="p">,</span>
+    <span class="n">http_request</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">mlflow.utils.time</span> <span class="kn">import</span> <span class="n">get_current_time_millis</span>
+<span class="kn">from</span> <span class="nn">mlflow.utils.validation</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">MAX_ENTITY_KEY_LENGTH</span><span class="p">,</span>
+    <span class="n">MAX_PARAM_VAL_LENGTH</span><span class="p">,</span>
+    <span class="n">MAX_PARAMS_TAGS_PER_BATCH</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="n">_logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
+<span class="n">_SparkTrainingSession</span> <span class="o">=</span> <span class="n">_get_new_training_session_class</span><span class="p">()</span>
+
+<span class="n">AUTOLOGGING_INTEGRATION_NAME</span> <span class="o">=</span> <span class="s2">&quot;pyspark.ml&quot;</span>
+
+
+<span class="k">def</span> <span class="nf">_read_log_model_allowlist_from_file</span><span class="p">(</span><span class="n">allowlist_file</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">_parse_allowlist_file</span><span class="p">(</span><span class="n">line_iter</span><span class="p">):</span>
+        <span class="n">allowlist</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
+        <span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="n">line_iter</span><span class="p">:</span>
+            <span class="n">stripped</span> <span class="o">=</span> <span class="n">line</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
+            <span class="n">is_blankline_or_comment</span> <span class="o">=</span> <span class="n">stripped</span> <span class="o">==</span> <span class="s2">&quot;&quot;</span> <span class="ow">or</span> <span class="n">stripped</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;#&quot;</span><span class="p">)</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">is_blankline_or_comment</span><span class="p">:</span>
+                <span class="n">allowlist</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">stripped</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">allowlist</span>
+
+    <span class="n">url_parsed</span> <span class="o">=</span> <span class="n">urlparse</span><span class="p">(</span><span class="n">allowlist_file</span><span class="p">)</span>
+    <span class="n">scheme</span> <span class="o">=</span> <span class="n">url_parsed</span><span class="o">.</span><span class="n">scheme</span>
+    <span class="n">path</span> <span class="o">=</span> <span class="n">url_parsed</span><span class="o">.</span><span class="n">path</span>
+    <span class="k">if</span> <span class="n">is_windows</span><span class="p">()</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">url_parsed</span><span class="o">.</span><span class="n">hostname</span><span class="p">:</span>
+        <span class="n">path</span> <span class="o">=</span> <span class="n">scheme</span> <span class="o">+</span> <span class="s2">&quot;://&quot;</span> <span class="o">+</span> <span class="n">path</span>
+        <span class="n">scheme</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">scheme</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;file&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">):</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">path</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="n">MlflowException</span><span class="o">.</span><span class="n">invalid_parameter_value</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">allowlist_file</span><span class="si">}</span><span class="s2"> does not exist&quot;</span><span class="p">)</span>
+
+        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">allowlist_file</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">_parse_allowlist_file</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">host_creds</span> <span class="o">=</span> <span class="n">MlflowHostCreds</span><span class="p">(</span>
+            <span class="n">host</span><span class="o">=</span><span class="n">scheme</span> <span class="o">+</span> <span class="s2">&quot;://&quot;</span> <span class="o">+</span> <span class="p">(</span><span class="n">url_parsed</span><span class="o">.</span><span class="n">hostname</span> <span class="ow">or</span> <span class="s2">&quot;&quot;</span><span class="p">),</span>
+            <span class="n">username</span><span class="o">=</span><span class="n">url_parsed</span><span class="o">.</span><span class="n">username</span><span class="p">,</span>
+            <span class="n">password</span><span class="o">=</span><span class="n">url_parsed</span><span class="o">.</span><span class="n">password</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="n">response</span> <span class="o">=</span> <span class="n">http_request</span><span class="p">(</span><span class="n">host_creds</span><span class="o">=</span><span class="n">host_creds</span><span class="p">,</span> <span class="n">endpoint</span><span class="o">=</span><span class="n">path</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="s2">&quot;GET&quot;</span><span class="p">)</span>
+        <span class="n">augmented_raise_for_status</span><span class="p">(</span><span class="n">response</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">_parse_allowlist_file</span><span class="p">(</span><span class="n">response</span><span class="o">.</span><span class="n">iter_lines</span><span class="p">(</span><span class="n">decode_unicode</span><span class="o">=</span><span class="kc">True</span><span class="p">))</span>
+
+
+<span class="k">def</span> <span class="nf">_read_log_model_allowlist</span><span class="p">():</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Reads the module allowlist and returns it as a set.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="kn">from</span> <span class="nn">mlflow.utils._spark_utils</span> <span class="kn">import</span> <span class="n">_get_active_spark_session</span>
+
+    <span class="c1"># New in 3.9: https://docs.python.org/3/library/importlib.resources.html#importlib.resources.files</span>
+    <span class="k">if</span> <span class="n">sys</span><span class="o">.</span><span class="n">version_info</span><span class="o">.</span><span class="n">major</span> <span class="o">&gt;</span> <span class="mi">2</span> <span class="ow">and</span> <span class="n">sys</span><span class="o">.</span><span class="n">version_info</span><span class="o">.</span><span class="n">minor</span> <span class="o">&gt;</span> <span class="mi">8</span><span class="p">:</span>
+        <span class="kn">from</span> <span class="nn">importlib.resources</span> <span class="kn">import</span> <span class="n">as_file</span><span class="p">,</span> <span class="n">files</span>  <span class="c1"># clint: disable=lazy-builtin-import</span>
+
+        <span class="k">with</span> <span class="n">as_file</span><span class="p">(</span><span class="n">files</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span><span class="o">.</span><span class="n">joinpath</span><span class="p">(</span><span class="s2">&quot;log_model_allowlist.txt&quot;</span><span class="p">))</span> <span class="k">as</span> <span class="n">file</span><span class="p">:</span>
+            <span class="n">builtin_allowlist_file</span> <span class="o">=</span> <span class="n">file</span><span class="o">.</span><span class="n">as_posix</span><span class="p">()</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="kn">from</span> <span class="nn">importlib.resources</span> <span class="kn">import</span> <span class="n">path</span>  <span class="c1"># clint: disable=lazy-builtin-import</span>
+
+        <span class="k">with</span> <span class="n">path</span><span class="p">(</span><span class="vm">__name__</span><span class="p">,</span> <span class="s2">&quot;log_model_allowlist.txt&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">file</span><span class="p">:</span>
+            <span class="n">builtin_allowlist_file</span> <span class="o">=</span> <span class="n">file</span><span class="o">.</span><span class="n">as_posix</span><span class="p">()</span>
+    <span class="n">spark_session</span> <span class="o">=</span> <span class="n">_get_active_spark_session</span><span class="p">()</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">spark_session</span><span class="p">:</span>
+        <span class="n">_logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+            <span class="s2">&quot;No SparkSession detected. Autologging will log pyspark.ml models contained &quot;</span>
+            <span class="s2">&quot;in the default allowlist. To specify a custom allowlist, initialize a SparkSession &quot;</span>
+            <span class="s2">&quot;prior to calling mlflow.pyspark.ml.autolog() and specify the path to your allowlist &quot;</span>
+            <span class="s2">&quot;file via the spark.mlflow.pysparkml.autolog.logModelAllowlistFile conf.&quot;</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="n">_read_log_model_allowlist_from_file</span><span class="p">(</span><span class="n">builtin_allowlist_file</span><span class="p">)</span>
+
+    <span class="n">allowlist_file</span> <span class="o">=</span> <span class="n">spark_session</span><span class="o">.</span><span class="n">sparkContext</span><span class="o">.</span><span class="n">_conf</span><span class="o">.</span><span class="n">get</span><span class="p">(</span>
+        <span class="s2">&quot;spark.mlflow.pysparkml.autolog.logModelAllowlistFile&quot;</span><span class="p">,</span> <span class="kc">None</span>
+    <span class="p">)</span>
+    <span class="k">if</span> <span class="n">allowlist_file</span><span class="p">:</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">_read_log_model_allowlist_from_file</span><span class="p">(</span><span class="n">allowlist_file</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+            <span class="c1"># fallback to built-in allowlist file</span>
+            <span class="n">_logger</span><span class="o">.</span><span class="n">exception</span><span class="p">(</span>
+                <span class="p">(</span>
+                    <span class="s2">&quot;Reading from custom log_models allowlist file </span><span class="si">%s</span><span class="s2"> failed, &quot;</span>
+                    <span class="s2">&quot;fallback to built-in allowlist file.&quot;</span>
+                <span class="p">),</span>
+                <span class="n">allowlist_file</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="k">return</span> <span class="n">_read_log_model_allowlist_from_file</span><span class="p">(</span><span class="n">builtin_allowlist_file</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">_read_log_model_allowlist_from_file</span><span class="p">(</span><span class="n">builtin_allowlist_file</span><span class="p">)</span>
+
+
+<span class="c1"># When autolog called, `_log_model_allowlist` will be initialized.</span>
+<span class="n">_log_model_allowlist</span> <span class="o">=</span> <span class="kc">None</span>
+
+
+<span class="k">def</span> <span class="nf">_get_warning_msg_for_skip_log_model</span><span class="p">(</span><span class="n">model</span><span class="p">):</span>
+    <span class="k">return</span> <span class="p">(</span>
+        <span class="sa">f</span><span class="s2">&quot;Model </span><span class="si">{</span><span class="n">model</span><span class="o">.</span><span class="n">uid</span><span class="si">}</span><span class="s2"> will not be autologged because it is not allowlisted or or because &quot;</span>
+        <span class="s2">&quot;one or more of its nested models are not allowlisted. Call mlflow.spark.log_model() &quot;</span>
+        <span class="s2">&quot;to explicitly log the model, or specify a custom allowlist via the &quot;</span>
+        <span class="s2">&quot;spark.mlflow.pysparkml.autolog.logModelAllowlistFile Spark conf &quot;</span>
+        <span class="s2">&quot;(see mlflow.pyspark.ml.autolog docs for more info).&quot;</span>
+    <span class="p">)</span>
+
+
+<span class="k">def</span> <span class="nf">_should_log_model</span><span class="p">(</span><span class="n">spark_model</span><span class="p">):</span>
+    <span class="kn">from</span> <span class="nn">pyspark.ml.base</span> <span class="kn">import</span> <span class="n">Model</span>
+
+    <span class="c1"># TODO: Handle PipelineModel/CrossValidatorModel/TrainValidationSplitModel</span>
+    <span class="n">class_name</span> <span class="o">=</span> <span class="n">_get_fully_qualified_class_name</span><span class="p">(</span><span class="n">spark_model</span><span class="p">)</span>
+    <span class="n">should_log</span> <span class="o">=</span> <span class="n">class_name</span> <span class="ow">in</span> <span class="n">_log_model_allowlist</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">should_log</span><span class="p">:</span>
+        <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">_log_model_allowlist</span><span class="p">:</span>
+            <span class="c1"># only support one trailing *</span>
+            <span class="k">if</span> <span class="n">name</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="s2">&quot;*&quot;</span><span class="p">)</span> <span class="ow">and</span> <span class="n">class_name</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="n">name</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">]):</span>
+                <span class="n">should_log</span> <span class="o">=</span> <span class="kc">True</span>
+                <span class="k">break</span>
+    <span class="k">if</span> <span class="n">should_log</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">class_name</span> <span class="o">==</span> <span class="s2">&quot;pyspark.ml.classification.OneVsRestModel&quot;</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">_should_log_model</span><span class="p">(</span><span class="n">spark_model</span><span class="o">.</span><span class="n">models</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+        <span class="k">elif</span> <span class="n">class_name</span> <span class="o">==</span> <span class="s2">&quot;pyspark.ml.pipeline.PipelineModel&quot;</span><span class="p">:</span>
+            <span class="k">return</span> <span class="nb">all</span><span class="p">(</span>
+                <span class="n">_should_log_model</span><span class="p">(</span><span class="n">stage</span><span class="p">)</span> <span class="k">for</span> <span class="n">stage</span> <span class="ow">in</span> <span class="n">spark_model</span><span class="o">.</span><span class="n">stages</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">stage</span><span class="p">,</span> <span class="n">Model</span><span class="p">)</span>
+            <span class="p">)</span>
+        <span class="k">elif</span> <span class="n">_is_parameter_search_model</span><span class="p">(</span><span class="n">spark_model</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">_should_log_model</span><span class="p">(</span><span class="n">spark_model</span><span class="o">.</span><span class="n">bestModel</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="nb">all</span><span class="p">(</span>
+                <span class="n">_should_log_model</span><span class="p">(</span><span class="n">param_value</span><span class="p">)</span>
+                <span class="k">for</span> <span class="n">_</span><span class="p">,</span> <span class="n">param_value</span> <span class="ow">in</span> <span class="n">_get_param_map</span><span class="p">(</span><span class="n">spark_model</span><span class="p">)</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
+                <span class="c1"># Transformers are logged by default as the same behavior as PipelineModel</span>
+                <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">param_value</span><span class="p">,</span> <span class="n">Model</span><span class="p">)</span>
+            <span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">return</span> <span class="kc">False</span>
+
+
+<span class="k">def</span> <span class="nf">_get_estimator_info_tags</span><span class="p">(</span><span class="n">estimator</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Returns:</span>
+<span class="sd">        A dictionary of MLflow run tag keys and values</span>
+<span class="sd">        describing the specified estimator.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="p">{</span>
+        <span class="s2">&quot;estimator_name&quot;</span><span class="p">:</span> <span class="n">estimator</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="p">,</span>
+        <span class="s2">&quot;estimator_class&quot;</span><span class="p">:</span> <span class="n">_get_fully_qualified_class_name</span><span class="p">(</span><span class="n">estimator</span><span class="p">),</span>
+    <span class="p">}</span>
+
+
+<span class="k">def</span> <span class="nf">_is_parameter_search_estimator</span><span class="p">(</span><span class="n">instance</span><span class="p">):</span>
+    <span class="kn">from</span> <span class="nn">pyspark.ml.tuning</span> <span class="kn">import</span> <span class="n">CrossValidator</span><span class="p">,</span> <span class="n">TrainValidationSplit</span>
+
+    <span class="k">return</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">instance</span><span class="p">,</span> <span class="p">(</span><span class="n">CrossValidator</span><span class="p">,</span> <span class="n">TrainValidationSplit</span><span class="p">))</span>
+
+
+<span class="k">def</span> <span class="nf">_is_parameter_search_model</span><span class="p">(</span><span class="n">instance</span><span class="p">):</span>
+    <span class="kn">from</span> <span class="nn">pyspark.ml.tuning</span> <span class="kn">import</span> <span class="n">CrossValidatorModel</span><span class="p">,</span> <span class="n">TrainValidationSplitModel</span>
+
+    <span class="k">return</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">instance</span><span class="p">,</span> <span class="p">(</span><span class="n">CrossValidatorModel</span><span class="p">,</span> <span class="n">TrainValidationSplitModel</span><span class="p">))</span>
+
+
+<span class="k">def</span> <span class="nf">_should_log_hierarchy</span><span class="p">(</span><span class="n">estimator</span><span class="p">):</span>
+    <span class="kn">from</span> <span class="nn">pyspark.ml</span> <span class="kn">import</span> <span class="n">Pipeline</span>
+    <span class="kn">from</span> <span class="nn">pyspark.ml.classification</span> <span class="kn">import</span> <span class="n">OneVsRest</span>
+
+    <span class="k">return</span> <span class="p">(</span>
+        <span class="nb">isinstance</span><span class="p">(</span><span class="n">estimator</span><span class="p">,</span> <span class="p">(</span><span class="n">Pipeline</span><span class="p">,</span> <span class="n">OneVsRest</span><span class="p">))</span>
+        <span class="ow">or</span> <span class="n">_is_parameter_search_estimator</span><span class="p">(</span><span class="n">estimator</span><span class="p">)</span>
+        <span class="ow">or</span> <span class="nb">any</span><span class="p">(</span><span class="n">_get_stage_type_params</span><span class="p">(</span><span class="n">estimator</span><span class="p">))</span>
+    <span class="p">)</span>
+
+
+<span class="n">_AutologgingEstimatorMetadata</span> <span class="o">=</span> <span class="n">namedtuple</span><span class="p">(</span>
+    <span class="s2">&quot;_AutologgingEstimatorMetadata&quot;</span><span class="p">,</span>
+    <span class="p">[</span><span class="s2">&quot;hierarchy&quot;</span><span class="p">,</span> <span class="s2">&quot;uid_to_indexed_name_map&quot;</span><span class="p">,</span> <span class="s2">&quot;param_search_estimators&quot;</span><span class="p">],</span>
+<span class="p">)</span>
+
+
+<span class="k">def</span> <span class="nf">_traverse_stage</span><span class="p">(</span><span class="n">stage</span><span class="p">):</span>
+    <span class="kn">from</span> <span class="nn">pyspark.ml</span> <span class="kn">import</span> <span class="n">Pipeline</span>
+
+    <span class="k">yield</span> <span class="n">stage</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">stage</span><span class="p">,</span> <span class="n">Pipeline</span><span class="p">):</span>
+        <span class="n">original_sub_stages</span> <span class="o">=</span> <span class="n">stage</span><span class="o">.</span><span class="n">getStages</span><span class="p">()</span>
+
+        <span class="k">try</span><span class="p">:</span>
+            <span class="nb">iter</span><span class="p">(</span><span class="n">original_sub_stages</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">TypeError</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;Pipeline stages should be iterable, but found object </span><span class="si">{</span><span class="n">original_sub_stages</span><span class="si">}</span><span class="s2">&quot;</span>
+            <span class="p">)</span>
+        <span class="k">for</span> <span class="n">stage</span> <span class="ow">in</span> <span class="n">original_sub_stages</span><span class="p">:</span>
+            <span class="k">yield from</span> <span class="n">_traverse_stage</span><span class="p">(</span><span class="n">stage</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="c1"># General support for params that of type Params</span>
+        <span class="k">for</span> <span class="n">_</span><span class="p">,</span> <span class="n">param_value</span> <span class="ow">in</span> <span class="n">_get_stage_type_params</span><span class="p">(</span><span class="n">stage</span><span class="p">)</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="k">yield from</span> <span class="n">_traverse_stage</span><span class="p">(</span><span class="n">param_value</span><span class="p">)</span>
+
+
+<span class="k">def</span> <span class="nf">_get_uid_to_indexed_name_map</span><span class="p">(</span><span class="n">estimator</span><span class="p">):</span>
+    <span class="n">counter</span> <span class="o">=</span> <span class="n">defaultdict</span><span class="p">(</span><span class="nb">int</span><span class="p">)</span>
+    <span class="n">uid_to_classname_and_count</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="k">for</span> <span class="n">child</span> <span class="ow">in</span> <span class="n">_traverse_stage</span><span class="p">(</span><span class="n">estimator</span><span class="p">):</span>
+        <span class="n">class_name</span> <span class="o">=</span> <span class="n">child</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span>
+        <span class="n">counter</span><span class="p">[</span><span class="n">class_name</span><span class="p">]</span> <span class="o">+=</span> <span class="mi">1</span>
+        <span class="n">uid_to_classname_and_count</span><span class="p">[</span><span class="n">child</span><span class="o">.</span><span class="n">uid</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="n">class_name</span><span class="p">,</span> <span class="n">counter</span><span class="p">[</span><span class="n">class_name</span><span class="p">])</span>
+    <span class="k">return</span> <span class="p">{</span>
+        <span class="n">uid</span><span class="p">:</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">class_name</span><span class="si">}</span><span class="s2">_</span><span class="si">{</span><span class="n">count</span><span class="si">}</span><span class="s2">&quot;</span> <span class="k">if</span> <span class="n">counter</span><span class="p">[</span><span class="n">class_name</span><span class="p">]</span> <span class="o">&gt;</span> <span class="mi">1</span> <span class="k">else</span> <span class="n">class_name</span>
+        <span class="k">for</span> <span class="n">uid</span><span class="p">,</span> <span class="p">(</span><span class="n">class_name</span><span class="p">,</span> <span class="n">count</span><span class="p">)</span> <span class="ow">in</span> <span class="n">uid_to_classname_and_count</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
+    <span class="p">}</span>
+
+
+<span class="k">def</span> <span class="nf">_gen_stage_hierarchy_recursively</span><span class="p">(</span><span class="n">stage</span><span class="p">,</span> <span class="n">uid_to_indexed_name_map</span><span class="p">):</span>
+    <span class="kn">from</span> <span class="nn">pyspark.ml</span> <span class="kn">import</span> <span class="n">Pipeline</span>
+    <span class="kn">from</span> <span class="nn">pyspark.ml.classification</span> <span class="kn">import</span> <span class="n">OneVsRest</span>
+
+    <span class="n">stage_name</span> <span class="o">=</span> <span class="n">uid_to_indexed_name_map</span><span class="p">[</span><span class="n">stage</span><span class="o">.</span><span class="n">uid</span><span class="p">]</span>
+
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">stage</span><span class="p">,</span> <span class="n">Pipeline</span><span class="p">):</span>
+        <span class="n">sub_stages</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">sub_stage</span> <span class="ow">in</span> <span class="n">stage</span><span class="o">.</span><span class="n">getStages</span><span class="p">():</span>
+            <span class="n">sub_hierarchy</span> <span class="o">=</span> <span class="n">_gen_stage_hierarchy_recursively</span><span class="p">(</span><span class="n">sub_stage</span><span class="p">,</span> <span class="n">uid_to_indexed_name_map</span><span class="p">)</span>
+            <span class="n">sub_stages</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">sub_hierarchy</span><span class="p">)</span>
+        <span class="k">return</span> <span class="p">{</span><span class="s2">&quot;name&quot;</span><span class="p">:</span> <span class="n">stage_name</span><span class="p">,</span> <span class="s2">&quot;stages&quot;</span><span class="p">:</span> <span class="n">sub_stages</span><span class="p">}</span>
+    <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">stage</span><span class="p">,</span> <span class="n">OneVsRest</span><span class="p">):</span>
+        <span class="n">classifier_hierarchy</span> <span class="o">=</span> <span class="n">_gen_stage_hierarchy_recursively</span><span class="p">(</span>
+            <span class="n">stage</span><span class="o">.</span><span class="n">getClassifier</span><span class="p">(),</span> <span class="n">uid_to_indexed_name_map</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="p">{</span><span class="s2">&quot;name&quot;</span><span class="p">:</span> <span class="n">stage_name</span><span class="p">,</span> <span class="s2">&quot;classifier&quot;</span><span class="p">:</span> <span class="n">classifier_hierarchy</span><span class="p">}</span>
+    <span class="k">elif</span> <span class="n">_is_parameter_search_estimator</span><span class="p">(</span><span class="n">stage</span><span class="p">):</span>
+        <span class="n">evaluator</span> <span class="o">=</span> <span class="n">stage</span><span class="o">.</span><span class="n">getEvaluator</span><span class="p">()</span>
+        <span class="n">tuned_estimator</span> <span class="o">=</span> <span class="n">stage</span><span class="o">.</span><span class="n">getEstimator</span><span class="p">()</span>
+        <span class="k">return</span> <span class="p">{</span>
+            <span class="s2">&quot;name&quot;</span><span class="p">:</span> <span class="n">stage_name</span><span class="p">,</span>
+            <span class="s2">&quot;evaluator&quot;</span><span class="p">:</span> <span class="n">_gen_stage_hierarchy_recursively</span><span class="p">(</span><span class="n">evaluator</span><span class="p">,</span> <span class="n">uid_to_indexed_name_map</span><span class="p">),</span>
+            <span class="s2">&quot;tuned_estimator&quot;</span><span class="p">:</span> <span class="n">_gen_stage_hierarchy_recursively</span><span class="p">(</span>
+                <span class="n">tuned_estimator</span><span class="p">,</span> <span class="n">uid_to_indexed_name_map</span>
+            <span class="p">),</span>
+        <span class="p">}</span>
+    <span class="k">elif</span> <span class="nb">any</span><span class="p">(</span><span class="n">_get_stage_type_params</span><span class="p">(</span><span class="n">stage</span><span class="p">)):</span>
+        <span class="n">sub_params</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">for</span> <span class="n">param_name</span><span class="p">,</span> <span class="n">param_value</span> <span class="ow">in</span> <span class="n">_get_stage_type_params</span><span class="p">(</span><span class="n">stage</span><span class="p">)</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="n">sub_hierarchy</span> <span class="o">=</span> <span class="n">_gen_stage_hierarchy_recursively</span><span class="p">(</span><span class="n">param_value</span><span class="p">,</span> <span class="n">uid_to_indexed_name_map</span><span class="p">)</span>
+            <span class="n">sub_params</span><span class="p">[</span><span class="n">param_name</span><span class="p">]</span> <span class="o">=</span> <span class="n">sub_hierarchy</span>
+        <span class="k">return</span> <span class="p">{</span><span class="s2">&quot;name&quot;</span><span class="p">:</span> <span class="n">stage_name</span><span class="p">,</span> <span class="s2">&quot;params&quot;</span><span class="p">:</span> <span class="n">sub_params</span><span class="p">}</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">return</span> <span class="p">{</span><span class="s2">&quot;name&quot;</span><span class="p">:</span> <span class="n">stage_name</span><span class="p">}</span>
+
+
+<span class="k">def</span> <span class="nf">_gen_estimator_metadata</span><span class="p">(</span><span class="n">estimator</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Returns an `_AutologgingEstimatorMetadata` object.</span>
+<span class="sd">    The `_AutologgingEstimatorMetadata` object includes:</span>
+<span class="sd">     - hierarchy: the hierarchy of the estimator, it will expand</span>
+<span class="sd">         pipeline/meta estimator/param tuning estimator</span>
+<span class="sd">     - uid_to_indexed_name_map: a map of `uid` -&gt; `name`, each nested instance uid will be</span>
+<span class="sd">         mapped to a fixed name. The naming rule is using `{class_name}` if the</span>
+<span class="sd">         instance type occurs once, or `{class_name}_{index}` if the instance type occurs</span>
+<span class="sd">         multiple times. The index order is in line with depth-first traversing.</span>
+<span class="sd">     - param_search_estimators: a list includes all param search estimators in the</span>
+<span class="sd">         hierarchy tree.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">uid_to_indexed_name_map</span> <span class="o">=</span> <span class="n">_get_uid_to_indexed_name_map</span><span class="p">(</span><span class="n">estimator</span><span class="p">)</span>
+    <span class="n">param_search_estimators</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="n">stage</span> <span class="k">for</span> <span class="n">stage</span> <span class="ow">in</span> <span class="n">_traverse_stage</span><span class="p">(</span><span class="n">estimator</span><span class="p">)</span> <span class="k">if</span> <span class="n">_is_parameter_search_estimator</span><span class="p">(</span><span class="n">stage</span><span class="p">)</span>
+    <span class="p">]</span>
+    <span class="n">hierarchy</span> <span class="o">=</span> <span class="n">_gen_stage_hierarchy_recursively</span><span class="p">(</span><span class="n">estimator</span><span class="p">,</span> <span class="n">uid_to_indexed_name_map</span><span class="p">)</span>
+
+    <span class="n">metadata</span> <span class="o">=</span> <span class="n">_AutologgingEstimatorMetadata</span><span class="p">(</span>
+        <span class="n">hierarchy</span><span class="o">=</span><span class="n">hierarchy</span><span class="p">,</span>
+        <span class="n">uid_to_indexed_name_map</span><span class="o">=</span><span class="n">uid_to_indexed_name_map</span><span class="p">,</span>
+        <span class="n">param_search_estimators</span><span class="o">=</span><span class="n">param_search_estimators</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">estimator</span><span class="o">.</span><span class="n">_autologging_metadata</span> <span class="o">=</span> <span class="n">metadata</span>
+
+    <span class="k">return</span> <span class="n">metadata</span>
+
+
+<span class="k">def</span> <span class="nf">_get_param_map</span><span class="p">(</span><span class="n">instance</span><span class="p">):</span>
+    <span class="k">return</span> <span class="p">{</span>
+        <span class="n">param</span><span class="o">.</span><span class="n">name</span><span class="p">:</span> <span class="n">instance</span><span class="o">.</span><span class="n">getOrDefault</span><span class="p">(</span><span class="n">param</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">param</span> <span class="ow">in</span> <span class="n">instance</span><span class="o">.</span><span class="n">params</span>
+        <span class="k">if</span> <span class="n">instance</span><span class="o">.</span><span class="n">isDefined</span><span class="p">(</span><span class="n">param</span><span class="p">)</span>
+    <span class="p">}</span>
+
+
+<span class="k">def</span> <span class="nf">_get_stage_type_params</span><span class="p">(</span><span class="n">instance</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Get the param map of the instance where param value is of type pyspark.ml.param.Params</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="kn">from</span> <span class="nn">pyspark.ml.param</span> <span class="kn">import</span> <span class="n">Params</span>
+
+    <span class="k">return</span> <span class="p">{</span>
+        <span class="n">param</span><span class="o">.</span><span class="n">name</span><span class="p">:</span> <span class="n">instance</span><span class="o">.</span><span class="n">getOrDefault</span><span class="p">(</span><span class="n">param</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">param</span> <span class="ow">in</span> <span class="n">instance</span><span class="o">.</span><span class="n">params</span>
+        <span class="k">if</span> <span class="n">instance</span><span class="o">.</span><span class="n">isDefined</span><span class="p">(</span><span class="n">param</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">instance</span><span class="o">.</span><span class="n">getOrDefault</span><span class="p">(</span><span class="n">param</span><span class="p">),</span> <span class="n">Params</span><span class="p">)</span>
+    <span class="p">}</span>
+
+
+<span class="k">def</span> <span class="nf">_get_instance_param_map_recursively</span><span class="p">(</span><span class="n">instance</span><span class="p">,</span> <span class="n">level</span><span class="p">,</span> <span class="n">uid_to_indexed_name_map</span><span class="p">):</span>
+    <span class="kn">from</span> <span class="nn">pyspark.ml.param</span> <span class="kn">import</span> <span class="n">Params</span>
+    <span class="kn">from</span> <span class="nn">pyspark.ml.pipeline</span> <span class="kn">import</span> <span class="n">Pipeline</span>
+
+    <span class="n">param_map</span> <span class="o">=</span> <span class="n">_get_param_map</span><span class="p">(</span><span class="n">instance</span><span class="p">)</span>
+    <span class="n">expanded_param_map</span> <span class="o">=</span> <span class="p">{}</span>
+
+    <span class="n">is_pipeline</span> <span class="o">=</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">instance</span><span class="p">,</span> <span class="n">Pipeline</span><span class="p">)</span>
+    <span class="n">is_parameter_search_estimator</span> <span class="o">=</span> <span class="n">_is_parameter_search_estimator</span><span class="p">(</span><span class="n">instance</span><span class="p">)</span>
+
+    <span class="n">logged_param_name_prefix</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span> <span class="k">if</span> <span class="n">level</span> <span class="o">==</span> <span class="mi">0</span> <span class="k">else</span> <span class="n">uid_to_indexed_name_map</span><span class="p">[</span><span class="n">instance</span><span class="o">.</span><span class="n">uid</span><span class="p">]</span> <span class="o">+</span> <span class="s2">&quot;.&quot;</span>
+
+    <span class="k">for</span> <span class="n">param_name</span><span class="p">,</span> <span class="n">param_value</span> <span class="ow">in</span> <span class="n">param_map</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+        <span class="n">logged_param_name</span> <span class="o">=</span> <span class="n">logged_param_name_prefix</span> <span class="o">+</span> <span class="n">param_name</span>
+
+        <span class="k">if</span> <span class="n">is_pipeline</span> <span class="ow">and</span> <span class="n">param_name</span> <span class="o">==</span> <span class="s2">&quot;stages&quot;</span><span class="p">:</span>
+            <span class="n">expanded_param_map</span><span class="p">[</span><span class="n">logged_param_name</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span>
+                <span class="n">uid_to_indexed_name_map</span><span class="p">[</span><span class="n">stage</span><span class="o">.</span><span class="n">uid</span><span class="p">]</span> <span class="k">for</span> <span class="n">stage</span> <span class="ow">in</span> <span class="n">instance</span><span class="o">.</span><span class="n">getStages</span><span class="p">()</span>
+            <span class="p">]</span>
+            <span class="k">for</span> <span class="n">stage</span> <span class="ow">in</span> <span class="n">instance</span><span class="o">.</span><span class="n">getStages</span><span class="p">():</span>
+                <span class="n">stage_param_map</span> <span class="o">=</span> <span class="n">_get_instance_param_map_recursively</span><span class="p">(</span>
+                    <span class="n">stage</span><span class="p">,</span> <span class="n">level</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="n">uid_to_indexed_name_map</span>
+                <span class="p">)</span>
+                <span class="n">expanded_param_map</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">stage_param_map</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">is_parameter_search_estimator</span> <span class="ow">and</span> <span class="n">param_name</span> <span class="o">==</span> <span class="s2">&quot;estimator&quot;</span><span class="p">:</span>
+            <span class="n">expanded_param_map</span><span class="p">[</span><span class="n">logged_param_name</span><span class="p">]</span> <span class="o">=</span> <span class="n">uid_to_indexed_name_map</span><span class="p">[</span><span class="n">param_value</span><span class="o">.</span><span class="n">uid</span><span class="p">]</span>
+            <span class="c1"># skip log estimator&#39;s nested params because they will be logged as JSON artifact,</span>
+            <span class="c1"># and they will be logged in nested runs as well.</span>
+        <span class="k">elif</span> <span class="n">is_parameter_search_estimator</span> <span class="ow">and</span> <span class="n">param_name</span> <span class="o">==</span> <span class="s2">&quot;estimatorParamMaps&quot;</span><span class="p">:</span>
+            <span class="c1"># this param will be saved as JSON format artifact.</span>
+            <span class="k">pass</span>
+        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">param_value</span><span class="p">,</span> <span class="n">Params</span><span class="p">):</span>
+            <span class="c1"># handle the case param value type inherits `pyspark.ml.param.Params`</span>
+            <span class="c1"># e.g. param like</span>
+            <span class="c1"># `OneVsRest.classifier`/`CrossValidator.evaluator`</span>
+            <span class="n">expanded_param_map</span><span class="p">[</span><span class="n">logged_param_name</span><span class="p">]</span> <span class="o">=</span> <span class="n">uid_to_indexed_name_map</span><span class="p">[</span><span class="n">param_value</span><span class="o">.</span><span class="n">uid</span><span class="p">]</span>
+            <span class="n">internal_param_map</span> <span class="o">=</span> <span class="n">_get_instance_param_map_recursively</span><span class="p">(</span>
+                <span class="n">param_value</span><span class="p">,</span> <span class="n">level</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="n">uid_to_indexed_name_map</span>
+            <span class="p">)</span>
+            <span class="n">expanded_param_map</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">internal_param_map</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">expanded_param_map</span><span class="p">[</span><span class="n">logged_param_name</span><span class="p">]</span> <span class="o">=</span> <span class="n">param_value</span>
+
+    <span class="k">return</span> <span class="n">expanded_param_map</span>
+
+
+<span class="k">def</span> <span class="nf">_get_instance_param_map</span><span class="p">(</span><span class="n">instance</span><span class="p">,</span> <span class="n">uid_to_indexed_name_map</span><span class="p">):</span>
+    <span class="k">return</span> <span class="n">_get_instance_param_map_recursively</span><span class="p">(</span>
+        <span class="n">instance</span><span class="p">,</span> <span class="n">level</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">uid_to_indexed_name_map</span><span class="o">=</span><span class="n">uid_to_indexed_name_map</span>
+    <span class="p">)</span>
+
+
+<span class="k">def</span> <span class="nf">_create_child_runs_for_parameter_search</span><span class="p">(</span><span class="n">parent_estimator</span><span class="p">,</span> <span class="n">parent_model</span><span class="p">,</span> <span class="n">parent_run</span><span class="p">,</span> <span class="n">child_tags</span><span class="p">):</span>
+    <span class="n">client</span> <span class="o">=</span> <span class="n">MlflowClient</span><span class="p">()</span>
+    <span class="c1"># Use the start time of the parent parameter search run as a rough estimate for the</span>
+    <span class="c1"># start time of child runs, since we cannot precisely determine when each point</span>
+    <span class="c1"># in the parameter search space was explored</span>
+    <span class="n">child_run_start_time</span> <span class="o">=</span> <span class="n">parent_run</span><span class="o">.</span><span class="n">info</span><span class="o">.</span><span class="n">start_time</span>
+    <span class="n">child_run_end_time</span> <span class="o">=</span> <span class="n">get_current_time_millis</span><span class="p">()</span>
+
+    <span class="n">estimator_param_maps</span> <span class="o">=</span> <span class="n">parent_estimator</span><span class="o">.</span><span class="n">getEstimatorParamMaps</span><span class="p">()</span>
+    <span class="n">tuned_estimator</span> <span class="o">=</span> <span class="n">parent_estimator</span><span class="o">.</span><span class="n">getEstimator</span><span class="p">()</span>
+
+    <span class="n">metrics_dict</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">_get_param_search_metrics_and_best_index</span><span class="p">(</span><span class="n">parent_estimator</span><span class="p">,</span> <span class="n">parent_model</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">est_param</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">estimator_param_maps</span><span class="p">):</span>
+        <span class="n">child_estimator</span> <span class="o">=</span> <span class="n">tuned_estimator</span><span class="o">.</span><span class="n">copy</span><span class="p">(</span><span class="n">est_param</span><span class="p">)</span>
+        <span class="n">tags_to_log</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">child_tags</span><span class="p">)</span> <span class="k">if</span> <span class="n">child_tags</span> <span class="k">else</span> <span class="p">{}</span>
+        <span class="n">tags_to_log</span><span class="o">.</span><span class="n">update</span><span class="p">({</span><span class="n">MLFLOW_PARENT_RUN_ID</span><span class="p">:</span> <span class="n">parent_run</span><span class="o">.</span><span class="n">info</span><span class="o">.</span><span class="n">run_id</span><span class="p">})</span>
+        <span class="n">tags_to_log</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">_get_estimator_info_tags</span><span class="p">(</span><span class="n">child_estimator</span><span class="p">))</span>
+
+        <span class="n">child_run</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">create_run</span><span class="p">(</span>
+            <span class="n">experiment_id</span><span class="o">=</span><span class="n">parent_run</span><span class="o">.</span><span class="n">info</span><span class="o">.</span><span class="n">experiment_id</span><span class="p">,</span>
+            <span class="n">start_time</span><span class="o">=</span><span class="n">child_run_start_time</span><span class="p">,</span>
+            <span class="n">tags</span><span class="o">=</span><span class="n">tags_to_log</span><span class="p">,</span>
+        <span class="p">)</span>
+
+        <span class="n">params_to_log</span> <span class="o">=</span> <span class="n">_get_instance_param_map</span><span class="p">(</span>
+            <span class="n">child_estimator</span><span class="p">,</span> <span class="n">parent_estimator</span><span class="o">.</span><span class="n">_autologging_metadata</span><span class="o">.</span><span class="n">uid_to_indexed_name_map</span>
+        <span class="p">)</span>
+        <span class="n">param_batches_to_log</span> <span class="o">=</span> <span class="n">_chunk_dict</span><span class="p">(</span><span class="n">params_to_log</span><span class="p">,</span> <span class="n">chunk_size</span><span class="o">=</span><span class="n">MAX_PARAMS_TAGS_PER_BATCH</span><span class="p">)</span>
+        <span class="n">metrics_to_log</span> <span class="o">=</span> <span class="p">{</span><span class="n">k</span><span class="p">:</span> <span class="n">v</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">metrics_dict</span><span class="o">.</span><span class="n">items</span><span class="p">()}</span>
+        <span class="k">for</span> <span class="n">params_batch</span><span class="p">,</span> <span class="n">metrics_batch</span> <span class="ow">in</span> <span class="n">zip_longest</span><span class="p">(</span>
+            <span class="n">param_batches_to_log</span><span class="p">,</span> <span class="p">[</span><span class="n">metrics_to_log</span><span class="p">],</span> <span class="n">fillvalue</span><span class="o">=</span><span class="p">{}</span>
+        <span class="p">):</span>
+            <span class="c1"># Trim any parameter keys / values and metric keys that exceed the limits</span>
+            <span class="c1"># imposed by corresponding MLflow Tracking APIs (e.g., LogParam, LogMetric)</span>
+            <span class="n">truncated_params_batch</span> <span class="o">=</span> <span class="n">_truncate_dict</span><span class="p">(</span>
+                <span class="n">params_batch</span><span class="p">,</span> <span class="n">MAX_ENTITY_KEY_LENGTH</span><span class="p">,</span> <span class="n">MAX_PARAM_VAL_LENGTH</span>
+            <span class="p">)</span>
+            <span class="n">truncated_metrics_batch</span> <span class="o">=</span> <span class="n">_truncate_dict</span><span class="p">(</span>
+                <span class="n">metrics_batch</span><span class="p">,</span> <span class="n">max_key_length</span><span class="o">=</span><span class="n">MAX_ENTITY_KEY_LENGTH</span>
+            <span class="p">)</span>
+            <span class="n">client</span><span class="o">.</span><span class="n">log_batch</span><span class="p">(</span>
+                <span class="n">run_id</span><span class="o">=</span><span class="n">child_run</span><span class="o">.</span><span class="n">info</span><span class="o">.</span><span class="n">run_id</span><span class="p">,</span>
+                <span class="n">params</span><span class="o">=</span><span class="p">[</span>
+                    <span class="n">Param</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">key</span><span class="p">),</span> <span class="nb">str</span><span class="p">(</span><span class="n">value</span><span class="p">))</span> <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">truncated_params_batch</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
+                <span class="p">],</span>
+                <span class="n">metrics</span><span class="o">=</span><span class="p">[</span>
+                    <span class="n">Metric</span><span class="p">(</span><span class="n">key</span><span class="o">=</span><span class="nb">str</span><span class="p">(</span><span class="n">key</span><span class="p">),</span> <span class="n">value</span><span class="o">=</span><span class="n">value</span><span class="p">,</span> <span class="n">timestamp</span><span class="o">=</span><span class="n">child_run_end_time</span><span class="p">,</span> <span class="n">step</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+                    <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">truncated_metrics_batch</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
+                <span class="p">],</span>
+            <span class="p">)</span>
+        <span class="n">client</span><span class="o">.</span><span class="n">set_terminated</span><span class="p">(</span><span class="n">run_id</span><span class="o">=</span><span class="n">child_run</span><span class="o">.</span><span class="n">info</span><span class="o">.</span><span class="n">run_id</span><span class="p">,</span> <span class="n">end_time</span><span class="o">=</span><span class="n">child_run_end_time</span><span class="p">)</span>
+
+
+<span class="k">def</span> <span class="nf">_log_parameter_search_results_as_artifact</span><span class="p">(</span><span class="n">param_maps</span><span class="p">,</span> <span class="n">metrics_dict</span><span class="p">,</span> <span class="n">run_id</span><span class="p">):</span>
+    <span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
+
+    <span class="n">result_dict</span> <span class="o">=</span> <span class="n">defaultdict</span><span class="p">(</span><span class="nb">list</span><span class="p">)</span>
+    <span class="n">result_dict</span><span class="p">[</span><span class="s2">&quot;params&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">result_dict</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">metrics_dict</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">param_map</span> <span class="ow">in</span> <span class="n">param_maps</span><span class="p">:</span>
+        <span class="n">result_dict</span><span class="p">[</span><span class="s2">&quot;params&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="n">param_map</span><span class="p">))</span>
+        <span class="k">for</span> <span class="n">param_name</span><span class="p">,</span> <span class="n">param_value</span> <span class="ow">in</span> <span class="n">param_map</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="n">result_dict</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;param.</span><span class="si">{</span><span class="n">param_name</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">param_value</span><span class="p">)</span>
+
+    <span class="n">results_df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="o">.</span><span class="n">from_dict</span><span class="p">(</span><span class="n">result_dict</span><span class="p">)</span>
+    <span class="k">with</span> <span class="n">TempDir</span><span class="p">()</span> <span class="k">as</span> <span class="n">t</span><span class="p">:</span>
+        <span class="n">results_path</span> <span class="o">=</span> <span class="n">t</span><span class="o">.</span><span class="n">path</span><span class="p">(</span><span class="s2">&quot;search_results.csv&quot;</span><span class="p">)</span>
+        <span class="n">results_df</span><span class="o">.</span><span class="n">to_csv</span><span class="p">(</span><span class="n">results_path</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+        <span class="n">MlflowClient</span><span class="p">()</span><span class="o">.</span><span class="n">log_artifact</span><span class="p">(</span><span class="n">run_id</span><span class="p">,</span> <span class="n">results_path</span><span class="p">)</span>
+
+
+<span class="k">def</span> <span class="nf">_get_warning_msg_for_fit_call_with_a_list_of_params</span><span class="p">(</span><span class="n">estimator</span><span class="p">):</span>
+    <span class="k">return</span> <span class="p">(</span>
+        <span class="s2">&quot;Skip pyspark ML autologging when calling &quot;</span>
+        <span class="o">+</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">_get_fully_qualified_class_name</span><span class="p">(</span><span class="n">estimator</span><span class="p">)</span><span class="si">}</span><span class="s2">.fit with a list of params,&quot;</span>
+        <span class="o">+</span> <span class="s2">&quot;if you want to autolog for this case, you convert code to call `fit` with &quot;</span>
+        <span class="o">+</span> <span class="s2">&quot;each single param map.&quot;</span>
+    <span class="p">)</span>
+
+
+<span class="k">def</span> <span class="nf">_get_tuning_param_maps</span><span class="p">(</span><span class="n">param_search_estimator</span><span class="p">,</span> <span class="n">uid_to_indexed_name_map</span><span class="p">):</span>
+    <span class="n">tuning_param_maps</span> <span class="o">=</span> <span class="p">[]</span>
+
+    <span class="k">def</span> <span class="nf">gen_log_key</span><span class="p">(</span><span class="n">param</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">param</span><span class="o">.</span><span class="n">parent</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">uid_to_indexed_name_map</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">&quot;Tuning params should not include params not owned by the tuned estimator, but &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;found a param </span><span class="si">{</span><span class="n">param</span><span class="si">}</span><span class="s2">&quot;</span>
+            <span class="p">)</span>
+        <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">uid_to_indexed_name_map</span><span class="p">[</span><span class="n">param</span><span class="o">.</span><span class="n">parent</span><span class="p">]</span><span class="si">}</span><span class="s2">.</span><span class="si">{</span><span class="n">param</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">&quot;</span>
+
+    <span class="k">for</span> <span class="n">eps</span> <span class="ow">in</span> <span class="n">param_search_estimator</span><span class="o">.</span><span class="n">getEstimatorParamMaps</span><span class="p">():</span>
+        <span class="n">tuning_param_maps</span><span class="o">.</span><span class="n">append</span><span class="p">({</span><span class="n">gen_log_key</span><span class="p">(</span><span class="n">k</span><span class="p">):</span> <span class="n">v</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">eps</span><span class="o">.</span><span class="n">items</span><span class="p">()})</span>
+    <span class="k">return</span> <span class="n">tuning_param_maps</span>
+
+
+<span class="k">def</span> <span class="nf">_get_param_search_metrics_and_best_index</span><span class="p">(</span><span class="n">param_search_estimator</span><span class="p">,</span> <span class="n">param_search_model</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Return a tuple of `(metrics_dict, best_index)`</span>
+<span class="sd">    `metrics_dict` is a dict of metric_name --&gt; metric_values for each param map</span>
+<span class="sd">    - For CrossValidatorModel, the result dict contains metrics of avg_metris and std_metrics</span>
+<span class="sd">      for each param map.</span>
+<span class="sd">    - For TrainValidationSplitModel, the result dict contains metrics for each param map.</span>
+
+<span class="sd">    `best_index` is the best index of trials.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="kn">from</span> <span class="nn">pyspark.ml.tuning</span> <span class="kn">import</span> <span class="n">CrossValidatorModel</span><span class="p">,</span> <span class="n">TrainValidationSplitModel</span>
+
+    <span class="n">metrics_dict</span> <span class="o">=</span> <span class="p">{}</span>
+
+    <span class="n">metric_key</span> <span class="o">=</span> <span class="n">param_search_estimator</span><span class="o">.</span><span class="n">getEvaluator</span><span class="p">()</span><span class="o">.</span><span class="n">getMetricName</span><span class="p">()</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">param_search_model</span><span class="p">,</span> <span class="n">CrossValidatorModel</span><span class="p">):</span>
+        <span class="n">avg_metrics</span> <span class="o">=</span> <span class="n">param_search_model</span><span class="o">.</span><span class="n">avgMetrics</span>
+        <span class="n">metrics_dict</span><span class="p">[</span><span class="s2">&quot;avg_&quot;</span> <span class="o">+</span> <span class="n">metric_key</span><span class="p">]</span> <span class="o">=</span> <span class="n">avg_metrics</span>
+        <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">param_search_model</span><span class="p">,</span> <span class="s2">&quot;stdMetrics&quot;</span><span class="p">):</span>
+            <span class="n">metrics_dict</span><span class="p">[</span><span class="s2">&quot;std_&quot;</span> <span class="o">+</span> <span class="n">metric_key</span><span class="p">]</span> <span class="o">=</span> <span class="n">param_search_model</span><span class="o">.</span><span class="n">stdMetrics</span>
+    <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">param_search_model</span><span class="p">,</span> <span class="n">TrainValidationSplitModel</span><span class="p">):</span>
+        <span class="n">avg_metrics</span> <span class="o">=</span> <span class="n">param_search_model</span><span class="o">.</span><span class="n">validationMetrics</span>
+        <span class="n">metrics_dict</span><span class="p">[</span><span class="n">metric_key</span><span class="p">]</span> <span class="o">=</span> <span class="n">avg_metrics</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unknown parameter search model type </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">param_search_model</span><span class="p">)</span><span class="si">}</span><span class="s2">.&quot;</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">param_search_estimator</span><span class="o">.</span><span class="n">getEvaluator</span><span class="p">()</span><span class="o">.</span><span class="n">isLargerBetter</span><span class="p">():</span>
+        <span class="n">best_index</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">argmax</span><span class="p">(</span><span class="n">avg_metrics</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">best_index</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">argmin</span><span class="p">(</span><span class="n">avg_metrics</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">metrics_dict</span><span class="p">,</span> <span class="n">best_index</span>
+
+
+<span class="k">def</span> <span class="nf">_log_estimator_params</span><span class="p">(</span><span class="n">param_map</span><span class="p">):</span>
+    <span class="c1"># Chunk model parameters to avoid hitting the log_batch API limit</span>
+    <span class="k">for</span> <span class="n">chunk</span> <span class="ow">in</span> <span class="n">_chunk_dict</span><span class="p">(</span><span class="n">param_map</span><span class="p">,</span> <span class="n">chunk_size</span><span class="o">=</span><span class="n">MAX_PARAMS_TAGS_PER_BATCH</span><span class="p">):</span>
+        <span class="n">truncated</span> <span class="o">=</span> <span class="n">_truncate_dict</span><span class="p">(</span><span class="n">chunk</span><span class="p">,</span> <span class="n">MAX_ENTITY_KEY_LENGTH</span><span class="p">,</span> <span class="n">MAX_PARAM_VAL_LENGTH</span><span class="p">)</span>
+        <span class="n">mlflow</span><span class="o">.</span><span class="n">log_params</span><span class="p">(</span><span class="n">truncated</span><span class="p">)</span>
+
+
+<span class="k">class</span> <span class="nc">_AutologgingMetricsManager</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    This class is designed for holding information which is used by autologging metrics</span>
+<span class="sd">    It will hold information of:</span>
+<span class="sd">    (1) a map of &quot;prediction result object id&quot; to a tuple of dataset name(the dataset is</span>
+<span class="sd">       the one which generate the prediction result) and run_id.</span>
+<span class="sd">       Note: We need this map instead of setting the run_id into the &quot;prediction result object&quot;</span>
+<span class="sd">       because the object maybe a numpy array which does not support additional attribute</span>
+<span class="sd">       assignment.</span>
+<span class="sd">    (2) _log_post_training_metrics_enabled flag, in the following method scope:</span>
+<span class="sd">       `Estimator.fit`, `Model.transform`, `Evaluator.evaluate`,</span>
+<span class="sd">       in order to avoid nested/duplicated autologging metric, when run into these scopes,</span>
+<span class="sd">       we need temporarily disable the metric autologging.</span>
+<span class="sd">    (3) _eval_dataset_info_map, it is a double level map:</span>
+<span class="sd">       `_eval_dataset_info_map[run_id][eval_dataset_var_name]` will get a list, each</span>
+<span class="sd">       element in the list is an id of &quot;eval_dataset&quot; instance.</span>
+<span class="sd">       This data structure is used for:</span>
+<span class="sd">        * generating unique dataset name key when autologging metric. For each eval dataset object,</span>
+<span class="sd">          if they have the same eval_dataset_var_name, but object ids are different,</span>
+<span class="sd">          then they will be assigned different name (via appending index to the</span>
+<span class="sd">          eval_dataset_var_name) when autologging.</span>
+<span class="sd">    (4) _evaluator_call_info, it is a double level map:</span>
+<span class="sd">       `_metric_api_call_info[run_id][metric_name]` wil get a list of tuples, each tuple is:</span>
+<span class="sd">         (logged_metric_key, evaluator_information)</span>
+<span class="sd">        Evaluator information includes evaluator class name and params, these information</span>
+<span class="sd">        will also be logged into &quot;metric_info.json&quot; artifacts.</span>
+
+<span class="sd">    Note: this class is not thread-safe.</span>
+<span class="sd">    Design rule for this class:</span>
+<span class="sd">     Because this class instance is a global instance, in order to prevent memory leak, it should</span>
+<span class="sd">     only holds IDs and other small objects references. This class internal data structure should</span>
+<span class="sd">     avoid reference to user dataset variables or model variables.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_pred_result_id_to_dataset_name_and_run_id</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_eval_dataset_info_map</span> <span class="o">=</span> <span class="n">defaultdict</span><span class="p">(</span><span class="k">lambda</span><span class="p">:</span> <span class="n">defaultdict</span><span class="p">(</span><span class="nb">list</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_evaluator_call_info</span> <span class="o">=</span> <span class="n">defaultdict</span><span class="p">(</span><span class="k">lambda</span><span class="p">:</span> <span class="n">defaultdict</span><span class="p">(</span><span class="nb">list</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_log_post_training_metrics_enabled</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_metric_info_artifact_need_update</span> <span class="o">=</span> <span class="n">defaultdict</span><span class="p">(</span><span class="k">lambda</span><span class="p">:</span> <span class="kc">False</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">should_log_post_training_metrics</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Check whether we should run patching code for autologging post training metrics.</span>
+<span class="sd">        This checking should surround the whole patched code due to the safe guard checking,</span>
+<span class="sd">        See following note.</span>
+
+<span class="sd">        Note: It includes checking `_SparkTrainingSession.is_active()`, This is a safe guarding</span>
+<span class="sd">        for meta-estimator (e.g. CrossValidator/TrainValidationSplit) case:</span>
+<span class="sd">          running CrossValidator.fit, the nested `estimator.fit` will be called in parallel,</span>
+<span class="sd">          but, the _autolog_training_status is a global status without thread-safe lock protecting.</span>
+<span class="sd">          This safe guarding will prevent code run into this case.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="ow">not</span> <span class="n">_SparkTrainingSession</span><span class="o">.</span><span class="n">is_active</span><span class="p">()</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">_log_post_training_metrics_enabled</span>
+
+    <span class="k">def</span> <span class="nf">disable_log_post_training_metrics</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">class</span> <span class="nc">LogPostTrainingMetricsDisabledScope</span><span class="p">:</span>
+            <span class="k">def</span> <span class="fm">__enter__</span><span class="p">(</span><span class="n">inner_self</span><span class="p">):</span>
+                <span class="n">inner_self</span><span class="o">.</span><span class="n">old_status</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_log_post_training_metrics_enabled</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_log_post_training_metrics_enabled</span> <span class="o">=</span> <span class="kc">False</span>
+
+            <span class="k">def</span> <span class="fm">__exit__</span><span class="p">(</span><span class="n">inner_self</span><span class="p">,</span> <span class="n">exc_type</span><span class="p">,</span> <span class="n">exc_val</span><span class="p">,</span> <span class="n">exc_tb</span><span class="p">):</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_log_post_training_metrics_enabled</span> <span class="o">=</span> <span class="n">inner_self</span><span class="o">.</span><span class="n">old_status</span>
+
+        <span class="k">return</span> <span class="n">LogPostTrainingMetricsDisabledScope</span><span class="p">()</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">get_run_id_for_model</span><span class="p">(</span><span class="n">model</span><span class="p">):</span>
+        <span class="k">return</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="s2">&quot;_mlflow_run_id&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">is_metric_value_loggable</span><span class="p">(</span><span class="n">metric_value</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        check whether the specified `metric_value` is a numeric value which can be logged</span>
+<span class="sd">        as an MLflow metric.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">metric_value</span><span class="p">,</span> <span class="p">(</span><span class="nb">int</span><span class="p">,</span> <span class="nb">float</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">number</span><span class="p">))</span> <span class="ow">and</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span>
+            <span class="n">metric_value</span><span class="p">,</span> <span class="nb">bool</span>
+        <span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">register_model</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">model</span><span class="p">,</span> <span class="n">run_id</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        In `patched_fit`, we need register the model with the run_id used in `patched_fit`</span>
+<span class="sd">        So that in following metric autologging, the metric will be logged into the registered</span>
+<span class="sd">        run_id</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">model</span><span class="o">.</span><span class="n">_mlflow_run_id</span> <span class="o">=</span> <span class="n">run_id</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">gen_name_with_index</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">index</span><span class="p">):</span>
+        <span class="k">assert</span> <span class="n">index</span> <span class="o">&gt;=</span> <span class="mi">0</span>
+        <span class="k">if</span> <span class="n">index</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">name</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># Use &#39;-&#39; as the separator between name and index,</span>
+            <span class="c1"># The &#39;-&#39; is not valid character in python var name</span>
+            <span class="c1"># so it can prevent name conflicts after appending index.</span>
+            <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">-</span><span class="si">{</span><span class="n">index</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mi">1</span><span class="si">}</span><span class="s2">&quot;</span>
+
+    <span class="k">def</span> <span class="nf">register_prediction_input_dataset</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">model</span><span class="p">,</span> <span class="n">eval_dataset</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Register prediction input dataset into eval_dataset_info_map, it will do:</span>
+<span class="sd">         1. inspect eval dataset var name.</span>
+<span class="sd">         2. check whether eval_dataset_info_map already registered this eval dataset.</span>
+<span class="sd">            will check by object id.</span>
+<span class="sd">         3. register eval dataset with id.</span>
+<span class="sd">         4. return eval dataset name with index.</span>
+
+<span class="sd">        Note: this method include inspecting argument variable name.</span>
+<span class="sd">         So should be called directly from the &quot;patched method&quot;, to ensure it capture</span>
+<span class="sd">         correct argument variable name.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">eval_dataset_name</span> <span class="o">=</span> <span class="n">_inspect_original_var_name</span><span class="p">(</span>
+            <span class="n">eval_dataset</span><span class="p">,</span> <span class="n">fallback_name</span><span class="o">=</span><span class="s2">&quot;unknown_dataset&quot;</span>
+        <span class="p">)</span>
+        <span class="n">eval_dataset_id</span> <span class="o">=</span> <span class="nb">id</span><span class="p">(</span><span class="n">eval_dataset</span><span class="p">)</span>
+
+        <span class="n">run_id</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_run_id_for_model</span><span class="p">(</span><span class="n">model</span><span class="p">)</span>
+        <span class="n">registered_dataset_list</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_eval_dataset_info_map</span><span class="p">[</span><span class="n">run_id</span><span class="p">][</span><span class="n">eval_dataset_name</span><span class="p">]</span>
+
+        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">id_i</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">registered_dataset_list</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">eval_dataset_id</span> <span class="o">==</span> <span class="n">id_i</span><span class="p">:</span>
+                <span class="n">index</span> <span class="o">=</span> <span class="n">i</span>
+                <span class="k">break</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">index</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">registered_dataset_list</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">index</span> <span class="o">==</span> <span class="nb">len</span><span class="p">(</span><span class="n">registered_dataset_list</span><span class="p">):</span>
+            <span class="c1"># register new eval dataset</span>
+            <span class="n">registered_dataset_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">eval_dataset_id</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">gen_name_with_index</span><span class="p">(</span><span class="n">eval_dataset_name</span><span class="p">,</span> <span class="n">index</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">register_prediction_result</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">run_id</span><span class="p">,</span> <span class="n">eval_dataset_name</span><span class="p">,</span> <span class="n">predict_result</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Register the relationship</span>
+<span class="sd">         id(prediction_result) --&gt; (eval_dataset_name, run_id)</span>
+<span class="sd">        into map `_pred_result_id_to_dataset_name_and_run_id`</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">value</span> <span class="o">=</span> <span class="p">(</span><span class="n">eval_dataset_name</span><span class="p">,</span> <span class="n">run_id</span><span class="p">)</span>
+        <span class="n">prediction_result_id</span> <span class="o">=</span> <span class="nb">id</span><span class="p">(</span><span class="n">predict_result</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_pred_result_id_to_dataset_name_and_run_id</span><span class="p">[</span><span class="n">prediction_result_id</span><span class="p">]</span> <span class="o">=</span> <span class="n">value</span>
+
+        <span class="k">def</span> <span class="nf">clean_id</span><span class="p">(</span><span class="n">id_</span><span class="p">):</span>
+            <span class="n">_AUTOLOGGING_METRICS_MANAGER</span><span class="o">.</span><span class="n">_pred_result_id_to_dataset_name_and_run_id</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="n">id_</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+
+        <span class="c1"># When the `predict_result` object being GCed, its ID may be reused, so register a finalizer</span>
+        <span class="c1"># to clear the ID from the dict for preventing wrong ID mapping.</span>
+        <span class="n">weakref</span><span class="o">.</span><span class="n">finalize</span><span class="p">(</span><span class="n">predict_result</span><span class="p">,</span> <span class="n">clean_id</span><span class="p">,</span> <span class="n">prediction_result_id</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">get_run_id_and_dataset_name_for_evaluator_call</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">pred_result_dataset</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Given a registered prediction result dataset object,</span>
+<span class="sd">        return a tuple of (run_id, eval_dataset_name)</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="nb">id</span><span class="p">(</span><span class="n">pred_result_dataset</span><span class="p">)</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_pred_result_id_to_dataset_name_and_run_id</span><span class="p">:</span>
+            <span class="n">dataset_name</span><span class="p">,</span> <span class="n">run_id</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_pred_result_id_to_dataset_name_and_run_id</span><span class="p">[</span>
+                <span class="nb">id</span><span class="p">(</span><span class="n">pred_result_dataset</span><span class="p">)</span>
+            <span class="p">]</span>
+            <span class="k">return</span> <span class="n">run_id</span><span class="p">,</span> <span class="n">dataset_name</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span>
+
+    <span class="k">def</span> <span class="nf">gen_evaluator_info</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">evaluator</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Generate evaluator information, include evaluator class name and params.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">class_name</span> <span class="o">=</span> <span class="n">_get_fully_qualified_class_name</span><span class="p">(</span><span class="n">evaluator</span><span class="p">)</span>
+        <span class="n">param_map</span> <span class="o">=</span> <span class="n">_truncate_dict</span><span class="p">(</span>
+            <span class="n">_get_param_map</span><span class="p">(</span><span class="n">evaluator</span><span class="p">),</span> <span class="n">MAX_ENTITY_KEY_LENGTH</span><span class="p">,</span> <span class="n">MAX_PARAM_VAL_LENGTH</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="p">{</span><span class="s2">&quot;evaluator_class&quot;</span><span class="p">:</span> <span class="n">class_name</span><span class="p">,</span> <span class="s2">&quot;params&quot;</span><span class="p">:</span> <span class="n">param_map</span><span class="p">}</span>
+
+    <span class="k">def</span> <span class="nf">register_evaluator_call</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">run_id</span><span class="p">,</span> <span class="n">metric_name</span><span class="p">,</span> <span class="n">dataset_name</span><span class="p">,</span> <span class="n">evaluator_info</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Register the `Evaluator.evaluate` call, including register the evaluator information</span>
+<span class="sd">        (See doc of `gen_evaluator_info` method) into the corresponding run_id and metric_name</span>
+<span class="sd">        entry in the registry table.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">evaluator_call_info_list</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_evaluator_call_info</span><span class="p">[</span><span class="n">run_id</span><span class="p">][</span><span class="n">metric_name</span><span class="p">]</span>
+
+        <span class="n">index</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">evaluator_call_info_list</span><span class="p">)</span>
+        <span class="n">metric_name_with_index</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">gen_name_with_index</span><span class="p">(</span><span class="n">metric_name</span><span class="p">,</span> <span class="n">index</span><span class="p">)</span>
+        <span class="n">metric_key</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">metric_name_with_index</span><span class="si">}</span><span class="s2">_</span><span class="si">{</span><span class="n">dataset_name</span><span class="si">}</span><span class="s2">&quot;</span>
+
+        <span class="n">evaluator_call_info_list</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">metric_key</span><span class="p">,</span> <span class="n">evaluator_info</span><span class="p">))</span>
+
+        <span class="c1"># Set the flag to true, represent the metric info in this run need update.</span>
+        <span class="c1"># Later when `log_eval_metric` called, it will generate a new metric_info artifact</span>
+        <span class="c1"># and overwrite the old artifact.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_metric_info_artifact_need_update</span><span class="p">[</span><span class="n">run_id</span><span class="p">]</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="k">return</span> <span class="n">metric_key</span>
+
+    <span class="k">def</span> <span class="nf">log_post_training_metric</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">run_id</span><span class="p">,</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Log the metric into the specified mlflow run.</span>
+<span class="sd">        and it will also update the metric_info artifact if needed.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># Note: if the case log the same metric key multiple times,</span>
+        <span class="c1">#  newer value will overwrite old value</span>
+        <span class="n">client</span> <span class="o">=</span> <span class="n">MlflowClient</span><span class="p">()</span>
+        <span class="n">client</span><span class="o">.</span><span class="n">log_metric</span><span class="p">(</span><span class="n">run_id</span><span class="o">=</span><span class="n">run_id</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="n">key</span><span class="p">,</span> <span class="n">value</span><span class="o">=</span><span class="n">value</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_metric_info_artifact_need_update</span><span class="p">[</span><span class="n">run_id</span><span class="p">]:</span>
+            <span class="n">evaluator_call_list</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_evaluator_call_info</span><span class="p">[</span><span class="n">run_id</span><span class="p">]</span><span class="o">.</span><span class="n">values</span><span class="p">():</span>
+                <span class="n">evaluator_call_list</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">v</span><span class="p">)</span>
+
+            <span class="n">evaluator_call_list</span><span class="o">.</span><span class="n">sort</span><span class="p">(</span><span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+            <span class="n">dict_to_log</span> <span class="o">=</span> <span class="n">OrderedDict</span><span class="p">(</span><span class="n">evaluator_call_list</span><span class="p">)</span>
+            <span class="n">client</span><span class="o">.</span><span class="n">log_dict</span><span class="p">(</span><span class="n">run_id</span><span class="o">=</span><span class="n">run_id</span><span class="p">,</span> <span class="n">dictionary</span><span class="o">=</span><span class="n">dict_to_log</span><span class="p">,</span> <span class="n">artifact_file</span><span class="o">=</span><span class="s2">&quot;metric_info.json&quot;</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_metric_info_artifact_need_update</span><span class="p">[</span><span class="n">run_id</span><span class="p">]</span> <span class="o">=</span> <span class="kc">False</span>
+
+
+<span class="c1"># The global `_AutologgingMetricsManager` instance which holds information used in</span>
+<span class="c1"># post-training metric autologging. See doc of class `_AutologgingMetricsManager` for details.</span>
+<span class="n">_AUTOLOGGING_METRICS_MANAGER</span> <span class="o">=</span> <span class="n">_AutologgingMetricsManager</span><span class="p">()</span>
+
+
+<span class="k">def</span> <span class="nf">_get_columns_with_unsupported_data_type</span><span class="p">(</span><span class="n">df</span><span class="p">):</span>
+    <span class="kn">from</span> <span class="nn">pyspark.ml.linalg</span> <span class="kn">import</span> <span class="n">VectorUDT</span>
+
+    <span class="kn">from</span> <span class="nn">mlflow.types.schema</span> <span class="kn">import</span> <span class="n">DataType</span>
+
+    <span class="n">supported_spark_types</span> <span class="o">=</span> <span class="n">DataType</span><span class="o">.</span><span class="n">get_spark_types</span><span class="p">()</span>
+    <span class="n">unsupported_columns</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">field</span> <span class="ow">in</span> <span class="n">df</span><span class="o">.</span><span class="n">schema</span><span class="o">.</span><span class="n">fields</span><span class="p">:</span>
+        <span class="k">if</span> <span class="p">(</span><span class="n">field</span><span class="o">.</span><span class="n">dataType</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">supported_spark_types</span><span class="p">)</span> <span class="ow">and</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span>
+            <span class="n">field</span><span class="o">.</span><span class="n">dataType</span><span class="p">,</span> <span class="n">VectorUDT</span>
+        <span class="p">):</span>
+            <span class="n">unsupported_columns</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">field</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">unsupported_columns</span>
+
+
+<span class="k">def</span> <span class="nf">_check_or_set_model_prediction_column</span><span class="p">(</span><span class="n">spark_model</span><span class="p">,</span> <span class="n">input_spark_df</span><span class="p">):</span>
+    <span class="kn">from</span> <span class="nn">pyspark.ml</span> <span class="kn">import</span> <span class="n">PipelineModel</span>
+
+    <span class="n">prediction_column</span> <span class="o">=</span> <span class="s2">&quot;prediction&quot;</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">spark_model</span><span class="p">,</span> <span class="n">PipelineModel</span><span class="p">)</span> <span class="ow">and</span> <span class="n">spark_model</span><span class="o">.</span><span class="n">stages</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">hasParam</span><span class="p">(</span><span class="s2">&quot;outputCol&quot;</span><span class="p">):</span>
+        <span class="kn">from</span> <span class="nn">mlflow.utils._spark_utils</span> <span class="kn">import</span> <span class="n">_get_active_spark_session</span>
+
+        <span class="n">spark</span> <span class="o">=</span> <span class="n">_get_active_spark_session</span><span class="p">()</span>
+        <span class="c1"># do a transform with an empty input DataFrame</span>
+        <span class="c1"># to get the schema of the transformed DataFrame</span>
+        <span class="n">transformed_df</span> <span class="o">=</span> <span class="n">spark_model</span><span class="o">.</span><span class="n">transform</span><span class="p">(</span><span class="n">spark</span><span class="o">.</span><span class="n">createDataFrame</span><span class="p">([],</span> <span class="n">input_spark_df</span><span class="o">.</span><span class="n">schema</span><span class="p">))</span>
+        <span class="c1"># Ensure prediction column doesn&#39;t already exist</span>
+        <span class="k">if</span> <span class="n">prediction_column</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">transformed_df</span><span class="o">.</span><span class="n">columns</span><span class="p">:</span>
+            <span class="c1"># make sure predict work by default for Transformers</span>
+            <span class="n">spark_model</span><span class="o">.</span><span class="n">stages</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">setOutputCol</span><span class="p">(</span><span class="n">prediction_column</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">prediction_column</span>
+
+
+<span class="k">def</span> <span class="nf">_infer_spark_model_signature</span><span class="p">(</span><span class="n">spark_model</span><span class="p">,</span> <span class="n">input_example_spark_df</span><span class="p">):</span>
+    <span class="kn">from</span> <span class="nn">mlflow.models</span> <span class="kn">import</span> <span class="n">infer_signature</span>
+
+    <span class="n">prediction_column</span> <span class="o">=</span> <span class="n">_check_or_set_model_prediction_column</span><span class="p">(</span><span class="n">spark_model</span><span class="p">,</span> <span class="n">input_example_spark_df</span><span class="p">)</span>
+    <span class="n">model_output</span> <span class="o">=</span> <span class="n">spark_model</span><span class="o">.</span><span class="n">transform</span><span class="p">(</span><span class="n">input_example_spark_df</span><span class="p">)</span><span class="o">.</span><span class="n">select</span><span class="p">(</span><span class="n">prediction_column</span><span class="p">)</span>
+    <span class="c1"># TODO: Remove this once we support non-scalar spark data types</span>
+    <span class="k">if</span> <span class="n">unsupported_columns</span> <span class="o">:=</span> <span class="n">_get_columns_with_unsupported_data_type</span><span class="p">(</span><span class="n">model_output</span><span class="p">):</span>
+        <span class="n">_logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+            <span class="s2">&quot;Model outputs contain unsupported Spark data types: &quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">unsupported_columns</span><span class="si">}</span><span class="s2">. Output schema is not be logged.&quot;</span>
+        <span class="p">)</span>
+        <span class="n">model_output</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="n">signature</span> <span class="o">=</span> <span class="n">infer_signature</span><span class="p">(</span><span class="n">input_example_spark_df</span><span class="p">,</span> <span class="n">model_output</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">signature</span><span class="o">.</span><span class="n">outputs</span><span class="p">:</span>
+        <span class="c1"># We only have one prediction column output,</span>
+        <span class="c1"># convert it to unnamed output schema to keep consistent with old MLflow version.</span>
+        <span class="n">signature</span><span class="o">.</span><span class="n">outputs</span><span class="o">.</span><span class="n">inputs</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="k">return</span> <span class="n">signature</span>
+
+
+<div class="viewcode-block" id="autolog"><a class="viewcode-back" href="../../../python_api/mlflow.pyspark.ml.html#mlflow.pyspark.ml.autolog">[docs]</a><span class="nd">@autologging_integration</span><span class="p">(</span><span class="n">AUTOLOGGING_INTEGRATION_NAME</span><span class="p">)</span>
+<span class="k">def</span> <span class="nf">autolog</span><span class="p">(</span>
+    <span class="n">log_models</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+    <span class="n">log_datasets</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+    <span class="n">disable</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+    <span class="n">exclusive</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+    <span class="n">disable_for_unsupported_versions</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+    <span class="n">silent</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+    <span class="n">log_post_training_metrics</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+    <span class="n">registered_model_name</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">log_input_examples</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+    <span class="n">log_model_signatures</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+    <span class="n">log_model_allowlist</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">extra_tags</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+<span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Enables (or disables) and configures autologging for pyspark ml estimators.</span>
+<span class="sd">    This method is not threadsafe.</span>
+<span class="sd">    This API requires Spark 3.0 or above.</span>
+
+<span class="sd">    **When is autologging performed?**</span>
+<span class="sd">      Autologging is performed when you call ``Estimator.fit`` except for estimators (featurizers)</span>
+<span class="sd">      under ``pyspark.ml.feature``.</span>
+
+<span class="sd">    **Logged information**</span>
+<span class="sd">      **Parameters**</span>
+<span class="sd">        - Parameters obtained by ``estimator.params``. If a param value is also an ``Estimator``,</span>
+<span class="sd">          then params in the the wrapped estimator will also be logged, the nested param key</span>
+<span class="sd">          will be `{estimator_uid}.{param_name}`</span>
+
+<span class="sd">      **Tags**</span>
+<span class="sd">        - An estimator class name (e.g. &quot;LinearRegression&quot;).</span>
+<span class="sd">        - A fully qualified estimator class name</span>
+<span class="sd">          (e.g. &quot;pyspark.ml.regression.LinearRegression&quot;).</span>
+
+<span class="sd">      .. _post training metrics:</span>
+
+<span class="sd">      **Post training metrics**</span>
+<span class="sd">        When users call evaluator APIs after model training, MLflow tries to capture the</span>
+<span class="sd">        `Evaluator.evaluate` results and log them as MLflow metrics to the Run associated with</span>
+<span class="sd">        the model. All pyspark ML evaluators are supported.</span>
+
+<span class="sd">        For post training metrics autologging, the metric key format is:</span>
+<span class="sd">        &quot;{metric_name}[-{call_index}]_{dataset_name}&quot;</span>
+
+<span class="sd">        - The metric name is the name returned by `Evaluator.getMetricName()`</span>
+<span class="sd">        - If multiple calls are made to the same pyspark ML evaluator metric, each subsequent call</span>
+<span class="sd">          adds a &quot;call_index&quot; (starting from 2) to the metric key.</span>
+<span class="sd">        - MLflow uses the prediction input dataset variable name as the &quot;dataset_name&quot; in the</span>
+<span class="sd">          metric key. The &quot;prediction input dataset variable&quot; refers to the variable which was</span>
+<span class="sd">          used as the `dataset` argument of `model.transform` call.</span>
+<span class="sd">          Note: MLflow captures the &quot;prediction input dataset&quot; instance in the outermost call</span>
+<span class="sd">          frame and fetches the variable name in the outermost call frame. If the &quot;prediction</span>
+<span class="sd">          input dataset&quot; instance is an intermediate expression without a defined variable</span>
+<span class="sd">          name, the dataset name is set to &quot;unknown_dataset&quot;. If multiple &quot;prediction input</span>
+<span class="sd">          dataset&quot; instances have the same variable name, then subsequent ones will append an</span>
+<span class="sd">          index (starting from 2) to the inspected dataset name.</span>
+
+<span class="sd">        **Limitations**</span>
+<span class="sd">          - MLflow cannot find run information for other objects derived from a given prediction</span>
+<span class="sd">            result (e.g. by doing some transformation on the prediction result dataset).</span>
+
+<span class="sd">      **Artifacts**</span>
+<span class="sd">        - An MLflow Model with the :py:mod:`mlflow.spark` flavor containing a fitted estimator</span>
+<span class="sd">          (logged by :py:func:`mlflow.spark.log_model()`). Note that large models may not be</span>
+<span class="sd">          autologged for performance and storage space considerations, and autologging for</span>
+<span class="sd">          Pipelines and hyperparameter tuning meta-estimators (e.g. CrossValidator) is not yet</span>
+<span class="sd">          supported.</span>
+<span class="sd">          See ``log_models`` param below for details.</span>
+<span class="sd">        - For post training metrics API calls, a &quot;metric_info.json&quot; artifact is logged. This is a</span>
+<span class="sd">          JSON object whose keys are MLflow post training metric names</span>
+<span class="sd">          (see &quot;Post training metrics&quot; section for the key format) and whose values are the</span>
+<span class="sd">          corresponding evaluator information, including evaluator class name and evaluator params.</span>
+
+<span class="sd">    **How does autologging work for meta estimators?**</span>
+<span class="sd">          When a meta estimator (e.g. `Pipeline`_, `CrossValidator`_, `TrainValidationSplit`_,</span>
+<span class="sd">          `OneVsRest`_)</span>
+<span class="sd">          calls ``fit()``, it internally calls ``fit()`` on its child estimators. Autologging</span>
+<span class="sd">          does NOT perform logging on these constituent ``fit()`` calls.</span>
+
+<span class="sd">          A &quot;estimator_info.json&quot; artifact is logged, which includes a `hierarchy` entry</span>
+<span class="sd">          describing the hierarchy of the meta estimator. The hierarchy includes expanded</span>
+<span class="sd">          entries for all nested stages, such as nested pipeline stages.</span>
+
+<span class="sd">      **Parameter search**</span>
+<span class="sd">          In addition to recording the information discussed above, autologging for parameter</span>
+<span class="sd">          search meta estimators (`CrossValidator`_ and `TrainValidationSplit`_) records child runs</span>
+<span class="sd">          with metrics for each set of explored parameters, as well as artifacts and parameters</span>
+<span class="sd">          for the best model and the best parameters (if available).</span>
+<span class="sd">          For better readability, the &quot;estimatorParamMaps&quot; param in parameter search estimator</span>
+<span class="sd">          will be recorded inside &quot;estimator_info&quot; artifact, see following description.</span>
+<span class="sd">          Inside &quot;estimator_info.json&quot; artifact, in addition to the &quot;hierarchy&quot;, records 2 more</span>
+<span class="sd">          items: &quot;tuning_parameter_map_list&quot;: a list contains all parameter maps used in tuning,</span>
+<span class="sd">          and &quot;tuned_estimator_parameter_map&quot;: the parameter map of the tuned estimator.</span>
+<span class="sd">          Records a &quot;best_parameters.json&quot; artifacts, contains the best parameter it searched out.</span>
+<span class="sd">          Records a &quot;search_results.csv&quot; artifacts, contains search results, it is a table with</span>
+<span class="sd">          2 columns: &quot;params&quot; and &quot;metric&quot;.</span>
+
+<span class="sd">    .. _OneVsRest:</span>
+<span class="sd">        https://spark.apache.org/docs/latest/api/python/reference/api/pyspark.ml.classification.OneVsRest.html#pyspark.ml.classification.OneVsRest</span>
+<span class="sd">    .. _Pipeline:</span>
+<span class="sd">        https://spark.apache.org/docs/latest/api/python/reference/api/pyspark.ml.Pipeline.html#pyspark.ml.Pipeline</span>
+<span class="sd">    .. _CrossValidator:</span>
+<span class="sd">        https://spark.apache.org/docs/latest/api/python/reference/api/pyspark.ml.tuning.CrossValidator.html#pyspark.ml.tuning.CrossValidator</span>
+<span class="sd">    .. _TrainValidationSplit:</span>
+<span class="sd">        https://spark.apache.org/docs/latest/api/python/reference/api/pyspark.ml.tuning.TrainValidationSplit.html#pyspark.ml.tuning.TrainValidationSplit</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        log_models: If ``True``, if trained models are in allowlist, they are logged as MLflow</span>
+<span class="sd">            model artifacts. If ``False``, trained models are not logged.</span>
+<span class="sd">            Note: the built-in allowlist excludes some models (e.g. ALS models) which</span>
+<span class="sd">            can be large. To specify a custom allowlist, create a file containing a</span>
+<span class="sd">            newline-delimited list of fully-qualified estimator classnames, and set</span>
+<span class="sd">            the &quot;spark.mlflow.pysparkml.autolog.logModelAllowlistFile&quot; Spark config</span>
+<span class="sd">            to the path of your allowlist file.</span>
+<span class="sd">        log_datasets: If ``True``, dataset information is logged to MLflow Tracking.</span>
+<span class="sd">            If ``False``, dataset information is not logged.</span>
+<span class="sd">        disable: If ``True``, disables the scikit-learn autologging integration. If ``False``,</span>
+<span class="sd">            enables the pyspark ML autologging integration.</span>
+<span class="sd">        exclusive: If ``True``, autologged content is not logged to user-created fluent runs.</span>
+<span class="sd">            If ``False``, autologged content is logged to the active fluent run,</span>
+<span class="sd">            which may be user-created.</span>
+<span class="sd">        disable_for_unsupported_versions: If ``True``, disable autologging for versions of</span>
+<span class="sd">            pyspark that have not been tested against this version of the MLflow</span>
+<span class="sd">            client or are incompatible.</span>
+<span class="sd">        silent: If ``True``, suppress all event logs and warnings from MLflow during pyspark ML</span>
+<span class="sd">            autologging. If ``False``, show all events and warnings during pyspark ML</span>
+<span class="sd">            autologging.</span>
+<span class="sd">        log_post_training_metrics: If ``True``, post training metrics are logged. Defaults to</span>
+<span class="sd">            ``True``. See the `post training metrics`_ section for more</span>
+<span class="sd">            details.</span>
+<span class="sd">        registered_model_name: If given, each time a model is trained, it is registered as a</span>
+<span class="sd">            new model version of the registered model with this name.</span>
+<span class="sd">            The registered model is created if it does not already exist.</span>
+<span class="sd">        log_input_examples: If ``True``, input examples from training datasets are collected and</span>
+<span class="sd">            logged along with pyspark ml model artifacts during training. If</span>
+<span class="sd">            ``False``, input examples are not logged.</span>
+<span class="sd">        log_model_signatures: If ``True``,</span>
+<span class="sd">            :py:class:`ModelSignatures &lt;mlflow.models.ModelSignature&gt;`</span>
+<span class="sd">            describing model inputs and outputs are collected and logged along</span>
+<span class="sd">            with spark ml pipeline/estimator artifacts during training.</span>
+<span class="sd">            If ``False`` signatures are not logged.</span>
+
+<span class="sd">            .. warning::</span>
+
+<span class="sd">                Currently, only scalar Spark data types are supported. If</span>
+<span class="sd">                model inputs/outputs contain non-scalar Spark data types such</span>
+<span class="sd">                as ``pyspark.ml.linalg.Vector``, signatures are not logged.</span>
+
+<span class="sd">        log_model_allowlist: If given, it overrides the default log model allowlist in mlflow.</span>
+<span class="sd">            This takes precedence over the spark configuration of</span>
+<span class="sd">            &quot;spark.mlflow.pysparkml.autolog.logModelAllowlistFile&quot;.</span>
+
+<span class="sd">            **The default log model allowlist in mlflow**</span>
+<span class="sd">                .. literalinclude:: ../../../../mlflow/pyspark/ml/log_model_allowlist.txt</span>
+<span class="sd">                    :language: text</span>
+
+<span class="sd">        extra_tags: A dictionary of extra tags to set on each managed run created by autologging.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="kn">from</span> <span class="nn">pyspark.ml.base</span> <span class="kn">import</span> <span class="n">Estimator</span><span class="p">,</span> <span class="n">Model</span>
+    <span class="kn">from</span> <span class="nn">pyspark.ml.evaluation</span> <span class="kn">import</span> <span class="n">Evaluator</span>
+
+    <span class="kn">from</span> <span class="nn">mlflow.tracking.context</span> <span class="kn">import</span> <span class="n">registry</span> <span class="k">as</span> <span class="n">context_registry</span>
+
+    <span class="k">global</span> <span class="n">_log_model_allowlist</span>
+
+    <span class="k">if</span> <span class="n">log_model_allowlist</span><span class="p">:</span>
+        <span class="n">_log_model_allowlist</span> <span class="o">=</span> <span class="p">{</span><span class="n">model</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span> <span class="k">for</span> <span class="n">model</span> <span class="ow">in</span> <span class="n">log_model_allowlist</span><span class="p">}</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">_log_model_allowlist</span> <span class="o">=</span> <span class="n">_read_log_model_allowlist</span><span class="p">()</span>
+
+    <span class="k">def</span> <span class="nf">_log_pretraining_metadata</span><span class="p">(</span><span class="n">estimator</span><span class="p">,</span> <span class="n">params</span><span class="p">,</span> <span class="n">input_df</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">params</span> <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">params</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
+            <span class="n">estimator</span> <span class="o">=</span> <span class="n">estimator</span><span class="o">.</span><span class="n">copy</span><span class="p">(</span><span class="n">params</span><span class="p">)</span>
+
+        <span class="n">autologging_metadata</span> <span class="o">=</span> <span class="n">_gen_estimator_metadata</span><span class="p">(</span><span class="n">estimator</span><span class="p">)</span>
+
+        <span class="n">artifact_dict</span> <span class="o">=</span> <span class="p">{}</span>
+
+        <span class="n">param_map</span> <span class="o">=</span> <span class="n">_get_instance_param_map</span><span class="p">(</span><span class="n">estimator</span><span class="p">,</span> <span class="n">autologging_metadata</span><span class="o">.</span><span class="n">uid_to_indexed_name_map</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">_should_log_hierarchy</span><span class="p">(</span><span class="n">estimator</span><span class="p">):</span>
+            <span class="n">artifact_dict</span><span class="p">[</span><span class="s2">&quot;hierarchy&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">autologging_metadata</span><span class="o">.</span><span class="n">hierarchy</span>
+
+        <span class="k">for</span> <span class="n">param_search_estimator</span> <span class="ow">in</span> <span class="n">autologging_metadata</span><span class="o">.</span><span class="n">param_search_estimators</span><span class="p">:</span>
+            <span class="n">param_search_estimator_name</span> <span class="o">=</span> <span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">autologging_metadata</span><span class="o">.</span><span class="n">uid_to_indexed_name_map</span><span class="p">[</span><span class="n">param_search_estimator</span><span class="o">.</span><span class="n">uid</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span>
+            <span class="p">)</span>
+            <span class="n">artifact_dict</span><span class="p">[</span><span class="n">param_search_estimator_name</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+
+            <span class="n">artifact_dict</span><span class="p">[</span><span class="n">param_search_estimator_name</span><span class="p">][</span><span class="s2">&quot;tuning_parameter_map_list&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
+                <span class="n">_get_tuning_param_maps</span><span class="p">(</span>
+                    <span class="n">param_search_estimator</span><span class="p">,</span> <span class="n">autologging_metadata</span><span class="o">.</span><span class="n">uid_to_indexed_name_map</span>
+                <span class="p">)</span>
+            <span class="p">)</span>
+
+            <span class="n">artifact_dict</span><span class="p">[</span><span class="n">param_search_estimator_name</span><span class="p">][</span><span class="s2">&quot;tuned_estimator_parameter_map&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
+                <span class="n">_get_instance_param_map_recursively</span><span class="p">(</span>
+                    <span class="n">param_search_estimator</span><span class="o">.</span><span class="n">getEstimator</span><span class="p">(),</span>
+                    <span class="mi">1</span><span class="p">,</span>
+                    <span class="n">autologging_metadata</span><span class="o">.</span><span class="n">uid_to_indexed_name_map</span><span class="p">,</span>
+                <span class="p">)</span>
+            <span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">artifact_dict</span><span class="p">:</span>
+            <span class="n">mlflow</span><span class="o">.</span><span class="n">log_dict</span><span class="p">(</span><span class="n">artifact_dict</span><span class="p">,</span> <span class="n">artifact_file</span><span class="o">=</span><span class="s2">&quot;estimator_info.json&quot;</span><span class="p">)</span>
+
+        <span class="n">_log_estimator_params</span><span class="p">(</span><span class="n">param_map</span><span class="p">)</span>
+
+        <span class="n">mlflow</span><span class="o">.</span><span class="n">set_tags</span><span class="p">(</span><span class="n">_get_estimator_info_tags</span><span class="p">(</span><span class="n">estimator</span><span class="p">))</span>
+
+        <span class="k">if</span> <span class="n">log_datasets</span><span class="p">:</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">context_tags</span> <span class="o">=</span> <span class="n">context_registry</span><span class="o">.</span><span class="n">resolve_tags</span><span class="p">()</span>
+                <span class="n">code_source</span> <span class="o">=</span> <span class="n">CodeDatasetSource</span><span class="p">(</span><span class="n">context_tags</span><span class="p">)</span>
+                <span class="n">dataset</span> <span class="o">=</span> <span class="n">SparkDataset</span><span class="p">(</span>
+                    <span class="n">df</span><span class="o">=</span><span class="n">input_df</span><span class="p">,</span>
+                    <span class="n">source</span><span class="o">=</span><span class="n">code_source</span><span class="p">,</span>
+                <span class="p">)</span>
+                <span class="n">mlflow</span><span class="o">.</span><span class="n">log_input</span><span class="p">(</span><span class="n">dataset</span><span class="p">,</span> <span class="s2">&quot;train&quot;</span><span class="p">)</span>
+            <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+                <span class="n">_logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+                    <span class="s2">&quot;Failed to log training dataset information to MLflow Tracking. Reason: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">e</span>
+                <span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_log_posttraining_metadata</span><span class="p">(</span><span class="n">estimator</span><span class="p">,</span> <span class="n">spark_model</span><span class="p">,</span> <span class="n">params</span><span class="p">,</span> <span class="n">input_df</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">_is_parameter_search_estimator</span><span class="p">(</span><span class="n">estimator</span><span class="p">):</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="c1"># Fetch environment-specific tags (e.g., user and source) to ensure that lineage</span>
+                <span class="c1"># information is consistent with the parent run</span>
+                <span class="n">child_tags</span> <span class="o">=</span> <span class="n">context_registry</span><span class="o">.</span><span class="n">resolve_tags</span><span class="p">()</span>
+                <span class="n">child_tags</span><span class="o">.</span><span class="n">update</span><span class="p">({</span><span class="n">MLFLOW_AUTOLOGGING</span><span class="p">:</span> <span class="n">AUTOLOGGING_INTEGRATION_NAME</span><span class="p">})</span>
+                <span class="n">_create_child_runs_for_parameter_search</span><span class="p">(</span>
+                    <span class="n">parent_estimator</span><span class="o">=</span><span class="n">estimator</span><span class="p">,</span>
+                    <span class="n">parent_model</span><span class="o">=</span><span class="n">spark_model</span><span class="p">,</span>
+                    <span class="n">parent_run</span><span class="o">=</span><span class="n">mlflow</span><span class="o">.</span><span class="n">active_run</span><span class="p">(),</span>
+                    <span class="n">child_tags</span><span class="o">=</span><span class="n">child_tags</span><span class="p">,</span>
+                <span class="p">)</span>
+            <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+                <span class="n">msg</span> <span class="o">=</span> <span class="p">(</span>
+                    <span class="s2">&quot;Encountered exception during creation of child runs for parameter search.&quot;</span>
+                    <span class="sa">f</span><span class="s2">&quot; Child runs may be missing. Exception: </span><span class="si">{</span><span class="n">traceback</span><span class="o">.</span><span class="n">format_exc</span><span class="p">()</span><span class="si">}</span><span class="s2">&quot;</span>
+                <span class="p">)</span>
+                <span class="n">_logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
+
+            <span class="n">estimator_param_maps</span> <span class="o">=</span> <span class="n">_get_tuning_param_maps</span><span class="p">(</span>
+                <span class="n">estimator</span><span class="p">,</span> <span class="n">estimator</span><span class="o">.</span><span class="n">_autologging_metadata</span><span class="o">.</span><span class="n">uid_to_indexed_name_map</span>
+            <span class="p">)</span>
+
+            <span class="n">metrics_dict</span><span class="p">,</span> <span class="n">best_index</span> <span class="o">=</span> <span class="n">_get_param_search_metrics_and_best_index</span><span class="p">(</span>
+                <span class="n">estimator</span><span class="p">,</span> <span class="n">spark_model</span>
+            <span class="p">)</span>
+            <span class="n">_log_parameter_search_results_as_artifact</span><span class="p">(</span>
+                <span class="n">estimator_param_maps</span><span class="p">,</span> <span class="n">metrics_dict</span><span class="p">,</span> <span class="n">mlflow</span><span class="o">.</span><span class="n">active_run</span><span class="p">()</span><span class="o">.</span><span class="n">info</span><span class="o">.</span><span class="n">run_id</span>
+            <span class="p">)</span>
+
+            <span class="c1"># Log best_param_map as JSON artifact</span>
+            <span class="n">best_param_map</span> <span class="o">=</span> <span class="n">estimator_param_maps</span><span class="p">[</span><span class="n">best_index</span><span class="p">]</span>
+            <span class="n">mlflow</span><span class="o">.</span><span class="n">log_dict</span><span class="p">(</span><span class="n">best_param_map</span><span class="p">,</span> <span class="n">artifact_file</span><span class="o">=</span><span class="s2">&quot;best_parameters.json&quot;</span><span class="p">)</span>
+
+            <span class="c1"># Log best_param_map as autologging parameters as well</span>
+            <span class="n">_log_estimator_params</span><span class="p">(</span>
+                <span class="p">{</span>
+                    <span class="sa">f</span><span class="s2">&quot;best_</span><span class="si">{</span><span class="n">param_name</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">:</span> <span class="n">param_value</span>
+                    <span class="k">for</span> <span class="n">param_name</span><span class="p">,</span> <span class="n">param_value</span> <span class="ow">in</span> <span class="n">best_param_map</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
+                <span class="p">}</span>
+            <span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">log_models</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">_should_log_model</span><span class="p">(</span><span class="n">spark_model</span><span class="p">):</span>
+                <span class="kn">from</span> <span class="nn">mlflow.pyspark.ml._autolog</span> <span class="kn">import</span> <span class="p">(</span>
+                    <span class="n">cast_spark_df_with_vector_to_array</span><span class="p">,</span>
+                    <span class="n">get_feature_cols</span><span class="p">,</span>
+                <span class="p">)</span>
+
+                <span class="k">def</span> <span class="nf">_get_input_example_spark_df</span><span class="p">():</span>
+                    <span class="n">feature_cols</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">get_feature_cols</span><span class="p">(</span><span class="n">input_df</span><span class="p">,</span> <span class="n">spark_model</span><span class="p">))</span>
+                    <span class="k">return</span> <span class="n">input_df</span><span class="o">.</span><span class="n">select</span><span class="p">(</span><span class="n">feature_cols</span><span class="p">)</span><span class="o">.</span><span class="n">limit</span><span class="p">(</span><span class="n">INPUT_EXAMPLE_SAMPLE_ROWS</span><span class="p">)</span>
+
+                <span class="k">def</span> <span class="nf">_infer_model_signature</span><span class="p">(</span><span class="n">input_example_slice</span><span class="p">):</span>
+                    <span class="k">return</span> <span class="n">_infer_spark_model_signature</span><span class="p">(</span><span class="n">spark_model</span><span class="p">,</span> <span class="n">input_example_slice</span><span class="p">)</span>
+
+                <span class="c1"># TODO: Remove this once we support non-scalar spark data types</span>
+                <span class="k">nonlocal</span> <span class="n">log_model_signatures</span>
+                <span class="k">if</span> <span class="n">log_model_signatures</span><span class="p">:</span>
+                    <span class="k">if</span> <span class="n">unsupported_columns</span> <span class="o">:=</span> <span class="n">_get_columns_with_unsupported_data_type</span><span class="p">(</span><span class="n">input_df</span><span class="p">):</span>
+                        <span class="n">_logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+                            <span class="s2">&quot;Model inputs contain unsupported Spark data types: &quot;</span>
+                            <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">unsupported_columns</span><span class="si">}</span><span class="s2">. Model signature is not logged.&quot;</span>
+                        <span class="p">)</span>
+                        <span class="n">log_model_signatures</span> <span class="o">=</span> <span class="kc">False</span>
+
+                <span class="n">input_example_spark_df</span><span class="p">,</span> <span class="n">signature</span> <span class="o">=</span> <span class="n">resolve_input_example_and_signature</span><span class="p">(</span>
+                    <span class="n">_get_input_example_spark_df</span><span class="p">,</span>
+                    <span class="n">_infer_model_signature</span><span class="p">,</span>
+                    <span class="n">log_input_examples</span><span class="p">,</span>
+                    <span class="n">log_model_signatures</span><span class="p">,</span>
+                    <span class="n">_logger</span><span class="p">,</span>
+                <span class="p">)</span>
+
+                <span class="k">if</span> <span class="n">input_example_spark_df</span><span class="p">:</span>
+                    <span class="n">input_example</span> <span class="o">=</span> <span class="n">cast_spark_df_with_vector_to_array</span><span class="p">(</span>
+                        <span class="n">input_example_spark_df</span>
+                    <span class="p">)</span><span class="o">.</span><span class="n">toPandas</span><span class="p">()</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">input_example</span> <span class="o">=</span> <span class="kc">None</span>
+                <span class="n">mlflow</span><span class="o">.</span><span class="n">spark</span><span class="o">.</span><span class="n">log_model</span><span class="p">(</span>
+                    <span class="n">spark_model</span><span class="p">,</span>
+                    <span class="s2">&quot;model&quot;</span><span class="p">,</span>
+                    <span class="n">registered_model_name</span><span class="o">=</span><span class="n">registered_model_name</span><span class="p">,</span>
+                    <span class="n">input_example</span><span class="o">=</span><span class="n">input_example</span><span class="p">,</span>
+                    <span class="n">signature</span><span class="o">=</span><span class="n">signature</span><span class="p">,</span>
+                <span class="p">)</span>
+                <span class="k">if</span> <span class="n">_is_parameter_search_model</span><span class="p">(</span><span class="n">spark_model</span><span class="p">):</span>
+                    <span class="n">mlflow</span><span class="o">.</span><span class="n">spark</span><span class="o">.</span><span class="n">log_model</span><span class="p">(</span>
+                        <span class="n">spark_model</span><span class="o">.</span><span class="n">bestModel</span><span class="p">,</span>
+                        <span class="s2">&quot;best_model&quot;</span><span class="p">,</span>
+                    <span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">_logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="n">_get_warning_msg_for_skip_log_model</span><span class="p">(</span><span class="n">spark_model</span><span class="p">))</span>
+
+    <span class="k">def</span> <span class="nf">fit_mlflow</span><span class="p">(</span><span class="n">original</span><span class="p">,</span> <span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="n">params</span> <span class="o">=</span> <span class="n">get_method_call_arg_value</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="s2">&quot;params&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="n">args</span><span class="p">,</span> <span class="n">kwargs</span><span class="p">)</span>
+
+        <span class="c1"># Do not perform autologging on direct calls to fit() for featurizers.</span>
+        <span class="c1"># Note that featurizers will be autologged when they&#39;re fit as part of a Pipeline.</span>
+        <span class="k">if</span> <span class="n">_get_fully_qualified_class_name</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;pyspark.ml.feature.&quot;</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">original</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">params</span><span class="p">,</span> <span class="p">(</span><span class="nb">list</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">)):</span>
+            <span class="c1"># skip the case params is a list or tuple, this case it will call</span>
+            <span class="c1"># fitMultiple and return a model iterator</span>
+            <span class="n">_logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="n">_get_warning_msg_for_fit_call_with_a_list_of_params</span><span class="p">(</span><span class="bp">self</span><span class="p">))</span>
+            <span class="k">return</span> <span class="n">original</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># we need generate estimator param map so we call `self.copy(params)` to construct</span>
+            <span class="c1"># an estimator with the extra params.</span>
+            <span class="kn">from</span> <span class="nn">pyspark.storagelevel</span> <span class="kn">import</span> <span class="n">StorageLevel</span>
+
+            <span class="n">estimator</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">copy</span><span class="p">(</span><span class="n">params</span><span class="p">)</span> <span class="k">if</span> <span class="n">params</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="bp">self</span>
+            <span class="n">input_training_df</span> <span class="o">=</span> <span class="n">args</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">persist</span><span class="p">(</span><span class="n">StorageLevel</span><span class="o">.</span><span class="n">MEMORY_AND_DISK</span><span class="p">)</span>
+            <span class="n">_log_pretraining_metadata</span><span class="p">(</span><span class="n">estimator</span><span class="p">,</span> <span class="n">params</span><span class="p">,</span> <span class="n">input_training_df</span><span class="p">)</span>
+            <span class="n">spark_model</span> <span class="o">=</span> <span class="n">original</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+            <span class="n">_log_posttraining_metadata</span><span class="p">(</span><span class="n">estimator</span><span class="p">,</span> <span class="n">spark_model</span><span class="p">,</span> <span class="n">params</span><span class="p">,</span> <span class="n">input_training_df</span><span class="p">)</span>
+            <span class="n">input_training_df</span><span class="o">.</span><span class="n">unpersist</span><span class="p">()</span>
+
+            <span class="k">return</span> <span class="n">spark_model</span>
+
+    <span class="k">def</span> <span class="nf">patched_fit</span><span class="p">(</span><span class="n">original</span><span class="p">,</span> <span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="n">should_log_post_training_metrics</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="n">log_post_training_metrics</span>
+            <span class="ow">and</span> <span class="n">_AUTOLOGGING_METRICS_MANAGER</span><span class="o">.</span><span class="n">should_log_post_training_metrics</span><span class="p">()</span>
+        <span class="p">)</span>
+        <span class="k">with</span> <span class="n">_SparkTrainingSession</span><span class="p">(</span><span class="n">estimator</span><span class="o">=</span><span class="bp">self</span><span class="p">,</span> <span class="n">allow_children</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span> <span class="k">as</span> <span class="n">t</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">t</span><span class="o">.</span><span class="n">should_log</span><span class="p">():</span>
+                <span class="k">with</span> <span class="n">_AUTOLOGGING_METRICS_MANAGER</span><span class="o">.</span><span class="n">disable_log_post_training_metrics</span><span class="p">():</span>
+                    <span class="n">fit_result</span> <span class="o">=</span> <span class="n">fit_mlflow</span><span class="p">(</span><span class="n">original</span><span class="p">,</span> <span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+                <span class="c1"># In some cases the `fit_result` may be an iterator of spark models.</span>
+                <span class="k">if</span> <span class="n">should_log_post_training_metrics</span> <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">fit_result</span><span class="p">,</span> <span class="n">Model</span><span class="p">):</span>
+                    <span class="n">_AUTOLOGGING_METRICS_MANAGER</span><span class="o">.</span><span class="n">register_model</span><span class="p">(</span>
+                        <span class="n">fit_result</span><span class="p">,</span> <span class="n">mlflow</span><span class="o">.</span><span class="n">active_run</span><span class="p">()</span><span class="o">.</span><span class="n">info</span><span class="o">.</span><span class="n">run_id</span>
+                    <span class="p">)</span>
+                <span class="k">return</span> <span class="n">fit_result</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">original</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">patched_transform</span><span class="p">(</span><span class="n">original</span><span class="p">,</span> <span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="n">run_id</span> <span class="o">=</span> <span class="n">_AUTOLOGGING_METRICS_MANAGER</span><span class="o">.</span><span class="n">get_run_id_for_model</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">_AUTOLOGGING_METRICS_MANAGER</span><span class="o">.</span><span class="n">should_log_post_training_metrics</span><span class="p">()</span> <span class="ow">and</span> <span class="n">run_id</span><span class="p">:</span>
+            <span class="n">predict_result</span> <span class="o">=</span> <span class="n">original</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+            <span class="n">eval_dataset</span> <span class="o">=</span> <span class="n">get_method_call_arg_value</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="s2">&quot;dataset&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="n">args</span><span class="p">,</span> <span class="n">kwargs</span><span class="p">)</span>
+            <span class="n">eval_dataset_name</span> <span class="o">=</span> <span class="n">_AUTOLOGGING_METRICS_MANAGER</span><span class="o">.</span><span class="n">register_prediction_input_dataset</span><span class="p">(</span>
+                <span class="bp">self</span><span class="p">,</span> <span class="n">eval_dataset</span>
+            <span class="p">)</span>
+            <span class="n">_AUTOLOGGING_METRICS_MANAGER</span><span class="o">.</span><span class="n">register_prediction_result</span><span class="p">(</span>
+                <span class="n">run_id</span><span class="p">,</span> <span class="n">eval_dataset_name</span><span class="p">,</span> <span class="n">predict_result</span>
+            <span class="p">)</span>
+            <span class="k">return</span> <span class="n">predict_result</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">original</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">patched_evaluate</span><span class="p">(</span><span class="n">original</span><span class="p">,</span> <span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">_AUTOLOGGING_METRICS_MANAGER</span><span class="o">.</span><span class="n">should_log_post_training_metrics</span><span class="p">():</span>
+            <span class="k">with</span> <span class="n">_AUTOLOGGING_METRICS_MANAGER</span><span class="o">.</span><span class="n">disable_log_post_training_metrics</span><span class="p">():</span>
+                <span class="n">metric</span> <span class="o">=</span> <span class="n">original</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+
+            <span class="k">if</span> <span class="n">_AUTOLOGGING_METRICS_MANAGER</span><span class="o">.</span><span class="n">is_metric_value_loggable</span><span class="p">(</span><span class="n">metric</span><span class="p">):</span>
+                <span class="n">params</span> <span class="o">=</span> <span class="n">get_method_call_arg_value</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="s2">&quot;params&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="n">args</span><span class="p">,</span> <span class="n">kwargs</span><span class="p">)</span>
+                <span class="c1"># we need generate evaluator param map so we call `self.copy(params)` to construct</span>
+                <span class="c1"># an evaluator with the extra evaluation params.</span>
+                <span class="n">evaluator</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">copy</span><span class="p">(</span><span class="n">params</span><span class="p">)</span> <span class="k">if</span> <span class="n">params</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="bp">self</span>
+                <span class="n">metric_name</span> <span class="o">=</span> <span class="n">evaluator</span><span class="o">.</span><span class="n">getMetricName</span><span class="p">()</span>
+                <span class="n">evaluator_info</span> <span class="o">=</span> <span class="n">_AUTOLOGGING_METRICS_MANAGER</span><span class="o">.</span><span class="n">gen_evaluator_info</span><span class="p">(</span><span class="n">evaluator</span><span class="p">)</span>
+
+                <span class="n">pred_result_dataset</span> <span class="o">=</span> <span class="n">get_method_call_arg_value</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="s2">&quot;dataset&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="n">args</span><span class="p">,</span> <span class="n">kwargs</span><span class="p">)</span>
+                <span class="p">(</span>
+                    <span class="n">run_id</span><span class="p">,</span>
+                    <span class="n">dataset_name</span><span class="p">,</span>
+                <span class="p">)</span> <span class="o">=</span> <span class="n">_AUTOLOGGING_METRICS_MANAGER</span><span class="o">.</span><span class="n">get_run_id_and_dataset_name_for_evaluator_call</span><span class="p">(</span>
+                    <span class="n">pred_result_dataset</span>
+                <span class="p">)</span>
+                <span class="k">if</span> <span class="n">run_id</span> <span class="ow">and</span> <span class="n">dataset_name</span><span class="p">:</span>
+                    <span class="n">metric_key</span> <span class="o">=</span> <span class="n">_AUTOLOGGING_METRICS_MANAGER</span><span class="o">.</span><span class="n">register_evaluator_call</span><span class="p">(</span>
+                        <span class="n">run_id</span><span class="p">,</span> <span class="n">metric_name</span><span class="p">,</span> <span class="n">dataset_name</span><span class="p">,</span> <span class="n">evaluator_info</span>
+                    <span class="p">)</span>
+                    <span class="n">_AUTOLOGGING_METRICS_MANAGER</span><span class="o">.</span><span class="n">log_post_training_metric</span><span class="p">(</span>
+                        <span class="n">run_id</span><span class="p">,</span> <span class="n">metric_key</span><span class="p">,</span> <span class="n">metric</span>
+                    <span class="p">)</span>
+                    <span class="k">if</span> <span class="n">log_datasets</span><span class="p">:</span>
+                        <span class="k">try</span><span class="p">:</span>
+                            <span class="n">context_tags</span> <span class="o">=</span> <span class="n">context_registry</span><span class="o">.</span><span class="n">resolve_tags</span><span class="p">()</span>
+                            <span class="n">code_source</span> <span class="o">=</span> <span class="n">CodeDatasetSource</span><span class="p">(</span><span class="n">context_tags</span><span class="p">)</span>
+
+                            <span class="n">dataset</span> <span class="o">=</span> <span class="n">SparkDataset</span><span class="p">(</span>
+                                <span class="n">df</span><span class="o">=</span><span class="n">pred_result_dataset</span><span class="p">,</span>
+                                <span class="n">source</span><span class="o">=</span><span class="n">code_source</span><span class="p">,</span>
+                            <span class="p">)</span>
+                            <span class="n">tags</span> <span class="o">=</span> <span class="p">[</span><span class="n">InputTag</span><span class="p">(</span><span class="n">key</span><span class="o">=</span><span class="n">MLFLOW_DATASET_CONTEXT</span><span class="p">,</span> <span class="n">value</span><span class="o">=</span><span class="s2">&quot;eval&quot;</span><span class="p">)]</span>
+                            <span class="n">dataset_input</span> <span class="o">=</span> <span class="n">DatasetInput</span><span class="p">(</span>
+                                <span class="n">dataset</span><span class="o">=</span><span class="n">dataset</span><span class="o">.</span><span class="n">_to_mlflow_entity</span><span class="p">(),</span> <span class="n">tags</span><span class="o">=</span><span class="n">tags</span>
+                            <span class="p">)</span>
+                            <span class="n">client</span> <span class="o">=</span> <span class="n">MlflowClient</span><span class="p">()</span>
+                            <span class="n">client</span><span class="o">.</span><span class="n">log_inputs</span><span class="p">(</span><span class="n">run_id</span><span class="p">,</span> <span class="p">[</span><span class="n">dataset_input</span><span class="p">])</span>
+                        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+                            <span class="n">_logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+                                <span class="s2">&quot;Failed to log evaluation dataset information to MLflow Tracking. &quot;</span>
+                                <span class="s2">&quot;Reason: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span>
+                                <span class="n">e</span><span class="p">,</span>
+                            <span class="p">)</span>
+            <span class="k">return</span> <span class="n">metric</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">original</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+
+    <span class="n">safe_patch</span><span class="p">(</span>
+        <span class="n">AUTOLOGGING_INTEGRATION_NAME</span><span class="p">,</span>
+        <span class="n">Estimator</span><span class="p">,</span>
+        <span class="s2">&quot;fit&quot;</span><span class="p">,</span>
+        <span class="n">patched_fit</span><span class="p">,</span>
+        <span class="n">manage_run</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+        <span class="n">extra_tags</span><span class="o">=</span><span class="n">extra_tags</span><span class="p">,</span>
+    <span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">log_post_training_metrics</span><span class="p">:</span>
+        <span class="n">safe_patch</span><span class="p">(</span>
+            <span class="n">AUTOLOGGING_INTEGRATION_NAME</span><span class="p">,</span>
+            <span class="n">Model</span><span class="p">,</span>
+            <span class="s2">&quot;transform&quot;</span><span class="p">,</span>
+            <span class="n">patched_transform</span><span class="p">,</span>
+            <span class="n">manage_run</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="n">safe_patch</span><span class="p">(</span>
+            <span class="n">AUTOLOGGING_INTEGRATION_NAME</span><span class="p">,</span>
+            <span class="n">Evaluator</span><span class="p">,</span>
+            <span class="s2">&quot;evaluate&quot;</span><span class="p">,</span>
+            <span class="n">patched_evaluate</span><span class="p">,</span>
+            <span class="n">manage_run</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+        <span class="p">)</span></div>
+</pre></div>
+
+              </div>
+            </div>
+            <footer>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+      <p class="copyright">
+          &copy; MLflow Project, a Series of LF Projects, LLC. All rights reserved.
+      </p>
+
+  </div> 
+
+</footer>
+          </div>
+        </div>
+      </section>
+    </main>
+  </page>
+
+  
+
+
+  
+  <script type="text/javascript">
+    var DOCUMENTATION_OPTIONS = {
+      URL_ROOT:'../../../',
+      VERSION:'2.17.1.dev0',
+      COLLAPSE_INDEX:false,
+      FILE_SUFFIX:'.html',
+      LINK_SUFFIX: '.html',
+      HAS_SOURCE:  true
+    };
+  </script>
+
+  
+
+  <script type="text/javascript" src="../../../_static/js/clipboard.min.js"></script>
+  <script type="text/javascript" src="../../../_static/js/jquery.waypoints.min.js"></script>
+
+  
+  
+  
+  <script type="text/javascript">var CLIPPY_SVG_PATH = "../../../_static/clippy.svg";</script>
+  <script type="text/javascript" src="../../../_static/js/custom.js"></script>
+  
+
+  
+  
+  <script type="text/javascript">
+    jQuery(function () {
+      SphinxRtdTheme.StickyNav.enable();
+    });
+
+  </script>
+  
+
+  
+  <script type="text/javascript">
+    document.addEventListener("DOMContentLoaded", function() {
+        function copyToClipboard(text) {
+            const textarea = document.createElement('textarea');
+            textarea.value = text;
+            document.body.appendChild(textarea);
+            textarea.select();
+            document.execCommand('copy');
+            document.body.removeChild(textarea);
+        }
+        // Get the code block designator class entries
+        const allHighlights = document.querySelectorAll('.highlight');
+        // Disable copyable links for notebook cell numbering and for cell outputs
+        const highlights = Array.from(allHighlights).filter(highlight => !highlight.closest('.highlight-none') && 
+            !highlight.closest('.nboutput'));
+    
+        highlights.forEach(function(highlight) {
+            const copyIcon = document.createElement('span');
+            copyIcon.classList.add('copy-icon');
+            copyIcon.innerHTML = '&#xf0ea;';
+
+            copyIcon.addEventListener('click', function() {
+                const code = highlight.querySelector('pre').textContent;
+                copyToClipboard(code);
+
+                // Flash effect on click
+                this.style.color = '#0194E2';
+                setTimeout(() => {
+                    this.style.color = ''; 
+                }, 100);
+
+                // Display "Code copied to clipboard" near the clicked icon
+                const message = document.createElement('span');
+                message.textContent = "Copied!";
+                message.classList.add('copy-message'); 
+
+                // Append the message to the icon
+                this.appendChild(message);
+
+                setTimeout(() => {
+                    this.removeChild(message);
+                }, 500);
+            });
+
+            highlight.appendChild(copyIcon);
+        });
+    });
+  </script>
+
+
+<script type="text/javascript">
+    document.addEventListener("DOMContentLoaded", function() {
+        // Force download for notebook-download-btn
+        const downloadButtons = document.querySelectorAll('.notebook-download-btn');
+        downloadButtons.forEach(function(button) {
+            button.addEventListener('click', function(event) {
+                event.preventDefault(); // Prevent default behavior
+
+                // Fetch the raw content of the notebook from GitHub
+                fetch(button.href)
+                    .then(response => response.blob())
+                    .then(blob => {
+                        const url = window.URL.createObjectURL(blob);
+                        const link = document.createElement('a');
+                        link.style.display = 'none';
+                        link.href = url;
+                        const filename = button.href.split('/').pop();
+                        link.download = filename; 
+
+                        document.body.appendChild(link);
+                        link.click();
+
+                        window.URL.revokeObjectURL(url);
+                        document.body.removeChild(link);
+                    })
+                    .catch(err => console.error('Error fetching the notebook:', err));
+            });
+        });
+    });
+</script> 
+</body>
+</html>

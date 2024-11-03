@@ -1,0 +1,826 @@
+
+
+<!DOCTYPE html>
+<!-- source: docs/source/_modules/mlflow/gateway/config -->
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>mlflow.gateway.config</title>
+  
+   
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+  <link rel="canonical" href="https://mlflow.org/docs/latest/_modules/mlflow/gateway/config.html">
+  
+  
+    <link rel="shortcut icon" href="../../../_static/favicon.ico"/>
+    
+
+    
+
+  
+    
+
+  
+
+  
+  
+    
+
+  
+
+  
+  
+    <link href="https://fonts.googleapis.com/css?family=Source+Sans+Pro:300,400,600" rel="stylesheet">
+    <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/css/custom.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/css/cards.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/css/grids.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/css/mobile.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/css/simple-cards.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/css/tabs.css" type="text/css" />
+    
+  
+        <link rel="index" title="Index"
+              href="../../../genindex.html"/>
+        <link rel="search" title="Search" href="../../../search.html"/>
+    <link rel="top" title="MLflow 2.17.1.dev0 documentation" href="../../../index.html"/>
+        <link rel="up" title="Module code" href="../../index.html"/> 
+
+  
+  <script src="../../../_static/js/modernizr.min.js"></script>
+
+</head>
+<script type="text/javascript" src="../../../_static/jquery.js"></script>
+<script type="text/javascript" src="../../../_static/underscore.js"></script>
+<script type="text/javascript" src="../../../_static/doctools.js"></script>
+<script type="text/javascript" src="../../../_static/tabs.js"></script>
+<script type="text/javascript" src="../../../_static/languagesections.js"></script>
+<script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+<script type="text/javascript" src="../../../_static/runllm.js"></script>
+
+<body class="wy-body-for-nav" role="document">
+  
+
+  
+  <nav class="wy-nav-top header" role="navigation" aria-label="top navigation">
+    <ul>
+  <li class="menu-toggle">
+    <i data-toggle="wy-nav-top" class="wy-nav-top-menu-button db-icon db-icon-menu pull-left"></i>
+    <a href="../../../index.html" class="wy-nav-top-logo"
+      ><img src="../../../_static/MLflow-logo-final-black.png" alt="MLflow"
+    /></a>
+    <span class="version">2.17.1.dev0</span>
+  </li>
+</ul>
+  </nav>
+  <page>
+    
+
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side relative">
+      <div class="wy-side-scroll">
+  <div class="wy-side-nav-search">
+    
+
+    
+
+    
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+  <input type="text" name="q" placeholder="Search" />
+  <input type="hidden" name="check_keywords" value="yes" />
+  <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+
+    
+  </div>
+
+  <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+    
+      <a href="../../../index.html" class="main-navigation-home"><img src="../../../_static/icons/nav-home.svg"> MLflow</a>
+    
+
+    
+      
+
+      
+        <ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../python_api/index.html">Python API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../cli.html">Command-Line Interface</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../R-api.html">R API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../java_api/index.html">Java API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../rest-api.html">REST API</a></li>
+</ul>
+
+      
+    
+  </div>
+
+  <div role="contentinfo">
+    
+
+    <p>
+      <a id='feedbacklink' href="https://github.com/mlflow/mlflow/blob/master/CONTRIBUTING.md" target="_blank">Contribute</a>
+    </p>
+  </div>
+</div>
+    </nav>
+
+    <main class="wy-grid-for-nav">
+      <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+        <div class="wy-nav-content">
+          <div class="rst-content">
+            
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href="../../../index.html">Documentation</a> <span class="db-icon db-icon-chevron-right"></span></li>
+    
+        <li><a href="../../index.html">Module code</a> <span class="db-icon db-icon-chevron-right"></span></li>
+    
+    
+      <li>mlflow.gateway.config</li>
+    
+    
+    <!-- <li class="wy-breadcrumbs-aside">
+      <a href="https://github.com/mlflow/mlflow/blob/master/docs/source/_modules/mlflow/gateway/config" class="fa fa-github"> Edit on GitHub</a>
+    </li> -->
+    
+  </ul>
+</div>
+            <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+              <div itemprop="articleBody">
+                
+  <h1>Source code for mlflow.gateway.config</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span> <span class="nn">json</span>
+<span class="kn">import</span> <span class="nn">logging</span>
+<span class="kn">import</span> <span class="nn">os</span>
+<span class="kn">import</span> <span class="nn">pathlib</span>
+<span class="kn">from</span> <span class="nn">enum</span> <span class="kn">import</span> <span class="n">Enum</span>
+<span class="kn">from</span> <span class="nn">pathlib</span> <span class="kn">import</span> <span class="n">Path</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Union</span>
+
+<span class="kn">import</span> <span class="nn">pydantic</span>
+<span class="kn">import</span> <span class="nn">yaml</span>
+<span class="kn">from</span> <span class="nn">packaging</span> <span class="kn">import</span> <span class="n">version</span>
+<span class="kn">from</span> <span class="nn">packaging.version</span> <span class="kn">import</span> <span class="n">Version</span>
+<span class="kn">from</span> <span class="nn">pydantic</span> <span class="kn">import</span> <span class="n">ConfigDict</span><span class="p">,</span> <span class="n">Field</span><span class="p">,</span> <span class="n">ValidationError</span><span class="p">,</span> <span class="n">root_validator</span><span class="p">,</span> <span class="n">validator</span>
+<span class="kn">from</span> <span class="nn">pydantic.json</span> <span class="kn">import</span> <span class="n">pydantic_encoder</span>
+
+<span class="kn">from</span> <span class="nn">mlflow.exceptions</span> <span class="kn">import</span> <span class="n">MlflowException</span>
+<span class="kn">from</span> <span class="nn">mlflow.gateway.base_models</span> <span class="kn">import</span> <span class="n">ConfigModel</span><span class="p">,</span> <span class="n">LimitModel</span><span class="p">,</span> <span class="n">ResponseModel</span>
+<span class="kn">from</span> <span class="nn">mlflow.gateway.constants</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">MLFLOW_AI_GATEWAY_MOSAICML_CHAT_SUPPORTED_MODEL_PREFIXES</span><span class="p">,</span>
+    <span class="n">MLFLOW_GATEWAY_ROUTE_BASE</span><span class="p">,</span>
+    <span class="n">MLFLOW_QUERY_SUFFIX</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">mlflow.gateway.utils</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">check_configuration_deprecated_fields</span><span class="p">,</span>
+    <span class="n">check_configuration_route_name_collisions</span><span class="p">,</span>
+    <span class="n">is_valid_ai21labs_model</span><span class="p">,</span>
+    <span class="n">is_valid_endpoint_name</span><span class="p">,</span>
+    <span class="n">is_valid_mosiacml_chat_model</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="n">_logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
+
+<span class="n">IS_PYDANTIC_V2</span> <span class="o">=</span> <span class="n">version</span><span class="o">.</span><span class="n">parse</span><span class="p">(</span><span class="n">pydantic</span><span class="o">.</span><span class="n">version</span><span class="o">.</span><span class="n">VERSION</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="n">version</span><span class="o">.</span><span class="n">parse</span><span class="p">(</span><span class="s2">&quot;2.0&quot;</span><span class="p">)</span>
+
+<span class="k">if</span> <span class="n">IS_PYDANTIC_V2</span><span class="p">:</span>
+    <span class="kn">from</span> <span class="nn">pydantic</span> <span class="kn">import</span> <span class="n">SerializeAsAny</span>
+
+
+<div class="viewcode-block" id="Provider"><a class="viewcode-back" href="../../../python_api/mlflow.gateway.html#mlflow.gateway.config.Provider">[docs]</a><span class="k">class</span> <span class="nc">Provider</span><span class="p">(</span><span class="nb">str</span><span class="p">,</span> <span class="n">Enum</span><span class="p">):</span>
+    <span class="n">OPENAI</span> <span class="o">=</span> <span class="s2">&quot;openai&quot;</span>
+    <span class="n">ANTHROPIC</span> <span class="o">=</span> <span class="s2">&quot;anthropic&quot;</span>
+    <span class="n">COHERE</span> <span class="o">=</span> <span class="s2">&quot;cohere&quot;</span>
+    <span class="n">AI21LABS</span> <span class="o">=</span> <span class="s2">&quot;ai21labs&quot;</span>
+    <span class="n">MLFLOW_MODEL_SERVING</span> <span class="o">=</span> <span class="s2">&quot;mlflow-model-serving&quot;</span>
+    <span class="n">MOSAICML</span> <span class="o">=</span> <span class="s2">&quot;mosaicml&quot;</span>
+    <span class="n">HUGGINGFACE_TEXT_GENERATION_INFERENCE</span> <span class="o">=</span> <span class="s2">&quot;huggingface-text-generation-inference&quot;</span>
+    <span class="n">PALM</span> <span class="o">=</span> <span class="s2">&quot;palm&quot;</span>
+    <span class="n">BEDROCK</span> <span class="o">=</span> <span class="s2">&quot;bedrock&quot;</span>
+    <span class="n">AMAZON_BEDROCK</span> <span class="o">=</span> <span class="s2">&quot;amazon-bedrock&quot;</span>  <span class="c1"># an alias for bedrock</span>
+    <span class="c1"># Note: The following providers are only supported on Databricks</span>
+    <span class="n">DATABRICKS_MODEL_SERVING</span> <span class="o">=</span> <span class="s2">&quot;databricks-model-serving&quot;</span>
+    <span class="n">DATABRICKS</span> <span class="o">=</span> <span class="s2">&quot;databricks&quot;</span>
+    <span class="n">MISTRAL</span> <span class="o">=</span> <span class="s2">&quot;mistral&quot;</span>
+    <span class="n">TOGETHERAI</span> <span class="o">=</span> <span class="s2">&quot;togetherai&quot;</span>
+
+<div class="viewcode-block" id="Provider.values"><a class="viewcode-back" href="../../../python_api/mlflow.gateway.html#mlflow.gateway.config.Provider.values">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">values</span><span class="p">(</span><span class="bp">cls</span><span class="p">):</span>
+        <span class="k">return</span> <span class="p">{</span><span class="n">p</span><span class="o">.</span><span class="n">value</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="bp">cls</span><span class="p">}</span></div></div>
+
+
+<div class="viewcode-block" id="TogetherAIConfig"><a class="viewcode-back" href="../../../python_api/mlflow.gateway.html#mlflow.gateway.config.TogetherAIConfig">[docs]</a><span class="k">class</span> <span class="nc">TogetherAIConfig</span><span class="p">(</span><span class="n">ConfigModel</span><span class="p">):</span>
+    <span class="n">togetherai_api_key</span><span class="p">:</span> <span class="nb">str</span>
+
+<div class="viewcode-block" id="TogetherAIConfig.validate_togetherai_api_key"><a class="viewcode-back" href="../../../python_api/mlflow.gateway.html#mlflow.gateway.config.TogetherAIConfig.validate_togetherai_api_key">[docs]</a>    <span class="nd">@validator</span><span class="p">(</span><span class="s2">&quot;togetherai_api_key&quot;</span><span class="p">,</span> <span class="n">pre</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">validate_togetherai_api_key</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">value</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">_resolve_api_key_from_input</span><span class="p">(</span><span class="n">value</span><span class="p">)</span></div></div>
+
+
+<div class="viewcode-block" id="RouteType"><a class="viewcode-back" href="../../../python_api/mlflow.gateway.html#mlflow.gateway.config.RouteType">[docs]</a><span class="k">class</span> <span class="nc">RouteType</span><span class="p">(</span><span class="nb">str</span><span class="p">,</span> <span class="n">Enum</span><span class="p">):</span>
+    <span class="n">LLM_V1_COMPLETIONS</span> <span class="o">=</span> <span class="s2">&quot;llm/v1/completions&quot;</span>
+    <span class="n">LLM_V1_CHAT</span> <span class="o">=</span> <span class="s2">&quot;llm/v1/chat&quot;</span>
+    <span class="n">LLM_V1_EMBEDDINGS</span> <span class="o">=</span> <span class="s2">&quot;llm/v1/embeddings&quot;</span></div>
+
+
+<div class="viewcode-block" id="CohereConfig"><a class="viewcode-back" href="../../../python_api/mlflow.gateway.html#mlflow.gateway.config.CohereConfig">[docs]</a><span class="k">class</span> <span class="nc">CohereConfig</span><span class="p">(</span><span class="n">ConfigModel</span><span class="p">):</span>
+    <span class="n">cohere_api_key</span><span class="p">:</span> <span class="nb">str</span>
+
+<div class="viewcode-block" id="CohereConfig.validate_cohere_api_key"><a class="viewcode-back" href="../../../python_api/mlflow.gateway.html#mlflow.gateway.config.CohereConfig.validate_cohere_api_key">[docs]</a>    <span class="nd">@validator</span><span class="p">(</span><span class="s2">&quot;cohere_api_key&quot;</span><span class="p">,</span> <span class="n">pre</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">validate_cohere_api_key</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">value</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">_resolve_api_key_from_input</span><span class="p">(</span><span class="n">value</span><span class="p">)</span></div></div>
+
+
+<div class="viewcode-block" id="AI21LabsConfig"><a class="viewcode-back" href="../../../python_api/mlflow.gateway.html#mlflow.gateway.config.AI21LabsConfig">[docs]</a><span class="k">class</span> <span class="nc">AI21LabsConfig</span><span class="p">(</span><span class="n">ConfigModel</span><span class="p">):</span>
+    <span class="n">ai21labs_api_key</span><span class="p">:</span> <span class="nb">str</span>
+
+<div class="viewcode-block" id="AI21LabsConfig.validate_ai21labs_api_key"><a class="viewcode-back" href="../../../python_api/mlflow.gateway.html#mlflow.gateway.config.AI21LabsConfig.validate_ai21labs_api_key">[docs]</a>    <span class="nd">@validator</span><span class="p">(</span><span class="s2">&quot;ai21labs_api_key&quot;</span><span class="p">,</span> <span class="n">pre</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">validate_ai21labs_api_key</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">value</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">_resolve_api_key_from_input</span><span class="p">(</span><span class="n">value</span><span class="p">)</span></div></div>
+
+
+<div class="viewcode-block" id="MosaicMLConfig"><a class="viewcode-back" href="../../../python_api/mlflow.gateway.html#mlflow.gateway.config.MosaicMLConfig">[docs]</a><span class="k">class</span> <span class="nc">MosaicMLConfig</span><span class="p">(</span><span class="n">ConfigModel</span><span class="p">):</span>
+    <span class="n">mosaicml_api_key</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="n">mosaicml_api_base</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+
+<div class="viewcode-block" id="MosaicMLConfig.validate_mosaicml_api_key"><a class="viewcode-back" href="../../../python_api/mlflow.gateway.html#mlflow.gateway.config.MosaicMLConfig.validate_mosaicml_api_key">[docs]</a>    <span class="nd">@validator</span><span class="p">(</span><span class="s2">&quot;mosaicml_api_key&quot;</span><span class="p">,</span> <span class="n">pre</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">validate_mosaicml_api_key</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">value</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">_resolve_api_key_from_input</span><span class="p">(</span><span class="n">value</span><span class="p">)</span></div></div>
+
+
+<div class="viewcode-block" id="OpenAIAPIType"><a class="viewcode-back" href="../../../python_api/mlflow.gateway.html#mlflow.gateway.config.OpenAIAPIType">[docs]</a><span class="k">class</span> <span class="nc">OpenAIAPIType</span><span class="p">(</span><span class="nb">str</span><span class="p">,</span> <span class="n">Enum</span><span class="p">):</span>
+    <span class="n">OPENAI</span> <span class="o">=</span> <span class="s2">&quot;openai&quot;</span>
+    <span class="n">AZURE</span> <span class="o">=</span> <span class="s2">&quot;azure&quot;</span>
+    <span class="n">AZUREAD</span> <span class="o">=</span> <span class="s2">&quot;azuread&quot;</span>
+
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">_missing_</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">value</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Implements case-insensitive matching of API type strings</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">for</span> <span class="n">api_type</span> <span class="ow">in</span> <span class="bp">cls</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">api_type</span><span class="o">.</span><span class="n">value</span> <span class="o">==</span> <span class="n">value</span><span class="o">.</span><span class="n">lower</span><span class="p">():</span>
+                <span class="k">return</span> <span class="n">api_type</span>
+
+        <span class="k">raise</span> <span class="n">MlflowException</span><span class="o">.</span><span class="n">invalid_parameter_value</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Invalid OpenAI API type &#39;</span><span class="si">{</span><span class="n">value</span><span class="si">}</span><span class="s2">&#39;&quot;</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="OpenAIConfig"><a class="viewcode-back" href="../../../python_api/mlflow.gateway.html#mlflow.gateway.config.OpenAIConfig">[docs]</a><span class="k">class</span> <span class="nc">OpenAIConfig</span><span class="p">(</span><span class="n">ConfigModel</span><span class="p">):</span>
+    <span class="n">openai_api_key</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="n">openai_api_type</span><span class="p">:</span> <span class="n">OpenAIAPIType</span> <span class="o">=</span> <span class="n">OpenAIAPIType</span><span class="o">.</span><span class="n">OPENAI</span>
+    <span class="n">openai_api_base</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">openai_api_version</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">openai_deployment_name</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">openai_organization</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+
+<div class="viewcode-block" id="OpenAIConfig.validate_openai_api_key"><a class="viewcode-back" href="../../../python_api/mlflow.gateway.html#mlflow.gateway.config.OpenAIConfig.validate_openai_api_key">[docs]</a>    <span class="nd">@validator</span><span class="p">(</span><span class="s2">&quot;openai_api_key&quot;</span><span class="p">,</span> <span class="n">pre</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">validate_openai_api_key</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">value</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">_resolve_api_key_from_input</span><span class="p">(</span><span class="n">value</span><span class="p">)</span></div>
+
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">_validate_field_compatibility</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">info</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]):</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">info</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">info</span>
+        <span class="n">api_type</span> <span class="o">=</span> <span class="p">(</span><span class="n">info</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;openai_api_type&quot;</span><span class="p">)</span> <span class="ow">or</span> <span class="n">OpenAIAPIType</span><span class="o">.</span><span class="n">OPENAI</span><span class="p">)</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">api_type</span> <span class="o">==</span> <span class="n">OpenAIAPIType</span><span class="o">.</span><span class="n">OPENAI</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">info</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;openai_deployment_name&quot;</span><span class="p">)</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="n">MlflowException</span><span class="o">.</span><span class="n">invalid_parameter_value</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;OpenAI route configuration can only specify a value for &quot;</span>
+                    <span class="sa">f</span><span class="s2">&quot;&#39;openai_deployment_name&#39; if &#39;openai_api_type&#39; is &#39;</span><span class="si">{</span><span class="n">OpenAIAPIType</span><span class="o">.</span><span class="n">AZURE</span><span class="si">}</span><span class="s2">&#39; &quot;</span>
+                    <span class="sa">f</span><span class="s2">&quot;or &#39;</span><span class="si">{</span><span class="n">OpenAIAPIType</span><span class="o">.</span><span class="n">AZUREAD</span><span class="si">}</span><span class="s2">&#39;. Found type: &#39;</span><span class="si">{</span><span class="n">api_type</span><span class="si">}</span><span class="s2">&#39;&quot;</span>
+                <span class="p">)</span>
+            <span class="k">if</span> <span class="n">info</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;openai_api_base&quot;</span><span class="p">)</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">info</span><span class="p">[</span><span class="s2">&quot;openai_api_base&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;https://api.openai.com/v1&quot;</span>
+        <span class="k">elif</span> <span class="n">api_type</span> <span class="ow">in</span> <span class="p">(</span><span class="n">OpenAIAPIType</span><span class="o">.</span><span class="n">AZURE</span><span class="p">,</span> <span class="n">OpenAIAPIType</span><span class="o">.</span><span class="n">AZUREAD</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">info</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;openai_organization&quot;</span><span class="p">)</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="n">MlflowException</span><span class="o">.</span><span class="n">invalid_parameter_value</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;OpenAI route configuration can only specify a value for &quot;</span>
+                    <span class="sa">f</span><span class="s2">&quot;&#39;openai_organization&#39; if &#39;openai_api_type&#39; is &#39;</span><span class="si">{</span><span class="n">OpenAIAPIType</span><span class="o">.</span><span class="n">OPENAI</span><span class="si">}</span><span class="s2">&#39;&quot;</span>
+                <span class="p">)</span>
+            <span class="n">base_url</span> <span class="o">=</span> <span class="n">info</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;openai_api_base&quot;</span><span class="p">)</span>
+            <span class="n">deployment_name</span> <span class="o">=</span> <span class="n">info</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;openai_deployment_name&quot;</span><span class="p">)</span>
+            <span class="n">api_version</span> <span class="o">=</span> <span class="n">info</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;openai_api_version&quot;</span><span class="p">)</span>
+            <span class="k">if</span> <span class="p">(</span><span class="n">base_url</span><span class="p">,</span> <span class="n">deployment_name</span><span class="p">,</span> <span class="n">api_version</span><span class="p">)</span><span class="o">.</span><span class="n">count</span><span class="p">(</span><span class="kc">None</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="n">MlflowException</span><span class="o">.</span><span class="n">invalid_parameter_value</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;OpenAI route configuration must specify &#39;openai_api_base&#39;, &quot;</span>
+                    <span class="sa">f</span><span class="s2">&quot;&#39;openai_deployment_name&#39;, and &#39;openai_api_version&#39; if &#39;openai_api_type&#39; is &quot;</span>
+                    <span class="sa">f</span><span class="s2">&quot;&#39;</span><span class="si">{</span><span class="n">OpenAIAPIType</span><span class="o">.</span><span class="n">AZURE</span><span class="si">}</span><span class="s2">&#39; or &#39;</span><span class="si">{</span><span class="n">OpenAIAPIType</span><span class="o">.</span><span class="n">AZUREAD</span><span class="si">}</span><span class="s2">&#39;.&quot;</span>
+                <span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">MlflowException</span><span class="o">.</span><span class="n">invalid_parameter_value</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Invalid OpenAI API type &#39;</span><span class="si">{</span><span class="n">api_type</span><span class="si">}</span><span class="s2">&#39;&quot;</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">info</span>
+
+    <span class="k">if</span> <span class="n">IS_PYDANTIC_V2</span><span class="p">:</span>
+        <span class="kn">from</span> <span class="nn">pydantic</span> <span class="kn">import</span> <span class="n">model_validator</span> <span class="k">as</span> <span class="n">_model_validator</span>
+
+        <span class="nd">@_model_validator</span><span class="p">(</span><span class="n">mode</span><span class="o">=</span><span class="s2">&quot;before&quot;</span><span class="p">)</span>
+        <span class="k">def</span> <span class="nf">validate_field_compatibility</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">info</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]):</span>
+            <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">_validate_field_compatibility</span><span class="p">(</span><span class="n">info</span><span class="p">)</span>
+
+    <span class="k">else</span><span class="p">:</span>
+        <span class="kn">from</span> <span class="nn">pydantic</span> <span class="kn">import</span> <span class="n">root_validator</span> <span class="k">as</span> <span class="n">_root_validator</span>
+
+<div class="viewcode-block" id="OpenAIConfig.validate_field_compatibility"><a class="viewcode-back" href="../../../python_api/mlflow.gateway.html#mlflow.gateway.config.OpenAIConfig.validate_field_compatibility">[docs]</a>        <span class="nd">@_root_validator</span><span class="p">(</span><span class="n">pre</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+        <span class="k">def</span> <span class="nf">validate_field_compatibility</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">config</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]):</span>
+            <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">_validate_field_compatibility</span><span class="p">(</span><span class="n">config</span><span class="p">)</span></div></div>
+
+
+<div class="viewcode-block" id="AnthropicConfig"><a class="viewcode-back" href="../../../python_api/mlflow.gateway.html#mlflow.gateway.config.AnthropicConfig">[docs]</a><span class="k">class</span> <span class="nc">AnthropicConfig</span><span class="p">(</span><span class="n">ConfigModel</span><span class="p">):</span>
+    <span class="n">anthropic_api_key</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="n">anthropic_version</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;2023-06-01&quot;</span>
+
+<div class="viewcode-block" id="AnthropicConfig.validate_anthropic_api_key"><a class="viewcode-back" href="../../../python_api/mlflow.gateway.html#mlflow.gateway.config.AnthropicConfig.validate_anthropic_api_key">[docs]</a>    <span class="nd">@validator</span><span class="p">(</span><span class="s2">&quot;anthropic_api_key&quot;</span><span class="p">,</span> <span class="n">pre</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">validate_anthropic_api_key</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">value</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">_resolve_api_key_from_input</span><span class="p">(</span><span class="n">value</span><span class="p">)</span></div></div>
+
+
+<div class="viewcode-block" id="PaLMConfig"><a class="viewcode-back" href="../../../python_api/mlflow.gateway.html#mlflow.gateway.config.PaLMConfig">[docs]</a><span class="k">class</span> <span class="nc">PaLMConfig</span><span class="p">(</span><span class="n">ConfigModel</span><span class="p">):</span>
+    <span class="n">palm_api_key</span><span class="p">:</span> <span class="nb">str</span>
+
+<div class="viewcode-block" id="PaLMConfig.validate_palm_api_key"><a class="viewcode-back" href="../../../python_api/mlflow.gateway.html#mlflow.gateway.config.PaLMConfig.validate_palm_api_key">[docs]</a>    <span class="nd">@validator</span><span class="p">(</span><span class="s2">&quot;palm_api_key&quot;</span><span class="p">,</span> <span class="n">pre</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">validate_palm_api_key</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">value</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">_resolve_api_key_from_input</span><span class="p">(</span><span class="n">value</span><span class="p">)</span></div></div>
+
+
+<div class="viewcode-block" id="MlflowModelServingConfig"><a class="viewcode-back" href="../../../python_api/mlflow.gateway.html#mlflow.gateway.config.MlflowModelServingConfig">[docs]</a><span class="k">class</span> <span class="nc">MlflowModelServingConfig</span><span class="p">(</span><span class="n">ConfigModel</span><span class="p">):</span>
+    <span class="n">model_server_url</span><span class="p">:</span> <span class="nb">str</span>
+
+    <span class="c1"># Workaround to suppress warning that Pydantic raises when a field name starts with &quot;model_&quot;.</span>
+    <span class="c1"># https://github.com/mlflow/mlflow/issues/10335</span>
+    <span class="n">model_config</span> <span class="o">=</span> <span class="n">pydantic</span><span class="o">.</span><span class="n">ConfigDict</span><span class="p">(</span><span class="n">protected_namespaces</span><span class="o">=</span><span class="p">())</span></div>
+
+
+<div class="viewcode-block" id="HuggingFaceTextGenerationInferenceConfig"><a class="viewcode-back" href="../../../python_api/mlflow.gateway.html#mlflow.gateway.config.HuggingFaceTextGenerationInferenceConfig">[docs]</a><span class="k">class</span> <span class="nc">HuggingFaceTextGenerationInferenceConfig</span><span class="p">(</span><span class="n">ConfigModel</span><span class="p">):</span>
+    <span class="n">hf_server_url</span><span class="p">:</span> <span class="nb">str</span></div>
+
+
+<div class="viewcode-block" id="AWSBaseConfig"><a class="viewcode-back" href="../../../python_api/mlflow.gateway.html#mlflow.gateway.config.AWSBaseConfig">[docs]</a><span class="k">class</span> <span class="nc">AWSBaseConfig</span><span class="p">(</span><span class="n">pydantic</span><span class="o">.</span><span class="n">BaseModel</span><span class="p">):</span>
+    <span class="n">aws_region</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span></div>
+
+
+<div class="viewcode-block" id="AWSRole"><a class="viewcode-back" href="../../../python_api/mlflow.gateway.html#mlflow.gateway.config.AWSRole">[docs]</a><span class="k">class</span> <span class="nc">AWSRole</span><span class="p">(</span><span class="n">AWSBaseConfig</span><span class="p">):</span>
+    <span class="n">aws_role_arn</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="n">session_length_seconds</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">15</span> <span class="o">*</span> <span class="mi">60</span></div>
+
+
+<div class="viewcode-block" id="AWSIdAndKey"><a class="viewcode-back" href="../../../python_api/mlflow.gateway.html#mlflow.gateway.config.AWSIdAndKey">[docs]</a><span class="k">class</span> <span class="nc">AWSIdAndKey</span><span class="p">(</span><span class="n">AWSBaseConfig</span><span class="p">):</span>
+    <span class="n">aws_access_key_id</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="n">aws_secret_access_key</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="n">aws_session_token</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span></div>
+
+
+<div class="viewcode-block" id="AmazonBedrockConfig"><a class="viewcode-back" href="../../../python_api/mlflow.gateway.html#mlflow.gateway.config.AmazonBedrockConfig">[docs]</a><span class="k">class</span> <span class="nc">AmazonBedrockConfig</span><span class="p">(</span><span class="n">ConfigModel</span><span class="p">):</span>
+    <span class="c1"># order here is important, at least for pydantic&lt;2</span>
+    <span class="n">aws_config</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">AWSRole</span><span class="p">,</span> <span class="n">AWSIdAndKey</span><span class="p">,</span> <span class="n">AWSBaseConfig</span><span class="p">]</span></div>
+
+
+<div class="viewcode-block" id="MistralConfig"><a class="viewcode-back" href="../../../python_api/mlflow.gateway.html#mlflow.gateway.config.MistralConfig">[docs]</a><span class="k">class</span> <span class="nc">MistralConfig</span><span class="p">(</span><span class="n">ConfigModel</span><span class="p">):</span>
+    <span class="n">mistral_api_key</span><span class="p">:</span> <span class="nb">str</span>
+
+<div class="viewcode-block" id="MistralConfig.validate_mistral_api_key"><a class="viewcode-back" href="../../../python_api/mlflow.gateway.html#mlflow.gateway.config.MistralConfig.validate_mistral_api_key">[docs]</a>    <span class="nd">@validator</span><span class="p">(</span><span class="s2">&quot;mistral_api_key&quot;</span><span class="p">,</span> <span class="n">pre</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">validate_mistral_api_key</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">value</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">_resolve_api_key_from_input</span><span class="p">(</span><span class="n">value</span><span class="p">)</span></div></div>
+
+
+<div class="viewcode-block" id="ModelInfo"><a class="viewcode-back" href="../../../python_api/mlflow.gateway.html#mlflow.gateway.config.ModelInfo">[docs]</a><span class="k">class</span> <span class="nc">ModelInfo</span><span class="p">(</span><span class="n">ResponseModel</span><span class="p">):</span>
+    <span class="n">name</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">provider</span><span class="p">:</span> <span class="n">Provider</span></div>
+
+
+<span class="k">def</span> <span class="nf">_resolve_api_key_from_input</span><span class="p">(</span><span class="n">api_key_input</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Resolves the provided API key.</span>
+
+<span class="sd">    Input formats accepted:</span>
+
+<span class="sd">    - Path to a file as a string which will have the key loaded from it</span>
+<span class="sd">    - environment variable name that stores the api key</span>
+<span class="sd">    - the api key itself</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">api_key_input</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="n">MlflowException</span><span class="o">.</span><span class="n">invalid_parameter_value</span><span class="p">(</span>
+            <span class="s2">&quot;The api key provided is not a string. Please provide either an environment &quot;</span>
+            <span class="s2">&quot;variable key, a path to a file containing the api key, or the api key itself&quot;</span>
+        <span class="p">)</span>
+
+    <span class="c1"># try reading as an environment variable</span>
+    <span class="k">if</span> <span class="n">api_key_input</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;$&quot;</span><span class="p">):</span>
+        <span class="n">env_var_name</span> <span class="o">=</span> <span class="n">api_key_input</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span>
+        <span class="k">if</span> <span class="n">env_var</span> <span class="o">:=</span> <span class="n">os</span><span class="o">.</span><span class="n">getenv</span><span class="p">(</span><span class="n">env_var_name</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">env_var</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">MlflowException</span><span class="o">.</span><span class="n">invalid_parameter_value</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;Environment variable </span><span class="si">{</span><span class="n">env_var_name</span><span class="si">!r}</span><span class="s2"> is not set&quot;</span>
+            <span class="p">)</span>
+
+    <span class="c1"># try reading from a local path</span>
+    <span class="n">file</span> <span class="o">=</span> <span class="n">pathlib</span><span class="o">.</span><span class="n">Path</span><span class="p">(</span><span class="n">api_key_input</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">file</span><span class="o">.</span><span class="n">is_file</span><span class="p">():</span>
+        <span class="k">return</span> <span class="n">file</span><span class="o">.</span><span class="n">read_text</span><span class="p">()</span>
+
+    <span class="c1"># if the key itself is passed, return</span>
+    <span class="k">return</span> <span class="n">api_key_input</span>
+
+
+<div class="viewcode-block" id="Model"><a class="viewcode-back" href="../../../python_api/mlflow.gateway.html#mlflow.gateway.config.Model">[docs]</a><span class="k">class</span> <span class="nc">Model</span><span class="p">(</span><span class="n">ConfigModel</span><span class="p">):</span>
+    <span class="n">name</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">provider</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Provider</span><span class="p">]</span>
+    <span class="k">if</span> <span class="n">IS_PYDANTIC_V2</span><span class="p">:</span>
+        <span class="n">config</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">SerializeAsAny</span><span class="p">[</span><span class="n">ConfigModel</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">config</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">ConfigModel</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+
+<div class="viewcode-block" id="Model.validate_provider"><a class="viewcode-back" href="../../../python_api/mlflow.gateway.html#mlflow.gateway.config.Model.validate_provider">[docs]</a>    <span class="nd">@validator</span><span class="p">(</span><span class="s2">&quot;provider&quot;</span><span class="p">,</span> <span class="n">pre</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">validate_provider</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">value</span><span class="p">):</span>
+        <span class="kn">from</span> <span class="nn">mlflow.gateway.provider_registry</span> <span class="kn">import</span> <span class="n">provider_registry</span>
+
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="n">Provider</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">value</span>
+        <span class="n">formatted_value</span> <span class="o">=</span> <span class="n">value</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;-&quot;</span><span class="p">,</span> <span class="s2">&quot;_&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">upper</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">formatted_value</span> <span class="ow">in</span> <span class="n">Provider</span><span class="o">.</span><span class="n">__members__</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">Provider</span><span class="p">[</span><span class="n">formatted_value</span><span class="p">]</span>
+        <span class="k">if</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">provider_registry</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+            <span class="k">return</span> <span class="n">value</span>
+        <span class="k">raise</span> <span class="n">MlflowException</span><span class="o">.</span><span class="n">invalid_parameter_value</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;The provider &#39;</span><span class="si">{</span><span class="n">value</span><span class="si">}</span><span class="s2">&#39; is not supported.&quot;</span><span class="p">)</span></div>
+
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">_validate_config</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">info</span><span class="p">,</span> <span class="n">values</span><span class="p">):</span>
+        <span class="kn">from</span> <span class="nn">mlflow.gateway.provider_registry</span> <span class="kn">import</span> <span class="n">provider_registry</span>
+
+        <span class="k">if</span> <span class="n">provider</span> <span class="o">:=</span> <span class="n">values</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;provider&quot;</span><span class="p">):</span>
+            <span class="n">config_type</span> <span class="o">=</span> <span class="n">provider_registry</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">provider</span><span class="p">)</span><span class="o">.</span><span class="n">CONFIG_TYPE</span>
+            <span class="k">return</span> <span class="n">config_type</span><span class="p">(</span><span class="o">**</span><span class="n">info</span><span class="p">)</span>
+
+        <span class="k">raise</span> <span class="n">MlflowException</span><span class="o">.</span><span class="n">invalid_parameter_value</span><span class="p">(</span>
+            <span class="s2">&quot;A provider must be provided for each gateway route.&quot;</span>
+        <span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">IS_PYDANTIC_V2</span><span class="p">:</span>
+
+        <span class="nd">@validator</span><span class="p">(</span><span class="s2">&quot;config&quot;</span><span class="p">,</span> <span class="n">pre</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="k">def</span> <span class="nf">validate_config</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">info</span><span class="p">,</span> <span class="n">values</span><span class="p">):</span>
+            <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">_validate_config</span><span class="p">(</span><span class="n">info</span><span class="p">,</span> <span class="n">values</span><span class="p">)</span>
+
+    <span class="k">else</span><span class="p">:</span>
+
+<div class="viewcode-block" id="Model.validate_config"><a class="viewcode-back" href="../../../python_api/mlflow.gateway.html#mlflow.gateway.config.Model.validate_config">[docs]</a>        <span class="nd">@validator</span><span class="p">(</span><span class="s2">&quot;config&quot;</span><span class="p">,</span> <span class="n">pre</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="k">def</span> <span class="nf">validate_config</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">config</span><span class="p">,</span> <span class="n">values</span><span class="p">):</span>
+            <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">_validate_config</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">values</span><span class="p">)</span></div></div>
+
+
+<div class="viewcode-block" id="AliasedConfigModel"><a class="viewcode-back" href="../../../python_api/mlflow.gateway.html#mlflow.gateway.config.AliasedConfigModel">[docs]</a><span class="k">class</span> <span class="nc">AliasedConfigModel</span><span class="p">(</span><span class="n">ConfigModel</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Enables use of field aliases in a configuration model for backwards compatibility</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">if</span> <span class="n">Version</span><span class="p">(</span><span class="n">pydantic</span><span class="o">.</span><span class="n">__version__</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="n">Version</span><span class="p">(</span><span class="s2">&quot;2.0&quot;</span><span class="p">):</span>
+        <span class="n">model_config</span> <span class="o">=</span> <span class="n">ConfigDict</span><span class="p">(</span><span class="n">populate_by_name</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+
+        <span class="k">class</span> <span class="nc">Config</span><span class="p">:</span>
+            <span class="n">allow_population_by_field_name</span> <span class="o">=</span> <span class="kc">True</span></div>
+
+
+<div class="viewcode-block" id="Limit"><a class="viewcode-back" href="../../../python_api/mlflow.gateway.html#mlflow.gateway.config.Limit">[docs]</a><span class="k">class</span> <span class="nc">Limit</span><span class="p">(</span><span class="n">LimitModel</span><span class="p">):</span>
+    <span class="n">calls</span><span class="p">:</span> <span class="nb">int</span>
+    <span class="n">key</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">renewal_period</span><span class="p">:</span> <span class="nb">str</span></div>
+
+
+<div class="viewcode-block" id="LimitsConfig"><a class="viewcode-back" href="../../../python_api/mlflow.gateway.html#mlflow.gateway.config.LimitsConfig">[docs]</a><span class="k">class</span> <span class="nc">LimitsConfig</span><span class="p">(</span><span class="n">ConfigModel</span><span class="p">):</span>
+    <span class="n">limits</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="n">Limit</span><span class="p">]]</span> <span class="o">=</span> <span class="p">[]</span></div>
+
+
+<div class="viewcode-block" id="RouteConfig"><a class="viewcode-back" href="../../../python_api/mlflow.gateway.html#mlflow.gateway.config.RouteConfig">[docs]</a><span class="k">class</span> <span class="nc">RouteConfig</span><span class="p">(</span><span class="n">AliasedConfigModel</span><span class="p">):</span>
+    <span class="n">name</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="n">route_type</span><span class="p">:</span> <span class="n">RouteType</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span><span class="n">alias</span><span class="o">=</span><span class="s2">&quot;endpoint_type&quot;</span><span class="p">)</span>
+    <span class="n">model</span><span class="p">:</span> <span class="n">Model</span>
+    <span class="n">limit</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Limit</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+
+<div class="viewcode-block" id="RouteConfig.validate_endpoint_name"><a class="viewcode-back" href="../../../python_api/mlflow.gateway.html#mlflow.gateway.config.RouteConfig.validate_endpoint_name">[docs]</a>    <span class="nd">@validator</span><span class="p">(</span><span class="s2">&quot;name&quot;</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">validate_endpoint_name</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">route_name</span><span class="p">):</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">is_valid_endpoint_name</span><span class="p">(</span><span class="n">route_name</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="n">MlflowException</span><span class="o">.</span><span class="n">invalid_parameter_value</span><span class="p">(</span>
+                <span class="s2">&quot;The route name provided contains disallowed characters for a url endpoint. &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;&#39;</span><span class="si">{</span><span class="n">route_name</span><span class="si">}</span><span class="s2">&#39; is invalid. Names cannot contain spaces or any non &quot;</span>
+                <span class="s2">&quot;alphanumeric characters other than hyphen and underscore.&quot;</span>
+            <span class="p">)</span>
+        <span class="k">return</span> <span class="n">route_name</span></div>
+
+<div class="viewcode-block" id="RouteConfig.validate_model"><a class="viewcode-back" href="../../../python_api/mlflow.gateway.html#mlflow.gateway.config.RouteConfig.validate_model">[docs]</a>    <span class="nd">@validator</span><span class="p">(</span><span class="s2">&quot;model&quot;</span><span class="p">,</span> <span class="n">pre</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">validate_model</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">model</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">model</span><span class="p">:</span>
+            <span class="n">model_instance</span> <span class="o">=</span> <span class="n">Model</span><span class="p">(</span><span class="o">**</span><span class="n">model</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">model_instance</span><span class="o">.</span><span class="n">provider</span> <span class="ow">in</span> <span class="n">Provider</span><span class="o">.</span><span class="n">values</span><span class="p">()</span> <span class="ow">and</span> <span class="n">model_instance</span><span class="o">.</span><span class="n">config</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="n">MlflowException</span><span class="o">.</span><span class="n">invalid_parameter_value</span><span class="p">(</span>
+                    <span class="s2">&quot;A config must be supplied when setting a provider. The provider entry for &quot;</span>
+                    <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">model_instance</span><span class="o">.</span><span class="n">provider</span><span class="si">}</span><span class="s2"> is incorrect.&quot;</span>
+                <span class="p">)</span>
+        <span class="k">return</span> <span class="n">model</span></div>
+
+<div class="viewcode-block" id="RouteConfig.validate_route_type_and_model_name"><a class="viewcode-back" href="../../../python_api/mlflow.gateway.html#mlflow.gateway.config.RouteConfig.validate_route_type_and_model_name">[docs]</a>    <span class="nd">@root_validator</span><span class="p">(</span><span class="n">skip_on_failure</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">validate_route_type_and_model_name</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">values</span><span class="p">):</span>
+        <span class="n">route_type</span> <span class="o">=</span> <span class="n">values</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;route_type&quot;</span><span class="p">)</span>
+        <span class="n">model</span> <span class="o">=</span> <span class="n">values</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;model&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="p">(</span>
+            <span class="n">model</span>
+            <span class="ow">and</span> <span class="n">model</span><span class="o">.</span><span class="n">provider</span> <span class="o">==</span> <span class="s2">&quot;mosaicml&quot;</span>
+            <span class="ow">and</span> <span class="n">route_type</span> <span class="o">==</span> <span class="n">RouteType</span><span class="o">.</span><span class="n">LLM_V1_CHAT</span>
+            <span class="ow">and</span> <span class="ow">not</span> <span class="n">is_valid_mosiacml_chat_model</span><span class="p">(</span><span class="n">model</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
+        <span class="p">):</span>
+            <span class="k">raise</span> <span class="n">MlflowException</span><span class="o">.</span><span class="n">invalid_parameter_value</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;An invalid model has been specified for the chat route. &#39;</span><span class="si">{</span><span class="n">model</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">&#39;. &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;Ensure the model selected starts with one of: &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">MLFLOW_AI_GATEWAY_MOSAICML_CHAT_SUPPORTED_MODEL_PREFIXES</span><span class="si">}</span><span class="s2">&quot;</span>
+            <span class="p">)</span>
+        <span class="k">if</span> <span class="n">model</span> <span class="ow">and</span> <span class="n">model</span><span class="o">.</span><span class="n">provider</span> <span class="o">==</span> <span class="s2">&quot;ai21labs&quot;</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">is_valid_ai21labs_model</span><span class="p">(</span><span class="n">model</span><span class="o">.</span><span class="n">name</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="n">MlflowException</span><span class="o">.</span><span class="n">invalid_parameter_value</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;An Unsupported AI21Labs model has been specified: &#39;</span><span class="si">{</span><span class="n">model</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">&#39;. &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;Please see documentation for supported models.&quot;</span>
+            <span class="p">)</span>
+        <span class="k">return</span> <span class="n">values</span></div>
+
+<div class="viewcode-block" id="RouteConfig.validate_route_type"><a class="viewcode-back" href="../../../python_api/mlflow.gateway.html#mlflow.gateway.config.RouteConfig.validate_route_type">[docs]</a>    <span class="nd">@validator</span><span class="p">(</span><span class="s2">&quot;route_type&quot;</span><span class="p">,</span> <span class="n">pre</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">validate_route_type</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">value</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">RouteType</span><span class="o">.</span><span class="n">_value2member_map_</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">value</span>
+        <span class="k">raise</span> <span class="n">MlflowException</span><span class="o">.</span><span class="n">invalid_parameter_value</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;The route_type &#39;</span><span class="si">{</span><span class="n">value</span><span class="si">}</span><span class="s2">&#39; is not supported.&quot;</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="RouteConfig.validate_limit"><a class="viewcode-back" href="../../../python_api/mlflow.gateway.html#mlflow.gateway.config.RouteConfig.validate_limit">[docs]</a>    <span class="nd">@validator</span><span class="p">(</span><span class="s2">&quot;limit&quot;</span><span class="p">,</span> <span class="n">pre</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">validate_limit</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">value</span><span class="p">):</span>
+        <span class="kn">from</span> <span class="nn">limits</span> <span class="kn">import</span> <span class="n">parse</span>
+
+        <span class="k">if</span> <span class="n">value</span><span class="p">:</span>
+            <span class="n">limit</span> <span class="o">=</span> <span class="n">Limit</span><span class="p">(</span><span class="o">**</span><span class="n">value</span><span class="p">)</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">parse</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">limit</span><span class="o">.</span><span class="n">calls</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">limit</span><span class="o">.</span><span class="n">renewal_period</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="k">except</span> <span class="ne">ValueError</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="n">MlflowException</span><span class="o">.</span><span class="n">invalid_parameter_value</span><span class="p">(</span>
+                    <span class="s2">&quot;Failed to parse the rate limit configuration.&quot;</span>
+                    <span class="s2">&quot;Please make sure limit.calls is a positive number and&quot;</span>
+                    <span class="s2">&quot;limit.renewal_period is a right granularity&quot;</span>
+                <span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">value</span></div>
+
+<div class="viewcode-block" id="RouteConfig.to_route"><a class="viewcode-back" href="../../../python_api/mlflow.gateway.html#mlflow.gateway.config.RouteConfig.to_route">[docs]</a>    <span class="k">def</span> <span class="nf">to_route</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;Route&quot;</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">Route</span><span class="p">(</span>
+            <span class="n">name</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">,</span>
+            <span class="n">route_type</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">route_type</span><span class="p">,</span>
+            <span class="n">model</span><span class="o">=</span><span class="n">RouteModelInfo</span><span class="p">(</span>
+                <span class="n">name</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">name</span><span class="p">,</span>
+                <span class="n">provider</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">provider</span><span class="p">,</span>
+            <span class="p">),</span>
+            <span class="n">route_url</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">MLFLOW_GATEWAY_ROUTE_BASE</span><span class="si">}{</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="si">}{</span><span class="n">MLFLOW_QUERY_SUFFIX</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span>
+            <span class="n">limit</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">limit</span><span class="p">,</span>
+        <span class="p">)</span></div></div>
+
+
+<div class="viewcode-block" id="RouteModelInfo"><a class="viewcode-back" href="../../../python_api/mlflow.gateway.html#mlflow.gateway.config.RouteModelInfo">[docs]</a><span class="k">class</span> <span class="nc">RouteModelInfo</span><span class="p">(</span><span class="n">ResponseModel</span><span class="p">):</span>
+    <span class="n">name</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="c1"># Use `str` instead of `Provider` enum to allow gateway backends such as Databricks to</span>
+    <span class="c1"># support new providers without breaking the gateway client.</span>
+    <span class="n">provider</span><span class="p">:</span> <span class="nb">str</span></div>
+
+
+<span class="n">_ROUTE_EXTRA_SCHEMA</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s2">&quot;example&quot;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="s2">&quot;name&quot;</span><span class="p">:</span> <span class="s2">&quot;openai-completions&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;route_type&quot;</span><span class="p">:</span> <span class="s2">&quot;llm/v1/completions&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;model&quot;</span><span class="p">:</span> <span class="p">{</span>
+            <span class="s2">&quot;name&quot;</span><span class="p">:</span> <span class="s2">&quot;gpt-4o-mini&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;provider&quot;</span><span class="p">:</span> <span class="s2">&quot;openai&quot;</span><span class="p">,</span>
+        <span class="p">},</span>
+        <span class="s2">&quot;route_url&quot;</span><span class="p">:</span> <span class="s2">&quot;/gateway/routes/completions/invocations&quot;</span><span class="p">,</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+
+
+<div class="viewcode-block" id="Route"><a class="viewcode-back" href="../../../python_api/mlflow.gateway.html#mlflow.gateway.config.Route">[docs]</a><span class="k">class</span> <span class="nc">Route</span><span class="p">(</span><span class="n">ConfigModel</span><span class="p">):</span>
+    <span class="n">name</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="n">route_type</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="n">model</span><span class="p">:</span> <span class="n">RouteModelInfo</span>
+    <span class="n">route_url</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="n">limit</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Limit</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+
+<div class="viewcode-block" id="Route.Config"><a class="viewcode-back" href="../../../python_api/mlflow.gateway.html#mlflow.gateway.config.Route.Config">[docs]</a>    <span class="k">class</span> <span class="nc">Config</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">IS_PYDANTIC_V2</span><span class="p">:</span>
+            <span class="n">json_schema_extra</span> <span class="o">=</span> <span class="n">_ROUTE_EXTRA_SCHEMA</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">schema_extra</span> <span class="o">=</span> <span class="n">_ROUTE_EXTRA_SCHEMA</span></div>
+
+<div class="viewcode-block" id="Route.to_endpoint"><a class="viewcode-back" href="../../../python_api/mlflow.gateway.html#mlflow.gateway.config.Route.to_endpoint">[docs]</a>    <span class="k">def</span> <span class="nf">to_endpoint</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="kn">from</span> <span class="nn">mlflow.deployments.server.config</span> <span class="kn">import</span> <span class="n">Endpoint</span>
+
+        <span class="k">return</span> <span class="n">Endpoint</span><span class="p">(</span>
+            <span class="n">name</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">,</span>
+            <span class="n">endpoint_type</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">route_type</span><span class="p">,</span>
+            <span class="n">model</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="p">,</span>
+            <span class="n">endpoint_url</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">route_url</span><span class="p">,</span>
+            <span class="n">limit</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">limit</span><span class="p">,</span>
+        <span class="p">)</span></div></div>
+
+
+<div class="viewcode-block" id="GatewayConfig"><a class="viewcode-back" href="../../../python_api/mlflow.gateway.html#mlflow.gateway.config.GatewayConfig">[docs]</a><span class="k">class</span> <span class="nc">GatewayConfig</span><span class="p">(</span><span class="n">AliasedConfigModel</span><span class="p">):</span>
+    <span class="n">routes</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">RouteConfig</span><span class="p">]</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span><span class="n">alias</span><span class="o">=</span><span class="s2">&quot;endpoints&quot;</span><span class="p">)</span></div>
+
+
+<span class="k">def</span> <span class="nf">_load_route_config</span><span class="p">(</span><span class="n">path</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Path</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">GatewayConfig</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Reads the gateway configuration yaml file from the storage location and returns an instance</span>
+<span class="sd">    of the configuration RouteConfig class</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+        <span class="n">path</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">configuration</span> <span class="o">=</span> <span class="n">yaml</span><span class="o">.</span><span class="n">safe_load</span><span class="p">(</span><span class="n">path</span><span class="o">.</span><span class="n">read_text</span><span class="p">())</span>
+    <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="n">MlflowException</span><span class="o">.</span><span class="n">invalid_parameter_value</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;The file at </span><span class="si">{</span><span class="n">path</span><span class="si">}</span><span class="s2"> is not a valid yaml file&quot;</span>
+        <span class="p">)</span> <span class="kn">from</span> <span class="nn">e</span>
+    <span class="n">check_configuration_deprecated_fields</span><span class="p">(</span><span class="n">configuration</span><span class="p">)</span>
+    <span class="n">check_configuration_route_name_collisions</span><span class="p">(</span><span class="n">configuration</span><span class="p">)</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">GatewayConfig</span><span class="p">(</span><span class="o">**</span><span class="n">configuration</span><span class="p">)</span>
+    <span class="k">except</span> <span class="n">ValidationError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="n">MlflowException</span><span class="o">.</span><span class="n">invalid_parameter_value</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;The gateway configuration is invalid: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span>
+        <span class="p">)</span> <span class="kn">from</span> <span class="nn">e</span>
+
+
+<span class="k">def</span> <span class="nf">_save_route_config</span><span class="p">(</span><span class="n">config</span><span class="p">:</span> <span class="n">GatewayConfig</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Path</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+        <span class="n">path</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
+    <span class="n">path</span><span class="o">.</span><span class="n">write_text</span><span class="p">(</span><span class="n">yaml</span><span class="o">.</span><span class="n">safe_dump</span><span class="p">(</span><span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="n">config</span><span class="o">.</span><span class="n">dict</span><span class="p">(),</span> <span class="n">default</span><span class="o">=</span><span class="n">pydantic_encoder</span><span class="p">))))</span>
+
+
+<span class="k">def</span> <span class="nf">_validate_config</span><span class="p">(</span><span class="n">config_path</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">GatewayConfig</span><span class="p">:</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">config_path</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="n">MlflowException</span><span class="o">.</span><span class="n">invalid_parameter_value</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">config_path</span><span class="si">}</span><span class="s2"> does not exist&quot;</span><span class="p">)</span>
+
+    <span class="k">try</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">_load_route_config</span><span class="p">(</span><span class="n">config_path</span><span class="p">)</span>
+    <span class="k">except</span> <span class="n">ValidationError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="n">MlflowException</span><span class="o">.</span><span class="n">invalid_parameter_value</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Invalid gateway configuration: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span> <span class="kn">from</span> <span class="nn">e</span>
+</pre></div>
+
+              </div>
+            </div>
+            <footer>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+      <p class="copyright">
+          &copy; MLflow Project, a Series of LF Projects, LLC. All rights reserved.
+      </p>
+
+  </div> 
+
+</footer>
+          </div>
+        </div>
+      </section>
+    </main>
+  </page>
+
+  
+
+
+  
+  <script type="text/javascript">
+    var DOCUMENTATION_OPTIONS = {
+      URL_ROOT:'../../../',
+      VERSION:'2.17.1.dev0',
+      COLLAPSE_INDEX:false,
+      FILE_SUFFIX:'.html',
+      LINK_SUFFIX: '.html',
+      HAS_SOURCE:  true
+    };
+  </script>
+
+  
+
+  <script type="text/javascript" src="../../../_static/js/clipboard.min.js"></script>
+  <script type="text/javascript" src="../../../_static/js/jquery.waypoints.min.js"></script>
+
+  
+  
+  
+  <script type="text/javascript">var CLIPPY_SVG_PATH = "../../../_static/clippy.svg";</script>
+  <script type="text/javascript" src="../../../_static/js/custom.js"></script>
+  
+
+  
+  
+  <script type="text/javascript">
+    jQuery(function () {
+      SphinxRtdTheme.StickyNav.enable();
+    });
+
+  </script>
+  
+
+  
+  <script type="text/javascript">
+    document.addEventListener("DOMContentLoaded", function() {
+        function copyToClipboard(text) {
+            const textarea = document.createElement('textarea');
+            textarea.value = text;
+            document.body.appendChild(textarea);
+            textarea.select();
+            document.execCommand('copy');
+            document.body.removeChild(textarea);
+        }
+        // Get the code block designator class entries
+        const allHighlights = document.querySelectorAll('.highlight');
+        // Disable copyable links for notebook cell numbering and for cell outputs
+        const highlights = Array.from(allHighlights).filter(highlight => !highlight.closest('.highlight-none') && 
+            !highlight.closest('.nboutput'));
+    
+        highlights.forEach(function(highlight) {
+            const copyIcon = document.createElement('span');
+            copyIcon.classList.add('copy-icon');
+            copyIcon.innerHTML = '&#xf0ea;';
+
+            copyIcon.addEventListener('click', function() {
+                const code = highlight.querySelector('pre').textContent;
+                copyToClipboard(code);
+
+                // Flash effect on click
+                this.style.color = '#0194E2';
+                setTimeout(() => {
+                    this.style.color = ''; 
+                }, 100);
+
+                // Display "Code copied to clipboard" near the clicked icon
+                const message = document.createElement('span');
+                message.textContent = "Copied!";
+                message.classList.add('copy-message'); 
+
+                // Append the message to the icon
+                this.appendChild(message);
+
+                setTimeout(() => {
+                    this.removeChild(message);
+                }, 500);
+            });
+
+            highlight.appendChild(copyIcon);
+        });
+    });
+  </script>
+
+
+<script type="text/javascript">
+    document.addEventListener("DOMContentLoaded", function() {
+        // Force download for notebook-download-btn
+        const downloadButtons = document.querySelectorAll('.notebook-download-btn');
+        downloadButtons.forEach(function(button) {
+            button.addEventListener('click', function(event) {
+                event.preventDefault(); // Prevent default behavior
+
+                // Fetch the raw content of the notebook from GitHub
+                fetch(button.href)
+                    .then(response => response.blob())
+                    .then(blob => {
+                        const url = window.URL.createObjectURL(blob);
+                        const link = document.createElement('a');
+                        link.style.display = 'none';
+                        link.href = url;
+                        const filename = button.href.split('/').pop();
+                        link.download = filename; 
+
+                        document.body.appendChild(link);
+                        link.click();
+
+                        window.URL.revokeObjectURL(url);
+                        document.body.removeChild(link);
+                    })
+                    .catch(err => console.error('Error fetching the notebook:', err));
+            });
+        });
+    });
+</script> 
+</body>
+</html>

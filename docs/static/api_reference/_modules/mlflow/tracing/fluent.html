@@ -1,0 +1,1065 @@
+
+
+<!DOCTYPE html>
+<!-- source: docs/source/_modules/mlflow/tracing/fluent -->
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>mlflow.tracing.fluent</title>
+  
+   
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+  <link rel="canonical" href="https://mlflow.org/docs/latest/_modules/mlflow/tracing/fluent.html">
+  
+  
+    <link rel="shortcut icon" href="../../../_static/favicon.ico"/>
+    
+
+    
+
+  
+    
+
+  
+
+  
+  
+    
+
+  
+
+  
+  
+    <link href="https://fonts.googleapis.com/css?family=Source+Sans+Pro:300,400,600" rel="stylesheet">
+    <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/css/custom.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/css/cards.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/css/grids.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/css/mobile.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/css/simple-cards.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/css/tabs.css" type="text/css" />
+    
+  
+        <link rel="index" title="Index"
+              href="../../../genindex.html"/>
+        <link rel="search" title="Search" href="../../../search.html"/>
+    <link rel="top" title="MLflow 2.17.1.dev0 documentation" href="../../../index.html"/>
+        <link rel="up" title="Module code" href="../../index.html"/> 
+
+  
+  <script src="../../../_static/js/modernizr.min.js"></script>
+
+</head>
+<script type="text/javascript" src="../../../_static/jquery.js"></script>
+<script type="text/javascript" src="../../../_static/underscore.js"></script>
+<script type="text/javascript" src="../../../_static/doctools.js"></script>
+<script type="text/javascript" src="../../../_static/tabs.js"></script>
+<script type="text/javascript" src="../../../_static/languagesections.js"></script>
+<script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+<script type="text/javascript" src="../../../_static/runllm.js"></script>
+
+<body class="wy-body-for-nav" role="document">
+  
+
+  
+  <nav class="wy-nav-top header" role="navigation" aria-label="top navigation">
+    <ul>
+  <li class="menu-toggle">
+    <i data-toggle="wy-nav-top" class="wy-nav-top-menu-button db-icon db-icon-menu pull-left"></i>
+    <a href="../../../index.html" class="wy-nav-top-logo"
+      ><img src="../../../_static/MLflow-logo-final-black.png" alt="MLflow"
+    /></a>
+    <span class="version">2.17.1.dev0</span>
+  </li>
+</ul>
+  </nav>
+  <page>
+    
+
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side relative">
+      <div class="wy-side-scroll">
+  <div class="wy-side-nav-search">
+    
+
+    
+
+    
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+  <input type="text" name="q" placeholder="Search" />
+  <input type="hidden" name="check_keywords" value="yes" />
+  <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+
+    
+  </div>
+
+  <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+    
+      <a href="../../../index.html" class="main-navigation-home"><img src="../../../_static/icons/nav-home.svg"> MLflow</a>
+    
+
+    
+      
+
+      
+        <ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../python_api/index.html">Python API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../cli.html">Command-Line Interface</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../R-api.html">R API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../java_api/index.html">Java API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../rest-api.html">REST API</a></li>
+</ul>
+
+      
+    
+  </div>
+
+  <div role="contentinfo">
+    
+
+    <p>
+      <a id='feedbacklink' href="https://github.com/mlflow/mlflow/blob/master/CONTRIBUTING.md" target="_blank">Contribute</a>
+    </p>
+  </div>
+</div>
+    </nav>
+
+    <main class="wy-grid-for-nav">
+      <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+        <div class="wy-nav-content">
+          <div class="rst-content">
+            
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href="../../../index.html">Documentation</a> <span class="db-icon db-icon-chevron-right"></span></li>
+    
+        <li><a href="../../index.html">Module code</a> <span class="db-icon db-icon-chevron-right"></span></li>
+    
+    
+      <li>mlflow.tracing.fluent</li>
+    
+    
+    <!-- <li class="wy-breadcrumbs-aside">
+      <a href="https://github.com/mlflow/mlflow/blob/master/docs/source/_modules/mlflow/tracing/fluent" class="fa fa-github"> Edit on GitHub</a>
+    </li> -->
+    
+  </ul>
+</div>
+            <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+              <div itemprop="articleBody">
+                
+  <h1>Source code for mlflow.tracing.fluent</h1><div class="highlight"><pre>
+<span></span><span class="kn">from</span> <span class="nn">__future__</span> <span class="kn">import</span> <span class="n">annotations</span>
+
+<span class="kn">import</span> <span class="nn">contextlib</span>
+<span class="kn">import</span> <span class="nn">functools</span>
+<span class="kn">import</span> <span class="nn">importlib</span>
+<span class="kn">import</span> <span class="nn">inspect</span>
+<span class="kn">import</span> <span class="nn">json</span>
+<span class="kn">import</span> <span class="nn">logging</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">TYPE_CHECKING</span><span class="p">,</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Callable</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">Generator</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Union</span>
+
+<span class="kn">from</span> <span class="nn">cachetools</span> <span class="kn">import</span> <span class="n">TTLCache</span>
+<span class="kn">from</span> <span class="nn">opentelemetry</span> <span class="kn">import</span> <span class="n">trace</span> <span class="k">as</span> <span class="n">trace_api</span>
+
+<span class="kn">from</span> <span class="nn">mlflow</span> <span class="kn">import</span> <span class="n">MlflowClient</span>
+<span class="kn">from</span> <span class="nn">mlflow.entities</span> <span class="kn">import</span> <span class="n">NoOpSpan</span><span class="p">,</span> <span class="n">SpanType</span><span class="p">,</span> <span class="n">Trace</span>
+<span class="kn">from</span> <span class="nn">mlflow.entities.span</span> <span class="kn">import</span> <span class="n">LiveSpan</span><span class="p">,</span> <span class="n">create_mlflow_span</span>
+<span class="kn">from</span> <span class="nn">mlflow.entities.trace_status</span> <span class="kn">import</span> <span class="n">TraceStatus</span>
+<span class="kn">from</span> <span class="nn">mlflow.environment_variables</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">MLFLOW_TRACE_BUFFER_MAX_SIZE</span><span class="p">,</span>
+    <span class="n">MLFLOW_TRACE_BUFFER_TTL_SECONDS</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">mlflow.exceptions</span> <span class="kn">import</span> <span class="n">MlflowException</span>
+<span class="kn">from</span> <span class="nn">mlflow.protos.databricks_pb2</span> <span class="kn">import</span> <span class="n">BAD_REQUEST</span>
+<span class="kn">from</span> <span class="nn">mlflow.store.tracking</span> <span class="kn">import</span> <span class="n">SEARCH_TRACES_DEFAULT_MAX_RESULTS</span>
+<span class="kn">from</span> <span class="nn">mlflow.tracing</span> <span class="kn">import</span> <span class="n">provider</span>
+<span class="kn">from</span> <span class="nn">mlflow.tracing.constant</span> <span class="kn">import</span> <span class="n">SpanAttributeKey</span>
+<span class="kn">from</span> <span class="nn">mlflow.tracing.display</span> <span class="kn">import</span> <span class="n">get_display_handler</span>
+<span class="kn">from</span> <span class="nn">mlflow.tracing.provider</span> <span class="kn">import</span> <span class="n">is_tracing_enabled</span>
+<span class="kn">from</span> <span class="nn">mlflow.tracing.trace_manager</span> <span class="kn">import</span> <span class="n">InMemoryTraceManager</span>
+<span class="kn">from</span> <span class="nn">mlflow.tracing.utils</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">SPANS_COLUMN_NAME</span><span class="p">,</span>
+    <span class="n">capture_function_input_args</span><span class="p">,</span>
+    <span class="n">encode_span_id</span><span class="p">,</span>
+    <span class="n">get_otel_attribute</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">mlflow.tracing.utils.search</span> <span class="kn">import</span> <span class="n">extract_span_inputs_outputs</span><span class="p">,</span> <span class="n">traces_to_df</span>
+<span class="kn">from</span> <span class="nn">mlflow.tracking.fluent</span> <span class="kn">import</span> <span class="n">_get_experiment_id</span>
+<span class="kn">from</span> <span class="nn">mlflow.utils</span> <span class="kn">import</span> <span class="n">get_results_from_paginated_fn</span>
+<span class="kn">from</span> <span class="nn">mlflow.utils.annotations</span> <span class="kn">import</span> <span class="n">experimental</span>
+<span class="kn">from</span> <span class="nn">mlflow.utils.databricks_utils</span> <span class="kn">import</span> <span class="n">is_in_databricks_model_serving_environment</span>
+
+<span class="n">_logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
+
+<span class="k">if</span> <span class="n">TYPE_CHECKING</span><span class="p">:</span>
+    <span class="kn">import</span> <span class="nn">pandas</span>
+
+
+<span class="c1"># Traces are stored in memory after completion so they can be retrieved conveniently.</span>
+<span class="c1"># For example, Databricks model serving fetches the trace data from the buffer after</span>
+<span class="c1"># making the prediction request, and logging them into the Inference Table.</span>
+<span class="n">TRACE_BUFFER</span> <span class="o">=</span> <span class="n">TTLCache</span><span class="p">(</span>
+    <span class="n">maxsize</span><span class="o">=</span><span class="n">MLFLOW_TRACE_BUFFER_MAX_SIZE</span><span class="o">.</span><span class="n">get</span><span class="p">(),</span>
+    <span class="n">ttl</span><span class="o">=</span><span class="n">MLFLOW_TRACE_BUFFER_TTL_SECONDS</span><span class="o">.</span><span class="n">get</span><span class="p">(),</span>
+<span class="p">)</span>
+
+
+<div class="viewcode-block" id="trace"><a class="viewcode-back" href="../../../python_api/mlflow.html#mlflow.trace">[docs]</a><span class="nd">@experimental</span>
+<span class="k">def</span> <span class="nf">trace</span><span class="p">(</span>
+    <span class="n">func</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Callable</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">name</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">span_type</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">SpanType</span><span class="o">.</span><span class="n">UNKNOWN</span><span class="p">,</span>
+    <span class="n">attributes</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Callable</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    A decorator that creates a new span for the decorated function.</span>
+
+<span class="sd">    When you decorate a function with this :py:func:`@mlflow.trace() &lt;trace&gt;` decorator,</span>
+<span class="sd">    a span will be created for the scope of the decorated function. The span will automatically</span>
+<span class="sd">    capture the input and output of the function. When it is applied to a method, it doesn&#39;t</span>
+<span class="sd">    capture the `self` argument. Any exception raised within the function will set the span</span>
+<span class="sd">    status to ``ERROR`` and detailed information such as exception message and stacktrace</span>
+<span class="sd">    will be recorded to the ``attributes`` field of the span.</span>
+
+<span class="sd">    For example, the following code will yield a span with the name ``&quot;my_function&quot;``,</span>
+<span class="sd">    capturing the input arguments ``x`` and ``y``, and the output of the function.</span>
+
+<span class="sd">    .. code-block:: python</span>
+<span class="sd">        :test:</span>
+
+<span class="sd">        import mlflow</span>
+
+
+<span class="sd">        @mlflow.trace</span>
+<span class="sd">        def my_function(x, y):</span>
+<span class="sd">            return x + y</span>
+
+<span class="sd">    This is equivalent to doing the following using the :py:func:`mlflow.start_span` context</span>
+<span class="sd">    manager, but requires less boilerplate code.</span>
+
+<span class="sd">    .. code-block:: python</span>
+<span class="sd">        :test:</span>
+
+<span class="sd">        import mlflow</span>
+
+
+<span class="sd">        def my_function(x, y):</span>
+<span class="sd">            return x + y</span>
+
+
+<span class="sd">        with mlflow.start_span(&quot;my_function&quot;) as span:</span>
+<span class="sd">            x = 1</span>
+<span class="sd">            y = 2</span>
+<span class="sd">            span.set_inputs({&quot;x&quot;: x, &quot;y&quot;: y})</span>
+<span class="sd">            result = my_function(x, y)</span>
+<span class="sd">            span.set_outputs({&quot;output&quot;: result})</span>
+
+
+<span class="sd">    .. tip::</span>
+
+<span class="sd">        The @mlflow.trace decorator is useful when you want to trace a function defined by</span>
+<span class="sd">        yourself. However, you may also want to trace a function in external libraries. In</span>
+<span class="sd">        such case, you can use this ``mlflow.trace()`` function to directly wrap the function,</span>
+<span class="sd">        instead of using as the decorator. This will create the exact same span as the</span>
+<span class="sd">        one created by the decorator i.e. captures information from the function call.</span>
+
+<span class="sd">        .. code-block:: python</span>
+<span class="sd">            :test:</span>
+
+<span class="sd">            import math</span>
+
+<span class="sd">            import mlflow</span>
+
+<span class="sd">            mlflow.trace(math.factorial)(5)</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        func: The function to be decorated. Must **not** be provided when using as a decorator.</span>
+<span class="sd">        name: The name of the span. If not provided, the name of the function will be used.</span>
+<span class="sd">        span_type: The type of the span. Can be either a string or a</span>
+<span class="sd">            :py:class:`SpanType &lt;mlflow.entities.SpanType&gt;` enum value.</span>
+<span class="sd">        attributes: A dictionary of attributes to set on the span.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">class</span> <span class="nc">_WrappingContext</span><span class="p">:</span>
+        <span class="c1"># define the wrapping logic as a coroutine to avoid code duplication</span>
+        <span class="c1"># between sync and async cases</span>
+        <span class="nd">@staticmethod</span>
+        <span class="k">def</span> <span class="nf">_wrapping_logic</span><span class="p">(</span><span class="n">fn</span><span class="p">,</span> <span class="n">args</span><span class="p">,</span> <span class="n">kwargs</span><span class="p">):</span>
+            <span class="n">span_name</span> <span class="o">=</span> <span class="n">name</span> <span class="ow">or</span> <span class="n">fn</span><span class="o">.</span><span class="vm">__name__</span>
+
+            <span class="k">with</span> <span class="n">start_span</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="n">span_name</span><span class="p">,</span> <span class="n">span_type</span><span class="o">=</span><span class="n">span_type</span><span class="p">,</span> <span class="n">attributes</span><span class="o">=</span><span class="n">attributes</span><span class="p">)</span> <span class="k">as</span> <span class="n">span</span><span class="p">:</span>
+                <span class="n">span</span><span class="o">.</span><span class="n">set_attribute</span><span class="p">(</span><span class="n">SpanAttributeKey</span><span class="o">.</span><span class="n">FUNCTION_NAME</span><span class="p">,</span> <span class="n">fn</span><span class="o">.</span><span class="vm">__name__</span><span class="p">)</span>
+                <span class="k">try</span><span class="p">:</span>
+                    <span class="n">span</span><span class="o">.</span><span class="n">set_inputs</span><span class="p">(</span><span class="n">capture_function_input_args</span><span class="p">(</span><span class="n">fn</span><span class="p">,</span> <span class="n">args</span><span class="p">,</span> <span class="n">kwargs</span><span class="p">))</span>
+                <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+                    <span class="n">_logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Failed to capture inputs for function </span><span class="si">{</span><span class="n">fn</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">.&quot;</span><span class="p">)</span>
+                <span class="n">result</span> <span class="o">=</span> <span class="k">yield</span>  <span class="c1"># sync/async function output to be sent here</span>
+                <span class="n">span</span><span class="o">.</span><span class="n">set_outputs</span><span class="p">(</span><span class="n">result</span><span class="p">)</span>
+                <span class="k">yield</span> <span class="n">result</span>
+
+        <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">fn</span><span class="p">,</span> <span class="n">args</span><span class="p">,</span> <span class="n">kwargs</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">coro</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_wrapping_logic</span><span class="p">(</span><span class="n">fn</span><span class="p">,</span> <span class="n">args</span><span class="p">,</span> <span class="n">kwargs</span><span class="p">)</span>
+
+        <span class="k">def</span> <span class="fm">__enter__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+            <span class="nb">next</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">coro</span><span class="p">)</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">coro</span>
+
+        <span class="k">def</span> <span class="fm">__exit__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">exc_type</span><span class="p">,</span> <span class="n">exc_value</span><span class="p">,</span> <span class="n">traceback</span><span class="p">):</span>
+            <span class="c1"># Since the function call occurs outside the coroutine,</span>
+            <span class="c1"># if an exception occurs, we need to throw it back in, so that</span>
+            <span class="c1"># we return control to the coro (in particular, so that the __exit__&#39;s</span>
+            <span class="c1"># of start_span and OTel&#39;s use_span can execute).</span>
+            <span class="k">if</span> <span class="n">exc_type</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">coro</span><span class="o">.</span><span class="n">throw</span><span class="p">(</span><span class="n">exc_type</span><span class="p">,</span> <span class="n">exc_value</span><span class="p">,</span> <span class="n">traceback</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">coro</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+
+    <span class="k">def</span> <span class="nf">decorator</span><span class="p">(</span><span class="n">fn</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">inspect</span><span class="o">.</span><span class="n">iscoroutinefunction</span><span class="p">(</span><span class="n">fn</span><span class="p">):</span>
+
+            <span class="k">async</span> <span class="k">def</span> <span class="nf">wrapper</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+                <span class="k">with</span> <span class="n">_WrappingContext</span><span class="p">(</span><span class="n">fn</span><span class="p">,</span> <span class="n">args</span><span class="p">,</span> <span class="n">kwargs</span><span class="p">)</span> <span class="k">as</span> <span class="n">wrapping_coro</span><span class="p">:</span>
+                    <span class="k">return</span> <span class="n">wrapping_coro</span><span class="o">.</span><span class="n">send</span><span class="p">(</span><span class="k">await</span> <span class="n">fn</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">))</span>
+        <span class="k">else</span><span class="p">:</span>
+
+            <span class="k">def</span> <span class="nf">wrapper</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+                <span class="k">with</span> <span class="n">_WrappingContext</span><span class="p">(</span><span class="n">fn</span><span class="p">,</span> <span class="n">args</span><span class="p">,</span> <span class="n">kwargs</span><span class="p">)</span> <span class="k">as</span> <span class="n">wrapping_coro</span><span class="p">:</span>
+                    <span class="k">return</span> <span class="n">wrapping_coro</span><span class="o">.</span><span class="n">send</span><span class="p">(</span><span class="n">fn</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">))</span>
+
+        <span class="k">return</span> <span class="n">functools</span><span class="o">.</span><span class="n">wraps</span><span class="p">(</span><span class="n">fn</span><span class="p">)(</span><span class="n">wrapper</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">decorator</span><span class="p">(</span><span class="n">func</span><span class="p">)</span> <span class="k">if</span> <span class="n">func</span> <span class="k">else</span> <span class="n">decorator</span></div>
+
+
+<div class="viewcode-block" id="start_span"><a class="viewcode-back" href="../../../python_api/mlflow.html#mlflow.start_span">[docs]</a><span class="nd">@experimental</span>
+<span class="nd">@contextlib</span><span class="o">.</span><span class="n">contextmanager</span>
+<span class="k">def</span> <span class="nf">start_span</span><span class="p">(</span>
+    <span class="n">name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;span&quot;</span><span class="p">,</span>
+    <span class="n">span_type</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="n">SpanType</span><span class="o">.</span><span class="n">UNKNOWN</span><span class="p">,</span>
+    <span class="n">attributes</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Generator</span><span class="p">[</span><span class="n">LiveSpan</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Context manager to create a new span and start it as the current span in the context.</span>
+
+<span class="sd">    This context manager automatically manages the span lifecycle and parent-child relationships.</span>
+<span class="sd">    The span will be ended when the context manager exits. Any exception raised within the</span>
+<span class="sd">    context manager will set the span status to ``ERROR``, and detailed information such as</span>
+<span class="sd">    exception message and stacktrace will be recorded to the ``attributes`` field of the span.</span>
+<span class="sd">    New spans can be created within the context manager, then they will be assigned as child</span>
+<span class="sd">    spans.</span>
+
+<span class="sd">    .. code-block:: python</span>
+<span class="sd">        :test:</span>
+
+<span class="sd">        import mlflow</span>
+
+<span class="sd">        with mlflow.start_span(&quot;my_span&quot;) as span:</span>
+<span class="sd">            x = 1</span>
+<span class="sd">            y = 2</span>
+<span class="sd">            span.set_inputs({&quot;x&quot;: x, &quot;y&quot;: y})</span>
+
+<span class="sd">            z = x + y</span>
+
+<span class="sd">            span.set_outputs(z)</span>
+<span class="sd">            span.set_attribute(&quot;key&quot;, &quot;value&quot;)</span>
+<span class="sd">            # do something</span>
+
+<span class="sd">    When this context manager is used in the top-level scope, i.e. not within another span context,</span>
+<span class="sd">    the span will be treated as a root span. The root span doesn&#39;t have a parent reference and</span>
+<span class="sd">    **the entire trace will be logged when the root span is ended**.</span>
+
+
+<span class="sd">    .. tip::</span>
+
+<span class="sd">        If you want more explicit control over the trace lifecycle, you can use</span>
+<span class="sd">        :py:func:`MLflow Client APIs &lt;mlflow.client.MlflowClient.start_trace&gt;`. It provides lower</span>
+<span class="sd">        level to start and end traces manually, as well as setting the parent spans explicitly.</span>
+<span class="sd">        However, it is generally recommended to use this context manager as long as it satisfies</span>
+<span class="sd">        your requirements, because it requires less boilerplate code and is less error-prone.</span>
+
+<span class="sd">    .. note::</span>
+
+<span class="sd">        The context manager doesn&#39;t propagate the span context across threads. If you want to create</span>
+<span class="sd">        a child span in a different thread, you should use</span>
+<span class="sd">        :py:func:`MLflow Client APIs &lt;mlflow.client.MlflowClient.start_trace&gt;`</span>
+<span class="sd">        and pass the parent span ID explicitly.</span>
+
+<span class="sd">    .. note::</span>
+
+<span class="sd">        All spans created under the root span (i.e. a single trace) are buffered in memory and</span>
+<span class="sd">        not exported until the root span is ended. The buffer has a default size of 1000 traces</span>
+<span class="sd">        and TTL of 1 hour. You can configure the buffer size and TTL using the environment variables</span>
+<span class="sd">        ``MLFLOW_TRACE_BUFFER_MAX_SIZE`` and ``MLFLOW_TRACE_BUFFER_TTL_SECONDS`` respectively.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        name: The name of the span.</span>
+<span class="sd">        span_type: The type of the span. Can be either a string or</span>
+<span class="sd">            a :py:class:`SpanType &lt;mlflow.entities.SpanType&gt;` enum value</span>
+<span class="sd">        attributes: A dictionary of attributes to set on the span.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        Yields an :py:class:`mlflow.entities.Span` that represents the created span.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">otel_span</span> <span class="o">=</span> <span class="n">provider</span><span class="o">.</span><span class="n">start_span_in_context</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
+
+        <span class="c1"># Create a new MLflow span and register it to the in-memory trace manager</span>
+        <span class="n">request_id</span> <span class="o">=</span> <span class="n">get_otel_attribute</span><span class="p">(</span><span class="n">otel_span</span><span class="p">,</span> <span class="n">SpanAttributeKey</span><span class="o">.</span><span class="n">REQUEST_ID</span><span class="p">)</span>
+        <span class="n">mlflow_span</span> <span class="o">=</span> <span class="n">create_mlflow_span</span><span class="p">(</span><span class="n">otel_span</span><span class="p">,</span> <span class="n">request_id</span><span class="p">,</span> <span class="n">span_type</span><span class="p">)</span>
+        <span class="n">mlflow_span</span><span class="o">.</span><span class="n">set_attributes</span><span class="p">(</span><span class="n">attributes</span> <span class="ow">or</span> <span class="p">{})</span>
+        <span class="n">InMemoryTraceManager</span><span class="o">.</span><span class="n">get_instance</span><span class="p">()</span><span class="o">.</span><span class="n">register_span</span><span class="p">(</span><span class="n">mlflow_span</span><span class="p">)</span>
+
+    <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+        <span class="n">_logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;Failed to start span: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">. For full traceback, set logging level to debug.&quot;</span><span class="p">,</span>
+            <span class="n">exc_info</span><span class="o">=</span><span class="n">_logger</span><span class="o">.</span><span class="n">isEnabledFor</span><span class="p">(</span><span class="n">logging</span><span class="o">.</span><span class="n">DEBUG</span><span class="p">),</span>
+        <span class="p">)</span>
+        <span class="n">mlflow_span</span> <span class="o">=</span> <span class="n">NoOpSpan</span><span class="p">()</span>
+        <span class="k">yield</span> <span class="n">mlflow_span</span>
+        <span class="k">return</span>
+
+    <span class="k">try</span><span class="p">:</span>
+        <span class="c1"># Setting end_on_exit = False to suppress the default span</span>
+        <span class="c1"># export and instead invoke MLflow span&#39;s end() method.</span>
+        <span class="k">with</span> <span class="n">trace_api</span><span class="o">.</span><span class="n">use_span</span><span class="p">(</span><span class="n">mlflow_span</span><span class="o">.</span><span class="n">_span</span><span class="p">,</span> <span class="n">end_on_exit</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+            <span class="k">yield</span> <span class="n">mlflow_span</span>
+    <span class="k">finally</span><span class="p">:</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">mlflow_span</span><span class="o">.</span><span class="n">end</span><span class="p">()</span>
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="n">_logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;Failed to end span </span><span class="si">{</span><span class="n">mlflow_span</span><span class="o">.</span><span class="n">span_id</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">. &quot;</span>
+                <span class="s2">&quot;For full traceback, set logging level to debug.&quot;</span><span class="p">,</span>
+                <span class="n">exc_info</span><span class="o">=</span><span class="n">_logger</span><span class="o">.</span><span class="n">isEnabledFor</span><span class="p">(</span><span class="n">logging</span><span class="o">.</span><span class="n">DEBUG</span><span class="p">),</span>
+            <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="get_trace"><a class="viewcode-back" href="../../../python_api/mlflow.html#mlflow.get_trace">[docs]</a><span class="nd">@experimental</span>
+<span class="k">def</span> <span class="nf">get_trace</span><span class="p">(</span><span class="n">request_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Trace</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Get a trace by the given request ID if it exists.</span>
+
+<span class="sd">    This function retrieves the trace from the in-memory buffer first, and if it doesn&#39;t exist,</span>
+<span class="sd">    it fetches the trace from the tracking store. If the trace is not found in the tracking store,</span>
+<span class="sd">    it returns None.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        request_id: The request ID of the trace.</span>
+
+
+<span class="sd">    .. code-block:: python</span>
+<span class="sd">        :test:</span>
+
+<span class="sd">        import mlflow</span>
+
+
+<span class="sd">        with mlflow.start_span(name=&quot;span&quot;) as span:</span>
+<span class="sd">            span.set_attribute(&quot;key&quot;, &quot;value&quot;)</span>
+
+<span class="sd">        trace = mlflow.get_trace(span.request_id)</span>
+<span class="sd">        print(trace)</span>
+
+
+<span class="sd">    Returns:</span>
+<span class="sd">        A :py:class:`mlflow.entities.Trace` objects with the given request ID.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># Try to get the trace from the in-memory buffer first</span>
+    <span class="k">if</span> <span class="n">trace</span> <span class="o">:=</span> <span class="n">TRACE_BUFFER</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">request_id</span><span class="p">,</span> <span class="kc">None</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">trace</span>
+
+    <span class="k">try</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">MlflowClient</span><span class="p">()</span><span class="o">.</span><span class="n">get_trace</span><span class="p">(</span><span class="n">request_id</span><span class="p">,</span> <span class="n">display</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+    <span class="k">except</span> <span class="n">MlflowException</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+        <span class="n">_logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;Failed to get trace from the tracking store: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span>
+            <span class="s2">&quot;For full traceback, set logging level to debug.&quot;</span><span class="p">,</span>
+            <span class="n">exc_info</span><span class="o">=</span><span class="n">_logger</span><span class="o">.</span><span class="n">isEnabledFor</span><span class="p">(</span><span class="n">logging</span><span class="o">.</span><span class="n">DEBUG</span><span class="p">),</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="kc">None</span></div>
+
+
+<div class="viewcode-block" id="search_traces"><a class="viewcode-back" href="../../../python_api/mlflow.html#mlflow.search_traces">[docs]</a><span class="nd">@experimental</span>
+<span class="k">def</span> <span class="nf">search_traces</span><span class="p">(</span>
+    <span class="n">experiment_ids</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">filter_string</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">max_results</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">order_by</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">extract_fields</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">run_id</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;pandas.DataFrame&quot;</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Return traces that match the given list of search expressions within the experiments.</span>
+
+<span class="sd">    .. tip::</span>
+
+<span class="sd">        This API returns a **Pandas DataFrame** that contains the traces as rows. To retrieve</span>
+<span class="sd">        a list of the original :py:class:`Trace &lt;mlflow.entities.Trace&gt;` objects,</span>
+<span class="sd">        you can use the :py:meth:`MlflowClient().search_traces</span>
+<span class="sd">        &lt;mlflow.client.MlflowClient.search_traces&gt;` method instead.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        experiment_ids: List of experiment ids to scope the search. If not provided, the search</span>
+<span class="sd">            will be performed across the current active experiment.</span>
+<span class="sd">        filter_string: A search filter string.</span>
+<span class="sd">        max_results: Maximum number of traces desired. If None, all traces matching the search</span>
+<span class="sd">            expressions will be returned.</span>
+<span class="sd">        order_by: List of order_by clauses.</span>
+<span class="sd">        extract_fields: Specify fields to extract from traces using the format</span>
+<span class="sd">            ``&quot;span_name.[inputs|outputs].field_name&quot;`` or ``&quot;span_name.[inputs|outputs]&quot;``.</span>
+<span class="sd">            For instance, ``&quot;predict.outputs.result&quot;`` retrieves the output ``&quot;result&quot;`` field from</span>
+<span class="sd">            a span named ``&quot;predict&quot;``, while ``&quot;predict.outputs&quot;`` fetches the entire outputs</span>
+<span class="sd">            dictionary, including keys ``&quot;result&quot;`` and ``&quot;explanation&quot;``.</span>
+
+<span class="sd">            By default, no fields are extracted into the DataFrame columns. When multiple</span>
+<span class="sd">            fields are specified, each is extracted as its own column. If an invalid field</span>
+<span class="sd">            string is provided, the function silently returns without adding that field&#39;s column.</span>
+<span class="sd">            The supported fields are limited to ``&quot;inputs&quot;`` and ``&quot;outputs&quot;`` of spans. If the</span>
+<span class="sd">            span name or field name contains a dot it must be enclosed in backticks. For example:</span>
+
+<span class="sd">            .. code-block:: python</span>
+
+<span class="sd">                # span name contains a dot</span>
+<span class="sd">                extract_fields = [&quot;`span.name`.inputs.field&quot;]</span>
+
+<span class="sd">                # field name contains a dot</span>
+<span class="sd">                extract_fields = [&quot;span.inputs.`field.name`&quot;]</span>
+
+<span class="sd">                # span name and field name contain a dot</span>
+<span class="sd">                extract_fields = [&quot;`span.name`.inputs.`field.name`&quot;]</span>
+<span class="sd">        run_id: A run id to scope the search. When a trace is created under an active run,</span>
+<span class="sd">            it will be associated with the run and you can filter on the run id to retrieve the</span>
+<span class="sd">            trace. See the example below for how to filter traces by run id.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        A Pandas DataFrame containing information about traces that satisfy the search expressions.</span>
+
+<span class="sd">    .. code-block:: python</span>
+<span class="sd">        :test:</span>
+<span class="sd">        :caption: Search traces with extract_fields</span>
+
+<span class="sd">        import mlflow</span>
+
+<span class="sd">        with mlflow.start_span(name=&quot;span1&quot;) as span:</span>
+<span class="sd">            span.set_inputs({&quot;a&quot;: 1, &quot;b&quot;: 2})</span>
+<span class="sd">            span.set_outputs({&quot;c&quot;: 3, &quot;d&quot;: 4})</span>
+
+<span class="sd">        mlflow.search_traces(</span>
+<span class="sd">            extract_fields=[&quot;span1.inputs&quot;, &quot;span1.outputs&quot;, &quot;span1.outputs.c&quot;]</span>
+<span class="sd">        )</span>
+
+
+<span class="sd">    .. code-block:: python</span>
+<span class="sd">        :test:</span>
+<span class="sd">        :caption: Search traces with extract_fields and non-dictionary span inputs and outputs</span>
+
+<span class="sd">        import mlflow</span>
+
+<span class="sd">        with mlflow.start_span(name=&quot;non_dict_span&quot;) as span:</span>
+<span class="sd">            span.set_inputs([&quot;a&quot;, &quot;b&quot;])</span>
+<span class="sd">            span.set_outputs([1, 2, 3])</span>
+
+<span class="sd">        mlflow.search_traces(</span>
+<span class="sd">            extract_fields=[&quot;non_dict_span.inputs&quot;, &quot;non_dict_span.outputs&quot;],</span>
+<span class="sd">        )</span>
+
+<span class="sd">    .. code-block:: python</span>
+<span class="sd">        :test:</span>
+<span class="sd">        :caption: Search traces by run ID</span>
+
+<span class="sd">        import mlflow</span>
+
+
+<span class="sd">        @mlflow.trace</span>
+<span class="sd">        def traced_func(x):</span>
+<span class="sd">            return x + 1</span>
+
+
+<span class="sd">        with mlflow.start_run() as run:</span>
+<span class="sd">            traced_func(1)</span>
+
+<span class="sd">        mlflow.search_traces(run_id=run.info.run_id)</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># Check if pandas is installed early to avoid unnecessary computation</span>
+    <span class="k">if</span> <span class="n">importlib</span><span class="o">.</span><span class="n">util</span><span class="o">.</span><span class="n">find_spec</span><span class="p">(</span><span class="s2">&quot;pandas&quot;</span><span class="p">)</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="n">MlflowException</span><span class="p">(</span>
+            <span class="n">message</span><span class="o">=</span><span class="p">(</span>
+                <span class="s2">&quot;The `pandas` library is not installed. Please install `pandas` to use&quot;</span>
+                <span class="s2">&quot;`mlflow.search_traces` function.&quot;</span>
+            <span class="p">),</span>
+        <span class="p">)</span>
+
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">experiment_ids</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">experiment_id</span> <span class="o">:=</span> <span class="n">_get_experiment_id</span><span class="p">():</span>
+            <span class="n">experiment_ids</span> <span class="o">=</span> <span class="p">[</span><span class="n">experiment_id</span><span class="p">]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">MlflowException</span><span class="p">(</span>
+                <span class="s2">&quot;No active experiment found. Set an experiment using `mlflow.set_experiment`, &quot;</span>
+                <span class="s2">&quot;or specify the list of experiment IDs in the `experiment_ids` parameter.&quot;</span>
+            <span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">pagination_wrapper_func</span><span class="p">(</span><span class="n">number_to_get</span><span class="p">,</span> <span class="n">next_page_token</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">MlflowClient</span><span class="p">()</span><span class="o">.</span><span class="n">search_traces</span><span class="p">(</span>
+            <span class="n">experiment_ids</span><span class="o">=</span><span class="n">experiment_ids</span><span class="p">,</span>
+            <span class="n">run_id</span><span class="o">=</span><span class="n">run_id</span><span class="p">,</span>
+            <span class="n">max_results</span><span class="o">=</span><span class="n">number_to_get</span><span class="p">,</span>
+            <span class="n">filter_string</span><span class="o">=</span><span class="n">filter_string</span><span class="p">,</span>
+            <span class="n">order_by</span><span class="o">=</span><span class="n">order_by</span><span class="p">,</span>
+            <span class="n">page_token</span><span class="o">=</span><span class="n">next_page_token</span><span class="p">,</span>
+        <span class="p">)</span>
+
+    <span class="n">results</span> <span class="o">=</span> <span class="n">get_results_from_paginated_fn</span><span class="p">(</span>
+        <span class="n">pagination_wrapper_func</span><span class="p">,</span>
+        <span class="n">max_results_per_page</span><span class="o">=</span><span class="n">SEARCH_TRACES_DEFAULT_MAX_RESULTS</span><span class="p">,</span>
+        <span class="n">max_results</span><span class="o">=</span><span class="n">max_results</span><span class="p">,</span>
+    <span class="p">)</span>
+
+    <span class="n">get_display_handler</span><span class="p">()</span><span class="o">.</span><span class="n">display_traces</span><span class="p">(</span><span class="n">results</span><span class="p">)</span>
+
+    <span class="n">traces_df</span> <span class="o">=</span> <span class="n">traces_to_df</span><span class="p">(</span><span class="n">results</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">extract_fields</span><span class="p">:</span>
+        <span class="n">traces_df</span> <span class="o">=</span> <span class="n">extract_span_inputs_outputs</span><span class="p">(</span>
+            <span class="n">traces</span><span class="o">=</span><span class="n">traces_df</span><span class="p">,</span>
+            <span class="n">fields</span><span class="o">=</span><span class="n">extract_fields</span><span class="p">,</span>
+            <span class="n">col_name</span><span class="o">=</span><span class="n">SPANS_COLUMN_NAME</span><span class="p">,</span>
+        <span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">traces_df</span></div>
+
+
+<div class="viewcode-block" id="get_current_active_span"><a class="viewcode-back" href="../../../python_api/mlflow.html#mlflow.get_current_active_span">[docs]</a><span class="nd">@experimental</span>
+<span class="k">def</span> <span class="nf">get_current_active_span</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">LiveSpan</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Get the current active span in the global context.</span>
+
+<span class="sd">    .. attention::</span>
+
+<span class="sd">        This only works when the span is created with fluent APIs like `@mlflow.trace` or</span>
+<span class="sd">        `with mlflow.start_span`. If a span is created with MlflowClient APIs, it won&#39;t be</span>
+<span class="sd">        attached to the global context so this function will not return it.</span>
+
+
+<span class="sd">    .. code-block:: python</span>
+<span class="sd">        :test:</span>
+
+<span class="sd">        import mlflow</span>
+
+
+<span class="sd">        @mlflow.trace</span>
+<span class="sd">        def f():</span>
+<span class="sd">            span = mlflow.get_current_active_span()</span>
+<span class="sd">            span.set_attribute(&quot;key&quot;, &quot;value&quot;)</span>
+<span class="sd">            return 0</span>
+
+
+<span class="sd">        f()</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        The current active span if exists, otherwise None.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">otel_span</span> <span class="o">=</span> <span class="n">trace_api</span><span class="o">.</span><span class="n">get_current_span</span><span class="p">()</span>
+    <span class="c1"># NonRecordingSpan is returned if a tracer is not instantiated.</span>
+    <span class="k">if</span> <span class="n">otel_span</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">otel_span</span><span class="p">,</span> <span class="n">trace_api</span><span class="o">.</span><span class="n">NonRecordingSpan</span><span class="p">):</span>
+        <span class="k">return</span> <span class="kc">None</span>
+
+    <span class="n">trace_manager</span> <span class="o">=</span> <span class="n">InMemoryTraceManager</span><span class="o">.</span><span class="n">get_instance</span><span class="p">()</span>
+    <span class="n">request_id</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">otel_span</span><span class="o">.</span><span class="n">attributes</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">SpanAttributeKey</span><span class="o">.</span><span class="n">REQUEST_ID</span><span class="p">))</span>
+    <span class="k">return</span> <span class="n">trace_manager</span><span class="o">.</span><span class="n">get_span_from_id</span><span class="p">(</span><span class="n">request_id</span><span class="p">,</span> <span class="n">encode_span_id</span><span class="p">(</span><span class="n">otel_span</span><span class="o">.</span><span class="n">context</span><span class="o">.</span><span class="n">span_id</span><span class="p">))</span></div>
+
+
+<div class="viewcode-block" id="get_last_active_trace"><a class="viewcode-back" href="../../../python_api/mlflow.html#mlflow.get_last_active_trace">[docs]</a><span class="nd">@experimental</span>
+<span class="k">def</span> <span class="nf">get_last_active_trace</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Trace</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Get the last active trace in the same process if exists.</span>
+
+<span class="sd">    .. warning::</span>
+
+<span class="sd">        This function DOES NOT work in the model deployed in Databricks model serving.</span>
+
+<span class="sd">    .. note::</span>
+
+<span class="sd">        The last active trace is only stored in-memory for the time defined by the TTL</span>
+<span class="sd">        (Time To Live) configuration. By default, the TTL is 1 hour and can be configured</span>
+<span class="sd">        using the environment variable ``MLFLOW_TRACE_BUFFER_TTL_SECONDS``.</span>
+
+<span class="sd">    .. note::</span>
+
+<span class="sd">        This function returns an immutable copy of the original trace that is logged</span>
+<span class="sd">        in the tracking store. Any changes made to the returned object will not be reflected</span>
+<span class="sd">        in the original trace. To modify the already ended trace (while most of the data is</span>
+<span class="sd">        immutable after the trace is ended, you can still edit some fields such as `tags`),</span>
+<span class="sd">        please use the respective MlflowClient APIs with the request ID of the trace, as</span>
+<span class="sd">        shown in the example below.</span>
+
+<span class="sd">    .. code-block:: python</span>
+<span class="sd">        :test:</span>
+
+<span class="sd">        import mlflow</span>
+
+
+<span class="sd">        @mlflow.trace</span>
+<span class="sd">        def f():</span>
+<span class="sd">            pass</span>
+
+
+<span class="sd">        f()</span>
+
+<span class="sd">        trace = mlflow.get_last_active_trace()</span>
+
+
+<span class="sd">        # Use MlflowClient APIs to mutate the ended trace</span>
+<span class="sd">        mlflow.MlflowClient().set_trace_tag(trace.info.request_id, &quot;key&quot;, &quot;value&quot;)</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        The last active trace if exists, otherwise None.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">is_in_databricks_model_serving_environment</span><span class="p">():</span>
+        <span class="k">raise</span> <span class="n">MlflowException</span><span class="p">(</span>
+            <span class="s2">&quot;The function `mlflow.get_last_active_trace` is not supported in &quot;</span>
+            <span class="s2">&quot;Databricks model serving.&quot;</span><span class="p">,</span>
+            <span class="n">error_code</span><span class="o">=</span><span class="n">BAD_REQUEST</span><span class="p">,</span>
+        <span class="p">)</span>
+
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">TRACE_BUFFER</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="n">last_active_request_id</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">TRACE_BUFFER</span><span class="o">.</span><span class="n">keys</span><span class="p">())[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+        <span class="k">return</span> <span class="n">TRACE_BUFFER</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">last_active_request_id</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">return</span> <span class="kc">None</span></div>
+
+
+<div class="viewcode-block" id="add_trace"><a class="viewcode-back" href="../../../python_api/mlflow.html#mlflow.add_trace">[docs]</a><span class="nd">@experimental</span>
+<span class="k">def</span> <span class="nf">add_trace</span><span class="p">(</span><span class="n">trace</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">Trace</span><span class="p">,</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]],</span> <span class="n">target</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">LiveSpan</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Add a completed trace object into another trace.</span>
+
+<span class="sd">    This is particularly useful when you call a remote service instrumented by</span>
+<span class="sd">    MLflow Tracing. By using this function, you can merge the trace from the remote</span>
+<span class="sd">    service into the current active local trace, so that you can see the full</span>
+<span class="sd">    trace including what happens inside the remote service call.</span>
+
+<span class="sd">    The following example demonstrates how to use this function to merge a trace from a remote</span>
+<span class="sd">    service to the current active trace in the function.</span>
+
+<span class="sd">    .. code-block:: python</span>
+
+<span class="sd">        @mlflow.trace(name=&quot;predict&quot;)</span>
+<span class="sd">        def predict(input):</span>
+<span class="sd">            # Call a remote service that returns a trace in the response</span>
+<span class="sd">            resp = requests.get(&quot;https://your-service-endpoint&quot;, ...)</span>
+
+<span class="sd">            # Extract the trace from the response</span>
+<span class="sd">            trace_json = resp.json().get(&quot;trace&quot;)</span>
+
+<span class="sd">            # Use the remote trace as a part of the current active trace.</span>
+<span class="sd">            # It will be merged under the span &quot;predict&quot; and exported together when it is ended.</span>
+<span class="sd">            mlflow.add_trace(trace_json)</span>
+
+<span class="sd">    If you have a specific target span to merge the trace under, you can pass the target span</span>
+
+<span class="sd">    .. code-block:: python</span>
+
+<span class="sd">        def predict(input):</span>
+<span class="sd">            # Create a local span</span>
+<span class="sd">            span = MlflowClient().start_span(name=&quot;predict&quot;)</span>
+
+<span class="sd">            resp = requests.get(&quot;https://your-service-endpoint&quot;, ...)</span>
+<span class="sd">            trace_json = resp.json().get(&quot;trace&quot;)</span>
+
+<span class="sd">            # Merge the remote trace under the span created above</span>
+<span class="sd">            mlflow.add_trace(trace_json, target=span)</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        trace: A :py:class:`Trace &lt;mlflow.entities.Trace&gt;` object or a dictionary representation</span>
+<span class="sd">            of the trace. The trace **must** be already completed i.e. no further updates should</span>
+<span class="sd">            be made to it. Otherwise, this function will raise an exception.</span>
+
+<span class="sd">            .. attention:</span>
+
+<span class="sd">                The spans in the trace must be ordered in a way that the parent span comes</span>
+<span class="sd">                before its children. If the spans are not ordered correctly, this function</span>
+<span class="sd">                will raise an exception.</span>
+
+<span class="sd">        target: The target span to merge the given trace.</span>
+
+<span class="sd">            - If provided, the trace will be merged under the target span.</span>
+<span class="sd">            - If not provided, the trace will be merged under the current active span.</span>
+<span class="sd">            - If not provided and there is no active span, a new span named &quot;Remote Trace &lt;...&gt;&quot;</span>
+<span class="sd">              will be created and the trace will be merged under it.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">is_tracing_enabled</span><span class="p">():</span>
+        <span class="n">_logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Tracing is disabled. Skipping add_trace.&quot;</span><span class="p">)</span>
+        <span class="k">return</span>
+
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">trace</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">trace</span> <span class="o">=</span> <span class="n">Trace</span><span class="o">.</span><span class="n">from_dict</span><span class="p">(</span><span class="n">trace</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">MlflowException</span><span class="o">.</span><span class="n">invalid_parameter_value</span><span class="p">(</span>
+                <span class="s2">&quot;Failed to load a trace object from the given dictionary. Please ensure the &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;dictionary is in the correct MLflow Trace format. Error: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span>
+            <span class="p">)</span>
+    <span class="k">elif</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">trace</span><span class="p">,</span> <span class="n">Trace</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="n">MlflowException</span><span class="o">.</span><span class="n">invalid_parameter_value</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;Invalid trace object: </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">trace</span><span class="p">)</span><span class="si">}</span><span class="s2">. Please provide a valid MLflow Trace object &quot;</span>
+            <span class="s2">&quot;to use it as a remote trace. You can create a Trace object from its json format by &quot;</span>
+            <span class="s2">&quot;using the Trace.from_dict() method.&quot;</span>
+        <span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">trace</span><span class="o">.</span><span class="n">info</span><span class="o">.</span><span class="n">status</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">TraceStatus</span><span class="o">.</span><span class="n">end_statuses</span><span class="p">():</span>
+        <span class="k">raise</span> <span class="n">MlflowException</span><span class="o">.</span><span class="n">invalid_parameter_value</span><span class="p">(</span>
+            <span class="s2">&quot;The trace must be ended before adding it to another trace. &quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;Current status: </span><span class="si">{</span><span class="n">trace</span><span class="o">.</span><span class="n">info</span><span class="o">.</span><span class="n">status</span><span class="si">}</span><span class="s2">.&quot;</span><span class="p">,</span>
+        <span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">target_span</span> <span class="o">:=</span> <span class="n">target</span> <span class="ow">or</span> <span class="n">get_current_active_span</span><span class="p">():</span>
+        <span class="n">_merge_trace</span><span class="p">(</span>
+            <span class="n">trace</span><span class="o">=</span><span class="n">trace</span><span class="p">,</span>
+            <span class="n">target_request_id</span><span class="o">=</span><span class="n">target_span</span><span class="o">.</span><span class="n">request_id</span><span class="p">,</span>
+            <span class="n">target_parent_span_id</span><span class="o">=</span><span class="n">target_span</span><span class="o">.</span><span class="n">span_id</span><span class="p">,</span>
+        <span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="c1"># If there is no target span, create a new root span named &quot;Remote Trace &lt;...&gt;&quot;</span>
+        <span class="c1"># and put the remote trace under it. This design aims to keep the trace export</span>
+        <span class="c1"># logic simpler and consistent, rather than directly exporting the remote trace.</span>
+        <span class="n">client</span> <span class="o">=</span> <span class="n">MlflowClient</span><span class="p">()</span>
+        <span class="n">remote_root_span</span> <span class="o">=</span> <span class="n">trace</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">spans</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">span</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">start_trace</span><span class="p">(</span>
+            <span class="n">name</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;Remote Trace &lt;</span><span class="si">{</span><span class="n">remote_root_span</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">&gt;&quot;</span><span class="p">,</span>
+            <span class="n">inputs</span><span class="o">=</span><span class="n">remote_root_span</span><span class="o">.</span><span class="n">inputs</span><span class="p">,</span>
+            <span class="n">attributes</span><span class="o">=</span><span class="p">{</span>
+                <span class="c1"># Exclude request ID attribute not to reuse same request ID</span>
+                <span class="n">k</span><span class="p">:</span> <span class="n">v</span>
+                <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">remote_root_span</span><span class="o">.</span><span class="n">attributes</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
+                <span class="k">if</span> <span class="n">k</span> <span class="o">!=</span> <span class="n">SpanAttributeKey</span><span class="o">.</span><span class="n">REQUEST_ID</span>
+            <span class="p">},</span>
+            <span class="n">start_time_ns</span><span class="o">=</span><span class="n">remote_root_span</span><span class="o">.</span><span class="n">start_time_ns</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="n">_merge_trace</span><span class="p">(</span>
+            <span class="n">trace</span><span class="o">=</span><span class="n">trace</span><span class="p">,</span>
+            <span class="n">target_request_id</span><span class="o">=</span><span class="n">span</span><span class="o">.</span><span class="n">request_id</span><span class="p">,</span>
+            <span class="n">target_parent_span_id</span><span class="o">=</span><span class="n">span</span><span class="o">.</span><span class="n">span_id</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="n">client</span><span class="o">.</span><span class="n">end_trace</span><span class="p">(</span>
+            <span class="n">request_id</span><span class="o">=</span><span class="n">span</span><span class="o">.</span><span class="n">request_id</span><span class="p">,</span>
+            <span class="n">status</span><span class="o">=</span><span class="n">trace</span><span class="o">.</span><span class="n">info</span><span class="o">.</span><span class="n">status</span><span class="p">,</span>
+            <span class="n">outputs</span><span class="o">=</span><span class="n">remote_root_span</span><span class="o">.</span><span class="n">outputs</span><span class="p">,</span>
+            <span class="n">end_time_ns</span><span class="o">=</span><span class="n">remote_root_span</span><span class="o">.</span><span class="n">end_time_ns</span><span class="p">,</span>
+        <span class="p">)</span></div>
+
+
+<span class="k">def</span> <span class="nf">_merge_trace</span><span class="p">(</span>
+    <span class="n">trace</span><span class="p">:</span> <span class="n">Trace</span><span class="p">,</span>
+    <span class="n">target_request_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">target_parent_span_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+<span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Merge the given trace object under an existing trace in the in-memory trace registry.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        trace: The trace object to be merged.</span>
+<span class="sd">        target_request_id: The request ID of the parent trace.</span>
+<span class="sd">        target_parent_span_id: The parent span ID, under which the child trace should be merged.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">trace_manager</span> <span class="o">=</span> <span class="n">InMemoryTraceManager</span><span class="o">.</span><span class="n">get_instance</span><span class="p">()</span>
+
+    <span class="c1"># The merged trace should have the same trace ID as the parent trace.</span>
+    <span class="k">with</span> <span class="n">trace_manager</span><span class="o">.</span><span class="n">get_trace</span><span class="p">(</span><span class="n">target_request_id</span><span class="p">)</span> <span class="k">as</span> <span class="n">parent_trace</span><span class="p">:</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">parent_trace</span><span class="p">:</span>
+            <span class="n">_logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;Parent trace with request ID </span><span class="si">{</span><span class="n">target_request_id</span><span class="si">}</span><span class="s2"> not found. Skipping merge.&quot;</span>
+            <span class="p">)</span>
+            <span class="k">return</span>
+
+        <span class="n">new_trace_id</span> <span class="o">=</span> <span class="n">parent_trace</span><span class="o">.</span><span class="n">span_dict</span><span class="p">[</span><span class="n">target_parent_span_id</span><span class="p">]</span><span class="o">.</span><span class="n">_trace_id</span>
+
+    <span class="k">for</span> <span class="n">span</span> <span class="ow">in</span> <span class="n">trace</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">spans</span><span class="p">:</span>
+        <span class="n">parent_span_id</span> <span class="o">=</span> <span class="n">span</span><span class="o">.</span><span class="n">parent_id</span> <span class="ow">or</span> <span class="n">target_parent_span_id</span>
+
+        <span class="c1"># NB: We clone span one by one in the order it was saved in the original trace. This</span>
+        <span class="c1"># works upon the assumption that the parent span always comes before its children.</span>
+        <span class="c1"># This is guaranteed in current implementation, but if it changes in the future,</span>
+        <span class="c1"># we have to traverse the tree to determine the order.</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">trace_manager</span><span class="o">.</span><span class="n">get_span_from_id</span><span class="p">(</span><span class="n">target_request_id</span><span class="p">,</span> <span class="n">parent_span_id</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="n">MlflowException</span><span class="o">.</span><span class="n">invalid_parameter_value</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;Span with ID </span><span class="si">{</span><span class="n">parent_span_id</span><span class="si">}</span><span class="s2"> not found. Please make sure the &quot;</span>
+                <span class="s2">&quot;spans in the trace are ordered correctly i.e. the parent span comes before &quot;</span>
+                <span class="s2">&quot;its children.&quot;</span>
+            <span class="p">)</span>
+
+        <span class="n">cloned_span</span> <span class="o">=</span> <span class="n">LiveSpan</span><span class="o">.</span><span class="n">from_immutable_span</span><span class="p">(</span>
+            <span class="n">span</span><span class="o">=</span><span class="n">span</span><span class="p">,</span>
+            <span class="n">parent_span_id</span><span class="o">=</span><span class="n">parent_span_id</span><span class="p">,</span>
+            <span class="n">request_id</span><span class="o">=</span><span class="n">target_request_id</span><span class="p">,</span>
+            <span class="n">trace_id</span><span class="o">=</span><span class="n">new_trace_id</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="n">trace_manager</span><span class="o">.</span><span class="n">register_span</span><span class="p">(</span><span class="n">cloned_span</span><span class="p">)</span>
+
+    <span class="c1"># Merge the tags and metadata from the child trace to the parent trace.</span>
+    <span class="k">with</span> <span class="n">trace_manager</span><span class="o">.</span><span class="n">get_trace</span><span class="p">(</span><span class="n">target_request_id</span><span class="p">)</span> <span class="k">as</span> <span class="n">parent_trace</span><span class="p">:</span>
+        <span class="c1"># Order of merging is important to ensure the parent trace&#39;s metadata is</span>
+        <span class="c1"># not overwritten by the child trace&#39;s metadata if they have the same key.</span>
+        <span class="n">parent_trace</span><span class="o">.</span><span class="n">info</span><span class="o">.</span><span class="n">tags</span> <span class="o">=</span> <span class="p">{</span><span class="o">**</span><span class="n">trace</span><span class="o">.</span><span class="n">info</span><span class="o">.</span><span class="n">tags</span><span class="p">,</span> <span class="o">**</span><span class="n">parent_trace</span><span class="o">.</span><span class="n">info</span><span class="o">.</span><span class="n">tags</span><span class="p">}</span>
+        <span class="n">parent_trace</span><span class="o">.</span><span class="n">info</span><span class="o">.</span><span class="n">request_metadata</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="o">**</span><span class="n">trace</span><span class="o">.</span><span class="n">info</span><span class="o">.</span><span class="n">request_metadata</span><span class="p">,</span>
+            <span class="o">**</span><span class="n">parent_trace</span><span class="o">.</span><span class="n">info</span><span class="o">.</span><span class="n">request_metadata</span><span class="p">,</span>
+        <span class="p">}</span>
+</pre></div>
+
+              </div>
+            </div>
+            <footer>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+      <p class="copyright">
+          &copy; MLflow Project, a Series of LF Projects, LLC. All rights reserved.
+      </p>
+
+  </div> 
+
+</footer>
+          </div>
+        </div>
+      </section>
+    </main>
+  </page>
+
+  
+
+
+  
+  <script type="text/javascript">
+    var DOCUMENTATION_OPTIONS = {
+      URL_ROOT:'../../../',
+      VERSION:'2.17.1.dev0',
+      COLLAPSE_INDEX:false,
+      FILE_SUFFIX:'.html',
+      LINK_SUFFIX: '.html',
+      HAS_SOURCE:  true
+    };
+  </script>
+
+  
+
+  <script type="text/javascript" src="../../../_static/js/clipboard.min.js"></script>
+  <script type="text/javascript" src="../../../_static/js/jquery.waypoints.min.js"></script>
+
+  
+  
+  
+  <script type="text/javascript">var CLIPPY_SVG_PATH = "../../../_static/clippy.svg";</script>
+  <script type="text/javascript" src="../../../_static/js/custom.js"></script>
+  
+
+  
+  
+  <script type="text/javascript">
+    jQuery(function () {
+      SphinxRtdTheme.StickyNav.enable();
+    });
+
+  </script>
+  
+
+  
+  <script type="text/javascript">
+    document.addEventListener("DOMContentLoaded", function() {
+        function copyToClipboard(text) {
+            const textarea = document.createElement('textarea');
+            textarea.value = text;
+            document.body.appendChild(textarea);
+            textarea.select();
+            document.execCommand('copy');
+            document.body.removeChild(textarea);
+        }
+        // Get the code block designator class entries
+        const allHighlights = document.querySelectorAll('.highlight');
+        // Disable copyable links for notebook cell numbering and for cell outputs
+        const highlights = Array.from(allHighlights).filter(highlight => !highlight.closest('.highlight-none') && 
+            !highlight.closest('.nboutput'));
+    
+        highlights.forEach(function(highlight) {
+            const copyIcon = document.createElement('span');
+            copyIcon.classList.add('copy-icon');
+            copyIcon.innerHTML = '&#xf0ea;';
+
+            copyIcon.addEventListener('click', function() {
+                const code = highlight.querySelector('pre').textContent;
+                copyToClipboard(code);
+
+                // Flash effect on click
+                this.style.color = '#0194E2';
+                setTimeout(() => {
+                    this.style.color = ''; 
+                }, 100);
+
+                // Display "Code copied to clipboard" near the clicked icon
+                const message = document.createElement('span');
+                message.textContent = "Copied!";
+                message.classList.add('copy-message'); 
+
+                // Append the message to the icon
+                this.appendChild(message);
+
+                setTimeout(() => {
+                    this.removeChild(message);
+                }, 500);
+            });
+
+            highlight.appendChild(copyIcon);
+        });
+    });
+  </script>
+
+
+<script type="text/javascript">
+    document.addEventListener("DOMContentLoaded", function() {
+        // Force download for notebook-download-btn
+        const downloadButtons = document.querySelectorAll('.notebook-download-btn');
+        downloadButtons.forEach(function(button) {
+            button.addEventListener('click', function(event) {
+                event.preventDefault(); // Prevent default behavior
+
+                // Fetch the raw content of the notebook from GitHub
+                fetch(button.href)
+                    .then(response => response.blob())
+                    .then(blob => {
+                        const url = window.URL.createObjectURL(blob);
+                        const link = document.createElement('a');
+                        link.style.display = 'none';
+                        link.href = url;
+                        const filename = button.href.split('/').pop();
+                        link.download = filename; 
+
+                        document.body.appendChild(link);
+                        link.click();
+
+                        window.URL.revokeObjectURL(url);
+                        document.body.removeChild(link);
+                    })
+                    .catch(err => console.error('Error fetching the notebook:', err));
+            });
+        });
+    });
+</script> 
+</body>
+</html>

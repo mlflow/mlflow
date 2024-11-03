@@ -1,0 +1,767 @@
+
+
+<!DOCTYPE html>
+<!-- source: docs/source/_modules/mlflow/models/evaluation/validation -->
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>mlflow.models.evaluation.validation</title>
+  
+   
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+  <link rel="canonical" href="https://mlflow.org/docs/latest/_modules/mlflow/models/evaluation/validation.html">
+  
+  
+    <link rel="shortcut icon" href="../../../../_static/favicon.ico"/>
+    
+
+    
+
+  
+    
+
+  
+
+  
+  
+    
+
+  
+
+  
+  
+    <link href="https://fonts.googleapis.com/css?family=Source+Sans+Pro:300,400,600" rel="stylesheet">
+    <link rel="stylesheet" href="../../../../_static/css/theme.css" type="text/css" />
+    <link rel="stylesheet" href="../../../../_static/css/custom.css" type="text/css" />
+    <link rel="stylesheet" href="../../../../_static/css/cards.css" type="text/css" />
+    <link rel="stylesheet" href="../../../../_static/css/grids.css" type="text/css" />
+    <link rel="stylesheet" href="../../../../_static/css/mobile.css" type="text/css" />
+    <link rel="stylesheet" href="../../../../_static/css/simple-cards.css" type="text/css" />
+    <link rel="stylesheet" href="../../../../_static/css/tabs.css" type="text/css" />
+    
+  
+        <link rel="index" title="Index"
+              href="../../../../genindex.html"/>
+        <link rel="search" title="Search" href="../../../../search.html"/>
+    <link rel="top" title="MLflow 2.17.1.dev0 documentation" href="../../../../index.html"/>
+        <link rel="up" title="Module code" href="../../../index.html"/> 
+
+  
+  <script src="../../../../_static/js/modernizr.min.js"></script>
+
+</head>
+<script type="text/javascript" src="../../../../_static/jquery.js"></script>
+<script type="text/javascript" src="../../../../_static/underscore.js"></script>
+<script type="text/javascript" src="../../../../_static/doctools.js"></script>
+<script type="text/javascript" src="../../../../_static/tabs.js"></script>
+<script type="text/javascript" src="../../../../_static/languagesections.js"></script>
+<script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+<script type="text/javascript" src="../../../../_static/runllm.js"></script>
+
+<body class="wy-body-for-nav" role="document">
+  
+
+  
+  <nav class="wy-nav-top header" role="navigation" aria-label="top navigation">
+    <ul>
+  <li class="menu-toggle">
+    <i data-toggle="wy-nav-top" class="wy-nav-top-menu-button db-icon db-icon-menu pull-left"></i>
+    <a href="../../../../index.html" class="wy-nav-top-logo"
+      ><img src="../../../../_static/MLflow-logo-final-black.png" alt="MLflow"
+    /></a>
+    <span class="version">2.17.1.dev0</span>
+  </li>
+</ul>
+  </nav>
+  <page>
+    
+
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side relative">
+      <div class="wy-side-scroll">
+  <div class="wy-side-nav-search">
+    
+
+    
+
+    
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../../search.html" method="get">
+  <input type="text" name="q" placeholder="Search" />
+  <input type="hidden" name="check_keywords" value="yes" />
+  <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+
+    
+  </div>
+
+  <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+    
+      <a href="../../../../index.html" class="main-navigation-home"><img src="../../../../_static/icons/nav-home.svg"> MLflow</a>
+    
+
+    
+      
+
+      
+        <ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../python_api/index.html">Python API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../cli.html">Command-Line Interface</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../R-api.html">R API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../java_api/index.html">Java API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../rest-api.html">REST API</a></li>
+</ul>
+
+      
+    
+  </div>
+
+  <div role="contentinfo">
+    
+
+    <p>
+      <a id='feedbacklink' href="https://github.com/mlflow/mlflow/blob/master/CONTRIBUTING.md" target="_blank">Contribute</a>
+    </p>
+  </div>
+</div>
+    </nav>
+
+    <main class="wy-grid-for-nav">
+      <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+        <div class="wy-nav-content">
+          <div class="rst-content">
+            
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href="../../../../index.html">Documentation</a> <span class="db-icon db-icon-chevron-right"></span></li>
+    
+        <li><a href="../../../index.html">Module code</a> <span class="db-icon db-icon-chevron-right"></span></li>
+    
+    
+      <li>mlflow.models.evaluation.validation</li>
+    
+    
+    <!-- <li class="wy-breadcrumbs-aside">
+      <a href="https://github.com/mlflow/mlflow/blob/master/docs/source/_modules/mlflow/models/evaluation/validation" class="fa fa-github"> Edit on GitHub</a>
+    </li> -->
+    
+  </ul>
+</div>
+            <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+              <div itemprop="articleBody">
+                
+  <h1>Source code for mlflow.models.evaluation.validation</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span> <span class="nn">logging</span>
+<span class="kn">import</span> <span class="nn">operator</span>
+<span class="kn">import</span> <span class="nn">os</span>
+<span class="kn">from</span> <span class="nn">decimal</span> <span class="kn">import</span> <span class="n">Decimal</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">Optional</span>
+
+<span class="kn">from</span> <span class="nn">mlflow.exceptions</span> <span class="kn">import</span> <span class="n">MlflowException</span>
+<span class="kn">from</span> <span class="nn">mlflow.models.evaluation</span> <span class="kn">import</span> <span class="n">EvaluationResult</span>
+<span class="kn">from</span> <span class="nn">mlflow.protos.databricks_pb2</span> <span class="kn">import</span> <span class="n">BAD_REQUEST</span><span class="p">,</span> <span class="n">INVALID_PARAMETER_VALUE</span>
+<span class="kn">from</span> <span class="nn">mlflow.utils.annotations</span> <span class="kn">import</span> <span class="n">deprecated</span>
+
+<span class="n">_logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
+
+
+<div class="viewcode-block" id="MetricThreshold"><a class="viewcode-back" href="../../../../python_api/mlflow.models.html#mlflow.MetricThreshold">[docs]</a><span class="k">class</span> <span class="nc">MetricThreshold</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    This class allows you to define metric thresholds for model validation.</span>
+<span class="sd">    Allowed thresholds are: threshold, min_absolute_change, min_relative_change.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        threshold: (Optional) A number representing the value threshold for the metric.</span>
+
+<span class="sd">            - If higher is better for the metric, the metric value has to be</span>
+<span class="sd">              &gt;= threshold to pass validation.</span>
+<span class="sd">            - Otherwise, the metric value has to be &lt;= threshold to pass the validation.</span>
+
+<span class="sd">        min_absolute_change: (Optional) A positive number representing the minimum absolute</span>
+<span class="sd">            change required for candidate model to pass validation with</span>
+<span class="sd">            the baseline model.</span>
+
+<span class="sd">            - If higher is better for the metric, metric value has to be</span>
+<span class="sd">              &gt;= baseline model metric value + min_absolute_change to pass the validation.</span>
+<span class="sd">            - Otherwise, metric value has to be &lt;= baseline model metric value - min_absolute_change</span>
+<span class="sd">              to pass the validation.</span>
+
+<span class="sd">        min_relative_change: (Optional) A floating point number between 0 and 1 representing</span>
+<span class="sd">            the minimum relative change (in percentage of</span>
+<span class="sd">            baseline model metric value) for candidate model</span>
+<span class="sd">            to pass the comparison with the baseline model.</span>
+
+<span class="sd">            - If higher is better for the metric, metric value has to be</span>
+<span class="sd">              &gt;= baseline model metric value * (1 + min_relative_change)</span>
+<span class="sd">            - Otherwise, metric value has to be</span>
+<span class="sd">              &lt;= baseline model metric value * (1 - min_relative_change)</span>
+<span class="sd">            - Note that if the baseline model metric value is equal to 0, the</span>
+<span class="sd">              threshold falls back performing a simple verification that the</span>
+<span class="sd">              candidate metric value is better than the baseline metric value,</span>
+<span class="sd">              i.e. metric value &gt;= baseline model metric value + 1e-10 if higher</span>
+<span class="sd">              is better; metric value &lt;= baseline model metric value - 1e-10 if</span>
+<span class="sd">              lower is better.</span>
+
+<span class="sd">        greater_is_better: A required boolean representing whether higher value is</span>
+<span class="sd">            better for the metric.</span>
+
+<span class="sd">        higher_is_better:</span>
+<span class="sd">            .. deprecated:: 2.3.0</span>
+<span class="sd">                Use ``greater_is_better`` instead.</span>
+
+<span class="sd">            A required boolean representing whether higher value is better for the metric.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">threshold</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">min_absolute_change</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">min_relative_change</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">greater_is_better</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">higher_is_better</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="p">):</span>
+        <span class="k">if</span> <span class="n">threshold</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="nb">type</span><span class="p">(</span><span class="n">threshold</span><span class="p">)</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">{</span><span class="nb">int</span><span class="p">,</span> <span class="nb">float</span><span class="p">}:</span>
+            <span class="k">raise</span> <span class="n">MetricThresholdClassException</span><span class="p">(</span><span class="s2">&quot;`threshold` parameter must be a number.&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">min_absolute_change</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="p">(</span>
+            <span class="nb">type</span><span class="p">(</span><span class="n">min_absolute_change</span><span class="p">)</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">{</span><span class="nb">int</span><span class="p">,</span> <span class="nb">float</span><span class="p">}</span> <span class="ow">or</span> <span class="n">min_absolute_change</span> <span class="o">&lt;=</span> <span class="mi">0</span>
+        <span class="p">):</span>
+            <span class="k">raise</span> <span class="n">MetricThresholdClassException</span><span class="p">(</span>
+                <span class="s2">&quot;`min_absolute_change` parameter must be a positive number.&quot;</span>
+            <span class="p">)</span>
+        <span class="k">if</span> <span class="n">min_relative_change</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">min_relative_change</span><span class="p">,</span> <span class="nb">float</span><span class="p">):</span>
+                <span class="k">raise</span> <span class="n">MetricThresholdClassException</span><span class="p">(</span>
+                    <span class="s2">&quot;`min_relative_change` parameter must be a floating point number.&quot;</span>
+                <span class="p">)</span>
+            <span class="k">if</span> <span class="n">min_relative_change</span> <span class="o">&lt;</span> <span class="mi">0</span> <span class="ow">or</span> <span class="n">min_relative_change</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="n">MetricThresholdClassException</span><span class="p">(</span>
+                    <span class="s2">&quot;`min_relative_change` parameter must be between 0 and 1.&quot;</span>
+                <span class="p">)</span>
+        <span class="k">if</span> <span class="n">higher_is_better</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">greater_is_better</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">MetricThresholdClassException</span><span class="p">(</span><span class="s2">&quot;`greater_is_better` parameter must be defined.&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">higher_is_better</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">greater_is_better</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">MetricThresholdClassException</span><span class="p">(</span>
+                <span class="s2">&quot;`higher_is_better` parameter must be None when `greater_is_better` is defined.&quot;</span>
+            <span class="p">)</span>
+        <span class="k">if</span> <span class="n">greater_is_better</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">greater_is_better</span> <span class="o">=</span> <span class="n">higher_is_better</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">greater_is_better</span><span class="p">,</span> <span class="nb">bool</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="n">MetricThresholdClassException</span><span class="p">(</span><span class="s2">&quot;`greater_is_better` parameter must be a boolean.&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">threshold</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">min_absolute_change</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">min_relative_change</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">MetricThresholdClassException</span><span class="p">(</span><span class="s2">&quot;no threshold was specified.&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_threshold</span> <span class="o">=</span> <span class="n">threshold</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_min_absolute_change</span> <span class="o">=</span> <span class="n">min_absolute_change</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_min_relative_change</span> <span class="o">=</span> <span class="n">min_relative_change</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_greater_is_better</span> <span class="o">=</span> <span class="n">greater_is_better</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">threshold</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Value of the threshold.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_threshold</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">min_absolute_change</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Value of the minimum absolute change required to pass model comparison with baseline model.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_min_absolute_change</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">min_relative_change</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Float value of the minimum relative change required to pass model comparison with</span>
+<span class="sd">        baseline model.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_min_relative_change</span>
+
+    <span class="nd">@property</span>
+    <span class="nd">@deprecated</span><span class="p">(</span><span class="s2">&quot;The attribute `higher_is_better` is deprecated. Use `greater_is_better` instead.&quot;</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">higher_is_better</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Boolean value representing whether higher value is better for the metric.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_greater_is_better</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">greater_is_better</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Boolean value representing whether higher value is better for the metric.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_greater_is_better</span>
+
+    <span class="k">def</span> <span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Returns a human-readable string consisting of all specified thresholds.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">threshold_strs</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_threshold</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">threshold_strs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Threshold: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_threshold</span><span class="si">}</span><span class="s2">.&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_min_absolute_change</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">threshold_strs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Minimum Absolute Change: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_min_absolute_change</span><span class="si">}</span><span class="s2">.&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_min_relative_change</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">threshold_strs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Minimum Relative Change: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_min_relative_change</span><span class="si">}</span><span class="s2">.&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_greater_is_better</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_greater_is_better</span><span class="p">:</span>
+                <span class="n">threshold_strs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;Higher value is better.&quot;</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">threshold_strs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;Lower value is better.&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="s2">&quot; &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">threshold_strs</span><span class="p">)</span></div>
+
+
+<span class="k">class</span> <span class="nc">MetricThresholdClassException</span><span class="p">(</span><span class="n">MlflowException</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_message</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="n">message</span> <span class="o">=</span> <span class="s2">&quot;Could not instantiate MetricThreshold class: &quot;</span> <span class="o">+</span> <span class="n">_message</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">message</span><span class="p">,</span> <span class="n">error_code</span><span class="o">=</span><span class="n">INVALID_PARAMETER_VALUE</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+
+
+<span class="k">class</span> <span class="nc">_MetricValidationResult</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Internal class for representing validation result per metric.</span>
+<span class="sd">    Not user facing, used for organizing metric failures and generating failure message</span>
+<span class="sd">    more conveniently.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        metric_name: String representing the metric name</span>
+<span class="sd">        candidate_metric_value: value of metric for candidate model</span>
+<span class="sd">        metric_threshold: :py:class: `MetricThreshold&lt;mlflow.models.validation.MetricThreshold&gt;`</span>
+<span class="sd">            The MetricThreshold for the metric.</span>
+<span class="sd">        baseline_metric_value: value of metric for baseline model</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">missing_candidate</span> <span class="o">=</span> <span class="kc">False</span>
+    <span class="n">missing_baseline</span> <span class="o">=</span> <span class="kc">False</span>
+    <span class="n">threshold_failed</span> <span class="o">=</span> <span class="kc">False</span>
+    <span class="n">min_absolute_change_failed</span> <span class="o">=</span> <span class="kc">False</span>
+    <span class="n">min_relative_change_failed</span> <span class="o">=</span> <span class="kc">False</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">metric_name</span><span class="p">,</span>
+        <span class="n">candidate_metric_value</span><span class="p">,</span>
+        <span class="n">metric_threshold</span><span class="p">,</span>
+        <span class="n">baseline_metric_value</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">metric_name</span> <span class="o">=</span> <span class="n">metric_name</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">candidate_metric_value</span> <span class="o">=</span> <span class="n">candidate_metric_value</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">baseline_metric_value</span> <span class="o">=</span> <span class="n">baseline_metric_value</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">metric_threshold</span> <span class="o">=</span> <span class="n">metric_threshold</span>
+
+    <span class="k">def</span> <span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Returns a human-readable string representing the validation result for the metric.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_success</span><span class="p">():</span>
+            <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;Metric </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">metric_name</span><span class="si">}</span><span class="s2"> passed the validation.&quot;</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">missing_candidate</span><span class="p">:</span>
+            <span class="k">return</span> <span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;Metric validation failed: metric </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">metric_name</span><span class="si">}</span><span class="s2"> was missing from the &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;evaluation result of the candidate model.&quot;</span>
+            <span class="p">)</span>
+
+        <span class="n">result_strs</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">threshold_failed</span><span class="p">:</span>
+            <span class="n">result_strs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;Metric </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">metric_name</span><span class="si">}</span><span class="s2"> value threshold check failed: &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;candidate model </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">metric_name</span><span class="si">}</span><span class="s2"> = </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">candidate_metric_value</span><span class="si">}</span><span class="s2">, &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">metric_name</span><span class="si">}</span><span class="s2"> threshold = </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">metric_threshold</span><span class="o">.</span><span class="n">threshold</span><span class="si">}</span><span class="s2">.&quot;</span>
+            <span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">missing_baseline</span><span class="p">:</span>
+            <span class="n">result_strs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;Model comparison failed: metric </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">metric_name</span><span class="si">}</span><span class="s2"> was missing from &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;the evaluation result of the baseline model.&quot;</span>
+            <span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">min_absolute_change_failed</span><span class="p">:</span>
+                <span class="n">result_strs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;Metric </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">metric_name</span><span class="si">}</span><span class="s2"> minimum absolute change check failed: &quot;</span>
+                    <span class="sa">f</span><span class="s2">&quot;candidate model </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">metric_name</span><span class="si">}</span><span class="s2"> = </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">candidate_metric_value</span><span class="si">}</span><span class="s2">, &quot;</span>
+                    <span class="sa">f</span><span class="s2">&quot;baseline model </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">metric_name</span><span class="si">}</span><span class="s2"> = </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">baseline_metric_value</span><span class="si">}</span><span class="s2">, &quot;</span>
+                    <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">metric_name</span><span class="si">}</span><span class="s2"> minimum absolute change threshold = &quot;</span>
+                    <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">metric_threshold</span><span class="o">.</span><span class="n">min_absolute_change</span><span class="si">}</span><span class="s2">.&quot;</span>
+                <span class="p">)</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">min_relative_change_failed</span><span class="p">:</span>
+                <span class="n">result_strs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;Metric </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">metric_name</span><span class="si">}</span><span class="s2"> minimum relative change check failed: &quot;</span>
+                    <span class="sa">f</span><span class="s2">&quot;candidate model </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">metric_name</span><span class="si">}</span><span class="s2"> = </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">candidate_metric_value</span><span class="si">}</span><span class="s2">, &quot;</span>
+                    <span class="sa">f</span><span class="s2">&quot;baseline model </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">metric_name</span><span class="si">}</span><span class="s2"> = </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">baseline_metric_value</span><span class="si">}</span><span class="s2">, &quot;</span>
+                    <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">metric_name</span><span class="si">}</span><span class="s2"> minimum relative change threshold = &quot;</span>
+                    <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">metric_threshold</span><span class="o">.</span><span class="n">min_relative_change</span><span class="si">}</span><span class="s2">.&quot;</span>
+                <span class="p">)</span>
+        <span class="k">return</span> <span class="s2">&quot; &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">result_strs</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">is_success</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="p">(</span>
+            <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">missing_candidate</span>
+            <span class="ow">and</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">missing_baseline</span>
+            <span class="ow">and</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">threshold_failed</span>
+            <span class="ow">and</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">min_absolute_change_failed</span>
+            <span class="ow">and</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">min_relative_change_failed</span>
+        <span class="p">)</span>
+
+
+<span class="k">class</span> <span class="nc">ModelValidationFailedException</span><span class="p">(</span><span class="n">MlflowException</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">message</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">message</span><span class="p">,</span> <span class="n">error_code</span><span class="o">=</span><span class="n">BAD_REQUEST</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+
+
+<div class="viewcode-block" id="validate_evaluation_results"><a class="viewcode-back" href="../../../../python_api/mlflow.html#mlflow.validate_evaluation_results">[docs]</a><span class="k">def</span> <span class="nf">validate_evaluation_results</span><span class="p">(</span>
+    <span class="n">validation_thresholds</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">MetricThreshold</span><span class="p">],</span>
+    <span class="n">candidate_result</span><span class="p">:</span> <span class="n">EvaluationResult</span><span class="p">,</span>
+    <span class="n">baseline_result</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">EvaluationResult</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Validate the evaluation result from one model (candidate) against another</span>
+<span class="sd">    model (baseline). If the candidate results do not meet the validation</span>
+<span class="sd">    thresholds, an ModelValidationFailedException will be raised.</span>
+
+<span class="sd">    .. note::</span>
+
+<span class="sd">        This API is a replacement for the deprecated model validation</span>
+<span class="sd">        functionality in the :py:func:`mlflow.evaluate` API.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        validation_thresholds: A dictionary of metric name to</span>
+<span class="sd">            :py:class:`mlflow.models.MetricThreshold` used for model validation.</span>
+<span class="sd">            Each metric name must either be the name of a builtin metric or the</span>
+<span class="sd">            name of a metric defined in the ``extra_metrics`` parameter.</span>
+<span class="sd">        candidate_result: The evaluation result of the candidate model.</span>
+<span class="sd">            Returned by the :py:func:`mlflow.evaluate` API.</span>
+<span class="sd">        baseline_result: The evaluation result of the baseline model.</span>
+<span class="sd">            Returned by the :py:func:`mlflow.evaluate` API.</span>
+<span class="sd">            If set to None, the candidate model result will be</span>
+<span class="sd">            compared against the threshold values directly.</span>
+
+<span class="sd">    Code Example:</span>
+
+<span class="sd">        .. code-block:: python</span>
+<span class="sd">            :caption: Example of Model Validation</span>
+
+<span class="sd">            import mlflow</span>
+<span class="sd">            from mlflow.models import MetricThreshold</span>
+
+<span class="sd">            thresholds = {</span>
+<span class="sd">                &quot;accuracy_score&quot;: MetricThreshold(</span>
+<span class="sd">                    # accuracy should be &gt;=0.8</span>
+<span class="sd">                    threshold=0.8,</span>
+<span class="sd">                    # accuracy should be at least 5 percent greater than baseline model accuracy</span>
+<span class="sd">                    min_absolute_change=0.05,</span>
+<span class="sd">                    # accuracy should be at least 0.05 greater than baseline model accuracy</span>
+<span class="sd">                    min_relative_change=0.05,</span>
+<span class="sd">                    greater_is_better=True,</span>
+<span class="sd">                ),</span>
+<span class="sd">            }</span>
+
+<span class="sd">            # Get evaluation results for the candidate model</span>
+<span class="sd">            candidate_result = mlflow.evaluate(</span>
+<span class="sd">                model=&quot;&lt;YOUR_CANDIDATE_MODEL_URI&gt;&quot;,</span>
+<span class="sd">                data=eval_dataset,</span>
+<span class="sd">                targets=&quot;ground_truth&quot;,</span>
+<span class="sd">                model_type=&quot;classifier&quot;,</span>
+<span class="sd">            )</span>
+
+<span class="sd">            # Get evaluation results for the baseline model</span>
+<span class="sd">            baseline_result = mlflow.evaluate(</span>
+<span class="sd">                model=&quot;&lt;YOUR_BASELINE_MODEL_URI&gt;&quot;,</span>
+<span class="sd">                data=eval_dataset,</span>
+<span class="sd">                targets=&quot;ground_truth&quot;,</span>
+<span class="sd">                model_type=&quot;classifier&quot;,</span>
+<span class="sd">            )</span>
+
+<span class="sd">            # Validate the results</span>
+<span class="sd">            mlflow.validate_evaluation_results(</span>
+<span class="sd">                thresholds,</span>
+<span class="sd">                candidate_result,</span>
+<span class="sd">                baseline_result,</span>
+<span class="sd">            )</span>
+
+<span class="sd">        See :ref:`the Model Validation documentation &lt;model-validation&gt;` for more details.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="k">assert</span> <span class="nb">type</span><span class="p">(</span><span class="n">validation_thresholds</span><span class="p">)</span> <span class="ow">is</span> <span class="nb">dict</span>
+        <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">validation_thresholds</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+            <span class="k">assert</span> <span class="nb">type</span><span class="p">(</span><span class="n">key</span><span class="p">)</span> <span class="ow">is</span> <span class="nb">str</span>
+        <span class="k">for</span> <span class="n">threshold</span> <span class="ow">in</span> <span class="n">validation_thresholds</span><span class="o">.</span><span class="n">values</span><span class="p">():</span>
+            <span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">threshold</span><span class="p">,</span> <span class="n">MetricThreshold</span><span class="p">)</span>
+    <span class="k">except</span> <span class="ne">AssertionError</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="n">MlflowException</span><span class="p">(</span>
+            <span class="n">message</span><span class="o">=</span><span class="s2">&quot;The validation thresholds argument must be a dictionary that maps strings &quot;</span>
+            <span class="s2">&quot;to MetricThreshold objects.&quot;</span><span class="p">,</span>
+            <span class="n">error_code</span><span class="o">=</span><span class="n">INVALID_PARAMETER_VALUE</span><span class="p">,</span>
+        <span class="p">)</span>
+
+    <span class="n">_logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Validating candidate model metrics against baseline&quot;</span><span class="p">)</span>
+    <span class="n">_validate</span><span class="p">(</span>
+        <span class="n">validation_thresholds</span><span class="p">,</span>
+        <span class="n">candidate_result</span><span class="o">.</span><span class="n">metrics</span><span class="p">,</span>
+        <span class="n">baseline_result</span><span class="o">.</span><span class="n">metrics</span> <span class="k">if</span> <span class="n">baseline_result</span> <span class="k">else</span> <span class="p">{},</span>
+    <span class="p">)</span>
+    <span class="n">_logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Model validation passed!&quot;</span><span class="p">)</span></div>
+
+
+<span class="k">def</span> <span class="nf">_validate</span><span class="p">(</span>
+    <span class="n">validation_thresholds</span><span class="p">:</span> <span class="n">MetricThreshold</span><span class="p">,</span>
+    <span class="n">candidate_metrics</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">float</span><span class="p">],</span>
+    <span class="n">baseline_metrics</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">float</span><span class="p">],</span>
+<span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Validate the model based on validation_thresholds by metrics value and</span>
+<span class="sd">    metrics comparison between candidate model&#39;s metrics (candidate_metrics) and</span>
+<span class="sd">    baseline model&#39;s metrics (baseline_metrics).</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        validation_thresholds: A dictionary from metric_name to MetricThreshold.</span>
+<span class="sd">        candidate_metrics: The metric evaluation result of the candidate model.</span>
+<span class="sd">        baseline_metrics: The metric evaluation result of the baseline model.</span>
+
+<span class="sd">    Raises:</span>
+<span class="sd">        If the validation does not pass, raise an MlflowException with detail failure message.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">validation_results</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="n">metric_name</span><span class="p">:</span> <span class="n">_MetricValidationResult</span><span class="p">(</span>
+            <span class="n">metric_name</span><span class="p">,</span>
+            <span class="n">candidate_metrics</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">metric_name</span><span class="p">),</span>
+            <span class="n">threshold</span><span class="p">,</span>
+            <span class="n">baseline_metrics</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">metric_name</span><span class="p">),</span>
+        <span class="p">)</span>
+        <span class="k">for</span> <span class="p">(</span><span class="n">metric_name</span><span class="p">,</span> <span class="n">threshold</span><span class="p">)</span> <span class="ow">in</span> <span class="n">validation_thresholds</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
+    <span class="p">}</span>
+
+    <span class="k">for</span> <span class="n">metric_name</span> <span class="ow">in</span> <span class="n">validation_thresholds</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+        <span class="n">metric_threshold</span> <span class="o">=</span> <span class="n">validation_thresholds</span><span class="p">[</span><span class="n">metric_name</span><span class="p">]</span>
+        <span class="n">validation_result</span> <span class="o">=</span> <span class="n">validation_results</span><span class="p">[</span><span class="n">metric_name</span><span class="p">]</span>
+
+        <span class="k">if</span> <span class="n">metric_name</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">candidate_metrics</span><span class="p">:</span>
+            <span class="n">validation_result</span><span class="o">.</span><span class="n">missing_candidate</span> <span class="o">=</span> <span class="kc">True</span>
+            <span class="k">continue</span>
+
+        <span class="n">candidate_metric_value</span> <span class="o">=</span> <span class="n">candidate_metrics</span><span class="p">[</span><span class="n">metric_name</span><span class="p">]</span>
+        <span class="n">baseline_metric_value</span> <span class="o">=</span> <span class="n">baseline_metrics</span><span class="p">[</span><span class="n">metric_name</span><span class="p">]</span> <span class="k">if</span> <span class="n">baseline_metrics</span> <span class="k">else</span> <span class="kc">None</span>
+
+        <span class="c1"># If metric is higher is better, &gt;= is used, otherwise &lt;= is used</span>
+        <span class="c1"># for thresholding metric value and model comparsion</span>
+        <span class="n">comparator_fn</span> <span class="o">=</span> <span class="n">operator</span><span class="o">.</span><span class="fm">__ge__</span> <span class="k">if</span> <span class="n">metric_threshold</span><span class="o">.</span><span class="n">greater_is_better</span> <span class="k">else</span> <span class="n">operator</span><span class="o">.</span><span class="fm">__le__</span>
+        <span class="n">operator_fn</span> <span class="o">=</span> <span class="n">operator</span><span class="o">.</span><span class="n">add</span> <span class="k">if</span> <span class="n">metric_threshold</span><span class="o">.</span><span class="n">greater_is_better</span> <span class="k">else</span> <span class="n">operator</span><span class="o">.</span><span class="n">sub</span>
+
+        <span class="k">if</span> <span class="n">metric_threshold</span><span class="o">.</span><span class="n">threshold</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="c1"># metric threshold fails</span>
+            <span class="c1"># - if not (metric_value &gt;= threshold) for higher is better</span>
+            <span class="c1"># - if not (metric_value &lt;= threshold) for lower is better</span>
+            <span class="n">validation_result</span><span class="o">.</span><span class="n">threshold_failed</span> <span class="o">=</span> <span class="ow">not</span> <span class="n">comparator_fn</span><span class="p">(</span>
+                <span class="n">candidate_metric_value</span><span class="p">,</span> <span class="n">metric_threshold</span><span class="o">.</span><span class="n">threshold</span>
+            <span class="p">)</span>
+
+        <span class="k">if</span> <span class="p">(</span>
+            <span class="n">metric_threshold</span><span class="o">.</span><span class="n">min_relative_change</span> <span class="ow">or</span> <span class="n">metric_threshold</span><span class="o">.</span><span class="n">min_absolute_change</span>
+        <span class="p">)</span> <span class="ow">and</span> <span class="n">metric_name</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">baseline_metrics</span><span class="p">:</span>
+            <span class="n">validation_result</span><span class="o">.</span><span class="n">missing_baseline</span> <span class="o">=</span> <span class="kc">True</span>
+            <span class="k">continue</span>
+
+        <span class="k">if</span> <span class="n">metric_threshold</span><span class="o">.</span><span class="n">min_absolute_change</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="c1"># metric comparsion aboslute change fails</span>
+            <span class="c1"># - if not (metric_value &gt;= baseline + min_absolute_change) for higher is better</span>
+            <span class="c1"># - if not (metric_value &lt;= baseline - min_absolute_change) for lower is better</span>
+            <span class="n">validation_result</span><span class="o">.</span><span class="n">min_absolute_change_failed</span> <span class="o">=</span> <span class="ow">not</span> <span class="n">comparator_fn</span><span class="p">(</span>
+                <span class="n">Decimal</span><span class="p">(</span><span class="n">candidate_metric_value</span><span class="p">),</span>
+                <span class="n">Decimal</span><span class="p">(</span><span class="n">operator_fn</span><span class="p">(</span><span class="n">baseline_metric_value</span><span class="p">,</span> <span class="n">metric_threshold</span><span class="o">.</span><span class="n">min_absolute_change</span><span class="p">)),</span>
+            <span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">metric_threshold</span><span class="o">.</span><span class="n">min_relative_change</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="c1"># If baseline metric value equals 0, fallback to simple comparison check</span>
+            <span class="k">if</span> <span class="n">baseline_metric_value</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="n">_logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;Cannot perform relative model comparison for metric </span><span class="si">{</span><span class="n">metric_name</span><span class="si">}</span><span class="s2"> as &quot;</span>
+                    <span class="s2">&quot;baseline metric value is 0. Falling back to simple comparison: verifying &quot;</span>
+                    <span class="s2">&quot;that candidate metric value is better than the baseline metric value.&quot;</span>
+                <span class="p">)</span>
+                <span class="n">validation_result</span><span class="o">.</span><span class="n">min_relative_change_failed</span> <span class="o">=</span> <span class="ow">not</span> <span class="n">comparator_fn</span><span class="p">(</span>
+                    <span class="n">Decimal</span><span class="p">(</span><span class="n">candidate_metric_value</span><span class="p">),</span>
+                    <span class="n">Decimal</span><span class="p">(</span><span class="n">operator_fn</span><span class="p">(</span><span class="n">baseline_metric_value</span><span class="p">,</span> <span class="mf">1e-10</span><span class="p">)),</span>
+                <span class="p">)</span>
+                <span class="k">continue</span>
+            <span class="c1"># metric comparsion relative change fails</span>
+            <span class="c1"># - if (metric_value - baseline) / baseline &lt; min_relative_change for higher is better</span>
+            <span class="c1"># - if (baseline - metric_value) / baseline &lt; min_relative_change for lower is better</span>
+            <span class="k">if</span> <span class="n">metric_threshold</span><span class="o">.</span><span class="n">greater_is_better</span><span class="p">:</span>
+                <span class="n">relative_change</span> <span class="o">=</span> <span class="p">(</span>
+                    <span class="n">candidate_metric_value</span> <span class="o">-</span> <span class="n">baseline_metric_value</span>
+                <span class="p">)</span> <span class="o">/</span> <span class="n">baseline_metric_value</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">relative_change</span> <span class="o">=</span> <span class="p">(</span>
+                    <span class="n">baseline_metric_value</span> <span class="o">-</span> <span class="n">candidate_metric_value</span>
+                <span class="p">)</span> <span class="o">/</span> <span class="n">baseline_metric_value</span>
+            <span class="n">validation_result</span><span class="o">.</span><span class="n">min_relative_change_failed</span> <span class="o">=</span> <span class="p">(</span>
+                <span class="n">relative_change</span> <span class="o">&lt;</span> <span class="n">metric_threshold</span><span class="o">.</span><span class="n">min_relative_change</span>
+            <span class="p">)</span>
+
+    <span class="n">failure_messages</span> <span class="o">=</span> <span class="p">[]</span>
+
+    <span class="k">for</span> <span class="n">metric_validation_result</span> <span class="ow">in</span> <span class="n">validation_results</span><span class="o">.</span><span class="n">values</span><span class="p">():</span>
+        <span class="k">if</span> <span class="n">metric_validation_result</span><span class="o">.</span><span class="n">is_success</span><span class="p">():</span>
+            <span class="k">continue</span>
+        <span class="n">failure_messages</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">metric_validation_result</span><span class="p">))</span>
+
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">failure_messages</span><span class="p">:</span>
+        <span class="k">return</span>
+
+    <span class="k">raise</span> <span class="n">ModelValidationFailedException</span><span class="p">(</span><span class="n">message</span><span class="o">=</span><span class="n">os</span><span class="o">.</span><span class="n">linesep</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">failure_messages</span><span class="p">))</span>
+</pre></div>
+
+              </div>
+            </div>
+            <footer>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+      <p class="copyright">
+          &copy; MLflow Project, a Series of LF Projects, LLC. All rights reserved.
+      </p>
+
+  </div> 
+
+</footer>
+          </div>
+        </div>
+      </section>
+    </main>
+  </page>
+
+  
+
+
+  
+  <script type="text/javascript">
+    var DOCUMENTATION_OPTIONS = {
+      URL_ROOT:'../../../../',
+      VERSION:'2.17.1.dev0',
+      COLLAPSE_INDEX:false,
+      FILE_SUFFIX:'.html',
+      LINK_SUFFIX: '.html',
+      HAS_SOURCE:  true
+    };
+  </script>
+
+  
+
+  <script type="text/javascript" src="../../../../_static/js/clipboard.min.js"></script>
+  <script type="text/javascript" src="../../../../_static/js/jquery.waypoints.min.js"></script>
+
+  
+  
+  
+  <script type="text/javascript">var CLIPPY_SVG_PATH = "../../../../_static/clippy.svg";</script>
+  <script type="text/javascript" src="../../../../_static/js/custom.js"></script>
+  
+
+  
+  
+  <script type="text/javascript">
+    jQuery(function () {
+      SphinxRtdTheme.StickyNav.enable();
+    });
+
+  </script>
+  
+
+  
+  <script type="text/javascript">
+    document.addEventListener("DOMContentLoaded", function() {
+        function copyToClipboard(text) {
+            const textarea = document.createElement('textarea');
+            textarea.value = text;
+            document.body.appendChild(textarea);
+            textarea.select();
+            document.execCommand('copy');
+            document.body.removeChild(textarea);
+        }
+        // Get the code block designator class entries
+        const allHighlights = document.querySelectorAll('.highlight');
+        // Disable copyable links for notebook cell numbering and for cell outputs
+        const highlights = Array.from(allHighlights).filter(highlight => !highlight.closest('.highlight-none') && 
+            !highlight.closest('.nboutput'));
+    
+        highlights.forEach(function(highlight) {
+            const copyIcon = document.createElement('span');
+            copyIcon.classList.add('copy-icon');
+            copyIcon.innerHTML = '&#xf0ea;';
+
+            copyIcon.addEventListener('click', function() {
+                const code = highlight.querySelector('pre').textContent;
+                copyToClipboard(code);
+
+                // Flash effect on click
+                this.style.color = '#0194E2';
+                setTimeout(() => {
+                    this.style.color = ''; 
+                }, 100);
+
+                // Display "Code copied to clipboard" near the clicked icon
+                const message = document.createElement('span');
+                message.textContent = "Copied!";
+                message.classList.add('copy-message'); 
+
+                // Append the message to the icon
+                this.appendChild(message);
+
+                setTimeout(() => {
+                    this.removeChild(message);
+                }, 500);
+            });
+
+            highlight.appendChild(copyIcon);
+        });
+    });
+  </script>
+
+
+<script type="text/javascript">
+    document.addEventListener("DOMContentLoaded", function() {
+        // Force download for notebook-download-btn
+        const downloadButtons = document.querySelectorAll('.notebook-download-btn');
+        downloadButtons.forEach(function(button) {
+            button.addEventListener('click', function(event) {
+                event.preventDefault(); // Prevent default behavior
+
+                // Fetch the raw content of the notebook from GitHub
+                fetch(button.href)
+                    .then(response => response.blob())
+                    .then(blob => {
+                        const url = window.URL.createObjectURL(blob);
+                        const link = document.createElement('a');
+                        link.style.display = 'none';
+                        link.href = url;
+                        const filename = button.href.split('/').pop();
+                        link.download = filename; 
+
+                        document.body.appendChild(link);
+                        link.click();
+
+                        window.URL.revokeObjectURL(url);
+                        document.body.removeChild(link);
+                    })
+                    .catch(err => console.error('Error fetching the notebook:', err));
+            });
+        });
+    });
+</script> 
+</body>
+</html>

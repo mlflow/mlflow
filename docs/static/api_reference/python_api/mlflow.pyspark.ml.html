@@ -1,0 +1,595 @@
+
+
+<!DOCTYPE html>
+<!-- source: docs/source/python_api/mlflow.pyspark.ml.rst -->
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>mlflow.pyspark.ml</title>
+  
+   
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+  <link rel="canonical" href="https://mlflow.org/docs/latest/python_api/mlflow.pyspark.ml.html">
+  
+  
+    <link rel="shortcut icon" href="../_static/favicon.ico"/>
+    
+
+    
+
+  
+    
+
+  
+
+  
+  
+    
+
+  
+
+  
+  
+    <link href="https://fonts.googleapis.com/css?family=Source+Sans+Pro:300,400,600" rel="stylesheet">
+    <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/css/custom.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/css/cards.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/css/grids.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/css/mobile.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/css/simple-cards.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/css/tabs.css" type="text/css" />
+    
+  
+        <link rel="index" title="Index"
+              href="../genindex.html"/>
+        <link rel="search" title="Search" href="../search.html"/>
+    <link rel="top" title="MLflow 2.17.1.dev0 documentation" href="../index.html"/>
+        <link rel="up" title="Python API" href="index.html"/>
+        <link rel="next" title="mlflow.pytorch" href="/mlflow.pytorch.html"/>
+        <link rel="prev" title="mlflow.pyfunc" href="/mlflow.pyfunc.html"/> 
+
+  
+  <script src="../_static/js/modernizr.min.js"></script>
+
+</head>
+<script type="text/javascript" src="../_static/jquery.js"></script>
+<script type="text/javascript" src="../_static/underscore.js"></script>
+<script type="text/javascript" src="../_static/doctools.js"></script>
+<script type="text/javascript" src="../_static/languagesections.js"></script>
+<script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+<script type="text/javascript" src="../_static/runllm.js"></script>
+
+<body class="wy-body-for-nav" role="document">
+  
+
+  
+  <nav class="wy-nav-top header" role="navigation" aria-label="top navigation">
+    <ul>
+  <li class="menu-toggle">
+    <i data-toggle="wy-nav-top" class="wy-nav-top-menu-button db-icon db-icon-menu pull-left"></i>
+    <a href="../index.html" class="wy-nav-top-logo"
+      ><img src="../_static/MLflow-logo-final-black.png" alt="MLflow"
+    /></a>
+    <span class="version">2.17.1.dev0</span>
+  </li>
+</ul>
+  </nav>
+  <page>
+    
+
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side relative">
+      <div class="wy-side-scroll">
+  <div class="wy-side-nav-search">
+    
+
+    
+
+    
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+  <input type="text" name="q" placeholder="Search" />
+  <input type="hidden" name="check_keywords" value="yes" />
+  <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+
+    
+  </div>
+
+  <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+    
+      <a href="../index.html" class="main-navigation-home"><img src="../_static/icons/nav-home.svg"> MLflow</a>
+    
+
+    
+      
+
+      
+        <ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">Python API</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="mlflow.html">mlflow</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.html#mlflow-tracing-apis">MLflow Tracing APIs</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.artifacts.html">mlflow.artifacts</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.autogen.html">mlflow.autogen</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.catboost.html">mlflow.catboost</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.client.html">mlflow.client</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.config.html">mlflow.config</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.data.html">mlflow.data</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.deployments.html">mlflow.deployments</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.diviner.html">mlflow.diviner</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.dspy.html">mlflow.dspy</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.entities.html">mlflow.entities</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.environment_variables.html">mlflow.environment_variables</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.fastai.html">mlflow.fastai</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.gateway.html">mlflow.gateway</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.gluon.html">mlflow.gluon</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.h2o.html">mlflow.h2o</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.johnsnowlabs.html">mlflow.johnsnowlabs</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.keras.html">mlflow.keras</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.langchain.html">mlflow.langchain</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.lightgbm.html">mlflow.lightgbm</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.llama_index.html">mlflow.llama_index</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.metrics.html">mlflow.metrics</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.mleap.html">mlflow.mleap</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.models.html">mlflow.models</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.onnx.html">mlflow.onnx</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.openai.html">mlflow.openai</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.paddle.html">mlflow.paddle</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.pmdarima.html">mlflow.pmdarima</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.projects.html">mlflow.projects</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.promptflow.html">mlflow.promptflow</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.prophet.html">mlflow.prophet</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.pyfunc.html">mlflow.pyfunc</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">mlflow.pyspark.ml</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.pytorch.html">mlflow.pytorch</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.recipes.html">mlflow.recipes</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.sagemaker.html">mlflow.sagemaker</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.sentence_transformers.html">mlflow.sentence_transformers</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.server.html">mlflow.server</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.shap.html">mlflow.shap</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.sklearn.html">mlflow.sklearn</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.spacy.html">mlflow.spacy</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.spark.html">mlflow.spark</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.statsmodels.html">mlflow.statsmodels</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.system_metrics.html">mlflow.system_metrics</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.tensorflow.html">mlflow.tensorflow</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.tracing.html">mlflow.tracing</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.transformers.html">mlflow.transformers</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.types.html">mlflow.types</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.utils.html">mlflow.utils</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.xgboost.html">mlflow.xgboost</a></li>
+<li class="toctree-l2"><a class="reference internal" href="index.html#log-levels">Log Levels</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../cli.html">Command-Line Interface</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../R-api.html">R API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../java_api/index.html">Java API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../rest-api.html">REST API</a></li>
+</ul>
+
+      
+    
+  </div>
+
+  <div role="contentinfo">
+    
+
+    <p>
+      <a id='feedbacklink' href="https://github.com/mlflow/mlflow/blob/master/CONTRIBUTING.md" target="_blank">Contribute</a>
+    </p>
+  </div>
+</div>
+    </nav>
+
+    <main class="wy-grid-for-nav">
+      <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+        <div class="wy-nav-content">
+          <div class="rst-content">
+            
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href="../index.html">Documentation</a> <span class="db-icon db-icon-chevron-right"></span></li>
+    
+        <li><a href="index.html">Python API</a> <span class="db-icon db-icon-chevron-right"></span></li>
+    
+    
+      <li>mlflow.pyspark.ml</li>
+    
+    
+    <!-- <li class="wy-breadcrumbs-aside">
+      <a href="https://github.com/mlflow/mlflow/blob/master/docs/source/python_api/mlflow.pyspark.ml.rst" class="fa fa-github"> Edit on GitHub</a>
+    </li> -->
+    
+  </ul>
+</div>
+            <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+              <div itemprop="articleBody">
+                
+  <div class="section" id="module-mlflow.pyspark.ml">
+<span id="mlflow-pyspark-ml"></span><h1>mlflow.pyspark.ml<a class="headerlink" href="#module-mlflow.pyspark.ml" title="Permalink to this headline"> </a></h1>
+<dl class="py function">
+<dt id="mlflow.pyspark.ml.autolog">
+<code class="sig-prename descclassname"><span class="pre">mlflow.pyspark.ml.</span></code><code class="sig-name descname"><span class="pre">autolog</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">log_models</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">log_datasets</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">disable</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">exclusive</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">disable_for_unsupported_versions</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">silent</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">log_post_training_metrics</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">registered_model_name</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">log_input_examples</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">log_model_signatures</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">log_model_allowlist</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">extra_tags</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/mlflow/pyspark/ml.html#autolog"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mlflow.pyspark.ml.autolog" title="Permalink to this definition"> </a></dt>
+<dd><div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Autologging is known to be compatible with the following package versions: <code class="docutils literal notranslate"><span class="pre">3.1.2</span></code> &lt;= <code class="docutils literal notranslate"><span class="pre">pyspark</span></code> &lt;= <code class="docutils literal notranslate"><span class="pre">3.5.3</span></code>. Autologging may not succeed when used with package versions outside of this range.</p>
+</div>
+<p>Enables (or disables) and configures autologging for pyspark ml estimators.
+This method is not threadsafe.
+This API requires Spark 3.0 or above.</p>
+<dl>
+<dt><strong>When is autologging performed?</strong></dt><dd><p>Autologging is performed when you call <code class="docutils literal notranslate"><span class="pre">Estimator.fit</span></code> except for estimators (featurizers)
+under <code class="docutils literal notranslate"><span class="pre">pyspark.ml.feature</span></code>.</p>
+</dd>
+<dt><strong>Logged information</strong></dt><dd><dl class="simple">
+<dt><strong>Parameters</strong></dt><dd><ul class="simple">
+<li><p>Parameters obtained by <code class="docutils literal notranslate"><span class="pre">estimator.params</span></code>. If a param value is also an <code class="docutils literal notranslate"><span class="pre">Estimator</span></code>,
+then params in the the wrapped estimator will also be logged, the nested param key
+will be <cite>{estimator_uid}.{param_name}</cite></p></li>
+</ul>
+</dd>
+<dt><strong>Tags</strong></dt><dd><ul class="simple">
+<li><p>An estimator class name (e.g. “LinearRegression”).</p></li>
+<li><p>A fully qualified estimator class name
+(e.g. “pyspark.ml.regression.LinearRegression”).</p></li>
+</ul>
+</dd>
+</dl>
+<dl id="post-training-metrics">
+<dt><strong>Post training metrics</strong></dt><dd><p>When users call evaluator APIs after model training, MLflow tries to capture the
+<cite>Evaluator.evaluate</cite> results and log them as MLflow metrics to the Run associated with
+the model. All pyspark ML evaluators are supported.</p>
+<p>For post training metrics autologging, the metric key format is:
+“{metric_name}[-{call_index}]_{dataset_name}”</p>
+<ul class="simple">
+<li><p>The metric name is the name returned by <cite>Evaluator.getMetricName()</cite></p></li>
+<li><p>If multiple calls are made to the same pyspark ML evaluator metric, each subsequent call
+adds a “call_index” (starting from 2) to the metric key.</p></li>
+<li><p>MLflow uses the prediction input dataset variable name as the “dataset_name” in the
+metric key. The “prediction input dataset variable” refers to the variable which was
+used as the <cite>dataset</cite> argument of <cite>model.transform</cite> call.
+Note: MLflow captures the “prediction input dataset” instance in the outermost call
+frame and fetches the variable name in the outermost call frame. If the “prediction
+input dataset” instance is an intermediate expression without a defined variable
+name, the dataset name is set to “unknown_dataset”. If multiple “prediction input
+dataset” instances have the same variable name, then subsequent ones will append an
+index (starting from 2) to the inspected dataset name.</p></li>
+</ul>
+<dl class="simple">
+<dt><strong>Limitations</strong></dt><dd><ul class="simple">
+<li><p>MLflow cannot find run information for other objects derived from a given prediction
+result (e.g. by doing some transformation on the prediction result dataset).</p></li>
+</ul>
+</dd>
+</dl>
+</dd>
+<dt><strong>Artifacts</strong></dt><dd><ul class="simple">
+<li><p>An MLflow Model with the <a class="reference internal" href="mlflow.spark.html#module-mlflow.spark" title="mlflow.spark"><code class="xref py py-mod docutils literal notranslate"><span class="pre">mlflow.spark</span></code></a> flavor containing a fitted estimator
+(logged by <a class="reference internal" href="mlflow.spark.html#mlflow.spark.log_model" title="mlflow.spark.log_model"><code class="xref py py-func docutils literal notranslate"><span class="pre">mlflow.spark.log_model()</span></code></a>). Note that large models may not be
+autologged for performance and storage space considerations, and autologging for
+Pipelines and hyperparameter tuning meta-estimators (e.g. CrossValidator) is not yet
+supported.
+See <code class="docutils literal notranslate"><span class="pre">log_models</span></code> param below for details.</p></li>
+<li><p>For post training metrics API calls, a “metric_info.json” artifact is logged. This is a
+JSON object whose keys are MLflow post training metric names
+(see “Post training metrics” section for the key format) and whose values are the
+corresponding evaluator information, including evaluator class name and evaluator params.</p></li>
+</ul>
+</dd>
+</dl>
+</dd>
+<dt><strong>How does autologging work for meta estimators?</strong></dt><dd><blockquote>
+<div><p>When a meta estimator (e.g. <a class="reference external" href="https://spark.apache.org/docs/latest/api/python/reference/api/pyspark.ml.Pipeline.html#pyspark.ml.Pipeline">Pipeline</a>, <a class="reference external" href="https://spark.apache.org/docs/latest/api/python/reference/api/pyspark.ml.tuning.CrossValidator.html#pyspark.ml.tuning.CrossValidator">CrossValidator</a>, <a class="reference external" href="https://spark.apache.org/docs/latest/api/python/reference/api/pyspark.ml.tuning.TrainValidationSplit.html#pyspark.ml.tuning.TrainValidationSplit">TrainValidationSplit</a>,
+<a class="reference external" href="https://spark.apache.org/docs/latest/api/python/reference/api/pyspark.ml.classification.OneVsRest.html#pyspark.ml.classification.OneVsRest">OneVsRest</a>)
+calls <code class="docutils literal notranslate"><span class="pre">fit()</span></code>, it internally calls <code class="docutils literal notranslate"><span class="pre">fit()</span></code> on its child estimators. Autologging
+does NOT perform logging on these constituent <code class="docutils literal notranslate"><span class="pre">fit()</span></code> calls.</p>
+<p>A “estimator_info.json” artifact is logged, which includes a <cite>hierarchy</cite> entry
+describing the hierarchy of the meta estimator. The hierarchy includes expanded
+entries for all nested stages, such as nested pipeline stages.</p>
+</div></blockquote>
+<dl class="simple">
+<dt><strong>Parameter search</strong></dt><dd><p>In addition to recording the information discussed above, autologging for parameter
+search meta estimators (<a class="reference external" href="https://spark.apache.org/docs/latest/api/python/reference/api/pyspark.ml.tuning.CrossValidator.html#pyspark.ml.tuning.CrossValidator">CrossValidator</a> and <a class="reference external" href="https://spark.apache.org/docs/latest/api/python/reference/api/pyspark.ml.tuning.TrainValidationSplit.html#pyspark.ml.tuning.TrainValidationSplit">TrainValidationSplit</a>) records child runs
+with metrics for each set of explored parameters, as well as artifacts and parameters
+for the best model and the best parameters (if available).
+For better readability, the “estimatorParamMaps” param in parameter search estimator
+will be recorded inside “estimator_info” artifact, see following description.
+Inside “estimator_info.json” artifact, in addition to the “hierarchy”, records 2 more
+items: “tuning_parameter_map_list”: a list contains all parameter maps used in tuning,
+and “tuned_estimator_parameter_map”: the parameter map of the tuned estimator.
+Records a “best_parameters.json” artifacts, contains the best parameter it searched out.
+Records a “search_results.csv” artifacts, contains search results, it is a table with
+2 columns: “params” and “metric”.</p>
+</dd>
+</dl>
+</dd>
+</dl>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>log_models</strong> – If <code class="docutils literal notranslate"><span class="pre">True</span></code>, if trained models are in allowlist, they are logged as MLflow
+model artifacts. If <code class="docutils literal notranslate"><span class="pre">False</span></code>, trained models are not logged.
+Note: the built-in allowlist excludes some models (e.g. ALS models) which
+can be large. To specify a custom allowlist, create a file containing a
+newline-delimited list of fully-qualified estimator classnames, and set
+the “spark.mlflow.pysparkml.autolog.logModelAllowlistFile” Spark config
+to the path of your allowlist file.</p></li>
+<li><p><strong>log_datasets</strong> – If <code class="docutils literal notranslate"><span class="pre">True</span></code>, dataset information is logged to MLflow Tracking.
+If <code class="docutils literal notranslate"><span class="pre">False</span></code>, dataset information is not logged.</p></li>
+<li><p><strong>disable</strong> – If <code class="docutils literal notranslate"><span class="pre">True</span></code>, disables the scikit-learn autologging integration. If <code class="docutils literal notranslate"><span class="pre">False</span></code>,
+enables the pyspark ML autologging integration.</p></li>
+<li><p><strong>exclusive</strong> – If <code class="docutils literal notranslate"><span class="pre">True</span></code>, autologged content is not logged to user-created fluent runs.
+If <code class="docutils literal notranslate"><span class="pre">False</span></code>, autologged content is logged to the active fluent run,
+which may be user-created.</p></li>
+<li><p><strong>disable_for_unsupported_versions</strong> – If <code class="docutils literal notranslate"><span class="pre">True</span></code>, disable autologging for versions of
+pyspark that have not been tested against this version of the MLflow
+client or are incompatible.</p></li>
+<li><p><strong>silent</strong> – If <code class="docutils literal notranslate"><span class="pre">True</span></code>, suppress all event logs and warnings from MLflow during pyspark ML
+autologging. If <code class="docutils literal notranslate"><span class="pre">False</span></code>, show all events and warnings during pyspark ML
+autologging.</p></li>
+<li><p><strong>log_post_training_metrics</strong> – If <code class="docutils literal notranslate"><span class="pre">True</span></code>, post training metrics are logged. Defaults to
+<code class="docutils literal notranslate"><span class="pre">True</span></code>. See the <a class="reference internal" href="#post-training-metrics">post training metrics</a> section for more
+details.</p></li>
+<li><p><strong>registered_model_name</strong> – If given, each time a model is trained, it is registered as a
+new model version of the registered model with this name.
+The registered model is created if it does not already exist.</p></li>
+<li><p><strong>log_input_examples</strong> – If <code class="docutils literal notranslate"><span class="pre">True</span></code>, input examples from training datasets are collected and
+logged along with pyspark ml model artifacts during training. If
+<code class="docutils literal notranslate"><span class="pre">False</span></code>, input examples are not logged.</p></li>
+<li><p><strong>log_model_signatures</strong> – <p>If <code class="docutils literal notranslate"><span class="pre">True</span></code>,
+<a class="reference internal" href="mlflow.models.html#mlflow.models.ModelSignature" title="mlflow.models.ModelSignature"><code class="xref py py-class docutils literal notranslate"><span class="pre">ModelSignatures</span></code></a>
+describing model inputs and outputs are collected and logged along
+with spark ml pipeline/estimator artifacts during training.
+If <code class="docutils literal notranslate"><span class="pre">False</span></code> signatures are not logged.</p>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>Currently, only scalar Spark data types are supported. If
+model inputs/outputs contain non-scalar Spark data types such
+as <code class="docutils literal notranslate"><span class="pre">pyspark.ml.linalg.Vector</span></code>, signatures are not logged.</p>
+</div>
+</p></li>
+<li><p><strong>log_model_allowlist</strong> – <p>If given, it overrides the default log model allowlist in mlflow.
+This takes precedence over the spark configuration of
+“spark.mlflow.pysparkml.autolog.logModelAllowlistFile”.</p>
+<dl>
+<dt><strong>The default log model allowlist in mlflow</strong></dt><dd><div class="highlight-text notranslate"><div class="highlight"><pre><span></span># classification
+pyspark.ml.classification.LinearSVCModel
+pyspark.ml.classification.DecisionTreeClassificationModel
+pyspark.ml.classification.GBTClassificationModel
+pyspark.ml.classification.LogisticRegressionModel
+pyspark.ml.classification.RandomForestClassificationModel
+pyspark.ml.classification.NaiveBayesModel
+
+# clustering
+pyspark.ml.clustering.BisectingKMeansModel
+pyspark.ml.clustering.KMeansModel
+pyspark.ml.clustering.GaussianMixtureModel
+
+# Regression
+pyspark.ml.regression.AFTSurvivalRegressionModel
+pyspark.ml.regression.DecisionTreeRegressionModel
+pyspark.ml.regression.GBTRegressionModel
+pyspark.ml.regression.GeneralizedLinearRegressionModel
+pyspark.ml.regression.LinearRegressionModel
+pyspark.ml.regression.RandomForestRegressionModel
+
+# Featurizer model
+pyspark.ml.feature.BucketedRandomProjectionLSHModel
+pyspark.ml.feature.ChiSqSelectorModel
+pyspark.ml.feature.CountVectorizerModel
+pyspark.ml.feature.IDFModel
+pyspark.ml.feature.ImputerModel
+pyspark.ml.feature.MaxAbsScalerModel
+pyspark.ml.feature.MinHashLSHModel
+pyspark.ml.feature.MinMaxScalerModel
+pyspark.ml.feature.OneHotEncoderModel
+pyspark.ml.feature.RobustScalerModel
+pyspark.ml.feature.RFormulaModel
+pyspark.ml.feature.StandardScalerModel
+pyspark.ml.feature.StringIndexerModel
+pyspark.ml.feature.VarianceThresholdSelectorModel
+pyspark.ml.feature.VectorIndexerModel
+pyspark.ml.feature.UnivariateFeatureSelectorModel
+
+# composite model
+pyspark.ml.classification.OneVsRestModel
+
+# pipeline model
+pyspark.ml.pipeline.PipelineModel
+
+# Hyper-parameter tuning
+pyspark.ml.tuning.CrossValidatorModel
+pyspark.ml.tuning.TrainValidationSplitModel
+
+# SynapeML models
+synapse.ml.cognitive.*
+synapse.ml.exploratory.*
+synapse.ml.featurize.*
+synapse.ml.geospatial.*
+synapse.ml.image.*
+synapse.ml.io.*
+synapse.ml.isolationforest.*
+synapse.ml.lightgbm.*
+synapse.ml.nn.*
+synapse.ml.opencv.*
+synapse.ml.stages.*
+synapse.ml.vw.*
+</pre></div>
+</div>
+</dd>
+</dl>
+</p></li>
+<li><p><strong>extra_tags</strong> – A dictionary of extra tags to set on each managed run created by autologging.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+</div>
+
+
+              </div>
+            </div>
+            <footer>
+  
+    <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
+      
+        <a href="mlflow.pyfunc.html" class="btn btn-neutral" title="mlflow.pyfunc" accesskey="p"><span class="db-icon db-icon-chevron-left"></span> Previous</a>
+      
+      
+        <a href="mlflow.pytorch.html" class="btn btn-neutral" title="mlflow.pytorch" accesskey="n">Next <span class="db-icon db-icon-chevron-right"></span></a>
+      
+    </div>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+      <p class="copyright">
+          &copy; MLflow Project, a Series of LF Projects, LLC. All rights reserved.
+      </p>
+
+  </div> 
+
+</footer>
+          </div>
+        </div>
+      </section>
+    </main>
+  </page>
+
+  
+
+
+  
+  <script type="text/javascript">
+    var DOCUMENTATION_OPTIONS = {
+      URL_ROOT:'../',
+      VERSION:'2.17.1.dev0',
+      COLLAPSE_INDEX:false,
+      FILE_SUFFIX:'.html',
+      LINK_SUFFIX: '.html',
+      HAS_SOURCE:  true
+    };
+  </script>
+
+  
+
+  <script type="text/javascript" src="../_static/js/clipboard.min.js"></script>
+  <script type="text/javascript" src="../_static/js/jquery.waypoints.min.js"></script>
+
+  
+  
+  
+  <script type="text/javascript">var CLIPPY_SVG_PATH = "../_static/clippy.svg";</script>
+  <script type="text/javascript" src="../_static/js/custom.js"></script>
+  
+
+  
+  
+  <script type="text/javascript">
+    jQuery(function () {
+      SphinxRtdTheme.StickyNav.enable();
+    });
+
+  </script>
+  
+
+  
+  <script type="text/javascript">
+    document.addEventListener("DOMContentLoaded", function() {
+        function copyToClipboard(text) {
+            const textarea = document.createElement('textarea');
+            textarea.value = text;
+            document.body.appendChild(textarea);
+            textarea.select();
+            document.execCommand('copy');
+            document.body.removeChild(textarea);
+        }
+        // Get the code block designator class entries
+        const allHighlights = document.querySelectorAll('.highlight');
+        // Disable copyable links for notebook cell numbering and for cell outputs
+        const highlights = Array.from(allHighlights).filter(highlight => !highlight.closest('.highlight-none') && 
+            !highlight.closest('.nboutput'));
+    
+        highlights.forEach(function(highlight) {
+            const copyIcon = document.createElement('span');
+            copyIcon.classList.add('copy-icon');
+            copyIcon.innerHTML = '&#xf0ea;';
+
+            copyIcon.addEventListener('click', function() {
+                const code = highlight.querySelector('pre').textContent;
+                copyToClipboard(code);
+
+                // Flash effect on click
+                this.style.color = '#0194E2';
+                setTimeout(() => {
+                    this.style.color = ''; 
+                }, 100);
+
+                // Display "Code copied to clipboard" near the clicked icon
+                const message = document.createElement('span');
+                message.textContent = "Copied!";
+                message.classList.add('copy-message'); 
+
+                // Append the message to the icon
+                this.appendChild(message);
+
+                setTimeout(() => {
+                    this.removeChild(message);
+                }, 500);
+            });
+
+            highlight.appendChild(copyIcon);
+        });
+    });
+  </script>
+
+
+<script type="text/javascript">
+    document.addEventListener("DOMContentLoaded", function() {
+        // Force download for notebook-download-btn
+        const downloadButtons = document.querySelectorAll('.notebook-download-btn');
+        downloadButtons.forEach(function(button) {
+            button.addEventListener('click', function(event) {
+                event.preventDefault(); // Prevent default behavior
+
+                // Fetch the raw content of the notebook from GitHub
+                fetch(button.href)
+                    .then(response => response.blob())
+                    .then(blob => {
+                        const url = window.URL.createObjectURL(blob);
+                        const link = document.createElement('a');
+                        link.style.display = 'none';
+                        link.href = url;
+                        const filename = button.href.split('/').pop();
+                        link.download = filename; 
+
+                        document.body.appendChild(link);
+                        link.click();
+
+                        window.URL.revokeObjectURL(url);
+                        document.body.removeChild(link);
+                    })
+                    .catch(err => console.error('Error fetching the notebook:', err));
+            });
+        });
+    });
+</script> 
+</body>
+</html>

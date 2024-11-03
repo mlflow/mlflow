@@ -73,7 +73,7 @@ class TestCodeBlockDirective(CodeBlock):
 
     def _dump_code_block(self):
         docs_dir = Path.cwd()
-        repo_root = docs_dir.parent
+        repo_root = docs_dir.parent.parent
         directory = docs_dir.joinpath(".examples")
         directory.mkdir(exist_ok=True)
         source, lineno_in_docstring = self.get_source_info()
