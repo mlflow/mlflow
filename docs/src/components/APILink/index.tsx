@@ -29,7 +29,7 @@ export function APILink({
     return <>{children}</>;
   }
 
-  const docLink = useBaseUrl(`/${APIModules[module]}.html#${fn}`);
+  const docLink = useBaseUrl(`/${APIModules[module]}#${fn}`);
   return (
     <Link to={docLink} target="_blank">
       {children ?? <code>{fn}()</code>}
