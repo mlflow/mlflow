@@ -46,7 +46,7 @@ jobs:
           name: Set env vars
           working_directory: docs
           command: |
-            echo "export CIRCLECI_BASE_URL=/output/job/$CIRCLE_WORKFLOW_JOB_ID/artifacts/0/docs/build/" >> "$BASH_ENV"
+            echo "export CIRCLECI_BASE_URL=/output/job/$CIRCLE_WORKFLOW_JOB_ID/artifacts/0/build/" >> "$BASH_ENV"
       - run:
           name: Install dependencies
           command: |
@@ -58,7 +58,7 @@ jobs:
             yarn install && yarn build
             python changed_pages.py
       - store_artifacts:
-          path: docs/build/
+          path: build/
 
   mlflow-recipes:
     docker:
