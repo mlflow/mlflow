@@ -1,0 +1,1524 @@
+
+
+<!DOCTYPE html>
+<!-- source: docs/source/_modules/mlflow/spark -->
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>mlflow.spark</title>
+  
+   
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+  <link rel="canonical" href="https://mlflow.org/docs/latest/_modules/mlflow/spark.html">
+  
+  
+    <link rel="shortcut icon" href="../../_static/favicon.ico"/>
+    
+
+    
+
+  
+    
+
+  
+
+  
+  
+    
+
+  
+
+  
+  
+    <link href="https://fonts.googleapis.com/css?family=Source+Sans+Pro:300,400,600" rel="stylesheet">
+    <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/css/custom.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/css/cards.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/css/grids.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/css/mobile.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/css/simple-cards.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/css/tabs.css" type="text/css" />
+    
+  
+        <link rel="index" title="Index"
+              href="../../genindex.html"/>
+        <link rel="search" title="Search" href="../../search.html"/>
+    <link rel="top" title="MLflow 2.17.1.dev0 documentation" href="../../index.html"/>
+        <link rel="up" title="Module code" href="../index.html"/> 
+
+  
+  <script src="../../_static/js/modernizr.min.js"></script>
+
+</head>
+<script type="text/javascript" src="../../_static/jquery.js"></script>
+<script type="text/javascript" src="../../_static/underscore.js"></script>
+<script type="text/javascript" src="../../_static/doctools.js"></script>
+<script type="text/javascript" src="../../_static/tabs.js"></script>
+<script type="text/javascript" src="../../_static/languagesections.js"></script>
+<script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+<script type="text/javascript" src="../../_static/runllm.js"></script>
+
+<body class="wy-body-for-nav" role="document">
+  
+
+  
+  <nav class="wy-nav-top header" role="navigation" aria-label="top navigation">
+    <ul>
+  <li class="menu-toggle">
+    <i data-toggle="wy-nav-top" class="wy-nav-top-menu-button db-icon db-icon-menu pull-left"></i>
+    <a href="../../index.html" class="wy-nav-top-logo"
+      ><img src="../../_static/MLflow-logo-final-black.png" alt="MLflow"
+    /></a>
+    <span class="version">2.17.1.dev0</span>
+  </li>
+</ul>
+  </nav>
+  <page>
+    
+
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side relative">
+      <div class="wy-side-scroll">
+  <div class="wy-side-nav-search">
+    
+
+    
+
+    
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+  <input type="text" name="q" placeholder="Search" />
+  <input type="hidden" name="check_keywords" value="yes" />
+  <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+
+    
+  </div>
+
+  <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+    
+      <a href="../../index.html" class="main-navigation-home"><img src="../../_static/icons/nav-home.svg"> MLflow</a>
+    
+
+    
+      
+
+      
+        <ul>
+<li class="toctree-l1"><a class="reference internal" href="../../python_api/index.html">Python API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../cli.html">Command-Line Interface</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../R-api.html">R API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../java_api/index.html">Java API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../rest-api.html">REST API</a></li>
+</ul>
+
+      
+    
+  </div>
+
+  <div role="contentinfo">
+    
+
+    <p>
+      <a id='feedbacklink' href="https://github.com/mlflow/mlflow/blob/master/CONTRIBUTING.md" target="_blank">Contribute</a>
+    </p>
+  </div>
+</div>
+    </nav>
+
+    <main class="wy-grid-for-nav">
+      <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+        <div class="wy-nav-content">
+          <div class="rst-content">
+            
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href="../../index.html">Documentation</a> <span class="db-icon db-icon-chevron-right"></span></li>
+    
+        <li><a href="../index.html">Module code</a> <span class="db-icon db-icon-chevron-right"></span></li>
+    
+    
+      <li>mlflow.spark</li>
+    
+    
+    <!-- <li class="wy-breadcrumbs-aside">
+      <a href="https://github.com/mlflow/mlflow/blob/master/docs/source/_modules/mlflow/spark" class="fa fa-github"> Edit on GitHub</a>
+    </li> -->
+    
+  </ul>
+</div>
+            <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+              <div itemprop="articleBody">
+                
+  <h1>Source code for mlflow.spark</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">The ``mlflow.spark`` module provides an API for logging and loading Spark MLlib models. This module</span>
+<span class="sd">exports Spark MLlib models with the following flavors:</span>
+
+<span class="sd">Spark MLlib (native) format</span>
+<span class="sd">    Allows models to be loaded as Spark Transformers for scoring in a Spark session.</span>
+<span class="sd">    Models with this flavor can be loaded as PySpark PipelineModel objects in Python.</span>
+<span class="sd">    This is the main flavor and is always produced.</span>
+<span class="sd">:py:mod:`mlflow.pyfunc`</span>
+<span class="sd">    Supports deployment outside of Spark by instantiating a SparkContext and reading</span>
+<span class="sd">    input data as a Spark DataFrame prior to scoring. Also supports deployment in Spark</span>
+<span class="sd">    as a Spark UDF. Models with this flavor can be loaded as Python functions</span>
+<span class="sd">    for performing inference. This flavor is always produced.</span>
+<span class="sd">:py:mod:`mlflow.mleap`</span>
+<span class="sd">    Enables high-performance deployment outside of Spark by leveraging MLeap&#39;s</span>
+<span class="sd">    custom dataframe and pipeline representations. Models with this flavor *cannot* be loaded</span>
+<span class="sd">    back as Python objects. Rather, they must be deserialized in Java using the</span>
+<span class="sd">    ``mlflow/java`` package. This flavor is produced only if you specify</span>
+<span class="sd">    MLeap-compatible arguments.</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">import</span> <span class="nn">logging</span>
+<span class="kn">import</span> <span class="nn">os</span>
+<span class="kn">import</span> <span class="nn">posixpath</span>
+<span class="kn">import</span> <span class="nn">re</span>
+<span class="kn">import</span> <span class="nn">shutil</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">Optional</span>
+
+<span class="kn">import</span> <span class="nn">yaml</span>
+<span class="kn">from</span> <span class="nn">packaging.version</span> <span class="kn">import</span> <span class="n">Version</span>
+
+<span class="kn">import</span> <span class="nn">mlflow</span>
+<span class="kn">from</span> <span class="nn">mlflow</span> <span class="kn">import</span> <span class="n">environment_variables</span><span class="p">,</span> <span class="n">mleap</span><span class="p">,</span> <span class="n">pyfunc</span>
+<span class="kn">from</span> <span class="nn">mlflow.environment_variables</span> <span class="kn">import</span> <span class="n">MLFLOW_DFS_TMP</span>
+<span class="kn">from</span> <span class="nn">mlflow.exceptions</span> <span class="kn">import</span> <span class="n">MlflowException</span>
+<span class="kn">from</span> <span class="nn">mlflow.models</span> <span class="kn">import</span> <span class="n">Model</span><span class="p">,</span> <span class="n">ModelInputExample</span><span class="p">,</span> <span class="n">ModelSignature</span>
+<span class="kn">from</span> <span class="nn">mlflow.models.model</span> <span class="kn">import</span> <span class="n">MLMODEL_FILE_NAME</span>
+<span class="kn">from</span> <span class="nn">mlflow.models.signature</span> <span class="kn">import</span> <span class="n">_LOG_MODEL_INFER_SIGNATURE_WARNING_TEMPLATE</span>
+<span class="kn">from</span> <span class="nn">mlflow.models.utils</span> <span class="kn">import</span> <span class="n">_Example</span><span class="p">,</span> <span class="n">_save_example</span>
+<span class="kn">from</span> <span class="nn">mlflow.protos.databricks_pb2</span> <span class="kn">import</span> <span class="n">INVALID_PARAMETER_VALUE</span>
+<span class="kn">from</span> <span class="nn">mlflow.store.artifact.databricks_artifact_repo</span> <span class="kn">import</span> <span class="n">DatabricksArtifactRepository</span>
+<span class="kn">from</span> <span class="nn">mlflow.tracking._model_registry</span> <span class="kn">import</span> <span class="n">DEFAULT_AWAIT_MAX_SLEEP_SECONDS</span>
+<span class="kn">from</span> <span class="nn">mlflow.tracking.artifact_utils</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">_download_artifact_from_uri</span><span class="p">,</span>
+    <span class="n">_get_root_uri_and_artifact_path</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">mlflow.types.schema</span> <span class="kn">import</span> <span class="n">SparkMLVector</span>
+<span class="kn">from</span> <span class="nn">mlflow.utils</span> <span class="kn">import</span> <span class="n">_get_fully_qualified_class_name</span><span class="p">,</span> <span class="n">databricks_utils</span>
+<span class="kn">from</span> <span class="nn">mlflow.utils.autologging_utils</span> <span class="kn">import</span> <span class="n">autologging_integration</span><span class="p">,</span> <span class="n">safe_patch</span>
+<span class="kn">from</span> <span class="nn">mlflow.utils.class_utils</span> <span class="kn">import</span> <span class="n">_get_class_from_string</span>
+<span class="kn">from</span> <span class="nn">mlflow.utils.docstring_utils</span> <span class="kn">import</span> <span class="n">LOG_MODEL_PARAM_DOCS</span><span class="p">,</span> <span class="n">format_docstring</span>
+<span class="kn">from</span> <span class="nn">mlflow.utils.environment</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">_CONDA_ENV_FILE_NAME</span><span class="p">,</span>
+    <span class="n">_CONSTRAINTS_FILE_NAME</span><span class="p">,</span>
+    <span class="n">_PYTHON_ENV_FILE_NAME</span><span class="p">,</span>
+    <span class="n">_REQUIREMENTS_FILE_NAME</span><span class="p">,</span>
+    <span class="n">_mlflow_conda_env</span><span class="p">,</span>
+    <span class="n">_process_conda_env</span><span class="p">,</span>
+    <span class="n">_process_pip_requirements</span><span class="p">,</span>
+    <span class="n">_PythonEnv</span><span class="p">,</span>
+    <span class="n">_validate_env_arguments</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">mlflow.utils.file_utils</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">TempDir</span><span class="p">,</span>
+    <span class="n">get_total_file_size</span><span class="p">,</span>
+    <span class="n">shutil_copytree_without_file_permissions</span><span class="p">,</span>
+    <span class="n">write_to</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">mlflow.utils.model_utils</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">_add_code_from_conf_to_system_path</span><span class="p">,</span>
+    <span class="n">_get_flavor_configuration_from_uri</span><span class="p">,</span>
+    <span class="n">_validate_and_copy_code_paths</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">mlflow.utils.requirements_utils</span> <span class="kn">import</span> <span class="n">_get_pinned_requirement</span>
+<span class="kn">from</span> <span class="nn">mlflow.utils.uri</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">append_to_uri_path</span><span class="p">,</span>
+    <span class="n">dbfs_hdfs_uri_to_fuse_path</span><span class="p">,</span>
+    <span class="n">generate_tmp_dfs_path</span><span class="p">,</span>
+    <span class="n">get_databricks_profile_uri_from_artifact_uri</span><span class="p">,</span>
+    <span class="n">is_databricks_acled_artifacts_uri</span><span class="p">,</span>
+    <span class="n">is_local_uri</span><span class="p">,</span>
+    <span class="n">is_valid_dbfs_uri</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="n">FLAVOR_NAME</span> <span class="o">=</span> <span class="s2">&quot;spark&quot;</span>
+
+<span class="n">_SPARK_MODEL_PATH_SUB</span> <span class="o">=</span> <span class="s2">&quot;sparkml&quot;</span>
+<span class="n">_MLFLOWDBFS_SCHEME</span> <span class="o">=</span> <span class="s2">&quot;mlflowdbfs&quot;</span>
+
+
+<span class="n">_logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
+
+
+<div class="viewcode-block" id="get_default_pip_requirements"><a class="viewcode-back" href="../../python_api/mlflow.spark.html#mlflow.spark.get_default_pip_requirements">[docs]</a><span class="k">def</span> <span class="nf">get_default_pip_requirements</span><span class="p">(</span><span class="n">is_spark_connect_model</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Returns:</span>
+<span class="sd">        A list of default pip requirements for MLflow Models produced by this flavor.</span>
+<span class="sd">        Calls to :func:`save_model()` and :func:`log_model()` produce a pip environment</span>
+<span class="sd">        that, at minimum, contains these requirements.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="kn">import</span> <span class="nn">pyspark</span>
+
+    <span class="c1"># Strip the suffix from `dev` versions of PySpark, which are not</span>
+    <span class="c1"># available for installation from Anaconda or PyPI</span>
+    <span class="n">pyspark_req_str</span> <span class="o">=</span> <span class="s2">&quot;pyspark[connect]&quot;</span> <span class="k">if</span> <span class="n">is_spark_connect_model</span> <span class="k">else</span> <span class="s2">&quot;pyspark&quot;</span>
+    <span class="n">pyspark_req</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">sub</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;(\.?)dev.*$&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">,</span> <span class="n">_get_pinned_requirement</span><span class="p">(</span><span class="n">pyspark_req_str</span><span class="p">))</span>
+    <span class="n">reqs</span> <span class="o">=</span> <span class="p">[</span><span class="n">pyspark_req</span><span class="p">]</span>
+    <span class="k">if</span> <span class="n">Version</span><span class="p">(</span><span class="n">pyspark</span><span class="o">.</span><span class="n">__version__</span><span class="p">)</span> <span class="o">&lt;</span> <span class="n">Version</span><span class="p">(</span><span class="s2">&quot;3.4&quot;</span><span class="p">):</span>
+        <span class="c1"># Versions of PySpark &lt; 3.4 are incompatible with pandas &gt;= 2</span>
+        <span class="n">reqs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;pandas&lt;2&quot;</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">is_spark_connect_model</span><span class="p">:</span>
+        <span class="n">reqs</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span>
+            <span class="p">[</span>
+                <span class="c1"># Spark connect ML Model uses spark torch distributor to train model</span>
+                <span class="n">_get_pinned_requirement</span><span class="p">(</span><span class="s2">&quot;torch&quot;</span><span class="p">),</span>
+                <span class="c1"># Spark connect ML Model saves feature transformers as sklearn transformer format.</span>
+                <span class="n">_get_pinned_requirement</span><span class="p">(</span><span class="s2">&quot;scikit-learn&quot;</span><span class="p">,</span> <span class="n">module</span><span class="o">=</span><span class="s2">&quot;sklearn&quot;</span><span class="p">),</span>
+                <span class="c1"># Spark connect ML evaluators depend on torcheval package.</span>
+                <span class="n">_get_pinned_requirement</span><span class="p">(</span><span class="s2">&quot;torcheval&quot;</span><span class="p">),</span>
+            <span class="p">]</span>
+        <span class="p">)</span>
+    <span class="k">return</span> <span class="n">reqs</span></div>
+
+
+<div class="viewcode-block" id="get_default_conda_env"><a class="viewcode-back" href="../../python_api/mlflow.spark.html#mlflow.spark.get_default_conda_env">[docs]</a><span class="k">def</span> <span class="nf">get_default_conda_env</span><span class="p">(</span><span class="n">is_spark_connect_model</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Returns:</span>
+<span class="sd">        The default Conda environment for MLflow Models produced by calls to</span>
+<span class="sd">        :func:`save_model()` and :func:`log_model()`. This Conda environment</span>
+<span class="sd">        contains the current version of PySpark that is installed on the caller&#39;s</span>
+<span class="sd">        system. ``dev`` versions of PySpark are replaced with stable versions in</span>
+<span class="sd">        the resulting Conda environment (e.g., if you are running PySpark version</span>
+<span class="sd">        ``2.4.5.dev0``, invoking this method produces a Conda environment with a</span>
+<span class="sd">        dependency on PySpark version ``2.4.5``).</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">_mlflow_conda_env</span><span class="p">(</span>
+        <span class="n">additional_pip_deps</span><span class="o">=</span><span class="n">get_default_pip_requirements</span><span class="p">(</span>
+            <span class="n">is_spark_connect_model</span><span class="o">=</span><span class="n">is_spark_connect_model</span>
+        <span class="p">)</span>
+    <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="log_model"><a class="viewcode-back" href="../../python_api/mlflow.spark.html#mlflow.spark.log_model">[docs]</a><span class="nd">@format_docstring</span><span class="p">(</span><span class="n">LOG_MODEL_PARAM_DOCS</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">package_name</span><span class="o">=</span><span class="s2">&quot;pyspark&quot;</span><span class="p">))</span>
+<span class="k">def</span> <span class="nf">log_model</span><span class="p">(</span>
+    <span class="n">spark_model</span><span class="p">,</span>
+    <span class="n">artifact_path</span><span class="p">,</span>
+    <span class="n">conda_env</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">code_paths</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">dfs_tmpdir</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">sample_input</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">registered_model_name</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">signature</span><span class="p">:</span> <span class="n">ModelSignature</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">input_example</span><span class="p">:</span> <span class="n">ModelInputExample</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">await_registration_for</span><span class="o">=</span><span class="n">DEFAULT_AWAIT_MAX_SLEEP_SECONDS</span><span class="p">,</span>
+    <span class="n">pip_requirements</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">extra_pip_requirements</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">metadata</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+<span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Log a Spark MLlib model as an MLflow artifact for the current run. This uses the</span>
+<span class="sd">    MLlib persistence format and produces an MLflow Model with the Spark flavor.</span>
+
+<span class="sd">    Note: If no run is active, it will instantiate a run to obtain a run_id.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        spark_model: Spark model to be saved - MLflow can only save descendants of</span>
+<span class="sd">            pyspark.ml.Model or pyspark.ml.Transformer which implement</span>
+<span class="sd">            MLReadable and MLWritable.</span>
+<span class="sd">        artifact_path: Run relative artifact path.</span>
+<span class="sd">        conda_env: {{ conda_env }}</span>
+<span class="sd">        code_paths: {{ code_paths }}</span>
+<span class="sd">        dfs_tmpdir: Temporary directory path on Distributed (Hadoop) File System (DFS) or local</span>
+<span class="sd">                        filesystem if running in local mode. The model is written in this</span>
+<span class="sd">                        destination and then copied into the model&#39;s artifact directory. This is</span>
+<span class="sd">                        necessary as Spark ML models read from and write to DFS if running on a</span>
+<span class="sd">                        cluster. If this operation completes successfully, all temporary files</span>
+<span class="sd">                        created on the DFS are removed. Defaults to ``/tmp/mlflow``.</span>
+<span class="sd">                        For models defined in `pyspark.ml.connect` module, this param is ignored.</span>
+<span class="sd">        sample_input: A sample input used to add the MLeap flavor to the model.</span>
+<span class="sd">            This must be a PySpark DataFrame that the model can evaluate. If</span>
+<span class="sd">            ``sample_input`` is ``None``, the MLeap flavor is not added.</span>
+<span class="sd">        registered_model_name: If given, create a model version under</span>
+<span class="sd">            ``registered_model_name``, also creating a registered model if one</span>
+<span class="sd">            with the given name does not exist.</span>
+<span class="sd">        signature: A Model Signature object that describes the input and output Schema of the</span>
+<span class="sd">            model. The model signature can be inferred using `infer_signature` function</span>
+<span class="sd">            of `mlflow.models.signature`.</span>
+<span class="sd">            Note if your Spark model contains Spark ML vector type input or output column,</span>
+<span class="sd">            you should create ``SparkMLVector`` vector type for the column,</span>
+<span class="sd">            `infer_signature` function can also infer ``SparkMLVector`` vector type correctly</span>
+<span class="sd">            from Spark Dataframe input / output.</span>
+<span class="sd">            When loading a Spark ML model with ``SparkMLVector`` vector type input as MLflow</span>
+<span class="sd">            pyfunc model, it accepts ``Array[double]`` type input. MLflow internally converts</span>
+<span class="sd">            the array into Spark ML vector and then invoke Spark model for inference. Similarly,</span>
+<span class="sd">            if the model has vector type output, MLflow internally converts Spark ML vector</span>
+<span class="sd">            output data into ``Array[double]`` type inference result.</span>
+
+<span class="sd">            .. code-block:: python</span>
+
+<span class="sd">                from mlflow.models import infer_signature</span>
+<span class="sd">                from pyspark.sql.functions import col</span>
+<span class="sd">                from pyspark.ml.classification import LogisticRegression</span>
+<span class="sd">                from pyspark.ml.functions import array_to_vector</span>
+<span class="sd">                import pandas as pd</span>
+<span class="sd">                import mlflow</span>
+
+<span class="sd">                train_df = spark.createDataFrame(</span>
+<span class="sd">                    [([3.0, 4.0], 0), ([5.0, 6.0], 1)], schema=&quot;features array&lt;double&gt;, label long&quot;</span>
+<span class="sd">                ).select(array_to_vector(&quot;features&quot;).alias(&quot;features&quot;), col(&quot;label&quot;))</span>
+<span class="sd">                lor = LogisticRegression(maxIter=2)</span>
+<span class="sd">                lor.setPredictionCol(&quot;&quot;).setProbabilityCol(&quot;prediction&quot;)</span>
+<span class="sd">                lor_model = lor.fit(train_df)</span>
+
+<span class="sd">                test_df = train_df.select(&quot;features&quot;)</span>
+<span class="sd">                prediction_df = lor_model.transform(train_df).select(&quot;prediction&quot;)</span>
+
+<span class="sd">                signature = infer_signature(test_df, prediction_df)</span>
+
+<span class="sd">                with mlflow.start_run() as run:</span>
+<span class="sd">                    model_info = mlflow.spark.log_model(</span>
+<span class="sd">                        lor_model,</span>
+<span class="sd">                        &quot;model&quot;,</span>
+<span class="sd">                        signature=signature,</span>
+<span class="sd">                    )</span>
+
+<span class="sd">                # The following signature is outputed:</span>
+<span class="sd">                # inputs:</span>
+<span class="sd">                #   [&#39;features&#39;: SparkML vector (required)]</span>
+<span class="sd">                # outputs:</span>
+<span class="sd">                #   [&#39;prediction&#39;: SparkML vector (required)]</span>
+<span class="sd">                print(model_info.signature)</span>
+
+<span class="sd">                loaded = mlflow.pyfunc.load_model(model_info.model_uri)</span>
+
+<span class="sd">                test_dataset = pd.DataFrame({&quot;features&quot;: [[1.0, 2.0]]})</span>
+
+<span class="sd">                # `loaded.predict` accepts `Array[double]` type input column,</span>
+<span class="sd">                # and generates `Array[double]` type output column.</span>
+<span class="sd">                print(loaded.predict(test_dataset))</span>
+
+<span class="sd">        input_example: {{ input_example }}</span>
+<span class="sd">        await_registration_for: Number of seconds to wait for the model version to finish</span>
+<span class="sd">            being created and is in ``READY`` status. By default, the function</span>
+<span class="sd">            waits for five minutes. Specify 0 or None to skip waiting.</span>
+<span class="sd">        pip_requirements: {{ pip_requirements }}</span>
+<span class="sd">        extra_pip_requirements: {{ extra_pip_requirements }}</span>
+<span class="sd">        metadata: {{ metadata }}</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        A :py:class:`ModelInfo &lt;mlflow.models.model.ModelInfo&gt;` instance that contains the</span>
+<span class="sd">        metadata of the logged model.</span>
+
+<span class="sd">    .. code-block:: python</span>
+<span class="sd">        :caption: Example</span>
+
+<span class="sd">        from pyspark.ml import Pipeline</span>
+<span class="sd">        from pyspark.ml.classification import LogisticRegression</span>
+<span class="sd">        from pyspark.ml.feature import HashingTF, Tokenizer</span>
+
+<span class="sd">        training = spark.createDataFrame(</span>
+<span class="sd">            [</span>
+<span class="sd">                (0, &quot;a b c d e spark&quot;, 1.0),</span>
+<span class="sd">                (1, &quot;b d&quot;, 0.0),</span>
+<span class="sd">                (2, &quot;spark f g h&quot;, 1.0),</span>
+<span class="sd">                (3, &quot;hadoop mapreduce&quot;, 0.0),</span>
+<span class="sd">            ],</span>
+<span class="sd">            [&quot;id&quot;, &quot;text&quot;, &quot;label&quot;],</span>
+<span class="sd">        )</span>
+<span class="sd">        tokenizer = Tokenizer(inputCol=&quot;text&quot;, outputCol=&quot;words&quot;)</span>
+<span class="sd">        hashingTF = HashingTF(inputCol=tokenizer.getOutputCol(), outputCol=&quot;features&quot;)</span>
+<span class="sd">        lr = LogisticRegression(maxIter=10, regParam=0.001)</span>
+<span class="sd">        pipeline = Pipeline(stages=[tokenizer, hashingTF, lr])</span>
+<span class="sd">        model = pipeline.fit(training)</span>
+<span class="sd">        mlflow.spark.log_model(model, &quot;spark-model&quot;)</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">_validate_model</span><span class="p">(</span><span class="n">spark_model</span><span class="p">)</span>
+    <span class="kn">from</span> <span class="nn">pyspark.ml</span> <span class="kn">import</span> <span class="n">PipelineModel</span>
+
+    <span class="k">if</span> <span class="n">_is_spark_connect_model</span><span class="p">(</span><span class="n">spark_model</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">Model</span><span class="o">.</span><span class="n">log</span><span class="p">(</span>
+            <span class="n">artifact_path</span><span class="o">=</span><span class="n">artifact_path</span><span class="p">,</span>
+            <span class="n">flavor</span><span class="o">=</span><span class="n">mlflow</span><span class="o">.</span><span class="n">spark</span><span class="p">,</span>
+            <span class="n">spark_model</span><span class="o">=</span><span class="n">spark_model</span><span class="p">,</span>
+            <span class="n">conda_env</span><span class="o">=</span><span class="n">conda_env</span><span class="p">,</span>
+            <span class="n">code_paths</span><span class="o">=</span><span class="n">code_paths</span><span class="p">,</span>
+            <span class="n">sample_input</span><span class="o">=</span><span class="n">sample_input</span><span class="p">,</span>
+            <span class="n">registered_model_name</span><span class="o">=</span><span class="n">registered_model_name</span><span class="p">,</span>
+            <span class="n">signature</span><span class="o">=</span><span class="n">signature</span><span class="p">,</span>
+            <span class="n">input_example</span><span class="o">=</span><span class="n">input_example</span><span class="p">,</span>
+            <span class="n">await_registration_for</span><span class="o">=</span><span class="n">await_registration_for</span><span class="p">,</span>
+            <span class="n">pip_requirements</span><span class="o">=</span><span class="n">pip_requirements</span><span class="p">,</span>
+            <span class="n">extra_pip_requirements</span><span class="o">=</span><span class="n">extra_pip_requirements</span><span class="p">,</span>
+            <span class="n">metadata</span><span class="o">=</span><span class="n">metadata</span><span class="p">,</span>
+        <span class="p">)</span>
+
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">spark_model</span><span class="p">,</span> <span class="n">PipelineModel</span><span class="p">):</span>
+        <span class="n">spark_model</span> <span class="o">=</span> <span class="n">PipelineModel</span><span class="p">([</span><span class="n">spark_model</span><span class="p">])</span>
+    <span class="n">run_id</span> <span class="o">=</span> <span class="n">mlflow</span><span class="o">.</span><span class="n">tracking</span><span class="o">.</span><span class="n">fluent</span><span class="o">.</span><span class="n">_get_or_start_run</span><span class="p">()</span><span class="o">.</span><span class="n">info</span><span class="o">.</span><span class="n">run_id</span>
+    <span class="n">run_root_artifact_uri</span> <span class="o">=</span> <span class="n">mlflow</span><span class="o">.</span><span class="n">get_artifact_uri</span><span class="p">()</span>
+    <span class="n">remote_model_path</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="k">if</span> <span class="n">_should_use_mlflowdbfs</span><span class="p">(</span><span class="n">run_root_artifact_uri</span><span class="p">):</span>
+        <span class="n">remote_model_path</span> <span class="o">=</span> <span class="n">append_to_uri_path</span><span class="p">(</span>
+            <span class="n">run_root_artifact_uri</span><span class="p">,</span> <span class="n">artifact_path</span><span class="p">,</span> <span class="n">_SPARK_MODEL_PATH_SUB</span>
+        <span class="p">)</span>
+        <span class="n">mlflowdbfs_path</span> <span class="o">=</span> <span class="n">_mlflowdbfs_path</span><span class="p">(</span><span class="n">run_id</span><span class="p">,</span> <span class="n">artifact_path</span><span class="p">)</span>
+        <span class="k">with</span> <span class="n">databricks_utils</span><span class="o">.</span><span class="n">MlflowCredentialContext</span><span class="p">(</span>
+            <span class="n">get_databricks_profile_uri_from_artifact_uri</span><span class="p">(</span><span class="n">run_root_artifact_uri</span><span class="p">)</span>
+        <span class="p">):</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">spark_model</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="n">mlflowdbfs_path</span><span class="p">)</span>
+            <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="n">MlflowException</span><span class="p">(</span><span class="s2">&quot;failed to save spark model via mlflowdbfs&quot;</span><span class="p">)</span> <span class="kn">from</span> <span class="nn">e</span>
+
+    <span class="c1"># If the artifact URI is a local filesystem path, defer to Model.log() to persist the model,</span>
+    <span class="c1"># since Spark may not be able to write directly to the driver&#39;s filesystem. For example,</span>
+    <span class="c1"># writing to `file:/uri` will write to the local filesystem from each executor, which will</span>
+    <span class="c1"># be incorrect on multi-node clusters.</span>
+    <span class="c1"># If the artifact URI is not a local filesystem path we attempt to write directly to the</span>
+    <span class="c1"># artifact repo via Spark. If this fails, we defer to Model.log().</span>
+    <span class="k">elif</span> <span class="n">is_local_uri</span><span class="p">(</span><span class="n">run_root_artifact_uri</span><span class="p">)</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">_maybe_save_model</span><span class="p">(</span>
+        <span class="n">spark_model</span><span class="p">,</span>
+        <span class="n">append_to_uri_path</span><span class="p">(</span><span class="n">run_root_artifact_uri</span><span class="p">,</span> <span class="n">artifact_path</span><span class="p">),</span>
+    <span class="p">):</span>
+        <span class="k">return</span> <span class="n">Model</span><span class="o">.</span><span class="n">log</span><span class="p">(</span>
+            <span class="n">artifact_path</span><span class="o">=</span><span class="n">artifact_path</span><span class="p">,</span>
+            <span class="n">flavor</span><span class="o">=</span><span class="n">mlflow</span><span class="o">.</span><span class="n">spark</span><span class="p">,</span>
+            <span class="n">spark_model</span><span class="o">=</span><span class="n">spark_model</span><span class="p">,</span>
+            <span class="n">conda_env</span><span class="o">=</span><span class="n">conda_env</span><span class="p">,</span>
+            <span class="n">code_paths</span><span class="o">=</span><span class="n">code_paths</span><span class="p">,</span>
+            <span class="n">dfs_tmpdir</span><span class="o">=</span><span class="n">dfs_tmpdir</span><span class="p">,</span>
+            <span class="n">sample_input</span><span class="o">=</span><span class="n">sample_input</span><span class="p">,</span>
+            <span class="n">registered_model_name</span><span class="o">=</span><span class="n">registered_model_name</span><span class="p">,</span>
+            <span class="n">signature</span><span class="o">=</span><span class="n">signature</span><span class="p">,</span>
+            <span class="n">input_example</span><span class="o">=</span><span class="n">input_example</span><span class="p">,</span>
+            <span class="n">await_registration_for</span><span class="o">=</span><span class="n">await_registration_for</span><span class="p">,</span>
+            <span class="n">pip_requirements</span><span class="o">=</span><span class="n">pip_requirements</span><span class="p">,</span>
+            <span class="n">extra_pip_requirements</span><span class="o">=</span><span class="n">extra_pip_requirements</span><span class="p">,</span>
+            <span class="n">metadata</span><span class="o">=</span><span class="n">metadata</span><span class="p">,</span>
+        <span class="p">)</span>
+    <span class="c1"># Otherwise, override the default model log behavior and save model directly to artifact repo</span>
+    <span class="n">mlflow_model</span> <span class="o">=</span> <span class="n">Model</span><span class="p">(</span><span class="n">artifact_path</span><span class="o">=</span><span class="n">artifact_path</span><span class="p">,</span> <span class="n">run_id</span><span class="o">=</span><span class="n">run_id</span><span class="p">)</span>
+    <span class="k">with</span> <span class="n">TempDir</span><span class="p">()</span> <span class="k">as</span> <span class="n">tmp</span><span class="p">:</span>
+        <span class="n">tmp_model_metadata_dir</span> <span class="o">=</span> <span class="n">tmp</span><span class="o">.</span><span class="n">path</span><span class="p">()</span>
+        <span class="n">_save_model_metadata</span><span class="p">(</span>
+            <span class="n">tmp_model_metadata_dir</span><span class="p">,</span>
+            <span class="n">spark_model</span><span class="p">,</span>
+            <span class="n">mlflow_model</span><span class="p">,</span>
+            <span class="n">sample_input</span><span class="p">,</span>
+            <span class="n">conda_env</span><span class="p">,</span>
+            <span class="n">code_paths</span><span class="p">,</span>
+            <span class="n">signature</span><span class="o">=</span><span class="n">signature</span><span class="p">,</span>
+            <span class="n">input_example</span><span class="o">=</span><span class="n">input_example</span><span class="p">,</span>
+            <span class="n">pip_requirements</span><span class="o">=</span><span class="n">pip_requirements</span><span class="p">,</span>
+            <span class="n">extra_pip_requirements</span><span class="o">=</span><span class="n">extra_pip_requirements</span><span class="p">,</span>
+            <span class="n">remote_model_path</span><span class="o">=</span><span class="n">remote_model_path</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="n">mlflow</span><span class="o">.</span><span class="n">tracking</span><span class="o">.</span><span class="n">fluent</span><span class="o">.</span><span class="n">log_artifacts</span><span class="p">(</span><span class="n">tmp_model_metadata_dir</span><span class="p">,</span> <span class="n">artifact_path</span><span class="p">)</span>
+        <span class="n">mlflow</span><span class="o">.</span><span class="n">tracking</span><span class="o">.</span><span class="n">fluent</span><span class="o">.</span><span class="n">_record_logged_model</span><span class="p">(</span><span class="n">mlflow_model</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">registered_model_name</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">mlflow</span><span class="o">.</span><span class="n">register_model</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;runs:/</span><span class="si">{</span><span class="n">run_id</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">artifact_path</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span>
+                <span class="n">registered_model_name</span><span class="p">,</span>
+                <span class="n">await_registration_for</span><span class="p">,</span>
+            <span class="p">)</span>
+        <span class="k">return</span> <span class="n">mlflow_model</span><span class="o">.</span><span class="n">get_model_info</span><span class="p">()</span></div>
+
+
+<span class="k">def</span> <span class="nf">_mlflowdbfs_path</span><span class="p">(</span><span class="n">run_id</span><span class="p">,</span> <span class="n">artifact_path</span><span class="p">):</span>
+    <span class="k">if</span> <span class="n">artifact_path</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;/&quot;</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="n">MlflowException</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;artifact_path should be relative, found: </span><span class="si">{</span><span class="n">artifact_path</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span>
+            <span class="n">INVALID_PARAMETER_VALUE</span><span class="p">,</span>
+        <span class="p">)</span>
+    <span class="k">return</span> <span class="s2">&quot;</span><span class="si">{}</span><span class="s2">:///artifacts?run_id=</span><span class="si">{}</span><span class="s2">&amp;path=/</span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+        <span class="n">_MLFLOWDBFS_SCHEME</span><span class="p">,</span> <span class="n">run_id</span><span class="p">,</span> <span class="n">posixpath</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">artifact_path</span><span class="p">,</span> <span class="n">_SPARK_MODEL_PATH_SUB</span><span class="p">)</span>
+    <span class="p">)</span>
+
+
+<span class="k">def</span> <span class="nf">_maybe_save_model</span><span class="p">(</span><span class="n">spark_model</span><span class="p">,</span> <span class="n">model_dir</span><span class="p">):</span>
+    <span class="kn">from</span> <span class="nn">py4j.protocol</span> <span class="kn">import</span> <span class="n">Py4JError</span>
+
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">spark_model</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="n">posixpath</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">model_dir</span><span class="p">,</span> <span class="n">_SPARK_MODEL_PATH_SUB</span><span class="p">))</span>
+        <span class="k">return</span> <span class="kc">True</span>
+    <span class="k">except</span> <span class="n">Py4JError</span><span class="p">:</span>
+        <span class="k">return</span> <span class="kc">False</span>
+
+
+<span class="k">class</span> <span class="nc">_HadoopFileSystem</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Interface to org.apache.hadoop.fs.FileSystem.</span>
+
+<span class="sd">    Spark ML models expect to read from and write to Hadoop FileSystem when running on a cluster.</span>
+<span class="sd">    Since MLflow works on local directories, we need this interface to copy the files between</span>
+<span class="sd">    the current DFS and local dir.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="s2">&quot;This class should not be instantiated&quot;</span><span class="p">)</span>
+
+    <span class="n">_filesystem</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">_conf</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">_jvm</span><span class="p">(</span><span class="bp">cls</span><span class="p">):</span>
+        <span class="kn">from</span> <span class="nn">pyspark</span> <span class="kn">import</span> <span class="n">SparkContext</span>
+
+        <span class="k">return</span> <span class="n">SparkContext</span><span class="o">.</span><span class="n">_gateway</span><span class="o">.</span><span class="n">jvm</span>
+
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">_fs</span><span class="p">(</span><span class="bp">cls</span><span class="p">):</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">cls</span><span class="o">.</span><span class="n">_filesystem</span><span class="p">:</span>
+            <span class="bp">cls</span><span class="o">.</span><span class="n">_filesystem</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">_jvm</span><span class="p">()</span><span class="o">.</span><span class="n">org</span><span class="o">.</span><span class="n">apache</span><span class="o">.</span><span class="n">hadoop</span><span class="o">.</span><span class="n">fs</span><span class="o">.</span><span class="n">FileSystem</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="bp">cls</span><span class="o">.</span><span class="n">_conf</span><span class="p">())</span>
+        <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">_filesystem</span>
+
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">_conf</span><span class="p">(</span><span class="bp">cls</span><span class="p">):</span>
+        <span class="kn">from</span> <span class="nn">pyspark</span> <span class="kn">import</span> <span class="n">SparkContext</span>
+
+        <span class="n">sc</span> <span class="o">=</span> <span class="n">SparkContext</span><span class="o">.</span><span class="n">getOrCreate</span><span class="p">()</span>
+        <span class="k">return</span> <span class="n">sc</span><span class="o">.</span><span class="n">_jsc</span><span class="o">.</span><span class="n">hadoopConfiguration</span><span class="p">()</span>
+
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">_local_path</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">path</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">_jvm</span><span class="p">()</span><span class="o">.</span><span class="n">org</span><span class="o">.</span><span class="n">apache</span><span class="o">.</span><span class="n">hadoop</span><span class="o">.</span><span class="n">fs</span><span class="o">.</span><span class="n">Path</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="n">path</span><span class="p">))</span>
+
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">_remote_path</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">path</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">_jvm</span><span class="p">()</span><span class="o">.</span><span class="n">org</span><span class="o">.</span><span class="n">apache</span><span class="o">.</span><span class="n">hadoop</span><span class="o">.</span><span class="n">fs</span><span class="o">.</span><span class="n">Path</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
+
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">_stats</span><span class="p">(</span><span class="bp">cls</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">_jvm</span><span class="p">()</span><span class="o">.</span><span class="n">org</span><span class="o">.</span><span class="n">apache</span><span class="o">.</span><span class="n">hadoop</span><span class="o">.</span><span class="n">fs</span><span class="o">.</span><span class="n">FileSystem</span><span class="o">.</span><span class="n">getGlobalStorageStatistics</span><span class="p">()</span>
+
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">copy_to_local_file</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">src</span><span class="p">,</span> <span class="n">dst</span><span class="p">,</span> <span class="n">remove_src</span><span class="p">):</span>
+        <span class="bp">cls</span><span class="o">.</span><span class="n">_fs</span><span class="p">()</span><span class="o">.</span><span class="n">copyToLocalFile</span><span class="p">(</span><span class="n">remove_src</span><span class="p">,</span> <span class="bp">cls</span><span class="o">.</span><span class="n">_remote_path</span><span class="p">(</span><span class="n">src</span><span class="p">),</span> <span class="bp">cls</span><span class="o">.</span><span class="n">_local_path</span><span class="p">(</span><span class="n">dst</span><span class="p">))</span>
+
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">copy_from_local_file</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">src</span><span class="p">,</span> <span class="n">dst</span><span class="p">,</span> <span class="n">remove_src</span><span class="p">):</span>
+        <span class="bp">cls</span><span class="o">.</span><span class="n">_fs</span><span class="p">()</span><span class="o">.</span><span class="n">copyFromLocalFile</span><span class="p">(</span><span class="n">remove_src</span><span class="p">,</span> <span class="bp">cls</span><span class="o">.</span><span class="n">_local_path</span><span class="p">(</span><span class="n">src</span><span class="p">),</span> <span class="bp">cls</span><span class="o">.</span><span class="n">_remote_path</span><span class="p">(</span><span class="n">dst</span><span class="p">))</span>
+
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">qualified_local_path</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">path</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">_fs</span><span class="p">()</span><span class="o">.</span><span class="n">makeQualified</span><span class="p">(</span><span class="bp">cls</span><span class="o">.</span><span class="n">_local_path</span><span class="p">(</span><span class="n">path</span><span class="p">))</span><span class="o">.</span><span class="n">toString</span><span class="p">()</span>
+
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">maybe_copy_from_local_file</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">src</span><span class="p">,</span> <span class="n">dst</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Conditionally copy the file to the Hadoop DFS.</span>
+<span class="sd">        The file is copied iff the configuration has distributed filesystem.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            If copied, return new target location, otherwise return (absolute) source path.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">local_path</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">_local_path</span><span class="p">(</span><span class="n">src</span><span class="p">)</span>
+        <span class="n">qualified_local_path</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">_fs</span><span class="p">()</span><span class="o">.</span><span class="n">makeQualified</span><span class="p">(</span><span class="n">local_path</span><span class="p">)</span><span class="o">.</span><span class="n">toString</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">qualified_local_path</span> <span class="o">==</span> <span class="s2">&quot;file:&quot;</span> <span class="o">+</span> <span class="n">local_path</span><span class="o">.</span><span class="n">toString</span><span class="p">():</span>
+            <span class="k">return</span> <span class="n">local_path</span><span class="o">.</span><span class="n">toString</span><span class="p">()</span>
+        <span class="bp">cls</span><span class="o">.</span><span class="n">copy_from_local_file</span><span class="p">(</span><span class="n">src</span><span class="p">,</span> <span class="n">dst</span><span class="p">,</span> <span class="n">remove_src</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+        <span class="n">_logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Copied SparkML model to </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">dst</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">dst</span>
+
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">_try_file_exists</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">dfs_path</span><span class="p">):</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">_fs</span><span class="p">()</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">dfs_path</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">ex</span><span class="p">:</span>
+            <span class="c1"># Log a debug-level message, since existence checks may raise exceptions</span>
+            <span class="c1"># in normal operating circumstances that do not warrant warnings</span>
+            <span class="n">_logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span>
+                <span class="s2">&quot;Unexpected exception while checking if model uri is visible on DFS: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">ex</span>
+            <span class="p">)</span>
+        <span class="k">return</span> <span class="kc">False</span>
+
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">maybe_copy_from_uri</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">src_uri</span><span class="p">,</span> <span class="n">dst_path</span><span class="p">,</span> <span class="n">local_model_path</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Conditionally copy the file to the Hadoop DFS from the source uri.</span>
+<span class="sd">        In case the file is already on the Hadoop DFS do nothing.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            If copied, return new target location, otherwise return source uri.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="c1"># makeQualified throws if wrong schema / uri</span>
+            <span class="n">dfs_path</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">_fs</span><span class="p">()</span><span class="o">.</span><span class="n">makeQualified</span><span class="p">(</span><span class="bp">cls</span><span class="o">.</span><span class="n">_remote_path</span><span class="p">(</span><span class="n">src_uri</span><span class="p">))</span>
+            <span class="k">if</span> <span class="bp">cls</span><span class="o">.</span><span class="n">_try_file_exists</span><span class="p">(</span><span class="n">dfs_path</span><span class="p">):</span>
+                <span class="n">_logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;File &#39;</span><span class="si">%s</span><span class="s2">&#39; is already on DFS, copy is not necessary.&quot;</span><span class="p">,</span> <span class="n">src_uri</span><span class="p">)</span>
+                <span class="k">return</span> <span class="n">src_uri</span>
+        <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+            <span class="n">_logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;URI &#39;</span><span class="si">%s</span><span class="s2">&#39; does not point to the current DFS.&quot;</span><span class="p">,</span> <span class="n">src_uri</span><span class="p">)</span>
+        <span class="n">_logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;File &#39;</span><span class="si">%s</span><span class="s2">&#39; not found on DFS. Will attempt to upload the file.&quot;</span><span class="p">,</span> <span class="n">src_uri</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">maybe_copy_from_local_file</span><span class="p">(</span>
+            <span class="n">local_model_path</span> <span class="ow">or</span> <span class="n">_download_artifact_from_uri</span><span class="p">(</span><span class="n">src_uri</span><span class="p">),</span> <span class="n">dst_path</span>
+        <span class="p">)</span>
+
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">delete</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">path</span><span class="p">):</span>
+        <span class="bp">cls</span><span class="o">.</span><span class="n">_fs</span><span class="p">()</span><span class="o">.</span><span class="n">delete</span><span class="p">(</span><span class="bp">cls</span><span class="o">.</span><span class="n">_remote_path</span><span class="p">(</span><span class="n">path</span><span class="p">),</span> <span class="kc">True</span><span class="p">)</span>
+
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">is_filesystem_available</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">scheme</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">scheme</span> <span class="ow">in</span> <span class="p">[</span><span class="n">stats</span><span class="o">.</span><span class="n">getScheme</span><span class="p">()</span> <span class="k">for</span> <span class="n">stats</span> <span class="ow">in</span> <span class="bp">cls</span><span class="o">.</span><span class="n">_stats</span><span class="p">()</span><span class="o">.</span><span class="n">iterator</span><span class="p">()]</span>
+
+
+<span class="k">def</span> <span class="nf">_should_use_mlflowdbfs</span><span class="p">(</span><span class="n">root_uri</span><span class="p">):</span>
+    <span class="c1"># The `mlflowdbfs` scheme does not appear in the available schemes returned from</span>
+    <span class="c1"># the Hadoop FileSystem API until a read call has been issued.</span>
+    <span class="kn">from</span> <span class="nn">mlflow.utils._spark_utils</span> <span class="kn">import</span> <span class="n">_get_active_spark_session</span>
+
+    <span class="k">if</span> <span class="p">(</span>
+        <span class="ow">not</span> <span class="n">is_valid_dbfs_uri</span><span class="p">(</span><span class="n">root_uri</span><span class="p">)</span>
+        <span class="ow">or</span> <span class="ow">not</span> <span class="n">is_databricks_acled_artifacts_uri</span><span class="p">(</span><span class="n">root_uri</span><span class="p">)</span>
+        <span class="ow">or</span> <span class="ow">not</span> <span class="n">databricks_utils</span><span class="o">.</span><span class="n">is_in_databricks_runtime</span><span class="p">()</span>
+        <span class="ow">or</span> <span class="p">(</span><span class="n">environment_variables</span><span class="o">.</span><span class="n">_DISABLE_MLFLOWDBFS</span><span class="o">.</span><span class="n">get</span><span class="p">()</span> <span class="ow">or</span> <span class="s2">&quot;&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="o">==</span> <span class="s2">&quot;true&quot;</span>
+    <span class="p">):</span>
+        <span class="k">return</span> <span class="kc">False</span>
+
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">databricks_utils</span><span class="o">.</span><span class="n">_get_dbutils</span><span class="p">()</span>
+    <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+        <span class="c1"># If dbutils is unavailable, indicate that mlflowdbfs is unavailable</span>
+        <span class="c1"># because usage of mlflowdbfs depends on dbutils</span>
+        <span class="k">return</span> <span class="kc">False</span>
+
+    <span class="n">mlflowdbfs_read_exception_str</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">_get_active_spark_session</span><span class="p">()</span><span class="o">.</span><span class="n">read</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="s2">&quot;mlflowdbfs:///artifact?run_id=foo&amp;path=/bar&quot;</span><span class="p">)</span>
+    <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+        <span class="c1"># The load invocation is expected to throw an exception.</span>
+        <span class="n">mlflowdbfs_read_exception_str</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">)</span>
+
+    <span class="k">try</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">_HadoopFileSystem</span><span class="o">.</span><span class="n">is_filesystem_available</span><span class="p">(</span><span class="n">_MLFLOWDBFS_SCHEME</span><span class="p">)</span>
+    <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+        <span class="c1"># The HDFS filesystem logic used to determine mlflowdbfs availability on Databricks</span>
+        <span class="c1"># clusters may not work on certain Databricks cluster types due to unavailability of</span>
+        <span class="c1"># the _HadoopFileSystem.is_filesystem_available() API. As a temporary workaround,</span>
+        <span class="c1"># we check the contents of the expected exception raised by a dummy mlflowdbfs</span>
+        <span class="c1"># read for evidence that mlflowdbfs is available. If &quot;MlflowdbfsClient&quot; is present</span>
+        <span class="c1"># in the exception contents, we can safely assume that mlflowdbfs is available because</span>
+        <span class="c1"># `MlflowdbfsClient` is exclusively used by mlflowdbfs for performing MLflow</span>
+        <span class="c1"># file storage operations</span>
+        <span class="c1">#</span>
+        <span class="c1"># TODO: Remove this logic once the _HadoopFileSystem.is_filesystem_available() check</span>
+        <span class="c1"># below is determined to work on all Databricks cluster types</span>
+        <span class="k">return</span> <span class="s2">&quot;MlflowdbfsClient&quot;</span> <span class="ow">in</span> <span class="p">(</span><span class="n">mlflowdbfs_read_exception_str</span> <span class="ow">or</span> <span class="s2">&quot;&quot;</span><span class="p">)</span>
+
+
+<span class="k">def</span> <span class="nf">_save_model_metadata</span><span class="p">(</span>
+    <span class="n">dst_dir</span><span class="p">,</span>
+    <span class="n">spark_model</span><span class="p">,</span>
+    <span class="n">mlflow_model</span><span class="p">,</span>
+    <span class="n">sample_input</span><span class="p">,</span>
+    <span class="n">conda_env</span><span class="p">,</span>
+    <span class="n">code_paths</span><span class="p">,</span>
+    <span class="n">signature</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">input_example</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">pip_requirements</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">extra_pip_requirements</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">remote_model_path</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+<span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Saves model metadata into the passed-in directory.</span>
+<span class="sd">    If mlflowdbfs is not used, the persisted metadata assumes that a model can be</span>
+<span class="sd">    loaded from a relative path to the metadata file (currently hard-coded to &quot;sparkml&quot;).</span>
+<span class="sd">    If mlflowdbfs is used, remote_model_path should be provided, and the model needs to</span>
+<span class="sd">    be loaded from the remote_model_path.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="kn">import</span> <span class="nn">pyspark</span>
+
+    <span class="n">is_spark_connect_model</span> <span class="o">=</span> <span class="n">_is_spark_connect_model</span><span class="p">(</span><span class="n">spark_model</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">sample_input</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">is_spark_connect_model</span><span class="p">:</span>
+        <span class="n">mleap</span><span class="o">.</span><span class="n">add_to_model</span><span class="p">(</span>
+            <span class="n">mlflow_model</span><span class="o">=</span><span class="n">mlflow_model</span><span class="p">,</span>
+            <span class="n">path</span><span class="o">=</span><span class="n">dst_dir</span><span class="p">,</span>
+            <span class="n">spark_model</span><span class="o">=</span><span class="n">spark_model</span><span class="p">,</span>
+            <span class="n">sample_input</span><span class="o">=</span><span class="n">sample_input</span><span class="p">,</span>
+        <span class="p">)</span>
+    <span class="k">if</span> <span class="n">signature</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">mlflow_model</span><span class="o">.</span><span class="n">signature</span> <span class="o">=</span> <span class="n">signature</span>
+    <span class="k">if</span> <span class="n">input_example</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">_save_example</span><span class="p">(</span><span class="n">mlflow_model</span><span class="p">,</span> <span class="n">input_example</span><span class="p">,</span> <span class="n">dst_dir</span><span class="p">)</span>
+
+    <span class="n">code_dir_subpath</span> <span class="o">=</span> <span class="n">_validate_and_copy_code_paths</span><span class="p">(</span><span class="n">code_paths</span><span class="p">,</span> <span class="n">dst_dir</span><span class="p">)</span>
+    <span class="n">mlflow_model</span><span class="o">.</span><span class="n">add_flavor</span><span class="p">(</span>
+        <span class="n">FLAVOR_NAME</span><span class="p">,</span>
+        <span class="n">pyspark_version</span><span class="o">=</span><span class="n">pyspark</span><span class="o">.</span><span class="n">__version__</span><span class="p">,</span>
+        <span class="n">model_data</span><span class="o">=</span><span class="n">_SPARK_MODEL_PATH_SUB</span><span class="p">,</span>
+        <span class="n">code</span><span class="o">=</span><span class="n">code_dir_subpath</span><span class="p">,</span>
+        <span class="n">model_class</span><span class="o">=</span><span class="n">_get_fully_qualified_class_name</span><span class="p">(</span><span class="n">spark_model</span><span class="p">),</span>
+    <span class="p">)</span>
+    <span class="n">pyfunc</span><span class="o">.</span><span class="n">add_to_model</span><span class="p">(</span>
+        <span class="n">mlflow_model</span><span class="p">,</span>
+        <span class="n">loader_module</span><span class="o">=</span><span class="s2">&quot;mlflow.spark&quot;</span><span class="p">,</span>
+        <span class="n">data</span><span class="o">=</span><span class="n">_SPARK_MODEL_PATH_SUB</span><span class="p">,</span>
+        <span class="n">conda_env</span><span class="o">=</span><span class="n">_CONDA_ENV_FILE_NAME</span><span class="p">,</span>
+        <span class="n">python_env</span><span class="o">=</span><span class="n">_PYTHON_ENV_FILE_NAME</span><span class="p">,</span>
+        <span class="n">code</span><span class="o">=</span><span class="n">code_dir_subpath</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="k">if</span> <span class="n">size</span> <span class="o">:=</span> <span class="n">get_total_file_size</span><span class="p">(</span><span class="n">dst_dir</span><span class="p">):</span>
+        <span class="n">mlflow_model</span><span class="o">.</span><span class="n">model_size_bytes</span> <span class="o">=</span> <span class="n">size</span>
+    <span class="n">mlflow_model</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">dst_dir</span><span class="p">,</span> <span class="n">MLMODEL_FILE_NAME</span><span class="p">))</span>
+
+    <span class="k">if</span> <span class="n">conda_env</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">pip_requirements</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">default_reqs</span> <span class="o">=</span> <span class="n">get_default_pip_requirements</span><span class="p">(</span><span class="n">is_spark_connect_model</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">remote_model_path</span><span class="p">:</span>
+                <span class="n">_logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+                    <span class="s2">&quot;Inferring pip requirements by reloading the logged model from the databricks &quot;</span>
+                    <span class="s2">&quot;artifact repository, which can be time-consuming. To speed up, explicitly &quot;</span>
+                    <span class="s2">&quot;specify the conda_env or pip_requirements when calling log_model().&quot;</span>
+                <span class="p">)</span>
+            <span class="c1"># To ensure `_load_pyfunc` can successfully load the model during the dependency</span>
+            <span class="c1"># inference, `mlflow_model.save` must be called beforehand to save an MLmodel file.</span>
+            <span class="n">inferred_reqs</span> <span class="o">=</span> <span class="n">mlflow</span><span class="o">.</span><span class="n">models</span><span class="o">.</span><span class="n">infer_pip_requirements</span><span class="p">(</span>
+                <span class="n">remote_model_path</span> <span class="ow">or</span> <span class="n">dst_dir</span><span class="p">,</span>
+                <span class="n">FLAVOR_NAME</span><span class="p">,</span>
+                <span class="n">fallback</span><span class="o">=</span><span class="n">default_reqs</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="n">default_reqs</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">inferred_reqs</span><span class="p">)</span><span class="o">.</span><span class="n">union</span><span class="p">(</span><span class="n">default_reqs</span><span class="p">))</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">default_reqs</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="n">conda_env</span><span class="p">,</span> <span class="n">pip_requirements</span><span class="p">,</span> <span class="n">pip_constraints</span> <span class="o">=</span> <span class="n">_process_pip_requirements</span><span class="p">(</span>
+            <span class="n">default_reqs</span><span class="p">,</span>
+            <span class="n">pip_requirements</span><span class="p">,</span>
+            <span class="n">extra_pip_requirements</span><span class="p">,</span>
+        <span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">conda_env</span><span class="p">,</span> <span class="n">pip_requirements</span><span class="p">,</span> <span class="n">pip_constraints</span> <span class="o">=</span> <span class="n">_process_conda_env</span><span class="p">(</span><span class="n">conda_env</span><span class="p">)</span>
+
+    <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">dst_dir</span><span class="p">,</span> <span class="n">_CONDA_ENV_FILE_NAME</span><span class="p">),</span> <span class="s2">&quot;w&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+        <span class="n">yaml</span><span class="o">.</span><span class="n">safe_dump</span><span class="p">(</span><span class="n">conda_env</span><span class="p">,</span> <span class="n">stream</span><span class="o">=</span><span class="n">f</span><span class="p">,</span> <span class="n">default_flow_style</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+
+    <span class="c1"># Save `constraints.txt` if necessary</span>
+    <span class="k">if</span> <span class="n">pip_constraints</span><span class="p">:</span>
+        <span class="n">write_to</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">dst_dir</span><span class="p">,</span> <span class="n">_CONSTRAINTS_FILE_NAME</span><span class="p">),</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">pip_constraints</span><span class="p">))</span>
+
+    <span class="c1"># Save `requirements.txt`</span>
+    <span class="n">write_to</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">dst_dir</span><span class="p">,</span> <span class="n">_REQUIREMENTS_FILE_NAME</span><span class="p">),</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">pip_requirements</span><span class="p">))</span>
+
+    <span class="n">_PythonEnv</span><span class="o">.</span><span class="n">current</span><span class="p">()</span><span class="o">.</span><span class="n">to_yaml</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">dst_dir</span><span class="p">,</span> <span class="n">_PYTHON_ENV_FILE_NAME</span><span class="p">))</span>
+
+
+<span class="k">def</span> <span class="nf">_validate_model</span><span class="p">(</span><span class="n">spark_model</span><span class="p">):</span>
+    <span class="kn">from</span> <span class="nn">pyspark.ml</span> <span class="kn">import</span> <span class="n">Model</span> <span class="k">as</span> <span class="n">PySparkModel</span>
+    <span class="kn">from</span> <span class="nn">pyspark.ml</span> <span class="kn">import</span> <span class="n">Transformer</span> <span class="k">as</span> <span class="n">PySparkTransformer</span>
+    <span class="kn">from</span> <span class="nn">pyspark.ml.util</span> <span class="kn">import</span> <span class="n">MLReadable</span><span class="p">,</span> <span class="n">MLWritable</span>
+
+    <span class="k">if</span> <span class="n">_is_spark_connect_model</span><span class="p">(</span><span class="n">spark_model</span><span class="p">):</span>
+        <span class="k">return</span>
+
+    <span class="k">if</span> <span class="p">(</span>
+        <span class="p">(</span>
+            <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">spark_model</span><span class="p">,</span> <span class="n">PySparkModel</span><span class="p">)</span>
+            <span class="ow">and</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">spark_model</span><span class="p">,</span> <span class="n">PySparkTransformer</span><span class="p">)</span>
+        <span class="p">)</span>
+        <span class="ow">or</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">spark_model</span><span class="p">,</span> <span class="n">MLReadable</span><span class="p">)</span>
+        <span class="ow">or</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">spark_model</span><span class="p">,</span> <span class="n">MLWritable</span><span class="p">)</span>
+    <span class="p">):</span>
+        <span class="k">raise</span> <span class="n">MlflowException</span><span class="p">(</span>
+            <span class="s2">&quot;Cannot serialize this model. MLflow can only save descendants of pyspark.ml.Model &quot;</span>
+            <span class="s2">&quot;or pyspark.ml.Transformer that implement MLWritable and MLReadable.&quot;</span><span class="p">,</span>
+            <span class="n">INVALID_PARAMETER_VALUE</span><span class="p">,</span>
+        <span class="p">)</span>
+
+
+<span class="k">def</span> <span class="nf">_is_spark_connect_model</span><span class="p">(</span><span class="n">spark_model</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Return whether the spark model is spark connect ML model</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="kn">from</span> <span class="nn">pyspark.ml.connect</span> <span class="kn">import</span> <span class="n">Model</span> <span class="k">as</span> <span class="n">ConnectModel</span>
+
+        <span class="k">return</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">spark_model</span><span class="p">,</span> <span class="n">ConnectModel</span><span class="p">)</span>
+    <span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
+        <span class="c1"># pyspark &lt; 3.5 does not support Spark connect ML model</span>
+        <span class="k">return</span> <span class="kc">False</span>
+
+
+<div class="viewcode-block" id="save_model"><a class="viewcode-back" href="../../python_api/mlflow.spark.html#mlflow.spark.save_model">[docs]</a><span class="nd">@format_docstring</span><span class="p">(</span><span class="n">LOG_MODEL_PARAM_DOCS</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">package_name</span><span class="o">=</span><span class="s2">&quot;pyspark&quot;</span><span class="p">))</span>
+<span class="k">def</span> <span class="nf">save_model</span><span class="p">(</span>
+    <span class="n">spark_model</span><span class="p">,</span>
+    <span class="n">path</span><span class="p">,</span>
+    <span class="n">mlflow_model</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">conda_env</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">code_paths</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">dfs_tmpdir</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">sample_input</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">signature</span><span class="p">:</span> <span class="n">ModelSignature</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">input_example</span><span class="p">:</span> <span class="n">ModelInputExample</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">pip_requirements</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">extra_pip_requirements</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">metadata</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+<span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Save a Spark MLlib Model to a local path.</span>
+
+<span class="sd">    By default, this function saves models using the Spark MLlib persistence mechanism.</span>
+<span class="sd">    Additionally, if a sample input is specified using the ``sample_input`` parameter, the model</span>
+<span class="sd">    is also serialized in MLeap format and the MLeap flavor is added.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        spark_model: Spark model to be saved - MLflow can only save descendants of</span>
+<span class="sd">            pyspark.ml.Model or pyspark.ml.Transformer which implement</span>
+<span class="sd">            MLReadable and MLWritable.</span>
+<span class="sd">        path: Local path where the model is to be saved.</span>
+<span class="sd">        mlflow_model: MLflow model config this flavor is being added to.</span>
+<span class="sd">        conda_env: {{ conda_env }}</span>
+<span class="sd">        code_paths: {{ code_paths }}</span>
+<span class="sd">        dfs_tmpdir: Temporary directory path on Distributed (Hadoop) File System (DFS) or local</span>
+<span class="sd">            filesystem if running in local mode. The model is be written in this</span>
+<span class="sd">            destination and then copied to the requested local path. This is necessary</span>
+<span class="sd">            as Spark ML models read from and write to DFS if running on a cluster. All</span>
+<span class="sd">            temporary files created on the DFS are removed if this operation</span>
+<span class="sd">            completes successfully. Defaults to ``/tmp/mlflow``.</span>
+<span class="sd">        sample_input: A sample input that is used to add the MLeap flavor to the model.</span>
+<span class="sd">            This must be a PySpark DataFrame that the model can evaluate. If</span>
+<span class="sd">            ``sample_input`` is ``None``, the MLeap flavor is not added.</span>
+<span class="sd">        signature: See the document of argument ``signature`` in :py:func:`mlflow.spark.log_model`.</span>
+<span class="sd">        input_example: {{ input_example }}</span>
+<span class="sd">        pip_requirements: {{ pip_requirements }}</span>
+<span class="sd">        extra_pip_requirements: {{ extra_pip_requirements }}</span>
+<span class="sd">        metadata: {{ metadata }}</span>
+
+<span class="sd">    .. code-block:: python</span>
+<span class="sd">        :caption: Example</span>
+
+<span class="sd">        from mlflow import spark</span>
+<span class="sd">        from pyspark.ml.pipeline import PipelineModel</span>
+
+<span class="sd">        # your pyspark.ml.pipeline.PipelineModel type</span>
+<span class="sd">        model = ...</span>
+<span class="sd">        mlflow.spark.save_model(model, &quot;spark-model&quot;)</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">_validate_model</span><span class="p">(</span><span class="n">spark_model</span><span class="p">)</span>
+    <span class="n">_validate_env_arguments</span><span class="p">(</span><span class="n">conda_env</span><span class="p">,</span> <span class="n">pip_requirements</span><span class="p">,</span> <span class="n">extra_pip_requirements</span><span class="p">)</span>
+
+    <span class="kn">from</span> <span class="nn">pyspark.ml</span> <span class="kn">import</span> <span class="n">PipelineModel</span>
+
+    <span class="kn">from</span> <span class="nn">mlflow.utils._spark_utils</span> <span class="kn">import</span> <span class="n">_get_active_spark_session</span>
+
+    <span class="n">is_spark_connect_model</span> <span class="o">=</span> <span class="n">_is_spark_connect_model</span><span class="p">(</span><span class="n">spark_model</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">is_spark_connect_model</span> <span class="ow">and</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">spark_model</span><span class="p">,</span> <span class="n">PipelineModel</span><span class="p">):</span>
+        <span class="n">spark_model</span> <span class="o">=</span> <span class="n">PipelineModel</span><span class="p">([</span><span class="n">spark_model</span><span class="p">])</span>
+    <span class="k">if</span> <span class="n">mlflow_model</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">mlflow_model</span> <span class="o">=</span> <span class="n">Model</span><span class="p">()</span>
+    <span class="k">if</span> <span class="n">metadata</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">mlflow_model</span><span class="o">.</span><span class="n">metadata</span> <span class="o">=</span> <span class="n">metadata</span>
+
+    <span class="c1"># for automatic signature inference, we use an inline implementation rather than the</span>
+    <span class="c1"># `_infer_signature_from_input_example` API because we need to convert model predictions from a</span>
+    <span class="c1"># list into a Pandas series for signature inference.</span>
+    <span class="k">if</span> <span class="n">signature</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">input_example</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">input_ex</span> <span class="o">=</span> <span class="n">_Example</span><span class="p">(</span><span class="n">input_example</span><span class="p">)</span><span class="o">.</span><span class="n">inference_data</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">spark</span> <span class="o">=</span> <span class="n">_get_active_spark_session</span><span class="p">()</span>
+            <span class="k">if</span> <span class="n">spark</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">input_example_spark_df</span> <span class="o">=</span> <span class="n">spark</span><span class="o">.</span><span class="n">createDataFrame</span><span class="p">(</span><span class="n">input_ex</span><span class="p">)</span>
+                <span class="n">signature</span> <span class="o">=</span> <span class="n">mlflow</span><span class="o">.</span><span class="n">pyspark</span><span class="o">.</span><span class="n">ml</span><span class="o">.</span><span class="n">_infer_spark_model_signature</span><span class="p">(</span>
+                    <span class="n">spark_model</span><span class="p">,</span> <span class="n">input_example_spark_df</span>
+                <span class="p">)</span>
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">environment_variables</span><span class="o">.</span><span class="n">_MLFLOW_TESTING</span><span class="o">.</span><span class="n">get</span><span class="p">():</span>
+                <span class="k">raise</span>
+            <span class="n">_logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="n">_LOG_MODEL_INFER_SIGNATURE_WARNING_TEMPLATE</span><span class="p">,</span> <span class="nb">repr</span><span class="p">(</span><span class="n">e</span><span class="p">))</span>
+            <span class="n">_logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;&quot;</span><span class="p">,</span> <span class="n">exc_info</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="n">signature</span> <span class="ow">is</span> <span class="kc">False</span><span class="p">:</span>
+        <span class="n">signature</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="n">sparkml_data_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">_SPARK_MODEL_PATH_SUB</span><span class="p">))</span>
+
+    <span class="k">if</span> <span class="n">is_spark_connect_model</span><span class="p">:</span>
+        <span class="n">spark_model</span><span class="o">.</span><span class="n">saveToLocal</span><span class="p">(</span><span class="n">sparkml_data_path</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="c1"># Spark ML stores the model on DFS if running on a cluster</span>
+        <span class="c1"># Save it to a DFS temp dir first and copy it to local path</span>
+        <span class="k">if</span> <span class="n">dfs_tmpdir</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">dfs_tmpdir</span> <span class="o">=</span> <span class="n">MLFLOW_DFS_TMP</span><span class="o">.</span><span class="n">get</span><span class="p">()</span>
+        <span class="n">tmp_path</span> <span class="o">=</span> <span class="n">generate_tmp_dfs_path</span><span class="p">(</span><span class="n">dfs_tmpdir</span><span class="p">)</span>
+        <span class="n">spark_model</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="n">tmp_path</span><span class="p">)</span>
+        <span class="c1"># We&#39;re copying the Spark model from DBFS to the local filesystem if (a) the temporary DFS</span>
+        <span class="c1"># URI we saved the Spark model to is a DBFS URI (&quot;dbfs:/my-directory&quot;), or (b) if we&#39;re</span>
+        <span class="c1"># running on a Databricks cluster and the URI is schemeless (e.g. looks like a filesystem</span>
+        <span class="c1"># absolute path like &quot;/my-directory&quot;)</span>
+        <span class="n">copying_from_dbfs</span> <span class="o">=</span> <span class="n">is_valid_dbfs_uri</span><span class="p">(</span><span class="n">tmp_path</span><span class="p">)</span> <span class="ow">or</span> <span class="p">(</span>
+            <span class="n">databricks_utils</span><span class="o">.</span><span class="n">is_in_cluster</span><span class="p">()</span> <span class="ow">and</span> <span class="n">posixpath</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="n">tmp_path</span><span class="p">)</span> <span class="o">==</span> <span class="n">tmp_path</span>
+        <span class="p">)</span>
+        <span class="k">if</span> <span class="n">copying_from_dbfs</span> <span class="ow">and</span> <span class="n">databricks_utils</span><span class="o">.</span><span class="n">is_dbfs_fuse_available</span><span class="p">():</span>
+            <span class="n">tmp_path_fuse</span> <span class="o">=</span> <span class="n">dbfs_hdfs_uri_to_fuse_path</span><span class="p">(</span><span class="n">tmp_path</span><span class="p">)</span>
+            <span class="n">shutil</span><span class="o">.</span><span class="n">move</span><span class="p">(</span><span class="n">src</span><span class="o">=</span><span class="n">tmp_path_fuse</span><span class="p">,</span> <span class="n">dst</span><span class="o">=</span><span class="n">sparkml_data_path</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">_HadoopFileSystem</span><span class="o">.</span><span class="n">copy_to_local_file</span><span class="p">(</span><span class="n">tmp_path</span><span class="p">,</span> <span class="n">sparkml_data_path</span><span class="p">,</span> <span class="n">remove_src</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="n">_save_model_metadata</span><span class="p">(</span>
+        <span class="n">dst_dir</span><span class="o">=</span><span class="n">path</span><span class="p">,</span>
+        <span class="n">spark_model</span><span class="o">=</span><span class="n">spark_model</span><span class="p">,</span>
+        <span class="n">mlflow_model</span><span class="o">=</span><span class="n">mlflow_model</span><span class="p">,</span>
+        <span class="n">sample_input</span><span class="o">=</span><span class="n">sample_input</span><span class="p">,</span>
+        <span class="n">conda_env</span><span class="o">=</span><span class="n">conda_env</span><span class="p">,</span>
+        <span class="n">code_paths</span><span class="o">=</span><span class="n">code_paths</span><span class="p">,</span>
+        <span class="n">signature</span><span class="o">=</span><span class="n">signature</span><span class="p">,</span>
+        <span class="n">input_example</span><span class="o">=</span><span class="n">input_example</span><span class="p">,</span>
+        <span class="n">pip_requirements</span><span class="o">=</span><span class="n">pip_requirements</span><span class="p">,</span>
+        <span class="n">extra_pip_requirements</span><span class="o">=</span><span class="n">extra_pip_requirements</span><span class="p">,</span>
+    <span class="p">)</span></div>
+
+
+<span class="k">def</span> <span class="nf">_load_model_databricks</span><span class="p">(</span><span class="n">dfs_tmpdir</span><span class="p">,</span> <span class="n">local_model_path</span><span class="p">):</span>
+    <span class="kn">from</span> <span class="nn">pyspark.ml.pipeline</span> <span class="kn">import</span> <span class="n">PipelineModel</span>
+
+    <span class="c1"># Spark ML expects the model to be stored on DFS</span>
+    <span class="c1"># Copy the model to a temp DFS location first. We cannot delete this file, as</span>
+    <span class="c1"># Spark may read from it at any point.</span>
+    <span class="n">fuse_dfs_tmpdir</span> <span class="o">=</span> <span class="n">dbfs_hdfs_uri_to_fuse_path</span><span class="p">(</span><span class="n">dfs_tmpdir</span><span class="p">)</span>
+    <span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="n">fuse_dfs_tmpdir</span><span class="p">)</span>
+    <span class="c1"># Workaround for inability to use shutil.copytree with DBFS FUSE due to permission-denied</span>
+    <span class="c1"># errors on passthrough-enabled clusters when attempting to copy permission bits for directories</span>
+    <span class="n">shutil_copytree_without_file_permissions</span><span class="p">(</span><span class="n">src_dir</span><span class="o">=</span><span class="n">local_model_path</span><span class="p">,</span> <span class="n">dst_dir</span><span class="o">=</span><span class="n">fuse_dfs_tmpdir</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">PipelineModel</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">dfs_tmpdir</span><span class="p">)</span>
+
+
+<span class="k">def</span> <span class="nf">_load_model</span><span class="p">(</span><span class="n">model_uri</span><span class="p">,</span> <span class="n">dfs_tmpdir_base</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">local_model_path</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="kn">from</span> <span class="nn">pyspark.ml.pipeline</span> <span class="kn">import</span> <span class="n">PipelineModel</span>
+
+    <span class="n">dfs_tmpdir</span> <span class="o">=</span> <span class="n">generate_tmp_dfs_path</span><span class="p">(</span><span class="n">dfs_tmpdir_base</span> <span class="ow">or</span> <span class="n">MLFLOW_DFS_TMP</span><span class="o">.</span><span class="n">get</span><span class="p">())</span>
+    <span class="k">if</span> <span class="n">databricks_utils</span><span class="o">.</span><span class="n">is_in_cluster</span><span class="p">()</span> <span class="ow">and</span> <span class="n">databricks_utils</span><span class="o">.</span><span class="n">is_dbfs_fuse_available</span><span class="p">():</span>
+        <span class="k">return</span> <span class="n">_load_model_databricks</span><span class="p">(</span>
+            <span class="n">dfs_tmpdir</span><span class="p">,</span> <span class="n">local_model_path</span> <span class="ow">or</span> <span class="n">_download_artifact_from_uri</span><span class="p">(</span><span class="n">model_uri</span><span class="p">)</span>
+        <span class="p">)</span>
+    <span class="n">model_uri</span> <span class="o">=</span> <span class="n">_HadoopFileSystem</span><span class="o">.</span><span class="n">maybe_copy_from_uri</span><span class="p">(</span><span class="n">model_uri</span><span class="p">,</span> <span class="n">dfs_tmpdir</span><span class="p">,</span> <span class="n">local_model_path</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">PipelineModel</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">model_uri</span><span class="p">)</span>
+
+
+<span class="k">def</span> <span class="nf">_load_spark_connect_model</span><span class="p">(</span><span class="n">model_class</span><span class="p">,</span> <span class="n">local_path</span><span class="p">):</span>
+    <span class="k">return</span> <span class="n">_get_class_from_string</span><span class="p">(</span><span class="n">model_class</span><span class="p">)</span><span class="o">.</span><span class="n">loadFromLocal</span><span class="p">(</span><span class="n">local_path</span><span class="p">)</span>
+
+
+<div class="viewcode-block" id="load_model"><a class="viewcode-back" href="../../python_api/mlflow.spark.html#mlflow.spark.load_model">[docs]</a><span class="k">def</span> <span class="nf">load_model</span><span class="p">(</span><span class="n">model_uri</span><span class="p">,</span> <span class="n">dfs_tmpdir</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">dst_path</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Load the Spark MLlib model from the path.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        model_uri: The location, in URI format, of the MLflow model, for example:</span>
+
+<span class="sd">            - ``/Users/me/path/to/local/model``</span>
+<span class="sd">            - ``relative/path/to/local/model``</span>
+<span class="sd">            - ``s3://my_bucket/path/to/model``</span>
+<span class="sd">            - ``runs:/&lt;mlflow_run_id&gt;/run-relative/path/to/model``</span>
+<span class="sd">            - ``models:/&lt;model_name&gt;/&lt;model_version&gt;``</span>
+<span class="sd">            - ``models:/&lt;model_name&gt;/&lt;stage&gt;``</span>
+
+<span class="sd">            For more information about supported URI schemes, see</span>
+<span class="sd">            `Referencing Artifacts &lt;https://www.mlflow.org/docs/latest/concepts.html#</span>
+<span class="sd">            artifact-locations&gt;`_.</span>
+<span class="sd">        dfs_tmpdir: Temporary directory path on Distributed (Hadoop) File System (DFS) or local</span>
+<span class="sd">            filesystem if running in local mode. The model is loaded from this</span>
+<span class="sd">            destination. Defaults to ``/tmp/mlflow``.</span>
+<span class="sd">        dst_path: The local filesystem path to which to download the model artifact.</span>
+<span class="sd">            This directory must already exist. If unspecified, a local output</span>
+<span class="sd">            path will be created.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        pyspark.ml.pipeline.PipelineModel</span>
+
+<span class="sd">    .. code-block:: python</span>
+<span class="sd">        :caption: Example</span>
+
+<span class="sd">        from mlflow import spark</span>
+
+<span class="sd">        model = mlflow.spark.load_model(&quot;spark-model&quot;)</span>
+<span class="sd">        # Prepare test documents, which are unlabeled (id, text) tuples.</span>
+<span class="sd">        test = spark.createDataFrame(</span>
+<span class="sd">            [(4, &quot;spark i j k&quot;), (5, &quot;l m n&quot;), (6, &quot;spark hadoop spark&quot;), (7, &quot;apache hadoop&quot;)],</span>
+<span class="sd">            [&quot;id&quot;, &quot;text&quot;],</span>
+<span class="sd">        )</span>
+<span class="sd">        # Make predictions on test documents</span>
+<span class="sd">        prediction = model.transform(test)</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># This MUST be called prior to appending the model flavor to `model_uri` in order</span>
+    <span class="c1"># for `artifact_path` to take on the correct value for model loading via mlflowdbfs.</span>
+    <span class="n">root_uri</span><span class="p">,</span> <span class="n">artifact_path</span> <span class="o">=</span> <span class="n">_get_root_uri_and_artifact_path</span><span class="p">(</span><span class="n">model_uri</span><span class="p">)</span>
+
+    <span class="n">flavor_conf</span> <span class="o">=</span> <span class="n">_get_flavor_configuration_from_uri</span><span class="p">(</span><span class="n">model_uri</span><span class="p">,</span> <span class="n">FLAVOR_NAME</span><span class="p">,</span> <span class="n">_logger</span><span class="p">)</span>
+    <span class="n">local_mlflow_model_path</span> <span class="o">=</span> <span class="n">_download_artifact_from_uri</span><span class="p">(</span>
+        <span class="n">artifact_uri</span><span class="o">=</span><span class="n">model_uri</span><span class="p">,</span> <span class="n">output_path</span><span class="o">=</span><span class="n">dst_path</span>
+    <span class="p">)</span>
+    <span class="n">_add_code_from_conf_to_system_path</span><span class="p">(</span><span class="n">local_mlflow_model_path</span><span class="p">,</span> <span class="n">flavor_conf</span><span class="p">)</span>
+
+    <span class="n">model_class</span> <span class="o">=</span> <span class="n">flavor_conf</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;model_class&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">model_class</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">model_class</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;pyspark.ml.connect.&quot;</span><span class="p">):</span>
+        <span class="n">spark_model_local_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">local_mlflow_model_path</span><span class="p">,</span> <span class="n">flavor_conf</span><span class="p">[</span><span class="s2">&quot;model_data&quot;</span><span class="p">])</span>
+        <span class="k">return</span> <span class="n">_load_spark_connect_model</span><span class="p">(</span><span class="n">model_class</span><span class="p">,</span> <span class="n">spark_model_local_path</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">_should_use_mlflowdbfs</span><span class="p">(</span><span class="n">model_uri</span><span class="p">):</span>
+        <span class="kn">from</span> <span class="nn">pyspark.ml.pipeline</span> <span class="kn">import</span> <span class="n">PipelineModel</span>
+
+        <span class="n">mlflowdbfs_path</span> <span class="o">=</span> <span class="n">_mlflowdbfs_path</span><span class="p">(</span>
+            <span class="n">DatabricksArtifactRepository</span><span class="o">.</span><span class="n">_extract_run_id</span><span class="p">(</span><span class="n">model_uri</span><span class="p">),</span> <span class="n">artifact_path</span>
+        <span class="p">)</span>
+        <span class="k">with</span> <span class="n">databricks_utils</span><span class="o">.</span><span class="n">MlflowCredentialContext</span><span class="p">(</span>
+            <span class="n">get_databricks_profile_uri_from_artifact_uri</span><span class="p">(</span><span class="n">root_uri</span><span class="p">)</span>
+        <span class="p">):</span>
+            <span class="k">return</span> <span class="n">PipelineModel</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">mlflowdbfs_path</span><span class="p">)</span>
+
+    <span class="n">sparkml_model_uri</span> <span class="o">=</span> <span class="n">append_to_uri_path</span><span class="p">(</span><span class="n">model_uri</span><span class="p">,</span> <span class="n">flavor_conf</span><span class="p">[</span><span class="s2">&quot;model_data&quot;</span><span class="p">])</span>
+    <span class="n">local_sparkml_model_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">local_mlflow_model_path</span><span class="p">,</span> <span class="n">flavor_conf</span><span class="p">[</span><span class="s2">&quot;model_data&quot;</span><span class="p">])</span>
+    <span class="k">return</span> <span class="n">_load_model</span><span class="p">(</span>
+        <span class="n">model_uri</span><span class="o">=</span><span class="n">sparkml_model_uri</span><span class="p">,</span>
+        <span class="n">dfs_tmpdir_base</span><span class="o">=</span><span class="n">dfs_tmpdir</span><span class="p">,</span>
+        <span class="n">local_model_path</span><span class="o">=</span><span class="n">local_sparkml_model_path</span><span class="p">,</span>
+    <span class="p">)</span></div>
+
+
+<span class="k">def</span> <span class="nf">_load_pyfunc</span><span class="p">(</span><span class="n">path</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Load PyFunc implementation. Called by ``pyfunc.load_model``.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        path: Local filesystem path to the MLflow Model with the ``spark`` flavor.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="kn">from</span> <span class="nn">mlflow.utils._spark_utils</span> <span class="kn">import</span> <span class="p">(</span>
+        <span class="n">_create_local_spark_session_for_loading_spark_model</span><span class="p">,</span>
+        <span class="n">_get_active_spark_session</span><span class="p">,</span>
+    <span class="p">)</span>
+
+    <span class="n">model_meta_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">dirname</span><span class="p">(</span><span class="n">path</span><span class="p">),</span> <span class="n">MLMODEL_FILE_NAME</span><span class="p">)</span>
+    <span class="n">model_meta</span> <span class="o">=</span> <span class="n">Model</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">model_meta_path</span><span class="p">)</span>
+
+    <span class="n">model_class</span> <span class="o">=</span> <span class="n">model_meta</span><span class="o">.</span><span class="n">flavors</span><span class="p">[</span><span class="n">FLAVOR_NAME</span><span class="p">]</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;model_class&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">model_class</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">model_class</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;pyspark.ml.connect.&quot;</span><span class="p">):</span>
+        <span class="c1"># Note:</span>
+        <span class="c1"># Spark connect ML models don&#39;t require a spark session for running inference.</span>
+        <span class="n">spark</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="n">spark_model</span> <span class="o">=</span> <span class="n">_load_spark_connect_model</span><span class="p">(</span><span class="n">model_class</span><span class="p">,</span> <span class="n">path</span><span class="p">)</span>
+
+    <span class="k">else</span><span class="p">:</span>
+        <span class="c1"># NOTE: The `_create_local_spark_session_for_loading_spark_model()` call below may change</span>
+        <span class="c1"># settings of the active session which we do not intend to do here.</span>
+        <span class="c1"># In particular, setting master to local[1] can break distributed clusters.</span>
+        <span class="c1"># To avoid this problem, we explicitly check for an active session. This is not ideal but</span>
+        <span class="c1"># there is no good workaround at the moment.</span>
+        <span class="n">spark</span> <span class="o">=</span> <span class="n">_get_active_spark_session</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">spark</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="c1"># NB: If there is no existing Spark context, create a new local one.</span>
+            <span class="c1"># NB: We&#39;re disabling caching on the new context since we do not need it and we want to</span>
+            <span class="c1"># avoid overwriting cache of underlying Spark cluster when executed on a Spark Worker</span>
+            <span class="c1"># (e.g. as part of spark_udf).</span>
+            <span class="n">spark</span> <span class="o">=</span> <span class="n">_create_local_spark_session_for_loading_spark_model</span><span class="p">()</span>
+
+        <span class="n">spark_model</span> <span class="o">=</span> <span class="n">_load_model</span><span class="p">(</span><span class="n">model_uri</span><span class="o">=</span><span class="n">path</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">_PyFuncModelWrapper</span><span class="p">(</span><span class="n">spark</span><span class="p">,</span> <span class="n">spark_model</span><span class="p">,</span> <span class="n">signature</span><span class="o">=</span><span class="n">model_meta</span><span class="o">.</span><span class="n">signature</span><span class="p">)</span>
+
+
+<span class="k">def</span> <span class="nf">_find_and_set_features_col_as_vector_if_needed</span><span class="p">(</span><span class="n">spark_df</span><span class="p">,</span> <span class="n">spark_model</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Finds the `featuresCol` column in spark_model and</span>
+<span class="sd">    then tries to cast that column to `vector` type.</span>
+<span class="sd">    This method is noop if the `featuresCol` is already of type `vector`</span>
+<span class="sd">    or if it can&#39;t be cast to `vector` type</span>
+<span class="sd">    Note:</span>
+<span class="sd">    If a spark ML pipeline contains a single Estimator stage, it requires</span>
+<span class="sd">    the input dataframe to contain features column of vector type.</span>
+<span class="sd">    But the autologging for pyspark ML casts vector column to array&lt;double&gt; type</span>
+<span class="sd">    for parity with the pd Dataframe. The following fix is required, which transforms</span>
+<span class="sd">    that features column back to vector type so that the pipeline stages can correctly work.</span>
+<span class="sd">    A valid scenario is if the auto-logged input example is directly used</span>
+<span class="sd">    for prediction, which would otherwise fail without this transformation.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        spark_df: Input dataframe that contains `featuresCol`</span>
+<span class="sd">        spark_model: A pipeline model or a single transformer that contains `featuresCol` param</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        A spark dataframe that contains features column of `vector` type.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="kn">from</span> <span class="nn">pyspark.ml.linalg</span> <span class="kn">import</span> <span class="n">Vectors</span><span class="p">,</span> <span class="n">VectorUDT</span>
+    <span class="kn">from</span> <span class="nn">pyspark.sql</span> <span class="kn">import</span> <span class="n">types</span> <span class="k">as</span> <span class="n">t</span>
+    <span class="kn">from</span> <span class="nn">pyspark.sql.functions</span> <span class="kn">import</span> <span class="n">udf</span>
+
+    <span class="k">def</span> <span class="nf">_find_stage_with_features_col</span><span class="p">(</span><span class="n">stage</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">stage</span><span class="o">.</span><span class="n">hasParam</span><span class="p">(</span><span class="s2">&quot;featuresCol&quot;</span><span class="p">):</span>
+
+            <span class="k">def</span> <span class="nf">_array_to_vector</span><span class="p">(</span><span class="n">input_array</span><span class="p">):</span>
+                <span class="k">return</span> <span class="n">Vectors</span><span class="o">.</span><span class="n">dense</span><span class="p">(</span><span class="n">input_array</span><span class="p">)</span>
+
+            <span class="n">array_to_vector_udf</span> <span class="o">=</span> <span class="n">udf</span><span class="p">(</span><span class="n">f</span><span class="o">=</span><span class="n">_array_to_vector</span><span class="p">,</span> <span class="n">returnType</span><span class="o">=</span><span class="n">VectorUDT</span><span class="p">())</span>
+            <span class="n">features_col_name</span> <span class="o">=</span> <span class="n">stage</span><span class="o">.</span><span class="n">extractParamMap</span><span class="p">()</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">stage</span><span class="o">.</span><span class="n">featuresCol</span><span class="p">)</span>
+            <span class="n">features_col_type</span> <span class="o">=</span> <span class="p">[</span>
+                <span class="n">_field</span>
+                <span class="k">for</span> <span class="n">_field</span> <span class="ow">in</span> <span class="n">spark_df</span><span class="o">.</span><span class="n">schema</span><span class="o">.</span><span class="n">fields</span>
+                <span class="k">if</span> <span class="n">_field</span><span class="o">.</span><span class="n">name</span> <span class="o">==</span> <span class="n">features_col_name</span>
+                <span class="ow">and</span> <span class="n">_field</span><span class="o">.</span><span class="n">dataType</span>
+                <span class="ow">in</span> <span class="p">[</span><span class="n">t</span><span class="o">.</span><span class="n">ArrayType</span><span class="p">(</span><span class="n">t</span><span class="o">.</span><span class="n">DoubleType</span><span class="p">(),</span> <span class="kc">True</span><span class="p">),</span> <span class="n">t</span><span class="o">.</span><span class="n">ArrayType</span><span class="p">(</span><span class="n">t</span><span class="o">.</span><span class="n">DoubleType</span><span class="p">(),</span> <span class="kc">False</span><span class="p">)]</span>
+            <span class="p">]</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">features_col_type</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">spark_df</span><span class="o">.</span><span class="n">withColumn</span><span class="p">(</span>
+                    <span class="n">features_col_name</span><span class="p">,</span> <span class="n">array_to_vector_udf</span><span class="p">(</span><span class="n">features_col_name</span><span class="p">)</span>
+                <span class="p">)</span>
+        <span class="k">return</span> <span class="n">spark_df</span>
+
+    <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">spark_model</span><span class="p">,</span> <span class="s2">&quot;stages&quot;</span><span class="p">):</span>
+        <span class="k">for</span> <span class="n">stage</span> <span class="ow">in</span> <span class="nb">reversed</span><span class="p">(</span><span class="n">spark_model</span><span class="o">.</span><span class="n">stages</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">_find_stage_with_features_col</span><span class="p">(</span><span class="n">stage</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">_find_stage_with_features_col</span><span class="p">(</span><span class="n">spark_model</span><span class="p">)</span>
+
+
+<span class="k">class</span> <span class="nc">_PyFuncModelWrapper</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Wrapper around Spark MLlib PipelineModel providing interface for scoring pandas DataFrame.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">spark</span><span class="p">,</span> <span class="n">spark_model</span><span class="p">,</span> <span class="n">signature</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">spark</span> <span class="o">=</span> <span class="n">spark</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">spark_model</span> <span class="o">=</span> <span class="n">spark_model</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">signature</span> <span class="o">=</span> <span class="n">signature</span>
+
+    <span class="k">def</span> <span class="nf">get_raw_model</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Returns the underlying model.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">spark_model</span>
+
+    <span class="k">def</span> <span class="nf">predict</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">pandas_df</span><span class="p">,</span>
+        <span class="n">params</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Generate predictions given input data in a pandas DataFrame.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            pandas_df: pandas DataFrame containing input data.</span>
+<span class="sd">            params: Additional parameters to pass to the model for inference.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            List with model predictions.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">_is_spark_connect_model</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">spark_model</span><span class="p">):</span>
+            <span class="c1"># Spark connect ML model directly appends prediction result column to input pandas</span>
+            <span class="c1"># dataframe. To make input dataframe intact, make a copy first.</span>
+            <span class="c1"># TODO: apache/spark master has made a change to do shallow copy before</span>
+            <span class="c1">#  calling `spark_model.transform`, so once spark 4.0 releases, we can</span>
+            <span class="c1">#  remove this line.</span>
+            <span class="n">pandas_df</span> <span class="o">=</span> <span class="n">pandas_df</span><span class="o">.</span><span class="n">copy</span><span class="p">(</span><span class="n">deep</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+            <span class="c1"># Assuming the model output column name is &quot;prediction&quot;.</span>
+            <span class="c1"># Spark model uses &quot;prediction&quot; as default model inference output column name.</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">spark_model</span><span class="o">.</span><span class="n">transform</span><span class="p">(</span><span class="n">pandas_df</span><span class="p">)[</span><span class="s2">&quot;prediction&quot;</span><span class="p">]</span>
+
+        <span class="c1"># Convert List[np.float64] / np.array[np.float64] type to List[float] type,</span>
+        <span class="c1"># otherwise it will break `spark.createDataFrame` column type inferring.</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">signature</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">signature</span><span class="o">.</span><span class="n">inputs</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">col_spec</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">signature</span><span class="o">.</span><span class="n">inputs</span><span class="o">.</span><span class="n">inputs</span><span class="p">:</span>
+                <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">col_spec</span><span class="o">.</span><span class="n">type</span><span class="p">,</span> <span class="n">SparkMLVector</span><span class="p">):</span>
+                    <span class="n">col_name</span> <span class="o">=</span> <span class="n">col_spec</span><span class="o">.</span><span class="n">name</span> <span class="ow">or</span> <span class="n">pandas_df</span><span class="o">.</span><span class="n">columns</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+
+                    <span class="n">pandas_df</span><span class="p">[</span><span class="n">col_name</span><span class="p">]</span> <span class="o">=</span> <span class="n">pandas_df</span><span class="p">[</span><span class="n">col_name</span><span class="p">]</span><span class="o">.</span><span class="n">map</span><span class="p">(</span>
+                        <span class="k">lambda</span> <span class="n">array</span><span class="p">:</span> <span class="p">[</span><span class="nb">float</span><span class="p">(</span><span class="n">elem</span><span class="p">)</span> <span class="k">for</span> <span class="n">elem</span> <span class="ow">in</span> <span class="n">array</span><span class="p">]</span>
+                    <span class="p">)</span>
+
+        <span class="n">spark_df</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">spark</span><span class="o">.</span><span class="n">createDataFrame</span><span class="p">(</span><span class="n">pandas_df</span><span class="p">)</span>
+
+        <span class="c1"># Convert Array[Double] column to spark ML vector type according to signature</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">signature</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">signature</span><span class="o">.</span><span class="n">inputs</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">col_spec</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">signature</span><span class="o">.</span><span class="n">inputs</span><span class="o">.</span><span class="n">inputs</span><span class="p">:</span>
+                <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">col_spec</span><span class="o">.</span><span class="n">type</span><span class="p">,</span> <span class="n">SparkMLVector</span><span class="p">):</span>
+                    <span class="kn">from</span> <span class="nn">pyspark.ml.functions</span> <span class="kn">import</span> <span class="n">array_to_vector</span>
+
+                    <span class="n">col_name</span> <span class="o">=</span> <span class="n">col_spec</span><span class="o">.</span><span class="n">name</span> <span class="ow">or</span> <span class="n">spark_df</span><span class="o">.</span><span class="n">columns</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+                    <span class="n">spark_df</span> <span class="o">=</span> <span class="n">spark_df</span><span class="o">.</span><span class="n">withColumn</span><span class="p">(</span><span class="n">col_name</span><span class="p">,</span> <span class="n">array_to_vector</span><span class="p">(</span><span class="n">col_name</span><span class="p">))</span>
+
+        <span class="c1"># For the case of no signature or signature logged by old version MLflow,</span>
+        <span class="c1"># the signature does not support spark ML vector type, in this case,</span>
+        <span class="c1"># automatically infer vector type input columns and do the conversion</span>
+        <span class="c1"># using `_find_and_set_features_col_as_vector_if_needed` utility function.</span>
+        <span class="n">spark_df</span> <span class="o">=</span> <span class="n">_find_and_set_features_col_as_vector_if_needed</span><span class="p">(</span><span class="n">spark_df</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">spark_model</span><span class="p">)</span>
+
+        <span class="n">prediction_column</span> <span class="o">=</span> <span class="n">mlflow</span><span class="o">.</span><span class="n">pyspark</span><span class="o">.</span><span class="n">ml</span><span class="o">.</span><span class="n">_check_or_set_model_prediction_column</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">spark_model</span><span class="p">,</span> <span class="n">spark_df</span>
+        <span class="p">)</span>
+        <span class="n">prediction_df</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">spark_model</span><span class="o">.</span><span class="n">transform</span><span class="p">(</span><span class="n">spark_df</span><span class="p">)</span><span class="o">.</span><span class="n">select</span><span class="p">(</span><span class="n">prediction_column</span><span class="p">)</span>
+
+        <span class="c1"># If signature output schema exists and it contains vector type columns,</span>
+        <span class="c1"># Convert spark ML vector type column to Array[Double] otherwise it will</span>
+        <span class="c1"># break enforce_schema checking</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">signature</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">signature</span><span class="o">.</span><span class="n">outputs</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">col_spec</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">signature</span><span class="o">.</span><span class="n">outputs</span><span class="o">.</span><span class="n">inputs</span><span class="p">:</span>
+                <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">col_spec</span><span class="o">.</span><span class="n">type</span><span class="p">,</span> <span class="n">SparkMLVector</span><span class="p">):</span>
+                    <span class="kn">from</span> <span class="nn">pyspark.ml.functions</span> <span class="kn">import</span> <span class="n">vector_to_array</span>
+
+                    <span class="n">col_name</span> <span class="o">=</span> <span class="n">col_spec</span><span class="o">.</span><span class="n">name</span> <span class="ow">or</span> <span class="n">prediction_df</span><span class="o">.</span><span class="n">columns</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+                    <span class="n">prediction_df</span> <span class="o">=</span> <span class="n">prediction_df</span><span class="o">.</span><span class="n">withColumn</span><span class="p">(</span><span class="n">col_name</span><span class="p">,</span> <span class="n">vector_to_array</span><span class="p">(</span><span class="n">col_name</span><span class="p">))</span>
+        <span class="k">return</span> <span class="p">[</span><span class="n">x</span><span class="o">.</span><span class="n">prediction</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">prediction_df</span><span class="o">.</span><span class="n">collect</span><span class="p">()]</span>
+
+
+<div class="viewcode-block" id="autolog"><a class="viewcode-back" href="../../python_api/mlflow.spark.html#mlflow.spark.autolog">[docs]</a><span class="nd">@autologging_integration</span><span class="p">(</span><span class="n">FLAVOR_NAME</span><span class="p">)</span>
+<span class="k">def</span> <span class="nf">autolog</span><span class="p">(</span><span class="n">disable</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">silent</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Enables (or disables) and configures logging of Spark datasource paths, versions</span>
+<span class="sd">    (if applicable), and formats when they are read. This method is not threadsafe and assumes a</span>
+<span class="sd">    `SparkSession</span>
+<span class="sd">    &lt;https://spark.apache.org/docs/latest/api/python/reference/pyspark.sql/api/pyspark.sql.SparkSession.html&gt;`_</span>
+<span class="sd">    already exists with the</span>
+<span class="sd">    `mlflow-spark JAR</span>
+<span class="sd">    &lt;https://www.mlflow.org/docs/latest/tracking.html#spark&gt;`_</span>
+<span class="sd">    attached. It should be called on the Spark driver, not on the executors (i.e. do not call</span>
+<span class="sd">    this method within a function parallelized by Spark). This API requires Spark 3.0 or above.</span>
+
+<span class="sd">    Datasource information is cached in memory and logged to all subsequent MLflow runs,</span>
+<span class="sd">    including the active MLflow run (if one exists when the data is read). Note that autologging of</span>
+<span class="sd">    Spark ML (MLlib) models is not currently supported via this API. Datasource autologging is</span>
+<span class="sd">    best-effort, meaning that if Spark is under heavy load or MLflow logging fails for any reason</span>
+<span class="sd">    (e.g., if the MLflow server is unavailable), logging may be dropped.</span>
+
+<span class="sd">    For any unexpected issues with autologging, check Spark driver and executor logs in addition</span>
+<span class="sd">    to stderr &amp; stdout generated from your MLflow code - datasource information is pulled from</span>
+<span class="sd">    Spark, so logs relevant to debugging may show up amongst the Spark logs.</span>
+
+<span class="sd">    .. code-block:: python</span>
+<span class="sd">        :caption: Example</span>
+
+<span class="sd">        import mlflow.spark</span>
+<span class="sd">        import os</span>
+<span class="sd">        import shutil</span>
+<span class="sd">        from pyspark.sql import SparkSession</span>
+
+<span class="sd">        # Create and persist some dummy data</span>
+<span class="sd">        # Note: On environments like Databricks with pre-created SparkSessions,</span>
+<span class="sd">        # ensure the org.mlflow:mlflow-spark:2.22.0 is attached as a library to</span>
+<span class="sd">        # your cluster</span>
+<span class="sd">        spark = (</span>
+<span class="sd">            SparkSession.builder.config(&quot;spark.jars.packages&quot;, &quot;org.mlflow:mlflow-spark:2.22.0&quot;)</span>
+<span class="sd">            .master(&quot;local[*]&quot;)</span>
+<span class="sd">            .getOrCreate()</span>
+<span class="sd">        )</span>
+<span class="sd">        df = spark.createDataFrame(</span>
+<span class="sd">            [(4, &quot;spark i j k&quot;), (5, &quot;l m n&quot;), (6, &quot;spark hadoop spark&quot;), (7, &quot;apache hadoop&quot;)],</span>
+<span class="sd">            [&quot;id&quot;, &quot;text&quot;],</span>
+<span class="sd">        )</span>
+<span class="sd">        import tempfile</span>
+
+<span class="sd">        tempdir = tempfile.mkdtemp()</span>
+<span class="sd">        df.write.csv(os.path.join(tempdir, &quot;my-data-path&quot;), header=True)</span>
+<span class="sd">        # Enable Spark datasource autologging.</span>
+<span class="sd">        mlflow.spark.autolog()</span>
+<span class="sd">        loaded_df = spark.read.csv(</span>
+<span class="sd">            os.path.join(tempdir, &quot;my-data-path&quot;), header=True, inferSchema=True</span>
+<span class="sd">        )</span>
+<span class="sd">        # Call toPandas() to trigger a read of the Spark datasource. Datasource info</span>
+<span class="sd">        # (path and format) is logged to the current active run, or the</span>
+<span class="sd">        # next-created MLflow run if no run is currently active</span>
+<span class="sd">        with mlflow.start_run() as active_run:</span>
+<span class="sd">            pandas_df = loaded_df.toPandas()</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        disable: If ``True``, disables the Spark datasource autologging integration.</span>
+<span class="sd">            If ``False``, enables the Spark datasource autologging integration.</span>
+<span class="sd">        silent: If ``True``, suppress all event logs and warnings from MLflow during Spark</span>
+<span class="sd">            datasource autologging. If ``False``, show all events and warnings during Spark</span>
+<span class="sd">            datasource autologging.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="kn">from</span> <span class="nn">pyspark</span> <span class="kn">import</span> <span class="n">__version__</span> <span class="k">as</span> <span class="n">pyspark_version</span>
+    <span class="kn">from</span> <span class="nn">pyspark.sql</span> <span class="kn">import</span> <span class="n">SparkSession</span>
+
+    <span class="kn">from</span> <span class="nn">mlflow.spark.autologging</span> <span class="kn">import</span> <span class="p">(</span>
+        <span class="n">_listen_for_spark_activity</span><span class="p">,</span>
+        <span class="n">_stop_listen_for_spark_activity</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="kn">from</span> <span class="nn">mlflow.utils._spark_utils</span> <span class="kn">import</span> <span class="n">_get_active_spark_session</span>
+
+    <span class="c1"># Check if environment variable PYSPARK_PIN_THREAD is set to false.</span>
+    <span class="c1"># The &quot;Pin thread&quot; concept was introduced since Pyspark 3.0.0 and set to default to true</span>
+    <span class="c1"># since Pyspark 3.2.0 (https://issues.apache.org/jira/browse/SPARK-35303). When pin thread</span>
+    <span class="c1"># is enabled, Pyspark manages Python and JVM threads in a 1:1, meaning that when one thread</span>
+    <span class="c1"># is terminated, the corresponding thread in the other side will be terminated as well.</span>
+    <span class="c1"># However, this causes an issue in spark autologging as our event listener thread may be</span>
+    <span class="c1"># terminated before receiving the datasource event.</span>
+    <span class="c1"># Hence, we have to disable it and decouple the thread management between Python and JVM.</span>
+    <span class="k">if</span> <span class="p">(</span>
+        <span class="n">Version</span><span class="p">(</span><span class="n">pyspark_version</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="n">Version</span><span class="p">(</span><span class="s2">&quot;3.2.0&quot;</span><span class="p">)</span>
+        <span class="ow">and</span> <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;PYSPARK_PIN_THREAD&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="o">!=</span> <span class="s2">&quot;false&quot;</span>
+    <span class="p">):</span>
+        <span class="n">_logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+            <span class="s2">&quot;With Pyspark &gt;= 3.2, PYSPARK_PIN_THREAD environment variable must be set to false &quot;</span>
+            <span class="s2">&quot;for Spark datasource autologging to work.&quot;</span>
+        <span class="p">)</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="n">original</span><span class="p">,</span> <span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="n">original</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+
+        <span class="n">_listen_for_spark_activity</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_sc</span><span class="p">)</span>
+
+    <span class="n">safe_patch</span><span class="p">(</span><span class="n">FLAVOR_NAME</span><span class="p">,</span> <span class="n">SparkSession</span><span class="p">,</span> <span class="s2">&quot;__init__&quot;</span><span class="p">,</span> <span class="fm">__init__</span><span class="p">,</span> <span class="n">manage_run</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">patched_session_stop</span><span class="p">(</span><span class="n">original</span><span class="p">,</span> <span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="n">_stop_listen_for_spark_activity</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">sparkContext</span><span class="p">)</span>
+        <span class="n">original</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+
+    <span class="n">safe_patch</span><span class="p">(</span><span class="n">FLAVOR_NAME</span><span class="p">,</span> <span class="n">SparkSession</span><span class="p">,</span> <span class="s2">&quot;stop&quot;</span><span class="p">,</span> <span class="n">patched_session_stop</span><span class="p">,</span> <span class="n">manage_run</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+
+    <span class="n">active_session</span> <span class="o">=</span> <span class="n">_get_active_spark_session</span><span class="p">()</span>
+    <span class="k">if</span> <span class="n">active_session</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="c1"># We know SparkContext exists here already, so get it</span>
+        <span class="n">sc</span> <span class="o">=</span> <span class="n">active_session</span><span class="o">.</span><span class="n">sparkContext</span>
+
+        <span class="k">if</span> <span class="n">disable</span><span class="p">:</span>
+            <span class="n">_stop_listen_for_spark_activity</span><span class="p">(</span><span class="n">sc</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">_listen_for_spark_activity</span><span class="p">(</span><span class="n">sc</span><span class="p">)</span></div>
+</pre></div>
+
+              </div>
+            </div>
+            <footer>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+      <p class="copyright">
+          &copy; MLflow Project, a Series of LF Projects, LLC. All rights reserved.
+      </p>
+
+  </div> 
+
+</footer>
+          </div>
+        </div>
+      </section>
+    </main>
+  </page>
+
+  
+
+
+  
+  <script type="text/javascript">
+    var DOCUMENTATION_OPTIONS = {
+      URL_ROOT:'../../',
+      VERSION:'2.17.1.dev0',
+      COLLAPSE_INDEX:false,
+      FILE_SUFFIX:'.html',
+      LINK_SUFFIX: '.html',
+      HAS_SOURCE:  true
+    };
+  </script>
+
+  
+
+  <script type="text/javascript" src="../../_static/js/clipboard.min.js"></script>
+  <script type="text/javascript" src="../../_static/js/jquery.waypoints.min.js"></script>
+
+  
+  
+  
+  <script type="text/javascript">var CLIPPY_SVG_PATH = "../../_static/clippy.svg";</script>
+  <script type="text/javascript" src="../../_static/js/custom.js"></script>
+  
+
+  
+  
+  <script type="text/javascript">
+    jQuery(function () {
+      SphinxRtdTheme.StickyNav.enable();
+    });
+
+  </script>
+  
+
+  
+  <script type="text/javascript">
+    document.addEventListener("DOMContentLoaded", function() {
+        function copyToClipboard(text) {
+            const textarea = document.createElement('textarea');
+            textarea.value = text;
+            document.body.appendChild(textarea);
+            textarea.select();
+            document.execCommand('copy');
+            document.body.removeChild(textarea);
+        }
+        // Get the code block designator class entries
+        const allHighlights = document.querySelectorAll('.highlight');
+        // Disable copyable links for notebook cell numbering and for cell outputs
+        const highlights = Array.from(allHighlights).filter(highlight => !highlight.closest('.highlight-none') && 
+            !highlight.closest('.nboutput'));
+    
+        highlights.forEach(function(highlight) {
+            const copyIcon = document.createElement('span');
+            copyIcon.classList.add('copy-icon');
+            copyIcon.innerHTML = '&#xf0ea;';
+
+            copyIcon.addEventListener('click', function() {
+                const code = highlight.querySelector('pre').textContent;
+                copyToClipboard(code);
+
+                // Flash effect on click
+                this.style.color = '#0194E2';
+                setTimeout(() => {
+                    this.style.color = ''; 
+                }, 100);
+
+                // Display "Code copied to clipboard" near the clicked icon
+                const message = document.createElement('span');
+                message.textContent = "Copied!";
+                message.classList.add('copy-message'); 
+
+                // Append the message to the icon
+                this.appendChild(message);
+
+                setTimeout(() => {
+                    this.removeChild(message);
+                }, 500);
+            });
+
+            highlight.appendChild(copyIcon);
+        });
+    });
+  </script>
+
+
+<script type="text/javascript">
+    document.addEventListener("DOMContentLoaded", function() {
+        // Force download for notebook-download-btn
+        const downloadButtons = document.querySelectorAll('.notebook-download-btn');
+        downloadButtons.forEach(function(button) {
+            button.addEventListener('click', function(event) {
+                event.preventDefault(); // Prevent default behavior
+
+                // Fetch the raw content of the notebook from GitHub
+                fetch(button.href)
+                    .then(response => response.blob())
+                    .then(blob => {
+                        const url = window.URL.createObjectURL(blob);
+                        const link = document.createElement('a');
+                        link.style.display = 'none';
+                        link.href = url;
+                        const filename = button.href.split('/').pop();
+                        link.download = filename; 
+
+                        document.body.appendChild(link);
+                        link.click();
+
+                        window.URL.revokeObjectURL(url);
+                        document.body.removeChild(link);
+                    })
+                    .catch(err => console.error('Error fetching the notebook:', err));
+            });
+        });
+    });
+</script> 
+</body>
+</html>

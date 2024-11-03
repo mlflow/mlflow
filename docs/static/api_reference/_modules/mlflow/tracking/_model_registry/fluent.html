@@ -1,0 +1,636 @@
+
+
+<!DOCTYPE html>
+<!-- source: docs/source/_modules/mlflow/tracking/_model_registry/fluent -->
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>mlflow.tracking._model_registry.fluent</title>
+  
+   
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+  <link rel="canonical" href="https://mlflow.org/docs/latest/_modules/mlflow/tracking/_model_registry/fluent.html">
+  
+  
+    <link rel="shortcut icon" href="../../../../_static/favicon.ico"/>
+    
+
+    
+
+  
+    
+
+  
+
+  
+  
+    
+
+  
+
+  
+  
+    <link href="https://fonts.googleapis.com/css?family=Source+Sans+Pro:300,400,600" rel="stylesheet">
+    <link rel="stylesheet" href="../../../../_static/css/theme.css" type="text/css" />
+    <link rel="stylesheet" href="../../../../_static/css/custom.css" type="text/css" />
+    <link rel="stylesheet" href="../../../../_static/css/cards.css" type="text/css" />
+    <link rel="stylesheet" href="../../../../_static/css/grids.css" type="text/css" />
+    <link rel="stylesheet" href="../../../../_static/css/mobile.css" type="text/css" />
+    <link rel="stylesheet" href="../../../../_static/css/simple-cards.css" type="text/css" />
+    <link rel="stylesheet" href="../../../../_static/css/tabs.css" type="text/css" />
+    
+  
+        <link rel="index" title="Index"
+              href="../../../../genindex.html"/>
+        <link rel="search" title="Search" href="../../../../search.html"/>
+    <link rel="top" title="MLflow 2.17.1.dev0 documentation" href="../../../../index.html"/>
+        <link rel="up" title="Module code" href="../../../index.html"/> 
+
+  
+  <script src="../../../../_static/js/modernizr.min.js"></script>
+
+</head>
+<script type="text/javascript" src="../../../../_static/jquery.js"></script>
+<script type="text/javascript" src="../../../../_static/underscore.js"></script>
+<script type="text/javascript" src="../../../../_static/doctools.js"></script>
+<script type="text/javascript" src="../../../../_static/tabs.js"></script>
+<script type="text/javascript" src="../../../../_static/languagesections.js"></script>
+<script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+<script type="text/javascript" src="../../../../_static/runllm.js"></script>
+
+<body class="wy-body-for-nav" role="document">
+  
+
+  
+  <nav class="wy-nav-top header" role="navigation" aria-label="top navigation">
+    <ul>
+  <li class="menu-toggle">
+    <i data-toggle="wy-nav-top" class="wy-nav-top-menu-button db-icon db-icon-menu pull-left"></i>
+    <a href="../../../../index.html" class="wy-nav-top-logo"
+      ><img src="../../../../_static/MLflow-logo-final-black.png" alt="MLflow"
+    /></a>
+    <span class="version">2.17.1.dev0</span>
+  </li>
+</ul>
+  </nav>
+  <page>
+    
+
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side relative">
+      <div class="wy-side-scroll">
+  <div class="wy-side-nav-search">
+    
+
+    
+
+    
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../../search.html" method="get">
+  <input type="text" name="q" placeholder="Search" />
+  <input type="hidden" name="check_keywords" value="yes" />
+  <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+
+    
+  </div>
+
+  <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+    
+      <a href="../../../../index.html" class="main-navigation-home"><img src="../../../../_static/icons/nav-home.svg"> MLflow</a>
+    
+
+    
+      
+
+      
+        <ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../python_api/index.html">Python API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../cli.html">Command-Line Interface</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../R-api.html">R API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../java_api/index.html">Java API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../rest-api.html">REST API</a></li>
+</ul>
+
+      
+    
+  </div>
+
+  <div role="contentinfo">
+    
+
+    <p>
+      <a id='feedbacklink' href="https://github.com/mlflow/mlflow/blob/master/CONTRIBUTING.md" target="_blank">Contribute</a>
+    </p>
+  </div>
+</div>
+    </nav>
+
+    <main class="wy-grid-for-nav">
+      <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+        <div class="wy-nav-content">
+          <div class="rst-content">
+            
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href="../../../../index.html">Documentation</a> <span class="db-icon db-icon-chevron-right"></span></li>
+    
+        <li><a href="../../../index.html">Module code</a> <span class="db-icon db-icon-chevron-right"></span></li>
+    
+    
+      <li>mlflow.tracking._model_registry.fluent</li>
+    
+    
+    <!-- <li class="wy-breadcrumbs-aside">
+      <a href="https://github.com/mlflow/mlflow/blob/master/docs/source/_modules/mlflow/tracking/_model_registry/fluent" class="fa fa-github"> Edit on GitHub</a>
+    </li> -->
+    
+  </ul>
+</div>
+            <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+              <div itemprop="articleBody">
+                
+  <h1>Source code for mlflow.tracking._model_registry.fluent</h1><div class="highlight"><pre>
+<span></span><span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Optional</span>
+
+<span class="kn">from</span> <span class="nn">mlflow.entities.model_registry</span> <span class="kn">import</span> <span class="n">ModelVersion</span><span class="p">,</span> <span class="n">RegisteredModel</span>
+<span class="kn">from</span> <span class="nn">mlflow.exceptions</span> <span class="kn">import</span> <span class="n">MlflowException</span>
+<span class="kn">from</span> <span class="nn">mlflow.protos.databricks_pb2</span> <span class="kn">import</span> <span class="n">ALREADY_EXISTS</span><span class="p">,</span> <span class="n">RESOURCE_ALREADY_EXISTS</span><span class="p">,</span> <span class="n">ErrorCode</span>
+<span class="kn">from</span> <span class="nn">mlflow.store.artifact.runs_artifact_repo</span> <span class="kn">import</span> <span class="n">RunsArtifactRepository</span>
+<span class="kn">from</span> <span class="nn">mlflow.store.model_registry</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">SEARCH_MODEL_VERSION_MAX_RESULTS_DEFAULT</span><span class="p">,</span>
+    <span class="n">SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">mlflow.tracking._model_registry</span> <span class="kn">import</span> <span class="n">DEFAULT_AWAIT_MAX_SLEEP_SECONDS</span>
+<span class="kn">from</span> <span class="nn">mlflow.tracking.client</span> <span class="kn">import</span> <span class="n">MlflowClient</span>
+<span class="kn">from</span> <span class="nn">mlflow.utils</span> <span class="kn">import</span> <span class="n">get_results_from_paginated_fn</span>
+<span class="kn">from</span> <span class="nn">mlflow.utils.logging_utils</span> <span class="kn">import</span> <span class="n">eprint</span>
+
+
+<div class="viewcode-block" id="register_model"><a class="viewcode-back" href="../../../../python_api/mlflow.html#mlflow.register_model">[docs]</a><span class="k">def</span> <span class="nf">register_model</span><span class="p">(</span>
+    <span class="n">model_uri</span><span class="p">,</span>
+    <span class="n">name</span><span class="p">,</span>
+    <span class="n">await_registration_for</span><span class="o">=</span><span class="n">DEFAULT_AWAIT_MAX_SLEEP_SECONDS</span><span class="p">,</span>
+    <span class="o">*</span><span class="p">,</span>
+    <span class="n">tags</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ModelVersion</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Create a new model version in model registry for the model files specified by ``model_uri``.</span>
+
+<span class="sd">    Note that this method assumes the model registry backend URI is the same as that of the</span>
+<span class="sd">    tracking backend.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        model_uri: URI referring to the MLmodel directory. Use a ``runs:/`` URI if you want to</span>
+<span class="sd">            record the run ID with the model in model registry (recommended), or pass the</span>
+<span class="sd">            local filesystem path of the model if registering a locally-persisted MLflow</span>
+<span class="sd">            model that was previously saved using ``save_model``.</span>
+<span class="sd">            ``models:/`` URIs are currently not supported.</span>
+<span class="sd">        name: Name of the registered model under which to create a new model version. If a</span>
+<span class="sd">            registered model with the given name does not exist, it will be created</span>
+<span class="sd">            automatically.</span>
+<span class="sd">        await_registration_for: Number of seconds to wait for the model version to finish</span>
+<span class="sd">            being created and is in ``READY`` status. By default, the function</span>
+<span class="sd">            waits for five minutes. Specify 0 or None to skip waiting.</span>
+<span class="sd">        tags: A dictionary of key-value pairs that are converted into</span>
+<span class="sd">            :py:class:`mlflow.entities.model_registry.ModelVersionTag` objects.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        Single :py:class:`mlflow.entities.model_registry.ModelVersion` object created by</span>
+<span class="sd">        backend.</span>
+
+<span class="sd">    .. code-block:: python</span>
+<span class="sd">        :test:</span>
+<span class="sd">        :caption: Example</span>
+
+<span class="sd">        import mlflow.sklearn</span>
+<span class="sd">        from mlflow.models import infer_signature</span>
+<span class="sd">        from sklearn.datasets import make_regression</span>
+<span class="sd">        from sklearn.ensemble import RandomForestRegressor</span>
+
+<span class="sd">        mlflow.set_tracking_uri(&quot;sqlite:////tmp/mlruns.db&quot;)</span>
+<span class="sd">        params = {&quot;n_estimators&quot;: 3, &quot;random_state&quot;: 42}</span>
+<span class="sd">        X, y = make_regression(n_features=4, n_informative=2, random_state=0, shuffle=False)</span>
+<span class="sd">        # Log MLflow entities</span>
+<span class="sd">        with mlflow.start_run() as run:</span>
+<span class="sd">            rfr = RandomForestRegressor(**params).fit(X, y)</span>
+<span class="sd">            signature = infer_signature(X, rfr.predict(X))</span>
+<span class="sd">            mlflow.log_params(params)</span>
+<span class="sd">            mlflow.sklearn.log_model(rfr, artifact_path=&quot;sklearn-model&quot;, signature=signature)</span>
+<span class="sd">        model_uri = f&quot;runs:/{run.info.run_id}/sklearn-model&quot;</span>
+<span class="sd">        mv = mlflow.register_model(model_uri, &quot;RandomForestRegressionModel&quot;)</span>
+<span class="sd">        print(f&quot;Name: {mv.name}&quot;)</span>
+<span class="sd">        print(f&quot;Version: {mv.version}&quot;)</span>
+
+<span class="sd">    .. code-block:: text</span>
+<span class="sd">        :caption: Output</span>
+
+<span class="sd">        Name: RandomForestRegressionModel</span>
+<span class="sd">        Version: 1</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">_register_model</span><span class="p">(</span>
+        <span class="n">model_uri</span><span class="o">=</span><span class="n">model_uri</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="n">name</span><span class="p">,</span> <span class="n">await_registration_for</span><span class="o">=</span><span class="n">await_registration_for</span><span class="p">,</span> <span class="n">tags</span><span class="o">=</span><span class="n">tags</span>
+    <span class="p">)</span></div>
+
+
+<span class="k">def</span> <span class="nf">_register_model</span><span class="p">(</span>
+    <span class="n">model_uri</span><span class="p">,</span>
+    <span class="n">name</span><span class="p">,</span>
+    <span class="n">await_registration_for</span><span class="o">=</span><span class="n">DEFAULT_AWAIT_MAX_SLEEP_SECONDS</span><span class="p">,</span>
+    <span class="o">*</span><span class="p">,</span>
+    <span class="n">tags</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">local_model_path</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ModelVersion</span><span class="p">:</span>
+    <span class="n">client</span> <span class="o">=</span> <span class="n">MlflowClient</span><span class="p">()</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">create_model_response</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">create_registered_model</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
+        <span class="n">eprint</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Successfully registered model &#39;</span><span class="si">{</span><span class="n">create_model_response</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">&#39;.&quot;</span><span class="p">)</span>
+    <span class="k">except</span> <span class="n">MlflowException</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">e</span><span class="o">.</span><span class="n">error_code</span> <span class="ow">in</span> <span class="p">(</span>
+            <span class="n">ErrorCode</span><span class="o">.</span><span class="n">Name</span><span class="p">(</span><span class="n">RESOURCE_ALREADY_EXISTS</span><span class="p">),</span>
+            <span class="n">ErrorCode</span><span class="o">.</span><span class="n">Name</span><span class="p">(</span><span class="n">ALREADY_EXISTS</span><span class="p">),</span>
+        <span class="p">):</span>
+            <span class="n">eprint</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;Registered model </span><span class="si">{</span><span class="n">name</span><span class="si">!r}</span><span class="s2"> already exists. Creating a new version of this model...&quot;</span>
+            <span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">e</span>
+
+    <span class="n">run_id</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">source</span> <span class="o">=</span> <span class="n">model_uri</span>
+    <span class="k">if</span> <span class="n">RunsArtifactRepository</span><span class="o">.</span><span class="n">is_runs_uri</span><span class="p">(</span><span class="n">model_uri</span><span class="p">):</span>
+        <span class="n">source</span> <span class="o">=</span> <span class="n">RunsArtifactRepository</span><span class="o">.</span><span class="n">get_underlying_uri</span><span class="p">(</span><span class="n">model_uri</span><span class="p">)</span>
+        <span class="p">(</span><span class="n">run_id</span><span class="p">,</span> <span class="n">_</span><span class="p">)</span> <span class="o">=</span> <span class="n">RunsArtifactRepository</span><span class="o">.</span><span class="n">parse_runs_uri</span><span class="p">(</span><span class="n">model_uri</span><span class="p">)</span>
+
+    <span class="n">create_version_response</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">_create_model_version</span><span class="p">(</span>
+        <span class="n">name</span><span class="o">=</span><span class="n">name</span><span class="p">,</span>
+        <span class="n">source</span><span class="o">=</span><span class="n">source</span><span class="p">,</span>
+        <span class="n">run_id</span><span class="o">=</span><span class="n">run_id</span><span class="p">,</span>
+        <span class="n">tags</span><span class="o">=</span><span class="n">tags</span><span class="p">,</span>
+        <span class="n">await_creation_for</span><span class="o">=</span><span class="n">await_registration_for</span><span class="p">,</span>
+        <span class="n">local_model_path</span><span class="o">=</span><span class="n">local_model_path</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">eprint</span><span class="p">(</span>
+        <span class="sa">f</span><span class="s2">&quot;Created version &#39;</span><span class="si">{</span><span class="n">create_version_response</span><span class="o">.</span><span class="n">version</span><span class="si">}</span><span class="s2">&#39; of model &quot;</span>
+        <span class="sa">f</span><span class="s2">&quot;&#39;</span><span class="si">{</span><span class="n">create_version_response</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">&#39;.&quot;</span>
+    <span class="p">)</span>
+    <span class="k">return</span> <span class="n">create_version_response</span>
+
+
+<div class="viewcode-block" id="search_registered_models"><a class="viewcode-back" href="../../../../python_api/mlflow.html#mlflow.search_registered_models">[docs]</a><span class="k">def</span> <span class="nf">search_registered_models</span><span class="p">(</span>
+    <span class="n">max_results</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">filter_string</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">order_by</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">RegisteredModel</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Search for registered models that satisfy the filter criteria.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        max_results: If passed, specifies the maximum number of models desired. If not</span>
+<span class="sd">            passed, all models will be returned.</span>
+<span class="sd">        filter_string: Filter query string (e.g., &quot;name = &#39;a_model_name&#39; and tag.key = &#39;value1&#39;&quot;),</span>
+<span class="sd">            defaults to searching for all registered models. The following identifiers, comparators,</span>
+<span class="sd">            and logical operators are supported.</span>
+
+<span class="sd">            Identifiers</span>
+<span class="sd">              - &quot;name&quot;: registered model name.</span>
+<span class="sd">              - &quot;tags.&lt;tag_key&gt;&quot;: registered model tag. If &quot;tag_key&quot; contains spaces, it must be</span>
+<span class="sd">                wrapped with backticks (e.g., &quot;tags.`extra key`&quot;).</span>
+
+<span class="sd">            Comparators</span>
+<span class="sd">              - &quot;=&quot;: Equal to.</span>
+<span class="sd">              - &quot;!=&quot;: Not equal to.</span>
+<span class="sd">              - &quot;LIKE&quot;: Case-sensitive pattern match.</span>
+<span class="sd">              - &quot;ILIKE&quot;: Case-insensitive pattern match.</span>
+
+<span class="sd">            Logical operators</span>
+<span class="sd">              - &quot;AND&quot;: Combines two sub-queries and returns True if both of them are True.</span>
+
+<span class="sd">        order_by: List of column names with ASC|DESC annotation, to be used for ordering</span>
+<span class="sd">            matching search results.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        A list of :py:class:`mlflow.entities.model_registry.RegisteredModel` objects</span>
+<span class="sd">        that satisfy the search expressions.</span>
+
+<span class="sd">    .. code-block:: python</span>
+<span class="sd">        :test:</span>
+<span class="sd">        :caption: Example</span>
+
+<span class="sd">        import mlflow</span>
+<span class="sd">        from sklearn.linear_model import LogisticRegression</span>
+
+<span class="sd">        with mlflow.start_run():</span>
+<span class="sd">            mlflow.sklearn.log_model(</span>
+<span class="sd">                LogisticRegression(),</span>
+<span class="sd">                &quot;Cordoba&quot;,</span>
+<span class="sd">                registered_model_name=&quot;CordobaWeatherForecastModel&quot;,</span>
+<span class="sd">            )</span>
+<span class="sd">            mlflow.sklearn.log_model(</span>
+<span class="sd">                LogisticRegression(),</span>
+<span class="sd">                &quot;Boston&quot;,</span>
+<span class="sd">                registered_model_name=&quot;BostonWeatherForecastModel&quot;,</span>
+<span class="sd">            )</span>
+
+<span class="sd">        # Get search results filtered by the registered model name</span>
+<span class="sd">        filter_string = &quot;name = &#39;CordobaWeatherForecastModel&#39;&quot;</span>
+<span class="sd">        results = mlflow.search_registered_models(filter_string=filter_string)</span>
+<span class="sd">        print(&quot;-&quot; * 80)</span>
+<span class="sd">        for res in results:</span>
+<span class="sd">            for mv in res.latest_versions:</span>
+<span class="sd">                print(f&quot;name={mv.name}; run_id={mv.run_id}; version={mv.version}&quot;)</span>
+
+<span class="sd">        # Get search results filtered by the registered model name that matches</span>
+<span class="sd">        # prefix pattern</span>
+<span class="sd">        filter_string = &quot;name LIKE &#39;Boston%&#39;&quot;</span>
+<span class="sd">        results = mlflow.search_registered_models(filter_string=filter_string)</span>
+<span class="sd">        print(&quot;-&quot; * 80)</span>
+<span class="sd">        for res in results:</span>
+<span class="sd">            for mv in res.latest_versions:</span>
+<span class="sd">                print(f&quot;name={mv.name}; run_id={mv.run_id}; version={mv.version}&quot;)</span>
+
+<span class="sd">        # Get all registered models and order them by ascending order of the names</span>
+<span class="sd">        results = mlflow.search_registered_models(order_by=[&quot;name ASC&quot;])</span>
+<span class="sd">        print(&quot;-&quot; * 80)</span>
+<span class="sd">        for res in results:</span>
+<span class="sd">            for mv in res.latest_versions:</span>
+<span class="sd">                print(f&quot;name={mv.name}; run_id={mv.run_id}; version={mv.version}&quot;)</span>
+
+<span class="sd">    .. code-block:: text</span>
+<span class="sd">        :caption: Output</span>
+
+<span class="sd">        --------------------------------------------------------------------------------</span>
+<span class="sd">        name=CordobaWeatherForecastModel; run_id=248c66a666744b4887bdeb2f9cf7f1c6; version=1</span>
+<span class="sd">        --------------------------------------------------------------------------------</span>
+<span class="sd">        name=BostonWeatherForecastModel; run_id=248c66a666744b4887bdeb2f9cf7f1c6; version=1</span>
+<span class="sd">        --------------------------------------------------------------------------------</span>
+<span class="sd">        name=BostonWeatherForecastModel; run_id=248c66a666744b4887bdeb2f9cf7f1c6; version=1</span>
+<span class="sd">        name=CordobaWeatherForecastModel; run_id=248c66a666744b4887bdeb2f9cf7f1c6; version=1</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="nf">pagination_wrapper_func</span><span class="p">(</span><span class="n">number_to_get</span><span class="p">,</span> <span class="n">next_page_token</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">MlflowClient</span><span class="p">()</span><span class="o">.</span><span class="n">search_registered_models</span><span class="p">(</span>
+            <span class="n">max_results</span><span class="o">=</span><span class="n">number_to_get</span><span class="p">,</span>
+            <span class="n">filter_string</span><span class="o">=</span><span class="n">filter_string</span><span class="p">,</span>
+            <span class="n">order_by</span><span class="o">=</span><span class="n">order_by</span><span class="p">,</span>
+            <span class="n">page_token</span><span class="o">=</span><span class="n">next_page_token</span><span class="p">,</span>
+        <span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">get_results_from_paginated_fn</span><span class="p">(</span>
+        <span class="n">pagination_wrapper_func</span><span class="p">,</span>
+        <span class="n">SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT</span><span class="p">,</span>
+        <span class="n">max_results</span><span class="p">,</span>
+    <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="search_model_versions"><a class="viewcode-back" href="../../../../python_api/mlflow.html#mlflow.search_model_versions">[docs]</a><span class="k">def</span> <span class="nf">search_model_versions</span><span class="p">(</span>
+    <span class="n">max_results</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">filter_string</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">order_by</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">ModelVersion</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Search for model versions that satisfy the filter criteria.</span>
+
+<span class="sd">    .. warning:</span>
+
+<span class="sd">        The model version search results may not have aliases populated for performance reasons.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        max_results: If passed, specifies the maximum number of models desired. If not</span>
+<span class="sd">            passed, all models will be returned.</span>
+<span class="sd">        filter_string: Filter query string</span>
+<span class="sd">            (e.g., ``&quot;name = &#39;a_model_name&#39; and tag.key = &#39;value1&#39;&quot;``),</span>
+<span class="sd">            defaults to searching for all model versions. The following identifiers, comparators,</span>
+<span class="sd">            and logical operators are supported.</span>
+
+<span class="sd">            Identifiers</span>
+<span class="sd">              - ``name``: model name.</span>
+<span class="sd">              - ``source_path``: model version source path.</span>
+<span class="sd">              - ``run_id``: The id of the mlflow run that generates the model version.</span>
+<span class="sd">              - ``tags.&lt;tag_key&gt;``: model version tag. If ``tag_key`` contains spaces, it must be</span>
+<span class="sd">                wrapped with backticks (e.g., ``&quot;tags.`extra key`&quot;``).</span>
+
+<span class="sd">            Comparators</span>
+<span class="sd">              - ``=``: Equal to.</span>
+<span class="sd">              - ``!=``: Not equal to.</span>
+<span class="sd">              - ``LIKE``: Case-sensitive pattern match.</span>
+<span class="sd">              - ``ILIKE``: Case-insensitive pattern match.</span>
+<span class="sd">              - ``IN``: In a value list. Only ``run_id`` identifier supports ``IN`` comparator.</span>
+
+<span class="sd">            Logical operators</span>
+<span class="sd">              - ``AND``: Combines two sub-queries and returns True if both of them are True.</span>
+
+<span class="sd">        order_by: List of column names with ASC|DESC annotation, to be used for ordering</span>
+<span class="sd">            matching search results.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        A list of :py:class:`mlflow.entities.model_registry.ModelVersion` objects</span>
+<span class="sd">            that satisfy the search expressions.</span>
+
+<span class="sd">    .. code-block:: python</span>
+<span class="sd">        :test:</span>
+<span class="sd">        :caption: Example</span>
+
+<span class="sd">        import mlflow</span>
+<span class="sd">        from sklearn.linear_model import LogisticRegression</span>
+
+<span class="sd">        for _ in range(2):</span>
+<span class="sd">            with mlflow.start_run():</span>
+<span class="sd">                mlflow.sklearn.log_model(</span>
+<span class="sd">                    LogisticRegression(),</span>
+<span class="sd">                    &quot;Cordoba&quot;,</span>
+<span class="sd">                    registered_model_name=&quot;CordobaWeatherForecastModel&quot;,</span>
+<span class="sd">                )</span>
+
+<span class="sd">        # Get all versions of the model filtered by name</span>
+<span class="sd">        filter_string = &quot;name = &#39;CordobaWeatherForecastModel&#39;&quot;</span>
+<span class="sd">        results = mlflow.search_model_versions(filter_string=filter_string)</span>
+<span class="sd">        print(&quot;-&quot; * 80)</span>
+<span class="sd">        for res in results:</span>
+<span class="sd">            print(f&quot;name={res.name}; run_id={res.run_id}; version={res.version}&quot;)</span>
+
+<span class="sd">        # Get the version of the model filtered by run_id</span>
+<span class="sd">        filter_string = &quot;run_id = &#39;ae9a606a12834c04a8ef1006d0cff779&#39;&quot;</span>
+<span class="sd">        results = mlflow.search_model_versions(filter_string=filter_string)</span>
+<span class="sd">        print(&quot;-&quot; * 80)</span>
+<span class="sd">        for res in results:</span>
+<span class="sd">            print(f&quot;name={res.name}; run_id={res.run_id}; version={res.version}&quot;)</span>
+
+<span class="sd">    .. code-block:: text</span>
+<span class="sd">        :caption: Output</span>
+
+<span class="sd">        --------------------------------------------------------------------------------</span>
+<span class="sd">        name=CordobaWeatherForecastModel; run_id=ae9a606a12834c04a8ef1006d0cff779; version=2</span>
+<span class="sd">        name=CordobaWeatherForecastModel; run_id=d8f028b5fedf4faf8e458f7693dfa7ce; version=1</span>
+<span class="sd">        --------------------------------------------------------------------------------</span>
+<span class="sd">        name=CordobaWeatherForecastModel; run_id=ae9a606a12834c04a8ef1006d0cff779; version=2</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="nf">pagination_wrapper_func</span><span class="p">(</span><span class="n">number_to_get</span><span class="p">,</span> <span class="n">next_page_token</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">MlflowClient</span><span class="p">()</span><span class="o">.</span><span class="n">search_model_versions</span><span class="p">(</span>
+            <span class="n">max_results</span><span class="o">=</span><span class="n">number_to_get</span><span class="p">,</span>
+            <span class="n">filter_string</span><span class="o">=</span><span class="n">filter_string</span><span class="p">,</span>
+            <span class="n">order_by</span><span class="o">=</span><span class="n">order_by</span><span class="p">,</span>
+            <span class="n">page_token</span><span class="o">=</span><span class="n">next_page_token</span><span class="p">,</span>
+        <span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">get_results_from_paginated_fn</span><span class="p">(</span>
+        <span class="n">paginated_fn</span><span class="o">=</span><span class="n">pagination_wrapper_func</span><span class="p">,</span>
+        <span class="n">max_results_per_page</span><span class="o">=</span><span class="n">SEARCH_MODEL_VERSION_MAX_RESULTS_DEFAULT</span><span class="p">,</span>
+        <span class="n">max_results</span><span class="o">=</span><span class="n">max_results</span><span class="p">,</span>
+    <span class="p">)</span></div>
+</pre></div>
+
+              </div>
+            </div>
+            <footer>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+      <p class="copyright">
+          &copy; MLflow Project, a Series of LF Projects, LLC. All rights reserved.
+      </p>
+
+  </div> 
+
+</footer>
+          </div>
+        </div>
+      </section>
+    </main>
+  </page>
+
+  
+
+
+  
+  <script type="text/javascript">
+    var DOCUMENTATION_OPTIONS = {
+      URL_ROOT:'../../../../',
+      VERSION:'2.17.1.dev0',
+      COLLAPSE_INDEX:false,
+      FILE_SUFFIX:'.html',
+      LINK_SUFFIX: '.html',
+      HAS_SOURCE:  true
+    };
+  </script>
+
+  
+
+  <script type="text/javascript" src="../../../../_static/js/clipboard.min.js"></script>
+  <script type="text/javascript" src="../../../../_static/js/jquery.waypoints.min.js"></script>
+
+  
+  
+  
+  <script type="text/javascript">var CLIPPY_SVG_PATH = "../../../../_static/clippy.svg";</script>
+  <script type="text/javascript" src="../../../../_static/js/custom.js"></script>
+  
+
+  
+  
+  <script type="text/javascript">
+    jQuery(function () {
+      SphinxRtdTheme.StickyNav.enable();
+    });
+
+  </script>
+  
+
+  
+  <script type="text/javascript">
+    document.addEventListener("DOMContentLoaded", function() {
+        function copyToClipboard(text) {
+            const textarea = document.createElement('textarea');
+            textarea.value = text;
+            document.body.appendChild(textarea);
+            textarea.select();
+            document.execCommand('copy');
+            document.body.removeChild(textarea);
+        }
+        // Get the code block designator class entries
+        const allHighlights = document.querySelectorAll('.highlight');
+        // Disable copyable links for notebook cell numbering and for cell outputs
+        const highlights = Array.from(allHighlights).filter(highlight => !highlight.closest('.highlight-none') && 
+            !highlight.closest('.nboutput'));
+    
+        highlights.forEach(function(highlight) {
+            const copyIcon = document.createElement('span');
+            copyIcon.classList.add('copy-icon');
+            copyIcon.innerHTML = '&#xf0ea;';
+
+            copyIcon.addEventListener('click', function() {
+                const code = highlight.querySelector('pre').textContent;
+                copyToClipboard(code);
+
+                // Flash effect on click
+                this.style.color = '#0194E2';
+                setTimeout(() => {
+                    this.style.color = ''; 
+                }, 100);
+
+                // Display "Code copied to clipboard" near the clicked icon
+                const message = document.createElement('span');
+                message.textContent = "Copied!";
+                message.classList.add('copy-message'); 
+
+                // Append the message to the icon
+                this.appendChild(message);
+
+                setTimeout(() => {
+                    this.removeChild(message);
+                }, 500);
+            });
+
+            highlight.appendChild(copyIcon);
+        });
+    });
+  </script>
+
+
+<script type="text/javascript">
+    document.addEventListener("DOMContentLoaded", function() {
+        // Force download for notebook-download-btn
+        const downloadButtons = document.querySelectorAll('.notebook-download-btn');
+        downloadButtons.forEach(function(button) {
+            button.addEventListener('click', function(event) {
+                event.preventDefault(); // Prevent default behavior
+
+                // Fetch the raw content of the notebook from GitHub
+                fetch(button.href)
+                    .then(response => response.blob())
+                    .then(blob => {
+                        const url = window.URL.createObjectURL(blob);
+                        const link = document.createElement('a');
+                        link.style.display = 'none';
+                        link.href = url;
+                        const filename = button.href.split('/').pop();
+                        link.download = filename; 
+
+                        document.body.appendChild(link);
+                        link.click();
+
+                        window.URL.revokeObjectURL(url);
+                        document.body.removeChild(link);
+                    })
+                    .catch(err => console.error('Error fetching the notebook:', err));
+            });
+        });
+    });
+</script> 
+</body>
+</html>

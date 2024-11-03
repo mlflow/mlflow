@@ -1,0 +1,634 @@
+
+
+<!DOCTYPE html>
+<!-- source: docs/source/_modules/mlflow/tracing/provider -->
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>mlflow.tracing.provider</title>
+  
+   
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+  <link rel="canonical" href="https://mlflow.org/docs/latest/_modules/mlflow/tracing/provider.html">
+  
+  
+    <link rel="shortcut icon" href="../../../_static/favicon.ico"/>
+    
+
+    
+
+  
+    
+
+  
+
+  
+  
+    
+
+  
+
+  
+  
+    <link href="https://fonts.googleapis.com/css?family=Source+Sans+Pro:300,400,600" rel="stylesheet">
+    <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/css/custom.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/css/cards.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/css/grids.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/css/mobile.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/css/simple-cards.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/css/tabs.css" type="text/css" />
+    
+  
+        <link rel="index" title="Index"
+              href="../../../genindex.html"/>
+        <link rel="search" title="Search" href="../../../search.html"/>
+    <link rel="top" title="MLflow 2.17.1.dev0 documentation" href="../../../index.html"/>
+        <link rel="up" title="Module code" href="../../index.html"/> 
+
+  
+  <script src="../../../_static/js/modernizr.min.js"></script>
+
+</head>
+<script type="text/javascript" src="../../../_static/jquery.js"></script>
+<script type="text/javascript" src="../../../_static/underscore.js"></script>
+<script type="text/javascript" src="../../../_static/doctools.js"></script>
+<script type="text/javascript" src="../../../_static/tabs.js"></script>
+<script type="text/javascript" src="../../../_static/languagesections.js"></script>
+<script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+<script type="text/javascript" src="../../../_static/runllm.js"></script>
+
+<body class="wy-body-for-nav" role="document">
+  
+
+  
+  <nav class="wy-nav-top header" role="navigation" aria-label="top navigation">
+    <ul>
+  <li class="menu-toggle">
+    <i data-toggle="wy-nav-top" class="wy-nav-top-menu-button db-icon db-icon-menu pull-left"></i>
+    <a href="../../../index.html" class="wy-nav-top-logo"
+      ><img src="../../../_static/MLflow-logo-final-black.png" alt="MLflow"
+    /></a>
+    <span class="version">2.17.1.dev0</span>
+  </li>
+</ul>
+  </nav>
+  <page>
+    
+
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side relative">
+      <div class="wy-side-scroll">
+  <div class="wy-side-nav-search">
+    
+
+    
+
+    
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+  <input type="text" name="q" placeholder="Search" />
+  <input type="hidden" name="check_keywords" value="yes" />
+  <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+
+    
+  </div>
+
+  <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+    
+      <a href="../../../index.html" class="main-navigation-home"><img src="../../../_static/icons/nav-home.svg"> MLflow</a>
+    
+
+    
+      
+
+      
+        <ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../python_api/index.html">Python API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../cli.html">Command-Line Interface</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../R-api.html">R API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../java_api/index.html">Java API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../rest-api.html">REST API</a></li>
+</ul>
+
+      
+    
+  </div>
+
+  <div role="contentinfo">
+    
+
+    <p>
+      <a id='feedbacklink' href="https://github.com/mlflow/mlflow/blob/master/CONTRIBUTING.md" target="_blank">Contribute</a>
+    </p>
+  </div>
+</div>
+    </nav>
+
+    <main class="wy-grid-for-nav">
+      <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+        <div class="wy-nav-content">
+          <div class="rst-content">
+            
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href="../../../index.html">Documentation</a> <span class="db-icon db-icon-chevron-right"></span></li>
+    
+        <li><a href="../../index.html">Module code</a> <span class="db-icon db-icon-chevron-right"></span></li>
+    
+    
+      <li>mlflow.tracing.provider</li>
+    
+    
+    <!-- <li class="wy-breadcrumbs-aside">
+      <a href="https://github.com/mlflow/mlflow/blob/master/docs/source/_modules/mlflow/tracing/provider" class="fa fa-github"> Edit on GitHub</a>
+    </li> -->
+    
+  </ul>
+</div>
+            <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+              <div itemprop="articleBody">
+                
+  <h1>Source code for mlflow.tracing.provider</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">This module provides a set of functions to manage the global tracer provider for MLflow tracing.</span>
+
+<span class="sd">Every tracing operation in MLflow *MUST* be managed through this module, instead of directly</span>
+<span class="sd">using the OpenTelemetry APIs. This is because MLflow needs to control the initialization of the</span>
+<span class="sd">tracer provider and ensure that it won&#39;t interfere with the other external libraries that might</span>
+<span class="sd">use OpenTelemetry e.g. PromptFlow, Snowpark.</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">import</span> <span class="nn">functools</span>
+<span class="kn">import</span> <span class="nn">json</span>
+<span class="kn">import</span> <span class="nn">logging</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Tuple</span>
+
+<span class="kn">from</span> <span class="nn">opentelemetry</span> <span class="kn">import</span> <span class="n">trace</span>
+<span class="kn">from</span> <span class="nn">opentelemetry.sdk.trace</span> <span class="kn">import</span> <span class="n">TracerProvider</span>
+
+<span class="kn">from</span> <span class="nn">mlflow.exceptions</span> <span class="kn">import</span> <span class="n">MlflowTracingException</span>
+<span class="kn">from</span> <span class="nn">mlflow.tracing.constant</span> <span class="kn">import</span> <span class="n">SpanAttributeKey</span>
+<span class="kn">from</span> <span class="nn">mlflow.tracing.utils.exception</span> <span class="kn">import</span> <span class="n">raise_as_trace_exception</span>
+<span class="kn">from</span> <span class="nn">mlflow.tracing.utils.once</span> <span class="kn">import</span> <span class="n">Once</span>
+<span class="kn">from</span> <span class="nn">mlflow.tracing.utils.otlp</span> <span class="kn">import</span> <span class="n">get_otlp_exporter</span><span class="p">,</span> <span class="n">should_use_otlp_exporter</span>
+<span class="kn">from</span> <span class="nn">mlflow.utils.databricks_utils</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">is_in_databricks_model_serving_environment</span><span class="p">,</span>
+    <span class="n">is_mlflow_tracing_enabled_in_model_serving</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="c1"># Global tracer provider instance. We manage the tracer provider by ourselves instead of using</span>
+<span class="c1"># the global tracer provider provided by OpenTelemetry.</span>
+<span class="n">_MLFLOW_TRACER_PROVIDER</span> <span class="o">=</span> <span class="kc">None</span>
+
+<span class="c1"># Once() object ensures a function is executed only once in a process.</span>
+<span class="c1"># Note that it doesn&#39;t work as expected in a distributed environment.</span>
+<span class="n">_MLFLOW_TRACER_PROVIDER_INITIALIZED</span> <span class="o">=</span> <span class="n">Once</span><span class="p">()</span>
+
+<span class="n">_logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
+
+
+<span class="k">def</span> <span class="nf">start_span_in_context</span><span class="p">(</span><span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">trace</span><span class="o">.</span><span class="n">Span</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Start a new OpenTelemetry span in the current context.</span>
+
+<span class="sd">    Note that this function doesn&#39;t set the started span as the active span in the context. To do</span>
+<span class="sd">    that, the upstream also need to call `use_span()` function in the OpenTelemetry trace APIs.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        name: The name of the span.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        The newly created OpenTelemetry span.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">_get_tracer</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span><span class="o">.</span><span class="n">start_span</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
+
+
+<span class="k">def</span> <span class="nf">start_detached_span</span><span class="p">(</span>
+    <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">parent</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">trace</span><span class="o">.</span><span class="n">Span</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">experiment_id</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">start_time_ns</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">trace</span><span class="o">.</span><span class="n">Span</span><span class="p">]]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Start a new OpenTelemetry span that is not part of the current trace context, but with the</span>
+<span class="sd">    explicit parent span ID if provided.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        name: The name of the span.</span>
+<span class="sd">        parent: The parent OpenTelemetry span. If not provided, the span will be created as a root</span>
+<span class="sd">                span.</span>
+<span class="sd">        experiment_id: The ID of the experiment. This is used to associate the span with a specific</span>
+<span class="sd">            experiment in MLflow.</span>
+<span class="sd">        start_time_ns: The start time of the span in nanoseconds.</span>
+<span class="sd">            If not provided, the current timestamp is used.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        The newly created OpenTelemetry span.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">tracer</span> <span class="o">=</span> <span class="n">_get_tracer</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
+    <span class="n">context</span> <span class="o">=</span> <span class="n">trace</span><span class="o">.</span><span class="n">set_span_in_context</span><span class="p">(</span><span class="n">parent</span><span class="p">)</span> <span class="k">if</span> <span class="n">parent</span> <span class="k">else</span> <span class="kc">None</span>
+    <span class="n">attributes</span> <span class="o">=</span> <span class="p">{}</span>
+
+    <span class="c1"># Set start time and experiment to attribute so we can pass it to the span processor</span>
+    <span class="k">if</span> <span class="n">start_time_ns</span><span class="p">:</span>
+        <span class="n">attributes</span><span class="p">[</span><span class="n">SpanAttributeKey</span><span class="o">.</span><span class="n">START_TIME_NS</span><span class="p">]</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="n">start_time_ns</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">experiment_id</span><span class="p">:</span>
+        <span class="n">attributes</span><span class="p">[</span><span class="n">SpanAttributeKey</span><span class="o">.</span><span class="n">EXPERIMENT_ID</span><span class="p">]</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="n">experiment_id</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">tracer</span><span class="o">.</span><span class="n">start_span</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">context</span><span class="o">=</span><span class="n">context</span><span class="p">,</span> <span class="n">attributes</span><span class="o">=</span><span class="n">attributes</span><span class="p">,</span> <span class="n">start_time</span><span class="o">=</span><span class="n">start_time_ns</span><span class="p">)</span>
+
+
+<span class="k">def</span> <span class="nf">_get_tracer</span><span class="p">(</span><span class="n">module_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Get a tracer instance for the given module name.</span>
+
+<span class="sd">    If the tracer provider is not initialized, this function will initialize the tracer provider.</span>
+<span class="sd">    Other simultaneous calls to this function will block until the initialization is done.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># Initiate tracer provider only once in the application lifecycle</span>
+    <span class="n">_MLFLOW_TRACER_PROVIDER_INITIALIZED</span><span class="o">.</span><span class="n">do_once</span><span class="p">(</span><span class="n">_setup_tracer_provider</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">_MLFLOW_TRACER_PROVIDER</span><span class="o">.</span><span class="n">get_tracer</span><span class="p">(</span><span class="n">module_name</span><span class="p">)</span>
+
+
+<span class="k">def</span> <span class="nf">_get_trace_exporter</span><span class="p">():</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Get the exporter instance that is used by the current tracer provider.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">_MLFLOW_TRACER_PROVIDER</span><span class="p">:</span>
+        <span class="n">processors</span> <span class="o">=</span> <span class="n">_MLFLOW_TRACER_PROVIDER</span><span class="o">.</span><span class="n">_active_span_processor</span><span class="o">.</span><span class="n">_span_processors</span>
+        <span class="c1"># There should be only one processor used for MLflow tracing</span>
+        <span class="n">processor</span> <span class="o">=</span> <span class="n">processors</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="k">return</span> <span class="n">processor</span><span class="o">.</span><span class="n">span_exporter</span>
+
+
+<span class="k">def</span> <span class="nf">_setup_tracer_provider</span><span class="p">(</span><span class="n">disabled</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Instantiate a tracer provider and set it as the global tracer provider.</span>
+
+<span class="sd">    Note that this function ALWAYS updates the global tracer provider, regardless of the current</span>
+<span class="sd">    state. It is the caller&#39;s responsibility to ensure that the tracer provider is initialized</span>
+<span class="sd">    only once, and update the _MLFLOW_TRACER_PROVIDER_INITIALIZED flag accordingly.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">global</span> <span class="n">_MLFLOW_TRACER_PROVIDER</span>
+
+    <span class="k">if</span> <span class="n">disabled</span><span class="p">:</span>
+        <span class="n">_MLFLOW_TRACER_PROVIDER</span> <span class="o">=</span> <span class="n">trace</span><span class="o">.</span><span class="n">NoOpTracerProvider</span><span class="p">()</span>
+        <span class="k">return</span>
+
+    <span class="k">if</span> <span class="n">should_use_otlp_exporter</span><span class="p">():</span>
+        <span class="c1"># Export to OpenTelemetry Collector when configured</span>
+        <span class="kn">from</span> <span class="nn">mlflow.tracing.processor.otel</span> <span class="kn">import</span> <span class="n">OtelSpanProcessor</span>
+
+        <span class="n">exporter</span> <span class="o">=</span> <span class="n">get_otlp_exporter</span><span class="p">()</span>
+        <span class="n">processor</span> <span class="o">=</span> <span class="n">OtelSpanProcessor</span><span class="p">(</span><span class="n">exporter</span><span class="p">)</span>
+
+    <span class="k">elif</span> <span class="n">is_in_databricks_model_serving_environment</span><span class="p">():</span>
+        <span class="c1"># Export to Inference Table when running in Databricks Model Serving</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">is_mlflow_tracing_enabled_in_model_serving</span><span class="p">():</span>
+            <span class="n">_MLFLOW_TRACER_PROVIDER</span> <span class="o">=</span> <span class="n">trace</span><span class="o">.</span><span class="n">NoOpTracerProvider</span><span class="p">()</span>
+            <span class="k">return</span>
+
+        <span class="kn">from</span> <span class="nn">mlflow.tracing.export.inference_table</span> <span class="kn">import</span> <span class="n">InferenceTableSpanExporter</span>
+        <span class="kn">from</span> <span class="nn">mlflow.tracing.processor.inference_table</span> <span class="kn">import</span> <span class="n">InferenceTableSpanProcessor</span>
+
+        <span class="n">exporter</span> <span class="o">=</span> <span class="n">InferenceTableSpanExporter</span><span class="p">()</span>
+        <span class="n">processor</span> <span class="o">=</span> <span class="n">InferenceTableSpanProcessor</span><span class="p">(</span><span class="n">exporter</span><span class="p">)</span>
+
+    <span class="k">else</span><span class="p">:</span>
+        <span class="c1"># Default to MLflow Tracking Server</span>
+        <span class="kn">from</span> <span class="nn">mlflow.tracing.export.mlflow</span> <span class="kn">import</span> <span class="n">MlflowSpanExporter</span>
+        <span class="kn">from</span> <span class="nn">mlflow.tracing.processor.mlflow</span> <span class="kn">import</span> <span class="n">MlflowSpanProcessor</span>
+
+        <span class="n">exporter</span> <span class="o">=</span> <span class="n">MlflowSpanExporter</span><span class="p">()</span>
+        <span class="n">processor</span> <span class="o">=</span> <span class="n">MlflowSpanProcessor</span><span class="p">(</span><span class="n">exporter</span><span class="p">)</span>
+
+    <span class="n">tracer_provider</span> <span class="o">=</span> <span class="n">TracerProvider</span><span class="p">()</span>
+    <span class="n">tracer_provider</span><span class="o">.</span><span class="n">add_span_processor</span><span class="p">(</span><span class="n">processor</span><span class="p">)</span>
+    <span class="n">_MLFLOW_TRACER_PROVIDER</span> <span class="o">=</span> <span class="n">tracer_provider</span>
+
+
+<div class="viewcode-block" id="disable"><a class="viewcode-back" href="../../../python_api/mlflow.tracing.html#mlflow.tracing.disable">[docs]</a><span class="nd">@raise_as_trace_exception</span>
+<span class="k">def</span> <span class="nf">disable</span><span class="p">():</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Disable tracing.</span>
+
+<span class="sd">    .. note::</span>
+
+<span class="sd">        This function sets up `OpenTelemetry` to use</span>
+<span class="sd">        `NoOpTracerProvider &lt;https://github.com/open-telemetry/opentelemetry-python/blob/4febd337b019ea013ccaab74893bd9883eb59000/opentelemetry-api/src/opentelemetry/trace/__init__.py#L222&gt;`_</span>
+<span class="sd">        and effectively disables all tracing operations.</span>
+
+<span class="sd">    Example:</span>
+
+<span class="sd">    .. code-block:: python</span>
+<span class="sd">        :test:</span>
+
+<span class="sd">        import mlflow</span>
+
+
+<span class="sd">        @mlflow.trace</span>
+<span class="sd">        def f():</span>
+<span class="sd">            return 0</span>
+
+
+<span class="sd">        # Tracing is enabled by default</span>
+<span class="sd">        f()</span>
+<span class="sd">        assert len(mlflow.search_traces()) == 1</span>
+
+<span class="sd">        # Disable tracing</span>
+<span class="sd">        mlflow.tracing.disable()</span>
+<span class="sd">        f()</span>
+<span class="sd">        assert len(mlflow.search_traces()) == 1</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">is_tracing_enabled</span><span class="p">():</span>
+        <span class="k">return</span>
+
+    <span class="n">_setup_tracer_provider</span><span class="p">(</span><span class="n">disabled</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">_MLFLOW_TRACER_PROVIDER_INITIALIZED</span><span class="o">.</span><span class="n">done</span> <span class="o">=</span> <span class="kc">True</span></div>
+
+
+<div class="viewcode-block" id="enable"><a class="viewcode-back" href="../../../python_api/mlflow.tracing.html#mlflow.tracing.enable">[docs]</a><span class="nd">@raise_as_trace_exception</span>
+<span class="k">def</span> <span class="nf">enable</span><span class="p">():</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Enable tracing.</span>
+
+<span class="sd">    Example:</span>
+
+<span class="sd">    .. code-block:: python</span>
+<span class="sd">        :test:</span>
+
+<span class="sd">        import mlflow</span>
+
+
+<span class="sd">        @mlflow.trace</span>
+<span class="sd">        def f():</span>
+<span class="sd">            return 0</span>
+
+
+<span class="sd">        # Tracing is enabled by default</span>
+<span class="sd">        f()</span>
+<span class="sd">        assert len(mlflow.search_traces()) == 1</span>
+
+<span class="sd">        # Disable tracing</span>
+<span class="sd">        mlflow.tracing.disable()</span>
+<span class="sd">        f()</span>
+<span class="sd">        assert len(mlflow.search_traces()) == 1</span>
+
+<span class="sd">        # Re-enable tracing</span>
+<span class="sd">        mlflow.tracing.enable()</span>
+<span class="sd">        f()</span>
+<span class="sd">        assert len(mlflow.search_traces()) == 2</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">is_tracing_enabled</span><span class="p">()</span> <span class="ow">and</span> <span class="n">_MLFLOW_TRACER_PROVIDER_INITIALIZED</span><span class="o">.</span><span class="n">done</span><span class="p">:</span>
+        <span class="n">_logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Tracing is already enabled&quot;</span><span class="p">)</span>
+        <span class="k">return</span>
+
+    <span class="n">_setup_tracer_provider</span><span class="p">()</span>
+    <span class="n">_MLFLOW_TRACER_PROVIDER_INITIALIZED</span><span class="o">.</span><span class="n">done</span> <span class="o">=</span> <span class="kc">True</span></div>
+
+
+<span class="k">def</span> <span class="nf">trace_disabled</span><span class="p">(</span><span class="n">f</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    A decorator that temporarily disables tracing for the duration of the decorated function.</span>
+
+<span class="sd">    .. code-block:: python</span>
+
+<span class="sd">        @trace_disabled</span>
+<span class="sd">        def f():</span>
+<span class="sd">            with mlflow.start_span(&quot;my_span&quot;) as span:</span>
+<span class="sd">                span.set_attribute(&quot;my_key&quot;, &quot;my_value&quot;)</span>
+
+<span class="sd">            return</span>
+
+
+<span class="sd">        # This function will not generate any trace</span>
+<span class="sd">        f()</span>
+
+<span class="sd">    :meta private:</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="nd">@functools</span><span class="o">.</span><span class="n">wraps</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">wrapper</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="n">is_func_called</span> <span class="o">=</span> <span class="kc">False</span>
+        <span class="n">result</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">is_tracing_enabled</span><span class="p">():</span>
+                <span class="n">disable</span><span class="p">()</span>
+                <span class="k">try</span><span class="p">:</span>
+                    <span class="n">is_func_called</span><span class="p">,</span> <span class="n">result</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span> <span class="n">f</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+                <span class="k">finally</span><span class="p">:</span>
+                    <span class="n">enable</span><span class="p">()</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">is_func_called</span><span class="p">,</span> <span class="n">result</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span> <span class="n">f</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+        <span class="c1"># We should only catch the exception from disable() and enable()</span>
+        <span class="c1"># and let other exceptions propagate.</span>
+        <span class="k">except</span> <span class="n">MlflowTracingException</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="n">_logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;An error occurred while disabling or re-enabling tracing: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2"> &quot;</span>
+                <span class="s2">&quot;The original function will still be executed, but the tracing &quot;</span>
+                <span class="s2">&quot;state may not be as expected. For full traceback, set &quot;</span>
+                <span class="s2">&quot;logging level to debug.&quot;</span><span class="p">,</span>
+                <span class="n">exc_info</span><span class="o">=</span><span class="n">_logger</span><span class="o">.</span><span class="n">isEnabledFor</span><span class="p">(</span><span class="n">logging</span><span class="o">.</span><span class="n">DEBUG</span><span class="p">),</span>
+            <span class="p">)</span>
+            <span class="c1"># If the exception is raised before the original function</span>
+            <span class="c1"># is called, we should call the original function</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">is_func_called</span><span class="p">:</span>
+                <span class="n">result</span> <span class="o">=</span> <span class="n">f</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">result</span>
+
+    <span class="k">return</span> <span class="n">wrapper</span>
+
+
+<span class="k">def</span> <span class="nf">reset_tracer_setup</span><span class="p">():</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Reset the flags that indicates whether the MLflow tracer provider has been initialized.</span>
+<span class="sd">    This ensures that the tracer provider is re-initialized when next tracing</span>
+<span class="sd">    operation is performed.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># Set NoOp tracer provider to reset the global tracer to the initial state.</span>
+    <span class="n">_setup_tracer_provider</span><span class="p">(</span><span class="n">disabled</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="c1"># Flip _MLFLOW_TRACE_PROVIDER_INITIALIZED flag to False so that</span>
+    <span class="c1"># the next tracing operation will re-initialize the provider.</span>
+    <span class="n">_MLFLOW_TRACER_PROVIDER_INITIALIZED</span><span class="o">.</span><span class="n">done</span> <span class="o">=</span> <span class="kc">False</span>
+
+
+<span class="nd">@raise_as_trace_exception</span>
+<span class="k">def</span> <span class="nf">is_tracing_enabled</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Check if tracing is enabled based on whether the global tracer</span>
+<span class="sd">    is instantiated or not.</span>
+
+<span class="sd">    Trace is considered as &quot;enabled&quot; if the followings</span>
+<span class="sd">    1. The default state (before any tracing operation)</span>
+<span class="sd">    2. The tracer is not either ProxyTracer or NoOpTracer</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">_MLFLOW_TRACER_PROVIDER_INITIALIZED</span><span class="o">.</span><span class="n">done</span><span class="p">:</span>
+        <span class="k">return</span> <span class="kc">True</span>
+
+    <span class="n">tracer</span> <span class="o">=</span> <span class="n">_get_tracer</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
+    <span class="c1"># Occasionally ProxyTracer instance wraps the actual tracer</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">tracer</span><span class="p">,</span> <span class="n">trace</span><span class="o">.</span><span class="n">ProxyTracer</span><span class="p">):</span>
+        <span class="n">tracer</span> <span class="o">=</span> <span class="n">tracer</span><span class="o">.</span><span class="n">_tracer</span>
+    <span class="k">return</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">tracer</span><span class="p">,</span> <span class="n">trace</span><span class="o">.</span><span class="n">NoOpTracer</span><span class="p">)</span>
+</pre></div>
+
+              </div>
+            </div>
+            <footer>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+      <p class="copyright">
+          &copy; MLflow Project, a Series of LF Projects, LLC. All rights reserved.
+      </p>
+
+  </div> 
+
+</footer>
+          </div>
+        </div>
+      </section>
+    </main>
+  </page>
+
+  
+
+
+  
+  <script type="text/javascript">
+    var DOCUMENTATION_OPTIONS = {
+      URL_ROOT:'../../../',
+      VERSION:'2.17.1.dev0',
+      COLLAPSE_INDEX:false,
+      FILE_SUFFIX:'.html',
+      LINK_SUFFIX: '.html',
+      HAS_SOURCE:  true
+    };
+  </script>
+
+  
+
+  <script type="text/javascript" src="../../../_static/js/clipboard.min.js"></script>
+  <script type="text/javascript" src="../../../_static/js/jquery.waypoints.min.js"></script>
+
+  
+  
+  
+  <script type="text/javascript">var CLIPPY_SVG_PATH = "../../../_static/clippy.svg";</script>
+  <script type="text/javascript" src="../../../_static/js/custom.js"></script>
+  
+
+  
+  
+  <script type="text/javascript">
+    jQuery(function () {
+      SphinxRtdTheme.StickyNav.enable();
+    });
+
+  </script>
+  
+
+  
+  <script type="text/javascript">
+    document.addEventListener("DOMContentLoaded", function() {
+        function copyToClipboard(text) {
+            const textarea = document.createElement('textarea');
+            textarea.value = text;
+            document.body.appendChild(textarea);
+            textarea.select();
+            document.execCommand('copy');
+            document.body.removeChild(textarea);
+        }
+        // Get the code block designator class entries
+        const allHighlights = document.querySelectorAll('.highlight');
+        // Disable copyable links for notebook cell numbering and for cell outputs
+        const highlights = Array.from(allHighlights).filter(highlight => !highlight.closest('.highlight-none') && 
+            !highlight.closest('.nboutput'));
+    
+        highlights.forEach(function(highlight) {
+            const copyIcon = document.createElement('span');
+            copyIcon.classList.add('copy-icon');
+            copyIcon.innerHTML = '&#xf0ea;';
+
+            copyIcon.addEventListener('click', function() {
+                const code = highlight.querySelector('pre').textContent;
+                copyToClipboard(code);
+
+                // Flash effect on click
+                this.style.color = '#0194E2';
+                setTimeout(() => {
+                    this.style.color = ''; 
+                }, 100);
+
+                // Display "Code copied to clipboard" near the clicked icon
+                const message = document.createElement('span');
+                message.textContent = "Copied!";
+                message.classList.add('copy-message'); 
+
+                // Append the message to the icon
+                this.appendChild(message);
+
+                setTimeout(() => {
+                    this.removeChild(message);
+                }, 500);
+            });
+
+            highlight.appendChild(copyIcon);
+        });
+    });
+  </script>
+
+
+<script type="text/javascript">
+    document.addEventListener("DOMContentLoaded", function() {
+        // Force download for notebook-download-btn
+        const downloadButtons = document.querySelectorAll('.notebook-download-btn');
+        downloadButtons.forEach(function(button) {
+            button.addEventListener('click', function(event) {
+                event.preventDefault(); // Prevent default behavior
+
+                // Fetch the raw content of the notebook from GitHub
+                fetch(button.href)
+                    .then(response => response.blob())
+                    .then(blob => {
+                        const url = window.URL.createObjectURL(blob);
+                        const link = document.createElement('a');
+                        link.style.display = 'none';
+                        link.href = url;
+                        const filename = button.href.split('/').pop();
+                        link.download = filename; 
+
+                        document.body.appendChild(link);
+                        link.click();
+
+                        window.URL.revokeObjectURL(url);
+                        document.body.removeChild(link);
+                    })
+                    .catch(err => console.error('Error fetching the notebook:', err));
+            });
+        });
+    });
+</script> 
+</body>
+</html>

@@ -1,0 +1,1062 @@
+
+
+<!DOCTYPE html>
+<!-- source: docs/source/_modules/mlflow/metrics/genai/genai_metric -->
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>mlflow.metrics.genai.genai_metric</title>
+  
+   
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+  <link rel="canonical" href="https://mlflow.org/docs/latest/_modules/mlflow/metrics/genai/genai_metric.html">
+  
+  
+    <link rel="shortcut icon" href="../../../../_static/favicon.ico"/>
+    
+
+    
+
+  
+    
+
+  
+
+  
+  
+    
+
+  
+
+  
+  
+    <link href="https://fonts.googleapis.com/css?family=Source+Sans+Pro:300,400,600" rel="stylesheet">
+    <link rel="stylesheet" href="../../../../_static/css/theme.css" type="text/css" />
+    <link rel="stylesheet" href="../../../../_static/css/custom.css" type="text/css" />
+    <link rel="stylesheet" href="../../../../_static/css/cards.css" type="text/css" />
+    <link rel="stylesheet" href="../../../../_static/css/grids.css" type="text/css" />
+    <link rel="stylesheet" href="../../../../_static/css/mobile.css" type="text/css" />
+    <link rel="stylesheet" href="../../../../_static/css/simple-cards.css" type="text/css" />
+    <link rel="stylesheet" href="../../../../_static/css/tabs.css" type="text/css" />
+    
+  
+        <link rel="index" title="Index"
+              href="../../../../genindex.html"/>
+        <link rel="search" title="Search" href="../../../../search.html"/>
+    <link rel="top" title="MLflow 2.17.1.dev0 documentation" href="../../../../index.html"/>
+        <link rel="up" title="mlflow.metrics" href="../../metrics.html"/> 
+
+  
+  <script src="../../../../_static/js/modernizr.min.js"></script>
+
+</head>
+<script type="text/javascript" src="../../../../_static/jquery.js"></script>
+<script type="text/javascript" src="../../../../_static/underscore.js"></script>
+<script type="text/javascript" src="../../../../_static/doctools.js"></script>
+<script type="text/javascript" src="../../../../_static/tabs.js"></script>
+<script type="text/javascript" src="../../../../_static/languagesections.js"></script>
+<script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+<script type="text/javascript" src="../../../../_static/runllm.js"></script>
+
+<body class="wy-body-for-nav" role="document">
+  
+
+  
+  <nav class="wy-nav-top header" role="navigation" aria-label="top navigation">
+    <ul>
+  <li class="menu-toggle">
+    <i data-toggle="wy-nav-top" class="wy-nav-top-menu-button db-icon db-icon-menu pull-left"></i>
+    <a href="../../../../index.html" class="wy-nav-top-logo"
+      ><img src="../../../../_static/MLflow-logo-final-black.png" alt="MLflow"
+    /></a>
+    <span class="version">2.17.1.dev0</span>
+  </li>
+</ul>
+  </nav>
+  <page>
+    
+
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side relative">
+      <div class="wy-side-scroll">
+  <div class="wy-side-nav-search">
+    
+
+    
+
+    
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../../search.html" method="get">
+  <input type="text" name="q" placeholder="Search" />
+  <input type="hidden" name="check_keywords" value="yes" />
+  <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+
+    
+  </div>
+
+  <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+    
+      <a href="../../../../index.html" class="main-navigation-home"><img src="../../../../_static/icons/nav-home.svg"> MLflow</a>
+    
+
+    
+      
+
+      
+        <ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../python_api/index.html">Python API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../cli.html">Command-Line Interface</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../R-api.html">R API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../java_api/index.html">Java API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../rest-api.html">REST API</a></li>
+</ul>
+
+      
+    
+  </div>
+
+  <div role="contentinfo">
+    
+
+    <p>
+      <a id='feedbacklink' href="https://github.com/mlflow/mlflow/blob/master/CONTRIBUTING.md" target="_blank">Contribute</a>
+    </p>
+  </div>
+</div>
+    </nav>
+
+    <main class="wy-grid-for-nav">
+      <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+        <div class="wy-nav-content">
+          <div class="rst-content">
+            
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href="../../../../index.html">Documentation</a> <span class="db-icon db-icon-chevron-right"></span></li>
+    
+        <li><a href="../../../index.html">Module code</a> <span class="db-icon db-icon-chevron-right"></span></li>
+    
+        <li><a href="../../metrics.html">mlflow.metrics</a> <span class="db-icon db-icon-chevron-right"></span></li>
+    
+    
+      <li>mlflow.metrics.genai.genai_metric</li>
+    
+    
+    <!-- <li class="wy-breadcrumbs-aside">
+      <a href="https://github.com/mlflow/mlflow/blob/master/docs/source/_modules/mlflow/metrics/genai/genai_metric" class="fa fa-github"> Edit on GitHub</a>
+    </li> -->
+    
+  </ul>
+</div>
+            <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+              <div itemprop="articleBody">
+                
+  <h1>Source code for mlflow.metrics.genai.genai_metric</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span> <span class="nn">json</span>
+<span class="kn">import</span> <span class="nn">logging</span>
+<span class="kn">import</span> <span class="nn">re</span>
+<span class="kn">import</span> <span class="nn">warnings</span>
+<span class="kn">from</span> <span class="nn">concurrent.futures</span> <span class="kn">import</span> <span class="n">ThreadPoolExecutor</span><span class="p">,</span> <span class="n">as_completed</span>
+<span class="kn">from</span> <span class="nn">inspect</span> <span class="kn">import</span> <span class="n">Parameter</span><span class="p">,</span> <span class="n">Signature</span>
+<span class="kn">from</span> <span class="nn">tempfile</span> <span class="kn">import</span> <span class="n">TemporaryDirectory</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">,</span> <span class="n">Union</span>
+
+<span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
+
+<span class="kn">import</span> <span class="nn">mlflow</span>
+<span class="kn">from</span> <span class="nn">mlflow.exceptions</span> <span class="kn">import</span> <span class="n">MlflowException</span>
+<span class="kn">from</span> <span class="nn">mlflow.metrics.base</span> <span class="kn">import</span> <span class="n">MetricValue</span>
+<span class="kn">from</span> <span class="nn">mlflow.metrics.genai</span> <span class="kn">import</span> <span class="n">model_utils</span>
+<span class="kn">from</span> <span class="nn">mlflow.metrics.genai.base</span> <span class="kn">import</span> <span class="n">EvaluationExample</span>
+<span class="kn">from</span> <span class="nn">mlflow.metrics.genai.prompt_template</span> <span class="kn">import</span> <span class="n">PromptTemplate</span>
+<span class="kn">from</span> <span class="nn">mlflow.metrics.genai.utils</span> <span class="kn">import</span> <span class="n">_get_default_model</span><span class="p">,</span> <span class="n">_get_latest_metric_version</span>
+<span class="kn">from</span> <span class="nn">mlflow.models</span> <span class="kn">import</span> <span class="n">EvaluationMetric</span><span class="p">,</span> <span class="n">make_metric</span>
+<span class="kn">from</span> <span class="nn">mlflow.models.evaluation.base</span> <span class="kn">import</span> <span class="n">_make_metric</span>
+<span class="kn">from</span> <span class="nn">mlflow.protos.databricks_pb2</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">BAD_REQUEST</span><span class="p">,</span>
+    <span class="n">INTERNAL_ERROR</span><span class="p">,</span>
+    <span class="n">INVALID_PARAMETER_VALUE</span><span class="p">,</span>
+    <span class="n">UNAUTHENTICATED</span><span class="p">,</span>
+    <span class="n">ErrorCode</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">mlflow.utils.annotations</span> <span class="kn">import</span> <span class="n">experimental</span>
+<span class="kn">from</span> <span class="nn">mlflow.utils.class_utils</span> <span class="kn">import</span> <span class="n">_get_class_from_string</span>
+<span class="kn">from</span> <span class="nn">mlflow.version</span> <span class="kn">import</span> <span class="n">VERSION</span>
+
+<span class="n">_logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
+
+<span class="n">_GENAI_CUSTOM_METRICS_FILE_NAME</span> <span class="o">=</span> <span class="s2">&quot;genai_custom_metrics.json&quot;</span>
+<span class="n">_PROMPT_FORMATTING_WRAPPER</span> <span class="o">=</span> <span class="s2">&quot;&quot;&quot;</span>
+
+<span class="s2">You must return the following fields in your response in two lines, one below the other:</span>
+<span class="s2">score: Your numerical score based on the rubric</span>
+<span class="s2">justification: Your reasoning for giving this score</span>
+
+<span class="s2">Do not add additional new lines. Do not add any other fields.&quot;&quot;&quot;</span>
+
+
+<span class="k">def</span> <span class="nf">_format_args_string</span><span class="p">(</span><span class="n">grading_context_columns</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]],</span> <span class="n">eval_values</span><span class="p">,</span> <span class="n">indx</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+    <span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
+
+    <span class="n">args_dict</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="k">for</span> <span class="n">arg</span> <span class="ow">in</span> <span class="n">grading_context_columns</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">arg</span> <span class="ow">in</span> <span class="n">eval_values</span><span class="p">:</span>
+            <span class="n">args_dict</span><span class="p">[</span><span class="n">arg</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
+                <span class="n">eval_values</span><span class="p">[</span><span class="n">arg</span><span class="p">]</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="n">indx</span><span class="p">]</span>
+                <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">eval_values</span><span class="p">[</span><span class="n">arg</span><span class="p">],</span> <span class="n">pd</span><span class="o">.</span><span class="n">Series</span><span class="p">)</span>
+                <span class="k">else</span> <span class="n">eval_values</span><span class="p">[</span><span class="n">arg</span><span class="p">][</span><span class="n">indx</span><span class="p">]</span>
+            <span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">MlflowException</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">arg</span><span class="si">}</span><span class="s2"> does not exist in the eval function </span><span class="si">{</span><span class="nb">list</span><span class="p">(</span><span class="n">eval_values</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span><span class="si">}</span><span class="s2">.&quot;</span>
+            <span class="p">)</span>
+
+    <span class="k">return</span> <span class="p">(</span>
+        <span class="s2">&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">args_dict</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="nb">len</span><span class="p">(</span><span class="n">args_dict</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span>
+        <span class="k">else</span> <span class="p">(</span>
+            <span class="s2">&quot;Additional information used by the model:</span><span class="se">\n</span><span class="s2">&quot;</span>
+            <span class="o">+</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span>
+                <span class="p">[</span><span class="sa">f</span><span class="s2">&quot;key: </span><span class="si">{</span><span class="n">arg</span><span class="si">}</span><span class="se">\n</span><span class="s2">value:</span><span class="se">\n</span><span class="si">{</span><span class="n">arg_value</span><span class="si">}</span><span class="s2">&quot;</span> <span class="k">for</span> <span class="n">arg</span><span class="p">,</span> <span class="n">arg_value</span> <span class="ow">in</span> <span class="n">args_dict</span><span class="o">.</span><span class="n">items</span><span class="p">()]</span>
+            <span class="p">)</span>
+        <span class="p">)</span>
+    <span class="p">)</span>
+
+
+<span class="c1"># Function to extract Score and Justification</span>
+<span class="k">def</span> <span class="nf">_extract_score_and_justification</span><span class="p">(</span><span class="n">text</span><span class="p">):</span>
+    <span class="k">if</span> <span class="n">text</span><span class="p">:</span>
+        <span class="n">text</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">sub</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;score&quot;</span><span class="p">,</span> <span class="s2">&quot;score&quot;</span><span class="p">,</span> <span class="n">text</span><span class="p">,</span> <span class="n">flags</span><span class="o">=</span><span class="n">re</span><span class="o">.</span><span class="n">IGNORECASE</span><span class="p">)</span>
+        <span class="n">text</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">sub</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;justification&quot;</span><span class="p">,</span> <span class="s2">&quot;justification&quot;</span><span class="p">,</span> <span class="n">text</span><span class="p">,</span> <span class="n">flags</span><span class="o">=</span><span class="n">re</span><span class="o">.</span><span class="n">IGNORECASE</span><span class="p">)</span>
+        <span class="c1"># Attempt to parse JSON</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">data</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">text</span><span class="p">)</span>
+            <span class="n">score</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;score&quot;</span><span class="p">))</span>
+            <span class="n">justification</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;justification&quot;</span><span class="p">)</span>
+        <span class="k">except</span> <span class="n">json</span><span class="o">.</span><span class="n">JSONDecodeError</span><span class="p">:</span>
+            <span class="c1"># If parsing fails, use regex</span>
+            <span class="k">if</span> <span class="p">(</span><span class="n">match</span> <span class="o">:=</span> <span class="n">re</span><span class="o">.</span><span class="n">search</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;score: (\d+),?\s*justification: (.+)&quot;</span><span class="p">,</span> <span class="n">text</span><span class="p">))</span> <span class="ow">or</span> <span class="p">(</span>
+                <span class="n">match</span> <span class="o">:=</span> <span class="n">re</span><span class="o">.</span><span class="n">search</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;\s*score:\s*(\d+)\s*justification:\s*(.+)&quot;</span><span class="p">,</span> <span class="n">text</span><span class="p">,</span> <span class="n">re</span><span class="o">.</span><span class="n">DOTALL</span><span class="p">)</span>
+            <span class="p">):</span>
+                <span class="n">score</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">match</span><span class="o">.</span><span class="n">group</span><span class="p">(</span><span class="mi">1</span><span class="p">))</span>
+                <span class="n">justification</span> <span class="o">=</span> <span class="n">match</span><span class="o">.</span><span class="n">group</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">score</span> <span class="o">=</span> <span class="kc">None</span>
+                <span class="n">justification</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;Failed to extract score and justification. Raw output: </span><span class="si">{</span><span class="n">text</span><span class="si">}</span><span class="s2">&quot;</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">score</span><span class="p">,</span> <span class="p">(</span><span class="nb">int</span><span class="p">,</span> <span class="nb">float</span><span class="p">))</span> <span class="ow">or</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">justification</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+            <span class="k">return</span> <span class="kc">None</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;Failed to extract score and justification. Raw output: </span><span class="si">{</span><span class="n">text</span><span class="si">}</span><span class="s2">&quot;</span>
+
+        <span class="k">return</span> <span class="n">score</span><span class="p">,</span> <span class="n">justification</span>
+
+    <span class="k">return</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span>
+
+
+<span class="k">def</span> <span class="nf">_score_model_on_one_payload</span><span class="p">(</span>
+    <span class="n">payload</span><span class="p">,</span>
+    <span class="n">eval_model</span><span class="p">,</span>
+    <span class="n">parameters</span><span class="p">,</span>
+<span class="p">):</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">raw_result</span> <span class="o">=</span> <span class="n">model_utils</span><span class="o">.</span><span class="n">score_model_on_payload</span><span class="p">(</span><span class="n">eval_model</span><span class="p">,</span> <span class="n">payload</span><span class="p">,</span> <span class="n">parameters</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">_extract_score_and_justification</span><span class="p">(</span><span class="n">raw_result</span><span class="p">)</span>
+    <span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
+        <span class="k">raise</span>
+    <span class="k">except</span> <span class="n">MlflowException</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">e</span><span class="o">.</span><span class="n">error_code</span> <span class="ow">in</span> <span class="p">[</span>
+            <span class="n">ErrorCode</span><span class="o">.</span><span class="n">Name</span><span class="p">(</span><span class="n">BAD_REQUEST</span><span class="p">),</span>
+            <span class="n">ErrorCode</span><span class="o">.</span><span class="n">Name</span><span class="p">(</span><span class="n">UNAUTHENTICATED</span><span class="p">),</span>
+            <span class="n">ErrorCode</span><span class="o">.</span><span class="n">Name</span><span class="p">(</span><span class="n">INVALID_PARAMETER_VALUE</span><span class="p">),</span>
+        <span class="p">]:</span>
+            <span class="k">raise</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;Failed to score model on payload. Error: </span><span class="si">{</span><span class="n">e</span><span class="si">!s}</span><span class="s2">&quot;</span>
+    <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+        <span class="k">return</span> <span class="kc">None</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;Failed to score model on payload. Error: </span><span class="si">{</span><span class="n">e</span><span class="si">!s}</span><span class="s2">&quot;</span>
+
+
+<span class="k">def</span> <span class="nf">_score_model_on_payloads</span><span class="p">(</span>
+    <span class="n">grading_payloads</span><span class="p">,</span> <span class="n">model</span><span class="p">,</span> <span class="n">parameters</span><span class="p">,</span> <span class="n">max_workers</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">],</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]]:</span>
+    <span class="n">scores</span> <span class="o">=</span> <span class="p">[</span><span class="kc">None</span><span class="p">]</span> <span class="o">*</span> <span class="nb">len</span><span class="p">(</span><span class="n">grading_payloads</span><span class="p">)</span>
+    <span class="n">justifications</span> <span class="o">=</span> <span class="p">[</span><span class="kc">None</span><span class="p">]</span> <span class="o">*</span> <span class="nb">len</span><span class="p">(</span><span class="n">grading_payloads</span><span class="p">)</span>
+    <span class="k">with</span> <span class="n">ThreadPoolExecutor</span><span class="p">(</span><span class="n">max_workers</span><span class="o">=</span><span class="n">max_workers</span><span class="p">)</span> <span class="k">as</span> <span class="n">executor</span><span class="p">:</span>
+        <span class="n">futures</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="n">executor</span><span class="o">.</span><span class="n">submit</span><span class="p">(</span>
+                <span class="n">_score_model_on_one_payload</span><span class="p">,</span>
+                <span class="n">payload</span><span class="p">,</span>
+                <span class="n">model</span><span class="p">,</span>
+                <span class="n">parameters</span><span class="p">,</span>
+            <span class="p">):</span> <span class="n">indx</span>
+            <span class="k">for</span> <span class="n">indx</span><span class="p">,</span> <span class="n">payload</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">grading_payloads</span><span class="p">)</span>
+        <span class="p">}</span>
+
+        <span class="n">as_comp</span> <span class="o">=</span> <span class="n">as_completed</span><span class="p">(</span><span class="n">futures</span><span class="p">)</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="kn">from</span> <span class="nn">tqdm.auto</span> <span class="kn">import</span> <span class="n">tqdm</span>
+
+            <span class="n">as_comp</span> <span class="o">=</span> <span class="n">tqdm</span><span class="p">(</span><span class="n">as_comp</span><span class="p">,</span> <span class="n">total</span><span class="o">=</span><span class="nb">len</span><span class="p">(</span><span class="n">futures</span><span class="p">))</span>
+        <span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
+            <span class="k">pass</span>
+
+        <span class="k">for</span> <span class="n">future</span> <span class="ow">in</span> <span class="n">as_comp</span><span class="p">:</span>
+            <span class="n">indx</span> <span class="o">=</span> <span class="n">futures</span><span class="p">[</span><span class="n">future</span><span class="p">]</span>
+            <span class="n">score</span><span class="p">,</span> <span class="n">justification</span> <span class="o">=</span> <span class="n">future</span><span class="o">.</span><span class="n">result</span><span class="p">()</span>
+            <span class="n">scores</span><span class="p">[</span><span class="n">indx</span><span class="p">]</span> <span class="o">=</span> <span class="n">score</span>
+            <span class="n">justifications</span><span class="p">[</span><span class="n">indx</span><span class="p">]</span> <span class="o">=</span> <span class="n">justification</span>
+
+    <span class="k">return</span> <span class="n">scores</span><span class="p">,</span> <span class="n">justifications</span>
+
+
+<span class="k">def</span> <span class="nf">_get_aggregate_results</span><span class="p">(</span><span class="n">scores</span><span class="p">,</span> <span class="n">aggregations</span><span class="p">):</span>
+    <span class="c1"># loop over the aggregations and compute the aggregate results on the scores</span>
+    <span class="k">def</span> <span class="nf">aggregate_function</span><span class="p">(</span><span class="n">aggregate_option</span><span class="p">,</span> <span class="n">scores</span><span class="p">):</span>
+        <span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+
+        <span class="n">options</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s2">&quot;min&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">min</span><span class="p">,</span>
+            <span class="s2">&quot;max&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">,</span>
+            <span class="s2">&quot;mean&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">,</span>
+            <span class="s2">&quot;median&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">median</span><span class="p">,</span>
+            <span class="s2">&quot;variance&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">var</span><span class="p">,</span>
+            <span class="s2">&quot;p90&quot;</span><span class="p">:</span> <span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">percentile</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="mi">90</span><span class="p">)</span> <span class="k">if</span> <span class="n">x</span> <span class="k">else</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="p">}</span>
+
+        <span class="k">if</span> <span class="n">aggregate_option</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">options</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">MlflowException</span><span class="p">(</span>
+                <span class="n">message</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;Invalid aggregate option </span><span class="si">{</span><span class="n">aggregate_option</span><span class="si">}</span><span class="s2">.&quot;</span><span class="p">,</span>
+                <span class="n">error_code</span><span class="o">=</span><span class="n">INVALID_PARAMETER_VALUE</span><span class="p">,</span>
+            <span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">options</span><span class="p">[</span><span class="n">aggregate_option</span><span class="p">](</span><span class="n">scores</span><span class="p">)</span>
+
+    <span class="n">scores_for_aggregation</span> <span class="o">=</span> <span class="p">[</span><span class="n">score</span> <span class="k">for</span> <span class="n">score</span> <span class="ow">in</span> <span class="n">scores</span> <span class="k">if</span> <span class="n">score</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">]</span>
+
+    <span class="k">return</span> <span class="p">(</span>
+        <span class="p">{</span><span class="n">option</span><span class="p">:</span> <span class="n">aggregate_function</span><span class="p">(</span><span class="n">option</span><span class="p">,</span> <span class="n">scores_for_aggregation</span><span class="p">)</span> <span class="k">for</span> <span class="n">option</span> <span class="ow">in</span> <span class="n">aggregations</span><span class="p">}</span>
+        <span class="k">if</span> <span class="n">aggregations</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+        <span class="k">else</span> <span class="p">{}</span>
+    <span class="p">)</span>
+
+
+<div class="viewcode-block" id="make_genai_metric_from_prompt"><a class="viewcode-back" href="../../../../python_api/mlflow.metrics.html#mlflow.metrics.genai.make_genai_metric_from_prompt">[docs]</a><span class="nd">@experimental</span>
+<span class="k">def</span> <span class="nf">make_genai_metric_from_prompt</span><span class="p">(</span>
+    <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">judge_prompt</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">model</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="n">_get_default_model</span><span class="p">(),</span>
+    <span class="n">parameters</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">aggregations</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">greater_is_better</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+    <span class="n">max_workers</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">10</span><span class="p">,</span>
+    <span class="n">metric_metadata</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">EvaluationMetric</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Create a genai metric used to evaluate LLM using LLM as a judge in MLflow. This produces</span>
+<span class="sd">    a metric using only the supplied judge prompt without any pre-written system prompt.</span>
+<span class="sd">    This can be useful for use cases that are not covered by the full grading prompt in any</span>
+<span class="sd">    ``EvaluationModel`` version.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        name: Name of the metric.</span>
+<span class="sd">        judge_prompt: The entire prompt to be used for the judge model.</span>
+<span class="sd">            The prompt will be minimally wrapped in formatting instructions to ensure</span>
+<span class="sd">            scores can be parsed. The prompt may use f-string formatting to include variables.</span>
+<span class="sd">            Corresponding variables must be passed as keyword arguments into the</span>
+<span class="sd">            resulting metric&#39;s eval function.</span>
+<span class="sd">        model: (Optional) Model uri of an openai, gateway, or deployments judge model in the</span>
+<span class="sd">            format of &quot;openai:/gpt-4&quot;, &quot;gateway:/my-route&quot;,</span>
+<span class="sd">            &quot;endpoints:/databricks-llama-2-70b-chat&quot;.  Defaults to &quot;openai:/gpt-4&quot;. If using</span>
+<span class="sd">            Azure OpenAI, the ``OPENAI_DEPLOYMENT_NAME`` environment variable will take precedence.</span>
+<span class="sd">            Your use of a third party LLM service (e.g., OpenAI) for evaluation may be subject to</span>
+<span class="sd">            and governed by the LLM service&#39;s terms of use.</span>
+<span class="sd">        parameters: (Optional) Parameters for the LLM used to compute the metric. By default, we</span>
+<span class="sd">            set the temperature to 0.0, max_tokens to 200, and top_p to 1.0. We recommend</span>
+<span class="sd">            setting the temperature to 0.0 for the LLM used as a judge to ensure consistent results.</span>
+<span class="sd">        aggregations: (Optional) The list of options to aggregate the scores. Currently supported</span>
+<span class="sd">            options are: min, max, mean, median, variance, p90.</span>
+<span class="sd">        greater_is_better: (Optional) Whether the metric is better when it is greater.</span>
+<span class="sd">        max_workers: (Optional) The maximum number of workers to use for judge scoring.</span>
+<span class="sd">            Defaults to 10 workers.</span>
+<span class="sd">        metric_metadata: (Optional) Dictionary of metadata to be attached to the</span>
+<span class="sd">            EvaluationMetric object. Useful for model evaluators that require additional</span>
+<span class="sd">            information to determine how to evaluate this metric.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        A metric object.</span>
+
+<span class="sd">    .. code-block:: python</span>
+<span class="sd">        :test:</span>
+<span class="sd">        :caption: Example for creating a genai metric</span>
+
+<span class="sd">        from mlflow.metrics.genai import make_genai_metric_from_prompt</span>
+
+<span class="sd">        metric = make_genai_metric_from_prompt(</span>
+<span class="sd">            name=&quot;ease_of_understanding&quot;,</span>
+<span class="sd">            judge_prompt=(</span>
+<span class="sd">                &quot;You must evaluate the output of a bot based on how easy it is to &quot;</span>
+<span class="sd">                &quot;understand its outputs.&quot;</span>
+<span class="sd">                &quot;Evaluate the bot&#39;s output from the perspective of a layperson.&quot;</span>
+<span class="sd">                &quot;The bot was provided with this input: {input} and this output: {output}.&quot;</span>
+<span class="sd">            ),</span>
+<span class="sd">            model=&quot;openai:/gpt-4&quot;,</span>
+<span class="sd">            parameters={&quot;temperature&quot;: 0.0},</span>
+<span class="sd">            aggregations=[&quot;mean&quot;, &quot;variance&quot;, &quot;p90&quot;],</span>
+<span class="sd">            greater_is_better=True,</span>
+<span class="sd">        )</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+
+    <span class="n">prompt_template</span> <span class="o">=</span> <span class="n">PromptTemplate</span><span class="p">([</span><span class="n">judge_prompt</span><span class="p">,</span> <span class="n">_PROMPT_FORMATTING_WRAPPER</span><span class="p">])</span>
+    <span class="n">allowed_variables</span> <span class="o">=</span> <span class="n">prompt_template</span><span class="o">.</span><span class="n">variables</span>
+
+    <span class="c1"># When users create a custom metric using this function,the metric configuration</span>
+    <span class="c1"># will be serialized and stored as an artifact. This enables us to later deserialize</span>
+    <span class="c1"># the configuration, allowing users to understand their LLM evaluation results more clearly.</span>
+    <span class="n">genai_metric_args</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s2">&quot;name&quot;</span><span class="p">:</span> <span class="n">name</span><span class="p">,</span>
+        <span class="s2">&quot;judge_prompt&quot;</span><span class="p">:</span> <span class="n">judge_prompt</span><span class="p">,</span>
+        <span class="s2">&quot;model&quot;</span><span class="p">:</span> <span class="n">model</span><span class="p">,</span>
+        <span class="s2">&quot;parameters&quot;</span><span class="p">:</span> <span class="n">parameters</span><span class="p">,</span>
+        <span class="s2">&quot;aggregations&quot;</span><span class="p">:</span> <span class="n">aggregations</span><span class="p">,</span>
+        <span class="s2">&quot;greater_is_better&quot;</span><span class="p">:</span> <span class="n">greater_is_better</span><span class="p">,</span>
+        <span class="s2">&quot;max_workers&quot;</span><span class="p">:</span> <span class="n">max_workers</span><span class="p">,</span>
+        <span class="s2">&quot;metric_metadata&quot;</span><span class="p">:</span> <span class="n">metric_metadata</span><span class="p">,</span>
+        <span class="c1"># Record the mlflow version for serialization in case the function signature changes later</span>
+        <span class="s2">&quot;mlflow_version&quot;</span><span class="p">:</span> <span class="n">VERSION</span><span class="p">,</span>
+        <span class="s2">&quot;fn_name&quot;</span><span class="p">:</span> <span class="n">make_genai_metric_from_prompt</span><span class="o">.</span><span class="vm">__name__</span><span class="p">,</span>
+    <span class="p">}</span>
+
+    <span class="n">aggregations</span> <span class="o">=</span> <span class="n">aggregations</span> <span class="ow">or</span> <span class="p">[</span><span class="s2">&quot;mean&quot;</span><span class="p">,</span> <span class="s2">&quot;variance&quot;</span><span class="p">,</span> <span class="s2">&quot;p90&quot;</span><span class="p">]</span>
+
+    <span class="k">def</span> <span class="nf">eval_fn</span><span class="p">(</span>
+        <span class="o">*</span><span class="n">args</span><span class="p">,</span>
+        <span class="o">**</span><span class="n">kwargs</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">MetricValue</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        This is the function that is called when the metric is evaluated.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">missing_variables</span> <span class="o">:=</span> <span class="n">allowed_variables</span> <span class="o">-</span> <span class="nb">set</span><span class="p">(</span><span class="n">kwargs</span><span class="o">.</span><span class="n">keys</span><span class="p">()):</span>
+            <span class="k">raise</span> <span class="n">MlflowException</span><span class="p">(</span>
+                <span class="n">message</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;Missing variable inputs to eval_fn: </span><span class="si">{</span><span class="n">missing_variables</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span>
+                <span class="n">error_code</span><span class="o">=</span><span class="n">INVALID_PARAMETER_VALUE</span><span class="p">,</span>
+            <span class="p">)</span>
+        <span class="n">kwargs</span> <span class="o">=</span> <span class="p">{</span><span class="n">k</span><span class="p">:</span> <span class="p">[</span><span class="n">v</span><span class="p">]</span> <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">isscalar</span><span class="p">(</span><span class="n">v</span><span class="p">)</span> <span class="k">else</span> <span class="n">v</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">items</span><span class="p">()}</span>
+        <span class="n">grading_payloads</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">kwargs</span><span class="p">)</span><span class="o">.</span><span class="n">to_dict</span><span class="p">(</span><span class="n">orient</span><span class="o">=</span><span class="s2">&quot;records&quot;</span><span class="p">)</span>
+        <span class="n">arg_strings</span> <span class="o">=</span> <span class="p">[</span><span class="n">prompt_template</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="o">**</span><span class="n">payload</span><span class="p">)</span> <span class="k">for</span> <span class="n">payload</span> <span class="ow">in</span> <span class="n">grading_payloads</span><span class="p">]</span>
+        <span class="n">scores</span><span class="p">,</span> <span class="n">justifications</span> <span class="o">=</span> <span class="n">_score_model_on_payloads</span><span class="p">(</span>
+            <span class="n">arg_strings</span><span class="p">,</span> <span class="n">model</span><span class="p">,</span> <span class="n">parameters</span><span class="p">,</span> <span class="n">max_workers</span>
+        <span class="p">)</span>
+
+        <span class="n">aggregate_scores</span> <span class="o">=</span> <span class="n">_get_aggregate_results</span><span class="p">(</span><span class="n">scores</span><span class="p">,</span> <span class="n">aggregations</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">MetricValue</span><span class="p">(</span><span class="n">scores</span><span class="p">,</span> <span class="n">justifications</span><span class="p">,</span> <span class="n">aggregate_scores</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">allowed_variables</span><span class="p">:</span>
+        <span class="n">eval_fn</span><span class="o">.</span><span class="n">__signature__</span> <span class="o">=</span> <span class="n">Signature</span><span class="p">(</span>
+            <span class="n">parameters</span><span class="o">=</span><span class="p">[</span>
+                <span class="n">Parameter</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="n">var</span><span class="p">,</span> <span class="n">kind</span><span class="o">=</span><span class="n">Parameter</span><span class="o">.</span><span class="n">KEYWORD_ONLY</span><span class="p">)</span> <span class="k">for</span> <span class="n">var</span> <span class="ow">in</span> <span class="n">allowed_variables</span>
+            <span class="p">]</span>
+        <span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">make_metric</span><span class="p">(</span>
+        <span class="n">eval_fn</span><span class="o">=</span><span class="n">eval_fn</span><span class="p">,</span>
+        <span class="n">greater_is_better</span><span class="o">=</span><span class="n">greater_is_better</span><span class="p">,</span>
+        <span class="n">name</span><span class="o">=</span><span class="n">name</span><span class="p">,</span>
+        <span class="n">metric_metadata</span><span class="o">=</span><span class="n">metric_metadata</span><span class="p">,</span>
+        <span class="n">genai_metric_args</span><span class="o">=</span><span class="n">genai_metric_args</span><span class="p">,</span>
+    <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="make_genai_metric"><a class="viewcode-back" href="../../../../python_api/mlflow.metrics.html#mlflow.metrics.genai.make_genai_metric">[docs]</a><span class="nd">@experimental</span>
+<span class="k">def</span> <span class="nf">make_genai_metric</span><span class="p">(</span>
+    <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">definition</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">grading_prompt</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">examples</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="n">EvaluationExample</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">version</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="n">_get_latest_metric_version</span><span class="p">(),</span>
+    <span class="n">model</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="n">_get_default_model</span><span class="p">(),</span>
+    <span class="n">grading_context_columns</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">include_input</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+    <span class="n">parameters</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">aggregations</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">greater_is_better</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+    <span class="n">max_workers</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">10</span><span class="p">,</span>
+    <span class="n">metric_metadata</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">EvaluationMetric</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Create a genai metric used to evaluate LLM using LLM as a judge in MLflow. The full grading</span>
+<span class="sd">    prompt is stored in the metric_details field of the ``EvaluationMetric`` object.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        name: Name of the metric.</span>
+<span class="sd">        definition: Definition of the metric.</span>
+<span class="sd">        grading_prompt: Grading criteria of the metric.</span>
+<span class="sd">        examples: (Optional) Examples of the metric.</span>
+<span class="sd">        version: (Optional) Version of the metric. Currently supported versions are: v1.</span>
+<span class="sd">        model: (Optional) Model uri of an openai, gateway, or deployments judge model in the</span>
+<span class="sd">            format of &quot;openai:/gpt-4&quot;, &quot;gateway:/my-route&quot;,</span>
+<span class="sd">            &quot;endpoints:/databricks-llama-2-70b-chat&quot;.  Defaults to &quot;openai:/gpt-4&quot;. If using</span>
+<span class="sd">            Azure OpenAI, the ``OPENAI_DEPLOYMENT_NAME`` environment variable will take precedence.</span>
+<span class="sd">            Your use of a third party LLM service (e.g., OpenAI) for evaluation may be subject to</span>
+<span class="sd">            and governed by the LLM service&#39;s terms of use.</span>
+<span class="sd">        grading_context_columns: (Optional) The name of the grading context column, or a list of</span>
+<span class="sd">            grading context column names, required to compute the metric. The</span>
+<span class="sd">            ``grading_context_columns`` are used by the LLM as a judge as additional information to</span>
+<span class="sd">            compute the metric. The columns are extracted from the input dataset or output</span>
+<span class="sd">            predictions based on ``col_mapping`` in the ``evaluator_config`` passed to</span>
+<span class="sd">            :py:func:`mlflow.evaluate()`. They can also be the name of other evaluated metrics.</span>
+<span class="sd">        include_input: (Optional) Whether to include the input</span>
+<span class="sd">            when computing the metric.</span>
+<span class="sd">        parameters: (Optional) Parameters for the LLM used to compute the metric. By default, we</span>
+<span class="sd">            set the temperature to 0.0, max_tokens to 200, and top_p to 1.0. We recommend</span>
+<span class="sd">            setting the temperature to 0.0 for the LLM used as a judge to ensure consistent results.</span>
+<span class="sd">        aggregations: (Optional) The list of options to aggregate the scores. Currently supported</span>
+<span class="sd">            options are: min, max, mean, median, variance, p90.</span>
+<span class="sd">        greater_is_better: (Optional) Whether the metric is better when it is greater.</span>
+<span class="sd">        max_workers: (Optional) The maximum number of workers to use for judge scoring.</span>
+<span class="sd">            Defaults to 10 workers.</span>
+<span class="sd">        metric_metadata: (Optional) Dictionary of metadata to be attached to the</span>
+<span class="sd">            EvaluationMetric object. Useful for model evaluators that require additional</span>
+<span class="sd">            information to determine how to evaluate this metric.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        A metric object.</span>
+
+<span class="sd">    .. code-block:: python</span>
+<span class="sd">        :test:</span>
+<span class="sd">        :caption: Example for creating a genai metric</span>
+
+<span class="sd">        from mlflow.metrics.genai import EvaluationExample, make_genai_metric</span>
+
+<span class="sd">        example = EvaluationExample(</span>
+<span class="sd">            input=&quot;What is MLflow?&quot;,</span>
+<span class="sd">            output=(</span>
+<span class="sd">                &quot;MLflow is an open-source platform for managing machine &quot;</span>
+<span class="sd">                &quot;learning workflows, including experiment tracking, model packaging, &quot;</span>
+<span class="sd">                &quot;versioning, and deployment, simplifying the ML lifecycle.&quot;</span>
+<span class="sd">            ),</span>
+<span class="sd">            score=4,</span>
+<span class="sd">            justification=(</span>
+<span class="sd">                &quot;The definition effectively explains what MLflow is &quot;</span>
+<span class="sd">                &quot;its purpose, and its developer. It could be more concise for a 5-score.&quot;,</span>
+<span class="sd">            ),</span>
+<span class="sd">            grading_context={</span>
+<span class="sd">                &quot;targets&quot;: (</span>
+<span class="sd">                    &quot;MLflow is an open-source platform for managing &quot;</span>
+<span class="sd">                    &quot;the end-to-end machine learning (ML) lifecycle. It was developed by &quot;</span>
+<span class="sd">                    &quot;Databricks, a company that specializes in big data and machine learning &quot;</span>
+<span class="sd">                    &quot;solutions. MLflow is designed to address the challenges that data &quot;</span>
+<span class="sd">                    &quot;scientists and machine learning engineers face when developing, training, &quot;</span>
+<span class="sd">                    &quot;and deploying machine learning models.&quot;</span>
+<span class="sd">                )</span>
+<span class="sd">            },</span>
+<span class="sd">        )</span>
+<span class="sd">        metric = make_genai_metric(</span>
+<span class="sd">            name=&quot;answer_correctness&quot;,</span>
+<span class="sd">            definition=(</span>
+<span class="sd">                &quot;Answer correctness is evaluated on the accuracy of the provided output based on &quot;</span>
+<span class="sd">                &quot;the provided targets, which is the ground truth. Scores can be assigned based on &quot;</span>
+<span class="sd">                &quot;the degree of semantic similarity and factual correctness of the provided output &quot;</span>
+<span class="sd">                &quot;to the provided targets, where a higher score indicates higher degree of accuracy.&quot;</span>
+<span class="sd">            ),</span>
+<span class="sd">            grading_prompt=(</span>
+<span class="sd">                &quot;Answer correctness: Below are the details for different scores:&quot;</span>
+<span class="sd">                &quot;- Score 1: The output is completely incorrect. It is completely different from &quot;</span>
+<span class="sd">                &quot;or contradicts the provided targets.&quot;</span>
+<span class="sd">                &quot;- Score 2: The output demonstrates some degree of semantic similarity and &quot;</span>
+<span class="sd">                &quot;includes partially correct information. However, the output still has significant &quot;</span>
+<span class="sd">                &quot;discrepancies with the provided targets or inaccuracies.&quot;</span>
+<span class="sd">                &quot;- Score 3: The output addresses a couple of aspects of the input accurately, &quot;</span>
+<span class="sd">                &quot;aligning with the provided targets. However, there are still omissions or minor &quot;</span>
+<span class="sd">                &quot;inaccuracies.&quot;</span>
+<span class="sd">                &quot;- Score 4: The output is mostly correct. It provides mostly accurate information, &quot;</span>
+<span class="sd">                &quot;but there may be one or more minor omissions or inaccuracies.&quot;</span>
+<span class="sd">                &quot;- Score 5: The output is correct. It demonstrates a high degree of accuracy and &quot;</span>
+<span class="sd">                &quot;semantic similarity to the targets.&quot;</span>
+<span class="sd">            ),</span>
+<span class="sd">            examples=[example],</span>
+<span class="sd">            version=&quot;v1&quot;,</span>
+<span class="sd">            model=&quot;openai:/gpt-4&quot;,</span>
+<span class="sd">            grading_context_columns=[&quot;targets&quot;],</span>
+<span class="sd">            parameters={&quot;temperature&quot;: 0.0},</span>
+<span class="sd">            aggregations=[&quot;mean&quot;, &quot;variance&quot;, &quot;p90&quot;],</span>
+<span class="sd">            greater_is_better=True,</span>
+<span class="sd">        )</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># When users create a custom metric using this function,the metric configuration</span>
+    <span class="c1"># will be serialized and stored as an artifact. This enables us to later deserialize</span>
+    <span class="c1"># the configuration, allowing users to understand their LLM evaluation results more clearly.</span>
+    <span class="n">genai_metric_args</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s2">&quot;name&quot;</span><span class="p">:</span> <span class="n">name</span><span class="p">,</span>
+        <span class="s2">&quot;definition&quot;</span><span class="p">:</span> <span class="n">definition</span><span class="p">,</span>
+        <span class="s2">&quot;grading_prompt&quot;</span><span class="p">:</span> <span class="n">grading_prompt</span><span class="p">,</span>
+        <span class="s2">&quot;examples&quot;</span><span class="p">:</span> <span class="n">examples</span><span class="p">,</span>
+        <span class="s2">&quot;version&quot;</span><span class="p">:</span> <span class="n">version</span><span class="p">,</span>
+        <span class="s2">&quot;model&quot;</span><span class="p">:</span> <span class="n">model</span><span class="p">,</span>
+        <span class="s2">&quot;grading_context_columns&quot;</span><span class="p">:</span> <span class="n">grading_context_columns</span><span class="p">,</span>
+        <span class="s2">&quot;include_input&quot;</span><span class="p">:</span> <span class="n">include_input</span><span class="p">,</span>
+        <span class="s2">&quot;parameters&quot;</span><span class="p">:</span> <span class="n">parameters</span><span class="p">,</span>
+        <span class="s2">&quot;aggregations&quot;</span><span class="p">:</span> <span class="n">aggregations</span><span class="p">,</span>
+        <span class="s2">&quot;greater_is_better&quot;</span><span class="p">:</span> <span class="n">greater_is_better</span><span class="p">,</span>
+        <span class="s2">&quot;max_workers&quot;</span><span class="p">:</span> <span class="n">max_workers</span><span class="p">,</span>
+        <span class="s2">&quot;metric_metadata&quot;</span><span class="p">:</span> <span class="n">metric_metadata</span><span class="p">,</span>
+        <span class="c1"># Record the mlflow version for serialization in case the function signature changes later</span>
+        <span class="s2">&quot;mlflow_version&quot;</span><span class="p">:</span> <span class="n">VERSION</span><span class="p">,</span>
+        <span class="s2">&quot;fn_name&quot;</span><span class="p">:</span> <span class="n">make_genai_metric</span><span class="o">.</span><span class="vm">__name__</span><span class="p">,</span>
+    <span class="p">}</span>
+
+    <span class="n">aggregations</span> <span class="o">=</span> <span class="n">aggregations</span> <span class="ow">or</span> <span class="p">[</span><span class="s2">&quot;mean&quot;</span><span class="p">,</span> <span class="s2">&quot;variance&quot;</span><span class="p">,</span> <span class="s2">&quot;p90&quot;</span><span class="p">]</span>
+    <span class="n">grading_context_columns</span> <span class="o">=</span> <span class="n">grading_context_columns</span> <span class="ow">or</span> <span class="p">[]</span>
+
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">grading_context_columns</span><span class="p">,</span> <span class="nb">list</span><span class="p">):</span>
+        <span class="n">grading_context_columns</span> <span class="o">=</span> <span class="p">[</span><span class="n">grading_context_columns</span><span class="p">]</span>
+
+    <span class="k">def</span> <span class="nf">process_example</span><span class="p">(</span><span class="n">example</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">example</span><span class="o">.</span><span class="n">grading_context</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">grading_context_columns</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">grading_context</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">example</span><span class="o">.</span><span class="n">grading_context</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
+            <span class="n">grading_context</span> <span class="o">=</span> <span class="n">example</span><span class="o">.</span><span class="n">grading_context</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># The grading context is string-like. Assume that it corresponds to the first</span>
+            <span class="c1"># grading context column and update the example accordingly</span>
+            <span class="n">grading_context</span> <span class="o">=</span> <span class="p">{</span><span class="n">grading_context_columns</span><span class="p">[</span><span class="mi">0</span><span class="p">]:</span> <span class="n">example</span><span class="o">.</span><span class="n">grading_context</span><span class="p">}</span>
+            <span class="n">example</span><span class="o">.</span><span class="n">grading_context</span> <span class="o">=</span> <span class="n">grading_context</span>
+
+        <span class="k">if</span> <span class="nb">set</span><span class="p">(</span><span class="n">grading_context</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span> <span class="o">!=</span> <span class="nb">set</span><span class="p">(</span><span class="n">grading_context_columns</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="n">MlflowException</span><span class="o">.</span><span class="n">invalid_parameter_value</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;Example grading context does not contain required columns.</span><span class="se">\n</span><span class="s2">&quot;</span>
+                <span class="sa">f</span><span class="s2">&quot; Example grading context columns: </span><span class="si">{</span><span class="nb">list</span><span class="p">(</span><span class="n">grading_context</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span><span class="si">}</span><span class="se">\n</span><span class="s2">&quot;</span>
+                <span class="sa">f</span><span class="s2">&quot; Required grading context columns: </span><span class="si">{</span><span class="n">grading_context_columns</span><span class="si">}</span><span class="se">\n</span><span class="s2">&quot;</span>
+            <span class="p">)</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">include_input</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">EvaluationExample</span><span class="p">(</span>
+                <span class="n">output</span><span class="o">=</span><span class="n">example</span><span class="o">.</span><span class="n">output</span><span class="p">,</span>
+                <span class="n">score</span><span class="o">=</span><span class="n">example</span><span class="o">.</span><span class="n">score</span><span class="p">,</span>
+                <span class="n">justification</span><span class="o">=</span><span class="n">example</span><span class="o">.</span><span class="n">justification</span><span class="p">,</span>
+                <span class="n">grading_context</span><span class="o">=</span><span class="n">example</span><span class="o">.</span><span class="n">grading_context</span><span class="p">,</span>
+            <span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">example</span>
+
+    <span class="k">if</span> <span class="n">examples</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">examples</span> <span class="o">=</span> <span class="p">[</span><span class="n">process_example</span><span class="p">(</span><span class="n">example</span><span class="p">)</span> <span class="k">for</span> <span class="n">example</span> <span class="ow">in</span> <span class="n">examples</span><span class="p">]</span>
+
+    <span class="n">class_name</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;mlflow.metrics.genai.prompts.</span><span class="si">{</span><span class="n">version</span><span class="si">}</span><span class="s2">.EvaluationModel&quot;</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">evaluation_model_class_module</span> <span class="o">=</span> <span class="n">_get_class_from_string</span><span class="p">(</span><span class="n">class_name</span><span class="p">)</span>
+    <span class="k">except</span> <span class="ne">ModuleNotFoundError</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="n">MlflowException</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;Failed to find evaluation model for version </span><span class="si">{</span><span class="n">version</span><span class="si">}</span><span class="s2">.&quot;</span>
+            <span class="sa">f</span><span class="s2">&quot; Please check the correctness of the version&quot;</span><span class="p">,</span>
+            <span class="n">error_code</span><span class="o">=</span><span class="n">INVALID_PARAMETER_VALUE</span><span class="p">,</span>
+        <span class="p">)</span> <span class="kn">from</span> <span class="kc">None</span>
+    <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="n">MlflowException</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;Failed to construct evaluation model </span><span class="si">{</span><span class="n">version</span><span class="si">}</span><span class="s2">. Error: </span><span class="si">{</span><span class="n">e</span><span class="si">!r}</span><span class="s2">&quot;</span><span class="p">,</span>
+            <span class="n">error_code</span><span class="o">=</span><span class="n">INTERNAL_ERROR</span><span class="p">,</span>
+        <span class="p">)</span> <span class="kn">from</span> <span class="kc">None</span>
+
+    <span class="n">evaluation_context</span> <span class="o">=</span> <span class="n">evaluation_model_class_module</span><span class="p">(</span>
+        <span class="n">name</span><span class="p">,</span>
+        <span class="n">definition</span><span class="p">,</span>
+        <span class="n">grading_prompt</span><span class="p">,</span>
+        <span class="n">examples</span><span class="p">,</span>
+        <span class="n">model</span><span class="p">,</span>
+        <span class="o">*</span><span class="p">(</span><span class="n">parameters</span><span class="p">,)</span> <span class="k">if</span> <span class="n">parameters</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="p">(),</span>
+    <span class="p">)</span><span class="o">.</span><span class="n">to_dict</span><span class="p">()</span>
+
+    <span class="k">def</span> <span class="nf">eval_fn</span><span class="p">(</span>
+        <span class="n">predictions</span><span class="p">:</span> <span class="s2">&quot;pd.Series&quot;</span><span class="p">,</span>
+        <span class="n">metrics</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">MetricValue</span><span class="p">],</span>
+        <span class="n">inputs</span><span class="p">:</span> <span class="s2">&quot;pd.Series&quot;</span><span class="p">,</span>
+        <span class="o">*</span><span class="n">args</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">MetricValue</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        This is the function that is called when the metric is evaluated.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">eval_values</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="nb">zip</span><span class="p">(</span><span class="n">grading_context_columns</span><span class="p">,</span> <span class="n">args</span><span class="p">))</span>
+
+        <span class="n">outputs</span> <span class="o">=</span> <span class="n">predictions</span><span class="o">.</span><span class="n">to_list</span><span class="p">()</span>
+        <span class="n">inputs</span> <span class="o">=</span> <span class="n">inputs</span><span class="o">.</span><span class="n">to_list</span><span class="p">()</span>
+        <span class="n">eval_model</span> <span class="o">=</span> <span class="n">evaluation_context</span><span class="p">[</span><span class="s2">&quot;model&quot;</span><span class="p">]</span>
+        <span class="n">eval_parameters</span> <span class="o">=</span> <span class="n">evaluation_context</span><span class="p">[</span><span class="s2">&quot;parameters&quot;</span><span class="p">]</span>
+
+        <span class="c1"># TODO: Save the metric definition in a yaml file for model monitoring</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">eval_model</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="n">MlflowException</span><span class="p">(</span>
+                <span class="n">message</span><span class="o">=</span><span class="s2">&quot;The model argument must be a string URI referring to an openai model &quot;</span>
+                <span class="s2">&quot;(openai:/gpt-4o-mini) or an MLflow Deployments endpoint &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;(endpoints:/my-endpoint), passed </span><span class="si">{</span><span class="n">eval_model</span><span class="si">}</span><span class="s2"> instead&quot;</span><span class="p">,</span>
+                <span class="n">error_code</span><span class="o">=</span><span class="n">INVALID_PARAMETER_VALUE</span><span class="p">,</span>
+            <span class="p">)</span>
+
+        <span class="c1"># generate grading payloads</span>
+        <span class="n">grading_payloads</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">indx</span><span class="p">,</span> <span class="p">(</span><span class="nb">input</span><span class="p">,</span> <span class="n">output</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="nb">zip</span><span class="p">(</span><span class="n">inputs</span><span class="p">,</span> <span class="n">outputs</span><span class="p">)):</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">arg_string</span> <span class="o">=</span> <span class="n">_format_args_string</span><span class="p">(</span><span class="n">grading_context_columns</span><span class="p">,</span> <span class="n">eval_values</span><span class="p">,</span> <span class="n">indx</span><span class="p">)</span>
+            <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="n">MlflowException</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;Values for grading_context_columns are malformed and cannot be &quot;</span>
+                    <span class="sa">f</span><span class="s2">&quot;formatted into a prompt for metric &#39;</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">&#39;.</span><span class="se">\n</span><span class="s2">&quot;</span>
+                    <span class="sa">f</span><span class="s2">&quot;Required columns: </span><span class="si">{</span><span class="n">grading_context_columns</span><span class="si">}</span><span class="se">\n</span><span class="s2">&quot;</span>
+                    <span class="sa">f</span><span class="s2">&quot;Values: </span><span class="si">{</span><span class="n">eval_values</span><span class="si">}</span><span class="se">\n</span><span class="s2">&quot;</span>
+                    <span class="sa">f</span><span class="s2">&quot;Error: </span><span class="si">{</span><span class="n">e</span><span class="si">!r}</span><span class="se">\n</span><span class="s2">&quot;</span>
+                    <span class="sa">f</span><span class="s2">&quot;Please check the following: </span><span class="se">\n</span><span class="s2">&quot;</span>
+                    <span class="s2">&quot;- predictions and targets (if required) are provided correctly</span><span class="se">\n</span><span class="s2">&quot;</span>
+                    <span class="s2">&quot;- grading_context_columns are mapped correctly using the evaluator_config &quot;</span>
+                    <span class="s2">&quot;parameter</span><span class="se">\n</span><span class="s2">&quot;</span>
+                    <span class="s2">&quot;- input and output data are formatted correctly.&quot;</span>
+                <span class="p">)</span>
+            <span class="n">grading_payloads</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                <span class="n">evaluation_context</span><span class="p">[</span><span class="s2">&quot;eval_prompt&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+                    <span class="nb">input</span><span class="o">=</span><span class="p">(</span><span class="nb">input</span> <span class="k">if</span> <span class="n">include_input</span> <span class="k">else</span> <span class="kc">None</span><span class="p">),</span>
+                    <span class="n">output</span><span class="o">=</span><span class="n">output</span><span class="p">,</span>
+                    <span class="n">grading_context_columns</span><span class="o">=</span><span class="n">arg_string</span><span class="p">,</span>
+                <span class="p">)</span>
+            <span class="p">)</span>
+
+        <span class="n">scores</span> <span class="o">=</span> <span class="p">[</span><span class="kc">None</span><span class="p">]</span> <span class="o">*</span> <span class="nb">len</span><span class="p">(</span><span class="n">inputs</span><span class="p">)</span>
+        <span class="n">justifications</span> <span class="o">=</span> <span class="p">[</span><span class="kc">None</span><span class="p">]</span> <span class="o">*</span> <span class="nb">len</span><span class="p">(</span><span class="n">inputs</span><span class="p">)</span>
+
+        <span class="k">with</span> <span class="n">ThreadPoolExecutor</span><span class="p">(</span><span class="n">max_workers</span><span class="o">=</span><span class="n">max_workers</span><span class="p">)</span> <span class="k">as</span> <span class="n">executor</span><span class="p">:</span>
+            <span class="n">futures</span> <span class="o">=</span> <span class="p">{</span>
+                <span class="n">executor</span><span class="o">.</span><span class="n">submit</span><span class="p">(</span>
+                    <span class="n">_score_model_on_one_payload</span><span class="p">,</span>
+                    <span class="n">payload</span><span class="p">,</span>
+                    <span class="n">eval_model</span><span class="p">,</span>
+                    <span class="n">eval_parameters</span><span class="p">,</span>
+                <span class="p">):</span> <span class="n">indx</span>
+                <span class="k">for</span> <span class="n">indx</span><span class="p">,</span> <span class="n">payload</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">grading_payloads</span><span class="p">)</span>
+            <span class="p">}</span>
+
+            <span class="n">as_comp</span> <span class="o">=</span> <span class="n">as_completed</span><span class="p">(</span><span class="n">futures</span><span class="p">)</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="kn">from</span> <span class="nn">tqdm.auto</span> <span class="kn">import</span> <span class="n">tqdm</span>
+
+                <span class="n">as_comp</span> <span class="o">=</span> <span class="n">tqdm</span><span class="p">(</span><span class="n">as_comp</span><span class="p">,</span> <span class="n">total</span><span class="o">=</span><span class="nb">len</span><span class="p">(</span><span class="n">futures</span><span class="p">))</span>
+            <span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
+                <span class="k">pass</span>
+
+            <span class="k">for</span> <span class="n">future</span> <span class="ow">in</span> <span class="n">as_comp</span><span class="p">:</span>
+                <span class="n">indx</span> <span class="o">=</span> <span class="n">futures</span><span class="p">[</span><span class="n">future</span><span class="p">]</span>
+                <span class="n">score</span><span class="p">,</span> <span class="n">justification</span> <span class="o">=</span> <span class="n">future</span><span class="o">.</span><span class="n">result</span><span class="p">()</span>
+                <span class="n">scores</span><span class="p">[</span><span class="n">indx</span><span class="p">]</span> <span class="o">=</span> <span class="n">score</span>
+                <span class="n">justifications</span><span class="p">[</span><span class="n">indx</span><span class="p">]</span> <span class="o">=</span> <span class="n">justification</span>
+
+        <span class="n">aggregate_results</span> <span class="o">=</span> <span class="n">_get_aggregate_results</span><span class="p">(</span><span class="n">scores</span><span class="p">,</span> <span class="n">aggregations</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">MetricValue</span><span class="p">(</span><span class="n">scores</span><span class="p">,</span> <span class="n">justifications</span><span class="p">,</span> <span class="n">aggregate_results</span><span class="p">)</span>
+
+    <span class="n">signature_parameters</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="n">Parameter</span><span class="p">(</span><span class="s2">&quot;predictions&quot;</span><span class="p">,</span> <span class="n">Parameter</span><span class="o">.</span><span class="n">POSITIONAL_OR_KEYWORD</span><span class="p">,</span> <span class="n">annotation</span><span class="o">=</span><span class="s2">&quot;pd.Series&quot;</span><span class="p">),</span>
+        <span class="n">Parameter</span><span class="p">(</span><span class="s2">&quot;metrics&quot;</span><span class="p">,</span> <span class="n">Parameter</span><span class="o">.</span><span class="n">POSITIONAL_OR_KEYWORD</span><span class="p">,</span> <span class="n">annotation</span><span class="o">=</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">MetricValue</span><span class="p">]),</span>
+        <span class="n">Parameter</span><span class="p">(</span><span class="s2">&quot;inputs&quot;</span><span class="p">,</span> <span class="n">Parameter</span><span class="o">.</span><span class="n">POSITIONAL_OR_KEYWORD</span><span class="p">,</span> <span class="n">annotation</span><span class="o">=</span><span class="s2">&quot;pd.Series&quot;</span><span class="p">),</span>
+    <span class="p">]</span>
+
+    <span class="c1"># Add grading_context_columns to signature list</span>
+    <span class="k">for</span> <span class="n">var</span> <span class="ow">in</span> <span class="n">grading_context_columns</span><span class="p">:</span>
+        <span class="n">signature_parameters</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">Parameter</span><span class="p">(</span><span class="n">var</span><span class="p">,</span> <span class="n">Parameter</span><span class="o">.</span><span class="n">POSITIONAL_OR_KEYWORD</span><span class="p">))</span>
+
+    <span class="c1"># Note: this doesn&#39;t change how python allows calling the function</span>
+    <span class="c1"># extra params in grading_context_columns can only be passed as positional args</span>
+    <span class="n">eval_fn</span><span class="o">.</span><span class="n">__signature__</span> <span class="o">=</span> <span class="n">Signature</span><span class="p">(</span><span class="n">signature_parameters</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">_make_metric</span><span class="p">(</span>
+        <span class="n">eval_fn</span><span class="o">=</span><span class="n">eval_fn</span><span class="p">,</span>
+        <span class="n">greater_is_better</span><span class="o">=</span><span class="n">greater_is_better</span><span class="p">,</span>
+        <span class="n">name</span><span class="o">=</span><span class="n">name</span><span class="p">,</span>
+        <span class="n">version</span><span class="o">=</span><span class="n">version</span><span class="p">,</span>
+        <span class="n">metric_details</span><span class="o">=</span><span class="n">evaluation_context</span><span class="p">[</span><span class="s2">&quot;eval_prompt&quot;</span><span class="p">]</span><span class="o">.</span><span class="fm">__str__</span><span class="p">(),</span>
+        <span class="n">metric_metadata</span><span class="o">=</span><span class="n">metric_metadata</span><span class="p">,</span>
+        <span class="n">genai_metric_args</span><span class="o">=</span><span class="n">genai_metric_args</span><span class="p">,</span>
+        <span class="n">require_strict_signature</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+    <span class="p">)</span></div>
+
+
+<span class="k">def</span> <span class="nf">_filter_by_field</span><span class="p">(</span><span class="n">df</span><span class="p">,</span> <span class="n">field_name</span><span class="p">,</span> <span class="n">value</span><span class="p">):</span>
+    <span class="k">return</span> <span class="n">df</span><span class="p">[</span><span class="n">df</span><span class="p">[</span><span class="n">field_name</span><span class="p">]</span> <span class="o">==</span> <span class="n">value</span><span class="p">]</span>
+
+
+<span class="k">def</span> <span class="nf">_deserialize_genai_metric_args</span><span class="p">(</span><span class="n">args_dict</span><span class="p">):</span>
+    <span class="n">mlflow_version_at_ser</span> <span class="o">=</span> <span class="n">args_dict</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s2">&quot;mlflow_version&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+    <span class="n">fn_name</span> <span class="o">=</span> <span class="n">args_dict</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s2">&quot;fn_name&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">fn_name</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">mlflow_version_at_ser</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="n">MlflowException</span><span class="p">(</span>
+            <span class="n">message</span><span class="o">=</span><span class="s2">&quot;The artifact JSON file appears to be corrupted and cannot be deserialized. &quot;</span>
+            <span class="s2">&quot;Please regenerate the custom metrics and rerun the evaluation. &quot;</span>
+            <span class="s2">&quot;Ensure that the file is correctly formatted and not tampered with.&quot;</span><span class="p">,</span>
+            <span class="n">error_code</span><span class="o">=</span><span class="n">INTERNAL_ERROR</span><span class="p">,</span>
+        <span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">mlflow_version_at_ser</span> <span class="o">!=</span> <span class="n">VERSION</span><span class="p">:</span>
+        <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;The custom metric definitions were serialized using MLflow </span><span class="si">{</span><span class="n">mlflow_version_at_ser</span><span class="si">}</span><span class="s2">. &quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;Deserializing them with the current version </span><span class="si">{</span><span class="n">VERSION</span><span class="si">}</span><span class="s2"> might cause mismatches. &quot;</span>
+            <span class="s2">&quot;Please ensure compatibility or consider regenerating the metrics &quot;</span>
+            <span class="s2">&quot;using the current version.&quot;</span><span class="p">,</span>
+            <span class="ne">UserWarning</span><span class="p">,</span>
+            <span class="n">stacklevel</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
+        <span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">fn_name</span> <span class="o">==</span> <span class="n">make_genai_metric_from_prompt</span><span class="o">.</span><span class="vm">__name__</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">make_genai_metric_from_prompt</span><span class="p">(</span><span class="o">**</span><span class="n">args_dict</span><span class="p">)</span>
+
+    <span class="n">examples</span> <span class="o">=</span> <span class="n">args_dict</span><span class="p">[</span><span class="s2">&quot;examples&quot;</span><span class="p">]</span>
+    <span class="k">if</span> <span class="n">examples</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">args_dict</span><span class="p">[</span><span class="s2">&quot;examples&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="n">EvaluationExample</span><span class="p">(</span><span class="o">**</span><span class="n">example</span><span class="p">)</span> <span class="k">for</span> <span class="n">example</span> <span class="ow">in</span> <span class="n">examples</span><span class="p">]</span>
+
+    <span class="k">return</span> <span class="n">make_genai_metric</span><span class="p">(</span><span class="o">**</span><span class="n">args_dict</span><span class="p">)</span>
+
+
+<div class="viewcode-block" id="retrieve_custom_metrics"><a class="viewcode-back" href="../../../../python_api/mlflow.metrics.html#mlflow.metrics.genai.retrieve_custom_metrics">[docs]</a><span class="k">def</span> <span class="nf">retrieve_custom_metrics</span><span class="p">(</span>
+    <span class="n">run_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">name</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">version</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">EvaluationMetric</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Retrieve the custom metrics created by users through `make_genai_metric()` or</span>
+<span class="sd">    `make_genai_metric_from_prompt()` that are associated with a particular evaluation run.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        run_id: The unique identifier for the run.</span>
+<span class="sd">        name: (Optional) The name of the custom metric to retrieve.</span>
+<span class="sd">            If None, retrieve all metrics.</span>
+<span class="sd">        version: (Optional) The version of the custom metric to retrieve.</span>
+<span class="sd">            If None, retrieve all metrics.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        A list of EvaluationMetric objects that match the retrieval criteria.</span>
+
+<span class="sd">    .. code-block:: python</span>
+<span class="sd">        :caption: Example for retrieving a custom genai metric</span>
+
+<span class="sd">        import pandas as pd</span>
+
+<span class="sd">        import mlflow</span>
+<span class="sd">        from mlflow.metrics.genai.genai_metric import (</span>
+<span class="sd">            make_genai_metric_from_prompt,</span>
+<span class="sd">            retrieve_custom_metrics,</span>
+<span class="sd">        )</span>
+
+<span class="sd">        eval_df = pd.DataFrame(</span>
+<span class="sd">            {</span>
+<span class="sd">                &quot;inputs&quot;: [&quot;foo&quot;],</span>
+<span class="sd">                &quot;ground_truth&quot;: [&quot;bar&quot;],</span>
+<span class="sd">            }</span>
+<span class="sd">        )</span>
+<span class="sd">        with mlflow.start_run() as run:</span>
+<span class="sd">            system_prompt = &quot;Answer the following question in two sentences&quot;</span>
+<span class="sd">            basic_qa_model = mlflow.openai.log_model(</span>
+<span class="sd">                model=&quot;gpt-4o-mini&quot;,</span>
+<span class="sd">                task=&quot;chat.completions&quot;,</span>
+<span class="sd">                artifact_path=&quot;model&quot;,</span>
+<span class="sd">                messages=[</span>
+<span class="sd">                    {&quot;role&quot;: &quot;system&quot;, &quot;content&quot;: system_prompt},</span>
+<span class="sd">                    {&quot;role&quot;: &quot;user&quot;, &quot;content&quot;: &quot;{question}&quot;},</span>
+<span class="sd">                ],</span>
+<span class="sd">            )</span>
+<span class="sd">            custom_metric = make_genai_metric_from_prompt(</span>
+<span class="sd">                name=&quot;custom llm judge&quot;,</span>
+<span class="sd">                judge_prompt=&quot;This is a custom judge prompt.&quot;,</span>
+<span class="sd">                greater_is_better=False,</span>
+<span class="sd">                parameters={&quot;temperature&quot;: 0.0},</span>
+<span class="sd">            )</span>
+<span class="sd">            results = mlflow.evaluate(</span>
+<span class="sd">                basic_qa_model.model_uri,</span>
+<span class="sd">                eval_df,</span>
+<span class="sd">                targets=&quot;ground_truth&quot;,</span>
+<span class="sd">                model_type=&quot;question-answering&quot;,</span>
+<span class="sd">                evaluators=&quot;default&quot;,</span>
+<span class="sd">                extra_metrics=[custom_metric],</span>
+<span class="sd">            )</span>
+<span class="sd">        metrics = retrieve_custom_metrics(</span>
+<span class="sd">            run_id=run.info.run_id,</span>
+<span class="sd">            name=&quot;custom llm judge&quot;,</span>
+<span class="sd">        )</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">client</span> <span class="o">=</span> <span class="n">mlflow</span><span class="o">.</span><span class="n">MlflowClient</span><span class="p">()</span>
+    <span class="n">artifacts</span> <span class="o">=</span> <span class="p">[</span><span class="n">a</span><span class="o">.</span><span class="n">path</span> <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="n">client</span><span class="o">.</span><span class="n">list_artifacts</span><span class="p">(</span><span class="n">run_id</span><span class="p">)]</span>
+    <span class="k">if</span> <span class="n">_GENAI_CUSTOM_METRICS_FILE_NAME</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">artifacts</span><span class="p">:</span>
+        <span class="n">_logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;No custom metric definitions were found for this evaluation run.&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="p">[]</span>
+
+    <span class="k">with</span> <span class="n">TemporaryDirectory</span><span class="p">()</span> <span class="k">as</span> <span class="n">tmpdir</span><span class="p">:</span>
+        <span class="n">downloaded_artifact_path</span> <span class="o">=</span> <span class="n">mlflow</span><span class="o">.</span><span class="n">artifacts</span><span class="o">.</span><span class="n">download_artifacts</span><span class="p">(</span>
+            <span class="n">run_id</span><span class="o">=</span><span class="n">run_id</span><span class="p">,</span>
+            <span class="n">artifact_path</span><span class="o">=</span><span class="n">_GENAI_CUSTOM_METRICS_FILE_NAME</span><span class="p">,</span>
+            <span class="n">dst_path</span><span class="o">=</span><span class="n">tmpdir</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="n">custom_metrics</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">_read_from_file</span><span class="p">(</span><span class="n">downloaded_artifact_path</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">name</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">custom_metrics</span> <span class="o">=</span> <span class="n">_filter_by_field</span><span class="p">(</span><span class="n">custom_metrics</span><span class="p">,</span> <span class="s2">&quot;name&quot;</span><span class="p">,</span> <span class="n">name</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">version</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">custom_metrics</span> <span class="o">=</span> <span class="n">_filter_by_field</span><span class="p">(</span><span class="n">custom_metrics</span><span class="p">,</span> <span class="s2">&quot;version&quot;</span><span class="p">,</span> <span class="n">version</span><span class="p">)</span>
+    <span class="n">metric_args_list</span> <span class="o">=</span> <span class="n">custom_metrics</span><span class="p">[</span><span class="s2">&quot;metric_args&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">metric_args_list</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="n">_logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;No matching custom metric definitions were found.&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="p">[]</span>
+
+    <span class="k">return</span> <span class="p">[</span><span class="n">_deserialize_genai_metric_args</span><span class="p">(</span><span class="n">a</span><span class="p">)</span> <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="n">metric_args_list</span><span class="p">]</span></div>
+</pre></div>
+
+              </div>
+            </div>
+            <footer>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+      <p class="copyright">
+          &copy; MLflow Project, a Series of LF Projects, LLC. All rights reserved.
+      </p>
+
+  </div> 
+
+</footer>
+          </div>
+        </div>
+      </section>
+    </main>
+  </page>
+
+  
+
+
+  
+  <script type="text/javascript">
+    var DOCUMENTATION_OPTIONS = {
+      URL_ROOT:'../../../../',
+      VERSION:'2.17.1.dev0',
+      COLLAPSE_INDEX:false,
+      FILE_SUFFIX:'.html',
+      LINK_SUFFIX: '.html',
+      HAS_SOURCE:  true
+    };
+  </script>
+
+  
+
+  <script type="text/javascript" src="../../../../_static/js/clipboard.min.js"></script>
+  <script type="text/javascript" src="../../../../_static/js/jquery.waypoints.min.js"></script>
+
+  
+  
+  
+  <script type="text/javascript">var CLIPPY_SVG_PATH = "../../../../_static/clippy.svg";</script>
+  <script type="text/javascript" src="../../../../_static/js/custom.js"></script>
+  
+
+  
+  
+  <script type="text/javascript">
+    jQuery(function () {
+      SphinxRtdTheme.StickyNav.enable();
+    });
+
+  </script>
+  
+
+  
+  <script type="text/javascript">
+    document.addEventListener("DOMContentLoaded", function() {
+        function copyToClipboard(text) {
+            const textarea = document.createElement('textarea');
+            textarea.value = text;
+            document.body.appendChild(textarea);
+            textarea.select();
+            document.execCommand('copy');
+            document.body.removeChild(textarea);
+        }
+        // Get the code block designator class entries
+        const allHighlights = document.querySelectorAll('.highlight');
+        // Disable copyable links for notebook cell numbering and for cell outputs
+        const highlights = Array.from(allHighlights).filter(highlight => !highlight.closest('.highlight-none') && 
+            !highlight.closest('.nboutput'));
+    
+        highlights.forEach(function(highlight) {
+            const copyIcon = document.createElement('span');
+            copyIcon.classList.add('copy-icon');
+            copyIcon.innerHTML = '&#xf0ea;';
+
+            copyIcon.addEventListener('click', function() {
+                const code = highlight.querySelector('pre').textContent;
+                copyToClipboard(code);
+
+                // Flash effect on click
+                this.style.color = '#0194E2';
+                setTimeout(() => {
+                    this.style.color = ''; 
+                }, 100);
+
+                // Display "Code copied to clipboard" near the clicked icon
+                const message = document.createElement('span');
+                message.textContent = "Copied!";
+                message.classList.add('copy-message'); 
+
+                // Append the message to the icon
+                this.appendChild(message);
+
+                setTimeout(() => {
+                    this.removeChild(message);
+                }, 500);
+            });
+
+            highlight.appendChild(copyIcon);
+        });
+    });
+  </script>
+
+
+<script type="text/javascript">
+    document.addEventListener("DOMContentLoaded", function() {
+        // Force download for notebook-download-btn
+        const downloadButtons = document.querySelectorAll('.notebook-download-btn');
+        downloadButtons.forEach(function(button) {
+            button.addEventListener('click', function(event) {
+                event.preventDefault(); // Prevent default behavior
+
+                // Fetch the raw content of the notebook from GitHub
+                fetch(button.href)
+                    .then(response => response.blob())
+                    .then(blob => {
+                        const url = window.URL.createObjectURL(blob);
+                        const link = document.createElement('a');
+                        link.style.display = 'none';
+                        link.href = url;
+                        const filename = button.href.split('/').pop();
+                        link.download = filename; 
+
+                        document.body.appendChild(link);
+                        link.click();
+
+                        window.URL.revokeObjectURL(url);
+                        document.body.removeChild(link);
+                    })
+                    .catch(err => console.error('Error fetching the notebook:', err));
+            });
+        });
+    });
+</script> 
+</body>
+</html>

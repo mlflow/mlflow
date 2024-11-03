@@ -1,0 +1,1041 @@
+
+
+<!DOCTYPE html>
+<!-- source: docs/source/python_api/mlflow.environment_variables.rst -->
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>mlflow.environment_variables</title>
+  
+   
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+  <link rel="canonical" href="https://mlflow.org/docs/latest/python_api/mlflow.environment_variables.html">
+  
+  
+    <link rel="shortcut icon" href="../_static/favicon.ico"/>
+    
+
+    
+
+  
+    
+
+  
+
+  
+  
+    
+
+  
+
+  
+  
+    <link href="https://fonts.googleapis.com/css?family=Source+Sans+Pro:300,400,600" rel="stylesheet">
+    <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/css/custom.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/css/cards.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/css/grids.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/css/mobile.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/css/simple-cards.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/css/tabs.css" type="text/css" />
+    
+  
+        <link rel="index" title="Index"
+              href="../genindex.html"/>
+        <link rel="search" title="Search" href="../search.html"/>
+    <link rel="top" title="MLflow 2.17.1.dev0 documentation" href="../index.html"/>
+        <link rel="up" title="Python API" href="index.html"/>
+        <link rel="next" title="mlflow.fastai" href="/mlflow.fastai.html"/>
+        <link rel="prev" title="mlflow.entities" href="/mlflow.entities.html"/> 
+
+  
+  <script src="../_static/js/modernizr.min.js"></script>
+
+</head>
+<script type="text/javascript" src="../_static/jquery.js"></script>
+<script type="text/javascript" src="../_static/underscore.js"></script>
+<script type="text/javascript" src="../_static/doctools.js"></script>
+<script type="text/javascript" src="../_static/languagesections.js"></script>
+<script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+<script type="text/javascript" src="../_static/runllm.js"></script>
+
+<body class="wy-body-for-nav" role="document">
+  
+
+  
+  <nav class="wy-nav-top header" role="navigation" aria-label="top navigation">
+    <ul>
+  <li class="menu-toggle">
+    <i data-toggle="wy-nav-top" class="wy-nav-top-menu-button db-icon db-icon-menu pull-left"></i>
+    <a href="../index.html" class="wy-nav-top-logo"
+      ><img src="../_static/MLflow-logo-final-black.png" alt="MLflow"
+    /></a>
+    <span class="version">2.17.1.dev0</span>
+  </li>
+</ul>
+  </nav>
+  <page>
+    
+
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side relative">
+      <div class="wy-side-scroll">
+  <div class="wy-side-nav-search">
+    
+
+    
+
+    
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+  <input type="text" name="q" placeholder="Search" />
+  <input type="hidden" name="check_keywords" value="yes" />
+  <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+
+    
+  </div>
+
+  <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+    
+      <a href="../index.html" class="main-navigation-home"><img src="../_static/icons/nav-home.svg"> MLflow</a>
+    
+
+    
+      
+
+      
+        <ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">Python API</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="mlflow.html">mlflow</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.html#mlflow-tracing-apis">MLflow Tracing APIs</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.artifacts.html">mlflow.artifacts</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.autogen.html">mlflow.autogen</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.catboost.html">mlflow.catboost</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.client.html">mlflow.client</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.config.html">mlflow.config</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.data.html">mlflow.data</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.deployments.html">mlflow.deployments</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.diviner.html">mlflow.diviner</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.dspy.html">mlflow.dspy</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.entities.html">mlflow.entities</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">mlflow.environment_variables</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.fastai.html">mlflow.fastai</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.gateway.html">mlflow.gateway</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.gluon.html">mlflow.gluon</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.h2o.html">mlflow.h2o</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.johnsnowlabs.html">mlflow.johnsnowlabs</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.keras.html">mlflow.keras</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.langchain.html">mlflow.langchain</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.lightgbm.html">mlflow.lightgbm</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.llama_index.html">mlflow.llama_index</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.metrics.html">mlflow.metrics</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.mleap.html">mlflow.mleap</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.models.html">mlflow.models</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.onnx.html">mlflow.onnx</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.openai.html">mlflow.openai</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.paddle.html">mlflow.paddle</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.pmdarima.html">mlflow.pmdarima</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.projects.html">mlflow.projects</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.promptflow.html">mlflow.promptflow</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.prophet.html">mlflow.prophet</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.pyfunc.html">mlflow.pyfunc</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.pyspark.ml.html">mlflow.pyspark.ml</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.pytorch.html">mlflow.pytorch</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.recipes.html">mlflow.recipes</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.sagemaker.html">mlflow.sagemaker</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.sentence_transformers.html">mlflow.sentence_transformers</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.server.html">mlflow.server</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.shap.html">mlflow.shap</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.sklearn.html">mlflow.sklearn</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.spacy.html">mlflow.spacy</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.spark.html">mlflow.spark</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.statsmodels.html">mlflow.statsmodels</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.system_metrics.html">mlflow.system_metrics</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.tensorflow.html">mlflow.tensorflow</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.tracing.html">mlflow.tracing</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.transformers.html">mlflow.transformers</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.types.html">mlflow.types</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.utils.html">mlflow.utils</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.xgboost.html">mlflow.xgboost</a></li>
+<li class="toctree-l2"><a class="reference internal" href="index.html#log-levels">Log Levels</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../cli.html">Command-Line Interface</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../R-api.html">R API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../java_api/index.html">Java API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../rest-api.html">REST API</a></li>
+</ul>
+
+      
+    
+  </div>
+
+  <div role="contentinfo">
+    
+
+    <p>
+      <a id='feedbacklink' href="https://github.com/mlflow/mlflow/blob/master/CONTRIBUTING.md" target="_blank">Contribute</a>
+    </p>
+  </div>
+</div>
+    </nav>
+
+    <main class="wy-grid-for-nav">
+      <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+        <div class="wy-nav-content">
+          <div class="rst-content">
+            
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href="../index.html">Documentation</a> <span class="db-icon db-icon-chevron-right"></span></li>
+    
+        <li><a href="index.html">Python API</a> <span class="db-icon db-icon-chevron-right"></span></li>
+    
+    
+      <li>mlflow.environment_variables</li>
+    
+    
+    <!-- <li class="wy-breadcrumbs-aside">
+      <a href="https://github.com/mlflow/mlflow/blob/master/docs/source/python_api/mlflow.environment_variables.rst" class="fa fa-github"> Edit on GitHub</a>
+    </li> -->
+    
+  </ul>
+</div>
+            <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+              <div itemprop="articleBody">
+                
+  <div class="section" id="module-mlflow.environment_variables">
+<span id="mlflow-environment-variables"></span><h1>mlflow.environment_variables<a class="headerlink" href="#module-mlflow.environment_variables" title="Permalink to this headline"> </a></h1>
+<p>This module defines environment variables used in MLflow.</p>
+<dl class="py data">
+<dt id="mlflow.environment_variables.MLFLOW_ALLOW_HTTP_REDIRECTS">
+<code class="sig-prename descclassname"><span class="pre">mlflow.environment_variables.</span></code><code class="sig-name descname"><span class="pre">MLFLOW_ALLOW_HTTP_REDIRECTS</span></code><em class="property"> <span class="pre">=</span> <span class="pre">'MLFLOW_ALLOW_HTTP_REDIRECTS'</span></em><a class="headerlink" href="#mlflow.environment_variables.MLFLOW_ALLOW_HTTP_REDIRECTS" title="Permalink to this definition"> </a></dt>
+<dd><p>Specifies whether or not to allow the MLflow server to follow redirects when
+making HTTP requests. If set to False, the server will throw an exception if it
+encounters a redirect response.
+(default: <code class="docutils literal notranslate"><span class="pre">True</span></code>)</p>
+</dd></dl>
+
+<dl class="py data">
+<dt id="mlflow.environment_variables.MLFLOW_ARTIFACT_UPLOAD_DOWNLOAD_TIMEOUT">
+<code class="sig-prename descclassname"><span class="pre">mlflow.environment_variables.</span></code><code class="sig-name descname"><span class="pre">MLFLOW_ARTIFACT_UPLOAD_DOWNLOAD_TIMEOUT</span></code><em class="property"> <span class="pre">=</span> <span class="pre">'MLFLOW_ARTIFACT_UPLOAD_DOWNLOAD_TIMEOUT'</span></em><a class="headerlink" href="#mlflow.environment_variables.MLFLOW_ARTIFACT_UPLOAD_DOWNLOAD_TIMEOUT" title="Permalink to this definition"> </a></dt>
+<dd><p>(Experimental, may be changed or removed)
+Specifies the timeout to use when uploading or downloading a file
+(default: <code class="docutils literal notranslate"><span class="pre">None</span></code>). If None, individual artifact stores will choose defaults.</p>
+</dd></dl>
+
+<dl class="py data">
+<dt id="mlflow.environment_variables.MLFLOW_ASYNC_LOGGING_BUFFERING_SECONDS">
+<code class="sig-prename descclassname"><span class="pre">mlflow.environment_variables.</span></code><code class="sig-name descname"><span class="pre">MLFLOW_ASYNC_LOGGING_BUFFERING_SECONDS</span></code><em class="property"> <span class="pre">=</span> <span class="pre">'MLFLOW_ASYNC_LOGGING_BUFFERING_SECONDS'</span></em><a class="headerlink" href="#mlflow.environment_variables.MLFLOW_ASYNC_LOGGING_BUFFERING_SECONDS" title="Permalink to this definition"> </a></dt>
+<dd><p>Specifies the length of time in seconds for the asynchronous logging thread to wait before
+logging a batch.</p>
+</dd></dl>
+
+<dl class="py data">
+<dt id="mlflow.environment_variables.MLFLOW_ASYNC_LOGGING_THREADPOOL_SIZE">
+<code class="sig-prename descclassname"><span class="pre">mlflow.environment_variables.</span></code><code class="sig-name descname"><span class="pre">MLFLOW_ASYNC_LOGGING_THREADPOOL_SIZE</span></code><em class="property"> <span class="pre">=</span> <span class="pre">'MLFLOW_ASYNC_LOGGING_THREADPOOL_SIZE'</span></em><a class="headerlink" href="#mlflow.environment_variables.MLFLOW_ASYNC_LOGGING_THREADPOOL_SIZE" title="Permalink to this definition"> </a></dt>
+<dd><p>Number of workers in the thread pool used for asynchronous logging, defaults to 10.</p>
+</dd></dl>
+
+<dl class="py data">
+<dt id="mlflow.environment_variables.MLFLOW_AUTH_CONFIG_PATH">
+<code class="sig-prename descclassname"><span class="pre">mlflow.environment_variables.</span></code><code class="sig-name descname"><span class="pre">MLFLOW_AUTH_CONFIG_PATH</span></code><em class="property"> <span class="pre">=</span> <span class="pre">'MLFLOW_AUTH_CONFIG_PATH'</span></em><a class="headerlink" href="#mlflow.environment_variables.MLFLOW_AUTH_CONFIG_PATH" title="Permalink to this definition"> </a></dt>
+<dd><p>Specified the path to the configuration file for MLflow Authentication.
+(default: <code class="docutils literal notranslate"><span class="pre">None</span></code>)</p>
+</dd></dl>
+
+<dl class="py data">
+<dt id="mlflow.environment_variables.MLFLOW_CONDA_CREATE_ENV_CMD">
+<code class="sig-prename descclassname"><span class="pre">mlflow.environment_variables.</span></code><code class="sig-name descname"><span class="pre">MLFLOW_CONDA_CREATE_ENV_CMD</span></code><em class="property"> <span class="pre">=</span> <span class="pre">'MLFLOW_CONDA_CREATE_ENV_CMD'</span></em><a class="headerlink" href="#mlflow.environment_variables.MLFLOW_CONDA_CREATE_ENV_CMD" title="Permalink to this definition"> </a></dt>
+<dd><p>Specifies the name of the command to use when creating the environments.
+For example, let’s say we want to use mamba (<a class="reference external" href="https://github.com/mamba-org/mamba">https://github.com/mamba-org/mamba</a>)
+instead of conda to create environments.
+Then: &gt; conda install mamba -n base -c conda-forge
+If not set, use the same as conda_path
+(default: <code class="docutils literal notranslate"><span class="pre">conda</span></code>)</p>
+</dd></dl>
+
+<dl class="py data">
+<dt id="mlflow.environment_variables.MLFLOW_CONDA_HOME">
+<code class="sig-prename descclassname"><span class="pre">mlflow.environment_variables.</span></code><code class="sig-name descname"><span class="pre">MLFLOW_CONDA_HOME</span></code><em class="property"> <span class="pre">=</span> <span class="pre">'MLFLOW_CONDA_HOME'</span></em><a class="headerlink" href="#mlflow.environment_variables.MLFLOW_CONDA_HOME" title="Permalink to this definition"> </a></dt>
+<dd><p>Specifies the conda home directory to use.
+(default: <code class="docutils literal notranslate"><span class="pre">conda</span></code>)</p>
+</dd></dl>
+
+<dl class="py data">
+<dt id="mlflow.environment_variables.MLFLOW_CONFIGURE_LOGGING">
+<code class="sig-prename descclassname"><span class="pre">mlflow.environment_variables.</span></code><code class="sig-name descname"><span class="pre">MLFLOW_CONFIGURE_LOGGING</span></code><em class="property"> <span class="pre">=</span> <span class="pre">'MLFLOW_LOGGING_CONFIGURE_LOGGING'</span></em><a class="headerlink" href="#mlflow.environment_variables.MLFLOW_CONFIGURE_LOGGING" title="Permalink to this definition"> </a></dt>
+<dd><p>Specifies whether or not to have mlflow configure logging on import.
+If set to True, mlflow will configure <code class="docutils literal notranslate"><span class="pre">mlflow.&lt;module_name&gt;</span></code> loggers with
+logging handlers and formatters.
+(default: <code class="docutils literal notranslate"><span class="pre">True</span></code>)</p>
+</dd></dl>
+
+<dl class="py data">
+<dt id="mlflow.environment_variables.MLFLOW_DATABRICKS_ENDPOINT_HTTP_RETRY_TIMEOUT">
+<code class="sig-prename descclassname"><span class="pre">mlflow.environment_variables.</span></code><code class="sig-name descname"><span class="pre">MLFLOW_DATABRICKS_ENDPOINT_HTTP_RETRY_TIMEOUT</span></code><em class="property"> <span class="pre">=</span> <span class="pre">'MLFLOW_DATABRICKS_ENDPOINT_HTTP_RETRY_TIMEOUT'</span></em><a class="headerlink" href="#mlflow.environment_variables.MLFLOW_DATABRICKS_ENDPOINT_HTTP_RETRY_TIMEOUT" title="Permalink to this definition"> </a></dt>
+<dd><p>Specify the timeout in seconds for Databricks endpoint HTTP request retries.</p>
+</dd></dl>
+
+<dl class="py data">
+<dt id="mlflow.environment_variables.MLFLOW_DEFAULT_PREDICTION_DEVICE">
+<code class="sig-prename descclassname"><span class="pre">mlflow.environment_variables.</span></code><code class="sig-name descname"><span class="pre">MLFLOW_DEFAULT_PREDICTION_DEVICE</span></code><em class="property"> <span class="pre">=</span> <span class="pre">'MLFLOW_DEFAULT_PREDICTION_DEVICE'</span></em><a class="headerlink" href="#mlflow.environment_variables.MLFLOW_DEFAULT_PREDICTION_DEVICE" title="Permalink to this definition"> </a></dt>
+<dd><p>Specifies the device intended for use in the predict function - can be used
+to override behavior where the GPU is used by default when available by
+setting this environment variable to be <code class="docutils literal notranslate"><span class="pre">cpu</span></code>. Currently, this
+variable is only supported for the MLflow PyTorch and HuggingFace flavors.
+For the HuggingFace flavor, note that device must be parseable as an integer.</p>
+</dd></dl>
+
+<dl class="py data">
+<dt id="mlflow.environment_variables.MLFLOW_DEPLOYMENTS_CONFIG">
+<code class="sig-prename descclassname"><span class="pre">mlflow.environment_variables.</span></code><code class="sig-name descname"><span class="pre">MLFLOW_DEPLOYMENTS_CONFIG</span></code><em class="property"> <span class="pre">=</span> <span class="pre">'MLFLOW_DEPLOYMENTS_CONFIG'</span></em><a class="headerlink" href="#mlflow.environment_variables.MLFLOW_DEPLOYMENTS_CONFIG" title="Permalink to this definition"> </a></dt>
+<dd><p>Specifies the path of the config file for MLflow AI Gateway.
+(default: <code class="docutils literal notranslate"><span class="pre">None</span></code>)</p>
+</dd></dl>
+
+<dl class="py data">
+<dt id="mlflow.environment_variables.MLFLOW_DEPLOYMENTS_TARGET">
+<code class="sig-prename descclassname"><span class="pre">mlflow.environment_variables.</span></code><code class="sig-name descname"><span class="pre">MLFLOW_DEPLOYMENTS_TARGET</span></code><em class="property"> <span class="pre">=</span> <span class="pre">'MLFLOW_DEPLOYMENTS_TARGET'</span></em><a class="headerlink" href="#mlflow.environment_variables.MLFLOW_DEPLOYMENTS_TARGET" title="Permalink to this definition"> </a></dt>
+<dd><p>(Experimental, may be changed or removed)
+Specifies the uri of an MLflow AI Gateway instance to be used with the Deployments
+Client APIs
+(default: <code class="docutils literal notranslate"><span class="pre">None</span></code>)</p>
+</dd></dl>
+
+<dl class="py data">
+<dt id="mlflow.environment_variables.MLFLOW_DEPLOYMENT_FLAVOR_NAME">
+<code class="sig-prename descclassname"><span class="pre">mlflow.environment_variables.</span></code><code class="sig-name descname"><span class="pre">MLFLOW_DEPLOYMENT_FLAVOR_NAME</span></code><em class="property"> <span class="pre">=</span> <span class="pre">'MLFLOW_DEPLOYMENT_FLAVOR_NAME'</span></em><a class="headerlink" href="#mlflow.environment_variables.MLFLOW_DEPLOYMENT_FLAVOR_NAME" title="Permalink to this definition"> </a></dt>
+<dd><p>Specifies the flavor to serve in the scoring server.
+(default <code class="docutils literal notranslate"><span class="pre">None</span></code>)</p>
+</dd></dl>
+
+<dl class="py data">
+<dt id="mlflow.environment_variables.MLFLOW_DFS_TMP">
+<code class="sig-prename descclassname"><span class="pre">mlflow.environment_variables.</span></code><code class="sig-name descname"><span class="pre">MLFLOW_DFS_TMP</span></code><em class="property"> <span class="pre">=</span> <span class="pre">'MLFLOW_DFS_TMP'</span></em><a class="headerlink" href="#mlflow.environment_variables.MLFLOW_DFS_TMP" title="Permalink to this definition"> </a></dt>
+<dd><p>Specifies the <code class="docutils literal notranslate"><span class="pre">dfs_tmpdir</span></code> parameter to use for <code class="docutils literal notranslate"><span class="pre">mlflow.spark.save_model</span></code>,
+<code class="docutils literal notranslate"><span class="pre">mlflow.spark.log_model</span></code> and <code class="docutils literal notranslate"><span class="pre">mlflow.spark.load_model</span></code>. See
+<a class="reference external" href="https://www.mlflow.org/docs/latest/python_api/mlflow.spark.html#mlflow.spark.save_model">https://www.mlflow.org/docs/latest/python_api/mlflow.spark.html#mlflow.spark.save_model</a>
+for more information.
+(default: <code class="docutils literal notranslate"><span class="pre">/tmp/mlflow</span></code>)</p>
+</dd></dl>
+
+<dl class="py data">
+<dt id="mlflow.environment_variables.MLFLOW_DISABLE_ENV_CREATION">
+<code class="sig-prename descclassname"><span class="pre">mlflow.environment_variables.</span></code><code class="sig-name descname"><span class="pre">MLFLOW_DISABLE_ENV_CREATION</span></code><em class="property"> <span class="pre">=</span> <span class="pre">'MLFLOW_DISABLE_ENV_CREATION'</span></em><a class="headerlink" href="#mlflow.environment_variables.MLFLOW_DISABLE_ENV_CREATION" title="Permalink to this definition"> </a></dt>
+<dd><p>Specifies whether to disable creating a new conda environment for <cite>mlflow models build-docker</cite>.
+(default: <code class="docutils literal notranslate"><span class="pre">False</span></code>)</p>
+</dd></dl>
+
+<dl class="py data">
+<dt id="mlflow.environment_variables.MLFLOW_DISABLE_ENV_MANAGER_CONDA_WARNING">
+<code class="sig-prename descclassname"><span class="pre">mlflow.environment_variables.</span></code><code class="sig-name descname"><span class="pre">MLFLOW_DISABLE_ENV_MANAGER_CONDA_WARNING</span></code><em class="property"> <span class="pre">=</span> <span class="pre">'MLFLOW_DISABLE_ENV_MANAGER_CONDA_WARNING'</span></em><a class="headerlink" href="#mlflow.environment_variables.MLFLOW_DISABLE_ENV_MANAGER_CONDA_WARNING" title="Permalink to this definition"> </a></dt>
+<dd><p>Specifies whether or not to print a warning when <cite>–env-manager=conda</cite> is specified.
+(default: <code class="docutils literal notranslate"><span class="pre">False</span></code>)</p>
+</dd></dl>
+
+<dl class="py data">
+<dt id="mlflow.environment_variables.MLFLOW_DOCKER_OPENJDK_VERSION">
+<code class="sig-prename descclassname"><span class="pre">mlflow.environment_variables.</span></code><code class="sig-name descname"><span class="pre">MLFLOW_DOCKER_OPENJDK_VERSION</span></code><em class="property"> <span class="pre">=</span> <span class="pre">'MLFLOW_DOCKER_OPENJDK_VERSION'</span></em><a class="headerlink" href="#mlflow.environment_variables.MLFLOW_DOCKER_OPENJDK_VERSION" title="Permalink to this definition"> </a></dt>
+<dd><p>The OpenJDK version to install in the Docker image used for MLflow models.
+(default: <code class="docutils literal notranslate"><span class="pre">11</span></code>)</p>
+</dd></dl>
+
+<dl class="py data">
+<dt id="mlflow.environment_variables.MLFLOW_DOWNLOAD_CHUNK_TIMEOUT">
+<code class="sig-prename descclassname"><span class="pre">mlflow.environment_variables.</span></code><code class="sig-name descname"><span class="pre">MLFLOW_DOWNLOAD_CHUNK_TIMEOUT</span></code><em class="property"> <span class="pre">=</span> <span class="pre">'MLFLOW_DOWNLOAD_CHUNK_TIMEOUT'</span></em><a class="headerlink" href="#mlflow.environment_variables.MLFLOW_DOWNLOAD_CHUNK_TIMEOUT" title="Permalink to this definition"> </a></dt>
+<dd><p>Specifies the timeout value for downloading chunks of mlflow artifacts.
+(default: <code class="docutils literal notranslate"><span class="pre">300</span></code>)</p>
+</dd></dl>
+
+<dl class="py data">
+<dt id="mlflow.environment_variables.MLFLOW_ENABLE_ARTIFACTS_PROGRESS_BAR">
+<code class="sig-prename descclassname"><span class="pre">mlflow.environment_variables.</span></code><code class="sig-name descname"><span class="pre">MLFLOW_ENABLE_ARTIFACTS_PROGRESS_BAR</span></code><em class="property"> <span class="pre">=</span> <span class="pre">'MLFLOW_ENABLE_ARTIFACTS_PROGRESS_BAR'</span></em><a class="headerlink" href="#mlflow.environment_variables.MLFLOW_ENABLE_ARTIFACTS_PROGRESS_BAR" title="Permalink to this definition"> </a></dt>
+<dd><p>Specifies whether to display the progress bar when uploading/downloading artifacts.
+(default: <code class="docutils literal notranslate"><span class="pre">True</span></code>)</p>
+</dd></dl>
+
+<dl class="py data">
+<dt id="mlflow.environment_variables.MLFLOW_ENABLE_ASYNC_LOGGING">
+<code class="sig-prename descclassname"><span class="pre">mlflow.environment_variables.</span></code><code class="sig-name descname"><span class="pre">MLFLOW_ENABLE_ASYNC_LOGGING</span></code><em class="property"> <span class="pre">=</span> <span class="pre">'MLFLOW_ENABLE_ASYNC_LOGGING'</span></em><a class="headerlink" href="#mlflow.environment_variables.MLFLOW_ENABLE_ASYNC_LOGGING" title="Permalink to this definition"> </a></dt>
+<dd><p>If True, MLflow fluent logging APIs, e.g., <cite>mlflow.log_metric</cite> will log asynchronously.</p>
+</dd></dl>
+
+<dl class="py data">
+<dt id="mlflow.environment_variables.MLFLOW_ENABLE_DBFS_FUSE_ARTIFACT_REPO">
+<code class="sig-prename descclassname"><span class="pre">mlflow.environment_variables.</span></code><code class="sig-name descname"><span class="pre">MLFLOW_ENABLE_DBFS_FUSE_ARTIFACT_REPO</span></code><em class="property"> <span class="pre">=</span> <span class="pre">'MLFLOW_ENABLE_DBFS_FUSE_ARTIFACT_REPO'</span></em><a class="headerlink" href="#mlflow.environment_variables.MLFLOW_ENABLE_DBFS_FUSE_ARTIFACT_REPO" title="Permalink to this definition"> </a></dt>
+<dd><p>Specifies whether or not to use DBFS FUSE mount to store artifacts on Databricks
+(default: <code class="docutils literal notranslate"><span class="pre">False</span></code>)</p>
+</dd></dl>
+
+<dl class="py data">
+<dt id="mlflow.environment_variables.MLFLOW_ENABLE_DB_SDK">
+<code class="sig-prename descclassname"><span class="pre">mlflow.environment_variables.</span></code><code class="sig-name descname"><span class="pre">MLFLOW_ENABLE_DB_SDK</span></code><em class="property"> <span class="pre">=</span> <span class="pre">'MLFLOW_ENABLE_DB_SDK'</span></em><a class="headerlink" href="#mlflow.environment_variables.MLFLOW_ENABLE_DB_SDK" title="Permalink to this definition"> </a></dt>
+<dd><p>Whether to enable Databricks SDK. If true, MLflow uses databricks-sdk to send HTTP requests
+to Databricks endpoint, otherwise MLflow uses <code class="docutils literal notranslate"><span class="pre">requests</span></code> library to send HTTP requests
+to Databricks endpoint. Note that if you want to use OAuth authentication, you have to
+set this environment variable to true.
+(default: <code class="docutils literal notranslate"><span class="pre">True</span></code>)</p>
+</dd></dl>
+
+<dl class="py data">
+<dt id="mlflow.environment_variables.MLFLOW_ENABLE_PROXY_MULTIPART_UPLOAD">
+<code class="sig-prename descclassname"><span class="pre">mlflow.environment_variables.</span></code><code class="sig-name descname"><span class="pre">MLFLOW_ENABLE_PROXY_MULTIPART_UPLOAD</span></code><em class="property"> <span class="pre">=</span> <span class="pre">'MLFLOW_ENABLE_PROXY_MULTIPART_UPLOAD'</span></em><a class="headerlink" href="#mlflow.environment_variables.MLFLOW_ENABLE_PROXY_MULTIPART_UPLOAD" title="Permalink to this definition"> </a></dt>
+<dd><p>Specifies whether or not to use multipart upload for proxied artifact access.
+(default: <code class="docutils literal notranslate"><span class="pre">False</span></code>)</p>
+</dd></dl>
+
+<dl class="py data">
+<dt id="mlflow.environment_variables.MLFLOW_ENABLE_SYSTEM_METRICS_LOGGING">
+<code class="sig-prename descclassname"><span class="pre">mlflow.environment_variables.</span></code><code class="sig-name descname"><span class="pre">MLFLOW_ENABLE_SYSTEM_METRICS_LOGGING</span></code><em class="property"> <span class="pre">=</span> <span class="pre">'MLFLOW_ENABLE_SYSTEM_METRICS_LOGGING'</span></em><a class="headerlink" href="#mlflow.environment_variables.MLFLOW_ENABLE_SYSTEM_METRICS_LOGGING" title="Permalink to this definition"> </a></dt>
+<dd><p>Specifies if system metrics logging should be enabled.</p>
+</dd></dl>
+
+<dl class="py data">
+<dt id="mlflow.environment_variables.MLFLOW_ENABLE_UC_FUNCTIONS">
+<code class="sig-prename descclassname"><span class="pre">mlflow.environment_variables.</span></code><code class="sig-name descname"><span class="pre">MLFLOW_ENABLE_UC_FUNCTIONS</span></code><em class="property"> <span class="pre">=</span> <span class="pre">'MLFLOW_ENABLE_UC_FUNCTIONS'</span></em><a class="headerlink" href="#mlflow.environment_variables.MLFLOW_ENABLE_UC_FUNCTIONS" title="Permalink to this definition"> </a></dt>
+<dd><p>Enable Unity Catalog integration for MLflow AI Gateway.
+(default: <code class="docutils literal notranslate"><span class="pre">False</span></code>)</p>
+</dd></dl>
+
+<dl class="py data">
+<dt id="mlflow.environment_variables.MLFLOW_ENABLE_UC_VOLUME_FUSE_ARTIFACT_REPO">
+<code class="sig-prename descclassname"><span class="pre">mlflow.environment_variables.</span></code><code class="sig-name descname"><span class="pre">MLFLOW_ENABLE_UC_VOLUME_FUSE_ARTIFACT_REPO</span></code><em class="property"> <span class="pre">=</span> <span class="pre">'MLFLOW_ENABLE_UC_VOLUME_FUSE_ARTIFACT_REPO'</span></em><a class="headerlink" href="#mlflow.environment_variables.MLFLOW_ENABLE_UC_VOLUME_FUSE_ARTIFACT_REPO" title="Permalink to this definition"> </a></dt>
+<dd><p>Specifies whether or not to use UC Volume FUSE mount to store artifacts on Databricks
+(default: <code class="docutils literal notranslate"><span class="pre">True</span></code>)</p>
+</dd></dl>
+
+<dl class="py data">
+<dt id="mlflow.environment_variables.MLFLOW_ENV_ROOT">
+<code class="sig-prename descclassname"><span class="pre">mlflow.environment_variables.</span></code><code class="sig-name descname"><span class="pre">MLFLOW_ENV_ROOT</span></code><em class="property"> <span class="pre">=</span> <span class="pre">'MLFLOW_ENV_ROOT'</span></em><a class="headerlink" href="#mlflow.environment_variables.MLFLOW_ENV_ROOT" title="Permalink to this definition"> </a></dt>
+<dd><p>Specifies the root directory to create Python virtual environments in.
+(default: <code class="docutils literal notranslate"><span class="pre">~/.mlflow/envs</span></code>)</p>
+</dd></dl>
+
+<dl class="py data">
+<dt id="mlflow.environment_variables.MLFLOW_EXPERIMENT_ID">
+<code class="sig-prename descclassname"><span class="pre">mlflow.environment_variables.</span></code><code class="sig-name descname"><span class="pre">MLFLOW_EXPERIMENT_ID</span></code><em class="property"> <span class="pre">=</span> <span class="pre">'MLFLOW_EXPERIMENT_ID'</span></em><a class="headerlink" href="#mlflow.environment_variables.MLFLOW_EXPERIMENT_ID" title="Permalink to this definition"> </a></dt>
+<dd><p>Specifies the default experiment ID to create run to.
+(default: <code class="docutils literal notranslate"><span class="pre">None</span></code>)</p>
+</dd></dl>
+
+<dl class="py data">
+<dt id="mlflow.environment_variables.MLFLOW_EXPERIMENT_NAME">
+<code class="sig-prename descclassname"><span class="pre">mlflow.environment_variables.</span></code><code class="sig-name descname"><span class="pre">MLFLOW_EXPERIMENT_NAME</span></code><em class="property"> <span class="pre">=</span> <span class="pre">'MLFLOW_EXPERIMENT_NAME'</span></em><a class="headerlink" href="#mlflow.environment_variables.MLFLOW_EXPERIMENT_NAME" title="Permalink to this definition"> </a></dt>
+<dd><p>Specifies the default experiment name to create run to.
+(default: <code class="docutils literal notranslate"><span class="pre">None</span></code>)</p>
+</dd></dl>
+
+<dl class="py data">
+<dt id="mlflow.environment_variables.MLFLOW_GATEWAY_CONFIG">
+<code class="sig-prename descclassname"><span class="pre">mlflow.environment_variables.</span></code><code class="sig-name descname"><span class="pre">MLFLOW_GATEWAY_CONFIG</span></code><em class="property"> <span class="pre">=</span> <span class="pre">'MLFLOW_GATEWAY_CONFIG'</span></em><a class="headerlink" href="#mlflow.environment_variables.MLFLOW_GATEWAY_CONFIG" title="Permalink to this definition"> </a></dt>
+<dd><p>Specifies the path of the config file for MLflow AI Gateway.
+(default: <code class="docutils literal notranslate"><span class="pre">None</span></code>)</p>
+</dd></dl>
+
+<dl class="py data">
+<dt id="mlflow.environment_variables.MLFLOW_GATEWAY_URI">
+<code class="sig-prename descclassname"><span class="pre">mlflow.environment_variables.</span></code><code class="sig-name descname"><span class="pre">MLFLOW_GATEWAY_URI</span></code><em class="property"> <span class="pre">=</span> <span class="pre">'MLFLOW_GATEWAY_URI'</span></em><a class="headerlink" href="#mlflow.environment_variables.MLFLOW_GATEWAY_URI" title="Permalink to this definition"> </a></dt>
+<dd><p>(Experimental, may be changed or removed)
+Specifies the uri of a MLflow Gateway Server instance to be used with the Gateway Client APIs
+(default: <code class="docutils literal notranslate"><span class="pre">None</span></code>)</p>
+</dd></dl>
+
+<dl class="py data">
+<dt id="mlflow.environment_variables.MLFLOW_GCS_DEFAULT_TIMEOUT">
+<code class="sig-prename descclassname"><span class="pre">mlflow.environment_variables.</span></code><code class="sig-name descname"><span class="pre">MLFLOW_GCS_DEFAULT_TIMEOUT</span></code><em class="property"> <span class="pre">=</span> <span class="pre">'MLFLOW_GCS_DEFAULT_TIMEOUT'</span></em><a class="headerlink" href="#mlflow.environment_variables.MLFLOW_GCS_DEFAULT_TIMEOUT" title="Permalink to this definition"> </a></dt>
+<dd><p>(Deprecated, please use <code class="docutils literal notranslate"><span class="pre">MLFLOW_ARTIFACT_UPLOAD_DOWNLOAD_TIMEOUT</span></code>)
+Specifies the default timeout to use when downloading/uploading a file from/to GCS
+(default: <code class="docutils literal notranslate"><span class="pre">None</span></code>). If None, <code class="docutils literal notranslate"><span class="pre">google.cloud.storage.constants._DEFAULT_TIMEOUT</span></code> is used.</p>
+</dd></dl>
+
+<dl class="py data">
+<dt id="mlflow.environment_variables.MLFLOW_GCS_DOWNLOAD_CHUNK_SIZE">
+<code class="sig-prename descclassname"><span class="pre">mlflow.environment_variables.</span></code><code class="sig-name descname"><span class="pre">MLFLOW_GCS_DOWNLOAD_CHUNK_SIZE</span></code><em class="property"> <span class="pre">=</span> <span class="pre">'MLFLOW_GCS_DOWNLOAD_CHUNK_SIZE'</span></em><a class="headerlink" href="#mlflow.environment_variables.MLFLOW_GCS_DOWNLOAD_CHUNK_SIZE" title="Permalink to this definition"> </a></dt>
+<dd><p>Specifies the chunk size to use when downloading a file from GCS
+(default: <code class="docutils literal notranslate"><span class="pre">None</span></code>). If None, the chunk size is automatically determined by the
+<code class="docutils literal notranslate"><span class="pre">google-cloud-storage</span></code> package.</p>
+</dd></dl>
+
+<dl class="py data">
+<dt id="mlflow.environment_variables.MLFLOW_GCS_UPLOAD_CHUNK_SIZE">
+<code class="sig-prename descclassname"><span class="pre">mlflow.environment_variables.</span></code><code class="sig-name descname"><span class="pre">MLFLOW_GCS_UPLOAD_CHUNK_SIZE</span></code><em class="property"> <span class="pre">=</span> <span class="pre">'MLFLOW_GCS_UPLOAD_CHUNK_SIZE'</span></em><a class="headerlink" href="#mlflow.environment_variables.MLFLOW_GCS_UPLOAD_CHUNK_SIZE" title="Permalink to this definition"> </a></dt>
+<dd><p>Specifies the chunk size to use when uploading a file to GCS.
+(default: <code class="docutils literal notranslate"><span class="pre">None</span></code>). If None, the chunk size is automatically determined by the
+<code class="docutils literal notranslate"><span class="pre">google-cloud-storage</span></code> package.</p>
+</dd></dl>
+
+<dl class="py data">
+<dt id="mlflow.environment_variables.MLFLOW_HTTP_POOL_CONNECTIONS">
+<code class="sig-prename descclassname"><span class="pre">mlflow.environment_variables.</span></code><code class="sig-name descname"><span class="pre">MLFLOW_HTTP_POOL_CONNECTIONS</span></code><em class="property"> <span class="pre">=</span> <span class="pre">'MLFLOW_HTTP_POOL_CONNECTIONS'</span></em><a class="headerlink" href="#mlflow.environment_variables.MLFLOW_HTTP_POOL_CONNECTIONS" title="Permalink to this definition"> </a></dt>
+<dd><p>Specifies the number of connection pools to cache in urllib3. This environment variable sets the
+<cite>pool_connections</cite> parameter in the <cite>requests.adapters.HTTPAdapter</cite> constructor. By adjusting
+this variable, users can enhance the concurrency of HTTP requests made by MLflow.</p>
+</dd></dl>
+
+<dl class="py data">
+<dt id="mlflow.environment_variables.MLFLOW_HTTP_POOL_MAXSIZE">
+<code class="sig-prename descclassname"><span class="pre">mlflow.environment_variables.</span></code><code class="sig-name descname"><span class="pre">MLFLOW_HTTP_POOL_MAXSIZE</span></code><em class="property"> <span class="pre">=</span> <span class="pre">'MLFLOW_HTTP_POOL_MAXSIZE'</span></em><a class="headerlink" href="#mlflow.environment_variables.MLFLOW_HTTP_POOL_MAXSIZE" title="Permalink to this definition"> </a></dt>
+<dd><p>Specifies the maximum number of connections to keep in the HTTP connection pool. This environment
+variable sets the <cite>pool_maxsize</cite> parameter in the <cite>requests.adapters.HTTPAdapter</cite> constructor.
+By adjusting this variable, users can enhance the concurrency of HTTP requests made by MLflow.</p>
+</dd></dl>
+
+<dl class="py data">
+<dt id="mlflow.environment_variables.MLFLOW_HTTP_REQUEST_BACKOFF_FACTOR">
+<code class="sig-prename descclassname"><span class="pre">mlflow.environment_variables.</span></code><code class="sig-name descname"><span class="pre">MLFLOW_HTTP_REQUEST_BACKOFF_FACTOR</span></code><em class="property"> <span class="pre">=</span> <span class="pre">'MLFLOW_HTTP_REQUEST_BACKOFF_FACTOR'</span></em><a class="headerlink" href="#mlflow.environment_variables.MLFLOW_HTTP_REQUEST_BACKOFF_FACTOR" title="Permalink to this definition"> </a></dt>
+<dd><p>Specifies the backoff increase factor between MLflow HTTP request failures
+(default: <code class="docutils literal notranslate"><span class="pre">2</span></code>)</p>
+</dd></dl>
+
+<dl class="py data">
+<dt id="mlflow.environment_variables.MLFLOW_HTTP_REQUEST_BACKOFF_JITTER">
+<code class="sig-prename descclassname"><span class="pre">mlflow.environment_variables.</span></code><code class="sig-name descname"><span class="pre">MLFLOW_HTTP_REQUEST_BACKOFF_JITTER</span></code><em class="property"> <span class="pre">=</span> <span class="pre">'MLFLOW_HTTP_REQUEST_BACKOFF_JITTER'</span></em><a class="headerlink" href="#mlflow.environment_variables.MLFLOW_HTTP_REQUEST_BACKOFF_JITTER" title="Permalink to this definition"> </a></dt>
+<dd><p>Specifies the backoff jitter between MLflow HTTP request failures
+(default: <code class="docutils literal notranslate"><span class="pre">1.0</span></code>)</p>
+</dd></dl>
+
+<dl class="py data">
+<dt id="mlflow.environment_variables.MLFLOW_HTTP_REQUEST_MAX_RETRIES">
+<code class="sig-prename descclassname"><span class="pre">mlflow.environment_variables.</span></code><code class="sig-name descname"><span class="pre">MLFLOW_HTTP_REQUEST_MAX_RETRIES</span></code><em class="property"> <span class="pre">=</span> <span class="pre">'MLFLOW_HTTP_REQUEST_MAX_RETRIES'</span></em><a class="headerlink" href="#mlflow.environment_variables.MLFLOW_HTTP_REQUEST_MAX_RETRIES" title="Permalink to this definition"> </a></dt>
+<dd><p>Specifies the maximum number of retries for MLflow HTTP requests
+(default: <code class="docutils literal notranslate"><span class="pre">5</span></code>)</p>
+</dd></dl>
+
+<dl class="py data">
+<dt id="mlflow.environment_variables.MLFLOW_HTTP_REQUEST_TIMEOUT">
+<code class="sig-prename descclassname"><span class="pre">mlflow.environment_variables.</span></code><code class="sig-name descname"><span class="pre">MLFLOW_HTTP_REQUEST_TIMEOUT</span></code><em class="property"> <span class="pre">=</span> <span class="pre">'MLFLOW_HTTP_REQUEST_TIMEOUT'</span></em><a class="headerlink" href="#mlflow.environment_variables.MLFLOW_HTTP_REQUEST_TIMEOUT" title="Permalink to this definition"> </a></dt>
+<dd><p>Specifies the timeout in seconds for MLflow HTTP requests
+(default: <code class="docutils literal notranslate"><span class="pre">120</span></code>)</p>
+</dd></dl>
+
+<dl class="py data">
+<dt id="mlflow.environment_variables.MLFLOW_HTTP_RESPECT_RETRY_AFTER_HEADER">
+<code class="sig-prename descclassname"><span class="pre">mlflow.environment_variables.</span></code><code class="sig-name descname"><span class="pre">MLFLOW_HTTP_RESPECT_RETRY_AFTER_HEADER</span></code><em class="property"> <span class="pre">=</span> <span class="pre">'MLFLOW_HTTP_RESPECT_RETRY_AFTER_HEADER'</span></em><a class="headerlink" href="#mlflow.environment_variables.MLFLOW_HTTP_RESPECT_RETRY_AFTER_HEADER" title="Permalink to this definition"> </a></dt>
+<dd><p>Specifies whether to respect Retry-After header on status codes defined as
+Retry.RETRY_AFTER_STATUS_CODES or not for MLflow HTTP request
+(default: <code class="docutils literal notranslate"><span class="pre">True</span></code>)</p>
+</dd></dl>
+
+<dl class="py data">
+<dt id="mlflow.environment_variables.MLFLOW_HUGGINGFACE_DEVICE_MAP_STRATEGY">
+<code class="sig-prename descclassname"><span class="pre">mlflow.environment_variables.</span></code><code class="sig-name descname"><span class="pre">MLFLOW_HUGGINGFACE_DEVICE_MAP_STRATEGY</span></code><em class="property"> <span class="pre">=</span> <span class="pre">'MLFLOW_HUGGINGFACE_DEVICE_MAP_STRATEGY'</span></em><a class="headerlink" href="#mlflow.environment_variables.MLFLOW_HUGGINGFACE_DEVICE_MAP_STRATEGY" title="Permalink to this definition"> </a></dt>
+<dd><p>Specifies to Huggingface to use the automatic device placement logic of HuggingFace accelerate.
+This can be set to values supported by the version of HuggingFace Accelerate being installed.</p>
+</dd></dl>
+
+<dl class="py data">
+<dt id="mlflow.environment_variables.MLFLOW_HUGGINGFACE_MODEL_MAX_SHARD_SIZE">
+<code class="sig-prename descclassname"><span class="pre">mlflow.environment_variables.</span></code><code class="sig-name descname"><span class="pre">MLFLOW_HUGGINGFACE_MODEL_MAX_SHARD_SIZE</span></code><em class="property"> <span class="pre">=</span> <span class="pre">'MLFLOW_HUGGINGFACE_MODEL_MAX_SHARD_SIZE'</span></em><a class="headerlink" href="#mlflow.environment_variables.MLFLOW_HUGGINGFACE_MODEL_MAX_SHARD_SIZE" title="Permalink to this definition"> </a></dt>
+<dd><p>Specifies the max_shard_size to use when mlflow transformers flavor saves the model checkpoint.
+This can be set to override the 500MB default.</p>
+</dd></dl>
+
+<dl class="py data">
+<dt id="mlflow.environment_variables.MLFLOW_HUGGINGFACE_USE_LOW_CPU_MEM_USAGE">
+<code class="sig-prename descclassname"><span class="pre">mlflow.environment_variables.</span></code><code class="sig-name descname"><span class="pre">MLFLOW_HUGGINGFACE_USE_LOW_CPU_MEM_USAGE</span></code><em class="property"> <span class="pre">=</span> <span class="pre">'MLFLOW_HUGGINGFACE_USE_LOW_CPU_MEM_USAGE'</span></em><a class="headerlink" href="#mlflow.environment_variables.MLFLOW_HUGGINGFACE_USE_LOW_CPU_MEM_USAGE" title="Permalink to this definition"> </a></dt>
+<dd><p>Specifies to Huggingface to use the low_cpu_mem_usage flag powered by HuggingFace accelerate.
+If it’s set to false, the low_cpu_mem_usage flag will be set to False.</p>
+</dd></dl>
+
+<dl class="py data">
+<dt id="mlflow.environment_variables.MLFLOW_INPUT_EXAMPLE_INFERENCE_TIMEOUT">
+<code class="sig-prename descclassname"><span class="pre">mlflow.environment_variables.</span></code><code class="sig-name descname"><span class="pre">MLFLOW_INPUT_EXAMPLE_INFERENCE_TIMEOUT</span></code><em class="property"> <span class="pre">=</span> <span class="pre">'MLFLOW_INPUT_EXAMPLE_INFERENCE_TIMEOUT'</span></em><a class="headerlink" href="#mlflow.environment_variables.MLFLOW_INPUT_EXAMPLE_INFERENCE_TIMEOUT" title="Permalink to this definition"> </a></dt>
+<dd><p>Specifies the timeout for model inference with input example(s) when logging/saving a model.
+MLflow runs a few inference requests against the model to infer model signature and pip
+requirements. Sometimes the prediction hangs for a long time, especially for a large model.
+This timeout limits the allowable time for performing a prediction for signature inference
+and will abort the prediction, falling back to the default signature and pip requirements.</p>
+</dd></dl>
+
+<dl class="py data">
+<dt id="mlflow.environment_variables.MLFLOW_KERBEROS_TICKET_CACHE">
+<code class="sig-prename descclassname"><span class="pre">mlflow.environment_variables.</span></code><code class="sig-name descname"><span class="pre">MLFLOW_KERBEROS_TICKET_CACHE</span></code><em class="property"> <span class="pre">=</span> <span class="pre">'MLFLOW_KERBEROS_TICKET_CACHE'</span></em><a class="headerlink" href="#mlflow.environment_variables.MLFLOW_KERBEROS_TICKET_CACHE" title="Permalink to this definition"> </a></dt>
+<dd><p>Specifies the location of a Kerberos ticket cache to use for HDFS artifact operations.
+(default: <code class="docutils literal notranslate"><span class="pre">None</span></code>)</p>
+</dd></dl>
+
+<dl class="py data">
+<dt id="mlflow.environment_variables.MLFLOW_KERBEROS_USER">
+<code class="sig-prename descclassname"><span class="pre">mlflow.environment_variables.</span></code><code class="sig-name descname"><span class="pre">MLFLOW_KERBEROS_USER</span></code><em class="property"> <span class="pre">=</span> <span class="pre">'MLFLOW_KERBEROS_USER'</span></em><a class="headerlink" href="#mlflow.environment_variables.MLFLOW_KERBEROS_USER" title="Permalink to this definition"> </a></dt>
+<dd><p>Specifies a Kerberos user for HDFS artifact operations.
+(default: <code class="docutils literal notranslate"><span class="pre">None</span></code>)</p>
+</dd></dl>
+
+<dl class="py data">
+<dt id="mlflow.environment_variables.MLFLOW_MULTIPART_DOWNLOAD_CHUNK_SIZE">
+<code class="sig-prename descclassname"><span class="pre">mlflow.environment_variables.</span></code><code class="sig-name descname"><span class="pre">MLFLOW_MULTIPART_DOWNLOAD_CHUNK_SIZE</span></code><em class="property"> <span class="pre">=</span> <span class="pre">'MLFLOW_MULTIPART_DOWNLOAD_CHUNK_SIZE'</span></em><a class="headerlink" href="#mlflow.environment_variables.MLFLOW_MULTIPART_DOWNLOAD_CHUNK_SIZE" title="Permalink to this definition"> </a></dt>
+<dd><p>Specifies the chunk size in bytes to use when performing multipart download
+(default: <code class="docutils literal notranslate"><span class="pre">104_857_600</span></code> (100 MB))</p>
+</dd></dl>
+
+<dl class="py data">
+<dt id="mlflow.environment_variables.MLFLOW_MULTIPART_DOWNLOAD_MINIMUM_FILE_SIZE">
+<code class="sig-prename descclassname"><span class="pre">mlflow.environment_variables.</span></code><code class="sig-name descname"><span class="pre">MLFLOW_MULTIPART_DOWNLOAD_MINIMUM_FILE_SIZE</span></code><em class="property"> <span class="pre">=</span> <span class="pre">'MLFLOW_MULTIPART_DOWNLOAD_MINIMUM_FILE_SIZE'</span></em><a class="headerlink" href="#mlflow.environment_variables.MLFLOW_MULTIPART_DOWNLOAD_MINIMUM_FILE_SIZE" title="Permalink to this definition"> </a></dt>
+<dd><p>Specifies the minimum file size in bytes to use multipart download when downloading artifacts
+(default: <code class="docutils literal notranslate"><span class="pre">524_288_000</span></code> (500 MB))</p>
+</dd></dl>
+
+<dl class="py data">
+<dt id="mlflow.environment_variables.MLFLOW_MULTIPART_UPLOAD_CHUNK_SIZE">
+<code class="sig-prename descclassname"><span class="pre">mlflow.environment_variables.</span></code><code class="sig-name descname"><span class="pre">MLFLOW_MULTIPART_UPLOAD_CHUNK_SIZE</span></code><em class="property"> <span class="pre">=</span> <span class="pre">'MLFLOW_MULTIPART_UPLOAD_CHUNK_SIZE'</span></em><a class="headerlink" href="#mlflow.environment_variables.MLFLOW_MULTIPART_UPLOAD_CHUNK_SIZE" title="Permalink to this definition"> </a></dt>
+<dd><p>Specifies the chunk size in bytes to use when performing multipart upload
+(default: <code class="docutils literal notranslate"><span class="pre">104_857_60</span></code> (10 MB))</p>
+</dd></dl>
+
+<dl class="py data">
+<dt id="mlflow.environment_variables.MLFLOW_MULTIPART_UPLOAD_MINIMUM_FILE_SIZE">
+<code class="sig-prename descclassname"><span class="pre">mlflow.environment_variables.</span></code><code class="sig-name descname"><span class="pre">MLFLOW_MULTIPART_UPLOAD_MINIMUM_FILE_SIZE</span></code><em class="property"> <span class="pre">=</span> <span class="pre">'MLFLOW_MULTIPART_UPLOAD_MINIMUM_FILE_SIZE'</span></em><a class="headerlink" href="#mlflow.environment_variables.MLFLOW_MULTIPART_UPLOAD_MINIMUM_FILE_SIZE" title="Permalink to this definition"> </a></dt>
+<dd><p>Specifies the minimum file size in bytes to use multipart upload when logging artifacts
+(default: <code class="docutils literal notranslate"><span class="pre">524_288_000</span></code> (500 MB))</p>
+</dd></dl>
+
+<dl class="py data">
+<dt id="mlflow.environment_variables.MLFLOW_OPENAI_SECRET_SCOPE">
+<code class="sig-prename descclassname"><span class="pre">mlflow.environment_variables.</span></code><code class="sig-name descname"><span class="pre">MLFLOW_OPENAI_SECRET_SCOPE</span></code><em class="property"> <span class="pre">=</span> <span class="pre">'MLFLOW_OPENAI_SECRET_SCOPE'</span></em><a class="headerlink" href="#mlflow.environment_variables.MLFLOW_OPENAI_SECRET_SCOPE" title="Permalink to this definition"> </a></dt>
+<dd><p>Specifies the name of the Databricks secret scope to use for storing OpenAI API keys.</p>
+</dd></dl>
+
+<dl class="py data">
+<dt id="mlflow.environment_variables.MLFLOW_PYARROW_EXTRA_CONF">
+<code class="sig-prename descclassname"><span class="pre">mlflow.environment_variables.</span></code><code class="sig-name descname"><span class="pre">MLFLOW_PYARROW_EXTRA_CONF</span></code><em class="property"> <span class="pre">=</span> <span class="pre">'MLFLOW_PYARROW_EXTRA_CONF'</span></em><a class="headerlink" href="#mlflow.environment_variables.MLFLOW_PYARROW_EXTRA_CONF" title="Permalink to this definition"> </a></dt>
+<dd><p>Specifies extra pyarrow configurations for HDFS artifact operations.
+(default: <code class="docutils literal notranslate"><span class="pre">None</span></code>)</p>
+</dd></dl>
+
+<dl class="py data">
+<dt id="mlflow.environment_variables.MLFLOW_RECIPES_EXECUTION_DIRECTORY">
+<code class="sig-prename descclassname"><span class="pre">mlflow.environment_variables.</span></code><code class="sig-name descname"><span class="pre">MLFLOW_RECIPES_EXECUTION_DIRECTORY</span></code><em class="property"> <span class="pre">=</span> <span class="pre">'MLFLOW_RECIPES_EXECUTION_DIRECTORY'</span></em><a class="headerlink" href="#mlflow.environment_variables.MLFLOW_RECIPES_EXECUTION_DIRECTORY" title="Permalink to this definition"> </a></dt>
+<dd><p>Specifies the execution directory for recipes.
+(default: <code class="docutils literal notranslate"><span class="pre">None</span></code>)</p>
+</dd></dl>
+
+<dl class="py data">
+<dt id="mlflow.environment_variables.MLFLOW_RECIPES_EXECUTION_TARGET_STEP_NAME">
+<code class="sig-prename descclassname"><span class="pre">mlflow.environment_variables.</span></code><code class="sig-name descname"><span class="pre">MLFLOW_RECIPES_EXECUTION_TARGET_STEP_NAME</span></code><em class="property"> <span class="pre">=</span> <span class="pre">'MLFLOW_RECIPES_EXECUTION_TARGET_STEP_NAME'</span></em><a class="headerlink" href="#mlflow.environment_variables.MLFLOW_RECIPES_EXECUTION_TARGET_STEP_NAME" title="Permalink to this definition"> </a></dt>
+<dd><p>Specifies the target step to execute for recipes.
+(default: <code class="docutils literal notranslate"><span class="pre">None</span></code>)</p>
+</dd></dl>
+
+<dl class="py data">
+<dt id="mlflow.environment_variables.MLFLOW_RECIPES_PROFILE">
+<code class="sig-prename descclassname"><span class="pre">mlflow.environment_variables.</span></code><code class="sig-name descname"><span class="pre">MLFLOW_RECIPES_PROFILE</span></code><em class="property"> <span class="pre">=</span> <span class="pre">'MLFLOW_RECIPES_PROFILE'</span></em><a class="headerlink" href="#mlflow.environment_variables.MLFLOW_RECIPES_PROFILE" title="Permalink to this definition"> </a></dt>
+<dd><p>Specifies the profile to use for recipes.
+(default: <code class="docutils literal notranslate"><span class="pre">None</span></code>)</p>
+</dd></dl>
+
+<dl class="py data">
+<dt id="mlflow.environment_variables.MLFLOW_REGISTRY_DIR">
+<code class="sig-prename descclassname"><span class="pre">mlflow.environment_variables.</span></code><code class="sig-name descname"><span class="pre">MLFLOW_REGISTRY_DIR</span></code><em class="property"> <span class="pre">=</span> <span class="pre">'MLFLOW_REGISTRY_DIR'</span></em><a class="headerlink" href="#mlflow.environment_variables.MLFLOW_REGISTRY_DIR" title="Permalink to this definition"> </a></dt>
+<dd><p>Specifies the default root directory for registry <cite>FileStore</cite>.
+(default: <code class="docutils literal notranslate"><span class="pre">None</span></code>)</p>
+</dd></dl>
+
+<dl class="py data">
+<dt id="mlflow.environment_variables.MLFLOW_REGISTRY_URI">
+<code class="sig-prename descclassname"><span class="pre">mlflow.environment_variables.</span></code><code class="sig-name descname"><span class="pre">MLFLOW_REGISTRY_URI</span></code><em class="property"> <span class="pre">=</span> <span class="pre">'MLFLOW_REGISTRY_URI'</span></em><a class="headerlink" href="#mlflow.environment_variables.MLFLOW_REGISTRY_URI" title="Permalink to this definition"> </a></dt>
+<dd><p>Specifies the registry URI.
+(default: <code class="docutils literal notranslate"><span class="pre">None</span></code>)</p>
+</dd></dl>
+
+<dl class="py data">
+<dt id="mlflow.environment_variables.MLFLOW_REQUIREMENTS_INFERENCE_RAISE_ERRORS">
+<code class="sig-prename descclassname"><span class="pre">mlflow.environment_variables.</span></code><code class="sig-name descname"><span class="pre">MLFLOW_REQUIREMENTS_INFERENCE_RAISE_ERRORS</span></code><em class="property"> <span class="pre">=</span> <span class="pre">'MLFLOW_REQUIREMENTS_INFERENCE_RAISE_ERRORS'</span></em><a class="headerlink" href="#mlflow.environment_variables.MLFLOW_REQUIREMENTS_INFERENCE_RAISE_ERRORS" title="Permalink to this definition"> </a></dt>
+<dd><p>Whether to warn (default) or raise (opt-in) for unresolvable requirements inference for
+a model’s dependency inference. If set to True, an exception will be raised if requirements
+inference or the process of capturing imported modules encounters any errors.</p>
+</dd></dl>
+
+<dl class="py data">
+<dt id="mlflow.environment_variables.MLFLOW_REQUIREMENTS_INFERENCE_TIMEOUT">
+<code class="sig-prename descclassname"><span class="pre">mlflow.environment_variables.</span></code><code class="sig-name descname"><span class="pre">MLFLOW_REQUIREMENTS_INFERENCE_TIMEOUT</span></code><em class="property"> <span class="pre">=</span> <span class="pre">'MLFLOW_REQUIREMENTS_INFERENCE_TIMEOUT'</span></em><a class="headerlink" href="#mlflow.environment_variables.MLFLOW_REQUIREMENTS_INFERENCE_TIMEOUT" title="Permalink to this definition"> </a></dt>
+<dd><p>Specifies the <code class="docutils literal notranslate"><span class="pre">timeout_seconds</span></code> for MLflow Model dependency inference operations.
+(default: <code class="docutils literal notranslate"><span class="pre">120</span></code>)</p>
+</dd></dl>
+
+<dl class="py data">
+<dt id="mlflow.environment_variables.MLFLOW_RUN_CONTEXT">
+<code class="sig-prename descclassname"><span class="pre">mlflow.environment_variables.</span></code><code class="sig-name descname"><span class="pre">MLFLOW_RUN_CONTEXT</span></code><em class="property"> <span class="pre">=</span> <span class="pre">'MLFLOW_RUN_CONTEXT'</span></em><a class="headerlink" href="#mlflow.environment_variables.MLFLOW_RUN_CONTEXT" title="Permalink to this definition"> </a></dt>
+<dd><p>Specifies the MLflow Run context
+(default: <code class="docutils literal notranslate"><span class="pre">None</span></code>)</p>
+</dd></dl>
+
+<dl class="py data">
+<dt id="mlflow.environment_variables.MLFLOW_RUN_ID">
+<code class="sig-prename descclassname"><span class="pre">mlflow.environment_variables.</span></code><code class="sig-name descname"><span class="pre">MLFLOW_RUN_ID</span></code><em class="property"> <span class="pre">=</span> <span class="pre">'MLFLOW_RUN_ID'</span></em><a class="headerlink" href="#mlflow.environment_variables.MLFLOW_RUN_ID" title="Permalink to this definition"> </a></dt>
+<dd><p>Specified the ID of the run to log data to.
+(default: <code class="docutils literal notranslate"><span class="pre">None</span></code>)</p>
+</dd></dl>
+
+<dl class="py data">
+<dt id="mlflow.environment_variables.MLFLOW_S3_ENDPOINT_URL">
+<code class="sig-prename descclassname"><span class="pre">mlflow.environment_variables.</span></code><code class="sig-name descname"><span class="pre">MLFLOW_S3_ENDPOINT_URL</span></code><em class="property"> <span class="pre">=</span> <span class="pre">'MLFLOW_S3_ENDPOINT_URL'</span></em><a class="headerlink" href="#mlflow.environment_variables.MLFLOW_S3_ENDPOINT_URL" title="Permalink to this definition"> </a></dt>
+<dd><p>Specifies the S3 endpoint URL to use for S3 artifact operations.
+(default: <code class="docutils literal notranslate"><span class="pre">None</span></code>)</p>
+</dd></dl>
+
+<dl class="py data">
+<dt id="mlflow.environment_variables.MLFLOW_S3_IGNORE_TLS">
+<code class="sig-prename descclassname"><span class="pre">mlflow.environment_variables.</span></code><code class="sig-name descname"><span class="pre">MLFLOW_S3_IGNORE_TLS</span></code><em class="property"> <span class="pre">=</span> <span class="pre">'MLFLOW_S3_IGNORE_TLS'</span></em><a class="headerlink" href="#mlflow.environment_variables.MLFLOW_S3_IGNORE_TLS" title="Permalink to this definition"> </a></dt>
+<dd><p>Specifies whether or not to skip TLS certificate verification for S3 artifact operations.
+(default: <code class="docutils literal notranslate"><span class="pre">False</span></code>)</p>
+</dd></dl>
+
+<dl class="py data">
+<dt id="mlflow.environment_variables.MLFLOW_S3_UPLOAD_EXTRA_ARGS">
+<code class="sig-prename descclassname"><span class="pre">mlflow.environment_variables.</span></code><code class="sig-name descname"><span class="pre">MLFLOW_S3_UPLOAD_EXTRA_ARGS</span></code><em class="property"> <span class="pre">=</span> <span class="pre">'MLFLOW_S3_UPLOAD_EXTRA_ARGS'</span></em><a class="headerlink" href="#mlflow.environment_variables.MLFLOW_S3_UPLOAD_EXTRA_ARGS" title="Permalink to this definition"> </a></dt>
+<dd><p>Specifies extra arguments for S3 artifact uploads.
+(default: <code class="docutils literal notranslate"><span class="pre">None</span></code>)</p>
+</dd></dl>
+
+<dl class="py data">
+<dt id="mlflow.environment_variables.MLFLOW_SCORING_SERVER_REQUEST_TIMEOUT">
+<code class="sig-prename descclassname"><span class="pre">mlflow.environment_variables.</span></code><code class="sig-name descname"><span class="pre">MLFLOW_SCORING_SERVER_REQUEST_TIMEOUT</span></code><em class="property"> <span class="pre">=</span> <span class="pre">'MLFLOW_SCORING_SERVER_REQUEST_TIMEOUT'</span></em><a class="headerlink" href="#mlflow.environment_variables.MLFLOW_SCORING_SERVER_REQUEST_TIMEOUT" title="Permalink to this definition"> </a></dt>
+<dd><p>Specifies the MLflow Model Scoring server request timeout in seconds
+(default: <code class="docutils literal notranslate"><span class="pre">60</span></code>)</p>
+</dd></dl>
+
+<dl class="py data">
+<dt id="mlflow.environment_variables.MLFLOW_SQLALCHEMYSTORE_ECHO">
+<code class="sig-prename descclassname"><span class="pre">mlflow.environment_variables.</span></code><code class="sig-name descname"><span class="pre">MLFLOW_SQLALCHEMYSTORE_ECHO</span></code><em class="property"> <span class="pre">=</span> <span class="pre">'MLFLOW_SQLALCHEMYSTORE_ECHO'</span></em><a class="headerlink" href="#mlflow.environment_variables.MLFLOW_SQLALCHEMYSTORE_ECHO" title="Permalink to this definition"> </a></dt>
+<dd><p>Specifies the <code class="docutils literal notranslate"><span class="pre">echo</span></code> parameter to use for <code class="docutils literal notranslate"><span class="pre">sqlalchemy.create_engine</span></code> in the
+SQLAlchemy tracking store. See <a class="reference external" href="https://docs.sqlalchemy.org/en/14/core/engines.html#sqlalchemy.create_engine.params.echo">https://docs.sqlalchemy.org/en/14/core/engines.html#sqlalchemy.create_engine.params.echo</a>
+for more information.
+(default: <code class="docutils literal notranslate"><span class="pre">False</span></code>)</p>
+</dd></dl>
+
+<dl class="py data">
+<dt id="mlflow.environment_variables.MLFLOW_SQLALCHEMYSTORE_MAX_OVERFLOW">
+<code class="sig-prename descclassname"><span class="pre">mlflow.environment_variables.</span></code><code class="sig-name descname"><span class="pre">MLFLOW_SQLALCHEMYSTORE_MAX_OVERFLOW</span></code><em class="property"> <span class="pre">=</span> <span class="pre">'MLFLOW_SQLALCHEMYSTORE_MAX_OVERFLOW'</span></em><a class="headerlink" href="#mlflow.environment_variables.MLFLOW_SQLALCHEMYSTORE_MAX_OVERFLOW" title="Permalink to this definition"> </a></dt>
+<dd><p>Specifies the <code class="docutils literal notranslate"><span class="pre">max_overflow</span></code> parameter to use for <code class="docutils literal notranslate"><span class="pre">sqlalchemy.create_engine</span></code> in the
+SQLAlchemy tracking store. See <a class="reference external" href="https://docs.sqlalchemy.org/en/14/core/engines.html#sqlalchemy.create_engine.params.max_overflow">https://docs.sqlalchemy.org/en/14/core/engines.html#sqlalchemy.create_engine.params.max_overflow</a>
+for more information.
+(default: <code class="docutils literal notranslate"><span class="pre">None</span></code>)</p>
+</dd></dl>
+
+<dl class="py data">
+<dt id="mlflow.environment_variables.MLFLOW_SQLALCHEMYSTORE_POOLCLASS">
+<code class="sig-prename descclassname"><span class="pre">mlflow.environment_variables.</span></code><code class="sig-name descname"><span class="pre">MLFLOW_SQLALCHEMYSTORE_POOLCLASS</span></code><em class="property"> <span class="pre">=</span> <span class="pre">'MLFLOW_SQLALCHEMYSTORE_POOLCLASS'</span></em><a class="headerlink" href="#mlflow.environment_variables.MLFLOW_SQLALCHEMYSTORE_POOLCLASS" title="Permalink to this definition"> </a></dt>
+<dd><p>Specifies the <code class="docutils literal notranslate"><span class="pre">poolclass</span></code> parameter to use for <code class="docutils literal notranslate"><span class="pre">sqlalchemy.create_engine</span></code> in the
+SQLAlchemy tracking store. See <a class="reference external" href="https://docs.sqlalchemy.org/en/14/core/engines.html#sqlalchemy.create_engine.params.poolclass">https://docs.sqlalchemy.org/en/14/core/engines.html#sqlalchemy.create_engine.params.poolclass</a>
+for more information.
+(default: <code class="docutils literal notranslate"><span class="pre">None</span></code>)</p>
+</dd></dl>
+
+<dl class="py data">
+<dt id="mlflow.environment_variables.MLFLOW_SQLALCHEMYSTORE_POOL_RECYCLE">
+<code class="sig-prename descclassname"><span class="pre">mlflow.environment_variables.</span></code><code class="sig-name descname"><span class="pre">MLFLOW_SQLALCHEMYSTORE_POOL_RECYCLE</span></code><em class="property"> <span class="pre">=</span> <span class="pre">'MLFLOW_SQLALCHEMYSTORE_POOL_RECYCLE'</span></em><a class="headerlink" href="#mlflow.environment_variables.MLFLOW_SQLALCHEMYSTORE_POOL_RECYCLE" title="Permalink to this definition"> </a></dt>
+<dd><p>Specifies the <code class="docutils literal notranslate"><span class="pre">pool_recycle</span></code> parameter to use for <code class="docutils literal notranslate"><span class="pre">sqlalchemy.create_engine</span></code> in the
+SQLAlchemy tracking store. See <a class="reference external" href="https://docs.sqlalchemy.org/en/14/core/engines.html#sqlalchemy.create_engine.params.pool_recycle">https://docs.sqlalchemy.org/en/14/core/engines.html#sqlalchemy.create_engine.params.pool_recycle</a>
+for more information.
+(default: <code class="docutils literal notranslate"><span class="pre">None</span></code>)</p>
+</dd></dl>
+
+<dl class="py data">
+<dt id="mlflow.environment_variables.MLFLOW_SQLALCHEMYSTORE_POOL_SIZE">
+<code class="sig-prename descclassname"><span class="pre">mlflow.environment_variables.</span></code><code class="sig-name descname"><span class="pre">MLFLOW_SQLALCHEMYSTORE_POOL_SIZE</span></code><em class="property"> <span class="pre">=</span> <span class="pre">'MLFLOW_SQLALCHEMYSTORE_POOL_SIZE'</span></em><a class="headerlink" href="#mlflow.environment_variables.MLFLOW_SQLALCHEMYSTORE_POOL_SIZE" title="Permalink to this definition"> </a></dt>
+<dd><p>Specifies the <code class="docutils literal notranslate"><span class="pre">pool_size</span></code> parameter to use for <code class="docutils literal notranslate"><span class="pre">sqlalchemy.create_engine</span></code> in the SQLAlchemy
+tracking store. See <a class="reference external" href="https://docs.sqlalchemy.org/en/14/core/engines.html#sqlalchemy.create_engine.params.pool_size">https://docs.sqlalchemy.org/en/14/core/engines.html#sqlalchemy.create_engine.params.pool_size</a>
+for more information.
+(default: <code class="docutils literal notranslate"><span class="pre">None</span></code>)</p>
+</dd></dl>
+
+<dl class="py data">
+<dt id="mlflow.environment_variables.MLFLOW_SYSTEM_METRICS_NODE_ID">
+<code class="sig-prename descclassname"><span class="pre">mlflow.environment_variables.</span></code><code class="sig-name descname"><span class="pre">MLFLOW_SYSTEM_METRICS_NODE_ID</span></code><em class="property"> <span class="pre">=</span> <span class="pre">'MLFLOW_SYSTEM_METRICS_NODE_ID'</span></em><a class="headerlink" href="#mlflow.environment_variables.MLFLOW_SYSTEM_METRICS_NODE_ID" title="Permalink to this definition"> </a></dt>
+<dd><p>Specifies the node id of system metrics logging. This is useful in multi-node (distributed
+training) setup.</p>
+</dd></dl>
+
+<dl class="py data">
+<dt id="mlflow.environment_variables.MLFLOW_SYSTEM_METRICS_SAMPLES_BEFORE_LOGGING">
+<code class="sig-prename descclassname"><span class="pre">mlflow.environment_variables.</span></code><code class="sig-name descname"><span class="pre">MLFLOW_SYSTEM_METRICS_SAMPLES_BEFORE_LOGGING</span></code><em class="property"> <span class="pre">=</span> <span class="pre">'MLFLOW_SYSTEM_METRICS_SAMPLES_BEFORE_LOGGING'</span></em><a class="headerlink" href="#mlflow.environment_variables.MLFLOW_SYSTEM_METRICS_SAMPLES_BEFORE_LOGGING" title="Permalink to this definition"> </a></dt>
+<dd><p>Specifies the number of samples before logging system metrics.</p>
+</dd></dl>
+
+<dl class="py data">
+<dt id="mlflow.environment_variables.MLFLOW_SYSTEM_METRICS_SAMPLING_INTERVAL">
+<code class="sig-prename descclassname"><span class="pre">mlflow.environment_variables.</span></code><code class="sig-name descname"><span class="pre">MLFLOW_SYSTEM_METRICS_SAMPLING_INTERVAL</span></code><em class="property"> <span class="pre">=</span> <span class="pre">'MLFLOW_SYSTEM_METRICS_SAMPLING_INTERVAL'</span></em><a class="headerlink" href="#mlflow.environment_variables.MLFLOW_SYSTEM_METRICS_SAMPLING_INTERVAL" title="Permalink to this definition"> </a></dt>
+<dd><p>Specifies the sampling interval for system metrics logging.</p>
+</dd></dl>
+
+<dl class="py data">
+<dt id="mlflow.environment_variables.MLFLOW_TRACKING_AUTH">
+<code class="sig-prename descclassname"><span class="pre">mlflow.environment_variables.</span></code><code class="sig-name descname"><span class="pre">MLFLOW_TRACKING_AUTH</span></code><em class="property"> <span class="pre">=</span> <span class="pre">'MLFLOW_TRACKING_AUTH'</span></em><a class="headerlink" href="#mlflow.environment_variables.MLFLOW_TRACKING_AUTH" title="Permalink to this definition"> </a></dt>
+<dd><p>Specifies the auth provider to sign the MLflow HTTP request
+(default: <code class="docutils literal notranslate"><span class="pre">None</span></code>). When set, it will overwrite the “Authorization” HTTP header.</p>
+</dd></dl>
+
+<dl class="py data">
+<dt id="mlflow.environment_variables.MLFLOW_TRACKING_AWS_SIGV4">
+<code class="sig-prename descclassname"><span class="pre">mlflow.environment_variables.</span></code><code class="sig-name descname"><span class="pre">MLFLOW_TRACKING_AWS_SIGV4</span></code><em class="property"> <span class="pre">=</span> <span class="pre">'MLFLOW_TRACKING_AWS_SIGV4'</span></em><a class="headerlink" href="#mlflow.environment_variables.MLFLOW_TRACKING_AWS_SIGV4" title="Permalink to this definition"> </a></dt>
+<dd><p>Specifies whether MLflow HTTP requests should be signed using AWS signature V4. It will overwrite
+(default: <code class="docutils literal notranslate"><span class="pre">False</span></code>). When set, it will overwrite the “Authorization” HTTP header.
+See <a class="reference external" href="https://docs.aws.amazon.com/general/latest/gr/signature-version-4.html">https://docs.aws.amazon.com/general/latest/gr/signature-version-4.html</a> for more information.</p>
+</dd></dl>
+
+<dl class="py data">
+<dt id="mlflow.environment_variables.MLFLOW_TRACKING_CLIENT_CERT_PATH">
+<code class="sig-prename descclassname"><span class="pre">mlflow.environment_variables.</span></code><code class="sig-name descname"><span class="pre">MLFLOW_TRACKING_CLIENT_CERT_PATH</span></code><em class="property"> <span class="pre">=</span> <span class="pre">'MLFLOW_TRACKING_CLIENT_CERT_PATH'</span></em><a class="headerlink" href="#mlflow.environment_variables.MLFLOW_TRACKING_CLIENT_CERT_PATH" title="Permalink to this definition"> </a></dt>
+<dd><p>Sets the <code class="docutils literal notranslate"><span class="pre">cert</span></code> param in <code class="docutils literal notranslate"><span class="pre">requests.request</span></code> function,
+see <a class="reference external" href="https://requests.readthedocs.io/en/master/api/">https://requests.readthedocs.io/en/master/api/</a>
+(default: <code class="docutils literal notranslate"><span class="pre">None</span></code>)</p>
+</dd></dl>
+
+<dl class="py data">
+<dt id="mlflow.environment_variables.MLFLOW_TRACKING_DIR">
+<code class="sig-prename descclassname"><span class="pre">mlflow.environment_variables.</span></code><code class="sig-name descname"><span class="pre">MLFLOW_TRACKING_DIR</span></code><em class="property"> <span class="pre">=</span> <span class="pre">'MLFLOW_TRACKING_DIR'</span></em><a class="headerlink" href="#mlflow.environment_variables.MLFLOW_TRACKING_DIR" title="Permalink to this definition"> </a></dt>
+<dd><p>Specifies the default root directory for tracking <cite>FileStore</cite>.
+(default: <code class="docutils literal notranslate"><span class="pre">None</span></code>)</p>
+</dd></dl>
+
+<dl class="py data">
+<dt id="mlflow.environment_variables.MLFLOW_TRACKING_INSECURE_TLS">
+<code class="sig-prename descclassname"><span class="pre">mlflow.environment_variables.</span></code><code class="sig-name descname"><span class="pre">MLFLOW_TRACKING_INSECURE_TLS</span></code><em class="property"> <span class="pre">=</span> <span class="pre">'MLFLOW_TRACKING_INSECURE_TLS'</span></em><a class="headerlink" href="#mlflow.environment_variables.MLFLOW_TRACKING_INSECURE_TLS" title="Permalink to this definition"> </a></dt>
+<dd><p>Specifies whether to verify TLS connection in <code class="docutils literal notranslate"><span class="pre">requests.request</span></code> function,
+see <a class="reference external" href="https://requests.readthedocs.io/en/master/api/">https://requests.readthedocs.io/en/master/api/</a>
+(default: <code class="docutils literal notranslate"><span class="pre">False</span></code>).</p>
+</dd></dl>
+
+<dl class="py data">
+<dt id="mlflow.environment_variables.MLFLOW_TRACKING_PASSWORD">
+<code class="sig-prename descclassname"><span class="pre">mlflow.environment_variables.</span></code><code class="sig-name descname"><span class="pre">MLFLOW_TRACKING_PASSWORD</span></code><em class="property"> <span class="pre">=</span> <span class="pre">'MLFLOW_TRACKING_PASSWORD'</span></em><a class="headerlink" href="#mlflow.environment_variables.MLFLOW_TRACKING_PASSWORD" title="Permalink to this definition"> </a></dt>
+<dd><p>Specifies the password used to authenticate with a tracking server.
+(default: <code class="docutils literal notranslate"><span class="pre">None</span></code>)</p>
+</dd></dl>
+
+<dl class="py data">
+<dt id="mlflow.environment_variables.MLFLOW_TRACKING_SERVER_CERT_PATH">
+<code class="sig-prename descclassname"><span class="pre">mlflow.environment_variables.</span></code><code class="sig-name descname"><span class="pre">MLFLOW_TRACKING_SERVER_CERT_PATH</span></code><em class="property"> <span class="pre">=</span> <span class="pre">'MLFLOW_TRACKING_SERVER_CERT_PATH'</span></em><a class="headerlink" href="#mlflow.environment_variables.MLFLOW_TRACKING_SERVER_CERT_PATH" title="Permalink to this definition"> </a></dt>
+<dd><p>Sets the <code class="docutils literal notranslate"><span class="pre">verify</span></code> param in <code class="docutils literal notranslate"><span class="pre">requests.request</span></code> function,
+see <a class="reference external" href="https://requests.readthedocs.io/en/master/api/">https://requests.readthedocs.io/en/master/api/</a>
+(default: <code class="docutils literal notranslate"><span class="pre">None</span></code>)</p>
+</dd></dl>
+
+<dl class="py data">
+<dt id="mlflow.environment_variables.MLFLOW_TRACKING_TOKEN">
+<code class="sig-prename descclassname"><span class="pre">mlflow.environment_variables.</span></code><code class="sig-name descname"><span class="pre">MLFLOW_TRACKING_TOKEN</span></code><em class="property"> <span class="pre">=</span> <span class="pre">'MLFLOW_TRACKING_TOKEN'</span></em><a class="headerlink" href="#mlflow.environment_variables.MLFLOW_TRACKING_TOKEN" title="Permalink to this definition"> </a></dt>
+<dd><p>Specifies and takes precedence for setting the basic/bearer auth on http requests.
+(default: <code class="docutils literal notranslate"><span class="pre">None</span></code>)</p>
+</dd></dl>
+
+<dl class="py data">
+<dt id="mlflow.environment_variables.MLFLOW_TRACKING_URI">
+<code class="sig-prename descclassname"><span class="pre">mlflow.environment_variables.</span></code><code class="sig-name descname"><span class="pre">MLFLOW_TRACKING_URI</span></code><em class="property"> <span class="pre">=</span> <span class="pre">'MLFLOW_TRACKING_URI'</span></em><a class="headerlink" href="#mlflow.environment_variables.MLFLOW_TRACKING_URI" title="Permalink to this definition"> </a></dt>
+<dd><p>Specifies the tracking URI.
+(default: <code class="docutils literal notranslate"><span class="pre">None</span></code>)</p>
+</dd></dl>
+
+<dl class="py data">
+<dt id="mlflow.environment_variables.MLFLOW_TRACKING_USERNAME">
+<code class="sig-prename descclassname"><span class="pre">mlflow.environment_variables.</span></code><code class="sig-name descname"><span class="pre">MLFLOW_TRACKING_USERNAME</span></code><em class="property"> <span class="pre">=</span> <span class="pre">'MLFLOW_TRACKING_USERNAME'</span></em><a class="headerlink" href="#mlflow.environment_variables.MLFLOW_TRACKING_USERNAME" title="Permalink to this definition"> </a></dt>
+<dd><p>Specifies the username used to authenticate with a tracking server.
+(default: <code class="docutils literal notranslate"><span class="pre">None</span></code>)</p>
+</dd></dl>
+
+<dl class="py data">
+<dt id="mlflow.environment_variables.MLFLOW_TRUNCATE_LONG_VALUES">
+<code class="sig-prename descclassname"><span class="pre">mlflow.environment_variables.</span></code><code class="sig-name descname"><span class="pre">MLFLOW_TRUNCATE_LONG_VALUES</span></code><em class="property"> <span class="pre">=</span> <span class="pre">'MLFLOW_TRUNCATE_LONG_VALUES'</span></em><a class="headerlink" href="#mlflow.environment_variables.MLFLOW_TRUNCATE_LONG_VALUES" title="Permalink to this definition"> </a></dt>
+<dd><p>If set to True, the following entities will be truncated to their maximum length:
+- Param value
+- Tag value
+If set to False, an exception will be raised if the length of the entity exceeds the maximum
+length.
+(default: <code class="docutils literal notranslate"><span class="pre">True</span></code>)</p>
+</dd></dl>
+
+<dl class="py data">
+<dt id="mlflow.environment_variables.MLFLOW_UC_OSS_TOKEN">
+<code class="sig-prename descclassname"><span class="pre">mlflow.environment_variables.</span></code><code class="sig-name descname"><span class="pre">MLFLOW_UC_OSS_TOKEN</span></code><em class="property"> <span class="pre">=</span> <span class="pre">'MLFLOW_UC_OSS_TOKEN'</span></em><a class="headerlink" href="#mlflow.environment_variables.MLFLOW_UC_OSS_TOKEN" title="Permalink to this definition"> </a></dt>
+<dd><p>Specifies and takes precedence for setting the UC OSS basic/bearer auth on http requests.
+(default: <code class="docutils literal notranslate"><span class="pre">None</span></code>)</p>
+</dd></dl>
+
+<dl class="py data">
+<dt id="mlflow.environment_variables.MLFLOW_USE_DATABRICKS_SDK_MODEL_ARTIFACTS_REPO_FOR_UC">
+<code class="sig-prename descclassname"><span class="pre">mlflow.environment_variables.</span></code><code class="sig-name descname"><span class="pre">MLFLOW_USE_DATABRICKS_SDK_MODEL_ARTIFACTS_REPO_FOR_UC</span></code><em class="property"> <span class="pre">=</span> <span class="pre">'MLFLOW_USE_DATABRICKS_SDK_MODEL_ARTIFACTS_REPO_FOR_UC'</span></em><a class="headerlink" href="#mlflow.environment_variables.MLFLOW_USE_DATABRICKS_SDK_MODEL_ARTIFACTS_REPO_FOR_UC" title="Permalink to this definition"> </a></dt>
+<dd><p>Use DatabricksSDKModelsArtifactRepository when registering and loading models to and from
+Databricks UC. This is required for SEG(Secure Egress Gateway) enabled workspaces and helps
+eliminate models exfiltration risk associated with temporary scoped token generation used in
+existing model artifact repo classes.</p>
+</dd></dl>
+
+<dl class="py data">
+<dt id="mlflow.environment_variables.MLFLOW_WHEELED_MODEL_PIP_DOWNLOAD_OPTIONS">
+<code class="sig-prename descclassname"><span class="pre">mlflow.environment_variables.</span></code><code class="sig-name descname"><span class="pre">MLFLOW_WHEELED_MODEL_PIP_DOWNLOAD_OPTIONS</span></code><em class="property"> <span class="pre">=</span> <span class="pre">'MLFLOW_WHEELED_MODEL_PIP_DOWNLOAD_OPTIONS'</span></em><a class="headerlink" href="#mlflow.environment_variables.MLFLOW_WHEELED_MODEL_PIP_DOWNLOAD_OPTIONS" title="Permalink to this definition"> </a></dt>
+<dd><p>(Experimental, may be changed or removed)
+Specifies the download options to be used by pip wheel when <cite>add_libraries_to_model</cite> is used to
+create and log model dependencies as model artifacts. The default behavior only uses dependency
+binaries and no source packages.
+(default: <code class="docutils literal notranslate"><span class="pre">--only-binary=:all:</span></code>).</p>
+</dd></dl>
+
+</div>
+
+
+              </div>
+            </div>
+            <footer>
+  
+    <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
+      
+        <a href="mlflow.entities.html" class="btn btn-neutral" title="mlflow.entities" accesskey="p"><span class="db-icon db-icon-chevron-left"></span> Previous</a>
+      
+      
+        <a href="mlflow.fastai.html" class="btn btn-neutral" title="mlflow.fastai" accesskey="n">Next <span class="db-icon db-icon-chevron-right"></span></a>
+      
+    </div>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+      <p class="copyright">
+          &copy; MLflow Project, a Series of LF Projects, LLC. All rights reserved.
+      </p>
+
+  </div> 
+
+</footer>
+          </div>
+        </div>
+      </section>
+    </main>
+  </page>
+
+  
+
+
+  
+  <script type="text/javascript">
+    var DOCUMENTATION_OPTIONS = {
+      URL_ROOT:'../',
+      VERSION:'2.17.1.dev0',
+      COLLAPSE_INDEX:false,
+      FILE_SUFFIX:'.html',
+      LINK_SUFFIX: '.html',
+      HAS_SOURCE:  true
+    };
+  </script>
+
+  
+
+  <script type="text/javascript" src="../_static/js/clipboard.min.js"></script>
+  <script type="text/javascript" src="../_static/js/jquery.waypoints.min.js"></script>
+
+  
+  
+  
+  <script type="text/javascript">var CLIPPY_SVG_PATH = "../_static/clippy.svg";</script>
+  <script type="text/javascript" src="../_static/js/custom.js"></script>
+  
+
+  
+  
+  <script type="text/javascript">
+    jQuery(function () {
+      SphinxRtdTheme.StickyNav.enable();
+    });
+
+  </script>
+  
+
+  
+  <script type="text/javascript">
+    document.addEventListener("DOMContentLoaded", function() {
+        function copyToClipboard(text) {
+            const textarea = document.createElement('textarea');
+            textarea.value = text;
+            document.body.appendChild(textarea);
+            textarea.select();
+            document.execCommand('copy');
+            document.body.removeChild(textarea);
+        }
+        // Get the code block designator class entries
+        const allHighlights = document.querySelectorAll('.highlight');
+        // Disable copyable links for notebook cell numbering and for cell outputs
+        const highlights = Array.from(allHighlights).filter(highlight => !highlight.closest('.highlight-none') && 
+            !highlight.closest('.nboutput'));
+    
+        highlights.forEach(function(highlight) {
+            const copyIcon = document.createElement('span');
+            copyIcon.classList.add('copy-icon');
+            copyIcon.innerHTML = '&#xf0ea;';
+
+            copyIcon.addEventListener('click', function() {
+                const code = highlight.querySelector('pre').textContent;
+                copyToClipboard(code);
+
+                // Flash effect on click
+                this.style.color = '#0194E2';
+                setTimeout(() => {
+                    this.style.color = ''; 
+                }, 100);
+
+                // Display "Code copied to clipboard" near the clicked icon
+                const message = document.createElement('span');
+                message.textContent = "Copied!";
+                message.classList.add('copy-message'); 
+
+                // Append the message to the icon
+                this.appendChild(message);
+
+                setTimeout(() => {
+                    this.removeChild(message);
+                }, 500);
+            });
+
+            highlight.appendChild(copyIcon);
+        });
+    });
+  </script>
+
+
+<script type="text/javascript">
+    document.addEventListener("DOMContentLoaded", function() {
+        // Force download for notebook-download-btn
+        const downloadButtons = document.querySelectorAll('.notebook-download-btn');
+        downloadButtons.forEach(function(button) {
+            button.addEventListener('click', function(event) {
+                event.preventDefault(); // Prevent default behavior
+
+                // Fetch the raw content of the notebook from GitHub
+                fetch(button.href)
+                    .then(response => response.blob())
+                    .then(blob => {
+                        const url = window.URL.createObjectURL(blob);
+                        const link = document.createElement('a');
+                        link.style.display = 'none';
+                        link.href = url;
+                        const filename = button.href.split('/').pop();
+                        link.download = filename; 
+
+                        document.body.appendChild(link);
+                        link.click();
+
+                        window.URL.revokeObjectURL(url);
+                        document.body.removeChild(link);
+                    })
+                    .catch(err => console.error('Error fetching the notebook:', err));
+            });
+        });
+    });
+</script> 
+</body>
+</html>

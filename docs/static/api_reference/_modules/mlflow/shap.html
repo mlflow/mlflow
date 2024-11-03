@@ -1,0 +1,984 @@
+
+
+<!DOCTYPE html>
+<!-- source: docs/source/_modules/mlflow/shap -->
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>mlflow.shap</title>
+  
+   
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+  <link rel="canonical" href="https://mlflow.org/docs/latest/_modules/mlflow/shap.html">
+  
+  
+    <link rel="shortcut icon" href="../../_static/favicon.ico"/>
+    
+
+    
+
+  
+    
+
+  
+
+  
+  
+    
+
+  
+
+  
+  
+    <link href="https://fonts.googleapis.com/css?family=Source+Sans+Pro:300,400,600" rel="stylesheet">
+    <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/css/custom.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/css/cards.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/css/grids.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/css/mobile.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/css/simple-cards.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/css/tabs.css" type="text/css" />
+    
+  
+        <link rel="index" title="Index"
+              href="../../genindex.html"/>
+        <link rel="search" title="Search" href="../../search.html"/>
+    <link rel="top" title="MLflow 2.17.1.dev0 documentation" href="../../index.html"/>
+        <link rel="up" title="Module code" href="../index.html"/> 
+
+  
+  <script src="../../_static/js/modernizr.min.js"></script>
+
+</head>
+<script type="text/javascript" src="../../_static/jquery.js"></script>
+<script type="text/javascript" src="../../_static/underscore.js"></script>
+<script type="text/javascript" src="../../_static/doctools.js"></script>
+<script type="text/javascript" src="../../_static/tabs.js"></script>
+<script type="text/javascript" src="../../_static/languagesections.js"></script>
+<script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+<script type="text/javascript" src="../../_static/runllm.js"></script>
+
+<body class="wy-body-for-nav" role="document">
+  
+
+  
+  <nav class="wy-nav-top header" role="navigation" aria-label="top navigation">
+    <ul>
+  <li class="menu-toggle">
+    <i data-toggle="wy-nav-top" class="wy-nav-top-menu-button db-icon db-icon-menu pull-left"></i>
+    <a href="../../index.html" class="wy-nav-top-logo"
+      ><img src="../../_static/MLflow-logo-final-black.png" alt="MLflow"
+    /></a>
+    <span class="version">2.17.1.dev0</span>
+  </li>
+</ul>
+  </nav>
+  <page>
+    
+
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side relative">
+      <div class="wy-side-scroll">
+  <div class="wy-side-nav-search">
+    
+
+    
+
+    
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+  <input type="text" name="q" placeholder="Search" />
+  <input type="hidden" name="check_keywords" value="yes" />
+  <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+
+    
+  </div>
+
+  <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+    
+      <a href="../../index.html" class="main-navigation-home"><img src="../../_static/icons/nav-home.svg"> MLflow</a>
+    
+
+    
+      
+
+      
+        <ul>
+<li class="toctree-l1"><a class="reference internal" href="../../python_api/index.html">Python API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../cli.html">Command-Line Interface</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../R-api.html">R API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../java_api/index.html">Java API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../rest-api.html">REST API</a></li>
+</ul>
+
+      
+    
+  </div>
+
+  <div role="contentinfo">
+    
+
+    <p>
+      <a id='feedbacklink' href="https://github.com/mlflow/mlflow/blob/master/CONTRIBUTING.md" target="_blank">Contribute</a>
+    </p>
+  </div>
+</div>
+    </nav>
+
+    <main class="wy-grid-for-nav">
+      <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+        <div class="wy-nav-content">
+          <div class="rst-content">
+            
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href="../../index.html">Documentation</a> <span class="db-icon db-icon-chevron-right"></span></li>
+    
+        <li><a href="../index.html">Module code</a> <span class="db-icon db-icon-chevron-right"></span></li>
+    
+    
+      <li>mlflow.shap</li>
+    
+    
+    <!-- <li class="wy-breadcrumbs-aside">
+      <a href="https://github.com/mlflow/mlflow/blob/master/docs/source/_modules/mlflow/shap" class="fa fa-github"> Edit on GitHub</a>
+    </li> -->
+    
+  </ul>
+</div>
+            <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+              <div itemprop="articleBody">
+                
+  <h1>Source code for mlflow.shap</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span> <span class="nn">os</span>
+<span class="kn">import</span> <span class="nn">tempfile</span>
+<span class="kn">import</span> <span class="nn">types</span>
+<span class="kn">import</span> <span class="nn">warnings</span>
+<span class="kn">from</span> <span class="nn">contextlib</span> <span class="kn">import</span> <span class="n">contextmanager</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">Optional</span>
+
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">yaml</span>
+
+<span class="kn">import</span> <span class="nn">mlflow</span>
+<span class="kn">import</span> <span class="nn">mlflow.utils.autologging_utils</span>
+<span class="kn">from</span> <span class="nn">mlflow</span> <span class="kn">import</span> <span class="n">pyfunc</span>
+<span class="kn">from</span> <span class="nn">mlflow.models</span> <span class="kn">import</span> <span class="n">Model</span><span class="p">,</span> <span class="n">ModelInputExample</span><span class="p">,</span> <span class="n">ModelSignature</span>
+<span class="kn">from</span> <span class="nn">mlflow.models.model</span> <span class="kn">import</span> <span class="n">MLMODEL_FILE_NAME</span>
+<span class="kn">from</span> <span class="nn">mlflow.models.utils</span> <span class="kn">import</span> <span class="n">_save_example</span>
+<span class="kn">from</span> <span class="nn">mlflow.tracking._model_registry</span> <span class="kn">import</span> <span class="n">DEFAULT_AWAIT_MAX_SLEEP_SECONDS</span>
+<span class="kn">from</span> <span class="nn">mlflow.tracking.artifact_utils</span> <span class="kn">import</span> <span class="n">_download_artifact_from_uri</span>
+<span class="kn">from</span> <span class="nn">mlflow.utils.docstring_utils</span> <span class="kn">import</span> <span class="n">LOG_MODEL_PARAM_DOCS</span><span class="p">,</span> <span class="n">format_docstring</span>
+<span class="kn">from</span> <span class="nn">mlflow.utils.environment</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">_CONDA_ENV_FILE_NAME</span><span class="p">,</span>
+    <span class="n">_CONSTRAINTS_FILE_NAME</span><span class="p">,</span>
+    <span class="n">_PYTHON_ENV_FILE_NAME</span><span class="p">,</span>
+    <span class="n">_REQUIREMENTS_FILE_NAME</span><span class="p">,</span>
+    <span class="n">_get_pip_deps</span><span class="p">,</span>
+    <span class="n">_mlflow_conda_env</span><span class="p">,</span>
+    <span class="n">_process_conda_env</span><span class="p">,</span>
+    <span class="n">_process_pip_requirements</span><span class="p">,</span>
+    <span class="n">_PythonEnv</span><span class="p">,</span>
+    <span class="n">_validate_env_arguments</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">mlflow.utils.file_utils</span> <span class="kn">import</span> <span class="n">write_to</span>
+<span class="kn">from</span> <span class="nn">mlflow.utils.model_utils</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">_add_code_from_conf_to_system_path</span><span class="p">,</span>
+    <span class="n">_get_flavor_configuration</span><span class="p">,</span>
+    <span class="n">_validate_and_copy_code_paths</span><span class="p">,</span>
+    <span class="n">_validate_and_prepare_target_save_path</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">mlflow.utils.requirements_utils</span> <span class="kn">import</span> <span class="n">_get_package_name</span>
+<span class="kn">from</span> <span class="nn">mlflow.utils.uri</span> <span class="kn">import</span> <span class="n">append_to_uri_path</span>
+
+<span class="n">FLAVOR_NAME</span> <span class="o">=</span> <span class="s2">&quot;shap&quot;</span>
+
+<span class="n">_MAXIMUM_BACKGROUND_DATA_SIZE</span> <span class="o">=</span> <span class="mi">100</span>
+<span class="n">_DEFAULT_ARTIFACT_PATH</span> <span class="o">=</span> <span class="s2">&quot;model_explanations_shap&quot;</span>
+<span class="n">_SUMMARY_BAR_PLOT_FILE_NAME</span> <span class="o">=</span> <span class="s2">&quot;summary_bar_plot.png&quot;</span>
+<span class="n">_BASE_VALUES_FILE_NAME</span> <span class="o">=</span> <span class="s2">&quot;base_values.npy&quot;</span>
+<span class="n">_SHAP_VALUES_FILE_NAME</span> <span class="o">=</span> <span class="s2">&quot;shap_values.npy&quot;</span>
+<span class="n">_UNKNOWN_MODEL_FLAVOR</span> <span class="o">=</span> <span class="s2">&quot;unknown&quot;</span>
+<span class="n">_UNDERLYING_MODEL_SUBPATH</span> <span class="o">=</span> <span class="s2">&quot;underlying_model&quot;</span>
+
+
+<div class="viewcode-block" id="get_underlying_model_flavor"><a class="viewcode-back" href="../../python_api/mlflow.shap.html#mlflow.shap.get_underlying_model_flavor">[docs]</a><span class="k">def</span> <span class="nf">get_underlying_model_flavor</span><span class="p">(</span><span class="n">model</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Find the underlying models flavor.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        model: underlying model of the explainer.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="c1"># checking if underlying model is wrapped</span>
+
+    <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="s2">&quot;inner_model&quot;</span><span class="p">):</span>
+        <span class="n">unwrapped_model</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">inner_model</span>
+
+        <span class="c1"># check if passed model is a method of object</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">unwrapped_model</span><span class="p">,</span> <span class="n">types</span><span class="o">.</span><span class="n">MethodType</span><span class="p">):</span>
+            <span class="n">model_object</span> <span class="o">=</span> <span class="n">unwrapped_model</span><span class="o">.</span><span class="vm">__self__</span>
+
+            <span class="c1"># check if model object is of type sklearn</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="kn">import</span> <span class="nn">sklearn</span>
+
+                <span class="k">if</span> <span class="nb">issubclass</span><span class="p">(</span><span class="nb">type</span><span class="p">(</span><span class="n">model_object</span><span class="p">),</span> <span class="n">sklearn</span><span class="o">.</span><span class="n">base</span><span class="o">.</span><span class="n">BaseEstimator</span><span class="p">):</span>
+                    <span class="k">return</span> <span class="n">mlflow</span><span class="o">.</span><span class="n">sklearn</span><span class="o">.</span><span class="n">FLAVOR_NAME</span>
+            <span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
+                <span class="k">pass</span>
+
+        <span class="c1"># check if passed model is of type pytorch</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="kn">import</span> <span class="nn">torch</span>
+
+            <span class="k">if</span> <span class="nb">issubclass</span><span class="p">(</span><span class="nb">type</span><span class="p">(</span><span class="n">unwrapped_model</span><span class="p">),</span> <span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
+                <span class="k">return</span> <span class="n">mlflow</span><span class="o">.</span><span class="n">pytorch</span><span class="o">.</span><span class="n">FLAVOR_NAME</span>
+        <span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
+            <span class="k">pass</span>
+
+    <span class="k">return</span> <span class="n">_UNKNOWN_MODEL_FLAVOR</span></div>
+
+
+<div class="viewcode-block" id="get_default_pip_requirements"><a class="viewcode-back" href="../../python_api/mlflow.shap.html#mlflow.shap.get_default_pip_requirements">[docs]</a><span class="k">def</span> <span class="nf">get_default_pip_requirements</span><span class="p">():</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    A list of default pip requirements for MLflow Models produced by this flavor. Calls to</span>
+<span class="sd">    :func:`save_explainer()` and :func:`log_explainer()` produce a pip environment that, at</span>
+<span class="sd">    minimum, contains these requirements.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="kn">import</span> <span class="nn">shap</span>
+
+    <span class="k">return</span> <span class="p">[</span><span class="sa">f</span><span class="s2">&quot;shap==</span><span class="si">{</span><span class="n">shap</span><span class="o">.</span><span class="n">__version__</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">]</span></div>
+
+
+<div class="viewcode-block" id="get_default_conda_env"><a class="viewcode-back" href="../../python_api/mlflow.shap.html#mlflow.shap.get_default_conda_env">[docs]</a><span class="k">def</span> <span class="nf">get_default_conda_env</span><span class="p">():</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Returns:</span>
+<span class="sd">        The default Conda environment for MLflow Models produced by calls to</span>
+<span class="sd">        :func:`save_explainer()` and :func:`log_explainer()`.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">_mlflow_conda_env</span><span class="p">(</span><span class="n">additional_pip_deps</span><span class="o">=</span><span class="n">get_default_pip_requirements</span><span class="p">())</span></div>
+
+
+<span class="k">def</span> <span class="nf">_load_pyfunc</span><span class="p">(</span><span class="n">path</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Load PyFunc implementation. Called by ``pyfunc.load_model``.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">_SHAPWrapper</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
+
+
+<span class="nd">@contextmanager</span>
+<span class="k">def</span> <span class="nf">_log_artifact_contextmanager</span><span class="p">(</span><span class="n">out_file</span><span class="p">,</span> <span class="n">artifact_path</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    A context manager to make it easier to log an artifact.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">with</span> <span class="n">tempfile</span><span class="o">.</span><span class="n">TemporaryDirectory</span><span class="p">()</span> <span class="k">as</span> <span class="n">tmp_dir</span><span class="p">:</span>
+        <span class="n">tmp_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">tmp_dir</span><span class="p">,</span> <span class="n">out_file</span><span class="p">)</span>
+        <span class="k">yield</span> <span class="n">tmp_path</span>
+        <span class="n">mlflow</span><span class="o">.</span><span class="n">log_artifact</span><span class="p">(</span><span class="n">tmp_path</span><span class="p">,</span> <span class="n">artifact_path</span><span class="p">)</span>
+
+
+<span class="k">def</span> <span class="nf">_log_numpy</span><span class="p">(</span><span class="n">numpy_obj</span><span class="p">,</span> <span class="n">out_file</span><span class="p">,</span> <span class="n">artifact_path</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Log a numpy object.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">with</span> <span class="n">_log_artifact_contextmanager</span><span class="p">(</span><span class="n">out_file</span><span class="p">,</span> <span class="n">artifact_path</span><span class="p">)</span> <span class="k">as</span> <span class="n">tmp_path</span><span class="p">:</span>
+        <span class="n">np</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="n">tmp_path</span><span class="p">,</span> <span class="n">numpy_obj</span><span class="p">)</span>
+
+
+<span class="k">def</span> <span class="nf">_log_matplotlib_figure</span><span class="p">(</span><span class="n">fig</span><span class="p">,</span> <span class="n">out_file</span><span class="p">,</span> <span class="n">artifact_path</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Log a matplotlib figure.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">with</span> <span class="n">_log_artifact_contextmanager</span><span class="p">(</span><span class="n">out_file</span><span class="p">,</span> <span class="n">artifact_path</span><span class="p">)</span> <span class="k">as</span> <span class="n">tmp_path</span><span class="p">:</span>
+        <span class="n">fig</span><span class="o">.</span><span class="n">savefig</span><span class="p">(</span><span class="n">tmp_path</span><span class="p">)</span>
+
+
+<span class="k">def</span> <span class="nf">_get_conda_env_for_underlying_model</span><span class="p">(</span><span class="n">underlying_model_path</span><span class="p">):</span>
+    <span class="n">underlying_model_conda_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">underlying_model_path</span><span class="p">,</span> <span class="s2">&quot;conda.yaml&quot;</span><span class="p">)</span>
+    <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">underlying_model_conda_path</span><span class="p">)</span> <span class="k">as</span> <span class="n">underlying_model_conda_file</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">yaml</span><span class="o">.</span><span class="n">safe_load</span><span class="p">(</span><span class="n">underlying_model_conda_file</span><span class="p">)</span>
+
+
+<div class="viewcode-block" id="log_explanation"><a class="viewcode-back" href="../../python_api/mlflow.shap.html#mlflow.shap.log_explanation">[docs]</a><span class="k">def</span> <span class="nf">log_explanation</span><span class="p">(</span><span class="n">predict_function</span><span class="p">,</span> <span class="n">features</span><span class="p">,</span> <span class="n">artifact_path</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">    </span><span class="sa">r</span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Given a ``predict_function`` capable of computing ML model output on the provided ``features``,</span>
+<span class="sd">    computes and logs explanations of an ML model&#39;s output. Explanations are logged as a directory</span>
+<span class="sd">    of artifacts containing the following items generated by `SHAP`_ (SHapley Additive</span>
+<span class="sd">    exPlanations).</span>
+
+<span class="sd">        - Base values</span>
+<span class="sd">        - SHAP values (computed using `shap.KernelExplainer`_)</span>
+<span class="sd">        - Summary bar plot (shows the average impact of each feature on model output)</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        predict_function:</span>
+<span class="sd">            A function to compute the output of a model (e.g. ``predict_proba`` method of</span>
+<span class="sd">            scikit-learn classifiers). Must have the following signature:</span>
+
+<span class="sd">            .. code-block:: python</span>
+
+<span class="sd">                def predict_function(X) -&gt; pred: ...</span>
+
+<span class="sd">            - ``X``: An array-like object whose shape should be (# samples, # features).</span>
+<span class="sd">            - ``pred``: An array-like object whose shape should be (# samples) for a regressor or</span>
+<span class="sd">              (# classes, # samples) for a classifier. For a classifier, the values in ``pred``</span>
+<span class="sd">              should correspond to the predicted probability of each class.</span>
+
+<span class="sd">            Acceptable array-like object types:</span>
+
+<span class="sd">                - ``numpy.array``</span>
+<span class="sd">                - ``pandas.DataFrame``</span>
+<span class="sd">                - ``shap.common.DenseData``</span>
+<span class="sd">                - ``scipy.sparse matrix``</span>
+
+<span class="sd">        features:</span>
+<span class="sd">            A matrix of features to compute SHAP values with. The provided features should</span>
+<span class="sd">            have shape (# samples, # features), and can be either of the array-like object</span>
+<span class="sd">            types listed above.</span>
+
+<span class="sd">            .. note::</span>
+<span class="sd">                Background data for `shap.KernelExplainer`_ is generated by subsampling ``features``</span>
+<span class="sd">                with `shap.kmeans`_. The background data size is limited to 100 rows for performance</span>
+<span class="sd">                reasons.</span>
+
+<span class="sd">        artifact_path:</span>
+<span class="sd">            The run-relative artifact path to which the explanation is saved.</span>
+<span class="sd">            If unspecified, defaults to &quot;model_explanations_shap&quot;.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        Artifact URI of the logged explanations.</span>
+
+<span class="sd">    .. _SHAP: https://github.com/slundberg/shap</span>
+
+<span class="sd">    .. _shap.KernelExplainer: https://shap.readthedocs.io/en/latest/generated</span>
+<span class="sd">        /shap.KernelExplainer.html#shap.KernelExplainer</span>
+
+<span class="sd">    .. _shap.kmeans: https://github.com/slundberg/shap/blob/v0.36.0/shap/utils/_legacy.py#L9</span>
+
+<span class="sd">    .. code-block:: python</span>
+<span class="sd">        :caption: Example</span>
+
+<span class="sd">        import os</span>
+
+<span class="sd">        import numpy as np</span>
+<span class="sd">        import pandas as pd</span>
+<span class="sd">        from sklearn.datasets import load_diabetes</span>
+<span class="sd">        from sklearn.linear_model import LinearRegression</span>
+
+<span class="sd">        import mlflow</span>
+<span class="sd">        from mlflow import MlflowClient</span>
+
+<span class="sd">        # prepare training data</span>
+<span class="sd">        X, y = dataset = load_diabetes(return_X_y=True, as_frame=True)</span>
+<span class="sd">        X = pd.DataFrame(dataset.data[:50, :8], columns=dataset.feature_names[:8])</span>
+<span class="sd">        y = dataset.target[:50]</span>
+
+<span class="sd">        # train a model</span>
+<span class="sd">        model = LinearRegression()</span>
+<span class="sd">        model.fit(X, y)</span>
+
+<span class="sd">        # log an explanation</span>
+<span class="sd">        with mlflow.start_run() as run:</span>
+<span class="sd">            mlflow.shap.log_explanation(model.predict, X)</span>
+
+<span class="sd">        # list artifacts</span>
+<span class="sd">        client = MlflowClient()</span>
+<span class="sd">        artifact_path = &quot;model_explanations_shap&quot;</span>
+<span class="sd">        artifacts = [x.path for x in client.list_artifacts(run.info.run_id, artifact_path)]</span>
+<span class="sd">        print(&quot;# artifacts:&quot;)</span>
+<span class="sd">        print(artifacts)</span>
+
+<span class="sd">        # load back the logged explanation</span>
+<span class="sd">        dst_path = client.download_artifacts(run.info.run_id, artifact_path)</span>
+<span class="sd">        base_values = np.load(os.path.join(dst_path, &quot;base_values.npy&quot;))</span>
+<span class="sd">        shap_values = np.load(os.path.join(dst_path, &quot;shap_values.npy&quot;))</span>
+
+<span class="sd">        print(&quot;\n# base_values:&quot;)</span>
+<span class="sd">        print(base_values)</span>
+<span class="sd">        print(&quot;\n# shap_values:&quot;)</span>
+<span class="sd">        print(shap_values[:3])</span>
+
+<span class="sd">    .. code-block:: text</span>
+<span class="sd">        :caption: Output</span>
+
+<span class="sd">        # artifacts:</span>
+<span class="sd">        [&#39;model_explanations_shap/base_values.npy&#39;,</span>
+<span class="sd">         &#39;model_explanations_shap/shap_values.npy&#39;,</span>
+<span class="sd">         &#39;model_explanations_shap/summary_bar_plot.png&#39;]</span>
+
+<span class="sd">        # base_values:</span>
+<span class="sd">        20.502000000000002</span>
+
+<span class="sd">        # shap_values:</span>
+<span class="sd">        [[ 2.09975523  0.4746513   7.63759026  0.        ]</span>
+<span class="sd">         [ 2.00883109 -0.18816665 -0.14419184  0.        ]</span>
+<span class="sd">         [ 2.00891772 -0.18816665 -0.14419184  0.        ]]</span>
+
+<span class="sd">    .. figure:: ../_static/images/shap-ui-screenshot.png</span>
+
+<span class="sd">        Logged artifacts</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="kn">import</span> <span class="nn">matplotlib.pyplot</span> <span class="k">as</span> <span class="nn">plt</span>
+    <span class="kn">import</span> <span class="nn">shap</span>
+
+    <span class="n">artifact_path</span> <span class="o">=</span> <span class="n">_DEFAULT_ARTIFACT_PATH</span> <span class="k">if</span> <span class="n">artifact_path</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">artifact_path</span>
+    <span class="k">with</span> <span class="n">mlflow</span><span class="o">.</span><span class="n">utils</span><span class="o">.</span><span class="n">autologging_utils</span><span class="o">.</span><span class="n">disable_autologging</span><span class="p">():</span>
+        <span class="n">background_data</span> <span class="o">=</span> <span class="n">shap</span><span class="o">.</span><span class="n">kmeans</span><span class="p">(</span><span class="n">features</span><span class="p">,</span> <span class="nb">min</span><span class="p">(</span><span class="n">_MAXIMUM_BACKGROUND_DATA_SIZE</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">features</span><span class="p">)))</span>
+        <span class="n">explainer</span> <span class="o">=</span> <span class="n">shap</span><span class="o">.</span><span class="n">KernelExplainer</span><span class="p">(</span><span class="n">predict_function</span><span class="p">,</span> <span class="n">background_data</span><span class="p">)</span>
+        <span class="n">shap_values</span> <span class="o">=</span> <span class="n">explainer</span><span class="o">.</span><span class="n">shap_values</span><span class="p">(</span><span class="n">features</span><span class="p">)</span>
+
+        <span class="n">_log_numpy</span><span class="p">(</span><span class="n">explainer</span><span class="o">.</span><span class="n">expected_value</span><span class="p">,</span> <span class="n">_BASE_VALUES_FILE_NAME</span><span class="p">,</span> <span class="n">artifact_path</span><span class="p">)</span>
+        <span class="n">_log_numpy</span><span class="p">(</span><span class="n">shap_values</span><span class="p">,</span> <span class="n">_SHAP_VALUES_FILE_NAME</span><span class="p">,</span> <span class="n">artifact_path</span><span class="p">)</span>
+
+        <span class="n">shap</span><span class="o">.</span><span class="n">summary_plot</span><span class="p">(</span><span class="n">shap_values</span><span class="p">,</span> <span class="n">features</span><span class="p">,</span> <span class="n">plot_type</span><span class="o">=</span><span class="s2">&quot;bar&quot;</span><span class="p">,</span> <span class="n">show</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+        <span class="n">fig</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">gcf</span><span class="p">()</span>
+        <span class="n">fig</span><span class="o">.</span><span class="n">tight_layout</span><span class="p">()</span>
+        <span class="n">_log_matplotlib_figure</span><span class="p">(</span><span class="n">fig</span><span class="p">,</span> <span class="n">_SUMMARY_BAR_PLOT_FILE_NAME</span><span class="p">,</span> <span class="n">artifact_path</span><span class="p">)</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">close</span><span class="p">(</span><span class="n">fig</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">append_to_uri_path</span><span class="p">(</span><span class="n">mlflow</span><span class="o">.</span><span class="n">active_run</span><span class="p">()</span><span class="o">.</span><span class="n">info</span><span class="o">.</span><span class="n">artifact_uri</span><span class="p">,</span> <span class="n">artifact_path</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="log_explainer"><a class="viewcode-back" href="../../python_api/mlflow.shap.html#mlflow.shap.log_explainer">[docs]</a><span class="nd">@format_docstring</span><span class="p">(</span><span class="n">LOG_MODEL_PARAM_DOCS</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">package_name</span><span class="o">=</span><span class="n">FLAVOR_NAME</span><span class="p">))</span>
+<span class="k">def</span> <span class="nf">log_explainer</span><span class="p">(</span>
+    <span class="n">explainer</span><span class="p">,</span>
+    <span class="n">artifact_path</span><span class="p">,</span>
+    <span class="n">serialize_model_using_mlflow</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+    <span class="n">conda_env</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">code_paths</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">registered_model_name</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">signature</span><span class="p">:</span> <span class="n">ModelSignature</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">input_example</span><span class="p">:</span> <span class="n">ModelInputExample</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">await_registration_for</span><span class="o">=</span><span class="n">DEFAULT_AWAIT_MAX_SLEEP_SECONDS</span><span class="p">,</span>
+    <span class="n">pip_requirements</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">extra_pip_requirements</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">metadata</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+<span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Log an SHAP explainer as an MLflow artifact for the current run.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        explainer: SHAP explainer to be saved.</span>
+<span class="sd">        artifact_path: Run-relative artifact path.</span>
+<span class="sd">        serialize_model_using_mlflow: When set to True, MLflow will extract the underlying</span>
+<span class="sd">            model and serialize it as an MLmodel, otherwise it uses SHAP&#39;s internal serialization.</span>
+<span class="sd">            Defaults to True. Currently MLflow serialization is only supported for models of</span>
+<span class="sd">            &#39;sklearn&#39; or &#39;pytorch&#39; flavors.</span>
+<span class="sd">        conda_env: {{ conda_env }}</span>
+<span class="sd">        code_paths: {{ code_paths }}</span>
+<span class="sd">        registered_model_name: If given, create a model version under ``registered_model_name``,</span>
+<span class="sd">            also creating a registered model if one with the given name does not exist.</span>
+<span class="sd">        signature: :py:class:`ModelSignature &lt;mlflow.models.ModelSignature&gt;` describes model input</span>
+<span class="sd">            and output :py:class:`Schema &lt;mlflow.types.Schema&gt;`. The model signature can be</span>
+<span class="sd">            :py:func:`inferred &lt;mlflow.models.infer_signature&gt;` from datasets with valid model input</span>
+<span class="sd">            (e.g. the training dataset with target column omitted) and valid model output</span>
+<span class="sd">            (e.g. model predictions generated on the training dataset), for example:</span>
+
+<span class="sd">            .. code-block:: python</span>
+
+<span class="sd">                from mlflow.models import infer_signature</span>
+
+<span class="sd">                train = df.drop_column(&quot;target_label&quot;)</span>
+<span class="sd">                predictions = ...  # compute model predictions</span>
+<span class="sd">                signature = infer_signature(train, predictions)</span>
+<span class="sd">        input_example: {{ input_example }}</span>
+<span class="sd">        await_registration_for: Number of seconds to wait for the model version to finish</span>
+<span class="sd">            being created and is in ``READY`` status. By default, the function waits for five</span>
+<span class="sd">            minutes. Specify 0 or None to skip waiting.</span>
+<span class="sd">        pip_requirements: {{ pip_requirements }}</span>
+<span class="sd">        extra_pip_requirements: {{ extra_pip_requirements }}</span>
+<span class="sd">        metadata: {{ metadata }}</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">Model</span><span class="o">.</span><span class="n">log</span><span class="p">(</span>
+        <span class="n">artifact_path</span><span class="o">=</span><span class="n">artifact_path</span><span class="p">,</span>
+        <span class="n">flavor</span><span class="o">=</span><span class="n">mlflow</span><span class="o">.</span><span class="n">shap</span><span class="p">,</span>
+        <span class="n">explainer</span><span class="o">=</span><span class="n">explainer</span><span class="p">,</span>
+        <span class="n">conda_env</span><span class="o">=</span><span class="n">conda_env</span><span class="p">,</span>
+        <span class="n">code_paths</span><span class="o">=</span><span class="n">code_paths</span><span class="p">,</span>
+        <span class="n">serialize_model_using_mlflow</span><span class="o">=</span><span class="n">serialize_model_using_mlflow</span><span class="p">,</span>
+        <span class="n">registered_model_name</span><span class="o">=</span><span class="n">registered_model_name</span><span class="p">,</span>
+        <span class="n">signature</span><span class="o">=</span><span class="n">signature</span><span class="p">,</span>
+        <span class="n">input_example</span><span class="o">=</span><span class="n">input_example</span><span class="p">,</span>
+        <span class="n">await_registration_for</span><span class="o">=</span><span class="n">await_registration_for</span><span class="p">,</span>
+        <span class="n">pip_requirements</span><span class="o">=</span><span class="n">pip_requirements</span><span class="p">,</span>
+        <span class="n">extra_pip_requirements</span><span class="o">=</span><span class="n">extra_pip_requirements</span><span class="p">,</span>
+        <span class="n">metadata</span><span class="o">=</span><span class="n">metadata</span><span class="p">,</span>
+    <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="save_explainer"><a class="viewcode-back" href="../../python_api/mlflow.shap.html#mlflow.shap.save_explainer">[docs]</a><span class="nd">@format_docstring</span><span class="p">(</span><span class="n">LOG_MODEL_PARAM_DOCS</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">package_name</span><span class="o">=</span><span class="n">FLAVOR_NAME</span><span class="p">))</span>
+<span class="k">def</span> <span class="nf">save_explainer</span><span class="p">(</span>
+    <span class="n">explainer</span><span class="p">,</span>
+    <span class="n">path</span><span class="p">,</span>
+    <span class="n">serialize_model_using_mlflow</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+    <span class="n">conda_env</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">code_paths</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">mlflow_model</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">signature</span><span class="p">:</span> <span class="n">ModelSignature</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">input_example</span><span class="p">:</span> <span class="n">ModelInputExample</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">pip_requirements</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">extra_pip_requirements</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">metadata</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+<span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Save a SHAP explainer to a path on the local file system. Produces an MLflow Model</span>
+<span class="sd">    containing the following flavors:</span>
+
+<span class="sd">        - :py:mod:`mlflow.shap`</span>
+<span class="sd">        - :py:mod:`mlflow.pyfunc`</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        explainer: SHAP explainer to be saved.</span>
+<span class="sd">        path: Local path where the explainer is to be saved.</span>
+<span class="sd">        serialize_model_using_mlflow: When set to True, MLflow will extract the underlying</span>
+<span class="sd">            model and serialize it as an MLmodel, otherwise it uses SHAP&#39;s internal serialization.</span>
+<span class="sd">            Defaults to True. Currently MLflow serialization is only supported for models of</span>
+<span class="sd">            &#39;sklearn&#39; or &#39;pytorch&#39; flavors.</span>
+<span class="sd">        conda_env: {{ conda_env }}</span>
+<span class="sd">        code_paths: {{ code_paths }}</span>
+<span class="sd">        mlflow_model: :py:mod:`mlflow.models.Model` this flavor is being added to.</span>
+<span class="sd">        signature: :py:class:`ModelSignature &lt;mlflow.models.ModelSignature&gt;` describes model input</span>
+<span class="sd">            and output :py:class:`Schema &lt;mlflow.types.Schema&gt;`. The model signature can be</span>
+<span class="sd">            :py:func:`inferred &lt;mlflow.models.infer_signature&gt;` from datasets with valid model input</span>
+<span class="sd">            (e.g. the training dataset with target column omitted) and valid model output (e.g.</span>
+<span class="sd">            model predictions generated on the training dataset), for example:</span>
+
+<span class="sd">            .. code-block:: python</span>
+
+<span class="sd">                from mlflow.models import infer_signature</span>
+
+<span class="sd">                train = df.drop_column(&quot;target_label&quot;)</span>
+<span class="sd">                predictions = ...  # compute model predictions</span>
+<span class="sd">                signature = infer_signature(train, predictions)</span>
+<span class="sd">        input_example: {{ input_example }}</span>
+<span class="sd">        pip_requirements: {{ pip_requirements }}</span>
+<span class="sd">        extra_pip_requirements: {{ extra_pip_requirements }}</span>
+<span class="sd">        metadata: {{ metadata }}</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="kn">import</span> <span class="nn">shap</span>
+
+    <span class="n">_validate_env_arguments</span><span class="p">(</span><span class="n">conda_env</span><span class="p">,</span> <span class="n">pip_requirements</span><span class="p">,</span> <span class="n">extra_pip_requirements</span><span class="p">)</span>
+
+    <span class="n">_validate_and_prepare_target_save_path</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
+    <span class="n">code_dir_subpath</span> <span class="o">=</span> <span class="n">_validate_and_copy_code_paths</span><span class="p">(</span><span class="n">code_paths</span><span class="p">,</span> <span class="n">path</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">mlflow_model</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">mlflow_model</span> <span class="o">=</span> <span class="n">Model</span><span class="p">()</span>
+    <span class="k">if</span> <span class="n">signature</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">mlflow_model</span><span class="o">.</span><span class="n">signature</span> <span class="o">=</span> <span class="n">signature</span>
+    <span class="k">if</span> <span class="n">input_example</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">_save_example</span><span class="p">(</span><span class="n">mlflow_model</span><span class="p">,</span> <span class="n">input_example</span><span class="p">,</span> <span class="n">path</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">metadata</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">mlflow_model</span><span class="o">.</span><span class="n">metadata</span> <span class="o">=</span> <span class="n">metadata</span>
+
+    <span class="n">underlying_model_flavor</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">underlying_model_path</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">serializable_by_mlflow</span> <span class="o">=</span> <span class="kc">False</span>
+
+    <span class="c1"># saving the underlying model if required</span>
+    <span class="k">if</span> <span class="n">serialize_model_using_mlflow</span><span class="p">:</span>
+        <span class="n">underlying_model_flavor</span> <span class="o">=</span> <span class="n">get_underlying_model_flavor</span><span class="p">(</span><span class="n">explainer</span><span class="o">.</span><span class="n">model</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">underlying_model_flavor</span> <span class="o">!=</span> <span class="n">_UNKNOWN_MODEL_FLAVOR</span><span class="p">:</span>
+            <span class="n">serializable_by_mlflow</span> <span class="o">=</span> <span class="kc">True</span>  <span class="c1"># prevents SHAP from serializing the underlying model</span>
+            <span class="n">underlying_model_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">_UNDERLYING_MODEL_SUBPATH</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
+                <span class="s2">&quot;Unable to serialize underlying model using MLflow, will use SHAP serialization&quot;</span>
+            <span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">underlying_model_flavor</span> <span class="o">==</span> <span class="n">mlflow</span><span class="o">.</span><span class="n">sklearn</span><span class="o">.</span><span class="n">FLAVOR_NAME</span><span class="p">:</span>
+            <span class="n">mlflow</span><span class="o">.</span><span class="n">sklearn</span><span class="o">.</span><span class="n">save_model</span><span class="p">(</span><span class="n">explainer</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">inner_model</span><span class="o">.</span><span class="vm">__self__</span><span class="p">,</span> <span class="n">underlying_model_path</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">underlying_model_flavor</span> <span class="o">==</span> <span class="n">mlflow</span><span class="o">.</span><span class="n">pytorch</span><span class="o">.</span><span class="n">FLAVOR_NAME</span><span class="p">:</span>
+            <span class="n">mlflow</span><span class="o">.</span><span class="n">pytorch</span><span class="o">.</span><span class="n">save_model</span><span class="p">(</span><span class="n">explainer</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">inner_model</span><span class="p">,</span> <span class="n">underlying_model_path</span><span class="p">)</span>
+
+    <span class="c1"># saving the explainer object</span>
+    <span class="n">explainer_data_subpath</span> <span class="o">=</span> <span class="s2">&quot;explainer.shap&quot;</span>
+    <span class="n">explainer_output_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">explainer_data_subpath</span><span class="p">)</span>
+    <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">explainer_output_path</span><span class="p">,</span> <span class="s2">&quot;wb&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">explainer_output_file_handle</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">serialize_model_using_mlflow</span> <span class="ow">and</span> <span class="n">serializable_by_mlflow</span><span class="p">:</span>
+            <span class="n">explainer</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="n">explainer_output_file_handle</span><span class="p">,</span> <span class="n">model_saver</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">explainer</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="n">explainer_output_file_handle</span><span class="p">)</span>
+
+    <span class="n">pyfunc</span><span class="o">.</span><span class="n">add_to_model</span><span class="p">(</span>
+        <span class="n">mlflow_model</span><span class="p">,</span>
+        <span class="n">loader_module</span><span class="o">=</span><span class="s2">&quot;mlflow.shap&quot;</span><span class="p">,</span>
+        <span class="n">model_path</span><span class="o">=</span><span class="n">explainer_data_subpath</span><span class="p">,</span>
+        <span class="n">underlying_model_flavor</span><span class="o">=</span><span class="n">underlying_model_flavor</span><span class="p">,</span>
+        <span class="n">conda_env</span><span class="o">=</span><span class="n">_CONDA_ENV_FILE_NAME</span><span class="p">,</span>
+        <span class="n">python_env</span><span class="o">=</span><span class="n">_PYTHON_ENV_FILE_NAME</span><span class="p">,</span>
+        <span class="n">code</span><span class="o">=</span><span class="n">code_dir_subpath</span><span class="p">,</span>
+    <span class="p">)</span>
+
+    <span class="n">mlflow_model</span><span class="o">.</span><span class="n">add_flavor</span><span class="p">(</span>
+        <span class="n">FLAVOR_NAME</span><span class="p">,</span>
+        <span class="n">shap_version</span><span class="o">=</span><span class="n">shap</span><span class="o">.</span><span class="n">__version__</span><span class="p">,</span>
+        <span class="n">serialized_explainer</span><span class="o">=</span><span class="n">explainer_data_subpath</span><span class="p">,</span>
+        <span class="n">underlying_model_flavor</span><span class="o">=</span><span class="n">underlying_model_flavor</span><span class="p">,</span>
+        <span class="n">code</span><span class="o">=</span><span class="n">code_dir_subpath</span><span class="p">,</span>
+    <span class="p">)</span>
+
+    <span class="n">mlflow_model</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">MLMODEL_FILE_NAME</span><span class="p">))</span>
+
+    <span class="k">if</span> <span class="n">conda_env</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">pip_requirements</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">default_reqs</span> <span class="o">=</span> <span class="n">get_default_pip_requirements</span><span class="p">()</span>
+            <span class="c1"># To ensure `_load_pyfunc` can successfully load the model during the dependency</span>
+            <span class="c1"># inference, `mlflow_model.save` must be called beforehand to save an MLmodel file.</span>
+            <span class="n">inferred_reqs</span> <span class="o">=</span> <span class="n">mlflow</span><span class="o">.</span><span class="n">models</span><span class="o">.</span><span class="n">infer_pip_requirements</span><span class="p">(</span>
+                <span class="n">path</span><span class="p">,</span>
+                <span class="n">FLAVOR_NAME</span><span class="p">,</span>
+                <span class="n">fallback</span><span class="o">=</span><span class="n">default_reqs</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="n">default_reqs</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">inferred_reqs</span><span class="p">)</span><span class="o">.</span><span class="n">union</span><span class="p">(</span><span class="n">default_reqs</span><span class="p">))</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">default_reqs</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="n">conda_env</span><span class="p">,</span> <span class="n">pip_requirements</span><span class="p">,</span> <span class="n">pip_constraints</span> <span class="o">=</span> <span class="n">_process_pip_requirements</span><span class="p">(</span>
+            <span class="n">default_reqs</span><span class="p">,</span>
+            <span class="n">pip_requirements</span><span class="p">,</span>
+            <span class="n">extra_pip_requirements</span><span class="p">,</span>
+        <span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">conda_env</span><span class="p">,</span> <span class="n">pip_requirements</span><span class="p">,</span> <span class="n">pip_constraints</span> <span class="o">=</span> <span class="n">_process_conda_env</span><span class="p">(</span><span class="n">conda_env</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">underlying_model_path</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">underlying_model_conda_env</span> <span class="o">=</span> <span class="n">_get_conda_env_for_underlying_model</span><span class="p">(</span><span class="n">underlying_model_path</span><span class="p">)</span>
+        <span class="n">conda_env</span> <span class="o">=</span> <span class="n">_merge_environments</span><span class="p">(</span><span class="n">conda_env</span><span class="p">,</span> <span class="n">underlying_model_conda_env</span><span class="p">)</span>
+        <span class="n">pip_requirements</span> <span class="o">=</span> <span class="n">_get_pip_deps</span><span class="p">(</span><span class="n">conda_env</span><span class="p">)</span>
+
+    <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">_CONDA_ENV_FILE_NAME</span><span class="p">),</span> <span class="s2">&quot;w&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+        <span class="n">yaml</span><span class="o">.</span><span class="n">safe_dump</span><span class="p">(</span><span class="n">conda_env</span><span class="p">,</span> <span class="n">stream</span><span class="o">=</span><span class="n">f</span><span class="p">,</span> <span class="n">default_flow_style</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+
+    <span class="c1"># Save `constraints.txt` if necessary</span>
+    <span class="k">if</span> <span class="n">pip_constraints</span><span class="p">:</span>
+        <span class="n">write_to</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">_CONSTRAINTS_FILE_NAME</span><span class="p">),</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">pip_constraints</span><span class="p">))</span>
+
+    <span class="c1"># Save `requirements.txt`</span>
+    <span class="n">write_to</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">_REQUIREMENTS_FILE_NAME</span><span class="p">),</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">pip_requirements</span><span class="p">))</span>
+
+    <span class="n">_PythonEnv</span><span class="o">.</span><span class="n">current</span><span class="p">()</span><span class="o">.</span><span class="n">to_yaml</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">_PYTHON_ENV_FILE_NAME</span><span class="p">))</span></div>
+
+
+<span class="c1"># Defining save_model (Required by Model.log) to refer to save_explainer</span>
+<span class="n">save_model</span> <span class="o">=</span> <span class="n">save_explainer</span>
+
+
+<span class="k">def</span> <span class="nf">_get_conda_and_pip_dependencies</span><span class="p">(</span><span class="n">conda_env</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Extract conda and pip dependencies from conda environments</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        conda_env: Conda environment</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">conda_deps</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="c1"># NB: Set operations are required in case there are multiple references of MLflow as a</span>
+    <span class="c1"># dependency to ensure that duplicate entries are not present in the final consolidated</span>
+    <span class="c1"># dependency list.</span>
+    <span class="n">pip_deps_set</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
+
+    <span class="k">for</span> <span class="n">dependency</span> <span class="ow">in</span> <span class="n">conda_env</span><span class="p">[</span><span class="s2">&quot;dependencies&quot;</span><span class="p">]:</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">dependency</span><span class="p">,</span> <span class="nb">dict</span><span class="p">)</span> <span class="ow">and</span> <span class="n">dependency</span><span class="p">[</span><span class="s2">&quot;pip&quot;</span><span class="p">]:</span>
+            <span class="k">for</span> <span class="n">pip_dependency</span> <span class="ow">in</span> <span class="n">dependency</span><span class="p">[</span><span class="s2">&quot;pip&quot;</span><span class="p">]:</span>
+                <span class="k">if</span> <span class="n">pip_dependency</span> <span class="o">!=</span> <span class="s2">&quot;mlflow&quot;</span><span class="p">:</span>
+                    <span class="n">pip_deps_set</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">pip_dependency</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">package_name</span> <span class="o">=</span> <span class="n">_get_package_name</span><span class="p">(</span><span class="n">dependency</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">package_name</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">package_name</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;python&quot;</span><span class="p">,</span> <span class="s2">&quot;pip&quot;</span><span class="p">]:</span>
+                <span class="n">conda_deps</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">dependency</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">conda_deps</span><span class="p">,</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">pip_deps_set</span><span class="p">)</span>
+
+
+<span class="k">def</span> <span class="nf">_union_lists</span><span class="p">(</span><span class="n">l1</span><span class="p">,</span> <span class="n">l2</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Returns the union of two lists as a new list.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="nb">list</span><span class="p">(</span><span class="nb">dict</span><span class="o">.</span><span class="n">fromkeys</span><span class="p">(</span><span class="n">l1</span> <span class="o">+</span> <span class="n">l2</span><span class="p">))</span>
+
+
+<span class="k">def</span> <span class="nf">_merge_environments</span><span class="p">(</span><span class="n">shap_environment</span><span class="p">,</span> <span class="n">model_environment</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Merge conda environments of underlying model and shap.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        shap_environment: SHAP conda environment.</span>
+<span class="sd">        model_environment: Underlying model conda environment.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># merge the channels from the two environments and remove the default conda</span>
+    <span class="c1"># channels if present since its added later in `_mlflow_conda_env`</span>
+    <span class="n">merged_conda_channels</span> <span class="o">=</span> <span class="n">_union_lists</span><span class="p">(</span>
+        <span class="n">shap_environment</span><span class="p">[</span><span class="s2">&quot;channels&quot;</span><span class="p">],</span> <span class="n">model_environment</span><span class="p">[</span><span class="s2">&quot;channels&quot;</span><span class="p">]</span>
+    <span class="p">)</span>
+    <span class="n">merged_conda_channels</span> <span class="o">=</span> <span class="p">[</span><span class="n">x</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">merged_conda_channels</span> <span class="k">if</span> <span class="n">x</span> <span class="o">!=</span> <span class="s2">&quot;conda-forge&quot;</span><span class="p">]</span>
+
+    <span class="n">shap_conda_deps</span><span class="p">,</span> <span class="n">shap_pip_deps</span> <span class="o">=</span> <span class="n">_get_conda_and_pip_dependencies</span><span class="p">(</span><span class="n">shap_environment</span><span class="p">)</span>
+    <span class="n">model_conda_deps</span><span class="p">,</span> <span class="n">model_pip_deps</span> <span class="o">=</span> <span class="n">_get_conda_and_pip_dependencies</span><span class="p">(</span><span class="n">model_environment</span><span class="p">)</span>
+
+    <span class="n">merged_conda_deps</span> <span class="o">=</span> <span class="n">_union_lists</span><span class="p">(</span><span class="n">shap_conda_deps</span><span class="p">,</span> <span class="n">model_conda_deps</span><span class="p">)</span>
+    <span class="n">merged_pip_deps</span> <span class="o">=</span> <span class="n">_union_lists</span><span class="p">(</span><span class="n">shap_pip_deps</span><span class="p">,</span> <span class="n">model_pip_deps</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">_mlflow_conda_env</span><span class="p">(</span>
+        <span class="n">additional_conda_deps</span><span class="o">=</span><span class="n">merged_conda_deps</span><span class="p">,</span>
+        <span class="n">additional_pip_deps</span><span class="o">=</span><span class="n">merged_pip_deps</span><span class="p">,</span>
+        <span class="n">additional_conda_channels</span><span class="o">=</span><span class="n">merged_conda_channels</span><span class="p">,</span>
+    <span class="p">)</span>
+
+
+<div class="viewcode-block" id="load_explainer"><a class="viewcode-back" href="../../python_api/mlflow.shap.html#mlflow.shap.load_explainer">[docs]</a><span class="k">def</span> <span class="nf">load_explainer</span><span class="p">(</span><span class="n">model_uri</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Load a SHAP explainer from a local file or a run.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        model_uri: The location, in URI format, of the MLflow model. For example:</span>
+
+<span class="sd">            - ``/Users/me/path/to/local/model``</span>
+<span class="sd">            - ``relative/path/to/local/model``</span>
+<span class="sd">            - ``s3://my_bucket/path/to/model``</span>
+<span class="sd">            - ``runs:/&lt;mlflow_run_id&gt;/run-relative/path/to/model``</span>
+<span class="sd">            - ``models:/&lt;model_name&gt;/&lt;model_version&gt;``</span>
+<span class="sd">            - ``models:/&lt;model_name&gt;/&lt;stage&gt;``</span>
+
+<span class="sd">            For more information about supported URI schemes, see</span>
+<span class="sd">            `Referencing Artifacts &lt;https://www.mlflow.org/docs/latest/concepts.html#</span>
+<span class="sd">            artifact-locations&gt;`_.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        A SHAP explainer.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">explainer_path</span> <span class="o">=</span> <span class="n">_download_artifact_from_uri</span><span class="p">(</span><span class="n">artifact_uri</span><span class="o">=</span><span class="n">model_uri</span><span class="p">)</span>
+    <span class="n">flavor_conf</span> <span class="o">=</span> <span class="n">_get_flavor_configuration</span><span class="p">(</span><span class="n">model_path</span><span class="o">=</span><span class="n">explainer_path</span><span class="p">,</span> <span class="n">flavor_name</span><span class="o">=</span><span class="n">FLAVOR_NAME</span><span class="p">)</span>
+    <span class="n">_add_code_from_conf_to_system_path</span><span class="p">(</span><span class="n">explainer_path</span><span class="p">,</span> <span class="n">flavor_conf</span><span class="p">)</span>
+    <span class="n">explainer_artifacts_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">explainer_path</span><span class="p">,</span> <span class="n">flavor_conf</span><span class="p">[</span><span class="s2">&quot;serialized_explainer&quot;</span><span class="p">])</span>
+    <span class="n">underlying_model_flavor</span> <span class="o">=</span> <span class="n">flavor_conf</span><span class="p">[</span><span class="s2">&quot;underlying_model_flavor&quot;</span><span class="p">]</span>
+    <span class="n">model</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="k">if</span> <span class="n">underlying_model_flavor</span> <span class="o">!=</span> <span class="n">_UNKNOWN_MODEL_FLAVOR</span><span class="p">:</span>
+        <span class="n">underlying_model_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">explainer_path</span><span class="p">,</span> <span class="n">_UNDERLYING_MODEL_SUBPATH</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">underlying_model_flavor</span> <span class="o">==</span> <span class="n">mlflow</span><span class="o">.</span><span class="n">sklearn</span><span class="o">.</span><span class="n">FLAVOR_NAME</span><span class="p">:</span>
+            <span class="n">model</span> <span class="o">=</span> <span class="n">mlflow</span><span class="o">.</span><span class="n">sklearn</span><span class="o">.</span><span class="n">_load_pyfunc</span><span class="p">(</span><span class="n">underlying_model_path</span><span class="p">)</span><span class="o">.</span><span class="n">predict</span>
+        <span class="k">elif</span> <span class="n">underlying_model_flavor</span> <span class="o">==</span> <span class="n">mlflow</span><span class="o">.</span><span class="n">pytorch</span><span class="o">.</span><span class="n">FLAVOR_NAME</span><span class="p">:</span>
+            <span class="n">model</span> <span class="o">=</span> <span class="n">mlflow</span><span class="o">.</span><span class="n">pytorch</span><span class="o">.</span><span class="n">_load_model</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">underlying_model_path</span><span class="p">,</span> <span class="s2">&quot;data&quot;</span><span class="p">))</span>
+
+    <span class="k">return</span> <span class="n">_load_explainer</span><span class="p">(</span><span class="n">explainer_file</span><span class="o">=</span><span class="n">explainer_artifacts_path</span><span class="p">,</span> <span class="n">model</span><span class="o">=</span><span class="n">model</span><span class="p">)</span></div>
+
+
+<span class="k">def</span> <span class="nf">_load_explainer</span><span class="p">(</span><span class="n">explainer_file</span><span class="p">,</span> <span class="n">model</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Load a SHAP explainer saved as an MLflow artifact on the local file system.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        explainer_file: Local filesystem path to the MLflow Model saved with the ``shap`` flavor.</span>
+<span class="sd">        model: Model to override underlying explainer model.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="kn">import</span> <span class="nn">shap</span>
+
+    <span class="k">def</span> <span class="nf">inject_model_loader</span><span class="p">(</span><span class="n">_in_file</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">model</span>
+
+    <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">explainer_file</span><span class="p">,</span> <span class="s2">&quot;rb&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">explainer</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">model</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">explainer</span> <span class="o">=</span> <span class="n">shap</span><span class="o">.</span><span class="n">Explainer</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">explainer</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">explainer</span> <span class="o">=</span> <span class="n">shap</span><span class="o">.</span><span class="n">Explainer</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">explainer</span><span class="p">,</span> <span class="n">model_loader</span><span class="o">=</span><span class="n">inject_model_loader</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">explainer</span>
+
+
+<span class="k">class</span> <span class="nc">_SHAPWrapper</span><span class="p">:</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">):</span>
+        <span class="n">flavor_conf</span> <span class="o">=</span> <span class="n">_get_flavor_configuration</span><span class="p">(</span><span class="n">model_path</span><span class="o">=</span><span class="n">path</span><span class="p">,</span> <span class="n">flavor_name</span><span class="o">=</span><span class="n">FLAVOR_NAME</span><span class="p">)</span>
+        <span class="n">shap_explainer_artifacts_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">flavor_conf</span><span class="p">[</span><span class="s2">&quot;serialized_explainer&quot;</span><span class="p">])</span>
+        <span class="n">underlying_model_flavor</span> <span class="o">=</span> <span class="n">flavor_conf</span><span class="p">[</span><span class="s2">&quot;underlying_model_flavor&quot;</span><span class="p">]</span>
+        <span class="n">model</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">if</span> <span class="n">underlying_model_flavor</span> <span class="o">!=</span> <span class="n">_UNKNOWN_MODEL_FLAVOR</span><span class="p">:</span>
+            <span class="n">underlying_model_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">_UNDERLYING_MODEL_SUBPATH</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">underlying_model_flavor</span> <span class="o">==</span> <span class="n">mlflow</span><span class="o">.</span><span class="n">sklearn</span><span class="o">.</span><span class="n">FLAVOR_NAME</span><span class="p">:</span>
+                <span class="n">model</span> <span class="o">=</span> <span class="n">mlflow</span><span class="o">.</span><span class="n">sklearn</span><span class="o">.</span><span class="n">_load_pyfunc</span><span class="p">(</span><span class="n">underlying_model_path</span><span class="p">)</span><span class="o">.</span><span class="n">predict</span>
+            <span class="k">elif</span> <span class="n">underlying_model_flavor</span> <span class="o">==</span> <span class="n">mlflow</span><span class="o">.</span><span class="n">pytorch</span><span class="o">.</span><span class="n">FLAVOR_NAME</span><span class="p">:</span>
+                <span class="n">model</span> <span class="o">=</span> <span class="n">mlflow</span><span class="o">.</span><span class="n">pytorch</span><span class="o">.</span><span class="n">_load_model</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">underlying_model_path</span><span class="p">,</span> <span class="s2">&quot;data&quot;</span><span class="p">))</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">explainer</span> <span class="o">=</span> <span class="n">_load_explainer</span><span class="p">(</span><span class="n">explainer_file</span><span class="o">=</span><span class="n">shap_explainer_artifacts_path</span><span class="p">,</span> <span class="n">model</span><span class="o">=</span><span class="n">model</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">get_raw_model</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Returns the underlying model.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">explainer</span>
+
+    <span class="k">def</span> <span class="nf">predict</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">dataframe</span><span class="p">,</span>
+        <span class="n">params</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Args:</span>
+<span class="sd">            dataframe: Model input data.</span>
+<span class="sd">            params: Additional parameters to pass to the model for inference.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            Model predictions.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">explainer</span><span class="p">(</span><span class="n">dataframe</span><span class="o">.</span><span class="n">values</span><span class="p">)</span><span class="o">.</span><span class="n">values</span>
+</pre></div>
+
+              </div>
+            </div>
+            <footer>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+      <p class="copyright">
+          &copy; MLflow Project, a Series of LF Projects, LLC. All rights reserved.
+      </p>
+
+  </div> 
+
+</footer>
+          </div>
+        </div>
+      </section>
+    </main>
+  </page>
+
+  
+
+
+  
+  <script type="text/javascript">
+    var DOCUMENTATION_OPTIONS = {
+      URL_ROOT:'../../',
+      VERSION:'2.17.1.dev0',
+      COLLAPSE_INDEX:false,
+      FILE_SUFFIX:'.html',
+      LINK_SUFFIX: '.html',
+      HAS_SOURCE:  true
+    };
+  </script>
+
+  
+
+  <script type="text/javascript" src="../../_static/js/clipboard.min.js"></script>
+  <script type="text/javascript" src="../../_static/js/jquery.waypoints.min.js"></script>
+
+  
+  
+  
+  <script type="text/javascript">var CLIPPY_SVG_PATH = "../../_static/clippy.svg";</script>
+  <script type="text/javascript" src="../../_static/js/custom.js"></script>
+  
+
+  
+  
+  <script type="text/javascript">
+    jQuery(function () {
+      SphinxRtdTheme.StickyNav.enable();
+    });
+
+  </script>
+  
+
+  
+  <script type="text/javascript">
+    document.addEventListener("DOMContentLoaded", function() {
+        function copyToClipboard(text) {
+            const textarea = document.createElement('textarea');
+            textarea.value = text;
+            document.body.appendChild(textarea);
+            textarea.select();
+            document.execCommand('copy');
+            document.body.removeChild(textarea);
+        }
+        // Get the code block designator class entries
+        const allHighlights = document.querySelectorAll('.highlight');
+        // Disable copyable links for notebook cell numbering and for cell outputs
+        const highlights = Array.from(allHighlights).filter(highlight => !highlight.closest('.highlight-none') && 
+            !highlight.closest('.nboutput'));
+    
+        highlights.forEach(function(highlight) {
+            const copyIcon = document.createElement('span');
+            copyIcon.classList.add('copy-icon');
+            copyIcon.innerHTML = '&#xf0ea;';
+
+            copyIcon.addEventListener('click', function() {
+                const code = highlight.querySelector('pre').textContent;
+                copyToClipboard(code);
+
+                // Flash effect on click
+                this.style.color = '#0194E2';
+                setTimeout(() => {
+                    this.style.color = ''; 
+                }, 100);
+
+                // Display "Code copied to clipboard" near the clicked icon
+                const message = document.createElement('span');
+                message.textContent = "Copied!";
+                message.classList.add('copy-message'); 
+
+                // Append the message to the icon
+                this.appendChild(message);
+
+                setTimeout(() => {
+                    this.removeChild(message);
+                }, 500);
+            });
+
+            highlight.appendChild(copyIcon);
+        });
+    });
+  </script>
+
+
+<script type="text/javascript">
+    document.addEventListener("DOMContentLoaded", function() {
+        // Force download for notebook-download-btn
+        const downloadButtons = document.querySelectorAll('.notebook-download-btn');
+        downloadButtons.forEach(function(button) {
+            button.addEventListener('click', function(event) {
+                event.preventDefault(); // Prevent default behavior
+
+                // Fetch the raw content of the notebook from GitHub
+                fetch(button.href)
+                    .then(response => response.blob())
+                    .then(blob => {
+                        const url = window.URL.createObjectURL(blob);
+                        const link = document.createElement('a');
+                        link.style.display = 'none';
+                        link.href = url;
+                        const filename = button.href.split('/').pop();
+                        link.download = filename; 
+
+                        document.body.appendChild(link);
+                        link.click();
+
+                        window.URL.revokeObjectURL(url);
+                        document.body.removeChild(link);
+                    })
+                    .catch(err => console.error('Error fetching the notebook:', err));
+            });
+        });
+    });
+</script> 
+</body>
+</html>

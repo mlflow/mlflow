@@ -1,0 +1,1262 @@
+
+
+<!DOCTYPE html>
+<!-- source: docs/source/_modules/mlflow/lightgbm -->
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>mlflow.lightgbm</title>
+  
+   
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+  <link rel="canonical" href="https://mlflow.org/docs/latest/_modules/mlflow/lightgbm.html">
+  
+  
+    <link rel="shortcut icon" href="../../_static/favicon.ico"/>
+    
+
+    
+
+  
+    
+
+  
+
+  
+  
+    
+
+  
+
+  
+  
+    <link href="https://fonts.googleapis.com/css?family=Source+Sans+Pro:300,400,600" rel="stylesheet">
+    <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/css/custom.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/css/cards.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/css/grids.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/css/mobile.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/css/simple-cards.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/css/tabs.css" type="text/css" />
+    
+  
+        <link rel="index" title="Index"
+              href="../../genindex.html"/>
+        <link rel="search" title="Search" href="../../search.html"/>
+    <link rel="top" title="MLflow 2.17.1.dev0 documentation" href="../../index.html"/>
+        <link rel="up" title="Module code" href="../index.html"/> 
+
+  
+  <script src="../../_static/js/modernizr.min.js"></script>
+
+</head>
+<script type="text/javascript" src="../../_static/jquery.js"></script>
+<script type="text/javascript" src="../../_static/underscore.js"></script>
+<script type="text/javascript" src="../../_static/doctools.js"></script>
+<script type="text/javascript" src="../../_static/tabs.js"></script>
+<script type="text/javascript" src="../../_static/languagesections.js"></script>
+<script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+<script type="text/javascript" src="../../_static/runllm.js"></script>
+
+<body class="wy-body-for-nav" role="document">
+  
+
+  
+  <nav class="wy-nav-top header" role="navigation" aria-label="top navigation">
+    <ul>
+  <li class="menu-toggle">
+    <i data-toggle="wy-nav-top" class="wy-nav-top-menu-button db-icon db-icon-menu pull-left"></i>
+    <a href="../../index.html" class="wy-nav-top-logo"
+      ><img src="../../_static/MLflow-logo-final-black.png" alt="MLflow"
+    /></a>
+    <span class="version">2.17.1.dev0</span>
+  </li>
+</ul>
+  </nav>
+  <page>
+    
+
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side relative">
+      <div class="wy-side-scroll">
+  <div class="wy-side-nav-search">
+    
+
+    
+
+    
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+  <input type="text" name="q" placeholder="Search" />
+  <input type="hidden" name="check_keywords" value="yes" />
+  <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+
+    
+  </div>
+
+  <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+    
+      <a href="../../index.html" class="main-navigation-home"><img src="../../_static/icons/nav-home.svg"> MLflow</a>
+    
+
+    
+      
+
+      
+        <ul>
+<li class="toctree-l1"><a class="reference internal" href="../../python_api/index.html">Python API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../cli.html">Command-Line Interface</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../R-api.html">R API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../java_api/index.html">Java API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../rest-api.html">REST API</a></li>
+</ul>
+
+      
+    
+  </div>
+
+  <div role="contentinfo">
+    
+
+    <p>
+      <a id='feedbacklink' href="https://github.com/mlflow/mlflow/blob/master/CONTRIBUTING.md" target="_blank">Contribute</a>
+    </p>
+  </div>
+</div>
+    </nav>
+
+    <main class="wy-grid-for-nav">
+      <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+        <div class="wy-nav-content">
+          <div class="rst-content">
+            
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href="../../index.html">Documentation</a> <span class="db-icon db-icon-chevron-right"></span></li>
+    
+        <li><a href="../index.html">Module code</a> <span class="db-icon db-icon-chevron-right"></span></li>
+    
+    
+      <li>mlflow.lightgbm</li>
+    
+    
+    <!-- <li class="wy-breadcrumbs-aside">
+      <a href="https://github.com/mlflow/mlflow/blob/master/docs/source/_modules/mlflow/lightgbm" class="fa fa-github"> Edit on GitHub</a>
+    </li> -->
+    
+  </ul>
+</div>
+            <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+              <div itemprop="articleBody">
+                
+  <h1>Source code for mlflow.lightgbm</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">The ``mlflow.lightgbm`` module provides an API for logging and loading LightGBM models.</span>
+<span class="sd">This module exports LightGBM models with the following flavors:</span>
+
+<span class="sd">LightGBM (native) format</span>
+<span class="sd">    This is the main flavor that can be loaded back into LightGBM.</span>
+<span class="sd">:py:mod:`mlflow.pyfunc`</span>
+<span class="sd">    Produced for use by generic pyfunc-based deployment tools and batch inference.</span>
+
+<span class="sd">.. _lightgbm.Booster:</span>
+<span class="sd">    https://lightgbm.readthedocs.io/en/latest/pythonapi/lightgbm.Booster.html#lightgbm.Booster</span>
+<span class="sd">.. _lightgbm.Booster.save_model:</span>
+<span class="sd">    https://lightgbm.readthedocs.io/en/latest/pythonapi/lightgbm.Booster.html</span>
+<span class="sd">    #lightgbm.Booster.save_model</span>
+<span class="sd">.. _lightgbm.train:</span>
+<span class="sd">    https://lightgbm.readthedocs.io/en/latest/pythonapi/lightgbm.train.html#lightgbm-train</span>
+<span class="sd">.. _scikit-learn API:</span>
+<span class="sd">    https://lightgbm.readthedocs.io/en/latest/Python-API.html#scikit-learn-api</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">import</span> <span class="nn">functools</span>
+<span class="kn">import</span> <span class="nn">json</span>
+<span class="kn">import</span> <span class="nn">logging</span>
+<span class="kn">import</span> <span class="nn">os</span>
+<span class="kn">import</span> <span class="nn">tempfile</span>
+<span class="kn">from</span> <span class="nn">copy</span> <span class="kn">import</span> <span class="n">deepcopy</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">Optional</span>
+
+<span class="kn">import</span> <span class="nn">yaml</span>
+<span class="kn">from</span> <span class="nn">packaging.version</span> <span class="kn">import</span> <span class="n">Version</span>
+
+<span class="kn">import</span> <span class="nn">mlflow</span>
+<span class="kn">from</span> <span class="nn">mlflow</span> <span class="kn">import</span> <span class="n">pyfunc</span>
+<span class="kn">from</span> <span class="nn">mlflow.data.code_dataset_source</span> <span class="kn">import</span> <span class="n">CodeDatasetSource</span>
+<span class="kn">from</span> <span class="nn">mlflow.data.numpy_dataset</span> <span class="kn">import</span> <span class="n">from_numpy</span>
+<span class="kn">from</span> <span class="nn">mlflow.data.pandas_dataset</span> <span class="kn">import</span> <span class="n">from_pandas</span>
+<span class="kn">from</span> <span class="nn">mlflow.entities.dataset_input</span> <span class="kn">import</span> <span class="n">DatasetInput</span>
+<span class="kn">from</span> <span class="nn">mlflow.entities.input_tag</span> <span class="kn">import</span> <span class="n">InputTag</span>
+<span class="kn">from</span> <span class="nn">mlflow.models</span> <span class="kn">import</span> <span class="n">Model</span><span class="p">,</span> <span class="n">ModelInputExample</span><span class="p">,</span> <span class="n">ModelSignature</span><span class="p">,</span> <span class="n">infer_signature</span>
+<span class="kn">from</span> <span class="nn">mlflow.models.model</span> <span class="kn">import</span> <span class="n">MLMODEL_FILE_NAME</span>
+<span class="kn">from</span> <span class="nn">mlflow.models.signature</span> <span class="kn">import</span> <span class="n">_infer_signature_from_input_example</span>
+<span class="kn">from</span> <span class="nn">mlflow.models.utils</span> <span class="kn">import</span> <span class="n">_save_example</span>
+<span class="kn">from</span> <span class="nn">mlflow.sklearn</span> <span class="kn">import</span> <span class="n">_SklearnTrainingSession</span>
+<span class="kn">from</span> <span class="nn">mlflow.tracking._model_registry</span> <span class="kn">import</span> <span class="n">DEFAULT_AWAIT_MAX_SLEEP_SECONDS</span>
+<span class="kn">from</span> <span class="nn">mlflow.tracking.artifact_utils</span> <span class="kn">import</span> <span class="n">_download_artifact_from_uri</span>
+<span class="kn">from</span> <span class="nn">mlflow.tracking.context</span> <span class="kn">import</span> <span class="n">registry</span> <span class="k">as</span> <span class="n">context_registry</span>
+<span class="kn">from</span> <span class="nn">mlflow.utils</span> <span class="kn">import</span> <span class="n">_get_fully_qualified_class_name</span>
+<span class="kn">from</span> <span class="nn">mlflow.utils.arguments_utils</span> <span class="kn">import</span> <span class="n">_get_arg_names</span>
+<span class="kn">from</span> <span class="nn">mlflow.utils.autologging_utils</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">ENSURE_AUTOLOGGING_ENABLED_TEXT</span><span class="p">,</span>
+    <span class="n">INPUT_EXAMPLE_SAMPLE_ROWS</span><span class="p">,</span>
+    <span class="n">InputExampleInfo</span><span class="p">,</span>
+    <span class="n">MlflowAutologgingQueueingClient</span><span class="p">,</span>
+    <span class="n">autologging_integration</span><span class="p">,</span>
+    <span class="n">batch_metrics_logger</span><span class="p">,</span>
+    <span class="n">get_mlflow_run_params_for_fn_args</span><span class="p">,</span>
+    <span class="n">picklable_exception_safe_function</span><span class="p">,</span>
+    <span class="n">resolve_input_example_and_signature</span><span class="p">,</span>
+    <span class="n">safe_patch</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">mlflow.utils.docstring_utils</span> <span class="kn">import</span> <span class="n">LOG_MODEL_PARAM_DOCS</span><span class="p">,</span> <span class="n">format_docstring</span>
+<span class="kn">from</span> <span class="nn">mlflow.utils.environment</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">_CONDA_ENV_FILE_NAME</span><span class="p">,</span>
+    <span class="n">_CONSTRAINTS_FILE_NAME</span><span class="p">,</span>
+    <span class="n">_PYTHON_ENV_FILE_NAME</span><span class="p">,</span>
+    <span class="n">_REQUIREMENTS_FILE_NAME</span><span class="p">,</span>
+    <span class="n">_mlflow_conda_env</span><span class="p">,</span>
+    <span class="n">_process_conda_env</span><span class="p">,</span>
+    <span class="n">_process_pip_requirements</span><span class="p">,</span>
+    <span class="n">_PythonEnv</span><span class="p">,</span>
+    <span class="n">_validate_env_arguments</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">mlflow.utils.file_utils</span> <span class="kn">import</span> <span class="n">get_total_file_size</span><span class="p">,</span> <span class="n">write_to</span>
+<span class="kn">from</span> <span class="nn">mlflow.utils.mlflow_tags</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">MLFLOW_DATASET_CONTEXT</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">mlflow.utils.model_utils</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">_add_code_from_conf_to_system_path</span><span class="p">,</span>
+    <span class="n">_get_flavor_configuration</span><span class="p">,</span>
+    <span class="n">_validate_and_copy_code_paths</span><span class="p">,</span>
+    <span class="n">_validate_and_prepare_target_save_path</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">mlflow.utils.requirements_utils</span> <span class="kn">import</span> <span class="n">_get_pinned_requirement</span>
+
+<span class="n">FLAVOR_NAME</span> <span class="o">=</span> <span class="s2">&quot;lightgbm&quot;</span>
+
+
+<span class="n">_logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
+
+
+<div class="viewcode-block" id="get_default_pip_requirements"><a class="viewcode-back" href="../../python_api/mlflow.lightgbm.html#mlflow.lightgbm.get_default_pip_requirements">[docs]</a><span class="k">def</span> <span class="nf">get_default_pip_requirements</span><span class="p">(</span><span class="n">include_cloudpickle</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Returns:</span>
+<span class="sd">        A list of default pip requirements for MLflow Models produced by this flavor.</span>
+<span class="sd">        Calls to :func:`save_model()` and :func:`log_model()` produce a pip environment</span>
+<span class="sd">        that, at minimum, contains these requirements.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">pip_deps</span> <span class="o">=</span> <span class="p">[</span><span class="n">_get_pinned_requirement</span><span class="p">(</span><span class="s2">&quot;lightgbm&quot;</span><span class="p">)]</span>
+    <span class="k">if</span> <span class="n">include_cloudpickle</span><span class="p">:</span>
+        <span class="n">pip_deps</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">_get_pinned_requirement</span><span class="p">(</span><span class="s2">&quot;cloudpickle&quot;</span><span class="p">))</span>
+    <span class="k">return</span> <span class="n">pip_deps</span></div>
+
+
+<div class="viewcode-block" id="get_default_conda_env"><a class="viewcode-back" href="../../python_api/mlflow.lightgbm.html#mlflow.lightgbm.get_default_conda_env">[docs]</a><span class="k">def</span> <span class="nf">get_default_conda_env</span><span class="p">(</span><span class="n">include_cloudpickle</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Returns:</span>
+<span class="sd">        The default Conda environment for MLflow Models produced by calls to</span>
+<span class="sd">        :func:`save_model()` and :func:`log_model()`.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">_mlflow_conda_env</span><span class="p">(</span><span class="n">additional_pip_deps</span><span class="o">=</span><span class="n">get_default_pip_requirements</span><span class="p">(</span><span class="n">include_cloudpickle</span><span class="p">))</span></div>
+
+
+<div class="viewcode-block" id="save_model"><a class="viewcode-back" href="../../python_api/mlflow.lightgbm.html#mlflow.lightgbm.save_model">[docs]</a><span class="nd">@format_docstring</span><span class="p">(</span><span class="n">LOG_MODEL_PARAM_DOCS</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">package_name</span><span class="o">=</span><span class="n">FLAVOR_NAME</span><span class="p">))</span>
+<span class="k">def</span> <span class="nf">save_model</span><span class="p">(</span>
+    <span class="n">lgb_model</span><span class="p">,</span>
+    <span class="n">path</span><span class="p">,</span>
+    <span class="n">conda_env</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">code_paths</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">mlflow_model</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">signature</span><span class="p">:</span> <span class="n">ModelSignature</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">input_example</span><span class="p">:</span> <span class="n">ModelInputExample</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">pip_requirements</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">extra_pip_requirements</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">metadata</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+<span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Save a LightGBM model to a path on the local file system.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        lgb_model: LightGBM model (an instance of `lightgbm.Booster`_) or</span>
+<span class="sd">            models that implement the `scikit-learn API`_  to be saved.</span>
+<span class="sd">        path: Local path where the model is to be saved.</span>
+<span class="sd">        conda_env: {{ conda_env }}</span>
+<span class="sd">        code_paths: {{ code_paths }}</span>
+<span class="sd">        mlflow_model: :py:mod:`mlflow.models.Model` this flavor is being added to.</span>
+<span class="sd">        signature: {{ signature }}</span>
+<span class="sd">        input_example: {{ input_example }}</span>
+<span class="sd">        pip_requirements: {{ pip_requirements }}</span>
+<span class="sd">        extra_pip_requirements: {{ extra_pip_requirements }}</span>
+<span class="sd">        metadata: {{ metadata }}</span>
+
+<span class="sd">    .. code-block:: python</span>
+<span class="sd">        :caption: Example</span>
+
+<span class="sd">        from pathlib import Path</span>
+<span class="sd">        from lightgbm import LGBMClassifier</span>
+<span class="sd">        from sklearn import datasets</span>
+<span class="sd">        import mlflow</span>
+
+<span class="sd">        # Load iris dataset</span>
+<span class="sd">        X, y = datasets.load_iris(return_X_y=True, as_frame=True)</span>
+
+<span class="sd">        # Initialize our model</span>
+<span class="sd">        model = LGBMClassifier(objective=&quot;multiclass&quot;, random_state=42)</span>
+
+<span class="sd">        # Train the model</span>
+<span class="sd">        model.fit(X, y)</span>
+
+<span class="sd">        # Save the model</span>
+<span class="sd">        path = &quot;model&quot;</span>
+<span class="sd">        mlflow.lightgbm.save_model(model, path)</span>
+
+<span class="sd">        # Load model for inference</span>
+<span class="sd">        loaded_model = mlflow.lightgbm.load_model(Path.cwd() / path)</span>
+<span class="sd">        print(loaded_model.predict(X[:5]))</span>
+
+<span class="sd">    .. code-block:: text</span>
+<span class="sd">        :caption: Output</span>
+
+<span class="sd">        [0 0 0 0 0]</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="kn">import</span> <span class="nn">lightgbm</span> <span class="k">as</span> <span class="nn">lgb</span>
+
+    <span class="n">_validate_env_arguments</span><span class="p">(</span><span class="n">conda_env</span><span class="p">,</span> <span class="n">pip_requirements</span><span class="p">,</span> <span class="n">extra_pip_requirements</span><span class="p">)</span>
+
+    <span class="n">path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
+    <span class="n">_validate_and_prepare_target_save_path</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
+    <span class="n">model_data_subpath</span> <span class="o">=</span> <span class="s2">&quot;model.lgb&quot;</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">lgb_model</span><span class="p">,</span> <span class="n">lgb</span><span class="o">.</span><span class="n">Booster</span><span class="p">)</span> <span class="k">else</span> <span class="s2">&quot;model.pkl&quot;</span>
+    <span class="n">model_data_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">model_data_subpath</span><span class="p">)</span>
+    <span class="n">code_dir_subpath</span> <span class="o">=</span> <span class="n">_validate_and_copy_code_paths</span><span class="p">(</span><span class="n">code_paths</span><span class="p">,</span> <span class="n">path</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">mlflow_model</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">mlflow_model</span> <span class="o">=</span> <span class="n">Model</span><span class="p">()</span>
+    <span class="n">saved_example</span> <span class="o">=</span> <span class="n">_save_example</span><span class="p">(</span><span class="n">mlflow_model</span><span class="p">,</span> <span class="n">input_example</span><span class="p">,</span> <span class="n">path</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">signature</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">saved_example</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">wrapped_model</span> <span class="o">=</span> <span class="n">_LGBModelWrapper</span><span class="p">(</span><span class="n">lgb_model</span><span class="p">)</span>
+        <span class="n">signature</span> <span class="o">=</span> <span class="n">_infer_signature_from_input_example</span><span class="p">(</span><span class="n">saved_example</span><span class="p">,</span> <span class="n">wrapped_model</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="n">signature</span> <span class="ow">is</span> <span class="kc">False</span><span class="p">:</span>
+        <span class="n">signature</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="k">if</span> <span class="n">signature</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">mlflow_model</span><span class="o">.</span><span class="n">signature</span> <span class="o">=</span> <span class="n">signature</span>
+    <span class="k">if</span> <span class="n">metadata</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">mlflow_model</span><span class="o">.</span><span class="n">metadata</span> <span class="o">=</span> <span class="n">metadata</span>
+
+    <span class="c1"># Save a LightGBM model</span>
+    <span class="n">_save_model</span><span class="p">(</span><span class="n">lgb_model</span><span class="p">,</span> <span class="n">model_data_path</span><span class="p">)</span>
+
+    <span class="n">lgb_model_class</span> <span class="o">=</span> <span class="n">_get_fully_qualified_class_name</span><span class="p">(</span><span class="n">lgb_model</span><span class="p">)</span>
+    <span class="n">pyfunc</span><span class="o">.</span><span class="n">add_to_model</span><span class="p">(</span>
+        <span class="n">mlflow_model</span><span class="p">,</span>
+        <span class="n">loader_module</span><span class="o">=</span><span class="s2">&quot;mlflow.lightgbm&quot;</span><span class="p">,</span>
+        <span class="n">data</span><span class="o">=</span><span class="n">model_data_subpath</span><span class="p">,</span>
+        <span class="n">conda_env</span><span class="o">=</span><span class="n">_CONDA_ENV_FILE_NAME</span><span class="p">,</span>
+        <span class="n">python_env</span><span class="o">=</span><span class="n">_PYTHON_ENV_FILE_NAME</span><span class="p">,</span>
+        <span class="n">code</span><span class="o">=</span><span class="n">code_dir_subpath</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">mlflow_model</span><span class="o">.</span><span class="n">add_flavor</span><span class="p">(</span>
+        <span class="n">FLAVOR_NAME</span><span class="p">,</span>
+        <span class="n">lgb_version</span><span class="o">=</span><span class="n">lgb</span><span class="o">.</span><span class="n">__version__</span><span class="p">,</span>
+        <span class="n">data</span><span class="o">=</span><span class="n">model_data_subpath</span><span class="p">,</span>
+        <span class="n">model_class</span><span class="o">=</span><span class="n">lgb_model_class</span><span class="p">,</span>
+        <span class="n">code</span><span class="o">=</span><span class="n">code_dir_subpath</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="k">if</span> <span class="n">size</span> <span class="o">:=</span> <span class="n">get_total_file_size</span><span class="p">(</span><span class="n">path</span><span class="p">):</span>
+        <span class="n">mlflow_model</span><span class="o">.</span><span class="n">model_size_bytes</span> <span class="o">=</span> <span class="n">size</span>
+    <span class="n">mlflow_model</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">MLMODEL_FILE_NAME</span><span class="p">))</span>
+
+    <span class="k">if</span> <span class="n">conda_env</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">pip_requirements</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">default_reqs</span> <span class="o">=</span> <span class="n">get_default_pip_requirements</span><span class="p">(</span>
+                <span class="n">include_cloudpickle</span><span class="o">=</span><span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">lgb_model</span><span class="p">,</span> <span class="n">lgb</span><span class="o">.</span><span class="n">Booster</span><span class="p">)</span>
+            <span class="p">)</span>
+            <span class="c1"># To ensure `_load_pyfunc` can successfully load the model during the dependency</span>
+            <span class="c1"># inference, `mlflow_model.save` must be called beforehand to save an MLmodel file.</span>
+            <span class="n">inferred_reqs</span> <span class="o">=</span> <span class="n">mlflow</span><span class="o">.</span><span class="n">models</span><span class="o">.</span><span class="n">infer_pip_requirements</span><span class="p">(</span>
+                <span class="n">path</span><span class="p">,</span>
+                <span class="n">FLAVOR_NAME</span><span class="p">,</span>
+                <span class="n">fallback</span><span class="o">=</span><span class="n">default_reqs</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="n">default_reqs</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">inferred_reqs</span><span class="p">)</span><span class="o">.</span><span class="n">union</span><span class="p">(</span><span class="n">default_reqs</span><span class="p">))</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">default_reqs</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="n">conda_env</span><span class="p">,</span> <span class="n">pip_requirements</span><span class="p">,</span> <span class="n">pip_constraints</span> <span class="o">=</span> <span class="n">_process_pip_requirements</span><span class="p">(</span>
+            <span class="n">default_reqs</span><span class="p">,</span>
+            <span class="n">pip_requirements</span><span class="p">,</span>
+            <span class="n">extra_pip_requirements</span><span class="p">,</span>
+        <span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">conda_env</span><span class="p">,</span> <span class="n">pip_requirements</span><span class="p">,</span> <span class="n">pip_constraints</span> <span class="o">=</span> <span class="n">_process_conda_env</span><span class="p">(</span><span class="n">conda_env</span><span class="p">)</span>
+
+    <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">_CONDA_ENV_FILE_NAME</span><span class="p">),</span> <span class="s2">&quot;w&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+        <span class="n">yaml</span><span class="o">.</span><span class="n">safe_dump</span><span class="p">(</span><span class="n">conda_env</span><span class="p">,</span> <span class="n">stream</span><span class="o">=</span><span class="n">f</span><span class="p">,</span> <span class="n">default_flow_style</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+
+    <span class="c1"># Save `constraints.txt` if necessary</span>
+    <span class="k">if</span> <span class="n">pip_constraints</span><span class="p">:</span>
+        <span class="n">write_to</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">_CONSTRAINTS_FILE_NAME</span><span class="p">),</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">pip_constraints</span><span class="p">))</span>
+
+    <span class="c1"># Save `requirements.txt`</span>
+    <span class="n">write_to</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">_REQUIREMENTS_FILE_NAME</span><span class="p">),</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">pip_requirements</span><span class="p">))</span>
+
+    <span class="n">_PythonEnv</span><span class="o">.</span><span class="n">current</span><span class="p">()</span><span class="o">.</span><span class="n">to_yaml</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">_PYTHON_ENV_FILE_NAME</span><span class="p">))</span></div>
+
+
+<span class="k">def</span> <span class="nf">_save_model</span><span class="p">(</span><span class="n">lgb_model</span><span class="p">,</span> <span class="n">model_path</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    LightGBM Boosters are saved using the built-in method `save_model()`,</span>
+<span class="sd">    whereas LightGBM scikit-learn models are serialized using Cloudpickle.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="kn">import</span> <span class="nn">lightgbm</span> <span class="k">as</span> <span class="nn">lgb</span>
+
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">lgb_model</span><span class="p">,</span> <span class="n">lgb</span><span class="o">.</span><span class="n">Booster</span><span class="p">):</span>
+        <span class="n">lgb_model</span><span class="o">.</span><span class="n">save_model</span><span class="p">(</span><span class="n">model_path</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="kn">import</span> <span class="nn">cloudpickle</span>
+
+        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">model_path</span><span class="p">,</span> <span class="s2">&quot;wb&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">out</span><span class="p">:</span>
+            <span class="n">cloudpickle</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">lgb_model</span><span class="p">,</span> <span class="n">out</span><span class="p">)</span>
+
+
+<div class="viewcode-block" id="log_model"><a class="viewcode-back" href="../../python_api/mlflow.lightgbm.html#mlflow.lightgbm.log_model">[docs]</a><span class="nd">@format_docstring</span><span class="p">(</span><span class="n">LOG_MODEL_PARAM_DOCS</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">package_name</span><span class="o">=</span><span class="n">FLAVOR_NAME</span><span class="p">))</span>
+<span class="k">def</span> <span class="nf">log_model</span><span class="p">(</span>
+    <span class="n">lgb_model</span><span class="p">,</span>
+    <span class="n">artifact_path</span><span class="p">,</span>
+    <span class="n">conda_env</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">code_paths</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">registered_model_name</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">signature</span><span class="p">:</span> <span class="n">ModelSignature</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">input_example</span><span class="p">:</span> <span class="n">ModelInputExample</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">await_registration_for</span><span class="o">=</span><span class="n">DEFAULT_AWAIT_MAX_SLEEP_SECONDS</span><span class="p">,</span>
+    <span class="n">pip_requirements</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">extra_pip_requirements</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">metadata</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="o">**</span><span class="n">kwargs</span><span class="p">,</span>
+<span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Log a LightGBM model as an MLflow artifact for the current run.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        lgb_model: LightGBM model (an instance of `lightgbm.Booster`_) or</span>
+<span class="sd">            models that implement the `scikit-learn API`_  to be saved.</span>
+<span class="sd">        artifact_path: Run-relative artifact path.</span>
+<span class="sd">        conda_env: {{ conda_env }}</span>
+<span class="sd">        code_paths: {{ code_paths }}</span>
+<span class="sd">        registered_model_name: If given, create a model version under</span>
+<span class="sd">            ``registered_model_name``, also creating a registered model if one</span>
+<span class="sd">            with the given name does not exist.</span>
+
+<span class="sd">        signature: {{ signature }}</span>
+<span class="sd">        input_example: {{ input_example }}</span>
+<span class="sd">        await_registration_for: Number of seconds to wait for the model version to finish</span>
+<span class="sd">            being created and is in ``READY`` status. By default, the function</span>
+<span class="sd">            waits for five minutes. Specify 0 or None to skip waiting.</span>
+<span class="sd">        pip_requirements: {{ pip_requirements }}</span>
+<span class="sd">        extra_pip_requirements: {{ extra_pip_requirements }}</span>
+<span class="sd">        metadata: {{ metadata }}</span>
+<span class="sd">        kwargs: kwargs to pass to `lightgbm.Booster.save_model`_ method.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        A :py:class:`ModelInfo &lt;mlflow.models.model.ModelInfo&gt;` instance that contains the</span>
+<span class="sd">        metadata of the logged model.</span>
+
+<span class="sd">    .. code-block:: python</span>
+<span class="sd">        :caption: Example</span>
+
+<span class="sd">        from lightgbm import LGBMClassifier</span>
+<span class="sd">        from sklearn import datasets</span>
+<span class="sd">        import mlflow</span>
+<span class="sd">        from mlflow.models import infer_signature</span>
+
+<span class="sd">        # Load iris dataset</span>
+<span class="sd">        X, y = datasets.load_iris(return_X_y=True, as_frame=True)</span>
+
+<span class="sd">        # Initialize our model</span>
+<span class="sd">        model = LGBMClassifier(objective=&quot;multiclass&quot;, random_state=42)</span>
+
+<span class="sd">        # Train the model</span>
+<span class="sd">        model.fit(X, y)</span>
+
+<span class="sd">        # Create model signature</span>
+<span class="sd">        predictions = model.predict(X)</span>
+<span class="sd">        signature = infer_signature(X, predictions)</span>
+
+<span class="sd">        # Log the model</span>
+<span class="sd">        artifact_path = &quot;model&quot;</span>
+<span class="sd">        with mlflow.start_run():</span>
+<span class="sd">            model_info = mlflow.lightgbm.log_model(model, artifact_path, signature=signature)</span>
+
+<span class="sd">        # Fetch the logged model artifacts</span>
+<span class="sd">        print(f&quot;run_id: {run.info.run_id}&quot;)</span>
+<span class="sd">        client = mlflow.MlflowClient()</span>
+<span class="sd">        artifacts = [f.path for f in client.list_artifacts(run.info.run_id, artifact_path)]</span>
+<span class="sd">        print(f&quot;artifacts: {artifacts}&quot;)</span>
+
+<span class="sd">    .. code-block:: text</span>
+<span class="sd">        :caption: Output</span>
+
+<span class="sd">        artifacts: [&#39;model/MLmodel&#39;,</span>
+<span class="sd">                    &#39;model/conda.yaml&#39;,</span>
+<span class="sd">                    &#39;model/model.pkl&#39;,</span>
+<span class="sd">                    &#39;model/python_env.yaml&#39;,</span>
+<span class="sd">                    &#39;model/requirements.txt&#39;]</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">Model</span><span class="o">.</span><span class="n">log</span><span class="p">(</span>
+        <span class="n">artifact_path</span><span class="o">=</span><span class="n">artifact_path</span><span class="p">,</span>
+        <span class="n">flavor</span><span class="o">=</span><span class="n">mlflow</span><span class="o">.</span><span class="n">lightgbm</span><span class="p">,</span>
+        <span class="n">registered_model_name</span><span class="o">=</span><span class="n">registered_model_name</span><span class="p">,</span>
+        <span class="n">lgb_model</span><span class="o">=</span><span class="n">lgb_model</span><span class="p">,</span>
+        <span class="n">conda_env</span><span class="o">=</span><span class="n">conda_env</span><span class="p">,</span>
+        <span class="n">code_paths</span><span class="o">=</span><span class="n">code_paths</span><span class="p">,</span>
+        <span class="n">signature</span><span class="o">=</span><span class="n">signature</span><span class="p">,</span>
+        <span class="n">input_example</span><span class="o">=</span><span class="n">input_example</span><span class="p">,</span>
+        <span class="n">await_registration_for</span><span class="o">=</span><span class="n">await_registration_for</span><span class="p">,</span>
+        <span class="n">pip_requirements</span><span class="o">=</span><span class="n">pip_requirements</span><span class="p">,</span>
+        <span class="n">extra_pip_requirements</span><span class="o">=</span><span class="n">extra_pip_requirements</span><span class="p">,</span>
+        <span class="n">metadata</span><span class="o">=</span><span class="n">metadata</span><span class="p">,</span>
+        <span class="o">**</span><span class="n">kwargs</span><span class="p">,</span>
+    <span class="p">)</span></div>
+
+
+<span class="k">def</span> <span class="nf">_load_model</span><span class="p">(</span><span class="n">path</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Load Model Implementation.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        path: Local filesystem path to</span>
+<span class="sd">            the MLflow Model with the ``lightgbm`` flavor (MLflow &lt; 1.23.0) or</span>
+<span class="sd">            the top-level MLflow Model directory (MLflow &gt;= 1.23.0).</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">model_dir</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">dirname</span><span class="p">(</span><span class="n">path</span><span class="p">)</span> <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">isfile</span><span class="p">(</span><span class="n">path</span><span class="p">)</span> <span class="k">else</span> <span class="n">path</span>
+    <span class="n">flavor_conf</span> <span class="o">=</span> <span class="n">_get_flavor_configuration</span><span class="p">(</span><span class="n">model_path</span><span class="o">=</span><span class="n">model_dir</span><span class="p">,</span> <span class="n">flavor_name</span><span class="o">=</span><span class="n">FLAVOR_NAME</span><span class="p">)</span>
+
+    <span class="n">model_class</span> <span class="o">=</span> <span class="n">flavor_conf</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;model_class&quot;</span><span class="p">,</span> <span class="s2">&quot;lightgbm.basic.Booster&quot;</span><span class="p">)</span>
+    <span class="n">lgb_model_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">model_dir</span><span class="p">,</span> <span class="n">flavor_conf</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;data&quot;</span><span class="p">))</span>
+
+    <span class="k">if</span> <span class="n">model_class</span> <span class="o">==</span> <span class="s2">&quot;lightgbm.basic.Booster&quot;</span><span class="p">:</span>
+        <span class="kn">import</span> <span class="nn">lightgbm</span> <span class="k">as</span> <span class="nn">lgb</span>
+
+        <span class="n">model</span> <span class="o">=</span> <span class="n">lgb</span><span class="o">.</span><span class="n">Booster</span><span class="p">(</span><span class="n">model_file</span><span class="o">=</span><span class="n">lgb_model_path</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="c1"># LightGBM scikit-learn models are deserialized using Cloudpickle.</span>
+        <span class="kn">import</span> <span class="nn">cloudpickle</span>
+
+        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">lgb_model_path</span><span class="p">,</span> <span class="s2">&quot;rb&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+            <span class="n">model</span> <span class="o">=</span> <span class="n">cloudpickle</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">model</span>
+
+
+<span class="k">def</span> <span class="nf">_load_pyfunc</span><span class="p">(</span><span class="n">path</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Load PyFunc implementation. Called by ``pyfunc.load_model``.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        path: Local filesystem path to the MLflow Model with the ``lightgbm`` flavor.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">_LGBModelWrapper</span><span class="p">(</span><span class="n">_load_model</span><span class="p">(</span><span class="n">path</span><span class="p">))</span>
+
+
+<div class="viewcode-block" id="load_model"><a class="viewcode-back" href="../../python_api/mlflow.lightgbm.html#mlflow.lightgbm.load_model">[docs]</a><span class="k">def</span> <span class="nf">load_model</span><span class="p">(</span><span class="n">model_uri</span><span class="p">,</span> <span class="n">dst_path</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Load a LightGBM model from a local file or a run.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        model_uri: The location, in URI format, of the MLflow model. For example:</span>
+
+<span class="sd">            - ``/Users/me/path/to/local/model``</span>
+<span class="sd">            - ``relative/path/to/local/model``</span>
+<span class="sd">            - ``s3://my_bucket/path/to/model``</span>
+<span class="sd">            - ``runs:/&lt;mlflow_run_id&gt;/run-relative/path/to/model``</span>
+
+<span class="sd">            For more information about supported URI schemes, see</span>
+<span class="sd">            `Referencing Artifacts &lt;https://www.mlflow.org/docs/latest/tracking.html#</span>
+<span class="sd">            artifact-locations&gt;`_.</span>
+<span class="sd">        dst_path: The local filesystem path to which to download the model artifact.</span>
+<span class="sd">            This directory must already exist. If unspecified, a local output</span>
+<span class="sd">            path will be created.</span>
+
+
+<span class="sd">    Returns:</span>
+<span class="sd">            A LightGBM model (an instance of `lightgbm.Booster`_) or a LightGBM scikit-learn</span>
+<span class="sd">            model, depending on the saved model class specification.</span>
+
+<span class="sd">    .. code-block:: python</span>
+<span class="sd">        :caption: Example</span>
+
+<span class="sd">        from lightgbm import LGBMClassifier</span>
+<span class="sd">        from sklearn import datasets</span>
+<span class="sd">        import mlflow</span>
+
+<span class="sd">        # Auto log all MLflow entities</span>
+<span class="sd">        mlflow.lightgbm.autolog()</span>
+
+<span class="sd">        # Load iris dataset</span>
+<span class="sd">        X, y = datasets.load_iris(return_X_y=True, as_frame=True)</span>
+
+<span class="sd">        # Initialize our model</span>
+<span class="sd">        model = LGBMClassifier(objective=&quot;multiclass&quot;, random_state=42)</span>
+
+<span class="sd">        # Train the model</span>
+<span class="sd">        model.fit(X, y)</span>
+
+<span class="sd">        # Load model for inference</span>
+<span class="sd">        model_uri = f&quot;runs:/{mlflow.last_active_run().info.run_id}/model&quot;</span>
+<span class="sd">        loaded_model = mlflow.lightgbm.load_model(model_uri)</span>
+<span class="sd">        print(loaded_model.predict(X[:5]))</span>
+
+<span class="sd">    .. code-block:: text</span>
+<span class="sd">        :caption: Output</span>
+
+<span class="sd">        [0 0 0 0 0]</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">local_model_path</span> <span class="o">=</span> <span class="n">_download_artifact_from_uri</span><span class="p">(</span><span class="n">artifact_uri</span><span class="o">=</span><span class="n">model_uri</span><span class="p">,</span> <span class="n">output_path</span><span class="o">=</span><span class="n">dst_path</span><span class="p">)</span>
+    <span class="n">flavor_conf</span> <span class="o">=</span> <span class="n">_get_flavor_configuration</span><span class="p">(</span><span class="n">local_model_path</span><span class="p">,</span> <span class="n">FLAVOR_NAME</span><span class="p">)</span>
+    <span class="n">_add_code_from_conf_to_system_path</span><span class="p">(</span><span class="n">local_model_path</span><span class="p">,</span> <span class="n">flavor_conf</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">_load_model</span><span class="p">(</span><span class="n">path</span><span class="o">=</span><span class="n">local_model_path</span><span class="p">)</span></div>
+
+
+<span class="k">class</span> <span class="nc">_LGBModelWrapper</span><span class="p">:</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">lgb_model</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">lgb_model</span> <span class="o">=</span> <span class="n">lgb_model</span>
+
+    <span class="k">def</span> <span class="nf">get_raw_model</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Returns the underlying model.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">lgb_model</span>
+
+    <span class="k">def</span> <span class="nf">predict</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dataframe</span><span class="p">,</span> <span class="n">params</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Args:</span>
+<span class="sd">            dataframe: Model input data.</span>
+<span class="sd">            params: Additional parameters to pass to the model for inference.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            Model predictions.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">lgb_model</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">dataframe</span><span class="p">)</span>
+
+
+<span class="k">def</span> <span class="nf">_patch_metric_names</span><span class="p">(</span><span class="n">metric_dict</span><span class="p">):</span>
+    <span class="c1"># lightgbm provides some metrics with &quot;@&quot;, e.g. &quot;ndcg@3&quot; that are not valid MLflow metric names</span>
+    <span class="n">patched_metrics</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="n">metric_name</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;@&quot;</span><span class="p">,</span> <span class="s2">&quot;_at_&quot;</span><span class="p">):</span> <span class="n">value</span> <span class="k">for</span> <span class="n">metric_name</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">metric_dict</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
+    <span class="p">}</span>
+    <span class="n">changed_keys</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">patched_metrics</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span> <span class="o">-</span> <span class="nb">set</span><span class="p">(</span><span class="n">metric_dict</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span>
+    <span class="k">if</span> <span class="n">changed_keys</span><span class="p">:</span>
+        <span class="n">_logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+            <span class="s2">&quot;Identified one or more metrics with names containing the invalid character `@`.&quot;</span>
+            <span class="s2">&quot; These metric names have been sanitized by replacing `@` with `_at_`, as follows: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;, &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">changed_keys</span><span class="p">),</span>
+        <span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">patched_metrics</span>
+
+
+<span class="k">def</span> <span class="nf">_autolog_callback</span><span class="p">(</span><span class="n">env</span><span class="p">,</span> <span class="n">metrics_logger</span><span class="p">,</span> <span class="n">eval_results</span><span class="p">):</span>
+    <span class="n">res</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="k">for</span> <span class="n">data_name</span><span class="p">,</span> <span class="n">eval_name</span><span class="p">,</span> <span class="n">value</span><span class="p">,</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">env</span><span class="o">.</span><span class="n">evaluation_result_list</span><span class="p">:</span>
+        <span class="n">key</span> <span class="o">=</span> <span class="n">data_name</span> <span class="o">+</span> <span class="s2">&quot;-&quot;</span> <span class="o">+</span> <span class="n">eval_name</span>
+        <span class="n">res</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">value</span>
+    <span class="n">res</span> <span class="o">=</span> <span class="n">_patch_metric_names</span><span class="p">(</span><span class="n">res</span><span class="p">)</span>
+    <span class="n">metrics_logger</span><span class="o">.</span><span class="n">record_metrics</span><span class="p">(</span><span class="n">res</span><span class="p">,</span> <span class="n">env</span><span class="o">.</span><span class="n">iteration</span><span class="p">)</span>
+    <span class="n">eval_results</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">res</span><span class="p">)</span>
+
+
+<div class="viewcode-block" id="autolog"><a class="viewcode-back" href="../../python_api/mlflow.lightgbm.html#mlflow.lightgbm.autolog">[docs]</a><span class="nd">@autologging_integration</span><span class="p">(</span><span class="n">FLAVOR_NAME</span><span class="p">)</span>
+<span class="k">def</span> <span class="nf">autolog</span><span class="p">(</span>
+    <span class="n">log_input_examples</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+    <span class="n">log_model_signatures</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+    <span class="n">log_models</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+    <span class="n">log_datasets</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+    <span class="n">disable</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+    <span class="n">exclusive</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+    <span class="n">disable_for_unsupported_versions</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+    <span class="n">silent</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+    <span class="n">registered_model_name</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">extra_tags</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+<span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Enables (or disables) and configures autologging from LightGBM to MLflow. Logs the following:</span>
+
+<span class="sd">        - parameters specified in `lightgbm.train`_.</span>
+<span class="sd">        - metrics on each iteration (if ``valid_sets`` specified).</span>
+<span class="sd">        - metrics at the best iteration (if ``early_stopping_rounds`` specified or</span>
+<span class="sd">          ``early_stopping`` callback is set).</span>
+<span class="sd">        - feature importance (both &quot;split&quot; and &quot;gain&quot;) as JSON files and plots.</span>
+<span class="sd">        - trained model, including:</span>
+<span class="sd">            - an example of valid input.</span>
+<span class="sd">            - inferred signature of the inputs and outputs of the model.</span>
+
+<span class="sd">    Note that the `scikit-learn API`_ is now supported.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        log_input_examples: If ``True``, input examples from training datasets are collected and</span>
+<span class="sd">            logged along with LightGBM model artifacts during training. If</span>
+<span class="sd">            ``False``, input examples are not logged.</span>
+<span class="sd">            Note: Input examples are MLflow model attributes</span>
+<span class="sd">            and are only collected if ``log_models`` is also ``True``.</span>
+<span class="sd">        log_model_signatures: If ``True``,</span>
+<span class="sd">            :py:class:`ModelSignatures &lt;mlflow.models.ModelSignature&gt;`</span>
+<span class="sd">            describing model inputs and outputs are collected and logged along</span>
+<span class="sd">            with LightGBM model artifacts during training. If ``False``,</span>
+<span class="sd">            signatures are not logged.</span>
+<span class="sd">            Note: Model signatures are MLflow model attributes</span>
+<span class="sd">            and are only collected if ``log_models`` is also ``True``.</span>
+<span class="sd">        log_models: If ``True``, trained models are logged as MLflow model artifacts.</span>
+<span class="sd">            If ``False``, trained models are not logged.</span>
+<span class="sd">            Input examples and model signatures, which are attributes of MLflow models,</span>
+<span class="sd">            are also omitted when ``log_models`` is ``False``.</span>
+<span class="sd">        log_datasets: If ``True``, train and validation dataset information is logged to MLflow</span>
+<span class="sd">            Tracking if applicable. If ``False``, dataset information is not logged.</span>
+<span class="sd">        disable: If ``True``, disables the LightGBM autologging integration. If ``False``,</span>
+<span class="sd">            enables the LightGBM autologging integration.</span>
+<span class="sd">        exclusive: If ``True``, autologged content is not logged to user-created fluent runs.</span>
+<span class="sd">            If ``False``, autologged content is logged to the active fluent run,</span>
+<span class="sd">            which may be user-created.</span>
+<span class="sd">        disable_for_unsupported_versions: If ``True``, disable autologging for versions of</span>
+<span class="sd">            lightgbm that have not been tested against this version of the MLflow client</span>
+<span class="sd">            or are incompatible.</span>
+<span class="sd">        silent: If ``True``, suppress all event logs and warnings from MLflow during LightGBM</span>
+<span class="sd">            autologging. If ``False``, show all events and warnings during LightGBM</span>
+<span class="sd">            autologging.</span>
+<span class="sd">        registered_model_name: If given, each time a model is trained, it is registered as a</span>
+<span class="sd">            new model version of the registered model with this name.</span>
+<span class="sd">            The registered model is created if it does not already exist.</span>
+<span class="sd">        extra_tags: A dictionary of extra tags to set on each managed run created by autologging.</span>
+
+<span class="sd">    .. code-block:: python</span>
+<span class="sd">        :caption: Example</span>
+
+<span class="sd">        import mlflow</span>
+<span class="sd">        from lightgbm import LGBMClassifier</span>
+<span class="sd">        from sklearn import datasets</span>
+
+
+<span class="sd">        def print_auto_logged_info(run):</span>
+<span class="sd">            tags = {k: v for k, v in run.data.tags.items() if not k.startswith(&quot;mlflow.&quot;)}</span>
+<span class="sd">            artifacts = [</span>
+<span class="sd">                f.path for f in mlflow.MlflowClient().list_artifacts(run.info.run_id, &quot;model&quot;)</span>
+<span class="sd">            ]</span>
+<span class="sd">            feature_importances = [</span>
+<span class="sd">                f.path</span>
+<span class="sd">                for f in mlflow.MlflowClient().list_artifacts(run.info.run_id)</span>
+<span class="sd">                if f.path != &quot;model&quot;</span>
+<span class="sd">            ]</span>
+<span class="sd">            print(f&quot;run_id: {run.info.run_id}&quot;)</span>
+<span class="sd">            print(f&quot;artifacts: {artifacts}&quot;)</span>
+<span class="sd">            print(f&quot;feature_importances: {feature_importances}&quot;)</span>
+<span class="sd">            print(f&quot;params: {run.data.params}&quot;)</span>
+<span class="sd">            print(f&quot;metrics: {run.data.metrics}&quot;)</span>
+<span class="sd">            print(f&quot;tags: {tags}&quot;)</span>
+
+
+<span class="sd">        # Load iris dataset</span>
+<span class="sd">        X, y = datasets.load_iris(return_X_y=True, as_frame=True)</span>
+
+<span class="sd">        # Initialize our model</span>
+<span class="sd">        model = LGBMClassifier(objective=&quot;multiclass&quot;, random_state=42)</span>
+
+<span class="sd">        # Auto log all MLflow entities</span>
+<span class="sd">        mlflow.lightgbm.autolog()</span>
+
+<span class="sd">        # Train the model</span>
+<span class="sd">        with mlflow.start_run() as run:</span>
+<span class="sd">            model.fit(X, y)</span>
+
+<span class="sd">        # fetch the auto logged parameters and metrics</span>
+<span class="sd">        print_auto_logged_info(mlflow.get_run(run_id=run.info.run_id))</span>
+
+<span class="sd">    .. code-block:: text</span>
+<span class="sd">        :caption: Output</span>
+
+<span class="sd">        run_id: e08dd59d57a74971b68cf78a724dfaf6</span>
+<span class="sd">        artifacts: [&#39;model/MLmodel&#39;,</span>
+<span class="sd">                    &#39;model/conda.yaml&#39;,</span>
+<span class="sd">                    &#39;model/model.pkl&#39;,</span>
+<span class="sd">                    &#39;model/python_env.yaml&#39;,</span>
+<span class="sd">                    &#39;model/requirements.txt&#39;]</span>
+<span class="sd">        feature_importances: [&#39;feature_importance_gain.json&#39;,</span>
+<span class="sd">                              &#39;feature_importance_gain.png&#39;,</span>
+<span class="sd">                              &#39;feature_importance_split.json&#39;,</span>
+<span class="sd">                              &#39;feature_importance_split.png&#39;]</span>
+<span class="sd">        params: {&#39;boosting_type&#39;: &#39;gbdt&#39;,</span>
+<span class="sd">                 &#39;categorical_feature&#39;: &#39;auto&#39;,</span>
+<span class="sd">                 &#39;colsample_bytree&#39;: &#39;1.0&#39;,</span>
+<span class="sd">                 ...</span>
+<span class="sd">                 &#39;verbose_eval&#39;: &#39;warn&#39;}</span>
+<span class="sd">        metrics: {}</span>
+<span class="sd">        tags: {}</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="kn">import</span> <span class="nn">lightgbm</span>
+    <span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+
+    <span class="c1"># Patching this function so we can get a copy of the data given to Dataset.__init__</span>
+    <span class="c1">#   to use as an input example and for inferring the model signature.</span>
+    <span class="c1">#   (there is no way to get the data back from a Dataset object once it is consumed by train)</span>
+    <span class="c1"># We store it on the Dataset object so the train function is able to read it.</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="n">original</span><span class="p">,</span> <span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="n">data</span> <span class="o">=</span> <span class="n">args</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">args</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="k">else</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;data&quot;</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">data</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+                    <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span>
+                        <span class="s2">&quot;cannot gather example input when dataset is loaded from a file.&quot;</span>
+                    <span class="p">)</span>
+
+                <span class="n">input_example_info</span> <span class="o">=</span> <span class="n">InputExampleInfo</span><span class="p">(</span>
+                    <span class="n">input_example</span><span class="o">=</span><span class="n">deepcopy</span><span class="p">(</span><span class="n">data</span><span class="p">[:</span><span class="n">INPUT_EXAMPLE_SAMPLE_ROWS</span><span class="p">])</span>
+                <span class="p">)</span>
+            <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+                <span class="n">input_example_info</span> <span class="o">=</span> <span class="n">InputExampleInfo</span><span class="p">(</span><span class="n">error_msg</span><span class="o">=</span><span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">))</span>
+
+            <span class="bp">self</span><span class="o">.</span><span class="n">input_example_info</span> <span class="o">=</span> <span class="n">input_example_info</span>
+
+        <span class="n">original</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">train_impl</span><span class="p">(</span><span class="n">_log_models</span><span class="p">,</span> <span class="n">_log_datasets</span><span class="p">,</span> <span class="n">original</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="k">def</span> <span class="nf">record_eval_results</span><span class="p">(</span><span class="n">eval_results</span><span class="p">,</span> <span class="n">metrics_logger</span><span class="p">):</span>
+<span class="w">            </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">            Create a callback function that records evaluation results.</span>
+<span class="sd">            &quot;&quot;&quot;</span>
+            <span class="k">return</span> <span class="n">picklable_exception_safe_function</span><span class="p">(</span>
+                <span class="n">functools</span><span class="o">.</span><span class="n">partial</span><span class="p">(</span>
+                    <span class="n">_autolog_callback</span><span class="p">,</span> <span class="n">metrics_logger</span><span class="o">=</span><span class="n">metrics_logger</span><span class="p">,</span> <span class="n">eval_results</span><span class="o">=</span><span class="n">eval_results</span>
+                <span class="p">)</span>
+            <span class="p">)</span>
+
+        <span class="k">def</span> <span class="nf">log_feature_importance_plot</span><span class="p">(</span><span class="n">features</span><span class="p">,</span> <span class="n">importance</span><span class="p">,</span> <span class="n">importance_type</span><span class="p">):</span>
+<span class="w">            </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">            Log feature importance plot.</span>
+<span class="sd">            &quot;&quot;&quot;</span>
+            <span class="kn">import</span> <span class="nn">matplotlib.pyplot</span> <span class="k">as</span> <span class="nn">plt</span>
+
+            <span class="n">indices</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">argsort</span><span class="p">(</span><span class="n">importance</span><span class="p">)</span>
+            <span class="n">features</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">features</span><span class="p">)[</span><span class="n">indices</span><span class="p">]</span>
+            <span class="n">importance</span> <span class="o">=</span> <span class="n">importance</span><span class="p">[</span><span class="n">indices</span><span class="p">]</span>
+            <span class="n">num_features</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">features</span><span class="p">)</span>
+
+            <span class="c1"># If num_features &gt; 10, increase the figure height to prevent the plot</span>
+            <span class="c1"># from being too dense.</span>
+            <span class="n">w</span><span class="p">,</span> <span class="n">h</span> <span class="o">=</span> <span class="p">[</span><span class="mf">6.4</span><span class="p">,</span> <span class="mf">4.8</span><span class="p">]</span>  <span class="c1"># matplotlib&#39;s default figure size</span>
+            <span class="n">h</span> <span class="o">=</span> <span class="n">h</span> <span class="o">+</span> <span class="mf">0.1</span> <span class="o">*</span> <span class="n">num_features</span> <span class="k">if</span> <span class="n">num_features</span> <span class="o">&gt;</span> <span class="mi">10</span> <span class="k">else</span> <span class="n">h</span>
+            <span class="n">fig</span><span class="p">,</span> <span class="n">ax</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">(</span><span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="n">w</span><span class="p">,</span> <span class="n">h</span><span class="p">))</span>
+
+            <span class="n">yloc</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">num_features</span><span class="p">)</span>
+            <span class="n">ax</span><span class="o">.</span><span class="n">barh</span><span class="p">(</span><span class="n">yloc</span><span class="p">,</span> <span class="n">importance</span><span class="p">,</span> <span class="n">align</span><span class="o">=</span><span class="s2">&quot;center&quot;</span><span class="p">,</span> <span class="n">height</span><span class="o">=</span><span class="mf">0.5</span><span class="p">)</span>
+            <span class="n">ax</span><span class="o">.</span><span class="n">set_yticks</span><span class="p">(</span><span class="n">yloc</span><span class="p">)</span>
+            <span class="n">ax</span><span class="o">.</span><span class="n">set_yticklabels</span><span class="p">(</span><span class="n">features</span><span class="p">)</span>
+            <span class="n">ax</span><span class="o">.</span><span class="n">set_xlabel</span><span class="p">(</span><span class="s2">&quot;Importance&quot;</span><span class="p">)</span>
+            <span class="n">ax</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Feature Importance (</span><span class="si">{</span><span class="n">importance_type</span><span class="si">}</span><span class="s2">)&quot;</span><span class="p">)</span>
+            <span class="n">fig</span><span class="o">.</span><span class="n">tight_layout</span><span class="p">()</span>
+
+            <span class="k">with</span> <span class="n">tempfile</span><span class="o">.</span><span class="n">TemporaryDirectory</span><span class="p">()</span> <span class="k">as</span> <span class="n">tmpdir</span><span class="p">:</span>
+                <span class="k">try</span><span class="p">:</span>
+                    <span class="n">filepath</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">tmpdir</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;feature_importance_</span><span class="si">{</span><span class="n">imp_type</span><span class="si">}</span><span class="s2">.png&quot;</span><span class="p">)</span>
+                    <span class="n">fig</span><span class="o">.</span><span class="n">savefig</span><span class="p">(</span><span class="n">filepath</span><span class="p">)</span>
+                    <span class="n">mlflow</span><span class="o">.</span><span class="n">log_artifact</span><span class="p">(</span><span class="n">filepath</span><span class="p">)</span>
+                <span class="k">finally</span><span class="p">:</span>
+                    <span class="n">plt</span><span class="o">.</span><span class="n">close</span><span class="p">(</span><span class="n">fig</span><span class="p">)</span>
+
+        <span class="n">autologging_client</span> <span class="o">=</span> <span class="n">MlflowAutologgingQueueingClient</span><span class="p">()</span>
+
+        <span class="c1"># logging booster params separately via mlflow.log_params to extract key/value pairs</span>
+        <span class="c1"># and make it easier to compare them across runs.</span>
+        <span class="n">booster_params</span> <span class="o">=</span> <span class="n">args</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">args</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="k">else</span> <span class="n">kwargs</span><span class="p">[</span><span class="s2">&quot;params&quot;</span><span class="p">]</span>
+        <span class="n">autologging_client</span><span class="o">.</span><span class="n">log_params</span><span class="p">(</span><span class="n">run_id</span><span class="o">=</span><span class="n">mlflow</span><span class="o">.</span><span class="n">active_run</span><span class="p">()</span><span class="o">.</span><span class="n">info</span><span class="o">.</span><span class="n">run_id</span><span class="p">,</span> <span class="n">params</span><span class="o">=</span><span class="n">booster_params</span><span class="p">)</span>
+
+        <span class="n">unlogged_params</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="s2">&quot;params&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;train_set&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;valid_sets&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;valid_names&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;fobj&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;feval&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;init_model&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;learning_rates&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;callbacks&quot;</span><span class="p">,</span>
+        <span class="p">]</span>
+        <span class="k">if</span> <span class="n">Version</span><span class="p">(</span><span class="n">lightgbm</span><span class="o">.</span><span class="n">__version__</span><span class="p">)</span> <span class="o">&lt;=</span> <span class="n">Version</span><span class="p">(</span><span class="s2">&quot;3.3.1&quot;</span><span class="p">):</span>
+            <span class="c1"># The parameter `evals_result` in `lightgbm.train` is removed in this PR:</span>
+            <span class="c1"># https://github.com/microsoft/LightGBM/pull/4882</span>
+            <span class="n">unlogged_params</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;evals_result&quot;</span><span class="p">)</span>
+
+        <span class="n">params_to_log_for_fn</span> <span class="o">=</span> <span class="n">get_mlflow_run_params_for_fn_args</span><span class="p">(</span>
+            <span class="n">original</span><span class="p">,</span> <span class="n">args</span><span class="p">,</span> <span class="n">kwargs</span><span class="p">,</span> <span class="n">unlogged_params</span>
+        <span class="p">)</span>
+        <span class="n">autologging_client</span><span class="o">.</span><span class="n">log_params</span><span class="p">(</span>
+            <span class="n">run_id</span><span class="o">=</span><span class="n">mlflow</span><span class="o">.</span><span class="n">active_run</span><span class="p">()</span><span class="o">.</span><span class="n">info</span><span class="o">.</span><span class="n">run_id</span><span class="p">,</span> <span class="n">params</span><span class="o">=</span><span class="n">params_to_log_for_fn</span>
+        <span class="p">)</span>
+
+        <span class="n">param_logging_operations</span> <span class="o">=</span> <span class="n">autologging_client</span><span class="o">.</span><span class="n">flush</span><span class="p">(</span><span class="n">synchronous</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+
+        <span class="n">all_arg_names</span> <span class="o">=</span> <span class="n">_get_arg_names</span><span class="p">(</span><span class="n">original</span><span class="p">)</span>
+        <span class="n">num_pos_args</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">args</span><span class="p">)</span>
+
+        <span class="c1"># adding a callback that records evaluation results.</span>
+        <span class="n">eval_results</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">callbacks_index</span> <span class="o">=</span> <span class="n">all_arg_names</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="s2">&quot;callbacks&quot;</span><span class="p">)</span>
+        <span class="n">run_id</span> <span class="o">=</span> <span class="n">mlflow</span><span class="o">.</span><span class="n">active_run</span><span class="p">()</span><span class="o">.</span><span class="n">info</span><span class="o">.</span><span class="n">run_id</span>
+
+        <span class="n">train_set</span> <span class="o">=</span> <span class="n">args</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">args</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span> <span class="k">else</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;train_set&quot;</span><span class="p">)</span>
+
+        <span class="c1"># Whether to automatically log the training dataset as a dataset artifact.</span>
+        <span class="k">if</span> <span class="n">_log_datasets</span> <span class="ow">and</span> <span class="n">train_set</span><span class="p">:</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">context_tags</span> <span class="o">=</span> <span class="n">context_registry</span><span class="o">.</span><span class="n">resolve_tags</span><span class="p">()</span>
+                <span class="n">source</span> <span class="o">=</span> <span class="n">CodeDatasetSource</span><span class="p">(</span><span class="n">tags</span><span class="o">=</span><span class="n">context_tags</span><span class="p">)</span>
+
+                <span class="n">_log_lightgbm_dataset</span><span class="p">(</span><span class="n">train_set</span><span class="p">,</span> <span class="n">source</span><span class="p">,</span> <span class="s2">&quot;train&quot;</span><span class="p">,</span> <span class="n">autologging_client</span><span class="p">)</span>
+
+                <span class="n">valid_sets</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;valid_sets&quot;</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">valid_sets</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="n">valid_names</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;valid_names&quot;</span><span class="p">)</span>
+                    <span class="k">if</span> <span class="n">valid_names</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                        <span class="k">for</span> <span class="n">valid_set</span> <span class="ow">in</span> <span class="n">valid_sets</span><span class="p">:</span>
+                            <span class="n">_log_lightgbm_dataset</span><span class="p">(</span><span class="n">valid_set</span><span class="p">,</span> <span class="n">source</span><span class="p">,</span> <span class="s2">&quot;eval&quot;</span><span class="p">,</span> <span class="n">autologging_client</span><span class="p">)</span>
+                    <span class="k">else</span><span class="p">:</span>
+                        <span class="k">for</span> <span class="n">valid_set</span><span class="p">,</span> <span class="n">valid_name</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">valid_sets</span><span class="p">,</span> <span class="n">valid_names</span><span class="p">):</span>
+                            <span class="n">_log_lightgbm_dataset</span><span class="p">(</span>
+                                <span class="n">valid_set</span><span class="p">,</span> <span class="n">source</span><span class="p">,</span> <span class="s2">&quot;eval&quot;</span><span class="p">,</span> <span class="n">autologging_client</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="n">valid_name</span>
+                            <span class="p">)</span>
+
+                <span class="n">dataset_logging_operations</span> <span class="o">=</span> <span class="n">autologging_client</span><span class="o">.</span><span class="n">flush</span><span class="p">(</span><span class="n">synchronous</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+                <span class="n">dataset_logging_operations</span><span class="o">.</span><span class="n">await_completion</span><span class="p">()</span>
+            <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+                <span class="n">_logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+                    <span class="s2">&quot;Failed to log dataset information to MLflow Tracking. Reason: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">e</span>
+                <span class="p">)</span>
+
+        <span class="k">with</span> <span class="n">batch_metrics_logger</span><span class="p">(</span><span class="n">run_id</span><span class="p">)</span> <span class="k">as</span> <span class="n">metrics_logger</span><span class="p">:</span>
+            <span class="n">callback</span> <span class="o">=</span> <span class="n">record_eval_results</span><span class="p">(</span><span class="n">eval_results</span><span class="p">,</span> <span class="n">metrics_logger</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">num_pos_args</span> <span class="o">&gt;=</span> <span class="n">callbacks_index</span> <span class="o">+</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="n">tmp_list</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">args</span><span class="p">)</span>
+                <span class="n">tmp_list</span><span class="p">[</span><span class="n">callbacks_index</span><span class="p">]</span> <span class="o">+=</span> <span class="p">[</span><span class="n">callback</span><span class="p">]</span>
+                <span class="n">args</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">tmp_list</span><span class="p">)</span>
+            <span class="k">elif</span> <span class="s2">&quot;callbacks&quot;</span> <span class="ow">in</span> <span class="n">kwargs</span> <span class="ow">and</span> <span class="n">kwargs</span><span class="p">[</span><span class="s2">&quot;callbacks&quot;</span><span class="p">]</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">kwargs</span><span class="p">[</span><span class="s2">&quot;callbacks&quot;</span><span class="p">]</span> <span class="o">+=</span> <span class="p">[</span><span class="n">callback</span><span class="p">]</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">kwargs</span><span class="p">[</span><span class="s2">&quot;callbacks&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="n">callback</span><span class="p">]</span>
+
+            <span class="c1"># training model</span>
+            <span class="n">model</span> <span class="o">=</span> <span class="n">original</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+
+            <span class="c1"># If early stopping is activated, logging metrics at the best iteration</span>
+            <span class="c1"># as extra metrics with the max step + 1.</span>
+            <span class="n">early_stopping</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">best_iteration</span> <span class="o">&gt;</span> <span class="mi">0</span>
+            <span class="k">if</span> <span class="n">early_stopping</span><span class="p">:</span>
+                <span class="n">extra_step</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">eval_results</span><span class="p">)</span>
+                <span class="n">autologging_client</span><span class="o">.</span><span class="n">log_metrics</span><span class="p">(</span>
+                    <span class="n">run_id</span><span class="o">=</span><span class="n">mlflow</span><span class="o">.</span><span class="n">active_run</span><span class="p">()</span><span class="o">.</span><span class="n">info</span><span class="o">.</span><span class="n">run_id</span><span class="p">,</span>
+                    <span class="n">metrics</span><span class="o">=</span><span class="p">{</span>
+                        <span class="s2">&quot;stopped_iteration&quot;</span><span class="p">:</span> <span class="n">extra_step</span><span class="p">,</span>
+                        <span class="c1"># best_iteration is set even if training does not stop early.</span>
+                        <span class="s2">&quot;best_iteration&quot;</span><span class="p">:</span> <span class="n">model</span><span class="o">.</span><span class="n">best_iteration</span><span class="p">,</span>
+                    <span class="p">},</span>
+                <span class="p">)</span>
+                <span class="c1"># iteration starts from 1 in LightGBM.</span>
+                <span class="n">last_iter_results</span> <span class="o">=</span> <span class="n">eval_results</span><span class="p">[</span><span class="n">model</span><span class="o">.</span><span class="n">best_iteration</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span>
+                <span class="n">autologging_client</span><span class="o">.</span><span class="n">log_metrics</span><span class="p">(</span>
+                    <span class="n">run_id</span><span class="o">=</span><span class="n">mlflow</span><span class="o">.</span><span class="n">active_run</span><span class="p">()</span><span class="o">.</span><span class="n">info</span><span class="o">.</span><span class="n">run_id</span><span class="p">,</span>
+                    <span class="n">metrics</span><span class="o">=</span><span class="n">last_iter_results</span><span class="p">,</span>
+                    <span class="n">step</span><span class="o">=</span><span class="n">extra_step</span><span class="p">,</span>
+                <span class="p">)</span>
+                <span class="n">early_stopping_logging_operations</span> <span class="o">=</span> <span class="n">autologging_client</span><span class="o">.</span><span class="n">flush</span><span class="p">(</span><span class="n">synchronous</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+
+        <span class="c1"># logging feature importance as artifacts.</span>
+        <span class="k">for</span> <span class="n">imp_type</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;split&quot;</span><span class="p">,</span> <span class="s2">&quot;gain&quot;</span><span class="p">]:</span>
+            <span class="n">features</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">feature_name</span><span class="p">()</span>
+            <span class="n">importance</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">feature_importance</span><span class="p">(</span><span class="n">importance_type</span><span class="o">=</span><span class="n">imp_type</span><span class="p">)</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">log_feature_importance_plot</span><span class="p">(</span><span class="n">features</span><span class="p">,</span> <span class="n">importance</span><span class="p">,</span> <span class="n">imp_type</span><span class="p">)</span>
+            <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+                <span class="n">_logger</span><span class="o">.</span><span class="n">exception</span><span class="p">(</span>
+                    <span class="s2">&quot;Failed to log feature importance plot. LightGBM autologging &quot;</span>
+                    <span class="s2">&quot;will ignore the failure and continue. Exception: &quot;</span>
+                <span class="p">)</span>
+
+            <span class="n">imp</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="nb">zip</span><span class="p">(</span><span class="n">features</span><span class="p">,</span> <span class="n">importance</span><span class="o">.</span><span class="n">tolist</span><span class="p">()))</span>
+            <span class="k">with</span> <span class="n">tempfile</span><span class="o">.</span><span class="n">TemporaryDirectory</span><span class="p">()</span> <span class="k">as</span> <span class="n">tmpdir</span><span class="p">:</span>
+                <span class="n">filepath</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">tmpdir</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;feature_importance_</span><span class="si">{</span><span class="n">imp_type</span><span class="si">}</span><span class="s2">.json&quot;</span><span class="p">)</span>
+                <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">filepath</span><span class="p">,</span> <span class="s2">&quot;w&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+                    <span class="n">json</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">imp</span><span class="p">,</span> <span class="n">f</span><span class="p">,</span> <span class="n">indent</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+                <span class="n">mlflow</span><span class="o">.</span><span class="n">log_artifact</span><span class="p">(</span><span class="n">filepath</span><span class="p">)</span>
+
+        <span class="c1"># train_set must exist as the original train function already ran successfully</span>
+        <span class="c1"># it is possible that the dataset was constructed before the patched</span>
+        <span class="c1">#   constructor was applied, so we cannot assume the input_example_info exists</span>
+        <span class="n">input_example_info</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">train_set</span><span class="p">,</span> <span class="s2">&quot;input_example_info&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+
+        <span class="k">def</span> <span class="nf">get_input_example</span><span class="p">():</span>
+            <span class="k">if</span> <span class="n">input_example_info</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="n">ENSURE_AUTOLOGGING_ENABLED_TEXT</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">input_example_info</span><span class="o">.</span><span class="n">error_msg</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="n">input_example_info</span><span class="o">.</span><span class="n">error_msg</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">input_example_info</span><span class="o">.</span><span class="n">input_example</span>
+
+        <span class="k">def</span> <span class="nf">infer_model_signature</span><span class="p">(</span><span class="n">input_example</span><span class="p">):</span>
+            <span class="n">model_output</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">input_example</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">infer_signature</span><span class="p">(</span><span class="n">input_example</span><span class="p">,</span> <span class="n">model_output</span><span class="p">)</span>
+
+        <span class="c1"># Whether to automatically log the trained model based on boolean flag.</span>
+        <span class="k">if</span> <span class="n">_log_models</span><span class="p">:</span>
+            <span class="c1"># Will only resolve `input_example` and `signature` if `log_models` is `True`.</span>
+            <span class="n">input_example</span><span class="p">,</span> <span class="n">signature</span> <span class="o">=</span> <span class="n">resolve_input_example_and_signature</span><span class="p">(</span>
+                <span class="n">get_input_example</span><span class="p">,</span>
+                <span class="n">infer_model_signature</span><span class="p">,</span>
+                <span class="n">log_input_examples</span><span class="p">,</span>
+                <span class="n">log_model_signatures</span><span class="p">,</span>
+                <span class="n">_logger</span><span class="p">,</span>
+            <span class="p">)</span>
+
+            <span class="n">log_model</span><span class="p">(</span>
+                <span class="n">model</span><span class="p">,</span>
+                <span class="s2">&quot;model&quot;</span><span class="p">,</span>
+                <span class="n">signature</span><span class="o">=</span><span class="n">signature</span><span class="p">,</span>
+                <span class="n">input_example</span><span class="o">=</span><span class="n">input_example</span><span class="p">,</span>
+                <span class="n">registered_model_name</span><span class="o">=</span><span class="n">registered_model_name</span><span class="p">,</span>
+            <span class="p">)</span>
+
+        <span class="n">param_logging_operations</span><span class="o">.</span><span class="n">await_completion</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">early_stopping</span><span class="p">:</span>
+            <span class="n">early_stopping_logging_operations</span><span class="o">.</span><span class="n">await_completion</span><span class="p">()</span>
+
+        <span class="k">return</span> <span class="n">model</span>
+
+    <span class="k">def</span> <span class="nf">train</span><span class="p">(</span><span class="n">_log_models</span><span class="p">,</span> <span class="n">_log_datasets</span><span class="p">,</span> <span class="n">original</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="k">with</span> <span class="n">_SklearnTrainingSession</span><span class="p">(</span><span class="n">estimator</span><span class="o">=</span><span class="n">lightgbm</span><span class="o">.</span><span class="n">train</span><span class="p">,</span> <span class="n">allow_children</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span> <span class="k">as</span> <span class="n">t</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">t</span><span class="o">.</span><span class="n">should_log</span><span class="p">():</span>
+                <span class="k">return</span> <span class="n">train_impl</span><span class="p">(</span><span class="n">_log_models</span><span class="p">,</span> <span class="n">_log_datasets</span><span class="p">,</span> <span class="n">original</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">original</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+
+    <span class="n">safe_patch</span><span class="p">(</span><span class="n">FLAVOR_NAME</span><span class="p">,</span> <span class="n">lightgbm</span><span class="o">.</span><span class="n">Dataset</span><span class="p">,</span> <span class="s2">&quot;__init__&quot;</span><span class="p">,</span> <span class="fm">__init__</span><span class="p">)</span>
+    <span class="n">safe_patch</span><span class="p">(</span>
+        <span class="n">FLAVOR_NAME</span><span class="p">,</span>
+        <span class="n">lightgbm</span><span class="p">,</span>
+        <span class="s2">&quot;train&quot;</span><span class="p">,</span>
+        <span class="n">functools</span><span class="o">.</span><span class="n">partial</span><span class="p">(</span><span class="n">train</span><span class="p">,</span> <span class="n">log_models</span><span class="p">,</span> <span class="n">log_datasets</span><span class="p">),</span>
+        <span class="n">manage_run</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+        <span class="n">extra_tags</span><span class="o">=</span><span class="n">extra_tags</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="c1"># The `train()` method logs LightGBM models as Booster objects. When using LightGBM</span>
+    <span class="c1"># scikit-learn models, we want to save / log models as their model classes. So we turn</span>
+    <span class="c1"># off the log_models functionality in the `train()` method patched to `lightgbm.sklearn`.</span>
+    <span class="c1"># Instead the model logging is handled in `fit_mlflow_xgboost_and_lightgbm()`</span>
+    <span class="c1"># in `mlflow.sklearn._autolog()`, where models are logged as LightGBM scikit-learn models</span>
+    <span class="c1"># after the `fit()` method returns.</span>
+    <span class="n">safe_patch</span><span class="p">(</span>
+        <span class="n">FLAVOR_NAME</span><span class="p">,</span>
+        <span class="n">lightgbm</span><span class="o">.</span><span class="n">sklearn</span><span class="p">,</span>
+        <span class="s2">&quot;train&quot;</span><span class="p">,</span>
+        <span class="n">functools</span><span class="o">.</span><span class="n">partial</span><span class="p">(</span><span class="n">train</span><span class="p">,</span> <span class="kc">False</span><span class="p">,</span> <span class="n">log_datasets</span><span class="p">),</span>
+        <span class="n">manage_run</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+        <span class="n">extra_tags</span><span class="o">=</span><span class="n">extra_tags</span><span class="p">,</span>
+    <span class="p">)</span>
+
+    <span class="c1"># enable LightGBM scikit-learn estimators autologging</span>
+    <span class="kn">import</span> <span class="nn">mlflow.sklearn</span>
+
+    <span class="n">mlflow</span><span class="o">.</span><span class="n">sklearn</span><span class="o">.</span><span class="n">_autolog</span><span class="p">(</span>
+        <span class="n">flavor_name</span><span class="o">=</span><span class="n">FLAVOR_NAME</span><span class="p">,</span>
+        <span class="n">log_input_examples</span><span class="o">=</span><span class="n">log_input_examples</span><span class="p">,</span>
+        <span class="n">log_model_signatures</span><span class="o">=</span><span class="n">log_model_signatures</span><span class="p">,</span>
+        <span class="n">log_models</span><span class="o">=</span><span class="n">log_models</span><span class="p">,</span>
+        <span class="n">log_datasets</span><span class="o">=</span><span class="n">log_datasets</span><span class="p">,</span>
+        <span class="n">disable</span><span class="o">=</span><span class="n">disable</span><span class="p">,</span>
+        <span class="n">exclusive</span><span class="o">=</span><span class="n">exclusive</span><span class="p">,</span>
+        <span class="n">disable_for_unsupported_versions</span><span class="o">=</span><span class="n">disable_for_unsupported_versions</span><span class="p">,</span>
+        <span class="n">silent</span><span class="o">=</span><span class="n">silent</span><span class="p">,</span>
+        <span class="n">max_tuning_runs</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">log_post_training_metrics</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+        <span class="n">extra_tags</span><span class="o">=</span><span class="n">extra_tags</span><span class="p">,</span>
+    <span class="p">)</span></div>
+
+
+<span class="k">def</span> <span class="nf">_log_lightgbm_dataset</span><span class="p">(</span><span class="n">lgb_dataset</span><span class="p">,</span> <span class="n">source</span><span class="p">,</span> <span class="n">context</span><span class="p">,</span> <span class="n">autologging_client</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+    <span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
+    <span class="kn">from</span> <span class="nn">scipy.sparse</span> <span class="kn">import</span> <span class="n">issparse</span>
+
+    <span class="n">data</span> <span class="o">=</span> <span class="n">lgb_dataset</span><span class="o">.</span><span class="n">data</span>
+    <span class="n">label</span> <span class="o">=</span> <span class="n">lgb_dataset</span><span class="o">.</span><span class="n">label</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">):</span>
+        <span class="n">dataset</span> <span class="o">=</span> <span class="n">from_pandas</span><span class="p">(</span><span class="n">df</span><span class="o">=</span><span class="n">data</span><span class="p">,</span> <span class="n">source</span><span class="o">=</span><span class="n">source</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="n">name</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="n">issparse</span><span class="p">(</span><span class="n">data</span><span class="p">):</span>
+        <span class="n">arr_data</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">toarray</span><span class="p">()</span> <span class="k">if</span> <span class="n">issparse</span><span class="p">(</span><span class="n">data</span><span class="p">)</span> <span class="k">else</span> <span class="n">data</span>
+        <span class="n">dataset</span> <span class="o">=</span> <span class="n">from_numpy</span><span class="p">(</span><span class="n">features</span><span class="o">=</span><span class="n">arr_data</span><span class="p">,</span> <span class="n">targets</span><span class="o">=</span><span class="n">label</span><span class="p">,</span> <span class="n">source</span><span class="o">=</span><span class="n">source</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="n">name</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">):</span>
+        <span class="n">dataset</span> <span class="o">=</span> <span class="n">from_numpy</span><span class="p">(</span><span class="n">features</span><span class="o">=</span><span class="n">data</span><span class="p">,</span> <span class="n">targets</span><span class="o">=</span><span class="n">label</span><span class="p">,</span> <span class="n">source</span><span class="o">=</span><span class="n">source</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="n">name</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">_logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;Unrecognized dataset type </span><span class="si">%s</span><span class="s2">. Dataset logging skipped.&quot;</span><span class="p">,</span> <span class="nb">type</span><span class="p">(</span><span class="n">data</span><span class="p">))</span>
+        <span class="k">return</span>
+    <span class="n">tags</span> <span class="o">=</span> <span class="p">[</span><span class="n">InputTag</span><span class="p">(</span><span class="n">key</span><span class="o">=</span><span class="n">MLFLOW_DATASET_CONTEXT</span><span class="p">,</span> <span class="n">value</span><span class="o">=</span><span class="n">context</span><span class="p">)]</span>
+    <span class="n">dataset_input</span> <span class="o">=</span> <span class="n">DatasetInput</span><span class="p">(</span><span class="n">dataset</span><span class="o">=</span><span class="n">dataset</span><span class="o">.</span><span class="n">_to_mlflow_entity</span><span class="p">(),</span> <span class="n">tags</span><span class="o">=</span><span class="n">tags</span><span class="p">)</span>
+
+    <span class="c1"># log the dataset</span>
+    <span class="n">autologging_client</span><span class="o">.</span><span class="n">log_inputs</span><span class="p">(</span><span class="n">run_id</span><span class="o">=</span><span class="n">mlflow</span><span class="o">.</span><span class="n">active_run</span><span class="p">()</span><span class="o">.</span><span class="n">info</span><span class="o">.</span><span class="n">run_id</span><span class="p">,</span> <span class="n">datasets</span><span class="o">=</span><span class="p">[</span><span class="n">dataset_input</span><span class="p">])</span>
+</pre></div>
+
+              </div>
+            </div>
+            <footer>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+      <p class="copyright">
+          &copy; MLflow Project, a Series of LF Projects, LLC. All rights reserved.
+      </p>
+
+  </div> 
+
+</footer>
+          </div>
+        </div>
+      </section>
+    </main>
+  </page>
+
+  
+
+
+  
+  <script type="text/javascript">
+    var DOCUMENTATION_OPTIONS = {
+      URL_ROOT:'../../',
+      VERSION:'2.17.1.dev0',
+      COLLAPSE_INDEX:false,
+      FILE_SUFFIX:'.html',
+      LINK_SUFFIX: '.html',
+      HAS_SOURCE:  true
+    };
+  </script>
+
+  
+
+  <script type="text/javascript" src="../../_static/js/clipboard.min.js"></script>
+  <script type="text/javascript" src="../../_static/js/jquery.waypoints.min.js"></script>
+
+  
+  
+  
+  <script type="text/javascript">var CLIPPY_SVG_PATH = "../../_static/clippy.svg";</script>
+  <script type="text/javascript" src="../../_static/js/custom.js"></script>
+  
+
+  
+  
+  <script type="text/javascript">
+    jQuery(function () {
+      SphinxRtdTheme.StickyNav.enable();
+    });
+
+  </script>
+  
+
+  
+  <script type="text/javascript">
+    document.addEventListener("DOMContentLoaded", function() {
+        function copyToClipboard(text) {
+            const textarea = document.createElement('textarea');
+            textarea.value = text;
+            document.body.appendChild(textarea);
+            textarea.select();
+            document.execCommand('copy');
+            document.body.removeChild(textarea);
+        }
+        // Get the code block designator class entries
+        const allHighlights = document.querySelectorAll('.highlight');
+        // Disable copyable links for notebook cell numbering and for cell outputs
+        const highlights = Array.from(allHighlights).filter(highlight => !highlight.closest('.highlight-none') && 
+            !highlight.closest('.nboutput'));
+    
+        highlights.forEach(function(highlight) {
+            const copyIcon = document.createElement('span');
+            copyIcon.classList.add('copy-icon');
+            copyIcon.innerHTML = '&#xf0ea;';
+
+            copyIcon.addEventListener('click', function() {
+                const code = highlight.querySelector('pre').textContent;
+                copyToClipboard(code);
+
+                // Flash effect on click
+                this.style.color = '#0194E2';
+                setTimeout(() => {
+                    this.style.color = ''; 
+                }, 100);
+
+                // Display "Code copied to clipboard" near the clicked icon
+                const message = document.createElement('span');
+                message.textContent = "Copied!";
+                message.classList.add('copy-message'); 
+
+                // Append the message to the icon
+                this.appendChild(message);
+
+                setTimeout(() => {
+                    this.removeChild(message);
+                }, 500);
+            });
+
+            highlight.appendChild(copyIcon);
+        });
+    });
+  </script>
+
+
+<script type="text/javascript">
+    document.addEventListener("DOMContentLoaded", function() {
+        // Force download for notebook-download-btn
+        const downloadButtons = document.querySelectorAll('.notebook-download-btn');
+        downloadButtons.forEach(function(button) {
+            button.addEventListener('click', function(event) {
+                event.preventDefault(); // Prevent default behavior
+
+                // Fetch the raw content of the notebook from GitHub
+                fetch(button.href)
+                    .then(response => response.blob())
+                    .then(blob => {
+                        const url = window.URL.createObjectURL(blob);
+                        const link = document.createElement('a');
+                        link.style.display = 'none';
+                        link.href = url;
+                        const filename = button.href.split('/').pop();
+                        link.download = filename; 
+
+                        document.body.appendChild(link);
+                        link.click();
+
+                        window.URL.revokeObjectURL(url);
+                        document.body.removeChild(link);
+                    })
+                    .catch(err => console.error('Error fetching the notebook:', err));
+            });
+        });
+    });
+</script> 
+</body>
+</html>

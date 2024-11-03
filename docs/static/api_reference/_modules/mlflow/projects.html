@@ -1,0 +1,760 @@
+
+
+<!DOCTYPE html>
+<!-- source: docs/source/_modules/mlflow/projects -->
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>mlflow.projects</title>
+  
+   
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+  <link rel="canonical" href="https://mlflow.org/docs/latest/_modules/mlflow/projects.html">
+  
+  
+    <link rel="shortcut icon" href="../../_static/favicon.ico"/>
+    
+
+    
+
+  
+    
+
+  
+
+  
+  
+    
+
+  
+
+  
+  
+    <link href="https://fonts.googleapis.com/css?family=Source+Sans+Pro:300,400,600" rel="stylesheet">
+    <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/css/custom.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/css/cards.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/css/grids.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/css/mobile.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/css/simple-cards.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/css/tabs.css" type="text/css" />
+    
+  
+        <link rel="index" title="Index"
+              href="../../genindex.html"/>
+        <link rel="search" title="Search" href="../../search.html"/>
+    <link rel="top" title="MLflow 2.17.1.dev0 documentation" href="../../index.html"/>
+        <link rel="up" title="Module code" href="../index.html"/> 
+
+  
+  <script src="../../_static/js/modernizr.min.js"></script>
+
+</head>
+<script type="text/javascript" src="../../_static/jquery.js"></script>
+<script type="text/javascript" src="../../_static/underscore.js"></script>
+<script type="text/javascript" src="../../_static/doctools.js"></script>
+<script type="text/javascript" src="../../_static/tabs.js"></script>
+<script type="text/javascript" src="../../_static/languagesections.js"></script>
+<script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+<script type="text/javascript" src="../../_static/runllm.js"></script>
+
+<body class="wy-body-for-nav" role="document">
+  
+
+  
+  <nav class="wy-nav-top header" role="navigation" aria-label="top navigation">
+    <ul>
+  <li class="menu-toggle">
+    <i data-toggle="wy-nav-top" class="wy-nav-top-menu-button db-icon db-icon-menu pull-left"></i>
+    <a href="../../index.html" class="wy-nav-top-logo"
+      ><img src="../../_static/MLflow-logo-final-black.png" alt="MLflow"
+    /></a>
+    <span class="version">2.17.1.dev0</span>
+  </li>
+</ul>
+  </nav>
+  <page>
+    
+
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side relative">
+      <div class="wy-side-scroll">
+  <div class="wy-side-nav-search">
+    
+
+    
+
+    
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+  <input type="text" name="q" placeholder="Search" />
+  <input type="hidden" name="check_keywords" value="yes" />
+  <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+
+    
+  </div>
+
+  <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+    
+      <a href="../../index.html" class="main-navigation-home"><img src="../../_static/icons/nav-home.svg"> MLflow</a>
+    
+
+    
+      
+
+      
+        <ul>
+<li class="toctree-l1"><a class="reference internal" href="../../python_api/index.html">Python API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../cli.html">Command-Line Interface</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../R-api.html">R API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../java_api/index.html">Java API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../rest-api.html">REST API</a></li>
+</ul>
+
+      
+    
+  </div>
+
+  <div role="contentinfo">
+    
+
+    <p>
+      <a id='feedbacklink' href="https://github.com/mlflow/mlflow/blob/master/CONTRIBUTING.md" target="_blank">Contribute</a>
+    </p>
+  </div>
+</div>
+    </nav>
+
+    <main class="wy-grid-for-nav">
+      <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+        <div class="wy-nav-content">
+          <div class="rst-content">
+            
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href="../../index.html">Documentation</a> <span class="db-icon db-icon-chevron-right"></span></li>
+    
+        <li><a href="../index.html">Module code</a> <span class="db-icon db-icon-chevron-right"></span></li>
+    
+    
+      <li>mlflow.projects</li>
+    
+    
+    <!-- <li class="wy-breadcrumbs-aside">
+      <a href="https://github.com/mlflow/mlflow/blob/master/docs/source/_modules/mlflow/projects" class="fa fa-github"> Edit on GitHub</a>
+    </li> -->
+    
+  </ul>
+</div>
+            <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+              <div itemprop="articleBody">
+                
+  <h1>Source code for mlflow.projects</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">The ``mlflow.projects`` module provides an API for running MLflow projects locally or remotely.</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">import</span> <span class="nn">json</span>
+<span class="kn">import</span> <span class="nn">logging</span>
+<span class="kn">import</span> <span class="nn">os</span>
+
+<span class="kn">import</span> <span class="nn">yaml</span>
+
+<span class="kn">import</span> <span class="nn">mlflow.projects.databricks</span>
+<span class="kn">import</span> <span class="nn">mlflow.utils.uri</span>
+<span class="kn">from</span> <span class="nn">mlflow</span> <span class="kn">import</span> <span class="n">tracking</span>
+<span class="kn">from</span> <span class="nn">mlflow.entities</span> <span class="kn">import</span> <span class="n">RunStatus</span>
+<span class="kn">from</span> <span class="nn">mlflow.exceptions</span> <span class="kn">import</span> <span class="n">ExecutionException</span><span class="p">,</span> <span class="n">MlflowException</span>
+<span class="kn">from</span> <span class="nn">mlflow.projects.backend</span> <span class="kn">import</span> <span class="n">loader</span>
+<span class="kn">from</span> <span class="nn">mlflow.projects.submitted_run</span> <span class="kn">import</span> <span class="n">SubmittedRun</span>
+<span class="kn">from</span> <span class="nn">mlflow.projects.utils</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">MLFLOW_LOCAL_BACKEND_RUN_ID_CONFIG</span><span class="p">,</span>
+    <span class="n">PROJECT_BUILD_IMAGE</span><span class="p">,</span>
+    <span class="n">PROJECT_DOCKER_ARGS</span><span class="p">,</span>
+    <span class="n">PROJECT_DOCKER_AUTH</span><span class="p">,</span>
+    <span class="n">PROJECT_ENV_MANAGER</span><span class="p">,</span>
+    <span class="n">PROJECT_STORAGE_DIR</span><span class="p">,</span>
+    <span class="n">PROJECT_SYNCHRONOUS</span><span class="p">,</span>
+    <span class="n">fetch_and_validate_project</span><span class="p">,</span>
+    <span class="n">get_entry_point_command</span><span class="p">,</span>
+    <span class="n">get_or_create_run</span><span class="p">,</span>
+    <span class="n">get_run_env_vars</span><span class="p">,</span>
+    <span class="n">load_project</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">mlflow.tracking.fluent</span> <span class="kn">import</span> <span class="n">_get_experiment_id</span>
+<span class="kn">from</span> <span class="nn">mlflow.utils</span> <span class="kn">import</span> <span class="n">env_manager</span> <span class="k">as</span> <span class="n">_EnvManager</span>
+<span class="kn">from</span> <span class="nn">mlflow.utils.mlflow_tags</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">MLFLOW_DOCKER_IMAGE_ID</span><span class="p">,</span>
+    <span class="n">MLFLOW_PROJECT_BACKEND</span><span class="p">,</span>
+    <span class="n">MLFLOW_PROJECT_ENV</span><span class="p">,</span>
+    <span class="n">MLFLOW_RUN_NAME</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="n">_logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
+
+
+<span class="k">def</span> <span class="nf">_resolve_experiment_id</span><span class="p">(</span><span class="n">experiment_name</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">experiment_id</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Resolve experiment.</span>
+
+<span class="sd">    Verifies either one or other is specified - cannot be both selected.</span>
+
+<span class="sd">    If ``experiment_name`` is provided and does not exist, an experiment</span>
+<span class="sd">    of that name is created and its id is returned.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        experiment_name: Name of experiment under which to launch the run.</span>
+<span class="sd">        experiment_id: ID of experiment under which to launch the run.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        str</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">if</span> <span class="n">experiment_name</span> <span class="ow">and</span> <span class="n">experiment_id</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="n">MlflowException</span><span class="p">(</span><span class="s2">&quot;Specify only one of &#39;experiment_name&#39; or &#39;experiment_id&#39;.&quot;</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">experiment_id</span><span class="p">:</span>
+        <span class="k">return</span> <span class="nb">str</span><span class="p">(</span><span class="n">experiment_id</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">experiment_name</span><span class="p">:</span>
+        <span class="n">client</span> <span class="o">=</span> <span class="n">tracking</span><span class="o">.</span><span class="n">MlflowClient</span><span class="p">()</span>
+        <span class="n">exp</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">get_experiment_by_name</span><span class="p">(</span><span class="n">experiment_name</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">exp</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">exp</span><span class="o">.</span><span class="n">experiment_id</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">_logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;&#39;</span><span class="si">%s</span><span class="s2">&#39; does not exist. Creating a new experiment&quot;</span><span class="p">,</span> <span class="n">experiment_name</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">client</span><span class="o">.</span><span class="n">create_experiment</span><span class="p">(</span><span class="n">experiment_name</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">_get_experiment_id</span><span class="p">()</span>
+
+
+<span class="k">def</span> <span class="nf">_run</span><span class="p">(</span>
+    <span class="n">uri</span><span class="p">,</span>
+    <span class="n">experiment_id</span><span class="p">,</span>
+    <span class="n">entry_point</span><span class="p">,</span>
+    <span class="n">version</span><span class="p">,</span>
+    <span class="n">parameters</span><span class="p">,</span>
+    <span class="n">docker_args</span><span class="p">,</span>
+    <span class="n">backend_name</span><span class="p">,</span>
+    <span class="n">backend_config</span><span class="p">,</span>
+    <span class="n">storage_dir</span><span class="p">,</span>
+    <span class="n">env_manager</span><span class="p">,</span>
+    <span class="n">synchronous</span><span class="p">,</span>
+    <span class="n">run_name</span><span class="p">,</span>
+    <span class="n">build_image</span><span class="p">,</span>
+    <span class="n">docker_auth</span><span class="p">,</span>
+<span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Helper that delegates to the project-running method corresponding to the passed-in backend.</span>
+<span class="sd">    Returns a ``SubmittedRun`` corresponding to the project run.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">tracking_store_uri</span> <span class="o">=</span> <span class="n">tracking</span><span class="o">.</span><span class="n">get_tracking_uri</span><span class="p">()</span>
+    <span class="n">backend_config</span><span class="p">[</span><span class="n">PROJECT_ENV_MANAGER</span><span class="p">]</span> <span class="o">=</span> <span class="n">env_manager</span>
+    <span class="n">backend_config</span><span class="p">[</span><span class="n">PROJECT_SYNCHRONOUS</span><span class="p">]</span> <span class="o">=</span> <span class="n">synchronous</span>
+    <span class="n">backend_config</span><span class="p">[</span><span class="n">PROJECT_DOCKER_ARGS</span><span class="p">]</span> <span class="o">=</span> <span class="n">docker_args</span>
+    <span class="n">backend_config</span><span class="p">[</span><span class="n">PROJECT_STORAGE_DIR</span><span class="p">]</span> <span class="o">=</span> <span class="n">storage_dir</span>
+    <span class="n">backend_config</span><span class="p">[</span><span class="n">PROJECT_BUILD_IMAGE</span><span class="p">]</span> <span class="o">=</span> <span class="n">build_image</span>
+    <span class="n">backend_config</span><span class="p">[</span><span class="n">PROJECT_DOCKER_AUTH</span><span class="p">]</span> <span class="o">=</span> <span class="n">docker_auth</span>
+    <span class="c1"># TODO: remove this check once kubernetes execution has been refactored</span>
+    <span class="k">if</span> <span class="n">backend_name</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">{</span><span class="s2">&quot;databricks&quot;</span><span class="p">,</span> <span class="s2">&quot;kubernetes&quot;</span><span class="p">}:</span>
+        <span class="n">backend</span> <span class="o">=</span> <span class="n">loader</span><span class="o">.</span><span class="n">load_backend</span><span class="p">(</span><span class="n">backend_name</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">backend</span><span class="p">:</span>
+            <span class="n">submitted_run</span> <span class="o">=</span> <span class="n">backend</span><span class="o">.</span><span class="n">run</span><span class="p">(</span>
+                <span class="n">uri</span><span class="p">,</span>
+                <span class="n">entry_point</span><span class="p">,</span>
+                <span class="n">parameters</span><span class="p">,</span>
+                <span class="n">version</span><span class="p">,</span>
+                <span class="n">backend_config</span><span class="p">,</span>
+                <span class="n">tracking_store_uri</span><span class="p">,</span>
+                <span class="n">experiment_id</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="n">tracking</span><span class="o">.</span><span class="n">MlflowClient</span><span class="p">()</span><span class="o">.</span><span class="n">set_tag</span><span class="p">(</span>
+                <span class="n">submitted_run</span><span class="o">.</span><span class="n">run_id</span><span class="p">,</span> <span class="n">MLFLOW_PROJECT_BACKEND</span><span class="p">,</span> <span class="n">backend_name</span>
+            <span class="p">)</span>
+            <span class="k">if</span> <span class="n">run_name</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">tracking</span><span class="o">.</span><span class="n">MlflowClient</span><span class="p">()</span><span class="o">.</span><span class="n">set_tag</span><span class="p">(</span><span class="n">submitted_run</span><span class="o">.</span><span class="n">run_id</span><span class="p">,</span> <span class="n">MLFLOW_RUN_NAME</span><span class="p">,</span> <span class="n">run_name</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">submitted_run</span>
+
+    <span class="n">work_dir</span> <span class="o">=</span> <span class="n">fetch_and_validate_project</span><span class="p">(</span><span class="n">uri</span><span class="p">,</span> <span class="n">version</span><span class="p">,</span> <span class="n">entry_point</span><span class="p">,</span> <span class="n">parameters</span><span class="p">)</span>
+    <span class="n">project</span> <span class="o">=</span> <span class="n">load_project</span><span class="p">(</span><span class="n">work_dir</span><span class="p">)</span>
+    <span class="n">_validate_execution_environment</span><span class="p">(</span><span class="n">project</span><span class="p">,</span> <span class="n">backend_name</span><span class="p">)</span>
+
+    <span class="n">active_run</span> <span class="o">=</span> <span class="n">get_or_create_run</span><span class="p">(</span>
+        <span class="kc">None</span><span class="p">,</span> <span class="n">uri</span><span class="p">,</span> <span class="n">experiment_id</span><span class="p">,</span> <span class="n">work_dir</span><span class="p">,</span> <span class="n">version</span><span class="p">,</span> <span class="n">entry_point</span><span class="p">,</span> <span class="n">parameters</span>
+    <span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">run_name</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">tracking</span><span class="o">.</span><span class="n">MlflowClient</span><span class="p">()</span><span class="o">.</span><span class="n">set_tag</span><span class="p">(</span><span class="n">active_run</span><span class="o">.</span><span class="n">info</span><span class="o">.</span><span class="n">run_id</span><span class="p">,</span> <span class="n">MLFLOW_RUN_NAME</span><span class="p">,</span> <span class="n">run_name</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">backend_name</span> <span class="o">==</span> <span class="s2">&quot;databricks&quot;</span><span class="p">:</span>
+        <span class="n">tracking</span><span class="o">.</span><span class="n">MlflowClient</span><span class="p">()</span><span class="o">.</span><span class="n">set_tag</span><span class="p">(</span>
+            <span class="n">active_run</span><span class="o">.</span><span class="n">info</span><span class="o">.</span><span class="n">run_id</span><span class="p">,</span> <span class="n">MLFLOW_PROJECT_BACKEND</span><span class="p">,</span> <span class="s2">&quot;databricks&quot;</span>
+        <span class="p">)</span>
+        <span class="kn">from</span> <span class="nn">mlflow.projects.databricks</span> <span class="kn">import</span> <span class="n">run_databricks</span><span class="p">,</span> <span class="n">run_databricks_spark_job</span>
+
+        <span class="k">if</span> <span class="n">project</span><span class="o">.</span><span class="n">databricks_spark_job_spec</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">run_databricks_spark_job</span><span class="p">(</span>
+                <span class="n">remote_run</span><span class="o">=</span><span class="n">active_run</span><span class="p">,</span>
+                <span class="n">uri</span><span class="o">=</span><span class="n">uri</span><span class="p">,</span>
+                <span class="n">work_dir</span><span class="o">=</span><span class="n">work_dir</span><span class="p">,</span>
+                <span class="n">experiment_id</span><span class="o">=</span><span class="n">experiment_id</span><span class="p">,</span>
+                <span class="n">cluster_spec</span><span class="o">=</span><span class="n">backend_config</span><span class="p">,</span>
+                <span class="n">project_spec</span><span class="o">=</span><span class="n">project</span><span class="p">,</span>
+                <span class="n">entry_point</span><span class="o">=</span><span class="n">entry_point</span><span class="p">,</span>
+                <span class="n">parameters</span><span class="o">=</span><span class="n">parameters</span><span class="p">,</span>
+            <span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">run_databricks</span><span class="p">(</span>
+            <span class="n">remote_run</span><span class="o">=</span><span class="n">active_run</span><span class="p">,</span>
+            <span class="n">uri</span><span class="o">=</span><span class="n">uri</span><span class="p">,</span>
+            <span class="n">entry_point</span><span class="o">=</span><span class="n">entry_point</span><span class="p">,</span>
+            <span class="n">work_dir</span><span class="o">=</span><span class="n">work_dir</span><span class="p">,</span>
+            <span class="n">parameters</span><span class="o">=</span><span class="n">parameters</span><span class="p">,</span>
+            <span class="n">experiment_id</span><span class="o">=</span><span class="n">experiment_id</span><span class="p">,</span>
+            <span class="n">cluster_spec</span><span class="o">=</span><span class="n">backend_config</span><span class="p">,</span>
+            <span class="n">env_manager</span><span class="o">=</span><span class="n">env_manager</span><span class="p">,</span>
+        <span class="p">)</span>
+
+    <span class="k">elif</span> <span class="n">backend_name</span> <span class="o">==</span> <span class="s2">&quot;kubernetes&quot;</span><span class="p">:</span>
+        <span class="kn">from</span> <span class="nn">mlflow.projects</span> <span class="kn">import</span> <span class="n">kubernetes</span> <span class="k">as</span> <span class="n">kb</span>
+        <span class="kn">from</span> <span class="nn">mlflow.projects.docker</span> <span class="kn">import</span> <span class="p">(</span>
+            <span class="n">build_docker_image</span><span class="p">,</span>
+            <span class="n">validate_docker_env</span><span class="p">,</span>
+            <span class="n">validate_docker_installation</span><span class="p">,</span>
+        <span class="p">)</span>
+
+        <span class="n">tracking</span><span class="o">.</span><span class="n">MlflowClient</span><span class="p">()</span><span class="o">.</span><span class="n">set_tag</span><span class="p">(</span><span class="n">active_run</span><span class="o">.</span><span class="n">info</span><span class="o">.</span><span class="n">run_id</span><span class="p">,</span> <span class="n">MLFLOW_PROJECT_ENV</span><span class="p">,</span> <span class="s2">&quot;docker&quot;</span><span class="p">)</span>
+        <span class="n">tracking</span><span class="o">.</span><span class="n">MlflowClient</span><span class="p">()</span><span class="o">.</span><span class="n">set_tag</span><span class="p">(</span>
+            <span class="n">active_run</span><span class="o">.</span><span class="n">info</span><span class="o">.</span><span class="n">run_id</span><span class="p">,</span> <span class="n">MLFLOW_PROJECT_BACKEND</span><span class="p">,</span> <span class="s2">&quot;kubernetes&quot;</span>
+        <span class="p">)</span>
+        <span class="n">validate_docker_env</span><span class="p">(</span><span class="n">project</span><span class="p">)</span>
+        <span class="n">validate_docker_installation</span><span class="p">()</span>
+        <span class="n">kube_config</span> <span class="o">=</span> <span class="n">_parse_kubernetes_config</span><span class="p">(</span><span class="n">backend_config</span><span class="p">)</span>
+        <span class="n">image</span> <span class="o">=</span> <span class="n">build_docker_image</span><span class="p">(</span>
+            <span class="n">work_dir</span><span class="o">=</span><span class="n">work_dir</span><span class="p">,</span>
+            <span class="n">repository_uri</span><span class="o">=</span><span class="n">kube_config</span><span class="p">[</span><span class="s2">&quot;repository-uri&quot;</span><span class="p">],</span>
+            <span class="n">base_image</span><span class="o">=</span><span class="n">project</span><span class="o">.</span><span class="n">docker_env</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;image&quot;</span><span class="p">),</span>
+            <span class="n">run_id</span><span class="o">=</span><span class="n">active_run</span><span class="o">.</span><span class="n">info</span><span class="o">.</span><span class="n">run_id</span><span class="p">,</span>
+            <span class="n">build_image</span><span class="o">=</span><span class="n">build_image</span><span class="p">,</span>
+            <span class="n">docker_auth</span><span class="o">=</span><span class="n">docker_auth</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="n">image_digest</span> <span class="o">=</span> <span class="n">kb</span><span class="o">.</span><span class="n">push_image_to_registry</span><span class="p">(</span><span class="n">image</span><span class="o">.</span><span class="n">tags</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+        <span class="n">tracking</span><span class="o">.</span><span class="n">MlflowClient</span><span class="p">()</span><span class="o">.</span><span class="n">set_tag</span><span class="p">(</span>
+            <span class="n">active_run</span><span class="o">.</span><span class="n">info</span><span class="o">.</span><span class="n">run_id</span><span class="p">,</span> <span class="n">MLFLOW_DOCKER_IMAGE_ID</span><span class="p">,</span> <span class="n">image_digest</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="n">kb</span><span class="o">.</span><span class="n">run_kubernetes_job</span><span class="p">(</span>
+            <span class="n">project</span><span class="o">.</span><span class="n">name</span><span class="p">,</span>
+            <span class="n">active_run</span><span class="p">,</span>
+            <span class="n">image</span><span class="o">.</span><span class="n">tags</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span>
+            <span class="n">image_digest</span><span class="p">,</span>
+            <span class="n">get_entry_point_command</span><span class="p">(</span><span class="n">project</span><span class="p">,</span> <span class="n">entry_point</span><span class="p">,</span> <span class="n">parameters</span><span class="p">,</span> <span class="n">storage_dir</span><span class="p">),</span>
+            <span class="n">get_run_env_vars</span><span class="p">(</span>
+                <span class="n">run_id</span><span class="o">=</span><span class="n">active_run</span><span class="o">.</span><span class="n">info</span><span class="o">.</span><span class="n">run_uuid</span><span class="p">,</span> <span class="n">experiment_id</span><span class="o">=</span><span class="n">active_run</span><span class="o">.</span><span class="n">info</span><span class="o">.</span><span class="n">experiment_id</span>
+            <span class="p">),</span>
+            <span class="n">kube_config</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;kube-context&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">),</span>
+            <span class="n">kube_config</span><span class="p">[</span><span class="s2">&quot;kube-job-template&quot;</span><span class="p">],</span>
+        <span class="p">)</span>
+
+    <span class="n">supported_backends</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;databricks&quot;</span><span class="p">,</span> <span class="s2">&quot;kubernetes&quot;</span><span class="p">]</span> <span class="o">+</span> <span class="nb">list</span><span class="p">(</span><span class="n">loader</span><span class="o">.</span><span class="n">MLFLOW_BACKENDS</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span>
+    <span class="k">raise</span> <span class="n">ExecutionException</span><span class="p">(</span>
+        <span class="sa">f</span><span class="s2">&quot;Got unsupported execution mode </span><span class="si">{</span><span class="n">backend_name</span><span class="si">}</span><span class="s2">. Supported values: </span><span class="si">{</span><span class="n">supported_backends</span><span class="si">}</span><span class="s2">&quot;</span>
+    <span class="p">)</span>
+
+
+<div class="viewcode-block" id="run"><a class="viewcode-back" href="../../python_api/mlflow.projects.html#mlflow.run">[docs]</a><span class="k">def</span> <span class="nf">run</span><span class="p">(</span>
+    <span class="n">uri</span><span class="p">,</span>
+    <span class="n">entry_point</span><span class="o">=</span><span class="s2">&quot;main&quot;</span><span class="p">,</span>
+    <span class="n">version</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">parameters</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">docker_args</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">experiment_name</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">experiment_id</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">backend</span><span class="o">=</span><span class="s2">&quot;local&quot;</span><span class="p">,</span>
+    <span class="n">backend_config</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">storage_dir</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">synchronous</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+    <span class="n">run_id</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">run_name</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">env_manager</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">build_image</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+    <span class="n">docker_auth</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+<span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Run an MLflow project. The project can be local or stored at a Git URI.</span>
+
+<span class="sd">    MLflow provides built-in support for running projects locally or remotely on a Databricks or</span>
+<span class="sd">    Kubernetes cluster. You can also run projects against other targets by installing an appropriate</span>
+<span class="sd">    third-party plugin. See `Community Plugins &lt;../plugins.html#community-plugins&gt;`_ for more</span>
+<span class="sd">    information.</span>
+
+<span class="sd">    For information on using this method in chained workflows, see `Building Multistep Workflows</span>
+<span class="sd">    &lt;../projects.html#building-multistep-workflows&gt;`_.</span>
+
+<span class="sd">    Raises:</span>
+<span class="sd">        :py:class:`mlflow.exceptions.ExecutionException` If a run launched in blocking mode</span>
+<span class="sd">            is unsuccessful.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        uri: URI of project to run. A local filesystem path</span>
+<span class="sd">            or a Git repository URI (e.g. https://github.com/mlflow/mlflow-example)</span>
+<span class="sd">            pointing to a project directory containing an MLproject file.</span>
+<span class="sd">        entry_point: Entry point to run within the project. If no entry point with the specified</span>
+<span class="sd">            name is found, runs the project file ``entry_point`` as a script,</span>
+<span class="sd">            using &quot;python&quot; to run ``.py`` files and the default shell (specified by</span>
+<span class="sd">            environment variable ``$SHELL``) to run ``.sh`` files.</span>
+<span class="sd">        version: For Git-based projects, either a commit hash or a branch name.</span>
+<span class="sd">        parameters: Parameters (dictionary) for the entry point command.</span>
+<span class="sd">        docker_args: Arguments (dictionary) for the docker command.</span>
+<span class="sd">        experiment_name: Name of experiment under which to launch the run.</span>
+<span class="sd">        experiment_id: ID of experiment under which to launch the run.</span>
+<span class="sd">        backend: Execution backend for the run: MLflow provides built-in support for &quot;local&quot;,</span>
+<span class="sd">            &quot;databricks&quot;, and &quot;kubernetes&quot; (experimental) backends. If running against</span>
+<span class="sd">            Databricks, will run against a Databricks workspace determined as follows:</span>
+<span class="sd">            if a Databricks tracking URI of the form ``databricks://profile`` has been set</span>
+<span class="sd">            (e.g. by setting the MLFLOW_TRACKING_URI environment variable), will run</span>
+<span class="sd">            against the workspace specified by &lt;profile&gt;. Otherwise, runs against the</span>
+<span class="sd">            workspace specified by the default Databricks CLI profile.</span>
+<span class="sd">        backend_config: A dictionary, or a path to a JSON file (must end in &#39;.json&#39;), which will</span>
+<span class="sd">            be passed as config to the backend. The exact content which should be</span>
+<span class="sd">            provided is different for each execution backend and is documented</span>
+<span class="sd">            at https://www.mlflow.org/docs/latest/projects.html.</span>
+<span class="sd">        storage_dir: Used only if ``backend`` is &quot;local&quot;. MLflow downloads artifacts from</span>
+<span class="sd">            distributed URIs passed to parameters of type ``path`` to subdirectories of</span>
+<span class="sd">            ``storage_dir``.</span>
+<span class="sd">        synchronous: Whether to block while waiting for a run to complete. Defaults to True.</span>
+<span class="sd">            Note that if ``synchronous`` is False and ``backend`` is &quot;local&quot;, this</span>
+<span class="sd">            method will return, but the current process will block when exiting until</span>
+<span class="sd">            the local run completes. If the current process is interrupted, any</span>
+<span class="sd">            asynchronous runs launched via this method will be terminated. If</span>
+<span class="sd">            ``synchronous`` is True and the run fails, the current process will</span>
+<span class="sd">            error out as well.</span>
+<span class="sd">        run_id: Note: this argument is used internally by the MLflow project APIs and should</span>
+<span class="sd">            not be specified. If specified, the run ID will be used instead of</span>
+<span class="sd">            creating a new run.</span>
+<span class="sd">        run_name: The name to give the MLflow Run associated with the project execution.</span>
+<span class="sd">            If ``None``, the MLflow Run name is left unset.</span>
+<span class="sd">        env_manager: Specify an environment manager to create a new environment for the run and</span>
+<span class="sd">            install project dependencies within that environment. The following values</span>
+<span class="sd">            are supported:</span>
+
+<span class="sd">            - local: use the local environment</span>
+<span class="sd">            - virtualenv: use virtualenv (and pyenv for Python version management)</span>
+<span class="sd">            - conda: use conda</span>
+
+<span class="sd">            If unspecified, MLflow automatically determines the environment manager to</span>
+<span class="sd">            use by inspecting files in the project directory. For example, if</span>
+<span class="sd">            ``python_env.yaml`` is present, virtualenv will be used.</span>
+<span class="sd">        build_image: Whether to build a new docker image of the project or to reuse an existing</span>
+<span class="sd">            image. Default: False (reuse an existing image)</span>
+<span class="sd">        docker_auth: A dictionary representing information to authenticate with a Docker</span>
+<span class="sd">            registry. See `docker.client.DockerClient.login</span>
+<span class="sd">            &lt;https://docker-py.readthedocs.io/en/stable/client.html#docker.client.DockerClient.login&gt;`_</span>
+<span class="sd">            for available options.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        :py:class:`mlflow.projects.SubmittedRun` exposing information (e.g. run ID)</span>
+<span class="sd">        about the launched run.</span>
+
+<span class="sd">    .. code-block:: python</span>
+<span class="sd">        :caption: Example</span>
+
+<span class="sd">        import mlflow</span>
+
+<span class="sd">        project_uri = &quot;https://github.com/mlflow/mlflow-example&quot;</span>
+<span class="sd">        params = {&quot;alpha&quot;: 0.5, &quot;l1_ratio&quot;: 0.01}</span>
+
+<span class="sd">        # Run MLflow project and create a reproducible conda environment</span>
+<span class="sd">        # on a local host</span>
+<span class="sd">        mlflow.run(project_uri, parameters=params)</span>
+
+<span class="sd">    .. code-block:: text</span>
+<span class="sd">        :caption: Output</span>
+
+<span class="sd">        ...</span>
+<span class="sd">        ...</span>
+<span class="sd">        Elasticnet model (alpha=0.500000, l1_ratio=0.010000):</span>
+<span class="sd">        RMSE: 0.788347345611717</span>
+<span class="sd">        MAE: 0.6155576449938276</span>
+<span class="sd">        R2: 0.19729662005412607</span>
+<span class="sd">        ... mlflow.projects: === Run (ID &#39;6a5109febe5e4a549461e149590d0a7c&#39;) succeeded ===</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">backend_config_dict</span> <span class="o">=</span> <span class="n">backend_config</span> <span class="k">if</span> <span class="n">backend_config</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="p">{}</span>
+    <span class="k">if</span> <span class="p">(</span>
+        <span class="n">backend_config</span>
+        <span class="ow">and</span> <span class="nb">type</span><span class="p">(</span><span class="n">backend_config</span><span class="p">)</span> <span class="o">!=</span> <span class="nb">dict</span>
+        <span class="ow">and</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">splitext</span><span class="p">(</span><span class="n">backend_config</span><span class="p">)[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;.json&quot;</span>
+    <span class="p">):</span>
+        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">backend_config</span><span class="p">)</span> <span class="k">as</span> <span class="n">handle</span><span class="p">:</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">backend_config_dict</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">handle</span><span class="p">)</span>
+            <span class="k">except</span> <span class="ne">ValueError</span><span class="p">:</span>
+                <span class="n">_logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span>
+                    <span class="s2">&quot;Error when attempting to load and parse JSON cluster spec from file </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span>
+                    <span class="n">backend_config</span><span class="p">,</span>
+                <span class="p">)</span>
+                <span class="k">raise</span>
+
+    <span class="k">if</span> <span class="n">env_manager</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">_EnvManager</span><span class="o">.</span><span class="n">validate</span><span class="p">(</span><span class="n">env_manager</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">backend</span> <span class="o">==</span> <span class="s2">&quot;databricks&quot;</span><span class="p">:</span>
+        <span class="n">mlflow</span><span class="o">.</span><span class="n">projects</span><span class="o">.</span><span class="n">databricks</span><span class="o">.</span><span class="n">before_run_validations</span><span class="p">(</span><span class="n">mlflow</span><span class="o">.</span><span class="n">get_tracking_uri</span><span class="p">(),</span> <span class="n">backend_config</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="n">backend</span> <span class="o">==</span> <span class="s2">&quot;local&quot;</span> <span class="ow">and</span> <span class="n">run_id</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">backend_config_dict</span><span class="p">[</span><span class="n">MLFLOW_LOCAL_BACKEND_RUN_ID_CONFIG</span><span class="p">]</span> <span class="o">=</span> <span class="n">run_id</span>
+
+    <span class="n">experiment_id</span> <span class="o">=</span> <span class="n">_resolve_experiment_id</span><span class="p">(</span>
+        <span class="n">experiment_name</span><span class="o">=</span><span class="n">experiment_name</span><span class="p">,</span> <span class="n">experiment_id</span><span class="o">=</span><span class="n">experiment_id</span>
+    <span class="p">)</span>
+
+    <span class="n">submitted_run_obj</span> <span class="o">=</span> <span class="n">_run</span><span class="p">(</span>
+        <span class="n">uri</span><span class="o">=</span><span class="n">uri</span><span class="p">,</span>
+        <span class="n">experiment_id</span><span class="o">=</span><span class="n">experiment_id</span><span class="p">,</span>
+        <span class="n">entry_point</span><span class="o">=</span><span class="n">entry_point</span><span class="p">,</span>
+        <span class="n">version</span><span class="o">=</span><span class="n">version</span><span class="p">,</span>
+        <span class="n">parameters</span><span class="o">=</span><span class="n">parameters</span><span class="p">,</span>
+        <span class="n">docker_args</span><span class="o">=</span><span class="n">docker_args</span><span class="p">,</span>
+        <span class="n">backend_name</span><span class="o">=</span><span class="n">backend</span><span class="p">,</span>
+        <span class="n">backend_config</span><span class="o">=</span><span class="n">backend_config_dict</span><span class="p">,</span>
+        <span class="n">env_manager</span><span class="o">=</span><span class="n">env_manager</span><span class="p">,</span>
+        <span class="n">storage_dir</span><span class="o">=</span><span class="n">storage_dir</span><span class="p">,</span>
+        <span class="n">synchronous</span><span class="o">=</span><span class="n">synchronous</span><span class="p">,</span>
+        <span class="n">run_name</span><span class="o">=</span><span class="n">run_name</span><span class="p">,</span>
+        <span class="n">build_image</span><span class="o">=</span><span class="n">build_image</span><span class="p">,</span>
+        <span class="n">docker_auth</span><span class="o">=</span><span class="n">docker_auth</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="k">if</span> <span class="n">synchronous</span><span class="p">:</span>
+        <span class="n">_wait_for</span><span class="p">(</span><span class="n">submitted_run_obj</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">submitted_run_obj</span></div>
+
+
+<span class="k">def</span> <span class="nf">_wait_for</span><span class="p">(</span><span class="n">submitted_run_obj</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Wait on the passed-in submitted run, reporting its status to the tracking server.&quot;&quot;&quot;</span>
+    <span class="n">run_id</span> <span class="o">=</span> <span class="n">submitted_run_obj</span><span class="o">.</span><span class="n">run_id</span>
+    <span class="n">active_run</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="c1"># Note: there&#39;s a small chance we fail to report the run&#39;s status to the tracking server if</span>
+    <span class="c1"># we&#39;re interrupted before we reach the try block below</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">active_run</span> <span class="o">=</span> <span class="n">tracking</span><span class="o">.</span><span class="n">MlflowClient</span><span class="p">()</span><span class="o">.</span><span class="n">get_run</span><span class="p">(</span><span class="n">run_id</span><span class="p">)</span> <span class="k">if</span> <span class="n">run_id</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="kc">None</span>
+        <span class="k">if</span> <span class="n">submitted_run_obj</span><span class="o">.</span><span class="n">wait</span><span class="p">():</span>
+            <span class="n">_logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;=== Run (ID &#39;</span><span class="si">%s</span><span class="s2">&#39;) succeeded ===&quot;</span><span class="p">,</span> <span class="n">run_id</span><span class="p">)</span>
+            <span class="n">_maybe_set_run_terminated</span><span class="p">(</span><span class="n">active_run</span><span class="p">,</span> <span class="s2">&quot;FINISHED&quot;</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">_maybe_set_run_terminated</span><span class="p">(</span><span class="n">active_run</span><span class="p">,</span> <span class="s2">&quot;FAILED&quot;</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="n">ExecutionException</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Run (ID &#39;</span><span class="si">{</span><span class="n">run_id</span><span class="si">}</span><span class="s2">&#39;) failed&quot;</span><span class="p">)</span>
+    <span class="k">except</span> <span class="ne">KeyboardInterrupt</span><span class="p">:</span>
+        <span class="n">_logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="s2">&quot;=== Run (ID &#39;</span><span class="si">%s</span><span class="s2">&#39;) interrupted, cancelling run ===&quot;</span><span class="p">,</span> <span class="n">run_id</span><span class="p">)</span>
+        <span class="n">submitted_run_obj</span><span class="o">.</span><span class="n">cancel</span><span class="p">()</span>
+        <span class="n">_maybe_set_run_terminated</span><span class="p">(</span><span class="n">active_run</span><span class="p">,</span> <span class="s2">&quot;FAILED&quot;</span><span class="p">)</span>
+        <span class="k">raise</span>
+
+
+<span class="k">def</span> <span class="nf">_maybe_set_run_terminated</span><span class="p">(</span><span class="n">active_run</span><span class="p">,</span> <span class="n">status</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    If the passed-in active run is defined and still running (i.e. hasn&#39;t already been terminated</span>
+<span class="sd">    within user code), mark it as terminated with the passed-in status.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">active_run</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">return</span>
+    <span class="n">run_id</span> <span class="o">=</span> <span class="n">active_run</span><span class="o">.</span><span class="n">info</span><span class="o">.</span><span class="n">run_id</span>
+    <span class="n">cur_status</span> <span class="o">=</span> <span class="n">tracking</span><span class="o">.</span><span class="n">MlflowClient</span><span class="p">()</span><span class="o">.</span><span class="n">get_run</span><span class="p">(</span><span class="n">run_id</span><span class="p">)</span><span class="o">.</span><span class="n">info</span><span class="o">.</span><span class="n">status</span>
+    <span class="k">if</span> <span class="n">RunStatus</span><span class="o">.</span><span class="n">is_terminated</span><span class="p">(</span><span class="n">cur_status</span><span class="p">):</span>
+        <span class="k">return</span>
+    <span class="n">tracking</span><span class="o">.</span><span class="n">MlflowClient</span><span class="p">()</span><span class="o">.</span><span class="n">set_terminated</span><span class="p">(</span><span class="n">run_id</span><span class="p">,</span> <span class="n">status</span><span class="p">)</span>
+
+
+<span class="k">def</span> <span class="nf">_validate_execution_environment</span><span class="p">(</span><span class="n">project</span><span class="p">,</span> <span class="n">backend</span><span class="p">):</span>
+    <span class="k">if</span> <span class="n">project</span><span class="o">.</span><span class="n">docker_env</span> <span class="ow">and</span> <span class="n">backend</span> <span class="o">==</span> <span class="s2">&quot;databricks&quot;</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="n">ExecutionException</span><span class="p">(</span>
+            <span class="s2">&quot;Running docker-based projects on Databricks is not yet supported.&quot;</span>
+        <span class="p">)</span>
+
+
+<span class="k">def</span> <span class="nf">_parse_kubernetes_config</span><span class="p">(</span><span class="n">backend_config</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Creates build context tarfile containing Dockerfile and project code, returning path to tarfile</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">backend_config</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="n">ExecutionException</span><span class="p">(</span><span class="s2">&quot;Backend_config file not found.&quot;</span><span class="p">)</span>
+    <span class="n">kube_config</span> <span class="o">=</span> <span class="n">backend_config</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+    <span class="k">if</span> <span class="s2">&quot;kube-job-template-path&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">backend_config</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+        <span class="k">raise</span> <span class="n">ExecutionException</span><span class="p">(</span>
+            <span class="s2">&quot;&#39;kube-job-template-path&#39; attribute must be specified in backend_config.&quot;</span>
+        <span class="p">)</span>
+    <span class="n">kube_job_template</span> <span class="o">=</span> <span class="n">backend_config</span><span class="p">[</span><span class="s2">&quot;kube-job-template-path&quot;</span><span class="p">]</span>
+    <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">kube_job_template</span><span class="p">):</span>
+        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">kube_job_template</span><span class="p">)</span> <span class="k">as</span> <span class="n">job_template</span><span class="p">:</span>
+            <span class="n">yaml_obj</span> <span class="o">=</span> <span class="n">yaml</span><span class="o">.</span><span class="n">safe_load</span><span class="p">(</span><span class="n">job_template</span><span class="o">.</span><span class="n">read</span><span class="p">())</span>
+        <span class="n">kube_job_template</span> <span class="o">=</span> <span class="n">yaml_obj</span>
+        <span class="n">kube_config</span><span class="p">[</span><span class="s2">&quot;kube-job-template&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">kube_job_template</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="n">ExecutionException</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Could not find &#39;kube-job-template-path&#39;: </span><span class="si">{</span><span class="n">kube_job_template</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="s2">&quot;kube-context&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">backend_config</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+        <span class="n">_logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span>
+            <span class="s2">&quot;Could not find kube-context in backend_config.&quot;</span>
+            <span class="s2">&quot; Using current context or in-cluster config.&quot;</span>
+        <span class="p">)</span>
+    <span class="k">if</span> <span class="s2">&quot;repository-uri&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">backend_config</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+        <span class="k">raise</span> <span class="n">ExecutionException</span><span class="p">(</span><span class="s2">&quot;Could not find &#39;repository-uri&#39; in backend_config.&quot;</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">kube_config</span>
+
+
+<span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;run&quot;</span><span class="p">,</span> <span class="s2">&quot;SubmittedRun&quot;</span><span class="p">]</span>
+</pre></div>
+
+              </div>
+            </div>
+            <footer>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+      <p class="copyright">
+          &copy; MLflow Project, a Series of LF Projects, LLC. All rights reserved.
+      </p>
+
+  </div> 
+
+</footer>
+          </div>
+        </div>
+      </section>
+    </main>
+  </page>
+
+  
+
+
+  
+  <script type="text/javascript">
+    var DOCUMENTATION_OPTIONS = {
+      URL_ROOT:'../../',
+      VERSION:'2.17.1.dev0',
+      COLLAPSE_INDEX:false,
+      FILE_SUFFIX:'.html',
+      LINK_SUFFIX: '.html',
+      HAS_SOURCE:  true
+    };
+  </script>
+
+  
+
+  <script type="text/javascript" src="../../_static/js/clipboard.min.js"></script>
+  <script type="text/javascript" src="../../_static/js/jquery.waypoints.min.js"></script>
+
+  
+  
+  
+  <script type="text/javascript">var CLIPPY_SVG_PATH = "../../_static/clippy.svg";</script>
+  <script type="text/javascript" src="../../_static/js/custom.js"></script>
+  
+
+  
+  
+  <script type="text/javascript">
+    jQuery(function () {
+      SphinxRtdTheme.StickyNav.enable();
+    });
+
+  </script>
+  
+
+  
+  <script type="text/javascript">
+    document.addEventListener("DOMContentLoaded", function() {
+        function copyToClipboard(text) {
+            const textarea = document.createElement('textarea');
+            textarea.value = text;
+            document.body.appendChild(textarea);
+            textarea.select();
+            document.execCommand('copy');
+            document.body.removeChild(textarea);
+        }
+        // Get the code block designator class entries
+        const allHighlights = document.querySelectorAll('.highlight');
+        // Disable copyable links for notebook cell numbering and for cell outputs
+        const highlights = Array.from(allHighlights).filter(highlight => !highlight.closest('.highlight-none') && 
+            !highlight.closest('.nboutput'));
+    
+        highlights.forEach(function(highlight) {
+            const copyIcon = document.createElement('span');
+            copyIcon.classList.add('copy-icon');
+            copyIcon.innerHTML = '&#xf0ea;';
+
+            copyIcon.addEventListener('click', function() {
+                const code = highlight.querySelector('pre').textContent;
+                copyToClipboard(code);
+
+                // Flash effect on click
+                this.style.color = '#0194E2';
+                setTimeout(() => {
+                    this.style.color = ''; 
+                }, 100);
+
+                // Display "Code copied to clipboard" near the clicked icon
+                const message = document.createElement('span');
+                message.textContent = "Copied!";
+                message.classList.add('copy-message'); 
+
+                // Append the message to the icon
+                this.appendChild(message);
+
+                setTimeout(() => {
+                    this.removeChild(message);
+                }, 500);
+            });
+
+            highlight.appendChild(copyIcon);
+        });
+    });
+  </script>
+
+
+<script type="text/javascript">
+    document.addEventListener("DOMContentLoaded", function() {
+        // Force download for notebook-download-btn
+        const downloadButtons = document.querySelectorAll('.notebook-download-btn');
+        downloadButtons.forEach(function(button) {
+            button.addEventListener('click', function(event) {
+                event.preventDefault(); // Prevent default behavior
+
+                // Fetch the raw content of the notebook from GitHub
+                fetch(button.href)
+                    .then(response => response.blob())
+                    .then(blob => {
+                        const url = window.URL.createObjectURL(blob);
+                        const link = document.createElement('a');
+                        link.style.display = 'none';
+                        link.href = url;
+                        const filename = button.href.split('/').pop();
+                        link.download = filename; 
+
+                        document.body.appendChild(link);
+                        link.click();
+
+                        window.URL.revokeObjectURL(url);
+                        document.body.removeChild(link);
+                    })
+                    .catch(err => console.error('Error fetching the notebook:', err));
+            });
+        });
+    });
+</script> 
+</body>
+</html>

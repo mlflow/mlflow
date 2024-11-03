@@ -1,0 +1,1230 @@
+
+
+<!DOCTYPE html>
+<!-- source: docs/source/python_api/mlflow.transformers.rst -->
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>mlflow.transformers</title>
+  
+   
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+  <link rel="canonical" href="https://mlflow.org/docs/latest/python_api/mlflow.transformers.html">
+  
+  
+    <link rel="shortcut icon" href="../_static/favicon.ico"/>
+    
+
+    
+
+  
+    
+
+  
+
+  
+  
+    
+
+  
+
+  
+  
+    <link href="https://fonts.googleapis.com/css?family=Source+Sans+Pro:300,400,600" rel="stylesheet">
+    <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/css/custom.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/css/cards.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/css/grids.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/css/mobile.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/css/simple-cards.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/css/tabs.css" type="text/css" />
+    
+  
+        <link rel="index" title="Index"
+              href="../genindex.html"/>
+        <link rel="search" title="Search" href="../search.html"/>
+    <link rel="top" title="MLflow 2.17.1.dev0 documentation" href="../index.html"/>
+        <link rel="up" title="Python API" href="index.html"/>
+        <link rel="next" title="mlflow.types" href="/mlflow.types.html"/>
+        <link rel="prev" title="mlflow.tracing" href="/mlflow.tracing.html"/> 
+
+  
+  <script src="../_static/js/modernizr.min.js"></script>
+
+</head>
+<script type="text/javascript" src="../_static/jquery.js"></script>
+<script type="text/javascript" src="../_static/underscore.js"></script>
+<script type="text/javascript" src="../_static/doctools.js"></script>
+<script type="text/javascript" src="../_static/languagesections.js"></script>
+<script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+<script type="text/javascript" src="../_static/runllm.js"></script>
+
+<body class="wy-body-for-nav" role="document">
+  
+
+  
+  <nav class="wy-nav-top header" role="navigation" aria-label="top navigation">
+    <ul>
+  <li class="menu-toggle">
+    <i data-toggle="wy-nav-top" class="wy-nav-top-menu-button db-icon db-icon-menu pull-left"></i>
+    <a href="../index.html" class="wy-nav-top-logo"
+      ><img src="../_static/MLflow-logo-final-black.png" alt="MLflow"
+    /></a>
+    <span class="version">2.17.1.dev0</span>
+  </li>
+</ul>
+  </nav>
+  <page>
+    
+
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side relative">
+      <div class="wy-side-scroll">
+  <div class="wy-side-nav-search">
+    
+
+    
+
+    
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+  <input type="text" name="q" placeholder="Search" />
+  <input type="hidden" name="check_keywords" value="yes" />
+  <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+
+    
+  </div>
+
+  <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+    
+      <a href="../index.html" class="main-navigation-home"><img src="../_static/icons/nav-home.svg"> MLflow</a>
+    
+
+    
+      
+
+      
+        <ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">Python API</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="mlflow.html">mlflow</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.html#mlflow-tracing-apis">MLflow Tracing APIs</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.artifacts.html">mlflow.artifacts</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.autogen.html">mlflow.autogen</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.catboost.html">mlflow.catboost</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.client.html">mlflow.client</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.config.html">mlflow.config</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.data.html">mlflow.data</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.deployments.html">mlflow.deployments</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.diviner.html">mlflow.diviner</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.dspy.html">mlflow.dspy</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.entities.html">mlflow.entities</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.environment_variables.html">mlflow.environment_variables</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.fastai.html">mlflow.fastai</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.gateway.html">mlflow.gateway</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.gluon.html">mlflow.gluon</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.h2o.html">mlflow.h2o</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.johnsnowlabs.html">mlflow.johnsnowlabs</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.keras.html">mlflow.keras</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.langchain.html">mlflow.langchain</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.lightgbm.html">mlflow.lightgbm</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.llama_index.html">mlflow.llama_index</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.metrics.html">mlflow.metrics</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.mleap.html">mlflow.mleap</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.models.html">mlflow.models</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.onnx.html">mlflow.onnx</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.openai.html">mlflow.openai</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.paddle.html">mlflow.paddle</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.pmdarima.html">mlflow.pmdarima</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.projects.html">mlflow.projects</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.promptflow.html">mlflow.promptflow</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.prophet.html">mlflow.prophet</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.pyfunc.html">mlflow.pyfunc</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.pyspark.ml.html">mlflow.pyspark.ml</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.pytorch.html">mlflow.pytorch</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.recipes.html">mlflow.recipes</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.sagemaker.html">mlflow.sagemaker</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.sentence_transformers.html">mlflow.sentence_transformers</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.server.html">mlflow.server</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.shap.html">mlflow.shap</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.sklearn.html">mlflow.sklearn</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.spacy.html">mlflow.spacy</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.spark.html">mlflow.spark</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.statsmodels.html">mlflow.statsmodels</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.system_metrics.html">mlflow.system_metrics</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.tensorflow.html">mlflow.tensorflow</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.tracing.html">mlflow.tracing</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">mlflow.transformers</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.types.html">mlflow.types</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.utils.html">mlflow.utils</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlflow.xgboost.html">mlflow.xgboost</a></li>
+<li class="toctree-l2"><a class="reference internal" href="index.html#log-levels">Log Levels</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../cli.html">Command-Line Interface</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../R-api.html">R API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../java_api/index.html">Java API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../rest-api.html">REST API</a></li>
+</ul>
+
+      
+    
+  </div>
+
+  <div role="contentinfo">
+    
+
+    <p>
+      <a id='feedbacklink' href="https://github.com/mlflow/mlflow/blob/master/CONTRIBUTING.md" target="_blank">Contribute</a>
+    </p>
+  </div>
+</div>
+    </nav>
+
+    <main class="wy-grid-for-nav">
+      <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+        <div class="wy-nav-content">
+          <div class="rst-content">
+            
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href="../index.html">Documentation</a> <span class="db-icon db-icon-chevron-right"></span></li>
+    
+        <li><a href="index.html">Python API</a> <span class="db-icon db-icon-chevron-right"></span></li>
+    
+    
+      <li>mlflow.transformers</li>
+    
+    
+    <!-- <li class="wy-breadcrumbs-aside">
+      <a href="https://github.com/mlflow/mlflow/blob/master/docs/source/python_api/mlflow.transformers.rst" class="fa fa-github"> Edit on GitHub</a>
+    </li> -->
+    
+  </ul>
+</div>
+            <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+              <div itemprop="articleBody">
+                
+  <div class="section" id="module-mlflow.transformers">
+<span id="mlflow-transformers"></span><h1>mlflow.transformers<a class="headerlink" href="#module-mlflow.transformers" title="Permalink to this headline"> </a></h1>
+<p>MLflow module for HuggingFace/transformer support.</p>
+<dl class="py function">
+<dt id="mlflow.transformers.autolog">
+<code class="sig-prename descclassname"><span class="pre">mlflow.transformers.</span></code><code class="sig-name descname"><span class="pre">autolog</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">log_input_examples</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">log_model_signatures</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">log_models</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">log_datasets</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">disable</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">exclusive</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">disable_for_unsupported_versions</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">silent</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">extra_tags</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/mlflow/transformers.html#autolog"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mlflow.transformers.autolog" title="Permalink to this definition"> </a></dt>
+<dd><div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Experimental: This function may change or be removed in a future release without warning.</p>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Autologging is known to be compatible with the following package versions: <code class="docutils literal notranslate"><span class="pre">4.25.1</span></code> &lt;= <code class="docutils literal notranslate"><span class="pre">transformers</span></code> &lt;= <code class="docutils literal notranslate"><span class="pre">4.45.2</span></code>. Autologging may not succeed when used with package versions outside of this range.</p>
+</div>
+<p>This autologging integration is solely used for disabling spurious autologging of irrelevant
+sub-models that are created during the training and evaluation of transformers-based models.
+Autologging functionality is not implemented fully for the transformers flavor.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt id="mlflow.transformers.generate_signature_output">
+<code class="sig-prename descclassname"><span class="pre">mlflow.transformers.</span></code><code class="sig-name descname"><span class="pre">generate_signature_output</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">pipeline</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">data</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">model_config</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">params</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">flavor_config</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/mlflow/transformers.html#generate_signature_output"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mlflow.transformers.generate_signature_output" title="Permalink to this definition"> </a></dt>
+<dd><div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Experimental: This function may change or be removed in a future release without warning.</p>
+</div>
+<p>Utility for generating the response output for the purposes of extracting an output signature
+for model saving and logging. This function simulates loading of a saved model or pipeline
+as a <code class="docutils literal notranslate"><span class="pre">pyfunc</span></code> model without having to incur a write to disk.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>pipeline</strong> – A <code class="docutils literal notranslate"><span class="pre">transformers</span></code> pipeline object. Note that component-level or model-level
+inputs are not permitted for extracting an output example.</p></li>
+<li><p><strong>data</strong> – An example input that is compatible with the given pipeline</p></li>
+<li><p><strong>model_config</strong> – Any additional model configuration, provided as kwargs, to inform
+the format of the output type from a pipeline inference call.</p></li>
+<li><p><strong>params</strong> – A dictionary of additional parameters to pass to the pipeline for inference.</p></li>
+<li><p><strong>flavor_config</strong> – The flavor configuration for the model.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>The output from the <code class="docutils literal notranslate"><span class="pre">pyfunc</span></code> pipeline wrapper’s <code class="docutils literal notranslate"><span class="pre">predict</span></code> method</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt id="mlflow.transformers.get_default_conda_env">
+<code class="sig-prename descclassname"><span class="pre">mlflow.transformers.</span></code><code class="sig-name descname"><span class="pre">get_default_conda_env</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">model</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/mlflow/transformers.html#get_default_conda_env"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mlflow.transformers.get_default_conda_env" title="Permalink to this definition"> </a></dt>
+<dd><div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Experimental: This function may change or be removed in a future release without warning.</p>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p>The default Conda environment for MLflow Models produced with the <code class="docutils literal notranslate"><span class="pre">transformers</span></code>
+flavor, based on the model instance framework type of the model to be logged.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt id="mlflow.transformers.get_default_pip_requirements">
+<code class="sig-prename descclassname"><span class="pre">mlflow.transformers.</span></code><code class="sig-name descname"><span class="pre">get_default_pip_requirements</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">model</span></span></em><span class="sig-paren">)</span> &#x2192; <span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span><a class="reference internal" href="../_modules/mlflow/transformers.html#get_default_pip_requirements"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mlflow.transformers.get_default_pip_requirements" title="Permalink to this definition"> </a></dt>
+<dd><div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Experimental: This function may change or be removed in a future release without warning.</p>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>model</strong> – The model instance to be saved in order to provide the required underlying
+deep learning execution framework dependency requirements. Note that this must
+be the actual model instance and not a Pipeline.</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>A list of default pip requirements for MLflow Models that have been produced with the
+<code class="docutils literal notranslate"><span class="pre">transformers</span></code> flavor. Calls to <a class="reference internal" href="#mlflow.transformers.save_model" title="mlflow.transformers.save_model"><code class="xref py py-func docutils literal notranslate"><span class="pre">save_model()</span></code></a> and <a class="reference internal" href="#mlflow.transformers.log_model" title="mlflow.transformers.log_model"><code class="xref py py-func docutils literal notranslate"><span class="pre">log_model()</span></code></a>
+produce a pip environment that contain these requirements at a minimum.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt id="mlflow.transformers.is_gpu_available">
+<code class="sig-prename descclassname"><span class="pre">mlflow.transformers.</span></code><code class="sig-name descname"><span class="pre">is_gpu_available</span></code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/mlflow/transformers.html#is_gpu_available"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mlflow.transformers.is_gpu_available" title="Permalink to this definition"> </a></dt>
+<dd></dd></dl>
+
+<dl class="py function">
+<dt id="mlflow.transformers.load_model">
+<code class="sig-prename descclassname"><span class="pre">mlflow.transformers.</span></code><code class="sig-name descname"><span class="pre">load_model</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">model_uri</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dst_path</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">Optional</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></span> <span class="o"><span class="pre">=</span></span> <span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">return_type</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'pipeline'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">device</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/mlflow/transformers.html#load_model"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mlflow.transformers.load_model" title="Permalink to this definition"> </a></dt>
+<dd><div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Experimental: This function may change or be removed in a future release without warning.</p>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The ‘transformers’ MLflow Models integration is known to be compatible with <code class="docutils literal notranslate"><span class="pre">4.25.1</span></code> &lt;= <code class="docutils literal notranslate"><span class="pre">transformers</span></code> &lt;= <code class="docutils literal notranslate"><span class="pre">4.45.2</span></code>. MLflow Models integrations with transformers may not succeed when used with package versions outside of this range.</p>
+</div>
+<p>Load a <code class="docutils literal notranslate"><span class="pre">transformers</span></code> object from a local file or a run.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>model_uri</strong> – <p>The location, in URI format, of the MLflow model. For example:</p>
+<ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">/Users/me/path/to/local/model</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">relative/path/to/local/model</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">s3://my_bucket/path/to/model</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">runs:/&lt;mlflow_run_id&gt;/run-relative/path/to/model</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">mlflow-artifacts:/path/to/model</span></code></p></li>
+</ul>
+<p>For more information about supported URI schemes, see
+<a class="reference external" href="https://www.mlflow.org/docs/latest/tracking.html#artifact-locations">Referencing Artifacts</a>.</p>
+</p></li>
+<li><p><strong>dst_path</strong> – The local filesystem path to utilize for downloading the model artifact.
+This directory must already exist if provided. If unspecified, a local output
+path will be created.</p></li>
+<li><p><strong>return_type</strong> – <p>A return type modifier for the stored <code class="docutils literal notranslate"><span class="pre">transformers</span></code> object.
+If set as “components”, the return type will be a dictionary of the saved
+individual components of either the <code class="docutils literal notranslate"><span class="pre">Pipeline</span></code> or the pre-trained model.
+The components for NLP-focused models will typically consist of a
+return representation as shown below with a text-classification example:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="p">{</span><span class="s2">&quot;model&quot;</span><span class="p">:</span> <span class="n">BertForSequenceClassification</span><span class="p">,</span> <span class="s2">&quot;tokenizer&quot;</span><span class="p">:</span> <span class="n">BertTokenizerFast</span><span class="p">}</span>
+</pre></div>
+</div>
+<p>Vision models will return an <code class="docutils literal notranslate"><span class="pre">ImageProcessor</span></code> instance of the appropriate
+type, while multi-modal models will return both a <code class="docutils literal notranslate"><span class="pre">FeatureExtractor</span></code> and
+a <code class="docutils literal notranslate"><span class="pre">Tokenizer</span></code> along with the model.
+Returning “components” can be useful for certain model types that do not
+have the desired pipeline return types for certain use cases.
+If set as “pipeline”, the model, along with any and all required
+<code class="docutils literal notranslate"><span class="pre">Tokenizer</span></code>, <code class="docutils literal notranslate"><span class="pre">FeatureExtractor</span></code>, <code class="docutils literal notranslate"><span class="pre">Processor</span></code>, or <code class="docutils literal notranslate"><span class="pre">ImageProcessor</span></code>
+objects will be returned within a <code class="docutils literal notranslate"><span class="pre">Pipeline</span></code> object of the appropriate
+type defined by the <code class="docutils literal notranslate"><span class="pre">task</span></code> set by the model instance type. To override
+this behavior, supply a valid <code class="docutils literal notranslate"><span class="pre">task</span></code> argument during model logging or
+saving. Default is “pipeline”.</p>
+</p></li>
+<li><p><strong>device</strong> – The device on which to load the model. Default is None. Use 0 to
+load to the default GPU.</p></li>
+<li><p><strong>kwargs</strong> – Optional configuration options for loading of a <code class="docutils literal notranslate"><span class="pre">transformers</span></code> object.
+For information on parameters and their usage, see
+<a class="reference external" href="https://huggingface.co/docs/transformers/index">transformers documentation</a>.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>A <code class="docutils literal notranslate"><span class="pre">transformers</span></code> model instance or a dictionary of components</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt id="mlflow.transformers.log_model">
+<code class="sig-prename descclassname"><span class="pre">mlflow.transformers.</span></code><code class="sig-name descname"><span class="pre">log_model</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">transformers_model</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">artifact_path</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">processor</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">task</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">Optional</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></span> <span class="o"><span class="pre">=</span></span> <span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">torch_dtype</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">Optional</span><span class="p"><span class="pre">[</span></span><span class="pre">torch.dtype</span><span class="p"><span class="pre">]</span></span></span> <span class="o"><span class="pre">=</span></span> <span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">model_card</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">inference_config</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">Optional</span><span class="p"><span class="pre">[</span></span><span class="pre">Dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span> </span><span class="pre">Any</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></span> <span class="o"><span class="pre">=</span></span> <span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">code_paths</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">Optional</span><span class="p"><span class="pre">[</span></span><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></span> <span class="o"><span class="pre">=</span></span> <span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">registered_model_name</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">Optional</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></span> <span class="o"><span class="pre">=</span></span> <span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">signature</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">Optional</span><span class="p"><span class="pre">[</span></span><span class="pre">ModelSignature</span><span class="p"><span class="pre">]</span></span></span> <span class="o"><span class="pre">=</span></span> <span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">input_example</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">Optional</span><span class="p"><span class="pre">[</span></span><span class="pre">ModelInputExample</span><span class="p"><span class="pre">]</span></span></span> <span class="o"><span class="pre">=</span></span> <span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">await_registration_for</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">300</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pip_requirements</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">Optional</span><span class="p"><span class="pre">[</span></span><span class="pre">Union</span><span class="p"><span class="pre">[</span></span><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span> </span><span class="pre">str</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></span> <span class="o"><span class="pre">=</span></span> <span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">extra_pip_requirements</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">Optional</span><span class="p"><span class="pre">[</span></span><span class="pre">Union</span><span class="p"><span class="pre">[</span></span><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span> </span><span class="pre">str</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></span> <span class="o"><span class="pre">=</span></span> <span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">conda_env</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">metadata</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">Optional</span><span class="p"><span class="pre">[</span></span><span class="pre">Dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span> </span><span class="pre">Any</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></span> <span class="o"><span class="pre">=</span></span> <span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">model_config</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">Optional</span><span class="p"><span class="pre">[</span></span><span class="pre">Dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span> </span><span class="pre">Any</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></span> <span class="o"><span class="pre">=</span></span> <span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">example_no_conversion</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">Optional</span><span class="p"><span class="pre">[</span></span><span class="pre">bool</span><span class="p"><span class="pre">]</span></span></span> <span class="o"><span class="pre">=</span></span> <span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">prompt_template</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">Optional</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></span> <span class="o"><span class="pre">=</span></span> <span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">save_pretrained</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">bool</span></span> <span class="o"><span class="pre">=</span></span> <span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/mlflow/transformers.html#log_model"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mlflow.transformers.log_model" title="Permalink to this definition"> </a></dt>
+<dd><div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Experimental: This function may change or be removed in a future release without warning.</p>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The ‘transformers’ MLflow Models integration is known to be compatible with <code class="docutils literal notranslate"><span class="pre">4.25.1</span></code> &lt;= <code class="docutils literal notranslate"><span class="pre">transformers</span></code> &lt;= <code class="docutils literal notranslate"><span class="pre">4.45.2</span></code>. MLflow Models integrations with transformers may not succeed when used with package versions outside of this range.</p>
+</div>
+<p>Log a <code class="docutils literal notranslate"><span class="pre">transformers</span></code> object as an MLflow artifact for the current run. Note that
+logging transformers models with custom code (i.e. models that require
+<code class="docutils literal notranslate"><span class="pre">trust_remote_code=True</span></code>) requires <code class="docutils literal notranslate"><span class="pre">transformers</span> <span class="pre">&gt;=</span> <span class="pre">4.26.0</span></code>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>transformers_model</strong> – <p>The transformers model to save. This can be one of the following format:</p>
+<blockquote>
+<div><ol class="arabic simple">
+<li><p>A transformers <cite>Pipeline</cite> instance.</p></li>
+<li><dl class="simple">
+<dt>A dictionary that maps required components of a pipeline to the named keys</dt><dd><p>of [“model”, “image_processor”, “tokenizer”, “feature_extractor”].
+The <cite>model</cite> key in the dictionary must map to a value that inherits from
+<cite>PreTrainedModel</cite>, <cite>TFPreTrainedModel</cite>, or <cite>FlaxPreTrainedModel</cite>.
+All other component entries in the dictionary must support the defined task
+type that is associated with the base model type configuration.</p>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt>A string that represents a path to a local/DBFS directory containing a model</dt><dd><p>checkpoint. The directory must contain a <cite>config.json</cite> file that is required
+for loading the transformers model. This is particularly useful when logging
+a model that cannot be loaded into memory for serialization.</p>
+</dd>
+</dl>
+</li>
+</ol>
+</div></blockquote>
+<p>An example of specifying a <cite>Pipeline</cite> from a default pipeline instantiation:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">transformers</span> <span class="kn">import</span> <span class="n">pipeline</span>
+
+<span class="n">qa_pipe</span> <span class="o">=</span> <span class="n">pipeline</span><span class="p">(</span><span class="s2">&quot;question-answering&quot;</span><span class="p">,</span> <span class="s2">&quot;csarron/mobilebert-uncased-squad-v2&quot;</span><span class="p">)</span>
+
+<span class="k">with</span> <span class="n">mlflow</span><span class="o">.</span><span class="n">start_run</span><span class="p">():</span>
+    <span class="n">mlflow</span><span class="o">.</span><span class="n">transformers</span><span class="o">.</span><span class="n">log_model</span><span class="p">(</span>
+        <span class="n">transformers_model</span><span class="o">=</span><span class="n">qa_pipe</span><span class="p">,</span>
+        <span class="n">artifact_path</span><span class="o">=</span><span class="s2">&quot;model&quot;</span><span class="p">,</span>
+    <span class="p">)</span>
+</pre></div>
+</div>
+<p>An example of specifying component-level parts of a transformers model is shown below:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">transformers</span> <span class="kn">import</span> <span class="n">MobileBertForQuestionAnswering</span><span class="p">,</span> <span class="n">AutoTokenizer</span>
+
+<span class="n">architecture</span> <span class="o">=</span> <span class="s2">&quot;csarron/mobilebert-uncased-squad-v2&quot;</span>
+<span class="n">tokenizer</span> <span class="o">=</span> <span class="n">AutoTokenizer</span><span class="o">.</span><span class="n">from_pretrained</span><span class="p">(</span><span class="n">architecture</span><span class="p">)</span>
+<span class="n">model</span> <span class="o">=</span> <span class="n">MobileBertForQuestionAnswering</span><span class="o">.</span><span class="n">from_pretrained</span><span class="p">(</span><span class="n">architecture</span><span class="p">)</span>
+
+<span class="k">with</span> <span class="n">mlflow</span><span class="o">.</span><span class="n">start_run</span><span class="p">():</span>
+    <span class="n">components</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s2">&quot;model&quot;</span><span class="p">:</span> <span class="n">model</span><span class="p">,</span>
+        <span class="s2">&quot;tokenizer&quot;</span><span class="p">:</span> <span class="n">tokenizer</span><span class="p">,</span>
+    <span class="p">}</span>
+    <span class="n">mlflow</span><span class="o">.</span><span class="n">transformers</span><span class="o">.</span><span class="n">log_model</span><span class="p">(</span>
+        <span class="n">transformers_model</span><span class="o">=</span><span class="n">components</span><span class="p">,</span>
+        <span class="n">artifact_path</span><span class="o">=</span><span class="s2">&quot;model&quot;</span><span class="p">,</span>
+    <span class="p">)</span>
+</pre></div>
+</div>
+<p>An example of specifying a local checkpoint path is shown below:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">with</span> <span class="n">mlflow</span><span class="o">.</span><span class="n">start_run</span><span class="p">():</span>
+    <span class="n">mlflow</span><span class="o">.</span><span class="n">transformers</span><span class="o">.</span><span class="n">log_model</span><span class="p">(</span>
+        <span class="n">transformers_model</span><span class="o">=</span><span class="s2">&quot;path/to/local/checkpoint&quot;</span><span class="p">,</span>
+        <span class="n">artifact_path</span><span class="o">=</span><span class="s2">&quot;model&quot;</span><span class="p">,</span>
+    <span class="p">)</span>
+</pre></div>
+</div>
+</p></li>
+<li><p><strong>artifact_path</strong> – Local path destination for the serialized model to be saved.</p></li>
+<li><p><strong>processor</strong> – <p>An optional <code class="docutils literal notranslate"><span class="pre">Processor</span></code> subclass object. Some model architectures,
+particularly multi-modal types, utilize Processors to combine text
+encoding and image or audio encoding in a single entrypoint.</p>
+<blockquote>
+<div><div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>If a processor is supplied when logging a model, the
+model will be unavailable for loading as a <code class="docutils literal notranslate"><span class="pre">Pipeline</span></code> or for usage
+with pyfunc inference.</p>
+</div>
+</div></blockquote>
+</p></li>
+<li><p><strong>task</strong> – The transformers-specific task type of the model. These strings are utilized so
+that a pipeline can be created with the appropriate internal call architecture
+to meet the needs of a given model. If this argument is not specified, the
+pipeline utilities within the transformers library will be used to infer the
+correct task type. If the value specified is not a supported type within the
+version of transformers that is currently installed, an Exception will be thrown.</p></li>
+<li><p><strong>torch_dtype</strong> – The Pytorch dtype applied to the model when loading back. This is useful
+when you want to save the model with a specific dtype that is different from the
+dtype of the model when it was trained. If not specified, the current dtype of the
+model instance will be used.</p></li>
+<li><p><strong>model_card</strong> – <p>An Optional <cite>ModelCard</cite> instance from <cite>huggingface-hub</cite>. If provided, the
+contents of the model card will be saved along with the provided
+<cite>transformers_model</cite>. If not provided, an attempt will be made to fetch
+the card from the base pretrained model that is provided (or the one that is
+included within a provided <cite>Pipeline</cite>).</p>
+<blockquote>
+<div><div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>In order for a ModelCard to be fetched (if not provided),
+the huggingface_hub package must be installed and the version
+must be &gt;=0.10.0</p>
+</div>
+</div></blockquote>
+</p></li>
+<li><p><strong>inference_config</strong> – <div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>Deprecated. <cite>inference_config</cite> is deprecated in favor of <cite>model_config</cite>.</p>
+</div>
+</p></li>
+<li><p><strong>code_paths</strong> – <p>A list of local filesystem paths to Python file dependencies (or directories
+containing file dependencies). These files are <em>prepended</em> to the system path when the model
+is loaded. Files declared as dependencies for a given model should have relative
+imports declared from a common root path if multiple files are defined with import dependencies
+between them to avoid import errors when loading the model.</p>
+<p>For a detailed explanation of <code class="docutils literal notranslate"><span class="pre">code_paths</span></code> functionality, recommended usage patterns and
+limitations, see the
+<a class="reference external" href="https://mlflow.org/docs/latest/model/dependencies.html?highlight=code_paths#saving-extra-code-with-an-mlflow-model">code_paths usage guide</a>.</p>
+</p></li>
+<li><p><strong>registered_model_name</strong> – This argument may change or be removed in a
+future release without warning. If given, create a model
+version under <code class="docutils literal notranslate"><span class="pre">registered_model_name</span></code>, also creating a
+registered model if one with the given name does not exist.</p></li>
+<li><p><strong>signature</strong> – <p>A Model Signature object that describes the input and output Schema of the
+model. The model signature can be inferred using <cite>infer_signature</cite> function
+of <cite>mlflow.models.signature</cite>.</p>
+<div class="literal-block-wrapper docutils container" id="id9">
+<div class="code-block-caption"><span class="caption-text">Example</span><a class="headerlink" href="#id9" title="Permalink to this code"> </a></div>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">mlflow.models</span> <span class="kn">import</span> <span class="n">infer_signature</span>
+<span class="kn">from</span> <span class="nn">mlflow.transformers</span> <span class="kn">import</span> <span class="n">generate_signature_output</span>
+<span class="kn">from</span> <span class="nn">transformers</span> <span class="kn">import</span> <span class="n">pipeline</span>
+
+<span class="n">en_to_de</span> <span class="o">=</span> <span class="n">pipeline</span><span class="p">(</span><span class="s2">&quot;translation_en_to_de&quot;</span><span class="p">)</span>
+
+<span class="n">data</span> <span class="o">=</span> <span class="s2">&quot;MLflow is great!&quot;</span>
+<span class="n">output</span> <span class="o">=</span> <span class="n">generate_signature_output</span><span class="p">(</span><span class="n">en_to_de</span><span class="p">,</span> <span class="n">data</span><span class="p">)</span>
+<span class="n">signature</span> <span class="o">=</span> <span class="n">infer_signature</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">output</span><span class="p">)</span>
+
+<span class="k">with</span> <span class="n">mlflow</span><span class="o">.</span><span class="n">start_run</span><span class="p">()</span> <span class="k">as</span> <span class="n">run</span><span class="p">:</span>
+    <span class="n">mlflow</span><span class="o">.</span><span class="n">transformers</span><span class="o">.</span><span class="n">log_model</span><span class="p">(</span>
+        <span class="n">transformers_model</span><span class="o">=</span><span class="n">en_to_de</span><span class="p">,</span>
+        <span class="n">artifact_path</span><span class="o">=</span><span class="s2">&quot;english_to_german_translator&quot;</span><span class="p">,</span>
+        <span class="n">signature</span><span class="o">=</span><span class="n">signature</span><span class="p">,</span>
+        <span class="n">input_example</span><span class="o">=</span><span class="n">data</span><span class="p">,</span>
+    <span class="p">)</span>
+
+<span class="n">model_uri</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;runs:/</span><span class="si">{</span><span class="n">run</span><span class="o">.</span><span class="n">info</span><span class="o">.</span><span class="n">run_id</span><span class="si">}</span><span class="s2">/english_to_german_translator&quot;</span>
+<span class="n">loaded</span> <span class="o">=</span> <span class="n">mlflow</span><span class="o">.</span><span class="n">pyfunc</span><span class="o">.</span><span class="n">load_model</span><span class="p">(</span><span class="n">model_uri</span><span class="p">)</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="n">loaded</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">data</span><span class="p">))</span>
+<span class="c1"># MLflow ist großartig!</span>
+</pre></div>
+</div>
+</div>
+<p>If an input_example is provided and the signature is not, a signature will
+be inferred automatically and applied to the MLmodel file iff the
+pipeline type is a text-based model (NLP). If the pipeline type is not
+a supported type, this inference functionality will not function correctly
+and a warning will be issued. In order to ensure that a precise signature
+is logged, it is recommended to explicitly provide one.</p>
+</p></li>
+<li><p><strong>input_example</strong> – one or several instances of valid model input. The input example is used
+as a hint of what data to feed the model. It will be converted to a Pandas
+DataFrame and then serialized to json using the Pandas split-oriented
+format, or a numpy array where the example will be serialized to json
+by converting it to a list. Bytes are base64-encoded. When the <code class="docutils literal notranslate"><span class="pre">signature</span></code> parameter is
+<code class="docutils literal notranslate"><span class="pre">None</span></code>, the input example is used to infer a model signature.</p></li>
+<li><p><strong>await_registration_for</strong> – Number of seconds to wait for the model version
+to finish being created and is in <code class="docutils literal notranslate"><span class="pre">READY</span></code> status.
+By default, the function waits for five minutes.
+Specify 0 or None to skip waiting.</p></li>
+<li><p><strong>pip_requirements</strong> – Either an iterable of pip requirement strings
+(e.g. <code class="docutils literal notranslate"><span class="pre">[&quot;transformers&quot;,</span> <span class="pre">&quot;-r</span> <span class="pre">requirements.txt&quot;,</span> <span class="pre">&quot;-c</span> <span class="pre">constraints.txt&quot;]</span></code>) or the string path to
+a pip requirements file on the local filesystem (e.g. <code class="docutils literal notranslate"><span class="pre">&quot;requirements.txt&quot;</span></code>). If provided, this
+describes the environment this model should be run in. If <code class="docutils literal notranslate"><span class="pre">None</span></code>, a default list of requirements
+is inferred by <a class="reference internal" href="mlflow.models.html#mlflow.models.infer_pip_requirements" title="mlflow.models.infer_pip_requirements"><code class="xref py py-func docutils literal notranslate"><span class="pre">mlflow.models.infer_pip_requirements()</span></code></a> from the current software environment.
+If the requirement inference fails, it falls back to using <a class="reference internal" href="#mlflow.transformers.get_default_pip_requirements" title="mlflow.transformers.get_default_pip_requirements"><code class="xref py py-func docutils literal notranslate"><span class="pre">get_default_pip_requirements()</span></code></a>.
+Both requirements and constraints are automatically parsed and written to <code class="docutils literal notranslate"><span class="pre">requirements.txt</span></code> and
+<code class="docutils literal notranslate"><span class="pre">constraints.txt</span></code> files, respectively, and stored as part of the model. Requirements are also
+written to the <code class="docutils literal notranslate"><span class="pre">pip</span></code> section of the model’s conda environment (<code class="docutils literal notranslate"><span class="pre">conda.yaml</span></code>) file.</p></li>
+<li><p><strong>extra_pip_requirements</strong> – <p>Either an iterable of pip
+requirement strings
+(e.g. <code class="docutils literal notranslate"><span class="pre">[&quot;pandas&quot;,</span> <span class="pre">&quot;-r</span> <span class="pre">requirements.txt&quot;,</span> <span class="pre">&quot;-c</span> <span class="pre">constraints.txt&quot;]</span></code>) or the string path to
+a pip requirements file on the local filesystem (e.g. <code class="docutils literal notranslate"><span class="pre">&quot;requirements.txt&quot;</span></code>). If provided, this
+describes additional pip requirements that are appended to a default set of pip requirements
+generated automatically based on the user’s current software environment. Both requirements and
+constraints are automatically parsed and written to <code class="docutils literal notranslate"><span class="pre">requirements.txt</span></code> and <code class="docutils literal notranslate"><span class="pre">constraints.txt</span></code>
+files, respectively, and stored as part of the model. Requirements are also written to the <code class="docutils literal notranslate"><span class="pre">pip</span></code>
+section of the model’s conda environment (<code class="docutils literal notranslate"><span class="pre">conda.yaml</span></code>) file.</p>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>The following arguments can’t be specified at the same time:</p>
+<ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">conda_env</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">pip_requirements</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">extra_pip_requirements</span></code></p></li>
+</ul>
+</div>
+<p><a class="reference external" href="https://github.com/mlflow/mlflow/blob/master/examples/pip_requirements/pip_requirements.py">This example</a> demonstrates how to specify pip requirements using
+<code class="docutils literal notranslate"><span class="pre">pip_requirements</span></code> and <code class="docutils literal notranslate"><span class="pre">extra_pip_requirements</span></code>.</p>
+</p></li>
+<li><p><strong>conda_env</strong> – <p>Either a dictionary representation of a Conda environment or the path to a conda
+environment yaml file. If provided, this describes the environment this model should be run in.
+At a minimum, it should specify the dependencies contained in <a class="reference internal" href="#mlflow.transformers.get_default_conda_env" title="mlflow.transformers.get_default_conda_env"><code class="xref py py-func docutils literal notranslate"><span class="pre">get_default_conda_env()</span></code></a>.
+If <code class="docutils literal notranslate"><span class="pre">None</span></code>, a conda environment with pip requirements inferred by
+<a class="reference internal" href="mlflow.models.html#mlflow.models.infer_pip_requirements" title="mlflow.models.infer_pip_requirements"><code class="xref py py-func docutils literal notranslate"><span class="pre">mlflow.models.infer_pip_requirements()</span></code></a> is added
+to the model. If the requirement inference fails, it falls back to using
+<a class="reference internal" href="#mlflow.transformers.get_default_pip_requirements" title="mlflow.transformers.get_default_pip_requirements"><code class="xref py py-func docutils literal notranslate"><span class="pre">get_default_pip_requirements()</span></code></a>. pip requirements from <code class="docutils literal notranslate"><span class="pre">conda_env</span></code> are written to a pip
+<code class="docutils literal notranslate"><span class="pre">requirements.txt</span></code> file and the full conda environment is written to <code class="docutils literal notranslate"><span class="pre">conda.yaml</span></code>.
+The following is an <em>example</em> dictionary representation of a conda environment:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+    <span class="s2">&quot;name&quot;</span><span class="p">:</span> <span class="s2">&quot;mlflow-env&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;channels&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;conda-forge&quot;</span><span class="p">],</span>
+    <span class="s2">&quot;dependencies&quot;</span><span class="p">:</span> <span class="p">[</span>
+        <span class="s2">&quot;python=3.8.15&quot;</span><span class="p">,</span>
+        <span class="p">{</span>
+            <span class="s2">&quot;pip&quot;</span><span class="p">:</span> <span class="p">[</span>
+                <span class="s2">&quot;transformers==x.y.z&quot;</span>
+            <span class="p">],</span>
+        <span class="p">},</span>
+    <span class="p">],</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</p></li>
+<li><p><strong>metadata</strong> – Custom metadata dictionary passed to the model and stored in the MLmodel file.</p></li>
+<li><p><strong>model_config</strong> – <p>A dict of valid overrides that can be applied to a pipeline instance during inference.
+These arguments are used exclusively for the case of loading the model as a <code class="docutils literal notranslate"><span class="pre">pyfunc</span></code>
+Model or for use in Spark. These values are not applied to a returned Pipeline from a
+call to <code class="docutils literal notranslate"><span class="pre">mlflow.transformers.load_model()</span></code></p>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>If the key provided is not compatible with either the
+Pipeline instance for the task provided or is not a valid
+override to any arguments available in the Model, an
+Exception will be raised at runtime. It is very important
+to validate the entries in this dictionary to ensure
+that they are valid prior to saving or logging.</p>
+</div>
+<p>An example of providing overrides for a question generation model:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">transformers</span> <span class="kn">import</span> <span class="n">pipeline</span><span class="p">,</span> <span class="n">AutoTokenizer</span>
+
+<span class="n">task</span> <span class="o">=</span> <span class="s2">&quot;text-generation&quot;</span>
+<span class="n">architecture</span> <span class="o">=</span> <span class="s2">&quot;gpt2&quot;</span>
+
+<span class="n">sentence_pipeline</span> <span class="o">=</span> <span class="n">pipeline</span><span class="p">(</span>
+    <span class="n">task</span><span class="o">=</span><span class="n">task</span><span class="p">,</span>
+    <span class="n">tokenizer</span><span class="o">=</span><span class="n">AutoTokenizer</span><span class="o">.</span><span class="n">from_pretrained</span><span class="p">(</span><span class="n">architecture</span><span class="p">),</span>
+    <span class="n">model</span><span class="o">=</span><span class="n">architecture</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="c1"># Validate that the overrides function</span>
+<span class="n">prompts</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;Generative models are&quot;</span><span class="p">,</span> <span class="s2">&quot;I&#39;d like a coconut so that I can&quot;</span><span class="p">]</span>
+
+<span class="c1"># validation of config prior to save or log</span>
+<span class="n">model_config</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s2">&quot;top_k&quot;</span><span class="p">:</span> <span class="mi">2</span><span class="p">,</span>
+    <span class="s2">&quot;num_beams&quot;</span><span class="p">:</span> <span class="mi">5</span><span class="p">,</span>
+    <span class="s2">&quot;max_length&quot;</span><span class="p">:</span> <span class="mi">30</span><span class="p">,</span>
+    <span class="s2">&quot;temperature&quot;</span><span class="p">:</span> <span class="mf">0.62</span><span class="p">,</span>
+    <span class="s2">&quot;top_p&quot;</span><span class="p">:</span> <span class="mf">0.85</span><span class="p">,</span>
+    <span class="s2">&quot;repetition_penalty&quot;</span><span class="p">:</span> <span class="mf">1.15</span><span class="p">,</span>
+<span class="p">}</span>
+
+<span class="c1"># Verify that no exceptions are thrown</span>
+<span class="n">sentence_pipeline</span><span class="p">(</span><span class="n">prompts</span><span class="p">,</span> <span class="o">**</span><span class="n">model_config</span><span class="p">)</span>
+
+<span class="k">with</span> <span class="n">mlflow</span><span class="o">.</span><span class="n">start_run</span><span class="p">():</span>
+    <span class="n">mlflow</span><span class="o">.</span><span class="n">transformers</span><span class="o">.</span><span class="n">log_model</span><span class="p">(</span>
+        <span class="n">transformers_model</span><span class="o">=</span><span class="n">sentence_pipeline</span><span class="p">,</span>
+        <span class="n">artifact_path</span><span class="o">=</span><span class="s2">&quot;my_sentence_generator&quot;</span><span class="p">,</span>
+        <span class="n">task</span><span class="o">=</span><span class="n">task</span><span class="p">,</span>
+        <span class="n">model_config</span><span class="o">=</span><span class="n">model_config</span><span class="p">,</span>
+    <span class="p">)</span>
+</pre></div>
+</div>
+</p></li>
+<li><p><strong>example_no_conversion</strong> – This parameter is deprecated and will be removed in a future release.
+It’s no longer used and can be safely removed. Input examples are not converted anymore.</p></li>
+<li><p><strong>prompt_template</strong> – <p>A string that, if provided, will be used to format the user’s input prior
+to inference. The string should contain a single placeholder, <code class="docutils literal notranslate"><span class="pre">{prompt}</span></code>, which will be
+replaced with the user’s input. For example: <code class="docutils literal notranslate"><span class="pre">&quot;Answer</span> <span class="pre">the</span> <span class="pre">following</span> <span class="pre">question.</span> <span class="pre">Q:</span> <span class="pre">{prompt}</span> <span class="pre">A:&quot;</span></code>.</p>
+<p>Currently, only the following pipeline types are supported:</p>
+<ul>
+<li><p><a class="reference external" href="https://huggingface.co/transformers/main_classes/pipelines.html#transformers.FeatureExtractionPipeline">feature-extraction</a></p></li>
+<li><p><a class="reference external" href="https://huggingface.co/transformers/main_classes/pipelines.html#transformers.FillMaskPipeline">fill-mask</a></p></li>
+<li><p><a class="reference external" href="https://huggingface.co/transformers/main_classes/pipelines.html#transformers.SummarizationPipeline">summarization</a></p></li>
+<li><p><a class="reference external" href="https://huggingface.co/transformers/main_classes/pipelines.html#transformers.Text2TextGenerationPipeline">text2text-generation</a></p></li>
+<li><p><a class="reference external" href="https://huggingface.co/transformers/main_classes/pipelines.html#transformers.TextGenerationPipeline">text-generation</a></p></li>
+</ul>
+</p></li>
+<li><p><strong>save_pretrained</strong> – <p>If set to <code class="docutils literal notranslate"><span class="pre">False</span></code>, MLflow will not save the Transformer model weight files,
+instead only saving the reference to the HuggingFace Hub model repository and its commit hash.
+This is useful when you load the pretrained model from HuggingFace Hub and want to log or save
+it to MLflow without modifying the model weights. In such case, specifying this flag to
+<code class="docutils literal notranslate"><span class="pre">False</span></code> will save the storage space and reduce time to save the model. Please refer to the
+<span class="xref std std-ref">Storage-Efficient Model Logging</span> for more detailed usage.</p>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>If the model is saved with <code class="docutils literal notranslate"><span class="pre">save_pretrained</span></code> set to <code class="docutils literal notranslate"><span class="pre">False</span></code>, the model cannot be
+registered to the MLflow Model Registry. In order to convert the model to the one that
+can be registered, you can use <a class="reference internal" href="#mlflow.transformers.persist_pretrained_model" title="mlflow.transformers.persist_pretrained_model"><code class="xref py py-func docutils literal notranslate"><span class="pre">mlflow.transformers.persist_pretrained_model()</span></code></a>
+to download the model weights from the HuggingFace Hub and save it in the existing model
+artifacts. Please refer to <span class="xref std std-ref">Transformers flavor documentation</span>
+for more detailed usage.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">mlflow.transformers</span>
+
+<span class="n">model_uri</span> <span class="o">=</span> <span class="s2">&quot;YOUR_MODEL_URI_LOGGED_WITH_SAVE_PRETRAINED_FALSE&quot;</span>
+<span class="n">model</span> <span class="o">=</span> <span class="n">mlflow</span><span class="o">.</span><span class="n">transformers</span><span class="o">.</span><span class="n">persist_pretrained_model</span><span class="p">(</span><span class="n">model_uri</span><span class="p">)</span>
+<span class="n">mlflow</span><span class="o">.</span><span class="n">register_model</span><span class="p">(</span><span class="n">model_uri</span><span class="p">,</span> <span class="s2">&quot;model_name&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="admonition important">
+<p class="admonition-title">Important</p>
+<p>When you save the <a class="reference external" href="https://huggingface.co/docs/peft/en/index">PEFT</a> model, MLflow will
+override the <cite>save_pretrained</cite> flag to <cite>False</cite> and only store the PEFT adapter weights. The
+base model weights are not saved but the reference to the HuggingFace repository and
+its commit hash are logged instead.</p>
+</div>
+</p></li>
+<li><p><strong>kwargs</strong> – Additional arguments for <code class="xref py py-class docutils literal notranslate"><span class="pre">mlflow.models.model.Model</span></code></p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt id="mlflow.transformers.persist_pretrained_model">
+<code class="sig-prename descclassname"><span class="pre">mlflow.transformers.</span></code><code class="sig-name descname"><span class="pre">persist_pretrained_model</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">model_uri</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">str</span></span></em><span class="sig-paren">)</span> &#x2192; <span class="pre">None</span><a class="reference internal" href="../_modules/mlflow/transformers.html#persist_pretrained_model"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mlflow.transformers.persist_pretrained_model" title="Permalink to this definition"> </a></dt>
+<dd><p>Persist Transformers pretrained model weights to the artifacts directory of the specified
+model_uri. This API is primary used for updating an MLflow Model that was logged or saved
+with setting save_pretrained=False. Such models cannot be registered to Databricks Workspace
+Model Registry, due to the full pretrained model weights being absent in the artifacts.
+Transformers models saved in this mode store only the reference to the HuggingFace Hub
+repository. This API will download the model weights from the HuggingFace Hub repository
+and save them in the artifacts of the given model_uri so that the model can be registered
+to Databricks Workspace Model Registry.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>model_uri</strong> – The URI of the existing MLflow Model of the Transformers flavor.
+It must be logged/saved with save_pretrained=False.</p>
+</dd>
+</dl>
+<p>Examples:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">mlflow</span>
+
+<span class="c1"># Saving a model with save_pretrained=False</span>
+<span class="k">with</span> <span class="n">mlflow</span><span class="o">.</span><span class="n">start_run</span><span class="p">()</span> <span class="k">as</span> <span class="n">run</span><span class="p">:</span>
+    <span class="n">model</span> <span class="o">=</span> <span class="n">pipeline</span><span class="p">(</span><span class="s2">&quot;question-answering&quot;</span><span class="p">,</span> <span class="s2">&quot;csarron/mobilebert-uncased-squad-v2&quot;</span><span class="p">)</span>
+    <span class="n">mlflow</span><span class="o">.</span><span class="n">transformers</span><span class="o">.</span><span class="n">log_model</span><span class="p">(</span>
+        <span class="n">transformers_model</span><span class="o">=</span><span class="n">model</span><span class="p">,</span> <span class="n">artifact_path</span><span class="o">=</span><span class="s2">&quot;pipeline&quot;</span><span class="p">,</span> <span class="n">save_pretrained</span><span class="o">=</span><span class="kc">False</span>
+    <span class="p">)</span>
+
+<span class="c1"># The model cannot be registered to the Model Registry as it is</span>
+<span class="k">try</span><span class="p">:</span>
+    <span class="n">mlflow</span><span class="o">.</span><span class="n">register_model</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;runs:/</span><span class="si">{</span><span class="n">run</span><span class="o">.</span><span class="n">info</span><span class="o">.</span><span class="n">run_id</span><span class="si">}</span><span class="s2">/pipeline&quot;</span><span class="p">,</span> <span class="s2">&quot;qa_pipeline&quot;</span><span class="p">)</span>
+<span class="k">except</span> <span class="n">MlflowException</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+    <span class="nb">print</span><span class="p">(</span><span class="n">e</span><span class="o">.</span><span class="n">message</span><span class="p">)</span>
+
+<span class="c1"># Use this API to persist the pretrained model weights</span>
+<span class="n">mlflow</span><span class="o">.</span><span class="n">transformers</span><span class="o">.</span><span class="n">persist_pretrained_model</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;runs:/</span><span class="si">{</span><span class="n">run</span><span class="o">.</span><span class="n">info</span><span class="o">.</span><span class="n">run_id</span><span class="si">}</span><span class="s2">/pipeline&quot;</span><span class="p">)</span>
+
+<span class="c1"># Now the model can be registered to the Model Registry</span>
+<span class="n">mlflow</span><span class="o">.</span><span class="n">register_model</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;runs:/</span><span class="si">{</span><span class="n">run</span><span class="o">.</span><span class="n">info</span><span class="o">.</span><span class="n">run_id</span><span class="si">}</span><span class="s2">/pipeline&quot;</span><span class="p">,</span> <span class="s2">&quot;qa_pipeline&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+</dd></dl>
+
+<dl class="py function">
+<dt id="mlflow.transformers.save_model">
+<code class="sig-prename descclassname"><span class="pre">mlflow.transformers.</span></code><code class="sig-name descname"><span class="pre">save_model</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">transformers_model</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">path</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">processor</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">task</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">Optional</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></span> <span class="o"><span class="pre">=</span></span> <span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">torch_dtype</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">Optional</span><span class="p"><span class="pre">[</span></span><span class="pre">torch.dtype</span><span class="p"><span class="pre">]</span></span></span> <span class="o"><span class="pre">=</span></span> <span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">model_card</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">inference_config</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">Optional</span><span class="p"><span class="pre">[</span></span><span class="pre">Dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span> </span><span class="pre">Any</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></span> <span class="o"><span class="pre">=</span></span> <span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">code_paths</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">Optional</span><span class="p"><span class="pre">[</span></span><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></span> <span class="o"><span class="pre">=</span></span> <span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mlflow_model</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">Optional</span><span class="p"><span class="pre">[</span></span><span class="pre">Model</span><span class="p"><span class="pre">]</span></span></span> <span class="o"><span class="pre">=</span></span> <span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">signature</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">Optional</span><span class="p"><span class="pre">[</span></span><span class="pre">ModelSignature</span><span class="p"><span class="pre">]</span></span></span> <span class="o"><span class="pre">=</span></span> <span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">input_example</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">Optional</span><span class="p"><span class="pre">[</span></span><span class="pre">ModelInputExample</span><span class="p"><span class="pre">]</span></span></span> <span class="o"><span class="pre">=</span></span> <span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pip_requirements</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">Optional</span><span class="p"><span class="pre">[</span></span><span class="pre">Union</span><span class="p"><span class="pre">[</span></span><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span> </span><span class="pre">str</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></span> <span class="o"><span class="pre">=</span></span> <span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">extra_pip_requirements</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">Optional</span><span class="p"><span class="pre">[</span></span><span class="pre">Union</span><span class="p"><span class="pre">[</span></span><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span> </span><span class="pre">str</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></span> <span class="o"><span class="pre">=</span></span> <span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">conda_env</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">metadata</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">Optional</span><span class="p"><span class="pre">[</span></span><span class="pre">Dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span> </span><span class="pre">Any</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></span> <span class="o"><span class="pre">=</span></span> <span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">model_config</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">Optional</span><span class="p"><span class="pre">[</span></span><span class="pre">Dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span> </span><span class="pre">Any</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></span> <span class="o"><span class="pre">=</span></span> <span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">example_no_conversion</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">Optional</span><span class="p"><span class="pre">[</span></span><span class="pre">bool</span><span class="p"><span class="pre">]</span></span></span> <span class="o"><span class="pre">=</span></span> <span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">prompt_template</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">Optional</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></span> <span class="o"><span class="pre">=</span></span> <span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">save_pretrained</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">bool</span></span> <span class="o"><span class="pre">=</span></span> <span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span> &#x2192; <span class="pre">None</span><a class="reference internal" href="../_modules/mlflow/transformers.html#save_model"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mlflow.transformers.save_model" title="Permalink to this definition"> </a></dt>
+<dd><div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Experimental: This function may change or be removed in a future release without warning.</p>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The ‘transformers’ MLflow Models integration is known to be compatible with <code class="docutils literal notranslate"><span class="pre">4.25.1</span></code> &lt;= <code class="docutils literal notranslate"><span class="pre">transformers</span></code> &lt;= <code class="docutils literal notranslate"><span class="pre">4.45.2</span></code>. MLflow Models integrations with transformers may not succeed when used with package versions outside of this range.</p>
+</div>
+<p>Save a trained transformers model to a path on the local file system. Note that
+saving transformers models with custom code (i.e. models that require
+<code class="docutils literal notranslate"><span class="pre">trust_remote_code=True</span></code>) requires <code class="docutils literal notranslate"><span class="pre">transformers</span> <span class="pre">&gt;=</span> <span class="pre">4.26.0</span></code>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>transformers_model</strong> – <p>The transformers model to save. This can be one of the following format:</p>
+<blockquote>
+<div><ol class="arabic simple">
+<li><p>A transformers <cite>Pipeline</cite> instance.</p></li>
+<li><dl class="simple">
+<dt>A dictionary that maps required components of a pipeline to the named keys</dt><dd><p>of [“model”, “image_processor”, “tokenizer”, “feature_extractor”].
+The <cite>model</cite> key in the dictionary must map to a value that inherits from
+<cite>PreTrainedModel</cite>, <cite>TFPreTrainedModel</cite>, or <cite>FlaxPreTrainedModel</cite>.
+All other component entries in the dictionary must support the defined task
+type that is associated with the base model type configuration.</p>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt>A string that represents a path to a local/DBFS directory containing a model</dt><dd><p>checkpoint. The directory must contain a <cite>config.json</cite> file that is required
+for loading the transformers model. This is particularly useful when logging
+a model that cannot be loaded into memory for serialization.</p>
+</dd>
+</dl>
+</li>
+</ol>
+</div></blockquote>
+<p>An example of specifying a <cite>Pipeline</cite> from a default pipeline instantiation:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">transformers</span> <span class="kn">import</span> <span class="n">pipeline</span>
+
+<span class="n">qa_pipe</span> <span class="o">=</span> <span class="n">pipeline</span><span class="p">(</span><span class="s2">&quot;question-answering&quot;</span><span class="p">,</span> <span class="s2">&quot;csarron/mobilebert-uncased-squad-v2&quot;</span><span class="p">)</span>
+
+<span class="k">with</span> <span class="n">mlflow</span><span class="o">.</span><span class="n">start_run</span><span class="p">():</span>
+    <span class="n">mlflow</span><span class="o">.</span><span class="n">transformers</span><span class="o">.</span><span class="n">save_model</span><span class="p">(</span>
+        <span class="n">transformers_model</span><span class="o">=</span><span class="n">qa_pipe</span><span class="p">,</span>
+        <span class="n">path</span><span class="o">=</span><span class="s2">&quot;path/to/save/model&quot;</span><span class="p">,</span>
+    <span class="p">)</span>
+</pre></div>
+</div>
+<p>An example of specifying component-level parts of a transformers model is shown below:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">transformers</span> <span class="kn">import</span> <span class="n">MobileBertForQuestionAnswering</span><span class="p">,</span> <span class="n">AutoTokenizer</span>
+
+<span class="n">architecture</span> <span class="o">=</span> <span class="s2">&quot;csarron/mobilebert-uncased-squad-v2&quot;</span>
+<span class="n">tokenizer</span> <span class="o">=</span> <span class="n">AutoTokenizer</span><span class="o">.</span><span class="n">from_pretrained</span><span class="p">(</span><span class="n">architecture</span><span class="p">)</span>
+<span class="n">model</span> <span class="o">=</span> <span class="n">MobileBertForQuestionAnswering</span><span class="o">.</span><span class="n">from_pretrained</span><span class="p">(</span><span class="n">architecture</span><span class="p">)</span>
+
+<span class="k">with</span> <span class="n">mlflow</span><span class="o">.</span><span class="n">start_run</span><span class="p">():</span>
+    <span class="n">components</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s2">&quot;model&quot;</span><span class="p">:</span> <span class="n">model</span><span class="p">,</span>
+        <span class="s2">&quot;tokenizer&quot;</span><span class="p">:</span> <span class="n">tokenizer</span><span class="p">,</span>
+    <span class="p">}</span>
+    <span class="n">mlflow</span><span class="o">.</span><span class="n">transformers</span><span class="o">.</span><span class="n">save_model</span><span class="p">(</span>
+        <span class="n">transformers_model</span><span class="o">=</span><span class="n">components</span><span class="p">,</span>
+        <span class="n">path</span><span class="o">=</span><span class="s2">&quot;path/to/save/model&quot;</span><span class="p">,</span>
+    <span class="p">)</span>
+</pre></div>
+</div>
+<p>An example of specifying a local checkpoint path is shown below:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">with</span> <span class="n">mlflow</span><span class="o">.</span><span class="n">start_run</span><span class="p">():</span>
+    <span class="n">mlflow</span><span class="o">.</span><span class="n">transformers</span><span class="o">.</span><span class="n">save_model</span><span class="p">(</span>
+        <span class="n">transformers_model</span><span class="o">=</span><span class="s2">&quot;path/to/local/checkpoint&quot;</span><span class="p">,</span>
+        <span class="n">path</span><span class="o">=</span><span class="s2">&quot;path/to/save/model&quot;</span><span class="p">,</span>
+    <span class="p">)</span>
+</pre></div>
+</div>
+</p></li>
+<li><p><strong>path</strong> – Local path destination for the serialized model to be saved.</p></li>
+<li><p><strong>processor</strong> – <p>An optional <code class="docutils literal notranslate"><span class="pre">Processor</span></code> subclass object. Some model architectures,
+particularly multi-modal types, utilize Processors to combine text
+encoding and image or audio encoding in a single entrypoint.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>If a processor is supplied when saving a model, the
+model will be unavailable for loading as a <code class="docutils literal notranslate"><span class="pre">Pipeline</span></code> or for
+usage with pyfunc inference.</p>
+</div>
+</p></li>
+<li><p><strong>task</strong> – The transformers-specific task type of the model, or MLflow inference task type.
+If provided a transformers-specific task type, these strings are utilized so
+that a pipeline can be created with the appropriate internal call architecture
+to meet the needs of a given model.
+If this argument is provided as a inference task type or not specified, the
+pipeline utilities within the transformers library will be used to infer the
+correct task type. If the value specified is not a supported type,
+an Exception will be thrown.</p></li>
+<li><p><strong>torch_dtype</strong> – The Pytorch dtype applied to the model when loading back. This is useful
+when you want to save the model with a specific dtype that is different from the
+dtype of the model when it was trained. If not specified, the current dtype of the
+model instance will be used.</p></li>
+<li><p><strong>model_card</strong> – <p>An Optional <cite>ModelCard</cite> instance from <cite>huggingface-hub</cite>. If provided, the
+contents of the model card will be saved along with the provided
+<cite>transformers_model</cite>. If not provided, an attempt will be made to fetch
+the card from the base pretrained model that is provided (or the one that is
+included within a provided <cite>Pipeline</cite>).</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>In order for a ModelCard to be fetched (if not provided),
+the huggingface_hub package must be installed and the version
+must be &gt;=0.10.0</p>
+</div>
+</p></li>
+<li><p><strong>inference_config</strong> – <div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>Deprecated. <cite>inference_config</cite> is deprecated in favor of <cite>model_config</cite>.</p>
+</div>
+</p></li>
+<li><p><strong>code_paths</strong> – <p>A list of local filesystem paths to Python file dependencies (or directories
+containing file dependencies). These files are <em>prepended</em> to the system path when the model
+is loaded. Files declared as dependencies for a given model should have relative
+imports declared from a common root path if multiple files are defined with import dependencies
+between them to avoid import errors when loading the model.</p>
+<p>For a detailed explanation of <code class="docutils literal notranslate"><span class="pre">code_paths</span></code> functionality, recommended usage patterns and
+limitations, see the
+<a class="reference external" href="https://mlflow.org/docs/latest/model/dependencies.html?highlight=code_paths#saving-extra-code-with-an-mlflow-model">code_paths usage guide</a>.</p>
+</p></li>
+<li><p><strong>mlflow_model</strong> – An MLflow model object that specifies the flavor that this model is being
+added to.</p></li>
+<li><p><strong>signature</strong> – <p>A Model Signature object that describes the input and output Schema of the
+model. The model signature can be inferred using <cite>infer_signature</cite> function
+of <cite>mlflow.models.signature</cite>.</p>
+<div class="literal-block-wrapper docutils container" id="id10">
+<div class="code-block-caption"><span class="caption-text">Example</span><a class="headerlink" href="#id10" title="Permalink to this code"> </a></div>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">mlflow.models</span> <span class="kn">import</span> <span class="n">infer_signature</span>
+<span class="kn">from</span> <span class="nn">mlflow.transformers</span> <span class="kn">import</span> <span class="n">generate_signature_output</span>
+<span class="kn">from</span> <span class="nn">transformers</span> <span class="kn">import</span> <span class="n">pipeline</span>
+
+<span class="n">en_to_de</span> <span class="o">=</span> <span class="n">pipeline</span><span class="p">(</span><span class="s2">&quot;translation_en_to_de&quot;</span><span class="p">)</span>
+
+<span class="n">data</span> <span class="o">=</span> <span class="s2">&quot;MLflow is great!&quot;</span>
+<span class="n">output</span> <span class="o">=</span> <span class="n">generate_signature_output</span><span class="p">(</span><span class="n">en_to_de</span><span class="p">,</span> <span class="n">data</span><span class="p">)</span>
+<span class="n">signature</span> <span class="o">=</span> <span class="n">infer_signature</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">output</span><span class="p">)</span>
+
+<span class="n">mlflow</span><span class="o">.</span><span class="n">transformers</span><span class="o">.</span><span class="n">save_model</span><span class="p">(</span>
+    <span class="n">transformers_model</span><span class="o">=</span><span class="n">en_to_de</span><span class="p">,</span>
+    <span class="n">path</span><span class="o">=</span><span class="s2">&quot;/path/to/save/model&quot;</span><span class="p">,</span>
+    <span class="n">signature</span><span class="o">=</span><span class="n">signature</span><span class="p">,</span>
+    <span class="n">input_example</span><span class="o">=</span><span class="n">data</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="n">loaded</span> <span class="o">=</span> <span class="n">mlflow</span><span class="o">.</span><span class="n">pyfunc</span><span class="o">.</span><span class="n">load_model</span><span class="p">(</span><span class="s2">&quot;/path/to/save/model&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">loaded</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">data</span><span class="p">))</span>
+<span class="c1"># MLflow ist großartig!</span>
+</pre></div>
+</div>
+</div>
+<p>If an input_example is provided and the signature is not, a signature will
+be inferred automatically and applied to the MLmodel file iff the
+pipeline type is a text-based model (NLP). If the pipeline type is not
+a supported type, this inference functionality will not function correctly
+and a warning will be issued. In order to ensure that a precise signature
+is logged, it is recommended to explicitly provide one.</p>
+</p></li>
+<li><p><strong>input_example</strong> – one or several instances of valid model input. The input example is used
+as a hint of what data to feed the model. It will be converted to a Pandas
+DataFrame and then serialized to json using the Pandas split-oriented
+format, or a numpy array where the example will be serialized to json
+by converting it to a list. Bytes are base64-encoded. When the <code class="docutils literal notranslate"><span class="pre">signature</span></code> parameter is
+<code class="docutils literal notranslate"><span class="pre">None</span></code>, the input example is used to infer a model signature.</p></li>
+<li><p><strong>pip_requirements</strong> – Either an iterable of pip requirement strings
+(e.g. <code class="docutils literal notranslate"><span class="pre">[&quot;transformers&quot;,</span> <span class="pre">&quot;-r</span> <span class="pre">requirements.txt&quot;,</span> <span class="pre">&quot;-c</span> <span class="pre">constraints.txt&quot;]</span></code>) or the string path to
+a pip requirements file on the local filesystem (e.g. <code class="docutils literal notranslate"><span class="pre">&quot;requirements.txt&quot;</span></code>). If provided, this
+describes the environment this model should be run in. If <code class="docutils literal notranslate"><span class="pre">None</span></code>, a default list of requirements
+is inferred by <a class="reference internal" href="mlflow.models.html#mlflow.models.infer_pip_requirements" title="mlflow.models.infer_pip_requirements"><code class="xref py py-func docutils literal notranslate"><span class="pre">mlflow.models.infer_pip_requirements()</span></code></a> from the current software environment.
+If the requirement inference fails, it falls back to using <a class="reference internal" href="#mlflow.transformers.get_default_pip_requirements" title="mlflow.transformers.get_default_pip_requirements"><code class="xref py py-func docutils literal notranslate"><span class="pre">get_default_pip_requirements()</span></code></a>.
+Both requirements and constraints are automatically parsed and written to <code class="docutils literal notranslate"><span class="pre">requirements.txt</span></code> and
+<code class="docutils literal notranslate"><span class="pre">constraints.txt</span></code> files, respectively, and stored as part of the model. Requirements are also
+written to the <code class="docutils literal notranslate"><span class="pre">pip</span></code> section of the model’s conda environment (<code class="docutils literal notranslate"><span class="pre">conda.yaml</span></code>) file.</p></li>
+<li><p><strong>extra_pip_requirements</strong> – <p>Either an iterable of pip
+requirement strings
+(e.g. <code class="docutils literal notranslate"><span class="pre">[&quot;pandas&quot;,</span> <span class="pre">&quot;-r</span> <span class="pre">requirements.txt&quot;,</span> <span class="pre">&quot;-c</span> <span class="pre">constraints.txt&quot;]</span></code>) or the string path to
+a pip requirements file on the local filesystem (e.g. <code class="docutils literal notranslate"><span class="pre">&quot;requirements.txt&quot;</span></code>). If provided, this
+describes additional pip requirements that are appended to a default set of pip requirements
+generated automatically based on the user’s current software environment. Both requirements and
+constraints are automatically parsed and written to <code class="docutils literal notranslate"><span class="pre">requirements.txt</span></code> and <code class="docutils literal notranslate"><span class="pre">constraints.txt</span></code>
+files, respectively, and stored as part of the model. Requirements are also written to the <code class="docutils literal notranslate"><span class="pre">pip</span></code>
+section of the model’s conda environment (<code class="docutils literal notranslate"><span class="pre">conda.yaml</span></code>) file.</p>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>The following arguments can’t be specified at the same time:</p>
+<ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">conda_env</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">pip_requirements</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">extra_pip_requirements</span></code></p></li>
+</ul>
+</div>
+<p><a class="reference external" href="https://github.com/mlflow/mlflow/blob/master/examples/pip_requirements/pip_requirements.py">This example</a> demonstrates how to specify pip requirements using
+<code class="docutils literal notranslate"><span class="pre">pip_requirements</span></code> and <code class="docutils literal notranslate"><span class="pre">extra_pip_requirements</span></code>.</p>
+</p></li>
+<li><p><strong>conda_env</strong> – <p>Either a dictionary representation of a Conda environment or the path to a conda
+environment yaml file. If provided, this describes the environment this model should be run in.
+At a minimum, it should specify the dependencies contained in <a class="reference internal" href="#mlflow.transformers.get_default_conda_env" title="mlflow.transformers.get_default_conda_env"><code class="xref py py-func docutils literal notranslate"><span class="pre">get_default_conda_env()</span></code></a>.
+If <code class="docutils literal notranslate"><span class="pre">None</span></code>, a conda environment with pip requirements inferred by
+<a class="reference internal" href="mlflow.models.html#mlflow.models.infer_pip_requirements" title="mlflow.models.infer_pip_requirements"><code class="xref py py-func docutils literal notranslate"><span class="pre">mlflow.models.infer_pip_requirements()</span></code></a> is added
+to the model. If the requirement inference fails, it falls back to using
+<a class="reference internal" href="#mlflow.transformers.get_default_pip_requirements" title="mlflow.transformers.get_default_pip_requirements"><code class="xref py py-func docutils literal notranslate"><span class="pre">get_default_pip_requirements()</span></code></a>. pip requirements from <code class="docutils literal notranslate"><span class="pre">conda_env</span></code> are written to a pip
+<code class="docutils literal notranslate"><span class="pre">requirements.txt</span></code> file and the full conda environment is written to <code class="docutils literal notranslate"><span class="pre">conda.yaml</span></code>.
+The following is an <em>example</em> dictionary representation of a conda environment:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+    <span class="s2">&quot;name&quot;</span><span class="p">:</span> <span class="s2">&quot;mlflow-env&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;channels&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;conda-forge&quot;</span><span class="p">],</span>
+    <span class="s2">&quot;dependencies&quot;</span><span class="p">:</span> <span class="p">[</span>
+        <span class="s2">&quot;python=3.8.15&quot;</span><span class="p">,</span>
+        <span class="p">{</span>
+            <span class="s2">&quot;pip&quot;</span><span class="p">:</span> <span class="p">[</span>
+                <span class="s2">&quot;transformers==x.y.z&quot;</span>
+            <span class="p">],</span>
+        <span class="p">},</span>
+    <span class="p">],</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</p></li>
+<li><p><strong>metadata</strong> – Custom metadata dictionary passed to the model and stored in the MLmodel file.</p></li>
+<li><p><strong>model_config</strong> – <p>A dict of valid overrides that can be applied to a pipeline instance during inference.
+These arguments are used exclusively for the case of loading the model as a <code class="docutils literal notranslate"><span class="pre">pyfunc</span></code>
+Model or for use in Spark.
+These values are not applied to a returned Pipeline from a call to
+<code class="docutils literal notranslate"><span class="pre">mlflow.transformers.load_model()</span></code></p>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>If the key provided is not compatible with either the
+Pipeline instance for the task provided or is not a valid
+override to any arguments available in the Model, an
+Exception will be raised at runtime. It is very important
+to validate the entries in this dictionary to ensure
+that they are valid prior to saving or logging.</p>
+</div>
+<p>An example of providing overrides for a question generation model:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">transformers</span> <span class="kn">import</span> <span class="n">pipeline</span><span class="p">,</span> <span class="n">AutoTokenizer</span>
+
+<span class="n">task</span> <span class="o">=</span> <span class="s2">&quot;text-generation&quot;</span>
+<span class="n">architecture</span> <span class="o">=</span> <span class="s2">&quot;gpt2&quot;</span>
+
+<span class="n">sentence_pipeline</span> <span class="o">=</span> <span class="n">pipeline</span><span class="p">(</span>
+    <span class="n">task</span><span class="o">=</span><span class="n">task</span><span class="p">,</span>
+    <span class="n">tokenizer</span><span class="o">=</span><span class="n">AutoTokenizer</span><span class="o">.</span><span class="n">from_pretrained</span><span class="p">(</span><span class="n">architecture</span><span class="p">),</span>
+    <span class="n">model</span><span class="o">=</span><span class="n">architecture</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="c1"># Validate that the overrides function</span>
+<span class="n">prompts</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;Generative models are&quot;</span><span class="p">,</span> <span class="s2">&quot;I&#39;d like a coconut so that I can&quot;</span><span class="p">]</span>
+
+<span class="c1"># validation of config prior to save or log</span>
+<span class="n">model_config</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s2">&quot;top_k&quot;</span><span class="p">:</span> <span class="mi">2</span><span class="p">,</span>
+    <span class="s2">&quot;num_beams&quot;</span><span class="p">:</span> <span class="mi">5</span><span class="p">,</span>
+    <span class="s2">&quot;max_length&quot;</span><span class="p">:</span> <span class="mi">30</span><span class="p">,</span>
+    <span class="s2">&quot;temperature&quot;</span><span class="p">:</span> <span class="mf">0.62</span><span class="p">,</span>
+    <span class="s2">&quot;top_p&quot;</span><span class="p">:</span> <span class="mf">0.85</span><span class="p">,</span>
+    <span class="s2">&quot;repetition_penalty&quot;</span><span class="p">:</span> <span class="mf">1.15</span><span class="p">,</span>
+<span class="p">}</span>
+
+<span class="c1"># Verify that no exceptions are thrown</span>
+<span class="n">sentence_pipeline</span><span class="p">(</span><span class="n">prompts</span><span class="p">,</span> <span class="o">**</span><span class="n">model_config</span><span class="p">)</span>
+
+<span class="n">mlflow</span><span class="o">.</span><span class="n">transformers</span><span class="o">.</span><span class="n">save_model</span><span class="p">(</span>
+    <span class="n">transformers_model</span><span class="o">=</span><span class="n">sentence_pipeline</span><span class="p">,</span>
+    <span class="n">path</span><span class="o">=</span><span class="s2">&quot;/path/for/model&quot;</span><span class="p">,</span>
+    <span class="n">task</span><span class="o">=</span><span class="n">task</span><span class="p">,</span>
+    <span class="n">model_config</span><span class="o">=</span><span class="n">model_config</span><span class="p">,</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+</p></li>
+<li><p><strong>example_no_conversion</strong> – This parameter is deprecated and will be removed in a future release.
+It’s no longer used and can be safely removed. Input examples are not converted anymore.</p></li>
+<li><p><strong>prompt_template</strong> – <p>A string that, if provided, will be used to format the user’s input prior
+to inference. The string should contain a single placeholder, <code class="docutils literal notranslate"><span class="pre">{prompt}</span></code>, which will be
+replaced with the user’s input. For example: <code class="docutils literal notranslate"><span class="pre">&quot;Answer</span> <span class="pre">the</span> <span class="pre">following</span> <span class="pre">question.</span> <span class="pre">Q:</span> <span class="pre">{prompt}</span> <span class="pre">A:&quot;</span></code>.</p>
+<p>Currently, only the following pipeline types are supported:</p>
+<ul>
+<li><p><a class="reference external" href="https://huggingface.co/transformers/main_classes/pipelines.html#transformers.FeatureExtractionPipeline">feature-extraction</a></p></li>
+<li><p><a class="reference external" href="https://huggingface.co/transformers/main_classes/pipelines.html#transformers.FillMaskPipeline">fill-mask</a></p></li>
+<li><p><a class="reference external" href="https://huggingface.co/transformers/main_classes/pipelines.html#transformers.SummarizationPipeline">summarization</a></p></li>
+<li><p><a class="reference external" href="https://huggingface.co/transformers/main_classes/pipelines.html#transformers.Text2TextGenerationPipeline">text2text-generation</a></p></li>
+<li><p><a class="reference external" href="https://huggingface.co/transformers/main_classes/pipelines.html#transformers.TextGenerationPipeline">text-generation</a></p></li>
+</ul>
+</p></li>
+<li><p><strong>save_pretrained</strong> – <p>If set to <code class="docutils literal notranslate"><span class="pre">False</span></code>, MLflow will not save the Transformer model weight files,
+instead only saving the reference to the HuggingFace Hub model repository and its commit hash.
+This is useful when you load the pretrained model from HuggingFace Hub and want to log or save
+it to MLflow without modifying the model weights. In such case, specifying this flag to
+<code class="docutils literal notranslate"><span class="pre">False</span></code> will save the storage space and reduce time to save the model. Please refer to the
+<span class="xref std std-ref">Storage-Efficient Model Logging</span> for more detailed usage.</p>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>If the model is saved with <code class="docutils literal notranslate"><span class="pre">save_pretrained</span></code> set to <code class="docutils literal notranslate"><span class="pre">False</span></code>, the model cannot be
+registered to the MLflow Model Registry. In order to convert the model to the one that
+can be registered, you can use <a class="reference internal" href="#mlflow.transformers.persist_pretrained_model" title="mlflow.transformers.persist_pretrained_model"><code class="xref py py-func docutils literal notranslate"><span class="pre">mlflow.transformers.persist_pretrained_model()</span></code></a>
+to download the model weights from the HuggingFace Hub and save it in the existing model
+artifacts. Please refer to <span class="xref std std-ref">Transformers flavor documentation</span>
+for more detailed usage.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">mlflow.transformers</span>
+
+<span class="n">model_uri</span> <span class="o">=</span> <span class="s2">&quot;YOUR_MODEL_URI_LOGGED_WITH_SAVE_PRETRAINED_FALSE&quot;</span>
+<span class="n">model</span> <span class="o">=</span> <span class="n">mlflow</span><span class="o">.</span><span class="n">transformers</span><span class="o">.</span><span class="n">persist_pretrained_model</span><span class="p">(</span><span class="n">model_uri</span><span class="p">)</span>
+<span class="n">mlflow</span><span class="o">.</span><span class="n">register_model</span><span class="p">(</span><span class="n">model_uri</span><span class="p">,</span> <span class="s2">&quot;model_name&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="admonition important">
+<p class="admonition-title">Important</p>
+<p>When you save the <a class="reference external" href="https://huggingface.co/docs/peft/en/index">PEFT</a> model, MLflow will
+override the <cite>save_pretrained</cite> flag to <cite>False</cite> and only store the PEFT adapter weights. The
+base model weights are not saved but the reference to the HuggingFace repository and
+its commit hash are logged instead.</p>
+</div>
+</p></li>
+<li><p><strong>kwargs</strong> – Optional additional configurations for transformers serialization.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+</div>
+
+
+              </div>
+            </div>
+            <footer>
+  
+    <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
+      
+        <a href="mlflow.tracing.html" class="btn btn-neutral" title="mlflow.tracing" accesskey="p"><span class="db-icon db-icon-chevron-left"></span> Previous</a>
+      
+      
+        <a href="mlflow.types.html" class="btn btn-neutral" title="mlflow.types" accesskey="n">Next <span class="db-icon db-icon-chevron-right"></span></a>
+      
+    </div>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+      <p class="copyright">
+          &copy; MLflow Project, a Series of LF Projects, LLC. All rights reserved.
+      </p>
+
+  </div> 
+
+</footer>
+          </div>
+        </div>
+      </section>
+    </main>
+  </page>
+
+  
+
+
+  
+  <script type="text/javascript">
+    var DOCUMENTATION_OPTIONS = {
+      URL_ROOT:'../',
+      VERSION:'2.17.1.dev0',
+      COLLAPSE_INDEX:false,
+      FILE_SUFFIX:'.html',
+      LINK_SUFFIX: '.html',
+      HAS_SOURCE:  true
+    };
+  </script>
+
+  
+
+  <script type="text/javascript" src="../_static/js/clipboard.min.js"></script>
+  <script type="text/javascript" src="../_static/js/jquery.waypoints.min.js"></script>
+
+  
+  
+  
+  <script type="text/javascript">var CLIPPY_SVG_PATH = "../_static/clippy.svg";</script>
+  <script type="text/javascript" src="../_static/js/custom.js"></script>
+  
+
+  
+  
+  <script type="text/javascript">
+    jQuery(function () {
+      SphinxRtdTheme.StickyNav.enable();
+    });
+
+  </script>
+  
+
+  
+  <script type="text/javascript">
+    document.addEventListener("DOMContentLoaded", function() {
+        function copyToClipboard(text) {
+            const textarea = document.createElement('textarea');
+            textarea.value = text;
+            document.body.appendChild(textarea);
+            textarea.select();
+            document.execCommand('copy');
+            document.body.removeChild(textarea);
+        }
+        // Get the code block designator class entries
+        const allHighlights = document.querySelectorAll('.highlight');
+        // Disable copyable links for notebook cell numbering and for cell outputs
+        const highlights = Array.from(allHighlights).filter(highlight => !highlight.closest('.highlight-none') && 
+            !highlight.closest('.nboutput'));
+    
+        highlights.forEach(function(highlight) {
+            const copyIcon = document.createElement('span');
+            copyIcon.classList.add('copy-icon');
+            copyIcon.innerHTML = '&#xf0ea;';
+
+            copyIcon.addEventListener('click', function() {
+                const code = highlight.querySelector('pre').textContent;
+                copyToClipboard(code);
+
+                // Flash effect on click
+                this.style.color = '#0194E2';
+                setTimeout(() => {
+                    this.style.color = ''; 
+                }, 100);
+
+                // Display "Code copied to clipboard" near the clicked icon
+                const message = document.createElement('span');
+                message.textContent = "Copied!";
+                message.classList.add('copy-message'); 
+
+                // Append the message to the icon
+                this.appendChild(message);
+
+                setTimeout(() => {
+                    this.removeChild(message);
+                }, 500);
+            });
+
+            highlight.appendChild(copyIcon);
+        });
+    });
+  </script>
+
+
+<script type="text/javascript">
+    document.addEventListener("DOMContentLoaded", function() {
+        // Force download for notebook-download-btn
+        const downloadButtons = document.querySelectorAll('.notebook-download-btn');
+        downloadButtons.forEach(function(button) {
+            button.addEventListener('click', function(event) {
+                event.preventDefault(); // Prevent default behavior
+
+                // Fetch the raw content of the notebook from GitHub
+                fetch(button.href)
+                    .then(response => response.blob())
+                    .then(blob => {
+                        const url = window.URL.createObjectURL(blob);
+                        const link = document.createElement('a');
+                        link.style.display = 'none';
+                        link.href = url;
+                        const filename = button.href.split('/').pop();
+                        link.download = filename; 
+
+                        document.body.appendChild(link);
+                        link.click();
+
+                        window.URL.revokeObjectURL(url);
+                        document.body.removeChild(link);
+                    })
+                    .catch(err => console.error('Error fetching the notebook:', err));
+            });
+        });
+    });
+</script> 
+</body>
+</html>

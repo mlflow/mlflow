@@ -1,0 +1,753 @@
+
+
+<!DOCTYPE html>
+<!-- source: docs/source/_modules/mlflow/recipes/recipe -->
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>mlflow.recipes.recipe</title>
+  
+   
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+  <link rel="canonical" href="https://mlflow.org/docs/latest/_modules/mlflow/recipes/recipe.html">
+  
+  
+    <link rel="shortcut icon" href="../../../_static/favicon.ico"/>
+    
+
+    
+
+  
+    
+
+  
+
+  
+  
+    
+
+  
+
+  
+  
+    <link href="https://fonts.googleapis.com/css?family=Source+Sans+Pro:300,400,600" rel="stylesheet">
+    <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/css/custom.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/css/cards.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/css/grids.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/css/mobile.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/css/simple-cards.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/css/tabs.css" type="text/css" />
+    
+  
+        <link rel="index" title="Index"
+              href="../../../genindex.html"/>
+        <link rel="search" title="Search" href="../../../search.html"/>
+    <link rel="top" title="MLflow 2.17.1.dev0 documentation" href="../../../index.html"/>
+        <link rel="up" title="Module code" href="../../index.html"/> 
+
+  
+  <script src="../../../_static/js/modernizr.min.js"></script>
+
+</head>
+<script type="text/javascript" src="../../../_static/jquery.js"></script>
+<script type="text/javascript" src="../../../_static/underscore.js"></script>
+<script type="text/javascript" src="../../../_static/doctools.js"></script>
+<script type="text/javascript" src="../../../_static/tabs.js"></script>
+<script type="text/javascript" src="../../../_static/languagesections.js"></script>
+<script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+<script type="text/javascript" src="../../../_static/runllm.js"></script>
+
+<body class="wy-body-for-nav" role="document">
+  
+
+  
+  <nav class="wy-nav-top header" role="navigation" aria-label="top navigation">
+    <ul>
+  <li class="menu-toggle">
+    <i data-toggle="wy-nav-top" class="wy-nav-top-menu-button db-icon db-icon-menu pull-left"></i>
+    <a href="../../../index.html" class="wy-nav-top-logo"
+      ><img src="../../../_static/MLflow-logo-final-black.png" alt="MLflow"
+    /></a>
+    <span class="version">2.17.1.dev0</span>
+  </li>
+</ul>
+  </nav>
+  <page>
+    
+
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side relative">
+      <div class="wy-side-scroll">
+  <div class="wy-side-nav-search">
+    
+
+    
+
+    
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+  <input type="text" name="q" placeholder="Search" />
+  <input type="hidden" name="check_keywords" value="yes" />
+  <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+
+    
+  </div>
+
+  <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+    
+      <a href="../../../index.html" class="main-navigation-home"><img src="../../../_static/icons/nav-home.svg"> MLflow</a>
+    
+
+    
+      
+
+      
+        <ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../python_api/index.html">Python API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../cli.html">Command-Line Interface</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../R-api.html">R API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../java_api/index.html">Java API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../rest-api.html">REST API</a></li>
+</ul>
+
+      
+    
+  </div>
+
+  <div role="contentinfo">
+    
+
+    <p>
+      <a id='feedbacklink' href="https://github.com/mlflow/mlflow/blob/master/CONTRIBUTING.md" target="_blank">Contribute</a>
+    </p>
+  </div>
+</div>
+    </nav>
+
+    <main class="wy-grid-for-nav">
+      <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+        <div class="wy-nav-content">
+          <div class="rst-content">
+            
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href="../../../index.html">Documentation</a> <span class="db-icon db-icon-chevron-right"></span></li>
+    
+        <li><a href="../../index.html">Module code</a> <span class="db-icon db-icon-chevron-right"></span></li>
+    
+    
+      <li>mlflow.recipes.recipe</li>
+    
+    
+    <!-- <li class="wy-breadcrumbs-aside">
+      <a href="https://github.com/mlflow/mlflow/blob/master/docs/source/_modules/mlflow/recipes/recipe" class="fa fa-github"> Edit on GitHub</a>
+    </li> -->
+    
+  </ul>
+</div>
+            <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+              <div itemprop="articleBody">
+                
+  <h1>Source code for mlflow.recipes.recipe</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span> <span class="nn">abc</span>
+<span class="kn">import</span> <span class="nn">logging</span>
+<span class="kn">import</span> <span class="nn">os</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">List</span><span class="p">,</span> <span class="n">Optional</span>
+
+<span class="kn">from</span> <span class="nn">mlflow.exceptions</span> <span class="kn">import</span> <span class="n">MlflowException</span>
+<span class="kn">from</span> <span class="nn">mlflow.protos.databricks_pb2</span> <span class="kn">import</span> <span class="n">BAD_REQUEST</span><span class="p">,</span> <span class="n">INTERNAL_ERROR</span><span class="p">,</span> <span class="n">INVALID_PARAMETER_VALUE</span>
+<span class="kn">from</span> <span class="nn">mlflow.recipes</span> <span class="kn">import</span> <span class="n">dag_help_strings</span>
+<span class="kn">from</span> <span class="nn">mlflow.recipes.artifacts</span> <span class="kn">import</span> <span class="n">Artifact</span>
+<span class="kn">from</span> <span class="nn">mlflow.recipes.step</span> <span class="kn">import</span> <span class="n">BaseStep</span><span class="p">,</span> <span class="n">StepClass</span><span class="p">,</span> <span class="n">StepStatus</span>
+<span class="kn">from</span> <span class="nn">mlflow.recipes.utils</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">get_recipe_config</span><span class="p">,</span>
+    <span class="n">get_recipe_name</span><span class="p">,</span>
+    <span class="n">get_recipe_root_path</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">mlflow.recipes.utils.execution</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">clean_execution_state</span><span class="p">,</span>
+    <span class="n">get_or_create_base_execution_directory</span><span class="p">,</span>
+    <span class="n">get_step_output_path</span><span class="p">,</span>
+    <span class="n">run_recipe_step</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">mlflow.recipes.utils.step</span> <span class="kn">import</span> <span class="n">display_html</span>
+<span class="kn">from</span> <span class="nn">mlflow.utils.class_utils</span> <span class="kn">import</span> <span class="n">_get_class_from_string</span>
+
+<span class="n">_logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
+
+
+<div class="viewcode-block" id="BaseRecipe"><a class="viewcode-back" href="../../../python_api/mlflow.recipes.html#mlflow.recipes.BaseRecipe">[docs]</a><span class="k">class</span> <span class="nc">BaseRecipe</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Base Recipe</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">recipe_root_path</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">profile</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Recipe base class.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            recipe_root_path: String path to the directory under which the recipe template</span>
+<span class="sd">                such as recipe.yaml, profiles/{profile}.yaml and steps/{step_name}.py are defined.</span>
+<span class="sd">            profile: String specifying the profile name, with which</span>
+<span class="sd">                {recipe_root_path}/profiles/{profile}.yaml is read and merged with</span>
+<span class="sd">                recipe.yaml to generate the configuration to run the recipe.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_recipe_root_path</span> <span class="o">=</span> <span class="n">recipe_root_path</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_run_args</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_profile</span> <span class="o">=</span> <span class="n">profile</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_name</span> <span class="o">=</span> <span class="n">get_recipe_name</span><span class="p">(</span><span class="n">recipe_root_path</span><span class="p">)</span>
+        <span class="c1"># self._steps contains concatenated ordered lists of step objects representing multiple</span>
+        <span class="c1"># disjoint DAGs. To keep it in sync with the underlying config file, it should be reloaded</span>
+        <span class="c1"># from config files using self._resolve_recipe_steps() at the beginning of __init__(),</span>
+        <span class="c1"># run(), and inspect(), and should not reload it elsewhere.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_steps</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_resolve_recipe_steps</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_recipe</span> <span class="o">=</span> <span class="n">get_recipe_config</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_recipe_root_path</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_profile</span><span class="p">)</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;recipe&quot;</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">name</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Returns the name of the recipe.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_name</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">profile</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Returns the profile under which the recipe and its steps will execute.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_profile</span>
+
+<div class="viewcode-block" id="BaseRecipe.run"><a class="viewcode-back" href="../../../python_api/mlflow.recipes.html#mlflow.recipes.BaseRecipe.run">[docs]</a>    <span class="k">def</span> <span class="nf">run</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">step</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Runs a step in the recipe, or the entire recipe if a step is not specified.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            step: String name to run a step within the recipe. The step and its dependencies</span>
+<span class="sd">                will be run sequentially. If a step is not specified, the entire recipe is</span>
+<span class="sd">                executed.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            None</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="c1"># TODO Record performance here.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_steps</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_resolve_recipe_steps</span><span class="p">()</span>
+        <span class="n">target_step</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_step</span><span class="p">(</span><span class="n">step</span><span class="p">)</span> <span class="k">if</span> <span class="n">step</span> <span class="k">else</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_default_step</span><span class="p">()</span>
+        <span class="n">last_executed_step</span> <span class="o">=</span> <span class="n">run_recipe_step</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_recipe_root_path</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_get_subgraph_for_target_step</span><span class="p">(</span><span class="n">target_step</span><span class="p">),</span>
+            <span class="n">target_step</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_recipe</span><span class="p">,</span>
+        <span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">inspect</span><span class="p">(</span><span class="n">last_executed_step</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
+
+        <span class="c1"># Verify that the step execution succeeded and throw if it didn&#39;t.</span>
+        <span class="n">last_executed_step_output_directory</span> <span class="o">=</span> <span class="n">get_step_output_path</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_recipe_root_path</span><span class="p">,</span> <span class="n">last_executed_step</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="s2">&quot;&quot;</span>
+        <span class="p">)</span>
+        <span class="n">last_executed_step_state</span> <span class="o">=</span> <span class="n">last_executed_step</span><span class="o">.</span><span class="n">get_execution_state</span><span class="p">(</span>
+            <span class="n">last_executed_step_output_directory</span>
+        <span class="p">)</span>
+        <span class="k">if</span> <span class="n">last_executed_step_state</span><span class="o">.</span><span class="n">status</span> <span class="o">!=</span> <span class="n">StepStatus</span><span class="o">.</span><span class="n">SUCCEEDED</span><span class="p">:</span>
+            <span class="n">last_step_error_mesg</span> <span class="o">=</span> <span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;The following error occurred while running step &#39;</span><span class="si">{</span><span class="n">last_executed_step</span><span class="si">}</span><span class="s2">&#39;:</span><span class="se">\n</span><span class="s2">&quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">last_executed_step_state</span><span class="o">.</span><span class="n">stack_trace</span><span class="si">}</span><span class="se">\n</span><span class="s2">&quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;Last step status: &#39;</span><span class="si">{</span><span class="n">last_executed_step_state</span><span class="o">.</span><span class="n">status</span><span class="si">}</span><span class="s2">&#39;</span><span class="se">\n</span><span class="s2">&quot;</span>
+            <span class="p">)</span>
+            <span class="k">if</span> <span class="n">step</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="n">MlflowException</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;Failed to run step &#39;</span><span class="si">{</span><span class="n">step</span><span class="si">}</span><span class="s2">&#39; of recipe &#39;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">&#39;:</span><span class="se">\n</span><span class="si">{</span><span class="n">last_step_error_mesg</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span>
+                    <span class="n">error_code</span><span class="o">=</span><span class="n">BAD_REQUEST</span><span class="p">,</span>
+                <span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="n">MlflowException</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;Failed to run recipe &#39;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">&#39;:</span><span class="se">\n</span><span class="si">{</span><span class="n">last_step_error_mesg</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span>
+                    <span class="n">error_code</span><span class="o">=</span><span class="n">BAD_REQUEST</span><span class="p">,</span>
+                <span class="p">)</span></div>
+
+<div class="viewcode-block" id="BaseRecipe.inspect"><a class="viewcode-back" href="../../../python_api/mlflow.recipes.html#mlflow.recipes.BaseRecipe.inspect">[docs]</a>    <span class="k">def</span> <span class="nf">inspect</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">step</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Displays main output from a step, or a recipe DAG if no step is specified.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            step: String name to display a step output within the recipe. If a step is not</span>
+<span class="sd">                specified, the DAG of the recipe is shown instead.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            None</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_steps</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_resolve_recipe_steps</span><span class="p">()</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">step</span><span class="p">:</span>
+            <span class="n">display_html</span><span class="p">(</span><span class="n">html_file_path</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_get_recipe_dag_file</span><span class="p">())</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">output_directory</span> <span class="o">=</span> <span class="n">get_step_output_path</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_recipe_root_path</span><span class="p">,</span> <span class="n">step</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_get_step</span><span class="p">(</span><span class="n">step</span><span class="p">)</span><span class="o">.</span><span class="n">inspect</span><span class="p">(</span><span class="n">output_directory</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="BaseRecipe.clean"><a class="viewcode-back" href="../../../python_api/mlflow.recipes.html#mlflow.recipes.BaseRecipe.clean">[docs]</a>    <span class="k">def</span> <span class="nf">clean</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">step</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Removes the outputs of the specified step from the cache, or removes the cached outputs</span>
+<span class="sd">        of all steps if no particular step is specified. After cached outputs are cleaned</span>
+<span class="sd">        for a particular step, the step will be re-executed in its entirety the next time it is</span>
+<span class="sd">        invoked via ``BaseRecipe.run()``.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            step: String name of the step to clean within the recipe. If not specified,</span>
+<span class="sd">                cached outputs are removed for all recipe steps.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">to_clean</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_steps</span> <span class="k">if</span> <span class="ow">not</span> <span class="n">step</span> <span class="k">else</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">_get_step</span><span class="p">(</span><span class="n">step</span><span class="p">)]</span>
+        <span class="n">clean_execution_state</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_recipe_root_path</span><span class="p">,</span> <span class="n">to_clean</span><span class="p">)</span></div>
+
+    <span class="k">def</span> <span class="nf">_get_step</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">step_name</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">BaseStep</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Returns a step class object from the recipe.&quot;&quot;&quot;</span>
+        <span class="n">steps</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_steps</span>
+        <span class="n">step_names</span> <span class="o">=</span> <span class="p">[</span><span class="n">s</span><span class="o">.</span><span class="n">name</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">steps</span><span class="p">]</span>
+        <span class="k">if</span> <span class="n">step_name</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">step_names</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">MlflowException</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;Step </span><span class="si">{</span><span class="n">step_name</span><span class="si">}</span><span class="s2"> not found in recipe. Available steps are </span><span class="si">{</span><span class="n">step_names</span><span class="si">}</span><span class="s2">&quot;</span>
+            <span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_steps</span><span class="p">[</span><span class="n">step_names</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="n">step_name</span><span class="p">)]</span>
+
+    <span class="k">def</span> <span class="nf">_get_subgraph_for_target_step</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">target_step</span><span class="p">:</span> <span class="n">BaseStep</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">BaseStep</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Return a list of step objects representing a connected DAG containing the target_step.</span>
+<span class="sd">        The returned list should be a sublist of self._steps.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">subgraph</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">if</span> <span class="n">target_step</span><span class="o">.</span><span class="n">step_class</span> <span class="o">==</span> <span class="n">StepClass</span><span class="o">.</span><span class="n">UNKNOWN</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">subgraph</span>
+        <span class="k">for</span> <span class="n">step</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_steps</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">target_step</span><span class="o">.</span><span class="n">step_class</span><span class="p">()</span> <span class="o">==</span> <span class="n">step</span><span class="o">.</span><span class="n">step_class</span><span class="p">():</span>
+                <span class="n">subgraph</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">step</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">subgraph</span>
+
+    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">def</span> <span class="nf">_get_default_step</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">BaseStep</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Defines which step to run if no step is specified.</span>
+
+<span class="sd">        Concrete recipe class should implement this method.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">def</span> <span class="nf">_get_step_classes</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Returns a list of step classes defined in the recipe.</span>
+
+<span class="sd">        Concrete recipe class should implement this method.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="nf">_get_recipe_dag_file</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Returns absolute path to the recipe DAG representation HTML file.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="kn">import</span> <span class="nn">jinja2</span>
+
+        <span class="n">j2_env</span> <span class="o">=</span> <span class="n">jinja2</span><span class="o">.</span><span class="n">Environment</span><span class="p">(</span><span class="n">loader</span><span class="o">=</span><span class="n">jinja2</span><span class="o">.</span><span class="n">FileSystemLoader</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">dirname</span><span class="p">(</span><span class="vm">__file__</span><span class="p">)))</span>
+        <span class="n">recipe_dag_template</span> <span class="o">=</span> <span class="n">j2_env</span><span class="o">.</span><span class="n">get_template</span><span class="p">(</span><span class="s2">&quot;resources/recipe_dag_template.html&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">render</span><span class="p">(</span>
+            <span class="p">{</span>
+                <span class="s2">&quot;recipe_yaml_help&quot;</span><span class="p">:</span> <span class="p">{</span>
+                    <span class="s2">&quot;help_string_type&quot;</span><span class="p">:</span> <span class="s2">&quot;yaml&quot;</span><span class="p">,</span>
+                    <span class="s2">&quot;help_string&quot;</span><span class="p">:</span> <span class="n">dag_help_strings</span><span class="o">.</span><span class="n">RECIPE_YAML</span><span class="p">,</span>
+                <span class="p">},</span>
+                <span class="s2">&quot;ingest_step_help&quot;</span><span class="p">:</span> <span class="p">{</span>
+                    <span class="s2">&quot;help_string&quot;</span><span class="p">:</span> <span class="n">dag_help_strings</span><span class="o">.</span><span class="n">INGEST_STEP</span><span class="p">,</span>
+                    <span class="s2">&quot;help_string_type&quot;</span><span class="p">:</span> <span class="s2">&quot;text&quot;</span><span class="p">,</span>
+                <span class="p">},</span>
+                <span class="s2">&quot;ingest_user_code_help&quot;</span><span class="p">:</span> <span class="p">{</span>
+                    <span class="s2">&quot;help_string&quot;</span><span class="p">:</span> <span class="n">dag_help_strings</span><span class="o">.</span><span class="n">INGEST_USER_CODE</span><span class="p">,</span>
+                    <span class="s2">&quot;help_string_type&quot;</span><span class="p">:</span> <span class="s2">&quot;python&quot;</span><span class="p">,</span>
+                <span class="p">},</span>
+                <span class="s2">&quot;ingested_data_help&quot;</span><span class="p">:</span> <span class="p">{</span>
+                    <span class="s2">&quot;help_string&quot;</span><span class="p">:</span> <span class="n">dag_help_strings</span><span class="o">.</span><span class="n">INGESTED_DATA</span><span class="p">,</span>
+                    <span class="s2">&quot;help_string_type&quot;</span><span class="p">:</span> <span class="s2">&quot;text&quot;</span><span class="p">,</span>
+                <span class="p">},</span>
+                <span class="s2">&quot;split_step_help&quot;</span><span class="p">:</span> <span class="p">{</span>
+                    <span class="s2">&quot;help_string&quot;</span><span class="p">:</span> <span class="n">dag_help_strings</span><span class="o">.</span><span class="n">SPLIT_STEP</span><span class="p">,</span>
+                    <span class="s2">&quot;help_string_type&quot;</span><span class="p">:</span> <span class="s2">&quot;text&quot;</span><span class="p">,</span>
+                <span class="p">},</span>
+                <span class="s2">&quot;split_user_code_help&quot;</span><span class="p">:</span> <span class="p">{</span>
+                    <span class="s2">&quot;help_string&quot;</span><span class="p">:</span> <span class="n">dag_help_strings</span><span class="o">.</span><span class="n">SPLIT_USER_CODE</span><span class="p">,</span>
+                    <span class="s2">&quot;help_string_type&quot;</span><span class="p">:</span> <span class="s2">&quot;python&quot;</span><span class="p">,</span>
+                <span class="p">},</span>
+                <span class="s2">&quot;training_data_help&quot;</span><span class="p">:</span> <span class="p">{</span>
+                    <span class="s2">&quot;help_string&quot;</span><span class="p">:</span> <span class="n">dag_help_strings</span><span class="o">.</span><span class="n">TRAINING_DATA</span><span class="p">,</span>
+                    <span class="s2">&quot;help_string_type&quot;</span><span class="p">:</span> <span class="s2">&quot;text&quot;</span><span class="p">,</span>
+                <span class="p">},</span>
+                <span class="s2">&quot;validation_data_help&quot;</span><span class="p">:</span> <span class="p">{</span>
+                    <span class="s2">&quot;help_string&quot;</span><span class="p">:</span> <span class="n">dag_help_strings</span><span class="o">.</span><span class="n">VALIDATION_DATA</span><span class="p">,</span>
+                    <span class="s2">&quot;help_string_type&quot;</span><span class="p">:</span> <span class="s2">&quot;text&quot;</span><span class="p">,</span>
+                <span class="p">},</span>
+                <span class="s2">&quot;test_data_help&quot;</span><span class="p">:</span> <span class="p">{</span>
+                    <span class="s2">&quot;help_string&quot;</span><span class="p">:</span> <span class="n">dag_help_strings</span><span class="o">.</span><span class="n">TEST_DATA</span><span class="p">,</span>
+                    <span class="s2">&quot;help_string_type&quot;</span><span class="p">:</span> <span class="s2">&quot;text&quot;</span><span class="p">,</span>
+                <span class="p">},</span>
+                <span class="s2">&quot;transform_step_help&quot;</span><span class="p">:</span> <span class="p">{</span>
+                    <span class="s2">&quot;help_string&quot;</span><span class="p">:</span> <span class="n">dag_help_strings</span><span class="o">.</span><span class="n">TRANSFORM_STEP</span><span class="p">,</span>
+                    <span class="s2">&quot;help_string_type&quot;</span><span class="p">:</span> <span class="s2">&quot;text&quot;</span><span class="p">,</span>
+                <span class="p">},</span>
+                <span class="s2">&quot;transform_user_code_help&quot;</span><span class="p">:</span> <span class="p">{</span>
+                    <span class="s2">&quot;help_string&quot;</span><span class="p">:</span> <span class="n">dag_help_strings</span><span class="o">.</span><span class="n">TRANSFORM_USER_CODE</span><span class="p">,</span>
+                    <span class="s2">&quot;help_string_type&quot;</span><span class="p">:</span> <span class="s2">&quot;python&quot;</span><span class="p">,</span>
+                <span class="p">},</span>
+                <span class="s2">&quot;fitted_transformer_help&quot;</span><span class="p">:</span> <span class="p">{</span>
+                    <span class="s2">&quot;help_string&quot;</span><span class="p">:</span> <span class="n">dag_help_strings</span><span class="o">.</span><span class="n">FITTED_TRANSFORMER</span><span class="p">,</span>
+                    <span class="s2">&quot;help_string_type&quot;</span><span class="p">:</span> <span class="s2">&quot;text&quot;</span><span class="p">,</span>
+                <span class="p">},</span>
+                <span class="s2">&quot;transformed_training_and_validation_data_help&quot;</span><span class="p">:</span> <span class="p">{</span>
+                    <span class="s2">&quot;help_string&quot;</span><span class="p">:</span> <span class="n">dag_help_strings</span><span class="o">.</span><span class="n">TRANSFORMED_TRAINING_AND_VALIDATION_DATA</span><span class="p">,</span>
+                    <span class="s2">&quot;help_string_type&quot;</span><span class="p">:</span> <span class="s2">&quot;text&quot;</span><span class="p">,</span>
+                <span class="p">},</span>
+                <span class="s2">&quot;train_step_help&quot;</span><span class="p">:</span> <span class="p">{</span>
+                    <span class="s2">&quot;help_string&quot;</span><span class="p">:</span> <span class="n">dag_help_strings</span><span class="o">.</span><span class="n">TRAIN_STEP</span><span class="p">,</span>
+                    <span class="s2">&quot;help_string_type&quot;</span><span class="p">:</span> <span class="s2">&quot;text&quot;</span><span class="p">,</span>
+                <span class="p">},</span>
+                <span class="s2">&quot;train_user_code_help&quot;</span><span class="p">:</span> <span class="p">{</span>
+                    <span class="s2">&quot;help_string&quot;</span><span class="p">:</span> <span class="n">dag_help_strings</span><span class="o">.</span><span class="n">TRAIN_USER_CODE</span><span class="p">,</span>
+                    <span class="s2">&quot;help_string_type&quot;</span><span class="p">:</span> <span class="s2">&quot;python&quot;</span><span class="p">,</span>
+                <span class="p">},</span>
+                <span class="s2">&quot;fitted_model_help&quot;</span><span class="p">:</span> <span class="p">{</span>
+                    <span class="s2">&quot;help_string&quot;</span><span class="p">:</span> <span class="n">dag_help_strings</span><span class="o">.</span><span class="n">FITTED_MODEL</span><span class="p">,</span>
+                    <span class="s2">&quot;help_string_type&quot;</span><span class="p">:</span> <span class="s2">&quot;text&quot;</span><span class="p">,</span>
+                <span class="p">},</span>
+                <span class="s2">&quot;mlflow_run_help&quot;</span><span class="p">:</span> <span class="p">{</span>
+                    <span class="s2">&quot;help_string&quot;</span><span class="p">:</span> <span class="n">dag_help_strings</span><span class="o">.</span><span class="n">MLFLOW_RUN</span><span class="p">,</span>
+                    <span class="s2">&quot;help_string_type&quot;</span><span class="p">:</span> <span class="s2">&quot;text&quot;</span><span class="p">,</span>
+                <span class="p">},</span>
+                <span class="s2">&quot;predicted_training_data_help&quot;</span><span class="p">:</span> <span class="p">{</span>
+                    <span class="s2">&quot;help_string&quot;</span><span class="p">:</span> <span class="n">dag_help_strings</span><span class="o">.</span><span class="n">PREDICTED_TRAINING_DATA</span><span class="p">,</span>
+                    <span class="s2">&quot;help_string_type&quot;</span><span class="p">:</span> <span class="s2">&quot;text&quot;</span><span class="p">,</span>
+                <span class="p">},</span>
+                <span class="s2">&quot;custom_metrics_user_code_help&quot;</span><span class="p">:</span> <span class="p">{</span>
+                    <span class="s2">&quot;help_string&quot;</span><span class="p">:</span> <span class="n">dag_help_strings</span><span class="o">.</span><span class="n">CUSTOM_METRICS_USER_CODE</span><span class="p">,</span>
+                    <span class="s2">&quot;help_string_type&quot;</span><span class="p">:</span> <span class="s2">&quot;python&quot;</span><span class="p">,</span>
+                <span class="p">},</span>
+                <span class="s2">&quot;evaluate_step_help&quot;</span><span class="p">:</span> <span class="p">{</span>
+                    <span class="s2">&quot;help_string&quot;</span><span class="p">:</span> <span class="n">dag_help_strings</span><span class="o">.</span><span class="n">EVALUATE_STEP</span><span class="p">,</span>
+                    <span class="s2">&quot;help_string_type&quot;</span><span class="p">:</span> <span class="s2">&quot;text&quot;</span><span class="p">,</span>
+                <span class="p">},</span>
+                <span class="s2">&quot;model_validation_status_help&quot;</span><span class="p">:</span> <span class="p">{</span>
+                    <span class="s2">&quot;help_string&quot;</span><span class="p">:</span> <span class="n">dag_help_strings</span><span class="o">.</span><span class="n">MODEL_VALIDATION_STATUS</span><span class="p">,</span>
+                    <span class="s2">&quot;help_string_type&quot;</span><span class="p">:</span> <span class="s2">&quot;text&quot;</span><span class="p">,</span>
+                <span class="p">},</span>
+                <span class="s2">&quot;register_step_help&quot;</span><span class="p">:</span> <span class="p">{</span>
+                    <span class="s2">&quot;help_string&quot;</span><span class="p">:</span> <span class="n">dag_help_strings</span><span class="o">.</span><span class="n">REGISTER_STEP</span><span class="p">,</span>
+                    <span class="s2">&quot;help_string_type&quot;</span><span class="p">:</span> <span class="s2">&quot;text&quot;</span><span class="p">,</span>
+                <span class="p">},</span>
+                <span class="s2">&quot;registered_model_version_help&quot;</span><span class="p">:</span> <span class="p">{</span>
+                    <span class="s2">&quot;help_string&quot;</span><span class="p">:</span> <span class="n">dag_help_strings</span><span class="o">.</span><span class="n">REGISTERED_MODEL_VERSION</span><span class="p">,</span>
+                    <span class="s2">&quot;help_string_type&quot;</span><span class="p">:</span> <span class="s2">&quot;text&quot;</span><span class="p">,</span>
+                <span class="p">},</span>
+                <span class="s2">&quot;ingest_scoring_step_help&quot;</span><span class="p">:</span> <span class="p">{</span>
+                    <span class="s2">&quot;help_string&quot;</span><span class="p">:</span> <span class="n">dag_help_strings</span><span class="o">.</span><span class="n">INGEST_SCORING_STEP</span><span class="p">,</span>
+                    <span class="s2">&quot;help_string_type&quot;</span><span class="p">:</span> <span class="s2">&quot;text&quot;</span><span class="p">,</span>
+                <span class="p">},</span>
+                <span class="s2">&quot;ingested_scoring_data_help&quot;</span><span class="p">:</span> <span class="p">{</span>
+                    <span class="s2">&quot;help_string&quot;</span><span class="p">:</span> <span class="n">dag_help_strings</span><span class="o">.</span><span class="n">INGESTED_SCORING_DATA</span><span class="p">,</span>
+                    <span class="s2">&quot;help_string_type&quot;</span><span class="p">:</span> <span class="s2">&quot;text&quot;</span><span class="p">,</span>
+                <span class="p">},</span>
+                <span class="s2">&quot;predict_step_help&quot;</span><span class="p">:</span> <span class="p">{</span>
+                    <span class="s2">&quot;help_string&quot;</span><span class="p">:</span> <span class="n">dag_help_strings</span><span class="o">.</span><span class="n">PREDICT_STEP</span><span class="p">,</span>
+                    <span class="s2">&quot;help_string_type&quot;</span><span class="p">:</span> <span class="s2">&quot;text&quot;</span><span class="p">,</span>
+                <span class="p">},</span>
+                <span class="s2">&quot;scored_data_help&quot;</span><span class="p">:</span> <span class="p">{</span>
+                    <span class="s2">&quot;help_string&quot;</span><span class="p">:</span> <span class="n">dag_help_strings</span><span class="o">.</span><span class="n">SCORED_DATA</span><span class="p">,</span>
+                    <span class="s2">&quot;help_string_type&quot;</span><span class="p">:</span> <span class="s2">&quot;text&quot;</span><span class="p">,</span>
+                <span class="p">},</span>
+            <span class="p">}</span>
+        <span class="p">)</span>
+
+        <span class="n">recipe_dag_file</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span>
+            <span class="n">get_or_create_base_execution_directory</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_recipe_root_path</span><span class="p">),</span> <span class="s2">&quot;recipe_dag.html&quot;</span>
+        <span class="p">)</span>
+        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">recipe_dag_file</span><span class="p">,</span> <span class="s2">&quot;w&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+            <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">recipe_dag_template</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">recipe_dag_file</span>
+
+    <span class="k">def</span> <span class="nf">_resolve_recipe_steps</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">BaseStep</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Constructs and returns all recipe step objects from the recipe configuration.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">recipe_config</span> <span class="o">=</span> <span class="n">get_recipe_config</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_recipe_root_path</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_profile</span><span class="p">)</span>
+        <span class="n">recipe_config</span><span class="p">[</span><span class="s2">&quot;profile&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">profile</span>
+        <span class="k">return</span> <span class="p">[</span>
+            <span class="n">s</span><span class="o">.</span><span class="n">from_recipe_config</span><span class="p">(</span><span class="n">recipe_config</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_recipe_root_path</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_step_classes</span><span class="p">()</span>
+        <span class="p">]</span>
+
+<div class="viewcode-block" id="BaseRecipe.get_artifact"><a class="viewcode-back" href="../../../python_api/mlflow.recipes.html#mlflow.recipes.BaseRecipe.get_artifact">[docs]</a>    <span class="k">def</span> <span class="nf">get_artifact</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">artifact_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Read an artifact from recipe output. artifact names can be obtained from</span>
+<span class="sd">        `Recipe.inspect()` or `Recipe.run()` output.</span>
+
+<span class="sd">        Returns None if the specified artifact is not found.</span>
+<span class="sd">        Raise an error if the artifact is not supported.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_artifact</span><span class="p">(</span><span class="n">artifact_name</span><span class="p">)</span><span class="o">.</span><span class="n">load</span><span class="p">()</span></div>
+
+    <span class="k">def</span> <span class="nf">_get_artifact</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">artifact_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Artifact</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Read an Artifact object from recipe output. artifact names can be obtained</span>
+<span class="sd">        from `Recipe.inspect()` or `Recipe.run()` output.</span>
+
+<span class="sd">        Returns None if the specified artifact is not found.</span>
+<span class="sd">        Raise an error if the artifact is not supported.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">for</span> <span class="n">step</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_steps</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">artifact</span> <span class="ow">in</span> <span class="n">step</span><span class="o">.</span><span class="n">get_artifacts</span><span class="p">():</span>
+                <span class="k">if</span> <span class="n">artifact</span><span class="o">.</span><span class="n">name</span><span class="p">()</span> <span class="o">==</span> <span class="n">artifact_name</span><span class="p">:</span>
+                    <span class="k">return</span> <span class="n">artifact</span>
+        <span class="k">raise</span> <span class="n">MlflowException</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;The artifact with name &#39;</span><span class="si">{</span><span class="n">artifact_name</span><span class="si">}</span><span class="s2">&#39; is not supported.&quot;</span><span class="p">,</span>
+            <span class="n">error_code</span><span class="o">=</span><span class="n">INVALID_PARAMETER_VALUE</span><span class="p">,</span>
+        <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="Recipe"><a class="viewcode-back" href="../../../python_api/mlflow.recipes.html#mlflow.recipes.Recipe">[docs]</a><span class="k">class</span> <span class="nc">Recipe</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    A factory class that creates an instance of a recipe for a particular ML problem</span>
+<span class="sd">    (e.g. regression, classification) or MLOps task (e.g. batch scoring) based on the current</span>
+<span class="sd">    working directory and supplied configuration.</span>
+
+<span class="sd">    .. code-block:: python</span>
+<span class="sd">        :caption: Example</span>
+
+<span class="sd">        import os</span>
+<span class="sd">        from mlflow.recipes import Recipe</span>
+
+<span class="sd">        os.chdir(&quot;~/recipes-regression-template&quot;)</span>
+<span class="sd">        regression_recipe = Recipe(profile=&quot;local&quot;)</span>
+<span class="sd">        regression_recipe.run(step=&quot;train&quot;)</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="Recipe.__new__"><a class="viewcode-back" href="../../../python_api/mlflow.recipes.html#mlflow.recipes.Recipe.__new__">[docs]</a>    <span class="k">def</span> <span class="fm">__new__</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">profile</span><span class="p">:</span> <span class="nb">str</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Creates an instance of an MLflow Recipe for a particular ML problem or MLOps task based</span>
+<span class="sd">        on the current working directory and supplied configuration. The current working directory</span>
+<span class="sd">        must be the root directory of an MLflow Recipe repository or a subdirectory of an</span>
+<span class="sd">        MLflow Recipe repository.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            profile: The name of the profile to use for configuring the problem-specific or</span>
+<span class="sd">                task-specific recipe. Profiles customize the configuration of</span>
+<span class="sd">                one or more recipe steps, and recipe executions with different profiles</span>
+<span class="sd">                often produce different results.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            A recipe for a particular ML problem or MLOps task. For example, an instance of</span>
+<span class="sd">            `RegressionRecipe &lt;https://github.com/mlflow/recipes-regression-template&gt;`_</span>
+<span class="sd">            for regression problems.</span>
+
+<span class="sd">        .. code-block:: python</span>
+
+<span class="sd">            import os</span>
+<span class="sd">            from mlflow.recipes import Recipe</span>
+
+<span class="sd">            os.chdir(&quot;~/recipes-regression-template&quot;)</span>
+<span class="sd">            regression_recipe = Recipe(profile=&quot;local&quot;)</span>
+<span class="sd">            regression_recipe.run(step=&quot;train&quot;)</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">profile</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">MlflowException</span><span class="p">(</span>
+                <span class="s2">&quot;A profile name must be provided to construct a valid Recipe object.&quot;</span><span class="p">,</span>
+                <span class="n">error_code</span><span class="o">=</span><span class="n">INVALID_PARAMETER_VALUE</span><span class="p">,</span>
+            <span class="p">)</span> <span class="kn">from</span> <span class="kc">None</span>
+
+        <span class="n">recipe_root_path</span> <span class="o">=</span> <span class="n">get_recipe_root_path</span><span class="p">()</span>
+        <span class="k">if</span> <span class="s2">&quot; &quot;</span> <span class="ow">in</span> <span class="n">recipe_root_path</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">MlflowException</span><span class="p">(</span>
+                <span class="n">message</span><span class="o">=</span><span class="p">(</span>
+                    <span class="s2">&quot;Recipe directory path cannot contain spaces. Please move or rename your &quot;</span>
+                    <span class="sa">f</span><span class="s2">&quot;recipe directory. Current path: </span><span class="si">{</span><span class="n">recipe_root_path</span><span class="si">}</span><span class="s2">&quot;</span>
+                <span class="p">),</span>
+                <span class="n">error_code</span><span class="o">=</span><span class="n">INVALID_PARAMETER_VALUE</span><span class="p">,</span>
+            <span class="p">)</span> <span class="kn">from</span> <span class="kc">None</span>
+
+        <span class="n">recipe_config</span> <span class="o">=</span> <span class="n">get_recipe_config</span><span class="p">(</span><span class="n">recipe_root_path</span><span class="o">=</span><span class="n">recipe_root_path</span><span class="p">,</span> <span class="n">profile</span><span class="o">=</span><span class="n">profile</span><span class="p">)</span>
+        <span class="n">recipe</span> <span class="o">=</span> <span class="n">recipe_config</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;recipe&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">recipe</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">MlflowException</span><span class="p">(</span>
+                <span class="s2">&quot;The `recipe` property needs to be defined in the `recipe.yaml` file. &quot;</span>
+                <span class="s2">&quot;For example: `recipe: regression/v1`&quot;</span><span class="p">,</span>
+                <span class="n">error_code</span><span class="o">=</span><span class="n">INVALID_PARAMETER_VALUE</span><span class="p">,</span>
+            <span class="p">)</span> <span class="kn">from</span> <span class="kc">None</span>
+        <span class="n">recipe_path</span> <span class="o">=</span> <span class="n">recipe</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;/&quot;</span><span class="p">,</span> <span class="s2">&quot;.&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;@&quot;</span><span class="p">,</span> <span class="s2">&quot;.&quot;</span><span class="p">)</span>
+        <span class="n">class_name</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;mlflow.recipes.</span><span class="si">{</span><span class="n">recipe_path</span><span class="si">}</span><span class="s2">.RecipeImpl&quot;</span>
+
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">recipe_class_module</span> <span class="o">=</span> <span class="n">_get_class_from_string</span><span class="p">(</span><span class="n">class_name</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">e</span><span class="p">,</span> <span class="ne">ModuleNotFoundError</span><span class="p">):</span>
+                <span class="k">raise</span> <span class="n">MlflowException</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;Failed to find Recipe </span><span class="si">{</span><span class="n">class_name</span><span class="si">}</span><span class="s2">.&quot;</span>
+                    <span class="sa">f</span><span class="s2">&quot;Please check the correctness of the recipe template setting: </span><span class="si">{</span><span class="n">recipe</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span>
+                    <span class="n">error_code</span><span class="o">=</span><span class="n">INVALID_PARAMETER_VALUE</span><span class="p">,</span>
+                <span class="p">)</span> <span class="kn">from</span> <span class="kc">None</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="n">MlflowException</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;Failed to construct Recipe </span><span class="si">{</span><span class="n">class_name</span><span class="si">}</span><span class="s2">. Error: </span><span class="si">{</span><span class="n">e</span><span class="si">!r}</span><span class="s2">&quot;</span><span class="p">,</span>
+                    <span class="n">error_code</span><span class="o">=</span><span class="n">INTERNAL_ERROR</span><span class="p">,</span>
+                <span class="p">)</span> <span class="kn">from</span> <span class="kc">None</span>
+
+        <span class="n">recipe_name</span> <span class="o">=</span> <span class="n">get_recipe_name</span><span class="p">(</span><span class="n">recipe_root_path</span><span class="p">)</span>
+        <span class="n">_logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Creating MLflow Recipe &#39;</span><span class="si">{</span><span class="n">recipe_name</span><span class="si">}</span><span class="s2">&#39; with profile: &#39;</span><span class="si">{</span><span class="n">profile</span><span class="si">}</span><span class="s2">&#39;&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">recipe_class_module</span><span class="p">(</span><span class="n">recipe_root_path</span><span class="p">,</span> <span class="n">profile</span><span class="p">)</span></div></div>
+</pre></div>
+
+              </div>
+            </div>
+            <footer>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+      <p class="copyright">
+          &copy; MLflow Project, a Series of LF Projects, LLC. All rights reserved.
+      </p>
+
+  </div> 
+
+</footer>
+          </div>
+        </div>
+      </section>
+    </main>
+  </page>
+
+  
+
+
+  
+  <script type="text/javascript">
+    var DOCUMENTATION_OPTIONS = {
+      URL_ROOT:'../../../',
+      VERSION:'2.17.1.dev0',
+      COLLAPSE_INDEX:false,
+      FILE_SUFFIX:'.html',
+      LINK_SUFFIX: '.html',
+      HAS_SOURCE:  true
+    };
+  </script>
+
+  
+
+  <script type="text/javascript" src="../../../_static/js/clipboard.min.js"></script>
+  <script type="text/javascript" src="../../../_static/js/jquery.waypoints.min.js"></script>
+
+  
+  
+  
+  <script type="text/javascript">var CLIPPY_SVG_PATH = "../../../_static/clippy.svg";</script>
+  <script type="text/javascript" src="../../../_static/js/custom.js"></script>
+  
+
+  
+  
+  <script type="text/javascript">
+    jQuery(function () {
+      SphinxRtdTheme.StickyNav.enable();
+    });
+
+  </script>
+  
+
+  
+  <script type="text/javascript">
+    document.addEventListener("DOMContentLoaded", function() {
+        function copyToClipboard(text) {
+            const textarea = document.createElement('textarea');
+            textarea.value = text;
+            document.body.appendChild(textarea);
+            textarea.select();
+            document.execCommand('copy');
+            document.body.removeChild(textarea);
+        }
+        // Get the code block designator class entries
+        const allHighlights = document.querySelectorAll('.highlight');
+        // Disable copyable links for notebook cell numbering and for cell outputs
+        const highlights = Array.from(allHighlights).filter(highlight => !highlight.closest('.highlight-none') && 
+            !highlight.closest('.nboutput'));
+    
+        highlights.forEach(function(highlight) {
+            const copyIcon = document.createElement('span');
+            copyIcon.classList.add('copy-icon');
+            copyIcon.innerHTML = '&#xf0ea;';
+
+            copyIcon.addEventListener('click', function() {
+                const code = highlight.querySelector('pre').textContent;
+                copyToClipboard(code);
+
+                // Flash effect on click
+                this.style.color = '#0194E2';
+                setTimeout(() => {
+                    this.style.color = ''; 
+                }, 100);
+
+                // Display "Code copied to clipboard" near the clicked icon
+                const message = document.createElement('span');
+                message.textContent = "Copied!";
+                message.classList.add('copy-message'); 
+
+                // Append the message to the icon
+                this.appendChild(message);
+
+                setTimeout(() => {
+                    this.removeChild(message);
+                }, 500);
+            });
+
+            highlight.appendChild(copyIcon);
+        });
+    });
+  </script>
+
+
+<script type="text/javascript">
+    document.addEventListener("DOMContentLoaded", function() {
+        // Force download for notebook-download-btn
+        const downloadButtons = document.querySelectorAll('.notebook-download-btn');
+        downloadButtons.forEach(function(button) {
+            button.addEventListener('click', function(event) {
+                event.preventDefault(); // Prevent default behavior
+
+                // Fetch the raw content of the notebook from GitHub
+                fetch(button.href)
+                    .then(response => response.blob())
+                    .then(blob => {
+                        const url = window.URL.createObjectURL(blob);
+                        const link = document.createElement('a');
+                        link.style.display = 'none';
+                        link.href = url;
+                        const filename = button.href.split('/').pop();
+                        link.download = filename; 
+
+                        document.body.appendChild(link);
+                        link.click();
+
+                        window.URL.revokeObjectURL(url);
+                        document.body.removeChild(link);
+                    })
+                    .catch(err => console.error('Error fetching the notebook:', err));
+            });
+        });
+    });
+</script> 
+</body>
+</html>

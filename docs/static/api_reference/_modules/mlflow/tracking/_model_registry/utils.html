@@ -1,0 +1,498 @@
+
+
+<!DOCTYPE html>
+<!-- source: docs/source/_modules/mlflow/tracking/_model_registry/utils -->
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>mlflow.tracking._model_registry.utils</title>
+  
+   
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+  <link rel="canonical" href="https://mlflow.org/docs/latest/_modules/mlflow/tracking/_model_registry/utils.html">
+  
+  
+    <link rel="shortcut icon" href="../../../../_static/favicon.ico"/>
+    
+
+    
+
+  
+    
+
+  
+
+  
+  
+    
+
+  
+
+  
+  
+    <link href="https://fonts.googleapis.com/css?family=Source+Sans+Pro:300,400,600" rel="stylesheet">
+    <link rel="stylesheet" href="../../../../_static/css/theme.css" type="text/css" />
+    <link rel="stylesheet" href="../../../../_static/css/custom.css" type="text/css" />
+    <link rel="stylesheet" href="../../../../_static/css/cards.css" type="text/css" />
+    <link rel="stylesheet" href="../../../../_static/css/grids.css" type="text/css" />
+    <link rel="stylesheet" href="../../../../_static/css/mobile.css" type="text/css" />
+    <link rel="stylesheet" href="../../../../_static/css/simple-cards.css" type="text/css" />
+    <link rel="stylesheet" href="../../../../_static/css/tabs.css" type="text/css" />
+    
+  
+        <link rel="index" title="Index"
+              href="../../../../genindex.html"/>
+        <link rel="search" title="Search" href="../../../../search.html"/>
+    <link rel="top" title="MLflow 2.17.1.dev0 documentation" href="../../../../index.html"/>
+        <link rel="up" title="Module code" href="../../../index.html"/> 
+
+  
+  <script src="../../../../_static/js/modernizr.min.js"></script>
+
+</head>
+<script type="text/javascript" src="../../../../_static/jquery.js"></script>
+<script type="text/javascript" src="../../../../_static/underscore.js"></script>
+<script type="text/javascript" src="../../../../_static/doctools.js"></script>
+<script type="text/javascript" src="../../../../_static/tabs.js"></script>
+<script type="text/javascript" src="../../../../_static/languagesections.js"></script>
+<script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+<script type="text/javascript" src="../../../../_static/runllm.js"></script>
+
+<body class="wy-body-for-nav" role="document">
+  
+
+  
+  <nav class="wy-nav-top header" role="navigation" aria-label="top navigation">
+    <ul>
+  <li class="menu-toggle">
+    <i data-toggle="wy-nav-top" class="wy-nav-top-menu-button db-icon db-icon-menu pull-left"></i>
+    <a href="../../../../index.html" class="wy-nav-top-logo"
+      ><img src="../../../../_static/MLflow-logo-final-black.png" alt="MLflow"
+    /></a>
+    <span class="version">2.17.1.dev0</span>
+  </li>
+</ul>
+  </nav>
+  <page>
+    
+
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side relative">
+      <div class="wy-side-scroll">
+  <div class="wy-side-nav-search">
+    
+
+    
+
+    
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../../search.html" method="get">
+  <input type="text" name="q" placeholder="Search" />
+  <input type="hidden" name="check_keywords" value="yes" />
+  <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+
+    
+  </div>
+
+  <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+    
+      <a href="../../../../index.html" class="main-navigation-home"><img src="../../../../_static/icons/nav-home.svg"> MLflow</a>
+    
+
+    
+      
+
+      
+        <ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../python_api/index.html">Python API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../cli.html">Command-Line Interface</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../R-api.html">R API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../java_api/index.html">Java API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../rest-api.html">REST API</a></li>
+</ul>
+
+      
+    
+  </div>
+
+  <div role="contentinfo">
+    
+
+    <p>
+      <a id='feedbacklink' href="https://github.com/mlflow/mlflow/blob/master/CONTRIBUTING.md" target="_blank">Contribute</a>
+    </p>
+  </div>
+</div>
+    </nav>
+
+    <main class="wy-grid-for-nav">
+      <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+        <div class="wy-nav-content">
+          <div class="rst-content">
+            
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href="../../../../index.html">Documentation</a> <span class="db-icon db-icon-chevron-right"></span></li>
+    
+        <li><a href="../../../index.html">Module code</a> <span class="db-icon db-icon-chevron-right"></span></li>
+    
+    
+      <li>mlflow.tracking._model_registry.utils</li>
+    
+    
+    <!-- <li class="wy-breadcrumbs-aside">
+      <a href="https://github.com/mlflow/mlflow/blob/master/docs/source/_modules/mlflow/tracking/_model_registry/utils" class="fa fa-github"> Edit on GitHub</a>
+    </li> -->
+    
+  </ul>
+</div>
+            <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+              <div itemprop="articleBody">
+                
+  <h1>Source code for mlflow.tracking._model_registry.utils</h1><div class="highlight"><pre>
+<span></span><span class="kn">from</span> <span class="nn">functools</span> <span class="kn">import</span> <span class="n">partial</span>
+
+<span class="kn">from</span> <span class="nn">mlflow.environment_variables</span> <span class="kn">import</span> <span class="n">MLFLOW_REGISTRY_URI</span>
+<span class="kn">from</span> <span class="nn">mlflow.store.db.db_types</span> <span class="kn">import</span> <span class="n">DATABASE_ENGINES</span>
+<span class="kn">from</span> <span class="nn">mlflow.store.model_registry.databricks_workspace_model_registry_rest_store</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">DatabricksWorkspaceModelRegistryRestStore</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">mlflow.store.model_registry.file_store</span> <span class="kn">import</span> <span class="n">FileStore</span>
+<span class="kn">from</span> <span class="nn">mlflow.store.model_registry.rest_store</span> <span class="kn">import</span> <span class="n">RestStore</span>
+<span class="kn">from</span> <span class="nn">mlflow.tracking._model_registry.registry</span> <span class="kn">import</span> <span class="n">ModelRegistryStoreRegistry</span>
+<span class="kn">from</span> <span class="nn">mlflow.tracking._tracking_service.utils</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">_resolve_tracking_uri</span><span class="p">,</span>
+    <span class="n">get_tracking_uri</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">mlflow.utils._spark_utils</span> <span class="kn">import</span> <span class="n">_get_active_spark_session</span>
+<span class="kn">from</span> <span class="nn">mlflow.utils.credentials</span> <span class="kn">import</span> <span class="n">get_default_host_creds</span>
+<span class="kn">from</span> <span class="nn">mlflow.utils.databricks_utils</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">get_databricks_host_creds</span><span class="p">,</span>
+    <span class="n">is_in_databricks_serverless</span><span class="p">,</span>
+    <span class="n">warn_on_deprecated_cross_workspace_registry_uri</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">mlflow.utils.uri</span> <span class="kn">import</span> <span class="n">_DATABRICKS_UNITY_CATALOG_SCHEME</span><span class="p">,</span> <span class="n">_OSS_UNITY_CATALOG_SCHEME</span>
+
+<span class="c1"># NOTE: in contrast to tracking, we do not support the following ways to specify</span>
+<span class="c1"># the model registry URI:</span>
+<span class="c1">#  - via environment variables like MLFLOW_TRACKING_URI, MLFLOW_TRACKING_USERNAME, ...</span>
+<span class="c1"># We do support specifying it</span>
+<span class="c1">#  - via the ``model_registry_uri`` parameter when creating an ``MlflowClient`` or</span>
+<span class="c1">#    ``ModelRegistryClient``.</span>
+<span class="c1">#  - via a utility method ``mlflow.set_registry_uri``</span>
+<span class="c1">#  - by not specifying anything: in this case we assume the model registry store URI is</span>
+<span class="c1">#    the same as the tracking store URI. This means Tracking and Model Registry are</span>
+<span class="c1">#    backed by the same backend DB/Rest server. However, note that we access them via</span>
+<span class="c1">#    different ``Store`` classes (e.g. ``mlflow.store.tracking.SQLAlchemyStore`` &amp;</span>
+<span class="c1">#    ``mlflow.store.model_registry.SQLAlchemyStore``).</span>
+<span class="c1"># This means the following combinations are not supported:</span>
+<span class="c1">#  - Tracking RestStore &amp; Model Registry RestStore that use different credentials.</span>
+
+<span class="n">_registry_uri</span> <span class="o">=</span> <span class="kc">None</span>
+
+
+<div class="viewcode-block" id="set_registry_uri"><a class="viewcode-back" href="../../../../python_api/mlflow.config.html#mlflow.set_registry_uri">[docs]</a><span class="k">def</span> <span class="nf">set_registry_uri</span><span class="p">(</span><span class="n">uri</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Set the registry server URI. This method is especially useful if you have a registry server</span>
+<span class="sd">    that&#39;s different from the tracking server.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        uri: An empty string, or a local file path, prefixed with ``file:/``. Data is stored</span>
+<span class="sd">            locally at the provided file (or ``./mlruns`` if empty). An HTTP URI like</span>
+<span class="sd">            ``https://my-tracking-server:5000`` or ``http://my-oss-uc-server:8080``. A Databricks</span>
+<span class="sd">            workspace, provided as the string &quot;databricks&quot; or, to use a Databricks CLI</span>
+<span class="sd">            `profile &lt;https://github.com/databricks/databricks-cli#installation&gt;`_,</span>
+<span class="sd">            &quot;databricks://&lt;profileName&gt;&quot;.</span>
+
+<span class="sd">    .. code-block:: python</span>
+<span class="sd">        :caption: Example</span>
+
+<span class="sd">        import mflow</span>
+
+<span class="sd">        # Set model registry uri, fetch the set uri, and compare</span>
+<span class="sd">        # it with the tracking uri. They should be different</span>
+<span class="sd">        mlflow.set_registry_uri(&quot;sqlite:////tmp/registry.db&quot;)</span>
+<span class="sd">        mr_uri = mlflow.get_registry_uri()</span>
+<span class="sd">        print(f&quot;Current registry uri: {mr_uri}&quot;)</span>
+<span class="sd">        tracking_uri = mlflow.get_tracking_uri()</span>
+<span class="sd">        print(f&quot;Current tracking uri: {tracking_uri}&quot;)</span>
+
+<span class="sd">        # They should be different</span>
+<span class="sd">        assert tracking_uri != mr_uri</span>
+
+<span class="sd">    .. code-block:: text</span>
+<span class="sd">        :caption: Output</span>
+
+<span class="sd">        Current registry uri: sqlite:////tmp/registry.db</span>
+<span class="sd">        Current tracking uri: file:///.../mlruns</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">global</span> <span class="n">_registry_uri</span>
+    <span class="n">_registry_uri</span> <span class="o">=</span> <span class="n">uri</span></div>
+
+
+<span class="k">def</span> <span class="nf">_get_registry_uri_from_spark_session</span><span class="p">():</span>
+    <span class="n">session</span> <span class="o">=</span> <span class="n">_get_active_spark_session</span><span class="p">()</span>
+    <span class="k">if</span> <span class="n">session</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">return</span> <span class="kc">None</span>
+
+    <span class="k">if</span> <span class="n">is_in_databricks_serverless</span><span class="p">():</span>
+        <span class="c1"># Connected to Serverless</span>
+        <span class="k">return</span> <span class="s2">&quot;databricks-uc&quot;</span>
+
+    <span class="k">return</span> <span class="n">session</span><span class="o">.</span><span class="n">conf</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;spark.mlflow.modelRegistryUri&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+
+
+<span class="k">def</span> <span class="nf">_get_registry_uri_from_context</span><span class="p">():</span>
+    <span class="k">global</span> <span class="n">_registry_uri</span>
+    <span class="k">if</span> <span class="n">_registry_uri</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">_registry_uri</span>
+    <span class="k">elif</span> <span class="p">(</span><span class="n">uri</span> <span class="o">:=</span> <span class="n">MLFLOW_REGISTRY_URI</span><span class="o">.</span><span class="n">get</span><span class="p">())</span> <span class="ow">or</span> <span class="p">(</span><span class="n">uri</span> <span class="o">:=</span> <span class="n">_get_registry_uri_from_spark_session</span><span class="p">()):</span>
+        <span class="k">return</span> <span class="n">uri</span>
+    <span class="k">return</span> <span class="n">_registry_uri</span>
+
+
+<div class="viewcode-block" id="get_registry_uri"><a class="viewcode-back" href="../../../../python_api/mlflow.config.html#mlflow.get_registry_uri">[docs]</a><span class="k">def</span> <span class="nf">get_registry_uri</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Get the current registry URI. If none has been specified, defaults to the tracking URI.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        The registry URI.</span>
+
+<span class="sd">    .. code-block:: python</span>
+
+<span class="sd">        # Get the current model registry uri</span>
+<span class="sd">        mr_uri = mlflow.get_registry_uri()</span>
+<span class="sd">        print(f&quot;Current model registry uri: {mr_uri}&quot;)</span>
+
+<span class="sd">        # Get the current tracking uri</span>
+<span class="sd">        tracking_uri = mlflow.get_tracking_uri()</span>
+<span class="sd">        print(f&quot;Current tracking uri: {tracking_uri}&quot;)</span>
+
+<span class="sd">        # They should be the same</span>
+<span class="sd">        assert mr_uri == tracking_uri</span>
+
+<span class="sd">    .. code-block:: text</span>
+
+<span class="sd">        Current model registry uri: file:///.../mlruns</span>
+<span class="sd">        Current tracking uri: file:///.../mlruns</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">_get_registry_uri_from_context</span><span class="p">()</span> <span class="ow">or</span> <span class="n">get_tracking_uri</span><span class="p">()</span></div>
+
+
+<span class="k">def</span> <span class="nf">_resolve_registry_uri</span><span class="p">(</span><span class="n">registry_uri</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">tracking_uri</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="k">return</span> <span class="n">registry_uri</span> <span class="ow">or</span> <span class="n">_get_registry_uri_from_context</span><span class="p">()</span> <span class="ow">or</span> <span class="n">_resolve_tracking_uri</span><span class="p">(</span><span class="n">tracking_uri</span><span class="p">)</span>
+
+
+<span class="k">def</span> <span class="nf">_get_sqlalchemy_store</span><span class="p">(</span><span class="n">store_uri</span><span class="p">):</span>
+    <span class="kn">from</span> <span class="nn">mlflow.store.model_registry.sqlalchemy_store</span> <span class="kn">import</span> <span class="n">SqlAlchemyStore</span>
+
+    <span class="k">return</span> <span class="n">SqlAlchemyStore</span><span class="p">(</span><span class="n">store_uri</span><span class="p">)</span>
+
+
+<span class="k">def</span> <span class="nf">_get_rest_store</span><span class="p">(</span><span class="n">store_uri</span><span class="p">,</span> <span class="o">**</span><span class="n">_</span><span class="p">):</span>
+    <span class="k">return</span> <span class="n">RestStore</span><span class="p">(</span><span class="n">partial</span><span class="p">(</span><span class="n">get_default_host_creds</span><span class="p">,</span> <span class="n">store_uri</span><span class="p">))</span>
+
+
+<span class="k">def</span> <span class="nf">_get_databricks_rest_store</span><span class="p">(</span><span class="n">store_uri</span><span class="p">,</span> <span class="o">**</span><span class="n">_</span><span class="p">):</span>
+    <span class="n">warn_on_deprecated_cross_workspace_registry_uri</span><span class="p">(</span><span class="n">registry_uri</span><span class="o">=</span><span class="n">store_uri</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">DatabricksWorkspaceModelRegistryRestStore</span><span class="p">(</span><span class="n">partial</span><span class="p">(</span><span class="n">get_databricks_host_creds</span><span class="p">,</span> <span class="n">store_uri</span><span class="p">))</span>
+
+
+<span class="c1"># We define the global variable as `None` so that instantiating the store does not lead to circular</span>
+<span class="c1"># dependency issues.</span>
+<span class="n">_model_registry_store_registry</span> <span class="o">=</span> <span class="kc">None</span>
+
+
+<span class="k">def</span> <span class="nf">_get_file_store</span><span class="p">(</span><span class="n">store_uri</span><span class="p">,</span> <span class="o">**</span><span class="n">_</span><span class="p">):</span>
+    <span class="k">return</span> <span class="n">FileStore</span><span class="p">(</span><span class="n">store_uri</span><span class="p">)</span>
+
+
+<span class="k">def</span> <span class="nf">_get_store_registry</span><span class="p">():</span>
+    <span class="k">global</span> <span class="n">_model_registry_store_registry</span>
+    <span class="kn">from</span> <span class="nn">mlflow.store._unity_catalog.registry.rest_store</span> <span class="kn">import</span> <span class="n">UcModelRegistryStore</span>
+    <span class="kn">from</span> <span class="nn">mlflow.store._unity_catalog.registry.uc_oss_rest_store</span> <span class="kn">import</span> <span class="n">UnityCatalogOssStore</span>
+
+    <span class="k">if</span> <span class="n">_model_registry_store_registry</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">_model_registry_store_registry</span>
+
+    <span class="n">_model_registry_store_registry</span> <span class="o">=</span> <span class="n">ModelRegistryStoreRegistry</span><span class="p">()</span>
+    <span class="n">_model_registry_store_registry</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="s2">&quot;databricks&quot;</span><span class="p">,</span> <span class="n">_get_databricks_rest_store</span><span class="p">)</span>
+    <span class="c1"># Register a placeholder function that raises if users pass a registry URI with scheme</span>
+    <span class="c1"># &quot;databricks-uc&quot;</span>
+    <span class="n">_model_registry_store_registry</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="n">_DATABRICKS_UNITY_CATALOG_SCHEME</span><span class="p">,</span> <span class="n">UcModelRegistryStore</span><span class="p">)</span>
+    <span class="n">_model_registry_store_registry</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="n">_OSS_UNITY_CATALOG_SCHEME</span><span class="p">,</span> <span class="n">UnityCatalogOssStore</span><span class="p">)</span>
+
+    <span class="k">for</span> <span class="n">scheme</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;http&quot;</span><span class="p">,</span> <span class="s2">&quot;https&quot;</span><span class="p">]:</span>
+        <span class="n">_model_registry_store_registry</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="n">scheme</span><span class="p">,</span> <span class="n">_get_rest_store</span><span class="p">)</span>
+
+    <span class="k">for</span> <span class="n">scheme</span> <span class="ow">in</span> <span class="n">DATABASE_ENGINES</span><span class="p">:</span>
+        <span class="n">_model_registry_store_registry</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="n">scheme</span><span class="p">,</span> <span class="n">_get_sqlalchemy_store</span><span class="p">)</span>
+
+    <span class="k">for</span> <span class="n">scheme</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;&quot;</span><span class="p">,</span> <span class="s2">&quot;file&quot;</span><span class="p">]:</span>
+        <span class="n">_model_registry_store_registry</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="n">scheme</span><span class="p">,</span> <span class="n">_get_file_store</span><span class="p">)</span>
+
+    <span class="n">_model_registry_store_registry</span><span class="o">.</span><span class="n">register_entrypoints</span><span class="p">()</span>
+    <span class="k">return</span> <span class="n">_model_registry_store_registry</span>
+
+
+<span class="k">def</span> <span class="nf">_get_store</span><span class="p">(</span><span class="n">store_uri</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">tracking_uri</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="k">return</span> <span class="n">_get_store_registry</span><span class="p">()</span><span class="o">.</span><span class="n">get_store</span><span class="p">(</span><span class="n">store_uri</span><span class="p">,</span> <span class="n">tracking_uri</span><span class="p">)</span>
+</pre></div>
+
+              </div>
+            </div>
+            <footer>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+      <p class="copyright">
+          &copy; MLflow Project, a Series of LF Projects, LLC. All rights reserved.
+      </p>
+
+  </div> 
+
+</footer>
+          </div>
+        </div>
+      </section>
+    </main>
+  </page>
+
+  
+
+
+  
+  <script type="text/javascript">
+    var DOCUMENTATION_OPTIONS = {
+      URL_ROOT:'../../../../',
+      VERSION:'2.17.1.dev0',
+      COLLAPSE_INDEX:false,
+      FILE_SUFFIX:'.html',
+      LINK_SUFFIX: '.html',
+      HAS_SOURCE:  true
+    };
+  </script>
+
+  
+
+  <script type="text/javascript" src="../../../../_static/js/clipboard.min.js"></script>
+  <script type="text/javascript" src="../../../../_static/js/jquery.waypoints.min.js"></script>
+
+  
+  
+  
+  <script type="text/javascript">var CLIPPY_SVG_PATH = "../../../../_static/clippy.svg";</script>
+  <script type="text/javascript" src="../../../../_static/js/custom.js"></script>
+  
+
+  
+  
+  <script type="text/javascript">
+    jQuery(function () {
+      SphinxRtdTheme.StickyNav.enable();
+    });
+
+  </script>
+  
+
+  
+  <script type="text/javascript">
+    document.addEventListener("DOMContentLoaded", function() {
+        function copyToClipboard(text) {
+            const textarea = document.createElement('textarea');
+            textarea.value = text;
+            document.body.appendChild(textarea);
+            textarea.select();
+            document.execCommand('copy');
+            document.body.removeChild(textarea);
+        }
+        // Get the code block designator class entries
+        const allHighlights = document.querySelectorAll('.highlight');
+        // Disable copyable links for notebook cell numbering and for cell outputs
+        const highlights = Array.from(allHighlights).filter(highlight => !highlight.closest('.highlight-none') && 
+            !highlight.closest('.nboutput'));
+    
+        highlights.forEach(function(highlight) {
+            const copyIcon = document.createElement('span');
+            copyIcon.classList.add('copy-icon');
+            copyIcon.innerHTML = '&#xf0ea;';
+
+            copyIcon.addEventListener('click', function() {
+                const code = highlight.querySelector('pre').textContent;
+                copyToClipboard(code);
+
+                // Flash effect on click
+                this.style.color = '#0194E2';
+                setTimeout(() => {
+                    this.style.color = ''; 
+                }, 100);
+
+                // Display "Code copied to clipboard" near the clicked icon
+                const message = document.createElement('span');
+                message.textContent = "Copied!";
+                message.classList.add('copy-message'); 
+
+                // Append the message to the icon
+                this.appendChild(message);
+
+                setTimeout(() => {
+                    this.removeChild(message);
+                }, 500);
+            });
+
+            highlight.appendChild(copyIcon);
+        });
+    });
+  </script>
+
+
+<script type="text/javascript">
+    document.addEventListener("DOMContentLoaded", function() {
+        // Force download for notebook-download-btn
+        const downloadButtons = document.querySelectorAll('.notebook-download-btn');
+        downloadButtons.forEach(function(button) {
+            button.addEventListener('click', function(event) {
+                event.preventDefault(); // Prevent default behavior
+
+                // Fetch the raw content of the notebook from GitHub
+                fetch(button.href)
+                    .then(response => response.blob())
+                    .then(blob => {
+                        const url = window.URL.createObjectURL(blob);
+                        const link = document.createElement('a');
+                        link.style.display = 'none';
+                        link.href = url;
+                        const filename = button.href.split('/').pop();
+                        link.download = filename; 
+
+                        document.body.appendChild(link);
+                        link.click();
+
+                        window.URL.revokeObjectURL(url);
+                        document.body.removeChild(link);
+                    })
+                    .catch(err => console.error('Error fetching the notebook:', err));
+            });
+        });
+    });
+</script> 
+</body>
+</html>

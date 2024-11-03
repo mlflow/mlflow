@@ -1,0 +1,773 @@
+
+
+<!DOCTYPE html>
+<!-- source: docs/source/_modules/mlflow/metrics -->
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>mlflow.metrics</title>
+  
+   
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+  <link rel="canonical" href="https://mlflow.org/docs/latest/_modules/mlflow/metrics.html">
+  
+  
+    <link rel="shortcut icon" href="../../_static/favicon.ico"/>
+    
+
+    
+
+  
+    
+
+  
+
+  
+  
+    
+
+  
+
+  
+  
+    <link href="https://fonts.googleapis.com/css?family=Source+Sans+Pro:300,400,600" rel="stylesheet">
+    <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/css/custom.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/css/cards.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/css/grids.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/css/mobile.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/css/simple-cards.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/css/tabs.css" type="text/css" />
+    
+  
+        <link rel="index" title="Index"
+              href="../../genindex.html"/>
+        <link rel="search" title="Search" href="../../search.html"/>
+    <link rel="top" title="MLflow 2.17.1.dev0 documentation" href="../../index.html"/>
+        <link rel="up" title="Module code" href="../index.html"/> 
+
+  
+  <script src="../../_static/js/modernizr.min.js"></script>
+
+</head>
+<script type="text/javascript" src="../../_static/jquery.js"></script>
+<script type="text/javascript" src="../../_static/underscore.js"></script>
+<script type="text/javascript" src="../../_static/doctools.js"></script>
+<script type="text/javascript" src="../../_static/tabs.js"></script>
+<script type="text/javascript" src="../../_static/languagesections.js"></script>
+<script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+<script type="text/javascript" src="../../_static/runllm.js"></script>
+
+<body class="wy-body-for-nav" role="document">
+  
+
+  
+  <nav class="wy-nav-top header" role="navigation" aria-label="top navigation">
+    <ul>
+  <li class="menu-toggle">
+    <i data-toggle="wy-nav-top" class="wy-nav-top-menu-button db-icon db-icon-menu pull-left"></i>
+    <a href="../../index.html" class="wy-nav-top-logo"
+      ><img src="../../_static/MLflow-logo-final-black.png" alt="MLflow"
+    /></a>
+    <span class="version">2.17.1.dev0</span>
+  </li>
+</ul>
+  </nav>
+  <page>
+    
+
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side relative">
+      <div class="wy-side-scroll">
+  <div class="wy-side-nav-search">
+    
+
+    
+
+    
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+  <input type="text" name="q" placeholder="Search" />
+  <input type="hidden" name="check_keywords" value="yes" />
+  <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+
+    
+  </div>
+
+  <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+    
+      <a href="../../index.html" class="main-navigation-home"><img src="../../_static/icons/nav-home.svg"> MLflow</a>
+    
+
+    
+      
+
+      
+        <ul>
+<li class="toctree-l1"><a class="reference internal" href="../../python_api/index.html">Python API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../cli.html">Command-Line Interface</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../R-api.html">R API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../java_api/index.html">Java API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../rest-api.html">REST API</a></li>
+</ul>
+
+      
+    
+  </div>
+
+  <div role="contentinfo">
+    
+
+    <p>
+      <a id='feedbacklink' href="https://github.com/mlflow/mlflow/blob/master/CONTRIBUTING.md" target="_blank">Contribute</a>
+    </p>
+  </div>
+</div>
+    </nav>
+
+    <main class="wy-grid-for-nav">
+      <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+        <div class="wy-nav-content">
+          <div class="rst-content">
+            
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href="../../index.html">Documentation</a> <span class="db-icon db-icon-chevron-right"></span></li>
+    
+        <li><a href="../index.html">Module code</a> <span class="db-icon db-icon-chevron-right"></span></li>
+    
+    
+      <li>mlflow.metrics</li>
+    
+    
+    <!-- <li class="wy-breadcrumbs-aside">
+      <a href="https://github.com/mlflow/mlflow/blob/master/docs/source/_modules/mlflow/metrics" class="fa fa-github"> Edit on GitHub</a>
+    </li> -->
+    
+  </ul>
+</div>
+            <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+              <div itemprop="articleBody">
+                
+  <h1>Source code for mlflow.metrics</h1><div class="highlight"><pre>
+<span></span><span class="kn">from</span> <span class="nn">mlflow.metrics</span> <span class="kn">import</span> <span class="n">genai</span>
+<span class="kn">from</span> <span class="nn">mlflow.metrics.base</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">MetricValue</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">mlflow.metrics.metric_definitions</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">_accuracy_eval_fn</span><span class="p">,</span>
+    <span class="n">_ari_eval_fn</span><span class="p">,</span>
+    <span class="n">_f1_score_eval_fn</span><span class="p">,</span>
+    <span class="n">_flesch_kincaid_eval_fn</span><span class="p">,</span>
+    <span class="n">_mae_eval_fn</span><span class="p">,</span>
+    <span class="n">_mape_eval_fn</span><span class="p">,</span>
+    <span class="n">_max_error_eval_fn</span><span class="p">,</span>
+    <span class="n">_mse_eval_fn</span><span class="p">,</span>
+    <span class="n">_ndcg_at_k_eval_fn</span><span class="p">,</span>
+    <span class="n">_precision_at_k_eval_fn</span><span class="p">,</span>
+    <span class="n">_precision_eval_fn</span><span class="p">,</span>
+    <span class="n">_r2_score_eval_fn</span><span class="p">,</span>
+    <span class="n">_recall_at_k_eval_fn</span><span class="p">,</span>
+    <span class="n">_recall_eval_fn</span><span class="p">,</span>
+    <span class="n">_rmse_eval_fn</span><span class="p">,</span>
+    <span class="n">_rouge1_eval_fn</span><span class="p">,</span>
+    <span class="n">_rouge2_eval_fn</span><span class="p">,</span>
+    <span class="n">_rougeL_eval_fn</span><span class="p">,</span>
+    <span class="n">_rougeLsum_eval_fn</span><span class="p">,</span>
+    <span class="n">_token_count_eval_fn</span><span class="p">,</span>
+    <span class="n">_toxicity_eval_fn</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">mlflow.models</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">EvaluationMetric</span><span class="p">,</span>
+    <span class="n">make_metric</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">mlflow.utils.annotations</span> <span class="kn">import</span> <span class="n">experimental</span>
+
+
+<div class="viewcode-block" id="latency"><a class="viewcode-back" href="../../python_api/mlflow.metrics.html#mlflow.metrics.latency">[docs]</a><span class="nd">@experimental</span>
+<span class="k">def</span> <span class="nf">latency</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n">EvaluationMetric</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    This function will create a metric for calculating latency. Latency is determined by the time</span>
+<span class="sd">    it takes to generate a prediction for a given input. Note that computing latency requires</span>
+<span class="sd">    each row to be predicted sequentially, which will likely slow down the evaluation process.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">make_metric</span><span class="p">(</span>
+        <span class="n">eval_fn</span><span class="o">=</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">MetricValue</span><span class="p">(),</span>
+        <span class="n">greater_is_better</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+        <span class="n">name</span><span class="o">=</span><span class="s2">&quot;latency&quot;</span><span class="p">,</span>
+    <span class="p">)</span></div>
+
+
+<span class="c1"># general text metrics</span>
+<div class="viewcode-block" id="token_count"><a class="viewcode-back" href="../../python_api/mlflow.metrics.html#mlflow.metrics.token_count">[docs]</a><span class="nd">@experimental</span>
+<span class="k">def</span> <span class="nf">token_count</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n">EvaluationMetric</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    This function will create a metric for calculating token_count. Token count is calculated</span>
+<span class="sd">    using tiktoken by using the `cl100k_base` tokenizer.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">make_metric</span><span class="p">(</span>
+        <span class="n">eval_fn</span><span class="o">=</span><span class="n">_token_count_eval_fn</span><span class="p">,</span>
+        <span class="n">greater_is_better</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+        <span class="n">name</span><span class="o">=</span><span class="s2">&quot;token_count&quot;</span><span class="p">,</span>
+    <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="toxicity"><a class="viewcode-back" href="../../python_api/mlflow.metrics.html#mlflow.metrics.toxicity">[docs]</a><span class="nd">@experimental</span>
+<span class="k">def</span> <span class="nf">toxicity</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n">EvaluationMetric</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    This function will create a metric for evaluating `toxicity`_ using the model</span>
+<span class="sd">    `roberta-hate-speech-dynabench-r4`_, which defines hate as &quot;abusive speech targeting</span>
+<span class="sd">    specific group characteristics, such as ethnic origin, religion, gender, or sexual</span>
+<span class="sd">    orientation.&quot;</span>
+
+<span class="sd">    The score ranges from 0 to 1, where scores closer to 1 are more toxic. The default threshold</span>
+<span class="sd">    for a text to be considered &quot;toxic&quot; is 0.5.</span>
+
+<span class="sd">    Aggregations calculated for this metric:</span>
+<span class="sd">        - ratio (of toxic input texts)</span>
+
+<span class="sd">    .. _toxicity: https://huggingface.co/spaces/evaluate-measurement/toxicity</span>
+<span class="sd">    .. _roberta-hate-speech-dynabench-r4: https://huggingface.co/facebook/roberta-hate-speech-dynabench-r4-target</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">make_metric</span><span class="p">(</span>
+        <span class="n">eval_fn</span><span class="o">=</span><span class="n">_toxicity_eval_fn</span><span class="p">,</span>
+        <span class="n">greater_is_better</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+        <span class="n">name</span><span class="o">=</span><span class="s2">&quot;toxicity&quot;</span><span class="p">,</span>
+        <span class="n">long_name</span><span class="o">=</span><span class="s2">&quot;toxicity/roberta-hate-speech-dynabench-r4&quot;</span><span class="p">,</span>
+        <span class="n">version</span><span class="o">=</span><span class="s2">&quot;v1&quot;</span><span class="p">,</span>
+    <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="flesch_kincaid_grade_level"><a class="viewcode-back" href="../../python_api/mlflow.metrics.html#mlflow.metrics.flesch_kincaid_grade_level">[docs]</a><span class="nd">@experimental</span>
+<span class="k">def</span> <span class="nf">flesch_kincaid_grade_level</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n">EvaluationMetric</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    This function will create a metric for calculating `flesch kincaid grade level`_ using</span>
+<span class="sd">    `textstat`_.</span>
+
+<span class="sd">    This metric outputs a number that approximates the grade level needed to comprehend the text,</span>
+<span class="sd">    which will likely range from around 0 to 15 (although it is not limited to this range).</span>
+
+<span class="sd">    Aggregations calculated for this metric:</span>
+<span class="sd">        - mean</span>
+
+<span class="sd">    .. _flesch kincaid grade level:</span>
+<span class="sd">        https://en.wikipedia.org/wiki/Flesch%E2%80%93Kincaid_readability_tests#Flesch%E2%80%93Kincaid_grade_level</span>
+<span class="sd">    .. _textstat: https://pypi.org/project/textstat/</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">make_metric</span><span class="p">(</span>
+        <span class="n">eval_fn</span><span class="o">=</span><span class="n">_flesch_kincaid_eval_fn</span><span class="p">,</span>
+        <span class="n">greater_is_better</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+        <span class="n">name</span><span class="o">=</span><span class="s2">&quot;flesch_kincaid_grade_level&quot;</span><span class="p">,</span>
+        <span class="n">version</span><span class="o">=</span><span class="s2">&quot;v1&quot;</span><span class="p">,</span>
+    <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="ari_grade_level"><a class="viewcode-back" href="../../python_api/mlflow.metrics.html#mlflow.metrics.ari_grade_level">[docs]</a><span class="nd">@experimental</span>
+<span class="k">def</span> <span class="nf">ari_grade_level</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n">EvaluationMetric</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    This function will create a metric for calculating `automated readability index`_ using</span>
+<span class="sd">    `textstat`_.</span>
+
+<span class="sd">    This metric outputs a number that approximates the grade level needed to comprehend the text,</span>
+<span class="sd">    which will likely range from around 0 to 15 (although it is not limited to this range).</span>
+
+<span class="sd">    Aggregations calculated for this metric:</span>
+<span class="sd">        - mean</span>
+
+<span class="sd">    .. _automated readability index: https://en.wikipedia.org/wiki/Automated_readability_index</span>
+<span class="sd">    .. _textstat: https://pypi.org/project/textstat/</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">make_metric</span><span class="p">(</span>
+        <span class="n">eval_fn</span><span class="o">=</span><span class="n">_ari_eval_fn</span><span class="p">,</span>
+        <span class="n">greater_is_better</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+        <span class="n">name</span><span class="o">=</span><span class="s2">&quot;ari_grade_level&quot;</span><span class="p">,</span>
+        <span class="n">long_name</span><span class="o">=</span><span class="s2">&quot;automated_readability_index_grade_level&quot;</span><span class="p">,</span>
+        <span class="n">version</span><span class="o">=</span><span class="s2">&quot;v1&quot;</span><span class="p">,</span>
+    <span class="p">)</span></div>
+
+
+<span class="c1"># question answering metrics</span>
+<div class="viewcode-block" id="exact_match"><a class="viewcode-back" href="../../python_api/mlflow.metrics.html#mlflow.metrics.exact_match">[docs]</a><span class="nd">@experimental</span>
+<span class="k">def</span> <span class="nf">exact_match</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n">EvaluationMetric</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    This function will create a metric for calculating `accuracy`_ using sklearn.</span>
+
+<span class="sd">    This metric only computes an aggregate score which ranges from 0 to 1.</span>
+
+<span class="sd">    .. _accuracy: https://scikit-learn.org/stable/modules/generated/sklearn.metrics.accuracy_score.html</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">make_metric</span><span class="p">(</span>
+        <span class="n">eval_fn</span><span class="o">=</span><span class="n">_accuracy_eval_fn</span><span class="p">,</span> <span class="n">greater_is_better</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;exact_match&quot;</span><span class="p">,</span> <span class="n">version</span><span class="o">=</span><span class="s2">&quot;v1&quot;</span>
+    <span class="p">)</span></div>
+
+
+<span class="c1"># text summarization metrics</span>
+<div class="viewcode-block" id="rouge1"><a class="viewcode-back" href="../../python_api/mlflow.metrics.html#mlflow.metrics.rouge1">[docs]</a><span class="nd">@experimental</span>
+<span class="k">def</span> <span class="nf">rouge1</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n">EvaluationMetric</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    This function will create a metric for evaluating `rouge1`_.</span>
+
+<span class="sd">    The score ranges from 0 to 1, where a higher score indicates higher similarity.</span>
+<span class="sd">    `rouge1`_ uses unigram based scoring to calculate similarity.</span>
+
+<span class="sd">    Aggregations calculated for this metric:</span>
+<span class="sd">        - mean</span>
+
+<span class="sd">    .. _rouge1: https://huggingface.co/spaces/evaluate-metric/rouge</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">make_metric</span><span class="p">(</span>
+        <span class="n">eval_fn</span><span class="o">=</span><span class="n">_rouge1_eval_fn</span><span class="p">,</span>
+        <span class="n">greater_is_better</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+        <span class="n">name</span><span class="o">=</span><span class="s2">&quot;rouge1&quot;</span><span class="p">,</span>
+        <span class="n">version</span><span class="o">=</span><span class="s2">&quot;v1&quot;</span><span class="p">,</span>
+    <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="rouge2"><a class="viewcode-back" href="../../python_api/mlflow.metrics.html#mlflow.metrics.rouge2">[docs]</a><span class="nd">@experimental</span>
+<span class="k">def</span> <span class="nf">rouge2</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n">EvaluationMetric</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    This function will create a metric for evaluating `rouge2`_.</span>
+
+<span class="sd">    The score ranges from 0 to 1, where a higher score indicates higher similarity.</span>
+<span class="sd">    `rouge2`_ uses bigram based scoring to calculate similarity.</span>
+
+<span class="sd">    Aggregations calculated for this metric:</span>
+<span class="sd">        - mean</span>
+
+<span class="sd">    .. _rouge2: https://huggingface.co/spaces/evaluate-metric/rouge</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">make_metric</span><span class="p">(</span>
+        <span class="n">eval_fn</span><span class="o">=</span><span class="n">_rouge2_eval_fn</span><span class="p">,</span>
+        <span class="n">greater_is_better</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+        <span class="n">name</span><span class="o">=</span><span class="s2">&quot;rouge2&quot;</span><span class="p">,</span>
+        <span class="n">version</span><span class="o">=</span><span class="s2">&quot;v1&quot;</span><span class="p">,</span>
+    <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="rougeL"><a class="viewcode-back" href="../../python_api/mlflow.metrics.html#mlflow.metrics.rougeL">[docs]</a><span class="nd">@experimental</span>
+<span class="k">def</span> <span class="nf">rougeL</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n">EvaluationMetric</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    This function will create a metric for evaluating `rougeL`_.</span>
+
+<span class="sd">    The score ranges from 0 to 1, where a higher score indicates higher similarity.</span>
+<span class="sd">    `rougeL`_ uses unigram based scoring to calculate similarity.</span>
+
+<span class="sd">    Aggregations calculated for this metric:</span>
+<span class="sd">        - mean</span>
+
+<span class="sd">    .. _rougeL: https://huggingface.co/spaces/evaluate-metric/rouge</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">make_metric</span><span class="p">(</span>
+        <span class="n">eval_fn</span><span class="o">=</span><span class="n">_rougeL_eval_fn</span><span class="p">,</span>
+        <span class="n">greater_is_better</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+        <span class="n">name</span><span class="o">=</span><span class="s2">&quot;rougeL&quot;</span><span class="p">,</span>
+        <span class="n">version</span><span class="o">=</span><span class="s2">&quot;v1&quot;</span><span class="p">,</span>
+    <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="rougeLsum"><a class="viewcode-back" href="../../python_api/mlflow.metrics.html#mlflow.metrics.rougeLsum">[docs]</a><span class="nd">@experimental</span>
+<span class="k">def</span> <span class="nf">rougeLsum</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n">EvaluationMetric</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    This function will create a metric for evaluating `rougeLsum`_.</span>
+
+<span class="sd">    The score ranges from 0 to 1, where a higher score indicates higher similarity.</span>
+<span class="sd">    `rougeLsum`_ uses longest common subsequence based scoring to calculate similarity.</span>
+
+<span class="sd">    Aggregations calculated for this metric:</span>
+<span class="sd">        - mean</span>
+
+<span class="sd">    .. _rougeLsum: https://huggingface.co/spaces/evaluate-metric/rouge</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">make_metric</span><span class="p">(</span>
+        <span class="n">eval_fn</span><span class="o">=</span><span class="n">_rougeLsum_eval_fn</span><span class="p">,</span>
+        <span class="n">greater_is_better</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+        <span class="n">name</span><span class="o">=</span><span class="s2">&quot;rougeLsum&quot;</span><span class="p">,</span>
+        <span class="n">version</span><span class="o">=</span><span class="s2">&quot;v1&quot;</span><span class="p">,</span>
+    <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="precision_at_k"><a class="viewcode-back" href="../../python_api/mlflow.metrics.html#mlflow.metrics.precision_at_k">[docs]</a><span class="nd">@experimental</span>
+<span class="k">def</span> <span class="nf">precision_at_k</span><span class="p">(</span><span class="n">k</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">EvaluationMetric</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    This function will create a metric for calculating ``precision_at_k`` for retriever models.</span>
+
+<span class="sd">    This metric computes a score between 0 and 1 for each row representing the precision of the</span>
+<span class="sd">    retriever model at the given ``k`` value. If no relevant documents are retrieved, the score is</span>
+<span class="sd">    0, indicating that no relevant docs are retrieved. Let ``x = min(k, # of retrieved doc IDs)``.</span>
+<span class="sd">    Then, in all other cases, the precision at k is calculated as follows:</span>
+
+<span class="sd">        ``precision_at_k`` = (# of relevant retrieved doc IDs in top-``x`` ranked docs) / ``x``.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">make_metric</span><span class="p">(</span>
+        <span class="n">eval_fn</span><span class="o">=</span><span class="n">_precision_at_k_eval_fn</span><span class="p">(</span><span class="n">k</span><span class="p">),</span>
+        <span class="n">greater_is_better</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+        <span class="n">name</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;precision_at_</span><span class="si">{</span><span class="n">k</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span>
+    <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="recall_at_k"><a class="viewcode-back" href="../../python_api/mlflow.metrics.html#mlflow.metrics.recall_at_k">[docs]</a><span class="nd">@experimental</span>
+<span class="k">def</span> <span class="nf">recall_at_k</span><span class="p">(</span><span class="n">k</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">EvaluationMetric</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    This function will create a metric for calculating ``recall_at_k`` for retriever models.</span>
+
+<span class="sd">    This metric computes a score between 0 and 1 for each row representing the recall ability of</span>
+<span class="sd">    the retriever model at the given ``k`` value. If no ground truth doc IDs are provided and no</span>
+<span class="sd">    documents are retrieved, the score is 1. However, if no ground truth doc IDs are provided and</span>
+<span class="sd">    documents are retrieved, the score is 0. In all other cases, the recall at k is calculated as</span>
+<span class="sd">    follows:</span>
+
+<span class="sd">        ``recall_at_k`` = (# of unique relevant retrieved doc IDs in top-``k`` ranked docs) / (# of</span>
+<span class="sd">        ground truth doc IDs)</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">make_metric</span><span class="p">(</span>
+        <span class="n">eval_fn</span><span class="o">=</span><span class="n">_recall_at_k_eval_fn</span><span class="p">(</span><span class="n">k</span><span class="p">),</span>
+        <span class="n">greater_is_better</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+        <span class="n">name</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;recall_at_</span><span class="si">{</span><span class="n">k</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span>
+    <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="ndcg_at_k"><a class="viewcode-back" href="../../python_api/mlflow.metrics.html#mlflow.metrics.ndcg_at_k">[docs]</a><span class="nd">@experimental</span>
+<span class="k">def</span> <span class="nf">ndcg_at_k</span><span class="p">(</span><span class="n">k</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">EvaluationMetric</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    This function will create a metric for evaluating `NDCG@k`_ for retriever models.</span>
+
+<span class="sd">    NDCG score is capable of handling non-binary notions of relevance. However, for simplicity,</span>
+<span class="sd">    we use binary relevance here. The relevance score for documents in the ground truth is 1,</span>
+<span class="sd">    and the relevance score for documents not in the ground truth is 0.</span>
+
+<span class="sd">    The NDCG score is calculated using sklearn.metrics.ndcg_score with the following edge cases</span>
+<span class="sd">    on top of the sklearn implementation:</span>
+
+<span class="sd">    1. If no ground truth doc IDs are provided and no documents are retrieved, the score is 1.</span>
+<span class="sd">    2. If no ground truth doc IDs are provided and documents are retrieved, the score is 0.</span>
+<span class="sd">    3. If ground truth doc IDs are provided and no documents are retrieved, the score is 0.</span>
+<span class="sd">    4. If duplicate doc IDs are retrieved and the duplicate doc IDs are in the ground truth,</span>
+<span class="sd">       they will be treated as different docs. For example, if the ground truth doc IDs are</span>
+<span class="sd">       [1, 2] and the retrieved doc IDs are [1, 1, 1, 3], the score will be equavalent to</span>
+<span class="sd">       ground truth doc IDs [10, 11, 12, 2] and retrieved doc IDs [10, 11, 12, 3].</span>
+
+<span class="sd">    .. _NDCG@k: https://scikit-learn.org/stable/modules/generated/sklearn.metrics.ndcg_score.html</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">make_metric</span><span class="p">(</span>
+        <span class="n">eval_fn</span><span class="o">=</span><span class="n">_ndcg_at_k_eval_fn</span><span class="p">(</span><span class="n">k</span><span class="p">),</span>
+        <span class="n">greater_is_better</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+        <span class="n">name</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;ndcg_at_</span><span class="si">{</span><span class="n">k</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span>
+    <span class="p">)</span></div>
+
+
+<span class="c1"># General Regression Metrics</span>
+<div class="viewcode-block" id="mae"><a class="viewcode-back" href="../../python_api/mlflow.metrics.html#mlflow.metrics.mae">[docs]</a><span class="k">def</span> <span class="nf">mae</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n">EvaluationMetric</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    This function will create a metric for evaluating `mae`_.</span>
+
+<span class="sd">    This metric computes an aggregate score for the mean absolute error for regression.</span>
+
+<span class="sd">    .. _mae: https://scikit-learn.org/stable/modules/generated/sklearn.metrics.mean_absolute_error.html</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">make_metric</span><span class="p">(</span>
+        <span class="n">eval_fn</span><span class="o">=</span><span class="n">_mae_eval_fn</span><span class="p">,</span>
+        <span class="n">greater_is_better</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+        <span class="n">name</span><span class="o">=</span><span class="s2">&quot;mean_absolute_error&quot;</span><span class="p">,</span>
+    <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="mse"><a class="viewcode-back" href="../../python_api/mlflow.metrics.html#mlflow.metrics.mse">[docs]</a><span class="k">def</span> <span class="nf">mse</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n">EvaluationMetric</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    This function will create a metric for evaluating `mse`_.</span>
+
+<span class="sd">    This metric computes an aggregate score for the mean squared error for regression.</span>
+
+<span class="sd">    .. _mse: https://scikit-learn.org/stable/modules/generated/sklearn.metrics.mean_squared_error.html</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">make_metric</span><span class="p">(</span>
+        <span class="n">eval_fn</span><span class="o">=</span><span class="n">_mse_eval_fn</span><span class="p">,</span>
+        <span class="n">greater_is_better</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+        <span class="n">name</span><span class="o">=</span><span class="s2">&quot;mean_squared_error&quot;</span><span class="p">,</span>
+    <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="rmse"><a class="viewcode-back" href="../../python_api/mlflow.metrics.html#mlflow.metrics.rmse">[docs]</a><span class="k">def</span> <span class="nf">rmse</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n">EvaluationMetric</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    This function will create a metric for evaluating the square root of `mse`_.</span>
+
+<span class="sd">    This metric computes an aggregate score for the root mean absolute error for regression.</span>
+
+<span class="sd">    .. _mse: https://scikit-learn.org/stable/modules/generated/sklearn.metrics.mean_squared_error.html</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">return</span> <span class="n">make_metric</span><span class="p">(</span>
+        <span class="n">eval_fn</span><span class="o">=</span><span class="n">_rmse_eval_fn</span><span class="p">,</span>
+        <span class="n">greater_is_better</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+        <span class="n">name</span><span class="o">=</span><span class="s2">&quot;root_mean_squared_error&quot;</span><span class="p">,</span>
+    <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="r2_score"><a class="viewcode-back" href="../../python_api/mlflow.metrics.html#mlflow.metrics.r2_score">[docs]</a><span class="k">def</span> <span class="nf">r2_score</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n">EvaluationMetric</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    This function will create a metric for evaluating `r2_score`_.</span>
+
+<span class="sd">    This metric computes an aggregate score for the coefficient of determination. R2 ranges from</span>
+<span class="sd">    negative infinity to 1, and measures the percentage of variance explained by the predictor</span>
+<span class="sd">    variables in a regression.</span>
+
+<span class="sd">    .. _r2_score: https://scikit-learn.org/stable/modules/generated/sklearn.metrics.r2_score.html</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">make_metric</span><span class="p">(</span>
+        <span class="n">eval_fn</span><span class="o">=</span><span class="n">_r2_score_eval_fn</span><span class="p">,</span>
+        <span class="n">greater_is_better</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+        <span class="n">name</span><span class="o">=</span><span class="s2">&quot;r2_score&quot;</span><span class="p">,</span>
+    <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="max_error"><a class="viewcode-back" href="../../python_api/mlflow.metrics.html#mlflow.metrics.max_error">[docs]</a><span class="k">def</span> <span class="nf">max_error</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n">EvaluationMetric</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    This function will create a metric for evaluating `max_error`_.</span>
+
+<span class="sd">    This metric computes an aggregate score for the maximum residual error for regression.</span>
+
+<span class="sd">    .. _max_error: https://scikit-learn.org/stable/modules/generated/sklearn.metrics.max_error.html</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">make_metric</span><span class="p">(</span>
+        <span class="n">eval_fn</span><span class="o">=</span><span class="n">_max_error_eval_fn</span><span class="p">,</span>
+        <span class="n">greater_is_better</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+        <span class="n">name</span><span class="o">=</span><span class="s2">&quot;max_error&quot;</span><span class="p">,</span>
+    <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="mape"><a class="viewcode-back" href="../../python_api/mlflow.metrics.html#mlflow.metrics.mape">[docs]</a><span class="k">def</span> <span class="nf">mape</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n">EvaluationMetric</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    This function will create a metric for evaluating `mape`_.</span>
+
+<span class="sd">    This metric computes an aggregate score for the mean absolute percentage error for regression.</span>
+
+<span class="sd">    .. _mape: https://scikit-learn.org/stable/modules/generated/sklearn.metrics.mean_absolute_percentage_error.html</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">make_metric</span><span class="p">(</span>
+        <span class="n">eval_fn</span><span class="o">=</span><span class="n">_mape_eval_fn</span><span class="p">,</span>
+        <span class="n">greater_is_better</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+        <span class="n">name</span><span class="o">=</span><span class="s2">&quot;mean_absolute_percentage_error&quot;</span><span class="p">,</span>
+    <span class="p">)</span></div>
+
+
+<span class="c1"># Binary Classification Metrics</span>
+
+
+<div class="viewcode-block" id="recall_score"><a class="viewcode-back" href="../../python_api/mlflow.metrics.html#mlflow.metrics.recall_score">[docs]</a><span class="k">def</span> <span class="nf">recall_score</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n">EvaluationMetric</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    This function will create a metric for evaluating `recall`_ for classification.</span>
+
+<span class="sd">    This metric computes an aggregate score between 0 and 1 for the recall of a classification task.</span>
+
+<span class="sd">    .. _recall: https://scikit-learn.org/stable/modules/generated/sklearn.metrics.recall_score.html</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">make_metric</span><span class="p">(</span><span class="n">eval_fn</span><span class="o">=</span><span class="n">_recall_eval_fn</span><span class="p">,</span> <span class="n">greater_is_better</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;recall_score&quot;</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="precision_score"><a class="viewcode-back" href="../../python_api/mlflow.metrics.html#mlflow.metrics.precision_score">[docs]</a><span class="k">def</span> <span class="nf">precision_score</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n">EvaluationMetric</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    This function will create a metric for evaluating `precision`_ for classification.</span>
+
+<span class="sd">    This metric computes an aggregate score between 0 and 1 for the precision of</span>
+<span class="sd">    classification task.</span>
+
+<span class="sd">    .. _precision: https://scikit-learn.org/stable/modules/generated/sklearn.metrics.precision_score.html</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">make_metric</span><span class="p">(</span><span class="n">eval_fn</span><span class="o">=</span><span class="n">_precision_eval_fn</span><span class="p">,</span> <span class="n">greater_is_better</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;precision_score&quot;</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="f1_score"><a class="viewcode-back" href="../../python_api/mlflow.metrics.html#mlflow.metrics.f1_score">[docs]</a><span class="k">def</span> <span class="nf">f1_score</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n">EvaluationMetric</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    This function will create a metric for evaluating `f1_score`_ for binary classification.</span>
+
+<span class="sd">    This metric computes an aggregate score between 0 and 1 for the F1 score (F-measure) of a</span>
+<span class="sd">    classification task. F1 score is defined as 2 * (precision * recall) / (precision + recall).</span>
+
+<span class="sd">    .. _f1_score: https://scikit-learn.org/stable/modules/generated/sklearn.metrics.f1_score.html</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">make_metric</span><span class="p">(</span><span class="n">eval_fn</span><span class="o">=</span><span class="n">_f1_score_eval_fn</span><span class="p">,</span> <span class="n">greater_is_better</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;f1_score&quot;</span><span class="p">)</span></div>
+
+
+<span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span>
+    <span class="s2">&quot;EvaluationMetric&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;MetricValue&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;make_metric&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;flesch_kincaid_grade_level&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;ari_grade_level&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;accuracy&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;rouge1&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;rouge2&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;rougeL&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;rougeLsum&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;toxicity&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;mae&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;mse&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;rmse&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;r2_score&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;max_error&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;mape&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;binary_recall&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;binary_precision&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;binary_f1_score&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;token_count&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;latency&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;genai&quot;</span><span class="p">,</span>
+<span class="p">]</span>
+</pre></div>
+
+              </div>
+            </div>
+            <footer>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+      <p class="copyright">
+          &copy; MLflow Project, a Series of LF Projects, LLC. All rights reserved.
+      </p>
+
+  </div> 
+
+</footer>
+          </div>
+        </div>
+      </section>
+    </main>
+  </page>
+
+  
+
+
+  
+  <script type="text/javascript">
+    var DOCUMENTATION_OPTIONS = {
+      URL_ROOT:'../../',
+      VERSION:'2.17.1.dev0',
+      COLLAPSE_INDEX:false,
+      FILE_SUFFIX:'.html',
+      LINK_SUFFIX: '.html',
+      HAS_SOURCE:  true
+    };
+  </script>
+
+  
+
+  <script type="text/javascript" src="../../_static/js/clipboard.min.js"></script>
+  <script type="text/javascript" src="../../_static/js/jquery.waypoints.min.js"></script>
+
+  
+  
+  
+  <script type="text/javascript">var CLIPPY_SVG_PATH = "../../_static/clippy.svg";</script>
+  <script type="text/javascript" src="../../_static/js/custom.js"></script>
+  
+
+  
+  
+  <script type="text/javascript">
+    jQuery(function () {
+      SphinxRtdTheme.StickyNav.enable();
+    });
+
+  </script>
+  
+
+  
+  <script type="text/javascript">
+    document.addEventListener("DOMContentLoaded", function() {
+        function copyToClipboard(text) {
+            const textarea = document.createElement('textarea');
+            textarea.value = text;
+            document.body.appendChild(textarea);
+            textarea.select();
+            document.execCommand('copy');
+            document.body.removeChild(textarea);
+        }
+        // Get the code block designator class entries
+        const allHighlights = document.querySelectorAll('.highlight');
+        // Disable copyable links for notebook cell numbering and for cell outputs
+        const highlights = Array.from(allHighlights).filter(highlight => !highlight.closest('.highlight-none') && 
+            !highlight.closest('.nboutput'));
+    
+        highlights.forEach(function(highlight) {
+            const copyIcon = document.createElement('span');
+            copyIcon.classList.add('copy-icon');
+            copyIcon.innerHTML = '&#xf0ea;';
+
+            copyIcon.addEventListener('click', function() {
+                const code = highlight.querySelector('pre').textContent;
+                copyToClipboard(code);
+
+                // Flash effect on click
+                this.style.color = '#0194E2';
+                setTimeout(() => {
+                    this.style.color = ''; 
+                }, 100);
+
+                // Display "Code copied to clipboard" near the clicked icon
+                const message = document.createElement('span');
+                message.textContent = "Copied!";
+                message.classList.add('copy-message'); 
+
+                // Append the message to the icon
+                this.appendChild(message);
+
+                setTimeout(() => {
+                    this.removeChild(message);
+                }, 500);
+            });
+
+            highlight.appendChild(copyIcon);
+        });
+    });
+  </script>
+
+
+<script type="text/javascript">
+    document.addEventListener("DOMContentLoaded", function() {
+        // Force download for notebook-download-btn
+        const downloadButtons = document.querySelectorAll('.notebook-download-btn');
+        downloadButtons.forEach(function(button) {
+            button.addEventListener('click', function(event) {
+                event.preventDefault(); // Prevent default behavior
+
+                // Fetch the raw content of the notebook from GitHub
+                fetch(button.href)
+                    .then(response => response.blob())
+                    .then(blob => {
+                        const url = window.URL.createObjectURL(blob);
+                        const link = document.createElement('a');
+                        link.style.display = 'none';
+                        link.href = url;
+                        const filename = button.href.split('/').pop();
+                        link.download = filename; 
+
+                        document.body.appendChild(link);
+                        link.click();
+
+                        window.URL.revokeObjectURL(url);
+                        document.body.removeChild(link);
+                    })
+                    .catch(err => console.error('Error fetching the notebook:', err));
+            });
+        });
+    });
+</script> 
+</body>
+</html>

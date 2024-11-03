@@ -1,0 +1,905 @@
+
+
+<!DOCTYPE html>
+<!-- source: docs/source/_modules/mlflow/diviner -->
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>mlflow.diviner</title>
+  
+   
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+  <link rel="canonical" href="https://mlflow.org/docs/latest/_modules/mlflow/diviner.html">
+  
+  
+    <link rel="shortcut icon" href="../../_static/favicon.ico"/>
+    
+
+    
+
+  
+    
+
+  
+
+  
+  
+    
+
+  
+
+  
+  
+    <link href="https://fonts.googleapis.com/css?family=Source+Sans+Pro:300,400,600" rel="stylesheet">
+    <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/css/custom.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/css/cards.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/css/grids.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/css/mobile.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/css/simple-cards.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/css/tabs.css" type="text/css" />
+    
+  
+        <link rel="index" title="Index"
+              href="../../genindex.html"/>
+        <link rel="search" title="Search" href="../../search.html"/>
+    <link rel="top" title="MLflow 2.17.1.dev0 documentation" href="../../index.html"/>
+        <link rel="up" title="Module code" href="../index.html"/> 
+
+  
+  <script src="../../_static/js/modernizr.min.js"></script>
+
+</head>
+<script type="text/javascript" src="../../_static/jquery.js"></script>
+<script type="text/javascript" src="../../_static/underscore.js"></script>
+<script type="text/javascript" src="../../_static/doctools.js"></script>
+<script type="text/javascript" src="../../_static/tabs.js"></script>
+<script type="text/javascript" src="../../_static/languagesections.js"></script>
+<script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+<script type="text/javascript" src="../../_static/runllm.js"></script>
+
+<body class="wy-body-for-nav" role="document">
+  
+
+  
+  <nav class="wy-nav-top header" role="navigation" aria-label="top navigation">
+    <ul>
+  <li class="menu-toggle">
+    <i data-toggle="wy-nav-top" class="wy-nav-top-menu-button db-icon db-icon-menu pull-left"></i>
+    <a href="../../index.html" class="wy-nav-top-logo"
+      ><img src="../../_static/MLflow-logo-final-black.png" alt="MLflow"
+    /></a>
+    <span class="version">2.17.1.dev0</span>
+  </li>
+</ul>
+  </nav>
+  <page>
+    
+
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side relative">
+      <div class="wy-side-scroll">
+  <div class="wy-side-nav-search">
+    
+
+    
+
+    
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+  <input type="text" name="q" placeholder="Search" />
+  <input type="hidden" name="check_keywords" value="yes" />
+  <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+
+    
+  </div>
+
+  <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+    
+      <a href="../../index.html" class="main-navigation-home"><img src="../../_static/icons/nav-home.svg"> MLflow</a>
+    
+
+    
+      
+
+      
+        <ul>
+<li class="toctree-l1"><a class="reference internal" href="../../python_api/index.html">Python API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../cli.html">Command-Line Interface</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../R-api.html">R API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../java_api/index.html">Java API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../rest-api.html">REST API</a></li>
+</ul>
+
+      
+    
+  </div>
+
+  <div role="contentinfo">
+    
+
+    <p>
+      <a id='feedbacklink' href="https://github.com/mlflow/mlflow/blob/master/CONTRIBUTING.md" target="_blank">Contribute</a>
+    </p>
+  </div>
+</div>
+    </nav>
+
+    <main class="wy-grid-for-nav">
+      <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+        <div class="wy-nav-content">
+          <div class="rst-content">
+            
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href="../../index.html">Documentation</a> <span class="db-icon db-icon-chevron-right"></span></li>
+    
+        <li><a href="../index.html">Module code</a> <span class="db-icon db-icon-chevron-right"></span></li>
+    
+    
+      <li>mlflow.diviner</li>
+    
+    
+    <!-- <li class="wy-breadcrumbs-aside">
+      <a href="https://github.com/mlflow/mlflow/blob/master/docs/source/_modules/mlflow/diviner" class="fa fa-github"> Edit on GitHub</a>
+    </li> -->
+    
+  </ul>
+</div>
+            <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+              <div itemprop="articleBody">
+                
+  <h1>Source code for mlflow.diviner</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">The ``mlflow.diviner`` module provides an API for logging, saving and loading ``diviner`` models.</span>
+<span class="sd">Diviner wraps several popular open source time series forecasting libraries in a unified API that</span>
+<span class="sd">permits training, back-testing cross validation, and forecasting inference for groups of related</span>
+<span class="sd">series.</span>
+<span class="sd">This module exports groups of univariate ``diviner`` models in the following formats:</span>
+
+<span class="sd">Diviner format</span>
+<span class="sd">    Serialized instance of a ``diviner`` model type using native diviner serializers.</span>
+<span class="sd">    (e.g., &quot;GroupedProphet&quot; or &quot;GroupedPmdarima&quot;)</span>
+<span class="sd">:py:mod:`mlflow.pyfunc`</span>
+<span class="sd">    Produced for use by generic pyfunc-based deployment tools and for batch auditing</span>
+<span class="sd">    of historical forecasts.</span>
+
+<span class="sd">.. _Diviner:</span>
+<span class="sd">    https://databricks-diviner.readthedocs.io/en/latest/index.html</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">import</span> <span class="nn">logging</span>
+<span class="kn">import</span> <span class="nn">os</span>
+<span class="kn">import</span> <span class="nn">pathlib</span>
+<span class="kn">import</span> <span class="nn">shutil</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Tuple</span>
+
+<span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
+<span class="kn">import</span> <span class="nn">yaml</span>
+
+<span class="kn">import</span> <span class="nn">mlflow</span>
+<span class="kn">from</span> <span class="nn">mlflow</span> <span class="kn">import</span> <span class="n">pyfunc</span>
+<span class="kn">from</span> <span class="nn">mlflow.environment_variables</span> <span class="kn">import</span> <span class="n">MLFLOW_DFS_TMP</span>
+<span class="kn">from</span> <span class="nn">mlflow.exceptions</span> <span class="kn">import</span> <span class="n">MlflowException</span>
+<span class="kn">from</span> <span class="nn">mlflow.models</span> <span class="kn">import</span> <span class="n">Model</span><span class="p">,</span> <span class="n">ModelInputExample</span><span class="p">,</span> <span class="n">ModelSignature</span>
+<span class="kn">from</span> <span class="nn">mlflow.models.model</span> <span class="kn">import</span> <span class="n">MLMODEL_FILE_NAME</span>
+<span class="kn">from</span> <span class="nn">mlflow.models.signature</span> <span class="kn">import</span> <span class="n">_infer_signature_from_input_example</span>
+<span class="kn">from</span> <span class="nn">mlflow.models.utils</span> <span class="kn">import</span> <span class="n">_save_example</span>
+<span class="kn">from</span> <span class="nn">mlflow.protos.databricks_pb2</span> <span class="kn">import</span> <span class="n">INVALID_PARAMETER_VALUE</span>
+<span class="kn">from</span> <span class="nn">mlflow.tracking._model_registry</span> <span class="kn">import</span> <span class="n">DEFAULT_AWAIT_MAX_SLEEP_SECONDS</span>
+<span class="kn">from</span> <span class="nn">mlflow.tracking.artifact_utils</span> <span class="kn">import</span> <span class="n">_download_artifact_from_uri</span>
+<span class="kn">from</span> <span class="nn">mlflow.utils.docstring_utils</span> <span class="kn">import</span> <span class="n">LOG_MODEL_PARAM_DOCS</span><span class="p">,</span> <span class="n">format_docstring</span>
+<span class="kn">from</span> <span class="nn">mlflow.utils.environment</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">_CONDA_ENV_FILE_NAME</span><span class="p">,</span>
+    <span class="n">_CONSTRAINTS_FILE_NAME</span><span class="p">,</span>
+    <span class="n">_PYTHON_ENV_FILE_NAME</span><span class="p">,</span>
+    <span class="n">_REQUIREMENTS_FILE_NAME</span><span class="p">,</span>
+    <span class="n">_mlflow_conda_env</span><span class="p">,</span>
+    <span class="n">_process_conda_env</span><span class="p">,</span>
+    <span class="n">_process_pip_requirements</span><span class="p">,</span>
+    <span class="n">_PythonEnv</span><span class="p">,</span>
+    <span class="n">_validate_env_arguments</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">mlflow.utils.file_utils</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">get_total_file_size</span><span class="p">,</span>
+    <span class="n">shutil_copytree_without_file_permissions</span><span class="p">,</span>
+    <span class="n">write_to</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">mlflow.utils.model_utils</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">_add_code_from_conf_to_system_path</span><span class="p">,</span>
+    <span class="n">_get_flavor_configuration</span><span class="p">,</span>
+    <span class="n">_get_flavor_configuration_from_uri</span><span class="p">,</span>
+    <span class="n">_validate_and_copy_code_paths</span><span class="p">,</span>
+    <span class="n">_validate_and_prepare_target_save_path</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">mlflow.utils.requirements_utils</span> <span class="kn">import</span> <span class="n">_get_pinned_requirement</span>
+<span class="kn">from</span> <span class="nn">mlflow.utils.uri</span> <span class="kn">import</span> <span class="n">dbfs_hdfs_uri_to_fuse_path</span><span class="p">,</span> <span class="n">generate_tmp_dfs_path</span>
+
+<span class="n">FLAVOR_NAME</span> <span class="o">=</span> <span class="s2">&quot;diviner&quot;</span>
+<span class="n">_MODEL_BINARY_KEY</span> <span class="o">=</span> <span class="s2">&quot;data&quot;</span>
+<span class="n">_MODEL_BINARY_FILE_NAME</span> <span class="o">=</span> <span class="s2">&quot;model.div&quot;</span>
+<span class="n">_MODEL_TYPE_KEY</span> <span class="o">=</span> <span class="s2">&quot;model_type&quot;</span>
+<span class="n">_FLAVOR_KEY</span> <span class="o">=</span> <span class="s2">&quot;flavors&quot;</span>
+<span class="n">_SPARK_MODEL_INDICATOR</span> <span class="o">=</span> <span class="s2">&quot;fit_with_spark&quot;</span>
+
+<span class="n">_logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
+
+
+<div class="viewcode-block" id="get_default_pip_requirements"><a class="viewcode-back" href="../../python_api/mlflow.diviner.html#mlflow.diviner.get_default_pip_requirements">[docs]</a><span class="k">def</span> <span class="nf">get_default_pip_requirements</span><span class="p">():</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Returns:</span>
+<span class="sd">        A list of default pip requirements for MLflow Models produced with the ``Diviner``</span>
+<span class="sd">        flavor. Calls to :py:func:`save_model()` and :py:func:`log_model()` produce a pip</span>
+<span class="sd">        environment that, at a minimum, contains these requirements.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="p">[</span><span class="n">_get_pinned_requirement</span><span class="p">(</span><span class="s2">&quot;diviner&quot;</span><span class="p">)]</span></div>
+
+
+<div class="viewcode-block" id="get_default_conda_env"><a class="viewcode-back" href="../../python_api/mlflow.diviner.html#mlflow.diviner.get_default_conda_env">[docs]</a><span class="k">def</span> <span class="nf">get_default_conda_env</span><span class="p">():</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Returns:</span>
+<span class="sd">        The default Conda environment for MLflow Models produced with the ``Diviner`` flavor</span>
+<span class="sd">        that is produced by calls to :py:func:`save_model()` and :py:func:`log_model()`.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">_mlflow_conda_env</span><span class="p">(</span><span class="n">additional_pip_deps</span><span class="o">=</span><span class="n">get_default_pip_requirements</span><span class="p">())</span></div>
+
+
+<div class="viewcode-block" id="save_model"><a class="viewcode-back" href="../../python_api/mlflow.diviner.html#mlflow.diviner.save_model">[docs]</a><span class="nd">@format_docstring</span><span class="p">(</span><span class="n">LOG_MODEL_PARAM_DOCS</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">package_name</span><span class="o">=</span><span class="n">FLAVOR_NAME</span><span class="p">))</span>
+<span class="k">def</span> <span class="nf">save_model</span><span class="p">(</span>
+    <span class="n">diviner_model</span><span class="p">,</span>
+    <span class="n">path</span><span class="p">,</span>
+    <span class="n">conda_env</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">code_paths</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">mlflow_model</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">signature</span><span class="p">:</span> <span class="n">ModelSignature</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">input_example</span><span class="p">:</span> <span class="n">ModelInputExample</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">pip_requirements</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">extra_pip_requirements</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">metadata</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="o">**</span><span class="n">kwargs</span><span class="p">,</span>
+<span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Save a ``Diviner`` model object to a path on the local file system.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        diviner_model: ``Diviner`` model that has been ``fit`` on a grouped temporal</span>
+<span class="sd">            ``DataFrame``.</span>
+<span class="sd">        path: Local path destination for the serialized model is to be saved.</span>
+<span class="sd">        conda_env: {{ conda_env }}</span>
+<span class="sd">        code_paths: {{ code_paths }}</span>
+<span class="sd">        mlflow_model: :py:mod:`mlflow.models.Model` the flavor that this model is being added to.</span>
+<span class="sd">        signature: :py:class:`Model Signature &lt;mlflow.models.ModelSignature&gt;` describes model</span>
+<span class="sd">            input and output :py:class:`Schema &lt;mlflow.types.Schema&gt;`. The model</span>
+<span class="sd">            signature can be :py:func:`inferred &lt;mlflow.models.infer_signature&gt;`</span>
+<span class="sd">            from datasets with valid model input (e.g. the training dataset with target</span>
+<span class="sd">            column omitted) and valid model output (e.g. model predictions generated on</span>
+<span class="sd">            the training dataset), for example:</span>
+
+<span class="sd">            .. code-block:: python</span>
+
+<span class="sd">                from mlflow.models import infer_signature</span>
+
+<span class="sd">                model = diviner.GroupedProphet().fit(data, (&quot;region&quot;, &quot;state&quot;))</span>
+<span class="sd">                predictions = model.predict(prediction_config)</span>
+<span class="sd">                signature = infer_signature(data, predictions)</span>
+
+<span class="sd">        input_example: {{ input_example }}</span>
+<span class="sd">        pip_requirements: {{ pip_requirements }}</span>
+<span class="sd">        extra_pip_requirements: {{ extra_pip_requirements }}</span>
+<span class="sd">        metadata: {{ metadata }}</span>
+<span class="sd">        kwargs: Optional configurations for Spark DataFrame storage iff the model has</span>
+<span class="sd">            been fit in Spark.</span>
+<span class="sd">            Current supported options:</span>
+<span class="sd">            - `partition_by` for setting a (or several) partition columns as a list of \</span>
+<span class="sd">            column names. Must be a list of strings of grouping key column(s).</span>
+<span class="sd">            - `partition_count` for setting the number of part files to write from a \</span>
+<span class="sd">            repartition per `partition_by` group. The default part file count is 200.</span>
+<span class="sd">            - `dfs_tmpdir` for specifying the DFS temporary location where the model will \</span>
+<span class="sd">            be stored while copying from a local file system to a Spark-supported &quot;dbfs:/&quot; \</span>
+<span class="sd">            scheme.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="kn">import</span> <span class="nn">diviner</span>
+
+    <span class="n">_validate_env_arguments</span><span class="p">(</span><span class="n">conda_env</span><span class="p">,</span> <span class="n">pip_requirements</span><span class="p">,</span> <span class="n">extra_pip_requirements</span><span class="p">)</span>
+
+    <span class="n">path</span> <span class="o">=</span> <span class="n">pathlib</span><span class="o">.</span><span class="n">Path</span><span class="p">(</span><span class="n">path</span><span class="p">)</span><span class="o">.</span><span class="n">absolute</span><span class="p">()</span>
+
+    <span class="n">_validate_and_prepare_target_save_path</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">path</span><span class="p">))</span>
+
+    <span class="c1"># NB: When moving to native pathlib implementations, path encoding as string will not be needed.</span>
+    <span class="n">code_dir_subpath</span> <span class="o">=</span> <span class="n">_validate_and_copy_code_paths</span><span class="p">(</span><span class="n">code_paths</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">path</span><span class="p">))</span>
+
+    <span class="k">if</span> <span class="n">mlflow_model</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">mlflow_model</span> <span class="o">=</span> <span class="n">Model</span><span class="p">()</span>
+    <span class="n">saved_example</span> <span class="o">=</span> <span class="n">_save_example</span><span class="p">(</span><span class="n">mlflow_model</span><span class="p">,</span> <span class="n">input_example</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">path</span><span class="p">))</span>
+    <span class="k">if</span> <span class="n">signature</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">saved_example</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">wrapped_model</span> <span class="o">=</span> <span class="n">_DivinerModelWrapper</span><span class="p">(</span><span class="n">diviner_model</span><span class="p">)</span>
+        <span class="n">signature</span> <span class="o">=</span> <span class="n">_infer_signature_from_input_example</span><span class="p">(</span><span class="n">saved_example</span><span class="p">,</span> <span class="n">wrapped_model</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">signature</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">mlflow_model</span><span class="o">.</span><span class="n">signature</span> <span class="o">=</span> <span class="n">signature</span>
+    <span class="k">if</span> <span class="n">metadata</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">mlflow_model</span><span class="o">.</span><span class="n">metadata</span> <span class="o">=</span> <span class="n">metadata</span>
+
+    <span class="n">fit_with_spark</span> <span class="o">=</span> <span class="n">_save_diviner_model</span><span class="p">(</span><span class="n">diviner_model</span><span class="p">,</span> <span class="n">path</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+    <span class="n">flavor_conf</span> <span class="o">=</span> <span class="p">{</span><span class="n">_SPARK_MODEL_INDICATOR</span><span class="p">:</span> <span class="n">fit_with_spark</span><span class="p">}</span>
+
+    <span class="n">model_bin_kwargs</span> <span class="o">=</span> <span class="p">{</span><span class="n">_MODEL_BINARY_KEY</span><span class="p">:</span> <span class="n">_MODEL_BINARY_FILE_NAME</span><span class="p">}</span>
+    <span class="n">pyfunc</span><span class="o">.</span><span class="n">add_to_model</span><span class="p">(</span>
+        <span class="n">mlflow_model</span><span class="p">,</span>
+        <span class="n">loader_module</span><span class="o">=</span><span class="s2">&quot;mlflow.diviner&quot;</span><span class="p">,</span>
+        <span class="n">conda_env</span><span class="o">=</span><span class="n">_CONDA_ENV_FILE_NAME</span><span class="p">,</span>
+        <span class="n">python_env</span><span class="o">=</span><span class="n">_PYTHON_ENV_FILE_NAME</span><span class="p">,</span>
+        <span class="n">code</span><span class="o">=</span><span class="n">code_dir_subpath</span><span class="p">,</span>
+        <span class="o">**</span><span class="n">model_bin_kwargs</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">flavor_conf</span><span class="o">.</span><span class="n">update</span><span class="p">({</span><span class="n">_MODEL_TYPE_KEY</span><span class="p">:</span> <span class="n">diviner_model</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="p">},</span> <span class="o">**</span><span class="n">model_bin_kwargs</span><span class="p">)</span>
+    <span class="n">mlflow_model</span><span class="o">.</span><span class="n">add_flavor</span><span class="p">(</span>
+        <span class="n">FLAVOR_NAME</span><span class="p">,</span> <span class="n">diviner_version</span><span class="o">=</span><span class="n">diviner</span><span class="o">.</span><span class="n">__version__</span><span class="p">,</span> <span class="n">code</span><span class="o">=</span><span class="n">code_dir_subpath</span><span class="p">,</span> <span class="o">**</span><span class="n">flavor_conf</span>
+    <span class="p">)</span>
+    <span class="k">if</span> <span class="n">size</span> <span class="o">:=</span> <span class="n">get_total_file_size</span><span class="p">(</span><span class="n">path</span><span class="p">):</span>
+        <span class="n">mlflow_model</span><span class="o">.</span><span class="n">model_size_bytes</span> <span class="o">=</span> <span class="n">size</span>
+    <span class="n">mlflow_model</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">path</span><span class="o">.</span><span class="n">joinpath</span><span class="p">(</span><span class="n">MLMODEL_FILE_NAME</span><span class="p">)))</span>
+
+    <span class="k">if</span> <span class="n">conda_env</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">pip_requirements</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">default_reqs</span> <span class="o">=</span> <span class="n">get_default_pip_requirements</span><span class="p">()</span>
+            <span class="n">inferred_reqs</span> <span class="o">=</span> <span class="n">mlflow</span><span class="o">.</span><span class="n">models</span><span class="o">.</span><span class="n">infer_pip_requirements</span><span class="p">(</span>
+                <span class="nb">str</span><span class="p">(</span><span class="n">path</span><span class="p">),</span> <span class="n">FLAVOR_NAME</span><span class="p">,</span> <span class="n">fallback</span><span class="o">=</span><span class="n">default_reqs</span>
+            <span class="p">)</span>
+            <span class="n">default_reqs</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">inferred_reqs</span><span class="p">)</span><span class="o">.</span><span class="n">union</span><span class="p">(</span><span class="n">default_reqs</span><span class="p">))</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">default_reqs</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="n">conda_env</span><span class="p">,</span> <span class="n">pip_requirements</span><span class="p">,</span> <span class="n">pip_constraints</span> <span class="o">=</span> <span class="n">_process_pip_requirements</span><span class="p">(</span>
+            <span class="n">default_reqs</span><span class="p">,</span> <span class="n">pip_requirements</span><span class="p">,</span> <span class="n">extra_pip_requirements</span>
+        <span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">conda_env</span><span class="p">,</span> <span class="n">pip_requirements</span><span class="p">,</span> <span class="n">pip_constraints</span> <span class="o">=</span> <span class="n">_process_conda_env</span><span class="p">(</span><span class="n">conda_env</span><span class="p">)</span>
+
+    <span class="k">with</span> <span class="n">path</span><span class="o">.</span><span class="n">joinpath</span><span class="p">(</span><span class="n">_CONDA_ENV_FILE_NAME</span><span class="p">)</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="s2">&quot;w&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+        <span class="n">yaml</span><span class="o">.</span><span class="n">safe_dump</span><span class="p">(</span><span class="n">conda_env</span><span class="p">,</span> <span class="n">stream</span><span class="o">=</span><span class="n">f</span><span class="p">,</span> <span class="n">default_flow_style</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">pip_constraints</span><span class="p">:</span>
+        <span class="n">write_to</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">path</span><span class="o">.</span><span class="n">joinpath</span><span class="p">(</span><span class="n">_CONSTRAINTS_FILE_NAME</span><span class="p">)),</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">pip_constraints</span><span class="p">))</span>
+
+    <span class="n">write_to</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">path</span><span class="o">.</span><span class="n">joinpath</span><span class="p">(</span><span class="n">_REQUIREMENTS_FILE_NAME</span><span class="p">)),</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">pip_requirements</span><span class="p">))</span>
+
+    <span class="n">_PythonEnv</span><span class="o">.</span><span class="n">current</span><span class="p">()</span><span class="o">.</span><span class="n">to_yaml</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">path</span><span class="o">.</span><span class="n">joinpath</span><span class="p">(</span><span class="n">_PYTHON_ENV_FILE_NAME</span><span class="p">)))</span></div>
+
+
+<span class="k">def</span> <span class="nf">_save_diviner_model</span><span class="p">(</span><span class="n">diviner_model</span><span class="p">,</span> <span class="n">path</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Saves a Diviner model to the specified path. If the model was fit by using a Pandas DataFrame</span>
+<span class="sd">    for the training data submitted to `fit`, directly save the Diviner model object.</span>
+<span class="sd">    If the Diviner model was fit by using a Spark DataFrame, save the model components separately.</span>
+<span class="sd">    The metadata and ancillary files to write (JSON and Pandas DataFrames) are written directly</span>
+<span class="sd">    to a fuse mount location, which the Spark DataFrame that contains the individual serialized</span>
+<span class="sd">    Diviner model objects is written by using the &#39;dbfs:&#39; scheme path that Spark recognizes.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">save_path</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">path</span><span class="o">.</span><span class="n">joinpath</span><span class="p">(</span><span class="n">_MODEL_BINARY_FILE_NAME</span><span class="p">))</span>
+
+    <span class="k">if</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">diviner_model</span><span class="p">,</span> <span class="s2">&quot;_fit_with_spark&quot;</span><span class="p">,</span> <span class="kc">False</span><span class="p">):</span>
+        <span class="c1"># Validate that the path is a relative path early in order to fail fast prior to attempting</span>
+        <span class="c1"># to write the (large) DataFrame to a tmp DFS path first and raise a path validation</span>
+        <span class="c1"># Exception within MLflow when attempting to copy the temporary write files from DFS to</span>
+        <span class="c1"># the file system path provided.</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">isabs</span><span class="p">(</span><span class="n">path</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="n">MlflowException</span><span class="p">(</span>
+                <span class="s2">&quot;The save path provided must be a relative path. &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;The path submitted, &#39;</span><span class="si">{</span><span class="n">path</span><span class="si">}</span><span class="s2">&#39; is an absolute path.&quot;</span>
+            <span class="p">)</span>
+
+        <span class="c1"># Create a temporary DFS location to write the Spark DataFrame containing the models to.</span>
+        <span class="n">tmp_path</span> <span class="o">=</span> <span class="n">generate_tmp_dfs_path</span><span class="p">(</span><span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;dfs_tmpdir&quot;</span><span class="p">,</span> <span class="n">MLFLOW_DFS_TMP</span><span class="o">.</span><span class="n">get</span><span class="p">()))</span>
+
+        <span class="c1"># Save the model Spark DataFrame to the temporary DFS location</span>
+        <span class="n">diviner_model</span><span class="o">.</span><span class="n">_save_model_df_to_path</span><span class="p">(</span><span class="n">tmp_path</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+
+        <span class="n">diviner_data_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="n">save_path</span><span class="p">)</span>
+
+        <span class="n">tmp_fuse_path</span> <span class="o">=</span> <span class="n">dbfs_hdfs_uri_to_fuse_path</span><span class="p">(</span><span class="n">tmp_path</span><span class="p">)</span>
+        <span class="n">shutil</span><span class="o">.</span><span class="n">move</span><span class="p">(</span><span class="n">src</span><span class="o">=</span><span class="n">tmp_fuse_path</span><span class="p">,</span> <span class="n">dst</span><span class="o">=</span><span class="n">diviner_data_path</span><span class="p">)</span>
+
+        <span class="c1"># Save the model metadata to the path location</span>
+        <span class="n">diviner_model</span><span class="o">.</span><span class="n">_save_model_metadata_components_to_path</span><span class="p">(</span><span class="n">path</span><span class="o">=</span><span class="n">diviner_data_path</span><span class="p">)</span>
+        <span class="k">return</span> <span class="kc">True</span>
+    <span class="n">diviner_model</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="n">save_path</span><span class="p">)</span>
+    <span class="k">return</span> <span class="kc">False</span>
+
+
+<span class="k">def</span> <span class="nf">_load_model_fit_in_spark</span><span class="p">(</span><span class="n">local_model_path</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">flavor_conf</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Loads a Diviner model that has been fit (and saved) in the Spark variant.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># NB: To load the model DataFrame (which is a Spark DataFrame), Spark requires that the file</span>
+    <span class="c1"># partitions are in DFS. In order to facilitate this, the model DataFrame (saved as parquet)</span>
+    <span class="c1"># will be copied to a temporary DFS location. The remaining files can be read directly from</span>
+    <span class="c1"># the local file system path, which is handled within the Diviner APIs.</span>
+    <span class="kn">import</span> <span class="nn">diviner</span>
+
+    <span class="n">dfs_temp_directory</span> <span class="o">=</span> <span class="n">generate_tmp_dfs_path</span><span class="p">(</span><span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;dfs_tmpdir&quot;</span><span class="p">,</span> <span class="n">MLFLOW_DFS_TMP</span><span class="o">.</span><span class="n">get</span><span class="p">()))</span>
+    <span class="n">dfs_fuse_directory</span> <span class="o">=</span> <span class="n">dbfs_hdfs_uri_to_fuse_path</span><span class="p">(</span><span class="n">dfs_temp_directory</span><span class="p">)</span>
+    <span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="n">dfs_fuse_directory</span><span class="p">)</span>
+    <span class="n">shutil_copytree_without_file_permissions</span><span class="p">(</span><span class="n">src_dir</span><span class="o">=</span><span class="n">local_model_path</span><span class="p">,</span> <span class="n">dst_dir</span><span class="o">=</span><span class="n">dfs_fuse_directory</span><span class="p">)</span>
+
+    <span class="n">diviner_instance</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">diviner</span><span class="p">,</span> <span class="n">flavor_conf</span><span class="p">[</span><span class="n">_MODEL_TYPE_KEY</span><span class="p">])</span>
+    <span class="n">load_directory</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">dfs_fuse_directory</span><span class="p">,</span> <span class="n">flavor_conf</span><span class="p">[</span><span class="n">_MODEL_BINARY_KEY</span><span class="p">])</span>
+
+    <span class="k">return</span> <span class="n">diviner_instance</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">load_directory</span><span class="p">)</span>
+
+
+<div class="viewcode-block" id="load_model"><a class="viewcode-back" href="../../python_api/mlflow.diviner.html#mlflow.diviner.load_model">[docs]</a><span class="k">def</span> <span class="nf">load_model</span><span class="p">(</span><span class="n">model_uri</span><span class="p">,</span> <span class="n">dst_path</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Load a ``Diviner`` object from a local file or a run.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        model_uri: The location, in URI format, of the MLflow model. For example:</span>
+
+<span class="sd">            - ``/Users/me/path/to/local/model``</span>
+<span class="sd">            - ``relative/path/to/local/model``</span>
+<span class="sd">            - ``s3://my_bucket/path/to/model``</span>
+<span class="sd">            - ``runs:/&lt;mlflow_run_id&gt;/run-relative/path/to/model``</span>
+<span class="sd">            - ``mlflow-artifacts:/path/to/model``</span>
+
+<span class="sd">            For more information about supported URI schemes, see</span>
+<span class="sd">            `Referencing Artifacts &lt;https://www.mlflow.org/docs/latest/tracking.html#</span>
+<span class="sd">            artifact-locations&gt;`_.</span>
+<span class="sd">        dst_path: The local filesystem path to which to download the model artifact.</span>
+<span class="sd">            This directory must already exist if provided. If unspecified, a local output</span>
+<span class="sd">            path will be created.</span>
+<span class="sd">        kwargs: Optional configuration options for loading of a Diviner model. For models</span>
+<span class="sd">            that have been fit and saved using Spark, if a specific DFS temporary directory</span>
+<span class="sd">            is desired for loading of Diviner models, use the keyword argument</span>
+<span class="sd">            `&quot;dfs_tmpdir&quot;` to define the loading temporary path for the model during loading.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        A ``Diviner`` model instance.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">model_uri</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">model_uri</span><span class="p">)</span>
+
+    <span class="n">flavor_conf</span> <span class="o">=</span> <span class="n">_get_flavor_configuration_from_uri</span><span class="p">(</span><span class="n">model_uri</span><span class="p">,</span> <span class="n">FLAVOR_NAME</span><span class="p">,</span> <span class="n">_logger</span><span class="p">)</span>
+
+    <span class="n">local_model_path</span> <span class="o">=</span> <span class="n">_download_artifact_from_uri</span><span class="p">(</span><span class="n">artifact_uri</span><span class="o">=</span><span class="n">model_uri</span><span class="p">,</span> <span class="n">output_path</span><span class="o">=</span><span class="n">dst_path</span><span class="p">)</span>
+
+    <span class="n">_add_code_from_conf_to_system_path</span><span class="p">(</span><span class="n">local_model_path</span><span class="p">,</span> <span class="n">flavor_conf</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">flavor_conf</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">_SPARK_MODEL_INDICATOR</span><span class="p">,</span> <span class="kc">False</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">_load_model_fit_in_spark</span><span class="p">(</span><span class="n">local_model_path</span><span class="p">,</span> <span class="n">flavor_conf</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">_load_model</span><span class="p">(</span><span class="n">local_model_path</span><span class="p">,</span> <span class="n">flavor_conf</span><span class="p">)</span></div>
+
+
+<span class="k">def</span> <span class="nf">_load_model</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">flavor_conf</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Loads a Diviner model instance that was not fit using Spark from a file system location.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="kn">import</span> <span class="nn">diviner</span>
+
+    <span class="n">local_path</span> <span class="o">=</span> <span class="n">pathlib</span><span class="o">.</span><span class="n">Path</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
+
+    <span class="n">diviner_model_path</span> <span class="o">=</span> <span class="n">local_path</span><span class="o">.</span><span class="n">joinpath</span><span class="p">(</span>
+        <span class="n">flavor_conf</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">_MODEL_BINARY_KEY</span><span class="p">,</span> <span class="n">_MODEL_BINARY_FILE_NAME</span><span class="p">)</span>
+    <span class="p">)</span>
+
+    <span class="n">diviner_instance</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">diviner</span><span class="p">,</span> <span class="n">flavor_conf</span><span class="p">[</span><span class="n">_MODEL_TYPE_KEY</span><span class="p">])</span>
+    <span class="k">return</span> <span class="n">diviner_instance</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">diviner_model_path</span><span class="p">))</span>
+
+
+<span class="k">def</span> <span class="nf">_load_pyfunc</span><span class="p">(</span><span class="n">path</span><span class="p">):</span>
+    <span class="n">local_path</span> <span class="o">=</span> <span class="n">pathlib</span><span class="o">.</span><span class="n">Path</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
+
+    <span class="c1"># NB: reverting the dir walk that happens with pyfunc&#39;s loading implementation</span>
+    <span class="k">if</span> <span class="n">local_path</span><span class="o">.</span><span class="n">is_file</span><span class="p">():</span>
+        <span class="n">local_path</span> <span class="o">=</span> <span class="n">local_path</span><span class="o">.</span><span class="n">parent</span>
+
+    <span class="n">flavor_conf</span> <span class="o">=</span> <span class="n">_get_flavor_configuration</span><span class="p">(</span><span class="n">local_path</span><span class="p">,</span> <span class="n">FLAVOR_NAME</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">flavor_conf</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">_SPARK_MODEL_INDICATOR</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="n">MlflowException</span><span class="p">(</span>
+            <span class="s2">&quot;The model being loaded was fit in Spark. Diviner models fit in &quot;</span>
+            <span class="s2">&quot;Spark do not support loading as pyfunc.&quot;</span>
+        <span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">_DivinerModelWrapper</span><span class="p">(</span><span class="n">_load_model</span><span class="p">(</span><span class="n">local_path</span><span class="p">,</span> <span class="n">flavor_conf</span><span class="p">))</span>
+
+
+<div class="viewcode-block" id="log_model"><a class="viewcode-back" href="../../python_api/mlflow.diviner.html#mlflow.diviner.log_model">[docs]</a><span class="nd">@format_docstring</span><span class="p">(</span><span class="n">LOG_MODEL_PARAM_DOCS</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">package_name</span><span class="o">=</span><span class="n">FLAVOR_NAME</span><span class="p">))</span>
+<span class="k">def</span> <span class="nf">log_model</span><span class="p">(</span>
+    <span class="n">diviner_model</span><span class="p">,</span>
+    <span class="n">artifact_path</span><span class="p">,</span>
+    <span class="n">conda_env</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">code_paths</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">registered_model_name</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">signature</span><span class="p">:</span> <span class="n">ModelSignature</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">input_example</span><span class="p">:</span> <span class="n">ModelInputExample</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">await_registration_for</span><span class="o">=</span><span class="n">DEFAULT_AWAIT_MAX_SLEEP_SECONDS</span><span class="p">,</span>
+    <span class="n">pip_requirements</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">extra_pip_requirements</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">metadata</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="o">**</span><span class="n">kwargs</span><span class="p">,</span>
+<span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Log a ``Diviner`` object as an MLflow artifact for the current run.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        diviner_model: ``Diviner`` model that has been ``fit`` on a grouped temporal ``DataFrame``.</span>
+<span class="sd">        artifact_path: Run-relative artifact path to save the model instance to.</span>
+<span class="sd">        conda_env: {{ conda_env }}</span>
+<span class="sd">        code_paths: {{ code_paths }}</span>
+<span class="sd">        registered_model_name: This argument may change or be removed in a</span>
+<span class="sd">            future release without warning. If given, create a model</span>
+<span class="sd">            version under ``registered_model_name``, also creating a</span>
+<span class="sd">            registered model if one with the given name does not exist.</span>
+<span class="sd">        signature: :py:class:`Model Signature &lt;mlflow.models.ModelSignature&gt;` describes model</span>
+<span class="sd">            input and output :py:class:`Schema &lt;mlflow.types.Schema&gt;`. The model</span>
+<span class="sd">            signature can be :py:func:`inferred &lt;mlflow.models.infer_signature&gt;`</span>
+<span class="sd">            from datasets with valid model input (e.g. the training dataset with target</span>
+<span class="sd">            column omitted) and valid model output (e.g. model predictions generated on</span>
+<span class="sd">            the training dataset), for example:</span>
+
+<span class="sd">            .. code-block:: python</span>
+<span class="sd">              :caption: Example</span>
+
+<span class="sd">              from mlflow.models import infer_signature</span>
+
+<span class="sd">              auto_arima_obj = AutoARIMA(out_of_sample_size=60, maxiter=100)</span>
+<span class="sd">              base_auto_arima = GroupedPmdarima(model_template=auto_arima_obj).fit(</span>
+<span class="sd">                  df=training_data,</span>
+<span class="sd">                  group_key_columns=(&quot;region&quot;, &quot;state&quot;),</span>
+<span class="sd">                  y_col=&quot;y&quot;,</span>
+<span class="sd">                  datetime_col=&quot;ds&quot;,</span>
+<span class="sd">                  silence_warnings=True,</span>
+<span class="sd">              )</span>
+<span class="sd">              predictions = model.predict(n_periods=30, alpha=0.05, return_conf_int=True)</span>
+<span class="sd">              signature = infer_signature(data, predictions)</span>
+
+<span class="sd">        input_example: {{ input_example }}</span>
+<span class="sd">        await_registration_for: Number of seconds to wait for the model version</span>
+<span class="sd">            to finish being created and is in ``READY`` status.</span>
+<span class="sd">            By default, the function waits for five minutes.</span>
+<span class="sd">            Specify 0 or None to skip waiting.</span>
+<span class="sd">        pip_requirements: {{ pip_requirements }}</span>
+<span class="sd">        extra_pip_requirements: {{ extra_pip_requirements }}</span>
+<span class="sd">        metadata: {{ metadata }}</span>
+<span class="sd">        kwargs: Additional arguments for :py:class:`mlflow.models.model.Model`</span>
+<span class="sd">            Additionally, for models that have been fit in Spark, the following supported</span>
+<span class="sd">            configuration options are available to set.</span>
+<span class="sd">            Current supported options:</span>
+<span class="sd">            - `partition_by` for setting a (or several) partition columns as a list of \</span>
+<span class="sd">            column names. Must be a list of strings of grouping key column(s).</span>
+<span class="sd">            - `partition_count` for setting the number of part files to write from a \</span>
+<span class="sd">            repartition per `partition_by` group. The default part file count is 200.</span>
+<span class="sd">            - `dfs_tmpdir` for specifying the DFS temporary location where the model will \</span>
+<span class="sd">            be stored while copying from a local file system to a Spark-supported &quot;dbfs:/&quot; \</span>
+<span class="sd">            scheme.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        A :py:class:`ModelInfo &lt;mlflow.models.model.ModelInfo&gt;` instance that contains the</span>
+<span class="sd">        metadata of the logged model.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">return</span> <span class="n">Model</span><span class="o">.</span><span class="n">log</span><span class="p">(</span>
+        <span class="n">artifact_path</span><span class="o">=</span><span class="n">artifact_path</span><span class="p">,</span>
+        <span class="n">flavor</span><span class="o">=</span><span class="n">mlflow</span><span class="o">.</span><span class="n">diviner</span><span class="p">,</span>
+        <span class="n">registered_model_name</span><span class="o">=</span><span class="n">registered_model_name</span><span class="p">,</span>
+        <span class="n">diviner_model</span><span class="o">=</span><span class="n">diviner_model</span><span class="p">,</span>
+        <span class="n">conda_env</span><span class="o">=</span><span class="n">conda_env</span><span class="p">,</span>
+        <span class="n">code_paths</span><span class="o">=</span><span class="n">code_paths</span><span class="p">,</span>
+        <span class="n">signature</span><span class="o">=</span><span class="n">signature</span><span class="p">,</span>
+        <span class="n">input_example</span><span class="o">=</span><span class="n">input_example</span><span class="p">,</span>
+        <span class="n">await_registration_for</span><span class="o">=</span><span class="n">await_registration_for</span><span class="p">,</span>
+        <span class="n">pip_requirements</span><span class="o">=</span><span class="n">pip_requirements</span><span class="p">,</span>
+        <span class="n">extra_pip_requirements</span><span class="o">=</span><span class="n">extra_pip_requirements</span><span class="p">,</span>
+        <span class="n">metadata</span><span class="o">=</span><span class="n">metadata</span><span class="p">,</span>
+        <span class="o">**</span><span class="n">kwargs</span><span class="p">,</span>
+    <span class="p">)</span></div>
+
+
+<span class="k">class</span> <span class="nc">_DivinerModelWrapper</span><span class="p">:</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">diviner_model</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">diviner_model</span> <span class="o">=</span> <span class="n">diviner_model</span>
+
+    <span class="k">def</span> <span class="nf">get_raw_model</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Returns the underlying model.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">diviner_model</span>
+
+    <span class="k">def</span> <span class="nf">predict</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dataframe</span><span class="p">,</span> <span class="n">params</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;A method that allows a pyfunc implementation of this flavor to generate forecasted values</span>
+<span class="sd">        from the end of a trained Diviner model&#39;s training series per group.</span>
+
+<span class="sd">        The implementation here encapsulates a config-based switch of method calling. In short:</span>
+<span class="sd">          *  If the ``DataFrame`` supplied to this method contains a column ``groups`` whose</span>
+<span class="sd">             first row of data is of type List[tuple[str]] (containing the series-identifying</span>
+<span class="sd">             group keys that were generated to identify a single underlying model during training),</span>
+<span class="sd">             the caller will resolve to the method ``predict_groups()`` in each of the underlying</span>
+<span class="sd">             wrapped libraries (i.e., ``GroupedProphet.predict_groups()``).</span>
+<span class="sd">          *  If the ``DataFrame`` supplied does not contain the column name ``groups``, then the</span>
+<span class="sd">             specific forecasting method that is primitive-driven (for ``GroupedProphet``, the</span>
+<span class="sd">             ``predict()`` method mirrors that of ``Prophet``&#39;s, requiring a ``DataFrame``</span>
+<span class="sd">             submitted with explicit datetime values per group which is not a tenable</span>
+<span class="sd">             implementation for pyfunc or RESTful serving) is utilized. For ``GroupedProphet``,</span>
+<span class="sd">             this is the ``.forecast()`` method, while for ``GroupedPmdarima``, this is the</span>
+<span class="sd">             ``.predict()`` method.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            dataframe: A ``pandas.DataFrame`` that contains the required configuration for the</span>
+<span class="sd">                appropriate ``Diviner`` type.</span>
+
+<span class="sd">                For example, for ``GroupedProphet.forecast()``:</span>
+
+<span class="sd">                - horizon : int</span>
+<span class="sd">                - frequency: str</span>
+
+<span class="sd">                predict_conf = pd.DataFrame({&quot;horizon&quot;: 30, &quot;frequency&quot;: &quot;D&quot;}, index=[0])</span>
+<span class="sd">                forecast = pyfunc.load_pyfunc(model_uri=model_path).predict(predict_conf)</span>
+
+<span class="sd">                Will generate 30 days of forecasted values for each group that the model</span>
+<span class="sd">                was trained on.</span>
+<span class="sd">            params: Additional parameters to pass to the model for inference.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            A Pandas DataFrame containing the forecasted values for each group key that was</span>
+<span class="sd">            either trained or declared as a subset with a ``groups`` entry in the ``dataframe``</span>
+<span class="sd">            configuration argument.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="kn">from</span> <span class="nn">diviner</span> <span class="kn">import</span> <span class="n">GroupedPmdarima</span><span class="p">,</span> <span class="n">GroupedProphet</span>
+
+        <span class="n">schema</span> <span class="o">=</span> <span class="n">dataframe</span><span class="o">.</span><span class="n">columns</span><span class="o">.</span><span class="n">values</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
+
+        <span class="n">conf</span> <span class="o">=</span> <span class="n">dataframe</span><span class="o">.</span><span class="n">to_dict</span><span class="p">(</span><span class="n">orient</span><span class="o">=</span><span class="s2">&quot;index&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+
+        <span class="c1"># required parameter extraction and validation</span>
+        <span class="n">horizon</span> <span class="o">=</span> <span class="n">conf</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;horizon&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="n">n_periods</span> <span class="o">=</span> <span class="n">conf</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;n_periods&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">n_periods</span> <span class="ow">and</span> <span class="n">horizon</span> <span class="ow">and</span> <span class="n">n_periods</span> <span class="o">!=</span> <span class="n">horizon</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">MlflowException</span><span class="p">(</span>
+                <span class="s2">&quot;The provided prediction configuration contains both `n_periods` and `horizon` &quot;</span>
+                <span class="s2">&quot;with different values. Please provide only one of these integer values.&quot;</span><span class="p">,</span>
+                <span class="n">error_code</span><span class="o">=</span><span class="n">INVALID_PARAMETER_VALUE</span><span class="p">,</span>
+            <span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">n_periods</span> <span class="ow">and</span> <span class="n">horizon</span><span class="p">:</span>
+                <span class="n">n_periods</span> <span class="o">=</span> <span class="n">horizon</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">n_periods</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">MlflowException</span><span class="p">(</span>
+                <span class="s2">&quot;The provided prediction configuration Pandas DataFrame does not contain either &quot;</span>
+                <span class="s2">&quot;the `n_periods` or `horizon` columns. At least one of these must be specified &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;with a valid integer value. Configuration schema: </span><span class="si">{</span><span class="n">schema</span><span class="si">}</span><span class="s2">.&quot;</span><span class="p">,</span>
+                <span class="n">error_code</span><span class="o">=</span><span class="n">INVALID_PARAMETER_VALUE</span><span class="p">,</span>
+            <span class="p">)</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">n_periods</span><span class="p">,</span> <span class="nb">int</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="n">MlflowException</span><span class="p">(</span>
+                <span class="s2">&quot;The `n_periods` column contains invalid data. Supplied type must be an integer. &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;Type supplied: </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">n_periods</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span>
+                <span class="n">error_code</span><span class="o">=</span><span class="n">INVALID_PARAMETER_VALUE</span><span class="p">,</span>
+            <span class="p">)</span>
+
+        <span class="n">frequency</span> <span class="o">=</span> <span class="n">conf</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;frequency&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">diviner_model</span><span class="p">,</span> <span class="n">GroupedProphet</span><span class="p">)</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">frequency</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">MlflowException</span><span class="p">(</span>
+                <span class="s2">&quot;Diviner&#39;s GroupedProphet model requires a `frequency` value to be submitted in &quot;</span>
+                <span class="s2">&quot;Pandas date_range format. The submitted configuration Pandas DataFrame does not &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;contain a `frequency` column. Configuration schema: </span><span class="si">{</span><span class="n">schema</span><span class="si">}</span><span class="s2">.&quot;</span><span class="p">,</span>
+                <span class="n">error_code</span><span class="o">=</span><span class="n">INVALID_PARAMETER_VALUE</span><span class="p">,</span>
+            <span class="p">)</span>
+
+        <span class="n">predict_col</span> <span class="o">=</span> <span class="n">conf</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;predict_col&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="n">predict_groups</span> <span class="o">=</span> <span class="n">conf</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;groups&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">predict_groups</span> <span class="ow">and</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">predict_groups</span><span class="p">,</span> <span class="n">List</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="n">MlflowException</span><span class="p">(</span>
+                <span class="s2">&quot;Specifying a group subset for prediction requires groups to be defined as a &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;[List[(Tuple|List)[&lt;group_keys&gt;]]. Submitted group type: </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">predict_groups</span><span class="p">)</span><span class="si">}</span><span class="s2">.&quot;</span><span class="p">,</span>
+                <span class="n">error_code</span><span class="o">=</span><span class="n">INVALID_PARAMETER_VALUE</span><span class="p">,</span>
+            <span class="p">)</span>
+
+        <span class="c1"># NB: json serialization of a tuple converts the tuple to a List. Diviner requires a</span>
+        <span class="c1"># List of Tuples to be input to the group_prediction API. This conversion is for utilizing</span>
+        <span class="c1"># the pyfunc flavor through the serving API.</span>
+        <span class="k">if</span> <span class="n">predict_groups</span> <span class="ow">and</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">predict_groups</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">Tuple</span><span class="p">):</span>
+            <span class="n">predict_groups</span> <span class="o">=</span> <span class="p">[</span><span class="nb">tuple</span><span class="p">(</span><span class="n">group</span><span class="p">)</span> <span class="k">for</span> <span class="n">group</span> <span class="ow">in</span> <span class="n">predict_groups</span><span class="p">]</span>
+
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">diviner_model</span><span class="p">,</span> <span class="n">GroupedProphet</span><span class="p">):</span>
+            <span class="c1"># We&#39;re wrapping two different endpoints to Diviner here for the pyfunc implementation.</span>
+            <span class="c1"># Since we&#39;re limited by a single endpoint, we can address redirecting to the</span>
+            <span class="c1"># method ``predict_groups()`` which will allow for a subset of groups to be forecasted</span>
+            <span class="c1"># if the prediction configuration DataFrame contains a List[tuple[str]]] in the</span>
+            <span class="c1"># ``groups`` column. If this column is not present, all groups will be used to generate</span>
+            <span class="c1"># forecasts, utilizing the less computationally complex method ``forecast``.</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">predict_groups</span><span class="p">:</span>
+                <span class="n">prediction_df</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">diviner_model</span><span class="o">.</span><span class="n">forecast</span><span class="p">(</span><span class="n">horizon</span><span class="o">=</span><span class="n">n_periods</span><span class="p">,</span> <span class="n">frequency</span><span class="o">=</span><span class="n">frequency</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">group_kwargs</span> <span class="o">=</span> <span class="p">{</span><span class="n">k</span><span class="p">:</span> <span class="n">v</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">conf</span><span class="o">.</span><span class="n">items</span><span class="p">()</span> <span class="k">if</span> <span class="n">k</span> <span class="ow">in</span> <span class="p">{</span><span class="s2">&quot;predict_col&quot;</span><span class="p">,</span> <span class="s2">&quot;on_error&quot;</span><span class="p">}}</span>
+                <span class="n">prediction_df</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">diviner_model</span><span class="o">.</span><span class="n">predict_groups</span><span class="p">(</span>
+                    <span class="n">groups</span><span class="o">=</span><span class="n">predict_groups</span><span class="p">,</span> <span class="n">horizon</span><span class="o">=</span><span class="n">n_periods</span><span class="p">,</span> <span class="n">frequency</span><span class="o">=</span><span class="n">frequency</span><span class="p">,</span> <span class="o">**</span><span class="n">group_kwargs</span>
+                <span class="p">)</span>
+
+            <span class="k">if</span> <span class="n">predict_col</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">prediction_df</span><span class="o">.</span><span class="n">rename</span><span class="p">(</span><span class="n">columns</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;yhat&quot;</span><span class="p">:</span> <span class="n">predict_col</span><span class="p">},</span> <span class="n">inplace</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">diviner_model</span><span class="p">,</span> <span class="n">GroupedPmdarima</span><span class="p">):</span>
+            <span class="c1"># As above, we&#39;re redirecting the prediction request to one of two different methods</span>
+            <span class="c1"># for ``Diviner``&#39;s pmdarima implementation. If the ``groups`` column is present with</span>
+            <span class="c1"># a list of tuples of keys to lookup, ``predict_groups()`` will be used. Otherwise,</span>
+            <span class="c1"># the standard ``predict()`` method will be called to generate forecasts for all groups</span>
+            <span class="c1"># that were trained on.</span>
+            <span class="n">restricted_keys</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;n_periods&quot;</span><span class="p">,</span> <span class="s2">&quot;horizon&quot;</span><span class="p">,</span> <span class="s2">&quot;frequency&quot;</span><span class="p">,</span> <span class="s2">&quot;groups&quot;</span><span class="p">}</span>
+
+            <span class="n">predict_conf</span> <span class="o">=</span> <span class="p">{</span><span class="n">k</span><span class="p">:</span> <span class="n">v</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">conf</span><span class="o">.</span><span class="n">items</span><span class="p">()</span> <span class="k">if</span> <span class="n">k</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">restricted_keys</span><span class="p">}</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">predict_groups</span><span class="p">:</span>
+                <span class="n">prediction_df</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">diviner_model</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">n_periods</span><span class="o">=</span><span class="n">n_periods</span><span class="p">,</span> <span class="o">**</span><span class="n">predict_conf</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">prediction_df</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">diviner_model</span><span class="o">.</span><span class="n">predict_groups</span><span class="p">(</span>
+                    <span class="n">groups</span><span class="o">=</span><span class="n">predict_groups</span><span class="p">,</span> <span class="n">n_periods</span><span class="o">=</span><span class="n">n_periods</span><span class="p">,</span> <span class="o">**</span><span class="n">predict_conf</span>
+                <span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">MlflowException</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;The Diviner model instance type &#39;</span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">diviner_model</span><span class="p">)</span><span class="si">}</span><span class="s2">&#39; is not supported &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;in version </span><span class="si">{</span><span class="n">mlflow</span><span class="o">.</span><span class="n">__version__</span><span class="si">}</span><span class="s2"> of MLflow.&quot;</span><span class="p">,</span>
+                <span class="n">error_code</span><span class="o">=</span><span class="n">INVALID_PARAMETER_VALUE</span><span class="p">,</span>
+            <span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">prediction_df</span>
+</pre></div>
+
+              </div>
+            </div>
+            <footer>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+      <p class="copyright">
+          &copy; MLflow Project, a Series of LF Projects, LLC. All rights reserved.
+      </p>
+
+  </div> 
+
+</footer>
+          </div>
+        </div>
+      </section>
+    </main>
+  </page>
+
+  
+
+
+  
+  <script type="text/javascript">
+    var DOCUMENTATION_OPTIONS = {
+      URL_ROOT:'../../',
+      VERSION:'2.17.1.dev0',
+      COLLAPSE_INDEX:false,
+      FILE_SUFFIX:'.html',
+      LINK_SUFFIX: '.html',
+      HAS_SOURCE:  true
+    };
+  </script>
+
+  
+
+  <script type="text/javascript" src="../../_static/js/clipboard.min.js"></script>
+  <script type="text/javascript" src="../../_static/js/jquery.waypoints.min.js"></script>
+
+  
+  
+  
+  <script type="text/javascript">var CLIPPY_SVG_PATH = "../../_static/clippy.svg";</script>
+  <script type="text/javascript" src="../../_static/js/custom.js"></script>
+  
+
+  
+  
+  <script type="text/javascript">
+    jQuery(function () {
+      SphinxRtdTheme.StickyNav.enable();
+    });
+
+  </script>
+  
+
+  
+  <script type="text/javascript">
+    document.addEventListener("DOMContentLoaded", function() {
+        function copyToClipboard(text) {
+            const textarea = document.createElement('textarea');
+            textarea.value = text;
+            document.body.appendChild(textarea);
+            textarea.select();
+            document.execCommand('copy');
+            document.body.removeChild(textarea);
+        }
+        // Get the code block designator class entries
+        const allHighlights = document.querySelectorAll('.highlight');
+        // Disable copyable links for notebook cell numbering and for cell outputs
+        const highlights = Array.from(allHighlights).filter(highlight => !highlight.closest('.highlight-none') && 
+            !highlight.closest('.nboutput'));
+    
+        highlights.forEach(function(highlight) {
+            const copyIcon = document.createElement('span');
+            copyIcon.classList.add('copy-icon');
+            copyIcon.innerHTML = '&#xf0ea;';
+
+            copyIcon.addEventListener('click', function() {
+                const code = highlight.querySelector('pre').textContent;
+                copyToClipboard(code);
+
+                // Flash effect on click
+                this.style.color = '#0194E2';
+                setTimeout(() => {
+                    this.style.color = ''; 
+                }, 100);
+
+                // Display "Code copied to clipboard" near the clicked icon
+                const message = document.createElement('span');
+                message.textContent = "Copied!";
+                message.classList.add('copy-message'); 
+
+                // Append the message to the icon
+                this.appendChild(message);
+
+                setTimeout(() => {
+                    this.removeChild(message);
+                }, 500);
+            });
+
+            highlight.appendChild(copyIcon);
+        });
+    });
+  </script>
+
+
+<script type="text/javascript">
+    document.addEventListener("DOMContentLoaded", function() {
+        // Force download for notebook-download-btn
+        const downloadButtons = document.querySelectorAll('.notebook-download-btn');
+        downloadButtons.forEach(function(button) {
+            button.addEventListener('click', function(event) {
+                event.preventDefault(); // Prevent default behavior
+
+                // Fetch the raw content of the notebook from GitHub
+                fetch(button.href)
+                    .then(response => response.blob())
+                    .then(blob => {
+                        const url = window.URL.createObjectURL(blob);
+                        const link = document.createElement('a');
+                        link.style.display = 'none';
+                        link.href = url;
+                        const filename = button.href.split('/').pop();
+                        link.download = filename; 
+
+                        document.body.appendChild(link);
+                        link.click();
+
+                        window.URL.revokeObjectURL(url);
+                        document.body.removeChild(link);
+                    })
+                    .catch(err => console.error('Error fetching the notebook:', err));
+            });
+        });
+    });
+</script> 
+</body>
+</html>

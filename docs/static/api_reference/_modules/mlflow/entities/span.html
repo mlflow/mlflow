@@ -1,0 +1,920 @@
+
+
+<!DOCTYPE html>
+<!-- source: docs/source/_modules/mlflow/entities/span -->
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>mlflow.entities.span</title>
+  
+   
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+  <link rel="canonical" href="https://mlflow.org/docs/latest/_modules/mlflow/entities/span.html">
+  
+  
+    <link rel="shortcut icon" href="../../../_static/favicon.ico"/>
+    
+
+    
+
+  
+    
+
+  
+
+  
+  
+    
+
+  
+
+  
+  
+    <link href="https://fonts.googleapis.com/css?family=Source+Sans+Pro:300,400,600" rel="stylesheet">
+    <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/css/custom.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/css/cards.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/css/grids.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/css/mobile.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/css/simple-cards.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/css/tabs.css" type="text/css" />
+    
+  
+        <link rel="index" title="Index"
+              href="../../../genindex.html"/>
+        <link rel="search" title="Search" href="../../../search.html"/>
+    <link rel="top" title="MLflow 2.17.1.dev0 documentation" href="../../../index.html"/>
+        <link rel="up" title="Module code" href="../../index.html"/> 
+
+  
+  <script src="../../../_static/js/modernizr.min.js"></script>
+
+</head>
+<script type="text/javascript" src="../../../_static/jquery.js"></script>
+<script type="text/javascript" src="../../../_static/underscore.js"></script>
+<script type="text/javascript" src="../../../_static/doctools.js"></script>
+<script type="text/javascript" src="../../../_static/tabs.js"></script>
+<script type="text/javascript" src="../../../_static/languagesections.js"></script>
+<script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+<script type="text/javascript" src="../../../_static/runllm.js"></script>
+
+<body class="wy-body-for-nav" role="document">
+  
+
+  
+  <nav class="wy-nav-top header" role="navigation" aria-label="top navigation">
+    <ul>
+  <li class="menu-toggle">
+    <i data-toggle="wy-nav-top" class="wy-nav-top-menu-button db-icon db-icon-menu pull-left"></i>
+    <a href="../../../index.html" class="wy-nav-top-logo"
+      ><img src="../../../_static/MLflow-logo-final-black.png" alt="MLflow"
+    /></a>
+    <span class="version">2.17.1.dev0</span>
+  </li>
+</ul>
+  </nav>
+  <page>
+    
+
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side relative">
+      <div class="wy-side-scroll">
+  <div class="wy-side-nav-search">
+    
+
+    
+
+    
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+  <input type="text" name="q" placeholder="Search" />
+  <input type="hidden" name="check_keywords" value="yes" />
+  <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+
+    
+  </div>
+
+  <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+    
+      <a href="../../../index.html" class="main-navigation-home"><img src="../../../_static/icons/nav-home.svg"> MLflow</a>
+    
+
+    
+      
+
+      
+        <ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../python_api/index.html">Python API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../cli.html">Command-Line Interface</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../R-api.html">R API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../java_api/index.html">Java API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../rest-api.html">REST API</a></li>
+</ul>
+
+      
+    
+  </div>
+
+  <div role="contentinfo">
+    
+
+    <p>
+      <a id='feedbacklink' href="https://github.com/mlflow/mlflow/blob/master/CONTRIBUTING.md" target="_blank">Contribute</a>
+    </p>
+  </div>
+</div>
+    </nav>
+
+    <main class="wy-grid-for-nav">
+      <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+        <div class="wy-nav-content">
+          <div class="rst-content">
+            
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href="../../../index.html">Documentation</a> <span class="db-icon db-icon-chevron-right"></span></li>
+    
+        <li><a href="../../index.html">Module code</a> <span class="db-icon db-icon-chevron-right"></span></li>
+    
+    
+      <li>mlflow.entities.span</li>
+    
+    
+    <!-- <li class="wy-breadcrumbs-aside">
+      <a href="https://github.com/mlflow/mlflow/blob/master/docs/source/_modules/mlflow/entities/span" class="fa fa-github"> Edit on GitHub</a>
+    </li> -->
+    
+  </ul>
+</div>
+            <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+              <div itemprop="articleBody">
+                
+  <h1>Source code for mlflow.entities.span</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span> <span class="nn">json</span>
+<span class="kn">import</span> <span class="nn">logging</span>
+<span class="kn">from</span> <span class="nn">dataclasses</span> <span class="kn">import</span> <span class="n">asdict</span>
+<span class="kn">from</span> <span class="nn">functools</span> <span class="kn">import</span> <span class="n">lru_cache</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Union</span>
+
+<span class="kn">from</span> <span class="nn">opentelemetry.sdk.trace</span> <span class="kn">import</span> <span class="n">Event</span> <span class="k">as</span> <span class="n">OTelEvent</span>
+<span class="kn">from</span> <span class="nn">opentelemetry.sdk.trace</span> <span class="kn">import</span> <span class="n">ReadableSpan</span> <span class="k">as</span> <span class="n">OTelReadableSpan</span>
+<span class="kn">from</span> <span class="nn">opentelemetry.trace</span> <span class="kn">import</span> <span class="n">NonRecordingSpan</span><span class="p">,</span> <span class="n">SpanContext</span><span class="p">,</span> <span class="n">TraceFlags</span>
+<span class="kn">from</span> <span class="nn">opentelemetry.trace</span> <span class="kn">import</span> <span class="n">Span</span> <span class="k">as</span> <span class="n">OTelSpan</span>
+
+<span class="kn">import</span> <span class="nn">mlflow</span>
+<span class="kn">from</span> <span class="nn">mlflow.entities.span_event</span> <span class="kn">import</span> <span class="n">SpanEvent</span>
+<span class="kn">from</span> <span class="nn">mlflow.entities.span_status</span> <span class="kn">import</span> <span class="n">SpanStatus</span><span class="p">,</span> <span class="n">SpanStatusCode</span>
+<span class="kn">from</span> <span class="nn">mlflow.exceptions</span> <span class="kn">import</span> <span class="n">MlflowException</span>
+<span class="kn">from</span> <span class="nn">mlflow.protos.databricks_pb2</span> <span class="kn">import</span> <span class="n">INVALID_PARAMETER_VALUE</span>
+<span class="kn">from</span> <span class="nn">mlflow.tracing.constant</span> <span class="kn">import</span> <span class="n">SpanAttributeKey</span>
+<span class="kn">from</span> <span class="nn">mlflow.tracing.utils</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">TraceJSONEncoder</span><span class="p">,</span>
+    <span class="n">build_otel_context</span><span class="p">,</span>
+    <span class="n">decode_id</span><span class="p">,</span>
+    <span class="n">encode_span_id</span><span class="p">,</span>
+    <span class="n">encode_trace_id</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="n">_logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
+
+
+<span class="c1"># Not using enum as we want to allow custom span type string.</span>
+<div class="viewcode-block" id="SpanType"><a class="viewcode-back" href="../../../python_api/mlflow.entities.html#mlflow.entities.SpanType">[docs]</a><span class="k">class</span> <span class="nc">SpanType</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Predefined set of span types.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">LLM</span> <span class="o">=</span> <span class="s2">&quot;LLM&quot;</span>
+    <span class="n">CHAIN</span> <span class="o">=</span> <span class="s2">&quot;CHAIN&quot;</span>
+    <span class="n">AGENT</span> <span class="o">=</span> <span class="s2">&quot;AGENT&quot;</span>
+    <span class="n">TOOL</span> <span class="o">=</span> <span class="s2">&quot;TOOL&quot;</span>
+    <span class="n">CHAT_MODEL</span> <span class="o">=</span> <span class="s2">&quot;CHAT_MODEL&quot;</span>
+    <span class="n">RETRIEVER</span> <span class="o">=</span> <span class="s2">&quot;RETRIEVER&quot;</span>
+    <span class="n">PARSER</span> <span class="o">=</span> <span class="s2">&quot;PARSER&quot;</span>
+    <span class="n">EMBEDDING</span> <span class="o">=</span> <span class="s2">&quot;EMBEDDING&quot;</span>
+    <span class="n">RERANKER</span> <span class="o">=</span> <span class="s2">&quot;RERANKER&quot;</span>
+    <span class="n">UNKNOWN</span> <span class="o">=</span> <span class="s2">&quot;UNKNOWN&quot;</span></div>
+
+
+<span class="k">def</span> <span class="nf">create_mlflow_span</span><span class="p">(</span>
+    <span class="n">otel_span</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="n">request_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">span_type</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Union</span><span class="p">[</span><span class="s2">&quot;Span&quot;</span><span class="p">,</span> <span class="s2">&quot;LiveSpan&quot;</span><span class="p">,</span> <span class="s2">&quot;NoOpSpan&quot;</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Factory function to create a span object.</span>
+
+<span class="sd">    When creating a MLflow span object from the OpenTelemetry span, the factory function</span>
+<span class="sd">    should always be used to ensure the correct span object is created.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">otel_span</span> <span class="ow">or</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">otel_span</span><span class="p">,</span> <span class="n">NonRecordingSpan</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">NoOpSpan</span><span class="p">()</span>
+
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">otel_span</span><span class="p">,</span> <span class="n">OTelSpan</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">LiveSpan</span><span class="p">(</span><span class="n">otel_span</span><span class="p">,</span> <span class="n">request_id</span><span class="p">,</span> <span class="n">span_type</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">otel_span</span><span class="p">,</span> <span class="n">OTelReadableSpan</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">Span</span><span class="p">(</span><span class="n">otel_span</span><span class="p">)</span>
+
+    <span class="k">raise</span> <span class="n">MlflowException</span><span class="p">(</span>
+        <span class="s2">&quot;The `otel_span` argument must be an instance of one of valid &quot;</span>
+        <span class="sa">f</span><span class="s2">&quot;OpenTelemetry span classes, but got </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">otel_span</span><span class="p">)</span><span class="si">}</span><span class="s2">.&quot;</span><span class="p">,</span>
+        <span class="n">INVALID_PARAMETER_VALUE</span><span class="p">,</span>
+    <span class="p">)</span>
+
+
+<div class="viewcode-block" id="Span"><a class="viewcode-back" href="../../../python_api/mlflow.entities.html#mlflow.entities.Span">[docs]</a><span class="k">class</span> <span class="nc">Span</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    A span object. A span represents a unit of work or operation and is the building</span>
+<span class="sd">    block of Traces.</span>
+
+<span class="sd">    This Span class represents immutable span data that is already finished and persisted.</span>
+<span class="sd">    The &quot;live&quot; span that is being created and updated during the application runtime is</span>
+<span class="sd">    represented by the :py:class:`LiveSpan &lt;mlflow.entities.LiveSpan&gt;` subclass.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">otel_span</span><span class="p">:</span> <span class="n">OTelReadableSpan</span><span class="p">):</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">otel_span</span><span class="p">,</span> <span class="n">OTelReadableSpan</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="n">MlflowException</span><span class="p">(</span>
+                <span class="s2">&quot;The `otel_span` argument for the Span class must be an instance of ReadableSpan, &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;but got </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">otel_span</span><span class="p">)</span><span class="si">}</span><span class="s2">.&quot;</span><span class="p">,</span>
+                <span class="n">INVALID_PARAMETER_VALUE</span><span class="p">,</span>
+            <span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_span</span> <span class="o">=</span> <span class="n">otel_span</span>
+        <span class="c1"># Since the span is immutable, we can cache the attributes to avoid the redundant</span>
+        <span class="c1"># deserialization of the attribute values.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_attributes</span> <span class="o">=</span> <span class="n">_CachedSpanAttributesRegistry</span><span class="p">(</span><span class="n">otel_span</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="nd">@lru_cache</span><span class="p">(</span><span class="n">maxsize</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">request_id</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        The request ID of the span, a unique identifier for the trace it belongs to.</span>
+<span class="sd">        Request ID is equivalent to the trace ID in OpenTelemetry, but generated</span>
+<span class="sd">        differently by the tracing backend.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_attribute</span><span class="p">(</span><span class="n">SpanAttributeKey</span><span class="o">.</span><span class="n">REQUEST_ID</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">span_id</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;The ID of the span. This is only unique within a trace.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">encode_span_id</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_span</span><span class="o">.</span><span class="n">context</span><span class="o">.</span><span class="n">span_id</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">name</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;The name of the span.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_span</span><span class="o">.</span><span class="n">name</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">start_time_ns</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;The start time of the span in nanosecond.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_span</span><span class="o">.</span><span class="n">_start_time</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">end_time_ns</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;The end time of the span in nanosecond.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_span</span><span class="o">.</span><span class="n">_end_time</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">parent_id</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;The span ID of the parent span.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_span</span><span class="o">.</span><span class="n">parent</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span>
+        <span class="k">return</span> <span class="n">encode_span_id</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_span</span><span class="o">.</span><span class="n">parent</span><span class="o">.</span><span class="n">span_id</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">status</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">SpanStatus</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;The status of the span.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">SpanStatus</span><span class="o">.</span><span class="n">from_otel_status</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_span</span><span class="o">.</span><span class="n">status</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">inputs</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;The input values of the span.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_attribute</span><span class="p">(</span><span class="n">SpanAttributeKey</span><span class="o">.</span><span class="n">INPUTS</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">outputs</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;The output values of the span.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_attribute</span><span class="p">(</span><span class="n">SpanAttributeKey</span><span class="o">.</span><span class="n">OUTPUTS</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">span_type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;The type of the span.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_attribute</span><span class="p">(</span><span class="n">SpanAttributeKey</span><span class="o">.</span><span class="n">SPAN_TYPE</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">_trace_id</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        The OpenTelemetry trace ID of the span. Note that this should not be exposed to</span>
+<span class="sd">        the user, instead, use request_id as an unique identifier for a trace.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">encode_trace_id</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_span</span><span class="o">.</span><span class="n">context</span><span class="o">.</span><span class="n">trace_id</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">attributes</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Get all attributes of the span.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            A dictionary of all attributes of the span.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_attributes</span><span class="o">.</span><span class="n">get_all</span><span class="p">()</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">events</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">SpanEvent</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Get all events of the span.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            A list of all events of the span.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="p">[</span>
+            <span class="n">SpanEvent</span><span class="p">(</span>
+                <span class="n">name</span><span class="o">=</span><span class="n">event</span><span class="o">.</span><span class="n">name</span><span class="p">,</span>
+                <span class="n">timestamp</span><span class="o">=</span><span class="n">event</span><span class="o">.</span><span class="n">timestamp</span><span class="p">,</span>
+                <span class="c1"># Convert from OpenTelemetry&#39;s BoundedAttributes class to a simple dict</span>
+                <span class="c1"># to avoid the serialization issue due to having a lock object.</span>
+                <span class="n">attributes</span><span class="o">=</span><span class="nb">dict</span><span class="p">(</span><span class="n">event</span><span class="o">.</span><span class="n">attributes</span><span class="p">),</span>
+            <span class="p">)</span>
+            <span class="k">for</span> <span class="n">event</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_span</span><span class="o">.</span><span class="n">events</span>
+        <span class="p">]</span>
+
+    <span class="k">def</span> <span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">(name=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="si">!r}</span><span class="s2">, request_id=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">request_id</span><span class="si">!r}</span><span class="s2">, &quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;span_id=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">span_id</span><span class="si">!r}</span><span class="s2">, parent_id=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">parent_id</span><span class="si">!r}</span><span class="s2">)&quot;</span>
+        <span class="p">)</span>
+
+<div class="viewcode-block" id="Span.get_attribute"><a class="viewcode-back" href="../../../python_api/mlflow.entities.html#mlflow.entities.Span.get_attribute">[docs]</a>    <span class="k">def</span> <span class="nf">get_attribute</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Any</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Get a single attribute value from the span.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            key: The key of the attribute to get.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            The value of the attribute if it exists, otherwise None.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_attributes</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">key</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Span.to_dict"><a class="viewcode-back" href="../../../python_api/mlflow.entities.html#mlflow.entities.Span.to_dict">[docs]</a>    <span class="k">def</span> <span class="nf">to_dict</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="c1"># NB: OpenTelemetry Span has to_json() method, but it will write many fields that</span>
+        <span class="c1">#  we don&#39;t use e.g. links, kind, resource, trace_state, etc. So we manually</span>
+        <span class="c1">#  cherry-pick the fields we need here.</span>
+        <span class="k">return</span> <span class="p">{</span>
+            <span class="s2">&quot;name&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">,</span>
+            <span class="s2">&quot;context&quot;</span><span class="p">:</span> <span class="p">{</span>
+                <span class="s2">&quot;span_id&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">span_id</span><span class="p">,</span>
+                <span class="s2">&quot;trace_id&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_trace_id</span><span class="p">,</span>
+            <span class="p">},</span>
+            <span class="s2">&quot;parent_id&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">parent_id</span><span class="p">,</span>
+            <span class="s2">&quot;start_time&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">start_time_ns</span><span class="p">,</span>
+            <span class="s2">&quot;end_time&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">end_time_ns</span><span class="p">,</span>
+            <span class="s2">&quot;status_code&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">status</span><span class="o">.</span><span class="n">status_code</span><span class="o">.</span><span class="n">value</span><span class="p">,</span>
+            <span class="s2">&quot;status_message&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">status</span><span class="o">.</span><span class="n">description</span><span class="p">,</span>
+            <span class="s2">&quot;attributes&quot;</span><span class="p">:</span> <span class="nb">dict</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_span</span><span class="o">.</span><span class="n">attributes</span><span class="p">),</span>
+            <span class="s2">&quot;events&quot;</span><span class="p">:</span> <span class="p">[</span><span class="n">asdict</span><span class="p">(</span><span class="n">event</span><span class="p">)</span> <span class="k">for</span> <span class="n">event</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">events</span><span class="p">],</span>
+        <span class="p">}</span></div>
+
+<div class="viewcode-block" id="Span.from_dict"><a class="viewcode-back" href="../../../python_api/mlflow.entities.html#mlflow.entities.Span.from_dict">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">from_dict</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">data</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="s2">&quot;Span&quot;</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Create a Span object from the given dictionary.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">request_id</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;attributes&quot;</span><span class="p">,</span> <span class="p">{})</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">SpanAttributeKey</span><span class="o">.</span><span class="n">REQUEST_ID</span><span class="p">)</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">request_id</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="n">MlflowException</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;The </span><span class="si">{</span><span class="n">SpanAttributeKey</span><span class="o">.</span><span class="n">REQUEST_ID</span><span class="si">}</span><span class="s2"> attribute is empty or missing.&quot;</span><span class="p">,</span>
+                    <span class="n">INVALID_PARAMETER_VALUE</span><span class="p">,</span>
+                <span class="p">)</span>
+
+            <span class="n">trace_id</span> <span class="o">=</span> <span class="n">decode_id</span><span class="p">(</span><span class="n">data</span><span class="p">[</span><span class="s2">&quot;context&quot;</span><span class="p">][</span><span class="s2">&quot;trace_id&quot;</span><span class="p">])</span>
+            <span class="n">span_id</span> <span class="o">=</span> <span class="n">decode_id</span><span class="p">(</span><span class="n">data</span><span class="p">[</span><span class="s2">&quot;context&quot;</span><span class="p">][</span><span class="s2">&quot;span_id&quot;</span><span class="p">])</span>
+            <span class="n">parent_id</span> <span class="o">=</span> <span class="n">decode_id</span><span class="p">(</span><span class="n">data</span><span class="p">[</span><span class="s2">&quot;parent_id&quot;</span><span class="p">])</span> <span class="k">if</span> <span class="n">data</span><span class="p">[</span><span class="s2">&quot;parent_id&quot;</span><span class="p">]</span> <span class="k">else</span> <span class="kc">None</span>
+
+            <span class="n">otel_span</span> <span class="o">=</span> <span class="n">OTelReadableSpan</span><span class="p">(</span>
+                <span class="n">name</span><span class="o">=</span><span class="n">data</span><span class="p">[</span><span class="s2">&quot;name&quot;</span><span class="p">],</span>
+                <span class="n">context</span><span class="o">=</span><span class="n">build_otel_context</span><span class="p">(</span><span class="n">trace_id</span><span class="p">,</span> <span class="n">span_id</span><span class="p">),</span>
+                <span class="n">parent</span><span class="o">=</span><span class="n">build_otel_context</span><span class="p">(</span><span class="n">trace_id</span><span class="p">,</span> <span class="n">parent_id</span><span class="p">)</span> <span class="k">if</span> <span class="n">parent_id</span> <span class="k">else</span> <span class="kc">None</span><span class="p">,</span>
+                <span class="n">start_time</span><span class="o">=</span><span class="n">data</span><span class="p">[</span><span class="s2">&quot;start_time&quot;</span><span class="p">],</span>
+                <span class="n">end_time</span><span class="o">=</span><span class="n">data</span><span class="p">[</span><span class="s2">&quot;end_time&quot;</span><span class="p">],</span>
+                <span class="n">attributes</span><span class="o">=</span><span class="n">data</span><span class="p">[</span><span class="s2">&quot;attributes&quot;</span><span class="p">],</span>
+                <span class="n">status</span><span class="o">=</span><span class="n">SpanStatus</span><span class="p">(</span><span class="n">data</span><span class="p">[</span><span class="s2">&quot;status_code&quot;</span><span class="p">],</span> <span class="n">data</span><span class="p">[</span><span class="s2">&quot;status_message&quot;</span><span class="p">])</span><span class="o">.</span><span class="n">to_otel_status</span><span class="p">(),</span>
+                <span class="n">events</span><span class="o">=</span><span class="p">[</span>
+                    <span class="n">OTelEvent</span><span class="p">(</span>
+                        <span class="n">name</span><span class="o">=</span><span class="n">event</span><span class="p">[</span><span class="s2">&quot;name&quot;</span><span class="p">],</span>
+                        <span class="n">timestamp</span><span class="o">=</span><span class="n">event</span><span class="p">[</span><span class="s2">&quot;timestamp&quot;</span><span class="p">],</span>
+                        <span class="n">attributes</span><span class="o">=</span><span class="n">event</span><span class="p">[</span><span class="s2">&quot;attributes&quot;</span><span class="p">],</span>
+                    <span class="p">)</span>
+                    <span class="k">for</span> <span class="n">event</span> <span class="ow">in</span> <span class="n">data</span><span class="p">[</span><span class="s2">&quot;events&quot;</span><span class="p">]</span>
+                <span class="p">],</span>
+            <span class="p">)</span>
+            <span class="k">return</span> <span class="bp">cls</span><span class="p">(</span><span class="n">otel_span</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">MlflowException</span><span class="p">(</span>
+                <span class="s2">&quot;Failed to create a Span object from the given dictionary&quot;</span><span class="p">,</span>
+                <span class="n">INVALID_PARAMETER_VALUE</span><span class="p">,</span>
+            <span class="p">)</span> <span class="kn">from</span> <span class="nn">e</span></div></div>
+
+
+<div class="viewcode-block" id="LiveSpan"><a class="viewcode-back" href="../../../python_api/mlflow.entities.html#mlflow.entities.LiveSpan">[docs]</a><span class="k">class</span> <span class="nc">LiveSpan</span><span class="p">(</span><span class="n">Span</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    A &quot;live&quot; version of the :py:class:`Span &lt;mlflow.entities.Span&gt;` class.</span>
+
+<span class="sd">    The live spans are those being created and updated during the application runtime.</span>
+<span class="sd">    When users start a new span using the tracing APIs within their code, this live span</span>
+<span class="sd">    object is returned to get and set the span attributes, status, events, and etc.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">otel_span</span><span class="p">:</span> <span class="n">OTelSpan</span><span class="p">,</span>
+        <span class="n">request_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">span_type</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">SpanType</span><span class="o">.</span><span class="n">UNKNOWN</span><span class="p">,</span>
+    <span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        The `otel_span` argument takes an instance of OpenTelemetry Span class, which is</span>
+<span class="sd">        indeed a subclass of ReadableSpan. Thanks to this, the getter methods of the Span</span>
+<span class="sd">        class can be reused without any modification.</span>
+
+<span class="sd">        Note that the constructor doesn&#39;t call the super().__init__ method, because the Span</span>
+<span class="sd">        initialization logic is a bit different from the immutable span.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">otel_span</span><span class="p">,</span> <span class="n">OTelReadableSpan</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="n">MlflowException</span><span class="p">(</span>
+                <span class="s2">&quot;The `otel_span` argument for the LiveSpan class must be an instance of &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;trace.Span, but got </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">otel_span</span><span class="p">)</span><span class="si">}</span><span class="s2">.&quot;</span><span class="p">,</span>
+                <span class="n">INVALID_PARAMETER_VALUE</span><span class="p">,</span>
+            <span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_span</span> <span class="o">=</span> <span class="n">otel_span</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_attributes</span> <span class="o">=</span> <span class="n">_SpanAttributesRegistry</span><span class="p">(</span><span class="n">otel_span</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_attributes</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="n">SpanAttributeKey</span><span class="o">.</span><span class="n">REQUEST_ID</span><span class="p">,</span> <span class="n">request_id</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_attributes</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="n">SpanAttributeKey</span><span class="o">.</span><span class="n">SPAN_TYPE</span><span class="p">,</span> <span class="n">span_type</span><span class="p">)</span>
+
+<div class="viewcode-block" id="LiveSpan.set_inputs"><a class="viewcode-back" href="../../../python_api/mlflow.entities.html#mlflow.entities.LiveSpan.set_inputs">[docs]</a>    <span class="k">def</span> <span class="nf">set_inputs</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">inputs</span><span class="p">:</span> <span class="n">Any</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Set the input values to the span.&quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">set_attribute</span><span class="p">(</span><span class="n">SpanAttributeKey</span><span class="o">.</span><span class="n">INPUTS</span><span class="p">,</span> <span class="n">inputs</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="LiveSpan.set_outputs"><a class="viewcode-back" href="../../../python_api/mlflow.entities.html#mlflow.entities.LiveSpan.set_outputs">[docs]</a>    <span class="k">def</span> <span class="nf">set_outputs</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">outputs</span><span class="p">:</span> <span class="n">Any</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Set the output values to the span.&quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">set_attribute</span><span class="p">(</span><span class="n">SpanAttributeKey</span><span class="o">.</span><span class="n">OUTPUTS</span><span class="p">,</span> <span class="n">outputs</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="LiveSpan.set_attributes"><a class="viewcode-back" href="../../../python_api/mlflow.entities.html#mlflow.entities.LiveSpan.set_attributes">[docs]</a>    <span class="k">def</span> <span class="nf">set_attributes</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">attributes</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Set the attributes to the span. The attributes must be a dictionary of key-value pairs.</span>
+<span class="sd">        This method is additive, i.e. it will add new attributes to the existing ones. If an</span>
+<span class="sd">        attribute with the same key already exists, it will be overwritten.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">attributes</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
+            <span class="n">_logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;Attributes must be a dictionary, but got </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">attributes</span><span class="p">)</span><span class="si">}</span><span class="s2">. Skipping.&quot;</span>
+            <span class="p">)</span>
+            <span class="k">return</span>
+
+        <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">attributes</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">set_attribute</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">value</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="LiveSpan.set_attribute"><a class="viewcode-back" href="../../../python_api/mlflow.entities.html#mlflow.entities.LiveSpan.set_attribute">[docs]</a>    <span class="k">def</span> <span class="nf">set_attribute</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">value</span><span class="p">:</span> <span class="n">Any</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Set a single attribute to the span.&quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_attributes</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">value</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="LiveSpan.set_status"><a class="viewcode-back" href="../../../python_api/mlflow.entities.html#mlflow.entities.LiveSpan.set_status">[docs]</a>    <span class="k">def</span> <span class="nf">set_status</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">status</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">SpanStatusCode</span><span class="p">,</span> <span class="nb">str</span><span class="p">]):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Set the status of the span.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            status: The status of the span. This can be a</span>
+<span class="sd">                :py:class:`SpanStatus &lt;mlflow.entities.SpanStatus&gt;` object or a string representing</span>
+<span class="sd">                of the status code defined in</span>
+<span class="sd">                :py:class:`SpanStatusCode &lt;mlflow.entities.SpanStatusCode&gt;`</span>
+<span class="sd">                e.g. ``&quot;OK&quot;``, ``&quot;ERROR&quot;``.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">status</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+            <span class="n">status</span> <span class="o">=</span> <span class="n">SpanStatus</span><span class="p">(</span><span class="n">status</span><span class="p">)</span>
+
+        <span class="c1"># NB: We need to set the OpenTelemetry native StatusCode, because span&#39;s set_status</span>
+        <span class="c1">#     method only accepts a StatusCode enum in their definition.</span>
+        <span class="c1">#     https://github.com/open-telemetry/opentelemetry-python/blob/8ed71b15fb8fc9534529da8ce4a21e686248a8f3/opentelemetry-sdk/src/opentelemetry/sdk/trace/__init__.py#L949</span>
+        <span class="c1">#     Working around this is possible, but requires some hack to handle automatic status</span>
+        <span class="c1">#     propagation mechanism, so here we just use the native object that meets our</span>
+        <span class="c1">#     current requirements at least. Nevertheless, declaring the new class extending</span>
+        <span class="c1">#     the OpenTelemetry Status class so users code doesn&#39;t have to import the OTel&#39;s</span>
+        <span class="c1">#     StatusCode object, which makes future migration easier.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_span</span><span class="o">.</span><span class="n">set_status</span><span class="p">(</span><span class="n">status</span><span class="o">.</span><span class="n">to_otel_status</span><span class="p">())</span></div>
+
+<div class="viewcode-block" id="LiveSpan.add_event"><a class="viewcode-back" href="../../../python_api/mlflow.entities.html#mlflow.entities.LiveSpan.add_event">[docs]</a>    <span class="k">def</span> <span class="nf">add_event</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">event</span><span class="p">:</span> <span class="n">SpanEvent</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Add an event to the span.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            event: The event to add to the span. This should be a</span>
+<span class="sd">                :py:class:`SpanEvent &lt;mlflow.entities.SpanEvent&gt;` object.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_span</span><span class="o">.</span><span class="n">add_event</span><span class="p">(</span><span class="n">event</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="n">event</span><span class="o">.</span><span class="n">attributes</span><span class="p">,</span> <span class="n">event</span><span class="o">.</span><span class="n">timestamp</span><span class="p">)</span></div>
+
+    <span class="k">def</span> <span class="nf">end</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">end_time</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        End the span. This is a thin wrapper around the OpenTelemetry&#39;s end method but just</span>
+<span class="sd">        to handle the status update.</span>
+
+<span class="sd">        This method should not be called directly by the user, only by called via fluent APIs</span>
+<span class="sd">        context exit or by MlflowClient APIs.</span>
+
+<span class="sd">        :meta private:</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># NB: In OpenTelemetry, status code remains UNSET if not explicitly set</span>
+        <span class="c1"># by the user. However, there is not way to set the status when using</span>
+        <span class="c1"># @mlflow.trace decorator. Therefore, we just automatically set the status</span>
+        <span class="c1"># to OK if it is not ERROR.</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">status</span><span class="o">.</span><span class="n">status_code</span> <span class="o">!=</span> <span class="n">SpanStatusCode</span><span class="o">.</span><span class="n">ERROR</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">set_status</span><span class="p">(</span><span class="n">SpanStatus</span><span class="p">(</span><span class="n">SpanStatusCode</span><span class="o">.</span><span class="n">OK</span><span class="p">))</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_span</span><span class="o">.</span><span class="n">end</span><span class="p">(</span><span class="n">end_time</span><span class="o">=</span><span class="n">end_time</span><span class="p">)</span>
+
+<div class="viewcode-block" id="LiveSpan.from_dict"><a class="viewcode-back" href="../../../python_api/mlflow.entities.html#mlflow.entities.LiveSpan.from_dict">[docs]</a>    <span class="k">def</span> <span class="nf">from_dict</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">data</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="s2">&quot;Span&quot;</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s2">&quot;The `from_dict` method is not supported for the LiveSpan class.&quot;</span><span class="p">)</span></div>
+
+    <span class="k">def</span> <span class="nf">to_immutable_span</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;Span&quot;</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Downcast the live span object to the immutable span.</span>
+
+<span class="sd">        :meta private:</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># All state of the live span is already persisted in the OpenTelemetry span object.</span>
+        <span class="k">return</span> <span class="n">Span</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_span</span><span class="p">)</span>
+
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">from_immutable_span</span><span class="p">(</span>
+        <span class="bp">cls</span><span class="p">,</span>
+        <span class="n">span</span><span class="p">:</span> <span class="n">Span</span><span class="p">,</span>
+        <span class="n">parent_span_id</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">request_id</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">trace_id</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;LiveSpan&quot;</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Create a new LiveSpan object from the given immutable span by</span>
+<span class="sd">        cloning the underlying OpenTelemetry span within current context.</span>
+
+<span class="sd">        This is particularly useful when we merging a remote trace into the current trace.</span>
+<span class="sd">        We cannot merge the remote trace directly, because it is already stored as an immutable</span>
+<span class="sd">        span, meaning that we cannot update metadata like request ID, trace ID, parent span ID,</span>
+<span class="sd">        which are necessary for merging the trace.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            span: The immutable span object to clone.</span>
+<span class="sd">            parent_span_id: The parent span ID of the new span.</span>
+<span class="sd">                If it is None, the span will be created as a root span.</span>
+<span class="sd">            request_id: The request ID to be set on the new span. Specify this if you want to</span>
+<span class="sd">                create the new span with a different request ID from the original span.</span>
+<span class="sd">            trace_id: The trace ID of the new span in hex encoded format. Specify this if you</span>
+<span class="sd">                want to create the new span with a different trace ID from the original span</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            The new LiveSpan object with the same state as the original span.</span>
+
+<span class="sd">        :meta private:</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="kn">from</span> <span class="nn">mlflow.tracing.trace_manager</span> <span class="kn">import</span> <span class="n">InMemoryTraceManager</span>
+
+        <span class="n">trace_manager</span> <span class="o">=</span> <span class="n">InMemoryTraceManager</span><span class="o">.</span><span class="n">get_instance</span><span class="p">()</span>
+        <span class="n">request_id</span> <span class="o">=</span> <span class="n">request_id</span> <span class="ow">or</span> <span class="n">span</span><span class="o">.</span><span class="n">request_id</span>
+        <span class="n">parent_span</span> <span class="o">=</span> <span class="n">trace_manager</span><span class="o">.</span><span class="n">get_span_from_id</span><span class="p">(</span><span class="n">request_id</span><span class="p">,</span> <span class="n">parent_span_id</span><span class="p">)</span>
+
+        <span class="c1"># Create a new span with the same name, parent, and start time</span>
+        <span class="n">otel_span</span> <span class="o">=</span> <span class="n">mlflow</span><span class="o">.</span><span class="n">tracing</span><span class="o">.</span><span class="n">provider</span><span class="o">.</span><span class="n">start_detached_span</span><span class="p">(</span>
+            <span class="n">name</span><span class="o">=</span><span class="n">span</span><span class="o">.</span><span class="n">name</span><span class="p">,</span>
+            <span class="n">parent</span><span class="o">=</span><span class="n">parent_span</span><span class="o">.</span><span class="n">_span</span> <span class="k">if</span> <span class="n">parent_span</span> <span class="k">else</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">start_time_ns</span><span class="o">=</span><span class="n">span</span><span class="o">.</span><span class="n">start_time_ns</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="c1"># otel_span._span_processor = span._span._span_processor</span>
+        <span class="n">clone_span</span> <span class="o">=</span> <span class="n">LiveSpan</span><span class="p">(</span><span class="n">otel_span</span><span class="p">,</span> <span class="n">request_id</span><span class="p">,</span> <span class="n">span</span><span class="o">.</span><span class="n">span_type</span><span class="p">)</span>
+
+        <span class="c1"># Copy all the attributes, inputs, outputs, and events from the original span</span>
+        <span class="n">clone_span</span><span class="o">.</span><span class="n">set_status</span><span class="p">(</span><span class="n">span</span><span class="o">.</span><span class="n">status</span><span class="p">)</span>
+        <span class="n">clone_span</span><span class="o">.</span><span class="n">set_attributes</span><span class="p">(</span>
+            <span class="p">{</span><span class="n">k</span><span class="p">:</span> <span class="n">v</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">span</span><span class="o">.</span><span class="n">attributes</span><span class="o">.</span><span class="n">items</span><span class="p">()</span> <span class="k">if</span> <span class="n">k</span> <span class="o">!=</span> <span class="n">SpanAttributeKey</span><span class="o">.</span><span class="n">REQUEST_ID</span><span class="p">}</span>
+        <span class="p">)</span>
+        <span class="n">clone_span</span><span class="o">.</span><span class="n">set_inputs</span><span class="p">(</span><span class="n">span</span><span class="o">.</span><span class="n">inputs</span><span class="p">)</span>
+        <span class="n">clone_span</span><span class="o">.</span><span class="n">set_outputs</span><span class="p">(</span><span class="n">span</span><span class="o">.</span><span class="n">outputs</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">event</span> <span class="ow">in</span> <span class="n">span</span><span class="o">.</span><span class="n">events</span><span class="p">:</span>
+            <span class="n">clone_span</span><span class="o">.</span><span class="n">add_event</span><span class="p">(</span><span class="n">event</span><span class="p">)</span>
+
+        <span class="c1"># Update trace ID and span ID</span>
+        <span class="n">context</span> <span class="o">=</span> <span class="n">span</span><span class="o">.</span><span class="n">_span</span><span class="o">.</span><span class="n">get_span_context</span><span class="p">()</span>
+        <span class="n">clone_span</span><span class="o">.</span><span class="n">_span</span><span class="o">.</span><span class="n">_context</span> <span class="o">=</span> <span class="n">SpanContext</span><span class="p">(</span>
+            <span class="c1"># Override trace_id if provided, otherwise use the original trace ID</span>
+            <span class="n">trace_id</span><span class="o">=</span><span class="n">decode_id</span><span class="p">(</span><span class="n">trace_id</span><span class="p">)</span> <span class="ow">or</span> <span class="n">context</span><span class="o">.</span><span class="n">trace_id</span><span class="p">,</span>
+            <span class="n">span_id</span><span class="o">=</span><span class="n">context</span><span class="o">.</span><span class="n">span_id</span><span class="p">,</span>
+            <span class="n">is_remote</span><span class="o">=</span><span class="n">context</span><span class="o">.</span><span class="n">is_remote</span><span class="p">,</span>
+            <span class="c1"># Override trace flag as if it is sampled within current context.</span>
+            <span class="n">trace_flags</span><span class="o">=</span><span class="n">TraceFlags</span><span class="p">(</span><span class="n">TraceFlags</span><span class="o">.</span><span class="n">SAMPLED</span><span class="p">),</span>
+        <span class="p">)</span>
+
+        <span class="c1"># Mark the span completed with the original end time</span>
+        <span class="n">clone_span</span><span class="o">.</span><span class="n">end</span><span class="p">(</span><span class="n">end_time</span><span class="o">=</span><span class="n">span</span><span class="o">.</span><span class="n">end_time_ns</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">clone_span</span></div>
+
+
+<span class="n">NO_OP_SPAN_REQUEST_ID</span> <span class="o">=</span> <span class="s2">&quot;MLFLOW_NO_OP_SPAN_REQUEST_ID&quot;</span>
+
+
+<div class="viewcode-block" id="NoOpSpan"><a class="viewcode-back" href="../../../python_api/mlflow.entities.html#mlflow.entities.NoOpSpan">[docs]</a><span class="k">class</span> <span class="nc">NoOpSpan</span><span class="p">(</span><span class="n">Span</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    No-op implementation of the Span interface.</span>
+
+<span class="sd">    This instance should be returned from the mlflow.start_span context manager when span</span>
+<span class="sd">    creation fails. This class should have exactly the same interface as the Span so that</span>
+<span class="sd">    user&#39;s setter calls do not raise runtime errors.</span>
+
+<span class="sd">    E.g.</span>
+
+<span class="sd">    .. code-block:: python</span>
+
+<span class="sd">        with mlflow.start_span(&quot;span_name&quot;) as span:</span>
+<span class="sd">            # Even if the span creation fails, the following calls should pass.</span>
+<span class="sd">            span.set_inputs({&quot;x&quot;: 1})</span>
+<span class="sd">            # Do something</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_span</span> <span class="o">=</span> <span class="n">NonRecordingSpan</span><span class="p">(</span><span class="n">context</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_attributes</span> <span class="o">=</span> <span class="p">{}</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">request_id</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        No-op span returns a special request ID to distinguish it from the real spans.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">NO_OP_SPAN_REQUEST_ID</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">span_id</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="kc">None</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">name</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="kc">None</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">start_time_ns</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="kc">None</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">end_time_ns</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="kc">None</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">context</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="kc">None</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">parent_id</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="kc">None</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">status</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="kc">None</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">_trace_id</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="kc">None</span>
+
+<div class="viewcode-block" id="NoOpSpan.set_inputs"><a class="viewcode-back" href="../../../python_api/mlflow.entities.html#mlflow.entities.NoOpSpan.set_inputs">[docs]</a>    <span class="k">def</span> <span class="nf">set_inputs</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">inputs</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]):</span>
+        <span class="k">pass</span></div>
+
+<div class="viewcode-block" id="NoOpSpan.set_outputs"><a class="viewcode-back" href="../../../python_api/mlflow.entities.html#mlflow.entities.NoOpSpan.set_outputs">[docs]</a>    <span class="k">def</span> <span class="nf">set_outputs</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">outputs</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]):</span>
+        <span class="k">pass</span></div>
+
+<div class="viewcode-block" id="NoOpSpan.set_attributes"><a class="viewcode-back" href="../../../python_api/mlflow.entities.html#mlflow.entities.NoOpSpan.set_attributes">[docs]</a>    <span class="k">def</span> <span class="nf">set_attributes</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">attributes</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]):</span>
+        <span class="k">pass</span></div>
+
+<div class="viewcode-block" id="NoOpSpan.set_attribute"><a class="viewcode-back" href="../../../python_api/mlflow.entities.html#mlflow.entities.NoOpSpan.set_attribute">[docs]</a>    <span class="k">def</span> <span class="nf">set_attribute</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">value</span><span class="p">:</span> <span class="n">Any</span><span class="p">):</span>
+        <span class="k">pass</span></div>
+
+<div class="viewcode-block" id="NoOpSpan.set_status"><a class="viewcode-back" href="../../../python_api/mlflow.entities.html#mlflow.entities.NoOpSpan.set_status">[docs]</a>    <span class="k">def</span> <span class="nf">set_status</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">status</span><span class="p">:</span> <span class="n">SpanStatus</span><span class="p">):</span>
+        <span class="k">pass</span></div>
+
+<div class="viewcode-block" id="NoOpSpan.add_event"><a class="viewcode-back" href="../../../python_api/mlflow.entities.html#mlflow.entities.NoOpSpan.add_event">[docs]</a>    <span class="k">def</span> <span class="nf">add_event</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">event</span><span class="p">:</span> <span class="n">SpanEvent</span><span class="p">):</span>
+        <span class="k">pass</span></div>
+
+<div class="viewcode-block" id="NoOpSpan.end"><a class="viewcode-back" href="../../../python_api/mlflow.entities.html#mlflow.entities.NoOpSpan.end">[docs]</a>    <span class="k">def</span> <span class="nf">end</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">pass</span></div></div>
+
+
+<span class="k">class</span> <span class="nc">_SpanAttributesRegistry</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    A utility class to manage the span attributes.</span>
+
+<span class="sd">    In MLflow users can add arbitrary key-value pairs to the span attributes, however,</span>
+<span class="sd">    OpenTelemetry only allows a limited set of types to be stored in the attribute values.</span>
+<span class="sd">    Therefore, we serialize all values into JSON string before storing them in the span.</span>
+<span class="sd">    This class provides simple getter and setter methods to interact with the span attributes</span>
+<span class="sd">    without worrying about the serde process.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">otel_span</span><span class="p">:</span> <span class="n">OTelSpan</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_span</span> <span class="o">=</span> <span class="n">otel_span</span>
+
+    <span class="k">def</span> <span class="nf">get_all</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+        <span class="k">return</span> <span class="p">{</span><span class="n">key</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">key</span><span class="p">)</span> <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_span</span><span class="o">.</span><span class="n">attributes</span><span class="o">.</span><span class="n">keys</span><span class="p">()}</span>
+
+    <span class="k">def</span> <span class="nf">get</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">:</span> <span class="nb">str</span><span class="p">):</span>
+        <span class="n">serialized_value</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_span</span><span class="o">.</span><span class="n">attributes</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">key</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">serialized_value</span><span class="p">:</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">serialized_value</span><span class="p">)</span>
+            <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+                <span class="n">_logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;Failed to get value for key </span><span class="si">{</span><span class="n">key</span><span class="si">}</span><span class="s2">, make sure you set the attribute &quot;</span>
+                    <span class="sa">f</span><span class="s2">&quot;on mlflow Span class instead of directly to the OpenTelemetry span. </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span>
+                <span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">set</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">value</span><span class="p">:</span> <span class="n">Any</span><span class="p">):</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+            <span class="n">_logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Attribute key must be a string, but got </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">key</span><span class="p">)</span><span class="si">}</span><span class="s2">. Skipping.&quot;</span><span class="p">)</span>
+            <span class="k">return</span>
+
+        <span class="c1"># NB: OpenTelemetry attribute can store not only string but also a few primitives like</span>
+        <span class="c1">#   int, float, bool, and list of them. However, we serialize all into JSON string here</span>
+        <span class="c1">#   for the simplicity in deserialization process.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_span</span><span class="o">.</span><span class="n">set_attribute</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="bp">cls</span><span class="o">=</span><span class="n">TraceJSONEncoder</span><span class="p">,</span> <span class="n">ensure_ascii</span><span class="o">=</span><span class="kc">False</span><span class="p">))</span>
+
+
+<span class="k">class</span> <span class="nc">_CachedSpanAttributesRegistry</span><span class="p">(</span><span class="n">_SpanAttributesRegistry</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    A cache-enabled version of the SpanAttributesRegistry.</span>
+
+<span class="sd">    The caching helps to avoid the redundant deserialization of the attribute, however, it does</span>
+<span class="sd">    not handle the value change well. Therefore, this class should only be used for the persisted</span>
+<span class="sd">    spans that are immutable, and thus implemented as a subclass of _SpanAttributesRegistry.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="nd">@lru_cache</span><span class="p">(</span><span class="n">maxsize</span><span class="o">=</span><span class="mi">128</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">get</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">:</span> <span class="nb">str</span><span class="p">):</span>
+        <span class="k">return</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">key</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">set</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">value</span><span class="p">:</span> <span class="n">Any</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="n">MlflowException</span><span class="p">(</span>
+            <span class="s2">&quot;The attributes of the immutable span must not be updated.&quot;</span><span class="p">,</span> <span class="n">INVALID_PARAMETER_VALUE</span>
+        <span class="p">)</span>
+</pre></div>
+
+              </div>
+            </div>
+            <footer>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+      <p class="copyright">
+          &copy; MLflow Project, a Series of LF Projects, LLC. All rights reserved.
+      </p>
+
+  </div> 
+
+</footer>
+          </div>
+        </div>
+      </section>
+    </main>
+  </page>
+
+  
+
+
+  
+  <script type="text/javascript">
+    var DOCUMENTATION_OPTIONS = {
+      URL_ROOT:'../../../',
+      VERSION:'2.17.1.dev0',
+      COLLAPSE_INDEX:false,
+      FILE_SUFFIX:'.html',
+      LINK_SUFFIX: '.html',
+      HAS_SOURCE:  true
+    };
+  </script>
+
+  
+
+  <script type="text/javascript" src="../../../_static/js/clipboard.min.js"></script>
+  <script type="text/javascript" src="../../../_static/js/jquery.waypoints.min.js"></script>
+
+  
+  
+  
+  <script type="text/javascript">var CLIPPY_SVG_PATH = "../../../_static/clippy.svg";</script>
+  <script type="text/javascript" src="../../../_static/js/custom.js"></script>
+  
+
+  
+  
+  <script type="text/javascript">
+    jQuery(function () {
+      SphinxRtdTheme.StickyNav.enable();
+    });
+
+  </script>
+  
+
+  
+  <script type="text/javascript">
+    document.addEventListener("DOMContentLoaded", function() {
+        function copyToClipboard(text) {
+            const textarea = document.createElement('textarea');
+            textarea.value = text;
+            document.body.appendChild(textarea);
+            textarea.select();
+            document.execCommand('copy');
+            document.body.removeChild(textarea);
+        }
+        // Get the code block designator class entries
+        const allHighlights = document.querySelectorAll('.highlight');
+        // Disable copyable links for notebook cell numbering and for cell outputs
+        const highlights = Array.from(allHighlights).filter(highlight => !highlight.closest('.highlight-none') && 
+            !highlight.closest('.nboutput'));
+    
+        highlights.forEach(function(highlight) {
+            const copyIcon = document.createElement('span');
+            copyIcon.classList.add('copy-icon');
+            copyIcon.innerHTML = '&#xf0ea;';
+
+            copyIcon.addEventListener('click', function() {
+                const code = highlight.querySelector('pre').textContent;
+                copyToClipboard(code);
+
+                // Flash effect on click
+                this.style.color = '#0194E2';
+                setTimeout(() => {
+                    this.style.color = ''; 
+                }, 100);
+
+                // Display "Code copied to clipboard" near the clicked icon
+                const message = document.createElement('span');
+                message.textContent = "Copied!";
+                message.classList.add('copy-message'); 
+
+                // Append the message to the icon
+                this.appendChild(message);
+
+                setTimeout(() => {
+                    this.removeChild(message);
+                }, 500);
+            });
+
+            highlight.appendChild(copyIcon);
+        });
+    });
+  </script>
+
+
+<script type="text/javascript">
+    document.addEventListener("DOMContentLoaded", function() {
+        // Force download for notebook-download-btn
+        const downloadButtons = document.querySelectorAll('.notebook-download-btn');
+        downloadButtons.forEach(function(button) {
+            button.addEventListener('click', function(event) {
+                event.preventDefault(); // Prevent default behavior
+
+                // Fetch the raw content of the notebook from GitHub
+                fetch(button.href)
+                    .then(response => response.blob())
+                    .then(blob => {
+                        const url = window.URL.createObjectURL(blob);
+                        const link = document.createElement('a');
+                        link.style.display = 'none';
+                        link.href = url;
+                        const filename = button.href.split('/').pop();
+                        link.download = filename; 
+
+                        document.body.appendChild(link);
+                        link.click();
+
+                        window.URL.revokeObjectURL(url);
+                        document.body.removeChild(link);
+                    })
+                    .catch(err => console.error('Error fetching the notebook:', err));
+            });
+        });
+    });
+</script> 
+</body>
+</html>

@@ -4,8 +4,10 @@
   "private": true,
   "scripts": {
     "docusaurus": "docusaurus",
-    "start": "docusaurus start",
+    "start": "yarn build && yarn serve",
     "build": "docusaurus build",
+    "build-api-docs": "python scripts/build-api-docs.py",
+    "update-api-modules": "tsx scripts/update-api-modules.ts",
     "swizzle": "docusaurus swizzle",
     "deploy": "docusaurus deploy",
     "clear": "docusaurus clear",
@@ -19,10 +21,12 @@
     "@docusaurus/core": "3.5.2",
     "@docusaurus/preset-classic": "3.5.2",
     "@mdx-js/react": "^3.0.0",
+    "@types/node": "^22.8.6",
     "clsx": "^2.0.0",
     "prism-react-renderer": "^2.3.0",
     "react": "^18.0.0",
-    "react-dom": "^18.0.0"
+    "react-dom": "^18.0.0",
+    "tsx": "^4.19.2"
   },
   "devDependencies": {
     "@docusaurus/module-type-aliases": "^3.5.2",
