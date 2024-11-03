@@ -37,7 +37,7 @@ jobs:
   # TODO: Add a job to build the python and java api reference
   build_doc:
     docker:
-      - image: cimg/python:3.9
+      - image: cimg/python:3.9-node
 
     steps:
       - checkout
