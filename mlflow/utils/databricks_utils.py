@@ -289,6 +289,9 @@ def is_databricks_connect(spark=None):
     if is_in_databricks_serverless_runtime() or is_in_databricks_shared_cluster_runtime():
         return True
 
+    if spark is None:
+        spark = _get_active_spark_session()
+
     if hasattr(spark.client, "metadata"):
         metadata = spark.client.metadata
     else:
