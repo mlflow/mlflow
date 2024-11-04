@@ -5,7 +5,7 @@ from mlflow.protos import service_pb2 as pb2
 
 
 class LoggedModelStatus(str, Enum):
-    """Enum for status of an :py:class:`mlflow.entities.Model`."""
+    """Enum for status of an :py:class:`mlflow.entities.LoggedModel`."""
 
     UNSPECIFIED = "UNSPECIFIED"
     PENDING = "PENDING"
