@@ -2,7 +2,6 @@ import contextlib
 import importlib
 import inspect
 import logging
-import os
 import sys
 import threading
 import time
@@ -107,6 +106,7 @@ def autologging_conf_lock(fn):
     """
     Apply a global lock on functions that enable / disable autologging.
     """
+
     def wrapper(*args, **kwargs):
         with _autolog_conf_global_lock:
             return fn(*args, **kwargs)
