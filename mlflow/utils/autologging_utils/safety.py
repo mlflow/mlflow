@@ -448,13 +448,6 @@ def safe_patch(
                     and autologging_integration
                     not in mlflow.utils.autologging_utils._AUTOLOGGING_GLOBALLY_DISABLED_EXEMPTIONS
                 )
-                or (
-                    # For typical use-case of "hyper parameter tuning", Optuna might fork multiple
-                    # subprocesses to run tuning tasks.
-                    # in forked subprocesses, we should disable autologging.
-                    mlflow.utils.autologging_utils.AUTOLOGGING_CONF_PID.get(autologging_integration)
-                    != os.getpid()
-                )
             ):
                 # If the autologging integration associated with this patch is disabled,
                 # or if the current autologging integration is in exclusive mode and a user-created

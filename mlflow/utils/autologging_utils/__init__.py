@@ -66,11 +66,6 @@ AUTOLOGGING_CONF_KEY_IS_GLOBALLY_CONFIGURED = "globally_configured"
 # Dict mapping integration name to its config.
 AUTOLOGGING_INTEGRATIONS = {}
 
-# Record the process id of the process that set the corresponding autologging integration config.
-# key: autologging integration name, value: pid of the process.
-# This is used to disable autologging in forked subprocesses.
-AUTOLOGGING_CONF_PID: dict[str, int] = {}
-
 # Corresponds to `mlflow.langchain.autolog` kwargs. Restricts
 # autologging to only log traces.
 MLFLOW_EVALUATE_RESTRICT_LANGCHAIN_AUTOLOG_TO_TRACES_CONFIG = {
@@ -446,7 +441,6 @@ def autologging_integration(name):
             )
             config_to_store.update(kwargs)
             AUTOLOGGING_INTEGRATIONS[name] = config_to_store
-            AUTOLOGGING_CONF_PID[name] = os.getpid()
 
             try:
                 # Pass `autolog()` arguments to `log_autolog_called` in keyword format to enable
