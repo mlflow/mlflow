@@ -15,6 +15,7 @@ from mlflow.legacy_databricks_cli.configure.provider import (
 from mlflow.utils import databricks_utils
 from mlflow.utils.databricks_utils import (
     DatabricksConfigProvider,
+    _get_databricks_creds_config,
     check_databricks_secret_scope_access,
     get_databricks_host_creds,
     get_databricks_runtime_major_minor_version,
@@ -557,3 +558,11 @@ def test_get_workspace_url(input_url, expected_result):
     with mock.patch("mlflow.utils.databricks_utils._get_workspace_url", return_value=input_url):
         result = get_workspace_url()
         assert result == expected_result
+
+
+def test_get_databricks_creds_config_ignore_error():
+    with pytest.raises(MlflowException, match="Reading databricks credential configuration failed"):
+        _get_databricks_creds_config("databricks")
+
+    config = _get_databricks_creds_config("databricks", use_databricks_sdk=True)
+    assert isinstance(config, DatabricksConfig)
