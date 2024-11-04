@@ -8,11 +8,11 @@ from packaging.version import Version
 import mlflow.pytorch
 from mlflow.exceptions import MlflowException
 from mlflow.ml_package_versions import _ML_PACKAGE_VERSIONS
-from mlflow.pytorch import _pytorch_autolog
 from mlflow.utils.autologging_utils import (
     BatchMetricsLogger,
     ExceptionSafeAbstractClass,
     MlflowAutologgingQueueingClient,
+    disable_autologging,
     get_autologging_config,
 )
 from mlflow.utils.checkpoint_utils import MlflowModelCheckpointCallbackBase
@@ -468,7 +468,7 @@ def patched_fit(original, self, *args, **kwargs):
             "outside this range."
         )
 
-    with _pytorch_autolog.disable_pytorch_autologging():
+    with disable_autologging():
         run_id = mlflow.active_run().info.run_id
         tracking_uri = mlflow.get_tracking_uri()
         client = MlflowAutologgingQueueingClient(tracking_uri)
