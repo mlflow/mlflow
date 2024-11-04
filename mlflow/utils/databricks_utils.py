@@ -493,8 +493,16 @@ def get_job_id():
         return _get_context_tag("jobId")
 
 
-@_use_repl_context_if_available("idInJob")
+@_use_repl_context_if_available("jobRunId")
 def get_job_run_id():
+    try:
+        return _get_command_context().jobRunId().get()
+    except Exception:
+        return _get_context_tag("jobRunId")
+
+
+@_use_repl_context_if_available("idInJob")
+def get_task_run_id():
     try:
         return _get_command_context().idInJob().get()
     except Exception:
