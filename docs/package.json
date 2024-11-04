@@ -4,7 +4,8 @@
   "private": true,
   "scripts": {
     "docusaurus": "docusaurus",
-    "start": "yarn build && yarn serve",
+    "start": "docusaurus start",
+    "preview": "yarn build && yarn serve",
     "build": "docusaurus build",
     "build-api-docs": "python scripts/build-api-docs.py",
     "update-api-modules": "tsx scripts/update-api-modules.ts",
