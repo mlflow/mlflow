@@ -214,6 +214,15 @@ def try_transform_response_iter_to_chat_format(chunk_iter):
 
 
 def _convert_chat_request_or_throw(chat_request: dict):
+    try:
+        from langchain_core.messages.utils import convert_to_messages
+
+        return convert_to_messages(chat_request["messages"])
+    except ImportError:
+        pass
+
+    # it's safe to drop below when langchain >= 0.1.20
+    # TODO: drop this once we updated minimum supported langchain version
     if IS_PYDANTIC_V1:
         model = _ChatRequest.parse_obj(chat_request)
     else:
@@ -262,7 +271,6 @@ def transform_request_json_for_chat_if_necessary(request_json: dict, lc_model):
             2. A boolean indicating whether or not the request was transformed from the OpenAI
             chat format.
     """
-    from langchain_core.messages.utils import convert_to_messages
 
     def json_dict_might_be_chat_request(json_message: dict):
         return (
@@ -281,7 +289,7 @@ def transform_request_json_for_chat_if_necessary(request_json: dict, lc_model):
 
     if json_dict_might_be_chat_request(request_json):
         try:
-            result = convert_to_messages(request_json["messages"])
+            result = _convert_chat_request_or_throw(request_json)
             if hasattr(lc_model, "input_schema"):
                 # sometimes the input schema is not reliable and we should try
                 # to invoke the model with the request instead, restricting the check to only
