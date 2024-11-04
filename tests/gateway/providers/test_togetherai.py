@@ -59,9 +59,10 @@ async def test_completions():
     config = completions_config()
     resp = completions_response()
 
-    with mock.patch("time.time", return_value=1677858242), mock.patch(
-        "aiohttp.ClientSession.post", return_value=MockAsyncResponse(resp)
-    ) as mock_post:
+    with (
+        mock.patch("time.time", return_value=1677858242),
+        mock.patch("aiohttp.ClientSession.post", return_value=MockAsyncResponse(resp)) as mock_post,
+    ):
         provider = TogetherAIProvider(RouteConfig(**config))
 
         payload = {
@@ -151,9 +152,12 @@ def completion_stream_response_incomplete():
 async def test_completions_stream(resp):
     config = completions_config()
 
-    with mock.patch("time.time", return_value=1677858242), mock.patch(
-        "aiohttp.ClientSession.post", return_value=MockAsyncStreamingResponse(resp)
-    ) as mock_post:
+    with (
+        mock.patch("time.time", return_value=1677858242),
+        mock.patch(
+            "aiohttp.ClientSession.post", return_value=MockAsyncStreamingResponse(resp)
+        ) as mock_post,
+    ):
         provider = TogetherAIProvider(RouteConfig(**config))
         payload = {
             "model": "mistralai/Mixtral-8x7B-v0.1",
@@ -224,9 +228,10 @@ async def test_max_tokens_missing_error():
     resp = completions_response()
 
     # Mock the post method to return the response payload
-    with mock.patch("time.time", return_value=1677858242), mock.patch(
-        "aiohttp.ClientSession.post", return_value=MockAsyncResponse(resp)
-    ) as mock_post:
+    with (
+        mock.patch("time.time", return_value=1677858242),
+        mock.patch("aiohttp.ClientSession.post", return_value=MockAsyncResponse(resp)) as mock_post,
+    ):
         # Instantiate the provider
         provider = TogetherAIProvider(RouteConfig(**config))
 
@@ -261,9 +266,10 @@ async def test_wrong_logprobs_type_error():
     resp = completions_response()
 
     # Mock the post method to return the response payload
-    with mock.patch("time.time", return_value=1677858242), mock.patch(
-        "aiohttp.ClientSession.post", return_value=MockAsyncResponse(resp)
-    ) as mock_post:
+    with (
+        mock.patch("time.time", return_value=1677858242),
+        mock.patch("aiohttp.ClientSession.post", return_value=MockAsyncResponse(resp)) as mock_post,
+    ):
         # Instantiate the provider
         provider = TogetherAIProvider(RouteConfig(**config))
 
@@ -322,9 +328,10 @@ async def test_embeddings():
     config = embeddings_config()
     resp = embeddings_response()
 
-    with mock.patch("time.time", return_value=1677858242), mock.patch(
-        "aiohttp.ClientSession.post", return_value=MockAsyncResponse(resp)
-    ) as mock_post:
+    with (
+        mock.patch("time.time", return_value=1677858242),
+        mock.patch("aiohttp.ClientSession.post", return_value=MockAsyncResponse(resp)) as mock_post,
+    ):
         provider = TogetherAIProvider(RouteConfig(**config))
 
         payload = {
@@ -387,9 +394,10 @@ async def test_chat():
     config = chat_config()
     resp = chat_response()
 
-    with mock.patch("time.time", return_value=1677858242), mock.patch(
-        "aiohttp.ClientSession.post", return_value=MockAsyncResponse(resp)
-    ) as mock_post:
+    with (
+        mock.patch("time.time", return_value=1677858242),
+        mock.patch("aiohttp.ClientSession.post", return_value=MockAsyncResponse(resp)) as mock_post,
+    ):
         provider = TogetherAIProvider(RouteConfig(**config))
 
         payload = {
@@ -472,9 +480,12 @@ def chat_stream_response_incomplete():
 async def test_chat_stream(resp):
     config = chat_config()
 
-    with mock.patch("time.time", return_value=1677858242), mock.patch(
-        "aiohttp.ClientSession.post", return_value=MockAsyncStreamingResponse(resp)
-    ) as mock_post:
+    with (
+        mock.patch("time.time", return_value=1677858242),
+        mock.patch(
+            "aiohttp.ClientSession.post", return_value=MockAsyncStreamingResponse(resp)
+        ) as mock_post,
+    ):
         provider = TogetherAIProvider(RouteConfig(**config))
         payload = {
             "model": "mistralai/Mixtral-8x7B-v0.1",

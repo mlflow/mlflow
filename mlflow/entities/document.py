@@ -1,6 +1,6 @@
 from copy import deepcopy
 from dataclasses import asdict, dataclass, field
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 
 @dataclass
@@ -15,7 +15,7 @@ class Document:
     """
 
     page_content: str
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
     id: Optional[str] = None
 
     @classmethod

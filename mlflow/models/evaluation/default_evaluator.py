@@ -9,7 +9,7 @@ import tempfile
 import traceback
 import warnings
 from abc import abstractmethod
-from typing import Any, Callable, List, NamedTuple, Optional, Tuple, Union
+from typing import Any, Callable, NamedTuple, Optional, Union
 
 import numpy as np
 import pandas as pd
@@ -201,7 +201,7 @@ class BuiltInEvaluator(ModelEvaluator):
     def _evaluate(
         self,
         model: Optional["mlflow.pyfunc.PyFuncModel"],
-        extra_metrics: List[EvaluationMetric],
+        extra_metrics: list[EvaluationMetric],
         custom_artifacts=None,
         **kwargs,
     ) -> Optional[EvaluationResult]:
@@ -242,13 +242,15 @@ class BuiltInEvaluator(ModelEvaluator):
             pyplot.clf()
             do_plot()
             pyplot.savefig(artifact_file_local_path, bbox_inches="tight")
+        except Exception as e:
+            _logger.warning(f"Failed to log image artifact {artifact_name!r}: {e!r}")
+        else:
+            mlflow.log_artifact(artifact_file_local_path)
+            artifact = ImageEvaluationArtifact(uri=mlflow.get_artifact_uri(artifact_file_name))
+            artifact._load(artifact_file_local_path)
+            self.artifacts[artifact_name] = artifact
         finally:
             pyplot.close(pyplot.gcf())
-
-        mlflow.log_artifact(artifact_file_local_path)
-        artifact = ImageEvaluationArtifact(uri=mlflow.get_artifact_uri(artifact_file_name))
-        artifact._load(artifact_file_local_path)
-        self.artifacts[artifact_name] = artifact
 
     def _evaluate_sklearn_model_score_if_scorable(self, model, y_true, sample_weights):
         model_loader_module, raw_model = _extract_raw_model(model)
@@ -355,7 +357,7 @@ class BuiltInEvaluator(ModelEvaluator):
         eval_df: pd.DataFrame,
         input_df: pd.DataFrame,
         other_output_df: Optional[pd.DataFrame],
-    ) -> Tuple[bool, List[Union[str, pd.DataFrame]]]:
+    ) -> tuple[bool, list[Union[str, pd.DataFrame]]]:
         """
         Given a metric_tuple, read the signature of the metric function and get the appropriate
         arguments from the input/output columns, other calculated metrics, and evaluator_config.
@@ -453,7 +455,7 @@ class BuiltInEvaluator(ModelEvaluator):
 
     def evaluate_and_log_custom_artifacts(
         self,
-        custom_artifacts: List[_CustomArtifact],
+        custom_artifacts: list[_CustomArtifact],
         prediction: pd.Series,
         target: Optional[np.array] = None,
     ):
@@ -562,7 +564,7 @@ class BuiltInEvaluator(ModelEvaluator):
 
     def _order_metrics(
         self,
-        metrics: List[EvaluationMetric],
+        metrics: list[EvaluationMetric],
         eval_df: pd.DataFrame,
         other_output_df: Optional[pd.DataFrame],
     ):
@@ -603,7 +605,7 @@ class BuiltInEvaluator(ModelEvaluator):
 
     def _test_first_row(
         self,
-        metrics: List[MetricDefinition],
+        metrics: list[MetricDefinition],
         eval_df: pd.DataFrame,
         other_output_df: Optional[pd.DataFrame],
     ):
@@ -635,7 +637,7 @@ class BuiltInEvaluator(ModelEvaluator):
 
     def evaluate_metrics(
         self,
-        metrics: List[EvaluationMetric],
+        metrics: list[EvaluationMetric],
         prediction: pd.Series,
         target: Optional[np.array] = None,
         other_output_df: Optional[pd.DataFrame] = None,
@@ -862,10 +864,12 @@ class BuiltInEvaluator(ModelEvaluator):
 
         import matplotlib
 
-        with TempDir() as temp_dir, matplotlib.rc_context(
-            _matplotlib_config
-        ), mlflow.utils.autologging_utils.disable_autologging(
-            exemptions=[mlflow.langchain.FLAVOR_NAME]
+        with (
+            TempDir() as temp_dir,
+            matplotlib.rc_context(_matplotlib_config),
+            mlflow.utils.autologging_utils.disable_autologging(
+                exemptions=[mlflow.langchain.FLAVOR_NAME]
+            ),
         ):
             self.temp_dir = temp_dir
             return self._evaluate(model, extra_metrics, custom_artifacts)

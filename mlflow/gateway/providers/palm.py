@@ -1,5 +1,5 @@
 import time
-from typing import Any, Dict
+from typing import Any
 
 from fastapi import HTTPException
 from fastapi.encoders import jsonable_encoder
@@ -20,7 +20,7 @@ class PaLMProvider(BaseProvider):
             raise TypeError(f"Unexpected config type {config.model.config}")
         self.palm_config: PaLMConfig = config.model.config
 
-    async def _request(self, path: str, payload: Dict[str, Any]) -> Dict[str, Any]:
+    async def _request(self, path: str, payload: dict[str, Any]) -> dict[str, Any]:
         headers = {"x-goog-api-key": self.palm_config.palm_api_key}
         return await send_request(
             headers=headers,

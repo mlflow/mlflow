@@ -1,5 +1,4 @@
 import tempfile
-from typing import List
 
 import pandas as pd
 import pytest
@@ -9,7 +8,7 @@ import mlflow
 from mlflow.exceptions import MlflowException
 
 
-def language_model(inputs: List[str]) -> List[str]:
+def language_model(inputs: list[str]) -> list[str]:
     return inputs
 
 
@@ -38,11 +37,16 @@ def test_write_to_delta_fails_without_spark():
 @pytest.fixture
 def spark_session_with_delta():
     with tempfile.TemporaryDirectory() as tmpdir:
-        with SparkSession.builder.master("local[*]").config(
-            "spark.jars.packages", "io.delta:delta-spark_2.12:3.0.0"
-        ).config("spark.sql.extensions", "io.delta.sql.DeltaSparkSessionExtension").config(
-            "spark.sql.catalog.spark_catalog", "org.apache.spark.sql.delta.catalog.DeltaCatalog"
-        ).config("spark.sql.warehouse.dir", tmpdir).getOrCreate() as spark:
+        with (
+            SparkSession.builder.master("local[*]")
+            .config("spark.jars.packages", "io.delta:delta-spark_2.12:3.0.0")
+            .config("spark.sql.extensions", "io.delta.sql.DeltaSparkSessionExtension")
+            .config(
+                "spark.sql.catalog.spark_catalog", "org.apache.spark.sql.delta.catalog.DeltaCatalog"
+            )
+            .config("spark.sql.warehouse.dir", tmpdir)
+            .getOrCreate() as spark
+        ):
             yield spark, tmpdir
 
 

@@ -4,7 +4,7 @@ import posixpath
 import re
 import urllib.parse
 import uuid
-from typing import Any, Tuple
+from typing import Any
 
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
@@ -322,7 +322,7 @@ def append_to_uri_path(uri, *paths):
     return prefix + urllib.parse.urlunparse(new_parsed_uri)
 
 
-def append_to_uri_query_params(uri, *query_params: Tuple[str, Any]) -> str:
+def append_to_uri_query_params(uri, *query_params: tuple[str, Any]) -> str:
     """Appends the specified query parameters to an existing URI.
 
     Args:

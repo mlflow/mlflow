@@ -1,7 +1,7 @@
 import json
 import logging
 from functools import cached_property
-from typing import Any, Dict, Optional, Tuple, Union
+from typing import Any, Optional, Union
 
 import numpy as np
 
@@ -144,7 +144,7 @@ class TensorFlowDataset(Dataset, PyFuncConvertibleDatasetMixin):
             return self._compute_tensorflow_dataset_digest(self._features, self._targets)
         return self._compute_tensor_digest(self._features, self._targets)
 
-    def to_dict(self) -> Dict[str, str]:
+    def to_dict(self) -> dict[str, str]:
         """Create config dictionary for the dataset.
 
         Returns a string dictionary containing the following fields: name, digest, source, source
@@ -247,7 +247,7 @@ class TensorFlowDataset(Dataset, PyFuncConvertibleDatasetMixin):
             )
 
     @staticmethod
-    def _get_schema_from_tf_dataset_dict_numpy_data(numpy_data: Dict[Any, Any]) -> Schema:
+    def _get_schema_from_tf_dataset_dict_numpy_data(numpy_data: dict[Any, Any]) -> Schema:
         if not all(isinstance(data_element, np.ndarray) for data_element in numpy_data.values()):
             raise MlflowException(
                 "Failed to infer schema for tf.data.Dataset. Schemas can only be inferred"
@@ -259,7 +259,7 @@ class TensorFlowDataset(Dataset, PyFuncConvertibleDatasetMixin):
         return _infer_schema(numpy_data)
 
     @staticmethod
-    def _get_schema_from_tf_dataset_tuple_numpy_data(numpy_data: Tuple[Any]) -> Schema:
+    def _get_schema_from_tf_dataset_tuple_numpy_data(numpy_data: tuple[Any]) -> Schema:
         if not all(isinstance(data_element, np.ndarray) for data_element in numpy_data):
             raise MlflowException(
                 "Failed to infer schema for tf.data.Dataset. Schemas can only be inferred"

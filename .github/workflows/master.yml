@@ -81,9 +81,8 @@ jobs:
           python -m venv .venv
           source .venv/bin/activate
           source ./dev/install-common-deps.sh --ml
-          # 4.46.0 is broken because of https://github.com/huggingface/transformers/issues/34370
-          # TODO: remove this once above issue is resolved
-          pip install 'transformers!=4.46.0'
+          # transformers doesn't support Keras 3 yet. tf-keras needs to be installed as a workaround.
+          pip install tf-keras
       - uses: ./.github/actions/show-versions
       - uses: ./.github/actions/pipdeptree
       - name: Import check
@@ -187,9 +186,8 @@ jobs:
           python -m venv .venv
           source .venv/bin/activate
           source ./dev/install-common-deps.sh --ml
-          # 4.46.0 is broken because of https://github.com/huggingface/transformers/issues/34370
-          # TODO: remove this once above issue is resolved
-          pip install 'transformers!=4.46.0'
+          # transformers doesn't support Keras 3 yet. tf-keras needs to be installed as a workaround.
+          pip install tf-keras
       - uses: ./.github/actions/show-versions
       - uses: ./.github/actions/pipdeptree
       - name: Run tests
@@ -258,9 +256,6 @@ jobs:
         run: |
           source ./dev/install-common-deps.sh
           pip install pyspark torch transformers langchain langchain-experimental '.[genai]'
-          # 4.46.0 is broken because of https://github.com/huggingface/transformers/issues/34370
-          # TODO: remove this once above issue is resolved
-          pip install 'transformers!=4.46.0'
       - uses: ./.github/actions/show-versions
       - uses: ./.github/actions/pipdeptree
       - name: Run tests
@@ -351,7 +346,6 @@ jobs:
           pip install --no-dependencies tests/resources/mlflow-test-plugin
           pip install '.[extras,genai]'
           pip install pyspark
-          pip install mleap
           # Install Hugging Face datasets to test Hugging Face usage with MLflow dataset tracking
           pip install datasets
           # Install TensorFlow to test TensorFlow dataset usage with MLflow dataset tracking
@@ -359,9 +353,8 @@ jobs:
           # Install torch and transformers to test metrics
           pip install torch transformers
           pip install -r requirements/test-requirements.txt
-          # 4.46.0 is broken because of https://github.com/huggingface/transformers/issues/34370
-          # TODO: remove this once above issue is resolved
-          pip install 'transformers!=4.46.0'
+          # transformers doesn't support Keras 3 yet. tf-keras needs to be installed as a workaround.
+          pip install tf-keras
       - uses: ./.github/actions/show-versions
       - uses: ./.github/actions/pipdeptree
       - name: Download Hadoop winutils for Spark

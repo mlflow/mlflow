@@ -15,7 +15,7 @@ from collections import namedtuple
 from itertools import chain, filterfalse
 from pathlib import Path
 from threading import Timer
-from typing import List, NamedTuple, Optional
+from typing import NamedTuple, Optional
 
 import importlib_metadata
 from packaging.requirements import Requirement
@@ -541,6 +541,17 @@ def _infer_requirements(model_uri, flavor, raise_on_error=False, extra_env_vars=
             unrecognized_packages,
         )
 
+    # Handle pandas incompatibility issue with numpy 2.x https://github.com/pandas-dev/pandas/issues/55519
+    # pandas == 2.2.*: compatible with numpy >= 2
+    # pandas >= 2.1.2: incompatible with numpy >= 2, but it pins numpy < 2
+    # pandas < 2.1.2: incompatible with numpy >= 2 and doesn't pin numpy, so we need to pin numpy
+    if any(
+        package == "pandas"
+        and Version(_get_pinned_requirement(package).split("==")[1]) < Version("2.1.2")
+        for package in packages
+    ):
+        packages.add("numpy")
+
     return sorted(map(_get_pinned_requirement, packages))
 
 
@@ -678,7 +689,7 @@ def _check_requirement_satisfied(requirement_str):
     return None
 
 
-def warn_dependency_requirement_mismatches(model_requirements: List[str]):
+def warn_dependency_requirement_mismatches(model_requirements: list[str]):
     """
     Inspects the model's dependencies and prints a warning if the current Python environment
     doesn't satisfy them.

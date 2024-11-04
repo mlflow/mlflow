@@ -1,14 +1,13 @@
 import json
 import logging
 import time
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 from opentelemetry.context import Context
 from opentelemetry.sdk.trace import ReadableSpan as OTelReadableSpan
 from opentelemetry.sdk.trace import Span as OTelSpan
 from opentelemetry.sdk.trace.export import SimpleSpanProcessor, SpanExporter
 
-import mlflow
 from mlflow.entities.trace_info import TraceInfo
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.tracing.constant import (
@@ -86,10 +85,19 @@ class MlflowSpanProcessor(SimpleSpanProcessor):
         span.set_attribute(SpanAttributeKey.REQUEST_ID, json.dumps(request_id))
 
     def _start_trace(self, span: OTelSpan, start_time_ns: Optional[int]) -> TraceInfo:
+        from mlflow.tracking.fluent import _get_latest_active_run
+
         experiment_id = get_otel_attribute(span, SpanAttributeKey.EXPERIMENT_ID)
         metadata = {TRACE_SCHEMA_VERSION_KEY: str(TRACE_SCHEMA_VERSION)}
         # If the span is started within an active MLflow run, we should record it as a trace tag
-        if run := mlflow.active_run():
+        # Note `mlflow.active_run()` can only get thread-local active run,
+        # but tracing routine might be applied to model inference worker threads
+        # in the following cases:
+        #  - langchain model `chain.batch` which uses thread pool to spawn workers.
+        #  - MLflow langchain pyfunc model `predict` which calls `api_request_parallel_processor`.
+        # Therefore, we use `_get_global_active_run()` instead to get the active run from
+        # all threads and set it as the tracing source run.
+        if run := _get_latest_active_run():
             metadata[TraceMetadataKey.SOURCE_RUN] = run.info.run_id
             if experiment_id is None:
                 # if we're inside a run, the run's experiment id should
@@ -195,8 +203,8 @@ class MlflowSpanProcessor(SimpleSpanProcessor):
         request_id: str,
         span: OTelSpan,
         experiment_id: Optional[str] = None,
-        request_metadata: Optional[Dict[str, Any]] = None,
-        tags: Optional[Dict[str, str]] = None,
+        request_metadata: Optional[dict[str, Any]] = None,
+        tags: Optional[dict[str, str]] = None,
     ) -> TraceInfo:
         return TraceInfo(
             request_id=request_id,

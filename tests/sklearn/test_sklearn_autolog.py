@@ -402,8 +402,9 @@ def test_get_params_returns_dict_that_has_more_keys_than_max_params_tags_per_bat
     large_params = {str(i): str(i) for i in range(MAX_PARAMS_TAGS_PER_BATCH + 1)}
     X, y = get_iris()
 
-    with disable_validate_params("sklearn.cluster.KMeans"), mock.patch(
-        "sklearn.cluster.KMeans.get_params", return_value=large_params
+    with (
+        disable_validate_params("sklearn.cluster.KMeans"),
+        mock.patch("sklearn.cluster.KMeans.get_params", return_value=large_params),
     ):
         with mlflow.start_run() as run:
             model = sklearn.cluster.KMeans()
@@ -438,9 +439,12 @@ def test_get_params_returns_dict_whose_key_or_value_exceeds_length_limit(long_pa
 
     X, y = get_iris()
 
-    with disable_validate_params("sklearn.cluster.KMeans"), mock.patch(
-        "sklearn.cluster.KMeans.get_params", return_value=long_params
-    ), mock.patch("mlflow.utils._logger.warning") as mock_warning, mlflow.start_run() as run:
+    with (
+        disable_validate_params("sklearn.cluster.KMeans"),
+        mock.patch("sklearn.cluster.KMeans.get_params", return_value=long_params),
+        mock.patch("mlflow.utils._logger.warning") as mock_warning,
+        mlflow.start_run() as run,
+    ):
         model = sklearn.cluster.KMeans()
         model.fit(X, y)
 
@@ -701,9 +705,11 @@ def test_autolog_emits_warning_message_when_metric_fails():
     def throwing_metrics(y_true, y_pred):
         raise Exception("EXCEPTION")
 
-    with mlflow.start_run(), mock.patch(
-        "mlflow.sklearn.utils._logger.warning"
-    ) as mock_warning, mock.patch("sklearn.metrics.precision_score", side_effect=throwing_metrics):
+    with (
+        mlflow.start_run(),
+        mock.patch("mlflow.sklearn.utils._logger.warning") as mock_warning,
+        mock.patch("sklearn.metrics.precision_score", side_effect=throwing_metrics),
+    ):
         model.fit(*get_iris())
         mock_warning.assert_called_once()
         mock_warning.called_once_with(
@@ -1039,9 +1045,13 @@ def test_autolog_does_not_throw_when_predict_fails():
     mlflow.sklearn.autolog(log_input_examples=True, log_model_signatures=True)
 
     # Note that `mock_warning` will be called twice because if `predict` throws, `score` also throws
-    with mlflow.start_run() as run, mock.patch(
-        "sklearn.linear_model.LinearRegression.predict", side_effect=Exception("Failed")
-    ), mock.patch("mlflow.sklearn._logger.warning") as mock_warning:
+    with (
+        mlflow.start_run() as run,
+        mock.patch(
+            "sklearn.linear_model.LinearRegression.predict", side_effect=Exception("Failed")
+        ),
+        mock.patch("mlflow.sklearn._logger.warning") as mock_warning,
+    ):
         model = sklearn.linear_model.LinearRegression()
         model.fit(X, y)
 
@@ -1053,9 +1063,11 @@ def test_autolog_does_not_throw_when_predict_fails():
 def test_autolog_does_not_throw_when_infer_signature_fails():
     X, y = get_iris()
 
-    with mlflow.start_run() as run, mock.patch(
-        "mlflow.models.infer_signature", side_effect=Exception("Failed")
-    ), mock.patch("mlflow.sklearn._logger.warning") as mock_warning:
+    with (
+        mlflow.start_run() as run,
+        mock.patch("mlflow.models.infer_signature", side_effect=Exception("Failed")),
+        mock.patch("mlflow.sklearn._logger.warning") as mock_warning,
+    ):
         mlflow.sklearn.autolog(log_input_examples=True, log_model_signatures=True)
         model = sklearn.linear_model.LinearRegression()
         model.fit(X, y)
@@ -1551,15 +1563,20 @@ def test_meta_estimator_disable_nested_post_training_autologging(scoring):
     mlflow.sklearn.autolog()
 
     X, y = get_iris()
-    with mock.patch(
-        "mlflow.sklearn._AutologgingMetricsManager.register_model"
-    ) as mock_register_model, mock.patch(
-        "mlflow.sklearn._AutologgingMetricsManager.is_metric_value_loggable"
-    ) as mock_is_metric_value_loggable, mock.patch(
-        "mlflow.sklearn._AutologgingMetricsManager.log_post_training_metric"
-    ) as mock_log_post_training_metric, mock.patch(
-        "mlflow.sklearn._AutologgingMetricsManager.register_prediction_input_dataset"
-    ) as mock_register_prediction_input_dataset:
+    with (
+        mock.patch(
+            "mlflow.sklearn._AutologgingMetricsManager.register_model"
+        ) as mock_register_model,
+        mock.patch(
+            "mlflow.sklearn._AutologgingMetricsManager.is_metric_value_loggable"
+        ) as mock_is_metric_value_loggable,
+        mock.patch(
+            "mlflow.sklearn._AutologgingMetricsManager.log_post_training_metric"
+        ) as mock_log_post_training_metric,
+        mock.patch(
+            "mlflow.sklearn._AutologgingMetricsManager.register_prediction_input_dataset"
+        ) as mock_register_prediction_input_dataset,
+    ):
         with mlflow.start_run():
             svc = sklearn.svm.SVC()
             cv_model = sklearn.model_selection.GridSearchCV(

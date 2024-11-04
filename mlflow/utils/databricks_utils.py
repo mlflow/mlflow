@@ -277,7 +277,7 @@ def is_in_databricks_shared_cluster_runtime():
     )
 
 
-def is_databricks_connect(spark):
+def is_databricks_connect(spark=None):
     """
     Return True if current Spark-connect client connects to Databricks cluster.
     """
@@ -1101,6 +1101,28 @@ def get_databricks_env_vars(tracking_uri):
         env_vars.update(workspace_info.to_environment())
 
     return env_vars
+
+
+def _get_databricks_serverless_env_vars() -> dict[str, str]:
+    """
+    Returns the environment variables required to to initialize WorkspaceClient in a subprocess
+    with serverless compute.
+
+    Note:
+        Databricks authentication related environment variables such as DATABRICKS_HOST are
+        set in the are set in the _capture_imported_modules function.
+    """
+    envs = {}
+    if "SPARK_REMOTE" in os.environ:
+        envs["SPARK_LOCAL_REMOTE"] = os.environ["SPARK_REMOTE"]
+    else:
+        _logger.warning(
+            "Missing required environment variable `SPARK_LOCAL_REMOTE` or `SPARK_REMOTE`. "
+            "These are necessary to initialize the WorkspaceClient with serverless compute in "
+            "a subprocess in Databricks for UC function execution. Setting the value to 'true'."
+        )
+        envs["SPARK_LOCAL_REMOTE"] = "true"
+    return envs
 
 
 class DatabricksRuntimeVersion(NamedTuple):

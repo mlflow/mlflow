@@ -9,7 +9,7 @@ import time
 import uuid
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
-from typing import List, Union
+from typing import Union
 from unittest import mock
 
 import pytest
@@ -223,7 +223,7 @@ def _cleanup_database(store: SqlAlchemyStore):
             session.execute(sqlalchemy.sql.text(reset_experiment_id))
 
 
-def _create_experiments(store: SqlAlchemyStore, names) -> Union[str, List]:
+def _create_experiments(store: SqlAlchemyStore, names) -> Union[str, list]:
     if isinstance(names, (list, tuple)):
         ids = []
         for name in names:
@@ -2710,9 +2710,11 @@ def test_log_batch_internal_error(store: SqlAlchemyStore):
         raise Exception("Some internal error")
 
     package = "mlflow.store.tracking.sqlalchemy_store.SqlAlchemyStore"
-    with mock.patch(package + "._log_metrics") as metric_mock, mock.patch(
-        package + "._log_params"
-    ) as param_mock, mock.patch(package + "._set_tags") as tags_mock:
+    with (
+        mock.patch(package + "._log_metrics") as metric_mock,
+        mock.patch(package + "._log_params") as param_mock,
+        mock.patch(package + "._set_tags") as tags_mock,
+    ):
         metric_mock.side_effect = _raise_exception_fn
         param_mock.side_effect = _raise_exception_fn
         tags_mock.side_effect = _raise_exception_fn
@@ -3870,6 +3872,10 @@ def _assert_create_experiment_appends_to_artifact_uri_path_correctly(
             )
             exp_id = store.create_experiment(name="exp")
             exp = store.get_experiment(exp_id)
+
+            if hasattr(store, "__del__"):
+                store.__del__()
+
             cwd = Path.cwd().as_posix()
             drive = Path.cwd().drive
             if is_windows() and expected_artifact_uri_format.startswith("file:"):
@@ -3980,6 +3986,10 @@ def _assert_create_run_appends_to_artifact_uri_path_correctly(
                 tags=[],
                 run_name="name",
             )
+
+            if hasattr(store, "__del__"):
+                store.__del__()
+
             cwd = Path.cwd().as_posix()
             drive = Path.cwd().drive
             if is_windows() and expected_artifact_uri_format.startswith("file:"):
