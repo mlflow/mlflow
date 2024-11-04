@@ -287,7 +287,7 @@ def transform_request_json_for_chat_if_necessary(request_json: dict, lc_model):
                 # to invoke the model with the request instead, restricting the check to only
                 # string input schemas to reduce the blast radius
                 # example: test_save_load_chain_as_code
-                if lc_model.input_schema.schema().get("type") == "string":
+                if lc_model.input_schema.schema().get("type", "string") == "string":
                     # TODO: migrate this logic inside APIRequest to avoid invoke twice
                     lc_model.invoke(result)
                     return result, True

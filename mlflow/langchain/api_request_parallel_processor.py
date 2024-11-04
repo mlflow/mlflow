@@ -152,6 +152,7 @@ class APIRequest:
                 # does not accept dictionaries as input, it leads to errors like
                 # Expected Scalar value for String field 'query_text'
                 try:
+                    original_request = self.request_json
                     response = self._predict_single_input(
                         self.request_json, callback_handlers, **self.params
                     )
@@ -161,7 +162,7 @@ class APIRequest:
                         f"with {self.request_json}. Error: {e!r}. Trying to "
                         "invoke with the first value of the dictionary."
                     )
-                    self.request_json = next(iter(self.request_json.values()))
+                    self.request_json = next(iter(original_request.values()))
                     response = self._predict_single_input(
                         self.request_json, callback_handlers, **self.params
                     )
@@ -178,8 +179,12 @@ class APIRequest:
             kwargs.update(**self.params)
             response = self._predict_single_input(self.request_json, callback_handlers, **kwargs)
 
-            # for backwards compatibility, single output chains will still return only the result
-            if isinstance(response, dict) and len(response) == 1:
+            # for backwards compatibility, only return the value for single-output chains
+            if (
+                not self.convert_chat_responses
+                and isinstance(response, dict)
+                and len(response) == 1
+            ):
                 response = response.popitem()[1]
 
         return convert_to_serializable(response)
@@ -234,11 +239,11 @@ def process_api_requests(
                 _logger.warning(f"Retrying request {next_request.index}: {next_request}")
             elif req := next(requests_iter, None):
                 # get new request
-                index, converted_chat_request_json = req
+                index, request_json = req
                 next_request = APIRequest(
                     index=index,
                     lc_model=lc_model,
-                    request_json=converted_chat_request_json,
+                    request_json=request_json,
                     results=results,
                     errors=errors,
                     convert_chat_responses=convert_chat_responses,
