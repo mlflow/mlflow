@@ -1,5 +1,6 @@
 import logging
 import sys
+import threading
 import time
 import warnings
 from concurrent.futures import ThreadPoolExecutor
@@ -312,3 +313,34 @@ def test_silent_mode_and_warning_rerouting_respect_disabled_flag(
     # Verify that nothing is printed to the stderr-backed MLflow event logger, which would indicate
     # rerouting of warning content
     assert not stream.getvalue()
+
+
+def test_autolog_function_thread_safety(patch_destination):
+    from mlflow.utils.autologging_utils import AUTOLOGGING_INTEGRATIONS
+
+    AUTOLOGGING_INTEGRATIONS.pop("test_integration", None)
+
+    def original_impl():
+        pass
+
+    patch_destination.fn = original_impl
+
+    def patch_impl(original):
+        original()
+
+    @autologging_integration("test_integration")
+    def test_autolog(disable=False, silent=False):
+        time.sleep(0.2)
+        safe_patch("test_integration", patch_destination, "fn", patch_impl)
+
+    thread1 = threading.Thread(target=test_autolog, kwargs={"disable": False})
+    thread1.start()
+    time.sleep(0.1)
+    thread2 = threading.Thread(target=test_autolog, kwargs={"disable": True})
+    thread2.start()
+
+    thread1.join()
+    thread2.join()
+
+    assert AUTOLOGGING_INTEGRATIONS["test_integration"]["disable"]
+    assert patch_destination.fn is original_impl
