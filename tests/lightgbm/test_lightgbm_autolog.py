@@ -93,8 +93,6 @@ def test_lgb_autolog_logs_default_params(bst_params, train_set):
 
     expected_params = {
         "num_boost_round": 100,
-        "feature_name": "auto",
-        "categorical_feature": "auto",
         "keep_training_booster": False,
     }
     if Version(lgb.__version__) <= Version("3.3.1"):
@@ -105,6 +103,12 @@ def test_lgb_autolog_logs_default_params(bst_params, train_set):
             # in this PR: https://github.com/microsoft/LightGBM/pull/4577
             "warn" if Version(lgb.__version__) > Version("3.2.1") else True
         )
+    if Version(lgb.__version__) <= Version("4.5.0"):
+        # these params were removed in this PR:
+        # https://github.com/microsoft/LightGBM/pull/6706
+        expected_params["feature_name"] = "auto"
+        expected_params["categorical_feature"] = "auto"
+
     expected_params.update(bst_params)
 
     for key, val in expected_params.items():
