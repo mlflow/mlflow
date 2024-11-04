@@ -459,10 +459,11 @@ def env_var_tracker():
     """
     from mlflow.environment_variables import MLFLOW_RECORD_ENV_VARS_IN_MODEL_LOGGING
 
+    tracked_env_names = set()
+
     if MLFLOW_RECORD_ENV_VARS_IN_MODEL_LOGGING.get():
         original_getitem = os._Environ.__getitem__
         original_get = os._Environ.get
-        tracked_env_names = set()
 
         def updated_get_item(self, key):
             result = original_getitem(self, key)
@@ -474,23 +475,12 @@ def env_var_tracker():
                 tracked_env_names.add(key)
             return original_get(self, key, *args, **kwargs)
 
-        def get_tracked_env_names(self):
-            nonlocal tracked_env_names
-            tracked_env_names = {
-                x
-                for x in tracked_env_names
-                if any(env_var in x for env_var in RECORD_ENV_VAR_ALLOWLIST)
-            }
-            return tracked_env_names
-
         try:
             os._Environ.__getitem__ = updated_get_item
             os._Environ.get = updated_get
-            os._Environ.get_tracked_env_names = get_tracked_env_names
-            yield os.environ
+            yield tracked_env_names
         finally:
             os._Environ.__getitem__ = original_getitem
             os._Environ.get = original_get
-            del os._Environ.get_tracked_env_names
     else:
-        yield os.environ
+        yield tracked_env_names

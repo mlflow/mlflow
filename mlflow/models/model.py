@@ -796,9 +796,9 @@ class Model:
             # validate input example works for serving when logging the model
             if serving_input and kwargs.get("validate_serving_input", True):
                 from mlflow.models import validate_serving_input
-                from mlflow.utils.model_utils import env_var_tracker
+                from mlflow.utils.model_utils import RECORD_ENV_VAR_ALLOWLIST, env_var_tracker
 
-                with env_var_tracker() as env:
+                with env_var_tracker() as tracked_env_names:
                     try:
                         validate_serving_input(
                             model_uri=local_path,
@@ -817,8 +817,11 @@ class Model:
                             f"Got error: {e}",
                             exc_info=_logger.isEnabledFor(logging.DEBUG),
                         )
-                    if hasattr(env, "get_tracked_env_names"):
-                        env_vars = list(env.get_tracked_env_names()) or None
+                    env_vars = [
+                        x
+                        for x in tracked_env_names
+                        if any(env_var in x for env_var in RECORD_ENV_VAR_ALLOWLIST)
+                    ] or None
             if env_vars:
                 env_var_path = Path(local_path, ENV_VAR_FILE_NAME)
                 env_var_path.write_text(ENV_VAR_FILE_HEADER + "\n".join(env_vars) + "\n")
