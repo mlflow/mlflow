@@ -99,6 +99,7 @@ export class ModelVersionPageImpl extends React.Component<ModelVersionPageImplPr
           this.props.deleteModelVersionApi(modelName, version, undefined, true);
           navigate(ModelRegistryRoutes.getModelPageRoute(modelName));
         } else {
+          // eslint-disable-next-line no-console -- TODO(FEINF-3587)
           console.error(e);
         }
       });
@@ -161,13 +162,17 @@ export class ModelVersionPageImpl extends React.Component<ModelVersionPageImplPr
 
   handleEditDescription = (description: any) => {
     const { modelName, version } = this.props;
-    return this.props
-      .updateModelVersionApi(modelName, version, description, this.updateModelVersionRequestId)
-      .then(this.loadData)
-      .catch(console.error);
+    return (
+      this.props
+        .updateModelVersionApi(modelName, version, description, this.updateModelVersionRequestId)
+        .then(this.loadData)
+        // eslint-disable-next-line no-console -- TODO(FEINF-3587)
+        .catch(console.error)
+    );
   };
 
   componentDidMount() {
+    // eslint-disable-next-line no-console -- TODO(FEINF-3587)
     this.loadData(true).catch(console.error);
     this.loadModelDataWithAliases();
     this.pollIntervalId = setInterval(this.pollData, POLL_INTERVAL);
@@ -181,6 +186,7 @@ export class ModelVersionPageImpl extends React.Component<ModelVersionPageImplPr
   // Make a new initial load if model version or name has changed
   componentDidUpdate(prevProps: ModelVersionPageImplProps) {
     if (this.props.version !== prevProps.version || this.props.modelName !== prevProps.modelName) {
+      // eslint-disable-next-line no-console -- TODO(FEINF-3587)
       this.loadData(true).catch(console.error);
       this.getModelVersionMlModelFile();
     }
