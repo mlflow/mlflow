@@ -1,4 +1,3 @@
-import os
 from unittest import mock
 
 import pytest
@@ -101,7 +100,6 @@ def test_plugin_raising_error(monkeypatch):
     monkeypatch.setenv("raiseError", "True")
     with pytest.raises(RuntimeError, match="Error requested"):
         client.list_deployments()
-    os.environ["raiseError"] = "False"
 
 
 def test_target_uri_parsing():
