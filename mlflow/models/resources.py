@@ -220,10 +220,12 @@ class DatabricksGenieSpace(DatabricksResource):
 
 class DatabricksTable(DatabricksResource):
     """
-    Define a Databricks Table to serve a model.
+    Defines a Databricks Unity Catalog (UC) Table, which establishes table dependencies
+    for Model Serving. This table will be referenced in Agent Model Serving endpoints,
+    where an agent queries a SQL table via either Genie or UC Functions.
 
-    Args:
-        table_name (str): The name of the table used by the model
+     Args:
+         table_name (str): The name of the table used by the model
     """
 
     @property
