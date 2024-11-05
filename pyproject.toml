@@ -43,7 +43,7 @@ dependencies = [
   "packaging<25",
   "pandas<3",
   "protobuf<6,>=3.12.0",
-  "pyarrow<18,>=4.0.0",
+  "pyarrow<19,>=4.0.0",
   "pyyaml<7,>=5.1",
   "requests<3,>=2.17.3",
   "scikit-learn<2",
@@ -186,6 +186,7 @@ select = [
   "PIE790",  # unnecessary-placeholder
   "PLR0402", # manual-from-import
   "PLE1205", # logging-too-many-args
+  "PLW0602", # global-variable-not-assigned
   "PT001",   # pytest-fixture-incorrect-parentheses-style
   "PT002",   # pytest-fixture-positional-args
   "PT003",   # pytest-extraneous-scope-function
