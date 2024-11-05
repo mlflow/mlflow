@@ -276,13 +276,13 @@ create_virtualenv() {
 install_mlflow_and_dependencies() {
   # Install current checked out version of mlflow (local)
   pip install -e .[extras]
-  
+
   echo "Installing pip dependencies for development environment."
   if [[ -n "$full" ]]; then
     # Install dev requirements
     pip install -r "$rd/dev-requirements.txt"
     # Install test plugin
-    pip install -e "$MLFLOW_HOME/tests/resources//mlflow-test-plugin"
+    pip install -e "$MLFLOW_HOME/tests/resources/mlflow-test-plugin"
   else
     files=("$rd/test-requirements.txt" "$rd/lint-requirements.txt" "$rd/doc-requirements.txt")
     for r in "${files[@]}"; do
