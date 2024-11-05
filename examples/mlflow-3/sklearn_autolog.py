@@ -28,6 +28,7 @@ model_id = outputs.model_outputs[0].model_id
 print(model_id)
 model = mlflow.get_logged_model(model_id)
 print(model)
+print(model.params)
 
 # GridSearchCV
 model = LogisticRegression()
@@ -36,9 +37,8 @@ clf = GridSearchCV(model, params)
 with mlflow.start_run() as run:
     clf.fit(X_train, y_train)
 
-outputs = mlflow.get_run(run.info.run_id).outputs
-print(outputs)
-model_id = outputs.model_outputs[0].model_id
-print(model_id)
-model = mlflow.get_logged_model(model_id)
-print(model)
+for model in mlflow.search_logged_models(
+    experiment_ids=[run.info.experiment_id], output_format="list"
+):
+    print(f"----- model_id: {model.model_id} -----")
+    print(model)
