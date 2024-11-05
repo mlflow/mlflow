@@ -1577,7 +1577,7 @@ def _autolog(  # noqa: D417
                 input_example=input_example,
                 serialization_format=serialization_format,
                 registered_model_name=registered_model_name,
-                params=estimator.get_params(deep=should_log_params_deeply),
+                params=params,
             )
             model_id = logged_model.model_id
 
@@ -1612,6 +1612,7 @@ def _autolog(  # noqa: D417
                     signature=signature,
                     input_example=input_example,
                     serialization_format=serialization_format,
+                    params=estimator.best_estimator_.get_params(deep=True),
                 )
 
             if hasattr(estimator, "best_score_"):
