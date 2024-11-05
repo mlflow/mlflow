@@ -53,13 +53,13 @@ def build_docker(
 
         docker run -p 5001:8080 -e DISABLE_NGINX=true "my-image-name"
 
-    See https://www.mlflow.org/docs/latest/python_api/mlflow.pyfunc.html for more information on the
+    See "https://www.mlflow.org/docs/latest/python_api/mlflow.pyfunc.html" for more information on the
     'python_function' flavor.
 
     Args:
         model_uri: URI to the model. A local path, a 'runs:/' URI, or a remote storage URI (e.g.,
             an 's3://' URI). For more information about supported remote URIs for model artifacts,
-            see https://mlflow.org/docs/latest/tracking.html#artifact-stores"
+            see "https://mlflow.org/docs/latest/tracking.html#artifact-stores"
         name: Name of the Docker image to build. Defaults to 'mlflow-pyfunc'.
         env_manager: If specified, create an environment for MLmodel using the specified environment
             manager. The following values are supported: (1) virtualenv (default): use virtualenv
@@ -110,7 +110,7 @@ def predict(
     """
     Generate predictions in json format using a saved MLflow model. For information about the input
     data formats accepted by this function, see the following documentation:
-    https://www.mlflow.org/docs/latest/models.html#built-in-deployment-tools.
+    "https://www.mlflow.org/docs/latest/models.html#built-in-deployment-tools".
 
     Args:
         model_uri: URI to the model. A local path, a local or remote URI e.g. runs:/, s3://.
