@@ -64,7 +64,6 @@ def test_log_artifact_viewfs(hdfs_system_mock):
 def test_log_artifact_with_kerberos_setup(hdfs_system_mock, monkeypatch):
     if sys.platform == "win32":
         pytest.skip()
-
     monkeypatch.setenv("MLFLOW_KERBEROS_TICKET_CACHE", "/tmp/krb5cc_22222222")
     monkeypatch.setenv("MLFLOW_KERBEROS_USER", "some_kerberos_user")
 
