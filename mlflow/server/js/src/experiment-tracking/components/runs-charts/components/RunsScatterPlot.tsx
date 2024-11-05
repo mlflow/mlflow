@@ -87,10 +87,10 @@ export const RunsScatterPlot = React.memo(
         const xAxisData = xAxis.type === 'METRIC' ? metrics : params;
         const yAxisData = yAxis.type === 'METRIC' ? metrics : params;
 
-        const x = xAxisData?.[xAxis.key]?.value || undefined;
-        const y = yAxisData?.[yAxis.key]?.value || undefined;
+        const x = xAxisData?.[xAxis.key]?.value;
+        const y = yAxisData?.[yAxis.key]?.value;
 
-        if (x && y) {
+        if (x !== undefined && y !== undefined) {
           xValues.push(x);
           yValues.push(y);
           colors.push(color || theme.colors.primary);
