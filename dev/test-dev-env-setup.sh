@@ -21,7 +21,7 @@ export REPO_ROOT
 # Run the installation of the environment
 DEV_DIR=$REPO_ROOT/.venvs/mlflow-dev
 
-"$REPO_ROOT"/dev/dev-env-setup.sh -d "$DEV_DIR" -f
+"$REPO_ROOT"/dev/dev-env-setup.sh -d "$DEV_DIR"
 
 source "$DEV_DIR/bin/activate"
 
