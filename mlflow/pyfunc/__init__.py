@@ -514,7 +514,7 @@ from mlflow.utils import env_manager as _EnvManager
 from mlflow.utils._spark_utils import modified_environ
 from mlflow.utils.annotations import deprecated, developer_stable, experimental
 from mlflow.utils.databricks_utils import (
-    get_dbconnect_client_cache,
+    get_dbconnect_udf_sandbox_info,
     is_databricks_connect,
     is_in_databricks_runtime,
     is_in_databricks_shared_cluster_runtime,
@@ -1686,10 +1686,10 @@ def _gen_prebuilt_env_archive_name(spark, local_model_path):
     """
     python_env = _get_python_env(Path(local_model_path))
     env_name = _get_virtualenv_name(python_env, local_model_path)
-    dbconnect_cache = get_dbconnect_client_cache(spark)
+    dbconnect_udf_sandbox_info = get_dbconnect_udf_sandbox_info(spark)
     return (
-        f"{env_name}-{dbconnect_cache.udf_sandbox_image_version}-"
-        f"{dbconnect_cache.udf_sandbox_platform_machine}"
+        f"{env_name}-{dbconnect_udf_sandbox_info.image_version}-"
+        f"{dbconnect_udf_sandbox_info.platform_machine}"
     )
 
 
@@ -1702,9 +1702,9 @@ def _verify_prebuilt_env(spark, local_model_path, env_archive_path):
 
     python_env = _get_python_env(Path(local_model_path))
     env_sha = _get_virtualenv_name(python_env, local_model_path).split("-")[-1]
-    dbconnect_cache = get_dbconnect_client_cache(spark)
-    runtime_version = dbconnect_cache.udf_sandbox_image_version
-    platform_machine = dbconnect_cache.udf_sandbox_platform_machine
+    dbconnect_udf_sandbox_info = get_dbconnect_udf_sandbox_info(spark)
+    runtime_version = dbconnect_udf_sandbox_info.image_version
+    platform_machine = dbconnect_udf_sandbox_info.platform_machine
 
     if prebuilt_env_sha != env_sha:
         raise MlflowException(
@@ -2097,6 +2097,22 @@ def spark_udf(
     # Note for Databricks Serverles runtime (notebook REPL), it runs on Servereless VM that
     # can't access NFS, so it needs to use `spark.addArtifact`.
     use_dbconnect_artifact = is_dbconnect_mode and not is_in_databricks_shared_cluster_runtime()
+
+    if use_dbconnect_artifact:
+        udf_sandbox_info = get_dbconnect_udf_sandbox_info(spark)
+        if Version(udf_sandbox_info.mlflow_version) < Version("2.19.0"):
+            raise MlflowException(
+                "Using 'mlflow.pyfunc.spark_udf' in Databricks Serverless or in remote "
+                "Databricks Connect requires UDF sandbox image installed with MLflow "
+                "of version >= 2.19."
+            )
+        # `udf_sandbox_info.runtime_version` format is like '<major_version>.<minor_version>'.
+        # It's safe to apply `Version`.
+        if Version(udf_sandbox_info.runtime_version).major < 16:
+            raise MlflowException(
+                "Using 'mlflow.pyfunc.spark_udf' in Databricks Serverless or in remote "
+                "Databricks Connect requires Databricks runtime version >= 16.0."
+            )
 
     nfs_root_dir = get_nfs_cache_root_dir()
     should_use_nfs = nfs_root_dir is not None
