@@ -1311,13 +1311,13 @@ class FileStore(AbstractStore):
                 fs_output.write_yaml(output_dir, FileStore.META_DATA_FILE_NAME)
 
     @staticmethod
-    def _get_dataset_input_id(dataset_name: str, dataset_digest: str) -> str:
+    def _get_dataset_id(dataset_name: str, dataset_digest: str) -> str:
         md5 = hashlib.md5(dataset_name.encode("utf-8"), usedforsecurity=False)
         md5.update(dataset_digest.encode("utf-8"))
         return md5.hexdigest()
 
     @staticmethod
-    def _get_input_id(dataset_id: str, run_id: str) -> str:
+    def _get_dataset_input_id(dataset_id: str, run_id: str) -> str:
         md5 = hashlib.md5(dataset_id.encode("utf-8"), usedforsecurity=False)
         md5.update(run_id.encode("utf-8"))
         return md5.hexdigest()
