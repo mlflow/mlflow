@@ -78,9 +78,9 @@ SET_MODEL_ERROR = (
 )
 ENV_VAR_FILE_NAME = "environment_variables.txt"
 ENV_VAR_FILE_HEADER = (
-    "# This file records environment variable names that are used during model inference\n"
-    "# they might need to be set when creating a serving endpoint from this model\n"
-    "# note: it is not guaranteed that all environment variables listed here are required\n"
+    "# This file records environment variable names that are used during model inference.\n"
+    "# They might need to be set when creating a serving endpoint from this model.\n"
+    "# Note: it is not guaranteed that all environment variables listed here are required\n"
 )
 
 
@@ -251,7 +251,7 @@ class ModelInfo:
         return self._mlflow_version
 
     @property
-    def env_vars(self):
+    def env_vars(self) -> Optional[list[str]]:
         """
         Environment variables used during the model logging process.
 
@@ -817,11 +817,14 @@ class Model:
                             f"Got error: {e}",
                             exc_info=_logger.isEnabledFor(logging.DEBUG),
                         )
-                    env_vars = [
-                        x
-                        for x in tracked_env_names
-                        if any(env_var in x for env_var in RECORD_ENV_VAR_ALLOWLIST)
-                    ] or None
+                    env_vars = (
+                        sorted(
+                            x
+                            for x in tracked_env_names
+                            if any(env_var in x for env_var in RECORD_ENV_VAR_ALLOWLIST)
+                        )
+                        or None
+                    )
             if env_vars:
                 env_var_path = Path(local_path, ENV_VAR_FILE_NAME)
                 env_var_path.write_text(ENV_VAR_FILE_HEADER + "\n".join(env_vars) + "\n")
