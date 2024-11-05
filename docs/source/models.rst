@@ -45,13 +45,16 @@ format. For example, :py:mod:`mlflow.sklearn` outputs models as follows:
 
 ::
 
-    # Directory written by mlflow.sklearn.save_model(model, "my_model")
-    my_model/
+    # Run `python examples/sklearn_logistic_regression/train.py` from mlflow directory
+    model/
     ├── MLmodel
     ├── model.pkl
     ├── conda.yaml
     ├── python_env.yaml
-    └── requirements.txt
+    ├── requirements.txt
+    ├── input_example.json
+    ├── serving_input_example.json
+    └── environment_variables.txt (optional, only existing when environment variables are used)
 
 
 And its ``MLmodel`` file describes two flavors:
@@ -83,6 +86,9 @@ For environment recreation, we automatically log ``conda.yaml``, ``python_env.ya
 These files can then be used to reinstall dependencies using ``conda`` or ``virtualenv`` with ``pip``. Please see 
 :ref:`How MLflow Model Records Dependencies <how-mlflow-records-dependencies>` for more details about these files.
 
+If the model input example is provided when logging the model, additional files including ``input_example.json`` and ``serving_input_example.json`` are logged.
+See `Model Input Example <model/signatures.html#input-example>`_ for more details.
+
 When logging a model, model metadata files (``MLmodel``, ``conda.yaml``, ``python_env.yaml``, ``requirements.txt``) are copied to a subdirectory named ``metadata``. For wheeled models, ``original_requirements.txt`` file is also copied.
 
 .. note::
@@ -102,6 +108,43 @@ When logging a model, model metadata files (``MLmodel``, ``conda.yaml``, ``pytho
     :hidden:
 
     model/dependencies
+
+Environment variables file
+^^^^^^^^^^^^^^^^^^^^^^^^^^
+To track environment variables that are used during model inference, we generate ``environment_variables.txt`` file when logging a model.
+It **only contains names** of the environment variables that are used during model inference, **values are not stored**.
+Currently we only log the name if it includes any keywords in the following set:
+
+.. code-block:: python
+
+    RECORD_ENV_VAR_ALLOWLIST = {
+        # api key related
+        "API_KEY",
+        "API_TOKEN",
+        # databricks auth related
+        "DATABRICKS_HOST",
+        "DATABRICKS_USERNAME",
+        "DATABRICKS_PASSWORD",
+        "DATABRICKS_TOKEN",
+        "DATABRICKS_INSECURE",
+        "DATABRICKS_CLIENT_ID",
+        "DATABRICKS_CLIENT_SECRET",
+        "_DATABRICKS_WORKSPACE_HOST",
+        "_DATABRICKS_WORKSPACE_ID",
+        # dbconnect related
+        "SPARK_REMOTE",
+        "SPARK_LOCAL_REMOTE",
+    }
+
+.. attention::
+    **Check the environment_variables.txt file before deploying the model to a serving endpoint**, as they might need 
+    to be set in the serving environment. Follow `this guidance <https://docs.databricks.com/en/machine-learning/model-serving/store-env-variable-model-serving.html#add-plain-text-environment-variables>`_
+    to set environment variables on a databricks serving endpoint. **Note that it is not guaranteed that all environment
+    variables tracked in the file are required for model inference.**
+
+.. note::
+    To disable logging environment variable names in model logging, set the environment variable 
+    ``MLFLOW_RECORD_ENV_VARS_IN_MODEL_LOGGING`` to ``false``.
 
 Managing Model Dependencies
 ---------------------------
