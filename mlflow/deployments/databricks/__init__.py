@@ -536,6 +536,13 @@ class DatabricksDeploymentClient(BaseDeploymentClient):
                 ],
             }
         """
+        warnings.warn(
+            "The `update_endpoint` method is deprecated. Use the specific update methods—"
+            "`update_endpoint_config`, `update_endpoint_tags`, `update_endpoint_rate_limits`, "
+            "`update_endpoint_ai_gateway`—instead.",
+            UserWarning,
+        )
+
         if list(config) == ["rate_limits"]:
             return self._call_endpoint(
                 method="PUT", route=posixpath.join(endpoint, "rate-limits"), json_body=config
