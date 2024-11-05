@@ -19,6 +19,7 @@
     "format": "remark --use \"remark-mdx=printWidth:80\" docs/**/*.mdx -o"
   },
   "dependencies": {
+    "@databricks/design-system": "^1.12.17",
     "@docusaurus/core": "3.5.2",
     "@docusaurus/preset-classic": "3.5.2",
     "@mdx-js/react": "^3.0.0",
