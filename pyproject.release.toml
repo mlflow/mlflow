@@ -34,7 +34,7 @@ dependencies = [
   "matplotlib<4",
   "numpy<3",
   "pandas<3",
-  "pyarrow<18,>=4.0.0",
+  "pyarrow<19,>=4.0.0",
   "scikit-learn<2",
   "scipy<2",
   "sqlalchemy<3,>=1.4.0",
