@@ -118,7 +118,6 @@ def test_database_operational_error(exception, monkeypatch):
 
     def connect(*args, **kwargs):
         """Wraps sqlite3.dbapi.connect(), returning a wrapped connection."""
-        global connect_counter
         conn = old_connect(*args, **kwargs)
         return ConnectionWrapper(conn)
 

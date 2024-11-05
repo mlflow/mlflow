@@ -133,7 +133,6 @@ def get_config():
 
     If no DatabricksConfig can be found, an InvalidConfigurationError will be raised.
     """
-    global _config_provider
     if _config_provider:
         config = _config_provider.get_config()
         if config:
@@ -192,7 +191,6 @@ def get_config_provider():
     Returns the current DatabricksConfigProvider.
     If None, the DefaultConfigProvider will be used.
     """
-    global _config_provider
     return _config_provider
 
 

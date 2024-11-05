@@ -75,7 +75,6 @@ def get_deployments_target() -> str:
     If the deployments target has not been set by using ``set_deployments_target``, an
     ``MlflowException`` is raised.
     """
-    global _deployments_target
     if _deployments_target is not None:
         return _deployments_target
     elif uri := MLFLOW_DEPLOYMENTS_TARGET.get():

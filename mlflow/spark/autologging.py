@@ -36,7 +36,6 @@ _thread_pool = concurrent.futures.ThreadPoolExecutor(
 
 # Exposed for testing
 def _get_current_listener():
-    global _spark_table_info_listener
     return _spark_table_info_listener
 
 
@@ -264,7 +263,6 @@ class SparkAutologgingContext(RunContextProvider):
         if autologging_is_disabled(FLAVOR_NAME):
             return {}
         with _lock:
-            global _table_infos
             seen = set()
             unique_infos = []
             for info in _table_infos:
