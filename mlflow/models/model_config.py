@@ -132,6 +132,10 @@ class ModelConfig:
                     f"Error parsing YAML file: {e}", error_code=INVALID_PARAMETER_VALUE
                 )
 
+    def to_dict(self):
+        """Returns the configuration as a dictionary."""
+        return self._read_config()
+
     def get(self, key):
         """Gets the value of a top-level parameter in the configuration."""
         config_data = self._read_config()
