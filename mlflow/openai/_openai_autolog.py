@@ -14,7 +14,7 @@ from mlflow.entities import RunTag, SpanType
 from mlflow.entities.span_event import SpanEvent
 from mlflow.entities.span_status import SpanStatusCode
 from mlflow.ml_package_versions import _ML_PACKAGE_VERSIONS
-from mlflow.tracing.constant import SpanAttributeKey, TraceMetadataKey
+from mlflow.tracing.constant import TraceMetadataKey
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracking.context import registry as context_registry
 from mlflow.tracking.fluent import _get_experiment_id
@@ -168,14 +168,12 @@ def patched_call(original, self, *args, **kwargs):
                 parent_id=active_span.span_id,
                 span_type=_get_span_type(self.__class__),
                 inputs=kwargs,
-                attributes={SpanAttributeKey.MODEL_ID: model_id} if model_id else None,
             )
         else:
             span = mlflow_client.start_trace(
                 name=self.__class__.__name__,
                 span_type=_get_span_type(self.__class__),
                 inputs=kwargs,
-                attributes={SpanAttributeKey.MODEL_ID: model_id} if model_id else None,
             )
 
         request_id = span.request_id
@@ -185,6 +183,10 @@ def patched_call(original, self, *args, **kwargs):
         if run_id is not None:
             tm = InMemoryTraceManager().get_instance()
             tm.set_request_metadata(request_id, TraceMetadataKey.SOURCE_RUN, run_id)
+
+        if model_id is not None:
+            tm = InMemoryTraceManager().get_instance()
+            tm.set_request_metadata(request_id, TraceMetadataKey.MODEL_ID, run_id)
 
     # Execute the original function
     try:
