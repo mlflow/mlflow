@@ -4,25 +4,37 @@ import { MockedReduxStoreProvider } from '../../../../common/utils/TestUtils';
 import { fetchEndpoint } from '../../../../common/utils/FetchUtils';
 import { getSampledMetricHistoryBulkAction } from '../../../sdk/SampledMetricHistoryService';
 import React from 'react';
+import { shouldEnableGraphQLSampledMetrics } from '../../../../common/utils/FeatureUtils';
+import { IntlProvider } from 'react-intl';
+import { TestApolloProvider } from '../../../../common/utils/TestApolloProvider';
+
+jest.mock('../../../../common/utils/FeatureUtils', () => ({
+  shouldEnableGraphQLSampledMetrics: jest.fn(),
+}));
 
 jest.mock('../../../sdk/SampledMetricHistoryService', () => ({
   getSampledMetricHistoryBulkAction: jest.fn(),
 }));
 
 const hookWrapper: React.FC = ({ children }) => (
-  <MockedReduxStoreProvider
-    state={{
-      entities: {
-        sampledMetricsByRunUuid: {},
-      },
-    }}
-  >
-    {children}
-  </MockedReduxStoreProvider>
+  <IntlProvider locale="en">
+    <TestApolloProvider>
+      <MockedReduxStoreProvider
+        state={{
+          entities: {
+            sampledMetricsByRunUuid: {},
+          },
+        }}
+      >
+        {children}
+      </MockedReduxStoreProvider>
+    </TestApolloProvider>
+  </IntlProvider>
 );
 
-describe('useSampledMetricHistory', () => {
+describe('useSampledMetricHistory (REST)', () => {
   beforeEach(() => {
+    jest.mocked(shouldEnableGraphQLSampledMetrics).mockImplementation(() => false);
     jest.mocked(getSampledMetricHistoryBulkAction).mockClear();
     jest.mocked(getSampledMetricHistoryBulkAction).mockImplementation(
       () =>

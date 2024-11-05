@@ -20,7 +20,7 @@ interface RunVisibilityControlButtonProps {
   rowHidden: boolean;
   buttonHidden: boolean;
   disabled: boolean;
-  onClick: (runUuidOrToggle: string | RUNS_VISIBILITY_MODE, runUuid?: string) => void;
+  onClick: (runUuidOrToggle: string | RUNS_VISIBILITY_MODE, runUuid?: string, isRowVisible?: boolean) => void;
   label: React.ReactNode;
 }
 
@@ -65,7 +65,8 @@ export const RunVisibilityControlButton = ({
           onChange={() => {
             if (runUuid) {
               if (shouldUseNewRunRowsVisibilityModel()) {
-                onClick(RUNS_VISIBILITY_MODE.CUSTOM, runUuid);
+                const isRowVisible = !rowHidden;
+                onClick(RUNS_VISIBILITY_MODE.CUSTOM, runUuid, isRowVisible);
               } else {
                 onClick(runUuid);
               }
