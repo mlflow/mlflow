@@ -594,7 +594,7 @@ class Model:
             serialized_resource = value
         self._resources = serialized_resource
 
-    def get_model_info(self, logged_model: LoggedModel) -> ModelInfo:
+    def get_model_info(self, logged_model: Optional[LoggedModel] = None) -> ModelInfo:
         """
         Create a :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
         model metadata.
