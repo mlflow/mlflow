@@ -239,7 +239,7 @@ class DatabricksTable(DatabricksResource):
         return {self.type.value: [{"name": self.table_name}]}
 
     @classmethod
-    def from_dict(cls, data: Dict[str, str]):
+    def from_dict(cls, data: dict[str, str]):
         return cls(table_name=data["name"])
 
 
