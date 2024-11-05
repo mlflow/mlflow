@@ -259,6 +259,13 @@ class Linter(ast.NodeVisitor):
         if "MLflow" in node.name or "MLFlow" in node.name:
             self._check(Location.from_node(node), rules.MlflowClassName())
 
+    def _is_in_test(self) -> bool:
+        return (
+            self.path.name.startswith("test_")
+            and self.stack
+            and self.stack[-1].name.startswith("test_")
+        )
+
     def visit_ClassDef(self, node: ast.ClassDef) -> None:
         self.stack.append(node)
         self._no_rst(node)
@@ -339,6 +346,33 @@ class Linter(ast.NodeVisitor):
     def visit_AnnAssign(self, node: ast.AnnAssign) -> None:
         if rules.ImplicitOptional.check(node):
             self._check(Location.from_node(node), rules.ImplicitOptional())
+
+    @staticmethod
+    def _is_os_environ(node: ast.AST) -> bool:
+        return (
+            isinstance(node, ast.Attribute)
+            and isinstance(node.value, ast.Name)
+            and node.value.id == "os"
+            and node.attr == "environ"
+        )
+
+    def visit_Assign(self, node: ast.Assign):
+        if self._is_in_test():
+            if (
+                len(node.targets) == 1
+                and isinstance(node.targets[0], ast.Subscript)
+                and self._is_os_environ(node.targets[0].value)
+            ):
+                self._check(Location.from_node(node), rules.OsEnvironSetInTest())
+
+    def visit_Delete(self, node: ast.Delete):
+        if self._is_in_test():
+            if (
+                len(node.targets) == 1
+                and isinstance(node.targets[0], ast.Subscript)
+                and self._is_os_environ(node.targets[0].value)
+            ):
+                self._check(Location.from_node(node), rules.OsEnvironDeleteInTest())
 
 
 def _lint_cell(path: Path, cell: dict[str, Any], index: int) -> list[Violation]:
