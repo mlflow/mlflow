@@ -1,7 +1,7 @@
 import json
 import posixpath
 import warnings
-from typing import Any, Dict, Iterator, Optional
+from typing import Any, Iterator, Optional
 
 from mlflow.deployments import BaseDeploymentClient
 from mlflow.deployments.constants import (
@@ -13,7 +13,7 @@ from mlflow.environment_variables import (
 )
 from mlflow.exceptions import MlflowException
 from mlflow.utils import AttrDict
-from mlflow.utils.annotations import experimental, deprecated
+from mlflow.utils.annotations import deprecated, experimental
 from mlflow.utils.databricks_utils import get_databricks_host_creds
 from mlflow.utils.rest_utils import augmented_raise_for_status, http_request
 
@@ -391,22 +391,64 @@ class DatabricksDeploymentClient(BaseDeploymentClient):
             }
 
         """
+        warnings_list = []
+
         if config and "config" in config:
-            # config contains the full API request payload
-            if route_optimized or name:
-                raise ValueError(
-                    "'route_optimized' and 'name' parameters cannot be used when "
-                    "'config' contains the full API request payload. Include "
-                    "'route_optimized' and/or 'name' in the payload instead."
+            # Using new style: full API request payload
+            payload = config.copy()
+
+            # Validate name conflicts
+            if "name" in payload:
+                if name is not None:
+                    if payload["name"] == name:
+                        warnings_list.append(
+                            "Passing 'name' as a parameter is deprecated. "
+                            "Please specify 'name' only within the config dictionary."
+                        )
+                    else:
+                        raise MlflowException(
+                            f"Name mismatch. Found '{name}' as parameter and '{payload['name']}' "
+                            "in config. Please specify 'name' only within the config dictionary "
+                            "as this parameter is deprecated."
+                        )
+            else:
+                if name is None:
+                    raise MlflowException(
+                        "The 'name' field is required. Please specify it within the config "
+                        "dictionary."
+                    )
+                payload["name"] = name
+                warnings_list.append(
+                    "Passing 'name' as a parameter is deprecated. "
+                    "Please specify 'name' within the config dictionary."
                 )
-            payload = config
+
+            # Validate route_optimized conflicts
+            if "route_optimized" in payload:
+                if route_optimized is not None:
+                    if payload["route_optimized"] != route_optimized:
+                        raise MlflowException(
+                            "Conflicting 'route_optimized' values found. "
+                            "Please specify 'route_optimized' only within the config dictionary "
+                            "as this parameter is deprecated."
+                        )
+                    warnings_list.append(
+                        "Passing 'route_optimized' as a parameter is deprecated. "
+                        "Please specify 'route_optimized' only within the config dictionary."
+                    )
+            else:
+                if route_optimized:
+                    payload["route_optimized"] = route_optimized
+                    warnings_list.append(
+                        "Passing 'route_optimized' as a parameter is deprecated. "
+                        "Please specify 'route_optimized' within the config dictionary."
+                    )
         else:
-            # for backwards compatibility
-            warnings.warn(
-                "Passing 'name', 'config', and 'route_optimized' as separate parameters to "
-                "create_endpoint() is deprecated. Please pass the full API request payload "
-                "as a single dictionary in the 'config' parameter instead.",
-                UserWarning,
+            # Handle legacy format (backwards compatibility)
+            warnings_list.append(
+                "Passing 'name', 'config', and 'route_optimized' as separate parameters is "
+                "deprecated. Please pass the full API request payload as a single dictionary "
+                "in the 'config' parameter."
             )
             config = config.copy() if config else {}  # avoid mutating config
             extras = {}
@@ -414,6 +456,9 @@ class DatabricksDeploymentClient(BaseDeploymentClient):
                 if tags := config.pop(key, None):
                     extras[key] = tags
             payload = {"name": name, "config": config, "route_optimized": route_optimized, **extras}
+
+        if warnings_list:
+            warnings.warn("\n".join(warnings_list), UserWarning)
 
         return self._call_endpoint(method="POST", json_body=payload)
 
