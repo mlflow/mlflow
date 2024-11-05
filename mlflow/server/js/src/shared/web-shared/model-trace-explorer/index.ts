@@ -5,6 +5,7 @@ export enum ModelSpanType {
   CHAIN = 'CHAIN',
   AGENT = 'AGENT',
   TOOL = 'TOOL',
+  FUNCTION = 'FUNCTION',
   CHAT_MODEL = 'CHAT_MODEL',
   RETRIEVER = 'RETRIEVER',
   PARSER = 'PARSER',
@@ -45,7 +46,8 @@ export type ModelTraceSpan = {
   /* deprecated, contained in attributes['mlflow.spanOutputs'] */
   outputs?: any;
   attributes?: Record<string, any>;
-  events?: ModelTraceEvent[];
+  /* metadata for ui usage logging */
+  type: ModelSpanType;
 };
 
 export type ModelTraceEvent = {

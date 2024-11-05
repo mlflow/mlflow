@@ -15,7 +15,15 @@
  */
 import { ModelTraceInfo, ModelTraceData } from '@databricks/web-shared/model-trace-explorer';
 import { type ParsedQs, stringify as queryStringStringify } from 'qs';
-import { deleteJson, fetchEndpoint, getBigIntJson, getJson, patchJson, postJson } from '../../common/utils/FetchUtils';
+import {
+  deleteJson,
+  fetchEndpoint,
+  getBigIntJson,
+  getJson,
+  patchJson,
+  postBigIntJson,
+  postJson,
+} from '../../common/utils/FetchUtils';
 import { RunInfoEntity } from '../types';
 import {
   transformGetExperimentResponse,
@@ -31,6 +39,15 @@ type CreateRunApiRequest = {
   run_name?: string;
 };
 
+type GetCredentialsForLoggedModelArtifactReadResult = {
+  credentials: {
+    credential_info: {
+      type: string;
+      signed_uri: string;
+      path: string;
+    };
+  }[];
+};
 const searchRunsPath = () => 'ajax-api/2.0/mlflow/runs/search';
 
 export class MlflowService {
@@ -126,6 +143,29 @@ export class MlflowService {
    * List model artifacts
    */
   static listArtifacts = (data: any) => getBigIntJson({ relativeUrl: 'ajax-api/2.0/mlflow/artifacts/list', data });
+
+  /**
+   * List model artifacts for logged models
+   */
+  static listArtifactsLoggedModel = ({ loggedModelId, path }: { loggedModelId: string; path: string }) =>
+    getBigIntJson({
+      relativeUrl: `ajax-api/2.0/mlflow/logged-models/${loggedModelId}/artifacts/directories`,
+      data: path ? { artifact_directory_path: path } : {},
+    });
+
+  static getCredentialsForLoggedModelArtifactRead = ({
+    loggedModelId,
+    path,
+  }: {
+    loggedModelId: string;
+    path: string;
+  }) =>
+    postBigIntJson({
+      relativeUrl: `ajax-api/2.0/mlflow/logged-models/${loggedModelId}/artifacts/credentials-for-download`,
+      data: {
+        paths: [path],
+      },
+    }) as Promise<GetCredentialsForLoggedModelArtifactReadResult>;
 
   /**
    * Get metric history

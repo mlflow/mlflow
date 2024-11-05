@@ -6,7 +6,6 @@ import type { RunsChartsBarCardConfig } from '../../runs-charts.types';
 import { useIsInViewport } from '../../hooks/useIsInViewport';
 import {
   shouldEnableDraggableChartsGridLayout,
-  shouldEnableHidingChartsWithNoData,
   shouldUseNewRunRowsVisibilityModel,
 } from '../../../../../common/utils/FeatureUtils';
 import {
@@ -66,19 +65,12 @@ export const RunsChartsBarChartCard = ({
 
   const slicedRuns = useMemo(() => {
     if (shouldUseNewRunRowsVisibilityModel()) {
-      // If hiding empty charts is supported, we additionally filter out bars without recorded metric of interest
-      if (shouldEnableHidingChartsWithNoData()) {
-        return chartRunData.filter(({ hidden, metrics }) => !hidden && metrics[config.metricKey]);
-      }
-      return chartRunData.filter(({ hidden }) => !hidden);
+      return chartRunData.filter(({ hidden, metrics }) => !hidden && metrics[config.metricKey]);
     }
     return chartRunData.slice(0, config.runsCountToCompare || 10).reverse();
   }, [chartRunData, config]);
 
   const isEmptyDataset = useMemo(() => {
-    if (!shouldEnableHidingChartsWithNoData()) {
-      return false;
-    }
     const metricsInRuns = slicedRuns.flatMap(({ metrics }) => Object.keys(metrics));
     return !metricsInRuns.includes(config.metricKey);
   }, [config, slicedRuns]);

@@ -10,6 +10,8 @@ import { mount, shallow } from 'enzyme';
 import AppErrorBoundary from './AppErrorBoundary';
 import { SupportPageUrl } from '../../constants';
 import Utils from '../../utils/Utils';
+import { DatabricksSupportPageUrl } from '../../constants-databricks';
+import { CloudProvider } from '../../../shared/constants-databricks';
 
 describe('AppErrorBoundary', () => {
   let wrapper: any;
