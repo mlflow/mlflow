@@ -186,6 +186,7 @@ select = [
   "PIE790",  # unnecessary-placeholder
   "PLR0402", # manual-from-import
   "PLE1205", # logging-too-many-args
+  "PLW0602", # global-variable-not-assigned
   "PT001",   # pytest-fixture-incorrect-parentheses-style
   "PT002",   # pytest-fixture-positional-args
   "PT003",   # pytest-extraneous-scope-function
