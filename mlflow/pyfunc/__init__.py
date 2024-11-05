@@ -2107,7 +2107,7 @@ def spark_udf(
                 "of version >= 2.19."
             )
         # `udf_sandbox_info.runtime_version` format is like '<major_version>.<minor_version>'.
-        if Version(udf_sandbox_info.runtime_version) < Version("16.0"):
+        if Version(udf_sandbox_info.runtime_version).major < 16:
             raise MlflowException(
                 "Using 'mlflow.pyfunc.spark_udf' in Databricks Serverless or in remote "
                 "Databricks Connect requires Databricks runtime version >= 16.0."
