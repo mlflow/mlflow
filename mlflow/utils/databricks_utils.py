@@ -302,55 +302,85 @@ def is_databricks_connect(spark=None):
 
 
 @dataclass
-class DBConnectClientCache:
+class DBConnectUDFSandboxInfo:
     spark: "SparkConnectSession"
-    udf_sandbox_image_version: str
-    udf_sandbox_platform_machine: str
+    image_version: str
+    runtime_version: str
+    platform_machine: str
+    mlflow_version: str
 
 
-_dbconnect_client_cache: Optional[DBConnectClientCache] = None
+_dbconnect_udf_sandbox_info_cache: Optional[DBConnectUDFSandboxInfo] = None
 
 
-def get_dbconnect_client_cache(spark):
+def get_dbconnect_udf_sandbox_info(spark):
     """
-    Get Databricks connect client cache which includes the following fields:
-     - UDF sandbox image version like:
+    Get Databricks UDF sandbox info which includes the following fields:
+     - image_version like
       '{major_version}.{minor_version}' or 'client.{major_version}.{minor_version}'
-     - UDF sandbox platform machine like 'x86_64' or 'aarch64'
+     - runtime_version like '{major_version}.{minor_version}'
+     - platform_machine like 'x86_64' or 'aarch64'
+     - mlflow_version
     """
-    global _dbconnect_client_cache
+    global _dbconnect_udf_sandbox_info_cache
     from pyspark.sql.functions import pandas_udf
+
+    if (
+        _dbconnect_udf_sandbox_info_cache is not None
+        and spark is _dbconnect_udf_sandbox_info_cache.spark
+    ):
+        return _dbconnect_udf_sandbox_info_cache
+
+    # version is like '15.4.x-scala2.12'
+    version = spark.sql("SELECT current_version().dbr_version").collect()[0][0]
+    major, minor, *_rest = version.split(".")
+    runtime_version = f"{major}.{minor}"
 
     # For Databricks Serverless python REPL,
     # the UDF sandbox runs on client image, which has version like 'client.1.1'
-    # in other cases, UDF sandbox runs on databricks runtime with version like '15.4'
+    # in other cases, UDF sandbox runs on databricks runtime image with version like '15.4'
     if is_in_databricks_runtime():
-        return DBConnectClientCache(
+        _dbconnect_udf_sandbox_info_cache = DBConnectUDFSandboxInfo(
             spark=_get_active_spark_session(),
-            udf_sandbox_image_version=get_databricks_runtime_version(),
-            udf_sandbox_platform_machine=platform.machine(),
+            runtime_version=runtime_version,
+            image_version=get_databricks_runtime_version(),
+            platform_machine=platform.machine(),
+            # In databricks runtime, driver and executor should have the
+            # same version.
+            mlflow_version=mlflow.__version__,
         )
-
-    if _dbconnect_client_cache is None or spark is not _dbconnect_client_cache.spark:
-        # version is like '15.4.x-snapshot-scala2.12'
-        version = spark.sql("SELECT current_version().dbr_version").collect()[0][0]
-        major, minor, *_rest = version.split(".")
-        udf_sandbox_image_version = f"{major}.{minor}"
+    else:
+        image_version = runtime_version
 
         @pandas_udf("string")
         def f(_):
             import pandas as pd
 
-            return pd.Series([platform.machine()])
+            platform_machine = platform.machine()
 
-        platform_machine = spark.range(1).select(f("id")).collect()[0][0]
-        _dbconnect_client_cache = DBConnectClientCache(
+            try:
+                import mlflow
+
+                mlflow_version = mlflow.__version__
+            except ImportError:
+                mlflow_version = ""
+
+            return pd.Series([f"{platform_machine}\n{mlflow_version}"])
+
+        platform_machine, mlflow_version = (
+            spark.range(1).select(f("id")).collect()[0][0].split("\n")
+        )
+        if mlflow_version == "":
+            mlflow_version = None
+        _dbconnect_udf_sandbox_info_cache = DBConnectUDFSandboxInfo(
             spark=spark,
-            udf_sandbox_image_version=udf_sandbox_image_version,
-            udf_sandbox_platform_machine=platform_machine,
+            image_version=image_version,
+            runtime_version=runtime_version,
+            platform_machine=platform_machine,
+            mlflow_version=mlflow_version,
         )
 
-    return _dbconnect_client_cache
+    return _dbconnect_udf_sandbox_info_cache
 
 
 def is_databricks_serverless(spark):

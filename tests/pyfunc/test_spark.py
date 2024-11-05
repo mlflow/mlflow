@@ -1584,6 +1584,11 @@ def test_build_model_env(spark, sklearn_model, model_path, tmp_path, monkeypatch
     from mlflow.pyfunc.dbconnect_artifact_cache import extract_archive_to_dir
 
     monkeypatch.setenv("DATABRICKS_RUNTIME_VERSION", "15.4.1")
+    spark.udf.register(
+        "current_version",
+        lambda: {"dbr_version": "15.4.1-scala2.12"},
+        returnType="dbr_version string",
+    )
     model, inference_data = sklearn_model
 
     with mlflow.start_run():
