@@ -283,73 +283,104 @@ def is_databricks_connect(spark=None):
     """
     from mlflow.utils.spark_utils import is_spark_connect_mode
 
+    if is_in_databricks_serverless_runtime() or is_in_databricks_shared_cluster_runtime():
+        return True
+
+    spark = spark or _get_active_spark_session()
+    if spark is None:
+        return False
+
     if not is_spark_connect_mode():
         return False
 
-    if is_in_databricks_serverless_runtime() or is_in_databricks_shared_cluster_runtime():
-        return True
-    try:
-        if spark is None:
-            spark = _get_active_spark_session()
-        # TODO: Remove the `spark.client._builder` attribute usage once
-        #  Spark-connect has public attribute for this information.
-        return is_spark_connect_mode() and any(
-            k == "x-databricks-cluster-id" for k, v in spark.client._builder.metadata()
-        )
-    except Exception:
-        return False
+    if hasattr(spark.client, "metadata"):
+        metadata = spark.client.metadata
+    else:
+        metadata = spark.client._builder.metadata()
+
+    return any(k in ["x-databricks-session-id", "x-databricks-cluster-id"] for k, v in metadata)
 
 
 @dataclass
-class DBConnectClientCache:
+class DBConnectUDFSandboxInfo:
     spark: "SparkConnectSession"
-    udf_sandbox_image_version: str
-    udf_sandbox_platform_machine: str
+    image_version: str
+    runtime_version: str
+    platform_machine: str
+    mlflow_version: str
 
 
-_dbconnect_client_cache: Optional[DBConnectClientCache] = None
+_dbconnect_udf_sandbox_info_cache: Optional[DBConnectUDFSandboxInfo] = None
 
 
-def get_dbconnect_client_cache(spark):
+def get_dbconnect_udf_sandbox_info(spark):
     """
-    Get Databricks connect client cache which includes the following fields:
-     - UDF sandbox image version like:
+    Get Databricks UDF sandbox info which includes the following fields:
+     - image_version like
       '{major_version}.{minor_version}' or 'client.{major_version}.{minor_version}'
-     - UDF sandbox platform machine like 'x86_64' or 'aarch64'
+     - runtime_version like '{major_version}.{minor_version}'
+     - platform_machine like 'x86_64' or 'aarch64'
+     - mlflow_version
     """
-    global _dbconnect_client_cache
+    global _dbconnect_udf_sandbox_info_cache
     from pyspark.sql.functions import pandas_udf
+
+    if (
+        _dbconnect_udf_sandbox_info_cache is not None
+        and spark is _dbconnect_udf_sandbox_info_cache.spark
+    ):
+        return _dbconnect_udf_sandbox_info_cache
+
+    # version is like '15.4.x-scala2.12'
+    version = spark.sql("SELECT current_version().dbr_version").collect()[0][0]
+    major, minor, *_rest = version.split(".")
+    runtime_version = f"{major}.{minor}"
 
     # For Databricks Serverless python REPL,
     # the UDF sandbox runs on client image, which has version like 'client.1.1'
-    # in other cases, UDF sandbox runs on databricks runtime with version like '15.4'
+    # in other cases, UDF sandbox runs on databricks runtime image with version like '15.4'
     if is_in_databricks_runtime():
-        return DBConnectClientCache(
+        _dbconnect_udf_sandbox_info_cache = DBConnectUDFSandboxInfo(
             spark=_get_active_spark_session(),
-            udf_sandbox_image_version=get_databricks_runtime_version(),
-            udf_sandbox_platform_machine=platform.machine(),
+            runtime_version=runtime_version,
+            image_version=get_databricks_runtime_version(),
+            platform_machine=platform.machine(),
+            # In databricks runtime, driver and executor should have the
+            # same version.
+            mlflow_version=mlflow.__version__,
         )
-
-    if _dbconnect_client_cache is None or spark is not _dbconnect_client_cache.spark:
-        # version is like '15.4.x-snapshot-scala2.12'
-        version = spark.sql("SELECT current_version().dbr_version").collect()[0][0]
-        major, minor, *_rest = version.split(".")
-        udf_sandbox_image_version = f"{major}.{minor}"
+    else:
+        image_version = runtime_version
 
         @pandas_udf("string")
         def f(_):
             import pandas as pd
 
-            return pd.Series([platform.machine()])
+            platform_machine = platform.machine()
 
-        platform_machine = spark.range(1).select(f("id")).collect()[0][0]
-        _dbconnect_client_cache = DBConnectClientCache(
+            try:
+                import mlflow
+
+                mlflow_version = mlflow.__version__
+            except ImportError:
+                mlflow_version = ""
+
+            return pd.Series([f"{platform_machine}\n{mlflow_version}"])
+
+        platform_machine, mlflow_version = (
+            spark.range(1).select(f("id")).collect()[0][0].split("\n")
+        )
+        if mlflow_version == "":
+            mlflow_version = None
+        _dbconnect_udf_sandbox_info_cache = DBConnectUDFSandboxInfo(
             spark=spark,
-            udf_sandbox_image_version=udf_sandbox_image_version,
-            udf_sandbox_platform_machine=platform_machine,
+            image_version=image_version,
+            runtime_version=runtime_version,
+            platform_machine=platform_machine,
+            mlflow_version=mlflow_version,
         )
 
-    return _dbconnect_client_cache
+    return _dbconnect_udf_sandbox_info_cache
 
 
 def is_databricks_serverless(spark):
@@ -359,14 +390,15 @@ def is_databricks_serverless(spark):
     """
     from mlflow.utils.spark_utils import is_spark_connect_mode
 
-    try:
-        # TODO: Remove the `spark.client._builder` attribute usage once
-        #  Spark-connect has public attribute for this information.
-        return is_spark_connect_mode() and any(
-            k == "x-databricks-session-id" for k, v in spark.client._builder.metadata()
-        )
-    except Exception:
+    if not is_spark_connect_mode():
         return False
+
+    if hasattr(spark.client, "metadata"):
+        metadata = spark.client.metadata
+    else:
+        metadata = spark.client._builder.metadata()
+
+    return any(k == "x-databricks-session-id" for k, v in metadata)
 
 
 def is_dbfs_fuse_available():
