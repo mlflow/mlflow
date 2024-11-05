@@ -1317,7 +1317,7 @@ class FileStore(AbstractStore):
         return md5.hexdigest()
 
     @staticmethod
-    def _get_input_id(dataset_id: str, run_id: str) -> str:
+    def _get_dataset_input_id(dataset_id: str, run_id: str) -> str:
         md5 = hashlib.md5(dataset_id.encode("utf-8"), usedforsecurity=False)
         md5.update(run_id.encode("utf-8"))
         return md5.hexdigest()
