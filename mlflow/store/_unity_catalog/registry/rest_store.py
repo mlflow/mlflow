@@ -4,6 +4,7 @@ import logging
 import os
 import shutil
 from contextlib import contextmanager
+from typing import Optional
 
 import mlflow
 from mlflow.entities import Run
@@ -726,6 +727,7 @@ class UcModelRegistryStore(BaseRestStore):
         run_link=None,
         description=None,
         local_model_path=None,
+        model_id: Optional[str] = None,
     ):
         """
         Create a new model version from given source and run ID.
@@ -743,6 +745,8 @@ class UcModelRegistryStore(BaseRestStore):
                 to the model registry to avoid a redundant download from the source location when
                 logging and registering a model via a single
                 mlflow.<flavor>.log_model(..., registered_model_name) call.
+            model_id: The ID of the model (from an Experiment) that is being promoted to a
+                registered model version, if applicable.
 
         Returns:
             A single object of :py:class:`mlflow.entities.model_registry.ModelVersion`
