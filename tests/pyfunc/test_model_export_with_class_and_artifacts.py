@@ -27,6 +27,7 @@ import mlflow.pyfunc.model
 import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 import mlflow.sklearn
 from mlflow.entities import Trace
+from mlflow.environment_variables import MLFLOW_RECORD_ENV_VARS_IN_MODEL_LOGGING
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model, infer_signature
 from mlflow.models.dependencies_schemas import DependenciesSchemasType
@@ -2096,3 +2097,40 @@ def test_model_pip_requirements_pin_numpy_when_pandas_included():
             [expected_mlflow_version, f"cloudpickle=={cloudpickle.__version__}"],
             strict=True,
         )
+
+
+def test_environment_variables_used_during_model_logging(monkeypatch):
+    class MyModel(mlflow.pyfunc.PythonModel):
+        def predict(self, context, model_input, params=None):
+            monkeypatch.setenv("TEST_API_KEY", "test_env")
+            monkeypatch.setenv("ANOTHER_API_KEY", "test_env")
+            monkeypatch.setenv("INVALID_ENV_VAR", "var")
+            # existing env var is tracked
+            os.environ["TEST_API_KEY"]
+            # existing env var fetched by getenv is tracked
+            os.getenv("ANOTHER_API_KEY")
+            # existing env var not in allowlist is not tracked
+            os.environ.get("INVALID_ENV_VAR")
+            # non-existing env var is not tracked
+            os.environ.get("INVALID_API_KEY")
+            return model_input
+
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model("model", python_model=MyModel(), input_example="data")
+    assert "TEST_API_KEY" in model_info.env_vars
+    assert "ANOTHER_API_KEY" in model_info.env_vars
+    assert "INVALID_ENV_VAR" not in model_info.env_vars
+    assert "INVALID_API_KEY" not in model_info.env_vars
+    pyfunc_model = mlflow.pyfunc.load_model(model_info.model_uri)
+    assert pyfunc_model.metadata.env_vars == model_info.env_vars
+
+    # if no input_example provided, we do not run predict, and no env vars are captured
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model("model", python_model=MyModel())
+    assert model_info.env_vars is None
+
+    # disable logging by setting environment variable
+    monkeypatch.setenv(MLFLOW_RECORD_ENV_VARS_IN_MODEL_LOGGING.name, "false")
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model("model", python_model=MyModel(), input_example="data")
+    assert model_info.env_vars is None
