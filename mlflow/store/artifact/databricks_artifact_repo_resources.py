@@ -10,6 +10,8 @@ from mlflow.protos.databricks_artifacts_pb2 import (
     GetCredentialsForLoggedModelDownload,
     GetCredentialsForLoggedModelUpload,
     GetCredentialsForRead,
+    GetCredentialsForTraceDataDownload,
+    GetCredentialsForTraceDataUpload,
     GetCredentialsForWrite,
 )
 from mlflow.protos.service_pb2 import (
@@ -62,28 +64,37 @@ class _Resource(ABC):
         self.id = id_
         self.artifact_uri = artifact_uri
         self.call_endpoint = call_endpoint
-        self.artifact_root = self.get_artifact_root()
-        self.relative_path = self.get_relative_path()
+        self._artifact_root = None
+        self._relative_path = None
 
-    def get_relative_path(self) -> str:
-        # Fetch the artifact root for the MLflow resource associated with `artifact_uri` and compute
-        # the path of `artifact_uri` relative to the MLflow resource's artifact root
-        # All operations performed on this artifact repository will be performed relative to this
-        # computed location.
-        artifact_repo_root_path = extract_and_normalize_path(self.artifact_uri)
-        artifact_root_path = extract_and_normalize_path(self.artifact_root)
-        # If the paths are equal, then use empty string over "./" for ListArtifact compatibility
-        return (
-            ""
-            if artifact_root_path == artifact_repo_root_path
-            else posixpath.relpath(artifact_repo_root_path, artifact_root_path)
-        )
+    @property
+    def artifact_root(self) -> str:
+        if self._artifact_root is None:
+            self._artifact_root = self.get_artifact_root()
+        return self._artifact_root
+
+    @property
+    def relative_path(self) -> str:
+        if self._relative_path is None:
+            # Fetch the artifact root for the MLflow resource associated with `artifact_uri` and
+            # compute the path of `artifact_uri` relative to the MLflow resource's artifact root
+            # All operations performed on this artifact repository will be performed relative to
+            # this computed location.
+            artifact_repo_root_path = extract_and_normalize_path(self.artifact_uri)
+            artifact_root_path = extract_and_normalize_path(self.artifact_root)
+            # If the paths are equal, then use empty string over "./" for ListArtifact compatibility
+            self._relative_path = (
+                ""
+                if artifact_root_path == artifact_repo_root_path
+                else posixpath.relpath(artifact_repo_root_path, artifact_root_path)
+            )
+        return self._relative_path
 
     @abstractmethod
     def get_credentials(
         self,
         cred_type: _CredentialType,
-        paths: list[str],
+        paths: Optional[list[str]] = None,
         page_token: Optional[str] = None,
     ) -> tuple[list[ArtifactCredentialInfo], Optional[str]]:
         """
@@ -126,7 +137,7 @@ class _LoggedModel(_Resource):
     def get_credentials(
         self,
         cred_type: _CredentialType,
-        paths: list[str],
+        paths: Optional[list[str]] = None,
         page_token: Optional[str] = None,
     ) -> tuple[list[ArtifactCredentialInfo], Optional[str]]:
         api = (
@@ -194,7 +205,7 @@ class _Run(_Resource):
     def get_credentials(
         self,
         cred_type: _CredentialType,
-        paths: list[str],
+        paths: Optional[list[str]] = None,
         page_token: Optional[str] = None,
     ) -> tuple[list[ArtifactCredentialInfo], Optional[str]]:
         api = GetCredentialsForRead if cred_type == _CredentialType.READ else GetCredentialsForWrite
@@ -242,3 +253,40 @@ class _Run(_Resource):
             ],
             next_page_token=response.next_page_token,
         )
+
+
+class _Trace(_Resource):
+    def get_artifact_root(self) -> str:
+        return None
+
+    def get_credentials(
+        self,
+        cred_type: _CredentialType,
+        paths: Optional[list[str]] = None,
+        page_token: Optional[str] = None,
+    ) -> tuple[list[ArtifactCredentialInfo], Optional[str]]:
+        res = self.call_endpoint(
+            DatabricksMlflowArtifactsService,
+            (
+                GetCredentialsForTraceDataDownload
+                if cred_type == _CredentialType.READ
+                else GetCredentialsForTraceDataUpload
+            ),
+            path_params={"request_id": self.id},
+        )
+        cred_inf = ArtifactCredentialInfo(
+            signed_uri=res.credential_info.signed_uri,
+            type=res.credential_info.type,
+            headers=[HttpHeader(name=h.name, value=h.value) for h in res.credential_info.headers],
+        )
+        return [cred_inf], None
+
+    def get_artifact_root(self) -> str:
+        raise NotImplementedError
+
+    def _list_artifacts(
+        self,
+        path: Optional[str] = None,
+        page_token: Optional[str] = None,
+    ) -> ListArtifactsPage:
+        raise NotImplementedError
