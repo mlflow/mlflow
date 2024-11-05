@@ -65,6 +65,7 @@ def set_deployments_target(target: str):
             "The target provided is not a valid uri or 'databricks'"
         )
 
+    global _deployments_target
     _deployments_target = target
 
 
