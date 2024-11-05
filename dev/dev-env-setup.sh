@@ -242,7 +242,6 @@ check_and_install_min_py_version() {
   pyenv local "$PY_INSTALL_VERSION"
   pyenv exec pip install $(quiet_command) --upgrade pip
   pyenv exec pip install $(quiet_command) virtualenv
-  pyenv exec pip install $(quiet_command) pre-commit
 }
 
 # Check if the virtualenv already exists at the specified path
