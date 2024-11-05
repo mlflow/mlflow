@@ -5,7 +5,7 @@ import shutil
 import uuid
 import warnings
 from datetime import datetime
-from pathlib import Path
+from pathlib import Path, PureWindowsPath
 from pprint import pformat
 from typing import Any, Callable, Literal, NamedTuple, Optional, Union
 from urllib.parse import urlparse
@@ -76,6 +76,24 @@ SET_MODEL_ERROR = (
     "Model should either be an instance of PyFuncModel, Langchain type, or LlamaIndex index."
 )
 
+_OS_TYPE = os.name
+if _OS_TYPE == "nt":
+    path_conv = lambda x: PureWindowsPath(x)
+elif _OS_TYPE == "posix":
+    path_conv = lambda x: x.replace("\\", "/")
+else:
+    raise Exception(f"Unsupported OS: {os.name}")
+
+#function to convert windows path to linux path
+def convert_path(k, v):
+    if k == 'path' or k == 'uri':
+        return path_conv(v)
+    else:
+        return v
+
+# function to recursively change all values in a dictionary 
+def recursive_fun_dict(d: dict, func: Callable) -> dict:
+    return {k: recursive_fun_dict(v, func) if isinstance(v, dict) else func(k,v) for k, v in d.items()}
 
 class ModelInfo:
     """
@@ -654,7 +672,8 @@ class Model:
         if os.path.isdir(path):
             path = os.path.join(path, MLMODEL_FILE_NAME)
         with open(path) as f:
-            return cls.from_dict(yaml.safe_load(f.read()))
+            model_cfg = yaml.safe_load(f.read())
+            return cls.from_dict(recursive_fun_dict(model_cfg, convert_path))
 
     @classmethod
     def from_dict(cls, model_dict) -> "Model":
