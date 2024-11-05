@@ -27,8 +27,6 @@ from mlflow.protos.databricks_artifacts_pb2 import (
     CompleteMultipartUpload,
     CreateMultipartUpload,
     DatabricksMlflowArtifactsService,
-    GetCredentialsForTraceDataDownload,
-    GetCredentialsForTraceDataUpload,
     GetPresignedUploadPartUrl,
     PartEtag,
 )
@@ -49,7 +47,9 @@ from mlflow.store.artifact.databricks_artifact_repo_resources import (
     _LoggedModel,
     _Resource,
     _Run,
+    _Trace,
 )
+from mlflow.tracing.constant import TRACE_REQUEST_ID_PREFIX
 from mlflow.utils import chunk_list
 from mlflow.utils.databricks_utils import get_databricks_host_creds
 from mlflow.utils.file_utils import (
@@ -139,6 +139,11 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
                 id_=parts[4], artifact_uri=artifact_uri, call_endpoint=self._call_endpoint
             )
 
+        if parts[3].startswith(TRACE_REQUEST_ID_PREFIX):
+            return _Trace(
+                id_=parts[3], artifact_uri=artifact_uri, call_endpoint=self._call_endpoint
+            )
+
         return _Run(id_=parts[3], artifact_uri=artifact_uri, call_endpoint=self._call_endpoint)
 
     def _call_endpoint(self, service, api, json_body=None, path_params=None):
@@ -204,13 +209,9 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
         return self._get_credential_infos(_CredentialType.WRITE, relative_remote_paths)
 
     def download_trace_data(self) -> dict[str, Any]:
-        cred = self._call_endpoint(
-            DatabricksMlflowArtifactsService,
-            GetCredentialsForTraceDataDownload,
-            path_params={"request_id": self.resource.id},
-        )
-        signed_uri = cred.credential_info.signed_uri
-        headers = self._extract_headers_from_credentials(cred.credential_info.headers)
+        [cred], _ = self.resource.get_credentials(cred_type=_CredentialType.READ)
+        signed_uri = cred.signed_uri
+        headers = self._extract_headers_from_credentials(cred.headers)
         with cloud_storage_http_request("get", signed_uri, headers=headers) as resp:
             try:
                 augmented_raise_for_status(resp)
@@ -224,16 +225,8 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
             except json.JSONDecodeError as e:
                 raise MlflowTraceDataCorrupted(request_id=self.resource.id) from e
 
-    def _get_upload_trace_data_cred_info(self):
-        res = self._call_endpoint(
-            DatabricksMlflowArtifactsService,
-            GetCredentialsForTraceDataUpload,
-            path_params={"request_id": self.resource.id},
-        )
-        return res.credential_info
-
     def upload_trace_data(self, trace_data: str) -> None:
-        cred = self._get_upload_trace_data_cred_info()
+        [cred], _ = self.resource.get_credentials(cred_type=_CredentialType.WRITE)
         with write_local_temp_trace_data_file(trace_data) as temp_file:
             if cred.type == ArtifactCredentialType.AZURE_ADLS_GEN2_SAS_URI:
                 self._azure_adls_gen2_upload_file(
