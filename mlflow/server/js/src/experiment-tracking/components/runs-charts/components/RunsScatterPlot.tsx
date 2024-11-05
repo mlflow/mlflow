@@ -1,4 +1,5 @@
 import { useDesignSystemTheme } from '@databricks/design-system';
+import { isNil } from 'lodash';
 import { Data, Datum, Layout, PlotMouseEvent } from 'plotly.js';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { LazyPlot } from '../../LazyPlot';
@@ -87,10 +88,10 @@ export const RunsScatterPlot = React.memo(
         const xAxisData = xAxis.type === 'METRIC' ? metrics : params;
         const yAxisData = yAxis.type === 'METRIC' ? metrics : params;
 
-        const x = xAxisData?.[xAxis.key]?.value || undefined;
-        const y = yAxisData?.[yAxis.key]?.value || undefined;
+        const x = xAxisData?.[xAxis.key]?.value;
+        const y = yAxisData?.[yAxis.key]?.value;
 
-        if (x && y) {
+        if (!isNil(x) && !isNil(y)) {
           xValues.push(x);
           yValues.push(y);
           colors.push(color || theme.colors.primary);
