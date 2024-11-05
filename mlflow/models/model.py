@@ -689,7 +689,6 @@ class Model:
             )
 
         path = download_artifacts(artifact_uri=path)
-        env_vars = None
         if os.path.isdir(path):
             path = os.path.join(path, MLMODEL_FILE_NAME)
             env_var_path = os.path.join(path, ENV_VAR_FILE_NAME)
@@ -697,6 +696,7 @@ class Model:
             env_var_path = os.path.join(os.path.dirname(path), ENV_VAR_FILE_NAME)
         else:
             env_var_path = None
+        env_vars = None
         if os.path.exists(env_var_path):
             # comments start with `#` such as ENV_VAR_FILE_HEADER
             lines = Path(env_var_path).read_text().splitlines()

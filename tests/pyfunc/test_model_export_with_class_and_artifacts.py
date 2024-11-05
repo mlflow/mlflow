@@ -2103,9 +2103,12 @@ def test_environment_variables_used_during_model_logging(monkeypatch):
     class MyModel(mlflow.pyfunc.PythonModel):
         def predict(self, context, model_input, params=None):
             monkeypatch.setenv("TEST_API_KEY", "test_env")
+            monkeypatch.setenv("ANOTHER_API_KEY", "test_env")
             monkeypatch.setenv("INVALID_ENV_VAR", "var")
             # existing env var is tracked
             os.environ["TEST_API_KEY"]
+            # existing env var fetched by getenv is tracked
+            os.getenv("ANOTHER_API_KEY")
             # existing env var not in allowlist is not tracked
             os.environ.get("INVALID_ENV_VAR")
             # non-existing env var is not tracked
@@ -2115,6 +2118,7 @@ def test_environment_variables_used_during_model_logging(monkeypatch):
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model("model", python_model=MyModel(), input_example="data")
     assert "TEST_API_KEY" in model_info.env_vars
+    assert "ANOTHER_API_KEY" in model_info.env_vars
     assert "INVALID_ENV_VAR" not in model_info.env_vars
     assert "INVALID_API_KEY" not in model_info.env_vars
     pyfunc_model = mlflow.pyfunc.load_model(model_info.model_uri)
