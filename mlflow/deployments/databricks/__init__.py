@@ -13,7 +13,7 @@ from mlflow.environment_variables import (
 )
 from mlflow.exceptions import MlflowException
 from mlflow.utils import AttrDict
-from mlflow.utils.annotations import experimental
+from mlflow.utils.annotations import experimental, deprecated
 from mlflow.utils.databricks_utils import get_databricks_host_creds
 from mlflow.utils.rest_utils import augmented_raise_for_status, http_request
 
@@ -336,10 +336,12 @@ class DatabricksDeploymentClient(BaseDeploymentClient):
 
         Args:
             name: The name of the serving endpoint to create.
+                .. Warning:: Deprecated. Include `name` in `config` instead.
             config: A dictionary containing either the full API request payload
                     or the configuration of the serving endpoint to create (deprecated).
             route_optimized: A boolean which defines whether databricks serving endpoint
                 is optimized for routing traffic. Only used in the deprecated approach.
+                .. Warning:: Deprecated. Include `route_optimized` in `config` instead.
 
         Returns:
             A :py:class:`DatabricksEndpoint` object containing the request response.
@@ -415,7 +417,9 @@ class DatabricksDeploymentClient(BaseDeploymentClient):
 
         return self._call_endpoint(method="POST", json_body=payload)
 
-    @experimental
+    @deprecated("The `update_endpoint` method is deprecated. Use the specific update methods—"
+                "`update_endpoint_config`, `update_endpoint_tags`, `update_endpoint_rate_limits`, "
+                "`update_endpoint_ai_gateway`—instead.")
     def update_endpoint(self, endpoint, config=None):
         """
         Update a specified serving endpoint with the provided configuration.
