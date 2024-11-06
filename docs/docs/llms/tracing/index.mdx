@@ -2,6 +2,7 @@
 description: MLflow Tracing is a feature that enables LLM observability in your apps. MLflow automatically logs traces for LangChain, LlamaIndex, and more.
 ---
 
+import { APILink } from "@site/src/components/APILink";
 import TOCInline from "@theme/TOCInline";
 import Tabs from "@theme/Tabs";
 import TabItem from "@theme/TabItem";
@@ -601,4 +602,15 @@ The video below shows our external function wrapping runs within the MLflow UI. 
 
 ![External Function tracing](/images/llms/tracing/external-trace.gif)
 
-{/* CONTINUE HERE WITH Tracing Client APIs */}
+## Tracing Client APIs
+
+The MLflow client API provides a comprehensive set of thread-safe methods for manually managing traces. These APIs allow for fine-grained
+control over tracing, enabling you to create, manipulate, and retrieve traces programmatically. This section will cover how to use these APIs
+to manually trace a model, providing step-by-step instructions and examples.
+
+### Starting a Trace
+
+Unlike with the fluent API, the MLflow Trace Client API requires that you explicitly start a trace before adding child spans. This initial API call
+starts the root span for the trace, providing a context request_id that is used for associating subsequent spans to the root span.
+
+To start a new trace, use the <APILink fn="mlflow.client.MlflowClient.start_trace" /> method. This method creates a new trace and returns the root span object.
