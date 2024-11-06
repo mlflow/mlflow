@@ -170,10 +170,12 @@ def log_model(
 
                 .. Note:: The provided Spark model's `transform` method must generate one column
                     named with "prediction", the column is used as MLflow pyfunc model output.
-                    Most Spark models set "prediction" column as the output label column
-                    by default. For probabilistic classification model, if you want to get
-                    the probability column as the output column, you need to set Spark model
-                    "probabilityCol" param to "prediction" and set "predictionCol" param to "".
+                    Most Spark models generate the output column with "prediction" name that
+                    contains prediction labels by default.
+                    To set probability column as the output column for probabilistic
+                    classification models, you need to set "probabilityCol" param to "prediction"
+                    and set "predictionCol" param to "".
+                    (e.g. model.setProbabilityCol("prediction").setPredictionCol(""))
         artifact_path: Run relative artifact path.
         conda_env: {{ conda_env }}
         code_paths: {{ code_paths }}
