@@ -144,7 +144,7 @@ def test_automatic_system_metrics_monitor_resume_existing_run():
     assert metrics_history[-1].step > last_step
 
 
-@pytest.mark.parametrize("x", range(500))
+@pytest.mark.parametrize("x", range(1000))
 def test_system_metrics_monitor_with_multi_node(x: int):
     mlflow.enable_system_metrics_logging()
     mlflow.set_system_metrics_sampling_interval(0.2)
@@ -157,7 +157,7 @@ def test_system_metrics_monitor_with_multi_node(x: int):
     for node_id in node_ids:
         mlflow.set_system_metrics_node_id(node_id)
         with mlflow.start_run(run_id=run_id, log_system_metrics=True):
-            time.sleep(2)
+            time.sleep(1)
 
     mlflow_run = mlflow.get_run(run_id)
     metrics = mlflow_run.data.metrics
