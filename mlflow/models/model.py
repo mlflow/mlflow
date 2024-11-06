@@ -631,7 +631,7 @@ class Model:
             raise TypeError(f"env_vars must be a list of strings. Got: {value}")
         self._env_vars = value
 
-    def get_model_info(self, logged_model: LoggedModel) -> ModelInfo:
+    def get_model_info(self, logged_model: Optional[LoggedModel] = None) -> ModelInfo:
         """
         Create a :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
         model metadata.

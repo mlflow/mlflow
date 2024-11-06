@@ -634,7 +634,7 @@ class FileStore(AbstractStore):
             description: Description of the version.
             local_model_path: Unused.
             model_id: The ID of the model (from an Experiment) that is being promoted to a
-                      registered model version, if applicable.
+                registered model version, if applicable.
 
         Returns:
             A single object of :py:class:`mlflow.entities.model_registry.ModelVersion`
