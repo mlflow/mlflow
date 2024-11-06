@@ -670,3 +670,476 @@ Unlike with the fluent API, the MLflow Trace Client API requires that you explic
 starts the root span for the trace, providing a context request_id that is used for associating subsequent spans to the root span.
 
 To start a new trace, use the <APILink fn="mlflow.client.MlflowClient.start_trace" /> method. This method creates a new trace and returns the root span object.
+
+```python
+from mlflow import MlflowClient
+
+client = MlflowClient()
+
+# Start a new trace
+root_span = client.start_trace("my_trace")
+
+# The request_id is used for creating additional spans that have a hierarchical association to this root span
+request_id = root_span.request_id
+```
+
+### Adding a Child Span
+
+Once a trace is started, you can add child spans to it with the <APILink fn="mlflow.client.MlflowClient.start_span" /> API. Child spans allow you to break down the trace into smaller, more manageable segments,
+each representing a specific operation or step within the overall process.
+
+```python
+# Create a child span
+child_span = client.start_span(
+    name="child_span",
+    request_id=request_id,
+    parent_id=root_span.span_id,
+    inputs={"input_key": "input_value"},
+    attributes={"attribute_key": "attribute_value"},
+)
+```
+
+### Ending a Span
+
+After performing the operations associated with a span, you must end the span explicitly using the <APILink fn="mlflow.client.MlflowClient.end_span" /> method. Make note of the two required fields
+that are in the API signature:
+
+- **request_id**: The identifier associated with the root span
+- **span_id**: The identifier associated with the span that is being ended
+
+In order to effectively end a particular span, both the root span (returned from calling `start_trace`) and the targeted span (returned from calling `start_span`)
+need to be identified when calling the `end_span` API.
+The initiating `request_id` can be accessed from any parent span object's properties.
+
+:::note
+Spans created via the Client API will need to be terminated manually. Ensure that all spans that have been started with the `start_span` API
+have been ended with the `end_span` API.
+:::
+
+```python
+# End the child span
+client.end_span(
+    request_id=child_span.request_id,
+    span_id=child_span.span_id,
+    outputs={"output_key": "output_value"},
+    attributes={"custom_attribute": "value"},
+)
+```
+
+### Ending a Trace
+
+To complete the trace, end the root span using the <APILink fn="mlflow.client.MlflowClient.end_trace" /> method. This will also ensure that all associated child
+spans are properly ended.
+
+```python
+# End the root span (trace)
+client.end_trace(
+    request_id=request_id,
+    outputs={"final_output_key": "final_output_value"},
+    attributes={"token_usage": "1174"},
+)
+```
+
+## Searching and Retrieving Traces
+
+### Searching for Traces
+
+You can search for traces based on various criteria using the <APILink fn="mlflow.client.MlflowClient.search_traces" /> method. This method allows you to filter traces by experiment IDs,
+filter strings, and other parameters.
+
+```python
+# Search for traces in specific experiments
+traces = client.search_traces(
+    experiment_ids=["1", "2"],
+    filter_string="attributes.status = 'OK'",
+    max_results=5,
+)
+```
+
+Alternatively, you can use fluent API <APILink fn="mlflow.search_traces" /> to search for traces, which returns a pandas DataFrame with each row containing a trace.
+This method allows you to specify fields to extract from traces using the format `"span_name.[inputs|outputs]"` or `"span_name.[inputs|outputs].field_name"`.
+The extracted fields are included as extra columns in the pandas DataFrame. This feature can be used to build evaluation datasets to further improve model and agent performance.
+
+```python
+import mlflow
+
+with mlflow.start_span(name="span1") as span:
+    span.set_inputs({"a": 1, "b": 2})
+    span.set_outputs({"c": 3, "d": 4})
+
+# Search for traces with specific fields extracted
+traces = mlflow.search_traces(
+    extract_fields=["span1.inputs", "span1.outputs.c"],
+)
+
+print(traces)
+```
+
+This outputs:
+
+```text
+    request_id                              ...     span1.inputs        span1.outputs.c
+0   tr-97c4ef97c21f4348a5698f069c1320f1     ...     {'a': 1, 'b': 2}    3.0
+1   tr-4dc3cd5567764499b5532e3af61b9f78     ...     {'a': 1, 'b': 2}    3.0
+```
+
+### Retrieving a Specific Trace
+
+To retrieve a specific trace by its request ID, use the <APILink fn="mlflow.client.MlflowClient.get_trace" /> method. This method returns the trace object corresponding to the given request ID.
+
+```python
+# Retrieve a trace by request ID
+trace = client.get_trace(request_id="12345678")
+```
+
+## Managing Trace Data
+
+### Deleting Traces
+
+You can delete traces based on specific criteria using the <APILink fn="mlflow.client.MlflowClient.delete_traces" /> method. This method allows you to delete traces by **experiment ID**,
+**maximum timestamp**, or **request IDs**.
+
+:::tip
+Deleting a trace is an irreversible process. Ensure that the setting provided within the `delete_traces` API meet the intended range for deletion.
+:::
+
+```python
+import time
+
+# Get the current timestamp in milliseconds
+current_time = int(time.time() * 1000)
+
+# Delete traces older than a specific timestamp
+deleted_count = client.delete_traces(
+    experiment_id="1", max_timestamp_millis=current_time, max_traces=10
+)
+```
+
+### Setting and Deleting Trace Tags
+
+Tags can be added to traces to provide additional metadata. Use the <APILink fn="mlflow.client.MlflowClient.set_trace_tag" /> method to set a tag on a trace,
+and the <APILink fn="mlflow.client.MlflowClient.delete_trace_tag" /> method to remove a tag from a trace.
+
+```python
+# Set a tag on a trace
+client.set_trace_tag(request_id="12345678", key="tag_key", value="tag_value")
+
+# Delete a tag from a trace
+client.delete_trace_tag(request_id="12345678", key="tag_key")
+```
+
+## Async Logging
+
+By default, MLflow Traces are logged synchronously. This may introduce a performance overhead when logging Traces, especially when your MLflow Tracking Server is running on a remote server. If the performance overhead is a concern for you, you can enable **asynchronous logging** for tracing in MLflow 2.16.0 and later.
+
+To enable async logging for tracing, call <APILink fn="mlflow.config.enable_async_logging" /> in your code. This will make the trace logging operation non-blocking and reduce the performance overhead.
+
+```python
+import mlflow
+
+mlflow.config.enable_async_logging()
+
+# Traces will be logged asynchronously
+with mlflow.start_span(name="foo") as span:
+    span.set_inputs({"a": 1})
+    span.set_outputs({"b": 2})
+
+# If you don't see the traces in the UI after waiting for a while, you can manually flush the traces
+# mlflow.flush_trace_async_logging()
+```
+
+Note that the async logging does not fully eliminate the performance overhead. Some backend calls still need to be made synchronously and there are other factors such as data serialization. However, async logging can significantly reduce the overall overhead of logging traces, empirically about ~80% for typical workloads.
+
+## Using OpenTelemetry Collector for Exporting Traces
+
+Traces generated by MLflow are compatible with the [OpenTelemetry trace specs](https://opentelemetry.io/docs/specs/otel/trace/api/#span).
+Therefore, MLflow Tracing supports exporting traces to an OpenTelemetry Collector, which can then be used to export traces to various backends such as Jaeger, Zipkin, and AWS X-Ray.
+
+By default, MLflow exports traces to the MLflow Tracking Server. To enable exporting traces to an OpenTelemetry Collector, set the `OTEL_EXPORTER_OTLP_ENDPOINT` environment variable (or `OTEL_EXPORTER_OTLP_TRACES_ENDPOINT`) to the target URL of the OpenTelemetry Collector **before starting any trace**.
+
+```python
+import mlflow
+import os
+
+# Set the endpoint of the OpenTelemetry Collector
+os.environ["OTEL_EXPORTER_OTLP_TRACES_ENDPOINT"] = "http://localhost:4317/v1/traces"
+# Optionally, set the service name to group traces
+os.environ["OTEL_SERVICE_NAME"] = "<your-service-name>"
+
+# Trace will be exported to the OTel collector at http://localhost:4317/v1/traces
+with mlflow.start_span(name="foo") as span:
+    span.set_inputs({"a": 1})
+    span.set_outputs({"b": 2})
+```
+
+:::warning
+MLflow only exports traces to a single destination. When the `OTEL_EXPORTER_OTLP_ENDPOINT` environment variable is configured, MLflow will **not** export traces to the MLflow Tracking Server and you will not see traces in the MLflow UI.
+
+Similarly, if you deploy the model to the [Databricks Model Serving with tracing enabled](https://docs.databricks.com/en/mlflow/mlflow-tracing.html#use-mlflow-tracing-in-production), using the OpenTelemetry Collector will result in traces not being recorded in the Inference Table.
+:::
+
+### Configurations
+
+MLflow uses the standard OTLP Exporter for exporting traces to OpenTelemetry Collector instances. Thereby, you can use [all of the configurations](https://opentelemetry.io/docs/languages/sdk-configuration/otlp-exporter/) supported by OpenTelemetry. The following example configures the OTLP Exporter to use HTTP protocol instead of the default gRPC and sets custom headers:
+
+```bash
+export OTEL_EXPORTER_OTLP_TRACES_ENDPOINT="http://localhost:4317/v1/traces"
+export OTEL_EXPORTER_OTLP_TRACES_PROTOCOL="http/protobuf"
+export OTEL_EXPORTER_OTLP_TRACES_HEADERS="api_key=12345"
+```
+
+## FAQ
+
+### Q: Can I disable and re-enable tracing globally?
+
+Yes.
+
+There are two fluent APIs that are used for blanket enablement or disablement of the MLflow Tracing feature in order to support
+users who may not wish to record interactions with their trace-enabled models for a brief period, or if they have concerns about long-term storage
+of data that was sent along with a request payload to a model in interactive mode.
+
+To **disable** tracing, the <APILink fn="mlflow.tracing.disable" /> API will cease the collection of trace data from within MLflow and will not log
+any data to the MLflow Tracking service regarding traces.
+
+To **enable** tracing (if it had been temporarily disabled), the <APILink fn="mlflow.tracing.enable" /> API will re-enable tracing functionality for instrumented models
+that are invoked.
+
+### Q: How can I associate a trace with an MLflow Run?
+
+If a trace is generated within a run context, the recorded traces to an active Experiment will be associated with the active Run.
+
+For example, in the following code, the traces are generated within the `start_run` context.
+
+```python
+import mlflow
+
+# Create and activate an Experiment
+mlflow.set_experiment("Run Associated Tracing")
+
+# Start a new MLflow Run
+with mlflow.start_run() as run:
+    # Initiate a trace by starting a Span context from within the Run context
+    with mlflow.start_span(name="Run Span") as parent_span:
+        parent_span.set_inputs({"input": "a"})
+        parent_span.set_outputs({"response": "b"})
+        parent_span.set_attribute("a", "b")
+        # Initiate a child span from within the parent Span's context
+        with mlflow.start_span(name="Child Span") as child_span:
+            child_span.set_inputs({"input": "b"})
+            child_span.set_outputs({"response": "c"})
+            child_span.set_attributes({"b": "c", "c": "d"})
+```
+
+When navigating to the MLflow UI and selecting the active Experiment, the trace display view will show the run that is associated with the trace, as
+well as providing a link to navigate to the run within the MLflow UI. See the below video for an example of this in action.
+
+![Tracing within a Run Context](/images/llms/tracing/run-trace.gif)
+
+You can also programmatically retrieve the traces associated to a particular Run by using the <APILink fn="mlflow.client.MlflowClient.search_traces" /> method.
+
+```python
+from mlflow import MlflowClient
+
+client = MlflowClient()
+
+# Retrieve traces associated with a specific Run
+traces = client.search_traces(run_id=run.info.run_id)
+
+print(traces)
+```
+
+### Q: Can I use the fluent API and the client API together?
+
+You definitely can. However, the Client API is much more verbose than the fluent API and is designed for more complex use cases where you need
+to control asynchronous tasks for which a context manager will not have the ability to handle an appropriate closure over the context.
+
+Mixing the two, while entirely possible, is not generally recommended.
+
+For example, the following will work:
+
+```python
+import mlflow
+
+# Initiate a fluent span creation context
+with mlflow.start_span(name="Testing!") as span:
+    # Use the client API to start a child span
+    child_span = client.start_span(
+        name="Child Span From Client",
+        request_id=span.request_id,
+        parent_id=span.span_id,
+        inputs={"request": "test input"},
+        attributes={"attribute1": "value1"},
+    )
+
+    # End the child span
+    client.end_span(
+        request_id=span.request_id,
+        span_id=child_span.span_id,
+        outputs={"response": "test output"},
+        attributes={"attribute2": "value2"},
+    )
+```
+
+![Using Client APIs within fluent context](/images/llms/tracing/client-with-fluent.png)
+
+:::warning
+Using the fluent API to manage a child span of a client-initiated root span or child span is not possible.
+Attempting to start a `start_span` context handler while using the client API will result in two traces being created,
+one for the fluent API and one for the client API.
+:::
+
+### Q: How can I add custom metadata to a span?
+
+There are several ways.
+
+#### Fluent API
+
+1. Within the <APILink fn="mlflow.start_span" /> constructor itself.
+
+```python
+with mlflow.start_span(
+    name="Parent", attributes={"attribute1": "value1", "attribute2": "value2"}
+) as span:
+    span.set_inputs({"input1": "value1", "input2": "value2"})
+    span.set_outputs({"output1": "value1", "output2": "value2"})
+```
+
+2. Using the `set_attribute` or `set_attributes` methods on the `span` object returned from the `start_span` returned object.
+
+```python
+with mlflow.start_span(name="Parent") as span:
+    # Set multiple attributes
+    span.set_attributes({"attribute1": "value1", "attribute2": "value2"})
+    # Set a single attribute
+    span.set_attribute("attribute3", "value3")
+```
+
+#### Client API
+
+1. When starting a span, you can pass in the attributes as part of the `start_trace` and `start_span` method calls.
+
+```python
+parent_span = client.start_trace(
+    name="Parent Span",
+    attributes={"attribute1": "value1", "attribute2": "value2"}
+)
+
+child_span = client.start_span(
+    name="Child Span",
+    request_id=parent_span.request_id,
+    parent_id=parent_span.span_id,
+    attributes={"attribute1": "value1", "attribute2": "value2"}
+)
+```
+
+2. Utilize the `set_attribute` or `set_attributes` APIs directly on the `Span` objects.
+
+```python
+parent_span = client.start_trace(
+    name="Parent Span", attributes={"attribute1": "value1", "attribute2": "value2"}
+)
+
+# Set a single attribute
+parent_span.set_attribute("attribute3", "value3")
+# Set multiple attributes
+parent_span.set_attributes({"attribute4": "value4", "attribute5": "value5"})
+```
+
+3. Set attributes when ending a span or the entire trace.
+
+```python
+client.end_span(
+    request_id=parent_span.request_id,
+    span_id=child_span.span_id,
+    attributes={"attribute1": "value1", "attribute2": "value2"},
+)
+
+client.end_trace(
+    request_id=parent_span.request_id,
+    attributes={"attribute3": "value3", "attribute4": "value4"},
+)
+```
+
+### Q: How can I see the stack trace of a Span that captured an Exception?
+
+The MLflow UI does not display Exception types, messages, or stacktraces if faults occur while logging a trace.
+However, the trace does contain this critical debugging information as part of the Span objects that comprise the Trace.
+
+The simplest way to retrieve a particular stack trace information from a span that endured an exception is to retrieve the trace directly in
+an interactive environment (such as a Jupyter Notebook).
+
+Here is an example of intentionally throwing an Exception while a trace is being collected and a simple way to view the exception details:
+
+```python
+import mlflow
+
+experiment = mlflow.set_experiment("Intentional Exception")
+
+with mlflow.start_span(name="A Problematic Span") as span:
+    span.set_inputs({"input": "Exception should log as event"})
+    span.set_attribute("a", "b")
+    raise Exception("Intentionally throwing!")
+    span.set_outputs({"This": "should not be recorded"})
+```
+
+When running this, an Exception will be thrown, as expected. However, a trace is still logged to the active experiment and can be retrieved as follows:
+
+```python
+from pprint import pprint
+
+trace = mlflow.get_trace(span.request_id)
+trace_data = trace.data
+pprint(trace_data.to_dict(), indent=1)  # Minimum indent due to depth of Span object
+```
+
+In an interactive environment, such as a Jupyter Notebook, the `stdout` return will render an output like this:
+
+```text
+{'spans': [{'name': 'A Span',
+    'context': {'span_id': '0x896ff177c0942903',
+        'trace_id': '0xcae9cb08ec0a273f4c0aab36c484fe87'},
+    'parent_id': None,
+    'start_time': 1718063629190062000,
+    'end_time': 1718063629190595000,
+    'status_code': 'ERROR',
+    'status_message': 'Exception: Intentionally throwing!',
+    'attributes': {'mlflow.traceRequestId': '"7d418211df5945fa94e5e39b8009039e"',
+        'mlflow.spanType': '"UNKNOWN"',
+        'mlflow.spanInputs': '{"input": "Exception should log as event"}',
+        'a': '"b"'},
+    'events': [{'name': 'exception',
+        'timestamp': 1718063629190527000,
+        'attributes': {'exception.type': 'Exception',
+        'exception.message': 'Intentionally throwing!',
+        'exception.stacktrace': 'Traceback (most recent call last):\n
+                                  File "/usr/local/lib/python3.8/site-packages/opentelemetry/trace/__init__.py",
+                                  line 573, in use_span\n
+                                    yield span\n  File "/usr/local/mlflow/mlflow/tracing/fluent.py",
+                                  line 241, in start_span\n
+                                    yield mlflow_span\n  File "/var/folders/cd/n8n0rm2x53l_s0xv_j_xklb00000gp/T/ipykernel_9875/4089093747.py",
+                                  line 4, in <cell line: 1>\n
+                                    raise Exception("Intentionally throwing!")\nException: Intentionally throwing!\n',
+        'exception.escaped': 'False'}}]}],
+  'request': '{"input": "Exception should log as event"}',
+  'response': None
+}
+```
+
+The `exception.stacktrace` attribute contains the full stack trace of the Exception that was raised during the span's execution.
+
+Alternatively, if you were to use the MLflowClient API to search traces, the access to retrieve the span's event data from the failure would be
+slightly different (due to the return value being a `pandas` DataFrame). To use the `search_traces` API to access the same exception data would
+be as follows:
+
+```python
+import mlflow
+
+client = mlflow.MlflowClient()
+
+traces = client.search_traces(
+    experiment_ids=[experiment.experiment_id]
+)  # This returns a pandas DataFrame
+pprint(traces["trace"][0].data.spans[0].to_dict(), indent=1)
+```
+
+The stdout values that will be rendered from this call are identical to those from the example span data above.
