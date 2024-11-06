@@ -1,3 +1,4 @@
+import asyncio
 import time
 from unittest import mock
 
@@ -64,6 +65,7 @@ def test_litellm_tracing_success(is_in_databricks):
     assert spans[0].attributes["response_cost"] > 0
     assert spans[0].attributes["usage"] is not None
 
+
 def test_litellm_tracing_failure(is_in_databricks):
     mlflow.litellm.autolog()
 
@@ -128,7 +130,11 @@ async def test_litellm_tracing_async(is_in_databricks):
     )
     assert response.choices[0].message.content == '[{"role": "system", "content": "Hello"}]'
 
-    _wait_if_not_in_databricks()
+    # Await the logger task to ensure that the trace is logged.
+    logger_task = next(
+        t for t in asyncio.all_tasks() if "async_success_handler" in t.get_coro().__name__
+    )
+    await logger_task
 
     trace = mlflow.get_last_active_trace()
     assert trace.info.status == "OK"
@@ -160,7 +166,11 @@ async def test_litellm_tracing_async_streaming(is_in_databricks):
     chunks = [c.choices[0].delta.content async for c in response]
     assert chunks == ["Hello", " world", None]
 
-    _wait_if_not_in_databricks()
+    # Await the logger task to ensure that the trace is logged.
+    logger_task = next(
+        t for t in asyncio.all_tasks() if "async_success_handler" in t.get_coro().__name__
+    )
+    await logger_task
 
     trace = mlflow.get_last_active_trace()
     assert trace.info.status == "OK"
@@ -174,7 +184,6 @@ async def test_litellm_tracing_async_streaming(is_in_databricks):
 
 def test_litellm_tracing_disable(is_in_databricks):
     mlflow.litellm.autolog()
-    print(litellm.callbacks, litellm.input_callback, litellm._async_success_callback)
 
     litellm.completion("gpt-4o-mini", [{"role": "system", "content": "Hello"}])
     _wait_if_not_in_databricks()

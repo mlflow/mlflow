@@ -56,22 +56,20 @@ def autolog(
                 "transcription",
                 "speech",
             ]:
-                _patch_sync_function(litellm, func)
-                _patch_async_function(litellm, "a" + func)
+                _patch_theading_in_function(litellm, func)
 
             # For streaming case, we need to patch the iterator because traces are generated
             # when consuming the generator, not when calling the main APIs.
-            _patch_sync_function(litellm.utils.CustomStreamWrapper, "__next__")
-            _patch_async_function(litellm.utils.CustomStreamWrapper, "__anext__")
+            _patch_theading_in_function(litellm.utils.CustomStreamWrapper, "__next__")
+
+            # NB: We don't need to patch async function because Databricks notebook waits
+            # for the async task to finish before finishing the cell.
     else:
         litellm.success_callback = _remove_mlflow_callbacks(litellm.success_callback)
         litellm.failure_callback = _remove_mlflow_callbacks(litellm.failure_callback)
         # Callback also needs to be removed from 'callbacks' as litellm adds
         # success/failure callbacks to there as well.
         litellm.callbacks = _remove_mlflow_callbacks(litellm.callbacks)
-
-        # Remove all patches applied to async functions (not via safe_patch())
-        _unpatch()
 
 
 # NB: The @autologging_integration annotation must be applied here, and the callback injection
@@ -87,7 +85,7 @@ def _autolog(
     pass
 
 
-def _patch_sync_function(target, function_name: str):
+def _patch_theading_in_function(target, function_name: str):
     """
     Apply the threading patch to a synchronous function.
 
@@ -103,36 +101,6 @@ def _patch_sync_function(target, function_name: str):
         return result
 
     safe_patch(FLAVOR_NAME, target, function_name, _patch_fn)
-
-
-_ASYNC_PATCH_STORE = {}
-
-
-def _patch_async_function(target, function_name: str):
-    """Apply the threading patch to an async function."""
-    if (target, function_name) in _ASYNC_PATCH_STORE:
-        return
-
-    original = getattr(target, function_name)
-
-    async def _patch_fn(*args, **kwargs):
-        with _patch_thread_start() as logging_threads:
-            result = await original(*args, **kwargs)
-        for thread in logging_threads:
-            thread.join()
-        return result
-
-    # NB: safe_patch does not support async functions, so we simply use setattr method here.
-    # To avoid double patching and handle cleanup, we store the patched function in a global dict.
-    setattr(target, function_name, _patch_fn)
-    _ASYNC_PATCH_STORE[(target, function_name)] = original
-
-
-def _unpatch():
-    """Remove the threading patch for all async functions."""
-    for (target, function_name), original in _ASYNC_PATCH_STORE.items():
-        setattr(target, function_name, original)
-    _ASYNC_PATCH_STORE.clear()
 
 
 @contextmanager
