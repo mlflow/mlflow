@@ -167,6 +167,13 @@ def log_model(
         spark_model: Spark model to be saved - MLflow can only save descendants of
             pyspark.ml.Model or pyspark.ml.Transformer which implement
             MLReadable and MLWritable.
+
+                .. Note:: The provided Spark model `transform` method must generate one column
+                    named with "prediction", the column is used as MLflow pyfunc model output.
+                    Most Spark models set "prediction" column as the output label column
+                    by default. For probabilistic classification model, if you want to get
+                    the probability column as the output column, you need to set Spark model
+                    "probabilityCol" param to "prediction" and set "predictionCol" param to "".
         artifact_path: Run relative artifact path.
         conda_env: {{ conda_env }}
         code_paths: {{ code_paths }}
