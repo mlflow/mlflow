@@ -6,6 +6,7 @@ import json
 import logging
 import os
 import re
+import shutil
 import sys
 import tempfile
 import uuid
@@ -31,6 +32,7 @@ from mlflow.types.utils import (
     clean_tensor_type,
 )
 from mlflow.utils.annotations import experimental
+from mlflow.utils.file_utils import create_tmp_dir, get_local_path_or_none
 from mlflow.utils.proto_json_utils import (
     NumpyEncoder,
     dataframe_from_parsed_json,
@@ -1849,10 +1851,17 @@ def validate_serving_input(model_uri: str, serving_input: Union[str, dict[str, A
     # sklearn model might not have python_function flavor if it
     # doesn't define a predict function. In such case the model
     # can not be served anyways
-    pyfunc_model = mlflow.pyfunc.load_model(model_uri)
-    parsed_input = _parse_json_data(
-        serving_input,
-        pyfunc_model.metadata,
-        pyfunc_model.metadata.get_input_schema(),
-    )
-    return pyfunc_model.predict(parsed_input.data, params=parsed_input.params)
+
+    output_dir = None if get_local_path_or_none(model_uri) else create_tmp_dir()
+
+    try:
+        pyfunc_model = mlflow.pyfunc.load_model(model_uri, dst_path=output_dir)
+        parsed_input = _parse_json_data(
+            serving_input,
+            pyfunc_model.metadata,
+            pyfunc_model.metadata.get_input_schema(),
+        )
+        return pyfunc_model.predict(parsed_input.data, params=parsed_input.params)
+    finally:
+        if output_dir:
+            shutil.rmtree(output_dir)
