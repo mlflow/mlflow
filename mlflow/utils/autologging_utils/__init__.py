@@ -1,6 +1,5 @@
 import contextlib
 import importlib
-import importlib.metadata
 import inspect
 import logging
 import sys
