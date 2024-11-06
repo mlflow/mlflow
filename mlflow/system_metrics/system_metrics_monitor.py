@@ -133,6 +133,7 @@ class SystemMetricsMonitor:
                     return
             metrics = self.aggregate_metrics()
             try:
+                _logger.info(f"Logging system metrics: {metrics}")
                 self.publish_metrics(metrics)
             except Exception as e:
                 _logger.warning(
