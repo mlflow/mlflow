@@ -175,7 +175,7 @@ def log_model(
                     To set probability column as the output column for probabilistic
                     classification models, you need to set "probabilityCol" param to "prediction"
                     and set "predictionCol" param to "".
-                    (e.g. model.setProbabilityCol("prediction").setPredictionCol(""))
+                    (e.g. `model.setProbabilityCol("prediction").setPredictionCol("")`)
         artifact_path: Run relative artifact path.
         conda_env: {{ conda_env }}
         code_paths: {{ code_paths }}
