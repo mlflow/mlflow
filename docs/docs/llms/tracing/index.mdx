@@ -99,7 +99,8 @@ for model/API invocations to the active MLflow Experiment.
     ### LangChain Automatic Tracing
 
     As part of the LangChain autologging integration, traces are logged to the active MLflow Experiment when calling invocation APIs on chains. You can enable tracing
-    for LangChain by calling the [`mlflow.langchain.autolog()`](/python_api/mlflow.langchain/#mlflow.langchain.autolog) function.
+    for LangChain by calling the <APILink fn="mlflow.langchain.autolog" /> function.
+
     ```python
     import mlflow
 
@@ -181,7 +182,7 @@ for model/API invocations to the active MLflow Experiment.
   <TabItem value="openai" label="OpenAI">
     ### OpenAI Automatic Tracing
 
-    The MLflow OpenAI flavor's autologging feature has a direct integration with MLflow tracing. When OpenAI autologging is enabled with [`mlflow.openai.autolog()`](/python_api/openai/#mlflow.openai.autolog),
+    The MLflow OpenAI flavor's autologging feature has a direct integration with MLflow tracing. When OpenAI autologging is enabled with <APILink fn="mlflow.openai.autolog" />,
     usage of the OpenAI SDK will automatically record generated traces during interactive development.
 
     ```python
@@ -190,7 +191,7 @@ for model/API invocations to the active MLflow Experiment.
     mlflow.openai.autolog()
     ```
 
-    For example, the code below will log traces to the currently active experiment (in this case, the activated experiment `"OpenAI"`, set through the use of the [`mlflow.set_experiment()`](/python_api/mlflow/#mlflow.set_experiment) API).
+    For example, the code below will log traces to the currently active experiment (in this case, the activated experiment `"OpenAI"`, set through the use of the <APILink fn="mlflow.set_experiment" /> API).
     To learn more about OpenAI autologging, you can [view the documentation here](../openai/autologging/).
 
     ```python
@@ -230,7 +231,7 @@ for model/API invocations to the active MLflow Experiment.
     ### OpenAI Swarm Automatic Tracing
 
     The MLflow OpenAI flavor supports automatic tracing for [Swarm](https://github.com/openai/swarm), a multi-agent orchestration
-    framework from OpenAI. To enable tracing for **Swarm**, just call [`mlflow.openai.autolog()`](/python_api/openai/#mlflow.openai.autolog)
+    framework from OpenAI. To enable tracing for **Swarm**, just call <APILink fn="mlflow.openai.autolog" />
     before running your multi-agent interactions. MLflow will trace all LLM interactions, tool calls, and agent operations automatically.
 
     ```python
@@ -283,7 +284,7 @@ for model/API invocations to the active MLflow Experiment.
   <TabItem value="llamaindex" label="LlamaIndex">
     ### LlamaIndex Automatic Tracing
 
-    The MLflow LlamaIndex flavor's autologging feature has a direct integration with MLflow tracing. When LlamaIndex autologging is enabled with [`mlflow.llama_index.autolog()`](/python_api/mlflow.llama_index/#mlflow.llama_index.autolog), invocation of components
+    The MLflow LlamaIndex flavor's autologging feature has a direct integration with MLflow tracing. When LlamaIndex autologging is enabled with <APILink fn="mlflow.llama_index.autolog" />, invocation of components
     such as LLMs, agents, and query/chat engines will automatically record generated traces during interactive development.
 
     ```python
@@ -300,7 +301,7 @@ for model/API invocations to the active MLflow Experiment.
   <TabItem value="autogen" label="AutoGen">
     ### AutoGen Automatic Tracing
 
-    MLflow Tracing ensures observability for your AutoGen application that involves complex multi-agent interactions. You can enable auto-tracing by calling [`mlflow.autogen.autolog()`](/python_api/mlflow.autogen/#mlflow.autogen.autolog),
+    MLflow Tracing ensures observability for your AutoGen application that involves complex multi-agent interactions. You can enable auto-tracing by calling <APILink fn ="mlflow.autogen.autolog" />,
     then the internal steps of the agents chat session will be logged to the active MLflow Experiment.
 
     ```python
@@ -339,7 +340,7 @@ functionality to your code with minimal modifications, enabling you to capture d
 
 #### Trace Decorator
 
-The trace decorator allows you to automatically capture the inputs and outputs of a function by simply adding the [`@mlflow.trace`](/python_api/mlflow#mlflow.trace) decorator
+The trace decorator allows you to automatically capture the inputs and outputs of a function by simply adding the <APILink fn="mlflow.trace" isDecorator /> decorator
 to its definition. This approach is ideal for quickly adding tracing to individual functions without significant changes to your existing code.
 
 ```python
@@ -521,7 +522,7 @@ The following span types are available:
   </tbody>
 </table>
 
-To set a span type, you can pass the `span_type` parameter to the [`@mlflow.trace`](/python_api/mlflow#mlflow.trace) decorator or [`mlflow.start_span`](python_api/mlflow/#mlflow.start_span) context manager. When you are using [automatic tracing](#automatic-tracing), the span type is automatically set by MLflow.
+To set a span type, you can pass the `span_type` parameter to the <APILink fn="mlflow.trace" isDecorator /> decorator or <APILink fn="mlflow.start_span" /> context manager. When you are using [automatic tracing](#automatic-tracing), the span type is automatically set by MLflow.
 
 ```python
 import mlflow
@@ -547,7 +548,7 @@ with mlflow.start_span(name="add", span_type="MATH") as span:
 #### Context Handler
 
 The context handler provides a way to create nested traces or spans, which can be useful for capturing complex interactions within your code.
-By using the [`mlflow.start_span()`](/python_api/mlflow#mlflow.start_span) context manager, you can group multiple traced functions under a single parent span, making it easier to understand
+By using the <APILink fn="mlflow.start_span" /> context manager, you can group multiple traced functions under a single parent span, making it easier to understand
 the relationships between different parts of your code.
 
 The context handler is recommended when you need to refine the scope of data capture for a given span. If your code is logically constructed such that
@@ -612,7 +613,7 @@ This trace can be seen within the MLflow UI:
 #### Function wrapping
 
 Function wrapping provides a flexible way to add tracing to existing functions without modifying their definitions. This is particularly useful when
-you want to add tracing to third-party functions or functions defined outside of your control. By wrapping an external function with [`mlflow.trace()`](/python_api/mlflow/#mlflow.trace), you can
+you want to add tracing to third-party functions or functions defined outside of your control. By wrapping an external function with <APILink fn="mlflow.trace" />, you can
 capture its inputs, outputs, and execution context.
 
 ```python
