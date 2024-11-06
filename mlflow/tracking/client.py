@@ -15,7 +15,7 @@ import tempfile
 import urllib
 import uuid
 import warnings
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Sequence, Union
+from typing import TYPE_CHECKING, Any, Optional, Sequence, Union
 
 import yaml
 
@@ -270,7 +270,7 @@ class MlflowClient:
             return None
         return self._tracking_client.get_run(parent_run_id)
 
-    def get_metric_history(self, run_id: str, key: str) -> List[Metric]:
+    def get_metric_history(self, run_id: str, key: str) -> list[Metric]:
         """Return a list of metric objects corresponding to all values logged for a given metric.
 
         Args:
@@ -344,7 +344,7 @@ class MlflowClient:
         self,
         experiment_id: str,
         start_time: Optional[int] = None,
-        tags: Optional[Dict[str, Any]] = None,
+        tags: Optional[dict[str, Any]] = None,
         run_name: Optional[str] = None,
     ) -> Run:
         """
@@ -405,7 +405,7 @@ class MlflowClient:
         experiment_id: str,
         max_timestamp_millis: Optional[int] = None,
         max_traces: Optional[int] = None,
-        request_ids: Optional[List[str]] = None,
+        request_ids: Optional[list[str]] = None,
     ) -> int:
         """
         Delete traces based on the specified criteria.
@@ -486,10 +486,10 @@ class MlflowClient:
     @experimental
     def search_traces(
         self,
-        experiment_ids: List[str],
+        experiment_ids: list[str],
         filter_string: Optional[str] = None,
         max_results: int = SEARCH_TRACES_DEFAULT_MAX_RESULTS,
-        order_by: Optional[List[str]] = None,
+        order_by: Optional[list[str]] = None,
         page_token: Optional[str] = None,
         run_id: Optional[str] = None,
         model_id: Optional[str] = None,
@@ -534,9 +534,9 @@ class MlflowClient:
         self,
         name: str,
         span_type: str = SpanType.UNKNOWN,
-        inputs: Optional[Dict[str, Any]] = None,
-        attributes: Optional[Dict[str, str]] = None,
-        tags: Optional[Dict[str, str]] = None,
+        inputs: Optional[dict[str, Any]] = None,
+        attributes: Optional[dict[str, str]] = None,
+        tags: Optional[dict[str, str]] = None,
         experiment_id: Optional[str] = None,
         start_time_ns: Optional[int] = None,
     ) -> Span:
@@ -650,8 +650,8 @@ class MlflowClient:
     def end_trace(
         self,
         request_id: str,
-        outputs: Optional[Dict[str, Any]] = None,
-        attributes: Optional[Dict[str, Any]] = None,
+        outputs: Optional[dict[str, Any]] = None,
+        attributes: Optional[dict[str, Any]] = None,
         status: Union[SpanStatus, str] = "OK",
         end_time_ns: Optional[int] = None,
     ):
@@ -732,8 +732,8 @@ class MlflowClient:
         request_id: str,
         parent_id: str,
         span_type: str = SpanType.UNKNOWN,
-        inputs: Optional[Dict[str, Any]] = None,
-        attributes: Optional[Dict[str, Any]] = None,
+        inputs: Optional[dict[str, Any]] = None,
+        attributes: Optional[dict[str, Any]] = None,
         start_time_ns: Optional[int] = None,
     ) -> Span:
         """
@@ -896,8 +896,8 @@ class MlflowClient:
         self,
         request_id: str,
         span_id: str,
-        outputs: Optional[Dict[str, Any]] = None,
-        attributes: Optional[Dict[str, Any]] = None,
+        outputs: Optional[dict[str, Any]] = None,
+        attributes: Optional[dict[str, Any]] = None,
         status: Union[SpanStatus, str] = "OK",
         end_time_ns: Optional[int] = None,
     ):
@@ -949,8 +949,8 @@ class MlflowClient:
         self,
         experiment_id: str,
         timestamp_ms: int,
-        request_metadata: Optional[Dict[str, str]] = None,
-        tags: Optional[Dict[str, str]] = None,
+        request_metadata: Optional[dict[str, str]] = None,
+        tags: Optional[dict[str, str]] = None,
     ) -> TraceInfo:
         """
         Start an initial TraceInfo object in the backend store.
@@ -1081,7 +1081,7 @@ class MlflowClient:
         view_type: int = ViewType.ACTIVE_ONLY,
         max_results: Optional[int] = SEARCH_MAX_RESULTS_DEFAULT,
         filter_string: Optional[str] = None,
-        order_by: Optional[List[str]] = None,
+        order_by: Optional[list[str]] = None,
         page_token=None,
     ) -> PagedList[Experiment]:
         """
@@ -1266,7 +1266,7 @@ class MlflowClient:
         self,
         name: str,
         artifact_location: Optional[str] = None,
-        tags: Optional[Dict[str, Any]] = None,
+        tags: Optional[dict[str, Any]] = None,
     ) -> str:
         """Create an experiment.
 
@@ -1906,7 +1906,7 @@ class MlflowClient:
         """
         self._tracking_client.log_inputs(run_id, datasets, models)
 
-    def log_outputs(self, run_id: str, models: List[LoggedModelOutput]):
+    def log_outputs(self, run_id: str, models: list[LoggedModelOutput]):
         self._tracking_client.log_outputs(run_id, models)
 
     def log_artifact(self, run_id, local_path, artifact_path=None) -> None:
@@ -2073,7 +2073,7 @@ class MlflowClient:
             with open(tmp_path, "w", encoding="utf-8") as f:
                 f.write(text)
 
-    def log_dict(self, run_id: str, dictionary: Dict[str, Any], artifact_file: str) -> None:
+    def log_dict(self, run_id: str, dictionary: dict[str, Any], artifact_file: str) -> None:
         """Log a JSON/YAML-serializable object (e.g. `dict`) as an artifact. The serialization
         format (JSON or YAML) is automatically inferred from the extension of `artifact_file`.
         If the file extension doesn't exist or match any of [".json", ".yml", ".yaml"],
@@ -2125,7 +2125,7 @@ class MlflowClient:
         figure: Union["matplotlib.figure.Figure", "plotly.graph_objects.Figure"],
         artifact_file: str,
         *,
-        save_kwargs: Optional[Dict[str, Any]] = None,
+        save_kwargs: Optional[dict[str, Any]] = None,
     ) -> None:
         """Log a figure as an artifact. The following figure objects are supported:
 
@@ -2441,7 +2441,7 @@ class MlflowClient:
     def log_table(
         self,
         run_id: str,
-        data: Union[Dict[str, Any], "pandas.DataFrame"],
+        data: Union[dict[str, Any], "pandas.DataFrame"],
         artifact_file: str,
     ) -> None:
         """
@@ -2626,8 +2626,8 @@ class MlflowClient:
         self,
         experiment_id: str,
         artifact_file: str,
-        run_ids: Optional[List[str]] = None,
-        extra_columns: Optional[List[str]] = None,
+        run_ids: Optional[list[str]] = None,
+        extra_columns: Optional[list[str]] = None,
     ) -> "pandas.DataFrame":
         """
         Load a table from MLflow Tracking as a pandas.DataFrame. The table is loaded from the
@@ -2775,7 +2775,7 @@ class MlflowClient:
         """
         self._tracking_client._record_logged_model(run_id, mlflow_model)
 
-    def list_artifacts(self, run_id: str, path=None) -> List[FileInfo]:
+    def list_artifacts(self, run_id: str, path=None) -> list[FileInfo]:
         """List the artifacts for a run.
 
         Args:
@@ -2833,7 +2833,7 @@ class MlflowClient:
 
     def list_logged_model_artifacts(
         self, model_id: str, path: Optional[str] = None
-    ) -> List[FileInfo]:
+    ) -> list[FileInfo]:
         return self._tracking_client.list_logged_model_artifacts(model_id, path)
 
     def download_artifacts(self, run_id: str, path: str, dst_path: Optional[str] = None) -> str:
@@ -2999,11 +2999,11 @@ class MlflowClient:
 
     def search_runs(
         self,
-        experiment_ids: List[str],
+        experiment_ids: list[str],
         filter_string: str = "",
         run_view_type: int = ViewType.ACTIVE_ONLY,
         max_results: int = SEARCH_MAX_RESULTS_DEFAULT,
-        order_by: Optional[List[str]] = None,
+        order_by: Optional[list[str]] = None,
         page_token: Optional[str] = None,
     ) -> PagedList[Run]:
         """
@@ -3095,7 +3095,7 @@ class MlflowClient:
     # Registered Model Methods
 
     def create_registered_model(
-        self, name: str, tags: Optional[Dict[str, Any]] = None, description: Optional[str] = None
+        self, name: str, tags: Optional[dict[str, Any]] = None, description: Optional[str] = None
     ) -> RegisteredModel:
         """
         Create a new registered model in backend store.
@@ -3311,7 +3311,7 @@ class MlflowClient:
         self,
         filter_string: Optional[str] = None,
         max_results: int = SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT,
-        order_by: Optional[List[str]] = None,
+        order_by: Optional[list[str]] = None,
         page_token: Optional[str] = None,
     ) -> PagedList[RegisteredModel]:
         """
@@ -3447,8 +3447,8 @@ class MlflowClient:
 
     @deprecated(since="2.9.0", impact=_STAGES_DEPRECATION_WARNING)
     def get_latest_versions(
-        self, name: str, stages: Optional[List[str]] = None
-    ) -> List[ModelVersion]:
+        self, name: str, stages: Optional[list[str]] = None
+    ) -> list[ModelVersion]:
         """
         Latest version models for each requests stage. If no ``stages`` provided, returns the
         latest version for each stage.
@@ -3624,7 +3624,7 @@ class MlflowClient:
         name: str,
         source: str,
         run_id: Optional[str] = None,
-        tags: Optional[Dict[str, Any]] = None,
+        tags: Optional[dict[str, Any]] = None,
         run_link: Optional[str] = None,
         description: Optional[str] = None,
         await_creation_for: int = DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
@@ -3680,7 +3680,7 @@ class MlflowClient:
         name: str,
         source: str,
         run_id: Optional[str] = None,
-        tags: Optional[Dict[str, Any]] = None,
+        tags: Optional[dict[str, Any]] = None,
         run_link: Optional[str] = None,
         description: Optional[str] = None,
         await_creation_for: int = DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
@@ -4202,7 +4202,7 @@ class MlflowClient:
         self,
         filter_string: Optional[str] = None,
         max_results: int = SEARCH_MODEL_VERSION_MAX_RESULTS_DEFAULT,
-        order_by: Optional[List[str]] = None,
+        order_by: Optional[list[str]] = None,
         page_token: Optional[str] = None,
     ) -> PagedList[ModelVersion]:
         """
@@ -4283,7 +4283,7 @@ class MlflowClient:
         )
 
     @deprecated(since="2.9.0", impact=_STAGES_DEPRECATION_WARNING)
-    def get_model_version_stages(self, name: str, version: str) -> List[str]:
+    def get_model_version_stages(self, name: str, version: str) -> list[str]:
         """
         This is a docstring. Here is info.
 
@@ -4787,8 +4787,8 @@ class MlflowClient:
         experiment_id: str,
         name: Optional[str] = None,
         source_run_id: Optional[str] = None,
-        tags: Optional[Dict[str, str]] = None,
-        params: Optional[Dict[str, str]] = None,
+        tags: Optional[dict[str, str]] = None,
+        params: Optional[dict[str, str]] = None,
         model_type: Optional[str] = None,
     ) -> LoggedModel:
         """
@@ -4834,7 +4834,7 @@ class MlflowClient:
         """
         return self._tracking_client.get_logged_model(model_id)
 
-    def set_logged_model_tags(self, model_id: str, tags: Dict[str, Any]) -> None:
+    def set_logged_model_tags(self, model_id: str, tags: dict[str, Any]) -> None:
         """
         Set tags on the specified logged model.
 
@@ -4863,10 +4863,10 @@ class MlflowClient:
 
     def search_logged_models(
         self,
-        experiment_ids: List[str],
+        experiment_ids: list[str],
         filter_string: Optional[str] = None,
         max_results: Optional[int] = None,
-        order_by: Optional[List[Dict[str, Any]]] = None,
+        order_by: Optional[list[dict[str, Any]]] = None,
         page_token: Optional[str] = None,
     ) -> PagedList[LoggedModel]:
         """
@@ -4879,13 +4879,17 @@ class MlflowClient:
             order_by: List of dictionaries to specify the ordering of the search results.
                 The following fields are supported:
 
-                field_name (str): Required. Name of the field to order by, e.g. "metrics.accuracy".
-                ascending: (bool): Optional. Whether the order is ascending or not.
-                dataset_name: (str): Optional. If ``field_name`` refers to a metric, this field
+                field_name (str):
+                    Required. Name of the field to order by, e.g. "metrics.accuracy".
+                ascending (bool):
+                    Optional. Whether the order is ascending or not.
+                dataset_name (str):
+                    Optional. If ``field_name`` refers to a metric, this field
                     specifies the name of the dataset associated with the metric. Only metrics
                     associated with the specified dataset name will be considered for ordering.
                     This field may only be set if ``field_name`` refers to a metric.
-                dataset_digest (str): Optional. If ``field_name`` refers to a metric, this field
+                dataset_digest (str):
+                    Optional. If ``field_name`` refers to a metric, this field
                     specifies the digest of the dataset associated with the metric. Only metrics
                     associated with the specified dataset name and digest will be considered for
                     ordering. This field may only be set if ``dataset_name`` is also set.

@@ -667,3 +667,8 @@ MLFLOW_USE_DATABRICKS_SDK_MODEL_ARTIFACTS_REPO_FOR_UC = _BooleanEnvironmentVaria
 MLFLOW_MODEL_ENV_DOWNLOADING_TEMP_DIR = _EnvironmentVariable(
     "MLFLOW_MODEL_ENV_DOWNLOADING_TEMP_DIR", str, None
 )
+
+# Specifies weather to log environment variable names used during model logging.
+MLFLOW_RECORD_ENV_VARS_IN_MODEL_LOGGING = _BooleanEnvironmentVariable(
+    "MLFLOW_RECORD_ENV_VARS_IN_MODEL_LOGGING", True
+)

@@ -45,13 +45,12 @@ def mock_client():
         os.environ["AZURE_STORAGE_CONNECTION_STRING"] = old_conn_string
 
 
-def test_artifact_uri_factory(mock_client):
+def test_artifact_uri_factory(mock_client, monkeypatch):
     # We pass in the mock_client here to clear Azure environment variables, but we don't use it;
     # We do need to set up a fake access key for the code to run though
-    os.environ["AZURE_STORAGE_ACCESS_KEY"] = ""
+    monkeypatch.setenv("AZURE_STORAGE", "")
     repo = get_artifact_repository(TEST_URI)
     assert isinstance(repo, AzureBlobArtifactRepository)
-    del os.environ["AZURE_STORAGE_ACCESS_KEY"]
 
 
 @mock.patch("azure.identity.DefaultAzureCredential")

@@ -44,7 +44,8 @@ class ModelsArtifactRepository(ArtifactRepository):
 
         super().__init__(artifact_uri)
         registry_uri = mlflow.get_registry_uri()
-        if is_databricks_unity_catalog_uri(uri=registry_uri):
+        is_logged_models_uri = artifact_uri.rstrip("/").count("/") == 1  # e.g. 'models:/{model_id}'
+        if is_databricks_unity_catalog_uri(uri=registry_uri) and not is_logged_models_uri:
             self.repo = UnityCatalogModelsArtifactRepository(
                 artifact_uri=artifact_uri, registry_uri=registry_uri
             )
@@ -56,12 +57,7 @@ class ModelsArtifactRepository(ArtifactRepository):
             )
             self.model_name = self.repo.model_name
             self.model_version = self.repo.model_version
-        elif (
-            is_using_databricks_registry(artifact_uri)
-            # Avoid using DatabricksModelsArtifactRepository if `artifact_uri` is a logged model
-            # URI (e.g., 'models:/{model_id}').
-            and artifact_uri.count("/") >= 2
-        ):
+        elif is_using_databricks_registry(artifact_uri) and not is_logged_models_uri:
             # Use the DatabricksModelsArtifactRepository if a databricks profile is being used.
             self.repo = DatabricksModelsArtifactRepository(artifact_uri)
             self.model_name = self.repo.model_name

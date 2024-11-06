@@ -3,7 +3,7 @@ import tempfile
 import types
 import warnings
 from contextlib import contextmanager
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 import numpy as np
 import yaml
@@ -302,8 +302,8 @@ def log_explainer(
     pip_requirements=None,
     extra_pip_requirements=None,
     metadata=None,
-    params: Optional[Dict[str, Any]] = None,
-    tags: Optional[Dict[str, Any]] = None,
+    params: Optional[dict[str, Any]] = None,
+    tags: Optional[dict[str, Any]] = None,
     model_type: Optional[str] = None,
     step: int = 0,
     model_id: Optional[str] = None,
@@ -675,7 +675,7 @@ class _SHAPWrapper:
     def predict(
         self,
         dataframe,
-        params: Optional[Dict[str, Any]] = None,
+        params: Optional[dict[str, Any]] = None,
     ):
         """
         Args:

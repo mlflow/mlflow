@@ -38,7 +38,7 @@ import logging
 import os
 import warnings
 from string import Formatter
-from typing import Any, Dict, Optional, Set
+from typing import Any, Optional
 
 import yaml
 from packaging.version import Version
@@ -217,7 +217,7 @@ def _log_secrets_yaml(local_model_dir, scope):
         yaml.safe_dump({e.value: f"{scope}:{e.secret_key}" for e in _OpenAIEnvVar}, f)
 
 
-def _parse_format_fields(s) -> Set[str]:
+def _parse_format_fields(s) -> set[str]:
     """Parses format fields from a given string, e.g. "Hello {name}" -> ["name"]."""
     return {fn for _, fn, _, _ in Formatter().parse(s) if fn is not None}
 
@@ -454,8 +454,8 @@ def log_model(
     metadata=None,
     example_no_conversion=None,
     name: Optional[str] = None,
-    params: Optional[Dict[str, Any]] = None,
-    tags: Optional[Dict[str, Any]] = None,
+    params: Optional[dict[str, Any]] = None,
+    tags: Optional[dict[str, Any]] = None,
     model_type: Optional[str] = None,
     step: int = 0,
     model_id: Optional[str] = None,
@@ -801,7 +801,7 @@ class _OpenAIWrapper:
         )
         return [row["embedding"] for batch in results for row in batch["data"]]
 
-    def predict(self, data, params: Optional[Dict[str, Any]] = None):
+    def predict(self, data, params: Optional[dict[str, Any]] = None):
         """
         Args:
             data: Model input data.

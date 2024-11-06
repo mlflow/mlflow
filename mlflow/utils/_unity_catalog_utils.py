@@ -1,4 +1,4 @@
-from typing import Callable, List, Optional
+from typing import Callable, Optional
 
 from mlflow.entities.model_registry import (
     ModelVersion,
@@ -102,16 +102,16 @@ def registered_model_search_from_uc_proto(uc_proto: ProtoRegisteredModel) -> Reg
 
 
 def uc_registered_model_tag_from_mlflow_tags(
-    tags: Optional[List[RegisteredModelTag]],
-) -> List[ProtoRegisteredModelTag]:
+    tags: Optional[list[RegisteredModelTag]],
+) -> list[ProtoRegisteredModelTag]:
     if tags is None:
         return []
     return [ProtoRegisteredModelTag(key=t.key, value=t.value) for t in tags]
 
 
 def uc_model_version_tag_from_mlflow_tags(
-    tags: Optional[List[ModelVersionTag]],
-) -> List[ProtoModelVersionTag]:
+    tags: Optional[list[ModelVersionTag]],
+) -> list[ProtoModelVersionTag]:
     if tags is None:
         return []
     return [ProtoModelVersionTag(key=t.key, value=t.value) for t in tags]

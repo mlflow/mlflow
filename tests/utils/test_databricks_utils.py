@@ -1,12 +1,14 @@
 import builtins
 import json
 import os
+import platform
 import sys
 import time
 from unittest import mock
 
 import pytest
 
+import mlflow
 from mlflow.exceptions import MlflowException
 from mlflow.legacy_databricks_cli.configure.provider import (
     DatabricksConfig,
@@ -18,6 +20,7 @@ from mlflow.utils.databricks_utils import (
     check_databricks_secret_scope_access,
     get_databricks_host_creds,
     get_databricks_runtime_major_minor_version,
+    get_dbconnect_udf_sandbox_info,
     get_mlflow_credential_context_by_run_id,
     get_workspace_info_from_databricks_secrets,
     get_workspace_info_from_dbutils,
@@ -25,8 +28,10 @@ from mlflow.utils.databricks_utils import (
     is_databricks_default_tracking_uri,
     is_running_in_ipython_environment,
 )
+from mlflow.utils.os import is_windows
 
 from tests.helper_functions import mock_method_chain
+from tests.pyfunc.test_spark import spark  # noqa: F401
 
 
 def test_no_throw():
@@ -557,3 +562,30 @@ def test_get_workspace_url(input_url, expected_result):
     with mock.patch("mlflow.utils.databricks_utils._get_workspace_url", return_value=input_url):
         result = get_workspace_url()
         assert result == expected_result
+
+
+@pytest.mark.skipif(is_windows(), reason="This test doesn't work on Windows")
+def test_get_dbconnect_udf_sandbox_info(spark, monkeypatch):
+    monkeypatch.setenv("DATABRICKS_RUNTIME_VERSION", "client.1.2")
+    databricks_utils._dbconnect_udf_sandbox_info_cache = None
+
+    spark.udf.register(
+        "current_version",
+        lambda: {"dbr_version": "15.4.x-scala2.12"},
+        returnType="dbr_version string",
+    )
+
+    info = get_dbconnect_udf_sandbox_info(spark)
+    assert info.mlflow_version == mlflow.__version__
+    assert info.image_version == "client.1.2"
+    assert info.runtime_version == "15.4"
+    assert info.platform_machine == platform.machine()
+
+    monkeypatch.delenv("DATABRICKS_RUNTIME_VERSION")
+    databricks_utils._dbconnect_udf_sandbox_info_cache = None
+
+    info = get_dbconnect_udf_sandbox_info(spark)
+    assert info.mlflow_version == mlflow.__version__
+    assert info.image_version == "15.4"
+    assert info.runtime_version == "15.4"
+    assert info.platform_machine == platform.machine()

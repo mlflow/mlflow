@@ -1,10 +1,11 @@
+import contextlib
 import json
 import logging
 import os
 import shutil
 import sys
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any
 
 import yaml
 
@@ -337,8 +338,8 @@ def _validate_onnx_session_options(onnx_session_options):
 
 
 def _get_overridden_pyfunc_model_config(
-    pyfunc_config: Dict[str, Any], load_config: Dict[str, Any], logger
-) -> Dict[str, Any]:
+    pyfunc_config: dict[str, Any], load_config: dict[str, Any], logger
+) -> dict[str, Any]:
     """
     Updates the inference configuration according to the model's configuration and the overrides.
     Only arguments already present in the inference configuration can be updated. The environment
@@ -431,3 +432,58 @@ def _validate_pyfunc_model_config(model_config):
             "valid file path or of type ``dict`` with string keys.",
             error_code=INVALID_PARAMETER_VALUE,
         )
+
+
+RECORD_ENV_VAR_ALLOWLIST = {
+    # api key related
+    "API_KEY",
+    "API_TOKEN",
+    # databricks auth related
+    "DATABRICKS_HOST",
+    "DATABRICKS_USERNAME",
+    "DATABRICKS_PASSWORD",
+    "DATABRICKS_TOKEN",
+    "DATABRICKS_INSECURE",
+    "DATABRICKS_CLIENT_ID",
+    "DATABRICKS_CLIENT_SECRET",
+    "_DATABRICKS_WORKSPACE_HOST",
+    "_DATABRICKS_WORKSPACE_ID",
+    # dbconnect related
+    "SPARK_REMOTE",
+    "SPARK_LOCAL_REMOTE",
+}
+
+
+@contextlib.contextmanager
+def env_var_tracker():
+    """
+    Context manager for temporarily tracking environment variables accessed.
+    It tracks environment variables accessed during the context manager's lifetime.
+    """
+    from mlflow.environment_variables import MLFLOW_RECORD_ENV_VARS_IN_MODEL_LOGGING
+
+    tracked_env_names = set()
+
+    if MLFLOW_RECORD_ENV_VARS_IN_MODEL_LOGGING.get():
+        original_getitem = os._Environ.__getitem__
+        original_get = os._Environ.get
+
+        def updated_get_item(self, key):
+            result = original_getitem(self, key)
+            tracked_env_names.add(key)
+            return result
+
+        def updated_get(self, key, *args, **kwargs):
+            if key in self:
+                tracked_env_names.add(key)
+            return original_get(self, key, *args, **kwargs)
+
+        try:
+            os._Environ.__getitem__ = updated_get_item
+            os._Environ.get = updated_get
+            yield tracked_env_names
+        finally:
+            os._Environ.__getitem__ = original_getitem
+            os._Environ.get = original_get
+    else:
+        yield tracked_env_names

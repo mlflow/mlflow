@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Optional, Union
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.openapi.docs import get_swagger_ui_html
@@ -51,7 +51,7 @@ class GatewayAPI(FastAPI):
         super().__init__(*args, **kwargs)
         self.state.limiter = limiter
         self.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
-        self.dynamic_routes: Dict[str, RouteConfig] = {}
+        self.dynamic_routes: dict[str, RouteConfig] = {}
         self.set_dynamic_routes(config, limiter)
 
     def set_dynamic_routes(self, config: GatewayConfig, limiter: Limiter) -> None:
@@ -147,7 +147,7 @@ class HealthResponse(BaseModel):
 
 
 class ListEndpointsResponse(BaseModel):
-    endpoints: List[Endpoint]
+    endpoints: list[Endpoint]
     next_page_token: Optional[str] = None
 
     class Config:
@@ -186,7 +186,7 @@ class ListEndpointsResponse(BaseModel):
 
 
 class SearchRoutesResponse(BaseModel):
-    routes: List[Route]
+    routes: list[Route]
     next_page_token: Optional[str] = None
 
     class Config:

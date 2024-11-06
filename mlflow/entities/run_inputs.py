@@ -1,4 +1,4 @@
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 from mlflow.entities._mlflow_object import _MlflowObject
 from mlflow.entities.dataset_input import DatasetInput
@@ -11,8 +11,8 @@ class RunInputs(_MlflowObject):
 
     def __init__(
         self,
-        dataset_inputs: List[DatasetInput],
-        model_inputs: Optional[List[LoggedModelInput]] = None,
+        dataset_inputs: list[DatasetInput],
+        model_inputs: Optional[list[LoggedModelInput]] = None,
     ) -> None:
         self._dataset_inputs = dataset_inputs
         self._model_inputs = model_inputs or []
@@ -23,12 +23,12 @@ class RunInputs(_MlflowObject):
         return False
 
     @property
-    def dataset_inputs(self) -> List[DatasetInput]:
+    def dataset_inputs(self) -> list[DatasetInput]:
         """Array of dataset inputs."""
         return self._dataset_inputs
 
     @property
-    def model_inputs(self) -> List[LoggedModelInput]:
+    def model_inputs(self) -> list[LoggedModelInput]:
         """Array of model inputs."""
         return self._model_inputs
 
@@ -43,7 +43,7 @@ class RunInputs(_MlflowObject):
         # )
         return run_inputs
 
-    def to_dictionary(self) -> Dict[Any, Any]:
+    def to_dictionary(self) -> dict[Any, Any]:
         return {
             "dataset_inputs": self.dataset_inputs,
             "model_inputs": self.model_inputs,

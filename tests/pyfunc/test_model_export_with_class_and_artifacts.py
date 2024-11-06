@@ -7,7 +7,7 @@ import types
 import uuid
 from pathlib import Path
 from subprocess import PIPE, Popen
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List
 from unittest import mock
 
 import cloudpickle
@@ -27,6 +27,7 @@ import mlflow.pyfunc.model
 import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 import mlflow.sklearn
 from mlflow.entities import Trace
+from mlflow.environment_variables import MLFLOW_RECORD_ENV_VARS_IN_MODEL_LOGGING
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model, infer_signature
 from mlflow.models.dependencies_schemas import DependenciesSchemasType
@@ -53,6 +54,7 @@ from mlflow.tracking.artifact_utils import (
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.model_utils import _get_flavor_configuration
+from mlflow.utils.requirements_utils import _get_installed_version
 
 import tests
 from tests.helper_functions import (
@@ -1235,7 +1237,7 @@ def test_functional_python_model_no_type_hints(tmp_path):
 
 
 def test_functional_python_model_only_input_type_hints(tmp_path):
-    def python_model(x: List[str]):
+    def python_model(x: list[str]):
         return x
 
     mlflow.pyfunc.save_model(path=tmp_path, python_model=python_model, input_example=["a"])
@@ -1244,7 +1246,7 @@ def test_functional_python_model_only_input_type_hints(tmp_path):
 
 
 def test_functional_python_model_only_output_type_hints(tmp_path):
-    def python_model(x) -> List[str]:
+    def python_model(x) -> list[str]:
         return x
 
     mlflow.pyfunc.save_model(path=tmp_path, python_model=python_model, input_example=["a"])
@@ -1253,7 +1255,7 @@ def test_functional_python_model_only_output_type_hints(tmp_path):
 
 
 class CallableObject:
-    def __call__(self, x: List[str]) -> List[str]:
+    def __call__(self, x: list[str]) -> list[str]:
         return x
 
 
@@ -1266,7 +1268,7 @@ def test_functional_python_model_callable_object(tmp_path):
     assert loaded_model.predict(["a", "b"]) == ["a", "b"]
 
 
-def list_to_list(x: List[str]) -> List[str]:
+def list_to_list(x: List[str]) -> List[str]:  # noqa: UP006
     return x
 
 
@@ -1296,7 +1298,7 @@ def test_functional_python_model_list_to_list_pep585(tmp_path):
     assert loaded_model.predict([{"x": "a"}, {"x": "b"}]) == ["a", "b"]
 
 
-def list_dict_to_list(x: List[Dict[str, str]]) -> List[str]:
+def list_dict_to_list(x: List[Dict[str, str]]) -> List[str]:  # noqa: UP006
     return ["".join((*d.keys(), *d.values())) for d in x]  # join keys and values
 
 
@@ -1365,7 +1367,7 @@ def test_functional_python_model_list_dict_to_list(tmp_path):
     assert loaded_model.predict([{"a": "x", "b": "y"}]) == ["abxy"]
 
 
-def list_dict_to_list_dict(x: List[Dict[str, str]]) -> List[Dict[str, str]]:
+def list_dict_to_list_dict(x: list[dict[str, str]]) -> list[dict[str, str]]:
     return [{v: k for k, v in d.items()} for d in x]  # swap keys and values
 
 
@@ -1409,7 +1411,7 @@ def test_functional_python_model_list_dict_to_list_dict_with_example_pep585(tmp_
     assert loaded_model.predict([{"a": "x", "b": "y"}]) == [{"x": "a", "y": "b"}]
 
 
-def multiple_arguments(x: List[str], y: List[str]) -> List[str]:
+def multiple_arguments(x: list[str], y: list[str]) -> list[str]:
     return x + y
 
 
@@ -1420,7 +1422,7 @@ def test_functional_python_model_multiple_arguments(tmp_path):
         mlflow.pyfunc.save_model(path=tmp_path, python_model=multiple_arguments)
 
 
-def no_arguments() -> List[str]:
+def no_arguments() -> list[str]:
     return []
 
 
@@ -1431,7 +1433,7 @@ def test_functional_python_model_no_arguments(tmp_path):
         mlflow.pyfunc.save_model(path=tmp_path, python_model=no_arguments)
 
 
-def unsupported_types(x: Tuple[str, ...]) -> Tuple[str, ...]:
+def unsupported_types(x: tuple[str, ...]) -> tuple[str, ...]:
     return x
 
 
@@ -1441,7 +1443,7 @@ def test_functional_python_model_unsupported_types(tmp_path):
     assert model.signature is None
 
 
-def requires_sklearn(x: List[str]) -> List[str]:
+def requires_sklearn(x: list[str]) -> list[str]:
     import sklearn  # noqa: F401
 
     return x
@@ -1473,7 +1475,7 @@ def test_functional_python_model_throws_when_required_arguments_are_missing(tmp_
 
 
 class AnnotatedPythonModel(mlflow.pyfunc.PythonModel):
-    def predict(self, context: Dict[str, Any], model_input: List[str], params=None) -> List[str]:
+    def predict(self, context: dict[str, Any], model_input: list[str], params=None) -> list[str]:
         assert isinstance(model_input, list)
         assert all(isinstance(x, str) for x in model_input)
         return model_input
@@ -1549,7 +1551,7 @@ def test_load_model_fails_for_feature_store_models(tmp_path):
 
 def test_pyfunc_model_infer_signature_from_type_hints(model_path):
     class TestModel(mlflow.pyfunc.PythonModel):
-        def predict(self, context, model_input: List[str], params=None) -> List[str]:
+        def predict(self, context, model_input: list[str], params=None) -> list[str]:
             return model_input
 
     with mlflow.start_run():
@@ -2038,3 +2040,97 @@ def test_model_as_code_pycache_cleaned_up():
 
     path = _download_artifact_from_uri(model_info.model_uri)
     assert list(Path(path).rglob("__pycache__")) == []
+
+
+def test_model_pip_requirements_pin_numpy_when_pandas_included():
+    class TestModel(mlflow.pyfunc.PythonModel):
+        def predict(self, context, model_input, params=None):
+            return model_input
+
+    expected_mlflow_version = _mlflow_major_version_string()
+
+    # no numpy when pandas > 2.1.2
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model("model", python_model=TestModel(), input_example="abc")
+        _assert_pip_requirements(
+            model_info.model_uri,
+            [
+                expected_mlflow_version,
+                f"cloudpickle=={cloudpickle.__version__}",
+                f"pandas=={pandas.__version__}",
+            ],
+            strict=True,
+        )
+
+    original_get_installed_version = _get_installed_version
+
+    def mock_get_installed_version(package, module=None):
+        if package == "pandas":
+            return "2.1.0"
+        return original_get_installed_version(package, module)
+
+    # include numpy when pandas < 2.1.2
+    with (
+        mlflow.start_run(),
+        mock.patch(
+            "mlflow.utils.requirements_utils._get_installed_version",
+            side_effect=mock_get_installed_version,
+        ),
+    ):
+        model_info = mlflow.pyfunc.log_model("model", python_model=TestModel(), input_example="abc")
+        _assert_pip_requirements(
+            model_info.model_uri,
+            [
+                expected_mlflow_version,
+                "pandas==2.1.0",
+                f"numpy=={np.__version__}",
+                f"cloudpickle=={cloudpickle.__version__}",
+            ],
+            strict=True,
+        )
+
+    # no input_example, so pandas not included in requirements
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model("model", python_model=TestModel())
+        _assert_pip_requirements(
+            model_info.model_uri,
+            [expected_mlflow_version, f"cloudpickle=={cloudpickle.__version__}"],
+            strict=True,
+        )
+
+
+def test_environment_variables_used_during_model_logging(monkeypatch):
+    class MyModel(mlflow.pyfunc.PythonModel):
+        def predict(self, context, model_input, params=None):
+            monkeypatch.setenv("TEST_API_KEY", "test_env")
+            monkeypatch.setenv("ANOTHER_API_KEY", "test_env")
+            monkeypatch.setenv("INVALID_ENV_VAR", "var")
+            # existing env var is tracked
+            os.environ["TEST_API_KEY"]
+            # existing env var fetched by getenv is tracked
+            os.getenv("ANOTHER_API_KEY")
+            # existing env var not in allowlist is not tracked
+            os.environ.get("INVALID_ENV_VAR")
+            # non-existing env var is not tracked
+            os.environ.get("INVALID_API_KEY")
+            return model_input
+
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model("model", python_model=MyModel(), input_example="data")
+    assert "TEST_API_KEY" in model_info.env_vars
+    assert "ANOTHER_API_KEY" in model_info.env_vars
+    assert "INVALID_ENV_VAR" not in model_info.env_vars
+    assert "INVALID_API_KEY" not in model_info.env_vars
+    pyfunc_model = mlflow.pyfunc.load_model(model_info.model_uri)
+    assert pyfunc_model.metadata.env_vars == model_info.env_vars
+
+    # if no input_example provided, we do not run predict, and no env vars are captured
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model("model", python_model=MyModel())
+    assert model_info.env_vars is None
+
+    # disable logging by setting environment variable
+    monkeypatch.setenv(MLFLOW_RECORD_ENV_VARS_IN_MODEL_LOGGING.name, "false")
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model("model", python_model=MyModel(), input_example="data")
+    assert model_info.env_vars is None

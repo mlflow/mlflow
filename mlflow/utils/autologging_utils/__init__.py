@@ -3,8 +3,8 @@ import importlib
 import inspect
 import logging
 import sys
+import threading
 import time
-from typing import List
 
 import mlflow
 from mlflow.entities import Metric
@@ -94,7 +94,23 @@ _AUTOLOGGING_SUPPORTED_VERSION_WARNING_SUPPRESS_LIST = [
     "dspy",
 ]
 
+# Global lock for turning on / off autologging
+# Note "RLock" is required instead of plain lock, for avoid dead-lock
+_autolog_conf_global_lock = threading.RLock()
+
 _logger = logging.getLogger(__name__)
+
+
+def autologging_conf_lock(fn):
+    """
+    Apply a global lock on functions that enable / disable autologging.
+    """
+
+    def wrapper(*args, **kwargs):
+        with _autolog_conf_global_lock:
+            return fn(*args, **kwargs)
+
+    return update_wrapper_extended(wrapper, fn)
 
 
 def get_mlflow_run_params_for_fn_args(fn, args, kwargs, unlogged=None):
@@ -416,6 +432,7 @@ def autologging_integration(name):
         AUTOLOGGING_INTEGRATIONS[name] = {}
         default_params = {param.name: param.default for param in param_spec.values()}
 
+        @autologging_conf_lock
         def autolog(*args, **kwargs):
             config_to_store = dict(default_params)
             config_to_store.update(
@@ -559,7 +576,7 @@ def restrict_langchain_autologging_to_traces_only():
 
 
 @contextlib.contextmanager
-def disable_discrete_autologging(flavors_to_disable: List[str]) -> None:
+def disable_discrete_autologging(flavors_to_disable: list[str]) -> None:
     """
     Context manager for disabling specific autologging integrations temporarily while another
     flavor's autologging is activated. This context wrapper is useful in the event that, for
@@ -586,6 +603,9 @@ def disable_discrete_autologging(flavors_to_disable: List[str]) -> None:
     for flavor in enabled_flavors:
         autolog_func = getattr(mlflow, flavor)
         autolog_func.autolog(disable=False)
+
+
+_training_sessions = []
 
 
 def _get_new_training_session_class():
@@ -679,7 +699,12 @@ def _get_new_training_session_class():
                 return _TrainingSession._session_stack[-1]
             return None
 
+    _training_sessions.append(_TrainingSession)
     return _TrainingSession
+
+
+def _has_active_training_session():
+    return any(s.is_active() for s in _training_sessions)
 
 
 def get_instance_method_first_arg_value(method, call_pos_args, call_kwargs):

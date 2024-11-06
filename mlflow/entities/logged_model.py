@@ -1,4 +1,4 @@
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Optional, Union
 
 import mlflow.protos.service_pb2 as pb2
 from mlflow.entities._mlflow_object import _MlflowObject
@@ -25,9 +25,9 @@ class LoggedModel(_MlflowObject):
         source_run_id: Optional[str] = None,
         status: LoggedModelStatus = LoggedModelStatus.READY,
         status_message: Optional[str] = None,
-        tags: Optional[Union[List[LoggedModelTag], Dict[str, str]]] = None,
-        params: Optional[Union[List[LoggedModelParameter], Dict[str, str]]] = None,
-        metrics: Optional[List[Metric]] = None,
+        tags: Optional[Union[list[LoggedModelTag], dict[str, str]]] = None,
+        params: Optional[Union[list[LoggedModelParameter], dict[str, str]]] = None,
+        metrics: Optional[list[Metric]] = None,
     ):
         super().__init__()
         self._experiment_id: str = experiment_id
@@ -40,15 +40,15 @@ class LoggedModel(_MlflowObject):
         self._source_run_id: Optional[str] = source_run_id
         self._status: LoggedModelStatus = status
         self._status_message: Optional[str] = status_message
-        self._tags: Dict[str, str] = (
+        self._tags: dict[str, str] = (
             {tag.key: tag.value for tag in (tags or [])} if isinstance(tags, list) else (tags or {})
         )
-        self._params: Dict[str, str] = (
+        self._params: dict[str, str] = (
             {param.key: param.value for param in (params or [])}
             if isinstance(params, list)
             else (params or {})
         )
-        self._metrics: Optional[List[Metric]] = metrics
+        self._metrics: Optional[list[Metric]] = metrics
 
     @property
     def experiment_id(self) -> str:
@@ -131,33 +131,33 @@ class LoggedModel(_MlflowObject):
         return self._status_message
 
     @property
-    def tags(self) -> Dict[str, str]:
+    def tags(self) -> dict[str, str]:
         """Dictionary of tag key (string) -> tag value for this Model."""
         return self._tags
 
     @property
-    def params(self) -> Dict[str, str]:
+    def params(self) -> dict[str, str]:
         """Model parameters."""
         return self._params
 
     @property
-    def metrics(self) -> Optional[List[Metric]]:
+    def metrics(self) -> Optional[list[Metric]]:
         """List of metrics associated with this Model."""
         return self._metrics
 
     @metrics.setter
-    def metrics(self, new_metrics: Optional[List[Metric]]):
+    def metrics(self, new_metrics: Optional[list[Metric]]):
         self._metrics = new_metrics
 
     @classmethod
-    def _properties(cls) -> List[str]:
+    def _properties(cls) -> list[str]:
         # aggregate with base class properties since cls.__dict__ does not do it automatically
         return sorted(cls._get_properties_helper())
 
     def _add_tag(self, tag):
         self._tags[tag.key] = tag.value
 
-    def to_dictionary(self) -> Dict[str, Any]:
+    def to_dictionary(self) -> dict[str, Any]:
         model_dict = dict(self)
         model_dict["status"] = str(self.status)
         return model_dict

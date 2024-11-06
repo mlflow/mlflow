@@ -11,7 +11,7 @@ import logging
 import os
 import threading
 from copy import deepcopy
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
+from typing import TYPE_CHECKING, Any, Optional, Union
 
 import mlflow
 from mlflow.data.dataset import Dataset
@@ -54,6 +54,7 @@ from mlflow.utils.async_logging.run_operations import RunOperations
 from mlflow.utils.autologging_utils import (
     AUTOLOGGING_CONF_KEY_IS_GLOBALLY_CONFIGURED,
     AUTOLOGGING_INTEGRATIONS,
+    autologging_conf_lock,
     autologging_integration,
     autologging_is_disabled,
     is_testing,
@@ -232,7 +233,7 @@ def start_run(
     run_name: Optional[str] = None,
     nested: bool = False,
     parent_run_id: Optional[str] = None,
-    tags: Optional[Dict[str, Any]] = None,
+    tags: Optional[dict[str, Any]] = None,
     description: Optional[str] = None,
     log_system_metrics: Optional[bool] = None,
 ) -> ActiveRun:
@@ -529,6 +530,11 @@ def active_run() -> Optional[ActiveRun]:
     """
     Get the currently active ``Run``, or None if no such run exists.
 
+    .. attention::
+        This API is **thread-local** and returns only the active run in the current thread.
+        If your application is multi-threaded and a run is started in a different thread,
+        this API will not retrieve that run.
+
     **Note**: You cannot access currently-active run attributes
     (parameters, metrics, etc.) through the run returned by ``mlflow.active_run``. In order
     to access such attributes, use the :py:class:`mlflow.client.MlflowClient` as follows:
@@ -614,6 +620,20 @@ def last_active_run() -> Optional[Run]:
     if last_active_run_id is None:
         return None
     return get_run(last_active_run_id)
+
+
+def _get_latest_active_run():
+    """
+    Get active run from global context by checking all threads. The `mlflow.active_run` API
+    only returns active run from current thread. This API is useful for the case where one
+    needs to get a run started from a separate thread.
+    """
+    all_active_runs = [
+        run for run_stack in _active_run_stack.get_all_thread_values().values() for run in run_stack
+    ]
+    if all_active_runs:
+        return max(all_active_runs, key=lambda run: run.info.start_time)
+    return None
 
 
 def get_run(run_id: str) -> Run:
@@ -938,7 +958,7 @@ def log_metric(
 
 
 def _log_inputs_for_metrics_if_necessary(
-    run_id, metrics: List[Metric], datasets: Optional[List[Dataset]] = None
+    run_id, metrics: list[Metric], datasets: Optional[list[Dataset]] = None
 ) -> None:
     client = MlflowClient()
     run = client.get_run(run_id)
@@ -970,7 +990,7 @@ def _log_inputs_for_metrics_if_necessary(
                 )
 
 
-def _get_model_ids_for_new_metric_if_exist(run_id: str, metric_step: str) -> List[str]:
+def _get_model_ids_for_new_metric_if_exist(run_id: str, metric_step: str) -> list[str]:
     client = MlflowClient()
     run = client.get_run(run_id)
     outputs = run.outputs.model_outputs if run.outputs else []
@@ -979,7 +999,7 @@ def _get_model_ids_for_new_metric_if_exist(run_id: str, metric_step: str) -> Lis
 
 
 def log_metrics(
-    metrics: Dict[str, float],
+    metrics: dict[str, float],
     step: Optional[int] = None,
     synchronous: Optional[bool] = None,
     run_id: Optional[str] = None,
@@ -1067,7 +1087,7 @@ def log_metrics(
 
 
 def log_params(
-    params: Dict[str, Any], synchronous: Optional[bool] = None, run_id: Optional[str] = None
+    params: dict[str, Any], synchronous: Optional[bool] = None, run_id: Optional[str] = None
 ) -> Optional[RunOperations]:
     """
     Log a batch of params for the current run. If no run is active, this method will create a
@@ -1115,7 +1135,7 @@ def log_params(
 def log_input(
     dataset: Optional[Dataset] = None,
     context: Optional[str] = None,
-    tags: Optional[Dict[str, str]] = None,
+    tags: Optional[dict[str, str]] = None,
     model: Optional[LoggedModelInput] = None,
 ) -> None:
     """
@@ -1161,7 +1181,7 @@ def log_input(
     MlflowClient().log_inputs(run_id=run_id, datasets=datasets, models=[model])
 
 
-def set_experiment_tags(tags: Dict[str, Any]) -> None:
+def set_experiment_tags(tags: dict[str, Any]) -> None:
     """
     Set tags for the current active experiment.
 
@@ -1188,7 +1208,7 @@ def set_experiment_tags(tags: Dict[str, Any]) -> None:
         set_experiment_tag(key, value)
 
 
-def set_tags(tags: Dict[str, Any], synchronous: Optional[bool] = None) -> Optional[RunOperations]:
+def set_tags(tags: dict[str, Any], synchronous: Optional[bool] = None) -> Optional[RunOperations]:
     """
     Log a batch of tags for the current run. If no run is active, this method will create a
     new active run.
@@ -1342,7 +1362,7 @@ def log_text(text: str, artifact_file: str, run_id: Optional[str] = None) -> Non
     MlflowClient().log_text(run_id, text, artifact_file)
 
 
-def log_dict(dictionary: Dict[str, Any], artifact_file: str, run_id: Optional[str] = None) -> None:
+def log_dict(dictionary: dict[str, Any], artifact_file: str, run_id: Optional[str] = None) -> None:
     """
     Log a JSON/YAML-serializable object (e.g. `dict`) as an artifact. The serialization
     format (JSON or YAML) is automatically inferred from the extension of `artifact_file`.
@@ -1385,7 +1405,7 @@ def log_figure(
     figure: Union["matplotlib.figure.Figure", "plotly.graph_objects.Figure"],
     artifact_file: str,
     *,
-    save_kwargs: Optional[Dict[str, Any]] = None,
+    save_kwargs: Optional[dict[str, Any]] = None,
 ) -> None:
     """
     Log a figure as an artifact. The following figure objects are supported:
@@ -1566,7 +1586,7 @@ def log_image(
 
 @experimental
 def log_table(
-    data: Union[Dict[str, Any], "pandas.DataFrame"],
+    data: Union[dict[str, Any], "pandas.DataFrame"],
     artifact_file: str,
     run_id: Optional[str] = None,
 ) -> None:
@@ -1620,8 +1640,8 @@ def log_table(
 @experimental
 def load_table(
     artifact_file: str,
-    run_ids: Optional[List[str]] = None,
-    extra_columns: Optional[List[str]] = None,
+    run_ids: Optional[list[str]] = None,
+    extra_columns: Optional[list[str]] = None,
 ) -> "pandas.DataFrame":
     """
     Load a table from MLflow Tracking as a pandas.DataFrame. The table is loaded from the
@@ -1773,8 +1793,8 @@ def search_experiments(
     view_type: int = ViewType.ACTIVE_ONLY,
     max_results: Optional[int] = None,
     filter_string: Optional[str] = None,
-    order_by: Optional[List[str]] = None,
-) -> List[Experiment]:
+    order_by: Optional[list[str]] = None,
+) -> list[Experiment]:
     """
     Search for experiments that match the specified search query.
 
@@ -1886,7 +1906,7 @@ def search_experiments(
 def create_experiment(
     name: str,
     artifact_location: Optional[str] = None,
-    tags: Optional[Dict[str, Any]] = None,
+    tags: Optional[dict[str, Any]] = None,
 ) -> str:
     """
     Create an experiment.
@@ -1972,8 +1992,8 @@ def delete_experiment(experiment_id: str) -> None:
 def create_logged_model(
     name: Optional[str] = None,
     source_run_id: Optional[str] = None,
-    tags: Optional[Dict[str, str]] = None,
-    params: Optional[Dict[str, str]] = None,
+    tags: Optional[dict[str, str]] = None,
+    params: Optional[dict[str, str]] = None,
     model_type: Optional[str] = None,
     experiment_id: Optional[str] = None,
 ) -> LoggedModel:
@@ -2018,12 +2038,12 @@ def get_logged_model(model_id: str) -> LoggedModel:
 
 
 def search_logged_models(
-    experiment_ids: Optional[List[str]] = None,
+    experiment_ids: Optional[list[str]] = None,
     filter_string: Optional[str] = None,
     max_results: Optional[int] = None,
-    order_by: Optional[List[Dict[str, Any]]] = None,
+    order_by: Optional[list[dict[str, Any]]] = None,
     output_format: str = "pandas",
-) -> Union[List[LoggedModel], "pandas.DataFrame"]:
+) -> Union[list[LoggedModel], "pandas.DataFrame"]:
     """
     Search for logged models that match the specified search criteria.
 
@@ -2035,13 +2055,17 @@ def search_logged_models(
         order_by: List of dictionaries to specify the ordering of the search results. The following
             fields are supported:
 
-            field_name (str): Required. Name of the field to order by, e.g. "metrics.accuracy".
-            ascending: (bool): Optional. Whether the order is ascending or not.
-            dataset_name: (str): Optional. If ``field_name`` refers to a metric, this field
+            field_name (str):
+                Required. Name of the field to order by, e.g. "metrics.accuracy".
+            ascending (bool):
+                Optional. Whether the order is ascending or not.
+            dataset_name (str):
+                Optional. If ``field_name`` refers to a metric, this field
                 specifies the name of the dataset associated with the metric. Only metrics
                 associated with the specified dataset name will be considered for ordering.
                 This field may only be set if ``field_name`` refers to a metric.
-            dataset_digest (str): Optional. If ``field_name`` refers to a metric, this field
+            dataset_digest (str):
+                Optional. If ``field_name`` refers to a metric, this field
                 specifies the digest of the dataset associated with the metric. Only metrics
                 associated with the specified dataset name and digest will be considered for
                 ordering. This field may only be set if ``dataset_name`` is also set.
@@ -2074,7 +2098,7 @@ def search_logged_models(
         )
 
 
-def log_outputs(models: Optional[List[LoggedModelOutput]] = None):
+def log_outputs(models: Optional[list[LoggedModelOutput]] = None):
     """
     Log outputs, such as models, to the active run. If there is no active run, a new run will be
     created.
@@ -2178,15 +2202,15 @@ def get_artifact_uri(artifact_path: Optional[str] = None) -> str:
 
 
 def search_runs(
-    experiment_ids: Optional[List[str]] = None,
+    experiment_ids: Optional[list[str]] = None,
     filter_string: str = "",
     run_view_type: int = ViewType.ACTIVE_ONLY,
     max_results: int = SEARCH_MAX_RESULTS_PANDAS,
-    order_by: Optional[List[str]] = None,
+    order_by: Optional[list[str]] = None,
     output_format: str = "pandas",
     search_all_experiments: bool = False,
-    experiment_names: Optional[List[str]] = None,
-) -> Union[List[Run], "pandas.DataFrame"]:
+    experiment_names: Optional[list[str]] = None,
+) -> Union[list[Run], "pandas.DataFrame"]:
     """
     Search for Runs that fit the specified criteria.
 
@@ -2443,7 +2467,7 @@ def autolog(
     exclusive: bool = False,
     disable_for_unsupported_versions: bool = False,
     silent: bool = False,
-    extra_tags: Optional[Dict[str, str]] = None,
+    extra_tags: Optional[dict[str, str]] = None,
 ) -> None:
     """
     Enables (or disables) and configures autologging for all supported integrations.
@@ -2598,6 +2622,11 @@ def autolog(
         except Exception:
             return {}
 
+    # Note: we need to protect `setup_autologging` with `autologging_conf_lock`,
+    # because `setup_autologging` might be registered as post importing hook
+    # and be executed asynchronously, so that it is out of current active
+    # `autologging_conf_lock` scope.
+    @autologging_conf_lock
     def setup_autologging(module):
         try:
             autologging_params = None

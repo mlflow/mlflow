@@ -1,5 +1,6 @@
 import os
 import threading
+from typing import Any
 
 
 class ThreadLocalVariable:
@@ -15,6 +16,9 @@ class ThreadLocalVariable:
         self.reset_in_subprocess = reset_in_subprocess
         self.default_factory = default_factory
         self.thread_local = threading.local()
+        # The `__global_thread_values` attribute saves all thread-local values,
+        # the key is thread ID.
+        self.__global_thread_values: dict[int, Any] = {}
 
     def get(self):
         """
@@ -42,3 +46,10 @@ class ThreadLocalVariable:
         Set a value for the thread-local variable.
         """
         self.thread_local.value = (value, os.getpid())
+        self.__global_thread_values[threading.get_ident()] = value
+
+    def get_all_thread_values(self) -> dict[int, Any]:
+        """
+        Return all thread values as a dict, dict key is the thread ID.
+        """
+        return self.__global_thread_values.copy()

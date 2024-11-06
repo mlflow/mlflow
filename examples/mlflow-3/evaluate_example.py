@@ -16,20 +16,21 @@ predictions = model.predict(X_train)
 signature = infer_signature(X_train, predictions)
 
 with mlflow.start_run() as run:
-    logged_model = mlflow.sklearn.log_model(model, "model", signature=signature)
+    model_info = mlflow.sklearn.log_model(model, "model", signature=signature)
+    print(model_info.name)
+
     # Evaluate the model URI
-    model_uri = f"models:/{logged_model.model_id}"
     mlflow.evaluate(
-        model_uri,
+        model_info.model_uri,
         X_test_1.assign(label=y_test_1),
         targets="label",
         model_type="classifier",
         evaluators=["default"],
     )
-    print(mlflow.get_logged_model(logged_model.model_id))
+    print(mlflow.get_logged_model(model_info.model_id))
 
     # Evaluate the pyfunc model object
-    model = mlflow.pyfunc.load_model(model_uri)
+    model = mlflow.pyfunc.load_model(model_info.model_uri)
     assert model.model_id is not None
     mlflow.evaluate(
         model,
@@ -38,4 +39,4 @@ with mlflow.start_run() as run:
         model_type="classifier",
         evaluators=["default"],
     )
-    print(mlflow.get_logged_model(logged_model.model_id))
+    print(mlflow.get_logged_model(model_info.model_id))

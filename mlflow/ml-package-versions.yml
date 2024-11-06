@@ -10,16 +10,12 @@ sklearn:
     requirements:
       "< 1.3.0": ["numpy<2"]
       "< 1.0": ["scipy==1.7.3"]
-    python:
-      "== dev": "3.9"
     run: |
       pytest tests/sklearn/test_sklearn_model_export.py
 
   autologging:
     minimum: "0.24.1"
     maximum: "1.5.2"
-    python:
-      "== dev": "3.9"
     requirements:
       ">= 0.0.0": ["matplotlib"]
       "< 1.3.0": ["numpy<2"]
@@ -45,8 +41,6 @@ pytorch:
       ">= 0.0.0": ["torchvision", "scikit-learn"]
       ">= 1.8": ["transformers"]
       "< 2.3": ["numpy<2"]
-    python:
-      ">= 2.5.0": "3.9"
     run: |
       pytest tests/pytorch/test_pytorch_model_export.py tests/pytorch/test_pytorch_metric_value_conversion_utils.py
 
@@ -55,8 +49,6 @@ pytorch:
     maximum: "2.4.1"
     requirements:
       ">= 0.0.0": ["tensorboard"]
-    python:
-      ">= 2.5.0": "3.9"
     run: |
       pytest tests/pytorch/test_tensorboard_autolog.py
 
@@ -84,8 +76,6 @@ keras:
   models:
     minimum: "3.0.2"
     maximum: "3.6.0"
-    python:
-      "== dev": "3.9"
     requirements:
       ">= 3.0.0": ["jax[cpu]>0.4"]
     run: |
@@ -95,8 +85,6 @@ keras:
   autologging:
     minimum: "3.0.2"
     maximum: "3.6.0"
-    python:
-      "== dev": "3.9"
     requirements:
       ">= 3.0.0": ["jax[cpu]>0.4"]
     run: |
@@ -112,8 +100,6 @@ tensorflow:
   models:
     minimum: "2.7.4"
     maximum: "2.17.0"
-    python:
-      "== dev": "3.9"
     requirements:
       # Requirements to run tests for keras
       ">= 0.0.0": ["scikit-learn", "pyspark", "pyarrow", "transformers!=4.38.0,!=4.38.1"]
@@ -133,8 +119,6 @@ tensorflow:
   autologging:
     minimum: "2.7.4"
     maximum: "2.17.0"
-    python:
-      "== dev": "3.9"
     requirements:
       "== dev": ["scikit-learn"]
       "< 2.12.0": ["numpy<2"]
@@ -308,9 +292,6 @@ spacy:
   models:
     minimum: "3.0.0"
     maximum: "3.8.2"
-    python:
-      "== dev": "3.9"
-      ">= 3.8.2": "3.9"
     requirements:
       ">= 0.0.0": ["scikit-learn", "click<8.1.0"]
       "<= 3.0.9": ["flask<2.1.0", "werkzeug<3"]
@@ -328,8 +309,6 @@ statsmodels:
   models:
     minimum: "0.12.2"
     maximum: "0.14.4"
-    python:
-      "== dev": "3.9"
     requirements:
       "< 0.13.0": ["pandas==1.3.5", "scipy==1.7.3"]
       "== 0.13.*": ["numpy<2"]
@@ -339,8 +318,6 @@ statsmodels:
   autologging:
     minimum: "0.12.2"
     maximum: "0.14.4"
-    python:
-      "== dev": "3.9"
     requirements:
       "< 0.13.0": ["pandas==1.3.5", "scipy==1.7.3"]
       "== 0.13.*": ["numpy<2"]
@@ -364,8 +341,6 @@ spark:
   models:
     minimum: "3.1.2"
     maximum: "3.5.3"
-    python:
-      "== dev": "3.9"
     java:
       "> 3.4.1": "17"
     # NB: Allow unreleased maximum versions for the pyspark package to support models and
@@ -398,8 +373,6 @@ spark:
     runs_on:
       # TODO: Remove this once ubuntu 24 is fully rolled out: https://github.com/actions/runner-images/issues/10636
       "== 3.3.4": "ubuntu-24.04"
-    python:
-      "== dev": "3.9"
     java:
       ">= 3.4.1": "17"
     # NB: Allow unreleased maximum versions for the pyspark package to support models and
@@ -559,8 +532,6 @@ transformers:
   models:
     minimum: "4.25.1"
     maximum: "4.45.2"
-    python:
-      "== dev": "3.9"
     unsupported: [
         # Avoid this patch: https://github.com/huggingface/transformers/pull/29032
         "4.38.0",
@@ -606,8 +577,6 @@ transformers:
   autologging:
     minimum: "4.25.1"
     maximum: "4.45.2"
-    python:
-      "== dev": "3.9"
     unsupported: [
         # Avoid this patch: https://github.com/huggingface/transformers/pull/29032
         "4.38.0",
@@ -716,8 +685,6 @@ langchain:
     # Where the large package update was made (langchain-core, community, ...)
     minimum: "0.0.354"
     maximum: "0.3.3"
-    python:
-      "== dev": "3.9"
     requirements:
       ">= 0.0.0": [
           "pyspark",
@@ -747,6 +714,10 @@ langchain:
           "langchain-huggingface",
           # Install langchain-databricks from the main branch
           "git+https://github.com/langchain-ai/langchain-databricks.git@main#egg=langchain-databricks&subdirectory=libs/databricks",
+          # Required for testing uc tools
+          # TODO: replace to package names once they are released to PyPI
+          "git+https://github.com/unitycatalog/unitycatalog.git#subdirectory=ai/core",
+          "git+https://github.com/unitycatalog/unitycatalog.git#subdirectory=ai/integrations/langchain",
         ]
     run: |
       # Run all langchain tests except autologging
@@ -761,8 +732,6 @@ langchain:
   autologging:
     minimum: "0.1.0"
     maximum: "0.3.3"
-    python:
-      "== dev": "3.9"
     requirements:
       ">= 0.0.0": [
           "pyspark",
@@ -809,8 +778,6 @@ llama_index:
     # New event/span framework is fully implemented in 0.10.44
     minimum: "0.10.44"
     maximum: "0.11.17"
-    python:
-      "== dev": "3.9"
     requirements:
       ">= 0.0.0": [
           "openai",
@@ -829,8 +796,6 @@ llama_index:
   autologging:
     minimum: "0.10.44"
     maximum: "0.11.17"
-    python:
-      "== dev": "3.9"
     requirements:
       ">= 0.0.0": [
           "openai",

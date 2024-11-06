@@ -61,11 +61,11 @@ def test_log_artifact_viewfs(hdfs_system_mock):
 @mock.patch(
     "mlflow.store.artifact.hdfs_artifact_repo.HadoopFileSystem", spec=pyarrow.fs.HadoopFileSystem
 )
-def test_log_artifact_with_kerberos_setup(hdfs_system_mock):
+def test_log_artifact_with_kerberos_setup(hdfs_system_mock, monkeypatch):
     if sys.platform == "win32":
         pytest.skip()
-    os.environ["MLFLOW_KERBEROS_TICKET_CACHE"] = "/tmp/krb5cc_22222222"
-    os.environ["MLFLOW_KERBEROS_USER"] = "some_kerberos_user"
+    monkeypatch.setenv("MLFLOW_KERBEROS_TICKET_CACHE", "/tmp/krb5cc_22222222")
+    monkeypatch.setenv("MLFLOW_KERBEROS_USER", "some_kerberos_user")
 
     repo = HdfsArtifactRepository("hdfs:/some/maybe/path")
 
@@ -99,9 +99,9 @@ def test_log_artifact_with_invalid_local_dir(_):
 @mock.patch(
     "mlflow.store.artifact.hdfs_artifact_repo.HadoopFileSystem", spec=pyarrow.fs.HadoopFileSystem
 )
-def test_log_artifacts(hdfs_system_mock):
-    os.environ["MLFLOW_KERBEROS_TICKET_CACHE"] = "/tmp/krb5cc_22222222"
-    os.environ["MLFLOW_KERBEROS_USER"] = "some_kerberos_user"
+def test_log_artifacts(hdfs_system_mock, monkeypatch):
+    monkeypatch.setenv("MLFLOW_KERBEROS_TICKET_CACHE", "/tmp/krb5cc_22222222")
+    monkeypatch.setenv("MLFLOW_KERBEROS_USER", "some_kerberos_user")
 
     repo = HdfsArtifactRepository("hdfs:/some_path/maybe/path")
 

@@ -7,9 +7,10 @@ exposed in the :py:mod:`mlflow.tracking` module.
 import json
 import logging
 import os
+import sys
 from concurrent.futures import ThreadPoolExecutor
 from itertools import zip_longest
-from typing import Any, Dict, List, Literal, Optional
+from typing import Any, Literal, Optional
 
 from mlflow.entities import (
     ExperimentTag,
@@ -185,8 +186,8 @@ class TrackingServiceClient:
         self,
         experiment_id: str,
         timestamp_ms: int,
-        request_metadata: Dict[str, str],
-        tags: Dict[str, str],
+        request_metadata: dict[str, str],
+        tags: dict[str, str],
     ):
         """
         Start an initial TraceInfo object in the backend store.
@@ -213,8 +214,8 @@ class TrackingServiceClient:
         request_id: str,
         timestamp_ms: int,
         status: TraceStatus,
-        request_metadata: Dict[str, str],
-        tags: Dict[str, str],
+        request_metadata: dict[str, str],
+        tags: dict[str, str],
     ) -> TraceInfo:
         """
         Update the TraceInfo object in the backend store with the completed trace info.
@@ -246,7 +247,7 @@ class TrackingServiceClient:
         experiment_id: str,
         max_timestamp_millis: Optional[int] = None,
         max_traces: Optional[int] = None,
-        request_ids: Optional[List[str]] = None,
+        request_ids: Optional[list[str]] = None,
     ) -> int:
         return self.store.delete_traces(
             experiment_id=experiment_id,
@@ -300,10 +301,10 @@ class TrackingServiceClient:
 
     def _search_traces(
         self,
-        experiment_ids: List[str],
+        experiment_ids: list[str],
         filter_string: Optional[str] = None,
         max_results: int = SEARCH_TRACES_DEFAULT_MAX_RESULTS,
-        order_by: Optional[List[str]] = None,
+        order_by: Optional[list[str]] = None,
         page_token: Optional[str] = None,
         model_id: Optional[str] = None,
     ):
@@ -327,10 +328,10 @@ class TrackingServiceClient:
 
     def search_traces(
         self,
-        experiment_ids: List[str],
+        experiment_ids: list[str],
         filter_string: Optional[str] = None,
         max_results: int = SEARCH_TRACES_DEFAULT_MAX_RESULTS,
-        order_by: Optional[List[str]] = None,
+        order_by: Optional[list[str]] = None,
         page_token: Optional[str] = None,
         run_id: Optional[str] = None,
         model_id: Optional[str] = None,
@@ -820,8 +821,8 @@ class TrackingServiceClient:
     def log_inputs(
         self,
         run_id: str,
-        datasets: Optional[List[DatasetInput]] = None,
-        models: Optional[List[LoggedModelInput]] = None,
+        datasets: Optional[list[DatasetInput]] = None,
+        models: Optional[list[LoggedModelInput]] = None,
     ):
         """Log one or more dataset inputs to a run.
 
@@ -838,7 +839,7 @@ class TrackingServiceClient:
         """
         self.store.log_inputs(run_id=run_id, datasets=datasets, models=models)
 
-    def log_outputs(self, run_id: str, models: List[LoggedModelOutput]):
+    def log_outputs(self, run_id: str, models: list[LoggedModelOutput]):
         self.store.log_outputs(run_id=run_id, models=models)
 
     def _record_logged_model(self, run_id, mlflow_model):
@@ -954,7 +955,7 @@ class TrackingServiceClient:
 
     def list_logged_model_artifacts(
         self, model_id: str, path: Optional[str] = None
-    ) -> List[FileInfo]:
+    ) -> list[FileInfo]:
         """List the artifacts for a logged model.
 
         Args:
@@ -1001,8 +1002,8 @@ class TrackingServiceClient:
             experiment_url = f"{host_url}/#/experiments/{experiment_id}"
         run_url = f"{experiment_url}/runs/{run_id}"
 
-        _logger.info(f"🏃 View run {run_name} at: {run_url}.")
-        _logger.info(f"🧪 View experiment at: {experiment_url}.")
+        sys.stdout.write(f"🏃 View run {run_name} at: {run_url}\n")
+        sys.stdout.write(f"🧪 View experiment at: {experiment_url}\n")
 
     def set_terminated(self, run_id, status=None, end_time=None):
         """Set a run's status to terminated.
@@ -1084,8 +1085,8 @@ class TrackingServiceClient:
         experiment_id: str,
         name: Optional[str] = None,
         source_run_id: Optional[str] = None,
-        tags: Optional[Dict[str, str]] = None,
-        params: Optional[Dict[str, str]] = None,
+        tags: Optional[dict[str, str]] = None,
+        params: Optional[dict[str, str]] = None,
         model_type: Optional[str] = None,
     ) -> LoggedModel:
         return self.store.create_logged_model(
@@ -1107,7 +1108,7 @@ class TrackingServiceClient:
     def get_logged_model(self, model_id: str) -> LoggedModel:
         return self.store.get_logged_model(model_id)
 
-    def set_logged_model_tags(self, model_id: str, tags: Dict[str, Any]) -> None:
+    def set_logged_model_tags(self, model_id: str, tags: dict[str, Any]) -> None:
         self.store.set_logged_model_tags(
             model_id, [LoggedModelTag(str(key), str(value)) for key, value in tags.items()]
         )
@@ -1120,10 +1121,10 @@ class TrackingServiceClient:
 
     def search_logged_models(
         self,
-        experiment_ids: List[str],
+        experiment_ids: list[str],
         filter_string: Optional[str] = None,
         max_results: Optional[int] = None,
-        order_by: Optional[List[Dict[str, Any]]] = None,
+        order_by: Optional[list[dict[str, Any]]] = None,
         page_token: Optional[str] = None,
     ):
         return self.store.search_logged_models(

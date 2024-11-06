@@ -4,7 +4,7 @@ exposed to users at the top-level :py:mod:`mlflow` module.
 """
 
 import warnings
-from typing import TYPE_CHECKING, Optional, Tuple, Union
+from typing import TYPE_CHECKING, Optional, Union
 
 if TYPE_CHECKING:
     import numpy
@@ -192,7 +192,7 @@ class Image:
         """
         self.image.save(path)
 
-    def resize(self, size: Tuple[int, int]):
+    def resize(self, size: tuple[int, int]):
         """
         Resize the image to the specified size.
 

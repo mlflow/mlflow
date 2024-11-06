@@ -1,4 +1,4 @@
-from typing import Dict, List, Optional
+from typing import Optional
 
 from mlflow.entities.logged_model_parameter import LoggedModelParameter as ModelParam
 from mlflow.entities.metric import Metric
@@ -27,14 +27,14 @@ class ModelVersion(_ModelRegistryEntity):
         run_id: Optional[str] = None,
         status: str = ModelVersionStatus.to_string(ModelVersionStatus.READY),
         status_message: Optional[str] = None,
-        tags: Optional[List[ModelVersionTag]] = None,
+        tags: Optional[list[ModelVersionTag]] = None,
         run_link: Optional[str] = None,
-        aliases: Optional[List[str]] = None,
+        aliases: Optional[list[str]] = None,
         # TODO: Make model_id a required field
         # (currently optional to minimize breakages during prototype development)
         model_id: Optional[str] = None,
-        params: Optional[List[ModelParam]] = None,
-        metrics: Optional[List[Metric]] = None,
+        params: Optional[list[ModelParam]] = None,
+        metrics: Optional[list[Metric]] = None,
     ):
         super().__init__()
         self._name: str = name
@@ -49,11 +49,11 @@ class ModelVersion(_ModelRegistryEntity):
         self._run_link: Optional[str] = run_link
         self._status: str = status
         self._status_message: Optional[str] = status_message
-        self._tags: Dict[str, str] = {tag.key: tag.value for tag in (tags or [])}
-        self._aliases: List[str] = aliases or []
+        self._tags: dict[str, str] = {tag.key: tag.value for tag in (tags or [])}
+        self._aliases: list[str] = aliases or []
         self._model_id: Optional[str] = model_id
-        self._params: Optional[List[ModelParam]] = params
-        self._metrics: Optional[List[Metric]] = metrics
+        self._params: Optional[list[ModelParam]] = params
+        self._metrics: Optional[list[Metric]] = metrics
 
     @property
     def name(self) -> str:
@@ -134,17 +134,17 @@ class ModelVersion(_ModelRegistryEntity):
         return self._status_message
 
     @property
-    def tags(self) -> Dict[str, str]:
+    def tags(self) -> dict[str, str]:
         """Dictionary of tag key (string) -> tag value for the current model version."""
         return self._tags
 
     @property
-    def aliases(self) -> List[str]:
+    def aliases(self) -> list[str]:
         """List of aliases (string) for the current model version."""
         return self._aliases
 
     @aliases.setter
-    def aliases(self, aliases: List[str]):
+    def aliases(self, aliases: list[str]):
         self._aliases = aliases
 
     @property
@@ -153,17 +153,17 @@ class ModelVersion(_ModelRegistryEntity):
         return self._model_id
 
     @property
-    def params(self) -> Optional[List[ModelParam]]:
+    def params(self) -> Optional[list[ModelParam]]:
         """List of parameters associated with this model version."""
         return self._params
 
     @property
-    def metrics(self) -> Optional[List[Metric]]:
+    def metrics(self) -> Optional[list[Metric]]:
         """List of metrics associated with this model version."""
         return self._metrics
 
     @classmethod
-    def _properties(cls) -> List[str]:
+    def _properties(cls) -> list[str]:
         # aggregate with base class properties since cls.__dict__ does not do it automatically
         return sorted(cls._get_properties_helper())
 
@@ -172,7 +172,7 @@ class ModelVersion(_ModelRegistryEntity):
 
     # proto mappers
     @classmethod
-    def from_proto(cls, proto: ProtoModelVersion) -> "ModelVersion":
+    def from_proto(cls, proto) -> "ModelVersion":
         # input: mlflow.protos.model_registry_pb2.ModelVersion
         # returns: ModelVersion entity
         model_version = cls(
@@ -195,7 +195,7 @@ class ModelVersion(_ModelRegistryEntity):
         # TODO: Include params, metrics, and model ID in proto
         return model_version
 
-    def to_proto(self) -> ProtoModelVersion:
+    def to_proto(self):
         # input: ModelVersion entity
         # returns mlflow.protos.model_registry_pb2.ModelVersion
         model_version = ProtoModelVersion()
