@@ -1863,5 +1863,5 @@ def validate_serving_input(model_uri: str, serving_input: Union[str, dict[str, A
         )
         return pyfunc_model.predict(parsed_input.data, params=parsed_input.params)
     finally:
-        if output_dir:
+        if output_dir and os.path.exists(output_dir):
             shutil.rmtree(output_dir)
