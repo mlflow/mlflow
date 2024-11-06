@@ -1849,11 +1849,10 @@ def validate_serving_input(model_uri: str, serving_input: Union[str, dict[str, A
     # sklearn model might not have python_function flavor if it
     # doesn't define a predict function. In such case the model
     # can not be served anyways
-    with tempfile.TemporaryDirectory() as temp_output_dir:
-        pyfunc_model = mlflow.pyfunc.load_model(model_uri, dst_path=temp_output_dir)
-        parsed_input = _parse_json_data(
-            serving_input,
-            pyfunc_model.metadata,
-            pyfunc_model.metadata.get_input_schema(),
-        )
-        return pyfunc_model.predict(parsed_input.data, params=parsed_input.params)
+    pyfunc_model = mlflow.pyfunc.load_model(model_uri)
+    parsed_input = _parse_json_data(
+        serving_input,
+        pyfunc_model.metadata,
+        pyfunc_model.metadata.get_input_schema(),
+    )
+    return pyfunc_model.predict(parsed_input.data, params=parsed_input.params)
