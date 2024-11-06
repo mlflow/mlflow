@@ -10,11 +10,13 @@ export const getCommonArtifacts = (artifactsKeyedByRun: Record<string, ArtifactL
 
   if (runUuids.length === 0) return [];
 
-  let commonArtifacts = artifactsKeyedByRun[runUuids[0]].files.map((file: any) => file.path);
+  let commonArtifacts = artifactsKeyedByRun[runUuids[0]]?.files?.map((file: any) => file.path);
+
+  if (!commonArtifacts) return [];
 
   for (let i = 1; i < runUuids.length; i++) {
-    const currentRunArtifacts = artifactsKeyedByRun[runUuids[i]].files.map((file: any) => file.path);
-    commonArtifacts = commonArtifacts.filter((path: any) => currentRunArtifacts.includes(path));
+    const currentRunArtifacts = artifactsKeyedByRun[runUuids[i]]?.files?.map((file: any) => file.path);
+    commonArtifacts = commonArtifacts?.filter((path: any) => currentRunArtifacts.includes(path));
     if (commonArtifacts.length === 0) {
       break;
     }
