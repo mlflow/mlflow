@@ -20,7 +20,7 @@ defaults:
 jobs:
   labeling:
     if: github.event.pull_request.draft == false
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       pull-requests: write # harupy/auto-labeling
       issues: write # harupy/auto-labeling

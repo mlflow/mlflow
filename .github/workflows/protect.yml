@@ -20,7 +20,7 @@ jobs:
     # This job prevents accidental auto-merging of PRs when jobs that are conditionally
     # triggered (for example, those defined in `cross-version-tests.yml`) are either still
     # in the process of running or have resulted in failures.
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 120
     steps:
       - uses: actions/checkout@v4

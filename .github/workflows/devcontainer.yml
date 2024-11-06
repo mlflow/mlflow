@@ -26,7 +26,7 @@ defaults:
 
 jobs:
   devcontainer:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 60
     if: github.repository == 'mlflow/mlflow'
     permissions:
@@ -100,7 +100,7 @@ jobs:
       repo: ${{ steps.image.outputs.name }}
 
   devcontainer-merge:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: devcontainer
     if: github.event_name == 'push'
     permissions:

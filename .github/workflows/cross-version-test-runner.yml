@@ -12,7 +12,7 @@ defaults:
 
 jobs:
   run:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     if: ${{ github.event.issue.pull_request && github.event.comment.body }}
     permissions:
