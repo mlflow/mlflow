@@ -1,11 +1,15 @@
+import logging
 import urllib.parse
 
+import mlflow
 from mlflow.exceptions import MlflowException
 from mlflow.store.artifact.artifact_repo import ArtifactRepository
 from mlflow.utils.uri import (
     add_databricks_profile_info_to_artifact_uri,
     get_databricks_profile_uri_from_artifact_uri,
 )
+
+_logger = logging.getLogger(__name__)
 
 
 class RunsArtifactRepository(ArtifactRepository):
@@ -128,7 +132,40 @@ class RunsArtifactRepository(ArtifactRepository):
         Returns:
             Absolute path of the local filesystem location containing the desired artifacts.
         """
-        return self.repo.download_artifacts(artifact_path, dst_path)
+        try:
+            return self.repo.download_artifacts(artifact_path, dst_path)
+        except Exception:
+            from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
+
+            _logger.debug(
+                f"Failed to download artifacts from {self.artifact_uri}/{artifact_path}. "
+                "Searching for logged models associated with the run instead."
+            )
+            run_id = RunsArtifactRepository.parse_runs_uri(self.artifact_uri)[0]
+            client = mlflow.tracking.MlflowClient()
+            run = client.get_run(run_id)
+            page_token = None
+            while True:
+                page = client.search_logged_models(
+                    experiment_ids=[run.info.experiment_id],
+                    # TODO: Use filter_string once the backend supports it
+                    # filter_string="...",
+                    page_token=page_token,
+                )
+                for model in page:
+                    # Return the first model that matches the run_id and artifact_path
+                    if model.source_run_id == run_id and model.name == artifact_path:
+                        repo = get_artifact_repository(model.artifact_location)
+                        return repo.download_artifacts(
+                            artifact_path=".",  # root directory
+                            dst_path=dst_path,
+                        )
+
+                if not page.token:
+                    break
+                page_token = page.token
+
+            raise  # raise the original exception if no matching model is found
 
     def _download_file(self, remote_file_path, local_path):
         """
