@@ -22,6 +22,7 @@
     "@databricks/design-system": "^1.12.17",
     "@docusaurus/core": "3.5.2",
     "@docusaurus/preset-classic": "3.5.2",
+    "@emotion/react": "^11.13.3",
     "@mdx-js/react": "^3.0.0",
     "@types/node": "^22.8.6",
     "clsx": "^2.0.0",
