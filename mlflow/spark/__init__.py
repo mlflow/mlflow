@@ -168,7 +168,7 @@ def log_model(
             pyspark.ml.Model or pyspark.ml.Transformer which implement
             MLReadable and MLWritable.
 
-                .. Note:: The provided Spark model `transform` method must generate one column
+                .. Note:: The provided Spark model's `transform` method must generate one column
                     named with "prediction", the column is used as MLflow pyfunc model output.
                     Most Spark models set "prediction" column as the output label column
                     by default. For probabilistic classification model, if you want to get
