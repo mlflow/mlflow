@@ -1,0 +1,1 @@
+{"version":3,"file":"Space.d.ts","sourceRoot":"","sources":["../../../src/design-system/Space/Space.tsx"],"names":[],"mappings":"AAAA,OAAO,KAAK,EAAE,UAAU,IAAI,cAAc,EAAE,MAAM,MAAM,CAAC;AAIzD,OAAO,KAAK,EAAE,uBAAuB,EAAE,kBAAkB,EAAE,MAAM,UAAU,CAAC;AAE5E,MAAM,WAAW,UAAW,SAAQ,cAAc,EAAE,uBAAuB,CAAC,cAAc,CAAC,EAAE,kBAAkB;CAAG;AAElH,eAAO,MAAM,KAAK,EAAE,KAAK,CAAC,EAAE,CAAC,UAAU,CAMtC,CAAC"}
