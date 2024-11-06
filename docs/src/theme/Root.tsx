@@ -9,7 +9,9 @@ export default function Root({ children }: { children: React.ReactNode }) {
 
   return (
     <>
+      {/* @ts-ignore */}
       <DesignSystemThemeProvider isDarkMode={isDarkMode}>
+        {/* @ts-ignore */}
         <DesignSystemProvider>{children}</DesignSystemProvider>
       </DesignSystemThemeProvider>
     </>
