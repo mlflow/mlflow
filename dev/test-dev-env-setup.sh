@@ -21,7 +21,7 @@ export REPO_ROOT
 # Run the installation of the environment
 DEV_DIR=$REPO_ROOT/.venvs/mlflow-dev
 
-"$REPO_ROOT"/dev/dev-env-setup.sh -d "$DEV_DIR" -f
+"$REPO_ROOT"/dev/dev-env-setup.sh -d "$DEV_DIR"
 
 source "$DEV_DIR/bin/activate"
 
@@ -33,7 +33,7 @@ if [ -z "$SKLEARN_VER" ]; then
   err=$((err + 1))
 fi
 
-min_py_version="3.8"
+min_py_version="3.9"
 installed_py_version=$(python --version | grep -E -o "([0-9]{1,}\.[0-9]{1,})")
 
 # shellcheck disable=SC2053
