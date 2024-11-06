@@ -41,20 +41,21 @@ MLmodel file
 ^^^^^^^^^^^^
 
 All of the flavors that a particular model supports are defined in its ``MLmodel`` file in YAML
-format. For example, :py:mod:`mlflow.sklearn` outputs models as follows:
+format. For example, running ``python examples/sklearn_logistic_regression/train.py`` from `MLflow repo <https://github.com/mlflow/mlflow>`_
+will create the following files under the ``model`` directory:
 
 ::
 
-    # Run `python examples/sklearn_logistic_regression/train.py` from mlflow directory
+    # Directory written by mlflow.sklearn.save_model(model, "model", input_example=...)
     model/
     ├── MLmodel
     ├── model.pkl
     ├── conda.yaml
     ├── python_env.yaml
     ├── requirements.txt
-    ├── input_example.json
-    ├── serving_input_example.json
-    └── environment_variables.txt (optional, only existing when environment variables are used)
+    ├── input_example.json (optional, only logged when input example is provided and valid during model logging)
+    ├── serving_input_example.json (optional, only logged when input example is provided and valid during model logging)
+    └── environment_variables.txt (optional, only logged when environment variables are used during model inference)
 
 
 And its ``MLmodel`` file describes two flavors:
@@ -86,7 +87,7 @@ For environment recreation, we automatically log ``conda.yaml``, ``python_env.ya
 These files can then be used to reinstall dependencies using ``conda`` or ``virtualenv`` with ``pip``. Please see 
 :ref:`How MLflow Model Records Dependencies <how-mlflow-records-dependencies>` for more details about these files.
 
-If the model input example is provided when logging the model, additional files including ``input_example.json`` and ``serving_input_example.json`` are logged.
+If a model input example is provided when logging the model, two additional files ``input_example.json`` and ``serving_input_example.json`` are logged.
 See `Model Input Example <model/signatures.html#input-example>`_ for more details.
 
 When logging a model, model metadata files (``MLmodel``, ``conda.yaml``, ``python_env.yaml``, ``requirements.txt``) are copied to a subdirectory named ``metadata``. For wheeled models, ``original_requirements.txt`` file is also copied.
@@ -111,15 +112,19 @@ When logging a model, model metadata files (``MLmodel``, ``conda.yaml``, ``pytho
 
 Environment variables file
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
-To track environment variables that are used during model inference, MLflow generates ``environment_variables.txt`` file when logging a model.
-It **only contains names** of the environment variables that are used during model inference, **values are not stored**.
-Currently MLflow only logs the name if it includes any keywords in the following set:
+MLflow records the environment variables that are used during model inference in ``environment_variables.txt`` file when logging a model.
+
+.. attention::
+    ``environment_variables.txt`` file **only contains names** of the environment variables that are used during model inference, 
+    **values are not stored**.
+
+Currently MLflow only logs the environment variables whose name contains any of the following keywords:
 
 .. code-block:: python
 
     RECORD_ENV_VAR_ALLOWLIST = {
         # api key related
-        "API_KEY",
+        "API_KEY",  # e.g. OPENAI_API_KEY
         "API_TOKEN",
         # databricks auth related
         "DATABRICKS_HOST",
@@ -136,15 +141,43 @@ Currently MLflow only logs the name if it includes any keywords in the following
         "SPARK_LOCAL_REMOTE",
     }
 
+Example of a pyfunc model that uses environment variables:
+
+.. code-block:: python
+
+    import mlflow
+    import os
+
+    os.environ["TEST_API_KEY"] = "test_api_key"
+
+
+    class MyModel(mlflow.pyfunc.PythonModel):
+        def predict(self, context, model_input, params=None):
+            if os.environ.get("TEST_API_KEY"):
+                return model_input
+            raise Exception("API key not found")
+
+
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model(
+            "model", python_model=MyModel(), input_example="data"
+        )
+
+Environment variable `TEST_API_KEY` is logged in the environment_variables.txt file
+
+.. figure:: ./_static/images/models/environment_variable_file_sample.png
+    :alt: The environment variables txt file example
+    :width: 80%
+    :align: center
+
 .. attention::
-    **Check the environment_variables.txt file before deploying the model to a serving endpoint**, as they might need 
-    to be set in the serving environment. Follow `this guidance <https://docs.databricks.com/en/machine-learning/model-serving/store-env-variable-model-serving.html#add-plain-text-environment-variables>`_
-    to set environment variables on a databricks serving endpoint. **Note that it is not guaranteed that all environment
-    variables tracked in the file are required for model inference.**
+    Before you deploy a model to a serving endpoint, **review the ``environment_variables.txt`` file** to ensure 
+    all necessary environment variables for model inference are set. Note that **not all environment variables 
+    listed in the file are always required for model inference.** For detailed instructions on setting 
+    environment variables on a databricks serving endpoint, refer to `this guidance <https://docs.databricks.com/en/machine-learning/model-serving/store-env-variable-model-serving.html#add-plain-text-environment-variables>`_.
 
 .. note::
-    To disable logging environment variable names in model logging, set the environment variable 
-    ``MLFLOW_RECORD_ENV_VARS_IN_MODEL_LOGGING`` to ``false``.
+    To disable this feature, set the environment variable ``MLFLOW_RECORD_ENV_VARS_IN_MODEL_LOGGING`` to ``false``.
 
 Managing Model Dependencies
 ---------------------------
