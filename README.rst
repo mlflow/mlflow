@@ -215,3 +215,4 @@ MLflow is currently maintained by the following core members with significant co
 - `Serena Ruan <https://github.com/serena-ruan>`_
 - `Weichen Xu <https://github.com/WeichenXu123>`_
 - `Yuki Watanabe <https://github.com/B-Step62>`_
+- `Tomu Hirata <https://github.com/TomeHirata>`_
