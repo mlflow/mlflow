@@ -9,8 +9,6 @@ import React from 'react';
 import { shallow } from 'enzyme';
 import { SectionErrorBoundary } from './SectionErrorBoundary';
 import { SupportPageUrl } from '../../constants';
-import { DatabricksSupportPageUrl } from '../../constants-databricks';
-import { CloudProvider } from '../../../shared/constants-databricks';
 
 describe('SectionErrorBoundary', () => {
   let wrapper: any;
