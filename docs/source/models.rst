@@ -136,9 +136,6 @@ Currently MLflow only logs the environment variables whose name contains any of 
         "DATABRICKS_CLIENT_SECRET",
         "_DATABRICKS_WORKSPACE_HOST",
         "_DATABRICKS_WORKSPACE_ID",
-        # dbconnect related
-        "SPARK_REMOTE",
-        "SPARK_LOCAL_REMOTE",
     }
 
 Example of a pyfunc model that uses environment variables:
