@@ -453,18 +453,73 @@ Span types are a way to categorize spans within a trace. By default, the span ty
 
 The following span types are available:
 
-| **Span Type**  | **Description**                                                                        |
-| -------------- | -------------------------------------------------------------------------------------- |
-| `"LLM"`        | Represents a call to an LLM endpoint or a local model.                                 |
-| `"CHAT_MODEL"` | Represents a query to a chat model. This is a special case of an LLM interaction.      |
-| `"CHAIN"`      | Represents a chain of operations.                                                      |
-| `"AGENT"`      | Represents an autonomous agent operation.                                              |
-| `"TOOL"`       | Represents a tool execution (typically by an agent), such as querying a search engine. |
-| `"EMBEDDING"`  | Represents a text embedding operation.                                                 |
-| `"RETRIEVER"`  | Represents a context retrieval operation, such as querying a vector database.          |
-| `"PARSER"`     | Represents a parsing operation, transforming text into a structured format.            |
-| `"RERANKER"`   | Represents a re-ranking operation, ordering the retrieved contexts based on relevance. |
-| `"UNKNOWN"`    | A default span type that is used when no other span type is specified.                 |
+<table>
+  <thead>
+    <tr>
+      <th>**Span Type**</th>
+      <th>**Description**</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>`"LLM"`</td>
+      <td>Represents a call to an LLM endpoint or a local model.</td>
+    </tr>
+    <tr>
+      <td>`"CHAT_MODEL"`</td>
+      <td>
+        Represents a query to a chat model. This is a special case of an LLM
+        interaction.
+      </td>
+    </tr>
+    <tr>
+      <td>`"CHAIN"`</td>
+      <td>Represents a chain of operations.</td>
+    </tr>
+    <tr>
+      <td>`"AGENT"`</td>
+      <td>Represents an autonomous agent operation.</td>
+    </tr>
+    <tr>
+      <td>`"TOOL"`</td>
+      <td>
+        Represents a tool execution (typically by an agent), such as querying a
+        search engine.
+      </td>
+    </tr>
+    <tr>
+      <td>`"EMBEDDING"`</td>
+      <td>Represents a text embedding operation.</td>
+    </tr>
+    <tr>
+      <td>`"RETRIEVER"`</td>
+      <td>
+        Represents a context retrieval operation, such as querying a vector
+        database.
+      </td>
+    </tr>
+    <tr>
+      <td>`"PARSER"`</td>
+      <td>
+        Represents a parsing operation, transforming text into a structured
+        format.
+      </td>
+    </tr>
+    <tr>
+      <td>`"RERANKER"`</td>
+      <td>
+        Represents a re-ranking operation, ordering the retrieved contexts based
+        on relevance.
+      </td>
+    </tr>
+    <tr>
+      <td>`"UNKNOWN"`</td>
+      <td>
+        A default span type that is used when no other span type is specified.
+      </td>
+    </tr>
+  </tbody>
+</table>
 
 To set a span type, you can pass the `span_type` parameter to the [`@mlflow.trace`](/python_api/mlflow#mlflow.trace) decorator or [`mlflow.start_span`](python_api/mlflow/#mlflow.start_span) context manager. When you are using [automatic tracing](#automatic-tracing), the span type is automatically set by MLflow.
 
