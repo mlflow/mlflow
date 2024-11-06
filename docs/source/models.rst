@@ -111,9 +111,9 @@ When logging a model, model metadata files (``MLmodel``, ``conda.yaml``, ``pytho
 
 Environment variables file
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
-To track environment variables that are used during model inference, we generate ``environment_variables.txt`` file when logging a model.
+To track environment variables that are used during model inference, MLflow generates ``environment_variables.txt`` file when logging a model.
 It **only contains names** of the environment variables that are used during model inference, **values are not stored**.
-Currently we only log the name if it includes any keywords in the following set:
+Currently MLflow only logs the name if it includes any keywords in the following set:
 
 .. code-block:: python
 
