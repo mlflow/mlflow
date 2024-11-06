@@ -41,7 +41,7 @@ MLmodel file
 ^^^^^^^^^^^^
 
 All of the flavors that a particular model supports are defined in its ``MLmodel`` file in YAML
-format. For example, running ``python examples/sklearn_logistic_regression/train.py`` from `MLflow repo <https://github.com/mlflow/mlflow>`_
+format. For example, running ``python examples/sklearn_logistic_regression/train.py`` from `MLflow repo <https://github.com/mlflow/mlflow/blob/master/examples/sklearn_logistic_regression/train.py>`_
 will create the following files under the ``model`` directory:
 
 ::
@@ -163,15 +163,17 @@ Example of a pyfunc model that uses environment variables:
             "model", python_model=MyModel(), input_example="data"
         )
 
-Environment variable `TEST_API_KEY` is logged in the environment_variables.txt file
+Environment variable `TEST_API_KEY` is logged in the environment_variables.txt file like below
 
-.. figure:: ./_static/images/models/environment_variable_file_sample.png
-    :alt: The environment variables txt file example
-    :width: 80%
-    :align: center
+.. code-block::
+
+    # This file records environment variable names that are used during model inference.
+    # They might need to be set when creating a serving endpoint from this model.
+    # Note: it is not guaranteed that all environment variables listed here are required
+    TEST_API_KEY
 
 .. attention::
-    Before you deploy a model to a serving endpoint, **review the ``environment_variables.txt`` file** to ensure 
+    Before you deploy a model to a serving endpoint, **review the environment_variables.txt file** to ensure 
     all necessary environment variables for model inference are set. Note that **not all environment variables 
     listed in the file are always required for model inference.** For detailed instructions on setting 
     environment variables on a databricks serving endpoint, refer to `this guidance <https://docs.databricks.com/en/machine-learning/model-serving/store-env-variable-model-serving.html#add-plain-text-environment-variables>`_.
