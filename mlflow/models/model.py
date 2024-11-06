@@ -987,8 +987,6 @@ class Model:
                     f"`{MLFLOW_RECORD_ENV_VARS_IN_MODEL_LOGGING.name}` to `false`."
                 )
             mlflow_model.env_vars = env_vars
-            mlflow.tracking.fluent.log_artifacts(local_path, mlflow_model.artifact_path, run_id)
-
             client.log_model_artifacts(model.model_id, local_path)
             client.finalize_logged_model(model.model_id, status=LoggedModelStatus.READY)
 
