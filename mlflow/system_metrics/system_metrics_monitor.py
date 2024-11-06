@@ -163,6 +163,7 @@ class SystemMetricsMonitor:
         # add it to the metrics name.
         prefix = self._metrics_prefix + (self.node_id + "/" if self.node_id else "")
         metrics = {prefix + k: v for k, v in metrics.items()}
+        _logger.info(f"Publishing system metrics: {metrics}")
 
         self.mlflow_logger.record_metrics(metrics, self._logging_step)
         self._logging_step += 1
