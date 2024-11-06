@@ -1,20 +1,48 @@
 {
-  "extends": "@databricks/tsconfig/tsconfig-app.json",
+  "extends": [],
   "compilerOptions": {
     "module": "ESNext",
     "moduleResolution": "Node",
-    "types": ["jest", "@testing-library/jest-dom"],
+    "types": [
+      "jest",
+      "node",
+      "@testing-library/jest-dom"
+    ],
     "allowJs": true,
     "noPropertyAccessFromIndexSignature": true,
     "jsxImportSource": "@emotion/react",
     "paths": {
-      "@mlflow/mlflow/*": ["./*"]
-    }
+      "@mlflow/mlflow/*": [
+        "./*"
+      ],
+      "@databricks/web-shared/*": [
+        "./src/shared/web-shared/*"
+      ]
+    },
+    "target": "ES2022",
+    "lib": [
+      "ESNext",
+      "DOM",
+      "DOM.Iterable"
+    ],
+    "strict": true,
+    "rootDir": ".",
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "esModuleInterop": true,
+    "resolveJsonModule": true,
+    "allowSyntheticDefaultImports": true,
+    "incremental": true,
+    "noImplicitReturns": true,
+    "noEmit": true,
+    "declaration": false,
+    "sourceMap": false,
+    "declarationMap": false,
+    "jsx": "preserve",
+    "isolatedModules": true
   },
-  "references": [
-    { "path": "../../../design-system/tsconfig.src.json" },
-    { "path": "../../../js/packages/i18n/tsconfig.src.json" },
-    { "path": "../../../js/packages/web-shared/tsconfig.src.json" }
-  ],
-  "include": ["./src/**/*"]
+  "references": [],
+  "include": [
+    "./src/**/*"
+  ]
 }
