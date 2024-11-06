@@ -3,6 +3,7 @@ import inspect
 import logging
 import uuid
 import warnings
+from contextvars import ContextVar
 from copy import deepcopy
 from typing import Union
 
@@ -17,7 +18,7 @@ from mlflow.langchain.langchain_tracer import MlflowLangchainTracer
 from mlflow.langchain.runnables import get_runnable_steps
 from mlflow.tracking.context import registry as context_registry
 from mlflow.utils import name_utils
-from mlflow.utils.autologging_utils import disable_autologging, get_autologging_config
+from mlflow.utils.autologging_utils import get_autologging_config
 from mlflow.utils.autologging_utils.config import AutoLoggingConfig
 from mlflow.utils.autologging_utils.safety import _resolve_extra_tags
 
@@ -31,6 +32,46 @@ UNSUPPORT_LOG_MODEL_MESSAGE = (
 INFERENCE_FILE_NAME = "inference_inputs_outputs.json"
 
 
+# A *global* state that indicates whether MLflow should patch the inference method
+# for artifact auto-logging (model, signature input example). This disablement
+# is global across threads, as single model inference can trigger multiple threads,
+# for example, LangChain's batch()/abatch() API processes each request in a child thread.
+IS_PATCHING_DISABLED_FOR_ARTIFACTS = False
+
+# A *thread-local* state that indicates whether MLflow should patch the inference
+# method to inject tracing callbacks. This must be thread-local because MLflow can
+# run multiple model predictions across multiple threads (e.g. mlflow.evaluate)
+# and globally disabling tracing would cause issues for concurrent predictions.
+# In normal cases, we do not need this flag because MLflow checks if the call args
+# already contains the MLflow callback before injecting it, and LangChain propagates
+# callbacks from parent to child, preventing double patching. However, an exception
+# is LangGraph, where users might define their custom python function and invoke
+# some LangChain classes manually without propagating the callbacks.
+IS_PATCHING_DISABLED_FOR_TRACING = ContextVar("is_trace_disabled", default=False)
+
+
+@contextlib.contextmanager
+def disable_patching():
+    """
+    Temporarily disable auto-logging for optional artifacts (model, signature, input
+    examples) to avoid "double-logging" when invoking the patched chain. Without this
+    disablement applied, the patched inference method calls child components that may
+    also be patched, leading to redundant logging.
+    """
+    global IS_PATCHING_DISABLED_FOR_ARTIFACTS
+    original_artifact_flag = IS_PATCHING_DISABLED_FOR_ARTIFACTS
+    IS_PATCHING_DISABLED_FOR_ARTIFACTS = True
+
+    original_trace_flag = IS_PATCHING_DISABLED_FOR_TRACING.get()
+    IS_PATCHING_DISABLED_FOR_TRACING.set(True)
+
+    try:
+        yield
+    finally:
+        IS_PATCHING_DISABLED_FOR_ARTIFACTS = original_artifact_flag
+        IS_PATCHING_DISABLED_FOR_TRACING.set(original_trace_flag)
+
+
 def patched_inference(func_name, original, self, *args, **kwargs):
     """
     A patched implementation of langchain models inference process which enables
@@ -39,20 +80,17 @@ def patched_inference(func_name, original, self, *args, **kwargs):
     We patch inference functions for different models based on their usage.
     """
 
-    # NB: Running the original inference with disabling autologging, so we only patch the top-level
-    # component and avoid duplicate logging for child components.
     def _invoke(self, *args, **kwargs):
-        with disable_autologging():
+        with disable_patching():
             return original(self, *args, **kwargs)
 
     config = AutoLoggingConfig.init(mlflow.langchain.FLAVOR_NAME)
 
-    if config.log_traces:
+    if not IS_PATCHING_DISABLED_FOR_TRACING.get() and config.log_traces:
         args, kwargs = _get_args_with_mlflow_tracer(func_name, args, kwargs)
-        _logger.debug("Injected MLflow callbacks into the model.")
 
     # Traces does not require an MLflow run, only the other optional artifacts require it.
-    if config.should_log_optional_artifacts():
+    if not IS_PATCHING_DISABLED_FOR_ARTIFACTS and config.should_log_optional_artifacts():
         with _setup_autolog_run(config, self) as run_id:
             result = _invoke(self, *args, **kwargs)
             _log_optional_artifacts(config, run_id, result, self, func_name, *args, **kwargs)
@@ -122,6 +160,7 @@ def _get_runnable_config_with_callback(
     from langchain.schema.runnable.config import RunnableConfig
 
     if original_config is None:
+        _logger.debug("Injected MLflow callbacks into the model call args.")
         return RunnableConfig(callbacks=[new_callback])
     elif isinstance(original_config, list):
         return [_get_runnable_config_with_callback(c, new_callback) for c in original_config]
@@ -162,12 +201,14 @@ def _inject_callback(
             # while the callback instance itself is shallow copied.
             handlers = [*callback_manager_copy.handlers, new_callback]
             callback_manager_copy.handlers = handlers
+            _logger.debug("Injected MLflow callbacks into the model call args.")
         return callback_manager_copy
 
     elif _is_list_of_base_callback_handlers(original_callbacks):
         callback_list_copy = list(original_callbacks)
         if not any(isinstance(cb, type(new_callback)) for cb in callback_list_copy):
             callback_list_copy.append(new_callback)
+            _logger.debug("Injected MLflow callbacks into the model call args.")
         return callback_list_copy
 
     else:
@@ -385,7 +426,7 @@ def _log_optional_artifacts(autolog_config, run_id, result, self, func_name, *ar
                 mlflow.langchain.FLAVOR_NAME, "registered_model_name", None
             )
             try:
-                with disable_autologging():
+                with disable_patching():
                     mlflow.langchain.log_model(
                         self,
                         "model",
