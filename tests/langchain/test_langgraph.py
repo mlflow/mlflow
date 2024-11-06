@@ -20,7 +20,7 @@ def test_langgraph_save_as_code():
 
     with mlflow.start_run():
         model_info = mlflow.langchain.log_model(
-            "tests/langchain/sample_code/langgraph.py",
+            "tests/langchain/sample_code/langgraph_prebuilt.py",
             "langgraph",
             input_example=input_example,
         )
@@ -66,14 +66,14 @@ def test_langgraph_save_as_code():
     Version(langchain.__version__) < Version("0.2.0"),
     reason="Agent behavior is not stable across minor versions",
 )
-def test_langgraph_tracing():
+def test_langgraph_tracing_prebuilt():
     mlflow.langchain.autolog()
 
     input_example = {"messages": [{"role": "user", "content": "what is the weather in sf?"}]}
 
     with mlflow.start_run():
         model_info = mlflow.langchain.log_model(
-            "tests/langchain/sample_code/langgraph.py",
+            "tests/langchain/sample_code/langgraph_prebuilt.py",
             "langgraph",
             input_example=input_example,
         )
@@ -112,3 +112,31 @@ def test_langgraph_tracing():
     assert tool_span.outputs["content"] == "It's always sunny in sf"
     assert tool_span.outputs["status"] == "success"
     assert tool_span.status.status_code == SpanStatusCode.OK
+
+
+@pytest.mark.skipif(
+    Version(langchain.__version__) < Version("0.2.0"),
+    reason="Agent behavior is not stable across minor versions",
+)
+def test_langgraph_tracing_diy_graph():
+    mlflow.langchain.autolog()
+
+    input_example = {"messages": [{"role": "user", "content": "hi"}]}
+
+    with mlflow.start_run():
+        model_info = mlflow.langchain.log_model(
+            "tests/langchain/sample_code/langgraph_diy.py",
+            "langgraph",
+        )
+
+    loaded_graph = mlflow.langchain.load_model(model_info.model_uri)
+    loaded_graph.invoke(input_example)
+
+    traces = get_traces()
+    assert len(traces) == 1
+    assert traces[0].info.status == "OK"
+    assert traces[0].data.spans[0].name == "LangGraph"
+    assert traces[0].data.spans[0].inputs == input_example
+
+    chat_spans = [span for span in traces[0].data.spans if span.name.startswith("ChatOpenAI")]
+    assert len(chat_spans) == 3
