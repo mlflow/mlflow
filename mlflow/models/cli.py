@@ -1,3 +1,4 @@
+import json
 import logging
 
 import click
@@ -132,13 +133,24 @@ def serve(
     help="Specify packages and versions to override the dependencies defined "
     "in the model. Must be a comma-separated string like x==y,z==a.",
 )
+@click.option(
+    "--extra-envs",
+    default=None,
+    type=str,
+    help="Extra environment variables to set when running the model. Must be "
+    'a JSON-formatted string like \'{"key1": "value1", "key2": "value2"}\'.',
+)
 def predict(**kwargs):
     """
     Generate predictions in json format using a saved MLflow model. For information about the input
     data formats accepted by this function, see the following documentation:
     https://www.mlflow.org/docs/latest/models.html#built-in-deployment-tools.
     """
-    return python_api.predict(**kwargs)
+    if extra_envs_str := kwargs.pop("extra_envs", None):
+        extra_envs = json.loads(extra_envs_str)
+    else:
+        extra_envs = None
+    return python_api.predict(**kwargs, extra_envs=extra_envs)
 
 
 @commands.command("prepare-env")
