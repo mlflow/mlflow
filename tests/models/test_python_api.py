@@ -188,6 +188,7 @@ def test_predict_with_input_none(mock_backend):
         output_path=None,
         content_type=_CONTENT_TYPE_CSV,
         pip_requirements_override=None,
+        extra_envs=None,
     )
 
 
