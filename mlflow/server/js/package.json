@@ -76,7 +76,7 @@
     "react-resizable": "^3.0.4",
     "react-router": "^6.4.0",
     "react-router-dom": "^6.4.0",
-    "react-syntax-highlighter": "^12.2.1",
+    "react-syntax-highlighter": "^15.4.0",
     "react-transition-group": "^4.4.1",
     "react-treebeard": "2.1.0",
     "react-virtualized": "^9.21.2",
