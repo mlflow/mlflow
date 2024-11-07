@@ -366,6 +366,7 @@ nitpick_ignore = [
     ("py:class", "mlflow.types.schema.Object"),
     ("py:class", "mlflow.types.schema.ParamSchema"),
     ("py:class", "mlflow.types.schema.ParamSpec"),
+    ("py:class", "mlflow.types.schema.Map"),
     ("py:class", "opentelemetry.trace.span.Span"),
     ("py:class", "opentelemetry.trace.status.Status"),
     ("py:class", "opentelemetry.trace.status.StatusCode"),
