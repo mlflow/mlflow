@@ -441,7 +441,7 @@ def log_model(
     run_id=None,
     model_config=None,
     streamable=None,
-    resources: Union[list[Resource], str]=None,
+    resources: Optional[Union[list[Resource], str]]=None,
 ):
     """
     Log a LangChain model as an MLflow artifact for the current run.
