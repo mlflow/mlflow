@@ -158,7 +158,7 @@ def test_system_metrics_monitor_with_multi_node():
         with mlflow.start_run(run_id=run_id, log_system_metrics=True):
             for _ in range(10):
                 run = mlflow.get_run(run_id)
-                if run.data.metrics:
+                if any(k.startswith(f"system/{node_id}/") for k in run.data.metrics.keys()):
                     break
                 time.sleep(1)
             else:
