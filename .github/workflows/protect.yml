@@ -1,3 +1,6 @@
+# This job prevents accidental auto-merging of PRs when jobs that are conditionally
+# triggered (for example, those defined in `cross-version-tests.yml`) are either still
+# in the process of running or have resulted in failures.
 name: Protect
 
 on:
@@ -7,6 +10,9 @@ on:
       - synchronize
       - reopened
       - ready_for_review
+  merge_group:
+    types:
+      - checks_requested
 
 permissions:
   contents: read
@@ -17,9 +23,8 @@ concurrency:
 
 jobs:
   protect:
-    # This job prevents accidental auto-merging of PRs when jobs that are conditionally
-    # triggered (for example, those defined in `cross-version-tests.yml`) are either still
-    # in the process of running or have resulted in failures.
+    # Skip this job in a merge queue
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: 120
     steps:
