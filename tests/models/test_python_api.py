@@ -134,6 +134,7 @@ def test_predict_with_extra_envs():
     class TestModel(mlflow.pyfunc.PythonModel):
         def predict(self, context, model_input):
             assert os.environ["TEST"] == "test"
+            return model_input
 
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
@@ -143,7 +144,7 @@ def test_predict_with_extra_envs():
 
     mlflow.models.predict(
         model_uri=model_info.model_uri,
-        input_data={"inputs": [1, 2, 3]},
+        input_data="abc",
         content_type=_CONTENT_TYPE_JSON,
         extra_envs={"TEST": "test"},
     )

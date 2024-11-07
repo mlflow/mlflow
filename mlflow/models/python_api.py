@@ -208,6 +208,7 @@ def predict(
             output_path=output_path,
             content_type=content_type,
             pip_requirements_override=pip_requirements_override,
+            extra_envs=extra_envs,
         )
 
     if input_data is not None and input_path is not None:
