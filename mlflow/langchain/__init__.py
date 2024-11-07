@@ -21,7 +21,7 @@ import logging
 import os
 import tempfile
 import warnings
-from typing import Any, Iterator, Optional, Union
+from typing import Any, Iterator, Optional, Union, List
 
 import cloudpickle
 import pandas as pd
@@ -50,7 +50,7 @@ from mlflow.models.dependencies_schemas import (
     _get_dependencies_schemas,
 )
 from mlflow.models.model import MLMODEL_FILE_NAME, MODEL_CODE_PATH, MODEL_CONFIG
-from mlflow.models.resources import DatabricksFunction, _ResourceBuilder
+from mlflow.models.resources import DatabricksFunction, _ResourceBuilder, Resource
 from mlflow.models.signature import _infer_signature_from_input_example
 from mlflow.models.utils import (
     _convert_llm_input_data,
@@ -441,7 +441,7 @@ def log_model(
     run_id=None,
     model_config=None,
     streamable=None,
-    resources=None,
+    resources: Union[List[Resource], str]=None,
 ):
     """
     Log a LangChain model as an MLflow artifact for the current run.
@@ -562,8 +562,10 @@ def log_model(
             True, the model must implement `stream` method. If None, If None, streamable is
             set to True if the model implements `stream` method. Default to `None`.
         resources: A list of model resources or a resources.yaml file containing a list of
-            resources required to serve the model.
-
+            resources required to serve the model. If logging a LangChain model with dependencies
+            (e.g. on LLM model serving endpoints), we encourage explicitly passing dependencies
+            via this parameter. Otherwise, ``log_model`` will attempt to infer dependencies,
+            but dependency auto-inference is best-effort and may miss some dependencies.
 
     Returns:
         A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
