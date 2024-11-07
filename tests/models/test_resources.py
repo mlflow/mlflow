@@ -6,6 +6,7 @@ from mlflow.models.resources import (
     DatabricksGenieSpace,
     DatabricksServingEndpoint,
     DatabricksSQLWarehouse,
+    DatabricksTable,
     DatabricksUCConnection,
     DatabricksVectorSearchIndex,
     _ResourceBuilder,
@@ -68,6 +69,17 @@ def test_uc_connection():
     expected = {"uc_connection": [{"name": "slack_connection"}]}
     assert uc_function.to_dict() == expected
     assert _ResourceBuilder.from_resources([uc_function]) == {
+        "api_version": DEFAULT_API_VERSION,
+        "databricks": expected,
+    }
+
+
+def test_table():
+    table = DatabricksTable(table_name="tableName")
+    expected = {"table": [{"name": "tableName"}]}
+
+    assert table.to_dict() == expected
+    assert _ResourceBuilder.from_resources([table]) == {
         "api_version": DEFAULT_API_VERSION,
         "databricks": expected,
     }
