@@ -19,6 +19,7 @@ class ResourceType(Enum):
     SQL_WAREHOUSE = "sql_warehouse"
     FUNCTION = "function"
     GENIE_SPACE = "genie_space"
+    TABLE = "table"
 
 
 class Resource(ABC):
@@ -217,6 +218,31 @@ class DatabricksGenieSpace(DatabricksResource):
         return cls(genie_space_id=data["name"])
 
 
+class DatabricksTable(DatabricksResource):
+    """
+    Defines a Databricks Unity Catalog (UC) Table, which establishes table dependencies
+    for Model Serving. This table will be referenced in Agent Model Serving endpoints,
+    where an agent queries a SQL table via either Genie or UC Functions.
+
+     Args:
+         table_name (str): The name of the table used by the model
+    """
+
+    @property
+    def type(self) -> ResourceType:
+        return ResourceType.TABLE
+
+    def __init__(self, table_name: str):
+        self.table_name = table_name
+
+    def to_dict(self):
+        return {self.type.value: [{"name": self.table_name}]}
+
+    @classmethod
+    def from_dict(cls, data: dict[str, str]):
+        return cls(table_name=data["name"])
+
+
 def _get_resource_class_by_type(target_uri: str, resource_type: ResourceType):
     resource_classes = {
         "databricks": {
@@ -226,6 +252,7 @@ def _get_resource_class_by_type(target_uri: str, resource_type: ResourceType):
             ResourceType.SQL_WAREHOUSE.value: DatabricksSQLWarehouse,
             ResourceType.FUNCTION.value: DatabricksFunction,
             ResourceType.GENIE_SPACE.value: DatabricksGenieSpace,
+            ResourceType.TABLE.value: DatabricksTable,
         }
     }
     resource = resource_classes.get(target_uri)
