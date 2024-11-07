@@ -27,6 +27,7 @@ Note that there are additional tutorials within the `"Explore the Native LLM Fla
     rag/index
     custom-pyfunc-for-llms/index
     llm-evaluate/notebooks/index
+    chat-model-intro/index
     chat-model-guide/index
     notebooks/chat-model-tool-calling.ipynb
 
