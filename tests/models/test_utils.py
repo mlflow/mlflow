@@ -605,18 +605,18 @@ def test_convert_llm_input_data(data, target, target_type):
             "model",
             f"The provided model path '{os.getcwd()}/model' does not exist. "
             "Ensure the file path is valid and try again. "
-            f"Perhaps did you mean '{os.getcwd()}/model.py'?",
+            f"Perhaps you meant '{os.getcwd()}/model.py'?",
         ),
     ],
 )
-def test_validate_and_get_model_code_path_not_found(model_path, error_message):
+def test_validate_and_get_model_code_path_not_found(model_path, error_message, tmp_path):
     with pytest.raises(MlflowException, match=error_message):
-        _validate_and_get_model_code_path(model_path, "")
+        _validate_and_get_model_code_path(model_path, tmp_path)
 
 
-def test_validate_and_get_model_code_path_success():
-    # if the inputted path exist, return the path
+def test_validate_and_get_model_code_path_success(tmp_path):
+    # if the model file exists, return the path as is
     model_path = os.path.abspath(__file__)
-    actual = _validate_and_get_model_code_path(model_path, "")
+    actual = _validate_and_get_model_code_path(model_path, tmp_path)
 
     assert actual == model_path

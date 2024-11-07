@@ -1686,8 +1686,8 @@ def _convert_llm_input_data(data: Any) -> Union[list, dict]:
 
 def _validate_and_get_model_code_path(model_code_path: str, temp_dir: str) -> str:
     """
-    Validate model code path exists. Creates a temp file in temp_dir and validate its contents if
-    it's a notebook.
+    Validate model code path exists. When failing to open the model file on Databricks,
+    creates a temp file in temp_dir and validate its contents if it's a notebook.
 
     Returns either `model_code_path` or a temp file path with the contents of the notebook.
     """
@@ -1697,7 +1697,7 @@ def _validate_and_get_model_code_path(model_code_path: str, temp_dir: str) -> st
 
     if not os.path.exists(model_code_path):
         _, ext = os.path.splitext(model_code_path)
-        additional_message = f" Perhaps did you mean '{model_code_path}.py'?" if not ext else ""
+        additional_message = f" Perhaps you meant '{model_code_path}.py'?" if not ext else ""
 
         raise MlflowException.invalid_parameter_value(
             f"The provided model path '{model_code_path}' does not exist. "
