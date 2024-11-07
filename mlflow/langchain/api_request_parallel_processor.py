@@ -103,22 +103,31 @@ class APIRequest:
     results: list[tuple[int, str]]
     errors: dict
     convert_chat_responses: bool
-    did_perform_chat_conversion: bool
     stream: bool
     params: dict[str, Any]
     prediction_context: Optional[Context] = None
 
-    def _predict_single_input(self, single_input, callback_handlers, **kwargs):
+    def _predict_single_input(self, single_input: dict, callback_handlers, **kwargs):
         config = kwargs.pop("config", {})
         config["callbacks"] = config.get("callbacks", []) + (callback_handlers or [])
+        # update self.request_json to make sure error message is accurate
+        self.request_json, did_perform_chat_conversion = (
+            transform_request_json_for_chat_if_necessary(single_input, self.lc_model)
+        )
+
         if self.stream:
-            return self.lc_model.stream(single_input, config=config, **kwargs)
-        if hasattr(self.lc_model, "invoke"):
-            return self.lc_model.invoke(single_input, config=config, **kwargs)
+            result = self.lc_model.stream(self.request_json, config=config, **kwargs)
         else:
-            # for backwards compatibility, __call__ is deprecated and will be removed in 0.3.0
-            # kwargs shouldn't have config field if invoking with __call__
-            return self.lc_model(single_input, callbacks=callback_handlers, **kwargs)
+            if hasattr(self.lc_model, "invoke"):
+                result = self.lc_model.invoke(self.request_json, config=config, **kwargs)
+            else:
+                # for backwards compatibility, __call__ is deprecated and will be removed in 0.3.0
+                # kwargs shouldn't have config field if invoking with __call__
+                result = self.lc_model(self.request_json, callbacks=callback_handlers, **kwargs)
+
+        if did_perform_chat_conversion or self.convert_chat_responses:
+            return self._try_convert_response(result)
+        return result
 
     def _try_convert_response(self, response):
         if self.stream:
@@ -143,34 +152,24 @@ class APIRequest:
                 # does not accept dictionaries as input, it leads to errors like
                 # Expected Scalar value for String field 'query_text'
                 try:
+                    original_request = self.request_json
                     response = self._predict_single_input(
                         self.request_json, callback_handlers, **self.params
                     )
                 except TypeError as e:
-                    _logger.warning(
+                    _logger.debug(
                         f"Failed to invoke {self.lc_model.__class__.__name__} "
                         f"with {self.request_json}. Error: {e!r}. Trying to "
                         "invoke with the first value of the dictionary."
                     )
-                    self.request_json = next(iter(self.request_json.values()))
-                    (
-                        prepared_request_json,
-                        did_perform_chat_conversion,
-                    ) = transform_request_json_for_chat_if_necessary(
-                        self.request_json, self.lc_model
-                    )
-                    self.did_perform_chat_conversion = did_perform_chat_conversion
-
+                    self.request_json = next(iter(original_request.values()))
                     response = self._predict_single_input(
-                        prepared_request_json, callback_handlers, **self.params
+                        self.request_json, callback_handlers, **self.params
                     )
             else:
                 response = self._predict_single_input(
                     self.request_json, callback_handlers, **self.params
                 )
-
-            if self.did_perform_chat_conversion or self.convert_chat_responses:
-                response = self._try_convert_response(response)
         else:
             # return_only_outputs is invalid for stream call
             if isinstance(self.lc_model, langchain.chains.base.Chain) and not self.stream:
@@ -180,11 +179,12 @@ class APIRequest:
             kwargs.update(**self.params)
             response = self._predict_single_input(self.request_json, callback_handlers, **kwargs)
 
-            if self.did_perform_chat_conversion or self.convert_chat_responses:
-                response = self._try_convert_response(response)
-            elif isinstance(response, dict) and len(response) == 1:
-                # to maintain existing code, single output chains will still return
-                # only the result
+            # for backwards compatibility, only return the value for single-output chains
+            if (
+                not self.convert_chat_responses
+                and isinstance(response, dict)
+                and len(response) == 1
+            ):
                 response = response.popitem()[1]
 
         return convert_to_serializable(response)
@@ -230,17 +230,7 @@ def process_api_requests(
 
     results = []
     errors = {}
-
-    # Note: we should call `transform_request_json_for_chat_if_necessary`
-    # for the whole batch data, because the conversion should obey the rule
-    # that if any record in the batch can't be converted, then all the record
-    # in this batch can't be converted.
-    (
-        converted_chat_requests,
-        did_perform_chat_conversion,
-    ) = transform_request_json_for_chat_if_necessary(requests, lc_model)
-
-    requests_iter = enumerate(converted_chat_requests)
+    requests_iter = enumerate(requests)
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
         while True:
             # get next request (if one is not already waiting for capacity)
@@ -249,15 +239,14 @@ def process_api_requests(
                 _logger.warning(f"Retrying request {next_request.index}: {next_request}")
             elif req := next(requests_iter, None):
                 # get new request
-                index, converted_chat_request_json = req
+                index, request_json = req
                 next_request = APIRequest(
                     index=index,
                     lc_model=lc_model,
-                    request_json=converted_chat_request_json,
+                    request_json=request_json,
                     results=results,
                     errors=errors,
                     convert_chat_responses=convert_chat_responses,
-                    did_perform_chat_conversion=did_perform_chat_conversion,
                     stream=False,
                     prediction_context=get_prediction_context(),
                     params=params,
@@ -308,19 +297,13 @@ def process_stream_request(
             "No `stream` method found."
         )
 
-    (
-        converted_chat_requests,
-        did_perform_chat_conversion,
-    ) = transform_request_json_for_chat_if_necessary(request_json, lc_model)
-
     api_request = APIRequest(
         index=0,
         lc_model=lc_model,
-        request_json=converted_chat_requests,
+        request_json=request_json,
         results=None,
         errors=None,
         convert_chat_responses=convert_chat_responses,
-        did_perform_chat_conversion=did_perform_chat_conversion,
         stream=True,
         prediction_context=get_prediction_context(),
         params=params,

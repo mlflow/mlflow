@@ -4,7 +4,6 @@ import time
 from typing import Literal, Optional
 
 import pydantic
-from langchain.agents import AgentExecutor
 from langchain.schema import AIMessage, HumanMessage, SystemMessage
 from langchain.schema import ChatMessage as LangChainChatMessage
 from packaging.version import Version
@@ -215,6 +214,15 @@ def try_transform_response_iter_to_chat_format(chunk_iter):
 
 
 def _convert_chat_request_or_throw(chat_request: dict):
+    try:
+        from langchain_core.messages.utils import convert_to_messages
+
+        return convert_to_messages(chat_request["messages"])
+    except ImportError:
+        pass
+
+    # it's safe to drop below when langchain >= 0.1.20
+    # TODO: drop this once we updated minimum supported langchain version
     if IS_PYDANTIC_V1:
         model = _ChatRequest.parse_obj(chat_request)
     else:
@@ -237,11 +245,6 @@ def _get_lc_model_input_fields(lc_model) -> set[str]:
 
 
 def should_transform_requst_json_for_chat(lc_model):
-    # Avoid converting the request to LangChain's Message format if the chain
-    # is an AgentExecutor, as LangChainChatMessage might not be accepted by the chain
-    if isinstance(lc_model, AgentExecutor):
-        return False
-
     input_fields = _get_lc_model_input_fields(lc_model)
     if "messages" in input_fields:
         # If the chain accepts a "messages" field directly, don't attempt to convert
@@ -252,12 +255,14 @@ def should_transform_requst_json_for_chat(lc_model):
     return True
 
 
-def transform_request_json_for_chat_if_necessary(request_json, lc_model):
+def transform_request_json_for_chat_if_necessary(request_json: dict, lc_model):
     """
     Convert the input request JSON to LangChain's Message format if the LangChain model
     accepts ChatMessage objects (e.g. AIMessage, HumanMessage, SystemMessage) as input.
-    # TODO: this function should identify if the lc_model accepts ChatMessage objects,
-    # and only converts if it does. ChatModels inputs should be converted.
+
+    Args:
+        request_json: The input request JSON. Must be a dictionary
+        lc_model: The LangChain model.
 
     Returns:
         A 2-element tuple containing:
@@ -266,8 +271,6 @@ def transform_request_json_for_chat_if_necessary(request_json, lc_model):
             2. A boolean indicating whether or not the request was transformed from the OpenAI
             chat format.
     """
-    if not should_transform_requst_json_for_chat(lc_model):
-        return request_json, False
 
     def json_dict_might_be_chat_request(json_message: dict):
         return (
@@ -277,22 +280,33 @@ def transform_request_json_for_chat_if_necessary(request_json, lc_model):
             # Additional keys can't be specified when calling LangChain invoke() / batch()
             # with chat messages
             len(json_message) == 1
+            # messages field should be a list
+            and isinstance(json_message["messages"], list)
         )
 
-    if isinstance(request_json, dict) and json_dict_might_be_chat_request(request_json):
+    if not should_transform_requst_json_for_chat(lc_model):
+        return request_json, False
+
+    if json_dict_might_be_chat_request(request_json):
         try:
-            return _convert_chat_request_or_throw(request_json), True
-        except pydantic.ValidationError:
+            result = _convert_chat_request_or_throw(request_json)
+            if hasattr(lc_model, "input_schema"):
+                # sometimes the input schema is not reliable and we should try
+                # to invoke the model with the request instead, restricting the check to only
+                # string input schemas to reduce the blast radius
+                # example: test_save_load_chain_as_code
+                if lc_model.input_schema.schema().get("type", "string") == "string":
+                    # TODO: migrate this logic inside APIRequest to avoid invoke twice
+                    lc_model.invoke(result)
+                    return result, True
+                else:
+                    lc_model.input_schema.validate(result)
+                    return result, True
             return request_json, False
-    elif isinstance(request_json, list) and all(
-        json_dict_might_be_chat_request(json) for json in request_json
-    ):
-        try:
-            return (
-                [_convert_chat_request_or_throw(json_dict) for json_dict in request_json],
-                True,
-            )
-        except pydantic.ValidationError:
+        # we should catch all exceptions here including pydantic validation errors
+        # if the model's input schema cannot validate the request
+        # we should not attempt to convert the request to LangChain's Message format
+        except Exception:
             return request_json, False
     else:
         return request_json, False

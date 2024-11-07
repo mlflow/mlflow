@@ -2192,7 +2192,7 @@ def test_predict_with_builtin_pyfunc_chat_conversion(spark):
             expected_chat_response,
         ]
 
-    with pytest.raises(MlflowException, match="Unrecognized chat message role"):
+    with pytest.raises(MlflowException, match="Invalid input type"):
         pyfunc_loaded_model.predict({"messages": [{"role": "foobar", "content": "test content"}]})
 
 
