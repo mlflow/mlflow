@@ -21,7 +21,7 @@ import logging
 import os
 import tempfile
 import warnings
-from typing import Any, Iterator, Optional, Union, List
+from typing import Any, Iterator, Optional, Union
 
 import cloudpickle
 import pandas as pd
@@ -441,7 +441,7 @@ def log_model(
     run_id=None,
     model_config=None,
     streamable=None,
-    resources: Union[List[Resource], str]=None,
+    resources: Union[list[Resource], str]=None,
 ):
     """
     Log a LangChain model as an MLflow artifact for the current run.
