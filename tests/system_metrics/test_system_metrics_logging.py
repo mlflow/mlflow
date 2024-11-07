@@ -156,7 +156,13 @@ def test_system_metrics_monitor_with_multi_node():
     for node_id in node_ids:
         mlflow.set_system_metrics_node_id(node_id)
         with mlflow.start_run(run_id=run_id, log_system_metrics=True):
-            time.sleep(1)
+            for _ in range(10):
+                run = mlflow.get_run(run_id)
+                if any(k.startswith(f"system/{node_id}/") for k in run.data.metrics.keys()):
+                    break
+                time.sleep(1)
+            else:
+                raise pytest.fail("No system metrics are logged within 10 seconds.")
 
     mlflow_run = mlflow.get_run(run_id)
     metrics = mlflow_run.data.metrics
