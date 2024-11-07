@@ -3,7 +3,6 @@ import datetime as dt
 import importlib.util
 import json
 import string
-import warnings
 from copy import deepcopy
 from dataclasses import is_dataclass
 from enum import Enum
@@ -662,28 +661,13 @@ class ColSpec:
 
     def __init__(
         self,
-        type: Union[DataType, Array, Object, str],
+        type: Union[DataType, Array, Object, Map, str],
         name: Optional[str] = None,
-        optional: Optional[bool] = None,
-        required: Optional[bool] = None,  # TODO: update to required=True after deprecating optional
+        required: bool = True,
     ):
         self._name = name
 
-        if optional is not None:
-            if required is not None:
-                raise MlflowException(
-                    "Only one of `optional` and `required` can be specified. "
-                    "`optional` is deprecated, please use `required` instead."
-                )
-            else:
-                warnings.warn(
-                    "`optional` is deprecated and will be removed in a future version "
-                    "of MLflow. Use `required` instead.",
-                    category=FutureWarning,
-                )
-                self._required = not optional
-        else:
-            self._required = True if required is None else required
+        self._required = required
         try:
             self._type = DataType[type] if isinstance(type, str) else type
         except KeyError:
@@ -699,7 +683,7 @@ class ColSpec:
             )
 
     @property
-    def type(self) -> Union[DataType, Array, Object]:
+    def type(self) -> Union[DataType, Array, Object, Map]:
         """The column data type."""
         return self._type
 
@@ -711,16 +695,6 @@ class ColSpec:
     @name.setter
     def name(self, value: bool) -> None:
         self._name = value
-
-    @experimental
-    @property
-    def optional(self) -> bool:
-        """
-        Whether this column is optional.
-
-        .. Warning:: Deprecated. `optional` is deprecated in favor of `required`.
-        """
-        return not self._required
 
     @experimental
     @property
@@ -759,25 +733,19 @@ class ColSpec:
         if kwargs["type"] not in [ARRAY_TYPE, OBJECT_TYPE, MAP_TYPE, SPARKML_VECTOR_TYPE]:
             return cls(**kwargs)
         name = kwargs.pop("name", None)
-        optional = kwargs.pop("optional", None)
         required = kwargs.pop("required", None)
         if kwargs["type"] == ARRAY_TYPE:
-            return cls(
-                name=name, type=Array.from_json_dict(**kwargs), optional=optional, required=required
-            )
+            return cls(name=name, type=Array.from_json_dict(**kwargs), required=required)
         if kwargs["type"] == OBJECT_TYPE:
             return cls(
                 name=name,
                 type=Object.from_json_dict(**kwargs),
-                optional=optional,
                 required=required,
             )
         if kwargs["type"] == MAP_TYPE:
-            return cls(
-                name=name, type=Map.from_json_dict(**kwargs), optional=optional, required=required
-            )
+            return cls(name=name, type=Map.from_json_dict(**kwargs), required=required)
         if kwargs["type"] == SPARKML_VECTOR_TYPE:
-            return cls(name=name, type=SparkMLVector(), optional=optional, required=required)
+            return cls(name=name, type=SparkMLVector(), required=required)
 
 
 class TensorInfo:
