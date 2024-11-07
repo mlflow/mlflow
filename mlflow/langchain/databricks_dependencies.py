@@ -279,6 +279,8 @@ def _get_deps_from_closures(lc_model):
     `inspect.getsource(func)` can fail. This causes deps of RunnableLambda to be empty.
     Therefore this method adds an additional way of getting dependencies through
     closure variables.
+
+    TODO: Remove when issue gets resolved: https://github.com/langchain-ai/langchain/issues/27970
     """
     import inspect
 
@@ -292,10 +294,8 @@ def _get_deps_from_closures(lc_model):
         candidates = {**closure.globals, **closure.nonlocals}
         deps = []
 
-        for (
-            _,
-            v,
-        ) in candidates.items():
+        # This code is taken from Langchain deps here: https://github.com/langchain-ai/langchain/blob/14f182795312f01985344576b5199681683641e1/libs/core/langchain_core/runnables/base.py#L4481
+        for _, v in candidates.items():
             if isinstance(v, Runnable):
                 deps.append(v)
             elif isinstance(getattr(v, "__self__", None), Runnable):
