@@ -89,10 +89,6 @@ jobs:
         run: |
           pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} --serve-wheel tests/examples --durations=30
 
-      - name: Remove conda environments
-        run: |
-          ./dev/remove-conda-envs.sh
-
       - name: Show disk usage
         run: |
           df -h
