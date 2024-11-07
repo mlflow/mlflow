@@ -11,6 +11,8 @@ on:
       - reopened
       - ready_for_review
   merge_group:
+    types:
+      - checks_requested
 
 permissions:
   contents: read
