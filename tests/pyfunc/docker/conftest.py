@@ -78,6 +78,9 @@ def save_model_with_latest_mlflow_version(flavor, extra_pip_requirements=None, *
     else:
         extra_pip_requirements = extra_pip_requirements or []
         extra_pip_requirements.append(f"mlflow=={latest_mlflow_version}")
+        if flavor == "lightgbm":
+            # Adding pyarrow < 18 to prevent pip installation resolution conflicts.
+            extra_pip_requirements.append("pyarrow<18")
         kwargs["extra_pip_requirements"] = extra_pip_requirements
     flavor_module = getattr(mlflow, flavor)
     flavor_module.save_model(**kwargs)
