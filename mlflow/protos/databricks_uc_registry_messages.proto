@@ -291,6 +291,7 @@ enum DependencyType {
   DATABRICKS_MODEL_ENDPOINT = 2;
   DATABRICKS_UC_FUNCTION = 3;
   DATABRICKS_UC_CONNECTION = 4;
+  DATABRICKS_TABLE = 5;
 }
 
 message Dependency {
