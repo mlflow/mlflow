@@ -174,6 +174,14 @@ def log_model(
             pyspark.ml.Model or pyspark.ml.Transformer which implement
             MLReadable and MLWritable.
 
+                .. Note:: The provided Spark model's `transform` method must generate one column
+                    named with "prediction", the column is used as MLflow pyfunc model output.
+                    Most Spark models generate the output column with "prediction" name that
+                    contains prediction labels by default.
+                    To set probability column as the output column for probabilistic
+                    classification models, you need to set "probabilityCol" param to "prediction"
+                    and set "predictionCol" param to "".
+                    (e.g. `model.setProbabilityCol("prediction").setPredictionCol("")`)
         artifact_path: Deprecated. Use `name` instead.
         conda_env: {{ conda_env }}
         code_paths: {{ code_paths }}
