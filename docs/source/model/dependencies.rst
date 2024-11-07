@@ -326,6 +326,44 @@ Then MLflow will save ``utils.py`` under ``code/`` directory in the model direct
 When MLflow loads the model for serving, the ``code`` directory will be added to the system path so that you can use the module in your model
 code like ``from utils import my_func``. You can also specify a directory path as ``code_paths`` to save multiple files under the directory:
 
+Use of ``code_paths`` Option for a Custom Library
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+To include custom libraries or libraries from a private mirror server when logging your model, use the ``code_paths`` option. 
+This option allows you to upload .whl files or other dependencies alongside your model, ensuring all required libraries are available during serving.
+
+::
+
+    my_project/
+    |── train.py
+    └── custom_package.whl
+
+Then the following code can log your model with the custom package:
+
+.. code-block:: python
+    :caption: train.py
+
+    import mlflow
+    from custom_package import my_func
+
+
+    class MyModel(mlflow.pyfunc.PythonModel):
+        def predict(self, context, model_input):
+            x = my_func(model_input)
+            # .. your prediction logic
+            return prediction
+
+
+    # Log the model
+    with mlflow.start_run() as run:
+        mlflow.pyfunc.log_model(
+            python_model=MyModel(),
+            artifact_path="model",
+            extra_pip_requirements=["code/custom_package.whl"],
+            input_example=input_data,
+            code_paths=["custom_package.whl"],
+        )
+
 Caveats of ``code_paths`` Option
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
