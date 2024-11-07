@@ -1,5 +1,6 @@
 import datetime
 import json
+import os
 import sys
 from unittest import mock
 
@@ -65,16 +66,15 @@ def test_predict(input_data, expected_data, content_type):
                 assert model_input == expected_data
             return {}
 
-    with mlflow.start_run() as run:
-        mlflow.pyfunc.log_model(
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model(
             "model",
             python_model=TestModel(),
             extra_pip_requirements=["pytest"],
         )
-        run_id = run.info.run_id
 
     mlflow.models.predict(
-        model_uri=f"runs:/{run_id}/model",
+        model_uri=model_info.model_uri,
         input_data=input_data,
         content_type=content_type,
     )
@@ -101,13 +101,12 @@ def test_predict_with_pip_requirements_override(env_manager):
 
             assert sklearn.__version__ == "1.3.0"
 
-    with mlflow.start_run() as run:
-        mlflow.pyfunc.log_model(
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model(
             "model",
             python_model=TestModel(),
             extra_pip_requirements=["scikit-learn==1.3.2", "pytest"],
         )
-        run_id = run.info.run_id
 
     requirements_override = ["xgboost==1.7.3", "scikit-learn==1.3.0"]
     if env_manager == CONDA:
@@ -123,11 +122,30 @@ def test_predict_with_pip_requirements_override(env_manager):
         requirements_override.append("conda-forge::charset-normalizer")
 
     mlflow.models.predict(
-        model_uri=f"runs:/{run_id}/model",
+        model_uri=model_info.model_uri,
         input_data={"inputs": [1, 2, 3]},
         content_type=_CONTENT_TYPE_JSON,
         pip_requirements_override=requirements_override,
         env_manager=env_manager,
+    )
+
+
+def test_predict_with_extra_envs():
+    class TestModel(mlflow.pyfunc.PythonModel):
+        def predict(self, context, model_input):
+            assert os.environ["TEST"] == "test"
+
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model(
+            "model",
+            python_model=TestModel(),
+        )
+
+    mlflow.models.predict(
+        model_uri=model_info.model_uri,
+        input_data={"inputs": [1, 2, 3]},
+        content_type=_CONTENT_TYPE_JSON,
+        extra_envs={"TEST": "test"},
     )
 
 

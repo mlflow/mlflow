@@ -105,6 +105,7 @@ def predict(
     env_manager=_EnvManager.VIRTUALENV,
     install_mlflow=False,
     pip_requirements_override=None,
+    extra_envs=None,
     # TODO: add an option to force recreating the env
 ):
     """
@@ -142,6 +143,13 @@ def predict(
                 the logged model's dependency using `mlflow.models.update_model_requirements` API
                 without re-logging it. Note that a registered model is immutable, so you need to
                 register a new model version with the updated model.
+        extra_envs: If specified, a dictionary of extra environment variables will be passed to the
+            model inference environment. This is useful for testing what environment variables are
+            needed for the model to run correctly. By default, environment variables existing in the
+            current os.environ are passed, and this parameter can be used to override them.
+
+            .. note::
+                This parameter is only supported when `env_manager` is set to "virtualenv".
 
     Code example:
 
