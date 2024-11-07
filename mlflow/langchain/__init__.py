@@ -562,10 +562,8 @@ def log_model(
             True, the model must implement `stream` method. If None, If None, streamable is
             set to True if the model implements `stream` method. Default to `None`.
         resources: A list of model resources or a resources.yaml file containing a list of
-                    resources required to serve the model.
+            resources required to serve the model.
 
-            .. Note:: Experimental: This parameter may change or be removed in a future
-                                    release without warning.
 
     Returns:
         A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
