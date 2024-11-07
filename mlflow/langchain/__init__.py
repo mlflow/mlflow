@@ -364,6 +364,13 @@ def save_model(
     needs_databricks_auth = False
     if Version(langchain.__version__) >= Version("0.0.311") and mlflow_model.resources is None:
         if databricks_resources := _detect_databricks_dependencies(lc_model):
+            logger.info("Attempting to auto-detect Databricks resource dependencies for the "
+                        "current langchain model. Dependency auto-detection is "
+                        "best-effort and may not capture all dependencies of your langchain "
+                        "model, resulting in authorization errors when serving or querying your model. "
+                        "We recommend that you explicitly pass `resources` "
+                        "to mlflow.langchain.log_model() to ensure authorization to dependent resources "
+                        "succeeds when the model is deployed.")
             serialized_databricks_resources = _ResourceBuilder.from_resources(databricks_resources)
             mlflow_model.resources = serialized_databricks_resources
             needs_databricks_auth = any(
