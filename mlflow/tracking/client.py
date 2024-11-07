@@ -4782,6 +4782,7 @@ class MlflowClient:
         _validate_model_name(name)
         return self._get_registry_client().get_model_version_by_alias(name, alias)
 
+    @experimental
     def create_logged_model(
         self,
         experiment_id: str,
@@ -4809,6 +4810,7 @@ class MlflowClient:
             experiment_id, name, source_run_id, tags, params, model_type
         )
 
+    @experimental
     def finalize_logged_model(self, model_id: str, status: LoggedModelStatus) -> LoggedModel:
         """
         Finalize a model by updating its status.
@@ -4822,6 +4824,7 @@ class MlflowClient:
         """
         return self._tracking_client.finalize_logged_model(model_id, status)
 
+    @experimental
     def get_logged_model(self, model_id: str) -> LoggedModel:
         """
         Fetch the logged model with the specified ID.
@@ -4834,6 +4837,7 @@ class MlflowClient:
         """
         return self._tracking_client.get_logged_model(model_id)
 
+    @experimental
     def set_logged_model_tags(self, model_id: str, tags: dict[str, Any]) -> None:
         """
         Set tags on the specified logged model.
@@ -4847,6 +4851,7 @@ class MlflowClient:
         """
         self._tracking_client.set_logged_model_tags(model_id, tags)
 
+    @experimental
     def delete_logged_model_tag(self, model_id: str, key: str) -> None:
         """
         Delete a tag from the specified logged model.
@@ -4861,6 +4866,7 @@ class MlflowClient:
     def log_model_artifacts(self, model_id: str, local_dir: str) -> None:
         return self._tracking_client.log_model_artifacts(model_id, local_dir)
 
+    @experimental
     def search_logged_models(
         self,
         experiment_ids: list[str],

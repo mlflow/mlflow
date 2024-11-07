@@ -1989,6 +1989,7 @@ def delete_experiment(experiment_id: str) -> None:
     MlflowClient().delete_experiment(experiment_id)
 
 
+@experimental
 def create_logged_model(
     name: Optional[str] = None,
     source_run_id: Optional[str] = None,
@@ -2024,6 +2025,7 @@ def create_logged_model(
     )
 
 
+@experimental
 def get_logged_model(model_id: str) -> LoggedModel:
     """
     Get a logged model by ID.
@@ -2037,6 +2039,7 @@ def get_logged_model(model_id: str) -> LoggedModel:
     return MlflowClient().get_logged_model(model_id)
 
 
+@experimental
 def search_logged_models(
     experiment_ids: Optional[list[str]] = None,
     filter_string: Optional[str] = None,
@@ -2098,6 +2101,7 @@ def search_logged_models(
         )
 
 
+@experimental
 def log_outputs(models: Optional[list[LoggedModelOutput]] = None):
     """
     Log outputs, such as models, to the active run. If there is no active run, a new run will be
