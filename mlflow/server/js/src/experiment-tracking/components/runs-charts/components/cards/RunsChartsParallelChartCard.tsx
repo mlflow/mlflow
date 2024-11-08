@@ -3,7 +3,7 @@ import { useCallback, useMemo } from 'react';
 import { ReactComponent as ParallelChartSvg } from '../../../../../common/static/parallel-chart-placeholder.svg';
 import type { RunsChartsRunData } from '../RunsCharts.common';
 import LazyParallelCoordinatesPlot from '../charts/LazyParallelCoordinatesPlot';
-import { processParallelCoordinateData } from '../../utils/parallelCoordinatesPlot.utils';
+import { isParallelChartConfigured, processParallelCoordinateData } from '../../utils/parallelCoordinatesPlot.utils';
 import { useRunsChartsTooltip } from '../../hooks/useRunsChartsTooltip';
 import type { RunsChartsParallelCardConfig } from '../../runs-charts.types';
 import {
@@ -16,7 +16,6 @@ import {
 import { useIsInViewport } from '../../hooks/useIsInViewport';
 import {
   shouldEnableDraggableChartsGridLayout,
-  shouldEnableHidingChartsWithNoData,
   shouldUseNewRunRowsVisibilityModel,
 } from '../../../../../common/utils/FeatureUtils';
 import { FormattedMessage } from 'react-intl';
@@ -155,10 +154,7 @@ export const RunsChartsParallelChartCard = ({
   );
 
   const [isConfigured, parallelCoordsData] = useMemo(() => {
-    const selectedParamsCount = config.selectedParams?.length || 0;
-    const selectedMetricsCount = config.selectedMetrics?.length || 0;
-
-    const configured = selectedParamsCount + selectedMetricsCount >= 2;
+    const configured = isParallelChartConfigured(config);
 
     // Prepare the data in the parcoord-es format
     const data = configured
@@ -169,7 +165,7 @@ export const RunsChartsParallelChartCard = ({
   }, [config, configuredChartRunData]);
 
   const isEmptyDataset = useMemo(() => {
-    return shouldEnableHidingChartsWithNoData() && parallelCoordsData.length === 0;
+    return parallelCoordsData.length === 0;
   }, [parallelCoordsData]);
 
   const { elementRef, isInViewport: isInViewportInternal } = useIsInViewport({

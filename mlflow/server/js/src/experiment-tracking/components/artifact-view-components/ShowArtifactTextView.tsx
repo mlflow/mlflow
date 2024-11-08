@@ -2,11 +2,16 @@ import React, { Component } from 'react';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { coy as style, atomDark as darkStyle } from 'react-syntax-highlighter/dist/cjs/styles/prism';
 import { getLanguage } from '../../../common/utils/FileUtils';
-import { getArtifactContent, getArtifactLocationUrl } from '../../../common/utils/ArtifactUtils';
+import {
+  getArtifactContent,
+  getArtifactLocationUrl,
+  getLoggedModelArtifactLocationUrl,
+} from '../../../common/utils/ArtifactUtils';
 import './ShowArtifactTextView.css';
 import { DesignSystemHocProps, WithDesignSystemThemeHoc } from '@databricks/design-system';
 import { ArtifactViewSkeleton } from './ArtifactViewSkeleton';
 import { ArtifactViewErrorState } from './ArtifactViewErrorState';
+import { LoggedModelArtifactViewerProps } from './ArtifactViewComponents.types';
 
 const LARGE_ARTIFACT_SIZE = 100 * 1024;
 
@@ -15,7 +20,7 @@ type Props = DesignSystemHocProps & {
   path: string;
   size?: number;
   getArtifact?: (...args: any[]) => any;
-};
+} & LoggedModelArtifactViewerProps;
 
 type State = {
   loading?: boolean;
@@ -92,7 +97,13 @@ class ShowArtifactTextView extends Component<Props, State> {
   /** Fetches artifacts and updates component state with the result */
   fetchArtifacts() {
     this.setState({ loading: true });
-    const artifactLocation = getArtifactLocationUrl(this.props.path, this.props.runUuid);
+    const { isLoggedModelsMode, loggedModelId, path, runUuid } = this.props;
+
+    const artifactLocation =
+      isLoggedModelsMode && loggedModelId
+        ? getLoggedModelArtifactLocationUrl(path, loggedModelId)
+        : getArtifactLocationUrl(path, runUuid);
+
     this.props
       .getArtifact?.(artifactLocation)
       .then((text: string) => {
