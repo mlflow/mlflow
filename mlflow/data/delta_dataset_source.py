@@ -78,7 +78,8 @@ class DeltaDatasetSource(DatasetSource):
         if self._path:
             return spark_read_op.load(self._path)
         else:
-            return spark_read_op.table(self._delta_table_name)
+            backticked_delta_table_name = '.'.join(f'`{part}`' for part in self._delta_table_name.split('.'))
+            return spark_read_op.table(backticked_delta_table_name)
 
     @property
     def path(self) -> Optional[str]:
