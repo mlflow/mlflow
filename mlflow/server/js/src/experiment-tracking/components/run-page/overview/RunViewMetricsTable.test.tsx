@@ -20,8 +20,8 @@ const testRunInfo = {
 
 // Generates array of metric_a1, metric_a2, ..., metric_b2, ..., metric_c3 metric keys with values from 1.0 to 9.0
 const sampleLatestMetrics = keyBy(
-  ['a', 'b', 'c'].flatMap((letter, letterIndex) =>
-    [1, 2, 3].map((digit, digitIndex) => ({
+  ['c', 'a', 'b'].flatMap((letter, letterIndex) =>
+    [3, 1, 2].map((digit, digitIndex) => ({
       key: `metric_${letter}${digit}`,
       value: (letterIndex * 3 + digitIndex + 1).toFixed(1),
     })),
@@ -45,11 +45,15 @@ describe('RunViewMetricsTable', () => {
   test('Renders the table with values and filters values', async () => {
     renderComponent();
     expect(screen.getByRole('heading', { name: 'Metrics (9)' })).toBeInTheDocument();
-    expect(screen.getByRole('row', { name: 'metric_a1 1.0' })).toBeInTheDocument();
-    expect(screen.getByRole('row', { name: 'metric_c3 9.0' })).toBeInTheDocument();
+    expect(screen.getByRole('row', { name: 'metric_c3 1.0' })).toBeInTheDocument();
+    expect(screen.getByRole('row', { name: 'metric_b2 9.0' })).toBeInTheDocument();
 
     // Expect 10 rows for 9 metrics and 1 table header
     expect(screen.getAllByRole('row')).toHaveLength(9 + 1);
+
+    // Expect rows to be sorted
+    expect(screen.getAllByRole('row')[1]).toHaveTextContent("metric_a1");
+    expect(screen.getAllByRole('row')[9]).toHaveTextContent("metric_c3");
 
     await act(async () => {
       // Change the filter query
