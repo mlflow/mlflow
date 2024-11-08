@@ -34,7 +34,14 @@ def get_endpoint_type(endpoint_uri: str) -> Optional[str]:
 
 
 # TODO: improve this name
-def score_model_on_payload(model_uri, payload, eval_parameters=None, endpoint_type=None):
+def score_model_on_payload(
+    model_uri,
+    payload,
+    eval_parameters=None,
+    extra_headers=None,
+    proxy_url=None,
+    endpoint_type=None,
+):
     """Call the model identified by the given uri with the given string prompt."""
 
     if eval_parameters is None:
@@ -42,7 +49,7 @@ def score_model_on_payload(model_uri, payload, eval_parameters=None, endpoint_ty
     prefix, suffix = _parse_model_uri(model_uri)
 
     if prefix == "openai":
-        return _call_openai_api(suffix, payload, eval_parameters)
+        return _call_openai_api(suffix, payload, eval_parameters, extra_headers, proxy_url)
     elif prefix == "gateway":
         return _call_gateway_api(suffix, payload, eval_parameters)
     elif prefix == "endpoints":
@@ -69,7 +76,7 @@ def _parse_model_uri(model_uri):
     return scheme, path
 
 
-def _call_openai_api(openai_uri, payload, eval_parameters):
+def _call_openai_api(openai_uri, payload, eval_parameters, extra_headers, proxy_url):
     if "OPENAI_API_KEY" not in os.environ:
         raise MlflowException(
             "OPENAI_API_KEY environment variable not set",
@@ -113,13 +120,13 @@ def _call_openai_api(openai_uri, payload, eval_parameters):
             )
         payload = payload
 
-        request_url = (
+        request_url = proxy_url or (
             f"{api_base}/openai/deployments/{deployment_id}"
             f"/chat/completions?api-version={api_version}"
         )
     else:
         payload = {"model": openai_uri, **payload}
-        request_url = REQUEST_URL_CHAT
+        request_url = proxy_url or REQUEST_URL_CHAT
 
     try:
         resp = process_api_requests(
@@ -128,6 +135,7 @@ def _call_openai_api(openai_uri, payload, eval_parameters):
             api_token=api_token,
             throw_original_error=True,
             max_workers=1,
+            extra_headers=extra_headers,
         )[0]
     except MlflowException as e:
         raise e

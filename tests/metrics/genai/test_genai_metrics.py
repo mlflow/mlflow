@@ -633,9 +633,22 @@ def test_extract_score_and_justification():
     assert justification6 == "This is a justification"
 
 
-def test_similarity_metric():
+@pytest.mark.parametrize(
+    ("parameters", "extra_headers", "proxy_url"),
+    [
+        (None, None, None),
+        ({"temperature": 0.2, "max_tokens": 1000}, None, None),
+        ({"top_k": 10}, {"api_key": "foo"}, "https://my-proxy/chat"),
+    ],
+)
+def test_similarity_metric(parameters, extra_headers, proxy_url):
     similarity_metric = answer_similarity(
-        model="gateway:/gpt-4o-mini", metric_version="v1", examples=[mlflow_example]
+        model="gateway:/gpt-4o-mini",
+        metric_version="v1",
+        examples=[mlflow_example],
+        parameters=parameters,
+        extra_headers=extra_headers,
+        proxy_url=proxy_url,
     )
 
     input = "What is MLflow?"
@@ -685,9 +698,11 @@ def test_similarity_metric():
             "lines. Do "
             "not add any other fields.\n    "
         )
-        assert mock_predict_function.call_args[0][2] == {
+        assert mock_predict_function.call_args[0][2] == parameters or {
             **AnswerSimilarityMetric.parameters,
         }
+        assert mock_predict_function.call_args[0][3] == extra_headers
+        assert mock_predict_function.call_args[0][4] == proxy_url
 
     assert metric_value.scores == [3]
     assert metric_value.justifications == [openai_justification1]
@@ -1148,6 +1163,9 @@ def test_log_make_genai_metric_from_prompt_fn_args():
 
     expected_keys = set(inspect.signature(make_genai_metric_from_prompt).parameters.keys())
     expected_keys.update(["mlflow_version", "fn_name"])
+    # We don't record these two to avoid storing sensitive information
+    expected_keys.remove("extra_headers")
+    expected_keys.remove("proxy_url")
     # When updating the function signature of make_genai_metric_from_prompt, please update
     # the genai_metric_args dict construction inside the function as well.
     assert set(custom_metric.genai_metric_args.keys()) == expected_keys
@@ -1171,6 +1189,9 @@ def test_log_make_genai_metric_from_prompt_fn_args():
 def test_log_make_genai_metric_fn_args(custom_metric):
     expected_keys = set(inspect.signature(make_genai_metric).parameters.keys())
     expected_keys.update(["mlflow_version", "fn_name"])
+    # We don't record these two to avoid storing sensitive information
+    expected_keys.remove("extra_headers")
+    expected_keys.remove("proxy_url")
     # When updating the function signature of make_genai_metric, please update
     # the genai_metric_args dict construction inside the function as well.
     assert set(custom_metric.genai_metric_args.keys()) == expected_keys

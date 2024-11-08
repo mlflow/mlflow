@@ -27,6 +27,7 @@ import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
+from typing import Optional
 
 import requests
 import tiktoken
@@ -232,6 +233,7 @@ def process_api_requests(
     max_attempts: int = 5,
     max_workers: int = 10,
     throw_original_error=False,
+    extra_headers: Optional[dict[str, str]] = None,
 ):
     """Processes API requests in parallel, throttling to stay under rate limits."""
     # constants
@@ -241,6 +243,9 @@ def process_api_requests(
     retry_queue = queue.Queue()
     status_tracker = StatusTracker()  # single instance to track a collection of variables
     next_request = None  # variable to hold the next request to call
+
+    # Additional headers to be passed in the request
+    extra_headers = extra_headers or {}
 
     # initialize available capacity counts
     available_request_capacity = max_requests_per_minute
@@ -309,7 +314,7 @@ def process_api_requests(
                         next_request.call_api,
                         retry_queue=retry_queue,
                         status_tracker=status_tracker,
-                        headers=api_token.auth_headers(),
+                        headers={**api_token.auth_headers(), **extra_headers},
                     )
                     next_request = None  # reset next_request to empty
                 else:
