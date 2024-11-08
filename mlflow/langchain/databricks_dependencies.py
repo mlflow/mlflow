@@ -282,8 +282,6 @@ def _get_deps_from_closures(lc_model):
 
     TODO: Remove when issue gets resolved: https://github.com/langchain-ai/langchain/issues/27970
     """
-    import inspect
-
     if not hasattr(lc_model, "func"):
         return []
 
