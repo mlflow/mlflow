@@ -282,9 +282,7 @@ def test_deprecated_dataclass_dunder_methods_not_mutated():
     assert instance.add() == 15
 
     allowed_attrs = {"x", "y", "add"}
-    for attr in dir(instance):
-        if not attr.startswith("__"):
-            assert attr in allowed_attrs
+    assert {attr for attr in dir(instance) if not attr.startswith("__")}.issubset(allowed_attrs)
 
 
 def test_deprecated_dataclass_special_methods_integrity():
@@ -304,6 +302,4 @@ def test_deprecated_dataclass_special_methods_integrity():
     assert instance.add() == 126
 
     allowed_attrs = {"x", "y", "add"}
-    for attr in dir(instance):
-        if not attr.startswith("__"):
-            assert attr in allowed_attrs
+    assert {attr for attr in dir(instance) if not attr.startswith("__")}.issubset(allowed_attrs)
