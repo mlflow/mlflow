@@ -1,3 +1,4 @@
+import functools
 from pathlib import Path
 from typing import Any, Optional, Union
 
@@ -83,6 +84,7 @@ def _translate_http_exception(func):
     Decorator for translating MLflow exceptions to HTTP exceptions
     """
 
+    @functools.wraps(func)
     async def wrapper(*args, **kwargs):
         try:
             return await func(*args, **kwargs)
