@@ -1,1 +1,1 @@
-export * from './dist/~patterns';
+export * from './dist/~patterns/index.js';

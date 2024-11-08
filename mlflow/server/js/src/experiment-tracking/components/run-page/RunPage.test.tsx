@@ -252,7 +252,7 @@ describe('RunPage (GraphQL API)', () => {
 
   const mountComponent = (runUuid = testRunUuid) => {
     const renderResult = renderWithIntl(
-      <TestApolloProvider>
+      <TestApolloProvider disableCache>
         <MockedReduxStoreProvider state={{ entities: { modelVersionsByRunUuid: {}, tagsByRunUuid: {} } }}>
           <TestRouter
             initialEntries={[`/experiment/${testExperimentId}/run/${runUuid}`]}
@@ -291,6 +291,61 @@ describe('RunPage (GraphQL API)', () => {
     expect(screen.getByRole('row', { name: /Duration\s+5\.0min/ })).toBeInTheDocument();
     expect(screen.getByRole('row', { name: /Experiment ID\s+test-experiment/ })).toBeInTheDocument();
     expect(screen.getByRole('row', { name: /Status\s+Finished/ })).toBeInTheDocument();
+  });
+
+  test('Properly display duration for ongoing run', async () => {
+    // Mock run response with ongoing run and endTime set to 0
+    server.resetHandlers(
+      graphql.query<GetRun, GetRunVariables>('GetRun', (req, res, ctx) => {
+        return res(
+          ctx.data({
+            mlflowGetRun: {
+              __typename: 'MlflowGetRunResponse',
+              apiError: null,
+              run: {
+                __typename: 'MlflowRun' as any,
+                data: null,
+                experiment: {
+                  __typename: 'MlflowExperiment',
+                  artifactLocation: null,
+                  experimentId: 'test-experiment',
+                  lastUpdateTime: null,
+                  lifecycleStage: null,
+                  name: 'test experiment',
+                  tags: [],
+                },
+                info: {
+                  __typename: 'MlflowRunInfo',
+                  artifactUri: null,
+                  experimentId: 'test-experiment',
+                  lifecycleStage: null,
+                  runName: 'test run',
+                  runUuid: 'test-run-uuid',
+                  status: MlflowRunStatus.RUNNING,
+                  userId: null,
+                  startTime: '1672578000000',
+                  endTime: '0',
+                },
+                inputs: null,
+                modelVersions: [],
+              },
+            },
+          }),
+        );
+      }),
+    );
+
+    mountComponent();
+
+    await waitFor(() => {
+      expect(screen.getByText('test run')).toBeInTheDocument();
+    });
+
+    // Duration metadata row should be empty (no value after 'Duration' label)
+    expect(screen.getByRole('row', { name: /Duration$/ })).toBeInTheDocument();
+
+    // Relevant status should be displayed
+    expect(screen.getByRole('row', { name: /Status\s+Running/ })).toBeInTheDocument();
   });
 
   test('Display 404 page in case of missing run', async () => {

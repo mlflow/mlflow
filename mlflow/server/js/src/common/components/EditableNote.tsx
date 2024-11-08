@@ -109,7 +109,7 @@ export class EditableNoteImpl extends Component<EditableNoteImplProps, EditableN
     // @ts-expect-error TS(2339): Property 'confirmLoading' does not exist on type '... Remove this comment to see the full error message
     const { confirmLoading } = this.state;
     return (
-      <div className="editable-note-actions">
+      <div className="editable-note-actions" data-testid="editable-note-actions">
         <div>
           <Button
             componentId="codegen_mlflow_app_src_common_components_editablenote.tsx_114"
@@ -153,7 +153,7 @@ export class EditableNoteImpl extends Component<EditableNoteImplProps, EditableN
     const { markdown, selectedTab, error } = this.state;
     const htmlContent = this.getSanitizedHtmlContent();
     return (
-      <div className="note-view-outer-container">
+      <div className="note-view-outer-container" data-testid="note-view-outer-container">
         {showEditor ? (
           <React.Fragment>
             <div className="note-view-text-area">
@@ -227,7 +227,7 @@ type HTMLNoteContentProps = {
 function HTMLNoteContent(props: HTMLNoteContentProps) {
   const { content } = props;
   return content ? (
-    <div className="note-view-outer-container">
+    <div className="note-view-outer-container" data-testid="note-view-outer-container">
       <div className="note-view-text-area">
         <div className="note-view-preview note-editor-preview">
           <div
