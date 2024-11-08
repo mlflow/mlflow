@@ -3,6 +3,7 @@ sidebar_position: 5
 ---
 
 import { CardGroup, Card } from "@site/src/components/Card";
+import { APILink } from "@site/src/components/APILink";
 
 # LLMs
 
@@ -82,18 +83,18 @@ allows you to capture detailed trace data, enabling better debugging, performanc
 Whether through decorators, context managers, or explicit API calls, MLflow provides the flexibility needed to trace and optimize the operations
 of your GenAI models and retain your traced data within the tracking server for further analysis.
 
-- [Automated tracing with GenAI libraries](tracing/#automatic-tracing): Seamless integration with libraries such as LangChain, OpenAI, LlamaIndex, and AutoGen, for automatic trace data collection.
-- [Manual trace instrumentation with high-level fluent APIs](tracing/#tracing-fluent-apis): Easy-to-use decorators and context managers for adding tracing with minimal code changes.
-- [Low-level client APIs for tracing](tracing/#tracing-client-apis): Thread-safe methods for detailed and explicit control over trace data management.
+- [Automated tracing with GenAI libraries](MLflow%20Tracing/introduction#automatic-tracing): Seamless integration with libraries such as LangChain, OpenAI, LlamaIndex, and AutoGen, for automatic trace data collection.
+- [Manual trace instrumentation with high-level fluent APIs](MLflow%20Tracing/introduction#tracing-fluent-apis): Easy-to-use decorators and context managers for adding tracing with minimal code changes.
+- [Low-level client APIs for tracing](MLflow%20Tracing/introduction#tracing-client-apis): Thread-safe methods for detailed and explicit control over trace data management.
 
-To learn more about what tracing is, see our [Tracing Concepts Overview](tracing/overview/) guide. For an in-depth exploration into the structure of
-MLflow traces and their schema, see the [Tracing Schema](tracing/tracing-schema/) guide.
+To learn more about what tracing is, see our [Tracing Concepts Overview](MLflow%20Tracing/overview) guide. For an in-depth exploration into the structure of
+MLflow traces and their schema, see the [Tracing Schema](MLflow%20Tracing/tracing-schema) guide.
 
-If you're interested in contributing to the development of MLflow Tracing, please refer to the [Contribute to MLflow Tracing](tracing/contribute.html) guide.
+If you're interested in contributing to the development of MLflow Tracing, please refer to the [Contribute to MLflow Tracing](MLflow%20Tracing/contribute) guide.
 
 ## MLflow AI Gateway for LLMs
 
-Serving as a unified interface, the [MLflow AI Gateway](deployments/)
+Serving as a unified interface, the [MLflow AI Gateway](_)
 simplifies interactions with multiple LLM providers. In addition to supporting the most popular SaaS LLM providers, the MLflow AI Gateway
 provides an integration to MLflow model serving, allowing you to serve your own LLM or a fine-tuned foundation model within your own serving infrastructure.
 
@@ -128,7 +129,7 @@ APIs may change as this new feature is refined and its functionality is expanded
 The MLflow AI Gateway supports a large range of foundational models from popular SaaS model vendors, as well as providing a means of self-hosting your
 own open source model via an integration with MLflow model serving.
 
-Please refer to [Supported Provider Models](deployments/#providers) for the full list of supported providers and models.
+Please refer to [Supported Provider Models](_) for the full list of supported providers and models.
 
 If you're interested in learning about how to set up the MLflow AI Gateway for a specific provider, follow the links below for our up-to-date
 documentation on GitHub. Each link will take you to a README file that will explain how to set up a route for the provider. In the same directory as
@@ -202,14 +203,14 @@ Navigating the vast landscape of Large Language Models (LLMs) can be daunting. D
 with a project's needs is no small feat. Traditional machine learning evaluation metrics often fall short when it comes to assessing the
 nuanced performance of generative models.
 
-Enter [MLflow LLM Evaluation](llm-evaluate/). This feature is designed to simplify the evaluation process,
+Enter [MLflow LLM Evaluation](_). This feature is designed to simplify the evaluation process,
 offering a streamlined approach to compare foundational models, providers, and prompts.
 
 ### Benefits of MLflow's LLM Evaluation
 
 - **Simplified Evaluation**: Navigate the LLM space with ease, ensuring the best fit for your project with standard metrics that can be used to compare generated text.
 
-- **Use-Case Specific Metrics**: Leverage MLflow's [`mlflow.evaluate()`](python-api/mlflow/#mlflow.evaluate) API for a high-level, frictionless evaluation experience.
+- **Use-Case Specific Metrics**: Leverage MLflow's <APILink fn="mlflow.evaluate" /> API for a high-level, frictionless evaluation experience.
 
 - **Customizable Metrics**: Beyond the provided metrics, MLflow supports a plugin-style for custom scoring, enhancing the evaluation's flexibility.
 
@@ -226,7 +227,7 @@ The development of a high-quality prompt is an iterative process of trial and er
 result in cumulative quality improvements. With the volume and speed of iteration through prompt experimentation, it can quickly become very
 overwhelming to remember or keep a history of the state of different prompts that were tried.
 
-Serving as a powerful tool for prompt engineering, the [MLflow Prompt Engineering UI](prompt-engineering/) revolutionizes the
+Serving as a powerful tool for prompt engineering, the [MLflow Prompt Engineering UI](_) revolutionizes the
 way developers interact with and refine LLM prompts.
 
 ### Benefits of the MLflow Prompt Engineering UI
@@ -259,7 +260,7 @@ Harnessing the power of LLMs becomes effortless with flavors designed specifical
 
   - Load models as PyFuncs for broad compatibility across serving infrastructures.
   - Strengthens the MLOps process for LLMs, ensuring smooth deployments.
-  - Utilize the [Models From Code feature](../model/models-from-code) for simplified GenAI application development.
+  - Utilize the [Models From Code feature](_) for simplified GenAI application development.
 
 - **Cohesive Ecosystem**:
 
@@ -343,7 +344,7 @@ Select the integration below to read the documentation on how to leverage MLflow
 
 ## LLM Tracking in MLflow
 
-Empowering developers with advanced tracking capabilities, the [MLflow LLM Tracking System](llm-tracking/) stands out as the
+Empowering developers with advanced tracking capabilities, the [MLflow LLM Tracking System](_) stands out as the
 premier solution for managing and analyzing interactions with Large Language Models (LLMs).
 
 ### Benefits of the MLflow LLM Tracking System
