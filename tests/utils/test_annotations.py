@@ -190,7 +190,7 @@ def test_deprecated_and_keyword_second():
 def test_deprecated_class():
     msg = "``tests.utils.test_annotations.DeprecatedClass`` is deprecated"
     with pytest.warns(FutureWarning, match=re.escape(msg)):
-        _ = DeprecatedClass()
+        DeprecatedClass()
     assert msg in str(DeprecatedClass.__doc__)
 
 
@@ -205,7 +205,7 @@ def test_deprecated_class_method():
 def test_deprecated_dataclass():
     msg = "``tests.utils.test_annotations.DeprecatedDataClass`` is deprecated since 1.0.0"
     with pytest.warns(FutureWarning, match=re.escape(msg)):
-        _ = DeprecatedDataClass(x=10, y=20)
+        DeprecatedDataClass(x=10, y=20)
     assert msg in str(DeprecatedDataClass.__doc__)
 
 
@@ -229,7 +229,7 @@ def test_deprecated_dataclass_method():
 def test_deprecated_dataclass_different_order():
     msg = "``tests.utils.test_annotations.AnotherDeprecatedDataClassOrder`` is deprecated"
     with pytest.warns(FutureWarning, match=re.escape(msg)):
-        _ = AnotherDeprecatedDataClassOrder(m=7, n=8)
+        AnotherDeprecatedDataClassOrder(m=7, n=8)
     assert msg in str(AnotherDeprecatedDataClassOrder.__doc__)
 
 

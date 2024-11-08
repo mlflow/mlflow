@@ -3,7 +3,7 @@ import re
 import types
 import warnings
 from functools import wraps
-from typing import Any, Callable, TypeVar, Union
+from typing import Any, Callable, Optional, TypeVar, Union
 
 C = TypeVar("C", bound=Callable[..., Any])
 
@@ -111,16 +111,18 @@ def is_marked_deprecated(func):
     return getattr(func, _DEPRECATED_MARK_ATTR_NAME, False)
 
 
-def deprecated(alternative=None, since=None, impact=None):
+def deprecated(
+    alternative: Optional[str] = None, since: Optional[str] = None, impact: Optional[str] = None
+):
     """Annotation decorator for marking APIs as deprecated in docstrings and raising a warning if
     called.
 
     Args:
-        alternative: (Optional string) The name of a superseded replacement function, method,
+        alternative: The name of a superseded replacement function, method,
             or class to use in place of the deprecated one.
-        since: (Optional string) A version designator defining during which release the function,
+        since: A version designator defining during which release the function,
             method, or class was marked as deprecated.
-        impact: (Optional string) Indication of whether the method, function, or class will be
+        impact: Indication of whether the method, function, or class will be
             removed in a future release.
 
     Returns:
