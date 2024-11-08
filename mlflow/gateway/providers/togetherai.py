@@ -161,8 +161,8 @@ class TogetherAIAdapter(ProviderAdapter):
                 detail="Wrong type for top_logprobs. It should a 32bit integer.",
             )
 
-        payload["model"] = config.model.name
-        return rename_payload_keys(payload, key_mapping)
+        payload = rename_payload_keys(payload, key_mapping)
+        return {"model": config.model.name, **payload}
 
     @classmethod
     def completions_streaming_to_model(cls, payload, config):

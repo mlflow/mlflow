@@ -20,7 +20,7 @@ class AmazonBedrockAnthropicAdapter(AnthropicAdapter):
     @classmethod
     def chat_to_model(cls, payload, config):
         payload = super().chat_to_model(payload, config)
-        # "model" keys are not supported by some claude models on Bedrock"
+        # "model" keys are not supported in Bedrock"
         payload.pop("model", None)
         return payload
 
@@ -35,6 +35,9 @@ class AmazonBedrockAnthropicAdapter(AnthropicAdapter):
             payload.get("max_tokens_to_sample", MLFLOW_AI_GATEWAY_ANTHROPIC_DEFAULT_MAX_TOKENS),
             AWS_BEDROCK_ANTHROPIC_MAXIMUM_MAX_TOKENS,
         )
+
+        # "model" keys are not supported in Bedrock"
+        payload.pop("model", None)
         return payload
 
     @classmethod
