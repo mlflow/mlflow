@@ -181,6 +181,11 @@ def predict(
         raise MlflowException.invalid_parameter_value(
             f"Content type must be one of {_CONTENT_TYPE_JSON} or {_CONTENT_TYPE_CSV}."
         )
+    if extra_envs is not None and env_manager != _EnvManager.VIRTUALENV:
+        raise MlflowException.invalid_parameter_value(
+            "Extra environment variables are only supported when env_manager is "
+            f"set to '{_EnvManager.VIRTUALENV}'."
+        )
 
     is_dbconnect_mode = is_databricks_connect()
     if is_dbconnect_mode:

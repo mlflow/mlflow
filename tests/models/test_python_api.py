@@ -150,6 +150,41 @@ def test_predict_with_extra_envs():
     )
 
 
+def test_predict_with_extra_envs_errors():
+    class TestModel(mlflow.pyfunc.PythonModel):
+        def predict(self, context, model_input):
+            assert os.environ["TEST"] == "test"
+            return model_input
+
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model(
+            "model",
+            python_model=TestModel(),
+        )
+
+    with pytest.raises(
+        MlflowException,
+        match=r"Extra environment variables are only "
+        r"supported when env_manager is set to 'virtualenv'",
+    ):
+        mlflow.models.predict(
+            model_uri=model_info.model_uri,
+            input_data="abc",
+            content_type=_CONTENT_TYPE_JSON,
+            env_manager=CONDA,
+            extra_envs={"TEST": "test"},
+        )
+
+    with pytest.raises(
+        MlflowException, match=r"An exception occurred while running model prediction"
+    ):
+        mlflow.models.predict(
+            model_uri=model_info.model_uri,
+            input_data="abc",
+            content_type=_CONTENT_TYPE_JSON,
+        )
+
+
 @pytest.fixture
 def mock_backend():
     mock_backend = mock.MagicMock()
