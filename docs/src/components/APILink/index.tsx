@@ -19,11 +19,9 @@ const getModule = (fn: string) => {
 export function APILink({
   fn,
   children,
-  isDecorator,
 }: {
   fn: string;
   children?: React.ReactNode;
-  isDecorator?: boolean;
 }) {
   const module = getModule(fn);
 
@@ -34,13 +32,7 @@ export function APILink({
   const docLink = useBaseUrl(`/${APIModules[module]}#${fn}`);
   return (
     <Link to={docLink} target="_blank">
-      {children ?? (
-        <code>
-          {isDecorator && "@"}
-          {fn}
-          {!isDecorator && "()"}
-        </code>
-      )}
+      {children ?? <code>{fn}()</code>}
     </Link>
   );
 }
