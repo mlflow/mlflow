@@ -129,17 +129,23 @@ def _register_model(
     )
 
     if model_id := _parse_model_id_if_present(model_uri):
+        new_value = [
+            {
+                {
+                    "name": create_version_response.name,
+                    "version": create_version_response.version,
+                }
+            }
+        ]
+        model = client.get_logged_model(model_id)
+        if existing_value := model.tags.get(mlflow_tags.MLFLOW_REGISTERED_MODELS):
+            new_value = json.loads(existing_value) + new_value
+
         client.set_logged_model_tags(
             model_id,
-            {
-                mlflow_tags.MLFLOW_REGISTERED_MODEL: json.dumps(
-                    {
-                        "name": create_version_response.name,
-                        "version": create_version_response.version,
-                    }
-                )
-            },
+            {mlflow_tags.MLFLOW_REGISTERED_MODELS: json.dumps(new_value)},
         )
+
     return create_version_response
 
 
