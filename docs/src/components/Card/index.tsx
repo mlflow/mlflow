@@ -2,7 +2,9 @@ import clsx from "clsx";
 import styles from "./card.module.css";
 
 export const CardGroup = ({ children }): JSX.Element => (
-  <div className={styles.CardGroup}>{children}</div>
+  <div className={clsx(styles.CardGroup, styles.MaxThreeColumns)}>
+    {children}
+  </div>
 );
 
 export const Card = ({ headerText, link, text }): JSX.Element => (

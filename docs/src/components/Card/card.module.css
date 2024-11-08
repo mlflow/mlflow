@@ -1,23 +1,26 @@
 .CardGroup {
   position: relative;
   display: grid;
-  grid-template-columns: repeat(3, minmax(200px, 33%));
   grid-gap: 20px;
   margin-top: 20px;
 }
 
+.MaxThreeColumns {
+  grid-template-columns: repeat(3, minmax(200px, 33%));
+}
+
 @media (max-width: 1150px) {
-  .CardGroup {
+  .MaxThreeColumns {
     grid-template-columns: repeat(2, 1fr);
   }
 }
 @media (max-width: 750px) {
-  .CardGroup {
+  .MaxThreeColumns {
     grid-template-columns: 1fr;
   }
 }
 @media (max-width: 650px) {
-  .CardGroup {
+  .MaxThreeColumns {
     grid-template-columns: 1fr;
   }
 }
