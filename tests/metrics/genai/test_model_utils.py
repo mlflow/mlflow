@@ -92,47 +92,82 @@ def test_score_model_openai_without_key():
         score_model_on_payload("openai:/gpt-4o-mini", "")
 
 
-def test_score_model_openai(set_envs):
-    resp = {
-        "id": "chatcmpl-abc123",
-        "object": "chat.completion",
-        "created": 1677858242,
-        "model": "gpt-4o-mini",
-        "usage": {
-            "prompt_tokens": 13,
-            "completion_tokens": 7,
-            "total_tokens": 20,
-        },
-        "choices": [
-            {
-                "message": {
-                    "role": "assistant",
-                    "content": "\n\nThis is a test!",
-                },
-                "finish_reason": "stop",
-                "index": 0,
-            }
-        ],
-        "headers": {"Content-Type": "application/json"},
-    }
+_OAI_RESPONSE = {
+    "id": "chatcmpl-abc123",
+    "object": "chat.completion",
+    "created": 1677858242,
+    "model": "gpt-4o-mini",
+    "usage": {
+        "prompt_tokens": 13,
+        "completion_tokens": 7,
+        "total_tokens": 20,
+    },
+    "choices": [
+        {
+            "message": {
+                "role": "assistant",
+                "content": "\n\nThis is a test!",
+            },
+            "finish_reason": "stop",
+            "index": 0,
+        }
+    ],
+    "headers": {"Content-Type": "application/json"},
+}
 
+
+def test_score_model_openai(set_envs):
     with mock.patch(
-        "mlflow.openai.api_request_parallel_processor.process_api_requests", return_value=[resp]
+        "mlflow.openai.api_request_parallel_processor.process_api_requests",
+        return_value=[_OAI_RESPONSE],
     ) as mock_post:
         resp = score_model_on_payload("openai:/gpt-4o-mini", "my prompt", {"temperature": 0.1})
-        mock_post.assert_called_once_with(
-            [
-                {
-                    "model": "gpt-4o-mini",
-                    "temperature": 0.1,
-                    "messages": [{"role": "user", "content": "my prompt"}],
-                }
-            ],
-            mock.ANY,
-            api_token=mock.ANY,
-            throw_original_error=True,
-            max_workers=1,
+
+    assert resp == "\n\nThis is a test!"
+    mock_post.assert_called_once_with(
+        [
+            {
+                "model": "gpt-4o-mini",
+                "temperature": 0.1,
+                "messages": [{"role": "user", "content": "my prompt"}],
+            }
+        ],
+        "https://api.openai.com/v1/chat/completions",
+        api_token=mock.ANY,
+        throw_original_error=True,
+        max_workers=1,
+        extra_headers=None,
+    )
+
+
+def test_score_model_openai_with_custom_header_and_proxy_url(set_envs):
+    with mock.patch(
+        "mlflow.openai.api_request_parallel_processor.process_api_requests",
+        return_value=[_OAI_RESPONSE],
+    ) as mock_post:
+        resp = score_model_on_payload(
+            model_uri="openai:/gpt-4o-mini",
+            payload="my prompt",
+            eval_parameters={"temperature": 0.1},
+            extra_headers={"foo": "bar"},
+            proxy_url="https://my-proxy.com/chat",
         )
+
+    assert resp == "\n\nThis is a test!"
+    mock_post.assert_called_once_with(
+        [
+            {
+                "model": "gpt-4o-mini",
+                "temperature": 0.1,
+                "messages": [{"role": "user", "content": "my prompt"}],
+            }
+        ],
+        "https://my-proxy.com/chat",
+        api_token=mock.ANY,
+        throw_original_error=True,
+        max_workers=1,
+        extra_headers={"foo": "bar"},
+    )
 
 
 def test_openai_authentication_error(set_envs):
@@ -166,45 +201,26 @@ def test_openai_other_error(set_envs):
 
 
 def test_score_model_azure_openai(set_azure_envs):
-    resp = {
-        "id": "chatcmpl-abc123",
-        "object": "chat.completion",
-        "created": 1677858242,
-        "model": "gpt-4o-mini",
-        "usage": {
-            "prompt_tokens": 13,
-            "completion_tokens": 7,
-            "total_tokens": 20,
-        },
-        "choices": [
+    with mock.patch(
+        "mlflow.openai.api_request_parallel_processor.process_api_requests",
+        return_value=[_OAI_RESPONSE],
+    ) as mock_post:
+        resp = score_model_on_payload("openai:/gpt-4o-mini", "my prompt", {"temperature": 0.1})
+
+    assert resp == "\n\nThis is a test!"
+    mock_post.assert_called_once_with(
+        [
             {
-                "message": {
-                    "role": "assistant",
-                    "content": "\n\nThis is a test!",
-                },
-                "finish_reason": "stop",
-                "index": 0,
+                "temperature": 0.1,
+                "messages": [{"role": "user", "content": "my prompt"}],
             }
         ],
-        "headers": {"Content-Type": "application/json"},
-    }
-
-    with mock.patch(
-        "mlflow.openai.api_request_parallel_processor.process_api_requests", return_value=[resp]
-    ) as mock_post:
-        score_model_on_payload("openai:/gpt-4o-mini", "my prompt", {"temperature": 0.1})
-        mock_post.assert_called_once_with(
-            [
-                {
-                    "temperature": 0.1,
-                    "messages": [{"role": "user", "content": "my prompt"}],
-                }
-            ],
-            mock.ANY,
-            api_token=mock.ANY,
-            throw_original_error=True,
-            max_workers=1,
-        )
+        "https://openai-for.openai.azure.com//openai/deployments/test-openai/chat/completions?api-version=2023-05-15",
+        api_token=mock.ANY,
+        throw_original_error=True,
+        max_workers=1,
+        extra_headers=None,
+    )
 
 
 def test_score_model_azure_openai_bad_envs(set_bad_azure_envs):

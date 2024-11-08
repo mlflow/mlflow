@@ -170,6 +170,7 @@ export const ExperimentViewRuns = React.memo((props: ExperimentViewRunsProps) =>
     groupBy: uiState.groupBy,
     groupsExpanded: uiState.groupsExpanded,
     runsHiddenMode: uiState.runsHiddenMode,
+    runsVisibilityMap: uiState.runsVisibilityMap,
     useGroupedValuesInCharts: uiState.useGroupedValuesInCharts,
   });
 

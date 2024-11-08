@@ -11,6 +11,7 @@ import {
   GET_EXPERIMENT_API,
   GET_RUN_API,
   LIST_ARTIFACTS_API,
+  LIST_ARTIFACTS_LOGGED_MODEL_API,
   SEARCH_EXPERIMENTS_API,
   OPEN_ERROR_MODAL,
   SEARCH_RUNS_API,
@@ -31,7 +32,7 @@ import { SEARCH_MODEL_VERSIONS } from '../../model-registry/actions';
 import { getProtoField } from '../../model-registry/utils';
 import Utils from '../../common/utils/Utils';
 import { evaluationDataReducer as evaluationData } from './EvaluationDataReducer';
-import { modelGatewayReducer as modelGateway } from './/ModelGatewayReducer';
+import { modelGatewayReducer as modelGateway } from './ModelGatewayReducer';
 import type {
   DatasetSummary,
   ExperimentEntity,
@@ -42,6 +43,7 @@ import { sampledMetricsByRunUuid } from './SampledMetricsReducer';
 import { ErrorWrapper } from '../../common/utils/ErrorWrapper';
 import { imagesByRunUuid } from './ImageReducer';
 import { colorByRunUuid } from './RunColorReducer';
+import { isExperimentLoggedModelsUIEnabled } from '../../common/utils/FeatureUtils';
 
 export type ApisReducerReduxState = Record<
   string,
@@ -434,11 +436,16 @@ export const getArtifacts = (runUuid: any, state: any) => {
 
 export const artifactsByRunUuid = (state = {}, action: any) => {
   switch (action.type) {
+    case fulfilled(LIST_ARTIFACTS_LOGGED_MODEL_API):
     case fulfilled(LIST_ARTIFACTS_API): {
       const queryPath = action.meta.path;
-      const { runUuid } = action.meta;
+      const { runUuid, loggedModelId } = action.meta;
+
+      // If the artifact belongs to a logged model instead of run, use its id as a store identifier
+      const storeIdentifier = isExperimentLoggedModelsUIEnabled() ? loggedModelId ?? runUuid : runUuid;
+
       // @ts-expect-error TS(7053): Element implicitly has an 'any' type because expre... Remove this comment to see the full error message
-      let artifactNode = state[runUuid] || new ArtifactNode(true);
+      let artifactNode = state[storeIdentifier] || new ArtifactNode(true);
       // Make deep copy.
       artifactNode = artifactNode.deepCopy();
       const { files } = action.payload;
@@ -446,7 +453,7 @@ export const artifactsByRunUuid = (state = {}, action: any) => {
       if (files === undefined) {
         return {
           ...state,
-          [runUuid]: artifactNode,
+          [storeIdentifier]: artifactNode,
         };
       }
       // Sort files to list directories first in the artifact tree view.
@@ -477,7 +484,7 @@ export const artifactsByRunUuid = (state = {}, action: any) => {
       }
       return {
         ...state,
-        [runUuid]: artifactNode,
+        [storeIdentifier]: artifactNode,
       };
     }
     default:

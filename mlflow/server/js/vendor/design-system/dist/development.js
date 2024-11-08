@@ -1,19 +1,15 @@
-import { css } from '@emotion/react';
-import React__default, { forwardRef, useState, useRef, useEffect, useCallback, useMemo, useImperativeHandle, createContext } from 'react';
-import { W as WarningIcon, y as DangerIcon, a as useDesignSystemTheme, b as useDesignSystemEventComponentCallbacks, c as DesignSystemEventProviderComponentTypes, d as DesignSystemEventProviderAnalyticsEventTypes, f as useNotifyOnFirstView, B as Button$1, C as CloseIcon, h as addDebugOutlineIfEnabled, p as Typography, a6 as primitiveColors, k as Root$6, T as Trigger$1, l as Content$1, G as ChevronLeftIcon, m as ChevronRightIcon, q as importantify, x as getShadowScrollStyles } from './Typography-a18b0186.js';
+import React__default, { useMemo, forwardRef, useState, useRef, useEffect, useCallback, useImperativeHandle, createContext, useReducer } from 'react';
 import { jsx, Fragment, jsxs } from '@emotion/react/jsx-runtime';
-import { M as MegaphoneIcon, I as Input, C as ClockIcon, P as PlusIcon, a as CloseSmallIcon } from './index-9b7de1ae.js';
-import { startOfToday, startOfYesterday, sub, format, startOfWeek, endOfToday, endOfYesterday, isAfter, isBefore, isValid } from 'date-fns';
-import { DayPicker, useDayRender, Button as Button$2, isMatch } from 'react-day-picker';
-import * as RadixNavigationMenu from '@radix-ui/react-navigation-menu';
+import { css } from '@emotion/react';
+import { W as WarningIcon, y as DangerIcon, b as DesignSystemEventProviderAnalyticsEventTypes, a as useDesignSystemTheme, c as useDesignSystemEventComponentCallbacks, d as DesignSystemEventProviderComponentTypes, f as useNotifyOnFirstView, B as Button$1, C as CloseIcon, h as addDebugOutlineIfEnabled, p as Typography, a6 as primitiveColors, k as Root$4, T as Trigger, l as Content, G as ChevronLeftIcon, m as ChevronRightIcon, q as importantify } from './Typography-C4ciIwWZ.js';
+export { a8 as Form, a7 as useFormContext } from './Typography-C4ciIwWZ.js';
+import { M as MegaphoneIcon, I as Input, C as ClockIcon } from './index-D9gS2nVh.js';
+import { startOfToday, startOfYesterday, sub, isValid, format, startOfWeek, endOfToday, endOfYesterday, isAfter, isBefore } from 'date-fns';
+import { DayPicker, useDayRender, Button as Button$2 } from 'react-day-picker';
 import { RadioGroup, RadioGroupItem } from '@radix-ui/react-radio-group';
 import * as Progress$1 from '@radix-ui/react-progress';
 import * as RadixSlider from '@radix-ui/react-slider';
-export { S as Stepper } from './Stepper-56765495.js';
-import _debounce from 'lodash/debounce';
-import { useMergeRefs } from '@floating-ui/react';
-import * as ScrollArea from '@radix-ui/react-scroll-area';
-import * as RadixTabs from '@radix-ui/react-tabs';
+export { S as Stepper } from './Stepper-D_5J10NP.js';
 import * as RadixToolbar from '@radix-ui/react-toolbar';
 import 'antd';
 import '@radix-ui/react-popover';
@@ -74,14 +70,15 @@ const useStyles = (props, theme) => {
       textPressColor: theme.colors.actionPrimaryTextPress,
       borderDefaultColor: theme.isDarkMode ? '#BC92F7DB' : theme.colors.purple
     },
+    // Clean up the experimental info banners
     info: {
-      backgroundDefaultColor: theme.colors.actionPrimaryBackgroundDefault,
-      actionButtonBackgroundHoverColor: theme.colors.actionPrimaryBackgroundHover,
-      actionButtonBackgroundPressColor: theme.colors.actionPrimaryBackgroundPress,
+      backgroundDefaultColor: theme.isDarkMode ? '#BC92F7DB' : theme.colors.purple,
+      actionButtonBackgroundHoverColor: theme.isDarkMode ? '#BC92F7DB' : theme.colors.purple,
+      actionButtonBackgroundPressColor: theme.isDarkMode ? '#BC92F7DB' : theme.colors.purple,
       textColor: theme.colors.actionPrimaryTextDefault,
       textHoverColor: theme.colors.actionPrimaryTextHover,
       textPressColor: theme.colors.actionPrimaryTextPress,
-      borderDefaultColor: theme.colors.actionPrimaryBackgroundDefault
+      borderDefaultColor: theme.isDarkMode ? '#BC92F7DB' : theme.colors.purple
     },
     // TODO (PLAT-80558, zack.brody) Update hover and press states once we have colors for these
     warning: {
@@ -148,17 +145,18 @@ const Banner = props => {
     onClose,
     closeButtonAriaLabel,
     componentId,
-    analyticsEvents
+    analyticsEvents = [DesignSystemEventProviderAnalyticsEventTypes.OnView]
   } = props;
   const [closed, setClosed] = React__default.useState(false);
   const {
     theme
   } = useDesignSystemTheme();
   const styles = useStyles(props, theme);
+  const memoizedAnalyticsEvents = useMemo(() => analyticsEvents, [analyticsEvents]);
   const eventContext = useDesignSystemEventComponentCallbacks({
     componentType: DesignSystemEventProviderComponentTypes.Banner,
     componentId,
-    analyticsEvents: analyticsEvents !== null && analyticsEvents !== void 0 ? analyticsEvents : [DesignSystemEventProviderAnalyticsEventTypes.OnView]
+    analyticsEvents: memoizedAnalyticsEvents
   });
   const {
     elementRef
@@ -200,6 +198,7 @@ const Banner = props => {
       css: styles.banner,
       className: "banner",
       "data-testid": props['data-testid'],
+      role: "alert",
       children: [jsx("div", {
         css: styles.iconContainer,
         children: levelToIconMap[level]
@@ -225,7 +224,7 @@ const Banner = props => {
   });
 };
 
-const getDayPickerStyles = (prefix, theme) => /*#__PURE__*/css(".", prefix, "{--rdp-cell-size:", theme.general.heightSm, "px;--rdp-caption-font-size:", theme.typography.fontSizeBase, "px;--rdp-accent-color:", theme.colors.actionPrimaryBackgroundDefault, ";--rdp-background-color:", theme.colors.actionTertiaryBackgroundPress, ";--rdp-accent-color-dark:", theme.colors.actionPrimaryBackgroundDefault, ";--rdp-background-color-dark:", theme.colors.actionTertiaryBackgroundPress, ";--rdp-outline:2px solid var(--rdp-accent-color);--rdp-outline-selected:3px solid var(--rdp-accent-color);--rdp-selected-color:#fff;padding:4px;}.", prefix, "-vhidden{box-sizing:border-box;padding:0;margin:0;background:transparent;border:0;-moz-appearance:none;-webkit-appearance:none;appearance:none;position:absolute!important;top:0;width:1px!important;height:1px!important;padding:0!important;overflow:hidden!important;clip:rect(1px, 1px, 1px, 1px)!important;border:0!important;}.", prefix, "-button_reset{appearance:none;position:relative;margin:0;padding:0;cursor:default;color:inherit;background:none;font:inherit;-moz-appearance:none;-webkit-appearance:none;}.", prefix, "-button_reset:focus-visible{outline:none;}.", prefix, "-button{border:2px solid transparent;}.", prefix, "-button[disabled]:not(.", prefix, "-day_selected){opacity:0.25;}.", prefix, "-button:not([disabled]){cursor:pointer;}.", prefix, "-button:focus-visible:not([disabled]){color:inherit;background-color:var(--rdp-background-color);border:var(--rdp-outline);}.", prefix, "-button:hover:not([disabled]):not(.", prefix, "-day_selected){background-color:var(--rdp-background-color);}.", prefix, "-months{display:flex;justify-content:center;}.", prefix, "-month{margin:0 1em;}.", prefix, "-month:first-child{margin-left:0;}.", prefix, "-month:last-child{margin-right:0;}.", prefix, "-table{margin:0;max-width:calc(var(--rdp-cell-size) * 7);border-collapse:collapse;}.", prefix, "-with_weeknumber .", prefix, "-table{max-width:calc(var(--rdp-cell-size) * 8);border-collapse:collapse;}.", prefix, "-caption{display:flex;align-items:center;justify-content:space-between;padding:0;text-align:left;}.", prefix, "-multiple_months .", prefix, "-caption{position:relative;display:block;text-align:center;}.", prefix, "-caption_dropdowns{position:relative;display:inline-flex;}.", prefix, "-caption_label{position:relative;z-index:1;display:inline-flex;align-items:center;margin:0;padding:0 0.25em;white-space:nowrap;color:currentColor;border:0;border:2px solid transparent;font-family:inherit;font-size:var(--rdp-caption-font-size);font-weight:600;}.", prefix, "-nav{white-space:nowrap;}.", prefix, "-multiple_months .", prefix, "-caption_start .", prefix, "-nav{position:absolute;top:50%;left:0;transform:translateY(-50%);}.", prefix, "-multiple_months .", prefix, "-caption_end .", prefix, "-nav{position:absolute;top:50%;right:0;transform:translateY(-50%);}.", prefix, "-nav_button{display:inline-flex;align-items:center;justify-content:center;width:var(--rdp-cell-size);height:var(--rdp-cell-size);}.", prefix, "-dropdown_year,.", prefix, "-dropdown_month{position:relative;display:inline-flex;align-items:center;}.", prefix, "-dropdown{appearance:none;position:absolute;z-index:2;top:0;bottom:0;left:0;width:100%;margin:0;padding:0;cursor:inherit;opacity:0;border:none;background-color:transparent;font-family:inherit;font-size:inherit;line-height:inherit;}.", prefix, "-dropdown[disabled]{opacity:unset;color:unset;}.", prefix, "-dropdown:focus-visible:not([disabled])+.", prefix, "-caption_label{background-color:var(--rdp-background-color);border:var(--rdp-outline);border-radius:6px;}.", prefix, "-dropdown_icon{margin:0 0 0 5px;}.", prefix, "-head{border:0;}.", prefix, "-head_row,.", prefix, "-row{height:100%;}.", prefix, "-head_cell{vertical-align:middle;font-size:inherit;font-weight:400;color:", theme.colors.textSecondary, ";text-align:center;height:100%;height:var(--rdp-cell-size);padding:0;text-transform:uppercase;}.", prefix, "-tbody{border:0;}.", prefix, "-tfoot{margin:0.5em;}.", prefix, "-cell{width:var(--rdp-cell-size);height:100%;height:var(--rdp-cell-size);padding:0;text-align:center;}.", prefix, "-weeknumber{font-size:0.75em;}.", prefix, "-weeknumber,.", prefix, "-day{display:flex;overflow:hidden;align-items:center;justify-content:center;box-sizing:border-box;width:var(--rdp-cell-size);max-width:var(--rdp-cell-size);height:var(--rdp-cell-size);margin:0;border:2px solid transparent;border-radius:", theme.general.borderRadiusBase, "px;}.", prefix, "-day_today:not(.", prefix, "-day_outside){font-weight:bold;}.", prefix, "-day_selected,.", prefix, "-day_selected:focus-visible,.", prefix, "-day_selected:hover{color:var(--rdp-selected-color);opacity:1;background-color:var(--rdp-accent-color);}.", prefix, "-day_outside{pointer-events:none;color:", theme.colors.textSecondary, ";}.", prefix, "-day_selected:focus-visible{outline:var(--rdp-outline);outline-offset:2px;z-index:1;}.", prefix, ":not([dir='rtl']) .", prefix, "-day_range_start:not(.", prefix, "-day_range_end){border-top-right-radius:0;border-bottom-right-radius:0;}.", prefix, ":not([dir='rtl']) .", prefix, "-day_range_end:not(.", prefix, "-day_range_start){border-top-left-radius:0;border-bottom-left-radius:0;}.", prefix, "[dir='rtl'] .", prefix, "-day_range_start:not(.", prefix, "-day_range_end){border-top-left-radius:0;border-bottom-left-radius:0;}.", prefix, "[dir='rtl'] .", prefix, "-day_range_end:not(.", prefix, "-day_range_start){border-top-right-radius:0;border-bottom-right-radius:0;}.", prefix, "-day_range_start,.", prefix, "-day_range_end{border:0;&>span{width:100%;height:100%;display:flex;align-items:center;justify-content:center;border-radius:", theme.general.borderRadiusBase, "px;background-color:var(--rdp-accent-color);color:", theme.colors.white, ";}}.", prefix, "-day_range_end.", prefix, "-day_range_start{border-radius:", theme.general.borderRadiusBase, "px;}.", prefix, "-day_range_middle{border-radius:0;background-color:var(--rdp-background-color);color:", theme.colors.actionDefaultTextDefault, ";&:hover{color:", theme.colors.actionTertiaryTextHover, ";}}.", prefix, "-row>td:last-of-type .", prefix, "-day_range_middle{border-top-right-radius:", theme.general.borderRadiusBase, "px;border-bottom-right-radius:", theme.general.borderRadiusBase, "px;}.", prefix, "-row>td:first-of-type .", prefix, "-day_range_middle{border-top-left-radius:", theme.general.borderRadiusBase, "px;border-bottom-left-radius:", theme.general.borderRadiusBase, "px;}" + (process.env.NODE_ENV === "production" ? "" : ";label:getDayPickerStyles;"));
+const getDayPickerStyles = (prefix, theme) => /*#__PURE__*/css(".", prefix, "{--rdp-cell-size:", theme.general.heightSm, "px;--rdp-caption-font-size:", theme.typography.fontSizeBase, "px;--rdp-accent-color:", theme.colors.actionPrimaryBackgroundDefault, ";--rdp-background-color:", theme.colors.actionTertiaryBackgroundPress, ";--rdp-accent-color-dark:", theme.colors.actionPrimaryBackgroundDefault, ";--rdp-background-color-dark:", theme.colors.actionTertiaryBackgroundPress, ";--rdp-outline:2px solid var(--rdp-accent-color);--rdp-outline-selected:3px solid var(--rdp-accent-color);--rdp-selected-color:#fff;padding:4px;}.", prefix, "-vhidden{box-sizing:border-box;padding:0;margin:0;background:transparent;border:0;-moz-appearance:none;-webkit-appearance:none;appearance:none;position:absolute!important;top:0;width:1px!important;height:1px!important;padding:0!important;overflow:hidden!important;clip:rect(1px, 1px, 1px, 1px)!important;border:0!important;}.", prefix, "-button_reset{appearance:none;position:relative;margin:0;padding:0;cursor:default;color:inherit;background:none;font:inherit;-moz-appearance:none;-webkit-appearance:none;}.", prefix, "-button_reset:focus-visible{outline:none;}.", prefix, "-button{border:2px solid transparent;}.", prefix, "-button[disabled]:not(.", prefix, "-day_selected){opacity:0.25;}.", prefix, "-button:not([disabled]){cursor:pointer;}.", prefix, "-button:focus-visible:not([disabled]){color:inherit;background-color:var(--rdp-background-color);border:var(--rdp-outline);}.", prefix, "-button:hover:not([disabled]):not(.", prefix, "-day_selected){background-color:var(--rdp-background-color);}.", prefix, "-months{display:flex;justify-content:center;}.", prefix, "-month{margin:0 1em;}.", prefix, "-month:first-of-type{margin-left:0;}.", prefix, "-month:last-child{margin-right:0;}.", prefix, "-table{margin:0;max-width:calc(var(--rdp-cell-size) * 7);border-collapse:collapse;}.", prefix, "-with_weeknumber .", prefix, "-table{max-width:calc(var(--rdp-cell-size) * 8);border-collapse:collapse;}.", prefix, "-caption{display:flex;align-items:center;justify-content:space-between;padding:0;text-align:left;}.", prefix, "-multiple_months .", prefix, "-caption{position:relative;display:block;text-align:center;}.", prefix, "-caption_dropdowns{position:relative;display:inline-flex;}.", prefix, "-caption_label{position:relative;z-index:1;display:inline-flex;align-items:center;margin:0;padding:0 0.25em;white-space:nowrap;color:currentColor;border:0;border:2px solid transparent;font-family:inherit;font-size:var(--rdp-caption-font-size);font-weight:600;}.", prefix, "-nav{white-space:nowrap;}.", prefix, "-multiple_months .", prefix, "-caption_start .", prefix, "-nav{position:absolute;top:50%;left:0;transform:translateY(-50%);}.", prefix, "-multiple_months .", prefix, "-caption_end .", prefix, "-nav{position:absolute;top:50%;right:0;transform:translateY(-50%);}.", prefix, "-nav_button{display:inline-flex;align-items:center;justify-content:center;width:var(--rdp-cell-size);height:var(--rdp-cell-size);}.", prefix, "-dropdown_year,.", prefix, "-dropdown_month{position:relative;display:inline-flex;align-items:center;}.", prefix, "-dropdown{appearance:none;position:absolute;z-index:2;top:0;bottom:0;left:0;width:100%;margin:0;padding:0;cursor:inherit;opacity:0;border:none;background-color:transparent;font-family:inherit;font-size:inherit;line-height:inherit;}.", prefix, "-dropdown[disabled]{opacity:unset;color:unset;}.", prefix, "-dropdown:focus-visible:not([disabled])+.", prefix, "-caption_label{background-color:var(--rdp-background-color);border:var(--rdp-outline);border-radius:6px;}.", prefix, "-dropdown_icon{margin:0 0 0 5px;}.", prefix, "-head{border:0;}.", prefix, "-head_row,.", prefix, "-row{height:100%;}.", prefix, "-head_cell{vertical-align:middle;font-size:inherit;font-weight:400;color:", theme.colors.textSecondary, ";text-align:center;height:100%;height:var(--rdp-cell-size);padding:0;text-transform:uppercase;}.", prefix, "-tbody{border:0;}.", prefix, "-tfoot{margin:0.5em;}.", prefix, "-cell{width:var(--rdp-cell-size);height:100%;height:var(--rdp-cell-size);padding:0;text-align:center;}.", prefix, "-weeknumber{font-size:0.75em;}.", prefix, "-weeknumber,.", prefix, "-day{display:flex;overflow:hidden;align-items:center;justify-content:center;box-sizing:border-box;width:var(--rdp-cell-size);max-width:var(--rdp-cell-size);height:var(--rdp-cell-size);margin:0;border:2px solid transparent;border-radius:", theme.general.borderRadiusBase, "px;}.", prefix, "-day_today:not(.", prefix, "-day_outside){font-weight:bold;}.", prefix, "-day_selected,.", prefix, "-day_selected:focus-visible,.", prefix, "-day_selected:hover{color:var(--rdp-selected-color);opacity:1;background-color:var(--rdp-accent-color);}.", prefix, "-day_outside{pointer-events:none;color:", theme.colors.textSecondary, ";}.", prefix, "-day_selected:focus-visible{outline:var(--rdp-outline);outline-offset:2px;z-index:1;}.", prefix, ":not([dir='rtl']) .", prefix, "-day_range_start:not(.", prefix, "-day_range_end){border-top-right-radius:0;border-bottom-right-radius:0;}.", prefix, ":not([dir='rtl']) .", prefix, "-day_range_end:not(.", prefix, "-day_range_start){border-top-left-radius:0;border-bottom-left-radius:0;}.", prefix, "[dir='rtl'] .", prefix, "-day_range_start:not(.", prefix, "-day_range_end){border-top-left-radius:0;border-bottom-left-radius:0;}.", prefix, "[dir='rtl'] .", prefix, "-day_range_end:not(.", prefix, "-day_range_start){border-top-right-radius:0;border-bottom-right-radius:0;}.", prefix, "-day_range_start,.", prefix, "-day_range_end{border:0;&>span{width:100%;height:100%;display:flex;align-items:center;justify-content:center;border-radius:", theme.general.borderRadiusBase, "px;background-color:var(--rdp-accent-color);color:", theme.colors.white, ";}}.", prefix, "-day_range_end.", prefix, "-day_range_start{border-radius:", theme.general.borderRadiusBase, "px;}.", prefix, "-day_range_middle{border-radius:0;background-color:var(--rdp-background-color);color:", theme.colors.actionDefaultTextDefault, ";&:hover{color:", theme.colors.actionTertiaryTextHover, ";}}.", prefix, "-row>td:last-of-type .", prefix, "-day_range_middle{border-top-right-radius:", theme.general.borderRadiusBase, "px;border-bottom-right-radius:", theme.general.borderRadiusBase, "px;}.", prefix, "-row>td:first-of-type .", prefix, "-day_range_middle{border-top-left-radius:", theme.general.borderRadiusBase, "px;border-bottom-left-radius:", theme.general.borderRadiusBase, "px;}" + (process.env.NODE_ENV === "production" ? "" : ";label:getDayPickerStyles;"));
 
 const generateDatePickerClassNames = prefix => ({
   root: `${prefix}`,
@@ -321,14 +320,6 @@ const getDatePickerQuickActionBasic = _ref => {
     ...sevenDaysAgo
   }];
 };
-var _ref2 = process.env.NODE_ENV === "production" ? {
-  name: "1xsrjyo",
-  styles: "*::-webkit-calendar-picker-indicator{display:none;}"
-} : {
-  name: "wudvyp-DatePicker",
-  styles: "*::-webkit-calendar-picker-indicator{display:none;};label:DatePicker;",
-  toString: _EMOTION_STRINGIFIED_CSS_ERROR__$1
-};
 const DatePicker = /*#__PURE__*/forwardRef((props, ref) => {
   const {
     classNamePrefix,
@@ -356,11 +347,12 @@ const DatePicker = /*#__PURE__*/forwardRef((props, ref) => {
     dateTimeDisabledFn,
     quickActions,
     wrapperProps,
+    onOkPress,
+    okButtonLabel,
     ...restProps
   } = props;
   const format$1 = includeTime ? 'yyyy-MM-dd HH:mm' : 'yyyy-MM-dd';
   const [date, setDate] = useState(value);
-  const [triggerValue, setTriggerValue] = useState(value ? format(value, format$1) : undefined);
   const [isVisible, setIsVisible] = useState(Boolean(open));
   const inputRef = useRef(null);
   const visibleRef = useRef(isVisible);
@@ -375,16 +367,23 @@ const DatePicker = /*#__PURE__*/forwardRef((props, ref) => {
     onOpenChange === null || onOpenChange === void 0 || onOpenChange(isVisible);
   }, [isVisible, onOpenChange]);
   useEffect(() => {
-    if (value && format(value, format$1) !== triggerValue) {
-      setTriggerValue(format(value, format$1));
-    }
-    if (!value && !date && triggerValue) {
-      setTriggerValue(undefined);
-    }
-  }, [value, triggerValue, format$1, date]);
-  useEffect(() => {
     setIsVisible(Boolean(open));
   }, [open]);
+  useEffect(() => {
+    if (value) {
+      if (value instanceof Date && isValid(value)) {
+        setDate(value);
+      } else {
+        if (isValid(new Date(value))) {
+          setDate(new Date(value));
+        } else {
+          setDate(undefined);
+        }
+      }
+    } else {
+      setDate(undefined);
+    }
+  }, [value]);
   const handleChange = useCallback((date, isCalendarUpdate) => {
     if (onChange) {
       onChange({
@@ -411,37 +410,24 @@ const DatePicker = /*#__PURE__*/forwardRef((props, ref) => {
       handleChange === null || handleChange === void 0 || handleChange(date, true);
       return date;
     });
-    setTriggerValue(format(date, format$1));
     if (!includeTime) {
       setIsVisible(false);
     }
   };
-  const isDateDisabled = (date, value) => {
-    if (!date || !value) {
-      return false;
-    }
-    return isMatch(date, Array.isArray(value) ? value : [value]);
-  };
-  const handleTriggerUpdate = e => {
-    var _e$nativeEvent;
-    const value = (_e$nativeEvent = e.nativeEvent) === null || _e$nativeEvent === void 0 || (_e$nativeEvent = _e$nativeEvent.target) === null || _e$nativeEvent === void 0 ? void 0 : _e$nativeEvent.value;
-
-    // Checks if date is disabled via disabled props (only checks days)
-    if (datePickerProps !== null && datePickerProps !== void 0 && datePickerProps.disabled && isDateDisabled(value, datePickerProps === null || datePickerProps === void 0 ? void 0 : datePickerProps.disabled)) {
+  const handleInputUpdate = updatedDate => {
+    if (!updatedDate || !isValid(updatedDate)) {
+      setDate(undefined);
+      handleChange === null || handleChange === void 0 || handleChange(undefined, false);
       return;
     }
-
-    // If time is included, check if the time is disabled via dateTimeDisabledFn that has access to the full range
-    if (includeTime && dateTimeDisabledFn && dateTimeDisabledFn(value)) {
-      return;
+    if (date && updatedDate && includeTime) {
+      updatedDate.setHours(updatedDate.getHours());
+      updatedDate.setMinutes(updatedDate.getMinutes());
     }
-    setTriggerValue(value);
-    if (value) {
-      const parsedDate = new Date(value);
-      if (isValid(parsedDate)) {
-        setDate(parsedDate);
-        handleChange === null || handleChange === void 0 || handleChange(parsedDate, false);
-      }
+    setDate(updatedDate);
+    handleChange === null || handleChange === void 0 || handleChange(updatedDate, false);
+    if (!includeTime) {
+      setIsVisible(false);
     }
   };
   const handleClear = useCallback(() => {
@@ -450,16 +436,16 @@ const DatePicker = /*#__PURE__*/forwardRef((props, ref) => {
     handleChange === null || handleChange === void 0 || handleChange(undefined, false);
   }, [onClear, handleChange]);
   const handleTimeUpdate = e => {
-    var _e$nativeEvent2;
-    const newTime = (_e$nativeEvent2 = e.nativeEvent) === null || _e$nativeEvent2 === void 0 || (_e$nativeEvent2 = _e$nativeEvent2.target) === null || _e$nativeEvent2 === void 0 ? void 0 : _e$nativeEvent2.value;
-    const time = date ? format(date, 'HH:mm') : undefined;
+    var _e$nativeEvent;
+    const newTime = (_e$nativeEvent = e.nativeEvent) === null || _e$nativeEvent === void 0 || (_e$nativeEvent = _e$nativeEvent.target) === null || _e$nativeEvent === void 0 ? void 0 : _e$nativeEvent.value;
+    const time = date && isValid(date) ? format(date, 'HH:mm') : undefined;
     if (newTime && newTime !== time) {
       if (date) {
-        const updatedDate = date;
+        const updatedDate = new Date(date);
         const timeSplit = newTime.split(':');
         updatedDate.setHours(+timeSplit[0]);
         updatedDate.setMinutes(+timeSplit[1]);
-        handleDatePickerUpdate(date);
+        handleInputUpdate(updatedDate);
       }
     }
   };
@@ -494,6 +480,7 @@ const DatePicker = /*#__PURE__*/forwardRef((props, ref) => {
     ...props
   });
   return jsx("div", {
+    className: `${classNamePrefix}-datepicker`,
     css: /*#__PURE__*/css({
       width,
       minWidth,
@@ -501,10 +488,11 @@ const DatePicker = /*#__PURE__*/forwardRef((props, ref) => {
       pointerEvents: restProps !== null && restProps !== void 0 && restProps.disabled ? 'none' : 'auto'
     }, process.env.NODE_ENV === "production" ? "" : ";label:DatePicker;"),
     ...wrapperProps,
-    children: jsxs(Root$6, {
+    children: jsxs(Root$4, {
+      componentId: "codegen_design-system_src_development_datepicker_datepicker.tsx_330",
       open: isVisible,
       onOpenChange: setIsVisible,
-      children: [jsx(Trigger$1, {
+      children: [jsx(Trigger, {
         asChild: true,
         disabled: restProps === null || restProps === void 0 ? void 0 : restProps.disabled,
         role: "combobox",
@@ -519,6 +507,7 @@ const DatePicker = /*#__PURE__*/forwardRef((props, ref) => {
             "aria-label": includeTime ? 'Select Date and Time' : 'Select Date',
             prefix: "Date:",
             role: "textbox",
+            max: includeTime ? '9999-12-31T23:59' : '9999-12-31',
             ...restProps,
             css: /*#__PURE__*/css({
               '*::-webkit-calendar-picker-indicator': {
@@ -535,15 +524,15 @@ const DatePicker = /*#__PURE__*/forwardRef((props, ref) => {
             }, process.env.NODE_ENV === "production" ? "" : ";label:DatePicker;"),
             type: includeTime ? 'datetime-local' : 'date',
             onKeyDown: event => handleInputKeyDown(event, setIsVisible),
-            onChange: handleTriggerUpdate,
-            value: triggerValue
+            onChange: e => handleInputUpdate(new Date(e.target.value)),
+            value: date && isValid(date) ? format(date, format$1) : undefined
           }), jsx("input", {
             type: "hidden",
             ref: ref,
-            value: date
+            value: date || ''
           })]
         })
-      }), jsxs(Content$1, {
+      }), jsxs(Content, {
         align: "start",
         css: datePickerStyles,
         children: [jsx(DayPicker, {
@@ -563,6 +552,7 @@ const DatePicker = /*#__PURE__*/forwardRef((props, ref) => {
             IconLeft: chevronLeftIconComp,
             IconRight: chevronRightIconComp
           },
+          defaultMonth: date,
           classNames: classNames
         }), (quickActions === null || quickActions === void 0 ? void 0 : quickActions.length) && jsx("div", {
           style: {
@@ -585,22 +575,50 @@ const DatePicker = /*#__PURE__*/forwardRef((props, ref) => {
           "aria-label": "Time",
           role: "textbox",
           ...timeInputProps,
-          value: date ? format(date, 'HH:mm') : defaultTime,
+          value: date && isValid(date) ? format(date, 'HH:mm') : undefined,
           onChange: handleTimeUpdate,
-          css: _ref2,
+          css: /*#__PURE__*/css({
+            '*::-webkit-calendar-picker-indicator': {
+              position: 'absolute',
+              right: -8,
+              width: theme.general.iconSize,
+              height: theme.general.iconSize,
+              zIndex: theme.options.zIndexBase + 1,
+              color: 'transparent',
+              background: 'transparent'
+            },
+            [`.${classNamePrefix}-input-suffix`]: {
+              position: 'absolute',
+              right: 12,
+              top: 8
+            }
+          }, process.env.NODE_ENV === "production" ? "" : ";label:DatePicker;"),
           suffix: jsx(ClockIcon, {}),
           disabled: timeInputProps === null || timeInputProps === void 0 ? void 0 : timeInputProps.disabled
+        }), mode === 'range' && includeTime && onOkPress && jsx("div", {
+          css: /*#__PURE__*/css({
+            paddingTop: theme.spacing.md,
+            display: 'flex',
+            justifyContent: 'flex-end'
+          }, process.env.NODE_ENV === "production" ? "" : ";label:DatePicker;"),
+          children: jsx(Button$1, {
+            "aria-label": "Open end date picker",
+            type: "primary",
+            componentId: "datepicker-dubois-ok-button",
+            onClick: onOkPress,
+            children: okButtonLabel !== null && okButtonLabel !== void 0 ? okButtonLabel : 'Ok'
+          })
         })]
       })]
     })
   });
 });
-const getRangeQuickActionsBasic = _ref3 => {
+const getRangeQuickActionsBasic = _ref2 => {
   let {
     today,
     yesterday,
     lastWeek
-  } = _ref3;
+  } = _ref2;
   const todayStart = startOfToday();
   const weekStart = startOfWeek(todayStart);
   return [{
@@ -621,7 +639,7 @@ const getRangeQuickActionsBasic = _ref3 => {
     ...lastWeek
   }];
 };
-var _ref4 = process.env.NODE_ENV === "production" ? {
+var _ref3 = process.env.NODE_ENV === "production" ? {
   name: "stj4fv",
   styles: "*::-webkit-calendar-picker-indicator{display:none;}border-top-right-radius:0;border-bottom-right-radius:0"
 } : {
@@ -649,6 +667,9 @@ const RangePicker = props => {
     from: startDatePickerProps === null || startDatePickerProps === void 0 ? void 0 : startDatePickerProps.value,
     to: endDatePickerProps === null || endDatePickerProps === void 0 ? void 0 : endDatePickerProps.value
   });
+  const {
+    classNamePrefix
+  } = useDesignSystemTheme();
 
   // Focus is lost when the popover is closed, we need to set the focus back to the input that opened the popover manually.
   const [isFromVisible, setIsFromVisible] = useState(false);
@@ -682,6 +703,18 @@ const RangePicker = props => {
     }
     return false;
   }, [range]);
+  useEffect(() => {
+    setRange(prevValue => ({
+      from: startDatePickerProps === null || startDatePickerProps === void 0 ? void 0 : startDatePickerProps.value,
+      to: prevValue === null || prevValue === void 0 ? void 0 : prevValue.to
+    }));
+  }, [startDatePickerProps === null || startDatePickerProps === void 0 ? void 0 : startDatePickerProps.value]);
+  useEffect(() => {
+    setRange(prevValue => ({
+      from: prevValue === null || prevValue === void 0 ? void 0 : prevValue.from,
+      to: endDatePickerProps === null || endDatePickerProps === void 0 ? void 0 : endDatePickerProps.value
+    }));
+  }, [endDatePickerProps === null || endDatePickerProps === void 0 ? void 0 : endDatePickerProps.value]);
   const quickActionsWithHandler = useMemo(() => {
     if (quickActions) {
       return quickActions.map(action => {
@@ -710,36 +743,34 @@ const RangePicker = props => {
     return quickActions;
   }, [quickActions, onChange]);
   const handleUpdateDate = useCallback((e, isStart) => {
-    setRange(prevRange => {
-      const date = e.target.value;
-      const newRange = isStart ? {
-        from: date,
-        to: prevRange === null || prevRange === void 0 ? void 0 : prevRange.to
-      } : {
-        from: prevRange === null || prevRange === void 0 ? void 0 : prevRange.from,
-        to: date
-      };
-      if (!includeTime) {
-        if (isStart) {
-          setIsFromVisible(false);
-          if (e.updateLocation === 'calendar') {
-            setIsToVisible(true);
-          }
-        } else {
-          setIsToVisible(false);
-        }
-      }
+    const date = e.target.value;
+    const newRange = isStart ? {
+      from: date,
+      to: range === null || range === void 0 ? void 0 : range.to
+    } : {
+      from: range === null || range === void 0 ? void 0 : range.from,
+      to: date
+    };
+    if (!includeTime) {
       if (isStart) {
-        var _startDatePickerProps;
-        startDatePickerProps === null || startDatePickerProps === void 0 || (_startDatePickerProps = startDatePickerProps.onChange) === null || _startDatePickerProps === void 0 || _startDatePickerProps.call(startDatePickerProps, e);
+        setIsFromVisible(false);
+        if (e.updateLocation === 'calendar') {
+          setIsToVisible(true);
+        }
       } else {
-        var _endDatePickerProps$o;
-        endDatePickerProps === null || endDatePickerProps === void 0 || (_endDatePickerProps$o = endDatePickerProps.onChange) === null || _endDatePickerProps$o === void 0 || _endDatePickerProps$o.call(endDatePickerProps, e);
+        setIsToVisible(false);
       }
-      onChange === null || onChange === void 0 || onChange(newRange);
-      return newRange;
-    });
-  }, [onChange, includeTime, startDatePickerProps, endDatePickerProps]);
+    }
+    if (isStart) {
+      var _startDatePickerProps;
+      startDatePickerProps === null || startDatePickerProps === void 0 || (_startDatePickerProps = startDatePickerProps.onChange) === null || _startDatePickerProps === void 0 || _startDatePickerProps.call(startDatePickerProps, e);
+    } else {
+      var _endDatePickerProps$o;
+      endDatePickerProps === null || endDatePickerProps === void 0 || (_endDatePickerProps$o = endDatePickerProps.onChange) === null || _endDatePickerProps$o === void 0 || _endDatePickerProps$o.call(endDatePickerProps, e);
+    }
+    setRange(newRange);
+    onChange === null || onChange === void 0 || onChange(newRange);
+  }, [onChange, includeTime, startDatePickerProps, endDatePickerProps, range]);
 
   // Use useMemo to calculate disabled dates
   const disabledDates = useMemo(() => {
@@ -764,7 +795,22 @@ const RangePicker = props => {
       endDisabled
     };
   }, [range === null || range === void 0 ? void 0 : range.from, range === null || range === void 0 ? void 0 : range.to, startDatePickerProps === null || startDatePickerProps === void 0 || (_startDatePickerProps6 = startDatePickerProps.datePickerProps) === null || _startDatePickerProps6 === void 0 ? void 0 : _startDatePickerProps6.disabled, endDatePickerProps === null || endDatePickerProps === void 0 || (_endDatePickerProps$d5 = endDatePickerProps.datePickerProps) === null || _endDatePickerProps$d5 === void 0 ? void 0 : _endDatePickerProps$d5.disabled]);
+  const openEndDatePicker = () => {
+    setIsFromVisible(false);
+    setIsToVisible(true);
+  };
+  const closeEndDatePicker = () => {
+    setIsToVisible(false);
+  };
+  const handleTimePickerKeyPress = e => {
+    var _props$startDatePicke, _props$startDatePicke2;
+    if (e.key === 'Enter') {
+      openEndDatePicker();
+    }
+    (_props$startDatePicke = props.startDatePickerProps) === null || _props$startDatePicke === void 0 || (_props$startDatePicke = _props$startDatePicke.timeInputProps) === null || _props$startDatePicke === void 0 || (_props$startDatePicke2 = _props$startDatePicke.onKeyDown) === null || _props$startDatePicke2 === void 0 || _props$startDatePicke2.call(_props$startDatePicke, e);
+  };
   return jsxs("div", {
+    className: `${classNamePrefix}-rangepicker`,
     ...wrapperProps,
     "data-focused": isRangeInputFocused,
     css: /*#__PURE__*/css({
@@ -777,18 +823,22 @@ const RangePicker = props => {
     children: [jsx(DatePicker, {
       quickActions: quickActionsWithHandler,
       prefix: "Start:",
+      open: isFromVisible,
+      onOpenChange: setIsFromVisible,
+      okButtonLabel: "Next",
       ...startDatePickerProps,
       id: id,
       ref: fromInputRef,
       disabled: disabled || (startDatePickerProps === null || startDatePickerProps === void 0 ? void 0 : startDatePickerProps.disabled),
       onChange: e => handleUpdateDate(e, true),
       includeTime: includeTime,
-      open: isFromVisible,
-      onOpenChange: setIsFromVisible,
       allowClear: allowClear,
       datePickerProps: {
         ...(startDatePickerProps === null || startDatePickerProps === void 0 ? void 0 : startDatePickerProps.datePickerProps),
         disabled: disabledDates.startDisabled
+      },
+      timeInputProps: {
+        onKeyDown: handleTimePickerKeyPress
       }
       // @ts-expect-error - DatePickerProps does not have a mode property in the public API but is needed for this use case
       ,
@@ -806,16 +856,18 @@ const RangePicker = props => {
         setIsRangeInputFocused(false);
         startDatePickerProps === null || startDatePickerProps === void 0 || (_startDatePickerProps8 = startDatePickerProps.onBlur) === null || _startDatePickerProps8 === void 0 || _startDatePickerProps8.call(startDatePickerProps, e);
       },
-      css: _ref4,
+      css: _ref3,
       wrapperProps: {
         style: {
           width: '50%'
         }
-      }
+      },
+      onOkPress: openEndDatePicker
     }), jsx(DatePicker, {
       quickActions: quickActionsWithHandler,
       prefix: "End:",
       min: range === null || range === void 0 || (_range$from = range.from) === null || _range$from === void 0 ? void 0 : _range$from.toString(),
+      okButtonLabel: "Close",
       ...endDatePickerProps,
       ref: toInputRef,
       disabled: disabled || (endDatePickerProps === null || endDatePickerProps === void 0 ? void 0 : endDatePickerProps.disabled),
@@ -853,119 +905,18 @@ const RangePicker = props => {
         style: {
           width: '50%'
         }
-      }
+      },
+      onOkPress: closeEndDatePicker
     })]
   });
 };
 
-const getCommonTabsListStyles = theme => {
-  return {
-    display: 'flex',
-    borderBottom: `1px solid ${theme.colors.border}`,
-    marginBottom: theme.spacing.md,
-    height: theme.general.heightSm,
-    boxSizing: 'border-box'
-  };
-};
-const getCommonTabsTriggerStyles = theme => {
-  return {
-    display: 'flex',
-    fontWeight: theme.typography.typographyBoldFontWeight,
-    fontSize: theme.typography.fontSizeMd,
-    backgroundColor: 'transparent',
-    marginRight: theme.spacing.md
-  };
-};
-
-const Root$5 = /*#__PURE__*/React__default.forwardRef((props, forwardedRef) => {
-  return jsx(RadixNavigationMenu.Root, {
-    ...props,
-    ref: forwardedRef
-  });
-});
-const List$1 = /*#__PURE__*/React__default.forwardRef((props, forwardedRef) => {
-  const {
-    theme
-  } = useDesignSystemTheme();
-  const commonTabsListStyles = getCommonTabsListStyles(theme);
-  return jsx(RadixNavigationMenu.List, {
-    css: /*#__PURE__*/css({
-      ...commonTabsListStyles,
-      marginTop: 0,
-      padding: 0,
-      overflow: 'auto hidden',
-      listStyle: 'none'
-    }, process.env.NODE_ENV === "production" ? "" : ";label:List;"),
-    ...props,
-    ref: forwardedRef
-  });
-});
-const Item$1 = /*#__PURE__*/React__default.forwardRef((_ref, forwardedRef) => {
-  let {
-    children,
-    active,
-    ...props
-  } = _ref;
-  const {
-    theme
-  } = useDesignSystemTheme();
-  const commonTabsTriggerStyles = getCommonTabsTriggerStyles(theme);
-  return jsx(RadixNavigationMenu.Item, {
-    css: /*#__PURE__*/css({
-      ...commonTabsTriggerStyles,
-      height: theme.general.heightSm,
-      minWidth: theme.spacing.lg,
-      justifyContent: 'center',
-      ...(active && {
-        // Use box-shadow instead of border to prevent it from affecting the size of the element, which results in visual
-        // jumping when switching tabs.
-        boxShadow: `inset 0 -4px 0 ${theme.colors.actionPrimaryBackgroundDefault}`
-      })
-    }, process.env.NODE_ENV === "production" ? "" : ";label:Item;"),
-    ...props,
-    ref: forwardedRef,
-    children: jsx(RadixNavigationMenu.Link, {
-      asChild: true,
-      active: active,
-      css: /*#__PURE__*/css({
-        padding: `${theme.spacing.xs}px 0 ${theme.spacing.sm}px 0`,
-        '&:focus': {
-          outline: `2px auto ${theme.colors.actionDefaultBorderFocus}`,
-          outlineOffset: '-1px'
-        },
-        '&&': {
-          color: active ? theme.colors.textPrimary : theme.colors.textSecondary,
-          textDecoration: 'none',
-          '&:hover': {
-            color: active ? theme.colors.textPrimary : theme.colors.actionDefaultTextHover,
-            textDecoration: 'none'
-          },
-          '&:focus': {
-            textDecoration: 'none'
-          },
-          '&:active': {
-            color: active ? theme.colors.textPrimary : theme.colors.actionDefaultTextPress
-          }
-        }
-      }, process.env.NODE_ENV === "production" ? "" : ";label:Item;"),
-      children: children
-    })
-  });
-});
-
-var NavigationMenu = /*#__PURE__*/Object.freeze({
-  __proto__: null,
-  Item: Item$1,
-  List: List$1,
-  Root: Root$5
-});
-
 const RadioGroupContext = /*#__PURE__*/React__default.createContext('medium');
-const Root$4 = /*#__PURE__*/React__default.forwardRef((_ref, forwardedRef) => {
+const Root$3 = /*#__PURE__*/React__default.forwardRef((_ref, forwardedRef) => {
   let {
     size,
     componentId,
-    analyticsEvents,
+    analyticsEvents = [DesignSystemEventProviderAnalyticsEventTypes.OnValueChange],
     valueHasNoPii,
     onValueChange,
     ...props
@@ -974,10 +925,11 @@ const Root$4 = /*#__PURE__*/React__default.forwardRef((_ref, forwardedRef) => {
     theme
   } = useDesignSystemTheme();
   const contextValue = React__default.useMemo(() => size !== null && size !== void 0 ? size : 'medium', [size]);
+  const memoizedAnalyticsEvents = useMemo(() => analyticsEvents, [analyticsEvents]);
   const eventContext = useDesignSystemEventComponentCallbacks({
     componentType: DesignSystemEventProviderComponentTypes.PillControl,
     componentId,
-    analyticsEvents: analyticsEvents !== null && analyticsEvents !== void 0 ? analyticsEvents : [DesignSystemEventProviderAnalyticsEventTypes.OnValueChange],
+    analyticsEvents: memoizedAnalyticsEvents,
     valueHasNoPii
   });
   const onValueChangeWrapper = useCallback(value => {
@@ -1133,7 +1085,7 @@ const useRadioGroupItemStyles = (size, iconClass) => {
 var PillControl = /*#__PURE__*/Object.freeze({
   __proto__: null,
   Item: Item,
-  Root: Root$4
+  Root: Root$3
 });
 
 const PreviewCard = _ref => {
@@ -1150,7 +1102,7 @@ const PreviewCard = _ref => {
     size = 'default',
     dangerouslyAppendEmotionCSS,
     componentId,
-    analyticsEvents,
+    analyticsEvents = [],
     ...props
   } = _ref;
   const styles = usePreviewCardStyles({
@@ -1160,14 +1112,15 @@ const PreviewCard = _ref => {
   const tabIndex = onClick ? 0 : undefined;
   const role = onClick ? 'button' : undefined;
   const showFooter = startActions || endActions;
+  const memoizedAnalyticsEvents = useMemo(() => analyticsEvents, [analyticsEvents]);
   const eventContext = useDesignSystemEventComponentCallbacks({
     componentType: DesignSystemEventProviderComponentTypes.PreviewCard,
     componentId,
-    analyticsEvents: analyticsEvents !== null && analyticsEvents !== void 0 ? analyticsEvents : []
+    analyticsEvents: memoizedAnalyticsEvents
   });
   const onClickWrapper = useCallback(e => {
     if (onClick) {
-      eventContext.onClick();
+      eventContext.onClick(e);
       onClick(e);
     }
   }, [eventContext, onClick]);
@@ -1223,7 +1176,7 @@ const usePreviewCardStyles = _ref2 => {
   const isInteractive = onClick !== undefined;
   return {
     container: {
-      borderRadius: theme.borders.borderRadiusLg,
+      borderRadius: theme.legacyBorders.borderRadiusLg,
       border: `1px solid ${theme.colors.border}`,
       padding: size === 'large' ? theme.spacing.lg : theme.spacing.md,
       color: theme.colors.textSecondary,
@@ -1257,7 +1210,7 @@ const usePreviewCardStyles = _ref2 => {
     },
     image: {
       '& > *': {
-        borderRadius: theme.borders.borderRadiusMd
+        borderRadius: theme.legacyBorders.borderRadiusMd
       }
     },
     header: {
@@ -1334,7 +1287,7 @@ const getProgressRootStyles = (theme, _ref) => {
   };
   return /*#__PURE__*/css(importantify(styles), process.env.NODE_ENV === "production" ? "" : ";label:getProgressRootStyles;");
 };
-const Root$3 = props => {
+const Root$2 = props => {
   const {
     children,
     value,
@@ -1389,7 +1342,7 @@ const Indicator = props => {
 var Progress = /*#__PURE__*/Object.freeze({
   __proto__: null,
   Indicator: Indicator,
-  Root: Root$3
+  Root: Root$2
 });
 
 function _EMOTION_STRINGIFIED_CSS_ERROR__() { return "You have tried to stringify object returned from `css` function. It isn't supposed to be used directly (e.g. as value of the `className` prop), but rather handed to emotion so it can handle it (e.g. as value of `css` prop)."; }
@@ -1404,7 +1357,7 @@ var _ref = process.env.NODE_ENV === "production" ? {
 const getRootStyles$1 = () => {
   return _ref;
 };
-const Root$2 = /*#__PURE__*/forwardRef((props, ref) => {
+const Root$1 = /*#__PURE__*/forwardRef((props, ref) => {
   return jsx(RadixSlider.Root, {
     ...addDebugOutlineIfEnabled(),
     css: getRootStyles$1(),
@@ -1492,339 +1445,9 @@ const Thumb = /*#__PURE__*/forwardRef((props, ref) => {
 var Slider = /*#__PURE__*/Object.freeze({
   __proto__: null,
   Range: Range,
-  Root: Root$2,
+  Root: Root$1,
   Thumb: Thumb,
   Track: Track
-});
-
-const TabsV2RootContext = /*#__PURE__*/React__default.createContext({
-  activeValue: undefined,
-  componentId: 'design_system.tabsv2.default_component_id'
-});
-const TabsV2ListContext = /*#__PURE__*/React__default.createContext({
-  viewportRef: {
-    current: null
-  }
-});
-const Root$1 = /*#__PURE__*/React__default.forwardRef((_ref, forwardedRef) => {
-  let {
-    value,
-    defaultValue,
-    onValueChange,
-    componentId,
-    analyticsEvents,
-    valueHasNoPii,
-    ...props
-  } = _ref;
-  const isControlled = value !== undefined;
-  const [uncontrolledActiveValue, setUncontrolledActiveValue] = React__default.useState(defaultValue);
-  const eventContext = useDesignSystemEventComponentCallbacks({
-    componentType: DesignSystemEventProviderComponentTypes.TabsV2,
-    componentId,
-    analyticsEvents: analyticsEvents !== null && analyticsEvents !== void 0 ? analyticsEvents : [DesignSystemEventProviderAnalyticsEventTypes.OnValueChange],
-    valueHasNoPii,
-    shouldStartInteraction: true
-  });
-  const onValueChangeWrapper = value => {
-    eventContext.onValueChange(value);
-    if (onValueChange) {
-      onValueChange(value);
-    }
-    if (!isControlled) {
-      setUncontrolledActiveValue(value);
-    }
-  };
-  return jsx(TabsV2RootContext.Provider, {
-    value: {
-      activeValue: isControlled ? value : uncontrolledActiveValue,
-      componentId
-    },
-    children: jsx(RadixTabs.Root, {
-      value: value,
-      defaultValue: defaultValue,
-      onValueChange: onValueChangeWrapper,
-      ...props,
-      ref: forwardedRef
-    })
-  });
-});
-const List = /*#__PURE__*/React__default.forwardRef((_ref2, forwardedRef) => {
-  let {
-    addButtonProps,
-    scrollAreaViewportCss,
-    children,
-    dangerouslyAppendEmotionCSS,
-    ...props
-  } = _ref2;
-  const viewportRef = React__default.useRef(null);
-  const {
-    componentId
-  } = React__default.useContext(TabsV2RootContext);
-  const css = useListStyles();
-  return jsx(TabsV2ListContext.Provider, {
-    value: {
-      viewportRef
-    },
-    children: jsxs("div", {
-      css: [css['container'], dangerouslyAppendEmotionCSS, process.env.NODE_ENV === "production" ? "" : ";label:List;"],
-      children: [jsxs(ScrollArea.Root, {
-        type: "hover",
-        css: [css['root'], process.env.NODE_ENV === "production" ? "" : ";label:List;"],
-        children: [jsx(ScrollArea.Viewport, {
-          css: [css['viewport'], scrollAreaViewportCss, process.env.NODE_ENV === "production" ? "" : ";label:List;"],
-          ref: viewportRef,
-          children: jsx(RadixTabs.List, {
-            css: css['list'],
-            ...props,
-            ref: forwardedRef,
-            children: children
-          })
-        }), jsx(ScrollArea.Scrollbar, {
-          orientation: "horizontal",
-          css: css['scrollbar'],
-          children: jsx(ScrollArea.Thumb, {
-            css: css['thumb']
-          })
-        })]
-      }), addButtonProps && jsx("div", {
-        css: [css['addButtonContainer'], addButtonProps.dangerouslyAppendEmotionCSS, process.env.NODE_ENV === "production" ? "" : ";label:List;"],
-        children: jsx(Button$1, {
-          icon: jsx(PlusIcon, {}),
-          size: "small",
-          "aria-label": "Add tab",
-          css: css['addButton'],
-          onClick: addButtonProps.onClick,
-          componentId: `${componentId}.add_tab`,
-          className: addButtonProps.className
-        })
-      })]
-    })
-  });
-});
-const Trigger = /*#__PURE__*/React__default.forwardRef((_ref3, forwardedRef) => {
-  let {
-    onClose,
-    value,
-    disabled,
-    children,
-    ...props
-  } = _ref3;
-  const triggerRef = React__default.useRef(null);
-  const mergedRef = useMergeRefs([forwardedRef, triggerRef]);
-  const {
-    activeValue,
-    componentId
-  } = React__default.useContext(TabsV2RootContext);
-  const {
-    viewportRef
-  } = React__default.useContext(TabsV2ListContext);
-  const isClosable = onClose !== undefined && !disabled;
-  const css = useTriggerStyles(isClosable);
-  const eventContext = useDesignSystemEventComponentCallbacks({
-    componentType: DesignSystemEventProviderComponentTypes.Button,
-    componentId: `${componentId}.close_tab`,
-    analyticsEvents: [DesignSystemEventProviderAnalyticsEventTypes.OnClick]
-  });
-  const scrollActiveTabIntoView = React__default.useCallback(() => {
-    if (triggerRef.current && viewportRef.current && activeValue === value) {
-      const viewportPosition = viewportRef.current.getBoundingClientRect();
-      const triggerPosition = triggerRef.current.getBoundingClientRect();
-      if (triggerPosition.left < viewportPosition.left) {
-        viewportRef.current.scrollLeft -= viewportPosition.left - triggerPosition.left;
-      } else if (triggerPosition.right > viewportPosition.right) {
-        viewportRef.current.scrollLeft += triggerPosition.right - viewportPosition.right;
-      }
-    }
-  }, [viewportRef, activeValue, value]);
-  const debouncedScrollActiveTabIntoView = React__default.useMemo(() => _debounce(scrollActiveTabIntoView, 10), [scrollActiveTabIntoView]);
-  React__default.useEffect(() => {
-    scrollActiveTabIntoView();
-  }, [scrollActiveTabIntoView]);
-  React__default.useEffect(() => {
-    if (!viewportRef.current || !triggerRef.current) {
-      return;
-    }
-    const resizeObserver = new ResizeObserver(debouncedScrollActiveTabIntoView);
-    resizeObserver.observe(viewportRef.current);
-    resizeObserver.observe(triggerRef.current);
-    return () => {
-      resizeObserver.disconnect();
-      debouncedScrollActiveTabIntoView.cancel();
-    };
-  }, [debouncedScrollActiveTabIntoView, viewportRef]);
-  return jsxs(RadixTabs.Trigger, {
-    css: css['trigger'],
-    value: value,
-    disabled: disabled
-    // The close icon cannot be focused within the trigger button
-    // Instead, we close the tab when the Delete key is pressed
-    ,
-    onKeyDown: e => {
-      if (isClosable && e.key === 'Delete') {
-        eventContext.onClick();
-        e.stopPropagation();
-        e.preventDefault();
-        onClose(value);
-      }
-    },
-    ...props,
-    ref: mergedRef,
-    children: [children, isClosable &&
-    // An icon is used instead of a button to prevent nesting a button within a button
-    jsx(CloseSmallIcon, {
-      onMouseDown: e => {
-        // The Radix Tabs implementation only allows the trigger to be selected when the left mouse
-        // button is clicked and not when the control key is pressed (to avoid MacOS right click).
-        // Reimplementing the same behavior for the close icon in the trigger
-        if (!disabled && e.button === 0 && e.ctrlKey === false) {
-          eventContext.onClick();
-          // Clicking the close icon should not select the tab
-          e.stopPropagation();
-          e.preventDefault();
-          onClose(value);
-        }
-      },
-      css: css['closeSmallIcon'],
-      "aria-hidden": "false",
-      "aria-label": "Press delete to close the tab"
-    })]
-  });
-});
-const Content = /*#__PURE__*/React__default.forwardRef((_ref4, forwardedRef) => {
-  let {
-    ...props
-  } = _ref4;
-  const css = useContentStyles();
-  return jsx(RadixTabs.Content, {
-    css: css,
-    ...props,
-    ref: forwardedRef
-  });
-});
-const useListStyles = () => {
-  const {
-    theme
-  } = useDesignSystemTheme();
-  const containerStyles = getCommonTabsListStyles(theme);
-  return {
-    container: containerStyles,
-    root: {
-      overflow: 'hidden'
-    },
-    viewport: {
-      ...getShadowScrollStyles(theme, {
-        orientation: 'horizontal'
-      })
-    },
-    list: {
-      display: 'flex',
-      alignItems: 'center'
-    },
-    scrollbar: {
-      display: 'flex',
-      flexDirection: 'column',
-      userSelect: 'none',
-      /* Disable browser handling of all panning and zooming gestures on touch devices */
-      touchAction: 'none',
-      height: 3
-    },
-    thumb: {
-      flex: 1,
-      background: theme.isDarkMode ? 'rgba(255, 255, 255, 0.2)' : 'rgba(17, 23, 28, 0.2)',
-      '&:hover': {
-        background: theme.isDarkMode ? 'rgba(255, 255, 255, 0.3)' : 'rgba(17, 23, 28, 0.3)'
-      },
-      borderRadius: theme.borders.borderRadiusMd,
-      position: 'relative'
-    },
-    addButtonContainer: {
-      flex: 1
-    },
-    addButton: {
-      margin: '2px 0 6px 0'
-    }
-  };
-};
-const useTriggerStyles = isClosable => {
-  const {
-    theme
-  } = useDesignSystemTheme();
-  const commonTriggerStyles = getCommonTabsTriggerStyles(theme);
-  return {
-    trigger: {
-      ...commonTriggerStyles,
-      alignItems: 'center',
-      justifyContent: isClosable ? 'space-between' : 'center',
-      minWidth: isClosable ? theme.spacing.lg + theme.spacing.md : theme.spacing.lg,
-      color: theme.colors.textSecondary,
-      lineHeight: theme.typography.lineHeightBase,
-      whiteSpace: 'nowrap',
-      border: 'none',
-      padding: `${theme.spacing.xs}px 0 ${theme.spacing.sm}px 0`,
-      // The close icon is hidden on inactive tabs until the tab is hovered
-      // Checking for the last icon to handle cases where the tab name includes an icon
-      [`& > .anticon:last-of-type`]: {
-        visibility: 'hidden'
-      },
-      '&:hover': {
-        cursor: 'pointer',
-        color: theme.colors.actionDefaultTextHover,
-        [`& > .anticon:last-of-type`]: {
-          visibility: 'visible'
-        }
-      },
-      '&:active': {
-        color: theme.colors.actionDefaultTextPress
-      },
-      outlineStyle: 'none',
-      outlineColor: theme.colors.actionDefaultBorderFocus,
-      '&:focus-visible': {
-        outlineStyle: 'auto'
-      },
-      '&[data-state="active"]': {
-        color: theme.colors.textPrimary,
-        // Use box-shadow instead of border to prevent it from affecting the size of the element, which results in visual
-        // jumping when switching tabs.
-        boxShadow: `inset 0 -4px 0 ${theme.colors.actionPrimaryBackgroundDefault}`,
-        // The close icon is always visible on active tabs
-        [`& > .anticon:last-of-type`]: {
-          visibility: 'visible'
-        }
-      },
-      '&[data-disabled]': {
-        color: theme.colors.actionDisabledText,
-        '&:hover': {
-          cursor: 'not-allowed'
-        }
-      }
-    },
-    closeSmallIcon: {
-      marginLeft: theme.spacing.xs,
-      color: theme.colors.textSecondary,
-      '&:hover': {
-        color: theme.colors.actionDefaultTextHover
-      },
-      '&:active': {
-        color: theme.colors.actionDefaultTextPress
-      }
-    }
-  };
-};
-const useContentStyles = () => {
-  // This is needed so force mounted content is not displayed when the tab is inactive
-  return {
-    '&[data-state="inactive"]': {
-      display: 'none'
-    }
-  };
-};
-
-var TabsV2 = /*#__PURE__*/Object.freeze({
-  __proto__: null,
-  Content: Content,
-  List: List,
-  Root: Root$1,
-  Trigger: Trigger
 });
 
 const getRootStyles = theme => {
@@ -1832,7 +1455,7 @@ const getRootStyles = theme => {
     alignItems: 'center',
     backgroundColor: theme.colors.backgroundSecondary,
     border: `1px solid ${theme.colors.borderDecorative}`,
-    borderRadius: theme.borders.borderRadiusMd,
+    borderRadius: theme.legacyBorders.borderRadiusMd,
     boxShadow: theme.general.shadowLow,
     display: 'flex',
     gap: theme.spacing.md,
@@ -1921,5 +1544,320 @@ var Toolbar = /*#__PURE__*/Object.freeze({
   ToggleItem: ToggleItem
 });
 
-export { BANNER_MAX_HEIGHT, BANNER_MIN_HEIGHT, Banner, DatePicker, NavigationMenu, PillControl, PreviewCard, Progress, RangePicker, Slider, TabsV2, Toolbar, getDatePickerQuickActionBasic, getRangeQuickActionsBasic };
+const flattenData = function (data, expandedRows) {
+  let depth = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : 0;
+  let parentId = arguments.length > 3 && arguments[3] !== undefined ? arguments[3] : null;
+  return data.reduce((acc, node) => {
+    acc.push({
+      ...node,
+      depth,
+      parentId
+    });
+    if (node.children && expandedRows[node.id]) {
+      acc.push(...flattenData(node.children, expandedRows, depth + 1, node.id));
+    }
+    return acc;
+  }, []);
+};
+function treeGridReducer(state, action) {
+  switch (action.type) {
+    case 'TOGGLE_ROW_EXPANDED':
+      return {
+        ...state,
+        expandedRows: {
+          ...state.expandedRows,
+          [action.rowId]: !state.expandedRows[action.rowId]
+        }
+      };
+    case 'SET_ACTIVE_ROW':
+      return {
+        ...state,
+        activeRowIndex: action.rowIndex
+      };
+    default:
+      return state;
+  }
+}
+const findFocusableElementForCellIndex = (row, cellIndex) => {
+  const cell = row.cells[cellIndex];
+  return (cell === null || cell === void 0 ? void 0 : cell.querySelector('[tabindex], button, a, input, select, textarea')) || null;
+};
+const findNextFocusableCellIndexInRow = (row, columns, startIndex, direction) => {
+  const cells = Array.from(row.cells);
+  const increment = direction === 'next' ? 1 : -1;
+  const limit = direction === 'next' ? cells.length : -1;
+  for (let i = startIndex + increment; i !== limit; i += increment) {
+    var _cell$textContent;
+    const cell = cells[i];
+    const column = columns[i];
+    const focusableElement = findFocusableElementForCellIndex(row, i);
+    const cellContent = cell === null || cell === void 0 || (_cell$textContent = cell.textContent) === null || _cell$textContent === void 0 ? void 0 : _cell$textContent.trim();
+    if (focusableElement || !column.contentFocusable && cellContent) {
+      return i;
+    }
+  }
+  return -1;
+};
+const TreeGrid = _ref => {
+  let {
+    data,
+    columns,
+    renderCell,
+    renderRow,
+    renderTable,
+    renderHeader,
+    onRowKeyboardSelect,
+    onCellKeyboardSelect,
+    includeHeader = false,
+    initialState = {
+      expandedRows: {}
+    }
+  } = _ref;
+  const [state, dispatch] = useReducer(treeGridReducer, {
+    ...initialState,
+    activeRowIndex: 0
+  });
+  const gridRef = useRef(null);
+  const flattenedData = useMemo(() => flattenData(data, state.expandedRows), [data, state.expandedRows]);
+  const toggleRowExpanded = useCallback(rowId => {
+    dispatch({
+      type: 'TOGGLE_ROW_EXPANDED',
+      rowId
+    });
+  }, []);
+  const focusRow = useCallback(rowIndex => {
+    var _gridRef$current;
+    const row = (_gridRef$current = gridRef.current) === null || _gridRef$current === void 0 ? void 0 : _gridRef$current.querySelector(`tbody tr:nth-child(${rowIndex + 1})`);
+    row === null || row === void 0 || row.focus();
+    dispatch({
+      type: 'SET_ACTIVE_ROW',
+      rowIndex
+    });
+  }, []);
+  const handleKeyDown = useCallback((event, rowIndex) => {
+    const {
+      key
+    } = event;
+    let newRowIndex = rowIndex;
+    const closestTd = event.target.closest('td');
+    if (!gridRef.current || !gridRef.current.contains(document.activeElement)) {
+      return;
+    }
+    const handleArrowVerticalNavigation = direction => {
+      if (closestTd) {
+        var _closestTd$closest;
+        const currentCellIndex = closestTd.cellIndex;
+        let targetRow = (_closestTd$closest = closestTd.closest('tr')) === null || _closestTd$closest === void 0 ? void 0 : _closestTd$closest[`${direction}ElementSibling`];
+        const moveFocusToRow = row => {
+          var _row$cells$currentCel;
+          const focusableElement = findFocusableElementForCellIndex(row, currentCellIndex);
+          const cellContent = (_row$cells$currentCel = row.cells[currentCellIndex]) === null || _row$cells$currentCel === void 0 || (_row$cells$currentCel = _row$cells$currentCel.textContent) === null || _row$cells$currentCel === void 0 ? void 0 : _row$cells$currentCel.trim();
+          if (focusableElement || !columns[currentCellIndex].contentFocusable && cellContent) {
+            event.preventDefault();
+            focusElement(focusableElement || row.cells[currentCellIndex], flattenedData.findIndex(r => r.id === row.dataset['id']));
+            return true;
+          }
+          return false;
+        };
+        while (targetRow) {
+          if (moveFocusToRow(targetRow)) return;
+          targetRow = targetRow[`${direction}ElementSibling`];
+        }
+      } else if (document.activeElement instanceof HTMLTableRowElement) {
+        if (direction === 'next') {
+          newRowIndex = Math.min(rowIndex + 1, flattenedData.length - 1);
+        } else {
+          newRowIndex = Math.max(rowIndex - 1, 0);
+        }
+      }
+    };
+    const handleArrowHorizontalNavigation = direction => {
+      if (closestTd) {
+        const currentRow = closestTd.closest('tr');
+        let targetCellIndex = closestTd.cellIndex;
+        targetCellIndex = findNextFocusableCellIndexInRow(currentRow, columns, targetCellIndex, direction);
+        if (targetCellIndex !== -1) {
+          event.preventDefault();
+          const targetCell = currentRow.cells[targetCellIndex];
+          const focusableElement = findFocusableElementForCellIndex(currentRow, targetCellIndex);
+          focusElement(focusableElement || targetCell, rowIndex);
+          return;
+        } else if (direction === 'previous' && targetCellIndex === -1) {
+          // If we're at the leftmost cell, focus on the row
+          event.preventDefault();
+          currentRow.focus();
+          return;
+        }
+      }
+      if (document.activeElement instanceof HTMLTableRowElement) {
+        const currentRow = document.activeElement;
+        if (direction === 'next') {
+          if (flattenedData[rowIndex].children) {
+            if (!state.expandedRows[flattenedData[rowIndex].id]) {
+              toggleRowExpanded(flattenedData[rowIndex].id);
+            } else {
+              const firstCell = currentRow.cells[0];
+              focusElement(firstCell, rowIndex);
+            }
+          } else {
+            const firstFocusableCell = findNextFocusableCellIndexInRow(currentRow, columns, -1, 'next');
+            if (firstFocusableCell !== -1) {
+              focusElement(currentRow.cells[firstFocusableCell], rowIndex);
+            }
+          }
+        } else {
+          if (state.expandedRows[flattenedData[rowIndex].id]) {
+            toggleRowExpanded(flattenedData[rowIndex].id);
+          } else if (flattenedData[rowIndex].depth && flattenedData[rowIndex].depth > 0) {
+            newRowIndex = flattenedData.findIndex(row => row.id === flattenedData[rowIndex].parentId);
+          }
+        }
+        return;
+      }
+
+      // If we're at the edge of the row, handle expanding/collapsing or moving to parent/child
+      if (direction === 'next') {
+        if (flattenedData[rowIndex].children && !state.expandedRows[flattenedData[rowIndex].id]) {
+          toggleRowExpanded(flattenedData[rowIndex].id);
+        }
+      } else {
+        if (state.expandedRows[flattenedData[rowIndex].id]) {
+          toggleRowExpanded(flattenedData[rowIndex].id);
+        } else if (flattenedData[rowIndex].depth && flattenedData[rowIndex].depth > 0) {
+          newRowIndex = flattenedData.findIndex(row => row.id === flattenedData[rowIndex].parentId);
+        }
+      }
+    };
+    const handleEnterKey = () => {
+      if (closestTd) {
+        onCellKeyboardSelect === null || onCellKeyboardSelect === void 0 || onCellKeyboardSelect(flattenedData[rowIndex].id, columns[closestTd.cellIndex].id);
+      } else if (document.activeElement instanceof HTMLTableRowElement) {
+        onRowKeyboardSelect === null || onRowKeyboardSelect === void 0 || onRowKeyboardSelect(flattenedData[rowIndex].id);
+      }
+    };
+    switch (key) {
+      case 'ArrowUp':
+        handleArrowVerticalNavigation('previous');
+        break;
+      case 'ArrowDown':
+        handleArrowVerticalNavigation('next');
+        break;
+      case 'ArrowLeft':
+        handleArrowHorizontalNavigation('previous');
+        break;
+      case 'ArrowRight':
+        handleArrowHorizontalNavigation('next');
+        break;
+      case 'Enter':
+        handleEnterKey();
+        break;
+      default:
+        return;
+    }
+    if (newRowIndex !== rowIndex) {
+      event.preventDefault();
+      focusRow(newRowIndex);
+    }
+  }, [state.expandedRows, columns, flattenedData, toggleRowExpanded, onRowKeyboardSelect, onCellKeyboardSelect, focusRow]);
+  const focusElement = (element, rowIndex) => {
+    if (element) {
+      element.focus();
+      dispatch({
+        type: 'SET_ACTIVE_ROW',
+        rowIndex
+      });
+    }
+  };
+  const defaultRenderRow = useCallback(_ref2 => {
+    let {
+      rowProps,
+      children
+    } = _ref2;
+    return jsx("tr", {
+      ...rowProps,
+      children: children
+    });
+  }, []);
+  const defaultRenderTable = useCallback(_ref3 => {
+    let {
+      tableProps,
+      children
+    } = _ref3;
+    return jsx("table", {
+      ...tableProps,
+      children: children
+    });
+  }, []);
+  const defaultRenderHeader = useCallback(_ref4 => {
+    let {
+      columns,
+      headerProps
+    } = _ref4;
+    return jsx("thead", {
+      ...headerProps,
+      children: jsx("tr", {
+        children: columns.map(column => jsx("th", {
+          role: "columnheader",
+          children: column.header
+        }, column.id))
+      })
+    });
+  }, []);
+  const renderRowWrapper = useCallback((row, rowIndex) => {
+    const isExpanded = state.expandedRows[row.id];
+    const isKeyboardActive = rowIndex === state.activeRowIndex;
+    const rowProps = {
+      key: row.id,
+      'data-id': row.id,
+      role: 'row',
+      'aria-selected': false,
+      'aria-level': (row.depth || 0) + 1,
+      'aria-expanded': row.children ? isExpanded ? 'true' : 'false' : undefined,
+      tabIndex: isKeyboardActive ? 0 : -1,
+      onKeyDown: e => handleKeyDown(e, rowIndex)
+    };
+    const children = columns.map((column, colIndex) => {
+      const cellProps = {
+        key: `${row.id}-${column.id}`,
+        role: column.isRowHeader ? 'rowheader' : 'gridcell',
+        tabIndex: column.contentFocusable ? undefined : isKeyboardActive ? 0 : -1
+      };
+      return renderCell({
+        row,
+        column,
+        rowDepth: row.depth || 0,
+        rowIndex,
+        colIndex,
+        rowIsKeyboardActive: isKeyboardActive,
+        rowIsExpanded: isExpanded,
+        toggleRowExpanded,
+        cellProps
+      });
+    });
+    return (renderRow || defaultRenderRow)({
+      row,
+      rowIndex,
+      isExpanded,
+      isKeyboardActive,
+      rowProps,
+      children
+    });
+  }, [state.activeRowIndex, state.expandedRows, handleKeyDown, renderCell, renderRow, defaultRenderRow, toggleRowExpanded, columns]);
+  return (renderTable || defaultRenderTable)({
+    tableProps: {
+      role: 'treegrid',
+      ref: gridRef
+    },
+    children: jsxs(Fragment, {
+      children: [includeHeader && (renderHeader || defaultRenderHeader)({
+        columns,
+        headerProps: {}
+      }), jsx("tbody", {
+        children: flattenedData.map((row, index) => renderRowWrapper(row, index))
+      })]
+    })
+  });
+};
+
+export { BANNER_MAX_HEIGHT, BANNER_MIN_HEIGHT, Banner, DatePicker, PillControl, PreviewCard, Progress, RangePicker, Slider, Toolbar, TreeGrid, getDatePickerQuickActionBasic, getRangeQuickActionsBasic };
 //# sourceMappingURL=development.js.map

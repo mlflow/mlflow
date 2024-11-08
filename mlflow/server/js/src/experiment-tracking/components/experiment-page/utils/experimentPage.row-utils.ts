@@ -222,6 +222,7 @@ export const prepareRunsGridData = ({
   runsPinned,
   runsHidden,
   runsHiddenMode = RUNS_VISIBILITY_MODE.FIRST_10_RUNS,
+  runsVisibilityMap = {},
   runData,
   runUuidsMatchingFilter,
   groupBy = null,
@@ -246,6 +247,7 @@ export const prepareRunsGridData = ({
         groupBy,
         groupsExpanded,
         runsHidden,
+        runsVisibilityMap,
         runsHiddenMode,
         useGroupedValuesInCharts,
       });
@@ -402,11 +404,16 @@ export const prepareRunsGridData = ({
     if (shouldEnableToggleIndividualRunsInGroups()) {
       return groupedRuns;
     }
-    return determineVisibleRuns(groupedRuns, runsHidden, runsHiddenMode);
+    return determineVisibleRuns(groupedRuns, runsHidden, runsHiddenMode, runsVisibilityMap);
   }
 
   // If the flat structure is displayed, we can hoist pinned rows to the top
-  return determineVisibleRuns(hoistPinnedRuns(rows, runUuidsMatchingFilter), runsHidden, runsHiddenMode);
+  return determineVisibleRuns(
+    hoistPinnedRuns(rows, runUuidsMatchingFilter),
+    runsHidden,
+    runsHiddenMode,
+    runsVisibilityMap,
+  );
 };
 
 // Hook version of prepareRunsGridData()
@@ -421,6 +428,7 @@ export const useExperimentRunRows = ({
   tagKeyList,
   runsPinned,
   runsHidden,
+  runsVisibilityMap,
   runData,
   runUuidsMatchingFilter,
   groupBy,
@@ -441,6 +449,7 @@ export const useExperimentRunRows = ({
         tagKeyList,
         runsPinned,
         runsHidden,
+        runsVisibilityMap,
         runData,
         runUuidsMatchingFilter,
         groupBy,
@@ -460,6 +469,7 @@ export const useExperimentRunRows = ({
       tagKeyList,
       runsPinned,
       runsHidden,
+      runsVisibilityMap,
       runData,
       runUuidsMatchingFilter,
       groupBy,
@@ -473,6 +483,7 @@ const determineVisibleRuns = (
   runs: RunRowType[],
   runsHidden: string[],
   runsHiddenMode: RUNS_VISIBILITY_MODE,
+  runsVisibilityMap: Record<string, boolean> = {},
 ): RunRowType[] => {
   // In the legacy version, just look into the runs hidden array
   if (!shouldUseNewRunRowsVisibilityModel()) {
@@ -489,7 +500,7 @@ const determineVisibleRuns = (
 
     const rowWithHiddenFlag = {
       ...runRow,
-      hidden: determineIfRowIsHidden(runsHiddenMode, runsHidden, runUuidToToggle, visibleRowCounter),
+      hidden: determineIfRowIsHidden(runsHiddenMode, runsHidden, runUuidToToggle, visibleRowCounter, runsVisibilityMap),
     };
 
     const isGroupContainingRuns = runRow.groupParentInfo && !runRow.groupParentInfo.isRemainingRunsGroup;
@@ -526,7 +537,10 @@ type PrepareRunsGridDataParams = Pick<
   ExperimentRunsSelectorResult,
   'metricKeyList' | 'paramKeyList' | 'modelVersionsByRunUuid'
 > &
-  Pick<ExperimentPageUIState, 'runsExpanded' | 'runsPinned' | 'runsHidden' | 'useGroupedValuesInCharts'> &
+  Pick<
+    ExperimentPageUIState,
+    'runsExpanded' | 'runsPinned' | 'runsHidden' | 'useGroupedValuesInCharts' | 'runsVisibilityMap'
+  > &
   Partial<Pick<ExperimentPageUIState, 'groupsExpanded' | 'runsHiddenMode'>> & {
     /**
      * List of experiments containing the runs

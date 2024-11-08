@@ -17,3 +17,4 @@ type GraphQLGenaiPositiveInt = number;
 type GraphQLGenaiSlug = string;
 type GraphQLGenaiURL = string;
 type GraphQLGenaiUUID = string;
+type GraphQLGenaiBigInt = number;

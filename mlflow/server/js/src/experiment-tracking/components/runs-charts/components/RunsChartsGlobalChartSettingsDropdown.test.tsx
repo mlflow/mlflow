@@ -17,6 +17,7 @@ import {
   ExperimentPageUIStateContextProvider,
   useUpdateExperimentViewUIState,
 } from '../../experiment-page/contexts/ExperimentPageUIStateContext';
+import { TestApolloProvider } from '../../../../common/utils/TestApolloProvider';
 
 jest.setTimeout(30000); // Larger timeout for integration testing
 
@@ -84,10 +85,11 @@ describe('RunsChartsGlobalChartSettingsDropdown', () => {
       const [uiState, setUIState] = useState<ExperimentPageUIState>({
         ...createExperimentPageUIState(),
         compareRunCharts: testCharts,
+        hideEmptyCharts: false,
       });
 
       return (
-        <div>
+        <TestApolloProvider>
           <ExperimentPageUIStateContextProvider setUIState={setUIState}>
             <RunsChartsGlobalChartSettingsDropdown
               globalLineChartConfig={uiState.globalLineChartConfig}
@@ -101,7 +103,8 @@ describe('RunsChartsGlobalChartSettingsDropdown', () => {
                     <RunsChartsCard
                       key={chartConfig.uuid}
                       cardConfig={chartConfig}
-                      chartRunData={[]}
+                      // Generate one sample run so the charts can render
+                      chartRunData={[{ uuid: 'run-1', hidden: false, metrics: { alpha: {}, beta: {} } }] as any}
                       index={index}
                       onRemoveChart={noop}
                       groupBy={null}
@@ -117,7 +120,7 @@ describe('RunsChartsGlobalChartSettingsDropdown', () => {
               </RunsChartsTooltipWrapper>
             </div>
           </ExperimentPageUIStateContextProvider>
-        </div>
+        </TestApolloProvider>
       );
     };
     render(<TestComponent />, {
