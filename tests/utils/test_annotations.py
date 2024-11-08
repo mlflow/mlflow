@@ -198,7 +198,7 @@ def test_deprecated_class_method():
     msg = "``tests.utils.test_annotations.DeprecatedClass`` is deprecated"
     with pytest.warns(FutureWarning, match=re.escape(msg)):
         instance = DeprecatedClass()
-        assert instance.greet() == "Hello"
+    assert instance.greet() == "Hello"
     assert msg in DeprecatedClass.__doc__
 
 
@@ -213,8 +213,8 @@ def test_deprecated_dataclass_fields():
     msg = "``tests.utils.test_annotations.DeprecatedDataClass`` is deprecated since 1.0.0"
     with pytest.warns(FutureWarning, match=re.escape(msg)):
         instance = DeprecatedDataClass(x=5, y=15)
-        assert instance.x == 5
-        assert instance.y == 15
+    assert instance.x == 5
+    assert instance.y == 15
     assert msg in DeprecatedDataClass.__doc__
 
 
@@ -222,7 +222,7 @@ def test_deprecated_dataclass_method():
     msg = "``tests.utils.test_annotations.AnotherDeprecatedDataClass`` is deprecated since 1.0.0"
     with pytest.warns(FutureWarning, match=re.escape(msg)):
         instance = AnotherDeprecatedDataClass(a=3, b=4)
-        assert instance.add() == 7
+    assert instance.add() == 7
     assert msg in AnotherDeprecatedDataClass.__doc__
 
 
