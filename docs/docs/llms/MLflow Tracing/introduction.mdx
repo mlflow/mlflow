@@ -74,9 +74,9 @@ MLflow offers a number of different options to enable tracing of your GenAI appl
 - **Manual trace instrumentation with high-level fluent APIs**: Decorators, function wrappers and context managers via the fluent API allow you to add tracing functionality with minor code modifications.
 - **Low-level client APIs for tracing**: The MLflow client API provides a thread-safe way to handle trace implementations, even in aysnchronous modes of operation.
 
-To learn more about what tracing is, see our [Tracing Concepts Overview](./overview/) guide.
+To learn more about what tracing is, see our [Tracing Concepts Overview](./overview) guide.
 
-To explore the structure and schema of MLflow Tracing, please see the [Tracing Schema](./tracing-schema/) guide.
+To explore the structure and schema of MLflow Tracing, please see the [Tracing Schema](./tracing-schema) guide.
 
 :::note
 MLflow Tracing support is available with the **MLflow 2.14.0** release. Versions of MLflow prior to this release
@@ -88,7 +88,7 @@ do not contain the full set of features that are required for trace logging supp
 ## Automatic Tracing
 
 :::info Hint
-Is your favorite library missing from the list? Consider [contributing to MLflow Tracing](/contribute) or [submitting a feature request](https://github.com/mlflow/mlflow/issues/new?assignees=&labels=enhancement&projects=&template=feature_request_template.yaml&title=%5BFR%5D) to our Github repository.
+Is your favorite library missing from the list? Consider [contributing to MLflow Tracing](./contribute) or [submitting a feature request](https://github.com/mlflow/mlflow/issues/new?assignees=&labels=enhancement&projects=&template=feature_request_template.yaml&title=%5BFR%5D) to our Github repository.
 :::
 
 The easiest way to get started with MLflow Tracing is to leverage the built-in capabilities with MLflow's integrated libraries. MLflow provides automatic tracing capabilities for some of the integrated libraries such as
@@ -109,7 +109,7 @@ for model/API invocations to the active MLflow Experiment.
     mlflow.langchain.autolog()
     ```
 
-    In the full example below, the model and its associated metadata will be logged as a run, while the traces are logged separately to the active experiment. To learn more, please visit [LangChain Autologging documentation](../langchain/autologging/).
+    In the full example below, the model and its associated metadata will be logged as a run, while the traces are logged separately to the active experiment. To learn more, please visit [LangChain Autologging documentation](_).
 
     :::note
     This example has been confirmed working with the following requirement versions:
@@ -194,7 +194,7 @@ for model/API invocations to the active MLflow Experiment.
     ```
 
     For example, the code below will log traces to the currently active experiment (in this case, the activated experiment `"OpenAI"`, set through the use of the <APILink fn="mlflow.set_experiment" /> API).
-    To learn more about OpenAI autologging, you can [view the documentation here](../openai/autologging/).
+    To learn more about OpenAI autologging, you can [view the documentation here](_).
 
     ```python
     import os
@@ -295,7 +295,7 @@ for model/API invocations to the active MLflow Experiment.
     mlflow.llama_index.autolog()
     ```
 
-    To see the full example of tracing LlamaIndex, please visit [LLamaIndex Tracing documentation](../llama-index/##enable-tracing).
+    To see the full example of tracing LlamaIndex, please visit [LLamaIndex Tracing documentation](_).
 
     ![LlamaIndex Tracing](/images/llms/llama-index/llama-index-trace.png)
 
@@ -321,7 +321,7 @@ for model/API invocations to the active MLflow Experiment.
 
 ## Tracing Fluent APIs
 
-MLflow's [`fluent APIs`](/python_api/mlflow#mlflow.start_span) provide a straightforward way to add tracing to your functions and code blocks.
+MLflow's <APILink fn="mlflow.start_span">`fluent APIs`</APILink> provide a straightforward way to add tracing to your functions and code blocks.
 By using decorators, function wrappers, and context managers, you can easily capture detailed trace data with minimal code changes.
 
 As a comparison between the fluent and the client APIs for tracing, the figure below illustrates the differences in complexity between the two APIs,
