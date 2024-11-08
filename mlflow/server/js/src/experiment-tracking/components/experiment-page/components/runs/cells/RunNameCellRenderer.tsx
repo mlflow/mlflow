@@ -1,5 +1,5 @@
 import { ICellRendererParams } from '@ag-grid-community/core';
-import { Button, MinusBoxIcon, PlusSquareIcon, useDesignSystemTheme } from '@databricks/design-system';
+import { Button, MinusSquareIcon, PlusSquareIcon, useDesignSystemTheme } from '@databricks/design-system';
 import { Theme } from '@emotion/react';
 import React, { useMemo } from 'react';
 import { Link } from '../../../../../../common/utils/RoutingUtils';
@@ -69,7 +69,7 @@ export const RunNameCellRenderer = React.memo((props: RunNameCellRendererProps) 
               }}
               key={'Expander-' + runUuid}
               type="link"
-              icon={expanderOpen ? <MinusBoxIcon /> : <PlusSquareIcon />}
+              icon={expanderOpen ? <MinusSquareIcon /> : <PlusSquareIcon />}
             />
           )}
         </div>

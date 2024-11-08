@@ -1,4 +1,12 @@
-import { Button, Popover, Tabs, Tag, LegacyTooltip, Typography, useDesignSystemTheme } from '@databricks/design-system';
+import {
+  Button,
+  Popover,
+  LegacyTabs,
+  Tag,
+  LegacyTooltip,
+  Typography,
+  useDesignSystemTheme,
+} from '@databricks/design-system';
 import React, { useState, useEffect, useCallback } from 'react';
 import { FormattedMessage } from 'react-intl';
 import { ExperimentPageViewState } from '../../models/ExperimentPageViewState';
@@ -6,8 +14,9 @@ import { useExperimentViewLocalStore } from '../../hooks/useExperimentViewLocalS
 import type { ExperimentViewRunsCompareMode } from '../../../../types';
 import { PreviewBadge } from '@mlflow/mlflow/src/shared/building_blocks/PreviewBadge';
 import { getExperimentPageDefaultViewMode, useExperimentPageViewMode } from '../../hooks/useExperimentPageViewMode';
-import { shouldEnableTracingUI } from '../../../../../common/utils/FeatureUtils';
+import { isExperimentLoggedModelsUIEnabled, shouldEnableTracingUI } from '../../../../../common/utils/FeatureUtils';
 import { useShouldShowCombinedRunsTab } from '../../hooks/useShouldShowCombinedRunsTab';
+import { useExperimentPageSearchFacets } from '../../hooks/useExperimentPageSearchFacets';
 
 const COMPARE_RUNS_TOOLTIP_STORAGE_KEY = 'compareRunsTooltip';
 const COMPARE_RUNS_TOOLTIP_STORAGE_ITEM = 'seenBefore';
@@ -16,6 +25,8 @@ export interface ExperimentViewRunsModeSwitchProps {
   viewState?: ExperimentPageViewState;
   runsAreGrouped?: boolean;
   hideBorder?: boolean;
+  explicitViewMode?: ExperimentViewRunsCompareMode;
+  experimentId?: string;
 }
 
 const ChartViewButtonTooltip: React.FC<{
@@ -46,7 +57,10 @@ const ChartViewButtonTooltip: React.FC<{
 
   return (
     <>
-      <Popover.Root open={isToolTipOpen}>
+      <Popover.Root
+        componentId="codegen_mlflow_app_src_experiment-tracking_components_experiment-page_components_runs_experimentviewrunsmodeswitch.tsx_60"
+        open={isToolTipOpen}
+      >
         <Popover.Trigger asChild>
           <div css={{ position: 'absolute', inset: 0 }} />
         </Popover.Trigger>
@@ -83,14 +97,19 @@ export const ExperimentViewRunsModeSwitch = ({
   runsAreGrouped,
   hideBorder = true,
 }: ExperimentViewRunsModeSwitchProps) => {
+  const [, experimentIds] = useExperimentPageSearchFacets();
   const [viewMode, setViewModeInURL] = useExperimentPageViewMode();
   const { classNamePrefix } = useDesignSystemTheme();
   const currentViewMode = viewMode || getExperimentPageDefaultViewMode();
   const showCombinedRuns = useShouldShowCombinedRunsTab();
   const activeTab = showCombinedRuns && ['TABLE', 'CHART'].includes(currentViewMode) ? 'RUNS' : currentViewMode;
 
+  // Extract experiment ID from the URL but only if it's a single experiment.
+  // In case of multiple experiments (compare mode), the experiment ID is undefined.
+  const singleExperimentId = experimentIds.length === 1 ? experimentIds[0] : undefined;
+
   return (
-    <Tabs
+    <LegacyTabs
       dangerouslyAppendEmotionCSS={{
         [`.${classNamePrefix}-tabs-nav`]: {
           marginBottom: 0,
@@ -111,11 +130,11 @@ export const ExperimentViewRunsModeSwitch = ({
           return setViewModeInURL('TABLE');
         }
 
-        setViewModeInURL(newValue);
+        setViewModeInURL(newValue, singleExperimentId);
       }}
     >
       {showCombinedRuns ? (
-        <Tabs.TabPane
+        <LegacyTabs.TabPane
           tab={
             <span data-testid="experiment-runs-mode-switch-combined">
               <FormattedMessage
@@ -128,7 +147,7 @@ export const ExperimentViewRunsModeSwitch = ({
         />
       ) : (
         <>
-          <Tabs.TabPane
+          <LegacyTabs.TabPane
             tab={
               <span data-testid="experiment-runs-mode-switch-list">
                 <FormattedMessage
@@ -139,7 +158,7 @@ export const ExperimentViewRunsModeSwitch = ({
             }
             key="TABLE"
           />
-          <Tabs.TabPane
+          <LegacyTabs.TabPane
             tab={
               <>
                 <span data-testid="experiment-runs-mode-switch-compare">
@@ -159,7 +178,7 @@ export const ExperimentViewRunsModeSwitch = ({
         </>
       )}
 
-      <Tabs.TabPane
+      <LegacyTabs.TabPane
         disabled={runsAreGrouped}
         tab={
           <LegacyTooltip
@@ -184,7 +203,7 @@ export const ExperimentViewRunsModeSwitch = ({
         key="ARTIFACT"
       />
       {shouldEnableTracingUI() && (
-        <Tabs.TabPane
+        <LegacyTabs.TabPane
           tab={
             <span data-testid="experiment-runs-mode-switch-traces">
               <FormattedMessage
@@ -197,6 +216,6 @@ export const ExperimentViewRunsModeSwitch = ({
           key="TRACES"
         />
       )}
-    </Tabs>
+    </LegacyTabs>
   );
 };

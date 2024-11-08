@@ -1,6 +1,6 @@
 import { renderHook, cleanup, waitFor } from '@testing-library/react';
 import { MlflowService } from '../../../sdk/MlflowService';
-import { ModelTraceStatus, type ModelTraceData } from '@databricks/web-shared/model-trace-explorer';
+import { ModelSpanType, ModelTraceStatus, type ModelTraceData } from '@databricks/web-shared/model-trace-explorer';
 import { useExperimentTraceData } from './useExperimentTraceData';
 import Utils from '../../../../common/utils/Utils';
 
@@ -22,6 +22,7 @@ const mockTraceData: ModelTraceData = {
       },
       parent_span_id: null,
       span_type: 'test-span-type',
+      type: ModelSpanType.FUNCTION,
     },
   ],
 };

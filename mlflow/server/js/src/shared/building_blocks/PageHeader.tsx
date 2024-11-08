@@ -60,7 +60,7 @@ type PageHeaderProps = Pick<HeaderProps, 'dangerouslyAppendEmotionCSS'> & {
   title: React.ReactNode;
   breadcrumbs?: React.ReactNode[];
   preview?: boolean;
-  feedbackForm?: string;
+  feedbackOrigin?: string;
   infoPopover?: React.ReactNode;
   children?: React.ReactNode;
   spacerSize?: 'xs' | 'sm' | 'md' | 'lg';
@@ -72,7 +72,7 @@ type PageHeaderProps = Pick<HeaderProps, 'dangerouslyAppendEmotionCSS'> & {
  *   - title,
  *   - optional breadcrumb content,
  *   - optional preview mark,
- *   - optional feedback link, and
+ *   - optional feedback origin: shows the "Send feedback" button when not empty, and
  *   - optional info popover, safe to have link inside.
  */
 export function PageHeader(props: PageHeaderProps) {

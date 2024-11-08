@@ -37,6 +37,7 @@ describe('ExperimentViewTracesTable', () => {
   }: Partial<TracesViewTableProps> = {}) => {
     return renderWithIntl(
       <TracesViewTable
+        experimentIds={['123']}
         error={error}
         traces={traces || []}
         hasNextPage={false}
@@ -50,6 +51,7 @@ describe('ExperimentViewTracesTable', () => {
         rowSelection={{}}
         setRowSelection={() => {}}
         disableTokenColumn={disableTokenColumn}
+        baseComponentId="test"
       />,
     );
   };
@@ -122,5 +124,7 @@ describe('ExperimentViewTracesTable', () => {
   test('renders the table with empty state', () => {
     renderTestComponent({ traces: [] });
     expect(screen.getByText('No traces recorded')).toBeInTheDocument();
+    // expect that the quickstart guide is rendered
+    expect(screen.getByText('Follow the steps below to log your first trace', { exact: false })).toBeInTheDocument();
   });
 });

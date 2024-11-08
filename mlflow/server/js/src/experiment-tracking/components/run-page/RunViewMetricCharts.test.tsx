@@ -13,6 +13,7 @@ import { getSampledMetricHistoryBulkAction } from '../../sdk/SampledMetricHistor
 import { ErrorWrapper } from '../../../common/utils/ErrorWrapper';
 import { openDropdownMenu } from '@databricks/design-system/test-utils/rtl';
 import { DesignSystemProvider } from '@databricks/design-system';
+import { TestApolloProvider } from '../../../common/utils/TestApolloProvider';
 
 jest.mock('../runs-charts/components/RunsMetricsLinePlot', () => ({
   RunsMetricsLinePlot: jest.fn(() => <div />),
@@ -55,9 +56,11 @@ describe('RunViewMetricCharts', () => {
     };
     return renderWithIntl(
       <Provider store={mockStore(MOCK_STATE)}>
-        <DesignSystemProvider>
-          <RunViewMetricCharts mode="model" metricKeys={metricKeys} runInfo={testRunInfo} />
-        </DesignSystemProvider>
+        <TestApolloProvider>
+          <DesignSystemProvider>
+            <RunViewMetricCharts mode="model" metricKeys={metricKeys} runInfo={testRunInfo} />
+          </DesignSystemProvider>
+        </TestApolloProvider>
       </Provider>,
     );
   };

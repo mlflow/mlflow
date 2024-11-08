@@ -16,6 +16,14 @@ export type Scalars = {
   LongString: { input: GraphQLLongString; output: GraphQLLongString; }
 };
 
+export type MlflowGetMetricHistoryBulkIntervalInput = {
+  endStep?: InputMaybe<Scalars['Int']['input']>;
+  maxResults?: InputMaybe<Scalars['Int']['input']>;
+  metricKey?: InputMaybe<Scalars['String']['input']>;
+  runIds?: InputMaybe<Array<InputMaybe<Scalars['String']['input']>>>;
+  startStep?: InputMaybe<Scalars['Int']['input']>;
+};
+
 export type MlflowGetRunInput = {
   runId?: InputMaybe<Scalars['String']['input']>;
   runUuid?: InputMaybe<Scalars['String']['input']>;
@@ -41,3 +49,10 @@ export type GetRunVariables = Exact<{
 
 
 export type GetRun = { mlflowGetRun: { __typename: 'MlflowGetRunResponse', apiError: { __typename: 'ApiError', helpUrl: string | null, code: string | null, message: string | null } | null, run: { __typename: 'MlflowRunExtension', info: { __typename: 'MlflowRunInfo', runName: string | null, status: MlflowRunStatus | null, runUuid: string | null, experimentId: string | null, artifactUri: string | null, endTime: GraphQLLongString | null, lifecycleStage: string | null, startTime: GraphQLLongString | null, userId: string | null } | null, experiment: { __typename: 'MlflowExperiment', experimentId: string | null, name: string | null, artifactLocation: string | null, lifecycleStage: string | null, lastUpdateTime: GraphQLLongString | null, tags: Array<{ __typename: 'MlflowExperimentTag', key: string | null, value: string | null }> | null } | null, modelVersions: Array<{ __typename: 'MlflowModelVersion', status: MlflowModelVersionStatus | null, version: string | null, name: string | null, source: string | null }> | null, data: { __typename: 'MlflowRunData', metrics: Array<{ __typename: 'MlflowMetric', key: string | null, value: number | null, step: GraphQLLongString | null, timestamp: GraphQLLongString | null }> | null, params: Array<{ __typename: 'MlflowParam', key: string | null, value: string | null }> | null, tags: Array<{ __typename: 'MlflowRunTag', key: string | null, value: string | null }> | null } | null, inputs: { __typename: 'MlflowRunInputs', datasetInputs: Array<{ __typename: 'MlflowDatasetInput', dataset: { __typename: 'MlflowDataset', digest: string | null, name: string | null, profile: string | null, schema: string | null, source: string | null, sourceType: string | null } | null, tags: Array<{ __typename: 'MlflowInputTag', key: string | null, value: string | null }> | null }> | null } | null } | null } | null };
+
+export type GetMetricHistoryBulkIntervalVariables = Exact<{
+  data: MlflowGetMetricHistoryBulkIntervalInput;
+}>;
+
+
+export type GetMetricHistoryBulkInterval = { mlflowGetMetricHistoryBulkInterval: { __typename: 'MlflowGetMetricHistoryBulkIntervalResponse', metrics: Array<{ __typename: 'MlflowMetricWithRunId', timestamp: GraphQLLongString | null, step: GraphQLLongString | null, runId: string | null, key: string | null, value: number | null }> | null, apiError: { __typename: 'ApiError', code: string | null, message: string | null } | null } | null };

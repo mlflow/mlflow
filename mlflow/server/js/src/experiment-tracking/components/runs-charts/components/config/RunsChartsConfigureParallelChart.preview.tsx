@@ -1,6 +1,6 @@
 import { RunsChartsRunData } from '../RunsCharts.common';
 import LazyParallelCoordinatesPlot from '../charts/LazyParallelCoordinatesPlot';
-import { processParallelCoordinateData } from '../../utils/parallelCoordinatesPlot.utils';
+import { isParallelChartConfigured, processParallelCoordinateData } from '../../utils/parallelCoordinatesPlot.utils';
 import { useRunsChartsTooltip } from '../../hooks/useRunsChartsTooltip';
 import { RunsChartsParallelCardConfig } from '../../runs-charts.types';
 import { useMemo } from 'react';
@@ -17,10 +17,7 @@ export const RunsChartsConfigureParallelChartPreview = ({
   cardConfig: RunsChartsParallelCardConfig;
   groupBy: RunsGroupByConfig | null;
 }) => {
-  const selectedParamsCount = cardConfig.selectedParams?.length || 0;
-  const selectedMetricsCount = cardConfig.selectedMetrics?.length || 0;
-
-  const isConfigured = selectedParamsCount + selectedMetricsCount >= 2;
+  const isConfigured = isParallelChartConfigured(cardConfig);
 
   const { setTooltip, resetTooltip } = useRunsChartsTooltip(cardConfig);
 

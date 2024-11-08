@@ -11,6 +11,7 @@ export const EXPERIMENT_PAGE_UI_STATE_FIELDS = [
   'runsExpanded',
   'runsPinned',
   'runsHidden',
+  'runsVisibilityMap',
   'runsHiddenMode',
   'compareRunCharts',
   'compareRunSections',
@@ -107,10 +108,20 @@ export interface ExperimentPageUIState extends ExperimentRunsChartsUIConfigurati
 
   /**
    * List of hidden row UUIDs
+   * @deprecated Use "runsVisibilityMap" field instead which has better control over visibility
    */
   runsHidden: string[];
 
+  /**
+   * Determines default visibility mode for runs which are not explicitly specified by "runsVisibilityMap" field
+   */
   runsHiddenMode: RUNS_VISIBILITY_MODE;
+
+  /**
+   * Object mapping run UUIDs (strings) to booleans, where a boolean value of true indicates that
+   * a run has been hidden (its child runs are not visible).
+   */
+  runsVisibilityMap?: Record<string, boolean>;
 
   /**
    * Determines if the experiment view is maximized
@@ -151,6 +162,7 @@ export const createExperimentPageUIState = (): ExperimentPageUIState => ({
   runsExpanded: {},
   runsPinned: [],
   runsHidden: [],
+  runsVisibilityMap: {},
   runsHiddenMode: RUNS_VISIBILITY_MODE.FIRST_10_RUNS,
   compareRunCharts: undefined,
   compareRunSections: undefined,

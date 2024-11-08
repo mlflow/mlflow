@@ -408,6 +408,22 @@ export const listArtifactsApi = (runUuid: any, path?: any, id = getUUID()) => {
 };
 
 /**
+ * Redux action to list artifacts for a logged model.
+ * TODO: discard redux, refactor into hooks
+ */
+export const LIST_ARTIFACTS_LOGGED_MODEL_API = 'LIST_ARTIFACTS_LOGGED_MODEL_API';
+export const listArtifactsLoggedModelApi = (loggedModelId: any, path?: any, id = getUUID()) => {
+  return {
+    type: LIST_ARTIFACTS_API,
+    payload: MlflowService.listArtifactsLoggedModel({
+      loggedModelId,
+      path,
+    }),
+    meta: { id: id, loggedModelId, path: path },
+  };
+};
+
+/**
  * Run this action only after verifying that the /images directory exists
  * Reducer will populate image keys.
  */

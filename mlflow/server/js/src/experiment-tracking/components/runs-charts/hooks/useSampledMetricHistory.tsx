@@ -4,9 +4,11 @@ import { useDispatch, useSelector } from 'react-redux';
 import { ReduxState, ThunkDispatch } from '../../../../redux-types';
 import { createChartAxisRangeKey } from '../components/RunsCharts.common';
 import { getSampledMetricHistoryBulkAction } from '../../../sdk/SampledMetricHistoryService';
-import { SampledMetricsByRunUuidState } from '@mlflow/mlflow/src/experiment-tracking/types';
+import type { SampledMetricsByRunUuidState } from '@mlflow/mlflow/src/experiment-tracking/types';
 import { EXPERIMENT_RUNS_METRIC_AUTO_REFRESH_INTERVAL } from '../../../utils/MetricsUtils';
 import Utils from '../../../../common/utils/Utils';
+import { shouldEnableGraphQLSampledMetrics } from '../../../../common/utils/FeatureUtils';
+import { useSampledMetricHistoryGraphQL } from './useSampledMetricHistoryGraphQL';
 
 type SampledMetricData = SampledMetricsByRunUuidState[string][string][string];
 
@@ -17,13 +19,15 @@ export type SampledMetricsByRun = {
 };
 
 const SAMPLED_METRIC_HISTORY_API_RUN_LIMIT = 100;
+
 /**
- *
  * Automatically fetches sampled metric history for runs, used in run runs charts.
  * After updating list of metrics or runs, optimizes the request and fetches
  * only the missing entries.
+ *
+ * REST-based implementation.
  */
-export const useSampledMetricHistory = (params: {
+export const useSampledMetricHistoryREST = (params: {
   runUuids: string[];
   metricKeys: string[];
   maxResults?: number;
@@ -169,4 +173,38 @@ export const useSampledMetricHistory = (params: {
   }, [dispatch, maxResults, runUuidsSerialized, metricKeys, range, enabled, autoRefreshEnabled]);
 
   return { isLoading, isRefreshing, resultsByRunUuid, refresh: refreshFn };
+};
+
+/**
+ * A switcher hook that selects between the REST and GraphQL implementations of the
+ * `useSampledMetricHistory` hook based on flags and parameter context.
+ */
+export const useSampledMetricHistory = (params: {
+  runUuids: string[];
+  metricKeys: string[];
+  maxResults?: number;
+  range?: [number, number];
+  enabled?: boolean;
+  autoRefreshEnabled?: boolean;
+}) => {
+  const { metricKeys, enabled, autoRefreshEnabled, runUuids } = params;
+
+  // We should use the apollo hook if there is only one metric key and the number of runUuids is less than 100.
+  // To be improved after endpoint will start supporting multiple metric keys.
+  const shouldUseGraphql = shouldEnableGraphQLSampledMetrics() && metricKeys.length === 1 && runUuids.length <= 100;
+
+  const legacyResult = useSampledMetricHistoryREST({
+    ...params,
+    enabled: enabled && !shouldUseGraphql,
+    autoRefreshEnabled: autoRefreshEnabled && !shouldUseGraphql,
+  });
+
+  const graphQlResult = useSampledMetricHistoryGraphQL({
+    ...params,
+    metricKey: metricKeys[0],
+    enabled: enabled && shouldUseGraphql,
+    autoRefreshEnabled: autoRefreshEnabled && shouldUseGraphql,
+  });
+
+  return shouldUseGraphql ? graphQlResult : legacyResult;
 };

@@ -1,6 +1,6 @@
 import ExperimentTrackingRoutes from '../../experiment-tracking/routes';
 import { Link, Location, matchPath, useLocation } from '../utils/RoutingUtils';
-import logo from '../../common/static/home-logo.png';
+import logo from '../static/home-logo.png';
 import { ModelRegistryRoutes } from '../../model-registry/routes';
 import { HomePageDocsUrl, Version } from '../constants';
 import { DarkThemeSwitch } from '@mlflow/mlflow/src/common/components/DarkThemeSwitch';

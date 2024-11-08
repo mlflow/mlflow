@@ -43,12 +43,15 @@ export interface WizardProps {
       * modalTitleWhenCompact: is the modal title for the compact version of the DocumentationSidebar
       *
       * closeLabel: is the aria label used for the sidebar close button
+      *
+      * initialContentId:  Initial content id to be displayed
      */
     verticalDocumentationSidebarConfig?: {
         content: React.ReactNode;
         title: string;
         modalTitleWhenCompact?: string;
         closeLabel: string;
+        initialContentId?: string | undefined;
     };
     /**
      * Called when user clicks on cancel button in Wizard footer
@@ -132,6 +135,11 @@ export interface WizardProps {
      * @default false
      */
     enableClickingToSteps?: boolean;
+    /**
+     * If true, the step description will be hidden for steps not reached yet.
+     * @default false
+     */
+    hideDescriptionForFutureSteps?: boolean;
 }
 export type WizardControlledProps = WizardProps & WizardCurrentStepResult & {
     currentStepIndex: number;

@@ -60,7 +60,10 @@ const TracesViewTablePreviewCell = ({
     <div css={{ display: 'flex', gap: theme.spacing.xs }}>
       {showExpander && (
         <Button
-          componentId="mlflow.experiment_page.traces_table.expand_cell_preview"
+          // it's difficult to distinguish between run and experiment page
+          // in this component due to how the data is passed to the table,
+          // so the base component ID here is simply `mlflow.traces`
+          componentId="mlflow.traces.traces_table.expand_cell_preview"
           size="small"
           icon={isExpanded ? <ChevronDownIcon /> : <ChevronRightIcon />}
           onClick={isExpanded ? collapse : expand}

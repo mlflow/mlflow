@@ -26,6 +26,7 @@ import { RunsChartsDraggableCardsGridContextProvider } from './RunsChartsDraggab
 import { ChartSectionConfig } from '../../../types';
 import { Checkbox } from '@databricks/design-system';
 import userEvent from '@testing-library/user-event-14';
+import { TestApolloProvider } from '../../../../common/utils/TestApolloProvider';
 
 jest.mock('../../../../common/utils/FeatureUtils', () => ({
   ...jest.requireActual('../../../../common/utils/FeatureUtils'),
@@ -42,9 +43,11 @@ describe('RunsChartsDraggableCardsGrid', () => {
       wrapper: ({ children }) => (
         <IntlProvider locale="en">
           <RunsChartsTooltipWrapper component={noopTooltipComponent} contextData={{}}>
-            <MockedReduxStoreProvider state={{ entities: { sampledMetricsByRunUuid: {} } }}>
-              {children}
-            </MockedReduxStoreProvider>
+            <TestApolloProvider>
+              <MockedReduxStoreProvider state={{ entities: { sampledMetricsByRunUuid: {} } }}>
+                {children}
+              </MockedReduxStoreProvider>
+            </TestApolloProvider>
           </RunsChartsTooltipWrapper>
         </IntlProvider>
       ),

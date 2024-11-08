@@ -27,7 +27,6 @@ import userEvent from '@testing-library/user-event-14';
 import { RunsChartsLineChartXAxisType } from '../runs-charts/components/RunsCharts.common';
 import {
   shouldEnableDifferenceViewCharts,
-  shouldEnableHidingChartsWithNoData,
   shouldUseRegexpBasedChartFiltering,
 } from '../../../common/utils/FeatureUtils';
 import { useState } from 'react';
@@ -151,8 +150,6 @@ describe('RunsCompare', () => {
   let currentUIState = {} as ExperimentPageUIState;
 
   beforeEach(() => {
-    jest.mocked(shouldEnableHidingChartsWithNoData).mockImplementation(() => false);
-
     jest.mocked(useSampledMetricHistory).mockReturnValue({
       isLoading: false,
       isRefreshing: false,
@@ -161,6 +158,7 @@ describe('RunsCompare', () => {
     });
     currentUIState = createExperimentPageUIState();
     currentUIState.compareRunCharts = testCharts;
+    currentUIState.hideEmptyCharts = false;
     currentUIState.compareRunSections = compareRunSections;
     currentUIState.isAccordionReordered = false;
   });
@@ -228,7 +226,10 @@ describe('RunsCompare', () => {
   };
 
   test('should render multiple charts and reorder using drag and drop', async () => {
-    createComponentMock();
+    createComponentMock({
+      // Let's have at least one run in the comparison
+      comparedRuns: [{ runUuid: 'run_latest', runName: 'Last run', runInfo: { runUuid: 'run_latest' } } as any],
+    });
 
     await waitFor(() => {
       expect(screen.getByRole('heading', { name: 'metric-beta' })).toBeInTheDocument();
@@ -318,7 +319,10 @@ describe('RunsCompare', () => {
   });
 
   test('drag and drop (reorder) across sections', async () => {
-    createComponentMock();
+    createComponentMock({
+      // Let's have at least one run in the comparison
+      comparedRuns: [{ runUuid: 'run_latest', runName: 'Last run', runInfo: { runUuid: 'run_latest' } } as any],
+    });
 
     await waitFor(() => {
       expect(screen.getByRole('heading', { name: 'metric-beta' })).toBeInTheDocument();
@@ -454,7 +458,10 @@ describe('RunsCompare', () => {
   });
 
   test('drag and drop sections', async () => {
-    createComponentMock();
+    createComponentMock({
+      // Let's have at least one run in the comparison
+      comparedRuns: [{ runUuid: 'run_latest', runName: 'Last run', runInfo: { runUuid: 'run_latest' } } as any],
+    });
 
     await waitFor(() => {
       expect(currentUIState.compareRunSections?.map(({ uuid }) => uuid)).toEqual([
@@ -654,7 +661,13 @@ describe('RunsCompare', () => {
     cleanup();
 
     // Rerender with compareRunCharts and compareRunSections initialized
-    createComponentMock();
+    createComponentMock({
+      // Let's keep runs in state so the charts will be rendered
+      comparedRuns: [
+        { runUuid: 'run_latest', runName: 'Last run', runInfo: { runUuid: 'run_latest' } },
+        { runUuid: 'run_oldest', runName: 'First run', runInfo: { runUuid: 'run_oldest' } },
+      ] as any,
+    });
 
     await waitFor(() => {
       expect(screen.getByText('tmp')).toBeInTheDocument();
@@ -1321,7 +1334,10 @@ describe('RunsCompare', () => {
     // For this test, add chart with multiple metrics at the end
     currentUIState.compareRunCharts = [...testCharts, testMultipleMetricsLineChart];
 
-    createComponentMock();
+    createComponentMock({
+      // Let's have at least one run in the comparison
+      comparedRuns: [{ runUuid: 'run_latest', runName: 'Last run', runInfo: { runUuid: 'run_latest' } } as any],
+    });
 
     await waitFor(() => {
       expect(screen.queryByRole('heading', { name: 'metric-alpha' })).toBeInTheDocument();
@@ -1479,7 +1495,6 @@ describe('RunsCompare', () => {
   describe('hiding charts with no data', () => {
     // Set up charts
     beforeEach(() => {
-      jest.mocked(shouldEnableHidingChartsWithNoData).mockImplementation(() => true);
       jest.mocked(shouldEnableDifferenceViewCharts).mockImplementation(() => true);
 
       currentUIState.compareRunCharts = [

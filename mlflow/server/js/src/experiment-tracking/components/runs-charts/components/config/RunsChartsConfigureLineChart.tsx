@@ -4,7 +4,6 @@ import {
   Switch,
   LegacyTooltip,
   QuestionMarkIcon,
-  Form,
   useDesignSystemTheme,
   ThemeType,
   SegmentedControlGroup,
@@ -473,6 +472,7 @@ export const RunsChartsConfigureLineChart = ({
                 description="Label for a radio button that configures the x-axis on a line chart. This option is for the absolute time that the metrics were logged."
               />
               <Tooltip
+                componentId="codegen_mlflow_app_src_experiment-tracking_components_runs-charts_components_config_runschartsconfigurelinechart.tsx_474"
                 content={
                   <FormattedMessage
                     defaultMessage="Absolute date and time"
@@ -493,6 +493,7 @@ export const RunsChartsConfigureLineChart = ({
                 description="Label for a radio button that configures the x-axis on a line chart. This option is for relative time since the first metric was logged."
               />
               <Tooltip
+                componentId="codegen_mlflow_app_src_experiment-tracking_components_runs-charts_components_config_runschartsconfigurelinechart.tsx_494"
                 content={
                   <FormattedMessage
                     defaultMessage="Amount of time that has passed since the first metric value was logged"
@@ -702,6 +703,7 @@ export const RunsChartsConfigureLineChart = ({
               />
             </Typography.Text>
             <Tooltip
+              componentId="codegen_mlflow_app_src_experiment-tracking_components_runs-charts_components_config_runschartsconfigurelinechart.tsx_703"
               delayDuration={0}
               content={
                 <FormattedMessage

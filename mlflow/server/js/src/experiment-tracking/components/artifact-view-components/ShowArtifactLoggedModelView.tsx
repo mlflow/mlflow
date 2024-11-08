@@ -263,56 +263,6 @@ validate_serving_input(model_uri, serving_payload)`;
     );
   }
 
-  renderServingPayload(servingInput?: string) {
-    if (servingInput) {
-      return (
-        <div>
-          <span className="code-comment">
-            {`# The model is logged with an input example. MLflow converts
-# it into the serving payload format for the deployed model endpoint,
-# and saves it to 'serving_input_example.json'\n`}
-          </span>
-          serving_payload = <span className="code-string">{`"""${servingInput}"""`}</span>
-        </div>
-      );
-    } else {
-      return (
-        <div className="code">
-          <span className="code-comment">
-            {`# The logged model does not contain an input_example. 
-# Manually generate a serving payload to verify your model prior to deployment.\n`}
-          </span>
-          <span className="code-keyword">from</span> mlflow.models <span className="code-keyword">import</span>{' '}
-          convert_input_example_to_serving_input{`\n\n`}
-          <span className="code-comment">
-            {`# Define INPUT_EXAMPLE via assignment with your own input example to the model
-# A valid input example is a data instance suitable for pyfunc prediction\n`}
-          </span>
-          serving_payload = convert_input_example_to_serving_input(INPUT_EXAMPLE)
-        </div>
-      );
-    }
-  }
-
-  renderValidateServingInputCodeSnippet() {
-    const { runUuid, path } = this.props;
-    const modelPath = `runs:/${runUuid}/${path}`;
-    return (
-      <>
-        <Title level={3}>
-          <FormattedMessage
-            defaultMessage="Validate the model before deployment"
-            // eslint-disable-next-line max-len
-            description="Heading text for validating the model before deploying it for serving"
-          />
-        </Title>
-        <div className="artifact-logged-model-view-code-content">
-          {this.renderValidateServingInput(modelPath, this.state.serving_input)}
-        </div>
-      </>
-    );
-  }
-
   renderPyfuncCodeSnippet() {
     if (this.state.loader_module === 'mlflow.spark') {
       return this.renderMlflowSparkCodeSnippet();
@@ -374,6 +324,25 @@ validate_serving_input(model_uri, serving_payload)`;
         </Text>
         <ShowArtifactCodeSnippet code={this.validateModelForServingText(modelPath, servingInput)} />
       </div>
+    );
+  }
+
+  renderValidateServingInputCodeSnippet() {
+    const { runUuid, path } = this.props;
+    const modelPath = `runs:/${runUuid}/${path}`;
+    return (
+      <>
+        <Title level={3}>
+          <FormattedMessage
+            defaultMessage="Validate the model before deployment"
+            // eslint-disable-next-line max-len
+            description="Heading text for validating the model before deploying it for serving"
+          />
+        </Title>
+        <div className="artifact-logged-model-view-code-content">
+          {this.renderValidateServingInput(modelPath, this.state.serving_input)}
+        </div>
+      </>
     );
   }
 

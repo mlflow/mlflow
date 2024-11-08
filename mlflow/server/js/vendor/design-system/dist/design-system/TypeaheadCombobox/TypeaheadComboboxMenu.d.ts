@@ -6,10 +6,10 @@ export interface TypeaheadComboboxMenuProps<T> extends HTMLAttributes<HTMLUListE
     loading?: boolean;
     emptyText?: string | React.ReactNode;
     width?: number | string;
-    minWidth?: number;
+    minWidth?: number | string;
     maxWidth?: number | string;
-    minHeight?: number;
-    maxHeight?: number;
+    minHeight?: number | string;
+    maxHeight?: number | string;
     listWrapperHeight?: number;
     virtualizerRef?: React.RefObject<T>;
     children?: ReactNode;

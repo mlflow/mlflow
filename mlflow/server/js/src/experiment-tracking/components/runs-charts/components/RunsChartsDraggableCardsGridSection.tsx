@@ -1,6 +1,5 @@
 import { Empty, useDesignSystemTheme } from '@databricks/design-system';
 import { memo, useCallback, useMemo, useRef, useState } from 'react';
-import { shouldEnableHidingChartsWithNoData } from '../../../../common/utils/FeatureUtils';
 import { useUpdateRunsChartsUIConfiguration } from '../hooks/useRunsChartsUIConfiguration';
 import { RunsChartsCardConfig } from '../runs-charts.types';
 import type { RunsChartsProps } from './RunsCharts';
@@ -161,7 +160,7 @@ export const RunsChartsDraggableCardsGridSection = memo(
 
     const cardsToRender = useMemo(() => {
       return cardsConfig.filter((cardConfig) => {
-        if (!shouldEnableHidingChartsWithNoData() || !hideEmptyCharts) {
+        if (!hideEmptyCharts) {
           return true;
         }
         return !isEmptyChartCard(chartRunData, cardConfig);

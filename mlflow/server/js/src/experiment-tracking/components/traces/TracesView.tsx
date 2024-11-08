@@ -20,10 +20,18 @@ const defaultSorting: SortingState = [{ id: ExperimentViewTracesTableColumns.tim
 export const TracesView = ({
   experimentIds,
   runUuid,
+  loggedModelId,
   disabledColumns,
 }: {
   experimentIds: string[];
+  /**
+   * If `runUuid` is provided, the traces will be filtered to only show traces from that run.
+   */
   runUuid?: string;
+  /**
+   * If `loggedModelId` is provided, the traces will be filtered to only show traces from that logged model.
+   */
+  loggedModelId?: string;
   /**
    * Columns that should be disabled in the table.
    * Disabled columns are hidden and are not available to be toggled at all.
@@ -38,7 +46,13 @@ export const TracesView = ({
   const [selectedTraceId, setSelectedTraceId] = useActiveExperimentTrace();
 
   const { traces, loading, error, hasNextPage, hasPreviousPage, fetchNextPage, fetchPrevPage, refreshCurrentPage } =
-    useExperimentTraces(experimentIds, sorting, filter, runUuid);
+    useExperimentTraces({
+      experimentIds,
+      sorting,
+      filter,
+      runUuid,
+      loggedModelId,
+    });
 
   const onTraceClicked = useCallback(
     ({ request_id }: ModelTraceInfo) => setSelectedTraceId(request_id),
@@ -58,6 +72,8 @@ export const TracesView = ({
     fetchPrevPage();
     setRowSelection({});
   }, [fetchPrevPage]);
+
+  const baseComponentId = runUuid ? `mlflow.run.traces` : `mlflow.experiment_page.traces`;
 
   // auto-refresh traces
   useEffect(() => {
@@ -144,8 +160,11 @@ export const TracesView = ({
         rowSelection={rowSelection}
         setRowSelection={setRowSelection}
         refreshTraces={refreshCurrentPage}
+        baseComponentId={baseComponentId}
       />
       <TracesViewTable
+        experimentIds={experimentIds}
+        runUuid={runUuid}
         traces={traces}
         loading={loading}
         error={error}
@@ -177,6 +196,7 @@ export const TracesView = ({
         sorting={sorting}
         rowSelection={rowSelection}
         setRowSelection={setRowSelection}
+        baseComponentId={baseComponentId}
       />
       {selectedTraceId && (
         <TraceDataDrawer

@@ -28,7 +28,6 @@ import { useIntl } from 'react-intl';
 import {
   shouldEnableGlobalLineChartConfig,
   shouldEnableDraggableChartsGridLayout,
-  shouldEnableHidingChartsWithNoData,
   shouldEnableImageGridCharts,
   shouldUseNewRunRowsVisibilityModel,
   shouldUseRegexpBasedChartFiltering,
@@ -370,7 +369,7 @@ export const RunsCompareImpl = ({
     if (!shouldEnableDraggableChartsGridLayout()) {
       return compareRunCharts;
     }
-    if (hideEmptyCharts && shouldEnableHidingChartsWithNoData()) {
+    if (hideEmptyCharts) {
       return compareRunCharts?.filter((chartCard) => !chartCard.deleted && !isEmptyChartCard(chartData, chartCard));
     }
     return compareRunCharts?.filter((chartCard) => !chartCard.deleted);

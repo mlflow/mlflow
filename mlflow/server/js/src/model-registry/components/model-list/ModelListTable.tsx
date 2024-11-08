@@ -52,7 +52,8 @@ export interface ModelListTableProps {
   onSortChange: (params: { orderByKey: string; orderByAsc: boolean }) => void;
 }
 
-type ModelsColumnDef = ColumnDef<ModelEntity> & {
+type EnrichedModelEntity = ModelEntity;
+type ModelsColumnDef = ColumnDef<EnrichedModelEntity> & {
   // Our experiments column definition houses style definitions in the metadata field
   meta?: { styles?: Interpolation<Theme> };
 };
@@ -70,6 +71,10 @@ export const ModelListTable = ({
   const intl = useIntl();
 
   const { usingNextModelsUI } = useNextModelsUIContext();
+
+  const enrichedModelsData: EnrichedModelEntity[] = modelsData.map((model) => {
+    return model;
+  });
 
   const tableColumns = useMemo(() => {
     const columns: ModelsColumnDef[] = [
@@ -169,7 +174,9 @@ export const ModelListTable = ({
         }),
         accessorKey: 'user_id',
         enableSorting: false,
-        cell: ({ getValue }) => <span title={getValue() as string}>{getValue()}</span>,
+        cell: ({ getValue, row: { original } }) => {
+          return <span title={getValue() as string}>{getValue()}</span>;
+        },
         meta: { styles: { flex: 1 } },
       },
       {
@@ -268,8 +275,8 @@ export const ModelListTable = ({
 
   const isEmpty = () => (!isLoading && table.getRowModel().rows.length === 0) || error;
 
-  const table = useReactTable<ModelEntity>({
-    data: modelsData,
+  const table = useReactTable<EnrichedModelEntity>({
+    data: enrichedModelsData,
     columns: tableColumns,
     state: {
       sorting,
@@ -290,6 +297,7 @@ export const ModelListTable = ({
         <TableRow isHeader>
           {table.getLeafHeaders().map((header) => (
             <TableHeader
+              componentId="codegen_mlflow_app_src_model-registry_components_model-list_modellisttable.tsx_412"
               ellipsis
               key={header.id}
               sortable={header.column.getCanSort()}

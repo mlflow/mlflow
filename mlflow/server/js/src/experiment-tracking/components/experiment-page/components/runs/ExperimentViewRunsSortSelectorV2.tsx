@@ -123,6 +123,7 @@ const ExperimentViewRunsSortSelectorV2Body = ({
             componentId="mlflow.experiment_page.sort_select_v2.sort_desc"
             onClick={() => setOrder(false)}
             aria-label="Sort descending"
+            data-testid="sort-select-desc"
           />
           <ToggleIconButton
             pressed={orderByAsc}
@@ -130,6 +131,7 @@ const ExperimentViewRunsSortSelectorV2Body = ({
             componentId="mlflow.experiment_page.sort_select_v2.sort_asc"
             onClick={() => setOrder(true)}
             aria-label="Sort ascending"
+            data-testid="sort-select-asc"
           />
         </div>
       </div>

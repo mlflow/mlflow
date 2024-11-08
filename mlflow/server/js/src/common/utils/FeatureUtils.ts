@@ -65,11 +65,6 @@ export const shouldEnableTaggingMultipleRuns = () => false;
 export const shouldEnableToggleIndividualRunsInGroups = () => false;
 
 /**
- * Enables toggle controls for hiding charts with no data
- */
-export const shouldEnableHidingChartsWithNoData = () => false;
-
-/**
  * Enables draggable and resizable charts grid
  */
 export const shouldEnableDraggableChartsGridLayout = () => false;
@@ -91,11 +86,18 @@ export const shouldDeferLineChartRendering = () => true;
 export const shouldEnableGlobalLineChartConfig = () => false;
 export const shouldUseRegexpBasedChartFiltering = () => false;
 export const shouldUseRegexpBasedAutoRunsSearchFilter = () => false;
+export const shouldUseRunRowsVisibilityMap = () => true;
+
+/**
+ * Determines if logged models UI (part of model-centric IA shift) is enabled
+ */
+export const isExperimentLoggedModelsUIEnabled = () => false;
 
 /**
  * Flags enabling fetching data via GraphQL for particular views:
  */
 export const shouldEnableGraphQLRunDetailsPage = () => false;
+export const shouldEnableGraphQLSampledMetrics = () => false;
 
 /**
  * A flag determining if we should display the new models UI.

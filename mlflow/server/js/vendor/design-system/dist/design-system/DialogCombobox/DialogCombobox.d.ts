@@ -1,7 +1,7 @@
 import * as Popover from '@radix-ui/react-popover';
 import type { ReactNode } from 'react';
-import type { AnalyticsEventValueChangeNoPiiFlagProps, HTMLDataAttributes } from '../../design-system/types';
 import { DesignSystemEventProviderAnalyticsEventTypes } from '../DesignSystemEventProvider';
+import type { AnalyticsEventValueChangeNoPiiFlagProps, HTMLDataAttributes } from '../types';
 export type ConditionalOptionalLabel = {
     id?: string;
     label: ReactNode;

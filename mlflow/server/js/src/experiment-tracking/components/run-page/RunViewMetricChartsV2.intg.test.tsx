@@ -20,6 +20,7 @@ import { DesignSystemProvider } from '@databricks/design-system';
 import userEventFactory from '@testing-library/user-event-14';
 import invariant from 'invariant';
 import { EXPERIMENT_RUNS_METRIC_AUTO_REFRESH_INTERVAL } from '../../utils/MetricsUtils';
+import { TestApolloProvider } from '../../../common/utils/TestApolloProvider';
 
 jest.setTimeout(90000); // increase timeout, it's an integration test with a lot of unmocked code
 
@@ -172,9 +173,11 @@ describe('RunViewMetricChartsV2 - autorefresh', () => {
       render(<RunViewMetricChartsV2 runInfo={runInfo} metricKeys={metricKeys} mode={mode} />, {
         wrapper: ({ children }) => (
           <DesignSystemProvider>
-            <Provider store={store}>
-              <IntlProvider locale="en">{children}</IntlProvider>
-            </Provider>
+            <TestApolloProvider>
+              <Provider store={store}>
+                <IntlProvider locale="en">{children}</IntlProvider>
+              </Provider>
+            </TestApolloProvider>
           </DesignSystemProvider>
         ),
       });

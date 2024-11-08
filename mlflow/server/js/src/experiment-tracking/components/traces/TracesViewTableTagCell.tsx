@@ -5,9 +5,11 @@ import { KeyValueTag } from '../../../common/components/KeyValueTag';
 export const TracesViewTableTagCell = ({
   onAddEditTags,
   tags,
+  baseComponentId,
 }: {
   tags: { key: string; value: string }[];
   onAddEditTags: () => void;
+  baseComponentId: string;
 }) => {
   const { theme } = useDesignSystemTheme();
   const visibleTagList = tags?.filter(({ key }) => key && !key.startsWith(MLFLOW_INTERNAL_PREFIX)) || [];
@@ -33,7 +35,7 @@ export const TracesViewTableTagCell = ({
         />
       ))}{' '}
       <Button
-        componentId="mlflow.experiment_page.traces_table.edit_tag"
+        componentId={`${baseComponentId}.traces_table.edit_tag`}
         size="small"
         icon={!containsTags ? <SpeechBubblePlusIcon /> : <PencilIcon />}
         onClick={onAddEditTags}

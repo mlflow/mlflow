@@ -21,11 +21,14 @@ import { ExperimentViewTracesTableColumnLabels } from './TracesView.utils';
 import { entries } from 'lodash';
 import { TracesViewControlsActions } from './TracesViewControlsActions';
 
-const InputTooltip = () => {
+const InputTooltip = ({ baseComponentId }: { baseComponentId: string }) => {
   const { theme } = useDesignSystemTheme();
 
   return (
-    <Popover.Root modal={false}>
+    <Popover.Root
+      componentId="codegen_mlflow_app_src_experiment-tracking_components_traces_tracesviewcontrols.tsx_28"
+      modal={false}
+    >
       <Popover.Trigger asChild>
         <Button
           size="small"
@@ -37,7 +40,7 @@ const InputTooltip = () => {
               }}
             />
           }
-          componentId="mlflow.experiment_page.traces_table.filter_tooltip"
+          componentId={`${baseComponentId}.traces_table.filter_tooltip`}
         />
       </Popover.Trigger>
       <Popover.Content>
@@ -70,6 +73,7 @@ export const TracesViewControls = ({
   rowSelection,
   setRowSelection,
   refreshTraces,
+  baseComponentId,
 }: {
   experimentIds: string[];
   filter: string;
@@ -80,6 +84,7 @@ export const TracesViewControls = ({
   rowSelection: { [id: string]: boolean };
   setRowSelection: (newSelection: { [id: string]: boolean }) => void;
   refreshTraces: () => void;
+  baseComponentId: string;
 }) => {
   const intl = useIntl();
 
@@ -105,11 +110,12 @@ export const TracesViewControls = ({
       rowSelection={rowSelection}
       setRowSelection={setRowSelection}
       refreshTraces={refreshTraces}
+      baseComponentId={baseComponentId}
     />
   ) : (
     <TableFilterLayout css={{ marginBottom: 0 }}>
       <Input
-        componentId="codegen_mlflow_app_src_experiment-tracking_components_traces_tracesviewcontrols.tsx_111"
+        componentId={`${baseComponentId}.traces_table.search_filter`}
         placeholder={intl.formatMessage({
           defaultMessage: 'Search traces',
           description: 'Experiment page > traces view filters > filter string input placeholder',
@@ -119,7 +125,7 @@ export const TracesViewControls = ({
         css={{ width: 430 }}
         onChange={(e) => setFilterValue(e.target.value)}
         prefix={<SearchIcon />}
-        suffix={<InputTooltip />}
+        suffix={<InputTooltip baseComponentId={baseComponentId} />}
         allowClear
         onClear={() => {
           onChangeFilter('');
@@ -133,7 +139,7 @@ export const TracesViewControls = ({
         }}
       />
       <DialogCombobox
-        componentId="codegen_mlflow_app_src_experiment-tracking_components_traces_tracesviewcontrols.tsx_135"
+        componentId={`${baseComponentId}.traces_table.column_selector`}
         label={
           <div css={{ display: 'flex', alignItems: 'center', gap: 4 }}>
             <ColumnsIcon />

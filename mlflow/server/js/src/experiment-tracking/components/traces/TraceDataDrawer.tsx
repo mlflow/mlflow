@@ -16,7 +16,6 @@ import {
   ModelTraceExplorerFrameRenderer,
 } from '@databricks/web-shared/model-trace-explorer';
 import { useMemo } from 'react';
-import { ErrorWrapper } from '../../../common/utils/ErrorWrapper';
 import { FormattedMessage } from 'react-intl';
 import { useExperimentTraceInfo } from './hooks/useExperimentTraceInfo';
 
@@ -59,10 +58,10 @@ export const TraceDataDrawer = ({
       return <TitleSkeleton />;
     }
     if (traceInfoToUse) {
-      return getTraceDisplayName(traceInfoToUse);
+      return getTraceDisplayName(traceInfoToUse as ModelTraceInfo);
     }
     return requestId;
-  }, [traceInfoToUse, loadingTraceInfo, loadingInternalTracingInfo, requestId]);
+  }, [loadingTraceInfo, loadingInternalTracingInfo, traceInfoToUse, requestId, theme]);
 
   // Construct the model trace object with the trace info and trace data
   const combinedModelTrace = useMemo(
@@ -159,7 +158,6 @@ export const TraceDataDrawer = ({
             marginLeft: -theme.spacing.lg,
             marginRight: -theme.spacing.lg,
             marginBottom: -theme.spacing.lg,
-            overflow: 'hidden',
           }}
           onWheel={(e) => e.stopPropagation()}
         >
@@ -180,7 +178,12 @@ export const TraceDataDrawer = ({
         }
       }}
     >
-      <Drawer.Content width="85vw" title={title} expandContentToFullHeight>
+      <Drawer.Content
+        componentId="codegen_mlflow_app_src_experiment-tracking_components_traces_tracedatadrawer.tsx_222"
+        width="85vw"
+        title={title}
+        expandContentToFullHeight
+      >
         {renderContent()}
       </Drawer.Content>
     </Drawer.Root>

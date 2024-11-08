@@ -182,10 +182,12 @@ export const RunPage = () => {
     return <NotFoundPage />;
   }
 
+  // Catch-all for legacy REST API errors
   if (runFetchError || experimentFetchError) {
     return null;
   }
 
+  // Catch-all for GraphQL errors
   if (shouldEnableGraphQLRunDetailsPage() && (error || apiError)) {
     return (
       <div css={{ marginTop: theme.spacing.lg }}>

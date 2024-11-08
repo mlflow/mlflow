@@ -118,6 +118,7 @@ const extractRunInfos = (
         } else if (modelVersionFilter === MODEL_VERSION_FILTER.WTIHOUT_MODEL_VERSIONS) {
           return !(rInfo.runUuid in modelVersionsByRunUuid);
         } else {
+          // eslint-disable-next-line no-console -- TODO(FEINF-3587)
           console.warn('Invalid input to model version filter - defaulting to showing all runs.');
           return true;
         }

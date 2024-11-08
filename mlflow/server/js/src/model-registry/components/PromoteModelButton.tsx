@@ -7,7 +7,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import { getUUID } from '../../common/utils/ActionUtils';
 import { useNavigate } from '../../common/utils/RoutingUtils';
 import Utils from '../../common/utils/Utils';
-import { getModelNameFilter } from '../../model-registry/utils/SearchUtils';
+import { getModelNameFilter } from '../utils/SearchUtils';
 import { ReduxState, ThunkDispatch } from '../../redux-types';
 import { createModelVersionApi, createRegisteredModelApi, searchRegisteredModelsApi } from '../actions';
 import { ModelRegistryRoutes } from '../routes';
@@ -130,7 +130,7 @@ export const PromoteModelButton = (props: PromoteModelButtonImplProps) => {
       <>
         <Typography.Paragraph css={{ marginTop: '-12px' }}>
           <FormattedMessage
-            defaultMessage="Copy your MLflow models to another registered model for 
+            defaultMessage="Copy your MLflow models to another registered model for
             simple model promotion across environments. For more mature production-grade setups, we
             recommend setting up automated model training workflows to produce models in controlled
             environments. <link>Learn more</link>"

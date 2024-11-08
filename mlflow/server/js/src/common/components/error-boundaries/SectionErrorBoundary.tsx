@@ -19,6 +19,7 @@ export class SectionErrorBoundary extends React.Component<Props, State> {
 
   componentDidCatch(error: any, errorInfo: any) {
     this.setState({ error });
+    // eslint-disable-next-line no-console -- TODO(FEINF-3587)
     console.error(error, errorInfo);
   }
 

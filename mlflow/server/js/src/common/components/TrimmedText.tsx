@@ -38,7 +38,7 @@ export const TrimmedText = ({ text, maxSize, className, allowShowMore = false, d
           onClick={() => setShowMore(!showMore)}
           size="small"
           css={styles.expandButton}
-          data-test-id="trimmed-text-button"
+          data-testid="trimmed-text-button"
         >
           {showMore ? 'collapse' : 'expand'}
         </Button>

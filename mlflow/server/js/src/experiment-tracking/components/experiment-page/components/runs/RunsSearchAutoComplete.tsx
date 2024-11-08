@@ -287,6 +287,7 @@ export const RunsSearchAutoComplete = (props: RunsSearchAutoCompleteProps) => {
               )}
               {quickRegexpFilter ? (
                 <Tooltip
+                  componentId="codegen_mlflow_app_src_experiment-tracking_components_experiment-page_components_runs_runssearchautocomplete.tsx_310"
                   content={
                     <FormattedMessage
                       defaultMessage="Using regular expression quick filter. The following query will be used: {filterSample}"

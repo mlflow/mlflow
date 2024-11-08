@@ -14,7 +14,6 @@ import { useRunsChartsTooltip } from '../../hooks/useRunsChartsTooltip';
 import { useIsInViewport } from '../../hooks/useIsInViewport';
 import {
   shouldEnableDraggableChartsGridLayout,
-  shouldEnableHidingChartsWithNoData,
   shouldUseNewRunRowsVisibilityModel,
 } from '../../../../../common/utils/FeatureUtils';
 import { useChartImageDownloadHandler } from '../../hooks/useChartImageDownloadHandler';
@@ -65,9 +64,6 @@ export const RunsChartsScatterChartCard = ({
   }, [chartRunData, config]);
 
   const isEmptyDataset = useMemo(() => {
-    if (!shouldEnableHidingChartsWithNoData()) {
-      return false;
-    }
     const metricKeys = [config.xaxis.key, config.yaxis.key];
     const metricsInRuns = slicedRuns.flatMap(({ metrics }) => Object.keys(metrics));
     return intersection(metricKeys, uniq(metricsInRuns)).length === 0;

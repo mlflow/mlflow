@@ -80,6 +80,7 @@ const MetricChartsAccordion = ({
 
   return (
     <Accordion
+      componentId="codegen_mlflow_app_src_experiment-tracking_components_metricchartsaccordion.tsx_82"
       {...(activeKey ? { activeKey } : {})}
       {...(onActiveKeyChange ? { onChange: onActiveKeyChange } : {})}
       dangerouslyAppendEmotionCSS={css(styles)}

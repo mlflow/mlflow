@@ -15,7 +15,6 @@ import {
   ChartRunsCountIndicator,
 } from './ChartCard.common';
 import {
-  shouldEnableHidingChartsWithNoData,
   shouldEnableNewDifferenceViewCharts,
   shouldUseNewRunRowsVisibilityModel,
 } from '../../../../../common/utils/FeatureUtils';
@@ -97,7 +96,7 @@ export const RunsChartsDifferenceChartCard = ({
   }, [chartRunData, config]);
 
   const isEmptyDataset = useMemo(() => {
-    return shouldEnableHidingChartsWithNoData() && !isConfigured;
+    return !isConfigured;
   }, [isConfigured]);
 
   const confirmChartCardConfiguration = useConfirmChartCardConfigurationFn();

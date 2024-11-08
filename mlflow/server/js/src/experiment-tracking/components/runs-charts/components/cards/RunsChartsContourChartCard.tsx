@@ -10,10 +10,7 @@ import {
 } from './ChartCard.common';
 import { RunsContourPlot } from '../RunsContourPlot';
 import { useRunsChartsTooltip } from '../../hooks/useRunsChartsTooltip';
-import {
-  shouldEnableHidingChartsWithNoData,
-  shouldUseNewRunRowsVisibilityModel,
-} from '../../../../../common/utils/FeatureUtils';
+import { shouldUseNewRunRowsVisibilityModel } from '../../../../../common/utils/FeatureUtils';
 import { useChartImageDownloadHandler } from '../../hooks/useChartImageDownloadHandler';
 import { downloadChartDataCsv } from '../../../experiment-page/utils/experimentPage.common-utils';
 import { intersection, uniq } from 'lodash';
@@ -57,9 +54,6 @@ export const RunsChartsContourChartCard = ({
   }, [chartRunData, config]);
 
   const isEmptyDataset = useMemo(() => {
-    if (!shouldEnableHidingChartsWithNoData()) {
-      return false;
-    }
     const metricKeys = [config.xaxis.key, config.yaxis.key, config.zaxis.key];
     const metricsInRuns = slicedRuns.flatMap(({ metrics }) => Object.keys(metrics));
     return intersection(metricKeys, uniq(metricsInRuns)).length === 0;

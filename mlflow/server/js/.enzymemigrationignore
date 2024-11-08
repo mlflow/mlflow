@@ -1,14 +1,5 @@
-src/common/components/EditableNote.enzyme.test.tsx
-src/common/components/EditableTagsTableView.enzyme.test.tsx
-src/common/components/ErrorView.enzyme.test.tsx
-src/common/components/ExpandableList.enzyme.test.tsx
-src/common/components/IconButton.enzyme.test.tsx
-src/common/components/PageNotFoundView.enzyme.test.tsx
 src/common/components/PlotlyStylesProvider.enzyme.test.tsx
 src/common/components/RequestStateWrapper.enzyme.test.tsx
-src/common/components/SimplePagination.enzyme.test.tsx
-src/common/components/Spinner.enzyme.test.tsx
-src/common/components/TrimmedText.enzyme.test.tsx
 src/common/components/error-boundaries/AppErrorBoundary.enzyme.test.tsx
 src/common/components/error-boundaries/SectionErrorBoundary.enzyme.test.tsx
 src/common/utils/TestUtils.enzyme.tsx
@@ -91,10 +82,7 @@ src/model-registry/components/CompareModelVersionsView.enzyme.test.tsx
 src/model-registry/components/ConfigureInferenceButton.enzyme.test.tsx
 src/model-registry/components/ConfigureInferenceForm.enzyme.test.tsx
 src/model-registry/components/ConfigureInferenceModal.enzyme.test.tsx
-src/model-registry/components/CreateModelButton.enzyme.test.tsx
 src/model-registry/components/CreateModelForm.enzyme.test.tsx
-src/model-registry/components/CreateModelPage.enzyme.test.tsx
-src/model-registry/components/DirectTransitionForm.enzyme.test.tsx
 src/model-registry/components/ModelActivitiesList.enzyme.test.tsx
 src/model-registry/components/ModelListPage.enzyme.test.tsx
 src/model-registry/components/ModelListView.enzyme.test.tsx

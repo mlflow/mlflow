@@ -1,4 +1,4 @@
-import { Tabs } from '@databricks/design-system';
+import { LegacyTabs } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
 import { useNavigate, useParams } from '../../../common/utils/RoutingUtils';
 import Routes from '../../routes';
@@ -36,15 +36,15 @@ export const RunViewModeSwitch = () => {
 
   return (
     // @ts-expect-error TS(2322)
-    <Tabs activeKey={currentTab} onChange={onTabChanged} tabBarStyle={{ margin: removeTabMargin && '0px' }}>
-      <Tabs.TabPane
+    <LegacyTabs activeKey={currentTab} onChange={onTabChanged} tabBarStyle={{ margin: removeTabMargin && '0px' }}>
+      <LegacyTabs.TabPane
         tab={
           <FormattedMessage defaultMessage="Overview" description="Run details page > tab selector > overview tab" />
         }
         key={RunPageTabName.OVERVIEW}
       />
 
-      <Tabs.TabPane
+      <LegacyTabs.TabPane
         tab={
           <FormattedMessage
             defaultMessage="Model metrics"
@@ -53,7 +53,7 @@ export const RunViewModeSwitch = () => {
         }
         key={RunPageTabName.MODEL_METRIC_CHARTS}
       />
-      <Tabs.TabPane
+      <LegacyTabs.TabPane
         tab={
           <FormattedMessage
             defaultMessage="System metrics"
@@ -63,17 +63,17 @@ export const RunViewModeSwitch = () => {
         key={RunPageTabName.SYSTEM_METRIC_CHARTS}
       />
       {shouldEnableRunDetailsPageTracesTab() && (
-        <Tabs.TabPane
+        <LegacyTabs.TabPane
           tab={<FormattedMessage defaultMessage="Traces" description="Run details page > tab selector > Traces tab" />}
           key={RunPageTabName.TRACES}
         />
       )}
-      <Tabs.TabPane
+      <LegacyTabs.TabPane
         tab={
           <FormattedMessage defaultMessage="Artifacts" description="Run details page > tab selector > artifacts tab" />
         }
         key={RunPageTabName.ARTIFACTS}
       />
-    </Tabs>
+    </LegacyTabs>
   );
 };

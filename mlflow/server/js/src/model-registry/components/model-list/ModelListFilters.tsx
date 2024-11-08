@@ -29,7 +29,7 @@ const ModelSearchInputHelpTooltip = () => {
   const labelText = formatMessage(tooltipIntroMessage, { newline: ' ', whereBold: 'WHERE' });
 
   return (
-    <Popover.Root>
+    <Popover.Root componentId="codegen_mlflow_app_src_model-registry_components_model-list_modellistfilters.tsx_46">
       <Popover.Trigger
         aria-label={labelText}
         css={{ border: 0, background: 'none', padding: 0, lineHeight: 0, cursor: 'pointer' }}

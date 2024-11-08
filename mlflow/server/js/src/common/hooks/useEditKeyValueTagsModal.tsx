@@ -306,7 +306,7 @@ function UnsavedTagPopoverTrigger({
     },
   );
   return (
-    <Popover.Root>
+    <Popover.Root componentId="codegen_mlflow_app_src_common_hooks_useeditkeyvaluetagsmodal.tsx_309">
       <Popover.Trigger asChild>
         <Button
           componentId="codegen_mlflow_app_src_common_hooks_useeditkeyvaluetagsmodal.tsx_306"
