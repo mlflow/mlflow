@@ -2,17 +2,11 @@ import json
 import time
 from enum import Enum
 
-import boto3
-import botocore.config
-import botocore.exceptions
-from fastapi import HTTPException
-from fastapi.encoders import jsonable_encoder
-
 from mlflow.gateway.config import AmazonBedrockConfig, AWSIdAndKey, AWSRole, RouteConfig
 from mlflow.gateway.constants import (
     MLFLOW_AI_GATEWAY_ANTHROPIC_DEFAULT_MAX_TOKENS,
 )
-from mlflow.gateway.exceptions import AIGatewayConfigException
+from mlflow.gateway.exceptions import AIGatewayConfigException, AIGatewayException
 from mlflow.gateway.providers.anthropic import AnthropicAdapter
 from mlflow.gateway.providers.base import BaseProvider, ProviderAdapter
 from mlflow.gateway.providers.cohere import CohereAdapter
@@ -48,7 +42,7 @@ class AWSTitanAdapter(ProviderAdapter):
     def completions_to_model(cls, payload, config):
         n = payload.pop("n", 1)
         if n != 1:
-            raise HTTPException(
+            raise AIGatewayException(
                 status_code=422,
                 detail=f"'n' must be '1' for AWS Titan models. Received value: '{n}'.",
             )
@@ -186,6 +180,9 @@ class AmazonBedrockProvider(BaseProvider):
         )
 
     def get_bedrock_client(self):
+        import boto3
+        import botocore.exceptions
+
         if self._client is not None and not self._client_expired():
             return self._client
 
@@ -249,19 +246,21 @@ class AmazonBedrockProvider(BaseProvider):
     def underlying_provider_adapter(self) -> ProviderAdapter:
         provider = self._underlying_provider
         if not provider:
-            raise HTTPException(
+            raise AIGatewayException(
                 status_code=422,
                 detail=f"Unknown Amazon Bedrock model type {self._underlying_provider}",
             )
         adapter = provider.adapter
         if not adapter:
-            raise HTTPException(
+            raise AIGatewayException(
                 status_code=422,
                 detail=f"Don't know how to handle {self._underlying_provider} for Amazon Bedrock",
             )
         return adapter
 
     def _request(self, body):
+        import botocore.exceptions
+
         try:
             response = self.get_bedrock_client().invoke_model(
                 body=json.dumps(body).encode(),
@@ -278,9 +277,11 @@ class AmazonBedrockProvider(BaseProvider):
         #     raise HTTPException(status_code=422, detail=str(e)) from e
 
         except botocore.exceptions.ReadTimeoutError as e:
-            raise HTTPException(status_code=408) from e
+            raise AIGatewayException(status_code=408) from e
 
     async def completions(self, payload: completions.RequestPayload) -> completions.ResponsePayload:
+        from fastapi.encoders import jsonable_encoder
+
         self.check_for_model_field(payload)
         payload = jsonable_encoder(payload, exclude_none=True, exclude_defaults=True)
         payload = self.underlying_provider_adapter.completions_to_model(payload, self.config)

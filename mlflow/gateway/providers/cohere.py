@@ -2,10 +2,8 @@ import json
 import time
 from typing import Any, AsyncGenerator, AsyncIterable
 
-from fastapi import HTTPException
-from fastapi.encoders import jsonable_encoder
-
 from mlflow.gateway.config import CohereConfig, RouteConfig
+from mlflow.gateway.exceptions import AIGatewayException
 from mlflow.gateway.providers.base import BaseProvider, ProviderAdapter
 from mlflow.gateway.providers.utils import rename_payload_keys, send_request, send_stream_request
 from mlflow.gateway.schemas import chat, completions, embeddings
@@ -174,7 +172,7 @@ class CohereAdapter(ProviderAdapter):
         key_mapping = {"input": "texts"}
         for k1, k2 in key_mapping.items():
             if k2 in payload:
-                raise HTTPException(
+                raise AIGatewayException(
                     status_code=422, detail=f"Invalid parameter {k2}. Use {k1} instead."
                 )
         return rename_payload_keys(payload, key_mapping)
@@ -182,14 +180,14 @@ class CohereAdapter(ProviderAdapter):
     @classmethod
     def chat_to_model(cls, payload, config):
         if payload["n"] != 1:
-            raise HTTPException(
+            raise AIGatewayException(
                 status_code=422,
                 detail=f"Parameter n must be 1 for Cohere chat, got {payload['n']}.",
             )
         del payload["n"]
 
         if "stop" in payload:
-            raise HTTPException(
+            raise AIGatewayException(
                 status_code=422,
                 detail="Parameter stop is not supported for Cohere chat.",
             )
@@ -198,7 +196,7 @@ class CohereAdapter(ProviderAdapter):
         messages = payload.pop("messages")
         last_message = messages.pop()  # pydantic enforces min_items=1
         if last_message["role"] != "user":
-            raise HTTPException(
+            raise AIGatewayException(
                 status_code=422,
                 detail=f"Last message must be from user, got {last_message['role']}.",
             )
@@ -364,6 +362,8 @@ class CohereProvider(BaseProvider):
     async def chat_stream(
         self, payload: chat.RequestPayload
     ) -> AsyncIterable[chat.StreamResponsePayload]:
+        from fastapi.encoders import jsonable_encoder
+
         payload = jsonable_encoder(payload, exclude_none=True)
         self.check_for_model_field(payload)
         stream = self._stream_request(
@@ -383,6 +383,8 @@ class CohereProvider(BaseProvider):
             yield CohereAdapter.model_to_chat_streaming(resp, self.config)
 
     async def chat(self, payload: chat.RequestPayload) -> chat.ResponsePayload:
+        from fastapi.encoders import jsonable_encoder
+
         payload = jsonable_encoder(payload, exclude_none=True)
         self.check_for_model_field(payload)
         resp = await self._request(
@@ -397,6 +399,8 @@ class CohereProvider(BaseProvider):
     async def completions_stream(
         self, payload: completions.RequestPayload
     ) -> AsyncIterable[completions.StreamResponsePayload]:
+        from fastapi.encoders import jsonable_encoder
+
         payload = jsonable_encoder(payload, exclude_none=True)
         self.check_for_model_field(payload)
         stream = self._stream_request(
@@ -414,6 +418,8 @@ class CohereProvider(BaseProvider):
             yield CohereAdapter.model_to_completions_streaming(resp, self.config)
 
     async def completions(self, payload: completions.RequestPayload) -> completions.ResponsePayload:
+        from fastapi.encoders import jsonable_encoder
+
         payload = jsonable_encoder(payload, exclude_none=True)
         self.check_for_model_field(payload)
         resp = await self._request(
@@ -426,6 +432,8 @@ class CohereProvider(BaseProvider):
         return CohereAdapter.model_to_completions(resp, self.config)
 
     async def embeddings(self, payload: embeddings.RequestPayload) -> embeddings.ResponsePayload:
+        from fastapi.encoders import jsonable_encoder
+
         payload = jsonable_encoder(payload, exclude_none=True)
         self.check_for_model_field(payload)
         resp = await self._request(

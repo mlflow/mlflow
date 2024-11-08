@@ -3,11 +3,11 @@ from unittest import mock
 
 import pytest
 from aiohttp import ClientTimeout
-from fastapi import HTTPException
 from fastapi.encoders import jsonable_encoder
 
 from mlflow.gateway.config import RouteConfig
 from mlflow.gateway.constants import MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS
+from mlflow.gateway.exceptions import AIGatewayException
 from mlflow.gateway.providers.togetherai import TogetherAIProvider
 from mlflow.gateway.schemas import chat, completions, embeddings
 
@@ -248,8 +248,8 @@ async def test_max_tokens_missing_error():
             "max_tokens is not present in payload."
             "It is a required parameter for TogetherAI completions."
         )
-        # Test whether HTTPException is raised when max_tokens is missing
-        with pytest.raises(HTTPException, match=error_string) as exc_info:
+        # Test whether AIGatewayException is raised when max_tokens is missing
+        with pytest.raises(AIGatewayException, match=error_string) as exc_info:
             await provider.completions(completions.RequestPayload(**payload))
 
         # Check if the raised exception has correct status code and detail
@@ -283,8 +283,8 @@ async def test_wrong_logprobs_type_error():
             "logprobs": "invalid_type",
         }
         error_string = "Wrong type for logprobs. It should be an 32bit integer."
-        # Test whether HTTPException is raised when max_tokens is missing
-        with pytest.raises(HTTPException, match=error_string) as exc_info:
+        # Test whether AIGatewayException is raised when max_tokens is missing
+        with pytest.raises(AIGatewayException, match=error_string) as exc_info:
             await provider.completions(completions.RequestPayload(**payload))
 
         # Check if the raised exception has correct status code and detail

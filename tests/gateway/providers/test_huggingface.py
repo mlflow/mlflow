@@ -2,11 +2,11 @@ from unittest import mock
 
 import pytest
 from aiohttp import ClientTimeout
-from fastapi import HTTPException
 from fastapi.encoders import jsonable_encoder
 
 from mlflow.gateway.config import RouteConfig
 from mlflow.gateway.constants import MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS
+from mlflow.gateway.exceptions import AIGatewayException
 from mlflow.gateway.providers.huggingface import HFTextGenerationInferenceServerProvider
 from mlflow.gateway.schemas import chat, completions, embeddings
 
@@ -126,7 +126,7 @@ async def test_completion_fails_with_multiple_candidates():
     config = chat_config()
     provider = HFTextGenerationInferenceServerProvider(RouteConfig(**config))
     payload = {"prompt": "This is a test", "n": 2}
-    with pytest.raises(HTTPException, match=r".*") as e:
+    with pytest.raises(AIGatewayException, match=r".*") as e:
         await provider.completions(completions.RequestPayload(**payload))
     assert "'n' must be '1' for the Text Generation Inference provider." in e.value.detail
     assert e.value.status_code == 422
@@ -138,7 +138,7 @@ async def test_chat_is_not_supported_for_tgi():
     provider = HFTextGenerationInferenceServerProvider(RouteConfig(**config))
     payload = {"messages": [{"role": "user", "content": "TGI, can you chat with me? I'm lonely."}]}
 
-    with pytest.raises(HTTPException, match=r".*") as e:
+    with pytest.raises(AIGatewayException, match=r".*") as e:
         await provider.chat(chat.RequestPayload(**payload))
     assert (
         "The chat route is not implemented for Hugging Face Text Generation Inference models."
@@ -153,7 +153,7 @@ async def test_embeddings_are_not_supported_for_tgi():
     provider = HFTextGenerationInferenceServerProvider(RouteConfig(**config))
     payload = {"input": "give me that sweet, sweet vector, please."}
 
-    with pytest.raises(HTTPException, match=r".*") as e:
+    with pytest.raises(AIGatewayException, match=r".*") as e:
         await provider.embeddings(embeddings.RequestPayload(**payload))
     assert (
         "The embeddings route is not implemented for Hugging Face Text Generation Inference models."

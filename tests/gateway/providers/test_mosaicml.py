@@ -9,6 +9,7 @@ from pydantic import ValidationError
 from mlflow import MlflowException
 from mlflow.gateway.config import RouteConfig
 from mlflow.gateway.constants import MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS
+from mlflow.gateway.exceptions import AIGatewayException
 from mlflow.gateway.providers.mosaicml import MosaicMLProvider
 from mlflow.gateway.schemas import chat, completions, embeddings
 from mlflow.gateway.schemas.chat import RequestMessage
@@ -340,7 +341,7 @@ async def test_param_model_is_not_permitted():
         "max_tokens": 5000,
         "model": "something-else",
     }
-    with pytest.raises(HTTPException, match=r".*") as e:
+    with pytest.raises(AIGatewayException, match=r".*") as e:
         await provider.completions(completions.RequestPayload(**payload))
     assert "The parameter 'model' is not permitted" in e.value.detail
     assert e.value.status_code == 422
