@@ -171,6 +171,7 @@ def predict(
             input_data={"x": 1, "y": 2},
             content_type="json",
             pip_requirements_override=["scikit-learn==0.23.2"],
+            extra_envs={"OPENAI_API_KEY": "some_value"},
         )
 
     """
