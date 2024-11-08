@@ -279,7 +279,6 @@ def make_genai_metric_from_prompt(
         "judge_prompt": judge_prompt,
         "model": model,
         "parameters": parameters,
-        # Not recording headers to avoid storing sensitive information
         "aggregations": aggregations,
         "greater_is_better": greater_is_better,
         "max_workers": max_workers,
@@ -467,7 +466,6 @@ def make_genai_metric(
         "grading_context_columns": grading_context_columns,
         "include_input": include_input,
         "parameters": parameters,
-        # Not recording headers to avoid storing sensitive information
         "aggregations": aggregations,
         "greater_is_better": greater_is_better,
         "max_workers": max_workers,

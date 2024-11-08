@@ -54,7 +54,7 @@ def score_model_on_payload(
     if prefix == "openai":
         # TODO: Migrate OpenAI schema to use _call_llm_provider_api.
         return _call_openai_api(suffix, payload, eval_parameters, extra_headers, proxy_url)
-    if prefix == "gateway":
+    elif prefix == "gateway":
         return _call_gateway_api(suffix, payload, eval_parameters)
     elif prefix == "endpoints":
         return call_deployments_api(suffix, payload, eval_parameters, endpoint_type)
