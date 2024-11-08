@@ -107,14 +107,14 @@ def test_deprecated_method():
     msg = "``tests.utils.test_annotations.MyClass.method`` is deprecated"
     with pytest.warns(FutureWarning, match=re.escape(msg)):
         assert MyClass().method() == 0
-    assert msg in str(MyClass.method.__doc__)
+    assert msg in MyClass.method.__doc__
 
 
 def test_deprecated_function():
     msg = "``tests.utils.test_annotations.function`` is deprecated"
     with pytest.warns(FutureWarning, match=re.escape(msg)):
         assert function() == 1
-    assert msg in str(function.__doc__)
+    assert msg in function.__doc__
 
 
 def test_empty_docstring():
@@ -191,7 +191,7 @@ def test_deprecated_class():
     msg = "``tests.utils.test_annotations.DeprecatedClass`` is deprecated"
     with pytest.warns(FutureWarning, match=re.escape(msg)):
         DeprecatedClass()
-    assert msg in str(DeprecatedClass.__doc__)
+    assert msg in DeprecatedClass.__doc__
 
 
 def test_deprecated_class_method():
@@ -199,14 +199,14 @@ def test_deprecated_class_method():
     with pytest.warns(FutureWarning, match=re.escape(msg)):
         instance = DeprecatedClass()
         assert instance.greet() == "Hello"
-    assert msg in str(DeprecatedClass.__doc__)
+    assert msg in DeprecatedClass.__doc__
 
 
 def test_deprecated_dataclass():
     msg = "``tests.utils.test_annotations.DeprecatedDataClass`` is deprecated since 1.0.0"
     with pytest.warns(FutureWarning, match=re.escape(msg)):
         DeprecatedDataClass(x=10, y=20)
-    assert msg in str(DeprecatedDataClass.__doc__)
+    assert msg in DeprecatedDataClass.__doc__
 
 
 def test_deprecated_dataclass_fields():
@@ -215,7 +215,7 @@ def test_deprecated_dataclass_fields():
         instance = DeprecatedDataClass(x=5, y=15)
         assert instance.x == 5
         assert instance.y == 15
-    assert msg in str(DeprecatedDataClass.__doc__)
+    assert msg in DeprecatedDataClass.__doc__
 
 
 def test_deprecated_dataclass_method():
@@ -223,14 +223,14 @@ def test_deprecated_dataclass_method():
     with pytest.warns(FutureWarning, match=re.escape(msg)):
         instance = AnotherDeprecatedDataClass(a=3, b=4)
         assert instance.add() == 7
-    assert msg in str(AnotherDeprecatedDataClass.__doc__)
+    assert msg in AnotherDeprecatedDataClass.__doc__
 
 
 def test_deprecated_dataclass_different_order():
     msg = "``tests.utils.test_annotations.AnotherDeprecatedDataClassOrder`` is deprecated"
     with pytest.warns(FutureWarning, match=re.escape(msg)):
         AnotherDeprecatedDataClassOrder(m=7, n=8)
-    assert msg in str(AnotherDeprecatedDataClassOrder.__doc__)
+    assert msg in AnotherDeprecatedDataClassOrder.__doc__
 
 
 def test_deprecated_dataclass_dunder_methods():
