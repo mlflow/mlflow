@@ -11,8 +11,9 @@ In this guide, you can learn about what tracing is as it applies to Generative A
 
 <img
   alt="MLflow Tracing"
+  class="center"
   src="/images/intro/tracing-ui.gif"
-  style={{ display: "block", margin: "auto", width: "80%" }}
+  style={{ width: "80%" }}
 />
 <br />
 
@@ -33,8 +34,9 @@ The diagram below illustrates the relationship between the input data, the model
 
 <img
   alt="Traditional ML Inference Architecture"
+  class="center"
   src="/images/llms/tracing/tracing-traditional-ml.png"
-  style={{ display: "block", margin: "auto", width: "40%" }}
+  style={{ width: "40%" }}
 />
 
 This process is wholly visible, meaning both the input and output are clearly defined and understandable to the end-user. For example, in a spam detection model, the input is an email,
@@ -54,8 +56,9 @@ The diagram below illustrates a call to a GenAI model and the collection of rele
 
 <img
   alt="Span Structure"
+  class="center"
   src="/images/llms/tracing/span-anatomy.png"
-  style={{ display: "block", margin: "auto", width: "60%" }}
+  style={{ width: "60%" }}
 />
 
 ### Concept of a Trace
@@ -74,8 +77,9 @@ To illustrate what an entire trace can capture in a RAG application, see the ill
 
 <img
   alt="Tracing in a nutshell"
+  class="center"
   src="/images/llms/tracing/trace-concept.png"
-  style={{ display: "block", margin: "auto", width: "60%" }}
+  style={{ width: "60%" }}
 />
 
 The subsystems that are involved in this application are critical to the quality and relevancy of the system. Having no visibility into the paths that data will follow when interacting with the final stage LLM
@@ -92,8 +96,9 @@ As an example, the illustration below shows the nature of a ChatCompletions inte
 
 <img
   alt="GenAI ChatCompletions Architecture"
+  class="center"
   src="/images/llms/tracing/chat-completions-architecture.png"
-  style={{ display: "block", margin: "auto", width: "60%" }}
+  style={{ width: "60%" }}
 />
 
 Additional metadata surrounding the inference process is useful for various reasons, including billing, performance evaluation, relevance, evaluation of hallucinations, and general debugging. Key metadata includes:
@@ -125,8 +130,9 @@ For example, the diagram below illustrates the complex interactions that form a 
 
 <img
   alt="RAG Architecture"
+  class="center"
   src="/images/llms/tracing/rag-architecture.png"
-  style={{ display: "block", margin: "auto", width: "60%" }}
+  style={{ width: "60%" }}
 />
 
 Without tracing enabled on such a complex system, it is challenging to identify the root cause of issues or bottlenecks. The following steps would effectively be a "black box":
