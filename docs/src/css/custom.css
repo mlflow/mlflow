@@ -126,3 +126,8 @@ backgrounds so they look bad in dark mode */
 main img {
   background-color: white;
 }
+
+img.center {
+  display: block;
+  margin-inline: auto;
+}
