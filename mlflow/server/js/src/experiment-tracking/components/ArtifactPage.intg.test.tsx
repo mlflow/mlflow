@@ -146,7 +146,7 @@ describe('Artifact page, artifact files rendering integration test', () => {
       },
     };
 
-    render(<ArtifactPage runUuid="test-run-uuid" runTags={runTags} />, {
+    render(<ArtifactPage experimentId="test-experiment-uuid" runUuid="test-run-uuid" runTags={runTags} />, {
       wrapper: ({ children }) => (
         <TestRouter
           routes={[
@@ -219,7 +219,7 @@ describe('Artifact page, artifact files rendering integration test', () => {
       },
     };
 
-    render(<ArtifactPage runUuid="test-run-uuid" runTags={runTags} />, {
+    render(<ArtifactPage experimentId="test-experiment-uuid" runUuid="test-run-uuid" runTags={runTags} />, {
       wrapper: ({ children }) => (
         <TestRouter
           routes={[
