@@ -1,11 +1,5 @@
 .CardGroup {
   position: relative;
-  display: flex;
-  flex-direction: column;
-}
-
-.CardGroup .CardGroupCards {
-  position: relative;
   display: grid;
   grid-template-columns: repeat(3, minmax(200px, 33%));
   grid-gap: 20px;
@@ -13,17 +7,17 @@
 }
 
 @media (max-width: 1150px) {
-  .CardGroup .CardGroupCards {
+  .CardGroup {
     grid-template-columns: repeat(2, 1fr);
   }
 }
 @media (max-width: 750px) {
-  .CardGroup .CardGroupCards {
+  .CardGroup {
     grid-template-columns: 1fr;
   }
 }
 @media (max-width: 650px) {
-  .CardGroup .CardGroupCards {
+  .CardGroup {
     grid-template-columns: 1fr;
   }
 }
