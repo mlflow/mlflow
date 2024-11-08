@@ -120,3 +120,9 @@
 .padding-md {
   padding: var(--padding-md);
 }
+
+/* Most of our images are PNGs with transparent
+backgrounds so they look bad in dark mode */
+main img {
+  background-color: white;
+}
