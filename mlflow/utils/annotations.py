@@ -55,7 +55,7 @@ def experimental(api_or_type: Union[C, str]) -> C:
 
 
 def _experimental(api: C, api_type: str) -> C:
-    indent = _get_min_indent_of_docstring(api.__doc__)
+    indent = _get_min_indent_of_docstring(api.__doc__) if api.__doc__ else ""
     notice = (
         indent + f".. Note:: Experimental: This {api_type} may change or "
         "be removed in a future release without warning.\n\n"
@@ -187,7 +187,7 @@ def keyword_only(func):
             raise TypeError(f"Method {func.__name__} only takes keyword arguments.")
         return func(**kwargs)
 
-    indent = _get_min_indent_of_docstring(str(wrapper.__doc__))
+    indent = _get_min_indent_of_docstring(wrapper.__doc__) if wrapper.__doc__ else ""
     notice = indent + ".. note:: This method requires all argument be specified by keyword.\n"
     wrapper.__doc__ = notice + wrapper.__doc__ if wrapper.__doc__ else notice
 

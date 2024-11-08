@@ -107,14 +107,18 @@ def test_deprecated_method():
     msg = "``tests.utils.test_annotations.MyClass.method`` is deprecated"
     with pytest.warns(FutureWarning, match=re.escape(msg)):
         assert MyClass().method() == 0
-    assert msg in MyClass.method.__doc__
+    docstring = MyClass.method.__doc__
+    assert docstring is not None
+    assert msg in docstring
 
 
 def test_deprecated_function():
     msg = "``tests.utils.test_annotations.function`` is deprecated"
     with pytest.warns(FutureWarning, match=re.escape(msg)):
         assert function() == 1
-    assert msg in function.__doc__
+    docstring = function.__doc__
+    assert docstring is not None
+    assert msg in docstring
 
 
 def test_empty_docstring():
@@ -157,7 +161,8 @@ def test_multi_line_docstring_second_line():
 
 
 def test_deprecated_and_keyword_first():
-    docstring = str(deprecated_and_keyword_only_first.__doc__)
+    docstring = deprecated_and_keyword_only_first.__doc__
+    assert docstring is not None
     assert docstring.rstrip() == (
         """    .. note:: This method requires all argument be specified by keyword.
     .. Warning:: ``tests.utils.test_annotations.deprecated_and_keyword_only_first`` is deprecated since 0.0.0. This method will be removed in a future release.
@@ -172,7 +177,8 @@ Description
 
 
 def test_deprecated_and_keyword_second():
-    docstring = str(deprecated_and_keyword_only_second.__doc__)
+    docstring = deprecated_and_keyword_only_second.__doc__
+    assert docstring is not None
     assert docstring.rstrip() == (
         """    .. Warning:: ``tests.utils.test_annotations.deprecated_and_keyword_only_second`` is deprecated since 0.0.0. This method will be removed in a future release.
     .. note:: This method requires all argument be specified by keyword.
@@ -191,7 +197,9 @@ def test_deprecated_class():
     msg = "``tests.utils.test_annotations.DeprecatedClass`` is deprecated"
     with pytest.warns(FutureWarning, match=re.escape(msg)):
         DeprecatedClass()
-    assert msg in DeprecatedClass.__doc__
+    docstring = DeprecatedClass.__doc__
+    assert docstring is not None
+    assert msg in docstring
 
 
 def test_deprecated_class_method():
@@ -199,14 +207,18 @@ def test_deprecated_class_method():
     with pytest.warns(FutureWarning, match=re.escape(msg)):
         instance = DeprecatedClass()
     assert instance.greet() == "Hello"
-    assert msg in DeprecatedClass.__doc__
+    docstring = DeprecatedClass.__doc__
+    assert docstring is not None
+    assert msg in docstring
 
 
 def test_deprecated_dataclass():
     msg = "``tests.utils.test_annotations.DeprecatedDataClass`` is deprecated since 1.0.0"
     with pytest.warns(FutureWarning, match=re.escape(msg)):
         DeprecatedDataClass(x=10, y=20)
-    assert msg in DeprecatedDataClass.__doc__
+    docstring = DeprecatedDataClass.__doc__
+    assert docstring is not None
+    assert msg in docstring
 
 
 def test_deprecated_dataclass_fields():
@@ -215,7 +227,9 @@ def test_deprecated_dataclass_fields():
         instance = DeprecatedDataClass(x=5, y=15)
     assert instance.x == 5
     assert instance.y == 15
-    assert msg in DeprecatedDataClass.__doc__
+    docstring = DeprecatedDataClass.__doc__
+    assert docstring is not None
+    assert msg in docstring
 
 
 def test_deprecated_dataclass_method():
@@ -223,14 +237,18 @@ def test_deprecated_dataclass_method():
     with pytest.warns(FutureWarning, match=re.escape(msg)):
         instance = AnotherDeprecatedDataClass(a=3, b=4)
     assert instance.add() == 7
-    assert msg in AnotherDeprecatedDataClass.__doc__
+    docstring = AnotherDeprecatedDataClass.__doc__
+    assert docstring is not None
+    assert msg in docstring
 
 
 def test_deprecated_dataclass_different_order():
     msg = "``tests.utils.test_annotations.AnotherDeprecatedDataClassOrder`` is deprecated"
     with pytest.warns(FutureWarning, match=re.escape(msg)):
         AnotherDeprecatedDataClassOrder(m=7, n=8)
-    assert msg in AnotherDeprecatedDataClassOrder.__doc__
+    docstring = AnotherDeprecatedDataClassOrder.__doc__
+    assert docstring is not None
+    assert msg in docstring
 
 
 def test_deprecated_dataclass_dunder_methods():
