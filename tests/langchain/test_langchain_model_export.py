@@ -3592,3 +3592,31 @@ def test_custom_resources(chain_model_signature, tmp_path):
         model_path = _download_artifact_from_uri(model_uri)
         reloaded_model = Model.load(os.path.join(model_path, "MLmodel"))
         assert reloaded_model.resources == expected_resources
+
+
+def test_pyfunc_converts_chat_request_correctly(fake_chat_model):
+    prompt = ChatPromptTemplate.from_messages(
+        [
+            ("system", "You are a chatbot that can answer questions about Databricks."),
+            ("user", "{question}"),
+        ]
+    )
+    chain = prompt | fake_chat_model | StrOutputParser()
+    result = chain.invoke({"question": "Hello"})
+    assert result == "Databricks"
+    result = chain.invoke(HumanMessage(content="Hello"))
+    assert result == "Databricks"
+
+    # pyfunc model can accepts chat request format even the chain
+    # itself does not accept it, but we need to use the correct
+    # input example to infer model signature
+    input_example = {"messages": [{"role": "user", "content": "Hello"}]}
+    with mlflow.start_run():
+        model_info = mlflow.langchain.log_model(
+            chain,
+            "model",
+            input_example=input_example,
+        )
+    pyfunc_model = mlflow.pyfunc.load_model(model_info.model_uri)
+    result = pyfunc_model.predict({"messages": [{"role": "user", "content": "Hello"}]})
+    assert result[0]["choices"][0]["message"]["content"] == "Databricks"
