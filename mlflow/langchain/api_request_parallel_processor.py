@@ -136,6 +136,8 @@ class APIRequest:
             # If the conversion fails, call the model with the original request
             # Note: we cannot rely on the model's input_schema to validate the request
             # because lots of cases the input_schema is not reliable.
+            # e.g. model defined in test test_pyfunc_converts_chat_request_correctly
+            # accepts list[BaseMessage] but the input_schema cannot validate it.
             try:
                 request_json = _convert_chat_request_to_messages_or_throw(self.request_json)
                 if self.stream:
@@ -155,7 +157,7 @@ class APIRequest:
             # TODO: what if the model accepts the messages input but just fails?
             except Exception as e:
                 _logger.debug(
-                    f"Invoking model with chat messages failed. Error: {e!r}. ", stack_info=True
+                    f"Invoking model with chat messages failed. Error: {e!r}. ", exc_info=True
                 )
                 result = self._call_model(
                     self.request_json, config, callback_handlers, stream=self.stream, **kwargs
