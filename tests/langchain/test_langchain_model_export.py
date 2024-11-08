@@ -2770,8 +2770,7 @@ def test_save_load_chain_errors(chain_model_signature, chain_path):
     with mlflow.start_run():
         with pytest.raises(
             MlflowException,
-            match=f"The provided model path '{chain_path}' is not a valid Python file path or "
-            "a Databricks Notebook file path containing the code for defining the chain instance. "
+            match=f"The provided model path '{chain_path}' does not exist. "
             "Ensure the file path is valid and try again.",
         ):
             mlflow.langchain.log_model(
