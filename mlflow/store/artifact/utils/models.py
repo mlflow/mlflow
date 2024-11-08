@@ -75,19 +75,19 @@ def _parse_model_uri(uri):
         # The URI is in the suffix format
         if suffix.isdigit():
             # The suffix is a specific version, e.g. "models:/AdsModel1/123"
-            return ParsedModelUri(name, version=suffix)
+            return ParsedModelUri(name=name, version=suffix)
         elif suffix.lower() == _MODELS_URI_SUFFIX_LATEST.lower():
             # The suffix is the 'latest' string (case insensitive), e.g. "models:/AdsModel1/latest"
-            return ParsedModelUri(name)
+            return ParsedModelUri(name=name)
         else:
             # The suffix is a specific stage (case insensitive), e.g. "models:/AdsModel1/Production"
-            return ParsedModelUri(name, stage=suffix)
+            return ParsedModelUri(name=name, stage=suffix)
     elif "@" in path:
         # The URI is an alias URI, e.g. "models:/AdsModel1@Champion"
         alias_parts = parts[0].rsplit("@", 1)
         if len(alias_parts) != 2 or alias_parts[1].strip() == "":
             raise MlflowException(_improper_model_uri_msg(uri))
-        return ParsedModelUri(alias_parts[0], alias=alias_parts[1])
+        return ParsedModelUri(name=alias_parts[0], alias=alias_parts[1])
     else:
         # The URI is of the form "models:/<model_id>"
         return ParsedModelUri(parts[0])
