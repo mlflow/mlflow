@@ -185,13 +185,18 @@ The primary components of MLflow <APILink fn="mlflow.entities.TraceInfo">`TraceI
       <td>**status**</td>
       <td>An enumerated value that denotes the status of the trace.</td>
       <td>
-        `TraceStatus` values are one of: - **OK** - The trace and the
-        instrumented call were successful. - **ERROR** - An error occurred while
-        an application was being instrumented. The error can be seen within the
-        span data for the trace. - **IN_PROGRESS** - The trace has started and
-        is currently running. Temporary state that will update while spans are
-        being logged to a trace. - **TRACE_STATUS_UNSPECIFIED** - internal
-        default state that should not be seen in logged traces.
+        `TraceStatus` values are one of:
+
+        - **OK** - The trace and the
+        instrumented call were successful.
+        - **ERROR** - An error occurred
+        while an application was being instrumented. The error can be seen
+        within the span data for the trace.
+        - **IN_PROGRESS** - The trace has
+        started and is currently running. Temporary state that will update while
+        spans are being logged to a trace.
+        - **TRACE_STATUS_UNSPECIFIED** -
+        internal default state that should not be seen in logged traces.
       </td>
     </tr>
     <tr>
@@ -220,6 +225,7 @@ The primary components of MLflow <APILink fn="mlflow.entities.TraceInfo">`TraceI
         after a trace has been logged to an experiment.
       </td>
     </tr>
+
   </tbody>
 </table>
 
