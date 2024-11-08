@@ -138,7 +138,7 @@ def deprecated(
         if alternative and alternative.strip():
             notice += f" Use ``{alternative}`` instead."
 
-        if isinstance(obj, type):
+        if inspect.isclass(obj):
             original_init = obj.__init__
 
             @wraps(original_init)
