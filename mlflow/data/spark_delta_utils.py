@@ -86,6 +86,7 @@ def _try_get_delta_table_latest_version_from_table_name(table_name: str) -> Opti
     try:
         spark = SparkSession.builder.getOrCreate()
         backticked_table_name = ".".join(f"`{part}`" for part in table_name.split("."))
+        print(backticked_table_name)
         j_delta_table = spark._jvm.io.delta.tables.DeltaTable.forName(
             spark._jsparkSession, backticked_table_name
         )
@@ -95,7 +96,7 @@ def _try_get_delta_table_latest_version_from_table_name(table_name: str) -> Opti
             "Failed to obtain version information for Delta table with name '%s'. Version"
             " information may not be included in the dataset source for MLflow Tracking."
             " Exception: %s",
-            table_name,
+            backticked_table_name,
             e,
         )
 
