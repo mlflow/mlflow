@@ -1,8 +1,13 @@
 import clsx from "clsx";
 import styles from "./card.module.css";
 
-export const CardGroup = ({ children }): JSX.Element => (
-  <div className={clsx(styles.CardGroup, styles.MaxThreeColumns)}>
+export const CardGroup = ({ children, isSmall }): JSX.Element => (
+  <div
+    className={clsx(
+      styles.CardGroup,
+      isSmall ? styles.AutofillColumns : styles.MaxThreeColumns
+    )}
+  >
     {children}
   </div>
 );
