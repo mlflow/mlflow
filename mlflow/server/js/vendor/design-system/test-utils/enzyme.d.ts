@@ -1,1 +1,1 @@
-export * from '../dist/test-utils/enzyme';
+export * from '../dist/test-utils/enzyme/index.js';

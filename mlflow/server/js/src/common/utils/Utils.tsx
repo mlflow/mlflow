@@ -71,6 +71,16 @@ class Utils {
     (Utils.#notificationsApi as any).error({ message: content, duration: duration });
   }
 
+  /**
+   * Displays the info notification in the UI.
+   */
+  static displayGlobalInfoNotification(content: any, duration?: any) {
+    if (!Utils.#notificationsApi) {
+      return;
+    }
+    (Utils.#notificationsApi as any).info({ message: content, duration: duration });
+  }
+
   static runNameTag = 'mlflow.runName';
   static sourceNameTag = 'mlflow.source.name';
   static sourceTypeTag = 'mlflow.source.type';
@@ -223,8 +233,11 @@ class Utils {
    * @param startTime in milliseconds
    * @param endTime in milliseconds
    */
-  static getDuration(startTime: any, endTime: any) {
-    return startTime && endTime ? Utils.formatDuration(endTime - startTime) : null;
+  static getDuration(startTime?: number | string | null, endTime?: number | string | null) {
+    if (!Number(startTime) || !Number(endTime)) {
+      return null;
+    }
+    return Utils.formatDuration(Number(endTime) - Number(startTime));
   }
 
   static baseName(path: any) {
@@ -991,6 +1004,7 @@ class Utils {
     duration = 3,
     passErrorToParentFrame = false,
   ) {
+    // eslint-disable-next-line no-console -- TODO(FEINF-3587)
     console.error(e);
     if (typeof e === 'string') {
       Utils.displayGlobalErrorNotification(e, duration);

@@ -22,13 +22,13 @@ import {
   SegmentedControlGroup,
   SegmentedControlButton,
   ListIcon,
+  Tooltip,
   ChartLineIcon,
 } from '@databricks/design-system';
 import { Theme } from '@emotion/react';
 
 import {
   shouldEnableExperimentPageAutoRefresh,
-  shouldEnableHidingChartsWithNoData,
   shouldEnablePromptLab,
 } from '@mlflow/mlflow/src/common/utils/FeatureUtils';
 import React, { useMemo, useState } from 'react';
@@ -183,10 +183,26 @@ export const ExperimentViewRunsControlsFilters = React.memo(
               }}
             >
               <SegmentedControlButton value="TABLE">
-                <ListIcon />
+                <Tooltip
+                  componentId="codegen_mlflow_app_src_experiment-tracking_components_experiment-page_components_runs_experimentviewrunscontrolsfilters.tsx_201"
+                  content={intl.formatMessage({
+                    defaultMessage: 'Table view',
+                    description: 'Experiment page > control bar > table view toggle button tooltip',
+                  })}
+                >
+                  <ListIcon />
+                </Tooltip>
               </SegmentedControlButton>
               <SegmentedControlButton value="CHART">
-                <ChartLineIcon />
+                <Tooltip
+                  componentId="codegen_mlflow_app_src_experiment-tracking_components_experiment-page_components_runs_experimentviewrunscontrolsfilters.tsx_211"
+                  content={intl.formatMessage({
+                    defaultMessage: 'Chart view',
+                    description: 'Experiment page > control bar > chart view toggle button tooltip',
+                  })}
+                >
+                  <ChartLineIcon />
+                </Tooltip>
               </SegmentedControlButton>
             </SegmentedControlGroup>
           )}
@@ -362,27 +378,23 @@ export const ExperimentViewRunsControlsFilters = React.memo(
                 </DropdownMenu.IconWrapper>
                 {`Download ${runsData.runInfos.length} runs`}
               </DropdownMenu.Item>
-              {shouldEnableHidingChartsWithNoData() && (
-                <>
-                  <DropdownMenu.Separator />
-                  <DropdownMenu.CheckboxItem
-                    componentId="codegen_mlflow_app_src_experiment-tracking_components_experiment-page_components_runs_experimentviewrunscontrolsfilters.tsx_382"
-                    checked={hideEmptyCharts}
-                    onClick={() =>
-                      updateUIState((state) => ({
-                        ...state,
-                        hideEmptyCharts: !state.hideEmptyCharts,
-                      }))
-                    }
-                  >
-                    <DropdownMenu.ItemIndicator />
-                    <FormattedMessage
-                      defaultMessage="Hide charts with no data"
-                      description="Experiment page > control bar > label for a checkbox toggle button that hides chart cards with no corresponding data"
-                    />
-                  </DropdownMenu.CheckboxItem>
-                </>
-              )}
+              <DropdownMenu.Separator />
+              <DropdownMenu.CheckboxItem
+                componentId="codegen_mlflow_app_src_experiment-tracking_components_experiment-page_components_runs_experimentviewrunscontrolsfilters.tsx_382"
+                checked={hideEmptyCharts}
+                onClick={() =>
+                  updateUIState((state) => ({
+                    ...state,
+                    hideEmptyCharts: !state.hideEmptyCharts,
+                  }))
+                }
+              >
+                <DropdownMenu.ItemIndicator />
+                <FormattedMessage
+                  defaultMessage="Hide charts with no data"
+                  description="Experiment page > control bar > label for a checkbox toggle button that hides chart cards with no corresponding data"
+                />
+              </DropdownMenu.CheckboxItem>
               {shouldEnableExperimentPageAutoRefresh() && (
                 <>
                   <DropdownMenu.Separator />

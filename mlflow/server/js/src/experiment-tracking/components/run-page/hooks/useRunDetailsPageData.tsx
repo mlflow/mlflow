@@ -42,7 +42,7 @@ const transformMetricValues = (inputArray: UseGetRunQueryResponseDataMetrics): M
     }));
 
 // Internal util: transforms an array of dataset inputs into an array of RunDatasetWithTags objects
-const transformDatasets = (inputArray?: UseGetRunQueryResponseDatasetInputs): RunDatasetWithTags[] | undefined =>
+export const transformDatasets = (inputArray?: UseGetRunQueryResponseDatasetInputs): RunDatasetWithTags[] | undefined =>
   inputArray?.map((datasetInput) => ({
     dataset: {
       digest: datasetInput.dataset?.digest ?? '',
@@ -99,9 +99,12 @@ export const useRunDetailsPageData = ({
   // We can safely disable the eslint rule since feature flag evaluation is stable
   /* eslint-disable react-hooks/rules-of-hooks */
   if (usingGraphQL) {
-    const detailsPageGraphqlResponse = useGetRunQuery({
-      runUuid,
-    });
+    const graphQLQuery = () =>
+      useGetRunQuery({
+        runUuid,
+      });
+
+    const detailsPageGraphqlResponse = graphQLQuery();
 
     // Model versions are not fully supported by GraphQL yet, so we need to fetch them separately
     useEffect(() => {

@@ -22,6 +22,7 @@ import {
   sanitizeConvertedHtml,
 } from '../../../../common/utils/MarkdownUtils';
 import { FormattedMessage } from 'react-intl';
+import { setExperimentTagApi } from '../../../actions';
 
 const extractNoteFromTags = (tags: Record<string, KeyValueEntity>) =>
   Object.values(tags).find((t) => t.key === NOTE_CONTENT_TAG)?.value || undefined;
@@ -47,11 +48,15 @@ export const ExperimentViewDescriptionNotes = ({
   editing,
   setEditing,
   setShowAddDescriptionButton,
+  onNoteUpdated,
+  defaultValue,
 }: {
   experiment: ExperimentEntity;
   editing: boolean;
   setEditing: (editing: boolean) => void;
   setShowAddDescriptionButton: (show: boolean) => void;
+  onNoteUpdated?: () => void;
+  defaultValue?: string;
 }) => {
   const storedNote = useSelector((state) => {
     const tags = getExperimentTags(experiment.experimentId, state);
@@ -71,10 +76,6 @@ export const ExperimentViewDescriptionNotes = ({
   const MAX_EDITOR_HEIGHT = 500;
   const MIN_PREVIEW_HEIGHT = 20;
 
-  const {
-    actions: { setExperimentTagApi },
-  } = useFetchExperiments();
-
   const dispatch = useDispatch<ThunkDispatch>();
 
   const handleSubmitEditNote = useCallback(
@@ -82,14 +83,14 @@ export const ExperimentViewDescriptionNotes = ({
       setEditing(false);
       setShowAddDescriptionButton(!updatedNote);
       const action = setExperimentTagApi(experiment.experimentId, NOTE_CONTENT_TAG, updatedNote);
-      dispatch(action);
+      dispatch(action).then(onNoteUpdated);
     },
-    [experiment.experimentId, setExperimentTagApi, dispatch, setEditing, setShowAddDescriptionButton],
+    [experiment.experimentId, dispatch, setEditing, setShowAddDescriptionButton, onNoteUpdated],
   );
 
   return (
     <div>
-      {tmpNote && (
+      {(tmpNote ?? defaultValue) && (
         <div
           style={{
             whiteSpace: isExpanded ? 'normal' : 'pre',
@@ -112,7 +113,7 @@ export const ExperimentViewDescriptionNotes = ({
           >
             <div
               // eslint-disable-next-line react/no-danger
-              dangerouslySetInnerHTML={{ __html: getSanitizedHtmlContent(tmpNote) }}
+              dangerouslySetInnerHTML={{ __html: getSanitizedHtmlContent(tmpNote ?? defaultValue) }}
             />
           </div>
           <Button
