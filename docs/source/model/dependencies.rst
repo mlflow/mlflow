@@ -329,8 +329,14 @@ code like ``from utils import my_func``. You can also specify a directory path a
 Use of ``code_paths`` Option for a Custom Library
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-To include custom libraries or libraries from a private mirror server when logging your model, use the ``code_paths`` option. 
+To include custom libraries or libraries from a private mirror server when logging your model, the ``code_paths`` option can be used. 
 This option allows you to upload .whl files or other dependencies alongside your model, ensuring all required libraries are available during serving.
+
+.. note::
+
+    The following example demonstrates a quick method for including custom libraries for development purposes. 
+    This approach is not recommended for production environments. 
+    For production usage, upload libraries to a custom PyPI server or a cloud storage to ensure reliable and secure access.
 
 ::
 
