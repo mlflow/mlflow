@@ -230,7 +230,7 @@ with mlflow.start_run():
     )
 
     # Get the device (GPU or CPU)
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    device = torch.device("cuda" if args.cuda else "cpu")
 
     # Since the model was logged as an artifact, it can be loaded to make predictions
     loaded_model = mlflow.pytorch.load_model(mlflow.get_artifact_uri("pytorch-model"))
