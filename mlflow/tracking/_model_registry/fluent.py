@@ -131,10 +131,8 @@ def _register_model(
     if model_id := _parse_model_id_if_present(model_uri):
         new_value = [
             {
-                {
-                    "name": create_version_response.name,
-                    "version": create_version_response.version,
-                }
+                "name": create_version_response.name,
+                "version": create_version_response.version,
             }
         ]
         model = client.get_logged_model(model_id)
