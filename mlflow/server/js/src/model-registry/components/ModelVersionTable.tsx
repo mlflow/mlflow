@@ -361,6 +361,7 @@ export const ModelVersionTable = ({
           />
           {table.getLeafHeaders().map((header) => (
             <TableHeader
+              componentId="codegen_mlflow_app_src_model-registry_components_modelversiontable.tsx_458"
               multiline={false}
               key={header.id}
               sortable={header.column.getCanSort()}

@@ -8,11 +8,13 @@ export const TracesViewControlsActions = ({
   rowSelection,
   setRowSelection,
   refreshTraces,
+  baseComponentId,
 }: {
   experimentIds: string[];
   rowSelection: { [id: string]: boolean };
   setRowSelection: (rowSelection: { [id: string]: boolean }) => void;
   refreshTraces: () => void;
+  baseComponentId: string;
 }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const { theme } = useDesignSystemTheme();
@@ -34,7 +36,7 @@ export const TracesViewControlsActions = ({
         gap: theme.spacing.sm,
       }}
     >
-      <Button componentId="mlflow.experiment_page.traces_table.delete_traces" onClick={openModal} danger>
+      <Button componentId={`${baseComponentId}.traces_table.delete_traces`} onClick={openModal} danger>
         <FormattedMessage
           defaultMessage="Delete"
           description="Experiment page > traces view controls > Delete button"

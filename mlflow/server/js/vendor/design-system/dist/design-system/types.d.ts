@@ -16,7 +16,7 @@ export type TypographyColor = keyof typeof ColorVars;
 export interface HTMLDataAttributes {
     [key: `data-${string}`]: string;
 }
-export type ValidationState = 'success' | 'warning' | 'error';
+export type ValidationState = 'info' | 'success' | 'warning' | 'error';
 export interface FormElementValidationState {
     validationState?: ValidationState;
 }
@@ -27,6 +27,7 @@ export interface AnalyticsEventValueChangeNoPii {
      * The values should likely be enum strings or a constrained set of string values that are not PII.
      *
      * By default is false, but will still emit the event with the value being empty as long as componentId is provided.
+     * http://go/product-analytics
      */
     valueHasNoPii?: boolean;
 }
@@ -38,9 +39,15 @@ export interface AnalyticsEventProps<T extends DesignSystemEventProviderAnalytic
      * the component. For example, the syntax for the identifier could be something similar
      * to "webapp.notebook.share".
      * This will be used in querying component events in analytics.
-     * go/product-analytics
+     * http://go/product-analytics
      */
     componentId: string;
+    /**
+     * analyticsEvents is an array of analytics events that the component can emit. Each
+     * component has its own set of analytics events it supports, and the default events
+     * for each component might be a smaller set than the list they support.
+     * http://go/product-analytics
+     */
     analyticsEvents?: ReadonlyArray<T>;
 }
 export interface AnalyticsEventValueChangeNoPiiFlagProps<T extends DesignSystemEventProviderAnalyticsEventTypes> extends AnalyticsEventProps<T>, AnalyticsEventValueChangeNoPii {
@@ -53,9 +60,15 @@ export interface AnalyticsEventOptionalProps<T extends DesignSystemEventProvider
      * the component. For example, the syntax for the identifier could be something similar
      * to "webapp.notebook.share".
      * This will be used in querying component events in analytics.
-     * go/product-analytics
+     * http://go/product-analytics
      */
     componentId?: string;
+    /**
+     * analyticsEvents is an array of analytics events that the component can emit. Each
+     * component has its own set of analytics events it supports, and the default events
+     * for each component might be a smaller set than the list they support.
+     * http://go/product-analytics
+     */
     analyticsEvents?: ReadonlyArray<T>;
 }
 export interface AnalyticsEventValueChangeNoPiiFlagOptionalProps<T extends DesignSystemEventProviderAnalyticsEventTypes> extends AnalyticsEventOptionalProps<T>, AnalyticsEventValueChangeNoPii {
@@ -66,6 +79,7 @@ export interface AnalyticsEventPropsWithStartInteraction<T extends DesignSystemE
      *
      * For the Table & Modal components, any children components will default to false, otherwise will default to true.
      * This is due to bad patterns these components have had that should be resolved with this lint introduced in FEINF-3364
+     * http://go/product-analytics
      */
     shouldStartInteraction?: boolean;
 }
@@ -75,6 +89,7 @@ export interface AnalyticsEventOptionalPropsWithStartInteraction<T extends Desig
      *
      * For the Table & Modal components, any children components will default to false, otherwise will default to true.
      * This is due to bad patterns these components have had that should be resolved with this lint introduced in FEINF-3364
+     * http://go/product-analytics
      */
     shouldStartInteraction?: boolean;
 }

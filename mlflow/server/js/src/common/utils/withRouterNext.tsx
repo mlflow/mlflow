@@ -9,7 +9,7 @@ import {
   useLocation,
   useNavigate,
   useParams,
-} from '../../common/utils/RoutingUtils';
+} from './RoutingUtils';
 
 export interface WithRouterNextProps<Params extends RouterDOMParams = RouterDOMParams> {
   navigate: ReturnType<typeof useNavigate>;
