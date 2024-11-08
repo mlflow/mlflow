@@ -51,7 +51,7 @@ module.exports = async ({ context, github, core }) => {
   const version = releases.data[0].tag_name.replace("v", "");
   const [major, minor, micro] = version.replace(/rc\d+$/, "").split(".");
   const nextMicro = version.includes("rc") ? micro : (parseInt(micro) + 1).toString();
-  const label = `patch-${major}.${minor}.${nextMicro}`;
+  const label = `v${major}.${minor}.${nextMicro}`;
   await github.rest.issues.addLabels({
     owner,
     repo,

@@ -65,9 +65,9 @@ def is_closed(pr):
 
 def fetch_patch_prs(version):
     """
-    Fetch PRs labeled with `patch-{version}` from the MLflow repository.
+    Fetch PRs labeled with `v{version}` from the MLflow repository.
     """
-    label = f"patch-{version}"
+    label = f"v{version}"
     per_page = 100
     page = 1
     pulls = []
