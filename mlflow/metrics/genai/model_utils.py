@@ -190,6 +190,7 @@ def _call_llm_provider_api(
         proxy_url: Proxy URL to be used for the judge model. If not specified, the default
             URL for the LLM provider will be used.
     """
+    from mlflow.gateway.config import Provider
     from mlflow.gateway.schemas import chat
 
     provider = _get_provider_instance(provider_name, model)
@@ -199,15 +200,24 @@ def _call_llm_provider_api(
         messages=[
             chat.RequestMessage(role="user", content=input_data),
         ],
-        temperature=eval_parameters.get("temperature", 0.0),
-        max_tokens=eval_parameters.get("max_tokens"),
-        stream=False,
+        **eval_parameters,
     )
 
-    payload = {k: v for k, v in chat_request.model_dump().items() if v is not None}
-    chat_payload = provider.adapter.chat_to_model(payload, provider.config)
+    # Filter out keys in the payload to the specified ones + "messages".
+    # Does not include "model" key here because some providers do not accept it as a
+    # part of the payload. Whether or not to include "model" key must be determined
+    # by each provider implementation.
+    filtered_keys = {"messages", *eval_parameters.keys()}
 
-    if provider_name == "bedrock":
+    payload = {
+        k: v
+        for k, v in chat_request.model_dump().items()
+        if (v is not None) and (k in filtered_keys)
+    }
+    chat_payload = provider.adapter.chat_to_model(payload, provider.config)
+    chat_payload.update(eval_parameters)
+
+    if provider_name in [Provider.AMAZON_BEDROCK, Provider.BEDROCK]:
         # Bedrock client doesn't support custom headers and proxy URL
         response = provider._request(chat_payload)
     else:
@@ -222,7 +232,7 @@ def _call_llm_provider_api(
 
 def _get_provider_instance(provider: str, model: str):
     """Get the provider instance for the given provider name and the model name."""
-    from mlflow.gateway.config import RouteConfig
+    from mlflow.gateway.config import Provider, RouteConfig
 
     def _get_route_config(config):
         return RouteConfig(
@@ -235,18 +245,16 @@ def _get_provider_instance(provider: str, model: str):
             },
         )
 
-    # TODO: Add more LLM provider that support chat endpoints. These three are the only
-    # providers that satisfies the required conditions:
-    #  1. The provider has a chat endpoint.
-    #  2. The gateway provider implements ProviderAdapter class.
-    if provider == "anthropic":
+    # NB: Not all LLM providers in MLflow Gateway are supported here. We can add
+    # new ones as requested, as long as the provider support chat endpoints.
+    if provider == Provider.ANTHROPIC:
         from mlflow.gateway.providers.anthropic import AnthropicConfig, AnthropicProvider
 
         config = AnthropicConfig(anthropic_api_key=os.environ.get("ANTHROPIC_API_KEY"))
         return AnthropicProvider(_get_route_config(config))
 
-    elif provider == "bedrock":
-        from mlflow.gateway.config import AWSRole, AWSIdAndKey
+    elif provider in [Provider.AMAZON_BEDROCK, Provider.BEDROCK]:
+        from mlflow.gateway.config import AWSIdAndKey, AWSRole
         from mlflow.gateway.providers.bedrock import AmazonBedrockConfig, AmazonBedrockProvider
 
         if aws_role_arn := os.environ.get("AWS_ROLE_ARN"):
@@ -259,26 +267,26 @@ def _get_provider_instance(provider: str, model: str):
                 aws_region=os.environ.get("AWS_REGION"),
                 aws_access_key_id=os.environ.get("AWS_ACCESS_KEY_ID"),
                 aws_secret_access_key=os.environ.get("AWS_SECRET_ACCESS_KEY"),
-                aws_session_token=os.environ.get("AWS_SESSION_TOKEN")
+                aws_session_token=os.environ.get("AWS_SESSION_TOKEN"),
             )
         config = AmazonBedrockConfig(aws_config=aws_config)
         return AmazonBedrockProvider(_get_route_config(config))
 
     # # Cohere provider implementation seems to be broken and does not work with
     # # their latest APIs. Uncomment once the provider implementation is fixed.
-    # elif provider == "cohere":
+    # elif provider == Provider.COHERE:
     #     from mlflow.gateway.providers.cohere import CohereConfig, CohereProvider
 
     #     config = CohereConfig(cohere_api_key=os.environ.get("COHERE_API_KEY"))
     #     return CohereProvider(_get_route_config(config))
 
-    elif provider == "mistral":
+    elif provider == Provider.MISTRAL:
         from mlflow.gateway.providers.mistral import MistralConfig, MistralProvider
 
         config = MistralConfig(mistral_api_key=os.environ.get("MISTRAL_API_KEY"))
         return MistralProvider(_get_route_config(config))
 
-    elif provider == "togetherai":
+    elif provider == Provider.TOGETHERAI:
         from mlflow.gateway.providers.togetherai import TogetherAIConfig, TogetherAIProvider
 
         config = TogetherAIConfig(togetherai_api_key=os.environ.get("TOGETHERAI_API_KEY"))

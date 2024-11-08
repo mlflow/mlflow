@@ -161,6 +161,7 @@ class TogetherAIAdapter(ProviderAdapter):
                 detail="Wrong type for top_logprobs. It should a 32bit integer.",
             )
 
+        payload["model"] = config.model.name
         return rename_payload_keys(payload, key_mapping)
 
     @classmethod
@@ -352,10 +353,7 @@ class TogetherAIProvider(BaseProvider):
 
         resp = await self._request(
             path="embeddings",
-            payload={
-                "model": self.config.model.name,
-                **TogetherAIAdapter.embeddings_to_model(payload, self.config),
-            },
+            payload=TogetherAIAdapter.embeddings_to_model(payload, self.config),
         )
 
         return TogetherAIAdapter.model_to_embeddings(resp, self.config)
@@ -378,10 +376,7 @@ class TogetherAIProvider(BaseProvider):
 
         stream = await self._stream_request(
             path="completions",
-            payload={
-                "model": self.config.model.name,
-                **TogetherAIAdapter.completions_streaming_to_model(payload, self.config),
-            },
+            payload=TogetherAIAdapter.completions_streaming_to_model(payload, self.config),
         )
 
         async for chunk in stream:
@@ -413,11 +408,7 @@ class TogetherAIProvider(BaseProvider):
             )
 
         resp = await self._request(
-            path="completions",
-            payload={
-                "model": self.config.model.name,
-                **TogetherAIAdapter.completions_to_model(payload, self.config),
-            },
+            path="completions", payload=TogetherAIAdapter.completions_to_model(payload, self.config)
         )
 
         return TogetherAIAdapter.model_to_completions(resp, self.config)
@@ -429,10 +420,7 @@ class TogetherAIProvider(BaseProvider):
 
         stream = await self._stream_request(
             path="chat/completions",
-            payload={
-                "model": self.config.model.name,
-                **TogetherAIAdapter.chat_streaming_to_model(payload, self.config),
-            },
+            payload=TogetherAIAdapter.chat_streaming_to_model(payload, self.config),
         )
 
         async for chunk in stream:
@@ -454,10 +442,7 @@ class TogetherAIProvider(BaseProvider):
 
         resp = await self._request(
             path="chat/completions",
-            payload={
-                "model": self.config.model.name,
-                **TogetherAIAdapter.chat_to_model(payload, self.config),
-            },
+            payload=TogetherAIAdapter.chat_to_model(payload, self.config),
         )
 
         return TogetherAIAdapter.model_to_chat(resp, self.config)

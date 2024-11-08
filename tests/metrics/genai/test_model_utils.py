@@ -256,7 +256,7 @@ def test_score_model_anthropic(monkeypatch):
         response = score_model_on_payload(
             model_uri="anthropic:/claude-3-5-sonnet-20241022",
             payload="input prompt",
-            eval_parameters={"temperature": 0, "max_tokens": 1000},
+            eval_parameters={"max_tokens": 1000, "top_p": 1},
             extra_headers={"anthropic-version": "2024-10-22"},
         )
 
@@ -269,10 +269,9 @@ def test_score_model_anthropic(monkeypatch):
         },
         payload={
             "model": "claude-3-5-sonnet-20241022",
-            "temperature": 0.0,
             "messages": [{"role": "user", "content": "input prompt"}],
             "max_tokens": 1000,
-            "stream": False,
+            "top_p": 1,
         },
     )
 
@@ -301,15 +300,17 @@ def test_score_model_bedrock(monkeypatch):
     mock_bedrock = mock.MagicMock()
     with mock.patch("boto3.Session.client", return_value=mock_bedrock) as mock_session:
         mock_bedrock.invoke_model.return_value = {
-            "body": mock.MagicMock(
-                read=mock.MagicMock(return_value=json.dumps(resp).encode()))
+            "body": mock.MagicMock(read=mock.MagicMock(return_value=json.dumps(resp).encode()))
         }
 
         response = score_model_on_payload(
             model_uri="bedrock:/anthropic.claude-3-5-sonnet-20241022-v2:0",
             payload="input prompt",
-            eval_parameters={"temperature": 0, "max_tokens": 1000},
-
+            eval_parameters={
+                "temperature": 0,
+                "max_tokens": 1000,
+                "anthropic_version": "2023-06-01",
+            },
         )
 
     assert response == "This is a test!"
@@ -320,16 +321,19 @@ def test_score_model_bedrock(monkeypatch):
         aws_session_token="test-session-token",
     )
     mock_bedrock.invoke_model.assert_called_once_with(
-        body=json.dumps({
-            "temperature": 0.0,
-            "max_tokens": 1000,
-            "stream": False,
-            "model": "anthropic.claude-3-5-sonnet-20241022-v2:0",
-            "messages": [{"role": "user", "content": "input prompt"}],
-        }).encode(),
+        # Anthropic models in Bedrock does not accept "model" and "stream" key,
+        # and requires "anthropic_version" put within the body not headers.
+        body=json.dumps(
+            {
+                "temperature": 0,
+                "max_tokens": 1000,
+                "messages": [{"role": "user", "content": "input prompt"}],
+                "anthropic_version": "2023-06-01",
+            }
+        ).encode(),
         modelId="anthropic.claude-3-5-sonnet-20241022-v2:0",
         accept="application/json",
-        contentType="application/json"
+        contentType="application/json",
     )
 
 
@@ -343,7 +347,7 @@ def test_score_model_mistral(monkeypatch):
         response = score_model_on_payload(
             model_uri="mistral:/mistral-small-latest",
             payload="input prompt",
-            eval_parameters={"temperature": 0.1}
+            eval_parameters={"temperature": 0.1},
         )
 
     assert response == "\n\nThis is a test!"
@@ -354,8 +358,6 @@ def test_score_model_mistral(monkeypatch):
             "model": "mistral-small-latest",
             "messages": [{"role": "user", "content": "input prompt"}],
             "temperature": 0.1,
-            "n": 1,
-            "stream": False,
         },
     )
 
@@ -378,6 +380,7 @@ def test_score_model_togetherai(monkeypatch):
         response = score_model_on_payload(
             model_uri="togetherai:/mistralai/Mixtral-8x7B-Instruct-v0.1",
             payload="input prompt",
+            eval_parameters={"temperature": 0, "max_tokens": 1000},
         )
 
     assert response == "This is a test!"
@@ -387,9 +390,8 @@ def test_score_model_togetherai(monkeypatch):
         payload={
             "model": "mistralai/Mixtral-8x7B-Instruct-v0.1",
             "messages": [{"role": "user", "content": "input prompt"}],
-            "temperature": 0.0,
-            "n": 1,
-            "stream": False,
+            "temperature": 0,
+            "max_tokens": 1000,
         },
     )
 

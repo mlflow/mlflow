@@ -18,6 +18,13 @@ AWS_BEDROCK_ANTHROPIC_MAXIMUM_MAX_TOKENS = 8191
 
 class AmazonBedrockAnthropicAdapter(AnthropicAdapter):
     @classmethod
+    def chat_to_model(cls, payload, config):
+        payload = super().chat_to_model(payload, config)
+        # "model" keys are not supported by some claude models on Bedrock"
+        payload.pop("model", None)
+        return payload
+
+    @classmethod
     def completions_to_model(cls, payload, config):
         payload = super().completions_to_model(payload, config)
 

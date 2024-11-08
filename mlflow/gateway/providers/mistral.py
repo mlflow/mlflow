@@ -127,6 +127,7 @@ class MistralAdapter(ProviderAdapter):
 
     @classmethod
     def completions_to_model(cls, payload, config):
+        payload["model"] = config.model.name
         payload.pop("stop", None)
         payload.pop("n", None)
         payload["messages"] = [{"role": "user", "content": payload.pop("prompt")}]
@@ -143,7 +144,7 @@ class MistralAdapter(ProviderAdapter):
 
     @classmethod
     def embeddings_to_model(cls, payload, config):
-        return payload
+        return {"model": config.model.name, **payload}
 
 
 class MistralProvider(BaseProvider):
@@ -168,13 +169,11 @@ class MistralProvider(BaseProvider):
     def adapter(self):
         return MistralAdapter
 
-
     def get_endpoint_url(self, route_type: str) -> str:
         if route_type == "llm/v1/chat":
             return f"{self.base_url}chat/completions"
         else:
             raise ValueError(f"Invalid route type {route_type}")
-
 
     async def _request(self, path: str, payload: dict[str, Any]) -> dict[str, Any]:
         return await send_request(
@@ -191,10 +190,7 @@ class MistralProvider(BaseProvider):
         self.check_for_model_field(payload)
         resp = await self._request(
             "chat/completions",
-            {
-                "model": self.config.model.name,
-                **MistralAdapter.completions_to_model(payload, self.config),
-            },
+            MistralAdapter.completions_to_model(payload, self.config),
         )
         return MistralAdapter.model_to_completions(resp, self.config)
 
@@ -205,9 +201,6 @@ class MistralProvider(BaseProvider):
         self.check_for_model_field(payload)
         resp = await self._request(
             "embeddings",
-            {
-                "model": self.config.model.name,
-                **MistralAdapter.embeddings_to_model(payload, self.config),
-            },
+            MistralAdapter.embeddings_to_model(payload, self.config),
         )
         return MistralAdapter.model_to_embeddings(resp, self.config)

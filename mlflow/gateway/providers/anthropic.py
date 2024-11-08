@@ -17,6 +17,7 @@ class AnthropicAdapter(ProviderAdapter):
     @classmethod
     def chat_to_model(cls, payload, config):
         key_mapping = {"stop": "stop_sequences"}
+        payload["model"] = config.model.name
         payload = rename_payload_keys(payload, key_mapping)
 
         if "top_p" in payload and "temperature" in payload:
@@ -155,6 +156,8 @@ class AnthropicAdapter(ProviderAdapter):
     def completions_to_model(cls, payload, config):
         key_mapping = {"max_tokens": "max_tokens_to_sample", "stop": "stop_sequences"}
 
+        payload["model"] = config.model.name
+
         if "top_p" in payload:
             raise AIGatewayException(
                 status_code=422,
@@ -255,10 +258,7 @@ class AnthropicProvider(BaseProvider, AnthropicAdapter):
             headers=self.headers,
             base_url=self.base_url,
             path="messages",
-            payload={
-                "model": self.config.model.name,
-                **AnthropicAdapter.chat_streaming_to_model(payload, self.config),
-            },
+            payload=AnthropicAdapter.chat_streaming_to_model(payload, self.config),
         )
 
         indices = []
@@ -312,10 +312,7 @@ class AnthropicProvider(BaseProvider, AnthropicAdapter):
             headers=self.headers,
             base_url=self.base_url,
             path="messages",
-            payload={
-                "model": self.config.model.name,
-                **AnthropicAdapter.chat_to_model(payload, self.config),
-            },
+            payload=AnthropicAdapter.chat_to_model(payload, self.config),
         )
         return AnthropicAdapter.model_to_chat(resp, self.config)
 
@@ -329,10 +326,7 @@ class AnthropicProvider(BaseProvider, AnthropicAdapter):
             headers=self.headers,
             base_url=self.base_url,
             path="complete",
-            payload={
-                "model": self.config.model.name,
-                **AnthropicAdapter.completions_to_model(payload, self.config),
-            },
+            payload=AnthropicAdapter.completions_to_model(payload, self.config),
         )
 
         # Example response:
