@@ -109,9 +109,14 @@ class APIRequest:
     prediction_context: Optional[Context] = None
 
     def _call_model(
-        self, input, config: dict, callback_handlers: Optional[list[BaseCallbackHandler]], **kwargs
+        self,
+        input,
+        config: dict,
+        callback_handlers: Optional[list[BaseCallbackHandler]],
+        stream: bool,
+        **kwargs,
     ):
-        if self.stream:
+        if stream:
             return self.lc_model.stream(input, config=config, **kwargs)
         else:
             if hasattr(self.lc_model, "invoke"):
@@ -133,15 +138,33 @@ class APIRequest:
             # because lots of cases the input_schema is not reliable.
             try:
                 request_json = _convert_chat_request_or_throw(self.request_json)
-                result = self._call_model(request_json, config, callback_handlers, **kwargs)
+                if self.stream:
+                    # validate if the model accepts list[BaseMessage] as input
+                    # as stream doesn't calculate the result immediately
+                    self._call_model(
+                        request_json, config, callback_handlers, stream=False, **kwargs
+                    )
+                result = self._call_model(
+                    request_json, config, callback_handlers, stream=self.stream, **kwargs
+                )
                 # only update after above execution succeeds to make sure error message is correct
                 self.request_json = request_json
                 did_perform_chat_conversion = True
-            except Exception:
-                result = self._call_model(self.request_json, config, callback_handlers, **kwargs)
+            # it is hard to catch specific exceptions here because langchain models
+            # don't raise common input validation errors
+            # TODO: what if the model accepts the messages input but just fails?
+            except Exception as e:
+                _logger.debug(
+                    f"Invoking model with chat messages failed. Error: {e!r}. ", stack_info=True
+                )
+                result = self._call_model(
+                    self.request_json, config, callback_handlers, stream=self.stream, **kwargs
+                )
                 did_perform_chat_conversion = False
         else:
-            result = self._call_model(self.request_json, config, callback_handlers, **kwargs)
+            result = self._call_model(
+                self.request_json, config, callback_handlers, stream=self.stream, **kwargs
+            )
             did_perform_chat_conversion = False
 
         if did_perform_chat_conversion or self.convert_chat_responses:
@@ -180,13 +203,9 @@ class APIRequest:
                         "invoke with the first value of the dictionary."
                     )
                     self.request_json = next(iter(original_request.values()))
-                    response = self._predict_single_input(
-                        self.request_json, callback_handlers, **self.params
-                    )
+                    response = self._predict_single_input(callback_handlers, **self.params)
             else:
-                response = self._predict_single_input(
-                    self.request_json, callback_handlers, **self.params
-                )
+                response = self._predict_single_input(callback_handlers, **self.params)
         else:
             # return_only_outputs is invalid for stream call
             if isinstance(self.lc_model, langchain.chains.base.Chain) and not self.stream:
@@ -194,7 +213,7 @@ class APIRequest:
             else:
                 kwargs = {}
             kwargs.update(**self.params)
-            response = self._predict_single_input(self.request_json, callback_handlers, **kwargs)
+            response = self._predict_single_input(callback_handlers, **kwargs)
 
             # for backwards compatibility, only return the value for single-output chains
             if (
