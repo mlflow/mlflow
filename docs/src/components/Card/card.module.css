@@ -12,19 +12,19 @@
   margin-top: 20px;
 }
 
+@media (max-width: 1150px) {
+  .CardGroup .CardGroupCards {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
 @media (max-width: 750px) {
   .CardGroup .CardGroupCards {
-    grid-template-columns: 100% !important;
+    grid-template-columns: 1fr;
   }
 }
 @media (max-width: 650px) {
   .CardGroup .CardGroupCards {
-    grid-template-columns: 100% !important;
-  }
-}
-@media (max-width: 1150px) {
-  .CardGroup .CardGroupCards {
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: 1fr;
   }
 }
 
