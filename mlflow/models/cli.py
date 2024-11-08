@@ -1,4 +1,3 @@
-import json
 import logging
 
 import click
@@ -107,6 +106,17 @@ def serve(
     )
 
 
+class KeyValueType(click.ParamType):
+    name = "key=value"
+
+    def convert(self, value, param, ctx):
+        try:
+            key, val = value.split("=", 1)
+            return key, val
+        except ValueError:
+            self.fail(f"{value!r} is not a valid key value pair, expecting `key=value`", param, ctx)
+
+
 @commands.command("predict")
 @cli_args.MODEL_URI
 @click.option(
@@ -134,23 +144,41 @@ def serve(
     "in the model. Must be a comma-separated string like x==y,z==a.",
 )
 @click.option(
-    "--extra-envs",
+    "--env",
     default=None,
-    type=str,
+    type=KeyValueType(),
+    multiple=True,
     help="Extra environment variables to set when running the model. Must be "
-    'a JSON-formatted string like \'{"key1": "value1", "key2": "value2"}\'.',
+    "key value pairs, e.g. `--env key=value`.",
 )
-def predict(**kwargs):
+def predict(
+    model_uri,
+    input_data=None,
+    input_path=None,
+    content_type=python_api._CONTENT_TYPE_JSON,
+    output_path=None,
+    env_manager=_EnvManager.VIRTUALENV,
+    install_mlflow=False,
+    pip_requirements_override=None,
+    env=None,
+):
     """
     Generate predictions in json format using a saved MLflow model. For information about the input
     data formats accepted by this function, see the following documentation:
     https://www.mlflow.org/docs/latest/models.html#built-in-deployment-tools.
     """
-    if extra_envs_str := kwargs.pop("extra_envs", None):
-        extra_envs = json.loads(extra_envs_str)
-    else:
-        extra_envs = None
-    return python_api.predict(**kwargs, extra_envs=extra_envs)
+    extra_envs = dict(env)
+    return python_api.predict(
+        model_uri=model_uri,
+        input_data=input_data,
+        input_path=input_path,
+        content_type=content_type,
+        output_path=output_path,
+        env_manager=env_manager,
+        install_mlflow=install_mlflow,
+        pip_requirements_override=pip_requirements_override,
+        extra_envs=extra_envs,
+    )
 
 
 @commands.command("prepare-env")
