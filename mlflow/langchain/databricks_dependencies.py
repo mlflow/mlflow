@@ -273,6 +273,37 @@ def _traverse_runnable(
         pass
 
 
+def _get_deps_from_closures(lc_model):
+    """
+    In some cases, the dependency extraction of Runnable Lambda fails because the call
+    `inspect.getsource(func)` can fail. This causes deps of RunnableLambda to be empty.
+    Therefore this method adds an additional way of getting dependencies through
+    closure variables.
+
+    TODO: Remove when issue gets resolved: https://github.com/langchain-ai/langchain/issues/27970
+    """
+    if not hasattr(lc_model, "func"):
+        return []
+
+    try:
+        from langchain_core.runnables import Runnable
+
+        closure = inspect.getclosurevars(lc_model.func)
+        candidates = {**closure.globals, **closure.nonlocals}
+        deps = []
+
+        # This code is taken from Langchain deps here: https://github.com/langchain-ai/langchain/blob/14f182795312f01985344576b5199681683641e1/libs/core/langchain_core/runnables/base.py#L4481
+        for _, v in candidates.items():
+            if isinstance(v, Runnable):
+                deps.append(v)
+            elif isinstance(getattr(v, "__self__", None), Runnable):
+                deps.append(v.__self__)
+
+        return deps
+    except Exception:
+        return []
+
+
 def _get_nodes_from_runnable_lambda(lc_model):
     """
     This is a workaround for the LangGraph issue: https://github.com/langchain-ai/langgraph/issues/1856
@@ -294,7 +325,8 @@ def _get_nodes_from_runnable_lambda(lc_model):
     from the original get_graph() function, dropping the input/output related logic.
     https://github.com/langchain-ai/langchain/blob/2ea5f60cc5747a334550273a5dba1b70b11414c1/libs/core/langchain_core/runnables/base.py#L4493C1-L4512C46
     """
-    if deps := lc_model.deps:
+
+    if deps := lc_model.deps or _get_deps_from_closures(lc_model):
         nodes = []
         for dep in deps:
             dep_graph = dep.get_graph()
