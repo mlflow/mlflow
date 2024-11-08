@@ -45,3 +45,4 @@ jobs:
           python examples/mlflow-3/sklearn_autolog.py
           python examples/mlflow-3/evaluate_example.py
           python examples/mlflow-3/load_model_from_runs_uri.py
+          python examples/mlflow-3/register_model.py
