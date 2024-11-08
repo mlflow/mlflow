@@ -4,7 +4,7 @@ import time
 from typing import Literal, Optional
 
 import pydantic
-from langchain.schema import AIMessage, HumanMessage, SystemMessage
+from langchain.schema import AIMessage, BaseMessage, HumanMessage, SystemMessage
 from langchain.schema import ChatMessage as LangChainChatMessage
 from packaging.version import Version
 
@@ -213,7 +213,7 @@ def try_transform_response_iter_to_chat_format(chunk_iter):
     return map(_convert, chunk_iter)
 
 
-def _convert_chat_request_or_throw(chat_request: dict):
+def _convert_chat_request_or_throw(chat_request: dict) -> list[BaseMessage]:
     try:
         from langchain_core.messages.utils import convert_to_messages
 
@@ -231,82 +231,14 @@ def _convert_chat_request_or_throw(chat_request: dict):
     return [message.to_langchain_message() for message in model.messages]
 
 
-def _get_lc_model_input_fields(lc_model) -> set[str]:
-    try:
-        if hasattr(lc_model, "input_schema"):
-            return set(lc_model.input_schema.__fields__)
-    except Exception as e:
-        _logger.debug(
-            f"Unexpected exception while checking LangChain input schema for"
-            f" request transformation: {e}"
-        )
-
-    return set()
-
-
-def should_transform_requst_json_for_chat(lc_model):
-    input_fields = _get_lc_model_input_fields(lc_model)
-    if "messages" in input_fields:
-        # If the chain accepts a "messages" field directly, don't attempt to convert
-        # the request to LangChain's Message format automatically. Assume that the chain
-        # is handling the "messages" field by itself
-        return False
-
-    return True
-
-
-def transform_request_json_for_chat_if_necessary(request_json: dict, lc_model):
-    """
-    Convert the input request JSON to LangChain's Message format if the LangChain model
-    accepts ChatMessage objects (e.g. AIMessage, HumanMessage, SystemMessage) as input.
-
-    Args:
-        request_json: The input request JSON. Must be a dictionary
-        lc_model: The LangChain model.
-
-    Returns:
-        A 2-element tuple containing:
-
-            1. The new request.
-            2. A boolean indicating whether or not the request was transformed from the OpenAI
-            chat format.
-    """
-
-    def json_dict_might_be_chat_request(json_message: dict):
-        return (
-            isinstance(json_message, dict)
-            and "messages" in json_message
-            and
-            # Additional keys can't be specified when calling LangChain invoke() / batch()
-            # with chat messages
-            len(json_message) == 1
-            # messages field should be a list
-            and isinstance(json_message["messages"], list)
-        )
-
-    if not should_transform_requst_json_for_chat(lc_model):
-        return request_json, False
-
-    if json_dict_might_be_chat_request(request_json):
-        try:
-            result = _convert_chat_request_or_throw(request_json)
-            if hasattr(lc_model, "input_schema"):
-                # sometimes the input schema is not reliable and we should try
-                # to invoke the model with the request instead, restricting the check to only
-                # string input schemas to reduce the blast radius
-                # example: test_save_load_chain_as_code
-                if lc_model.input_schema.schema().get("type", "string") == "string":
-                    # TODO: migrate this logic inside APIRequest to avoid invoke twice
-                    lc_model.invoke(result)
-                    return result, True
-                else:
-                    lc_model.input_schema.validate(result)
-                    return result, True
-            return request_json, False
-        # we should catch all exceptions here including pydantic validation errors
-        # if the model's input schema cannot validate the request
-        # we should not attempt to convert the request to LangChain's Message format
-        except Exception:
-            return request_json, False
-    else:
-        return request_json, False
+def json_dict_might_be_chat_request(json_message: dict):
+    return (
+        isinstance(json_message, dict)
+        and "messages" in json_message
+        and
+        # Additional keys can't be specified when calling LangChain invoke() / batch()
+        # with chat messages
+        len(json_message) == 1
+        # messages field should be a list
+        and isinstance(json_message["messages"], list)
+    )

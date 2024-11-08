@@ -32,7 +32,8 @@ from langchain.callbacks.base import BaseCallbackHandler
 import mlflow
 from mlflow.exceptions import MlflowException
 from mlflow.langchain.utils.chat import (
-    transform_request_json_for_chat_if_necessary,
+    _convert_chat_request_or_throw,
+    json_dict_might_be_chat_request,
     try_transform_response_iter_to_chat_format,
     try_transform_response_to_chat_format,
 )
@@ -107,23 +108,41 @@ class APIRequest:
     params: dict[str, Any]
     prediction_context: Optional[Context] = None
 
-    def _predict_single_input(self, single_input: dict, callback_handlers, **kwargs):
-        config = kwargs.pop("config", {})
-        config["callbacks"] = config.get("callbacks", []) + (callback_handlers or [])
-        # update self.request_json to make sure error message is accurate
-        self.request_json, did_perform_chat_conversion = (
-            transform_request_json_for_chat_if_necessary(single_input, self.lc_model)
-        )
-
+    def _call_model(
+        self, input, config: dict, callback_handlers: Optional[list[BaseCallbackHandler]], **kwargs
+    ):
         if self.stream:
-            result = self.lc_model.stream(self.request_json, config=config, **kwargs)
+            return self.lc_model.stream(input, config=config, **kwargs)
         else:
             if hasattr(self.lc_model, "invoke"):
-                result = self.lc_model.invoke(self.request_json, config=config, **kwargs)
+                return self.lc_model.invoke(input, config=config, **kwargs)
             else:
                 # for backwards compatibility, __call__ is deprecated and will be removed in 0.3.0
                 # kwargs shouldn't have config field if invoking with __call__
-                result = self.lc_model(self.request_json, callbacks=callback_handlers, **kwargs)
+                return self.lc_model(input, callbacks=callback_handlers, **kwargs)
+
+    def _predict_single_input(
+        self, callback_handlers: Optional[list[BaseCallbackHandler]], **kwargs
+    ):
+        config = kwargs.pop("config", {})
+        config["callbacks"] = config.get("callbacks", []) + (callback_handlers or [])
+        if json_dict_might_be_chat_request(self.request_json):
+            # Try to convert the request to list[BaseMessage] type and call the model
+            # If the conversion fails, call the model with the original request
+            # Note: we cannot rely on the model's input_schema to validate the request
+            # because lots of cases the input_schema is not reliable.
+            try:
+                request_json = _convert_chat_request_or_throw(self.request_json)
+                result = self._call_model(request_json, config, callback_handlers, **kwargs)
+                # only update after above execution succeeds to make sure error message is correct
+                self.request_json = request_json
+                did_perform_chat_conversion = True
+            except Exception:
+                result = self._call_model(self.request_json, config, callback_handlers, **kwargs)
+                did_perform_chat_conversion = False
+        else:
+            result = self._call_model(self.request_json, config, callback_handlers, **kwargs)
+            did_perform_chat_conversion = False
 
         if did_perform_chat_conversion or self.convert_chat_responses:
             return self._try_convert_response(result)
@@ -153,9 +172,7 @@ class APIRequest:
                 # Expected Scalar value for String field 'query_text'
                 try:
                     original_request = self.request_json
-                    response = self._predict_single_input(
-                        self.request_json, callback_handlers, **self.params
-                    )
+                    response = self._predict_single_input(callback_handlers, **self.params)
                 except TypeError as e:
                     _logger.debug(
                         f"Failed to invoke {self.lc_model.__class__.__name__} "
