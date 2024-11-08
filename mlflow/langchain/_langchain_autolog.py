@@ -95,7 +95,7 @@ def patched_inference(func_name, original, self, *args, **kwargs):
         model_id = None
 
     if not IS_PATCHING_DISABLED_FOR_TRACING.get() and config.log_traces:
-        args, kwargs = _get_args_with_mlflow_tracer(func_name, args, kwargs)
+        args, kwargs = _get_args_with_mlflow_tracer(func_name, model_id, args, kwargs)
 
     # Traces does not require an MLflow run, only the other optional artifacts require it.
     if not IS_PATCHING_DISABLED_FOR_ARTIFACTS and config.should_log_optional_artifacts():
