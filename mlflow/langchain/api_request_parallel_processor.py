@@ -32,7 +32,7 @@ from langchain.callbacks.base import BaseCallbackHandler
 import mlflow
 from mlflow.exceptions import MlflowException
 from mlflow.langchain.utils.chat import (
-    _convert_chat_request_or_throw,
+    _convert_chat_request_to_messages_or_throw,
     json_dict_might_be_chat_request,
     try_transform_response_iter_to_chat_format,
     try_transform_response_to_chat_format,
@@ -137,7 +137,7 @@ class APIRequest:
             # Note: we cannot rely on the model's input_schema to validate the request
             # because lots of cases the input_schema is not reliable.
             try:
-                request_json = _convert_chat_request_or_throw(self.request_json)
+                request_json = _convert_chat_request_to_messages_or_throw(self.request_json)
                 if self.stream:
                     # validate if the model accepts list[BaseMessage] as input
                     # as stream doesn't calculate the result immediately

@@ -213,7 +213,13 @@ def try_transform_response_iter_to_chat_format(chunk_iter):
     return map(_convert, chunk_iter)
 
 
-def _convert_chat_request_or_throw(chat_request: dict) -> list[BaseMessage]:
+def _convert_chat_request_to_messages_or_throw(chat_request: dict) -> list[BaseMessage]:
+    """
+    This function tries to convert a chat request dictionary
+    e.g. {"messages": [{"role": "user", "content": "Hello"}]}
+    to a list of langchain_core.messages.BaseMessage objects.
+    e.g. [HumanMessage(content="Hello")]
+    """
     try:
         from langchain_core.messages.utils import convert_to_messages
 
@@ -232,6 +238,9 @@ def _convert_chat_request_or_throw(chat_request: dict) -> list[BaseMessage]:
 
 
 def json_dict_might_be_chat_request(json_message: dict):
+    """
+    Check if the given JSON message might be a chat request.
+    """
     return (
         isinstance(json_message, dict)
         and "messages" in json_message
