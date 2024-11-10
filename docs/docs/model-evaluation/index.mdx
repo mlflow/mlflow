@@ -25,17 +25,17 @@ The rise of Large Language Models (LLMs) like ChatGPT has transformed the landsc
 
 **Key Features**:
 
-* **Versatile Model Evaluation**: MLflow supports evaluating various types of LLMs, whether it's an MLflow pyfunc model, a URI pointing to a registered MLflow model, or any python callable representing your model.
+- **Versatile Model Evaluation**: MLflow supports evaluating various types of LLMs, whether it's an MLflow pyfunc model, a URI pointing to a registered MLflow model, or any python callable representing your model.
 
-* **Comprehensive Metrics**: MLflow offers a range of metrics for LLM evaluation. From metrics that rely on SaaS models like OpenAI for scoring (e.g., <APILink fn="mlflow.metrics.genai.answer_relevance" /> to function-based per-row metrics such as Rouge <APILink fn="mlflow.metrics.rougeL" />, Flesch Kincaid <APILink fn="mlflow.metrics.flesch_kincaid_grade_level" />, or Bleu <APILink fn="mlflow.metrics.bleu" />.
+- **Comprehensive Metrics**: MLflow offers a range of metrics for LLM evaluation. From metrics that rely on SaaS models like OpenAI for scoring (e.g., <APILink fn="mlflow.metrics.genai.answer_relevance" /> to function-based per-row metrics such as Rouge <APILink fn="mlflow.metrics.rougeL" />, Flesch Kincaid <APILink fn="mlflow.metrics.flesch_kincaid_grade_level" />, or Bleu <APILink fn="mlflow.metrics.bleu" />.
 
-* **Predefined Metric Collections**: Depending on your LLM use case, MLflow provides predefined metric collections, such as "question-answering" or "text-summarization", simplifying the evaluation process.
+- **Predefined Metric Collections**: Depending on your LLM use case, MLflow provides predefined metric collections, such as "question-answering" or "text-summarization", simplifying the evaluation process.
 
-* **Custom Metric Creation**: Beyond the predefined metrics, MLflow allows users to create custom LLM evaluation metrics. Whether you're looking to evaluate the professionalism of a response or any other custom criteria, MLflow provides the tools to define and implement these metrics.
+- **Custom Metric Creation**: Beyond the predefined metrics, MLflow allows users to create custom LLM evaluation metrics. Whether you're looking to evaluate the professionalism of a response or any other custom criteria, MLflow provides the tools to define and implement these metrics.
 
-* **Evaluation with Static Datasets**: As of MLflow 2.8.0, you can evaluate a static dataset without specifying a model. This is especially useful when you've saved model outputs in a dataset and want a swift evaluation without rerunning the model.
+- **Evaluation with Static Datasets**: As of MLflow 2.8.0, you can evaluate a static dataset without specifying a model. This is especially useful when you've saved model outputs in a dataset and want a swift evaluation without rerunning the model.
 
-* **Integrated Results View**: MLflow's <APILink fn="mlflow.evaluate" /> returns comprehensive evaluation results, which can be viewed directly in the code or through the MLflow UI for a more visual representation.
+- **Integrated Results View**: MLflow's <APILink fn="mlflow.evaluate" /> returns comprehensive evaluation results, which can be viewed directly in the code or through the MLflow UI for a more visual representation.
 
 Harnessing these features, MLflow's LLM evaluation tools eliminate the complexities and ambiguities associated with evaluating large language models. By automating these critical evaluation tasks, MLflow ensures that users can confidently assess the performance of their LLMs, leading to more informed decisions in the deployment and application of these models.
 
@@ -49,13 +49,11 @@ To learn more about how you can leverage MLflow's evaluation features for your L
     headerText="RAG Evaluation"
     text="Learn how to evaluate a Retrieval Augmented Generation setup with MLflow Evaluate"
   />
-
   <Card
     link="../llms/llm-evaluate/notebooks/question-answering-evaluation.html"
     headerText="Question-Answering Evaluation"
     text="See a working example of how to evaluate the quality of an LLM Question-Answering solution"
   />
-
   <Card
     link="../llms/rag/notebooks/question-generation-retrieval-evaluation.html"
     headerText="RAG Question Generation Evaluation"
@@ -70,12 +68,12 @@ their significance and offers automated evaluation tools tailored for these clas
 
 **Key Features**:
 
-* [Evaluating a Function](../models#evaluating-with-a-function): To get immediate results, you can evaluate a python function directly without logging the model. This is especially useful when you want a quick evaluation without the overhead of logging.
+- [Evaluating a Function](../models#evaluating-with-a-function): To get immediate results, you can evaluate a python function directly without logging the model. This is especially useful when you want a quick evaluation without the overhead of logging.
 
-* [Evaluating a Dataset](../models#evaluating-with-a-static-dataset): MLflow also supports evaluating a static dataset without specifying a model. This is invaluable when you've saved model outputs in a dataset and want a swift evaluation without having to rerun model inference.
+- [Evaluating a Dataset](../models#evaluating-with-a-static-dataset): MLflow also supports evaluating a static dataset without specifying a model. This is invaluable when you've saved model outputs in a dataset and want a swift evaluation without having to rerun model inference.
 
-* [Evaluating a Model](../models#performing-model-validation): With MLflow, you can set validation thresholds for your metrics. If a model doesn't meet these thresholds compared to a baseline, MLflow will alert you. This automated validation ensures that only high-quality models progress to the next stages.
+- [Evaluating a Model](../models#performing-model-validation): With MLflow, you can set validation thresholds for your metrics. If a model doesn't meet these thresholds compared to a baseline, MLflow will alert you. This automated validation ensures that only high-quality models progress to the next stages.
 
-* [Common Metrics and Visualizations](../models#model-evaluation>): MLflow automatically logs common metrics like accuracy, precision, recall, and more. Additionally, visual graphs such as the confusion matrix, lift\_curve\_plot, and others are auto-logged, providing a comprehensive view of your model's performance.
+- [Common Metrics and Visualizations](../models#model-evaluation>): MLflow automatically logs common metrics like accuracy, precision, recall, and more. Additionally, visual graphs such as the confusion matrix, lift_curve_plot, and others are auto-logged, providing a comprehensive view of your model's performance.
 
-* **SHAP Integration**: MLflow is integrated with SHAP, allowing for the auto-logging of SHAP's summarization importances validation visualizations when using the evaluate APIs.
+- **SHAP Integration**: MLflow is integrated with SHAP, allowing for the auto-logging of SHAP's summarization importances validation visualizations when using the evaluate APIs.
