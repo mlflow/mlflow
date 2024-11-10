@@ -227,8 +227,9 @@ class ChatModel(PythonModel, metaclass=ABCMeta):
     See the documentation of the ``predict()`` method below for details on that parameters and
     outputs that are expected by the ``ChatModel`` API.
 
-    Warning: Before or during the 2.20 release, we will be requiring a predict_stream implementation, renaming ChatRequest to
-    ChatCompletionRequest, and renaming ChatResponse to ChatCompletionResponse
+    Warning: Before or during the 2.20 release, we will be requiring a predict_stream
+    implementation, renaming ChatRequest to ChatCompletionRequest, and renaming ChatResponse
+    to ChatCompletionResponse
     """
 
     @abstractmethod
@@ -236,7 +237,8 @@ class ChatModel(PythonModel, metaclass=ABCMeta):
         """
         Evaluates a chat input and produces a chat output.
 
-        Warning: Before or during the mlflow 2.20 release, we will be renaming ChatResponse to ChatCompletionResponse
+        Warning: Before or during the mlflow 2.20 release, we will be renaming ChatResponse to
+        ChatCompletionResponse
 
         Args:
             context: A :class:`~PythonModelContext` instance containing artifacts that the model
@@ -262,8 +264,9 @@ class ChatModel(PythonModel, metaclass=ABCMeta):
         Overrides this function to implement a real stream prediction.
         By default, this function just yields result of `predict` function.
 
-        Warning: Before or during the 2.20 release, predict stream will be returning a true streaming interface of
-        ChatCompletionChunks instead of the current behavior of yielding the entire prediction as a single chunk.
+        Warning: Before or during the 2.20 release, predict stream will be returning a true
+        streaming interface of ChatCompletionChunks instead of the current behavior of yielding
+        the entire prediction as a single chunk.
 
         Args:
             context: A :class:`~PythonModelContext` instance containing artifacts that the model
