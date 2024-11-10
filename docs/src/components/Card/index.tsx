@@ -62,6 +62,13 @@ export const PageCard = ({ headerText, link, text }): JSX.Element => (
   </Card>
 );
 
+export const LogoCard = ({ alt, description, link, src }): JSX.Element => (
+  <Card link={link}>
+    <img src={src} alt={alt} />
+    <p className={styles.TextColor}>{description}</p>
+  </Card>
+);
+
 export const SmallLogoCard = ({ alt, link, src }) => (
   <Card link={link}>
     <div style={{ height: 80, display: "flex", alignItems: "center" }}>
