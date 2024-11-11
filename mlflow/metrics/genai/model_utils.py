@@ -1,13 +1,16 @@
 import logging
 import os
 import urllib.parse
-from typing import Any, Optional, Union
+from typing import TYPE_CHECKING, Any, Optional, Union
 
 import requests
 
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.utils.openai_utils import REQUEST_URL_CHAT
+
+if TYPE_CHECKING:
+    from mlflow.gateway.providers import BaseProvider
 
 _logger = logging.getLogger(__name__)
 
@@ -243,7 +246,7 @@ def _call_llm_provider_api(
     return chat_response.choices[0].message.content
 
 
-def _get_provider_instance(provider: str, model: str) -> "BaseProvider":  # noqa: F821
+def _get_provider_instance(provider: str, model: str) -> "BaseProvider":
     """Get the provider instance for the given provider name and the model name."""
     from mlflow.gateway.config import Provider, RouteConfig
 
