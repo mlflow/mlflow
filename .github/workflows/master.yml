@@ -145,6 +145,8 @@ jobs:
 
       - name: update_schemas.sh
         run: |
+          ls
+          cat pyproject.toml
           pip install .
           ./tests/db/update_schemas.sh
 
