@@ -294,6 +294,6 @@ class AmazonBedrockProvider(BaseProvider):
 
         self.check_for_model_field(payload)
         payload = jsonable_encoder(payload, exclude_none=True, exclude_defaults=True)
-        payload = self.adapter.completions_to_model(payload, self.config)
+        payload = self.adapter_class.completions_to_model(payload, self.config)
         response = self._request(payload)
-        return self.adapter.model_to_completions(response, self.config)
+        return self.adapter_class.model_to_completions(response, self.config)
