@@ -130,3 +130,19 @@ main img {
 .center-div {
   margin-inline: auto;
 }
+
+/* We need to this class to limit image size using max-height. The class
+must be applied to the wrapping div along with the desired max-height */
+.max-height-img-container {
+  display: flex;
+
+  p {
+    display: flex;
+    justify-content: center;
+  }
+
+  img {
+    max-height: 100%;
+    width: auto;
+  }
+}
