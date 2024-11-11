@@ -15,6 +15,7 @@ from packaging.requirements import InvalidRequirement, Requirement
 
 import mlflow
 from mlflow.artifacts import download_artifacts
+from mlflow.environment_variables import MLFLOW_RECORD_ENV_VARS_IN_MODEL_LOGGING
 from mlflow.exceptions import MlflowException
 from mlflow.models.resources import Resource, ResourceType, _ResourceBuilder
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, RESOURCE_DOES_NOT_EXIST
@@ -75,6 +76,12 @@ MODEL_CODE_PATH = "model_code_path"
 SET_MODEL_ERROR = (
     "Model should either be an instance of PyFuncModel, Langchain type, or LlamaIndex index."
 )
+ENV_VAR_FILE_NAME = "environment_variables.txt"
+ENV_VAR_FILE_HEADER = (
+    "# This file records environment variable names that are used during model inference.\n"
+    "# They might need to be set when creating a serving endpoint from this model.\n"
+    "# Note: it is not guaranteed that all environment variables listed here are required\n"
+)
 
 
 class ModelInfo:
@@ -96,6 +103,7 @@ class ModelInfo:
         signature_dict: Optional[dict[str, Any]] = None,
         metadata: Optional[dict[str, Any]] = None,
         registered_model_version: Optional[int] = None,
+        env_vars: Optional[list[str]] = None,
     ):
         self._artifact_path = artifact_path
         self._flavors = flavors
@@ -109,6 +117,7 @@ class ModelInfo:
         self._mlflow_version = mlflow_version
         self._metadata = metadata
         self._registered_model_version = registered_model_version
+        self._env_vars = env_vars
 
     @property
     def artifact_path(self) -> str:
@@ -241,6 +250,22 @@ class ModelInfo:
         """
         return self._mlflow_version
 
+    @property
+    def env_vars(self) -> Optional[list[str]]:
+        """
+        Environment variables used during the model logging process.
+
+        :getter: Gets the environment variables used during the model logging process.
+        :type: Optional[List[str]]
+        """
+        return self._env_vars
+
+    @env_vars.setter
+    def env_vars(self, value: Optional[list[str]]) -> None:
+        if value and not (isinstance(value, list) and all(isinstance(x, str) for x in value)):
+            raise TypeError(f"env_vars must be a list of strings. Got: {value}")
+        self._env_vars = value
+
     @experimental
     @property
     def metadata(self) -> Optional[dict[str, Any]]:
@@ -321,6 +346,7 @@ class Model:
         metadata: Optional[dict[str, Any]] = None,
         model_size_bytes: Optional[int] = None,
         resources: Optional[Union[str, list[Resource]]] = None,
+        env_vars: Optional[list[str]] = None,
         **kwargs,
     ):
         # store model id instead of run_id and path to avoid confusion when model gets exported
@@ -335,6 +361,7 @@ class Model:
         self.metadata = metadata
         self.model_size_bytes = model_size_bytes
         self.resources = resources
+        self.env_vars = env_vars
         self.__dict__.update(kwargs)
 
     def __eq__(self, other):
@@ -537,6 +564,16 @@ class Model:
             serialized_resource = value
         self._resources = serialized_resource
 
+    @property
+    def env_vars(self) -> Optional[list[str]]:
+        return self._env_vars
+
+    @env_vars.setter
+    def env_vars(self, value: Optional[list[str]]) -> None:
+        if value and not (isinstance(value, list) and all(isinstance(x, str) for x in value)):
+            raise TypeError(f"env_vars must be a list of strings. Got: {value}")
+        self._env_vars = value
+
     def get_model_info(self) -> ModelInfo:
         """
         Create a :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
@@ -554,6 +591,7 @@ class Model:
             utc_time_created=self.utc_time_created,
             mlflow_version=self.mlflow_version,
             metadata=self.metadata,
+            env_vars=self.env_vars,
         )
 
     def get_tags_dict(self) -> dict[str, Any]:
@@ -653,8 +691,20 @@ class Model:
         path = download_artifacts(artifact_uri=path)
         if os.path.isdir(path):
             path = os.path.join(path, MLMODEL_FILE_NAME)
+            env_var_path = os.path.join(path, ENV_VAR_FILE_NAME)
+        elif os.path.isfile(path):
+            env_var_path = os.path.join(os.path.dirname(path), ENV_VAR_FILE_NAME)
+        else:
+            env_var_path = None
+        env_vars = None
+        if os.path.exists(env_var_path):
+            # comments start with `#` such as ENV_VAR_FILE_HEADER
+            lines = Path(env_var_path).read_text().splitlines()
+            env_vars = [line for line in lines if line and not line.startswith("#")]
         with open(path) as f:
-            return cls.from_dict(yaml.safe_load(f.read()))
+            model_dict = yaml.safe_load(f.read())
+        model_dict["env_vars"] = env_vars
+        return cls.from_dict(model_dict)
 
     @classmethod
     def from_dict(cls, model_dict) -> "Model":
@@ -741,6 +791,56 @@ class Model:
                     _logger.warning(_LOG_MODEL_MISSING_INPUT_EXAMPLE_WARNING)
                 elif tracking_uri == "databricks" or get_uri_scheme(tracking_uri) == "databricks":
                     _logger.warning(_LOG_MODEL_MISSING_SIGNATURE_WARNING)
+
+            env_vars = None
+            # validate input example works for serving when logging the model
+            if serving_input and kwargs.get("validate_serving_input", True):
+                from mlflow.models import validate_serving_input
+                from mlflow.utils.model_utils import RECORD_ENV_VAR_ALLOWLIST, env_var_tracker
+
+                with env_var_tracker() as tracked_env_names:
+                    try:
+                        validate_serving_input(
+                            model_uri=local_path,
+                            serving_input=serving_input,
+                        )
+                    except Exception as e:
+                        _logger.warning(
+                            f"Failed to validate serving input example {serving_input}. "
+                            "Alternatively, you can avoid passing input example and pass model "
+                            "signature instead when logging the model. To ensure the input example "
+                            "is valid prior to serving, please try calling "
+                            "`mlflow.models.validate_serving_input` on the model uri and serving "
+                            "input example. A serving input example can be generated from model "
+                            "input example using "
+                            "`mlflow.models.convert_input_example_to_serving_input` function.\n"
+                            f"Got error: {e}",
+                            exc_info=_logger.isEnabledFor(logging.DEBUG),
+                        )
+                    env_vars = (
+                        sorted(
+                            x
+                            for x in tracked_env_names
+                            if any(env_var in x for env_var in RECORD_ENV_VAR_ALLOWLIST)
+                        )
+                        or None
+                    )
+            if env_vars:
+                env_var_path = Path(local_path, ENV_VAR_FILE_NAME)
+                env_var_path.write_text(ENV_VAR_FILE_HEADER + "\n".join(env_vars) + "\n")
+                if len(env_vars) <= 3:
+                    env_var_info = "[" + ", ".join(env_vars) + "]"
+                else:
+                    env_var_info = "[" + ", ".join(env_vars[:3]) + ", ... " + "]"
+                    f"(check file {ENV_VAR_FILE_NAME} in the model's artifact folder for full list"
+                    " of environment variable names)"
+                _logger.info(
+                    "Found the following environment variables used during model inference: "
+                    f"{env_var_info}. Please check if you need to set them when deploying the "
+                    "model. To disable this message, set environment variable "
+                    f"`{MLFLOW_RECORD_ENV_VARS_IN_MODEL_LOGGING.name}` to `false`."
+                )
+            mlflow_model.env_vars = env_vars
             mlflow.tracking.fluent.log_artifacts(local_path, mlflow_model.artifact_path, run_id)
 
             # if the model_config kwarg is passed in, then log the model config as an params
@@ -795,26 +895,6 @@ class Model:
             model_info = mlflow_model.get_model_info()
             if registered_model is not None:
                 model_info.registered_model_version = registered_model.version
-
-            # validate input example works for serving when logging the model
-            if serving_input and kwargs.get("validate_serving_input", True):
-                from mlflow.models import validate_serving_input
-
-                try:
-                    validate_serving_input(model_info.model_uri, serving_input)
-                except Exception as e:
-                    _logger.warning(
-                        f"Failed to validate serving input example {serving_input}. "
-                        "Alternatively, you can avoid passing input example and pass model "
-                        "signature instead when logging the model. To ensure the input example "
-                        "is valid prior to serving, please try calling "
-                        "`mlflow.models.validate_serving_input` on the model uri and serving "
-                        "input example. A serving input example can be generated from model "
-                        "input example using "
-                        "`mlflow.models.convert_input_example_to_serving_input` function.\n"
-                        f"Got error: {e}",
-                        exc_info=_logger.isEnabledFor(logging.DEBUG),
-                    )
 
         return model_info
 

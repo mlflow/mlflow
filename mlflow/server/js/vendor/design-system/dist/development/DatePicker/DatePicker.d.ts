@@ -26,13 +26,15 @@ export interface DatePickerProps extends Omit<InputProps, 'type' | 'suffix' | 'o
      */
     defaultTime?: string;
     datePickerProps?: Omit<DayPickerSingleProps, 'mode' | 'selected'> | Omit<DayPickerRangeProps, 'mode' | 'selected'>;
-    timeInputProps?: Omit<InputProps, 'type' | 'allowClear' | 'onChange' | 'value'>;
+    timeInputProps?: Omit<InputProps, 'type' | 'allowClear' | 'onChange' | 'value' | 'componentId'>;
     name?: string;
     width?: string | number;
     maxWidth?: string | number;
     minWidth?: string | number;
     dateTimeDisabledFn?: (date: Date) => boolean;
     quickActions?: DatePickerQuickActionProps[];
+    onOkPress?: () => void;
+    okButtonLabel?: string;
 }
 interface DatePickerQuickActionProps {
     label: string;

@@ -1,4 +1,7 @@
 import os
+import random
+import time
+from concurrent.futures import ThreadPoolExecutor
 from operator import itemgetter
 from typing import Any, Optional
 from unittest import mock
@@ -964,6 +967,32 @@ def test_langchain_autolog_produces_expected_traces_with_streaming(tmp_path, asy
     assert len(stream_trace.data.spans) == len(invoke_trace.data.spans)
 
 
+def test_langchain_autolog_tracing_thread_safe(async_logging_enabled):
+    mlflow.langchain.autolog()
+
+    model = create_openai_runnable()
+
+    def _invoke():
+        # Add random sleep to simulate real LLM prediction
+        time.sleep(random.uniform(0.1, 0.5))
+
+        model.invoke({"product": "MLflow"})
+
+    with ThreadPoolExecutor(max_workers=8) as executor:
+        futures = [executor.submit(_invoke) for _ in range(30)]
+        _ = [f.result() for f in futures]
+
+    if async_logging_enabled:
+        mlflow.flush_trace_async_logging(terminate=True)
+
+    traces = get_traces()
+    assert len(traces) == 30
+    for trace in traces:
+        assert trace.info.status == "OK"
+        assert len(trace.data.spans) == 4
+        assert trace.data.spans[0].name == "RunnableSequence"
+
+
 @pytest.mark.parametrize("log_traces", [True, False, None])
 def test_langchain_tracer_injection_for_arbitrary_runnables(log_traces, async_logging_enabled):
     from langchain.schema.runnable import RouterRunnable, RunnableLambda
@@ -982,7 +1011,9 @@ def test_langchain_tracer_injection_for_arbitrary_runnables(log_traces, async_lo
     with mock.patch("mlflow.langchain._langchain_autolog._logger.debug") as mock_debug:
         model.invoke({"key": "square", "input": 3})
         if should_log_traces:
-            mock_debug.assert_called_once_with("Injected MLflow callbacks into the model.")
+            mock_debug.assert_called_once_with(
+                "Injected MLflow callbacks into the model call args."
+            )
         else:
             mock_debug.assert_not_called()
 
@@ -1007,7 +1038,8 @@ def test_langchain_autolog_extra_model_classes_no_duplicate_patching():
 
     class AnotherRunnable(CustomRunnable):
         def invoke(self, input, config=None):
-            return super().invoke(input)
+            # LangChain runnable passes config to its child
+            return super().invoke(input, config)
 
         def _type(self):
             return "CHAT_MODEL"
@@ -1016,7 +1048,7 @@ def test_langchain_autolog_extra_model_classes_no_duplicate_patching():
     model = AnotherRunnable()
     with mock.patch("mlflow.langchain._langchain_autolog._logger.debug") as mock_debug:
         assert model.invoke("test") == "test"
-        mock_debug.assert_called_once_with("Injected MLflow callbacks into the model.")
+        mock_debug.assert_called_once_with("Injected MLflow callbacks into the model call args.")
         assert mock_debug.call_count == 1
 
 

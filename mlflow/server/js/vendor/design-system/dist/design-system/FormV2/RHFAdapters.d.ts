@@ -4,6 +4,7 @@ import type { HTMLAttributes } from 'react';
 import React from 'react';
 import type { Control, FieldPath, FieldValues, UseControllerProps } from 'react-hook-form';
 import type { CheckboxProps } from '../Checkbox';
+import type { DesignSystemEventProviderAnalyticsEventTypes } from '../DesignSystemEventProvider';
 import type { ConditionalOptionalLabel, DialogComboboxContentProps, DialogComboboxOptionListProps, DialogComboboxProps, DialogComboboxTriggerProps } from '../DialogCombobox';
 import type { InputProps, PasswordProps, TextAreaProps } from '../Input';
 import type { LegacySelectProps } from '../LegacySelect';
@@ -14,7 +15,7 @@ import type { TypeaheadComboboxInputProps } from '../TypeaheadCombobox/Typeahead
 import type { TypeaheadComboboxMenuProps } from '../TypeaheadCombobox/TypeaheadComboboxMenu';
 import type { TypeaheadComboboxMultiSelectInputProps } from '../TypeaheadCombobox/TypeaheadComboboxMultiSelectInput';
 import type { TypeaheadComboboxRootProps } from '../TypeaheadCombobox/TypeaheadComboboxRoot';
-import type { ValidationState } from '../types';
+import type { AnalyticsEventValueChangeNoPiiFlagProps, ValidationState } from '../types';
 type OmittedOriginalProps = 'name' | 'onChange' | 'onBlur' | 'value' | 'defaultValue' | 'checked';
 interface RHFControlledInputProps<TFieldValues extends FieldValues = FieldValues, TName extends FieldPath<TFieldValues> = FieldPath<TFieldValues>> extends Omit<InputProps, OmittedOriginalProps>, UseControllerProps<TFieldValues, TName> {
     control: Control<TFieldValues>;
@@ -70,23 +71,24 @@ interface RHFControlledDialogComboboxProps<TFieldValues extends FieldValues = Fi
     optionListProps?: Pick<DialogComboboxOptionListProps, 'loading' | 'withProgressiveLoading' | 'style' | 'className'>;
 }
 declare function RHFControlledDialogCombobox<TFieldValues extends FieldValues>({ name, control, rules, children, allowClear, validationState, placeholder, width, triggerProps, contentProps, optionListProps, ...restProps }: React.PropsWithChildren<RHFControlledDialogComboboxProps<TFieldValues>> & HTMLAttributes<HTMLDivElement> & ConditionalOptionalLabel): import("@emotion/react/jsx-runtime").JSX.Element;
-interface RHFControlledTypeaheadComboboxProps<TFieldValues extends FieldValues = FieldValues, TName extends FieldPath<TFieldValues> = FieldPath<TFieldValues>> extends Omit<TypeaheadComboboxRootProps<TFieldValues>, OmittedOriginalProps | 'comboboxState' | 'multiSelect'>, UseControllerProps<TFieldValues, TName> {
-    control: Control<any, TFieldValues>;
-    name: any;
+interface RHFControlledTypeaheadComboboxProps<TFieldValues extends FieldValues = FieldValues, TName extends FieldPath<TFieldValues> = FieldPath<TFieldValues>> extends Omit<TypeaheadComboboxRootProps<TFieldValues>, OmittedOriginalProps | 'comboboxState' | 'multiSelect' | 'componentId'>, UseControllerProps<TFieldValues, TName>, AnalyticsEventValueChangeNoPiiFlagProps<DesignSystemEventProviderAnalyticsEventTypes.OnValueChange> {
+    control: Control<TFieldValues, any>;
+    name: TName;
     children: ({ comboboxState, items, }: {
-        comboboxState: UseComboboxReturnValue<TFieldValues>;
-        items: TFieldValues[];
+        comboboxState: UseComboboxReturnValue<TFieldValues[TName]>;
+        items: Required<TFieldValues>[TName][];
     }) => React.ReactNode;
     validationState?: ValidationState;
-    allItems: TFieldValues[];
-    itemToString: (item: TFieldValues) => string;
-    matcher: (item: TFieldValues, query: string) => boolean;
+    allItems: Required<TFieldValues>[TName][];
+    itemToString: (item: Required<TFieldValues>[TName]) => string;
+    matcher: (item: Required<TFieldValues>[TName], query: string) => boolean;
     allowNewValue?: boolean;
-    inputProps?: Partial<Omit<TypeaheadComboboxInputProps<TFieldValues>, 'comboboxState' | 'rhfOnChange' | 'validationState'>>;
-    menuProps?: Partial<Omit<TypeaheadComboboxMenuProps<TFieldValues>, 'comboboxState'>>;
+    inputProps?: Partial<Omit<TypeaheadComboboxInputProps<TFieldValues[TName]>, 'comboboxState' | 'rhfOnChange' | 'validationState'>>;
+    menuProps?: Partial<Omit<TypeaheadComboboxMenuProps<TFieldValues[TName]>, 'comboboxState'>>;
+    onInputChange?: (inputValue: string) => void;
 }
-declare function RHFControlledTypeaheadCombobox<TFieldValues extends FieldValues>({ name, control, rules, allItems, itemToString, matcher, allowNewValue, children, validationState, inputProps, menuProps, ...props }: React.PropsWithChildren<RHFControlledTypeaheadComboboxProps<TFieldValues>> & HTMLAttributes<HTMLDivElement>): import("@emotion/react/jsx-runtime").JSX.Element;
-interface RHFControlledMultiSelectTypeaheadComboboxProps<TFieldValues extends FieldValues = FieldValues, TName extends FieldPath<TFieldValues> = FieldPath<TFieldValues>> extends Omit<TypeaheadComboboxRootProps<TFieldValues>, OmittedOriginalProps | 'comboboxState' | 'multiSelect'>, UseControllerProps<TFieldValues, TName> {
+declare function RHFControlledTypeaheadCombobox<TFieldValues extends FieldValues, TName extends FieldPath<TFieldValues>>({ name, control, rules, allItems, itemToString, matcher, allowNewValue, children, validationState, inputProps, menuProps, onInputChange, componentId, analyticsEvents, valueHasNoPii, ...props }: React.PropsWithChildren<RHFControlledTypeaheadComboboxProps<TFieldValues, TName>> & HTMLAttributes<HTMLDivElement>): import("@emotion/react/jsx-runtime").JSX.Element;
+interface RHFControlledMultiSelectTypeaheadComboboxProps<TFieldValues extends FieldValues = FieldValues, TName extends FieldPath<TFieldValues> = FieldPath<TFieldValues>> extends Omit<TypeaheadComboboxRootProps<TFieldValues>, OmittedOriginalProps | 'comboboxState' | 'multiSelect' | 'componentId'>, UseControllerProps<TFieldValues, TName>, AnalyticsEventValueChangeNoPiiFlagProps<DesignSystemEventProviderAnalyticsEventTypes.OnValueChange> {
     control: Control<any, TFieldValues>;
     name: any;
     children: ({ comboboxState, items, selectedItems, }: {
@@ -100,8 +102,9 @@ interface RHFControlledMultiSelectTypeaheadComboboxProps<TFieldValues extends Fi
     matcher: (item: TFieldValues, query: string) => boolean;
     inputProps?: Partial<Omit<TypeaheadComboboxMultiSelectInputProps<TFieldValues>, 'comboboxState' | 'rhfOnChange' | 'id' | 'validationState'>>;
     menuProps?: Partial<Omit<TypeaheadComboboxMenuProps<TFieldValues>, 'comboboxState'>>;
+    onInputChange?: (inputValue: string) => void;
 }
-declare function RHFControlledMultiSelectTypeaheadCombobox<TFieldValues extends FieldValues>({ name, control, rules, allItems, itemToString, matcher, children, validationState, inputProps, menuProps, ...props }: React.PropsWithChildren<RHFControlledMultiSelectTypeaheadComboboxProps<TFieldValues>> & HTMLAttributes<HTMLDivElement>): import("@emotion/react/jsx-runtime").JSX.Element;
+declare function RHFControlledMultiSelectTypeaheadCombobox<TFieldValues extends FieldValues>({ name, control, rules, allItems, itemToString, matcher, children, validationState, inputProps, menuProps, onInputChange, componentId, analyticsEvents, valueHasNoPii, ...props }: React.PropsWithChildren<RHFControlledMultiSelectTypeaheadComboboxProps<TFieldValues>> & HTMLAttributes<HTMLDivElement>): import("@emotion/react/jsx-runtime").JSX.Element;
 interface RHFControlledCheckboxGroupProps<TFieldValues extends FieldValues = FieldValues, TName extends FieldPath<TFieldValues> = FieldPath<TFieldValues>> extends Omit<CheckboxGroupProps, OmittedOriginalProps>, UseControllerProps<TFieldValues, TName> {
     control: Control<TFieldValues>;
 }

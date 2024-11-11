@@ -25,7 +25,7 @@ const shouldAutoformat = (comment) => {
   return isNewCommand(comment) || isOldCommand(comment);
 };
 
-const getPullInformation = async (context, github) => {
+const getPullInfo = async (context, github) => {
   const { owner, repo } = context.repo;
   const pull_number = context.issue.number;
   const pr = await github.rest.pulls.get({ owner, repo, pull_number });
@@ -68,7 +68,7 @@ const createReaction = async (context, github) => {
 };
 
 const createStatus = async (context, github, core) => {
-  const { head_sha, head_ref, repository } = await getPullInformation(context, github);
+  const { head_sha, head_ref, repository } = await getPullInfo(context, github);
   if (repository === "mlflow/mlflow" && head_ref === "master") {
     core.setFailed("Running autoformat bot against master branch of mlflow/mlflow is not allowed.");
   }
@@ -83,7 +83,7 @@ const updateStatus = async (context, github, sha, needs) => {
 
 module.exports = {
   shouldAutoformat,
-  getPullInformation,
+  getPullInfo,
   createReaction,
   createStatus,
   updateStatus,

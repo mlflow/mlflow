@@ -242,6 +242,7 @@ export const DifferenceViewPlot = ({
               {headerGroup.headers.map((header, index) => {
                 return (
                   <TableHeader
+                    componentId="codegen_mlflow_app_src_experiment-tracking_components_runs-charts_components_charts_differenceviewplot.tsx_248"
                     key={header.id}
                     style={{
                       maxWidth: header.column.getSize(),

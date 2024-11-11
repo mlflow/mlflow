@@ -9,7 +9,7 @@ import React, { Component } from 'react';
 import errorDefaultImg from '../static/default-error.svg';
 import error404Img from '../static/404-overflow.svg';
 import Routes from '../../experiment-tracking/routes';
-import { Link } from '../../common/utils/RoutingUtils';
+import { Link } from '../utils/RoutingUtils';
 import { FormattedMessage } from 'react-intl';
 import { WithDesignSystemThemeHoc } from '@databricks/design-system';
 
@@ -72,7 +72,7 @@ export class ErrorViewImpl extends Component<ErrorViewImplProps> {
           description="Default error message for error views in MLflow"
           values={{
             link: (chunks: any) => (
-              <Link data-test-id="error-view-link" to={fallbackHomePageReactRoute || Routes.rootRoute}>
+              <Link data-testid="error-view-link" to={fallbackHomePageReactRoute || Routes.rootRoute}>
                 {chunks}
               </Link>
             ),
@@ -87,7 +87,7 @@ export class ErrorViewImpl extends Component<ErrorViewImplProps> {
           description="Default error message for error views in MLflow"
           values={{
             link: (chunks: any) => (
-              <Link data-test-id="error-view-link" to={fallbackHomePageReactRoute || Routes.rootRoute}>
+              <Link data-testid="error-view-link" to={fallbackHomePageReactRoute || Routes.rootRoute}>
                 {chunks}
               </Link>
             ),
