@@ -145,6 +145,7 @@ jobs:
 
       - name: update_schemas.sh
         run: |
+          pip install .
           ./tests/db/update_schemas.sh
 
       - name: Clean up
