@@ -127,7 +127,6 @@ main img {
   background-color: white;
 }
 
-img.center {
-  display: block;
+.center-div {
   margin-inline: auto;
 }
