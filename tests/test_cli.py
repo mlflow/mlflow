@@ -596,13 +596,16 @@ def test_doctor():
     res = CliRunner().invoke(doctor, catch_exceptions=False)
     assert res.exit_code == 0
 
+
 def test_mlflow_gc_with_datasets(sqlite_store):
     store = sqlite_store[0]
 
     mlflow.set_tracking_uri(sqlite_store[1])
     mlflow.set_experiment("dataset")
 
-    dataset_source_url = "https://raw.githubusercontent.com/mlflow/mlflow/master/tests/datasets/winequality-red.csv"
+    dataset_source_url = (
+        "https://raw.githubusercontent.com/mlflow/mlflow/master/tests/datasets/winequality-red.csv"
+    )
     raw_data = pd.read_csv(dataset_source_url, delimiter=";")
     dataset = mlflow.data.from_pandas(
         raw_data, source=dataset_source_url, name="wine quality - red", targets="quality"
