@@ -143,6 +143,10 @@ jobs:
 
           test $err = 0
 
+      - name: update_schemas.sh
+        run: |
+          ./tests/db/update_schemas.sh
+
       - name: Clean up
         run: |
           ./tests/db/compose.sh down --volumes --remove-orphans --rmi all
