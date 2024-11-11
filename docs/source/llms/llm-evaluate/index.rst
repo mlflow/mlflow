@@ -102,14 +102,13 @@ LLM Evaluation Metrics
 
 There are two types of LLM evaluation metrics in MLflow:
 
-1. **Heuristic-based metrics**: These metrics calculate a score for each data record (row in terms of Pandas/Spark dataframe), based on certain functions, like Rouge (:py:func:`~mlflow.metrics.rougeL`) or Flesch Kincaid (:py:func:`~mlflow.metrics.flesch_kincaid_grade_level`) or Bilingual Evaluation Understudy (BLEU) (:py:func:`~mlflow.metrics.bleu`). These metrics are similar to traditional metrics. For the list of built-in heuristic metrics and how to define a custom metric with your own function definition, see the `Heuristic-based Metrics <heristic-based-metrics>`_ section.
+1. **Heuristic-based metrics**: These metrics calculate a score for each data record (row in terms of Pandas/Spark dataframe), based on certain functions, like Rouge (:py:func:`~mlflow.metrics.rougeL`) or Flesch Kincaid (:py:func:`~mlflow.metrics.flesch_kincaid_grade_level`) or Bilingual Evaluation Understudy (BLEU) (:py:func:`~mlflow.metrics.bleu`). These metrics are similar to traditional metrics. For the list of built-in heuristic metrics and how to define a custom metric with your own function definition, see the `Heuristic-based Metrics <#heuristic-based-metrics>`_ section.
 
-2. **LLM-as-a-Judge metrics**: LLM-as-a-Judge is a new type of metric that uses LLMs to score the quality of model outputs. It overcomes the limitations of heuristic-based metrics, which often miss nuances like context and semantic accuracy. LLM-as-a-Judge metrics provides a more human-like evaluation for complex language tasks while being more scalable and cost-effective than human evaluation. MLflow provides various built-in LLM-as-a-Judge metrics and supports creating custom metrics with your own prompt, grading criteria, and reference examples. See the `Metrics with LLM as the Judge <metrics-with-llm-as-the-judge>`_ section for more details.
+2. **LLM-as-a-Judge metrics**: LLM-as-a-Judge is a new type of metric that uses LLMs to score the quality of model outputs. It overcomes the limitations of heuristic-based metrics, which often miss nuances like context and semantic accuracy. LLM-as-a-Judge metrics provides a more human-like evaluation for complex language tasks while being more scalable and cost-effective than human evaluation. MLflow provides various built-in LLM-as-a-Judge metrics and supports creating custom metrics with your own prompt, grading criteria, and reference examples. See the `LLM-as-a-Judge Metrics <#llm-as-a-judge-metrics>`_ section for more details.
 
 
 Heuristic-based Metrics
 ^^^^^^^^^^^^^^^^^^^^^^^
-
 
 Built-in Heuristic Metrics
 **************************
