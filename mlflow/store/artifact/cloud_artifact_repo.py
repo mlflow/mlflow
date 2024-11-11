@@ -99,15 +99,10 @@ StagedArtifactUpload = namedtuple(
 class CloudArtifactRepository(ArtifactRepository):
     def __init__(self, artifact_uri):
         super().__init__(artifact_uri)
-        # Use an isolated thread pool executor for chunk uploads/downloads to avoid a deadlock
-        # caused by waiting for a chunk-upload/download task within a file-upload/download task.
-        # See https://superfastpython.com/threadpoolexecutor-deadlock/#Deadlock_1_Submit_and_Wait_for_a_Task_Within_a_Task
-        # for more details
-        self.chunk_thread_pool = self._create_thread_pool()
 
     # Write APIs
 
-    def log_artifacts(self, local_dir, artifact_path=None):
+    def _log_artifacts(self, local_dir, artifact_path=None):
         """
         Parallelized implementation of `log_artifacts`.
         """
@@ -148,7 +143,7 @@ class CloudArtifactRepository(ArtifactRepository):
                 for staged_upload, write_credential_info in zip(
                     staged_upload_chunk, write_credential_infos
                 ):
-                    upload_future = self.thread_pool.submit(
+                    upload_future = self.file_thread_pool.submit(
                         self._upload_to_cloud,
                         cloud_credential_info=write_credential_info,
                         src_file_path=staged_upload.src_file_path,
@@ -175,6 +170,10 @@ class CloudArtifactRepository(ArtifactRepository):
                     f" to {self.artifact_uri}: {failed_uploads}"
                 )
             )
+
+    def log_artifacts(self, local_dir, artifact_path=None):
+        with self._set_thread_pools():
+            return self._log_artifacts(local_dir, artifact_path)
 
     @abstractmethod
     def _get_write_credential_infos(self, remote_file_paths):
