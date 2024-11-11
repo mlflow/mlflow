@@ -80,7 +80,7 @@ provider example to use any managed LLM hosting service with ease (`Amazon Bedro
 
 Warning
 -------
-Before or during the mlflow 2.20 release, we will be making the following changes to ChatModel:
+In a future release, we will be making the following changes to ChatModel:
 
 - :py:class:`mlflow.types.llm.ChatRequest` will be renamed to ChatCompletionRequest
 - :py:class:`mlflow.types.llm.ChatResponse` will be renamed to ChatCompletionResponse
