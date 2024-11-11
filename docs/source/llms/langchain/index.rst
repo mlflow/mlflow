@@ -30,7 +30,7 @@ You can also explicitly declare external resource dependencies, like the LLM ser
 These dependencies are tracked by MLflow as model metadata, so that downstream serving systems can ensure authentication from your
 deployed LangChain application to these dependent resources just works.
 
-These features ensures consistency between development and production environments, reducing deployment risks with less manual intervention.
+These features ensure consistency between development and production environments, reducing deployment risks with less manual intervention.
 
 MLflow Evaluate
 ^^^^^^^^^^^^^^^
