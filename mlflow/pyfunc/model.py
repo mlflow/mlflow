@@ -229,9 +229,9 @@ class ChatModel(PythonModel, metaclass=ABCMeta):
 
     .. warning::
 
-        In an upcoming release of MLflow, we will be requiring a `predict_stream` implementation,
-        changing `ChatRequest` to a new `ChatCompletionRequest` type, and changing `ChatResponse`
-        to a new `ChatCompletionResponse` type
+        In an upcoming release of MLflow, we will be requiring a ``predict_stream`` implementation,
+        changing `ChatRequest` to a new ``ChatCompletionRequest`` type, and changing
+        ``ChatResponse`` to a new ``ChatCompletionResponse`` type.
 
     """
 
@@ -251,8 +251,8 @@ class ChatModel(PythonModel, metaclass=ABCMeta):
 
         .. warning::
 
-            In an upcoming MLflow release, we will be changing the output type from `ChatResponse`
-            to a new `ChatCompletionResponse` type
+            In an upcoming MLflow release, we will be changing the output type from
+            ``ChatResponse`` to a new ``ChatCompletionResponse`` type.
 
         Args:
             context: A :class:`~PythonModelContext` instance containing artifacts that the model
@@ -280,10 +280,10 @@ class ChatModel(PythonModel, metaclass=ABCMeta):
 
         .. warning::
 
-            In an upcoming MLflow release, `predict_stream` will be returning a
-            true streaming interface that returns a generator of `ChatCompletionChunks` instead
-            of the current behavior of yielding the entire prediction as a single `ChatResponse`
-            generator entry.
+            In an upcoming MLflow release, ``predict_stream`` will be returning a
+            true streaming interface that returns a generator of ``ChatCompletionChunks``
+            instead of the current behavior of yielding the entire prediction as a single
+            ``ChatResponse`` generator entry.
 
         Args:
             context: A :class:`~PythonModelContext` instance containing artifacts that the model

@@ -335,7 +335,7 @@ class ChatParams(_BaseDataclass):
 
     .. warning::
 
-        In an upcoming MLflow release, we will be renaming the `metadata` field to `custom_inputs`
+        In an upcoming MLflow release, we will be renaming the ``metadata`` field to ``custom_inputs``
 
     Args:
         temperature (float): A param used to control randomness and creativity during inference.
@@ -421,8 +421,8 @@ class ChatRequest(ChatParams):
 
     .. warning::
 
-        In an upcoming MLflow release, we will be changing `ChatRequest` to a new
-        `ChatCompletionRequest` type and renaming the `metadata` field to `custom_inputs`
+        In an upcoming MLflow release, we will be changing ``ChatRequest`` to a new
+        ``ChatCompletionRequest`` type and renaming the ``metadata`` field to ``custom_inputs``
 
     Args:
         messages (List[:py:class:`ChatMessage`]): A list of :py:class:`ChatMessage`
@@ -577,8 +577,8 @@ class ChatResponse(_BaseDataclass):
 
     .. warning::
 
-        In an upcoming MLflow release, we will be changing `ChatRequest` to a new
-        `ChatCompletionRequest` type and renaming the `metadata` field to `custom_outputs`
+        In an upcoming MLflow release, we will be changing ``ChatResponse`` to a new
+        ``ChatCompletionResponse`` type and renaming the ``metadata`` field to ``custom_outputs``
 
     Args:
         choices (List[:py:class:`ChatChoice`]): A list of :py:class:`ChatChoice` objects
