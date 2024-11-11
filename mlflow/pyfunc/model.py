@@ -230,7 +230,7 @@ class ChatModel(PythonModel, metaclass=ABCMeta):
     .. warning::
 
         In an upcoming release of MLflow, we will be requiring a ``predict_stream`` implementation,
-        changing `ChatRequest` to a new ``ChatCompletionRequest`` type, and changing
+        changing ``ChatRequest`` to a new ``ChatCompletionRequest`` type, and changing
         ``ChatResponse`` to a new ``ChatCompletionResponse`` type.
 
     """
