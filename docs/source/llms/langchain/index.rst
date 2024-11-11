@@ -25,7 +25,12 @@ LangChain's flexibility in experimenting with various agents, tools, and retriev
 
 Dependency Management
 ^^^^^^^^^^^^^^^^^^^^^
-Deploy your LangChain application with confidence, leveraging MLflow's ability to `manage and record all external dependencies <../../model/dependencies.html>`_ automatically. This ensures consistency between development and production environments, reducing deployment risks with less manual intervention.
+Deploy your LangChain application with confidence, leveraging MLflow's ability to `manage and record code and environment dependencies <../../model/dependencies.html>`_ automatically.
+You can also explicitly declare external resource dependencies, like the LLM serving endpoint or vector search index queried by your LangChain application.
+These dependencies are tracked by MLflow as model metadata, so that downstream serving systems can ensure authentication from your
+deployed LangChain application to these dependent resources just works.
+
+These features ensure consistency between development and production environments, reducing deployment risks with less manual intervention.
 
 MLflow Evaluate
 ^^^^^^^^^^^^^^^

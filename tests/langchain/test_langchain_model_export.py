@@ -1866,8 +1866,16 @@ def test_databricks_dependency_extraction_from_lcel_chain():
     chain = prompt_1 | {"joke1": model_1, "joke2": model_2} | prompt_2 | model_3 | output_parser
 
     pyfunc_artifact_path = "basic_chain"
-    with mlflow.start_run() as run:
+    with mlflow.start_run() as run, mock.patch("mlflow.langchain.logger.info") as mock_log_info:
         mlflow.langchain.log_model(chain, pyfunc_artifact_path)
+        mock_log_info.assert_called_once_with(
+            "Attempting to auto-detect Databricks resource dependencies for the current "
+            "langchain model. Dependency auto-detection is best-effort and may not capture "
+            "all dependencies of your langchain model, resulting in authorization errors when "
+            "serving or querying your model. We recommend that you explicitly pass `resources` "
+            "to mlflow.langchain.log_model() to ensure authorization to dependent resources "
+            "succeeds when the model is deployed."
+        )
     pyfunc_model_uri = f"runs:/{run.info.run_id}/{pyfunc_artifact_path}"
     pyfunc_model_path = _download_artifact_from_uri(pyfunc_model_uri)
     reloaded_model = Model.load(os.path.join(pyfunc_model_path, "MLmodel"))
