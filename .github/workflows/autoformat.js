@@ -25,7 +25,7 @@ const shouldAutoformat = (comment) => {
   return isNewCommand(comment) || isOldCommand(comment);
 };
 
-const getPullInformation = async (context, github) => {
+const getPullInfo = async (context, github) => {
   const { owner, repo } = context.repo;
   const pull_number = context.issue.number;
   const pr = await github.rest.pulls.get({ owner, repo, pull_number });
