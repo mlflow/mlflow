@@ -25,7 +25,7 @@ LangChain's flexibility in experimenting with various agents, tools, and retriev
 
 Dependency Management
 ^^^^^^^^^^^^^^^^^^^^^
-Deploy your LangChain application with confidence, leveraging MLflow's ability to `manage and record code and environment dependencies <../../model/dependencies.html>`_ . This ensures consistency between development and production environments, reducing deployment risks with less manual intervention.
+Deploy your LangChain application with confidence, leveraging MLflow's ability to `manage and record code and environment dependencies <../../model/dependencies.html>`_ automatically. This ensures consistency between development and production environments, reducing deployment risks with less manual intervention.
 
 MLflow Evaluate
 ^^^^^^^^^^^^^^^
