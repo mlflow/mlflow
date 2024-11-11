@@ -28,12 +28,9 @@ but we also define a few additional layers of structure upon the OpenTelemetry S
     Data is comprised entirely of the instrumented <APILink fn="mlflow.entities.Span">`Span`</APILink>
     objects that make up the core of the trace.
 
-    <img
-      alt="Trace Architecture"
-      class="center"
-      src="/images/llms/tracing/schema/trace_architecture.png"
-      style={{ maxHeight: 400}}
-    />
+    <div class="max-height-img-container" style={{ maxHeight: "400px" }}>
+      ![Trace Architecture](/images/llms/tracing/schema/trace_architecture.png)
+    </div>
 
   </TabItem>
   <TabItem value="trace-info" label="Trace Info">
@@ -44,12 +41,9 @@ but we also define a few additional layers of structure upon the OpenTelemetry S
     as well as trace-level data such as start time and total execution time. The Trace Info also includes tags and status information for
     the trace as a whole.
 
-    <img
-      alt="Trace Info Architecture"
-      class="center"
-      src="/images/llms/tracing/schema/trace_info_architecture.png"
-      style={{ maxHeight: 400}}
-    />
+    <div class="max-height-img-container" style={{ maxHeight: "400px" }}>
+      ![Trace Info Architecture](/images/llms/tracing/schema/trace_info_architecture.png)
+    </div>
 
   </TabItem>
   <TabItem value="trace-data" label="Trace Data">
@@ -60,12 +54,9 @@ but we also define a few additional layers of structure upon the OpenTelemetry S
     These spans are associated with one another in a hierarchical relationship, providing a clear order-of-operations linkage of what
     happened within your application during the trace.
 
-    <img
-      alt="Trace Data Architecture"
-      class="center"
-      src="/images/llms/tracing/schema/trace_data_architecture.png"
-      style={{ maxHeight: 400}}
-    />
+    <div class="max-height-img-container" style={{ maxHeight: "400px" }}>
+      ![Trace Data Architecture](/images/llms/tracing/schema/trace_data_architecture.png)
+    </div>
 
   </TabItem>
   <TabItem value="span" label="Span">
@@ -76,12 +67,9 @@ but we also define a few additional layers of structure upon the OpenTelemetry S
     Each Span object contains information about the step being instrumented, including the span_id, name, start_time, parent_id, status,
     inputs, outputs, attributes, and events.
 
-    <img
-      alt="Span Architecture"
-      class="center"
-      src="/images/llms/tracing/schema/span_architecture.png"
-      style={{ maxHeight: 400}}
-    />
+    <div class="max-height-img-container" style={{ maxHeight: "400px" }}>
+      ![Span Architecture](/images/llms/tracing/schema/span_architecture.png)
+    </div>
 
   </TabItem>
 </Tabs>
