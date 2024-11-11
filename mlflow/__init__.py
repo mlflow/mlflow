@@ -28,6 +28,8 @@ For a lower level API, see the :py:mod:`mlflow.client` module.
 """
 
 import contextlib
+import importlib
+from typing import ModuleType
 
 from mlflow.version import VERSION
 
@@ -43,50 +45,7 @@ from mlflow import (
     tracking,  # noqa: F401
 )
 from mlflow.environment_variables import MLFLOW_CONFIGURE_LOGGING
-from mlflow.utils.lazy_load import LazyLoader
 from mlflow.utils.logging_utils import _configure_mlflow_loggers
-
-# Lazily load mlflow flavors to avoid excessive dependencies.
-autogen = LazyLoader("mlflow.autogen", globals(), "mlflow.autogen")
-catboost = LazyLoader("mlflow.catboost", globals(), "mlflow.catboost")
-diviner = LazyLoader("mlflow.diviner", globals(), "mlflow.diviner")
-dspy = LazyLoader("mlflow.dspy", globals(), "mlflow.dspy")
-fastai = LazyLoader("mlflow.fastai", globals(), "mlflow.fastai")
-gluon = LazyLoader("mlflow.gluon", globals(), "mlflow.gluon")
-h2o = LazyLoader("mlflow.h2o", globals(), "mlflow.h2o")
-johnsnowlabs = LazyLoader("mlflow.johnsnowlabs", globals(), "mlflow.johnsnowlabs")
-keras = LazyLoader("mlflow.keras", globals(), "mlflow.keras")
-langchain = LazyLoader("mlflow.langchain", globals(), "mlflow.langchain")
-lightgbm = LazyLoader("mlflow.lightgbm", globals(), "mlflow.lightgbm")
-llama_index = LazyLoader("mlflow.llama_index", globals(), "mlflow.llama_index")
-llm = LazyLoader("mlflow.llm", globals(), "mlflow.llm")
-metrics = LazyLoader("mlflow.metrics", globals(), "mlflow.metrics")
-mleap = LazyLoader("mlflow.mleap", globals(), "mlflow.mleap")
-onnx = LazyLoader("mlflow.onnx", globals(), "mlflow.onnx")
-openai = LazyLoader("mlflow.openai", globals(), "mlflow.openai")
-paddle = LazyLoader("mlflow.paddle", globals(), "mlflow.paddle")
-pmdarima = LazyLoader("mlflow.pmdarima", globals(), "mlflow.pmdarima")
-promptflow = LazyLoader("mlflow.promptflow", globals(), "mlflow.promptflow")
-prophet = LazyLoader("mlflow.prophet", globals(), "mlflow.prophet")
-promptlab = LazyLoader("mlflow.promptlab", globals(), "mlflow.promptlab")
-pyfunc = LazyLoader("mlflow.pyfunc", globals(), "mlflow.pyfunc")
-pyspark = LazyLoader("mlflow.pyspark", globals(), "mlflow.pyspark")
-pytorch = LazyLoader("mlflow.pytorch", globals(), "mlflow.pytorch")
-rfunc = LazyLoader("mlflow.rfunc", globals(), "mlflow.rfunc")
-recipes = LazyLoader("mlflow.recipes", globals(), "mlflow.recipes")
-sentence_transformers = LazyLoader(
-    "mlflow.sentence_transformers",
-    globals(),
-    "mlflow.sentence_transformers",
-)
-shap = LazyLoader("mlflow.shap", globals(), "mlflow.shap")
-sklearn = LazyLoader("mlflow.sklearn", globals(), "mlflow.sklearn")
-spacy = LazyLoader("mlflow.spacy", globals(), "mlflow.spacy")
-spark = LazyLoader("mlflow.spark", globals(), "mlflow.spark")
-statsmodels = LazyLoader("mlflow.statsmodels", globals(), "mlflow.statsmodels")
-tensorflow = LazyLoader("mlflow.tensorflow", globals(), "mlflow.tensorflow")
-transformers = LazyLoader("mlflow.transformers", globals(), "mlflow.transformers")
-xgboost = LazyLoader("mlflow.xgboost", globals(), "mlflow.xgboost")
 
 if MLFLOW_CONFIGURE_LOGGING.get() is True:
     _configure_mlflow_loggers(root_module_name=__name__)
@@ -249,3 +208,57 @@ with contextlib.suppress(Exception):
     from mlflow import gateway  # noqa: F401
 
     __all__.append("gateway")
+
+
+lazy_modules = [
+    "autogen",
+    "catboost",
+    "diviner",
+    "dspy",
+    "fastai",
+    "gluon",
+    "h2o",
+    "johnsnowlabs",
+    "keras",
+    "langchain",
+    "lightgbm",
+    "llama_index",
+    "llm",
+    "metrics",
+    "mleap",
+    "onnx",
+    "openai",
+    "paddle",
+    "pmdarima",
+    "promptflow",
+    "prophet",
+    "promptlab",
+    "pyfunc",
+    "pyspark",
+    "pytorch",
+    "rfunc",
+    "sentence_transformers",
+    "shap",
+    "sklearn",
+    "spacy",
+    "spark",
+    "statsmodels",
+    "tensorflow",
+    "transformers",
+    "xgboost",
+]
+
+
+# Inspired by https://github.com/scikit-learn/scikit-learn/pull/29793
+def __dir__() -> list[str]:
+    return __all__
+
+
+def __getattr__(name: str) -> ModuleType:
+    if name in lazy_modules:
+        return importlib.import_module(f"mlflow.{name}")
+    else:
+        try:
+            return globals()[name]
+        except KeyError:
+            raise AttributeError(f"Module 'mlflow' has no attribute '{name}'")
