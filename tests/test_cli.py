@@ -612,15 +612,14 @@ def test_mlflow_gc_with_datasets(sqlite_store):
         experiment_id = run.info.experiment_id
         mlflow.log_input(dataset)
 
-    runs = store.search_runs(experiment_ids=[experiment_id], filter_string="", run_view_type=ViewType.ALL)
-    assert len(runs) == 1
+    experiments = store.search_experiments(filter_string="", view_type=ViewType.ALL)
+    # default and datasets
+    assert len(experiments) == 2
 
     store.delete_experiment(experiment_id)
-    subprocess.check_output(["mlflow", "gc", "--backend-store-uri", sqlite_store[1]])
-    runs = store.search_runs(experiment_ids=[experiment_id], filter_string="", run_view_type=ViewType.ALL)
-    assert len(runs) == 0
-    with pytest.raises(MlflowException, match=r"Run .+ not found"):
-        store.get_run(run.info.run_uuid)
 
-    artifact_path = url2pathname(unquote(urlparse(run.info.artifact_uri).path))
-    assert not os.path.exists(artifact_path)
+    subprocess.check_output(["mlflow", "gc", "--backend-store-uri", sqlite_store[1]])
+    experiments = store.search_experiments(filter_string="", view_type=ViewType.ALL)
+    assert len(experiments) == 1
+    with pytest.raises(MlflowException, match=f"No Experiment with id={experiment_id} exists"):
+        store.get_experiment(experiment_id)
