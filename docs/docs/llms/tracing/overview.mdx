@@ -6,13 +6,9 @@ sidebar_position: 2
 
 In this guide, you can learn about what tracing is as it applies to Generative AI (GenAI) applications and what the main components of tracing are.
 
-<img
-  alt="MLflow Tracing"
-  class="center"
-  src="/images/intro/tracing-ui.gif"
-  style={{ width: "80%" }}
-/>
-<br />
+<div class="center-div" style={{ width: "80%" }}>
+  ![MLflow Tracing](/images/intro/tracing-ui.gif)
+</div>
 
 A good companion to the explanations in this guide is the [Tracing Schema](./tracing-schema) guide which will show how MLflow Tracing constructs the
 concepts discussed here.
@@ -29,13 +25,10 @@ In traditional ML, the inference process is relatively straightforward. When a r
 
 The diagram below illustrates the relationship between the input data, the model serving interface, and the model itself.
 
-<img
-  alt="Traditional ML Inference Architecture"
-  class="center"
-  src="/images/llms/tracing/tracing-traditional-ml.png"
-  style={{ width: "40%" }}
-/>
-<br />
+<div class="center-div" style={{ width: "40%" }}>
+  ![Traditional ML Inference
+  Architecture](/images/llms/tracing/tracing-traditional-ml.png)
+</div>
 
 This process is wholly visible, meaning both the input and output are clearly defined and understandable to the end-user. For example, in a spam detection model, the input is an email,
 and the output is a binary label indicating whether the email is spam or not. The entire inference process is transparent, making it easy to determine what data was sent and what prediction was returned,
@@ -52,12 +45,9 @@ inputs that are provided to a unit of work (such as a call to a GenAI model, a r
 
 The diagram below illustrates a call to a GenAI model and the collection of relevant information within a span. The span includes metadata such as the start time, end time, and the request arguments, as well as the input and output of the invocation call.
 
-<img
-  alt="Span Structure"
-  class="center"
-  src="/images/llms/tracing/span-anatomy.png"
-  style={{ width: "60%" }}
-/>
+<div class="center-div" style={{ width: "60%" }}>
+  ![Span Structure](/images/llms/tracing/span-anatomy.png)
+</div>
 
 ### Concept of a Trace
 
@@ -73,13 +63,9 @@ visibility is crucial for diagnosing issues, optimizing performance, and ensurin
 
 To illustrate what an entire trace can capture in a RAG application, see the illustration below.
 
-<img
-  alt="Tracing in a nutshell"
-  class="center"
-  src="/images/llms/tracing/trace-concept.png"
-  style={{ width: "60%" }}
-/>
-<br />
+<div class="center-div" style={{ width: "60%" }}>
+  ![Tracing in a nutshell](/images/llms/tracing/trace-concept.png)
+</div>
 
 The subsystems that are involved in this application are critical to the quality and relevancy of the system. Having no visibility into the paths that data will follow when interacting with the final stage LLM
 creates an application whose quality could only be achieved by a high degree of monotonouos, tedious, and expensive manual validation of each piece in isolation.
@@ -93,13 +79,10 @@ submitted to the GenAI model.
 
 As an example, the illustration below shows the nature of a ChatCompletions interface used for connecting a model, hosted in a deployment server, to an external GenAI service.
 
-<img
-  alt="GenAI ChatCompletions Architecture"
-  class="center"
-  src="/images/llms/tracing/chat-completions-architecture.png"
-  style={{ width: "60%" }}
-/>
-<br />
+<div class="center-div" style={{ width: "60%" }}>
+  ![GenAI ChatCompletions
+  Architecture](/images/llms/tracing/chat-completions-architecture.png)
+</div>
 
 Additional metadata surrounding the inference process is useful for various reasons, including billing, performance evaluation, relevance, evaluation of hallucinations, and general debugging. Key metadata includes:
 
@@ -128,13 +111,9 @@ retrieval process, the embedding model, or the content of the reference material
 
 For example, the diagram below illustrates the complex interactions that form a simple RAG application, wherein the GenAI model is called repeatedly with additional retrieved data that guides the final output generation response.
 
-<img
-  alt="RAG Architecture"
-  class="center"
-  src="/images/llms/tracing/rag-architecture.png"
-  style={{ width: "60%" }}
-/>
-<br />
+<div class="center-div" style={{ width: "60%" }}>
+  ![RAG Architecture](/images/llms/tracing/rag-architecture.png)
+</div>
 
 Without tracing enabled on such a complex system, it is challenging to identify the root cause of issues or bottlenecks. The following steps would effectively be a "black box":
 
