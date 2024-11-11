@@ -333,7 +333,7 @@ class ChatParams(_BaseDataclass):
     """
     Common parameters used for chat inference
 
-    ..warning::
+    .. warning::
 
         In an upcoming MLflow release, we will be renaming the `metadata` field to `custom_inputs`
 
@@ -419,7 +419,7 @@ class ChatRequest(ChatParams):
     """
     Format of the request object expected by the chat endpoint.
 
-    ..warning::
+    .. warning::
 
         In an upcoming MLflow release, we will be changing `ChatRequest` to a new
         `ChatCompletionRequest` type and renaming the `metadata` field to `custom_inputs`
@@ -575,7 +575,7 @@ class ChatResponse(_BaseDataclass):
     """
     The full response object returned by the chat endpoint.
 
-    ..warning::
+    .. warning::
 
         In an upcoming MLflow release, we will be changing `ChatRequest` to a new
         `ChatCompletionRequest` type and renaming the `metadata` field to `custom_outputs`

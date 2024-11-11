@@ -84,7 +84,7 @@ provider example to use any managed LLM hosting service with ease (`Amazon Bedro
 
     - :py:class:`mlflow.types.llm.ChatRequest` will be renamed to ChatCompletionRequest
     - :py:class:`mlflow.types.llm.ChatResponse` will be renamed to ChatCompletionResponse
-    - `predict_stream` will be returning a true streaming interface instead of the current behavior of yielding the entire prediction as a single chunk.
+    - `predict_stream` will be returning a true streaming interface that returns a generator of `ChatCompletionChunks` instead of the current behavior of yielding the entire prediction as a single `ChatResponse` generator entry.
 
 
 Core Concepts
