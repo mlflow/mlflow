@@ -88,7 +88,11 @@ def _get_jvm_event_publisher(spark_context):
     else:
         jvm = spark_context._gateway.jvm
     qualified_classname = "{}.{}".format(_JAVA_PACKAGE, "MlflowAutologEventPublisher")
-    return getattr(jvm, qualified_classname)
+
+    obj = jvm
+    for part in qualified_classname.split("."):
+        obj = getattr(obj, part)
+    return obj
 
 
 def _generate_datasource_tag_value(table_info_string):
