@@ -330,13 +330,15 @@ Use of ``code_paths`` Option for a Custom Library
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 To include custom libraries that are not publicly available on PyPI when logging your model, the ``code_paths`` argument can be used. 
-This option allows you to upload .whl files or other dependencies alongside your model, ensuring all required libraries are available during serving.
+This option allows you to upload ``.whl`` files or other dependencies alongside your model, ensuring all required libraries are available during serving.
 
 .. warning::
 
     The following example demonstrates a quick method for including custom libraries for development purposes. 
     This approach is not recommended for production environments. 
     For production usage, upload libraries to a custom PyPI server or a cloud storage to ensure reliable and secure access.
+
+For example, suppose your project has the following file structure:
 
 ::
 
