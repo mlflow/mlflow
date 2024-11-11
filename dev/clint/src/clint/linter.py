@@ -8,7 +8,7 @@ import textwrap
 import tokenize
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Iterator
+from typing import Any, Iterator, Union
 
 from clint import rules
 from clint.builtin import BUILTIN_MODULES
@@ -223,6 +223,9 @@ class Linter(ast.NodeVisitor):
     def _is_in_class(self) -> bool:
         return self.stack and isinstance(self.stack[-1], ast.ClassDef)
 
+    def _is_at_top_level(self) -> bool:
+        return not self._is_in_function() and not self._is_in_class()
+
     def _parse_func_args(self, func: ast.FunctionDef | ast.AsyncFunctionDef) -> list[str]:
         args: list[str] = []
         for arg in func.args.posonlyargs:
@@ -335,15 +338,9 @@ class Linter(ast.NodeVisitor):
                 if alias.name.split(".", 1)[0] in BUILTIN_MODULES:
                     self._check(Location.from_node(node), rules.LazyBuiltinImport())
 
-        # Check for forbidden global imports
-        if not (self._is_in_function() or self._is_in_class()):
+        if self._is_at_top_level():
             for alias in node.names:
-                module = alias.name.split(".", 1)[0]
-                if self._check_forbidden_import(module):
-                    self._check(
-                        Location.from_node(node),
-                        rules.ForbiddenGlobalImport(imported=module),
-                    )
+                self._check_forbidden_top_level_import(node, alias.name.split(".", 1)[0])
 
         self.generic_visit(node)
 
@@ -351,21 +348,20 @@ class Linter(ast.NodeVisitor):
         if self._is_in_function() and node.module.split(".", 1)[0] in BUILTIN_MODULES:
             self._check(Location.from_node(node), rules.LazyBuiltinImport())
 
-        # Check for forbidden global imports
-        if not (self._is_in_function() or self._is_in_class()):
-            if self._check_forbidden_import(node.module):
-                self._check(
-                    Location.from_node(node),
-                    rules.ForbiddenGlobalImport(imported=node.module),
-                )
+        if self._is_at_top_level():
+            self._check_forbidden_top_level_import(node, node.module)
 
         self.generic_visit(node)
 
-    def _check_forbidden_import(self, module: str) -> bool:
-        for file_pat, libs in self.config.forbidden_global_imports.items():
+    def _check_forbidden_top_level_import(
+        self, node: Union[ast.Import, ast.ImportFrom], module: str
+    ) -> None:
+        for file_pat, libs in self.config.forbidden_top_level_imports.items():
             if fnmatch.fnmatch(str(self.path), file_pat) and module in libs:
-                return True
-        return False
+                self._check(
+                    Location.from_node(node),
+                    rules.ForbiddenTopLevelImport(module=module),
+                )
 
     def visit_Call(self, node: ast.Call) -> None:
         if (

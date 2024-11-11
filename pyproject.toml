@@ -271,5 +271,5 @@ exclude = [
   "tests/protos",
 ]
 
-[tool.clint.forbidden-global-imports]
+[tool.clint.forbidden-top-level-imports]
 "mlflow/gateway/providers/*" = ["fastapi"]
