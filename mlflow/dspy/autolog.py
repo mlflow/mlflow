@@ -54,19 +54,23 @@ def autolog(
     from dspy.teleprompt import Teleprompter
 
     for cls in Teleprompter.__subclasses__():
+        compile_patch = "compile"
+        if hasattr(cls, compile_patch):
+            safe_patch(
+                FLAVOR_NAME,
+                cls,
+                "compile",
+                trace_disabled_fn,
+            )
+
+    call_patch = "__call__"
+    if hasattr(Evaluate, call_patch):
         safe_patch(
             FLAVOR_NAME,
-            cls,
-            "compile",
+            Evaluate,
+            call_patch,
             trace_disabled_fn,
         )
-
-    safe_patch(
-        FLAVOR_NAME,
-        Evaluate,
-        "__call__",
-        trace_disabled_fn,
-    )
 
 
 @autologging_integration(FLAVOR_NAME)
