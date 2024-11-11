@@ -184,3 +184,17 @@ class OsEnvironDeleteInTest(Rule):
 
     def _message(self) -> str:
         return "Do not delete `os.environ` in test directly. Use `monkeypatch.delenv` (https://docs.pytest.org/en/stable/reference/reference.html#pytest.MonkeyPatch.delenv)."
+
+
+class ForbiddenTopLevelImport(Rule):
+    def __init__(self, module: str) -> None:
+        self.module = module
+
+    def _id(self) -> str:
+        return "MLF0013"
+
+    def _message(self) -> str:
+        return (
+            f"Importing module `{self.module}` at the top level is not allowed "
+            "in this file. Use lazy import instead."
+        )
