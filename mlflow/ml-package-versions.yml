@@ -721,13 +721,13 @@ langchain:
         ]
     run: |
       # Run all langchain tests except autologging and evaluation
-      pytest tests/langchain --ignore tests/langchain/test_langchain_autolog.py
+      pytest tests/langchain --ignore tests/langchain/test_langchain_autolog.py --ignore tests/langchain/test_langchain_evaluation.py
       # test both pydantic v1 and v2
       PYDANTIC_VERSION=$(python -c "import pydantic; print(pydantic.__version__)")
       if [[ $PYDANTIC_VERSION == 1.* ]]; then
         pip install 'pydantic>2' 'fastapi>=0.100.0'
         echo "Testing langchain model export with pydantic v2"
-        pytest tests/langchain --ignore tests/langchain/test_langchain_autolog.py
+        pytest tests/langchain --ignore tests/langchain/test_langchain_autolog.py --ignore tests/langchain/test_langchain_evaluation.py
       fi
   autologging:
     minimum: "0.1.0"
@@ -766,7 +766,7 @@ langchain:
       echo "Testing langchain autolog with langchain-community"
       # Install with 'langchain' to ensure the compatible version is installed
       pip install langchain langchain-community
-      pytest tests/langchain/test_langchain_autolog.py
+      pytest tests/langchain/test_langchain_autolog.py tests/langchain/test_langchain_evaluation.py
 
 llama_index:
   package_info:
