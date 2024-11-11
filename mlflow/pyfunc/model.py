@@ -233,10 +233,12 @@ class ChatModel(PythonModel, metaclass=ABCMeta):
     """
 
     def __new__(cls, *args, **kwargs):
-        _logger.warning("Before or during the MLflow 2.20 release, we will be requiring a "
-                        "predict_stream implementation, renaming ChatRequest to "
-                        "ChatCompletionRequest, and renaming ChatResponse to "
-                        "ChatCompletionResponse")
+        _logger.warning(
+            "Before or during the MLflow 2.20 release, we will be requiring a "
+            "predict_stream implementation, renaming ChatRequest to "
+            "ChatCompletionRequest, and renaming ChatResponse to "
+            "ChatCompletionResponse"
+        )
         return super().__new__(cls)
 
     @abstractmethod
