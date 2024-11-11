@@ -64,7 +64,7 @@ def test_langchain_evaluate_autologs_traces():
     # Test original langchain autolog configs is restored
     with mock.patch("mlflow.langchain.log_model") as log_model_mock:
         with mlflow.start_run() as run:
-            chain.invoke("text")
+            chain.invoke({"input": "text"})
 
         log_model_mock.assert_called_once()
         assert len(get_traces()) == 3
@@ -146,7 +146,7 @@ def test_langchain_evaluate_fails_with_an_exception():
     # Test original langchain autolog configs is restored
     with mock.patch("mlflow.langchain.log_model") as log_model_mock:
         with mlflow.start_run():
-            chain.invoke("text")
+            chain.invoke({"input": "text"})
 
         log_model_mock.assert_called_once()
         assert len(get_traces()) == 1

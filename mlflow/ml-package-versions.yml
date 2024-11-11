@@ -763,10 +763,11 @@ langchain:
         pytest tests/langchain/test_langchain_autolog.py
       fi
 
-      echo "Testing langchain autolog with langchain-community"
+      echo "Testing langchain autolog and evaluation with langchain-community"
       # Install with 'langchain' to ensure the compatible version is installed
       pip install langchain langchain-community
-      pytest tests/langchain/test_langchain_autolog.py tests/langchain/test_langchain_evaluation.py
+      pytest tests/langchain/test_langchain_autolog.py
+      pytest tests/langchain/test_langchain_evaluation.py
 
 llama_index:
   package_info:
