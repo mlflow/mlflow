@@ -335,7 +335,8 @@ class ChatParams(_BaseDataclass):
 
     .. warning::
 
-        In an upcoming MLflow release, we will be renaming the ``metadata`` field to ``custom_inputs``
+        In an upcoming MLflow release, we will be renaming the ``metadata`` field to
+        ``custom_inputs``
 
     Args:
         temperature (float): A param used to control randomness and creativity during inference.
