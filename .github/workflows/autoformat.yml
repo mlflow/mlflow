@@ -48,6 +48,7 @@ jobs:
               await autoformat.createReaction(context, github);
               await autoformat.createStatus(context, github, core);
             }
+            const pullInfo = await autoformat.getPullInfo(context, github);
             return { ...pullInfo, shouldAutoformat };
 
   format:
