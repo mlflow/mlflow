@@ -344,7 +344,7 @@ class CohereProvider(BaseProvider):
         return "https://api.cohere.ai/v1"
 
     @property
-    def adapter(self):
+    def adapter_class(self) -> type[ProviderAdapter]:
         return CohereAdapter
 
     def get_endpoint_url(self, route_type: str) -> str:

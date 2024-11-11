@@ -313,7 +313,7 @@ class TogetherAIProvider(BaseProvider):
         return {"Authorization": f"Bearer {self.togetherai_config.togetherai_api_key}"}
 
     @property
-    def adapter(self):
+    def adapter_class(self) -> type[ProviderAdapter]:
         return TogetherAIAdapter
 
     def get_endpoint_url(self, route_type: str) -> str:

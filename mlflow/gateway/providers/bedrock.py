@@ -147,7 +147,7 @@ class AmazonBedrockModelProvider(Enum):
     ANTHROPIC = "anthropic"
 
     @property
-    def adapter(self):
+    def adapter_class(self) -> type[ProviderAdapter]:
         return AWS_MODEL_PROVIDER_TO_ADAPTER.get(self)
 
     @classmethod
@@ -253,14 +253,14 @@ class AmazonBedrockProvider(BaseProvider):
         return AmazonBedrockModelProvider.of_str(provider)
 
     @property
-    def adapter(self) -> ProviderAdapter:
+    def adapter_class(self) -> type[ProviderAdapter]:
         provider = self._underlying_provider
         if not provider:
             raise AIGatewayException(
                 status_code=422,
                 detail=f"Unknown Amazon Bedrock model type {self._underlying_provider}",
             )
-        adapter = provider.adapter
+        adapter = provider.adapter_class
         if not adapter:
             raise AIGatewayException(
                 status_code=422,

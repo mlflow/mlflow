@@ -233,17 +233,17 @@ class AnthropicProvider(BaseProvider, AnthropicAdapter):
 
     @property
     def base_url(self) -> str:
-        return "https://api.anthropic.com/v1/"
+        return "https://api.anthropic.com/v1"
 
     @property
-    def adapter(self):
+    def adapter_class(self) -> type[ProviderAdapter]:
         return AnthropicAdapter
 
     def get_endpoint_url(self, route_type: str) -> str:
         if route_type == "llm/v1/chat":
-            return f"{self.base_url}messages"
+            return f"{self.base_url}/messages"
         elif route_type == "llm/v1/completions":
-            return f"{self.base_url}complete"
+            return f"{self.base_url}/complete"
         else:
             raise ValueError(f"Invalid route type {route_type}")
 

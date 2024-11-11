@@ -163,15 +163,15 @@ class MistralProvider(BaseProvider):
 
     @property
     def base_url(self) -> str:
-        return "https://api.mistral.ai/v1/"
+        return "https://api.mistral.ai/v1"
 
     @property
-    def adapter(self):
+    def adapter_class(self) -> type[ProviderAdapter]:
         return MistralAdapter
 
     def get_endpoint_url(self, route_type: str) -> str:
         if route_type == "llm/v1/chat":
-            return f"{self.base_url}chat/completions"
+            return f"{self.base_url}/chat/completions"
         else:
             raise ValueError(f"Invalid route type {route_type}")
 

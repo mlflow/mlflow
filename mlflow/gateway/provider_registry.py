@@ -62,7 +62,7 @@ def _register_plugin_providers(registry: ProviderRegistry):
         registry.register(p.name, cls)
 
 
-def is_supported_provider(name: str):
+def is_supported_provider(name: str) -> bool:
     return name in provider_registry.keys()
 
 

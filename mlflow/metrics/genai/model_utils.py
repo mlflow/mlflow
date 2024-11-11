@@ -218,7 +218,7 @@ def _call_llm_provider_api(
         for k, v in chat_request.model_dump().items()
         if (v is not None) and (k in filtered_keys)
     }
-    chat_payload = provider.adapter.chat_to_model(payload, provider.config)
+    chat_payload = provider.adapter_class.chat_to_model(payload, provider.config)
     chat_payload.update(eval_parameters)
 
     if provider_name in [Provider.AMAZON_BEDROCK, Provider.BEDROCK]:
@@ -234,7 +234,7 @@ def _call_llm_provider_api(
             headers={**provider.headers, **extra_headers},
             payload=chat_payload,
         )
-    chat_response = provider.adapter.model_to_chat(response, provider.config)
+    chat_response = provider.adapter_class.model_to_chat(response, provider.config)
     if len(chat_response.choices) == 0:
         raise MlflowException(
             "Failed to score the provided input as the judge LLM did not return "
@@ -243,7 +243,7 @@ def _call_llm_provider_api(
     return chat_response.choices[0].message.content
 
 
-def _get_provider_instance(provider: str, model: str):
+def _get_provider_instance(provider: str, model: str) -> "BaseProvider":  # noqa: F821
     """Get the provider instance for the given provider name and the model name."""
     from mlflow.gateway.config import Provider, RouteConfig
 
