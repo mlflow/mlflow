@@ -10,7 +10,7 @@ import { connect } from 'react-redux';
 import { Link } from '../../common/utils/RoutingUtils';
 import _ from 'lodash';
 import { FormattedMessage } from 'react-intl';
-import { Switch, Tabs, useDesignSystemTheme } from '@databricks/design-system';
+import { Switch, LegacyTabs, useDesignSystemTheme } from '@databricks/design-system';
 
 import { getParams, getRunInfo } from '../../experiment-tracking/reducers/Reducers';
 import '../../experiment-tracking/components/CompareRunView.css';
@@ -27,7 +27,7 @@ import { getModelVersionSchemas } from '../reducers';
 import { PageHeader } from '../../shared/building_blocks/PageHeader';
 import type { RunInfoEntity } from '../../experiment-tracking/types';
 
-const { TabPane } = Tabs;
+const { TabPane } = LegacyTabs;
 
 function CenteredText(props: any) {
   const { theme } = useDesignSystemTheme();
@@ -252,7 +252,7 @@ export class CompareModelVersionsViewImpl extends Component<
             {this.renderMetrics()}
           </CompareTable>
         </div>
-        <Tabs>
+        <LegacyTabs>
           <TabPane
             tab={
               <FormattedMessage
@@ -297,7 +297,7 @@ export class CompareModelVersionsViewImpl extends Component<
           >
             <CompareRunContour runUuids={runUuids} runDisplayNames={runDisplayNames} />
           </TabPane>
-        </Tabs>
+        </LegacyTabs>
       </div>
     );
   }

@@ -22,7 +22,7 @@ import {
   modelVersionStatusIconTooltips,
 } from '../../model-registry/constants';
 import Utils from '../../common/utils/Utils';
-import _ from 'lodash';
+import _, { first } from 'lodash';
 import { ModelRegistryRoutes } from '../../model-registry/routes';
 import {
   DesignSystemHocProps,
@@ -36,7 +36,7 @@ import './ArtifactView.css';
 
 import { getArtifactRootUri, getArtifacts } from '../reducers/Reducers';
 import { getAllModelVersions } from '../../model-registry/reducers';
-import { listArtifactsApi } from '../actions';
+import { listArtifactsApi, listArtifactsLoggedModelApi } from '../actions';
 import { MLMODEL_FILE_NAME } from '../constants';
 import { getArtifactLocationUrl } from '../../common/utils/ArtifactUtils';
 import { ArtifactViewTree } from './ArtifactViewTree';
@@ -47,6 +47,9 @@ import { DownloadIcon } from '@databricks/design-system';
 import { Checkbox } from '@databricks/design-system';
 import { getLoggedTablesFromTags } from '@mlflow/mlflow/src/common/utils/TagUtils';
 import { CopyButton } from '../../shared/building_blocks/CopyButton';
+import { isExperimentLoggedModelsUIEnabled } from '../../common/utils/FeatureUtils';
+import type { LoggedModelArtifactViewerProps } from './artifact-view-components/ArtifactViewComponents.types';
+import { MlflowService } from '../sdk/MlflowService';
 
 const { Text } = Typography;
 
@@ -56,6 +59,7 @@ type ArtifactViewImplProps = DesignSystemHocProps & {
   artifactNode: any; // TODO: PropTypes.instanceOf(ArtifactNode)
   artifactRootUri: string;
   listArtifactsApi: (...args: any[]) => any;
+  listArtifactsLoggedModelApi: typeof listArtifactsLoggedModelApi;
   modelVersionsBySource: any;
   handleActiveNodeChange: (...args: any[]) => any;
   runTags?: any;
@@ -69,7 +73,7 @@ type ArtifactViewImplProps = DesignSystemHocProps & {
    * If true, the artifact browser will try to use all available height
    */
   useAutoHeight?: boolean;
-};
+} & LoggedModelArtifactViewerProps;
 
 type ArtifactViewImplState = any;
 
@@ -304,11 +308,19 @@ export class ArtifactViewImpl extends Component<ArtifactViewImplProps, ArtifactV
     toggled: boolean,
   ) => {
     const { id, loading } = dataNode;
+
+    const usingLoggedModels = isExperimentLoggedModelsUIEnabled() && this.props.isLoggedModelsMode;
+
     const newRequestedNodeIds = new Set(this.state.requestedNodeIds);
     // - loading indicates that this node is a directory and has not been loaded yet.
     // - requestedNodeIds keeps track of in flight requests.
     if (loading && !this.state.requestedNodeIds.has(id)) {
-      this.props.listArtifactsApi(this.props.runUuid, id);
+      // Call relevant API based on the mode we are in
+      if (usingLoggedModels && this.props.loggedModelId) {
+        this.props.listArtifactsLoggedModelApi(this.props.loggedModelId, id);
+      } else {
+        this.props.listArtifactsApi(this.props.runUuid, id);
+      }
     }
     this.setState({
       activeNodeId: id,
@@ -420,6 +432,7 @@ export class ArtifactViewImpl extends Component<ArtifactViewImplProps, ArtifactV
           // or expand anything.
           ArtifactUtils.findChild(this.props.artifactNode, this.props.initialSelectedArtifactPath);
         } catch (err) {
+          // eslint-disable-next-line no-console -- TODO(FEINF-3587)
           console.error(err);
           return;
         }
@@ -457,6 +470,8 @@ export class ArtifactViewImpl extends Component<ArtifactViewImplProps, ArtifactV
     }
     const { theme } = this.props.designSystemThemeApi;
 
+    const { loggedModelId, isLoggedModelsMode } = this.props;
+
     return (
       <div
         className="artifact-view"
@@ -493,6 +508,8 @@ export class ArtifactViewImpl extends Component<ArtifactViewImplProps, ArtifactV
             artifactRootUri={this.props.artifactRootUri}
             modelVersions={this.props.modelVersions}
             showArtifactLoggedTableView={this.state.viewAsTable && this.shouldShowViewAsTableCheckbox}
+            loggedModelId={loggedModelId}
+            isLoggedModelsMode={isLoggedModelsMode}
           />
         </div>
       </div>
@@ -501,9 +518,10 @@ export class ArtifactViewImpl extends Component<ArtifactViewImplProps, ArtifactV
 }
 
 const mapStateToProps = (state: any, ownProps: any) => {
-  const { runUuid } = ownProps;
+  const { runUuid, loggedModelId, isLoggedModelsMode } = ownProps;
   const { apis } = state;
-  const artifactNode = getArtifacts(runUuid, state);
+  const artifactNode =
+    isLoggedModelsMode && loggedModelId ? getArtifacts(loggedModelId, state) : getArtifacts(runUuid, state);
   const artifactRootUri = ownProps?.artifactRootUri ?? getArtifactRootUri(runUuid, state);
   const modelVersions = getAllModelVersions(state);
   const modelVersionsWithNormalizedSource = _.flatMap(modelVersions, (version) => {
@@ -516,6 +534,7 @@ const mapStateToProps = (state: any, ownProps: any) => {
 
 const mapDispatchToProps = {
   listArtifactsApi,
+  listArtifactsLoggedModelApi,
 };
 
 export const ArtifactView = connect(

@@ -2,7 +2,6 @@ from unittest import mock
 
 import pytest
 from aiohttp import ClientTimeout
-from fastapi import HTTPException
 from fastapi.encoders import jsonable_encoder
 from pydantic import ValidationError
 
@@ -12,6 +11,7 @@ from mlflow.gateway.constants import (
     MLFLOW_AI_GATEWAY_ANTHROPIC_MAXIMUM_MAX_TOKENS,
     MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS,
 )
+from mlflow.gateway.exceptions import AIGatewayException
 from mlflow.gateway.providers.anthropic import AnthropicProvider
 from mlflow.gateway.schemas import chat, completions, embeddings
 
@@ -123,7 +123,7 @@ async def test_completions_throws_with_invalid_max_tokens_too_large():
     config = completions_config()
     provider = AnthropicProvider(RouteConfig(**config))
     payload = {"prompt": "Would Fozzie or Kermet win in a fight?", "max_tokens": 1000001}
-    with pytest.raises(HTTPException, match=r".*") as e:
+    with pytest.raises(AIGatewayException, match=r".*") as e:
         await provider.completions(completions.RequestPayload(**payload))
     assert (
         "Invalid value for max_tokens: cannot exceed "
@@ -141,7 +141,7 @@ async def test_completions_throws_with_unsupported_n():
         "n": 5,
         "max_tokens": 10,
     }
-    with pytest.raises(HTTPException, match=r".*") as e:
+    with pytest.raises(AIGatewayException, match=r".*") as e:
         await provider.completions(completions.RequestPayload(**payload))
     assert "'n' must be '1' for the Anthropic provider" in e.value.detail
     assert e.value.status_code == 422
@@ -152,7 +152,7 @@ async def test_completions_throws_with_top_p_defined():
     config = completions_config()
     provider = AnthropicProvider(RouteConfig(**config))
     payload = {"prompt": "Would Fozzie or Kermet win in a fight?", "max_tokens": 500, "top_p": 0.6}
-    with pytest.raises(HTTPException, match=r".*") as e:
+    with pytest.raises(AIGatewayException, match=r".*") as e:
         await provider.completions(completions.RequestPayload(**payload))
     assert "Cannot set both 'temperature' and 'top_p' parameters. Please" in e.value.detail
     assert e.value.status_code == 422
@@ -167,7 +167,7 @@ async def test_completions_throws_with_stream_set_to_true():
         "max_tokens": 5000,
         "stream": "true",
     }
-    with pytest.raises(HTTPException, match=r".*") as e:
+    with pytest.raises(AIGatewayException, match=r".*") as e:
         await provider.completions(completions.RequestPayload(**payload))
     assert "Setting the 'stream' parameter to 'true' is not supported" in e.value.detail
     assert e.value.status_code == 422
@@ -395,7 +395,7 @@ async def test_embeddings_are_not_supported_for_anthropic():
     provider = AnthropicProvider(RouteConfig(**config))
     payload = {"input": "give me that sweet, sweet vector, please."}
 
-    with pytest.raises(HTTPException, match=r".*") as e:
+    with pytest.raises(AIGatewayException, match=r".*") as e:
         await provider.embeddings(embeddings.RequestPayload(**payload))
     assert "The embeddings route is not implemented for Anthropic models" in e.value.detail
     assert e.value.status_code == 501
@@ -410,7 +410,7 @@ async def test_param_model_is_not_permitted():
         "max_tokens": 5000,
         "model": "something-else",
     }
-    with pytest.raises(HTTPException, match=r".*") as e:
+    with pytest.raises(AIGatewayException, match=r".*") as e:
         await provider.completions(completions.RequestPayload(**payload))
     assert "The parameter 'model' is not permitted" in e.value.detail
     assert e.value.status_code == 422

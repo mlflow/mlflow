@@ -37,6 +37,7 @@ from mlflow.models.resources import (
     DatabricksGenieSpace,
     DatabricksServingEndpoint,
     DatabricksSQLWarehouse,
+    DatabricksTable,
     DatabricksUCConnection,
     DatabricksVectorSearchIndex,
 )
@@ -1632,6 +1633,7 @@ def test_model_save_load_with_resources(tmp_path):
             ],
             "genie_space": [{"name": "genie_space_id_1"}, {"name": "genie_space_id_2"}],
             "uc_connection": [{"name": "test_connection_1"}, {"name": "test_connection_2"}],
+            "table": [{"name": "rag.studio.table_a"}, {"name": "rag.studio.table_b"}],
         },
     }
     mlflow.pyfunc.save_model(
@@ -1650,6 +1652,8 @@ def test_model_save_load_with_resources(tmp_path):
             DatabricksGenieSpace(genie_space_id="genie_space_id_2"),
             DatabricksUCConnection(connection_name="test_connection_1"),
             DatabricksUCConnection(connection_name="test_connection_2"),
+            DatabricksTable(table_name="rag.studio.table_a"),
+            DatabricksTable(table_name="rag.studio.table_b"),
         ],
     )
 
@@ -1679,6 +1683,9 @@ def test_model_save_load_with_resources(tmp_path):
                 uc_connection:
                 - name: test_connection_1
                 - name: test_connection_2
+                table:
+                - name: rag.studio.table_a
+                - name: rag.studio.table_b
             """
         )
 
@@ -1715,6 +1722,7 @@ def test_model_log_with_resources(tmp_path):
                 {"name": "genie_space_id_2"},
             ],
             "uc_connection": [{"name": "test_connection_1"}, {"name": "test_connection_2"}],
+            "table": [{"name": "rag.studio.table_a"}, {"name": "rag.studio.table_b"}],
         },
     }
     with mlflow.start_run() as run:
@@ -1733,6 +1741,8 @@ def test_model_log_with_resources(tmp_path):
                 DatabricksGenieSpace(genie_space_id="genie_space_id_2"),
                 DatabricksUCConnection(connection_name="test_connection_1"),
                 DatabricksUCConnection(connection_name="test_connection_2"),
+                DatabricksTable(table_name="rag.studio.table_a"),
+                DatabricksTable(table_name="rag.studio.table_b"),
             ],
         )
     pyfunc_model_uri = f"runs:/{run.info.run_id}/{pyfunc_artifact_path}"
@@ -1763,6 +1773,9 @@ def test_model_log_with_resources(tmp_path):
                 uc_connection:
                 - name: test_connection_1
                 - name: test_connection_2
+                table:
+                - name: "rag.studio.table_a"
+                - name: "rag.studio.table_b"
             """
         )
 

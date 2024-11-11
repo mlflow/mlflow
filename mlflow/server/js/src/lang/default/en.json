@@ -31,6 +31,10 @@
     "defaultMessage": "Max",
     "description": "Column title for the column displaying the maximum metric values for a metric"
   },
+  "+iY2p8": {
+    "defaultMessage": "Custom",
+    "description": "Header for custom tracing tab in the MLflow Tracing quickstart guide"
+  },
   "+w9a+1": {
     "defaultMessage": "Open runs in this group in the new tab",
     "description": "Experiment page > grouped runs table > tooltip for a button that opens runs in a group in a new tab"
@@ -66,6 +70,10 @@
   "/nPZbt": {
     "defaultMessage": "{totalTokens} total tokens",
     "description": "Experiment page > artifact compare view > results table > total number of evaluated tokens"
+  },
+  "/v6KuF": {
+    "defaultMessage": "Automatically log traces for LlamaIndex queries by calling the {code} function. For example:",
+    "description": "Description of how to log traces for the LlamaIndex package using MLflow autologging. This message is followed by a code example."
   },
   "08WP3h": {
     "defaultMessage": "Staging",
@@ -411,6 +419,10 @@
     "defaultMessage": "Load model",
     "description": "Code comment which states how to load the model"
   },
+  "6d5JTO": {
+    "defaultMessage": "No traces recorded",
+    "description": "Message displayed when there are no traces logged to the experiment"
+  },
   "6kSKRk": {
     "defaultMessage": "Comparing {numVersions} Versions",
     "description": "Text for main title for the model comparison page"
@@ -426,6 +438,10 @@
   "6y36Fr": {
     "defaultMessage": "Add new chart",
     "description": "Title of the modal when adding a new runs comparison chart"
+  },
+  "7/urtn": {
+    "defaultMessage": "Automatically log traces for LangChain or LangGraph invocations by calling the {code} function. For example:",
+    "description": "Description of how to log traces for the LangChain/LangGraph package using MLflow autologging. This message is followed by a code example."
   },
   "71dHIO": {
     "defaultMessage": "Classical ML",
@@ -470,6 +486,10 @@
   "7NOp4F": {
     "defaultMessage": "Tags",
     "description": "Column title text for model version tags in model version table"
+  },
+  "7UncLb": {
+    "defaultMessage": "LlamaIndex",
+    "description": "Header for LlamaIndex tab in the MLflow Tracing quickstart guide"
   },
   "7WkP1e": {
     "defaultMessage": "Delete",
@@ -670,6 +690,10 @@
   "AupQl+": {
     "defaultMessage": "Killed",
     "description": "Run page > Overview > Run status cell > Value for killed state"
+  },
+  "AxyQXa": {
+    "defaultMessage": "Table view",
+    "description": "Experiment page > control bar > table view toggle button tooltip"
   },
   "Ay+ZP/": {
     "defaultMessage": "Failed to delete tag. Error: {userVisibleError}",
@@ -1323,6 +1347,10 @@
     "defaultMessage": "Scatter chart",
     "description": "Experiment tracking > runs charts > add chart menu > scatter plot"
   },
+  "Q6oN2U": {
+    "defaultMessage": "Chart view",
+    "description": "Experiment page > control bar > chart view toggle button tooltip"
+  },
   "Q73eXs": {
     "defaultMessage": "No params",
     "description": "Experiment page > group by runs control > no params to group by"
@@ -1595,6 +1623,10 @@
     "defaultMessage": "Z-axis:",
     "description": "Label text for z-axis in contour plot comparison in MLflow"
   },
+  "WNz02j": {
+    "defaultMessage": "For more complex use cases, MLflow also provides granular APIs that can be used to control tracing behavior. For more information, please visit the <a>official documentation</a> on fluent and client APIs for MLflow Tracing.",
+    "description": "Explanation of alternative APIs for custom tracing in MLflow. The link leads to the MLflow documentation for the user to learn more."
+  },
   "WP1pyQ": {
     "defaultMessage": "Created by",
     "description": "Column title for created by column for a model in the registered model page"
@@ -1810,6 +1842,10 @@
   "ag05Pe": {
     "defaultMessage": "Refresh",
     "description": "refresh button text to refresh the experiment runs"
+  },
+  "aseJdC": {
+    "defaultMessage": "LangChain / LangGraph",
+    "description": "Header for LangChain / LangGraph tab in the MLflow Tracing quickstart guide"
   },
   "au61Yy": {
     "defaultMessage": "Maximum",
@@ -2191,6 +2227,10 @@
     "defaultMessage": "+∞",
     "description": "Label displaying positive infinity symbol displayed on a plot UI element"
   },
+  "hm9IM7": {
+    "defaultMessage": "Requested resource does not exist",
+    "description": "Error message displayed when a requested run does not exist while fetching sampled metric data"
+  },
   "hnhCDT": {
     "defaultMessage": "Error occurred",
     "description": "Run page > artifact view > logged table view > generic error empty state title"
@@ -2198,6 +2238,10 @@
   "hxMEqi": {
     "defaultMessage": "The model version will be copied to {selectedModel} as a new version.",
     "description": "Model registry > OSS Promote model modal > copy explanatory text"
+  },
+  "i/pJvo": {
+    "defaultMessage": "Automatically log traces for AutoGen conversations by calling the {code} function. For example:",
+    "description": "Description of how to log traces for the AutoGen package using MLflow autologging. This message is followed by a code example."
   },
   "i9OADf": {
     "defaultMessage": "Params",
@@ -2270,6 +2314,10 @@
   "jI22Qu": {
     "defaultMessage": "Gateway returned the following error: \"{errorMessage}\"",
     "description": "Experiment page > gateway error message"
+  },
+  "jLvmck": {
+    "defaultMessage": "This tab displays all the traces logged to this {isRun, select, true {run} other {experiment}}. MLflow supports automatic tracing for many popular generative AI frameworks. Follow the steps below to log your first trace. For more information about MLflow Tracing, visit the <a>MLflow documentation</a>.",
+    "description": "Message that explains the function of the 'Traces' tab in the MLflow UI.This message is followed by a tutorial explaining how to get started with MLflow Tracing."
   },
   "jXfgov": {
     "defaultMessage": "All runs are hidden. Select at least one run to view charts.",
@@ -2427,9 +2475,9 @@
     "defaultMessage": "Reset filters",
     "description": "Reset filters button in list"
   },
-  "n31miD": {
-    "defaultMessage": "No traces recorded",
-    "description": "Experiment page > traces table > no traces recorded"
+  "n4m7x9": {
+    "defaultMessage": "OpenAI",
+    "description": "Header for OpenAI tab in the MLflow Tracing quickstart guide"
   },
   "nC54Nf": {
     "defaultMessage": "Tags",
@@ -2442,6 +2490,10 @@
   "nPWZsh": {
     "defaultMessage": "Make sure that at least one experiment run is visible and available to compare",
     "description": "Experiment page > artifact compare view > empty state for no runs selected > subtitle with the hint"
+  },
+  "nPqKse": {
+    "defaultMessage": "AutoGen",
+    "description": "Header for AutoGen tab in the MLflow Tracing quickstart guide"
   },
   "nQoUED": {
     "defaultMessage": "Step",
@@ -2723,6 +2775,10 @@
     "defaultMessage": "No evaluation tables logged",
     "description": "Experiment page > artifact compare view > empty state for no evaluation tables logged > title"
   },
+  "smtq2M": {
+    "defaultMessage": "Automatically log traces for OpenAI API calls by calling the {code} function. For example:",
+    "description": "Description of how to log traces for the OpenAI package using MLflow autologging. This message is followed by a code example."
+  },
   "srbhok": {
     "defaultMessage": "Use workspace settings",
     "description": "Label for a radio button that configures the x-axis on a line chart. This option is for using global workspace settings."
@@ -2950,6 +3006,10 @@
   "ySno61": {
     "defaultMessage": "The code snippets below demonstrate how to make predictions using the logged model.",
     "description": "Subtext heading explaining the below section of the model artifact view on how users can prediction using the registered logged model"
+  },
+  "yTwAJ4": {
+    "defaultMessage": "To manually instrument your own traces, the most convenient method is to use the {code} function decorator. This will cause the inputs and outputs of the function to be captured in the trace. For example:",
+    "description": "Description of how to log custom code traces using MLflow. This message is followed by a code example."
   },
   "ydoHrJ": {
     "defaultMessage": "Output",

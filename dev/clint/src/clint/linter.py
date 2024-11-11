@@ -1,16 +1,18 @@
 from __future__ import annotations
 
 import ast
+import fnmatch
 import json
 import re
 import textwrap
 import tokenize
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Iterator
+from typing import Any, Iterator, Union
 
 from clint import rules
 from clint.builtin import BUILTIN_MODULES
+from clint.config import Config
 
 PARAM_REGEX = re.compile(r"\s+:param\s+\w+:", re.MULTILINE)
 RETURN_REGEX = re.compile(r"\s+:returns?:", re.MULTILINE)
@@ -166,17 +168,21 @@ def _parse_docstring_args(docstring: str) -> list[str]:
 
 
 class Linter(ast.NodeVisitor):
-    def __init__(self, *, path: Path, ignore: dict[str, set[int]], cell: int | None = None):
+    def __init__(
+        self, *, path: Path, config: Config, ignore: dict[str, set[int]], cell: int | None = None
+    ):
         """
         Lints a Python file.
 
         Args:
             path: Path to the file being linted.
+            config: Linter configuration declared within the pyproject.toml file.
             ignore: Mapping of rule name to line numbers to ignore.
             cell: Index of the cell being linted in a Jupyter notebook.
         """
         self.stack: list[ast.AST] = []
         self.path = path
+        self.config = config
         self.ignore = ignore
         self.cell = cell
         self.violations: list[Violation] = []
@@ -212,10 +218,13 @@ class Linter(ast.NodeVisitor):
             self._check(nd, rules.NoRst())
 
     def _is_in_function(self) -> bool:
-        return bool(self.stack)
+        return self.stack and isinstance(self.stack[-1], (ast.FunctionDef, ast.AsyncFunctionDef))
 
     def _is_in_class(self) -> bool:
         return self.stack and isinstance(self.stack[-1], ast.ClassDef)
+
+    def _is_at_top_level(self) -> bool:
+        return not self.stack
 
     def _parse_func_args(self, func: ast.FunctionDef | ast.AsyncFunctionDef) -> list[str]:
         args: list[str] = []
@@ -328,12 +337,31 @@ class Linter(ast.NodeVisitor):
             for alias in node.names:
                 if alias.name.split(".", 1)[0] in BUILTIN_MODULES:
                     self._check(Location.from_node(node), rules.LazyBuiltinImport())
+
+        if self._is_at_top_level():
+            for alias in node.names:
+                self._check_forbidden_top_level_import(node, alias.name.split(".", 1)[0])
+
         self.generic_visit(node)
 
     def visit_ImportFrom(self, node: ast.ImportFrom) -> None:
         if self._is_in_function() and node.module.split(".", 1)[0] in BUILTIN_MODULES:
             self._check(Location.from_node(node), rules.LazyBuiltinImport())
+
+        if self._is_at_top_level():
+            self._check_forbidden_top_level_import(node, node.module)
+
         self.generic_visit(node)
+
+    def _check_forbidden_top_level_import(
+        self, node: Union[ast.Import, ast.ImportFrom], module: str
+    ) -> None:
+        for file_pat, libs in self.config.forbidden_top_level_imports.items():
+            if fnmatch.fnmatch(str(self.path), file_pat) and module in libs:
+                self._check(
+                    Location.from_node(node),
+                    rules.ForbiddenTopLevelImport(module=module),
+                )
 
     def visit_Call(self, node: ast.Call) -> None:
         if (
@@ -375,7 +403,7 @@ class Linter(ast.NodeVisitor):
                 self._check(Location.from_node(node), rules.OsEnvironDeleteInTest())
 
 
-def _lint_cell(path: Path, cell: dict[str, Any], index: int) -> list[Violation]:
+def _lint_cell(path: Path, config: Config, cell: dict[str, Any], index: int) -> list[Violation]:
     type_ = cell.get("cell_type")
     if type_ != "code":
         return []
@@ -391,20 +419,20 @@ def _lint_cell(path: Path, cell: dict[str, Any], index: int) -> list[Violation]:
         # Ignore non-python cells such as `!pip install ...`
         return []
 
-    linter = Linter(path=path, ignore=ignore_map(src), cell=index)
+    linter = Linter(path=path, config=config, ignore=ignore_map(src), cell=index)
     linter.visit(tree)
     return linter.violations
 
 
-def lint_file(path: Path) -> list[Violation]:
+def lint_file(path: Path, config: Config) -> list[Violation]:
     code = path.read_text()
     if path.suffix == ".ipynb":
         if cells := json.loads(code).get("cells"):
             violations = []
             for idx, cell in enumerate(cells, start=1):
-                violations.extend(_lint_cell(path, cell, idx))
+                violations.extend(_lint_cell(path, config, cell, idx))
             return violations
     else:
-        linter = Linter(path=path, ignore=ignore_map(code))
+        linter = Linter(path=path, config=config, ignore=ignore_map(code))
         linter.visit(ast.parse(code))
         return linter.violations

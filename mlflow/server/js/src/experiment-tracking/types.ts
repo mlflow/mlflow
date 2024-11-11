@@ -4,7 +4,6 @@
  *
  * Note: this could be automatically generated in the future.
  */
-
 import { ExperimentPageViewState } from './components/experiment-page/models/ExperimentPageViewState';
 import { RawEvaluationArtifact } from './sdk/EvaluationArtifactService';
 import { type ArtifactNode } from './utils/ArtifactUtils';
@@ -346,7 +345,7 @@ export type RunLoggedArtifactsDeclaration = {
   type: RunLoggedArtifactType;
 }[];
 
-export type ExperimentViewRunsCompareMode = 'TABLE' | 'ARTIFACT' | 'CHART' | 'TRACES';
+export type ExperimentViewRunsCompareMode = 'TABLE' | 'ARTIFACT' | 'CHART' | 'TRACES' | 'MODELS';
 
 /**
  * Describes a section of the compare runs view

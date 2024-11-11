@@ -134,6 +134,7 @@ export const GroupParentCellRenderer = ({ data, isComparingRuns }: GroupParentCe
           {groupParentInfo.runUuids.length}
         </Tag>
         <Tooltip
+          componentId="codegen_mlflow_app_src_experiment-tracking_components_experiment-page_components_runs_cells_groupparentcellrenderer.tsx_136"
           content={
             <FormattedMessage
               defaultMessage="Open runs in this group in the new tab"

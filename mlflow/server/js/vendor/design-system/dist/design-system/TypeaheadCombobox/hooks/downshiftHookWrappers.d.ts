@@ -1,4 +1,6 @@
 import { type UseComboboxReturnValue, type UseComboboxStateChange, type UseMultipleSelectionReturnValue } from 'downshift';
+import { DesignSystemEventProviderAnalyticsEventTypes } from '../../DesignSystemEventProvider';
+import type { AnalyticsEventValueChangeNoPiiFlagProps } from '../../types';
 interface SingleSelectProps<T> extends CommonComboboxStateProps<T> {
     multiSelect?: false;
     setInputValue?: React.Dispatch<React.SetStateAction<string>>;
@@ -10,7 +12,7 @@ interface MultiSelectProps<T> extends CommonComboboxStateProps<T> {
     selectedItems: T[];
     setSelectedItems: React.Dispatch<React.SetStateAction<T[]>>;
 }
-interface CommonComboboxStateProps<T> {
+interface CommonComboboxStateProps<T> extends AnalyticsEventValueChangeNoPiiFlagProps<DesignSystemEventProviderAnalyticsEventTypes.OnValueChange> {
     allItems: T[];
     items: T[];
     matcher?: (item: T, searchQuery: string) => boolean;
@@ -62,7 +64,11 @@ export declare const TypeaheadComboboxMultiSelectStateChangeTypes: {
     FunctionReset: import("downshift").UseMultipleSelectionStateChangeTypes.FunctionReset;
 };
 export type UseComboboxStateProps<T> = SingleSelectProps<T> | MultiSelectProps<T>;
-export declare function useComboboxState<T>({ allItems, items, itemToString, onIsOpenChange, allowNewValue, formValue, formOnChange, formOnBlur, ...props }: UseComboboxStateProps<T>): UseComboboxReturnValue<T>;
-export declare function useMultipleSelectionState<T>(selectedItems: T[], setSelectedItems: React.Dispatch<React.SetStateAction<T[]>>): UseMultipleSelectionReturnValue<T>;
+export type ComboboxStateAnalyticsReturnValue<T> = UseComboboxReturnValue<T> & AnalyticsEventValueChangeNoPiiFlagProps<DesignSystemEventProviderAnalyticsEventTypes.OnValueChange>;
+export declare function useComboboxState<T>({ allItems, items, itemToString, onIsOpenChange, allowNewValue, formValue, formOnChange, formOnBlur, componentId, valueHasNoPii, analyticsEvents, ...props }: UseComboboxStateProps<T>): ComboboxStateAnalyticsReturnValue<T>;
+interface AnalyticsConfig extends AnalyticsEventValueChangeNoPiiFlagProps<DesignSystemEventProviderAnalyticsEventTypes.OnValueChange> {
+    itemToString?: (item: any) => string;
+}
+export declare function useMultipleSelectionState<T>(selectedItems: T[], setSelectedItems: React.Dispatch<React.SetStateAction<T[]>>, { componentId, analyticsEvents, valueHasNoPii, itemToString, }: AnalyticsConfig): UseMultipleSelectionReturnValue<T>;
 export {};
 //# sourceMappingURL=downshiftHookWrappers.d.ts.map

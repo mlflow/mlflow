@@ -8,7 +8,7 @@
 import React, { Component } from 'react';
 import { connect } from 'react-redux';
 import { injectIntl, FormattedMessage, type IntlShape } from 'react-intl';
-import { Spacer, Switch, Tabs, LegacyTooltip } from '@databricks/design-system';
+import { Spacer, Switch, LegacyTabs, LegacyTooltip } from '@databricks/design-system';
 
 import { getExperiment, getParams, getRunInfo, getRunTags } from '../reducers/Reducers';
 import './CompareRunView.css';
@@ -27,7 +27,7 @@ import { shouldDisableLegacyRunCompareCharts } from '../../common/utils/FeatureU
 import { RunInfoEntity } from '../types';
 import { CompareRunArtifactView } from './CompareRunArtifactView';
 
-const { TabPane } = Tabs;
+const { TabPane } = LegacyTabs;
 
 type CompareRunViewProps = {
   experiments: any[]; // TODO: PropTypes.instanceOf(Experiment)
@@ -450,7 +450,7 @@ export class CompareRunView extends Component<CompareRunViewProps, CompareRunVie
               description: 'Tabs title for plots on the compare runs page',
             })}
           >
-            <Tabs>
+            <LegacyTabs>
               <TabPane
                 tab={
                   <FormattedMessage
@@ -501,7 +501,7 @@ export class CompareRunView extends Component<CompareRunViewProps, CompareRunVie
               >
                 <CompareRunContour runUuids={this.props.runUuids} runDisplayNames={this.props.runDisplayNames} />
               </TabPane>
-            </Tabs>
+            </LegacyTabs>
           </CollapsibleSection>
         )}
         <CollapsibleSection
