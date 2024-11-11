@@ -83,7 +83,10 @@ def _get_jvm_event_publisher(spark_context):
       to watch for datasource reads)
     - register(subscriber) for registering subscribers to receive datasource events
     """
-    jvm = spark_context._gateway.jvm
+    if hasattr(spark_context, "_jvm"):
+        jvm = spark_context._jvm
+    else:
+        jvm = spark_context._gateway.jvm
     qualified_classname = "{}.{}".format(_JAVA_PACKAGE, "MlflowAutologEventPublisher")
     return getattr(jvm, qualified_classname)
 
