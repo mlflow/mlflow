@@ -9,12 +9,14 @@ on:
       - ready_for_review
     paths:
       - "mlflow/protos/**"
+      - .github/workflows/protobuf-cross-test.yml
   push:
     branches:
       - master
       - branch-[0-9]+.[0-9]+
     paths:
       - "mlflow/protos/**"
+      - .github/workflows/protobuf-cross-test.yml
 
 permissions:
   contents: read
