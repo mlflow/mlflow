@@ -218,13 +218,13 @@ class Linter(ast.NodeVisitor):
             self._check(nd, rules.NoRst())
 
     def _is_in_function(self) -> bool:
-        return bool(self.stack)
+        return self.stack and isinstance(self.stack[-1], (ast.FunctionDef, ast.AsyncFunctionDef))
 
     def _is_in_class(self) -> bool:
         return self.stack and isinstance(self.stack[-1], ast.ClassDef)
 
     def _is_at_top_level(self) -> bool:
-        return not self._is_in_function() and not self._is_in_class()
+        return not self.stack
 
     def _parse_func_args(self, func: ast.FunctionDef | ast.AsyncFunctionDef) -> list[str]:
         args: list[str] = []
