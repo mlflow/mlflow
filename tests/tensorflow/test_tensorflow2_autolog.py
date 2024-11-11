@@ -1007,11 +1007,13 @@ def get_text_vec_model(train_samples):
 
 
 @pytest.mark.skipif(
-    Version(tf.__version__) < Version("2.3.0"),
+    Version(tf.__version__) < Version("2.3.0") or Version(tf.keras.__version__) >= Version("3.7"),
     reason=(
         "Deserializing a model with `TextVectorization` and `Embedding` "
         "fails in tensorflow < 2.3.0. See this issue: "
-        "https://github.com/tensorflow/tensorflow/issues/38250"
+        "https://github.com/tensorflow/tensorflow/issues/38250."
+        "Keras >= 3.7 is incompatible with Sequential mdoel with text vectorization layer,"
+        "see this issue: https://github.com/keras-team/keras/issues/20479."
     ),
 )
 def test_autolog_text_vec_model(tmp_path):
