@@ -85,16 +85,14 @@ def test_transform_response_iter_to_chat_format_ai_message():
 def test_transform_request_json_for_chat_if_necessary_no_conversion():
     model = MagicMock(spec=AgentExecutor)
     request_json = {"messages": [{"role": "user", "content": "some_input"}]}
-    with patch.object(model.input_schema, "validate", side_effect=Exception):
-        assert transform_request_json_for_chat_if_necessary(request_json, model) == (
-            request_json,
-            False,
-        )
+    assert transform_request_json_for_chat_if_necessary(request_json, model) == (
+        request_json,
+        False,
+    )
 
 
 def test_transform_request_json_for_chat_if_necessary_conversion():
     model = MagicMock(spec=SimpleChatModel)
-    model.input_schema = MagicMock()
     request_json = {"messages": [{"role": "user", "content": "some_input"}]}
 
     with patch("mlflow.langchain.utils.chat._get_lc_model_input_fields", return_value={"messages"}):
@@ -114,22 +112,12 @@ def test_transform_request_json_for_chat_if_necessary_conversion():
         {"messages": [{"role": "assistant", "content": "What would you like to ask?"}]},
         {"messages": [{"role": "user", "content": "Who owns MLflow?"}]},
     ]
-    with (
-        patch(
-            "mlflow.langchain.utils.chat._get_lc_model_input_fields",
-            return_value={},
-        ),
-        patch.object(model.input_schema, "schema", return_value={}),
-        patch.object(model.input_schema, "validate", return_value=None),
+    with patch(
+        "mlflow.langchain.utils.chat._get_lc_model_input_fields",
+        return_value={},
     ):
-        transformed_requests = []
-        for request_dict in request_json:
-            transformed_requests.append(
-                transform_request_json_for_chat_if_necessary(request_dict, model)
-            )
-        assert transformed_requests[0][0][0] == SystemMessage(
-            content="You are a helpful assistant."
-        )
-        assert transformed_requests[1][0][0] == AIMessage(content="What would you like to ask?")
-        assert transformed_requests[2][0][0] == HumanMessage(content="Who owns MLflow?")
-        assert transformed_requests[1][1] is True
+        transformed_request = transform_request_json_for_chat_if_necessary(request_json, model)
+        assert transformed_request[0][0][0] == SystemMessage(content="You are a helpful assistant.")
+        assert transformed_request[0][1][0] == AIMessage(content="What would you like to ask?")
+        assert transformed_request[0][2][0] == HumanMessage(content="Who owns MLflow?")
+        assert transformed_request[1] is True
