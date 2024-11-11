@@ -84,7 +84,7 @@ In the prior page, we added a model version alias to our model, but here's a pro
         model_name, model_version_alias, "1"
     )  # Duplicate of step in UI
 
-    # Get informawtion about the model
+    # Get information about the model
     model_info = client.get_model_version_by_alias(model_name, model_version_alias)
     model_tags = model_info.tags
     print(model_tags)
