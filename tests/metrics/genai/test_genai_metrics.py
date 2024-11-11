@@ -1089,6 +1089,7 @@ def test_make_custom_judge_prompt_genai_metric():
         name="custom",
         judge_prompt=custom_judge_prompt,
         metric_metadata={"metadata_field": "metadata_value"},
+        parameters={"temperature": 0.0},
     )
 
     inputs = ["What is MLflow?", "What is Spark?"]
@@ -1116,6 +1117,7 @@ def test_make_custom_judge_prompt_genai_metric():
             "\njustification: Your reasoning for giving this score"
             "\n\nDo not add additional new lines. Do not add any other fields."
         )
+        assert mock_predict_function.call_args_list[0][0][2] == {"temperature": 0.0}
         assert mock_predict_function.call_args_list[1][0][1] == (
             "This is a custom judge prompt that uses What is Spark? and "
             "Apache Spark is an open-source distributed framework"

@@ -161,7 +161,8 @@ class TogetherAIAdapter(ProviderAdapter):
                 detail="Wrong type for top_logprobs. It should a 32bit integer.",
             )
 
-        return rename_payload_keys(payload, key_mapping)
+        payload = rename_payload_keys(payload, key_mapping)
+        return {"model": config.model.name, **payload}
 
     @classmethod
     def completions_streaming_to_model(cls, payload, config):
@@ -308,12 +309,26 @@ class TogetherAIProvider(BaseProvider):
         return "https://api.together.xyz/v1"
 
     @property
-    def auth_headers(self):
+    def headers(self):
         return {"Authorization": f"Bearer {self.togetherai_config.togetherai_api_key}"}
+
+    @property
+    def adapter_class(self) -> type[ProviderAdapter]:
+        return TogetherAIAdapter
+
+    def get_endpoint_url(self, route_type: str) -> str:
+        if route_type == "llm/v1/chat":
+            return f"{self.base_url}/chat/completions"
+        elif route_type == "llm/v1/completions":
+            return f"{self.base_url}/completions"
+        elif route_type == "llm/v1/embeddings":
+            return f"{self.base_url}/embeddings"
+        else:
+            raise ValueError(f"Invalid route type {route_type}")
 
     async def _request(self, path: str, payload: dict[str, Any]) -> dict[str, Any]:
         return await send_request(
-            headers=self.auth_headers,
+            headers=self.headers,
             base_url=self.base_url,
             path=path,
             payload=payload,
@@ -323,7 +338,7 @@ class TogetherAIProvider(BaseProvider):
         self, path: str, payload: dict[str, Any]
     ) -> AsyncGenerator[bytes, None]:
         return send_stream_request(
-            headers=self.auth_headers,
+            headers=self.headers,
             base_url=self.base_url,
             path=path,
             payload=payload,
@@ -338,10 +353,7 @@ class TogetherAIProvider(BaseProvider):
 
         resp = await self._request(
             path="embeddings",
-            payload={
-                "model": self.config.model.name,
-                **TogetherAIAdapter.embeddings_to_model(payload, self.config),
-            },
+            payload=TogetherAIAdapter.embeddings_to_model(payload, self.config),
         )
 
         return TogetherAIAdapter.model_to_embeddings(resp, self.config)
@@ -364,10 +376,7 @@ class TogetherAIProvider(BaseProvider):
 
         stream = await self._stream_request(
             path="completions",
-            payload={
-                "model": self.config.model.name,
-                **TogetherAIAdapter.completions_streaming_to_model(payload, self.config),
-            },
+            payload=TogetherAIAdapter.completions_streaming_to_model(payload, self.config),
         )
 
         async for chunk in stream:
@@ -399,11 +408,7 @@ class TogetherAIProvider(BaseProvider):
             )
 
         resp = await self._request(
-            path="completions",
-            payload={
-                "model": self.config.model.name,
-                **TogetherAIAdapter.completions_to_model(payload, self.config),
-            },
+            path="completions", payload=TogetherAIAdapter.completions_to_model(payload, self.config)
         )
 
         return TogetherAIAdapter.model_to_completions(resp, self.config)
@@ -415,10 +420,7 @@ class TogetherAIProvider(BaseProvider):
 
         stream = await self._stream_request(
             path="chat/completions",
-            payload={
-                "model": self.config.model.name,
-                **TogetherAIAdapter.chat_streaming_to_model(payload, self.config),
-            },
+            payload=TogetherAIAdapter.chat_streaming_to_model(payload, self.config),
         )
 
         async for chunk in stream:
@@ -440,10 +442,7 @@ class TogetherAIProvider(BaseProvider):
 
         resp = await self._request(
             path="chat/completions",
-            payload={
-                "model": self.config.model.name,
-                **TogetherAIAdapter.chat_to_model(payload, self.config),
-            },
+            payload=TogetherAIAdapter.chat_to_model(payload, self.config),
         )
 
         return TogetherAIAdapter.model_to_chat(resp, self.config)

@@ -336,16 +336,30 @@ class CohereProvider(BaseProvider):
         self.cohere_config: CohereConfig = config.model.config
 
     @property
-    def auth_headers(self) -> dict[str, str]:
+    def headers(self) -> dict[str, str]:
         return {"Authorization": f"Bearer {self.cohere_config.cohere_api_key}"}
 
     @property
     def base_url(self) -> str:
         return "https://api.cohere.ai/v1"
 
+    @property
+    def adapter_class(self) -> type[ProviderAdapter]:
+        return CohereAdapter
+
+    def get_endpoint_url(self, route_type: str) -> str:
+        if route_type == "llm/v1/chat":
+            return f"{self.base_url}/chat"
+        elif route_type == "llm/v1/completions":
+            return f"{self.base_url}/generate"
+        elif route_type == "llm/v1/embeddings":
+            return f"{self.base_url}/embed"
+        else:
+            raise ValueError(f"Invalid route type {route_type}")
+
     async def _request(self, path: str, payload: dict[str, Any]) -> dict[str, Any]:
         return await send_request(
-            headers=self.auth_headers,
+            headers=self.headers,
             base_url=self.base_url,
             path=path,
             payload=payload,
@@ -353,7 +367,7 @@ class CohereProvider(BaseProvider):
 
     def _stream_request(self, path: str, payload: dict[str, Any]) -> AsyncGenerator[bytes, None]:
         return send_stream_request(
-            headers=self.auth_headers,
+            headers=self.headers,
             base_url=self.base_url,
             path=path,
             payload=payload,

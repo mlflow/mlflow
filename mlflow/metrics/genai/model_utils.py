@@ -1,11 +1,16 @@
 import logging
 import os
 import urllib.parse
-from typing import Any, Optional, Union
+from typing import TYPE_CHECKING, Any, Optional, Union
+
+import requests
 
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.utils.openai_utils import REQUEST_URL_CHAT
+
+if TYPE_CHECKING:
+    from mlflow.gateway.providers import BaseProvider
 
 _logger = logging.getLogger(__name__)
 
@@ -44,11 +49,13 @@ def score_model_on_payload(
 ):
     """Call the model identified by the given uri with the given string prompt."""
 
-    if eval_parameters is None:
-        eval_parameters = {}
+    eval_parameters = eval_parameters or {}
+    extra_headers = extra_headers or {}
+
     prefix, suffix = _parse_model_uri(model_uri)
 
     if prefix == "openai":
+        # TODO: Migrate OpenAI schema to use _call_llm_provider_api.
         return _call_openai_api(suffix, payload, eval_parameters, extra_headers, proxy_url)
     elif prefix == "gateway":
         return _call_gateway_api(suffix, payload, eval_parameters)
@@ -57,11 +64,19 @@ def score_model_on_payload(
     elif prefix in ("model", "runs"):
         # TODO: call _load_model_or_server
         raise NotImplementedError
-    else:
-        raise MlflowException(
-            f"Unknown model uri prefix '{prefix}'",
-            error_code=INVALID_PARAMETER_VALUE,
+
+    # Import here to avoid loading gateway module at the top level
+    from mlflow.gateway.provider_registry import is_supported_provider
+
+    if is_supported_provider(prefix):
+        return _call_llm_provider_api(
+            prefix, suffix, payload, eval_parameters, extra_headers, proxy_url
         )
+
+    raise MlflowException(
+        f"Unknown model uri prefix '{prefix}'",
+        error_code=INVALID_PARAMETER_VALUE,
+    )
 
 
 def _parse_model_uri(model_uri):
@@ -146,11 +161,173 @@ def _call_openai_api(openai_uri, payload, eval_parameters, extra_headers, proxy_
 
 
 _PREDICT_ERROR_MSG = """\
-Failed to call the deployment endpoint. Please check the deployment URL\
+Failed to call the deployment endpoint. Please check the deployment URL \
 is set correctly and the input payload is valid.\n
 - Error: {e}\n
 - Deployment URI: {uri}\n
 - Input payload: {payload}"""
+
+
+def _is_supported_llm_provider(schema: str) -> bool:
+    from mlflow.gateway.provider_registry import provider_registry
+
+    return schema in provider_registry.keys()
+
+
+def _call_llm_provider_api(
+    provider_name: str,
+    model: str,
+    input_data: str,
+    eval_parameters: dict[str, Any],
+    extra_headers: dict[str, str],
+    proxy_url: Optional[str] = None,
+) -> str:
+    """
+    Invoke chat endpoint of various LLM providers.
+
+    Under the hood, this function uses the MLflow Gateway to transform the input/output data
+    for different LLM providers.
+
+    Args:
+        provider_name: The provider name, e.g., "anthropic".
+        model: The model name, e.g., "claude-3-5-sonnet"
+        input_data: The input string prompt to send to the model as a chat message.
+        eval_parameters: The additional parameters to send to the model, e.g. temperature.
+        extra_headers: The additional headers to send to the provider.
+        proxy_url: Proxy URL to be used for the judge model. If not specified, the default
+            URL for the LLM provider will be used.
+    """
+    from mlflow.gateway.config import Provider
+    from mlflow.gateway.schemas import chat
+
+    provider = _get_provider_instance(provider_name, model)
+
+    chat_request = chat.RequestPayload(
+        model=model,
+        messages=[
+            chat.RequestMessage(role="user", content=input_data),
+        ],
+        **eval_parameters,
+    )
+
+    # Filter out keys in the payload to the specified ones + "messages".
+    # Does not include "model" key here because some providers do not accept it as a
+    # part of the payload. Whether or not to include "model" key must be determined
+    # by each provider implementation.
+    filtered_keys = {"messages", *eval_parameters.keys()}
+
+    payload = {
+        k: v
+        for k, v in chat_request.model_dump().items()
+        if (v is not None) and (k in filtered_keys)
+    }
+    chat_payload = provider.adapter_class.chat_to_model(payload, provider.config)
+    chat_payload.update(eval_parameters)
+
+    if provider_name in [Provider.AMAZON_BEDROCK, Provider.BEDROCK]:
+        if proxy_url or extra_headers:
+            _logger.warning(
+                "Proxy URL and extra headers are not supported for Bedrock LLMs. "
+                "Ignoring the provided proxy URL and extra headers.",
+            )
+        response = provider._request(chat_payload)
+    else:
+        response = _send_request(
+            endpoint=proxy_url or provider.get_endpoint_url("llm/v1/chat"),
+            headers={**provider.headers, **extra_headers},
+            payload=chat_payload,
+        )
+    chat_response = provider.adapter_class.model_to_chat(response, provider.config)
+    if len(chat_response.choices) == 0:
+        raise MlflowException(
+            "Failed to score the provided input as the judge LLM did not return "
+            "any chat completion results in the response."
+        )
+    return chat_response.choices[0].message.content
+
+
+def _get_provider_instance(provider: str, model: str) -> "BaseProvider":
+    """Get the provider instance for the given provider name and the model name."""
+    from mlflow.gateway.config import Provider, RouteConfig
+
+    def _get_route_config(config):
+        return RouteConfig(
+            name=provider,
+            route_type="llm/v1/chat",
+            model={
+                "provider": provider,
+                "name": model,
+                "config": config.model_dump(),
+            },
+        )
+
+    # NB: Not all LLM providers in MLflow Gateway are supported here. We can add
+    # new ones as requested, as long as the provider support chat endpoints.
+    if provider == Provider.ANTHROPIC:
+        from mlflow.gateway.providers.anthropic import AnthropicConfig, AnthropicProvider
+
+        config = AnthropicConfig(anthropic_api_key=os.environ.get("ANTHROPIC_API_KEY"))
+        return AnthropicProvider(_get_route_config(config))
+
+    elif provider in [Provider.AMAZON_BEDROCK, Provider.BEDROCK]:
+        from mlflow.gateway.config import AWSIdAndKey, AWSRole
+        from mlflow.gateway.providers.bedrock import AmazonBedrockConfig, AmazonBedrockProvider
+
+        if aws_role_arn := os.environ.get("AWS_ROLE_ARN"):
+            aws_config = AWSRole(
+                aws_region=os.environ.get("AWS_REGION"),
+                aws_role_arn=aws_role_arn,
+            )
+        else:
+            aws_config = AWSIdAndKey(
+                aws_region=os.environ.get("AWS_REGION"),
+                aws_access_key_id=os.environ.get("AWS_ACCESS_KEY_ID"),
+                aws_secret_access_key=os.environ.get("AWS_SECRET_ACCESS_KEY"),
+                aws_session_token=os.environ.get("AWS_SESSION_TOKEN"),
+            )
+        config = AmazonBedrockConfig(aws_config=aws_config)
+        return AmazonBedrockProvider(_get_route_config(config))
+
+    # # Cohere provider implementation seems to be broken and does not work with
+    # # their latest APIs. Uncomment once the provider implementation is fixed.
+    # elif provider == Provider.COHERE:
+    #     from mlflow.gateway.providers.cohere import CohereConfig, CohereProvider
+
+    #     config = CohereConfig(cohere_api_key=os.environ.get("COHERE_API_KEY"))
+    #     return CohereProvider(_get_route_config(config))
+
+    elif provider == Provider.MISTRAL:
+        from mlflow.gateway.providers.mistral import MistralConfig, MistralProvider
+
+        config = MistralConfig(mistral_api_key=os.environ.get("MISTRAL_API_KEY"))
+        return MistralProvider(_get_route_config(config))
+
+    elif provider == Provider.TOGETHERAI:
+        from mlflow.gateway.providers.togetherai import TogetherAIConfig, TogetherAIProvider
+
+        config = TogetherAIConfig(togetherai_api_key=os.environ.get("TOGETHERAI_API_KEY"))
+        return TogetherAIProvider(_get_route_config(config))
+
+    raise MlflowException(f"Provider '{provider}' is not supported for evaluation.")
+
+
+def _send_request(
+    endpoint: str, headers: dict[str, str], payload: dict[str, Any]
+) -> dict[str, Any]:
+    try:
+        response = requests.post(
+            url=endpoint,
+            headers=headers,
+            json=payload,
+            timeout=60,
+        )
+        response.raise_for_status()
+    except requests.exceptions.HTTPError as e:
+        raise MlflowException(
+            f"Failed to call LLM endpoint at {endpoint}.\n- Error: {e}\n- Input payload: {payload}."
+        )
+
+    return response.json()
 
 
 def call_deployments_api(
