@@ -451,28 +451,4 @@ def _log_optional_artifacts(autolog_config, run_id, result, self, func_name, *ar
             self.session_id = uuid.uuid4().hex
         self.inference_id = getattr(self, "inference_id", 0) + 1
 
-    if autolog_config.log_inputs_outputs:
-        if input_example is None:
-            input_data = deepcopy(_get_input_data_from_function(func_name, self, args, kwargs))
-            if input_data is None:
-                _logger.info("Input data gathering failed, only log inference results.")
-        else:
-            input_data = input_example
-        # we do not convert stream output iterator for logging as tracing
-        # will provide much more information than this function, we might drop
-        # this in the future
-        if func_name == "stream":
-            _logger.warning(f"Unsupported function {func_name} for logging inputs and outputs.")
-        else:
-            try:
-                data_dict = _combine_input_and_output(
-                    input_data, result, self.session_id, func_name
-                )
-                mlflow.log_table(data_dict, INFERENCE_FILE_NAME, run_id=self.run_id)
-            except Exception as e:
-                _logger.warning(
-                    f"Failed to log inputs and outputs into `{INFERENCE_FILE_NAME}` "
-                    f"file due to error {e}."
-                )
-
     return result

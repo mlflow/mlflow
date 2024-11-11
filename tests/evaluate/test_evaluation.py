@@ -398,7 +398,7 @@ def test_pyfunc_evaluate_logs_traces():
 
 def test_langchain_evaluate_autologs_traces():
     # Check langchain autolog parameters are restored after evaluation
-    mlflow.langchain.autolog(log_models=True, log_inputs_outputs=True)
+    mlflow.langchain.autolog(log_models=True)
 
     prompt = PromptTemplate(
         input_variables=["input"],
@@ -441,10 +441,6 @@ def test_langchain_evaluate_autologs_traces():
         with mlflow.start_run() as run:
             chain.invoke("text")
 
-            loaded_table = mlflow.load_table(INFERENCE_FILE_NAME, run_ids=[run.info.run_id])
-            loaded_dict = loaded_table.to_dict("records")
-            assert len(loaded_dict) == 1
-            assert loaded_dict[0]["input"] == "text"
         log_model_mock.assert_called_once()
         assert len(get_traces()) == 3
         assert len(get_traces()[0].data.spans) == 3
@@ -480,7 +476,7 @@ def test_langchain_pyfunc_autologs_traces():
 
 def test_langchain_evaluate_fails_with_an_exception():
     # Check langchain autolog parameters are restored after evaluation
-    mlflow.langchain.autolog(log_models=True, log_inputs_outputs=True)
+    mlflow.langchain.autolog(log_models=True)
 
     prompt = PromptTemplate(
         input_variables=["input"],
@@ -508,7 +504,7 @@ def test_langchain_evaluate_fails_with_an_exception():
                 "ground_truth": ["What is MLflow?", "Not what is Spark?"],
             }
         )
-        with mlflow.start_run() as run:
+        with mlflow.start_run():
             with pytest.raises(MlflowException, match="evaluate mock error"):
                 evaluate(
                     model,
@@ -524,13 +520,9 @@ def test_langchain_evaluate_fails_with_an_exception():
 
     # Test original langchain autolog configs is restored
     with mock.patch("mlflow.langchain.log_model") as log_model_mock:
-        with mlflow.start_run() as run:
+        with mlflow.start_run():
             chain.invoke("text")
 
-            loaded_table = mlflow.load_table(INFERENCE_FILE_NAME, run_ids=[run.info.run_id])
-            loaded_dict = loaded_table.to_dict("records")
-            assert len(loaded_dict) == 1
-            assert loaded_dict[0]["input"] == "text"
         log_model_mock.assert_called_once()
         assert len(get_traces()) == 1
         assert len(get_traces()[0].data.spans) == 3
