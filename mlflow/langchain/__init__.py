@@ -968,7 +968,6 @@ def autolog(
     log_model_signatures=False,
     log_models=False,
     log_datasets=False,
-    log_inputs_outputs=None,
     disable=False,
     exclusive=False,
     disable_for_unsupported_versions=False,
@@ -1000,14 +999,6 @@ def autolog(
             are also omitted when ``log_models`` is ``False``.
         log_datasets: If ``True``, dataset information is logged to MLflow Tracking
             if applicable. If ``False``, dataset information is not logged.
-        log_inputs_outputs: **Deprecated** The legacy parameter used for logging inference
-            inputs and outputs. This argument will be removed in a future version of MLflow.
-            The alternative is to use ``log_traces`` which logs traces for Langchain models,
-            including inputs and outputs for each stage.
-            If ``True``, inference data and results are combined into a single
-            pandas DataFrame and logged to MLflow Tracking as an artifact.
-            If ``False``, inference data and results are not logged.
-            Default to ``False``.
         disable: If ``True``, disables the Langchain autologging integration. If ``False``,
             enables the Langchain autologging integration.
         exclusive: If ``True``, autologged content is not logged to user-created fluent runs.
