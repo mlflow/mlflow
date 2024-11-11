@@ -79,7 +79,7 @@ services:
       context: .
       dockerfile: Dockerfile.mssql
     environment:
-      MLFLOW_TRACKING_URI: mssql+pyodbc://mlflowuser:Mlfl*wpassword1@mssql/mlflowdb?driver=ODBC+Driver+17+for+SQL+Server
+      MLFLOW_TRACKING_URI: mssql+pyodbc://mlflowuser:Mlfl*wpassword1@mssql/mlflowdb?driver=ODBC+Driver+18+for+SQL+Server&Encrypt=no
       INSTALL_MLFLOW_FROM_REPO: true
 
   migration-mssql:
@@ -95,7 +95,7 @@ services:
       # We could try using ODBC Driver 18 and append `LongAsMax=Yes` to fix error for sqlalchemy<2.0:
       # [ODBC Driver 17 for SQL Server][SQL Server]The data types varchar and ntext are incompatible in the equal to operator
       # https://docs.sqlalchemy.org/en/20/dialects/mssql.html#avoiding-sending-large-string-parameters-as-text-ntext
-      MLFLOW_TRACKING_URI: mssql+pyodbc://mlflowuser:Mlfl*wpassword1@mssql/mlflowdb?driver=ODBC+Driver+17+for+SQL+Server
+      MLFLOW_TRACKING_URI: mssql+pyodbc://mlflowuser:Mlfl*wpassword1@mssql/mlflowdb?driver=ODBC+Driver+18+for+SQL+Server&Encrypt=no
     command: tests/db/check_migration.sh
 
   mlflow-sqlite:
