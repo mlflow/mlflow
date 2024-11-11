@@ -392,6 +392,7 @@ spark:
       mvn package -DskipTests -q
       popd
 
+      set +e
       # `test_spark_disable_autologging.py` is flaky if it runs with other tests
       # so run it individually
       pytest tests/spark/autologging/datasource/test_spark_disable_autologging.py
