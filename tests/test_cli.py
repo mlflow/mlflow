@@ -595,3 +595,32 @@ def test_cli_with_python_mod():
 def test_doctor():
     res = CliRunner().invoke(doctor, catch_exceptions=False)
     assert res.exit_code == 0
+
+def test_mlflow_gc_with_datasets(sqlite_store):
+    store = sqlite_store[0]
+
+    mlflow.set_tracking_uri(sqlite_store[1])
+    mlflow.set_experiment("dataset")
+
+    dataset_source_url = "https://raw.githubusercontent.com/mlflow/mlflow/master/tests/datasets/winequality-red.csv"
+    raw_data = pd.read_csv(dataset_source_url, delimiter=";")
+    dataset = mlflow.data.from_pandas(
+        raw_data, source=dataset_source_url, name="wine quality - red", targets="quality"
+    )
+
+    with mlflow.start_run() as run:
+        experiment_id = run.info.experiment_id
+        mlflow.log_input(dataset)
+
+    runs = store.search_runs(experiment_ids=[experiment_id], filter_string="", run_view_type=ViewType.ALL)
+    assert len(runs) == 1
+
+    store.delete_experiment(experiment_id)
+    subprocess.check_output(["mlflow", "gc", "--backend-store-uri", sqlite_store[1]])
+    runs = store.search_runs(experiment_ids=[experiment_id], filter_string="", run_view_type=ViewType.ALL)
+    assert len(runs) == 0
+    with pytest.raises(MlflowException, match=r"Run .+ not found"):
+        store.get_run(run.info.run_uuid)
+
+    artifact_path = url2pathname(unquote(urlparse(run.info.artifact_uri).path))
+    assert not os.path.exists(artifact_path)
