@@ -720,7 +720,7 @@ langchain:
           "git+https://github.com/unitycatalog/unitycatalog.git#subdirectory=ai/integrations/langchain",
         ]
     run: |
-      # Run all langchain tests except autologging
+      # Run all langchain tests except autologging and evaluation
       pytest tests/langchain --ignore tests/langchain/test_langchain_autolog.py
       # test both pydantic v1 and v2
       PYDANTIC_VERSION=$(python -c "import pydantic; print(pydantic.__version__)")
