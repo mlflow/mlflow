@@ -36,7 +36,5 @@ def _assert_spark_data_not_logged(run):
 
 def _get_or_create_spark_session(jars=None):
     jar_path = jars if jars is not None else _get_mlflow_spark_jar_path()
-    return (
-        SparkSession.builder.config("spark.driver.extraClassPath", jar_path)
-        .master("local[*]").getOrCreate()
-    )
+    os.environ["CLASSPATH"] = jar_path
+    return SparkSession.builder.config("spark.jars", jar_path).master("local[*]").getOrCreate()
