@@ -143,10 +143,9 @@ jobs:
 
           test $err = 0
 
+      - uses: ./.github/actions/setup-python
       - name: update_schemas.sh
         run: |
-          ls
-          cat pyproject.toml
           pip install .
           ./tests/db/update_schemas.sh
 
