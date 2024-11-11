@@ -61,15 +61,19 @@ def score_model_on_payload(
     elif prefix in ("model", "runs"):
         # TODO: call _load_model_or_server
         raise NotImplementedError
-    elif _is_supported_llm_provider(prefix):
+
+    # Import here to avoid loading gateway module at the top level
+    from mlflow.gateway.provider_registry import is_supported_provider
+
+    if is_supported_provider(prefix):
         return _call_llm_provider_api(
             prefix, suffix, payload, eval_parameters, extra_headers, proxy_url
         )
-    else:
-        raise MlflowException(
-            f"Unknown model uri prefix '{prefix}'",
-            error_code=INVALID_PARAMETER_VALUE,
-        )
+
+    raise MlflowException(
+        f"Unknown model uri prefix '{prefix}'",
+        error_code=INVALID_PARAMETER_VALUE,
+    )
 
 
 def _parse_model_uri(model_uri):
@@ -218,7 +222,11 @@ def _call_llm_provider_api(
     chat_payload.update(eval_parameters)
 
     if provider_name in [Provider.AMAZON_BEDROCK, Provider.BEDROCK]:
-        # Bedrock client doesn't support custom headers and proxy URL
+        if proxy_url or extra_headers:
+            _logger.warning(
+                "Proxy URL and extra headers are not supported for Bedrock LLMs. "
+                "Ignoring the provided proxy URL and extra headers.",
+            )
         response = provider._request(chat_payload)
     else:
         response = _send_request(
@@ -227,6 +235,11 @@ def _call_llm_provider_api(
             payload=chat_payload,
         )
     chat_response = provider.adapter.model_to_chat(response, provider.config)
+    if len(chat_response.choices) == 0:
+        raise MlflowException(
+            "Failed to score the provided input as the judge LLM did not return "
+            "any chat completion results in the response."
+        )
     return chat_response.choices[0].message.content
 
 
