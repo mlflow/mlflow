@@ -53,20 +53,27 @@ def autolog(
     from dspy.evaluate import Evaluate
     from dspy.teleprompt import Teleprompter
 
+    compile_patch = "compile"
     for cls in Teleprompter.__subclasses__():
+        # NB: This is to avoid the abstraction inheritance of superclasses that are defined
+        # only for the purposes of abstraction. The recursion behavior of the
+        # __subclasses__ dunder method will target the appropriate subclasses we need to patch.
+        if hasattr(cls, compile_patch):
+            safe_patch(
+                FLAVOR_NAME,
+                cls,
+                compile_patch,
+                trace_disabled_fn,
+            )
+
+    call_patch = "__call__"
+    if hasattr(Evaluate, call_patch):
         safe_patch(
             FLAVOR_NAME,
-            cls,
-            "compile",
+            Evaluate,
+            call_patch,
             trace_disabled_fn,
         )
-
-    safe_patch(
-        FLAVOR_NAME,
-        Evaluate,
-        "__call__",
-        trace_disabled_fn,
-    )
 
 
 @autologging_integration(FLAVOR_NAME)

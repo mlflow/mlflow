@@ -106,7 +106,10 @@ def test_mlflow_callback_exception():
             raise ValueError("Error")
 
     dspy.settings.configure(
-        lm=ErrorLM({"How are you?": {"answer": "test output", "reasoning": "No more responses"}}),
+        lm=ErrorLM(
+            model="invalid",
+            prompt={"How are you?": {"answer": "test output", "reasoning": "No more responses"}},
+        ),
     )
 
     cot = dspy.ChainOfThought("question -> answer", n=3)
