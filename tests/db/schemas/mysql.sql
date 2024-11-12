@@ -54,7 +54,7 @@ CREATE TABLE datasets (
 	dataset_schema MEDIUMTEXT,
 	dataset_profile MEDIUMTEXT,
 	PRIMARY KEY (experiment_id, name, digest),
-	CONSTRAINT datasets_ibfk_1 FOREIGN KEY(experiment_id) REFERENCES experiments (experiment_id)
+	CONSTRAINT fk_datasets_experiment_id_experiments FOREIGN KEY(experiment_id) REFERENCES experiments (experiment_id) ON DELETE CASCADE
 )
 
 
