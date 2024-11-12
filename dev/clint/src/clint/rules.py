@@ -198,3 +198,35 @@ class ForbiddenTopLevelImport(Rule):
             f"Importing module `{self.module}` at the top level is not allowed "
             "in this file. Use lazy import instead."
         )
+
+
+class UseSysExecutable(Rule):
+    def _id(self) -> str:
+        return "MLF0014"
+
+    def _message(self) -> str:
+        return (
+            "Use `[sys.executable, '-m', 'mlflow', ...]` when running mlflow CLI in a subprocess."
+        )
+
+    @staticmethod
+    def check(node: ast.Call) -> bool:
+        """
+        Returns True if `node` looks like `subprocess.Popen(["mlflow", ...])`.
+        """
+        if (
+            isinstance(node.func, ast.Attribute)
+            and isinstance(node.func.value, ast.Name)
+            and (node.func.value.id == "subprocess")
+            and (node.func.attr in ["Popen", "run", "check_output", "check_call"])
+            and node.args
+        ):
+            first_arg = node.args[0]
+            if isinstance(first_arg, ast.List) and first_arg.elts:
+                first_elem = first_arg.elts[0]
+                return (
+                    isinstance(first_elem, ast.Constant)
+                    and isinstance(first_elem.value, str)
+                    and first_elem.value == "mlflow"
+                )
+        return False
