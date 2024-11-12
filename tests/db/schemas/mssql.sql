@@ -53,7 +53,7 @@ CREATE TABLE datasets (
 	dataset_schema VARCHAR COLLATE "SQL_Latin1_General_CP1_CI_AS",
 	dataset_profile VARCHAR COLLATE "SQL_Latin1_General_CP1_CI_AS",
 	CONSTRAINT dataset_pk PRIMARY KEY (experiment_id, name, digest),
-	CONSTRAINT "FK__datasets__experi__6477ECF3" FOREIGN KEY(experiment_id) REFERENCES experiments (experiment_id)
+	CONSTRAINT fk_datasets_experiment_id_experiments FOREIGN KEY(experiment_id) REFERENCES experiments (experiment_id) ON DELETE CASCADE
 )
 
 
