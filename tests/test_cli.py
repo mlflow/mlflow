@@ -19,6 +19,7 @@ from click.testing import CliRunner
 import mlflow
 from mlflow import pyfunc
 from mlflow.cli import doctor, gc, server
+from mlflow.data import numpy_dataset
 from mlflow.entities import ViewType
 from mlflow.exceptions import MlflowException
 from mlflow.server import handlers
@@ -603,26 +604,28 @@ def test_mlflow_gc_with_datasets(sqlite_store):
     mlflow.set_tracking_uri(sqlite_store[1])
     mlflow.set_experiment("dataset")
 
-    dataset_source_url = (
-        "https://raw.githubusercontent.com/mlflow/mlflow/master/tests/datasets/winequality-red.csv"
-    )
-    raw_data = pd.read_csv(dataset_source_url, delimiter=";")
-    dataset = mlflow.data.from_pandas(
-        raw_data, source=dataset_source_url, name="wine quality - red", targets="quality"
-    )
+    dataset = numpy_dataset.from_numpy(np.array([1, 2, 3]))
 
     with mlflow.start_run() as run:
         experiment_id = run.info.experiment_id
         mlflow.log_input(dataset)
 
     experiments = store.search_experiments(filter_string="", view_type=ViewType.ALL)
+
     # default and datasets
     assert len(experiments) == 2
 
     store.delete_experiment(experiment_id)
 
+    # the new experiment is only marked as deleted, not removed
+    experiments = store.search_experiments(filter_string="", view_type=ViewType.ALL)
+    assert len(experiments) == 2
+
     subprocess.check_output(["mlflow", "gc", "--backend-store-uri", sqlite_store[1]])
     experiments = store.search_experiments(filter_string="", view_type=ViewType.ALL)
+
+    # only default is left after GC
     assert len(experiments) == 1
+    assert experiments[0].experiment_id == "0"
     with pytest.raises(MlflowException, match=f"No Experiment with id={experiment_id} exists"):
         store.get_experiment(experiment_id)
