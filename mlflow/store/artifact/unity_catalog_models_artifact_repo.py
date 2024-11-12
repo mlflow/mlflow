@@ -1,12 +1,12 @@
 import base64
 
-from mlflow.environment_variables import MLFLOW_USE_DATABRICKS_SDK_MODEL_ARTIFACTS_REPO_FOR_UC
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.protos.databricks_uc_registry_messages_pb2 import (
     MODEL_VERSION_OPERATION_READ,
     GenerateTemporaryModelVersionCredentialsRequest,
     GenerateTemporaryModelVersionCredentialsResponse,
+    ModelVersionLineageDirection,
     StorageMode,
 )
 from mlflow.protos.databricks_uc_registry_service_pb2 import UcModelRegistryService
@@ -21,8 +21,10 @@ from mlflow.store.artifact.utils.models import (
 )
 from mlflow.utils._spark_utils import _get_active_spark_session
 from mlflow.utils._unity_catalog_utils import (
+    emit_model_version_lineage,
     get_artifact_repo_from_storage_info,
     get_full_name_from_sc,
+    is_databricks_sdk_models_artifact_repository_enabled,
 )
 from mlflow.utils.databricks_utils import get_databricks_host_creds
 from mlflow.utils.proto_json_utils import message_to_json
@@ -124,7 +126,16 @@ class UnityCatalogModelsArtifactRepository(ArtifactRepository):
         Get underlying ArtifactRepository instance for model version blob
         storage
         """
-        if MLFLOW_USE_DATABRICKS_SDK_MODEL_ARTIFACTS_REPO_FOR_UC.get():
+        host_creds = get_databricks_host_creds(self.registry_uri)
+        if is_databricks_sdk_models_artifact_repository_enabled(host_creds):
+            entities = lineage_header_info.entities if lineage_header_info else []
+            emit_model_version_lineage(
+                host_creds,
+                self.model_name,
+                self.model_version,
+                entities,
+                ModelVersionLineageDirection.DOWNSTREAM,
+            )
             return DatabricksSDKModelsArtifactRepository(self.model_name, self.model_version)
         scoped_token = self._get_scoped_token(lineage_header_info=lineage_header_info)
         if scoped_token.storage_mode == StorageMode.DEFAULT_STORAGE:

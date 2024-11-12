@@ -350,9 +350,15 @@ def test_get_feature_dependencies_doesnt_throw():
     )
 
 
-def test_store_use_presigned_url_store_when_disabled():
+def test_store_use_presigned_url_store_when_disabled(monkeypatch):
     store_package = "mlflow.store.artifact.unity_catalog_models_artifact_repo"
-
+    monkeypatch.setenv("MLFLOW_USE_DATABRICKS_SDK_MODEL_ARTIFACTS_REPO_FOR_UC", "false")
+    monkeypatch.setenvs(
+        {
+            "DATABRICKS_HOST": "my-host",
+            "DATABRICKS_TOKEN": "my-token",
+        }
+    )
     uc_store = UnityCatalogModelsArtifactRepository(
         "models:/catalog.schema.model/1", "databricks-uc"
     )
@@ -393,6 +399,7 @@ def test_store_use_presigned_url_store_when_enabled(monkeypatch):
             "DATABRICKS_TOKEN": "my-token",
         }
     )
+    monkeypatch.setenv("MLFLOW_USE_DATABRICKS_SDK_MODEL_ARTIFACTS_REPO_FOR_UC", "false")
     store_package = "mlflow.store.artifact.unity_catalog_models_artifact_repo"
     creds = TemporaryCredentials(storage_mode=StorageMode.DEFAULT_STORAGE)
     with mock.patch(
