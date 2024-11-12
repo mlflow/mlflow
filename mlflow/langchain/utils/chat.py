@@ -301,12 +301,22 @@ def transform_request_json_for_chat_if_necessary(request_json, lc_model):
         should_convert = should_transform_requst_json_for_chat(lc_model) and (
             json_dict_might_be_chat_request(request_json) or is_list_of_chat_messages(request_json)
         )
+        if should_convert:
+            _logger.debug(
+                "Converting the request JSON to LangChain's Message format. "
+                "To disable this conversion, set the environment variable "
+                f"`{MLFLOW_CONVERT_MESSAGES_DICT_TO_FOR_LANGCHAIN}` to 'false'."
+            )
 
     if should_convert:
         try:
             return convert_chat_request(request_json), True
-        # we should catch all exceptions here including pydantic validation errors
         except pydantic.ValidationError:
+            _logger.debug(
+                "Failed to convert the request JSON to LangChain's Message format. "
+                "The request will be passed to the LangChain model as-is. ",
+                exc_info=True,
+            )
             return request_json, False
     else:
         return request_json, False
