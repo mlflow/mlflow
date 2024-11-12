@@ -1,7 +1,7 @@
 import json
 import logging
 import time
-from typing import Literal, Optional
+from typing import Literal, Optional, Union
 
 import pydantic
 from langchain.agents import AgentExecutor
@@ -9,6 +9,9 @@ from langchain.schema import AIMessage, HumanMessage, SystemMessage
 from langchain.schema import ChatMessage as LangChainChatMessage
 from packaging.version import Version
 
+from mlflow.environment_variables import (
+    MLFLOW_CONVERT_MESSAGES_DICT_FOR_LANGCHAIN,
+)
 from mlflow.exceptions import MlflowException
 from mlflow.types.schema import Array, ColSpec, DataType, Schema
 
@@ -223,6 +226,13 @@ def _convert_chat_request_or_throw(chat_request: dict):
     return [message.to_langchain_message() for message in model.messages]
 
 
+def convert_chat_request(chat_request: Union[dict, list[dict]]):
+    if isinstance(chat_request, list):
+        return [_convert_chat_request_or_throw(request) for request in chat_request]
+    else:
+        return _convert_chat_request_or_throw(chat_request)
+
+
 def _get_lc_model_input_fields(lc_model) -> set[str]:
     try:
         if hasattr(lc_model, "input_schema"):
@@ -256,8 +266,10 @@ def transform_request_json_for_chat_if_necessary(request_json, lc_model):
     """
     Convert the input request JSON to LangChain's Message format if the LangChain model
     accepts ChatMessage objects (e.g. AIMessage, HumanMessage, SystemMessage) as input.
-    # TODO: this function should identify if the lc_model accepts ChatMessage objects,
-    # and only converts if it does. ChatModels inputs should be converted.
+
+    Args:
+        request_json: The input request JSON.
+        lc_model: The LangChain model.
 
     Returns:
         A 2-element tuple containing:
@@ -266,10 +278,8 @@ def transform_request_json_for_chat_if_necessary(request_json, lc_model):
             2. A boolean indicating whether or not the request was transformed from the OpenAI
             chat format.
     """
-    if not should_transform_requst_json_for_chat(lc_model):
-        return request_json, False
 
-    def json_dict_might_be_chat_request(json_message: dict):
+    def json_dict_might_be_chat_request(json_message):
         return (
             isinstance(json_message, dict)
             and "messages" in json_message
@@ -277,22 +287,36 @@ def transform_request_json_for_chat_if_necessary(request_json, lc_model):
             # Additional keys can't be specified when calling LangChain invoke() / batch()
             # with chat messages
             len(json_message) == 1
+            # messages field should be a list
+            and isinstance(json_message["messages"], list)
         )
 
-    if isinstance(request_json, dict) and json_dict_might_be_chat_request(request_json):
-        try:
-            return _convert_chat_request_or_throw(request_json), True
-        except pydantic.ValidationError:
-            return request_json, False
-    elif isinstance(request_json, list) and all(
-        json_dict_might_be_chat_request(json) for json in request_json
-    ):
-        try:
-            return (
-                [_convert_chat_request_or_throw(json_dict) for json_dict in request_json],
-                True,
+    def is_list_of_chat_messages(json_message: list[dict]):
+        return isinstance(json_message, list) and all(
+            json_dict_might_be_chat_request(message) for message in json_message
+        )
+
+    should_convert = MLFLOW_CONVERT_MESSAGES_DICT_FOR_LANGCHAIN.get()
+    if should_convert is None:
+        should_convert = should_transform_requst_json_for_chat(lc_model) and (
+            json_dict_might_be_chat_request(request_json) or is_list_of_chat_messages(request_json)
+        )
+        if should_convert:
+            _logger.debug(
+                "Converting the request JSON to LangChain's Message format. "
+                "To disable this conversion, set the environment variable "
+                f"`{MLFLOW_CONVERT_MESSAGES_DICT_FOR_LANGCHAIN}` to 'false'."
             )
+
+    if should_convert:
+        try:
+            return convert_chat_request(request_json), True
         except pydantic.ValidationError:
+            _logger.debug(
+                "Failed to convert the request JSON to LangChain's Message format. "
+                "The request will be passed to the LangChain model as-is. ",
+                exc_info=True,
+            )
             return request_json, False
     else:
         return request_json, False

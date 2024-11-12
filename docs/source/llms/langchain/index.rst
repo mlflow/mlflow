@@ -555,3 +555,42 @@ string response, which can be compared to the `"ground_truth"` column.
 
 For a complete example of a LangGraph model that works with this evaluation example, see the 
 `MLflow LangGraph blog <https://mlflow.org/blog/langgraph-model-from-code>`_.
+
+How to control whether my input is converted to List[langchain.schema.BaseMessage] in PyFunc predict?
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+By default, MLflow converts chat request format input ``{"messages": [{"role": "user", "content": "some_question"}]}`` to
+List[langchain.schema.BaseMessage] like ``[HumanMessage(content="some_question")]`` for certain model types.
+To force the conversion, set the environment variable ``MLFLOW_CONVERT_MESSAGES_DICT_FOR_LANGCHAIN`` to ``True``.
+To disable this behavior, set the environment variable ``MLFLOW_CONVERT_MESSAGES_DICT_FOR_LANGCHAIN`` to ``False`` as demonstrated below:
+
+.. code-block:: python
+
+    import json
+    import mlflow
+    import os
+    from operator import itemgetter
+    from langchain.schema.runnable import RunnablePassthrough
+
+    model = RunnablePassthrough.assign(
+        problem=lambda x: x["messages"][-1]["content"]
+    ) | itemgetter("problem")
+
+    input_example = {
+        "messages": [
+            {
+                "role": "user",
+                "content": "Hello",
+            }
+        ]
+    }
+    # this model accepts the input_example
+    assert model.invoke(input_example) == "Hello"
+
+    # set this environment variable to avoid input conversion
+    os.environ["MLFLOW_CONVERT_MESSAGES_DICT_FOR_LANGCHAIN"] = "false"
+    with mlflow.start_run():
+        model_info = mlflow.langchain.log_model(model, "model", input_example=input_example)
+
+    pyfunc_model = mlflow.pyfunc.load_model(model_info.model_uri)
+    assert pyfunc_model.predict(input_example) == ["Hello"]

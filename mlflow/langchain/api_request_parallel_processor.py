@@ -147,7 +147,7 @@ class APIRequest:
                         self.request_json, callback_handlers, **self.params
                     )
                 except TypeError as e:
-                    _logger.warning(
+                    _logger.debug(
                         f"Failed to invoke {self.lc_model.__class__.__name__} "
                         f"with {self.request_json}. Error: {e!r}. Trying to "
                         "invoke with the first value of the dictionary."
