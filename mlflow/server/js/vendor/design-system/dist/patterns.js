@@ -2,11 +2,11 @@ import { css, createElement } from '@emotion/react';
 import React__default, { useMemo, useState, useCallback } from 'react';
 import _compact from 'lodash/compact';
 import { jsxs, Fragment, jsx } from '@emotion/react/jsx-runtime';
-import { a as useDesignSystemTheme, x as getShadowScrollStyles, B as Button, h as addDebugOutlineIfEnabled, p as Typography, C as CloseIcon, k as Root$1, T as Trigger$1, l as Content$1 } from './Typography-a18b0186.js';
+import { a as useDesignSystemTheme, x as getShadowScrollStyles, B as Button, h as addDebugOutlineIfEnabled, p as Typography, C as CloseIcon, k as Root$1, T as Trigger$1, l as Content$1 } from './Typography-C4ciIwWZ.js';
 import _pick from 'lodash/pick';
 import _isUndefined from 'lodash/isUndefined';
-import { S as Spacer, T as Tooltip, I as InfoIcon, M as Modal, f as Sidebar, g as useMediaQuery, L as ListIcon } from './Tooltip-cba3a3a6.js';
-import { S as Stepper } from './Stepper-56765495.js';
+import { S as Spacer, T as Tooltip, I as InfoIcon, M as Modal, f as Sidebar, g as useMediaQuery, L as ListIcon } from './Tooltip-W5oNcJKF.js';
+import { S as Stepper } from './Stepper-D_5J10NP.js';
 import _noop from 'lodash/noop';
 import 'antd';
 import '@radix-ui/react-popover';
@@ -22,12 +22,13 @@ import 'lodash/memoize';
 import '@emotion/unitless';
 import 'react-resizable';
 
-function useStepperStepsFromWizardSteps(wizardSteps, currentStepIdx) {
+function useStepperStepsFromWizardSteps(wizardSteps, currentStepIdx, hideDescriptionForFutureSteps) {
   return useMemo(() => wizardSteps.map((wizardStep, stepIdx) => ({
-    ..._pick(wizardStep, ['title', 'description', 'status']),
+    ..._pick(wizardStep, ['title', 'status']),
+    description: hideDescriptionForFutureSteps && !(stepIdx <= currentStepIdx || wizardStep.status === 'completed' || wizardStep.status === 'error' || wizardStep.status === 'warning') ? undefined : wizardStep.description,
     additionalVerticalContent: wizardStep.additionalHorizontalLayoutStepContent,
     clickEnabled: _isUndefined(wizardStep.clickEnabled) ? isWizardStepEnabled(wizardSteps, stepIdx, currentStepIdx, wizardStep.status) : wizardStep.clickEnabled
-  })), [currentStepIdx, wizardSteps]);
+  })), [currentStepIdx, hideDescriptionForFutureSteps, wizardSteps]);
 }
 function isWizardStepEnabled(steps, stepIdx, currentStepIdx, status) {
   if (stepIdx < currentStepIdx || status === 'completed' || status === 'error' || status === 'warning') {
@@ -45,12 +46,13 @@ function HorizontalWizardStepsContent(_ref) {
     currentStepIndex,
     localizeStepNumber,
     enableClickingToSteps,
-    goToStep
+    goToStep,
+    hideDescriptionForFutureSteps = false
   } = _ref;
   const {
     theme
   } = useDesignSystemTheme();
-  const stepperSteps = useStepperStepsFromWizardSteps(wizardSteps, currentStepIndex);
+  const stepperSteps = useStepperStepsFromWizardSteps(wizardSteps, currentStepIndex, hideDescriptionForFutureSteps);
   const expandContentToFullHeight = (_wizardSteps$currentS = wizardSteps[currentStepIndex].expandContentToFullHeight) !== null && _wizardSteps$currentS !== void 0 ? _wizardSteps$currentS : true;
   const disableDefaultScrollBehavior = (_wizardSteps$currentS2 = wizardSteps[currentStepIndex].disableDefaultScrollBehavior) !== null && _wizardSteps$currentS2 !== void 0 ? _wizardSteps$currentS2 : false;
   return jsxs(Fragment, {
@@ -125,7 +127,7 @@ function getWizardFooterButtons(_ref) {
     type: "tertiary",
     disabled: previousButtonDisabled,
     loading: previousButtonLoading,
-    componentId: "codegen_dubois_src_wizard_wizardfooter_previous",
+    componentId: "dubois-wizard-footer-previous",
     children: previousButtonContentOverride ? previousButtonContentOverride : previousButtonContent
   }, "previous"), extraFooterButtonsLeft && extraFooterButtonsLeft.map((buttonProps, index) => createElement(Button, {
     ...buttonProps,
@@ -136,7 +138,7 @@ function getWizardFooterButtons(_ref) {
     disabled: nextButtonDisabled,
     loading: nextButtonLoading || busyValidatingNextStep,
     type: ((_extraFooterButtonsRi = extraFooterButtonsRight === null || extraFooterButtonsRight === void 0 ? void 0 : extraFooterButtonsRight.length) !== null && _extraFooterButtonsRi !== void 0 ? _extraFooterButtonsRi : 0) > 0 ? undefined : 'primary',
-    componentId: "codegen_dubois_src_wizard_wizardfooter_next",
+    componentId: "dubois-wizard-footer-next",
     children: nextButtonContentOverride ? nextButtonContentOverride : isLastStep ? doneButtonContent : nextButtonContent
   }, "next"), extraFooterButtonsRight && extraFooterButtonsRight.map((buttonProps, index) => createElement(Button, {
     ...buttonProps,
@@ -152,7 +154,7 @@ function CancelButton(_ref3) {
   return jsx(Button, {
     onClick: onCancel,
     type: "tertiary",
-    componentId: "codegen_dubois_src_wizard_wizardfooter_cancel",
+    componentId: "dubois-wizard-footer-cancel",
     children: cancelButtonContent
   }, "cancel");
 }
@@ -166,6 +168,7 @@ function HorizontalWizardContent(_ref) {
     localizeStepNumber,
     onStepsChange,
     enableClickingToSteps,
+    hideDescriptionForFutureSteps,
     ...footerProps
   } = _ref;
   return jsxs("div", {
@@ -182,7 +185,8 @@ function HorizontalWizardContent(_ref) {
       currentStepIndex: currentStepIndex,
       localizeStepNumber: localizeStepNumber,
       enableClickingToSteps: Boolean(enableClickingToSteps),
-      goToStep: footerProps.goToStep
+      goToStep: footerProps.goToStep,
+      hideDescriptionForFutureSteps: hideDescriptionForFutureSteps
     }), jsx(Spacer, {
       size: "lg"
     }), jsx(WizardFooter, {
@@ -247,6 +251,8 @@ function Trigger(_ref2) {
     contentId,
     label,
     tooltipContent,
+    asChild,
+    children,
     ...tooltipProps
   } = _ref2;
   const {
@@ -255,16 +261,17 @@ function Trigger(_ref2) {
   const {
     setCurrentContentId
   } = useDocumentationSidebarContext();
+  const triggerProps = useMemo(() => ({
+    onClick: () => setCurrentContentId(contentId),
+    [`aria-label`]: label
+  }), [contentId, label, setCurrentContentId]);
+  const renderAsChild = asChild && /*#__PURE__*/React__default.isValidElement(children);
   return jsx(Tooltip, {
     ...tooltipProps,
     content: tooltipContent,
-    children: jsx("button", {
+    children: renderAsChild ? (/*#__PURE__*/React__default.cloneElement(children, triggerProps)) : jsx("button", {
       css: _ref3,
-      onClick: e => {
-        e.stopPropagation();
-        setCurrentContentId(contentId);
-      },
-      "aria-label": label,
+      ...triggerProps,
       children: jsx(InfoIcon, {
         css: /*#__PURE__*/css({
           fontSize: theme.typography.fontSizeSm,
@@ -325,6 +332,7 @@ function Content(_ref4) {
       border: 'none'
     },
     children: jsx(Sidebar.Content, {
+      componentId: "codegen_design-system_src_~patterns_wizard_documentationsidebar_documentationsidebar.tsx_204",
       openPanelId: 0,
       closable: true,
       disableResize: true,
@@ -338,7 +346,7 @@ function Content(_ref4) {
             display: 'flex',
             flexDirection: 'column',
             rowGap: theme.spacing.md,
-            borderRadius: theme.borders.borderRadiusLg,
+            borderRadius: theme.legacyBorders.borderRadiusLg,
             border: `1px solid ${theme.colors.backgroundSecondary}`,
             padding: `${theme.spacing.md}px ${theme.spacing.lg}px`,
             backgroundColor: theme.colors.backgroundSecondary
@@ -365,7 +373,8 @@ var DocumentationSidebar = /*#__PURE__*/Object.freeze({
   __proto__: null,
   Content: Content,
   Root: Root,
-  Trigger: Trigger
+  Trigger: Trigger,
+  useDocumentationSidebarContext: useDocumentationSidebarContext
 });
 
 const SMALL_FIXED_VERTICAL_STEPPER_WIDTH = 240;
@@ -388,12 +397,13 @@ function VerticalWizardContent(_ref) {
     verticalCompactButtonContent,
     enableClickingToSteps,
     verticalDocumentationSidebarConfig,
+    hideDescriptionForFutureSteps = false,
     ...footerProps
   } = _ref;
   const {
     theme
   } = useDesignSystemTheme();
-  const stepperSteps = useStepperStepsFromWizardSteps(wizardSteps, currentStepIndex);
+  const stepperSteps = useStepperStepsFromWizardSteps(wizardSteps, currentStepIndex, hideDescriptionForFutureSteps);
   const expandContentToFullHeight = (_wizardSteps$currentS = wizardSteps[currentStepIndex].expandContentToFullHeight) !== null && _wizardSteps$currentS !== void 0 ? _wizardSteps$currentS : true;
   const disableDefaultScrollBehavior = (_wizardSteps$currentS2 = wizardSteps[currentStepIndex].disableDefaultScrollBehavior) !== null && _wizardSteps$currentS2 !== void 0 ? _wizardSteps$currentS2 : false;
   const displayDocumentationSideBar = Boolean(verticalDocumentationSidebarConfig);
@@ -402,6 +412,7 @@ function VerticalWizardContent(_ref) {
     query: `(max-width: ${displayDocumentationSideBar ? theme.responsive.breakpoints.xl : theme.responsive.breakpoints.lg}px)`
   }) && Boolean(verticalCompactButtonContent);
   return jsx(Wrapper, {
+    initialContentId: verticalDocumentationSidebarConfig === null || verticalDocumentationSidebarConfig === void 0 ? void 0 : verticalDocumentationSidebarConfig.initialContentId,
     children: jsxs("div", {
       css: /*#__PURE__*/css({
         width,
@@ -437,12 +448,13 @@ function VerticalWizardContent(_ref) {
           onStepClicked: enableClickingToSteps ? footerProps.goToStep : undefined
         })]
       }), isCompact && jsxs(Root$1, {
+        componentId: "codegen_design-system_src_~patterns_wizard_verticalwizardcontent.tsx_93",
         children: [jsx(Trigger$1, {
           asChild: true,
           children: jsx("div", {
             children: jsx(Button, {
               icon: jsx(ListIcon, {}),
-              componentId: "compact-vertical-wizard-show-stepper-popover",
+              componentId: "dubois-wizard-vertical-compact-show-stepper-popover",
               children: verticalCompactButtonContent === null || verticalCompactButtonContent === void 0 ? void 0 : verticalCompactButtonContent(currentStepIndex, stepperSteps.length)
             })
           })
@@ -467,7 +479,7 @@ function VerticalWizardContent(_ref) {
           flexDirection: 'column',
           columnGap: theme.spacing.lg,
           border: `1px solid ${theme.colors.border}`,
-          borderRadius: theme.borders.borderRadiusLg,
+          borderRadius: theme.legacyBorders.borderRadiusLg,
           flexGrow: 1,
           padding: padding !== null && padding !== void 0 ? padding : theme.spacing.lg,
           height: isCompact ? `calc(100% - ${EXTRA_COMPACT_BUTTON_HEIGHT}px)` : '100%',
@@ -478,7 +490,7 @@ function VerticalWizardContent(_ref) {
             flexGrow: expandContentToFullHeight ? 1 : undefined,
             overflowY: disableDefaultScrollBehavior ? 'hidden' : 'auto',
             ...(!disableDefaultScrollBehavior ? getShadowScrollStyles(theme) : {}),
-            borderRadius: theme.borders.borderRadiusLg
+            borderRadius: theme.legacyBorders.borderRadiusLg
           }, process.env.NODE_ENV === "production" ? "" : ";label:VerticalWizardContent;"),
           children: wizardSteps[currentStepIndex].content
         }), jsx("div", {
@@ -707,8 +719,8 @@ function WizardStepContentWrapper(_ref) {
         padding: theme.spacing.lg,
         display: 'flex',
         flexDirection: 'column',
-        borderTopLeftRadius: theme.borders.borderRadiusLg,
-        borderTopRightRadius: theme.borders.borderRadiusLg
+        borderTopLeftRadius: theme.legacyBorders.borderRadiusLg,
+        borderTopRightRadius: theme.legacyBorders.borderRadiusLg
       },
       children: [jsx(Typography.Text, {
         size: "sm",

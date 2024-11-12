@@ -2,9 +2,15 @@ export declare const borders: {
     borderRadiusMd: number;
     borderRadiusLg: number;
 };
-declare const _default: {
+export declare const getLegacyBorders: () => {
     borderRadiusMd: number;
     borderRadiusLg: number;
 };
-export default _default;
+export declare const getBorders: () => {
+    borderRadius0: number;
+    borderRadiusSm: number;
+    borderRadiusMd: number;
+    borderRadiusLg: number;
+    borderRadiusFull: number;
+};
 //# sourceMappingURL=borders.d.ts.map

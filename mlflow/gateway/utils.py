@@ -175,7 +175,6 @@ def get_gateway_uri() -> str:
     If the Gateway uri has not been set by using ``set_gateway_uri``, an ``MlflowException``
     is raised.
     """
-    global _gateway_uri
     if _gateway_uri is not None:
         return _gateway_uri
     elif uri := MLFLOW_GATEWAY_URI.get():

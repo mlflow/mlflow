@@ -1,4 +1,4 @@
-import borders from './borders';
+import { getBorders, getLegacyBorders } from './borders';
 import responsive from './breakpoints';
 import { getColors, getProtectedSemanticColors } from './colors';
 import generalVariables, { getShadowVariables } from './generalVariables';
@@ -16,7 +16,11 @@ export interface Theme {
     spacing: typeof spacing;
     general: typeof generalVariables & ReturnType<typeof getShadowVariables>;
     typography: typeof typography;
-    borders: typeof borders;
+    /**
+     * @deprecated use `borders` instead.
+     */
+    legacyBorders: ReturnType<typeof getLegacyBorders>;
+    borders: ReturnType<typeof getBorders>;
     responsive: typeof responsive;
     isDarkMode: boolean;
     options: ThemeOptions;

@@ -1,8 +1,6 @@
 import time
 from typing import Any
 
-from fastapi.encoders import jsonable_encoder
-
 from mlflow.gateway.config import MistralConfig, RouteConfig
 from mlflow.gateway.providers.base import BaseProvider, ProviderAdapter
 from mlflow.gateway.providers.utils import send_request
@@ -141,6 +139,8 @@ class MistralProvider(BaseProvider):
         )
 
     async def completions(self, payload: completions.RequestPayload) -> completions.ResponsePayload:
+        from fastapi.encoders import jsonable_encoder
+
         payload = jsonable_encoder(payload, exclude_none=True)
         self.check_for_model_field(payload)
         resp = await self._request(
@@ -153,6 +153,8 @@ class MistralProvider(BaseProvider):
         return MistralAdapter.model_to_completions(resp, self.config)
 
     async def embeddings(self, payload: embeddings.RequestPayload) -> embeddings.ResponsePayload:
+        from fastapi.encoders import jsonable_encoder
+
         payload = jsonable_encoder(payload, exclude_none=True)
         self.check_for_model_field(payload)
         resp = await self._request(
