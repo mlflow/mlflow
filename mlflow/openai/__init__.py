@@ -32,12 +32,13 @@ corresponding environment variable. See https://docs.databricks.com/security/sec
 for how to set up secrets on Databricks.
 """
 
+import importlib.metadata
 import itertools
 import logging
 import os
 import warnings
 from string import Formatter
-from typing import Any, Dict, Optional, Set
+from typing import Any, Optional
 
 import yaml
 from packaging.version import Version
@@ -50,7 +51,11 @@ from mlflow.models import Model, ModelInputExample, ModelSignature
 from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.signature import _infer_signature_from_input_example
 from mlflow.models.utils import _save_example
-from mlflow.openai._openai_autolog import patched_call
+from mlflow.openai._openai_autolog import (
+    patched_agent_get_chat_completion,
+    patched_call,
+    patched_swarm_run,
+)
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
@@ -120,38 +125,20 @@ def get_default_conda_env():
 
 
 def _get_obj_to_task_mapping():
-    if Version(_get_openai_package_version()).major < 1:
-        from openai import api_resources as ar
+    from openai import resources as r
 
-        return {
-            ar.Audio: ar.Audio.OBJECT_NAME,
-            ar.ChatCompletion: ar.ChatCompletion.OBJECT_NAME,
-            ar.Completion: ar.Completion.OBJECT_NAME,
-            ar.Edit: ar.Edit.OBJECT_NAME,
-            ar.Deployment: ar.Deployment.OBJECT_NAME,
-            ar.Embedding: ar.Embedding.OBJECT_NAME,
-            ar.Engine: ar.Engine.OBJECT_NAME,
-            ar.File: ar.File.OBJECT_NAME,
-            ar.Image: ar.Image.OBJECT_NAME,
-            ar.FineTune: ar.FineTune.OBJECT_NAME,
-            ar.Model: ar.Model.OBJECT_NAME,
-            ar.Moderation: "moderations",
-        }
-    else:
-        from openai import resources as r
-
-        return {
-            r.Audio: "audio",
-            r.chat.Completions: "chat.completions",
-            r.Completions: "completions",
-            r.Images.edit: "images.edit",
-            r.Embeddings: "embeddings",
-            r.Files: "files",
-            r.Images: "images",
-            r.FineTuning: "fine_tuning",
-            r.Moderations: "moderations",
-            r.Models: "models",
-        }
+    return {
+        r.Audio: "audio",
+        r.chat.Completions: "chat.completions",
+        r.Completions: "completions",
+        r.Images.edit: "images.edit",
+        r.Embeddings: "embeddings",
+        r.Files: "files",
+        r.Images: "images",
+        r.FineTuning: "fine_tuning",
+        r.Moderations: "moderations",
+        r.Models: "models",
+    }
 
 
 def _get_model_name(model):
@@ -195,7 +182,9 @@ def _get_api_config() -> _OpenAIApiConfig:
 
     api_type = os.getenv(_OpenAIEnvVar.OPENAI_API_TYPE.value, openai.api_type)
     api_version = os.getenv(_OpenAIEnvVar.OPENAI_API_VERSION.value, openai.api_version)
-    api_base = os.getenv(_OpenAIEnvVar.OPENAI_API_BASE.value, None)
+    api_base = os.getenv(_OpenAIEnvVar.OPENAI_API_BASE.value) or os.getenv(
+        _OpenAIEnvVar.OPENAI_BASE_URL.value
+    )
     engine = os.getenv(_OpenAIEnvVar.OPENAI_ENGINE.value, None)
     deployment_id = os.getenv(_OpenAIEnvVar.OPENAI_DEPLOYMENT_NAME.value, None)
     if api_type in ("azure", "azure_ad", "azuread"):
@@ -220,13 +209,7 @@ def _get_api_config() -> _OpenAIApiConfig:
 
 
 def _get_openai_package_version():
-    import openai
-
-    try:
-        return openai.__version__
-    except AttributeError:
-        # openai < 0.27.5 doesn't have a __version__ attribute
-        return openai.version.VERSION
+    return importlib.metadata.version("openai")
 
 
 def _log_secrets_yaml(local_model_dir, scope):
@@ -234,7 +217,7 @@ def _log_secrets_yaml(local_model_dir, scope):
         yaml.safe_dump({e.value: f"{scope}:{e.secret_key}" for e in _OpenAIEnvVar}, f)
 
 
-def _parse_format_fields(s) -> Set[str]:
+def _parse_format_fields(s) -> set[str]:
     """Parses format fields from a given string, e.g. "Hello {name}" -> ["name"]."""
     return {fn for _, fn, _, _ in Formatter().parse(s) if fn is not None}
 
@@ -332,6 +315,9 @@ def save_model(
             path="model",
         )
     """
+    if Version(_get_openai_package_version()).major < 1:
+        raise MlflowException("Only openai>=1.0 is supported.")
+
     import numpy as np
 
     _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
@@ -714,7 +700,7 @@ class _OpenAIWrapper:
 
     def _construct_request_url(self, task_url, default_url):
         api_type = self.request_configs.get("api_type")
-        api_base = self.request_configs.get("api_base")
+        api_base = base.rstrip("/") if (base := self.request_configs.get("api_base")) else None
         if api_type in ("azure", "azure_ad", "azuread"):
             api_version = self.request_configs.get("api_version")
             deployment_id = self.request_configs.get("deployment_id")
@@ -798,7 +784,7 @@ class _OpenAIWrapper:
         )
         return [row["embedding"] for batch in results for row in batch["data"]]
 
-    def predict(self, data, params: Optional[Dict[str, Any]] = None):
+    def predict(self, data, params: Optional[dict[str, Any]] = None):
         """
         Args:
             data: Model input data.
@@ -928,3 +914,23 @@ def autolog(
             "create",
             patched_call,
         )
+
+    # Patch Swarm agent to generate traces
+    try:
+        from swarm import Swarm
+
+        safe_patch(
+            FLAVOR_NAME,
+            Swarm,
+            "get_chat_completion",
+            patched_agent_get_chat_completion,
+        )
+
+        safe_patch(
+            FLAVOR_NAME,
+            Swarm,
+            "run",
+            patched_swarm_run,
+        )
+    except ImportError:
+        pass

@@ -7,7 +7,6 @@ import logging
 import numbers
 import posixpath
 import re
-from typing import List
 
 from mlflow.entities import Dataset, DatasetInput, InputTag, Param, RunTag
 from mlflow.environment_variables import MLFLOW_TRUNCATE_LONG_VALUES
@@ -45,7 +44,7 @@ MAX_DATASETS_PER_BATCH = 1000
 MAX_ENTITIES_PER_BATCH = 1000
 MAX_BATCH_LOG_REQUEST_SIZE = int(1e6)
 MAX_PARAM_VAL_LENGTH = 6000
-MAX_TAG_VAL_LENGTH = 5000
+MAX_TAG_VAL_LENGTH = 8000
 MAX_EXPERIMENT_NAME_LENGTH = 500
 MAX_EXPERIMENT_TAG_KEY_LENGTH = 250
 MAX_EXPERIMENT_TAG_VAL_LENGTH = 5000
@@ -116,6 +115,10 @@ def missing_value(path):
     return f"Missing value for required parameter '{path}'."
 
 
+def exceeds_maximum_length(path, limit):
+    return f"'{path}' exceeds the maximum length of {limit} characters"
+
+
 def append_to_json_path(currenPath, value):
     if not currenPath:
         return value
@@ -151,7 +154,7 @@ def bad_character_message():
         "Names may only contain alphanumerics, underscores (_), dashes (-), periods (.),"
         " spaces ( ){} and slashes (/)."
     )
-    return msg.format(", colon(:)") if is_windows() else msg.format("")
+    return msg.format("") if is_windows() else msg.format(", colon(:)")
 
 
 def path_not_unique(name):
@@ -256,8 +259,10 @@ def _validate_tag(key, value, path=""):
     """
     _validate_tag_name(key, append_to_json_path(path, "key"))
     return RunTag(
-        _validate_length_limit("Tag key", MAX_ENTITY_KEY_LENGTH, key),
-        _validate_length_limit("Tag value", MAX_TAG_VAL_LENGTH, value, truncate=True),
+        _validate_length_limit(append_to_json_path(path, "key"), MAX_ENTITY_KEY_LENGTH, key),
+        _validate_length_limit(
+            append_to_json_path(path, "value"), MAX_TAG_VAL_LENGTH, value, truncate=True
+        ),
     )
 
 
@@ -266,8 +271,8 @@ def _validate_experiment_tag(key, value):
     Check that a tag with the specified key & value is valid and raise an exception if it isn't.
     """
     _validate_tag_name(key)
-    _validate_length_limit("Tag key", MAX_EXPERIMENT_TAG_KEY_LENGTH, key)
-    _validate_length_limit("Tag value", MAX_EXPERIMENT_TAG_VAL_LENGTH, value)
+    _validate_length_limit("key", MAX_EXPERIMENT_TAG_KEY_LENGTH, key)
+    _validate_length_limit("value", MAX_EXPERIMENT_TAG_VAL_LENGTH, value)
 
 
 def _validate_registered_model_tag(key, value):
@@ -275,8 +280,8 @@ def _validate_registered_model_tag(key, value):
     Check that a tag with the specified key & value is valid and raise an exception if it isn't.
     """
     _validate_tag_name(key)
-    _validate_length_limit("Registered model key", MAX_MODEL_REGISTRY_TAG_KEY_LENGTH, key)
-    _validate_length_limit("Registered model value", MAX_MODEL_REGISTRY_TAG_VALUE_LENGTH, value)
+    _validate_length_limit("key", MAX_MODEL_REGISTRY_TAG_KEY_LENGTH, key)
+    _validate_length_limit("value", MAX_MODEL_REGISTRY_TAG_VALUE_LENGTH, value)
 
 
 def _validate_model_version_tag(key, value):
@@ -285,8 +290,8 @@ def _validate_model_version_tag(key, value):
     """
     _validate_tag_name(key)
     _validate_tag_value(value)
-    _validate_length_limit("Model version key", MAX_MODEL_REGISTRY_TAG_KEY_LENGTH, key)
-    _validate_length_limit("Model version value", MAX_MODEL_REGISTRY_TAG_VALUE_LENGTH, value)
+    _validate_length_limit("key", MAX_MODEL_REGISTRY_TAG_KEY_LENGTH, key)
+    _validate_length_limit("value", MAX_MODEL_REGISTRY_TAG_VALUE_LENGTH, value)
 
 
 def _validate_param_keys_unique(params):
@@ -361,8 +366,7 @@ def _validate_length_limit(entity_name, limit, value, *, truncate=False):
         return value[:limit]
 
     raise MlflowException(
-        f"{entity_name} '{value[:250]}' had length {len(value)}, "
-        f"which exceeded length limit of {limit}",
+        exceeds_maximum_length(entity_name, limit),
         error_code=INVALID_PARAMETER_VALUE,
     )
 
@@ -440,7 +444,7 @@ def _validate_experiment_name(experiment_name):
 
     if len(experiment_name) > MAX_EXPERIMENT_NAME_LENGTH:
         raise MlflowException.invalid_parameter_value(
-            f"Experiment name exceeds the maximum length of {MAX_EXPERIMENT_NAME_LENGTH} characters"
+            exceeds_maximum_length("name", MAX_EXPERIMENT_NAME_LENGTH)
         )
 
 
@@ -527,7 +531,7 @@ def _validate_tag_value(value):
         raise MlflowException("Tag value cannot be None", INVALID_PARAMETER_VALUE)
 
 
-def _validate_dataset_inputs(dataset_inputs: List[DatasetInput]):
+def _validate_dataset_inputs(dataset_inputs: list[DatasetInput]):
     for dataset_input in dataset_inputs:
         _validate_dataset(dataset_input.dataset)
         _validate_input_tags(dataset_input.tags)
@@ -546,32 +550,32 @@ def _validate_dataset(dataset: Dataset):
         raise MlflowException("Dataset source cannot be None", INVALID_PARAMETER_VALUE)
     if len(dataset.name) > MAX_DATASET_NAME_SIZE:
         raise MlflowException(
-            f"Dataset name exceeds the maximum length of {MAX_DATASET_NAME_SIZE}",
+            exceeds_maximum_length("name", MAX_DATASET_NAME_SIZE),
             INVALID_PARAMETER_VALUE,
         )
     if len(dataset.digest) > MAX_DATASET_DIGEST_SIZE:
         raise MlflowException(
-            f"Dataset digest exceeds the maximum length of {MAX_DATASET_DIGEST_SIZE}",
+            exceeds_maximum_length("digest", MAX_DATASET_DIGEST_SIZE),
             INVALID_PARAMETER_VALUE,
         )
     if len(dataset.source) > MAX_DATASET_SOURCE_SIZE:
         raise MlflowException(
-            f"Dataset source exceeds the maximum length of {MAX_DATASET_SOURCE_SIZE}",
+            exceeds_maximum_length("source", MAX_DATASET_SOURCE_SIZE),
             INVALID_PARAMETER_VALUE,
         )
     if dataset.schema is not None and len(dataset.schema) > MAX_DATASET_SCHEMA_SIZE:
         raise MlflowException(
-            f"Dataset schema exceeds the maximum length of {MAX_DATASET_SCHEMA_SIZE}",
+            exceeds_maximum_length("schema", MAX_DATASET_SCHEMA_SIZE),
             INVALID_PARAMETER_VALUE,
         )
     if dataset.profile is not None and len(dataset.profile) > MAX_DATASET_PROFILE_SIZE:
         raise MlflowException(
-            f"Dataset profile exceeds the maximum length of {MAX_DATASET_PROFILE_SIZE}",
+            exceeds_maximum_length("profile", MAX_DATASET_PROFILE_SIZE),
             INVALID_PARAMETER_VALUE,
         )
 
 
-def _validate_input_tags(input_tags: List[InputTag]):
+def _validate_input_tags(input_tags: list[InputTag]):
     for input_tag in input_tags:
         _validate_input_tag(input_tag)
 
@@ -585,12 +589,12 @@ def _validate_input_tag(input_tag: InputTag):
         raise MlflowException("InputTag value cannot be None", INVALID_PARAMETER_VALUE)
     if len(input_tag.key) > MAX_INPUT_TAG_KEY_SIZE:
         raise MlflowException(
-            f"InputTag key exceeds the maximum length of {MAX_INPUT_TAG_KEY_SIZE}",
+            exceeds_maximum_length("key", MAX_INPUT_TAG_KEY_SIZE),
             INVALID_PARAMETER_VALUE,
         )
     if len(input_tag.value) > MAX_INPUT_TAG_VALUE_SIZE:
         raise MlflowException(
-            f"InputTag value exceeds the maximum length of {MAX_INPUT_TAG_VALUE_SIZE}",
+            exceeds_maximum_length("value", MAX_INPUT_TAG_VALUE_SIZE),
             INVALID_PARAMETER_VALUE,
         )
 
@@ -602,8 +606,6 @@ def _validate_username(username):
 
 def _validate_trace_tag(key, value):
     _validate_tag_name(key)
-    key = _validate_length_limit("Trace tag key", MAX_TRACE_TAG_KEY_LENGTH, key)
-    value = _validate_length_limit(
-        "Trace tag value", MAX_TRACE_TAG_VAL_LENGTH, value, truncate=True
-    )
+    key = _validate_length_limit("key", MAX_TRACE_TAG_KEY_LENGTH, key)
+    value = _validate_length_limit("value", MAX_TRACE_TAG_VAL_LENGTH, value, truncate=True)
     return key, value

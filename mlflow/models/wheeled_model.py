@@ -183,7 +183,7 @@ class WheeledModel:
         this is a `wheeled` model.
 
         Args:
-            original_model_file_path: The model metadata stored in the original MLmodel file.
+            original_model_metadata: The model metadata stored in the original MLmodel file.
             mlflow_model: :py:mod:`mlflow.models.Model` configuration of the newly created
                           wheeled model
         """

@@ -1,6 +1,7 @@
 import time
-from dataclasses import asdict, dataclass, field
-from typing import Dict, List, Optional
+import uuid
+from dataclasses import asdict, dataclass, field, fields
+from typing import Literal, Optional
 
 from mlflow.types.schema import Array, ColSpec, DataType, Map, Object, Property, Schema
 
@@ -13,6 +14,9 @@ from mlflow.types.schema import Array, ColSpec, DataType, Map, Object, Property,
 #       is not supported, so the code here is a little ugly.
 
 
+JSON_SCHEMA_TYPES = ["string", "number", "integer", "object", "array", "boolean", "null"]
+
+
 class _BaseDataclass:
     def _validate_field(self, key, val_type, required):
         value = getattr(self, key, None)
@@ -22,6 +26,13 @@ class _BaseDataclass:
             raise ValueError(
                 f"`{key}` must be of type {val_type.__name__}, got {type(value).__name__}"
             )
+
+    def _validate_literal(self, key, allowed_values, required):
+        value = getattr(self, key, None)
+        if required and value is None:
+            raise ValueError(f"`{key}` is required")
+        if value is not None and value not in allowed_values:
+            raise ValueError(f"`{key}` must be one of {allowed_values}, got {value}")
 
     def _validate_list(self, key, val_type, required):
         values = getattr(self, key, None)
@@ -34,7 +45,28 @@ class _BaseDataclass:
             elif not isinstance(values, list):
                 raise ValueError(f"`{key}` must be a list, got {type(values).__name__}")
 
-    def _convert_dataclass_list(self, key, cls, required=True):
+    def _convert_dataclass(self, key: str, cls: "_BaseDataclass", required=True):
+        value = getattr(self, key)
+        if value is None:
+            if required:
+                raise ValueError(f"`{key}` is required")
+            return
+
+        if isinstance(value, cls):
+            return
+
+        if not isinstance(value, dict):
+            raise ValueError(
+                f"Expected `{key}` to be either an instance of `{cls.__name__}` or "
+                f"a dict matching the schema. Received `{type(value).__name__}`"
+            )
+
+        try:
+            setattr(self, key, cls.from_dict(value))
+        except TypeError as e:
+            raise ValueError(f"Error when coercing {value} to {cls.__name__}: {e}")
+
+    def _convert_dataclass_list(self, key: str, cls: "_BaseDataclass", required=True):
         values = getattr(self, key)
         if values is None:
             if required:
@@ -47,7 +79,7 @@ class _BaseDataclass:
             # if the items are all dicts, try to convert them to the desired class
             if all(isinstance(v, dict) for v in values):
                 try:
-                    setattr(self, key, [cls(**v) for v in values])
+                    setattr(self, key, [cls.from_dict(v) for v in values])
                 except TypeError as e:
                     raise ValueError(f"Error when coercing {values} to {cls.__name__}: {e}")
             elif any(not isinstance(v, cls) for v in values):
@@ -55,8 +87,89 @@ class _BaseDataclass:
                     f"Items in `{key}` must all have the same type: {cls.__name__} or dict"
                 )
 
+    def _convert_dataclass_map(self, key, cls, required=True):
+        mapping = getattr(self, key)
+        if mapping is None:
+            if required:
+                raise ValueError(f"`{key}` is required")
+            return
+
+        if not isinstance(mapping, dict):
+            raise ValueError(f"`{key}` must be a dict")
+
+        # create a new map to avoid mutating the original
+        new_mapping = {}
+        for k, v in mapping.items():
+            if isinstance(v, cls):
+                new_mapping[k] = v
+            elif isinstance(v, dict):
+                try:
+                    new_mapping[k] = cls.from_dict(v)
+                except TypeError as e:
+                    raise ValueError(f"Error when coercing {v} to {cls.__name__}: {e}")
+            else:
+                raise ValueError(
+                    f"Items in `{key}` must be either an instance of `{cls.__name__}` "
+                    f"or a dict matching the schema. Received `{type(v).__name__}`"
+                )
+        setattr(self, key, new_mapping)
+
     def to_dict(self):
         return asdict(self, dict_factory=lambda obj: {k: v for (k, v) in obj if v is not None})
+
+    @classmethod
+    def from_dict(cls, data):
+        """
+        Create an instance of the class from a dict, ignoring any undefined fields.
+        This is useful when the dict contains extra fields, causing cls(**data) to fail.
+        """
+        field_names = [field.name for field in fields(cls)]
+        filtered_data = {k: v for k, v in data.items() if k in field_names}
+        return cls(**filtered_data)
+
+
+@dataclass
+class FunctionToolCallArguments(_BaseDataclass):
+    """
+    The arguments of a function tool call made by the model.
+
+    Args:
+        arguments (str): A JSON string of arguments that should be passed to the tool.
+        name (str): The name of the tool that is being called.
+    """
+
+    name: str
+    arguments: str
+
+    def __post_init__(self):
+        self._validate_field("name", str, True)
+        self._validate_field("arguments", str, True)
+
+    def to_tool_call(self, id=None):
+        if id is None:
+            id = str(uuid.uuid4())
+        return ToolCall(id=id, function=self)
+
+
+@dataclass
+class ToolCall(_BaseDataclass):
+    """
+    A tool call made by the model.
+
+    Args:
+        function (:py:class:`FunctionToolCallArguments`): The arguments of the function tool call.
+        id (str): The ID of the tool call. Defaults to a random UUID.
+        type (str): The type of the object. Currently only "function" is supported.
+    """
+
+    function: FunctionToolCallArguments
+    id: str = field(default_factory=lambda: str(uuid.uuid4()))
+    type: Literal["function"] = "function"
+
+    def __post_init__(self):
+        self._validate_field("id", str, True)
+        self._convert_dataclass("function", FunctionToolCallArguments, True)
+        self._validate_field("type", str, True)
 
 
 @dataclass
@@ -65,18 +178,25 @@ class ChatMessage(_BaseDataclass):
     A message in a chat request or response.
 
     Args:
-        role (str): The role of the entity that sent the message (e.g. ``"user"``, ``"system"``).
+        role (str): The role of the entity that sent the message (e.g. ``"user"``,
+            ``"system"``, ``"assistant"``, ``"tool"``).
         content (str): The content of the message.
-            **Optional** Supplied if a non-refusal response is provided.
+            **Optional** Can be ``None`` if refusal or tool_calls are provided.
         refusal (str): The refusal message content.
             **Optional** Supplied if a refusal response is provided.
         name (str): The name of the entity that sent the message. **Optional**.
+        tool_calls (List[:py:class:`ToolCall`]): A list of tool calls made by the model.
+            **Optional**
+        tool_call_id (str): The ID of the tool call that this message is a response to.
+            **Optional**
     """
 
     role: str
     content: Optional[str] = None
     refusal: Optional[str] = None
     name: Optional[str] = None
+    tool_calls: Optional[list[ToolCall]] = None
+    tool_call_id: Optional[str] = None
 
     def __post_init__(self):
         self._validate_field("role", str, True)
@@ -85,16 +205,138 @@ class ChatMessage(_BaseDataclass):
             self._validate_field("refusal", str, True)
             if self.content:
                 raise ValueError("Both `content` and `refusal` cannot be set")
+        elif self.tool_calls:
+            self._validate_field("content", str, False)
         else:
             self._validate_field("content", str, True)
 
         self._validate_field("name", str, False)
+        self._convert_dataclass_list("tool_calls", ToolCall, False)
+        self._validate_field("tool_call_id", str, False)
+
+
+@dataclass
+class ParamType(_BaseDataclass):
+    type: Literal["string", "number", "integer", "object", "array", "boolean", "null"]
+
+    def __post_init__(self):
+        self._validate_literal("type", JSON_SCHEMA_TYPES, True)
+
+
+@dataclass
+class ParamProperty(ParamType):
+    """
+    A single parameter within a function definition.
+
+    Args:
+        type (str): The type of the parameter. Possible values are "string", "number", "integer",
+            "object", "array", "boolean", or "null", conforming to the JSON Schema specification.
+        description (str): A description of the parameter.
+            **Optional**, defaults to ``None``
+        enum (List[str]): Used to constrain the possible values for the parameter.
+            **Optional**, defaults to ``None``
+        items (:py:class:`ParamProperty`): If the param is of ``array`` type, this field can be
+            used to specify the type of its items. **Optional**, defaults to ``None``
+    """
+
+    description: Optional[str] = None
+    enum: Optional[list[str]] = None
+    items: Optional[ParamType] = None
+
+    def __post_init__(self):
+        self._validate_field("description", str, False)
+        self._validate_list("enum", str, False)
+        self._convert_dataclass("items", ParamType, False)
+        super().__post_init__()
+
+
+@dataclass
+class ToolParamsSchema(_BaseDataclass):
+    """
+    A tool parameter definition.
+
+    Args:
+        properties (Dict[str, :py:class:`ParamProperty`]): A mapping of parameter names to
+            their definitions.
+        type (str): The type of the parameter. Currently only "object" is supported.
+        required (List[str]): A list of required parameter names. **Optional**, defaults to ``None``
+        additionalProperties (bool): Whether additional properties are allowed in the object.
+            **Optional**, defaults to ``None``
+    """
+
+    properties: dict[str, ParamProperty]
+    type: Literal["object"] = "object"
+    required: Optional[list[str]] = None
+    additionalProperties: Optional[bool] = None
+
+    def __post_init__(self):
+        self._convert_dataclass_map("properties", ParamProperty, True)
+        self._validate_literal("type", ["object"], True)
+        self._validate_list("required", str, False)
+        self._validate_field("additionalProperties", bool, False)
+
+
+@dataclass
+class FunctionToolDefinition(_BaseDataclass):
+    """
+    Definition for function tools (currently the only supported type of tool).
+
+    Args:
+        name (str): The name of the tool.
+        description (str): A description of what the tool does, and how it should be used.
+            **Optional**, defaults to ``None``
+        parameters: A mapping of parameter names to their
+            definitions. If not provided, this defines a function without parameters.
+            **Optional**, defaults to ``None``
+        strict (bool): A flag that represents whether or not the model should
+            strictly follow the schema provided.
+    """
+
+    name: str
+    description: Optional[str] = None
+    parameters: Optional[ToolParamsSchema] = None
+    strict: bool = False
+
+    def __post_init__(self):
+        self._validate_field("name", str, True)
+        self._validate_field("description", str, False)
+        self._convert_dataclass("parameters", ToolParamsSchema, False)
+        self._validate_field("strict", bool, True)
+
+    def to_tool_definition(self):
+        """
+        Convenience function for wrapping this in a ToolDefiniton
+        """
+        return ToolDefinition(type="function", function=self)
+
+
+@dataclass
+class ToolDefinition(_BaseDataclass):
+    """
+    Definition for tools that can be called by the model.
+
+    Args:
+        function (:py:class:`FunctionToolDefinition`): The definition of a function tool.
+        type (str): The type of the tool. Currently only "function" is supported.
+    """
+
+    function: FunctionToolDefinition
+    type: Literal["function"] = "function"
+
+    def __post_init__(self):
+        self._validate_literal("type", ["function"], True)
+        self._convert_dataclass("function", FunctionToolDefinition, True)
 
 
 @dataclass
 class ChatParams(_BaseDataclass):
     """
     Common parameters used for chat inference
+
+    .. warning::
+
+        In an upcoming MLflow release, we will be renaming the ``metadata`` field to
+        ``custom_inputs``
 
     Args:
         temperature (float): A param used to control randomness and creativity during inference.
@@ -122,11 +364,13 @@ class ChatParams(_BaseDataclass):
         metadata (Dict[str, str]): An optional param to provide arbitrary additional context
             to the model. Both the keys and the values must be strings (i.e. nested dictionaries
             are not supported).
+        tools (List[:py:class:`ToolDefinition`]): An optional list of tools that can be called by
+            the model.
     """
 
     temperature: float = 1.0
     max_tokens: Optional[int] = None
-    stop: Optional[List[str]] = None
+    stop: Optional[list[str]] = None
     n: int = 1
     stream: bool = False
 
@@ -135,7 +379,8 @@ class ChatParams(_BaseDataclass):
     frequency_penalty: Optional[float] = None
     presence_penalty: Optional[float] = None
 
-    metadata: Optional[Dict[str, str]] = None
+    metadata: Optional[dict[str, str]] = None
+    tools: Optional[list[ToolDefinition]] = None
 
     def __post_init__(self):
         self._validate_field("temperature", float, True)
@@ -148,6 +393,7 @@ class ChatParams(_BaseDataclass):
         self._validate_field("top_k", int, False)
         self._validate_field("frequency_penalty", float, False)
         self._validate_field("presence_penalty", float, False)
+        self._convert_dataclass_list("tools", ToolDefinition, False)
 
         # validate that the metadata field is a map from string to string
         if self.metadata is not None:
@@ -174,6 +420,11 @@ class ChatRequest(ChatParams):
     """
     Format of the request object expected by the chat endpoint.
 
+    .. warning::
+
+        In an upcoming MLflow release, we will be changing ``ChatRequest`` to a new
+        ``ChatCompletionRequest`` type and renaming the ``metadata`` field to ``custom_inputs``
+
     Args:
         messages (List[:py:class:`ChatMessage`]): A list of :py:class:`ChatMessage`
             that will be passed to the model. **Optional**, defaults to empty list (``[]``)
@@ -189,7 +440,7 @@ class ChatRequest(ChatParams):
             defaults to ``False``
     """
 
-    messages: List[ChatMessage] = field(default_factory=list)
+    messages: list[ChatMessage] = field(default_factory=list)
 
     def __post_init__(self):
         self._convert_dataclass_list("messages", ChatMessage)
@@ -215,7 +466,7 @@ class TopTokenLogProb(_BaseDataclass):
 
     token: str
     logprob: float
-    bytes: Optional[List[int]] = None
+    bytes: Optional[list[int]] = None
 
     def __post_init__(self):
         self._validate_field("token", str, True)
@@ -245,8 +496,8 @@ class TokenLogProb(_BaseDataclass):
 
     token: str
     logprob: float
-    top_logprobs: List[TopTokenLogProb]
-    bytes: Optional[List[int]] = None
+    top_logprobs: list[TopTokenLogProb]
+    bytes: Optional[list[int]] = None
 
     def __post_init__(self):
         self._validate_field("token", str, True)
@@ -264,7 +515,7 @@ class ChatChoiceLogProbs(_BaseDataclass):
         content: A list of message content tokens with log probability information.
     """
 
-    content: Optional[List[TokenLogProb]] = None
+    content: Optional[list[TokenLogProb]] = None
 
     def __post_init__(self):
         self._convert_dataclass_list("content", TokenLogProb, False)
@@ -292,18 +543,8 @@ class ChatChoice(_BaseDataclass):
     def __post_init__(self):
         self._validate_field("index", int, True)
         self._validate_field("finish_reason", str, True)
-        if isinstance(self.message, dict):
-            self.message = ChatMessage(**self.message)
-        if not isinstance(self.message, ChatMessage):
-            raise ValueError(
-                f"Expected `message` to be of type ChatMessage or dict, got {type(self.message)}"
-            )
-        if isinstance(self.logprobs, dict):
-            self.logprobs = ChatChoiceLogProbs(**self.logprobs)
-        if self.logprobs and not isinstance(self.logprobs, ChatChoiceLogProbs):
-            raise ValueError(
-                f"Expected `logprobs` to be of type LogProbs or dict, got {type(self.logprobs)}"
-            )
+        self._convert_dataclass("message", ChatMessage, True)
+        self._convert_dataclass("logprobs", ChatChoiceLogProbs, False)
 
 
 @dataclass
@@ -335,6 +576,11 @@ class ChatResponse(_BaseDataclass):
     """
     The full response object returned by the chat endpoint.
 
+    .. warning::
+
+        In an upcoming MLflow release, we will be changing ``ChatResponse`` to a new
+        ``ChatCompletionResponse`` type and renaming the ``metadata`` field to ``custom_outputs``
+
     Args:
         choices (List[:py:class:`ChatChoice`]): A list of :py:class:`ChatChoice` objects
             containing the generated responses
@@ -349,13 +595,13 @@ class ChatResponse(_BaseDataclass):
             **Optional**, defaults to ``None``
     """
 
-    choices: List[ChatChoice]
+    choices: list[ChatChoice]
     usage: Optional[TokenUsageStats] = None
     id: Optional[str] = None
     model: Optional[str] = None
     object: str = "chat.completion"
     created: int = field(default_factory=lambda: int(time.time()))
-    metadata: Optional[Dict[str, str]] = None
+    metadata: Optional[dict[str, str]] = None
 
     def __post_init__(self):
         self._validate_field("id", str, False)
@@ -363,11 +609,11 @@ class ChatResponse(_BaseDataclass):
         self._validate_field("created", int, True)
         self._validate_field("model", str, False)
         self._convert_dataclass_list("choices", ChatChoice)
-        if isinstance(self.usage, dict):
-            self.usage = TokenUsageStats(**self.usage)
-        self._validate_field("usage", TokenUsageStats, False)
+        self._convert_dataclass("usage", TokenUsageStats, False)
 
 
+# turn off formatting for the model signatures to preserve readability
+# fmt: off
 CHAT_MODEL_INPUT_SCHEMA = Schema(
     [
         ColSpec(
@@ -376,8 +622,18 @@ CHAT_MODEL_INPUT_SCHEMA = Schema(
                 Object(
                     [
                         Property("role", DataType.string),
-                        Property("content", DataType.string),
+                        Property("content", DataType.string, False),
                         Property("name", DataType.string, False),
+                        Property("refusal", DataType.string, False),
+                        Property("tool_calls", Array(Object([
+                            Property("id", DataType.string),
+                            Property("function", Object([
+                                Property("name", DataType.string),
+                                Property("arguments", DataType.string),
+                            ])),
+                            Property("type", DataType.string),
+                        ])), False),
+                        Property("tool_call_id", DataType.string, False),
                     ]
                 )
             ),
@@ -391,6 +647,31 @@ CHAT_MODEL_INPUT_SCHEMA = Schema(
         ColSpec(name="top_k", type=DataType.long, required=False),
         ColSpec(name="frequency_penalty", type=DataType.double, required=False),
         ColSpec(name="presence_penalty", type=DataType.double, required=False),
+        ColSpec(
+            name="tools",
+            type=Array(
+                Object([
+                    Property("type", DataType.string),
+                    Property("function", Object([
+                        Property("name", DataType.string),
+                        Property("description", DataType.string, False),
+                        Property("parameters", Object([
+                            Property("properties", Map(Object([
+                                Property("type", DataType.string),
+                                Property("description", DataType.string, False),
+                                Property("enum", Array(DataType.string), False),
+                                Property("items", Object([Property("type", DataType.string)]), False), # noqa
+                            ]))),
+                            Property("type", DataType.string, False),
+                            Property("required", Array(DataType.string), False),
+                            Property("additionalProperties", DataType.boolean, False),
+                        ])),
+                        Property("strict", DataType.boolean, False),
+                    ]), False),
+                ]),
+            ),
+            required=False,
+        ),
         ColSpec(name="metadata", type=Map(DataType.string), required=False),
     ]
 )
@@ -403,24 +684,25 @@ CHAT_MODEL_OUTPUT_SCHEMA = Schema(
         ColSpec(name="model", type=DataType.string),
         ColSpec(
             name="choices",
-            type=Array(
-                Object(
-                    [
-                        Property("index", DataType.long),
-                        Property(
-                            "message",
-                            Object(
-                                [
-                                    Property("role", DataType.string),
-                                    Property("content", DataType.string),
-                                    Property("name", DataType.string, False),
-                                ]
-                            ),
-                        ),
-                        Property("finish_reason", DataType.string),
-                    ]
-                )
-            ),
+            type=Array(Object([
+                Property("index", DataType.long),
+                Property("message", Object([
+                    Property("role", DataType.string),
+                    Property("content", DataType.string, False),
+                    Property("name", DataType.string, False),
+                    Property("refusal", DataType.string, False),
+                    Property("tool_calls",Array(Object([
+                        Property("id", DataType.string),
+                        Property("function", Object([
+                            Property("name", DataType.string),
+                            Property("arguments", DataType.string),
+                        ])),
+                        Property("type", DataType.string),
+                    ])), False),
+                    Property("tool_call_id", DataType.string, False),
+                ])),
+                Property("finish_reason", DataType.string),
+            ])),
         ),
         ColSpec(
             name="usage",
@@ -526,3 +808,4 @@ EMBEDDING_MODEL_OUTPUT_SCHEMA = Schema(
         ),
     ]
 )
+# fmt: on

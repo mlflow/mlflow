@@ -32,15 +32,16 @@ def load_data(fpath):
 
 def train(fpath, max_depth, max_features, n_estimators):
     """
+    Train a Random Forest classifier with the specified hyperparameters.
+
     Args:
-        params: Hyperparameters. Its structure is consistent with how search space is defined. See below.
         fpath: Path or URL for the training data used with the model.
-        max_depth: RF max_depth parameter.
-        max_features: RF max_features parameter.
-        n_estimators: RF n_estimators parameter.
+        max_depth: Maximum depth of the trees in the Random Forest.
+        max_features: Number of features to consider when looking for the best split.
+        n_estimators: Number of trees in the Random Forest.
 
     Returns:
-        Trained model.
+        A tuple containing the trained Random Forest model and the inferred model signature.
     """
     X_train, X_test, y_train, y_test = load_data(fpath)
 

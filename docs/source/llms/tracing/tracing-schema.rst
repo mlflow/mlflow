@@ -1,14 +1,19 @@
 MLflow Tracing Schema
 =====================
 
+This document provides a detailed view of the schema for traces and its ingredients. MLflow traces are **compatible to OpenTelemetry specs**, but we also define a few additional layers of structure upon the OpenTelemetry Spans to provide additional metadata about the trace.
+
+
 Structure of Traces
 -------------------
 
-.. |trace-architecture| raw:: html
+**TL;DR**: ``Trace = TraceInfo + TraceData`` where ``TraceData = List[Span]``
+
+.. |trace-structure| raw:: html
 
         <div class=""main-container"">
             <div>
-                <h4>Trace Architecture</h4>
+                <h4>Trace Structure</h4>
                 <p>A <a href="../../python_api/mlflow.entities.html#mlflow.entities.Trace">Trace</a> in MLflow consists of two components: 
                    <a href="../../python_api/mlflow.entities.html#mlflow.entities.TraceInfo">Trace Info</a> and 
                    <a href="../../python_api/mlflow.entities.html#mlflow.entities.TraceData">Trace Data</a>. 
@@ -56,12 +61,12 @@ Structure of Traces
             </div>
         </div>
 
-.. |span-architecture| raw:: html
+.. |span-structure| raw:: html
 
         <div class=""main-container"">
             <div>
               <h4>Span Structure</h4>
-              <p> The Span object within MLflow's tracing feature provides detailed information about the individual steps of the trace. 
+              <p> The Span object within MLflow's tracing feature provides detailed information about the individual steps of the trace. It complies to the <a href="https://opentelemetry.io/docs/concepts/signals/traces/#spans">OpenTelemetry Span spec</a>.
                 Each Span object contains information about the step being instrumented, including the span_id, name, start_time, parent_id, status, 
                 inputs, outputs, attributes, and events.
               </p>
@@ -76,9 +81,9 @@ Structure of Traces
 
     .. tabs::
 
-        .. tab:: Trace Architecture
+        .. tab:: Trace
 
-            |trace-architecture|
+            |trace-structure|
 
         .. tab:: Trace Info
 
@@ -88,15 +93,15 @@ Structure of Traces
 
             |trace-data|
 
-        .. tab:: Span Architecture
+        .. tab:: Span
 
-            |span-architecture|
+            |span-structure|
 
 
-Trace Schema
-------------
+Trace
+-----
 
-A trace is composed of two components:
+A trace is a root object composed of two components:
 
 - :py:func:`mlflow.entities.trace_info.TraceInfo`
 
@@ -277,3 +282,52 @@ The sections below provide a detailed view of the structure of a span.
     * - **end_time_ns**
       - The unix timestamp (in nanoseconds) when the span was ended.
       - This precision is higher than the trace timestamps, similar to the ``start_time_ns`` timestamp above.
+
+Schema for specific span types
+------------------------------
+
+MLflow has a set of 10 predefined types of spans (see :py:class:`mlflow.entities.SpanType`), and
+certain span types have properties that are required in order to enable additional functionality
+within the UI and downstream tasks such as evaluation.
+
+Retriever Spans
+^^^^^^^^^^^^^^^
+
+The ``RETRIEVER`` span type is used for operations involving retrieving data from a data store (for example, querying 
+documents from a vector store). The ``RETRIEVER`` span type has the following schema:
+
+.. list-table::
+    :widths: 20 40 40
+    :header-rows: 1
+    :class: wrap-table
+
+    * - **Property**
+      - **Description**
+      - **Note**
+
+    * - **Input**
+      - There are no restrictions on the span inputs
+      -
+    
+    * - **Output**
+      - The output must be of type ``List[`` :py:class:`mlflow.entities.Document` ``]``, or a dict matching the structure of the dataclass\*. 
+        The dataclass contains the following properties:
+
+        * **id** (``Optional[str]``) - An optional unique identifier for the document.
+        * **page_content** (``str``) - The text content of the document.
+        * **metadata** (``Optional[Dict[str,any]]``) - The metadata associated with the document. There are two important metadata keys that are reserved for the MLflow UI and evaluation metrics: 
+
+          * ``"doc_uri" (str)``: The URI for the document. This is used for rendering a link in the UI.
+          * ``"chunk_id" (str)``: If your document is broken up into chunks in your data store, this key can be used to
+            identify the chunk that the document is a part of. This is used by some evaluation metrics.
+
+      - This output structure is guaranteed to be provided if the traces are generated via MLflow autologging for the LangChain and LlamaIndex flavors.
+        By conforming to this specification, ``RETRIEVER`` spans will be rendered in a more user-friendly manner in the MLflow UI, and downstream tasks
+        such as evaluation will function as expected.
+
+    * - **Attributes**
+      - There are no restrictions on the span attributes
+      -
+
+\* For example, both ``[Document(page_content="Hello world", metadata={"doc_uri": "https://example.com"})]`` and
+``[{"page_content": "Hello world", "metadata": {"doc_uri": "https://example.com"}}]`` are valid outputs for a ``RETRIEVER`` span.

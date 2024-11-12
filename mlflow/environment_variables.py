@@ -1,6 +1,7 @@
 """
 This module defines environment variables used in MLflow.
 """
+
 import os
 from pathlib import Path
 
@@ -651,4 +652,23 @@ MLFLOW_ENABLE_DB_SDK = _BooleanEnvironmentVariable("MLFLOW_ENABLE_DB_SDK", True)
 #: A flag that's set to 'true' in the child process for capturing modules.
 _MLFLOW_IN_CAPTURE_MODULE_PROCESS = _BooleanEnvironmentVariable(
     "MLFLOW_IN_CAPTURE_MODULE_PROCESS", False
+)
+
+#: Use DatabricksSDKModelsArtifactRepository when registering and loading models to and from
+#: Databricks UC. This is required for SEG(Secure Egress Gateway) enabled workspaces and helps
+#: eliminate models exfiltration risk associated with temporary scoped token generation used in
+#: existing model artifact repo classes.
+MLFLOW_USE_DATABRICKS_SDK_MODEL_ARTIFACTS_REPO_FOR_UC = _BooleanEnvironmentVariable(
+    "MLFLOW_USE_DATABRICKS_SDK_MODEL_ARTIFACTS_REPO_FOR_UC", False
+)
+
+# Specifies the model environment archive file downloading path when using
+# ``mlflow.pyfunc.spark_udf``. (default: ``None``)
+MLFLOW_MODEL_ENV_DOWNLOADING_TEMP_DIR = _EnvironmentVariable(
+    "MLFLOW_MODEL_ENV_DOWNLOADING_TEMP_DIR", str, None
+)
+
+# Specifies weather to log environment variable names used during model logging.
+MLFLOW_RECORD_ENV_VARS_IN_MODEL_LOGGING = _BooleanEnvironmentVariable(
+    "MLFLOW_RECORD_ENV_VARS_IN_MODEL_LOGGING", True
 )

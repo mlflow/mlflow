@@ -1,10 +1,13 @@
 import datetime
 import os
 import random
+import shutil
+import subprocess
 import sys
 import threading
 import time
 from collections import namedtuple
+from pathlib import Path
 from typing import Iterator
 from unittest import mock
 
@@ -47,6 +50,7 @@ from mlflow.pyfunc import (
     PythonModel,
     _check_udf_return_type,
     _parse_spark_datatype,
+    build_model_env,
     spark_udf,
 )
 from mlflow.pyfunc.spark_model_cache import SparkModelCache
@@ -206,9 +210,11 @@ def test_spark_udf(spark, model_path):
                 assert expected == actual
 
 
-@pytest.mark.parametrize("sklearn_version", ["0.22.1", "0.24.0"])
+@pytest.mark.parametrize("sklearn_version", ["1.3.2", "1.4.2"])
 @pytest.mark.parametrize("env_manager", ["virtualenv", "conda"])
-def test_spark_udf_env_manager_can_restore_env(spark, model_path, sklearn_version, env_manager):
+def test_spark_udf_env_manager_can_restore_env(
+    spark, model_path, sklearn_version, env_manager, monkeypatch
+):
     class EnvRestoringTestModel(mlflow.pyfunc.PythonModel):
         def __init__(self):
             pass
@@ -224,16 +230,16 @@ def test_spark_udf_env_manager_can_restore_env(spark, model_path, sklearn_versio
         path=model_path,
         python_model=EnvRestoringTestModel(),
         pip_requirements=[
-            "pyspark==3.2.0",
-            "pandas==1.3.0",
+            f"pyspark=={pyspark.__version__}",
             f"scikit-learn=={sklearn_version}",
-            "pytest==6.2.5",
+            # pytest is required to load the custom model from this file
+            f"pytest=={pytest.__version__}",
         ],
     )
     # tests/helper_functions.py
     from tests.helper_functions import _get_mlflow_home
 
-    os.environ["MLFLOW_HOME"] = _get_mlflow_home()
+    monkeypatch.setenv("MLFLOW_HOME", _get_mlflow_home())
     python_udf = mlflow.pyfunc.spark_udf(
         spark, model_path, env_manager=env_manager, result_type="string"
     )
@@ -1572,3 +1578,79 @@ def test_spark_udf_env_manager_with_invalid_pythonpath(
     )
 
     np.testing.assert_allclose(result, expected_pred_result, rtol=1e-5)
+
+
+def test_build_model_env(spark, sklearn_model, model_path, tmp_path, monkeypatch):
+    import sklearn
+
+    from mlflow.pyfunc.dbconnect_artifact_cache import extract_archive_to_dir
+
+    monkeypatch.setenv("DATABRICKS_RUNTIME_VERSION", "15.4.1")
+    spark.udf.register(
+        "current_version",
+        lambda: {"dbr_version": "15.4.1-scala2.12"},
+        returnType="dbr_version string",
+    )
+    model, inference_data = sklearn_model
+
+    with mlflow.start_run():
+        model_info = mlflow.sklearn.log_model(
+            model,
+            "model",
+            pip_requirements=[
+                f"scikit-learn=={sklearn.__version__}",
+                # `build_model_env` doesn't support building env with dev version MLflow,
+                # so add MLflow as a required dependency here.
+                "mlflow",
+            ],
+        )
+
+    model_uri = model_info.model_uri
+    model_env_path = build_model_env(model_uri, tmp_path)
+    archive_name = Path(model_env_path).name[:-7]
+    env_name = "-".join(archive_name.split("-")[:2])
+    extract_dir = Path("/tmp") / archive_name
+    try:
+        extract_archive_to_dir(model_env_path, extract_dir)
+        # Check the extracted python environment installs the expected sklearn package version.
+        subprocess.check_call(
+            [
+                "bash",
+                "-c",
+                f"source /tmp/{archive_name}/virtualenv_envs/{env_name}/bin/activate && "
+                f"python -c "
+                f"\"import sklearn; assert sklearn.__version__ == '{sklearn.__version__}'\"",
+            ]
+        )
+    finally:
+        shutil.rmtree(f"/tmp/{archive_name}", ignore_errors=True)
+
+
+class CustomModelWithMlflowConfig(mlflow.pyfunc.PythonModel):
+    def predict(self, context, model_input, params=None):
+        alpha = context.model_config["alpha"]
+        return [x + alpha for x in model_input[model_input.columns[0]]]
+
+
+@pytest.mark.parametrize(
+    ("env_manager", "use_stdin_serve"),
+    [("local", None), ("virtualenv", False), ("virtualenv", True)],
+)
+def test_spark_udf_with_model_config(spark, model_path, monkeypatch, env_manager, use_stdin_serve):
+    model = CustomModelWithMlflowConfig()
+    mlflow.pyfunc.save_model(
+        model_path,
+        python_model=model,
+        model_config={"alpha": 0},
+        code_paths=[os.path.dirname(tests.__file__)],
+    )
+    with mock.patch("mlflow.pyfunc.check_port_connectivity", return_value=(not use_stdin_serve)):
+        udf = mlflow.pyfunc.spark_udf(
+            spark,
+            model_path,
+            result_type="long",
+            model_config={"alpha": 3},
+            env_manager=env_manager,
+        )
+        result = spark.range(10).repartition(1).withColumn("prediction", udf(col("id"))).toPandas()
+    assert all(result.id + 3 == result.prediction)

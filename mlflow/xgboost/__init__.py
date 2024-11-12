@@ -16,6 +16,7 @@ XGBoost (native) format
 .. _scikit-learn API:
     https://xgboost.readthedocs.io/en/latest/python/python_api.html#module-xgboost.sklearn
 """
+
 import functools
 import inspect
 import json
@@ -24,7 +25,7 @@ import os
 import tempfile
 from copy import deepcopy
 from functools import partial
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 import yaml
 from packaging.version import Version
@@ -352,7 +353,7 @@ class _XGBModelWrapper:
     def predict(
         self,
         dataframe,
-        params: Optional[Dict[str, Any]] = None,
+        params: Optional[dict[str, Any]] = None,
     ):
         """
         Args:
@@ -780,7 +781,7 @@ def autolog(
             )
             log_model(
                 model,
-                artifact_path="model",
+                "model",
                 signature=signature,
                 input_example=input_example,
                 registered_model_name=registered_model_name,

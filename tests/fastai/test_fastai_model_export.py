@@ -149,9 +149,7 @@ def test_model_log(fastai_model, model_path):
                 conda_env = os.path.join(tmp.path(), "conda_env.yaml")
                 _mlflow_conda_env(conda_env, additional_pip_deps=["fastai"])
 
-                model_info = mlflow.fastai.log_model(
-                    fastai_learner=model, artifact_path=artifact_path, conda_env=conda_env
-                )
+                model_info = mlflow.fastai.log_model(model, artifact_path, conda_env=conda_env)
 
                 model_uri = f"runs:/{mlflow.active_run().info.run_id}/{artifact_path}"
                 assert model_info.model_uri == model_uri
@@ -184,8 +182,8 @@ def test_log_model_calls_register_model(fastai_model):
         conda_env = os.path.join(tmp.path(), "conda_env.yaml")
         _mlflow_conda_env(conda_env, additional_pip_deps=["fastai"])
         mlflow.fastai.log_model(
-            fastai_learner=fastai_model.model,
-            artifact_path=artifact_path,
+            fastai_model.model,
+            artifact_path,
             conda_env=conda_env,
             registered_model_name="AdsModel1",
         )
@@ -203,9 +201,7 @@ def test_log_model_no_registered_model_name(fastai_model):
     with mlflow.start_run(), register_model_patch, TempDir(chdr=True, remove_on_exit=True) as tmp:
         conda_env = os.path.join(tmp.path(), "conda_env.yaml")
         _mlflow_conda_env(conda_env, additional_pip_deps=["fastai"])
-        mlflow.fastai.log_model(
-            fastai_learner=fastai_model.model, artifact_path=artifact_path, conda_env=conda_env
-        )
+        mlflow.fastai.log_model(fastai_model.model, artifact_path, conda_env=conda_env)
         mlflow.tracking._model_registry.fluent._register_model.assert_not_called()
 
 
@@ -311,8 +307,8 @@ def test_model_log_persists_specified_conda_env_in_mlflow_model_directory(
     artifact_path = "model"
     with mlflow.start_run():
         mlflow.fastai.log_model(
-            fastai_learner=fastai_model.model,
-            artifact_path=artifact_path,
+            fastai_model.model,
+            artifact_path,
             conda_env=fastai_custom_env,
         )
         model_uri = f"runs:/{mlflow.active_run().info.run_id}/{artifact_path}"
@@ -334,8 +330,8 @@ def test_model_log_persists_requirements_in_mlflow_model_directory(fastai_model,
     artifact_path = "model"
     with mlflow.start_run():
         mlflow.fastai.log_model(
-            fastai_learner=fastai_model.model,
-            artifact_path=artifact_path,
+            fastai_model.model,
+            artifact_path,
             conda_env=fastai_custom_env,
         )
         model_uri = f"runs:/{mlflow.active_run().info.run_id}/{artifact_path}"
@@ -358,7 +354,7 @@ def test_model_log_without_specified_conda_env_uses_default_env_with_expected_de
 ):
     artifact_path = "model"
     with mlflow.start_run():
-        mlflow.fastai.log_model(fastai_learner=fastai_model.model, artifact_path=artifact_path)
+        mlflow.fastai.log_model(fastai_model.model, artifact_path)
         model_uri = mlflow.get_artifact_uri(artifact_path)
     _assert_pip_requirements(model_uri, mlflow.fastai.get_default_pip_requirements())
 
@@ -368,7 +364,10 @@ def test_pyfunc_serve_and_score(fastai_model):
     artifact_path = "model"
     with mlflow.start_run():
         model_info = mlflow.fastai.log_model(
-            model, artifact_path, input_example=inference_dataframe
+            model,
+            artifact_path,
+            input_example=inference_dataframe,
+            extra_pip_requirements=["spacy<3.8.2"],
         )
 
     inference_payload = load_serving_example(model_info.model_uri)
@@ -388,9 +387,10 @@ def test_pyfunc_serve_and_score(fastai_model):
 
 def test_log_model_with_code_paths(fastai_model):
     artifact_path = "model"
-    with mlflow.start_run(), mock.patch(
-        "mlflow.fastai._add_code_from_conf_to_system_path"
-    ) as add_mock:
+    with (
+        mlflow.start_run(),
+        mock.patch("mlflow.fastai._add_code_from_conf_to_system_path") as add_mock,
+    ):
         mlflow.fastai.log_model(fastai_model.model, artifact_path, code_paths=[__file__])
         model_uri = mlflow.get_artifact_uri(artifact_path)
         _compare_logged_code_paths(__file__, model_uri, mlflow.fastai.FLAVOR_NAME)
@@ -421,7 +421,7 @@ def test_model_log_with_metadata(fastai_model):
     with mlflow.start_run():
         mlflow.fastai.log_model(
             fastai_model.model,
-            artifact_path=artifact_path,
+            artifact_path,
             metadata={"metadata_key": "metadata_value"},
         )
         model_uri = mlflow.get_artifact_uri(artifact_path)

@@ -3,8 +3,11 @@ import pytest
 from mlflow.models.resources import (
     DEFAULT_API_VERSION,
     DatabricksFunction,
+    DatabricksGenieSpace,
     DatabricksServingEndpoint,
     DatabricksSQLWarehouse,
+    DatabricksTable,
+    DatabricksUCConnection,
     DatabricksVectorSearchIndex,
     _ResourceBuilder,
 )
@@ -50,6 +53,38 @@ def test_uc_function():
     }
 
 
+def test_genie_space():
+    genie_space = DatabricksGenieSpace(genie_space_id="id1")
+    expected = {"genie_space": [{"name": "id1"}]}
+
+    assert genie_space.to_dict() == expected
+    assert _ResourceBuilder.from_resources([genie_space]) == {
+        "api_version": DEFAULT_API_VERSION,
+        "databricks": expected,
+    }
+
+
+def test_uc_connection():
+    uc_function = DatabricksUCConnection(connection_name="slack_connection")
+    expected = {"uc_connection": [{"name": "slack_connection"}]}
+    assert uc_function.to_dict() == expected
+    assert _ResourceBuilder.from_resources([uc_function]) == {
+        "api_version": DEFAULT_API_VERSION,
+        "databricks": expected,
+    }
+
+
+def test_table():
+    table = DatabricksTable(table_name="tableName")
+    expected = {"table": [{"name": "tableName"}]}
+
+    assert table.to_dict() == expected
+    assert _ResourceBuilder.from_resources([table]) == {
+        "api_version": DEFAULT_API_VERSION,
+        "databricks": expected,
+    }
+
+
 def test_resources():
     resources = [
         DatabricksVectorSearchIndex(index_name="rag.studio_bugbash.databricks_docs_index"),
@@ -58,6 +93,7 @@ def test_resources():
         DatabricksSQLWarehouse(warehouse_id="id123"),
         DatabricksFunction(function_name="rag.studio.test_function_1"),
         DatabricksFunction(function_name="rag.studio.test_function_2"),
+        DatabricksUCConnection(connection_name="slack_connection"),
     ]
     expected = {
         "api_version": DEFAULT_API_VERSION,
@@ -72,6 +108,7 @@ def test_resources():
                 {"name": "rag.studio.test_function_1"},
                 {"name": "rag.studio.test_function_2"},
             ],
+            "uc_connection": [{"name": "slack_connection"}],
         },
     }
 
@@ -95,6 +132,8 @@ def test_resources_from_yaml(tmp_path):
                 function:
                 - name: rag.studio.test_function_1
                 - name: rag.studio.test_function_2
+                uc_connection:
+                - name: slack_connection
             """
         )
 
@@ -111,6 +150,7 @@ def test_resources_from_yaml(tmp_path):
                 {"name": "rag.studio.test_function_1"},
                 {"name": "rag.studio.test_function_2"},
             ],
+            "uc_connection": [{"name": "slack_connection"}],
         },
     }
 

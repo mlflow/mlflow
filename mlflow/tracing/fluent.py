@@ -6,7 +6,7 @@ import importlib
 import inspect
 import json
 import logging
-from typing import TYPE_CHECKING, Any, Callable, Dict, Generator, List, Optional, Union
+from typing import TYPE_CHECKING, Any, Callable, Generator, Optional, Union
 
 from cachetools import TTLCache
 from opentelemetry import trace as trace_api
@@ -25,6 +25,7 @@ from mlflow.store.tracking import SEARCH_TRACES_DEFAULT_MAX_RESULTS
 from mlflow.tracing import provider
 from mlflow.tracing.constant import SpanAttributeKey
 from mlflow.tracing.display import get_display_handler
+from mlflow.tracing.provider import is_tracing_enabled
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracing.utils import (
     SPANS_COLUMN_NAME,
@@ -58,7 +59,7 @@ def trace(
     func: Optional[Callable] = None,
     name: Optional[str] = None,
     span_type: str = SpanType.UNKNOWN,
-    attributes: Optional[Dict[str, Any]] = None,
+    attributes: Optional[dict[str, Any]] = None,
 ) -> Callable:
     """
     A decorator that creates a new span for the decorated function.
@@ -184,7 +185,7 @@ def trace(
 def start_span(
     name: str = "span",
     span_type: Optional[str] = SpanType.UNKNOWN,
-    attributes: Optional[Dict[str, Any]] = None,
+    attributes: Optional[dict[str, Any]] = None,
 ) -> Generator[LiveSpan, None, None]:
     """
     Context manager to create a new span and start it as the current span in the context.
@@ -328,11 +329,12 @@ def get_trace(request_id: str) -> Optional[Trace]:
 
 @experimental
 def search_traces(
-    experiment_ids: Optional[List[str]] = None,
+    experiment_ids: Optional[list[str]] = None,
     filter_string: Optional[str] = None,
     max_results: Optional[int] = None,
-    order_by: Optional[List[str]] = None,
-    extract_fields: Optional[List[str]] = None,
+    order_by: Optional[list[str]] = None,
+    extract_fields: Optional[list[str]] = None,
+    run_id: Optional[str] = None,
 ) -> "pandas.DataFrame":
     """
     Return traces that match the given list of search expressions within the experiments.
@@ -373,6 +375,9 @@ def search_traces(
 
                 # span name and field name contain a dot
                 extract_fields = ["`span.name`.inputs.`field.name`"]
+        run_id: A run id to scope the search. When a trace is created under an active run,
+            it will be associated with the run and you can filter on the run id to retrieve the
+            trace. See the example below for how to filter traces by run id.
 
     Returns:
         A Pandas DataFrame containing information about traces that satisfy the search expressions.
@@ -405,6 +410,24 @@ def search_traces(
         mlflow.search_traces(
             extract_fields=["non_dict_span.inputs", "non_dict_span.outputs"],
         )
+
+    .. code-block:: python
+        :test:
+        :caption: Search traces by run ID
+
+        import mlflow
+
+
+        @mlflow.trace
+        def traced_func(x):
+            return x + 1
+
+
+        with mlflow.start_run() as run:
+            traced_func(1)
+
+        mlflow.search_traces(run_id=run.info.run_id)
+
     """
     # Check if pandas is installed early to avoid unnecessary computation
     if importlib.util.find_spec("pandas") is None:
@@ -427,6 +450,7 @@ def search_traces(
     def pagination_wrapper_func(number_to_get, next_page_token):
         return MlflowClient().search_traces(
             experiment_ids=experiment_ids,
+            run_id=run_id,
             max_results=number_to_get,
             filter_string=filter_string,
             order_by=order_by,
@@ -553,7 +577,7 @@ def get_last_active_trace() -> Optional[Trace]:
 
 
 @experimental
-def add_trace(trace: Union[Trace, Dict[str, Any]], target: Optional[LiveSpan] = None):
+def add_trace(trace: Union[Trace, dict[str, Any]], target: Optional[LiveSpan] = None):
     """
     Add a completed trace object into another trace.
 
@@ -611,6 +635,10 @@ def add_trace(trace: Union[Trace, Dict[str, Any]], target: Optional[LiveSpan] = 
             - If not provided and there is no active span, a new span named "Remote Trace <...>"
               will be created and the trace will be merged under it.
     """
+    if not is_tracing_enabled():
+        _logger.debug("Tracing is disabled. Skipping add_trace.")
+        return
+
     if isinstance(trace, dict):
         try:
             trace = Trace.from_dict(trace)
@@ -678,7 +706,7 @@ def _merge_trace(
 
     Args:
         trace: The trace object to be merged.
-        paretarget_request_idnt_request_id: The request ID of the parent trace.
+        target_request_id: The request ID of the parent trace.
         target_parent_span_id: The parent span ID, under which the child trace should be merged.
     """
     trace_manager = InMemoryTraceManager.get_instance()
@@ -689,6 +717,8 @@ def _merge_trace(
             _logger.warning(
                 f"Parent trace with request ID {target_request_id} not found. Skipping merge."
             )
+            return
+
         new_trace_id = parent_trace.span_dict[target_parent_span_id]._trace_id
 
     for span in trace.data.spans:

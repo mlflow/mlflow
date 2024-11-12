@@ -1,3 +1,4 @@
+import hashlib
 import json
 import os
 import posixpath
@@ -8,7 +9,7 @@ import time
 import uuid
 from copy import deepcopy
 from pathlib import Path
-from typing import List, NamedTuple
+from typing import NamedTuple
 from unittest import mock
 
 import pytest
@@ -43,7 +44,6 @@ from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.store.tracking.file_store import FileStore
 from mlflow.tracing.constant import TraceMetadataKey, TraceTagKey
 from mlflow.tracking._tracking_service.utils import _use_tracking_uri
-from mlflow.utils import insecure_hash
 from mlflow.utils.file_utils import (
     TempDir,
     path_to_local_file_uri,
@@ -79,11 +79,11 @@ def store_and_trace_info(store):
 
 
 class TraceInfos(NamedTuple):
-    trace_infos: List[TraceInfo]
+    trace_infos: list[TraceInfo]
     store: FileStore
     exp_id: str
-    request_ids: List[str]
-    timestamps: List[int]
+    request_ids: list[str]
+    timestamps: list[int]
 
 
 @pytest.fixture
@@ -663,7 +663,7 @@ def test_create_experiment(store):
         store.create_experiment(None)
     with pytest.raises(Exception, match="Invalid experiment name: ''"):
         store.create_experiment("")
-    with pytest.raises(MlflowException, match=r"Experiment name exceeds the maximum length"):
+    with pytest.raises(MlflowException, match=r"'name' exceeds the maximum length"):
         store.create_experiment(name="x" * (MAX_EXPERIMENT_NAME_LENGTH + 1))
     name = random_str(25)  # since existing experiments are 10 chars long
     time_before_create = get_current_time_millis()
@@ -1651,7 +1651,7 @@ def test_log_param_max_length_value(store, monkeypatch):
     run = store.get_run(run_id)
     assert run.data.params[param_name] == param_value
     monkeypatch.setenv("MLFLOW_TRUNCATE_LONG_VALUES", "false")
-    with pytest.raises(MlflowException, match="exceeded length"):
+    with pytest.raises(MlflowException, match="exceeds the maximum length"):
         store.log_param(run_id, Param(param_name, "x" * 6001))
 
     monkeypatch.setenv("MLFLOW_TRUNCATE_LONG_VALUES", "true")
@@ -1868,13 +1868,14 @@ def test_malformed_metric(store):
         run_name="first name",
     ).info.run_id
     store.log_metric(run_id, Metric("test", 1, 0, 0))
-    with mock.patch(
-        "mlflow.store.tracking.file_store.read_file_lines", return_value=["0 1 0 2\n"]
-    ), pytest.raises(
-        MlflowException,
-        match=f"Metric 'test' is malformed; persisted metric data contained "
-        f"4 fields. Expected 2 or 3 fields. "
-        f"Experiment id: {exp_id}",
+    with (
+        mock.patch("mlflow.store.tracking.file_store.read_file_lines", return_value=["0 1 0 2\n"]),
+        pytest.raises(
+            MlflowException,
+            match=f"Metric 'test' is malformed; persisted metric data contained "
+            f"4 fields. Expected 2 or 3 fields. "
+            f"Experiment id: {exp_id}",
+        ),
     ):
         store.get_metric_history(run_id, "test")
 
@@ -1961,7 +1962,7 @@ def test_log_batch_max_length_value(store, monkeypatch):
 
     monkeypatch.setenv("MLFLOW_TRUNCATE_LONG_VALUES", "false")
     param_entities = [Param("long param", "x" * 6001), Param("short param", "xyz")]
-    with pytest.raises(MlflowException, match="exceeded length"):
+    with pytest.raises(MlflowException, match="exceeds the maximum length"):
         store.log_batch(run.info.run_id, (), param_entities, ())
 
     monkeypatch.setenv("MLFLOW_TRUNCATE_LONG_VALUES", "true")
@@ -1981,11 +1982,11 @@ def test_log_batch_internal_error(store):
     def _raise_exception_fn(*args, **kwargs):
         raise Exception("Some internal error")
 
-    with mock.patch(
-        FILESTORE_PACKAGE + ".FileStore._log_run_metric"
-    ) as log_metric_mock, mock.patch(
-        FILESTORE_PACKAGE + ".FileStore._log_run_param"
-    ) as log_param_mock, mock.patch(FILESTORE_PACKAGE + ".FileStore._set_run_tag") as set_tag_mock:
+    with (
+        mock.patch(FILESTORE_PACKAGE + ".FileStore._log_run_metric") as log_metric_mock,
+        mock.patch(FILESTORE_PACKAGE + ".FileStore._log_run_param") as log_param_mock,
+        mock.patch(FILESTORE_PACKAGE + ".FileStore._set_run_tag") as set_tag_mock,
+    ):
         log_metric_mock.side_effect = _raise_exception_fn
         log_param_mock.side_effect = _raise_exception_fn
         set_tag_mock.side_effect = _raise_exception_fn
@@ -2417,7 +2418,7 @@ def test_create_experiment_appends_to_artifact_uri_path_correctly(input_uri, exp
     _assert_create_experiment_appends_to_artifact_uri_path_correctly(input_uri, expected_uri)
 
 
-def assert_dataset_inputs_equal(inputs1: List[DatasetInput], inputs2: List[DatasetInput]):
+def assert_dataset_inputs_equal(inputs1: list[DatasetInput], inputs2: list[DatasetInput]):
     inputs1 = sorted(inputs1, key=lambda inp: (inp.dataset.name, inp.dataset.digest))
     inputs2 = sorted(inputs2, key=lambda inp: (inp.dataset.name, inp.dataset.digest))
     assert len(inputs1) == len(inputs2)
@@ -2658,7 +2659,7 @@ def test_log_inputs_uses_expected_input_and_dataset_ids_for_storage(store):
         inputs_dir = os.path.join(run_dir, FileStore.INPUTS_FOLDER_NAME)
         expected_input_storage_ids = []
         for dataset_storage_id in dataset_storage_ids:
-            md5 = insecure_hash.md5(dataset_storage_id.encode("utf-8"))
+            md5 = hashlib.md5(dataset_storage_id.encode("utf-8"), usedforsecurity=False)
             md5.update(run.info.run_id.encode("utf-8"))
             expected_input_storage_ids.append(md5.hexdigest())
         assert set(os.listdir(inputs_dir)) == set(expected_input_storage_ids)
@@ -2923,12 +2924,15 @@ def test_get_trace_info(store_and_trace_info):
 
     mock_trace_info = deepcopy(trace_info)
     mock_trace_info.request_id = "invalid_request_id"
-    with mock.patch(
-        "mlflow.store.tracking.file_store.FileStore._get_trace_info_from_dir",
-        return_value=mock_trace_info,
-    ), pytest.raises(
-        MlflowException,
-        match=rf"Trace with request ID '{trace.request_id}' metadata is in invalid state.",
+    with (
+        mock.patch(
+            "mlflow.store.tracking.file_store.FileStore._get_trace_info_from_dir",
+            return_value=mock_trace_info,
+        ),
+        pytest.raises(
+            MlflowException,
+            match=rf"Trace with request ID '{trace.request_id}' metadata is in invalid state.",
+        ),
     ):
         store.get_trace_info(trace.request_id)
 

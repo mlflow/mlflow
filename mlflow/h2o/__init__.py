@@ -7,10 +7,11 @@ H20 (native) format
 :py:mod:`mlflow.pyfunc`
     Produced for use by generic pyfunc-based deployment tools and batch inference.
 """
+
 import logging
 import os
 import warnings
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 import yaml
 
@@ -93,6 +94,7 @@ def save_model(
         conda_env: {{ conda_env }}
         code_paths: {{ code_paths }}
         mlflow_model: :py:mod:`mlflow.models.Model` this flavor is being added to.
+        settings: Settings to pass to ``h2o.init()`` when loading the model.
         signature: {{ signature }}
         input_example: {{ input_example }}
         pip_requirements: {{ pip_requirements }}
@@ -279,7 +281,7 @@ class _H2OModelWrapper:
         """
         return self.h2o_model
 
-    def predict(self, dataframe, params: Optional[Dict[str, Any]] = None):
+    def predict(self, dataframe, params: Optional[dict[str, Any]] = None):
         """
         Args:
             dataframe: Model input data.

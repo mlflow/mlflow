@@ -8,6 +8,7 @@ To run this test, run the following command manually
     $ pytest tests/pyfunc/test_docker_flavors.py
 
 """
+
 import contextlib
 import os
 import shutil

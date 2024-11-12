@@ -84,20 +84,18 @@ export function CodeSnippet({
   };
 
   return (
-    <>
-      <SyntaxHighlighter
-        showLineNumbers={showLineNumbers}
-        lineNumberStyle={lineNumberStyle}
-        language={language}
-        style={themesStyles[theme]}
-        customStyle={customStyle}
-        codeTagProps={{
-          style: pick(style, 'backgroundColor'),
-        }}
-        wrapLongLines={wrapLongLines}
-      >
-        {children}
-      </SyntaxHighlighter>
-    </>
+    <SyntaxHighlighter
+      showLineNumbers={showLineNumbers}
+      lineNumberStyle={lineNumberStyle}
+      language={language}
+      style={themesStyles[theme]}
+      customStyle={customStyle}
+      codeTagProps={{
+        style: pick(style, 'backgroundColor'),
+      }}
+      wrapLongLines={wrapLongLines}
+    >
+      {children}
+    </SyntaxHighlighter>
   );
 }

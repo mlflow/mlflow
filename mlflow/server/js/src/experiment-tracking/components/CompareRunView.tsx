@@ -8,7 +8,7 @@
 import React, { Component } from 'react';
 import { connect } from 'react-redux';
 import { injectIntl, FormattedMessage, type IntlShape } from 'react-intl';
-import { Spacer, Switch, Tabs, LegacyTooltip } from '@databricks/design-system';
+import { Spacer, Switch, LegacyTabs, LegacyTooltip } from '@databricks/design-system';
 
 import { getExperiment, getParams, getRunInfo, getRunTags } from '../reducers/Reducers';
 import './CompareRunView.css';
@@ -25,8 +25,9 @@ import { PageHeader } from '../../shared/building_blocks/PageHeader';
 import { CollapsibleSection } from '../../common/components/CollapsibleSection';
 import { shouldDisableLegacyRunCompareCharts } from '../../common/utils/FeatureUtils';
 import { RunInfoEntity } from '../types';
+import { CompareRunArtifactView } from './CompareRunArtifactView';
 
-const { TabPane } = Tabs;
+const { TabPane } = LegacyTabs;
 
 type CompareRunViewProps = {
   experiments: any[]; // TODO: PropTypes.instanceOf(Experiment)
@@ -207,6 +208,21 @@ export class CompareRunView extends Component<CompareRunViewProps, CompareRunVie
       // @ts-expect-error TS(4111): Property 'onlyShowParamDiff' comes from an index s... Remove this comment to see the full error message
       this.state.onlyShowParamDiff,
       true,
+      (key: any, data: any) => key,
+      (value) => {
+        try {
+          const jsonValue = parsePythonDictString(value);
+
+          // Pretty print if parsed value is an object or array
+          if (typeof jsonValue === 'object' && jsonValue !== null) {
+            return this.renderPrettyJson(jsonValue);
+          } else {
+            return value;
+          }
+        } catch (e) {
+          return value;
+        }
+      },
     );
     if (dataRows.length === 0) {
       return (
@@ -227,6 +243,10 @@ export class CompareRunView extends Component<CompareRunViewProps, CompareRunVie
         <tbody>{dataRows}</tbody>
       </table>
     );
+  }
+
+  renderPrettyJson(jsonValue: any) {
+    return <pre>{JSON.stringify(jsonValue, null, 2)}</pre>;
   }
 
   renderMetricTable(colWidth: any, experimentIds: any) {
@@ -272,6 +292,10 @@ export class CompareRunView extends Component<CompareRunViewProps, CompareRunVie
         <tbody>{dataRows}</tbody>
       </table>
     );
+  }
+
+  renderArtifactTable(colWidth: any) {
+    return <CompareRunArtifactView runUuids={this.props.runUuids} runInfos={this.props.runInfos} colWidth={colWidth} />;
   }
 
   renderTagTable(colWidth: any) {
@@ -398,6 +422,11 @@ export class CompareRunView extends Component<CompareRunViewProps, CompareRunVie
       description: 'Row group title for metrics of runs on the experiment compare runs page',
     });
 
+    const artifactsLabel = this.props.intl.formatMessage({
+      defaultMessage: 'Artifacts',
+      description: 'Row group title for artifacts of runs on the experiment compare runs page',
+    });
+
     const tagsLabel = this.props.intl.formatMessage({
       defaultMessage: 'Tags',
       description: 'Row group title for tags of runs on the experiment compare runs page',
@@ -421,7 +450,7 @@ export class CompareRunView extends Component<CompareRunViewProps, CompareRunVie
               description: 'Tabs title for plots on the compare runs page',
             })}
           >
-            <Tabs>
+            <LegacyTabs>
               <TabPane
                 tab={
                   <FormattedMessage
@@ -472,7 +501,7 @@ export class CompareRunView extends Component<CompareRunViewProps, CompareRunVie
               >
                 <CompareRunContour runUuids={this.props.runUuids} runDisplayNames={this.props.runDisplayNames} />
               </TabPane>
-            </Tabs>
+            </LegacyTabs>
           </CollapsibleSection>
         )}
         <CollapsibleSection
@@ -577,6 +606,7 @@ export class CompareRunView extends Component<CompareRunViewProps, CompareRunVie
           <Spacer size="lg" />
           {this.renderMetricTable(colWidth, experimentIds)}
         </CollapsibleSection>
+        <CollapsibleSection title={artifactsLabel}>{this.renderArtifactTable(colWidth)}</CollapsibleSection>
         <CollapsibleSection title={tagsLabel}>
           <Switch
             componentId="codegen_mlflow_app_src_experiment-tracking_components_comparerunview.tsx_592"
@@ -701,6 +731,21 @@ const mapStateToProps = (state: any, ownProps: any) => {
     comparedExperimentIds,
     hasComparedExperimentsBefore,
   };
+};
+
+/**
+ * Parse a Python dictionary in string format into a JSON object.
+ * @param value The Python dictionary string to parse
+ * @returns The parsed JSON object, or null if parsing fails
+ */
+const parsePythonDictString = (value: string) => {
+  try {
+    const jsonString = value.replace(/'/g, '"');
+    return JSON.parse(jsonString);
+  } catch (e) {
+    console.error('Failed to parse string to JSON:', e);
+    return null;
+  }
 };
 
 export default connect(mapStateToProps)(injectIntl(CompareRunView));

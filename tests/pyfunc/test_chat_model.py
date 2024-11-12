@@ -1,8 +1,8 @@
 import json
 import pathlib
 import pickle
+import uuid
 from dataclasses import asdict
-from typing import List
 
 import pytest
 
@@ -17,9 +17,13 @@ from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.types.llm import (
     CHAT_MODEL_INPUT_SCHEMA,
     CHAT_MODEL_OUTPUT_SCHEMA,
+    ChatChoice,
     ChatMessage,
     ChatParams,
     ChatResponse,
+    FunctionToolCallArguments,
+    FunctionToolDefinition,
+    ToolParamsSchema,
 )
 from mlflow.types.schema import ColSpec, DataType, Schema
 
@@ -67,10 +71,10 @@ def get_mock_response(messages, params):
     }
 
 
-class TestChatModel(mlflow.pyfunc.ChatModel):
-    def predict(self, context, messages: List[ChatMessage], params: ChatParams) -> ChatResponse:
+class SimpleChatModel(mlflow.pyfunc.ChatModel):
+    def predict(self, context, messages: list[ChatMessage], params: ChatParams) -> ChatResponse:
         mock_response = get_mock_response(messages, params)
-        return ChatResponse(**mock_response)
+        return ChatResponse.from_dict(mock_response)
 
 
 class ChatModelWithContext(mlflow.pyfunc.ChatModel):
@@ -78,20 +82,20 @@ class ChatModelWithContext(mlflow.pyfunc.ChatModel):
         predict_path = pathlib.Path(context.artifacts["predict_fn"])
         self.predict_fn = pickle.loads(predict_path.read_bytes())
 
-    def predict(self, context, messages: List[ChatMessage], params: ChatParams) -> ChatResponse:
+    def predict(self, context, messages: list[ChatMessage], params: ChatParams) -> ChatResponse:
         message = ChatMessage(role="assistant", content=self.predict_fn())
-        return ChatResponse(**get_mock_response([message], params))
+        return ChatResponse.from_dict(get_mock_response([message], params))
 
 
 class ChatModelWithTrace(mlflow.pyfunc.ChatModel):
     @mlflow.trace
-    def predict(self, context, messages: List[ChatMessage], params: ChatParams) -> ChatResponse:
+    def predict(self, context, messages: list[ChatMessage], params: ChatParams) -> ChatResponse:
         mock_response = get_mock_response(messages, params)
-        return ChatResponse(**mock_response)
+        return ChatResponse.from_dict(mock_response)
 
 
 class ChatModelWithMetadata(mlflow.pyfunc.ChatModel):
-    def predict(self, context, messages: List[ChatMessage], params: ChatParams) -> ChatResponse:
+    def predict(self, context, messages: list[ChatMessage], params: ChatParams) -> ChatResponse:
         mock_response = get_mock_response(messages, params)
         return ChatResponse(
             **mock_response,
@@ -99,8 +103,41 @@ class ChatModelWithMetadata(mlflow.pyfunc.ChatModel):
         )
 
 
+class ChatModelWithToolCalling(mlflow.pyfunc.ChatModel):
+    def predict(self, context, messages: list[ChatMessage], params: ChatParams) -> ChatResponse:
+        tools = params.tools
+
+        # call the first tool with some value for all the required params
+        tool_name = tools[0].function.name
+        tool_params = tools[0].function.parameters
+        arguments = {}
+        for param in tool_params.required:
+            param_type = tool_params.properties[param].type
+            if param_type == "string":
+                arguments[param] = "some_value"
+            elif param_type == "number":
+                arguments[param] = 123
+            elif param_type == "boolean":
+                arguments[param] = True
+            else:
+                # keep the test example simple
+                raise ValueError(f"Unsupported param type: {param_type}")
+
+        tool_call = FunctionToolCallArguments(
+            name=tool_name,
+            arguments=json.dumps(arguments),
+        ).to_tool_call(id=uuid.uuid4().hex)
+
+        tool_message = ChatMessage(
+            role="assistant",
+            tool_calls=[tool_call],
+        )
+
+        return ChatResponse(choices=[ChatChoice(index=0, message=tool_message)])
+
+
 def test_chat_model_save_load(tmp_path):
-    model = TestChatModel()
+    model = SimpleChatModel()
     mlflow.pyfunc.save_model(python_model=model, path=tmp_path)
 
     loaded_model = mlflow.pyfunc.load_model(tmp_path)
@@ -129,11 +166,11 @@ def test_chat_model_with_trace(tmp_path):
     assert len(traces) == 1
     assert traces[0].info.tags[TraceTagKey.TRACE_NAME] == "predict"
     request = json.loads(traces[0].data.request)
-    assert request["messages"] == [asdict(ChatMessage(**msg)) for msg in messages]
+    assert request["messages"] == [asdict(ChatMessage.from_dict(msg)) for msg in messages]
 
 
 def test_chat_model_save_throws_with_signature(tmp_path):
-    model = TestChatModel()
+    model = SimpleChatModel()
 
     with pytest.raises(MlflowException, match="Please remove the `signature` parameter"):
         mlflow.pyfunc.save_model(
@@ -206,7 +243,7 @@ def test_save_throws_on_invalid_output(tmp_path, ret):
 
 # test that we can predict with the model
 def test_chat_model_predict(tmp_path):
-    model = TestChatModel()
+    model = SimpleChatModel()
     mlflow.pyfunc.save_model(python_model=model, path=tmp_path)
 
     loaded_model = mlflow.pyfunc.load_model(tmp_path)
@@ -248,7 +285,7 @@ def test_chat_model_predict(tmp_path):
 
 
 def test_chat_model_works_in_serving():
-    model = TestChatModel()
+    model = SimpleChatModel()
     messages = [
         {"role": "system", "content": "You are a helpful assistant"},
         {"role": "user", "content": "Hello!"},
@@ -281,7 +318,7 @@ def test_chat_model_works_in_serving():
 
 
 def test_chat_model_works_with_infer_signature_input_example(tmp_path):
-    model = TestChatModel()
+    model = SimpleChatModel()
     params_subset = {
         "max_tokens": 100,
     }
@@ -326,7 +363,7 @@ def test_chat_model_works_with_infer_signature_input_example(tmp_path):
 
 
 def test_chat_model_works_with_chat_message_input_example(tmp_path):
-    model = TestChatModel()
+    model = SimpleChatModel()
     input_example = [
         ChatMessage(role="user", content="What is Retrieval-augmented Generation?", name="chat")
     ]
@@ -357,7 +394,7 @@ def test_chat_model_works_with_chat_message_input_example(tmp_path):
 
 
 def test_chat_model_works_with_infer_signature_multi_input_example(tmp_path):
-    model = TestChatModel()
+    model = SimpleChatModel()
     params_subset = {
         "max_tokens": 100,
     }
@@ -406,7 +443,7 @@ def test_chat_model_works_with_infer_signature_multi_input_example(tmp_path):
 
 
 def test_chat_model_predict_stream(tmp_path):
-    model = TestChatModel()
+    model = SimpleChatModel()
     mlflow.pyfunc.save_model(python_model=model, path=tmp_path)
 
     loaded_model = mlflow.pyfunc.load_model(tmp_path)
@@ -457,3 +494,48 @@ def test_chat_model_can_receive_and_return_metadata():
 
     serving_response = json.loads(response.content)
     assert serving_response["metadata"] == params["metadata"]
+
+
+def test_chat_model_can_use_tool_calls():
+    messages = [{"role": "user", "content": "What's the weather?"}]
+
+    weather_tool = (
+        FunctionToolDefinition(
+            name="get_weather",
+            description="Get the weather for your current location",
+            parameters=ToolParamsSchema(
+                {
+                    "city": {
+                        "type": "string",
+                        "description": "The city to get the weather for",
+                    },
+                    "unit": {"type": "string", "enum": ["F", "C"]},
+                },
+                required=["city", "unit"],
+            ),
+        )
+        .to_tool_definition()
+        .to_dict()
+    )
+
+    example = {
+        "messages": messages,
+        "tools": [weather_tool],
+    }
+
+    model = ChatModelWithToolCalling()
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model(
+            "model",
+            python_model=model,
+            input_example=example,
+        )
+
+    loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
+    response = loaded_model.predict(example)
+
+    model_tool_calls = response["choices"][0]["message"]["tool_calls"]
+    assert json.loads(model_tool_calls[0]["function"]["arguments"]) == {
+        "city": "some_value",
+        "unit": "some_value",
+    }

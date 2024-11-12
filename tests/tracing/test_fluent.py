@@ -342,9 +342,12 @@ def test_trace_in_model_evaluation(mock_store, monkeypatch, async_logging_enable
     model = TestModel()
 
     # mock _upload_trace_data to avoid generating trace data file
-    with mock.patch(
-        "mlflow.tracking._tracking_service.client.TrackingServiceClient._upload_trace_data"
-    ), mlflow.start_run() as run:
+    with (
+        mock.patch(
+            "mlflow.tracking._tracking_service.client.TrackingServiceClient._upload_trace_data"
+        ),
+        mlflow.start_run() as run,
+    ):
         run_id = run.info.run_id
         request_id_1 = "tr-eval-123"
         with set_prediction_context(Context(request_id=request_id_1, is_evaluate=True)):
@@ -712,6 +715,7 @@ def test_search_traces(mock_client):
     assert len(traces) == 10
     mock_client.search_traces.assert_called_once_with(
         experiment_ids=["1"],
+        run_id=None,
         filter_string="name = 'foo'",
         max_results=10,
         order_by=["timestamp DESC"],
@@ -739,6 +743,7 @@ def test_search_traces_with_pagination(mock_client):
     assert len(traces) == 30
     common_args = {
         "experiment_ids": ["1"],
+        "run_id": None,
         "max_results": SEARCH_TRACES_DEFAULT_MAX_RESULTS,
         "filter_string": None,
         "order_by": None,
@@ -759,6 +764,7 @@ def test_search_traces_with_default_experiment_id(mock_client):
 
     mock_client.search_traces.assert_called_once_with(
         experiment_ids=["123"],
+        run_id=None,
         filter_string=None,
         max_results=SEARCH_TRACES_DEFAULT_MAX_RESULTS,
         order_by=None,
@@ -1055,6 +1061,45 @@ def test_search_traces_with_span_name(monkeypatch):
             return get_traces()
 
     monkeypatch.setattr("mlflow.tracing.fluent.MlflowClient", MockMlflowClient)
+
+
+def test_search_traces_with_run_id():
+    def _create_trace(name, tags=None):
+        with mlflow.start_span(name=name) as span:
+            for k, v in (tags or {}).items():
+                mlflow.MlflowClient().set_trace_tag(request_id=span.request_id, key=k, value=v)
+        return span.request_id
+
+    def _get_names(traces):
+        tags = traces["tags"].tolist()
+        return [tags[i].get(TraceTagKey.TRACE_NAME) for i in range(len(tags))]
+
+    with mlflow.start_run() as run1:
+        _create_trace(name="tr-1")
+        _create_trace(name="tr-2", tags={"fruit": "apple"})
+
+    with mlflow.start_run() as run2:
+        _create_trace(name="tr-3")
+        _create_trace(name="tr-4", tags={"fruit": "banana"})
+        _create_trace(name="tr-5", tags={"fruit": "apple"})
+
+    traces = mlflow.search_traces()
+    assert _get_names(traces) == ["tr-5", "tr-4", "tr-3", "tr-2", "tr-1"]
+
+    traces = mlflow.search_traces(run_id=run1.info.run_id)
+    assert _get_names(traces) == ["tr-2", "tr-1"]
+
+    traces = mlflow.search_traces(
+        run_id=run2.info.run_id,
+        filter_string="tag.fruit = 'apple'",
+    )
+    assert _get_names(traces) == ["tr-5"]
+
+    with pytest.raises(MlflowException, match="You cannot filter by run_id when it is already"):
+        mlflow.search_traces(
+            run_id=run2.info.run_id,
+            filter_string="metadata.mlflow.sourceRun = '123'",
+        )
 
 
 @pytest.mark.parametrize(
@@ -1372,3 +1417,21 @@ def test_add_trace_in_databricks_model_serving(mock_databricks_serving_with_trac
     assert child_span.name == rs.name
     assert child_span.start_time_ns == rs.start_time_ns
     assert child_span.end_time_ns == rs.end_time_ns
+
+
+def test_add_trace_logging_model_from_code():
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model(
+            "model",
+            python_model="tests/tracing/sample_code/model_with_add_trace.py",
+            input_example=[1, 2],
+        )
+
+    loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
+    # Trace should not be logged while logging / loading
+    assert mlflow.get_last_active_trace() is None
+
+    loaded_model.predict(1)
+    trace = mlflow.get_last_active_trace()
+    assert trace is not None
+    assert len(trace.data.spans) == 2

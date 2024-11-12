@@ -45,8 +45,10 @@ import { type RUNS_VISIBILITY_MODE } from '../models/ExperimentPageUIState';
 import { useMediaQuery } from '@databricks/web-shared/hooks';
 import { customMetricBehaviorDefs } from './customMetricBehaviorUtils';
 
-const cellClassIsOrderedBy = ({ colDef, context }: CellClassParams) =>
-  context.orderByKey === colDef.headerComponentParams?.canonicalSortKey;
+const cellClassIsOrderedBy = ({ colDef, context }: CellClassParams) => {
+  return context.orderByKey === colDef.headerComponentParams?.canonicalSortKey;
+};
+
 /**
  * Width for "run name" column.
  */
@@ -158,6 +160,7 @@ export interface UseRunsColumnDefinitionsParams {
   onDatasetSelected?: (dataset: RunDatasetWithTags, run: RunRowType) => void;
   expandRows?: boolean;
   allRunsHidden?: boolean;
+  usingCustomVisibility?: boolean;
   runsHiddenMode?: RUNS_VISIBILITY_MODE;
 }
 
@@ -247,7 +250,6 @@ export const useRunsColumnDefinitions = ({
   onDatasetSelected,
   isComparingRuns,
   expandRows,
-  allRunsHidden,
   runsHiddenMode,
 }: UseRunsColumnDefinitionsParams) => {
   const { theme } = useDesignSystemTheme();
@@ -269,7 +271,7 @@ export const useRunsColumnDefinitions = ({
       valueGetter: ({ data: { pinned, hidden } }) => ({ pinned, hidden }),
       checkboxSelection: true,
       headerComponent: 'RowActionsHeaderCellRenderer',
-      headerComponentParams: { onToggleVisibility, allRunsHidden },
+      headerComponentParams: { onToggleVisibility },
       headerCheckboxSelection: true,
       headerName: '',
       cellClass: 'is-checkbox-cell',
@@ -465,7 +467,9 @@ export const useRunsColumnDefinitions = ({
             colId: canonicalSortKey,
             headerTooltip: tooltip,
             field: fieldName,
-            tooltipField: fieldName,
+            tooltipValueGetter: (params) => {
+              return params.data?.[fieldName];
+            },
             initialWidth: customMetricColumnDef?.initialColumnWidth ?? 100,
             initialHide: true,
             sortable: true,
@@ -542,7 +546,6 @@ export const useRunsColumnDefinitions = ({
     isComparingRuns,
     onDatasetSelected,
     expandRows,
-    allRunsHidden,
     usingCompactViewport,
   ]);
 

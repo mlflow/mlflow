@@ -3,7 +3,7 @@ import json
 import math
 import re
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Union
+from typing import Optional, Union
 
 import numpy as np
 import pandas as pd
@@ -478,7 +478,7 @@ def test_all_numpy_dtypes():
         enforced_array = _enforce_tensor_spec(nparray, spec)
         assert isinstance(enforced_array, np.ndarray)
 
-    bool_ = ["bool", "bool_", "bool8"]
+    bool_ = ["bool", "bool_"]
     object_ = ["object"]
     signed_int = [
         "byte",
@@ -505,18 +505,15 @@ def test_all_numpy_dtypes():
         "uint64",
         "ulonglong",
     ]
-    floating = ["half", "float16", "single", "float32", "double", "float_", "float64"]
+    floating = ["half", "float16", "single", "float32", "double", "float64"]
     complex_ = [
         "csingle",
-        "singlecomplex",
         "complex64",
         "cdouble",
-        "cfloat",
-        "complex_",
         "complex128",
     ]
-    bytes_ = ["bytes_", "string_"]
-    str_ = ["str_", "unicode_"]
+    bytes_ = ["bytes_"]
+    str_ = ["str_"]
     platform_dependent = [
         # Complex
         "clongdouble",
@@ -1802,7 +1799,7 @@ def test_convert_dataclass_to_schema_complex():
     @dataclass
     class MainTask:
         foo: str = "1"
-        process_configs: List[Config] = field(default_factory=lambda: [Config()])
+        process_configs: list[Config] = field(default_factory=lambda: [Config()])
 
     schema = convert_dataclass_to_schema(MainTask)
     schema_dict = schema.to_dict()
@@ -1842,12 +1839,10 @@ def test_convert_dataclass_to_schema_invalid():
     # Invalid dataclass with Dict
     @dataclass
     class InvalidDataclassWithDict:
-        foo: Dict[str, int] = field(default_factory=dict)
+        foo: dict[str, int] = field(default_factory=dict)
 
     with pytest.raises(
         MlflowException,
-        match=re.escape(
-            r"Unsupported field type typing.Dict[str, int] in dataclass InvalidDataclass"
-        ),
+        match=re.escape(r"Unsupported field type dict[str, int] in dataclass InvalidDataclass"),
     ):
         convert_dataclass_to_schema(InvalidDataclassWithDict)

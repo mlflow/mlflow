@@ -24,7 +24,7 @@ def save_pipeline_pretrained_weights(path, pipeline, flavor_conf, processor=None
     Args:
         path: The local path to save the pipeline
         pipeline: Transformers pipeline instance
-        flavor_config: The flavor configuration constructed for the pipeline
+        flavor_conf: The flavor configuration constructed for the pipeline
         processor: Optional processor instance to save alongside the pipeline
     """
     model = get_peft_base_model(pipeline.model) if is_peft_model(pipeline.model) else pipeline.model
@@ -49,7 +49,7 @@ def save_local_checkpoint(path, checkpoint_dir, flavor_conf, processor=None):
     Args:
         path: The local path to save the pipeline
         checkpoint_dir: The local path to the checkpoint directory
-        flavor_config: The flavor configuration constructed for the pipeline
+        flavor_conf: The flavor configuration constructed for the pipeline
         processor: Optional processor instance to save alongside the pipeline
     """
     # Copy files within checkpoint dir to the model path

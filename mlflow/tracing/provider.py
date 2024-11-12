@@ -10,7 +10,7 @@ use OpenTelemetry e.g. PromptFlow, Snowpark.
 import functools
 import json
 import logging
-from typing import Optional, Tuple
+from typing import Optional
 
 from opentelemetry import trace
 from opentelemetry.sdk.trace import TracerProvider
@@ -57,7 +57,7 @@ def start_detached_span(
     parent: Optional[trace.Span] = None,
     experiment_id: Optional[str] = None,
     start_time_ns: Optional[int] = None,
-) -> Optional[Tuple[str, trace.Span]]:
+) -> Optional[tuple[str, trace.Span]]:
     """
     Start a new OpenTelemetry span that is not part of the current trace context, but with the
     explicit parent span ID if provided.
@@ -189,7 +189,7 @@ def disable():
         assert len(mlflow.search_traces()) == 1
 
     """
-    if not _is_enabled():
+    if not is_tracing_enabled():
         return
 
     _setup_tracer_provider(disabled=True)
@@ -229,7 +229,7 @@ def enable():
         assert len(mlflow.search_traces()) == 2
 
     """
-    if _is_enabled() and _MLFLOW_TRACER_PROVIDER_INITIALIZED.done:
+    if is_tracing_enabled() and _MLFLOW_TRACER_PROVIDER_INITIALIZED.done:
         _logger.info("Tracing is already enabled")
         return
 
@@ -262,7 +262,7 @@ def trace_disabled(f):
         is_func_called = False
         result = None
         try:
-            if _is_enabled():
+            if is_tracing_enabled():
                 disable()
                 try:
                     is_func_called, result = True, f(*args, **kwargs)
@@ -304,7 +304,7 @@ def reset_tracer_setup():
 
 
 @raise_as_trace_exception
-def _is_enabled() -> bool:
+def is_tracing_enabled() -> bool:
     """
     Check if tracing is enabled based on whether the global tracer
     is instantiated or not.

@@ -1,8 +1,9 @@
 """
-Sample code to define an chat engine and save it with model-from-code logging.
+Sample code to define a chat engine and save it with model-from-code logging.
 
 Ref: https://qdrant.tech/documentation/quickstart/
 """
+
 from llama_index.core import Document, VectorStoreIndex
 from llama_index.core.chat_engine.types import ChatMode
 

@@ -18,12 +18,13 @@ Spark MLlib (native) format
     ``mlflow/java`` package. This flavor is produced only if you specify
     MLeap-compatible arguments.
 """
+
 import logging
 import os
 import posixpath
 import re
 import shutil
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 import yaml
 from packaging.version import Version
@@ -166,6 +167,15 @@ def log_model(
         spark_model: Spark model to be saved - MLflow can only save descendants of
             pyspark.ml.Model or pyspark.ml.Transformer which implement
             MLReadable and MLWritable.
+
+                .. Note:: The provided Spark model's `transform` method must generate one column
+                    named with "prediction", the column is used as MLflow pyfunc model output.
+                    Most Spark models generate the output column with "prediction" name that
+                    contains prediction labels by default.
+                    To set probability column as the output column for probabilistic
+                    classification models, you need to set "probabilityCol" param to "prediction"
+                    and set "predictionCol" param to "".
+                    (e.g. `model.setProbabilityCol("prediction").setPredictionCol("")`)
         artifact_path: Run relative artifact path.
         conda_env: {{ conda_env }}
         code_paths: {{ code_paths }}
@@ -194,8 +204,6 @@ def log_model(
             the array into Spark ML vector and then invoke Spark model for inference. Similarly,
             if the model has vector type output, MLflow internally converts Spark ML vector
             output data into ``Array[double]`` type inference result.
-
-            Example:
 
             .. code-block:: python
 
@@ -1029,7 +1037,7 @@ class _PyFuncModelWrapper:
     def predict(
         self,
         pandas_df,
-        params: Optional[Dict[str, Any]] = None,
+        params: Optional[dict[str, Any]] = None,
     ):
         """
         Generate predictions given input data in a pandas DataFrame.
@@ -1109,7 +1117,11 @@ def autolog(disable=False, silent=False):
     `mlflow-spark JAR
     <https://www.mlflow.org/docs/latest/tracking.html#spark>`_
     attached. It should be called on the Spark driver, not on the executors (i.e. do not call
-    this method within a function parallelized by Spark). This API requires Spark 3.0 or above.
+    this method within a function parallelized by Spark).
+    The mlflow-spark JAR used must match the Scala version of Spark. Please see the
+    `Maven Repository
+    <https://mvnrepository.com/artifact/org.mlflow/mlflow-spark>`_
+    for available versions. This API requires Spark 3.0 or above.
 
     Datasource information is cached in memory and logged to all subsequent MLflow runs,
     including the active MLflow run (if one exists when the data is read). Note that autologging of
@@ -1121,6 +1133,8 @@ def autolog(disable=False, silent=False):
     to stderr & stdout generated from your MLflow code - datasource information is pulled from
     Spark, so logs relevant to debugging may show up amongst the Spark logs.
 
+    .. Note:: Spark datasource autologging only supports logging to MLflow runs in a single thread
+
     .. code-block:: python
         :caption: Example
 
@@ -1130,11 +1144,16 @@ def autolog(disable=False, silent=False):
         from pyspark.sql import SparkSession
 
         # Create and persist some dummy data
+        # Note: the 2.12 in 'org.mlflow:mlflow-spark_2.12:2.16.2' below indicates the Scala
+        # version, please match this with that of Spark. The 2.16.2 indicates the mlflow version.
         # Note: On environments like Databricks with pre-created SparkSessions,
-        # ensure the org.mlflow:mlflow-spark:2.22.0 is attached as a library to
+        # ensure the org.mlflow:mlflow-spark_2.12:2.16.2 is attached as a library to
         # your cluster
         spark = (
-            SparkSession.builder.config("spark.jars.packages", "org.mlflow:mlflow-spark:2.22.0")
+            SparkSession.builder.config(
+                "spark.jars.packages",
+                "org.mlflow:mlflow-spark_2.12:2.16.2",
+            )
             .master("local[*]")
             .getOrCreate()
         )

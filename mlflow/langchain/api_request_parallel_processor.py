@@ -14,6 +14,7 @@ Features:
 - Makes requests concurrently, to maximize throughput
 - Logs errors, to diagnose problems with requests
 """
+
 from __future__ import annotations
 
 import logging
@@ -23,7 +24,7 @@ import time
 import traceback
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Optional, Union
 
 import langchain.chains
 from langchain.callbacks.base import BaseCallbackHandler
@@ -104,7 +105,7 @@ class APIRequest:
     convert_chat_responses: bool
     did_perform_chat_conversion: bool
     stream: bool
-    params: Dict[str, Any]
+    params: dict[str, Any]
     prediction_context: Optional[Context] = None
 
     def _predict_single_input(self, single_input, callback_handlers, **kwargs):
@@ -125,7 +126,7 @@ class APIRequest:
         else:
             return try_transform_response_to_chat_format(response)
 
-    def single_call_api(self, callback_handlers: Optional[List[BaseCallbackHandler]]):
+    def single_call_api(self, callback_handlers: Optional[list[BaseCallbackHandler]]):
         from langchain.schema import BaseRetriever
 
         from mlflow.langchain.utils import langgraph_types, lc_runnables_types
@@ -189,7 +190,7 @@ class APIRequest:
         return convert_to_serializable(response)
 
     def call_api(
-        self, status_tracker: StatusTracker, callback_handlers: Optional[List[BaseCallbackHandler]]
+        self, status_tracker: StatusTracker, callback_handlers: Optional[list[BaseCallbackHandler]]
     ):
         """
         Calls the LangChain API and stores results.
@@ -203,20 +204,20 @@ class APIRequest:
             self.results.append((self.index, response))
             status_tracker.complete_task(success=True)
         except Exception as e:
-            self.errors[
-                self.index
-            ] = f"error: {e!r} {traceback.format_exc()}\n request payload: {self.request_json}"
+            self.errors[self.index] = (
+                f"error: {e!r} {traceback.format_exc()}\n request payload: {self.request_json}"
+            )
             status_tracker.increment_num_api_errors()
             status_tracker.complete_task(success=False)
 
 
 def process_api_requests(
     lc_model,
-    requests: Optional[List[Union[Any, Dict[str, Any]]]] = None,
+    requests: Optional[list[Union[Any, dict[str, Any]]]] = None,
     max_workers: int = 10,
-    callback_handlers: Optional[List[BaseCallbackHandler]] = None,
+    callback_handlers: Optional[list[BaseCallbackHandler]] = None,
     convert_chat_responses: bool = False,
-    params: Optional[Dict[str, Any]] = None,
+    params: Optional[dict[str, Any]] = None,
 ):
     """
     Processes API requests in parallel.
@@ -293,10 +294,10 @@ def process_api_requests(
 
 def process_stream_request(
     lc_model,
-    request_json: Union[Any, Dict[str, Any]],
-    callback_handlers: Optional[List[BaseCallbackHandler]] = None,
+    request_json: Union[Any, dict[str, Any]],
+    callback_handlers: Optional[list[BaseCallbackHandler]] = None,
     convert_chat_responses: bool = False,
-    params: Optional[Dict[str, Any]] = None,
+    params: Optional[dict[str, Any]] = None,
 ):
     """
     Process single stream request.

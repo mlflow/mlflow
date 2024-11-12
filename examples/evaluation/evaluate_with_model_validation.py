@@ -54,35 +54,51 @@ thresholds = {
     ),
 }
 
+double_positive_metric = make_metric(
+    eval_fn=double_positive,
+    greater_is_better=False,
+)
+
 with mlflow.start_run() as run:
-    candidate_model_uri = mlflow.sklearn.log_model(
-        candidate_model, "candidate_model", signature=candidate_signature
-    ).model_uri
-    # Note: in most model validation use-cases the baseline model should instead be a previously
-    # trained model (such as the current production model), specified directly in the
-    # mlflow.evaluate() call via model URI.
+    # Note: in most model validation use-cases the baseline model should instead b
+    # a previously trained model (such as the current production model)
     baseline_model_uri = mlflow.sklearn.log_model(
         baseline_model, "baseline_model", signature=baseline_signature
     ).model_uri
 
-    mlflow.evaluate(
-        candidate_model_uri,
+    # Evaluate the baseline model
+    baseline_result = mlflow.evaluate(
+        baseline_model_uri,
         eval_data,
         targets="label",
         model_type="classifier",
-        evaluators=["default"],
-        validation_thresholds=thresholds,
-        extra_metrics=[
-            make_metric(
-                eval_fn=double_positive,
-                greater_is_better=False,
-            )
-        ],
-        baseline_model=baseline_model_uri,
+        extra_metrics=[double_positive_metric],
         # set to env_manager to "virtualenv" or "conda" to score the candidate and baseline models
         # in isolated Python environments where their dependencies are restored.
         env_manager="local",
     )
-    # If you would like to catch model validation failures, you can add try except clauses around
-    # the mlflow.evaluate() call and catch the ModelValidationFailedException, imported at the top
-    # of this file.
+
+    # Evaluate the candidate model
+    candidate_model_uri = mlflow.sklearn.log_model(
+        candidate_model, "candidate_model", signature=candidate_signature
+    ).model_uri
+
+    candidate_result = mlflow.evaluate(
+        candidate_model_uri,
+        eval_data,
+        targets="label",
+        model_type="classifier",
+        extra_metrics=[double_positive_metric],
+        env_manager="local",
+    )
+
+
+# Validate the candidate result against the baseline
+mlflow.validate_evaluation_results(
+    candidate_result=candidate_result,
+    baseline_result=baseline_result,
+    validation_thresholds=thresholds,
+)
+# If you would like to catch model validation failures, you can add try except clauses around
+# the mlflow.evaluate() call and catch the ModelValidationFailedException, imported at the top
+# of this file.

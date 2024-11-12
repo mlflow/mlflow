@@ -229,11 +229,18 @@ with mlflow.start_run():
         )
     )
 
+    # Get the device (GPU or CPU)
+    device = torch.device("cuda" if args.cuda else "cpu")
+
     # Since the model was logged as an artifact, it can be loaded to make predictions
     loaded_model = mlflow.pytorch.load_model(mlflow.get_artifact_uri("pytorch-model"))
 
     # Extract a few examples from the test dataset to evaluate on
     eval_data, eval_labels = next(iter(test_loader))
+
+    # Move evaluation data to the same device as the model
+    eval_data = eval_data.to(device)
+    eval_labels = eval_labels.to(device)
 
     # Make a few predictions
     predictions = loaded_model(eval_data).data.max(1)[1]

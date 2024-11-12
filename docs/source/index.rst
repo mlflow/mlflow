@@ -256,19 +256,19 @@ Explore the guides and tutorials below to start your journey!
 .. |deployments-server| raw:: html
     
     <div class="main-container">
-        <h3>Learn about managed access to GenAI services with the MLflow Deployments Server</h3>
+        <h3>Learn about managed access to GenAI services with the MLflow AI Gateway</h3>
         <div class="sub-container-two-columns">
             <div class="text-box">
                 <h4>Guides</h4>
                 <p>
-                    Learn how to use the <a href="llms/deployments/guides/index.html">MLflow Deployments Server</a>
+                    Learn how to use the <a href="llms/deployments/guides/index.html">MLflow AI Gateway</a>
                 </p>
                 <p>
-                    View the <a href="llms/deployments/index.html">in-depth Guide for the MLflow Deployments Server</a>
+                    View the <a href="llms/deployments/index.html">in-depth Guide for the MLflow AI Gateway</a>
                 </p>
             </div>
             <div class="image-box">
-                <img src="_static/images/intro/deployments-server.png" alt="MLflow Deployments Server">
+                <img src="_static/images/intro/deployments-server.png" alt="MLflow AI Gateway">
             </div>
         </div>
     </div>
@@ -334,7 +334,7 @@ Explore the guides and tutorials below to start your journey!
 
             |prompt-engineering-ui|
 
-        .. tab:: Deployments Server
+        .. tab:: MLflow AI Gatway
 
             |deployments-server|
         

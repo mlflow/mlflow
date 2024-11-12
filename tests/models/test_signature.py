@@ -1,5 +1,6 @@
 import json
-from dataclasses import asdict
+from dataclasses import asdict, dataclass
+from typing import Optional
 
 import numpy as np
 import pandas as pd
@@ -210,7 +211,7 @@ def test_signature_inference_infers_datime_types_as_expected():
 def test_set_signature_to_logged_model():
     artifact_path = "regr-model"
     with mlflow.start_run() as run:
-        mlflow.sklearn.log_model(sk_model=RandomForestRegressor(), artifact_path=artifact_path)
+        mlflow.sklearn.log_model(RandomForestRegressor(), artifact_path)
     signature = infer_signature(np.array([1]))
     run_id = run.info.run_id
     model_uri = f"runs:/{run_id}/{artifact_path}"
@@ -235,8 +236,8 @@ def test_set_signature_overwrite():
     artifact_path = "regr-model"
     with mlflow.start_run() as run:
         mlflow.sklearn.log_model(
-            sk_model=RandomForestRegressor(),
-            artifact_path=artifact_path,
+            RandomForestRegressor(),
+            artifact_path,
             signature=infer_signature(np.array([1])),
         )
     new_signature = infer_signature(np.array([1]), np.array([1]))
@@ -327,3 +328,49 @@ def test_infer_signature_and_convert_dataclass_to_schema_for_rag():
     output_schema = convert_dataclass_to_schema(rag_signatures.ChatCompletionResponse())
     assert inferred_signature.inputs == input_schema
     assert inferred_signature.outputs == output_schema
+
+
+def test_infer_signature_with_dataclass():
+    inferred_signature = infer_signature(
+        rag_signatures.ChatCompletionRequest(),
+        rag_signatures.ChatCompletionResponse(),
+    )
+    input_schema = convert_dataclass_to_schema(rag_signatures.ChatCompletionRequest())
+    output_schema = convert_dataclass_to_schema(rag_signatures.ChatCompletionResponse())
+    assert inferred_signature.inputs == input_schema
+    assert inferred_signature.outputs == output_schema
+
+
+@dataclass
+class CustomInput:
+    id: int = 0
+
+
+@dataclass
+class CustomOutput:
+    id: int = 0
+
+
+@dataclass
+class FlexibleChatCompletionRequest(rag_signatures.ChatCompletionRequest):
+    custom_input: Optional[CustomInput] = None
+
+
+@dataclass
+class FlexibleChatCompletionResponse(rag_signatures.ChatCompletionResponse):
+    custom_output: Optional[CustomOutput] = None
+
+
+def test_infer_signature_with_optional_and_child_dataclass():
+    inferred_signature = infer_signature(
+        FlexibleChatCompletionRequest(),
+        FlexibleChatCompletionResponse(),
+    )
+    custom_input_schema = next(
+        schema for schema in inferred_signature.inputs.to_dict() if schema["name"] == "custom_input"
+    )
+    assert custom_input_schema["required"] is False
+    assert "id" in custom_input_schema["properties"]
+    assert any(
+        schema for schema in inferred_signature.inputs.to_dict() if schema["name"] == "messages"
+    )

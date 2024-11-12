@@ -1,6 +1,7 @@
-from typing import Any, Dict, Iterator, Optional
+from typing import Any, Iterator, Optional
 
 from mlflow.exceptions import MlflowException
+from mlflow.models.utils import _convert_llm_ndarray_to_list
 from mlflow.protos.databricks_pb2 import INTERNAL_ERROR
 from mlflow.pyfunc.model import (
     _load_context_model_and_signature,
@@ -9,7 +10,7 @@ from mlflow.types.llm import ChatMessage, ChatParams, ChatResponse
 from mlflow.utils.annotations import experimental
 
 
-def _load_pyfunc(model_path: str, model_config: Optional[Dict[str, Any]] = None):
+def _load_pyfunc(model_path: str, model_config: Optional[dict[str, Any]] = None):
     context, chat_model, signature = _load_context_model_and_signature(model_path, model_config)
     return _ChatModelPyfuncWrapper(chat_model=chat_model, context=context, signature=signature)
 
@@ -45,7 +46,8 @@ class _ChatModelPyfuncWrapper:
             dict_input = model_input
         elif isinstance(model_input, pandas.DataFrame):
             dict_input = {
-                key: value[0] for key, value in model_input.to_dict(orient="list").items()
+                k: _convert_llm_ndarray_to_list(v[0])
+                for k, v in model_input.to_dict(orient="list").items()
             }
         else:
             raise MlflowException(
@@ -54,13 +56,13 @@ class _ChatModelPyfuncWrapper:
                 error_code=INTERNAL_ERROR,
             )
 
-        messages = [ChatMessage(**message) for message in dict_input.pop("messages", [])]
-        params = ChatParams(**dict_input)
+        messages = [ChatMessage.from_dict(message) for message in dict_input.pop("messages", [])]
+        params = ChatParams.from_dict(dict_input)
         return messages, params
 
     def predict(
-        self, model_input: Dict[str, Any], params: Optional[Dict[str, Any]] = None
-    ) -> Dict[str, Any]:
+        self, model_input: dict[str, Any], params: Optional[dict[str, Any]] = None
+    ) -> dict[str, Any]:
         """
         Args:
             model_input: Model input data in the form of a chat request.
@@ -75,7 +77,7 @@ class _ChatModelPyfuncWrapper:
         response = self.chat_model.predict(self.context, messages, params)
         return self._response_to_dict(response)
 
-    def _response_to_dict(self, response: ChatResponse) -> Dict[str, Any]:
+    def _response_to_dict(self, response: ChatResponse) -> dict[str, Any]:
         if not isinstance(response, ChatResponse):
             raise MlflowException(
                 "Model returned an invalid response. Expected a ChatResponse, but "
@@ -85,8 +87,8 @@ class _ChatModelPyfuncWrapper:
         return response.to_dict()
 
     def predict_stream(
-        self, model_input: Dict[str, Any], params: Optional[Dict[str, Any]] = None
-    ) -> Iterator[Dict[str, Any]]:
+        self, model_input: dict[str, Any], params: Optional[dict[str, Any]] = None
+    ) -> Iterator[dict[str, Any]]:
         """
         Args:
             model_input: Model input data in the form of a chat request.

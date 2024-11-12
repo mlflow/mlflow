@@ -2,7 +2,7 @@ import random
 import time
 import uuid
 from concurrent.futures import ThreadPoolExecutor
-from typing import Any, List, Optional
+from typing import Any, Optional
 from unittest import mock
 from unittest.mock import MagicMock
 
@@ -24,6 +24,7 @@ from langchain_core.tools import tool
 from packaging.version import Version
 
 import mlflow
+from mlflow.entities import Document as MlflowDocument
 from mlflow.entities import Trace
 from mlflow.entities.span_event import SpanEvent
 from mlflow.entities.span_status import SpanStatus, SpanStatusCode
@@ -223,7 +224,9 @@ def test_retriever_success():
     assert retriever_span.name == "test_retriever"
     assert retriever_span.span_type == "RETRIEVER"
     assert retriever_span.inputs == "test query"
-    assert retriever_span.outputs == [doc.dict() for doc in documents]
+    assert retriever_span.outputs == [
+        MlflowDocument.from_langchain_document(doc).to_dict() for doc in documents
+    ]
     assert retriever_span.start_time_ns is not None
     assert retriever_span.end_time_ns is not None
     assert retriever_span.status.status_code == SpanStatusCode.OK
@@ -346,13 +349,13 @@ def test_multiple_components():
         assert retriever_span.inputs == f"test query {i}"
         assert (
             retriever_span.outputs[0]
-            == Document(
+            == MlflowDocument(
                 page_content=f"document content {i}",
                 metadata={
                     "chunk_id": str(i),
                     "doc_uri": f"https://mock_uri.com/{i}",
                 },
-            ).dict()
+            ).to_dict()
         )
 
     _validate_trace_json_serialization(trace)
@@ -465,7 +468,7 @@ def test_tool_success(mock_databricks_serving_with_tracing_env):
     # Tool
     tool_span = spans[0]
     assert tool_span.span_type == "TOOL"
-    assert tool_span.inputs == str(tool_input)
+    assert tool_span.inputs == tool_input
     assert tool_span.outputs is not None
     tool_span_id = tool_span.span_id
 
@@ -526,8 +529,8 @@ def test_tracer_does_not_add_spans_to_trace_after_root_run_has_finished():
 
         def _call(
             self,
-            messages: List[BaseMessage],
-            stop: Optional[List[str]] = None,
+            messages: list[BaseMessage],
+            stop: Optional[list[str]] = None,
             run_manager: Optional[CallbackManagerForLLMRun] = None,
             **kwargs: Any,
         ) -> str:

@@ -33,7 +33,15 @@ describe('useExperimentTraces', () => {
       desc: boolean;
     }[] = [],
     runUuid?: string,
-  ) => renderHook(() => useExperimentTraces(testExperimentIds, sorting, filter, runUuid));
+  ) =>
+    renderHook(() =>
+      useExperimentTraces({
+        experimentIds: testExperimentIds,
+        filter,
+        sorting,
+        runUuid,
+      }),
+    );
   test('fetches traces and navigates through pages', async () => {
     // Mocking the getExperimentTraces function to return 100 traces per page.
     // We will use simple {"page": 1} token to simulate pagination.

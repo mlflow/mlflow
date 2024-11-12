@@ -3,11 +3,11 @@ from unittest import mock
 
 import pytest
 from aiohttp import ClientTimeout
-from fastapi import HTTPException
 from fastapi.encoders import jsonable_encoder
 
 from mlflow.gateway.config import RouteConfig
 from mlflow.gateway.constants import MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS
+from mlflow.gateway.exceptions import AIGatewayException
 from mlflow.gateway.providers.togetherai import TogetherAIProvider
 from mlflow.gateway.schemas import chat, completions, embeddings
 
@@ -59,9 +59,10 @@ async def test_completions():
     config = completions_config()
     resp = completions_response()
 
-    with mock.patch("time.time", return_value=1677858242), mock.patch(
-        "aiohttp.ClientSession.post", return_value=MockAsyncResponse(resp)
-    ) as mock_post:
+    with (
+        mock.patch("time.time", return_value=1677858242),
+        mock.patch("aiohttp.ClientSession.post", return_value=MockAsyncResponse(resp)) as mock_post,
+    ):
         provider = TogetherAIProvider(RouteConfig(**config))
 
         payload = {
@@ -151,9 +152,12 @@ def completion_stream_response_incomplete():
 async def test_completions_stream(resp):
     config = completions_config()
 
-    with mock.patch("time.time", return_value=1677858242), mock.patch(
-        "aiohttp.ClientSession.post", return_value=MockAsyncStreamingResponse(resp)
-    ) as mock_post:
+    with (
+        mock.patch("time.time", return_value=1677858242),
+        mock.patch(
+            "aiohttp.ClientSession.post", return_value=MockAsyncStreamingResponse(resp)
+        ) as mock_post,
+    ):
         provider = TogetherAIProvider(RouteConfig(**config))
         payload = {
             "model": "mistralai/Mixtral-8x7B-v0.1",
@@ -224,9 +228,10 @@ async def test_max_tokens_missing_error():
     resp = completions_response()
 
     # Mock the post method to return the response payload
-    with mock.patch("time.time", return_value=1677858242), mock.patch(
-        "aiohttp.ClientSession.post", return_value=MockAsyncResponse(resp)
-    ) as mock_post:
+    with (
+        mock.patch("time.time", return_value=1677858242),
+        mock.patch("aiohttp.ClientSession.post", return_value=MockAsyncResponse(resp)) as mock_post,
+    ):
         # Instantiate the provider
         provider = TogetherAIProvider(RouteConfig(**config))
 
@@ -243,8 +248,8 @@ async def test_max_tokens_missing_error():
             "max_tokens is not present in payload."
             "It is a required parameter for TogetherAI completions."
         )
-        # Test whether HTTPException is raised when max_tokens is missing
-        with pytest.raises(HTTPException, match=error_string) as exc_info:
+        # Test whether AIGatewayException is raised when max_tokens is missing
+        with pytest.raises(AIGatewayException, match=error_string) as exc_info:
             await provider.completions(completions.RequestPayload(**payload))
 
         # Check if the raised exception has correct status code and detail
@@ -261,9 +266,10 @@ async def test_wrong_logprobs_type_error():
     resp = completions_response()
 
     # Mock the post method to return the response payload
-    with mock.patch("time.time", return_value=1677858242), mock.patch(
-        "aiohttp.ClientSession.post", return_value=MockAsyncResponse(resp)
-    ) as mock_post:
+    with (
+        mock.patch("time.time", return_value=1677858242),
+        mock.patch("aiohttp.ClientSession.post", return_value=MockAsyncResponse(resp)) as mock_post,
+    ):
         # Instantiate the provider
         provider = TogetherAIProvider(RouteConfig(**config))
 
@@ -277,8 +283,8 @@ async def test_wrong_logprobs_type_error():
             "logprobs": "invalid_type",
         }
         error_string = "Wrong type for logprobs. It should be an 32bit integer."
-        # Test whether HTTPException is raised when max_tokens is missing
-        with pytest.raises(HTTPException, match=error_string) as exc_info:
+        # Test whether AIGatewayException is raised when max_tokens is missing
+        with pytest.raises(AIGatewayException, match=error_string) as exc_info:
             await provider.completions(completions.RequestPayload(**payload))
 
         # Check if the raised exception has correct status code and detail
@@ -322,9 +328,10 @@ async def test_embeddings():
     config = embeddings_config()
     resp = embeddings_response()
 
-    with mock.patch("time.time", return_value=1677858242), mock.patch(
-        "aiohttp.ClientSession.post", return_value=MockAsyncResponse(resp)
-    ) as mock_post:
+    with (
+        mock.patch("time.time", return_value=1677858242),
+        mock.patch("aiohttp.ClientSession.post", return_value=MockAsyncResponse(resp)) as mock_post,
+    ):
         provider = TogetherAIProvider(RouteConfig(**config))
 
         payload = {
@@ -387,9 +394,10 @@ async def test_chat():
     config = chat_config()
     resp = chat_response()
 
-    with mock.patch("time.time", return_value=1677858242), mock.patch(
-        "aiohttp.ClientSession.post", return_value=MockAsyncResponse(resp)
-    ) as mock_post:
+    with (
+        mock.patch("time.time", return_value=1677858242),
+        mock.patch("aiohttp.ClientSession.post", return_value=MockAsyncResponse(resp)) as mock_post,
+    ):
         provider = TogetherAIProvider(RouteConfig(**config))
 
         payload = {
@@ -472,9 +480,12 @@ def chat_stream_response_incomplete():
 async def test_chat_stream(resp):
     config = chat_config()
 
-    with mock.patch("time.time", return_value=1677858242), mock.patch(
-        "aiohttp.ClientSession.post", return_value=MockAsyncStreamingResponse(resp)
-    ) as mock_post:
+    with (
+        mock.patch("time.time", return_value=1677858242),
+        mock.patch(
+            "aiohttp.ClientSession.post", return_value=MockAsyncStreamingResponse(resp)
+        ) as mock_post,
+    ):
         provider = TogetherAIProvider(RouteConfig(**config))
         payload = {
             "model": "mistralai/Mixtral-8x7B-v0.1",

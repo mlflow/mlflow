@@ -181,8 +181,8 @@ class BertDataModule(L.LightningDataModule):
         Generic data loader function
 
         Args:
-            df: Input dataframe.
-            tokenizer: bert tokenizer.
+            source: Input dataframe.
+            count: Number of samples to load.
 
         Returns:
             Returns the constructed dataloader.

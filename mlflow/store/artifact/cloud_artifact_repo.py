@@ -2,11 +2,14 @@ import logging
 import math
 import os
 import posixpath
+import time
 from abc import abstractmethod
 from collections import namedtuple
 from concurrent.futures import as_completed
 
 from mlflow.environment_variables import (
+    _MLFLOW_MPD_NUM_RETRIES,
+    _MLFLOW_MPD_RETRY_INTERVAL_SECONDS,
     MLFLOW_ENABLE_MULTIPART_DOWNLOAD,
     MLFLOW_MULTIPART_DOWNLOAD_CHUNK_SIZE,
     MLFLOW_MULTIPART_DOWNLOAD_MINIMUM_FILE_SIZE,
@@ -17,11 +20,11 @@ from mlflow.store.artifact.artifact_repo import ArtifactRepository
 from mlflow.utils import chunk_list
 from mlflow.utils.file_utils import (
     ArtifactProgressBar,
-    download_chunk_retries,
     parallelized_download_file_using_http_uri,
     relative_path_to_artifact_path,
     remove_on_error,
 )
+from mlflow.utils.request_utils import download_chunk
 from mlflow.utils.uri import is_fuse_or_uc_volumes_uri
 
 _logger = logging.getLogger(__name__)
@@ -80,24 +83,6 @@ def _complete_futures(futures_dict, file):
                 errors[key] = repr(e)
 
     return results, errors
-
-
-def _retry_with_new_creds(try_func, creds_func, og_creds=None):
-    """
-    Attempt the try_func with the original credentials (og_creds) if provided, or by generating the
-    credentials using creds_func. If the try_func throws, then try again with new credentials
-    provided by creds_func.
-    """
-    try:
-        first_creds = creds_func() if og_creds is None else og_creds
-        return try_func(first_creds)
-    except Exception as e:
-        _logger.info(
-            "Failed to complete request, possibly due to credential expiration."
-            f" Refreshing credentials and trying again... (Error: {e})"
-        )
-        new_creds = creds_func()
-        return try_func(new_creds)
 
 
 StagedArtifactUpload = namedtuple(
@@ -244,16 +229,47 @@ class CloudArtifactRepository(ArtifactRepository):
                 env=parallel_download_subproc_env,
                 headers=self._extract_headers_from_credentials(cloud_credential_info.headers),
             )
-
-            if failed_downloads:
+            num_retries = _MLFLOW_MPD_NUM_RETRIES.get()
+            interval = _MLFLOW_MPD_RETRY_INTERVAL_SECONDS.get()
+            failed_downloads = list(failed_downloads)
+            while failed_downloads and num_retries > 0:
+                self._refresh_credentials()
                 new_cloud_creds = self._get_read_credential_infos([remote_file_path])[0]
                 new_signed_uri = new_cloud_creds.signed_uri
                 new_headers = self._extract_headers_from_credentials(new_cloud_creds.headers)
-                download_chunk_retries(
-                    chunks=list(failed_downloads),
-                    headers=new_headers,
-                    http_uri=new_signed_uri,
-                    download_path=local_path,
+
+                futures = {
+                    self.chunk_thread_pool.submit(
+                        download_chunk,
+                        range_start=chunk.start,
+                        range_end=chunk.end,
+                        headers=new_headers,
+                        download_path=local_path,
+                        http_uri=new_signed_uri,
+                    ): chunk
+                    for chunk in failed_downloads
+                }
+
+                new_failed_downloads = []
+
+                for future in as_completed(futures):
+                    chunk = futures[future]
+                    try:
+                        future.result()
+                    except Exception as e:
+                        _logger.info(
+                            f"Failed to download chunk {chunk.index} for {chunk.path}: {e}. "
+                            f"The download of this chunk will be retried later."
+                        )
+                        new_failed_downloads.append(chunk)
+
+                failed_downloads = new_failed_downloads
+                num_retries -= 1
+                time.sleep(interval)
+
+            if failed_downloads:
+                raise MlflowException(
+                    message=("All retries have been exhausted. Download has failed.")
                 )
 
     def _download_file(self, remote_file_path, local_path):
@@ -266,6 +282,7 @@ class CloudArtifactRepository(ArtifactRepository):
         file_infos = self.list_artifacts(parent_dir)
         file_info = [info for info in file_infos if info.path == remote_file_path]
         file_size = file_info[0].file_size if len(file_info) == 1 else None
+
         # NB: FUSE mounts do not support file write from a non-0th index seek position.
         # Due to this limitation (writes must start at the beginning of a file),
         # offset writes are disabled if FUSE is the local_path destination.
@@ -274,6 +291,9 @@ class CloudArtifactRepository(ArtifactRepository):
             or not file_size
             or file_size < MLFLOW_MULTIPART_DOWNLOAD_MINIMUM_FILE_SIZE.get()
             or is_fuse_or_uc_volumes_uri(local_path)
+            # DatabricksSDKModelsArtifactRepository can only download file via databricks sdk
+            # rather than presigned uri used in _parallelized_download_from_cloud.
+            or type(self).__name__ == "DatabricksSDKModelsArtifactRepository"
         ):
             self._download_from_cloud(remote_file_path, local_path)
         else:
@@ -300,4 +320,12 @@ class CloudArtifactRepository(ArtifactRepository):
             remote_file_path: Path to file in the remote artifact repository.
             local_path: Local path to download file to.
 
+        """
+
+    def _refresh_credentials(self):
+        """
+        Refresh credentials for user in the case of credential expiration
+
+        Args:
+            None
         """

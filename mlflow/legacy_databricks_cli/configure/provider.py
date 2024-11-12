@@ -109,6 +109,7 @@ def update_and_persist_config(profile, databricks_config):
     same profile.
 
     Args:
+        profile: str
         databricks_config: DatabricksConfig
     """
     profile = profile if profile else DEFAULT_SECTION
@@ -132,7 +133,6 @@ def get_config():
 
     If no DatabricksConfig can be found, an InvalidConfigurationError will be raised.
     """
-    global _config_provider
     if _config_provider:
         config = _config_provider.get_config()
         if config:
@@ -191,7 +191,6 @@ def get_config_provider():
     Returns the current DatabricksConfigProvider.
     If None, the DefaultConfigProvider will be used.
     """
-    global _config_provider
     return _config_provider
 
 

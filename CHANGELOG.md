@@ -1,5 +1,129 @@
 # CHANGELOG
 
+## 2.17.2 (2024-10-31)
+
+MLflow 2.17.2 includes several major features and improvements
+
+Features:
+- [Model Registry] DatabricksSDKModelsArtifactRepository support (#13203, @shichengzhou-db)
+- [Tracking] Support extracting new UCFunctionToolkit as model resources (#13567, @serena-ruan)
+
+Bug fixes:
+
+- [Models] Fix RunnableBinding saving (#13566, @B-Step62)
+- [Models] Pin numpy when pandas < 2.1.2 in pip requirements (#13580, @serena-ruan)
+
+Documentation updates:
+
+- [Docs] ChatModel tool calling tutorial (#13542, @daniellok-db)
+
+Small bug fixes and documentation updates:
+
+#13569, @serena-ruan; #13595, @BenWilson2; #13593, @mnijhuis-dnb;
+
+## 2.17.1 (2024-10-25)
+
+MLflow 2.17.1 includes several major features and improvements
+
+Features:
+
+- [Tracking] Support custom chat endpoint without endpoint type set as llm judge (#13538, @B-Step62)
+- [Tracking] Support tracing for OpenAI Swarm (#13497, @B-Step62)
+- [Tracking] Support UC Connections as model dependency and resources (#13481, #13491 @sunishsheth2009)
+- [Tracking] Support Genie Spaces as model resources (#13441, @aravind-segu)
+- [Models] Support new Transformers task for llm/v1/embedding (#13468, @B-Step62)
+
+Bug fixes:
+
+- [Tracking] Fix tool span inputs/outputs format in LangChain autolog (#13527, @B-Step62)
+- [Models] Fix code_path handling for LlamaIndex flavor (#13486, @B-Step62)
+- [Models] Fix signature inference for subclass and optional dataclasses (#13440, @bbqiu)
+- [Tracking] Fix error thrown in set_retriever_schema's behavior when it's called twice (#13422, @sunishsheth2009)
+- [Tracking] Fix dependency extraction from RunnableCallables (#13423, @aravind-segu)
+
+Documentation updates:
+
+- [Docs] Fixed typo in docs: endpoing -> endpoint (#13478, @JAMNESIA)
+- [Docs] Improve CLI docs - attention about setting MLFLOW_TRACKING_URI (#13465, @BartoszLitwiniuk)
+- [Docs] Add documentation for infer_signature usage with GenAI flavors (#13407, @serena-ruan)
+
+Small bug fixes and documentation updates:
+
+#13293, #13510, #13501, #13506, #13446, @harupy; #13341, #13342, @WeichenXu123; #13396, @dvorst; #13535, @chenmoneygithub; #13503, #13469, #13416, @B-Step62; #13519, #13516, @serena-ruan; #13504, @sunishsheth2009; #13508, @KamilStachera; #13397, @kriscon-db
+
+## 2.17.0 (2024-09-26)
+
+We are excited to announce the release of MLflow 2.17.0! This release includes several enhancements to extend the
+functionality of MLflow's ChatModel interface to further extend its versatility for handling custom GenAI application use cases. 
+Additionally, we've improved the interface within the tracing UI to provide a structured output for retrieved documents,
+enhancing the ability to read the contents of those documents within the UI.
+We're also starting the work on improving both the utility and the versatility of MLflow's evaluate functionality for GenAI,
+initially with support for callable GenAI evaluation metrics. 
+
+### Major Features and notifications:
+
+- **ChatModel enhancements** - As the GenAI-focused 'cousin' of `PythonModel`, `ChatModel` is getting some sizable functionality
+  extensions. From native support for tool calling (a requirement for creating a custom agent), simpler conversions to the
+  internal dataclass constructs needed to interface with `ChatModel` via the introduction of `from_dict` methods to all data structures,
+  the addition of a `metadata` field to allow for full input payload customization, handling of the new `refusal` response type, to the
+  inclusion of the interface type to the response structure to allow for greater integration compatibility.
+  (#13191, #13180, #13143, @daniellok-db, #13102, #13071, @BenWilson2)
+
+- **Callable GenAI Evaluation Metrics** - As the intial step in a much broader expansion of the functionalities of `mlflow.evaluate` for
+  GenAI use cases, we've converted the GenAI evaluation metrics to be callable. This allows you to use them directly in packages that support
+  callable GenAI evaluation metrics, as well as making it simpler to debug individual responses when prototyping solutions. (#13144, @serena-ruan)
+
+- **Audio file support in the MLflow UI** - You can now directly 'view' audio files that have been logged and listen to them from within the MLflow UI's
+  artifact viewer pane.
+
+- **MLflow AI Gateway is no longer deprecated** - We've decided to revert our deprecation for the AI Gateway feature. We had renamed it to the
+  MLflow Deployments Server, but have reconsidered and reverted the naming and namespace back to the original configuration.
+
+Features:
+
+- [Tracing] Add Standardization to retriever span outputs within MLflow tracing (#13242, @daniellok-db)
+- [Models] Add support for LlamaIndex `Workflows` objects to be serialized when calling `log_model()` (#13277, #13305, #13336, @B-Step62)
+- [Models] Add tool calling support for ChatModel (#13191, @daniellok-db)
+- [Models] Add `from_dict()` function to ChatModel dataclasses (#13180, @daniellok-db)
+- [Models] Add metadata field for ChatModel (#13143, @daniellok-db)
+- [Models] Update ChatCompletionResponse to populate object type (#13102, @BenWilson2)
+- [Models] Add support for LLM response refusal (#13071, @BenWilson2)
+- [Models] Add support for resources to be passed in via `langchain.log_model()` (#13315, @sunishsheth2009)
+- [Tracking] Add support for setting multiple retrievers' schema via `set_retriever_schema` (#13246, @sunishsheth2009)
+- [Eval] Make Evaluation metrics callable (#13144, @serena-ruan)
+- [UI] Add audio support to artifact viewer UI (#13017, @sydneyw-spotify)
+- [Databricks] Add support for route_optimized parameter in databricks deployment client (#13222, @prabhatkgupta)
+
+Bug fixes:
+
+- [Tracking] Fix tracing for LangGraph (#13215, @B-Step62)
+- [Tracking] Fix an issue with `presigned_url_artifact` requests being in the wrong format (#13366, @WeichenXu123)
+- [Models] Update Databricks dependency extraction functionality to work with the `langchain-databricks` partner package. (#13266, @B-Step62)
+- [Model Registry] Fix retry and credential refresh issues with artifact downloads from the model registry (#12935, @rohitarun-db)
+- [Tracking] Fix LangChain autologging so that langchain-community is not required for partner packages (#13172, @B-Step62)
+- [Artifacts] Fix issues with file removal for the local artifact repository (#13005, @rzalawad)
+
+Documentation updates:
+
+- [Docs] Add guide for building custom GenAI apps with ChatModel (#13207, @BenWilson2)
+- [Docs] Add updates to the MLflow AI Gateway documentation (#13217, @daniellok-db)
+- [Docs] Remove MLflow AI Gateway deprecation status (#13153, @BenWilson2)
+- [Docs] Add contribution guide for MLflow tracing integrations (#13333, @B-Step62)
+- [Docs] Add documentation regarding the `run_id` parameter within the `search_trace` API (#13251, @B-Step62)
+
+Small bug fixes and documentation updates:
+
+#13372, #13271, #13243, #13226, #13190, #13230, #13208, #13130, #13045, #13094, @B-Step62; #13302, #13238, #13234, #13205, #13200, #13196, #13198, #13193, #13192, #13194, #13189, #13184, #13182, #13161, #13179, #13178, #13110, #13162, #13173, #13171, #13169, #13168, #13167, #13156, #13127, #13133, #13089, #13073, #13057, #13058, #13067, #13062, #13061, #13052, @harupy; #13295, #13219, #13038, @serena-ruan; #13176, #13164, @WeichenXu123; #13163, @gabrielfu; #13186, @varshinimuthukumar1; #13128, #13115, @nojaf; #13120, @levscaut; #13152, #13075, @BenWilson2; #13138, @tanguylefloch-veesion; #13087, @SeanAverS; #13285, #13051, #13043, @daniellok-db; #13224, @levscaut;
+
+## 2.16.2 (2024-09-17)
+
+MLflow 2.16.2 includes several major features and improvements
+
+Bug fixes:
+
+- [Models] Revert "Update Dependency Extraction for Agents (#13105)" (#13155, @aravind-segu)
+
+
 ## 2.16.1 (2024-09-13)
 
 MLflow 2.16.1 is a patch release that includes some minor feature improvements and addresses several bug fixes.

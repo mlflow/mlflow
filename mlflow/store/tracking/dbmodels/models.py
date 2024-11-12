@@ -299,9 +299,9 @@ class SqlTag(Base):
     """
     Tag key: `String` (limit 250 characters). *Primary Key* for ``tags`` table.
     """
-    value = Column(String(5000), nullable=True)
+    value = Column(String(8000), nullable=True)
     """
-    Value associated with tag: `String` (limit 250 characters). Could be *null*.
+    Value associated with tag: `String` (limit 8000 characters). Could be *null*.
     """
     run_uuid = Column(String(32), ForeignKey("runs.run_uuid"))
     """

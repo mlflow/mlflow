@@ -124,7 +124,7 @@ def _infer_datatype(data: Any) -> Union[DataType, Array, Object, Map]:
     return _infer_scalar_datatype(data)
 
 
-def _infer_array_datatype(data: Union[List, np.ndarray]) -> Optional[Array]:
+def _infer_array_datatype(data: Union[list, np.ndarray]) -> Optional[Array]:
     """Infer schema from an array. This tries to infer type if there is at least one
     non-null item in the list, assuming the list has a homogeneous type. However,
     if the list is empty or all items are null, returns None as a sign of undetermined.
@@ -724,18 +724,35 @@ def _validate_dict_examples(examples, num_items=None):
         _validate_keys_match(example, first_keys)
 
 
+def _is_list_str(type_hint: Any) -> bool:
+    return type_hint in [
+        List[str],  # noqa: UP006
+        list[str],
+    ]
+
+
+def _is_list_dict_str(type_hint: Any) -> bool:
+    return type_hint in [
+        List[Dict[str, str]],  # noqa: UP006
+        list[Dict[str, str]],  # noqa: UP006
+        List[dict[str, str]],  # noqa: UP006
+        list[dict[str, str]],
+    ]
+
+
 def _infer_schema_from_type_hint(type_hint, examples=None):
     has_examples = examples is not None
     if has_examples:
-        _validate_is_list(examples)
         _validate_non_empty(examples)
 
-    if type_hint == List[str]:
+    if _is_list_str(type_hint):
         if has_examples:
+            _validate_is_list(examples)
             _validate_is_all_string(examples)
         return Schema([ColSpec(type="string", name=None)])
-    elif type_hint == List[Dict[str, str]]:
+    elif _is_list_dict_str(type_hint):
         if has_examples:
+            _validate_is_list(examples)
             _validate_dict_examples(examples)
             return Schema([ColSpec(type="string", name=name) for name in examples[0]])
         else:
@@ -780,7 +797,7 @@ def _infer_type_and_shape(value):
     )
 
 
-def _infer_param_schema(parameters: Dict[str, Any]):
+def _infer_param_schema(parameters: dict[str, Any]):
     if not isinstance(parameters, dict):
         raise MlflowException.invalid_parameter_value(
             f"Expected parameters to be dict, got {type(parameters).__name__}",

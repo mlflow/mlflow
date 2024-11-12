@@ -6,7 +6,7 @@ import threading
 import time
 import uuid
 from functools import reduce
-from typing import Dict, List, Optional, Tuple
+from typing import Optional
 
 import sqlalchemy
 import sqlalchemy.sql.expression as sql
@@ -164,9 +164,9 @@ class SqlAlchemyStore(AbstractStore):
                 # inefficiency from multiple threads waiting for the lock to check for engine
                 # existence if it has already been created.
                 if db_uri not in SqlAlchemyStore._db_uri_sql_alchemy_engine_map:
-                    SqlAlchemyStore._db_uri_sql_alchemy_engine_map[
-                        db_uri
-                    ] = mlflow.store.db.utils.create_sqlalchemy_engine_with_retry(db_uri)
+                    SqlAlchemyStore._db_uri_sql_alchemy_engine_map[db_uri] = (
+                        mlflow.store.db.utils.create_sqlalchemy_engine_with_retry(db_uri)
+                    )
         self.engine = SqlAlchemyStore._db_uri_sql_alchemy_engine_map[db_uri]
         # On a completely fresh MLflow installation against an empty database (verify database
         # emptiness by checking that 'experiments' etc aren't in the list of table names), run all
@@ -351,7 +351,7 @@ class SqlAlchemyStore(AbstractStore):
         )
         return PagedList(experiments, next_page_token)
 
-    def _get_experiment(self, session, experiment_id, view_type, eager=False):
+    def _get_experiment(self, session, experiment_id, view_type, eager=False):  # noqa: D417
         """
         Args:
             eager: If ``True``, eagerly loads the experiments's tags. If ``False``, these tags
@@ -520,7 +520,7 @@ class SqlAlchemyStore(AbstractStore):
 
             return run.to_mlflow_entity()
 
-    def _get_run(self, session, run_uuid, eager=False):
+    def _get_run(self, session, run_uuid, eager=False):  # noqa: D417
         """
         Args:
             eager: If ``True``, eagerly loads the run's summary metrics (``latest_metrics``),
@@ -1188,18 +1188,22 @@ class SqlAlchemyStore(AbstractStore):
                 # NB: Updating the run_info will set the tag. No need to do it twice.
                 session.merge(SqlTag(run_uuid=run_id, key=tag.key, value=tag.value))
 
-    def _set_tags(self, run_id, tags):
+    def _set_tags(self, run_id, tags, path=""):
         """
         Set multiple tags on a run
 
         Args:
             run_id: String ID of the run
             tags: List of RunTag instances to log
+            path: current json path for error messages
         """
         if not tags:
             return
 
-        tags = [_validate_tag(t.key, t.value) for t in tags]
+        tags = [
+            _validate_tag(t.key, t.value, path=append_to_json_path(path, f"tags[{idx}]"))
+            for (idx, t) in enumerate(tags)
+        ]
 
         with self.ManagedSessionMaker() as session:
             run = self._get_run(run_uuid=run_id, session=session)
@@ -1384,7 +1388,7 @@ class SqlAlchemyStore(AbstractStore):
             try:
                 self._log_params(run_id, params)
                 self._log_metrics(run_id, metrics, path="metrics")
-                self._set_tags(run_id, tags)
+                self._set_tags(run_id, tags, path="tags")
             except MlflowException as e:
                 raise e
             except Exception as e:
@@ -1409,7 +1413,7 @@ class SqlAlchemyStore(AbstractStore):
             _validate_tag(MLFLOW_LOGGED_MODELS, value)
             session.merge(SqlTag(key=MLFLOW_LOGGED_MODELS, value=value, run_uuid=run_id))
 
-    def log_inputs(self, run_id: str, datasets: Optional[List[DatasetInput]] = None):
+    def log_inputs(self, run_id: str, datasets: Optional[list[DatasetInput]] = None):
         """
         Log inputs, such as datasets, to the specified run.
 
@@ -1439,7 +1443,7 @@ class SqlAlchemyStore(AbstractStore):
                 raise MlflowException(e, INTERNAL_ERROR)
 
     def _log_inputs_impl(
-        self, experiment_id, run_id, dataset_inputs: Optional[List[DatasetInput]] = None
+        self, experiment_id, run_id, dataset_inputs: Optional[list[DatasetInput]] = None
     ):
         if dataset_inputs is None or len(dataset_inputs) == 0:
             return
@@ -1476,9 +1480,9 @@ class SqlAlchemyStore(AbstractStore):
             )
             dataset_uuids = {}
             for existing_dataset in existing_datasets:
-                dataset_uuids[
-                    (existing_dataset.name, existing_dataset.digest)
-                ] = existing_dataset.dataset_uuid
+                dataset_uuids[(existing_dataset.name, existing_dataset.digest)] = (
+                    existing_dataset.dataset_uuid
+                )
 
             # collect all objects to write to DB in a single list
             objs_to_write = []
@@ -1490,9 +1494,9 @@ class SqlAlchemyStore(AbstractStore):
                     dataset_input.dataset.digest,
                 ) not in dataset_uuids:
                     new_dataset_uuid = uuid.uuid4().hex
-                    dataset_uuids[
-                        (dataset_input.dataset.name, dataset_input.dataset.digest)
-                    ] = new_dataset_uuid
+                    dataset_uuids[(dataset_input.dataset.name, dataset_input.dataset.digest)] = (
+                        new_dataset_uuid
+                    )
                     objs_to_write.append(
                         SqlDataset(
                             dataset_uuid=new_dataset_uuid,
@@ -1518,9 +1522,9 @@ class SqlAlchemyStore(AbstractStore):
             )
             input_uuids = {}
             for existing_input in existing_inputs:
-                input_uuids[
-                    (existing_input.source_id, existing_input.destination_id)
-                ] = existing_input.input_uuid
+                input_uuids[(existing_input.source_id, existing_input.destination_id)] = (
+                    existing_input.input_uuid
+                )
 
             # add input edges to objs_to_write
             for dataset_input in dataset_inputs:
@@ -1529,9 +1533,9 @@ class SqlAlchemyStore(AbstractStore):
                 ]
                 if (dataset_uuid, run_id) not in input_uuids:
                     new_input_uuid = uuid.uuid4().hex
-                    input_uuids[
-                        (dataset_input.dataset.name, dataset_input.dataset.digest)
-                    ] = new_input_uuid
+                    input_uuids[(dataset_input.dataset.name, dataset_input.dataset.digest)] = (
+                        new_input_uuid
+                    )
                     objs_to_write.append(
                         SqlInput(
                             input_uuid=new_input_uuid,
@@ -1560,8 +1564,8 @@ class SqlAlchemyStore(AbstractStore):
         self,
         experiment_id: str,
         timestamp_ms: int,
-        request_metadata: Dict[str, str],
-        tags: Dict[str, str],
+        request_metadata: dict[str, str],
+        tags: dict[str, str],
     ) -> TraceInfo:
         """
         Create an initial TraceInfo object in the database.
@@ -1588,6 +1592,11 @@ class SqlAlchemyStore(AbstractStore):
                 status=TraceStatus.IN_PROGRESS,
             )
 
+            # tags could contain special tag='request_id' to make it possible to
+            # override `request_id` from Python tests in other stores like GO store.
+            # Filter it from here.
+            if "request_id" in tags:
+                del tags["request_id"]
             trace_info.tags = [SqlTraceTag(key=k, value=v) for k, v in tags.items()]
             trace_info.tags.append(self._get_trace_artifact_location_tag(experiment, request_id))
 
@@ -1615,8 +1624,8 @@ class SqlAlchemyStore(AbstractStore):
         request_id: str,
         timestamp_ms: int,
         status: TraceStatus,
-        request_metadata: Dict[str, str],
-        tags: Dict[str, str],
+        request_metadata: dict[str, str],
+        tags: dict[str, str],
     ) -> TraceInfo:
         """
         Update the TraceInfo object in the database with the completed trace info.
@@ -1674,12 +1683,12 @@ class SqlAlchemyStore(AbstractStore):
 
     def search_traces(
         self,
-        experiment_ids: List[str],
+        experiment_ids: list[str],
         filter_string: Optional[str] = None,
         max_results: int = SEARCH_TRACES_DEFAULT_MAX_RESULTS,
-        order_by: Optional[List[str]] = None,
+        order_by: Optional[list[str]] = None,
         page_token: Optional[str] = None,
-    ) -> Tuple[List[TraceInfo], Optional[str]]:
+    ) -> tuple[list[TraceInfo], Optional[str]]:
         """
         Return traces that match the given list of search expressions within the experiments.
 
@@ -1794,7 +1803,7 @@ class SqlAlchemyStore(AbstractStore):
         experiment_id: str,
         max_timestamp_millis: Optional[int] = None,
         max_traces: Optional[int] = None,
-        request_ids: Optional[List[str]] = None,
+        request_ids: Optional[list[str]] = None,
     ) -> int:
         """
         Delete traces based on the specified criteria.
@@ -2071,7 +2080,7 @@ def _get_search_experiments_order_by_clauses(order_by):
     return [col.asc() if ascending else col.desc() for col, ascending in order_by_clauses]
 
 
-def _get_orderby_clauses_for_search_traces(order_by_list: List[str], session):
+def _get_orderby_clauses_for_search_traces(order_by_list: list[str], session):
     """Sorts a set of traces based on their natural ordering and an overriding set of order_bys.
     Traces are ordered first by timestamp_ms descending, then by request_id for tie-breaking.
     """

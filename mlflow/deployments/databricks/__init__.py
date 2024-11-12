@@ -1,6 +1,6 @@
 import json
 import posixpath
-from typing import Any, Dict, Iterator, Optional
+from typing import Any, Iterator, Optional
 
 from mlflow.deployments import BaseDeploymentClient
 from mlflow.deployments.constants import (
@@ -125,7 +125,7 @@ class DatabricksDeploymentClient(BaseDeploymentClient):
         method: str,
         prefix: str = "/api/2.0",
         route: Optional[str] = None,
-        json_body: Optional[Dict[str, Any]] = None,
+        json_body: Optional[dict[str, Any]] = None,
         timeout: Optional[int] = None,
     ):
         call_kwargs = {}
@@ -153,7 +153,7 @@ class DatabricksDeploymentClient(BaseDeploymentClient):
         method: str,
         prefix: str = "/api/2.0",
         route: Optional[str] = None,
-        json_body: Optional[Dict[str, Any]] = None,
+        json_body: Optional[dict[str, Any]] = None,
         timeout: Optional[int] = None,
     ) -> Iterator[str]:
         call_kwargs = {}
@@ -246,7 +246,7 @@ class DatabricksDeploymentClient(BaseDeploymentClient):
     @experimental
     def predict_stream(
         self, deployment_name=None, inputs=None, endpoint=None
-    ) -> Iterator[Dict[str, Any]]:
+    ) -> Iterator[dict[str, Any]]:
         """
         Submit a query to a configured provider endpoint, and get streaming response
 
@@ -326,7 +326,7 @@ class DatabricksDeploymentClient(BaseDeploymentClient):
             yield json.loads(value)
 
     @experimental
-    def create_endpoint(self, name, config=None):
+    def create_endpoint(self, name, config=None, route_optimized=False):
         """
         Create a new serving endpoint with the provided name and configuration.
 
@@ -336,6 +336,9 @@ class DatabricksDeploymentClient(BaseDeploymentClient):
         Args:
             name: The name of the serving endpoint to create.
             config: A dictionary containing the configuration of the serving endpoint to create.
+            route_optimized: A boolean which defines whether databricks serving endpoint
+                in optimized for routing traffic. Refer to the following doc for more details.
+                https://docs.databricks.com/en/machine-learning/model-serving/route-optimization.html#enable-route-optimization-on-a-feature-serving-endpoint
 
         Returns:
             A :py:class:`DatabricksEndpoint` object containing the request response.
@@ -364,6 +367,7 @@ class DatabricksDeploymentClient(BaseDeploymentClient):
                         }
                     ],
                 },
+                route_optimized=True,
             )
             assert endpoint == {
                 "name": "chat",
@@ -382,7 +386,7 @@ class DatabricksDeploymentClient(BaseDeploymentClient):
         for key in ("tags", "rate_limits"):
             if tags := config.pop(key, None):
                 extras[key] = tags
-        payload = {"name": name, "config": config, **extras}
+        payload = {"name": name, "config": config, "route_optimized": route_optimized, **extras}
         return self._call_endpoint(method="POST", json_body=payload)
 
     @experimental

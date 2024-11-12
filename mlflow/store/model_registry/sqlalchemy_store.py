@@ -193,7 +193,7 @@ class SqlAlchemyStore(AbstractStore):
                 )
 
     @classmethod
-    def _get_registered_model(cls, session, name, eager=False):
+    def _get_registered_model(cls, session, name, eager=False):  # noqa: D417
         """
         Args:
             eager: If ``True``, eagerly loads the registered model's tags. If ``False``, these
@@ -650,6 +650,7 @@ class SqlAlchemyStore(AbstractStore):
                 instances associated with this model version.
             run_link: Link to the run from an MLflow tracking server that generated this model.
             description: Description of the version.
+            local_model_path: Unused.
 
         Returns:
             A single object of :py:class:`mlflow.entities.model_registry.ModelVersion`
@@ -748,7 +749,7 @@ class SqlAlchemyStore(AbstractStore):
         return versions[0]
 
     @classmethod
-    def _get_sql_model_version(cls, session, name, version, eager=False):
+    def _get_sql_model_version(cls, session, name, version, eager=False):  # noqa: D417
         """
         Args:
             eager: If ``True``, eagerly loads the model version's tags.

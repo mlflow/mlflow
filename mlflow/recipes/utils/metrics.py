@@ -1,7 +1,7 @@
 import importlib
 import logging
 import sys
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 from mlflow.exceptions import BAD_REQUEST, MlflowException
 from mlflow.models import EvaluationMetric, make_metric
@@ -74,7 +74,7 @@ DEFAULT_METRICS = {
 }
 
 
-def _get_error_fn(tmpl: str, use_probability: bool = False, positive_class: Optional[str] = None):
+def _get_error_fn(tmpl: str, use_probability: bool = False, positive_class: Optional[str] = None):  # noqa: D417
     """
     Args:
         tmpl: The template kind, e.g. `regression/v1`.
@@ -111,7 +111,7 @@ def _get_error_fn(tmpl: str, use_probability: bool = False, positive_class: Opti
     )
 
 
-def _get_extended_task(recipe: str, positive_class: str) -> str:
+def _get_extended_task(recipe: str, positive_class: str) -> str:  # noqa: D417
     """
     Args:
         step_config: Step config
@@ -151,7 +151,7 @@ def _get_model_type_from_template(tmpl: str) -> str:
     )
 
 
-def _get_builtin_metrics(ext_task: str) -> Dict[str, str]:
+def _get_builtin_metrics(ext_task: str) -> dict[str, str]:  # noqa: D417
     """
     Args:
         tmpl: The template kind, e.g. `regression/v1`.
@@ -180,11 +180,11 @@ def transform_multiclass_metric(metric_name: str, ext_task: str) -> str:
     return metric_name
 
 
-def transform_multiclass_metrics_dict(eval_metrics: Dict[str, Any], ext_task) -> Dict[str, Any]:
+def transform_multiclass_metrics_dict(eval_metrics: dict[str, Any], ext_task) -> dict[str, Any]:
     return {transform_multiclass_metric(k, ext_task): v for k, v in eval_metrics.items()}
 
 
-def _get_custom_metrics(step_config: Dict, ext_task: str) -> List[Dict]:
+def _get_custom_metrics(step_config: dict, ext_task: str) -> list[dict]:  # noqa: D417
     """
     Args:
         Configuration dictionary: For the train or evaluate step.
@@ -208,7 +208,7 @@ def _get_custom_metrics(step_config: Dict, ext_task: str) -> List[Dict]:
     return custom_metrics
 
 
-def _load_custom_metrics(recipe_root: str, metrics: List[RecipeMetric]) -> List[EvaluationMetric]:
+def _load_custom_metrics(recipe_root: str, metrics: list[RecipeMetric]) -> list[EvaluationMetric]:
     custom_metrics = [metric for metric in metrics if metric.custom_function is not None]
     if not custom_metrics:
         return None

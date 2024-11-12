@@ -996,18 +996,18 @@ def autolog(
             )
             artifact_dict[param_search_estimator_name] = {}
 
-            artifact_dict[param_search_estimator_name][
-                "tuning_parameter_map_list"
-            ] = _get_tuning_param_maps(
-                param_search_estimator, autologging_metadata.uid_to_indexed_name_map
+            artifact_dict[param_search_estimator_name]["tuning_parameter_map_list"] = (
+                _get_tuning_param_maps(
+                    param_search_estimator, autologging_metadata.uid_to_indexed_name_map
+                )
             )
 
-            artifact_dict[param_search_estimator_name][
-                "tuned_estimator_parameter_map"
-            ] = _get_instance_param_map_recursively(
-                param_search_estimator.getEstimator(),
-                1,
-                autologging_metadata.uid_to_indexed_name_map,
+            artifact_dict[param_search_estimator_name]["tuned_estimator_parameter_map"] = (
+                _get_instance_param_map_recursively(
+                    param_search_estimator.getEstimator(),
+                    1,
+                    autologging_metadata.uid_to_indexed_name_map,
+                )
             )
 
         if artifact_dict:
@@ -1114,7 +1114,7 @@ def autolog(
                     input_example = None
                 mlflow.spark.log_model(
                     spark_model,
-                    artifact_path="model",
+                    "model",
                     registered_model_name=registered_model_name,
                     input_example=input_example,
                     signature=signature,
@@ -1122,7 +1122,7 @@ def autolog(
                 if _is_parameter_search_model(spark_model):
                     mlflow.spark.log_model(
                         spark_model.bestModel,
-                        artifact_path="best_model",
+                        "best_model",
                     )
             else:
                 _logger.warning(_get_warning_msg_for_skip_log_model(spark_model))

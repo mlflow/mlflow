@@ -7,6 +7,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, ErrorCode
 from mlflow.utils.os import is_windows
 from mlflow.utils.validation import (
+    MAX_TAG_VAL_LENGTH,
     _is_numeric,
     _validate_batch_log_data,
     _validate_batch_log_limits,
@@ -270,7 +271,7 @@ def test_validate_batch_log_data(monkeypatch):
     ]
     tags_with_bad_val = [
         RunTag("good-tag-key", "hi"),
-        RunTag("another-good-key", "but-bad-val" * 1000),
+        RunTag("another-good-key", "a" * (MAX_TAG_VAL_LENGTH + 1)),
     ]
     bad_kwargs = {
         "metrics": [

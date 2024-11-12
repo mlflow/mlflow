@@ -7,7 +7,7 @@ from collections import defaultdict
 from copy import deepcopy
 from functools import partial
 from json import JSONEncoder
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 from google.protobuf.descriptor import FieldDescriptor
 from google.protobuf.json_format import MessageToJson, ParseDict
@@ -265,8 +265,8 @@ def dataframe_from_parsed_json(decoded_input, pandas_orient, schema=None):
 
     Args:
         decoded_input: Parsed json - either a list or a dictionary.
-        schema: MLflow schema used when parsing the data.
         pandas_orient: pandas data frame convention used to store the data.
+        schema: MLflow schema used when parsing the data.
 
     Returns:
         pandas.DataFrame.
@@ -598,7 +598,7 @@ def get_jsonable_input(name, data):
         raise MlflowException(f"Incompatible input type:{type(data)} for input {name}.")
 
 
-def dump_input_data(data, inputs_key="inputs", params: Optional[Dict[str, Any]] = None):
+def dump_input_data(data, inputs_key="inputs", params: Optional[dict[str, Any]] = None):
     """
     Args:
         data: Input data.

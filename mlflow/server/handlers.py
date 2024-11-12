@@ -11,7 +11,6 @@ import tempfile
 import time
 import urllib
 from functools import wraps
-from typing import List, Set
 
 import requests
 from flask import Response, current_app, jsonify, request, send_file
@@ -1197,8 +1196,8 @@ def get_metric_history_bulk_handler():
 
 
 def _get_sampled_steps_from_steps(
-    start_step: int, end_step: int, max_results: int, all_steps: List[int]
-) -> Set[int]:
+    start_step: int, end_step: int, max_results: int, all_steps: list[int]
+) -> set[int]:
     # NOTE: all_steps should be sorted before
     # being passed to this function
     start_idx = bisect.bisect_left(all_steps, start_step)
@@ -1835,7 +1834,7 @@ def _validate_non_local_source_contains_relative_paths(source: str):
     while (unquoted := urllib.parse.unquote_plus(source)) != source:
         source = unquoted
     source_path = re.sub(r"/+", "/", urllib.parse.urlparse(source).path.rstrip("/"))
-    if "\x00" in source_path:
+    if "\x00" in source_path or any(p == ".." for p in source.split("/")):
         raise MlflowException(invalid_source_error_message, INVALID_PARAMETER_VALUE)
     resolved_source = pathlib.Path(source_path).resolve().as_posix()
     # NB: drive split is specifically for Windows since WindowsPath.resolve() will append the
