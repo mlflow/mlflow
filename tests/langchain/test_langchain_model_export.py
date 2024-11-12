@@ -3625,16 +3625,14 @@ def chain_accepts_list_messages():
         (
             # This model is an example when the model expects a chat request
             # format input, but the input should not be converted to List[BaseMessage]
-            RunnablePassthrough.assign(
-                problem=lambda x: json.loads(x["messages"][-1]["content"])["problem"]
-            )
+            RunnablePassthrough.assign(problem=lambda x: x["messages"][-1]["content"])
             | itemgetter("problem"),
             False,
             {
                 "messages": [
                     {
                         "role": "user",
-                        "content": json.dumps({"problem": "Databricks"}),
+                        "content": "Databricks",
                     }
                 ]
             },
