@@ -2,6 +2,102 @@
 sidebar_position: 14
 ---
 
+import TOCInline from "@theme/TOCInline";
+import { APILink } from "@site/src/components/APILink";
+
 # MLflow Models
 
-{/* WIP */}
+An MLflow Model is a standard format for packaging machine learning models that can be used in a
+variety of downstream tools---for example, real-time serving through a REST API or batch inference
+on Apache Spark. The format defines a convention that lets you save a model in different "flavors"
+that can be understood by different downstream tools.
+
+<TOCInline toc={toc} maxHeadingLevel={2} minHeadingLevel={2} />
+
+## Storage Format
+
+Each MLflow Model is a directory containing arbitrary files, together with an `MLmodel`
+file in the root of the directory that can define multiple _flavors_ that the model can be viewed
+in.
+
+The **model** aspect of the MLflow Model can either be a serialized object (e.g., a pickled `scikit-learn` model)
+or a Python script (or notebook, if running in Databricks) that contains the model instance that has been defined
+with the <APILink fn="mlflow.models.set_model" /> API.
+
+Flavors are the key concept that makes MLflow Models powerful: they are a convention that deployment
+tools can use to understand the model, which makes it possible to write tools that work with models
+from any ML library without having to integrate each tool with each library. MLflow defines
+several "standard" flavors that all of its built-in deployment tools support, such as a "Python
+function" flavor that describes how to run the model as a Python function. However, libraries can
+also define and use other flavors. For example, MLflow's <APILink fn="mlflow.sklearn">`mlflow.sklearn`</APILink>
+library allows loading models back as a scikit-learn `Pipeline` object for use in code that is aware of
+scikit-learn, or as a generic Python function for use in tools that just need to apply the model
+(for example, the `mlflow deployments` tool with the option `-t sagemaker` for deploying models
+to Amazon SageMaker).
+
+### MLmodel file
+
+All of the flavors that a particular model supports are defined in its `MLmodel` file in YAML
+format. For example, running `python examples/sklearn_logistic_regression/train.py` from
+[MLflow repo](https://github.com/mlflow/mlflow/blob/master/examples/sklearn_logistic_regression/train.py)
+will create the following files under the `model` directory:
+
+```
+# Directory written by mlflow.sklearn.save_model(model, "model", input_example=...)
+model/
+├── MLmodel
+├── model.pkl
+├── conda.yaml
+├── python_env.yaml
+├── requirements.txt
+├── input_example.json (optional, only logged when input example is provided and valid during model logging)
+├── serving_input_example.json (optional, only logged when input example is provided and valid during model logging)
+└── environment_variables.txt (optional, only logged when environment variables are used during model inference)
+```
+
+And its `MLmodel` file describes two flavors:
+
+```yaml
+time_created: 2018-05-25T17:28:53.35
+
+flavors:
+  sklearn:
+    sklearn_version: 0.19.1
+    pickled_model: model.pkl
+  python_function:
+    loader_module: mlflow.sklearn
+```
+
+Apart from a **flavors** field listing the model flavors, the MLmodel YAML format can contain
+the following fields:
+
+- `time_created`: Date and time when the model was created, in UTC ISO 8601 format.
+- `run_id`: ID of the run that created the model, if the model was saved using [tracking](/tracking).
+- `signature`: [model signature](/model/signatures#model-signature) in JSON format.
+- `input_example`: reference to an artifact with [input example](/model/signatures#input-example).
+- `databricks_runtime`: Databricks runtime version and type, if the model was trained in a Databricks notebook or job.
+- `mlflow_version`: The version of MLflow that was used to log the model.
+
+### Additional Logged Files
+
+For environment recreation, we automatically log `conda.yaml`, `python_env.yaml`, and `requirements.txt` files whenever a model is logged.
+These files can then be used to reinstall dependencies using `conda` or `virtualenv` with `pip`. Please see
+:ref:`How MLflow Model Records Dependencies <how-mlflow-records-dependencies>` for more details about these files.
+
+If a model input example is provided when logging the model, two additional files `input_example.json` and `serving_input_example.json` are logged.
+See `Model Input Example <model/signatures.html#input-example>`\_ for more details.
+
+When logging a model, model metadata files (`MLmodel`, `conda.yaml`, `python_env.yaml`, `requirements.txt`) are copied to a subdirectory named `metadata`. For wheeled models, `original_requirements.txt` file is also copied.
+
+:::note
+When a model registered in the MLflow Model Registry is downloaded, a YAML file named
+`registered_model_meta` is added to the model directory on the downloader's side.
+This file contains the name and version of the model referenced in the MLflow Model Registry,
+and will be used for deployment and other purposes.
+:::
+
+:::warning attention
+If you log a model within Databricks, MLflow also creates a `metadata` subdirectory within
+the model directory. This subdirectory contains the lightweight copy of aforementioned
+metadata files for internal use.
+:::
