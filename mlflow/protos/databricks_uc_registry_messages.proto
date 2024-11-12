@@ -613,3 +613,35 @@ message LineageHeaderInfo {
   repeated Entity entities = 1;
   repeated Lineage lineages = 2;
 }
+
+enum ModelVersionLineageDirection {
+  UPSTREAM = 0;
+  DOWNSTREAM = 1;
+}
+
+message ModelVersionLineageInfo {
+  repeated Entity entities = 1;
+  optional ModelVersionLineageDirection direction = 2 [(validate_required) = true];
+}
+
+message EmitModelVersionLineageRequest {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[EmitModelVersionLineageResponse]";
+  // Name of the registered model
+  optional string name = 1 [(validate_required) = true];
+
+  // Model version
+  optional string version = 2 [(validate_required) = true];
+
+  // Model version lineage info
+  optional ModelVersionLineageInfo model_version_lineage_info = 3 [(validate_required) = true];
+}
+
+message EmitModelVersionLineageResponse {}
+
+message IsDatabricksSdkModelsArtifactRepositoryEnabledRequest {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[IsDatabricksSdkModelsArtifactRepositoryEnabledResponse]";
+}
+
+message IsDatabricksSdkModelsArtifactRepositoryEnabledResponse {
+  optional bool is_databricks_sdk_models_artifact_repository_enabled = 1 [(validate_required) = true];
+}
