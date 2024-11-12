@@ -176,7 +176,7 @@ Find out about the details of major features, changes, and deprecations below.
             <div class="grid-card">
                 <div class="content-container">
                     <div class="header">
-                        Aynchronous Artifact Logging
+                        Asynchronous Artifact Logging
                     </div>
                     <img class="card-image" src="../_static/images/logos/mlflow-logo.svg" alt="MLflow"></img>
                     <div class="body">
