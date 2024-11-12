@@ -16,7 +16,7 @@ from mlflow.models.python_api import (
     _CONTENT_TYPE_JSON,
     _serialize_input_data,
 )
-from mlflow.utils.env_manager import CONDA, VIRTUALENV
+from mlflow.utils.env_manager import CONDA, LOCAL, VIRTUALENV
 
 
 @pytest.mark.parametrize(
@@ -130,7 +130,8 @@ def test_predict_with_pip_requirements_override(env_manager):
     )
 
 
-def test_predict_with_extra_envs():
+@pytest.mark.parametrize("env_manager", [VIRTUALENV, CONDA])
+def test_predict_with_extra_envs(env_manager):
     class TestModel(mlflow.pyfunc.PythonModel):
         def predict(self, context, model_input):
             assert os.environ["TEST"] == "test"
@@ -146,6 +147,7 @@ def test_predict_with_extra_envs():
         model_uri=model_info.model_uri,
         input_data="abc",
         content_type=_CONTENT_TYPE_JSON,
+        env_manager=env_manager,
         extra_envs={"TEST": "test"},
     )
 
@@ -165,13 +167,13 @@ def test_predict_with_extra_envs_errors():
     with pytest.raises(
         MlflowException,
         match=r"Extra environment variables are only "
-        r"supported when env_manager is set to 'virtualenv'",
+        r"supported when env_manager is set to 'virtualenv' or 'conda'",
     ):
         mlflow.models.predict(
             model_uri=model_info.model_uri,
             input_data="abc",
             content_type=_CONTENT_TYPE_JSON,
-            env_manager=CONDA,
+            env_manager=LOCAL,
             extra_envs={"TEST": "test"},
         )
 

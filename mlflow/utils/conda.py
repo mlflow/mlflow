@@ -212,6 +212,7 @@ def get_or_create_conda_env(
     capture_output=False,
     env_root_dir=None,
     pip_requirements_override=None,
+    extra_envs=None,
 ):
     """Given a `Project`, creates a conda environment containing the project's dependencies if such
     a conda environment doesn't already exist. Returns the name of the conda environment.
@@ -228,6 +229,8 @@ def get_or_create_conda_env(
         env_root_dir: See doc of PyFuncBackend constructor argument `env_root_dir`.
         pip_requirements_override: If specified, install the specified python dependencies to
             the environment (upgrade if already installed).
+        extra_envs: If specified, a dictionary of extra environment variables will be passed to the
+            model inference environment.
 
     Returns:
         The name of the conda environment.
@@ -253,7 +256,9 @@ def get_or_create_conda_env(
 
     try:
         # Checks if executable for environment creation exists
-        process._exec_cmd([conda_env_create_path, "--help"], throw_on_error=False)
+        process._exec_cmd(
+            [conda_env_create_path, "--help"], throw_on_error=False, extra_env=extra_envs
+        )
     except OSError:
         raise ExecutionException(
             f"You have set the env variable {MLFLOW_CONDA_CREATE_ENV_CMD}, but "

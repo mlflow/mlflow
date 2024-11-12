@@ -152,6 +152,7 @@ class PyFuncBackend(FlavorBackend):
                 capture_output=capture_output,
                 env_root_dir=env_root_dir,
                 pip_requirements_override=pip_requirements_override,
+                extra_envs=extra_envs,
             )
 
         elif self._env_manager == em.LOCAL:

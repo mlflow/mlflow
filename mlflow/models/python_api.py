@@ -149,7 +149,8 @@ def predict(
             current os.environ are passed, and this parameter can be used to override them.
 
             .. note::
-                This parameter is only supported when `env_manager` is set to "virtualenv".
+                This parameter is only supported when `env_manager` is set to "virtualenv"
+                or "conda".
 
     Code example:
 
@@ -182,10 +183,10 @@ def predict(
         raise MlflowException.invalid_parameter_value(
             f"Content type must be one of {_CONTENT_TYPE_JSON} or {_CONTENT_TYPE_CSV}."
         )
-    if extra_envs and env_manager != _EnvManager.VIRTUALENV:
+    if extra_envs and env_manager not in (_EnvManager.VIRTUALENV, _EnvManager.CONDA):
         raise MlflowException.invalid_parameter_value(
             "Extra environment variables are only supported when env_manager is "
-            f"set to '{_EnvManager.VIRTUALENV}'."
+            f"set to '{_EnvManager.VIRTUALENV}' or '{_EnvManager.CONDA}'."
         )
 
     is_dbconnect_mode = is_databricks_connect()
