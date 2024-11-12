@@ -3610,6 +3610,9 @@ def chain_accepts_list_messages():
     return prompt | fake_chat_model | StrOutputParser()
 
 
+@pytest.mark.skipif(
+    Version(langchain.__version__) < Version("0.1.20"), reason="feature not existing"
+)
 @pytest.mark.parametrize(
     ("model", "should_convert", "input_example", "needs_env_var"),
     [
