@@ -110,11 +110,10 @@ class KeyValueType(click.ParamType):
     name = "key=value"
 
     def convert(self, value, param, ctx):
-        try:
-            key, val = value.split("=", 1)
-            return key, val
-        except ValueError:
+        if "=" not in value:
             self.fail(f"{value!r} is not a valid key value pair, expecting `key=value`", param, ctx)
+        key, val = value.split("=", 1)
+        return key, val
 
 
 @commands.command("predict")
@@ -167,7 +166,6 @@ def predict(
     data formats accepted by this function, see the following documentation:
     https://www.mlflow.org/docs/latest/models.html#built-in-deployment-tools.
     """
-    extra_envs = dict(env)
     return python_api.predict(
         model_uri=model_uri,
         input_data=input_data,
@@ -177,7 +175,7 @@ def predict(
         env_manager=env_manager,
         install_mlflow=install_mlflow,
         pip_requirements_override=pip_requirements_override,
-        extra_envs=extra_envs,
+        extra_envs=dict(env),
     )
 
 
