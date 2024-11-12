@@ -610,7 +610,7 @@ def test_mlflow_gc_with_datasets(sqlite_store):
         experiment_id = run.info.experiment_id
         mlflow.log_input(dataset)
 
-    experiments = store.search_experiments(filter_string="", view_type=ViewType.ALL)
+    experiments = store.search_experiments(view_type=ViewType.ALL)
 
     # default and datasets
     assert len(experiments) == 2
@@ -618,11 +618,13 @@ def test_mlflow_gc_with_datasets(sqlite_store):
     store.delete_experiment(experiment_id)
 
     # the new experiment is only marked as deleted, not removed
-    experiments = store.search_experiments(filter_string="", view_type=ViewType.ALL)
+    experiments = store.search_experiments(view_type=ViewType.ALL)
     assert len(experiments) == 2
 
-    subprocess.check_output(["mlflow", "gc", "--backend-store-uri", sqlite_store[1]])
-    experiments = store.search_experiments(filter_string="", view_type=ViewType.ALL)
+    subprocess.check_call(
+        [sys.executable, "-m", "mlflow", "gc", "--backend-store-uri", sqlite_store[1]]
+    )
+    experiments = store.search_experiments(view_type=ViewType.ALL)
 
     # only default is left after GC
     assert len(experiments) == 1

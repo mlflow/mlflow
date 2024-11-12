@@ -20,6 +20,10 @@ depends_on = None
 
 def upgrade():
     dialect_name = op.get_context().dialect.name
+
+    # standardize the constraint to sqlite naming convention
+    new_fk_constraint_name = f"fk_{SqlDataset.__tablename__}_experiment_id_{SqlExperiment.__tablename__}"
+
     if dialect_name == "sqlite":
         # Only way to drop unnamed fk constraint in sqllite
         # See https://alembic.sqlalchemy.org/en/latest/batch.html#dropping-unnamed-or-named-foreign-key-constraints
@@ -30,10 +34,10 @@ def upgrade():
                 "fk": "fk_%(table_name)s_%(column_0_name)s_%(referred_table_name)s",
             },
         ) as batch_op:
-            batch_op.drop_constraint(f"fk_{SqlDataset.__tablename__}_experiment_id_{SqlExperiment.__tablename__}", type_="foreignkey")
+            batch_op.drop_constraint(new_fk_constraint_name, type_="foreignkey")
             # Need to explicitly name the fk constraint with batch alter table
             batch_op.create_foreign_key(
-                f"fk_{SqlDataset.__tablename__}_experiment_id_{SqlExperiment.__tablename__}",
+                new_fk_constraint_name,
                 SqlExperiment.__tablename__,
                 ["experiment_id"],
                 ["experiment_id"],
@@ -48,12 +52,9 @@ def upgrade():
             # mssql fk constraint name at f5a4f2784254
             fk_constraint_name = f"FK__{SqlDataset.__tablename__}__experi__6477ECF3"
 
-        # don't use batch alter table here so `create_foreign_key()` can be
-        # called with `None` as the `constraint_name` and have it set
-        # automatically based on the conventions of the sql flavor
         op.drop_constraint(fk_constraint_name, SqlDataset.__tablename__, type_="foreignkey")
         op.create_foreign_key(
-            None,
+            new_fk_constraint_name,
             SqlDataset.__tablename__,
             SqlExperiment.__tablename__,
             ["experiment_id"],
