@@ -1,5 +1,61 @@
 # CHANGELOG
 
+## 2.18.0rc0 (2024-11-12)
+
+MLflow 2.18.0rc0 includes several major features and improvements
+
+Features:
+
+- [Tracking] [2/x] Support non-OAI providers as LLM judges for GenAI metrics. (#13717, @B-Step62)
+- [UI] MLflow UI sync (#13685, @daniellok-db)
+- [Tracking] [1/x] Support custom headers and proxy URL for LLM-as-a-Judge model (#13715, @B-Step62)
+- [Tracking] Adding to_dict as a method for model config (#13660, @sunishsheth2009)
+- [] Add environment variable detection in model logging (#13584, @serena-ruan)
+- [Tracking] Make autolog enabling / disabling thread-safe (#13419, @WeichenXu123)
+- [Models] Add Huggingfaces Evaluate BLEU metrics (#12799, @nebrass)
+- [Models] DSPy auto tracing (#13543, @B-Step62)
+- [Tracking] Make MLflow run thread-safe (#13456, @WeichenXu123)
+- [Tracking] [FOLLOW-UP] Simplify Spark udf serverless API and add doc section (#13496, @WeichenXu123)
+- [Tracking] OpenAI Swarm tracing support (#13497, @B-Step62)
+- [Scoring] Add model_config param for pyfunc.spark_udf (#13517, @WeichenXu123)
+- [Scoring] Make spark_udf support Databricks Serverless, Databricks connect, and prebuilt python environment (#13276, @WeichenXu123)
+- [UI] Update trace UI bundles (#13357, @daniellok-db)
+- [Tracking] Make DSPy wrapper compatible with single string output (#13345, @chenmoneygithub)
+- [Tracking] Adding resources to be passed in via langchain log_model (#13315, @sunishsheth2009)
+- [UI] Allow visualizing and comparing nested params (#13012, @jescalada)
+- [Tracking] LlamaIndex workflow logging (#13277, @B-Step62)
+- [UI] Add Artifact support for Compare Run page (#13145, @jescalada)
+- [] Standardize retriever span outputs to a list of MLflow `Document`s (#13242, @daniellok-db)
+- [Models] Add dspy flavor to MLflow (#13131, @chenmoneygithub)
+- [Tracking] [MLflow] Support multiple retrievers schema via set_retriever_schema (#13246, @sunishsheth2009)
+
+Bug fixes:
+
+- [] Cascade deletes to datasets when deleting experiments (#13741, @daniellok-db)
+- [Tracking] Fix async logging batch splitting validation rule (#13722, @WeichenXu123)
+- [] Fix langchain pyfunc predict input conversion (#13652, @serena-ruan)
+- [Tracking] Fix LangChain autologging thread-safety issue (#13672, @B-Step62)
+- [Tracking] Fix tracing source run (#13610, @WeichenXu123)
+- [Tracking] [2.18 release-blocker] Fix spark autologging (#13599, @WeichenXu123)
+- [Models] Fix signature inference for subclass and Optional dataclasses (#13440, @bbqiu)
+- [Tracking] Fix mlflow DSPy tests (#13369, @chenmoneygithub)
+- [Tracking] Mark `role` and `index` as required for chat schema (#13279, @chenmoneygithub)
+- [Models] Update Databricks dependency extraction to handle the partner package. (#13266, @B-Step62)
+
+Documentation updates:
+
+- [] Add docstring warnings for upcoming changes to ChatModel (#13730, @stevenchen-db)
+- [Docs] Add doc on how to use code paths for custom library (#13702, @TomeHirata)
+- [Docs] Improve sparkML log_model doc (#13684, @WeichenXu123)
+- [Tracking] [Docs] Updating the docs for model config in logging model as code (#13631, @sunishsheth2009)
+- [Docs / Models] DSPy flavor docs (#13289, @michael-berk)
+- [Docs] Add contribution guide for tracing (#13333, @B-Step62)
+- [Tracking] Add run_id parameter to the search_trace API (#13251, @B-Step62)
+
+Small bug fixes and documentation updates:
+
+#13744, #13699, #13742, #13703, #13669, #13682, #13569, #13563, #13562, #13539, #13537, #13533, #13408, #13295, @serena-ruan; #13768, #13764, #13761, #13738, #13737, #13735, #13734, #13723, #13726, #13662, #13692, #13689, #13688, #13680, #13674, #13666, #13661, #13625, #13460, #13626, #13546, #13621, #13623, #13603, #13617, #13614, #13606, #13600, #13583, #13601, #13602, #13604, #13598, #13596, #13597, #13531, #13594, #13589, #13581, #13112, #13587, #13582, #13579, #13578, #13545, #13572, #13571, #13564, #13559, #13565, #13558, #13541, #13560, #13556, #13534, #13386, #13532, #13385, #13384, #13383, #13507, #13523, #13518, #13492, #13493, #13487, #13490, #13488, #13449, #13471, #13417, #13445, #13430, #13448, #13443, #13429, #13418, #13412, #13382, #13402, #13381, #13364, #13356, #13309, #13313, #13334, #13331, #13273, #13322, #13319, #13308, #13302, #13268, #13298, #13296, @harupy; #13705, @williamjamir; #13632, @shichengzhou-db; #13755, #13712, #13260, @BenWilson2; #13745, #13743, #13697, #13548, #13549, #13577, #13349, #13351, #13350, #13342, #13341, @WeichenXu123; #13749, #13733, #13678, #13721, #13611, #13528, #13444, #13450, #13360, #13416, #13415, #13336, #13305, #13271, @B-Step62; #13708, @smurching; #13739, @fedorkobak; #13728, #13719, #13695, #13677, @TomeHirata; #13736, #13649, #13285, #13292, #13282, #13283, #13267, @daniellok-db; #13711, @bhavya2109sharma; #13693, #13658, @aravind-segu; #13553, @dsuhinin; #13663, @gitlijian; #13657, #13629, @parag-shendye; #13630, @JohannesJungbluth; #13613, @itepifanio; #13480, @agjendem; #13627, @ilyaresh; #13592, #13410, #13358, #13233, @nojaf; #13505, @sunishsheth2009; #13414, @lmoros-DB; #13399, @Abubakar17; #13390, @KekmaTime; #13291, @michael-berk; #12511, @jgiannuzzi; #13265, @Ahar28
+
 ## 2.17.2 (2024-10-31)
 
 MLflow 2.17.2 includes several major features and improvements
