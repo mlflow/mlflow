@@ -10,7 +10,7 @@ from langchain.schema import ChatMessage as LangChainChatMessage
 from packaging.version import Version
 
 from mlflow.environment_variables import (
-    MLFLOW_CONVERT_MESSAGES_DICT_TO_FOR_LANGCHAIN,
+    MLFLOW_CONVERT_MESSAGES_DICT_FOR_LANGCHAIN,
 )
 from mlflow.exceptions import MlflowException
 from mlflow.types.schema import Array, ColSpec, DataType, Schema
@@ -296,7 +296,7 @@ def transform_request_json_for_chat_if_necessary(request_json, lc_model):
             json_dict_might_be_chat_request(message) for message in json_message
         )
 
-    should_convert = MLFLOW_CONVERT_MESSAGES_DICT_TO_FOR_LANGCHAIN.get()
+    should_convert = MLFLOW_CONVERT_MESSAGES_DICT_FOR_LANGCHAIN.get()
     if should_convert is None:
         should_convert = should_transform_requst_json_for_chat(lc_model) and (
             json_dict_might_be_chat_request(request_json) or is_list_of_chat_messages(request_json)
@@ -305,7 +305,7 @@ def transform_request_json_for_chat_if_necessary(request_json, lc_model):
             _logger.debug(
                 "Converting the request JSON to LangChain's Message format. "
                 "To disable this conversion, set the environment variable "
-                f"`{MLFLOW_CONVERT_MESSAGES_DICT_TO_FOR_LANGCHAIN}` to 'false'."
+                f"`{MLFLOW_CONVERT_MESSAGES_DICT_FOR_LANGCHAIN}` to 'false'."
             )
 
     if should_convert:

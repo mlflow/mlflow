@@ -26,7 +26,7 @@ from langchain.chains.qa_with_sources import load_qa_with_sources_chain
 from langchain.evaluation.qa import QAEvalChain
 
 from mlflow.environment_variables import (
-    MLFLOW_CONVERT_MESSAGES_DICT_TO_FOR_LANGCHAIN,
+    MLFLOW_CONVERT_MESSAGES_DICT_FOR_LANGCHAIN,
 )
 from mlflow.tracing.export.inference_table import pop_trace
 from mlflow.tracing.provider import reset_tracer_setup
@@ -3623,6 +3623,8 @@ def chain_accepts_list_messages():
             False,
         ),
         (
+            # This model is an example when the model expects a chat request
+            # format input, but the input should not be converted to List[BaseMessage]
             RunnablePassthrough.assign(
                 problem=lambda x: json.loads(x["messages"][-1]["content"])["problem"]
             )
@@ -3652,7 +3654,7 @@ def test_pyfunc_converts_chat_request_correctly(
 
     if needs_env_var:
         monkeypatch.setenv(
-            MLFLOW_CONVERT_MESSAGES_DICT_TO_FOR_LANGCHAIN.name,
+            MLFLOW_CONVERT_MESSAGES_DICT_FOR_LANGCHAIN.name,
             str(should_convert),
         )
     # pyfunc model can accepts chat request format even the chain
