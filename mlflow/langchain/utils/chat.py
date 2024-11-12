@@ -218,15 +218,6 @@ def try_transform_response_iter_to_chat_format(chunk_iter):
 
 
 def _convert_chat_request_or_throw(chat_request: dict):
-    try:
-        from langchain_core.messages.utils import convert_to_messages
-
-        return convert_to_messages(chat_request["messages"])
-    except ImportError:
-        pass
-
-    # it's safe to drop below when langchain >= 0.1.20
-    # TODO: drop this once we updated minimum supported langchain version
     if IS_PYDANTIC_V1:
         model = _ChatRequest.parse_obj(chat_request)
     else:
@@ -315,7 +306,7 @@ def transform_request_json_for_chat_if_necessary(request_json, lc_model):
         try:
             return convert_chat_request(request_json), True
         # we should catch all exceptions here including pydantic validation errors
-        except Exception:
+        except pydantic.ValidationError:
             return request_json, False
     else:
         return request_json, False
