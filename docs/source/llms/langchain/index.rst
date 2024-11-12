@@ -568,14 +568,14 @@ To disable this behavior, set the environment variable ``MLFLOW_CONVERT_MESSAGES
     from langchain.schema.runnable import RunnablePassthrough
 
     model = RunnablePassthrough.assign(
-        problem=lambda x: json.loads(x["messages"][-1]["content"])["problem"]
+        problem=lambda x: x["messages"][-1]["content"]
     ) | itemgetter("problem")
 
     input_example = {
         "messages": [
             {
                 "role": "user",
-                "content": json.dumps({"problem": "Hello"}),
+                "content": "Hello",
             }
         ]
     }
