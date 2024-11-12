@@ -105,6 +105,7 @@ def predict(
     env_manager=_EnvManager.VIRTUALENV,
     install_mlflow=False,
     pip_requirements_override=None,
+    extra_envs=None,
     # TODO: add an option to force recreating the env
 ):
     """
@@ -142,6 +143,14 @@ def predict(
                 the logged model's dependency using `mlflow.models.update_model_requirements` API
                 without re-logging it. Note that a registered model is immutable, so you need to
                 register a new model version with the updated model.
+        extra_envs: If specified, a dictionary of extra environment variables will be passed to the
+            model inference environment. This is useful for testing what environment variables are
+            needed for the model to run correctly. By default, environment variables existing in the
+            current os.environ are passed, and this parameter can be used to override them.
+
+            .. note::
+                This parameter is only supported when `env_manager` is set to "virtualenv"
+                or "conda".
 
     Code example:
 
@@ -163,6 +172,7 @@ def predict(
             input_data={"x": 1, "y": 2},
             content_type="json",
             pip_requirements_override=["scikit-learn==0.23.2"],
+            extra_envs={"OPENAI_API_KEY": "some_value"},
         )
 
     """
@@ -172,6 +182,11 @@ def predict(
     if content_type not in [_CONTENT_TYPE_JSON, _CONTENT_TYPE_CSV]:
         raise MlflowException.invalid_parameter_value(
             f"Content type must be one of {_CONTENT_TYPE_JSON} or {_CONTENT_TYPE_CSV}."
+        )
+    if extra_envs and env_manager not in (_EnvManager.VIRTUALENV, _EnvManager.CONDA):
+        raise MlflowException.invalid_parameter_value(
+            "Extra environment variables are only supported when env_manager is "
+            f"set to '{_EnvManager.VIRTUALENV}' or '{_EnvManager.CONDA}'."
         )
 
     is_dbconnect_mode = is_databricks_connect()
@@ -200,6 +215,7 @@ def predict(
             output_path=output_path,
             content_type=content_type,
             pip_requirements_override=pip_requirements_override,
+            extra_envs=extra_envs,
         )
 
     if input_data is not None and input_path is not None:
