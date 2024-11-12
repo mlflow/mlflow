@@ -26,7 +26,7 @@ from langchain.chains.qa_with_sources import load_qa_with_sources_chain
 from langchain.evaluation.qa import QAEvalChain
 
 from mlflow.environment_variables import (
-    MLFLOW_CONVERT_MESSAGES_DICT_TO_LIST_OF_BASEMESSAGES_FOR_LANGCHAIN,
+    MLFLOW_CONVERT_MESSAGES_DICT_TO_FOR_LANGCHAIN,
 )
 from mlflow.tracing.export.inference_table import pop_trace
 from mlflow.tracing.provider import reset_tracer_setup
@@ -3652,7 +3652,7 @@ def test_pyfunc_converts_chat_request_correctly(
 
     if needs_env_var:
         monkeypatch.setenv(
-            MLFLOW_CONVERT_MESSAGES_DICT_TO_LIST_OF_BASEMESSAGES_FOR_LANGCHAIN.name,
+            MLFLOW_CONVERT_MESSAGES_DICT_TO_FOR_LANGCHAIN.name,
             str(should_convert),
         )
     # pyfunc model can accepts chat request format even the chain

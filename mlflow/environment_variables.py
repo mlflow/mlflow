@@ -677,6 +677,6 @@ MLFLOW_RECORD_ENV_VARS_IN_MODEL_LOGGING = _BooleanEnvironmentVariable(
 # to a List[BaseMessage] object when invoking a PyFunc model saved with langchain flavor.
 # This takes precedence over the default behavior of trying such conversion if the model
 # is not an AgentExecutor and the input schema doesn't contain a 'messages' field.
-MLFLOW_CONVERT_MESSAGES_DICT_TO_LIST_OF_BASEMESSAGES_FOR_LANGCHAIN = _BooleanEnvironmentVariable(
-    "MLFLOW_CONVERT_MESSAGES_DICT_TO_LIST_OF_BASEMESSAGES_FOR_LANGCHAIN", None
+MLFLOW_CONVERT_MESSAGES_DICT_TO_FOR_LANGCHAIN = _BooleanEnvironmentVariable(
+    "MLFLOW_CONVERT_MESSAGES_DICT_TO_FOR_LANGCHAIN", None
 )
