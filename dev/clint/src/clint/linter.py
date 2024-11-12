@@ -371,6 +371,9 @@ class Linter(ast.NodeVisitor):
         ):
             self._check(Location.from_node(node), rules.KeywordArtifactPath())
 
+        if rules.UseSysExecutable.check(node):
+            self._check(Location.from_node(node), rules.UseSysExecutable())
+
     def visit_AnnAssign(self, node: ast.AnnAssign) -> None:
         if rules.ImplicitOptional.check(node):
             self._check(Location.from_node(node), rules.ImplicitOptional())
