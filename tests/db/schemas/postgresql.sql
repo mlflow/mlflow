@@ -184,7 +184,7 @@ CREATE TABLE params (
 
 CREATE TABLE tags (
 	key VARCHAR(250) NOT NULL,
-	value VARCHAR(5000),
+	value VARCHAR(8000),
 	run_uuid VARCHAR(32) NOT NULL,
 	CONSTRAINT tag_pk PRIMARY KEY (key, run_uuid),
 	CONSTRAINT tags_run_uuid_fkey FOREIGN KEY(run_uuid) REFERENCES runs (run_uuid)
