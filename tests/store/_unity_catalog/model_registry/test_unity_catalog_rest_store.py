@@ -1824,8 +1824,15 @@ def test_store_ignores_hive_metastore_default_from_spark_session(mock_http, spar
     )
 
 
-def test_store_use_presigned_url_store_when_disabled():
+def test_store_use_presigned_url_store_when_disabled(monkeypatch):
     store_package = "mlflow.store._unity_catalog.registry.rest_store"
+    monkeypatch.setenv("MLFLOW_USE_DATABRICKS_SDK_MODEL_ARTIFACTS_REPO_FOR_UC", "false")
+    monkeypatch.setenvs(
+        {
+            "DATABRICKS_HOST": "my-host",
+            "DATABRICKS_TOKEN": "my-token",
+        }
+    )
 
     uc_store = UcModelRegistryStore(store_uri="databricks-uc", tracking_uri="databricks-uc")
     model_version = ModelVersion(
@@ -1866,6 +1873,7 @@ def test_store_use_presigned_url_store_when_enabled(monkeypatch):
             "DATABRICKS_TOKEN": "my-token",
         }
     )
+    monkeypatch.setenv("MLFLOW_USE_DATABRICKS_SDK_MODEL_ARTIFACTS_REPO_FOR_UC", "false")
     store_package = "mlflow.store._unity_catalog.registry.rest_store"
     creds = TemporaryCredentials(storage_mode=StorageMode.DEFAULT_STORAGE)
     with mock.patch(
