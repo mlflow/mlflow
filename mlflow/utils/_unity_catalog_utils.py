@@ -1,3 +1,4 @@
+import logging
 from typing import Callable, Optional
 
 from mlflow.entities.model_registry import (
@@ -9,7 +10,17 @@ from mlflow.entities.model_registry import (
 )
 from mlflow.entities.model_registry.model_version_search import ModelVersionSearch
 from mlflow.entities.model_registry.registered_model_search import RegisteredModelSearch
+from mlflow.environment_variables import MLFLOW_USE_DATABRICKS_SDK_MODEL_ARTIFACTS_REPO_FOR_UC
 from mlflow.exceptions import MlflowException
+from mlflow.protos.databricks_uc_registry_messages_pb2 import (
+    EmitModelVersionLineageRequest,
+    EmitModelVersionLineageResponse,
+    IsDatabricksSdkModelsArtifactRepositoryEnabledRequest,
+    IsDatabricksSdkModelsArtifactRepositoryEnabledResponse,
+    ModelVersionLineageInfo,
+    SseEncryptionAlgorithm,
+    TemporaryCredentials,
+)
 from mlflow.protos.databricks_uc_registry_messages_pb2 import ModelVersion as ProtoModelVersion
 from mlflow.protos.databricks_uc_registry_messages_pb2 import (
     ModelVersionStatus as ProtoModelVersionStatus,
@@ -23,15 +34,20 @@ from mlflow.protos.databricks_uc_registry_messages_pb2 import (
 from mlflow.protos.databricks_uc_registry_messages_pb2 import (
     RegisteredModelTag as ProtoRegisteredModelTag,
 )
-from mlflow.protos.databricks_uc_registry_messages_pb2 import (
-    SseEncryptionAlgorithm,
-    TemporaryCredentials,
-)
+from mlflow.protos.databricks_uc_registry_service_pb2 import UcModelRegistryService
 from mlflow.protos.unity_catalog_oss_messages_pb2 import (
     TemporaryCredentials as TemporaryCredentialsOSS,
 )
 from mlflow.store.artifact.artifact_repo import ArtifactRepository
+from mlflow.utils.proto_json_utils import message_to_json
+from mlflow.utils.rest_utils import (
+    _REST_API_PATH_PREFIX,
+    call_endpoint,
+    extract_api_info_for_service,
+)
 
+_logger = logging.getLogger(__name__)
+_METHOD_TO_INFO = extract_api_info_for_service(UcModelRegistryService, _REST_API_PATH_PREFIX)
 _STRING_TO_STATUS = {k: ProtoModelVersionStatus.Value(k) for k in ProtoModelVersionStatus.keys()}
 _STATUS_TO_STRING = {value: key for key, value in _STRING_TO_STATUS.items()}
 _ACTIVE_CATALOG_QUERY = "SELECT current_catalog() AS catalog"
@@ -374,3 +390,55 @@ def get_full_name_from_sc(name, spark) -> str:
         return f"{catalog}.{name}"
     schema = spark.sql(_ACTIVE_SCHEMA_QUERY).collect()[0]["schema"]
     return f"{catalog}.{schema}.{name}"
+
+
+def is_databricks_sdk_models_artifact_repository_enabled(host_creds):
+    # Return early if the environment variable is set to use the SDK models artifact repository
+    if MLFLOW_USE_DATABRICKS_SDK_MODEL_ARTIFACTS_REPO_FOR_UC.defined:
+        return MLFLOW_USE_DATABRICKS_SDK_MODEL_ARTIFACTS_REPO_FOR_UC.get()
+
+    endpoint, method = _METHOD_TO_INFO[IsDatabricksSdkModelsArtifactRepositoryEnabledRequest]
+    req_body = message_to_json(IsDatabricksSdkModelsArtifactRepositoryEnabledRequest())
+    response_proto = IsDatabricksSdkModelsArtifactRepositoryEnabledResponse()
+
+    try:
+        resp = call_endpoint(
+            host_creds=host_creds,
+            endpoint=endpoint,
+            method=method,
+            json_body=req_body,
+            response_proto=response_proto,
+        )
+        return resp.is_databricks_sdk_models_artifact_repository_enabled
+    except Exception as e:
+        _logger.warning(
+            "Failed to confirm if DatabricksSDKModelsArtifactRepository should be used; "
+            f"falling back to default. Error: {e}"
+        )
+    return False
+
+
+def emit_model_version_lineage(host_creds, name, version, entities, direction):
+    endpoint, method = _METHOD_TO_INFO[EmitModelVersionLineageRequest]
+
+    req_body = message_to_json(
+        EmitModelVersionLineageRequest(
+            name=name,
+            version=version,
+            model_version_lineage_info=ModelVersionLineageInfo(
+                entities=entities,
+                direction=direction,
+            ),
+        )
+    )
+    response_proto = EmitModelVersionLineageResponse()
+    try:
+        call_endpoint(
+            host_creds=host_creds,
+            endpoint=endpoint,
+            method=method,
+            json_body=req_body,
+            response_proto=response_proto,
+        )
+    except Exception as e:
+        _logger.warning(f"Failed to emit best-effort model version lineage. Error: {e}")
