@@ -109,7 +109,9 @@ class PyFuncBackend(FlavorBackend):
         self._env_root_dir = env_root_dir
         self._environment = None
 
-    def prepare_env(self, model_uri, capture_output=False, pip_requirements_override=None):
+    def prepare_env(
+        self, model_uri, capture_output=False, pip_requirements_override=None, extra_envs=None
+    ):
         if self._environment is not None:
             return self._environment
 
@@ -141,7 +143,7 @@ class PyFuncBackend(FlavorBackend):
                 capture_output=capture_output,
                 pip_requirements_override=pip_requirements_override,
             )
-            self._environment = Environment(activate_cmd)
+            self._environment = Environment(activate_cmd, extra_env=extra_envs)
         elif self._env_manager == em.CONDA:
             conda_env_path = os.path.join(local_path, _extract_conda_env(self._config[ENV]))
             self._environment = get_or_create_conda_env(
@@ -150,6 +152,7 @@ class PyFuncBackend(FlavorBackend):
                 capture_output=capture_output,
                 env_root_dir=env_root_dir,
                 pip_requirements_override=pip_requirements_override,
+                extra_envs=extra_envs,
             )
 
         elif self._env_manager == em.LOCAL:
@@ -171,6 +174,7 @@ class PyFuncBackend(FlavorBackend):
         output_path,
         content_type,
         pip_requirements_override=None,
+        extra_envs=None,
     ):
         """
         Generate predictions using generic python model saved with MLflow. The expected format of
@@ -203,7 +207,9 @@ class PyFuncBackend(FlavorBackend):
                 ]
 
             environment = self.prepare_env(
-                local_path, pip_requirements_override=pip_requirements_override
+                local_path,
+                pip_requirements_override=pip_requirements_override,
+                extra_envs=extra_envs,
             )
 
             try:

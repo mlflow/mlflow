@@ -106,6 +106,15 @@ def serve(
     )
 
 
+class KeyValueType(click.ParamType):
+    name = "key=value"
+
+    def convert(self, value, param, ctx):
+        if "=" not in value:
+            self.fail(f"{value!r} is not a valid key value pair, expecting `key=value`", param, ctx)
+        return value.split("=", 1)
+
+
 @commands.command("predict")
 @cli_args.MODEL_URI
 @click.option(
@@ -132,13 +141,41 @@ def serve(
     help="Specify packages and versions to override the dependencies defined "
     "in the model. Must be a comma-separated string like x==y,z==a.",
 )
-def predict(**kwargs):
+@click.option(
+    "--env",
+    default=None,
+    type=KeyValueType(),
+    multiple=True,
+    help="Extra environment variables to set when running the model. Must be "
+    "key value pairs, e.g. `--env key=value`.",
+)
+def predict(
+    model_uri,
+    input_data=None,
+    input_path=None,
+    content_type=python_api._CONTENT_TYPE_JSON,
+    output_path=None,
+    env_manager=_EnvManager.VIRTUALENV,
+    install_mlflow=False,
+    pip_requirements_override=None,
+    env=None,
+):
     """
     Generate predictions in json format using a saved MLflow model. For information about the input
     data formats accepted by this function, see the following documentation:
     https://www.mlflow.org/docs/latest/models.html#built-in-deployment-tools.
     """
-    return python_api.predict(**kwargs)
+    return python_api.predict(
+        model_uri=model_uri,
+        input_data=input_data,
+        input_path=input_path,
+        content_type=content_type,
+        output_path=output_path,
+        env_manager=env_manager,
+        install_mlflow=install_mlflow,
+        pip_requirements_override=pip_requirements_override,
+        extra_envs=dict(env),
+    )
 
 
 @commands.command("prepare-env")

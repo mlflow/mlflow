@@ -1,5 +1,6 @@
 import datetime
 import json
+import os
 import sys
 from unittest import mock
 
@@ -15,7 +16,7 @@ from mlflow.models.python_api import (
     _CONTENT_TYPE_JSON,
     _serialize_input_data,
 )
-from mlflow.utils.env_manager import CONDA, VIRTUALENV
+from mlflow.utils.env_manager import CONDA, LOCAL, VIRTUALENV
 
 
 @pytest.mark.parametrize(
@@ -65,16 +66,15 @@ def test_predict(input_data, expected_data, content_type):
                 assert model_input == expected_data
             return {}
 
-    with mlflow.start_run() as run:
-        mlflow.pyfunc.log_model(
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model(
             "model",
             python_model=TestModel(),
             extra_pip_requirements=["pytest"],
         )
-        run_id = run.info.run_id
 
     mlflow.models.predict(
-        model_uri=f"runs:/{run_id}/model",
+        model_uri=model_info.model_uri,
         input_data=input_data,
         content_type=content_type,
     )
@@ -101,13 +101,12 @@ def test_predict_with_pip_requirements_override(env_manager):
 
             assert sklearn.__version__ == "1.3.0"
 
-    with mlflow.start_run() as run:
-        mlflow.pyfunc.log_model(
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model(
             "model",
             python_model=TestModel(),
             extra_pip_requirements=["scikit-learn==1.3.2", "pytest"],
         )
-        run_id = run.info.run_id
 
     requirements_override = ["xgboost==1.7.3", "scikit-learn==1.3.0"]
     if env_manager == CONDA:
@@ -123,12 +122,69 @@ def test_predict_with_pip_requirements_override(env_manager):
         requirements_override.append("conda-forge::charset-normalizer")
 
     mlflow.models.predict(
-        model_uri=f"runs:/{run_id}/model",
+        model_uri=model_info.model_uri,
         input_data={"inputs": [1, 2, 3]},
         content_type=_CONTENT_TYPE_JSON,
         pip_requirements_override=requirements_override,
         env_manager=env_manager,
     )
+
+
+@pytest.mark.parametrize("env_manager", [VIRTUALENV, CONDA])
+def test_predict_with_extra_envs(env_manager):
+    class TestModel(mlflow.pyfunc.PythonModel):
+        def predict(self, context, model_input):
+            assert os.environ["TEST"] == "test"
+            return model_input
+
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model(
+            "model",
+            python_model=TestModel(),
+        )
+
+    mlflow.models.predict(
+        model_uri=model_info.model_uri,
+        input_data="abc",
+        content_type=_CONTENT_TYPE_JSON,
+        env_manager=env_manager,
+        extra_envs={"TEST": "test"},
+    )
+
+
+def test_predict_with_extra_envs_errors():
+    class TestModel(mlflow.pyfunc.PythonModel):
+        def predict(self, context, model_input):
+            assert os.environ["TEST"] == "test"
+            return model_input
+
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model(
+            "model",
+            python_model=TestModel(),
+        )
+
+    with pytest.raises(
+        MlflowException,
+        match=r"Extra environment variables are only "
+        r"supported when env_manager is set to 'virtualenv' or 'conda'",
+    ):
+        mlflow.models.predict(
+            model_uri=model_info.model_uri,
+            input_data="abc",
+            content_type=_CONTENT_TYPE_JSON,
+            env_manager=LOCAL,
+            extra_envs={"TEST": "test"},
+        )
+
+    with pytest.raises(
+        MlflowException, match=r"An exception occurred while running model prediction"
+    ):
+        mlflow.models.predict(
+            model_uri=model_info.model_uri,
+            input_data="abc",
+            content_type=_CONTENT_TYPE_JSON,
+        )
 
 
 @pytest.fixture
@@ -169,6 +225,7 @@ def test_predict_with_input_none(mock_backend):
         output_path=None,
         content_type=_CONTENT_TYPE_CSV,
         pip_requirements_override=None,
+        extra_envs=None,
     )
 
 

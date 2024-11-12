@@ -7,6 +7,7 @@ import re
 import subprocess
 import sys
 import tempfile
+from copy import deepcopy
 from typing import Optional
 
 import yaml
@@ -834,13 +835,12 @@ class Environment:
         stdin=None,
         synchronous=True,
     ):
-        if command_env is None:
-            command_env = os.environ.copy()
-        command_env = {**self._extra_env, **command_env}
+        command_env = os.environ.copy() if command_env is None else deepcopy(command_env)
         if is_in_databricks_runtime():
             command_env.update(get_databricks_env_vars(get_tracking_uri()))
         if is_databricks_connect():
             command_env.update(_get_databricks_serverless_env_vars())
+        command_env.update(self._extra_env)
         if not isinstance(command, list):
             command = [command]
 
