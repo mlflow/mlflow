@@ -16,7 +16,14 @@ from mlflow.utils.annotations import experimental
 ARRAY_TYPE = "array"
 OBJECT_TYPE = "object"
 MAP_TYPE = "map"
+ANY_TYPE = "any"
 SPARKML_VECTOR_TYPE = "sparkml_vector"
+SUPPORTED_TYPES = Union["Array", "DataType", "Map", "Object", "AnyType", str]
+EXPECTED_TYPE_MESSAGE = (
+    "Expected mlflow.types.schema.Datatype, mlflow.types.schema.Array, "
+    "mlflow.types.schema.Object, mlflow.types.schema.Map, mlflow.types.schema.AnyType "
+    "or str for the '{arg_name}' argument, but got {passed_type}"
+)
 
 
 class DataType(Enum):
@@ -147,7 +154,7 @@ class Property:
     def __init__(
         self,
         name: str,
-        dtype: Union[DataType, "Array", "Object", "Map", str],
+        dtype: SUPPORTED_TYPES,
         required: bool = True,
     ) -> None:
         """
@@ -168,11 +175,9 @@ class Property:
                 f"Unsupported type '{dtype}', expected instance of DataType, Array, Object, Map or "
                 f"one of {[t.name for t in DataType]}"
             )
-        if not isinstance(self.dtype, (DataType, Array, Object, Map)):
+        if not isinstance(self.dtype, (DataType, Array, Object, Map, AnyType)):
             raise MlflowException(
-                "Expected mlflow.types.schema.Datatype, mlflow.types.schema.Array, "
-                "mlflow.types.schema.Object, mlflow.types.schema.Map or str for the 'dtype' "
-                f"argument, but got {self.dtype.__class__}"
+                EXPECTED_TYPE_MESSAGE.format(arg_name="dtype", passed_type=self.dtype)
             )
         self._required = required
 
@@ -242,9 +247,11 @@ class Property:
             return cls(name=name, dtype=Object.from_json_dict(**dic), required=required)
         if dtype == MAP_TYPE:
             return cls(name=name, dtype=Map.from_json_dict(**dic), required=required)
+        if dtype == ANY_TYPE:
+            return cls(name=name, dtype=AnyType(), required=required)
         return cls(name=name, dtype=dtype, required=required)
 
-    def _merge(self, prop: "Property") -> "Property":
+    def _merge(self, other: Union["Property", "AnyType"]) -> "Property":
         """
         Check if current property is compatible with another property and return
         the updated property.
@@ -281,23 +288,25 @@ class Property:
                 )
 
         """
-        if not isinstance(prop, Property):
+        if isinstance(other, AnyType):
+            return deepcopy(self)
+        if not isinstance(other, Property):
             raise MlflowException(
-                f"Can't merge property with non-property type: {type(prop).__name__}"
+                f"Can't merge property with non-property type: {type(other).__name__}"
             )
-        if self.name != prop.name:
+        if self.name != other.name:
             raise MlflowException("Can't merge properties with different names")
-        required = self.required and prop.required
-        if isinstance(self.dtype, DataType) and isinstance(prop.dtype, DataType):
-            if self.dtype == prop.dtype:
+        required = self.required and other.required
+        if isinstance(self.dtype, DataType) and isinstance(other.dtype, DataType):
+            if self.dtype == other.dtype:
                 return Property(name=self.name, dtype=self.dtype, required=required)
-            raise MlflowException(f"Properties are incompatible for {self.dtype} and {prop.dtype}")
+            raise MlflowException(f"Properties are incompatible for {self.dtype} and {other.dtype}")
 
         if (
-            isinstance(self.dtype, (Array, Object, Map))
-            and self.dtype.__class__ is prop.dtype.__class__
+            isinstance(self.dtype, (Array, Object, Map, AnyType))
+            and self.dtype.__class__ is other.dtype.__class__
         ):
-            obj = self.dtype._merge(prop.dtype)
+            obj = self.dtype._merge(other.dtype)
             return Property(name=self.name, dtype=obj, required=required)
 
         raise MlflowException("Properties are incompatible")
@@ -385,7 +394,7 @@ class Object:
             [Property.from_json_dict(**{name: prop}) for name, prop in kwargs["properties"].items()]
         )
 
-    def _merge(self, obj: "Object") -> "Object":
+    def _merge(self, other: Union["Object", "AnyType"]) -> "Object":
         """
         Check if the current object is compatible with another object and return
         the updated object.
@@ -420,12 +429,22 @@ class Object:
                 )
 
         """
-        if not isinstance(obj, Object):
-            raise MlflowException(f"Can't merge object with non-object type: {type(obj).__name__}")
-        if self == obj:
+        # Merging object type with AnyType makes all properties optional
+        if isinstance(other, AnyType):
+            return Object(
+                properties=[
+                    Property(name=prop.name, dtype=prop.dtype, required=False)
+                    for prop in self.properties
+                ]
+            )
+        if not isinstance(other, Object):
+            raise MlflowException(
+                f"Can't merge object with non-object type: {type(other).__name__}"
+            )
+        if self == other:
             return deepcopy(self)
         prop_dict1 = {prop.name: prop for prop in self.properties}
-        prop_dict2 = {prop.name: prop for prop in obj.properties}
+        prop_dict2 = {prop.name: prop for prop in other.properties}
         updated_properties = []
         # For each property in the first element, if it doesn't appear
         # later, we update required=False
@@ -448,7 +467,7 @@ class Array:
 
     def __init__(
         self,
-        dtype: Union["Array", "Map", DataType, Object, str],
+        dtype: SUPPORTED_TYPES,
     ) -> None:
         try:
             self._dtype = DataType[dtype] if isinstance(dtype, str) else dtype
@@ -457,15 +476,13 @@ class Array:
                 f"Unsupported type '{dtype}', expected instance of DataType, Array, Object, Map or "
                 f"one of {[t.name for t in DataType]}"
             )
-        if not isinstance(self.dtype, (Array, DataType, Object, Map)):
+        if not isinstance(self.dtype, (Array, DataType, Object, Map, AnyType)):
             raise MlflowException(
-                "Expected mlflow.types.schema.Array, mlflow.types.schema.Datatype, "
-                "mlflow.types.schema.Object, mlflow.types.schema.Map or str for the "
-                f"'dtype' argument, but got '{self.dtype.__class__}'"
+                EXPECTED_TYPE_MESSAGE.format(arg_name="dtype", passed_type=self.dtype)
             )
 
     @property
-    def dtype(self) -> Union["Array", DataType, Object]:
+    def dtype(self) -> Union["Array", DataType, Object, "Map", "AnyType"]:
         """The array data type."""
         return self._dtype
 
@@ -507,6 +524,8 @@ class Array:
             item_type = SparkMLVector()
         elif kwargs["items"]["type"] == MAP_TYPE:
             item_type = Map.from_json_dict(**kwargs["items"])
+        elif kwargs["items"]["type"] == ANY_TYPE:
+            item_type = AnyType()
         else:
             item_type = kwargs["items"]["type"]
 
@@ -515,26 +534,26 @@ class Array:
     def __repr__(self) -> str:
         return f"Array({self.dtype!r})"
 
-    def _merge(self, arr: "Array") -> "Array":
-        if not isinstance(arr, Array):
-            raise MlflowException(f"Can't merge array with non-array type: {type(arr).__name__}")
-        if self == arr:
+    def _merge(self, other: Union["Array", "AnyType"]) -> "Array":
+        if isinstance(other, AnyType) or self == other:
             return deepcopy(self)
+        if not isinstance(other, Array):
+            raise MlflowException(f"Can't merge array with non-array type: {type(other).__name__}")
         if isinstance(self.dtype, DataType):
-            if self.dtype == arr.dtype:
+            if self.dtype == other.dtype:
                 return Array(dtype=self.dtype)
             raise MlflowException(
                 f"Array types are incompatible for {self} with dtype={self.dtype} and "
-                f"{arr} with dtype={arr.dtype}"
+                f"{other} with dtype={other.dtype}"
             )
 
         if (
-            isinstance(self.dtype, (Array, Object, Map))
-            and self.dtype.__class__ is arr.dtype.__class__
+            isinstance(self.dtype, (Array, Object, Map, AnyType))
+            and self.dtype.__class__ is other.dtype.__class__
         ):
-            return Array(dtype=self.dtype._merge(arr.dtype))
+            return Array(dtype=self.dtype._merge(other.dtype))
 
-        raise MlflowException(f"Array type {self!r} and {arr!r} are incompatible")
+        raise MlflowException(f"Array type {self!r} and {other!r} are incompatible")
 
 
 class SparkMLVector(Array):
@@ -569,7 +588,7 @@ class Map:
     Specification used to represent a json-convertible map with string type keys.
     """
 
-    def __init__(self, value_type: Union["Array", "Map", DataType, Object, str]):
+    def __init__(self, value_type: SUPPORTED_TYPES):
         try:
             self._value_type = DataType[value_type] if isinstance(value_type, str) else value_type
         except KeyError:
@@ -577,11 +596,9 @@ class Map:
                 f"Unsupported value type '{value_type}', expected instance of DataType, Array, "
                 f"Object, Map or one of {[t.name for t in DataType]}"
             )
-        if not isinstance(self._value_type, (Array, Map, DataType, Object)):
-            raise MlflowException(
-                "Expected mlflow.types.schema.Array, mlflow.types.schema.Datatype, "
-                "mlflow.types.schema.Object, mlflow.types.schema.Map or str for "
-                f"the 'value_type' argument, but got '{self._value_type}'"
+        if not isinstance(self._value_type, (Array, Map, DataType, Object, AnyType)):
+            raise MlflowException.invalid_parameter_value(
+                EXPECTED_TYPE_MESSAGE.format(arg_name="value_type", passed_type=self._value_type)
             )
 
     @property
@@ -630,6 +647,8 @@ class Map:
             return SparkMLVector()
         if kwargs["values"]["type"] == MAP_TYPE:
             return cls(value_type=Map.from_json_dict(**kwargs["values"]))
+        if kwargs["values"]["type"] == ANY_TYPE:
+            return cls(value_type=AnyType())
         return cls(value_type=kwargs["values"]["type"])
 
     def _merge(self, map_type: "Map") -> "Map":
@@ -654,6 +673,50 @@ class Map:
         raise MlflowException(f"Map type {self!r} and {map_type!r} are incompatible")
 
 
+class AnyType:
+    def __init__(self):
+        """
+        AnyType can store any json-serializable data including None values.
+
+        .. Note::
+            AnyType should not be used to host variant types in a schema.
+            It should only be used when the field is None, or the type is not known
+            at the time of data creation. e.g. for GenAI flavors, the model output
+            could contain `None` values, and `AnyType` can be used to represent them.
+        """
+
+    def __repr__(self) -> str:
+        return "Any"
+
+    def __eq__(self, other) -> bool:
+        return isinstance(other, AnyType)
+
+    def to_dict(self):
+        return {"type": ANY_TYPE}
+
+    # @classmethod
+    # def from_json_dict(cls, **kwargs):
+    #     """
+    #     Deserialize from a json loaded dictionary.
+    #     The dictionary is expected to contain `type` keys
+    #     Example: {"type": "any"}
+    #     """
+    #     if not {"type"} <= set(kwargs.keys()):
+    #         raise MlflowException("Missing keys in Array JSON. Expected to find key `type`")
+    #     if kwargs["type"] != ANY_TYPE:
+    #         raise MlflowException(f"Type mismatch, Any expects `{ANY_TYPE}` as the type")
+    #     return cls()
+
+    def _merge(
+        self, another_type: Union["AnyType", Array, Object, Map, DataType]
+    ) -> Union["AnyType", Array, Object, Map, DataType]:
+        if self == another_type:
+            return deepcopy(self)
+        if not isinstance(another_type, (Array, Object, Map, DataType)):
+            raise MlflowException(f"Can't merge AnyType with {type(another_type).__name__}")
+        return another_type
+
+
 class ColSpec:
     """
     Specification of name and type of a single column in a dataset.
@@ -661,7 +724,7 @@ class ColSpec:
 
     def __init__(
         self,
-        type: Union[DataType, Array, Object, Map, str],
+        type: SUPPORTED_TYPES,
         name: Optional[str] = None,
         required: bool = True,
     ):
@@ -675,15 +738,11 @@ class ColSpec:
                 f"Unsupported type '{type}', expected instance of DataType or "
                 f"one of {[t.name for t in DataType]}"
             )
-        if not isinstance(self.type, (DataType, Array, Object, Map)):
-            raise TypeError(
-                "Expected mlflow.types.schema.Datatype, mlflow.types.schema.Array, "
-                "mlflow.types.schema.Object, mlflow.types.schema.Map or str for the 'type' "
-                f"argument, but got {self.type.__class__}"
-            )
+        if not isinstance(self.type, (DataType, Array, Object, Map, AnyType)):
+            raise TypeError(EXPECTED_TYPE_MESSAGE.format(arg_name="type", passed_type=self.type))
 
     @property
-    def type(self) -> Union[DataType, Array, Object, Map]:
+    def type(self) -> Union[DataType, Array, Object, Map, AnyType]:
         """The column data type."""
         return self._type
 
@@ -730,7 +789,7 @@ class ColSpec:
         """
         if not {"type"} <= set(kwargs.keys()):
             raise MlflowException("Missing keys in ColSpec JSON. Expected to find key `type`")
-        if kwargs["type"] not in [ARRAY_TYPE, OBJECT_TYPE, MAP_TYPE, SPARKML_VECTOR_TYPE]:
+        if kwargs["type"] not in [ARRAY_TYPE, OBJECT_TYPE, MAP_TYPE, SPARKML_VECTOR_TYPE, ANY_TYPE]:
             return cls(**kwargs)
         name = kwargs.pop("name", None)
         required = kwargs.pop("required", None)
@@ -746,6 +805,8 @@ class ColSpec:
             return cls(name=name, type=Map.from_json_dict(**kwargs), required=required)
         if kwargs["type"] == SPARKML_VECTOR_TYPE:
             return cls(name=name, type=SparkMLVector(), required=required)
+        if kwargs["type"] == ANY_TYPE:
+            return cls(name=name, type=AnyType(), required=required)
 
 
 class TensorInfo:

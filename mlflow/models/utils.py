@@ -25,10 +25,11 @@ from mlflow.models.model_config import _set_model_config
 from mlflow.store.artifact.utils.models import get_model_name_and_version
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.types import DataType, ParamSchema, ParamSpec, Schema, TensorSpec
-from mlflow.types.schema import Array, Map, Object, Property
+from mlflow.types.schema import AnyType, Array, Map, Object, Property
 from mlflow.types.utils import (
     TensorsNotSupportedException,
     _infer_param_schema,
+    _is_none_or_nan,
     clean_tensor_type,
 )
 from mlflow.utils.annotations import experimental
@@ -1242,12 +1243,13 @@ def _enforce_pyspark_dataframe_schema(
 
 
 def _enforce_datatype(data: Any, dtype: DataType, required=True):
-    if not required and data is None:
+    if not required and _is_none_or_nan(data):
         return None
 
     if not isinstance(dtype, DataType):
         raise MlflowException(f"Expected dtype to be DataType, got {type(dtype).__name__}")
     if not np.isscalar(data):
+        # raise Exception(f"{_is_none_or_nan(data)}, {data}, {required}")
         raise MlflowException(f"Expected data to be scalar, got {type(data).__name__}")
     # Reuse logic in _enforce_mlflow_datatype for type conversion
     pd_series = pd.Series(data)
@@ -1261,13 +1263,18 @@ def _enforce_datatype(data: Any, dtype: DataType, required=True):
 
 
 def _enforce_array(data: Any, arr: Array, required=True):
-    if not required and data is None:
-        return None
+    if not required:
+        if data is None:
+            return None
+        if isinstance(data, list) and not data:
+            return []
+        if isinstance(data, np.ndarray) and not data.tolist():
+            return np.array([])
 
     if not isinstance(data, (list, np.ndarray)):
         raise MlflowException(f"Expected data to be list or numpy array, got {type(data).__name__}")
 
-    data_enforced = [_enforce_type(x, arr.dtype) for x in data]
+    data_enforced = [_enforce_type(x, arr.dtype, required=required) for x in data]
 
     # Keep input data type
     if isinstance(data, np.ndarray):
@@ -1277,12 +1284,15 @@ def _enforce_array(data: Any, arr: Array, required=True):
 
 
 def _enforce_property(data: Any, property: Property):
-    return _enforce_type(data, property.dtype)
+    return _enforce_type(data, property.dtype, required=property.required)
 
 
 def _enforce_object(data: dict[str, Any], obj: Object, required=True):
-    if not required and data is None:
-        return None
+    if not required:
+        if data is None:
+            return None
+        if isinstance(data, dict) and not data:
+            return {}
     if HAS_PYSPARK and isinstance(data, Row):
         data = data.asDict(True)
     if not isinstance(data, dict):
@@ -1317,8 +1327,11 @@ def _enforce_object(data: dict[str, Any], obj: Object, required=True):
 
 
 def _enforce_map(data: Any, map_type: Map, required=True):
-    if not required and data is None:
-        return None
+    if not required:
+        if data is None:
+            return None
+        if isinstance(data, dict) and not data:
+            return {}
 
     if not isinstance(data, dict):
         raise MlflowException(f"Expected data to be a dict, got {type(data).__name__}")
@@ -1326,7 +1339,7 @@ def _enforce_map(data: Any, map_type: Map, required=True):
     if not all(isinstance(k, str) for k in data):
         raise MlflowException("Expected all keys in the map type data are string type.")
 
-    return {k: _enforce_type(v, map_type.value_type) for k, v in data.items()}
+    return {k: _enforce_type(v, map_type.value_type, required=required) for k, v in data.items()}
 
 
 def _enforce_type(data: Any, data_type: Union[DataType, Array, Object, Map], required=True):
@@ -1338,6 +1351,8 @@ def _enforce_type(data: Any, data_type: Union[DataType, Array, Object, Map], req
         return _enforce_object(data, data_type, required=required)
     if isinstance(data_type, Map):
         return _enforce_map(data, data_type, required=required)
+    if isinstance(data_type, AnyType):
+        return data
     raise MlflowException(f"Invalid data type: {data_type!r}")
 
 

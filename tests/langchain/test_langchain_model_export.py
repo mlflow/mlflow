@@ -2119,28 +2119,6 @@ def test_predict_with_builtin_pyfunc_chat_conversion(spark):
         "ai: What would you like to ask?\n"
         "human: Who owns MLflow?"
     )
-    example_output = {
-        "id": "some_id",
-        "object": "chat.completion",
-        "created": 1677858242,
-        "model": "some_model",
-        "choices": [
-            {
-                "index": 0,
-                "message": {
-                    "role": "assistant",
-                    "content": content,
-                },
-                "finish_reason": "stop",
-            }
-        ],
-        "usage": {
-            "prompt_tokens": 13,
-            "completion_tokens": 7,
-            "total_tokens": 20,
-        },
-    }
-    signature = infer_signature(model_input=input_example, model_output=example_output)
 
     chain = ChatModel() | StrOutputParser()
     assert chain.invoke([HumanMessage(content="Who owns MLflow?")]) == "human: Who owns MLflow?"
@@ -2148,9 +2126,7 @@ def test_predict_with_builtin_pyfunc_chat_conversion(spark):
         chain.invoke(input_example)
 
     with mlflow.start_run():
-        model_info = mlflow.langchain.log_model(
-            chain, "model_path", signature=signature, input_example=input_example
-        )
+        model_info = mlflow.langchain.log_model(chain, "model_path", input_example=input_example)
 
     loaded_model = mlflow.langchain.load_model(model_info.model_uri)
     assert (
@@ -2212,7 +2188,6 @@ def test_predict_with_builtin_pyfunc_chat_conversion_for_aimessage_response():
             {"role": "user", "content": "Who owns MLflow?"},
         ]
     }
-    signature = infer_signature(model_input=input_example)
 
     chain = ChatModel()
     result = chain.invoke([HumanMessage(content="Who owns MLflow?")])
@@ -2220,9 +2195,7 @@ def test_predict_with_builtin_pyfunc_chat_conversion_for_aimessage_response():
     assert result.content == "You own MLflow"
 
     with mlflow.start_run():
-        model_info = mlflow.langchain.log_model(
-            chain, "model_path", signature=signature, input_example=input_example
-        )
+        model_info = mlflow.langchain.log_model(chain, "model_path", input_example=input_example)
 
     loaded_model = mlflow.langchain.load_model(model_info.model_uri)
     result = loaded_model.invoke([HumanMessage(content="Who owns MLflow?")])
@@ -2364,15 +2337,15 @@ def test_pyfunc_builtin_chat_response_conversion_fails_gracefully():
             {"role": "user", "content": "Who owns MLflow?"},
         ]
     }
-    signature = infer_signature(model_input=input_example)
 
     with mlflow.start_run():
         logged_model = mlflow.langchain.log_model(
             chain,
             "langchain_model",
-            signature=signature,
             input_example=input_example,
         )
+    assert logged_model.signature is not None
+    assert logged_model.signature.outputs is not None
     loaded_model = mlflow.pyfunc.load_model(logged_model.model_uri)
     result = loaded_model.predict(input_example)
     # Verify that the chat request format was converted into LangChain messages correctly, but

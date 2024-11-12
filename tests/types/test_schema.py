@@ -18,6 +18,7 @@ from mlflow.models.utils import _enforce_tensor_spec
 from mlflow.pyfunc import _parse_spark_datatype
 from mlflow.types import DataType
 from mlflow.types.schema import (
+    AnyType,
     Array,
     ColSpec,
     Object,
@@ -1663,16 +1664,11 @@ def test_schema_inference_with_empty_lists():
     data = [["a", "b", "c"], ["a", "b", "c", "d"], None]
     assert _infer_schema(data) == Schema([ColSpec(Array(DataType.string))])
 
+    data = [[None, np.nan]]
+    assert _infer_schema(data) == Schema([ColSpec(Array(AnyType()))])
+
     # Nested list contains only an empty list is not allowed.
     data = [[]]
-    with pytest.raises(
-        MlflowException,
-        match=r"A column of nested array type must include at least one non-empty array.",
-    ):
-        _infer_schema(data)
-
-    # This case is also considered as empty list, because None and np.nan are skipped.
-    data = [[None, np.nan]]
     with pytest.raises(
         MlflowException,
         match=r"A column of nested array type must include at least one non-empty array.",
@@ -1846,3 +1842,86 @@ def test_convert_dataclass_to_schema_invalid():
         match=re.escape(r"Unsupported field type dict[str, int] in dataclass InvalidDataclass"),
     ):
         convert_dataclass_to_schema(InvalidDataclassWithDict)
+
+
+@pytest.mark.parametrize(
+    ("data", "expected_schema"),
+    [
+        (None, Schema([ColSpec(AnyType())])),
+        ({"a": None}, Schema([ColSpec(type=AnyType(), name="a", required=False)])),
+        ({"a": [None]}, Schema([ColSpec(type=Array(AnyType()), name="a", required=False)])),
+        (
+            {"a": [None, "string"]},
+            Schema([ColSpec(type=Array(DataType.string), name="a", required=False)]),
+        ),
+        (
+            {"a": {"x": None}},
+            Schema([ColSpec(type=Object([Property("x", AnyType())]), name="a")]),
+        ),
+        (
+            [
+                {
+                    "messages": [
+                        {
+                            "content": "You are a helpful assistant.",
+                            "additional_kwargs": {},
+                            "response_metadata": {},
+                            "type": "system",
+                            "name": None,
+                            "id": None,
+                        },
+                        {
+                            "content": "What would you like to ask?",
+                            "additional_kwargs": {},
+                            "response_metadata": {},
+                            "type": "ai",
+                            "name": None,
+                            "id": None,
+                            "example": False,
+                            "tool_calls": [],
+                            "invalid_tool_calls": [],
+                            "usage_metadata": None,
+                        },
+                        {
+                            "content": "Who owns MLflow?",
+                            "additional_kwargs": {},
+                            "response_metadata": {},
+                            "type": "human",
+                            "name": None,
+                            "id": None,
+                            "example": False,
+                        },
+                    ],
+                    "text": "Hello?",
+                }
+            ],
+            Schema(
+                [
+                    ColSpec(
+                        Array(
+                            Object(
+                                properties=[
+                                    Property("content", DataType.string),
+                                    Property("additional_kwargs", AnyType()),
+                                    Property("response_metadata", AnyType()),
+                                    Property("type", DataType.string),
+                                    Property("name", AnyType()),
+                                    Property("id", AnyType()),
+                                    Property("example", DataType.boolean, required=False),
+                                    Property("tool_calls", AnyType(), required=False),
+                                    Property("invalid_tool_calls", AnyType(), required=False),
+                                    Property("usage_metadata", AnyType(), required=False),
+                                ]
+                            )
+                        ),
+                        name="messages",
+                    ),
+                    ColSpec(DataType.string, name="text"),
+                ]
+            ),
+        ),
+    ],
+)
+def test_infer_schema_with_anytype(data, expected_schema):
+    inferred_schema = _infer_schema(data)
+    assert inferred_schema == expected_schema
