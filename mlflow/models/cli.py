@@ -112,8 +112,7 @@ class KeyValueType(click.ParamType):
     def convert(self, value, param, ctx):
         if "=" not in value:
             self.fail(f"{value!r} is not a valid key value pair, expecting `key=value`", param, ctx)
-        key, val = value.split("=", 1)
-        return key, val
+        return value.split("=", 1)
 
 
 @commands.command("predict")
