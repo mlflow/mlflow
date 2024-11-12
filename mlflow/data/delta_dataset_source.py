@@ -18,6 +18,7 @@ from mlflow.utils.rest_utils import (
     call_endpoint,
     extract_api_info_for_service,
 )
+from mlflow.utils.string_utils import _is_backticked
 
 DATABRICKS_HIVE_METASTORE_NAME = "hive_metastore"
 # these two catalog names both points to the workspace local default HMS (hive metastore).
@@ -27,10 +28,6 @@ DATABRICKS_LOCAL_METASTORE_NAMES = [DATABRICKS_HIVE_METASTORE_NAME, "spark_catal
 DATABRICKS_SAMPLES_CATALOG_NAME = "samples"
 
 _logger = logging.getLogger(__name__)
-
-
-def _is_backticked(s: str) -> bool:
-    return s.startswith("`") and s.endswith("`")
 
 
 class DeltaDatasetSource(DatasetSource):

@@ -129,3 +129,10 @@ def mslex_quote(s, for_cmd=True):
 
 def quote(s):
     return mslex_quote(s) if is_windows() else shlex.quote(s)
+
+
+def _is_backticked(s: str) -> bool:
+    """
+    Returns True if the given string is enclosed in backticks.
+    """
+    return s.startswith("`") and s.endswith("`")
