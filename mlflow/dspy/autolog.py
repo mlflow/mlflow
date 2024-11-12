@@ -55,6 +55,9 @@ def autolog(
 
     for cls in Teleprompter.__subclasses__():
         compile_patch = "compile"
+        # NB: This is to avoid the abstraction inheritance of superclasses that are defined
+        # only for the purposes of abstraction. The recursion behavior of the __subclasses__ dunder method
+        # will target the appropriate subclasses we need to patch.
         if hasattr(cls, compile_patch):
             safe_patch(
                 FLAVOR_NAME,
