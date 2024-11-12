@@ -242,7 +242,7 @@ def get_or_create_conda_env(
 
     try:
         # Checks if Conda executable exists
-        process._exec_cmd([conda_path, "--help"], throw_on_error=False)
+        process._exec_cmd([conda_path, "--help"], throw_on_error=False, extra_env=extra_envs)
     except OSError:
         raise ExecutionException(
             f"Could not find Conda executable at {conda_path}. "
@@ -269,6 +269,8 @@ def get_or_create_conda_env(
         )
 
     conda_extra_env_vars = _get_conda_extra_env_vars(env_root_dir)
+    if extra_envs:
+        conda_extra_env_vars.update(extra_envs)
 
     # Include the env_root_dir hash in the project_env_name,
     # this is for avoid conda env name conflicts between different CONDA_ENVS_PATH.
