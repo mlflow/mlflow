@@ -668,7 +668,15 @@ MLFLOW_MODEL_ENV_DOWNLOADING_TEMP_DIR = _EnvironmentVariable(
     "MLFLOW_MODEL_ENV_DOWNLOADING_TEMP_DIR", str, None
 )
 
-# Specifies weather to log environment variable names used during model logging.
+# Specifies whether to log environment variable names used during model logging.
 MLFLOW_RECORD_ENV_VARS_IN_MODEL_LOGGING = _BooleanEnvironmentVariable(
     "MLFLOW_RECORD_ENV_VARS_IN_MODEL_LOGGING", True
+)
+
+# Specifies whether to convert a {"messages": [{"role": "...", "content": "..."}]} input
+# to a List[BaseMessage] object when invoking a PyFunc model saved with langchain flavor.
+# This takes precedence over the default behavior of trying such conversion if the model
+# is not an AgentExecutor and the input schema doesn't contain a 'messages' field.
+MLFLOW_CONVERT_MESSAGES_DICT_FOR_LANGCHAIN = _BooleanEnvironmentVariable(
+    "MLFLOW_CONVERT_MESSAGES_DICT_FOR_LANGCHAIN", None
 )
