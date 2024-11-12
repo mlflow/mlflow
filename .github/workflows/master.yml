@@ -111,6 +111,7 @@ jobs:
         run: |
           pip install .
           ./tests/db/update_schemas.sh
+          git diff
       - name: Build
         run: |
           ./tests/db/compose.sh pull -q postgresql mysql mssql
