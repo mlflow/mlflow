@@ -71,7 +71,7 @@ def get_mock_response(messages, params):
     }
 
 
-class TestChatModel(mlflow.pyfunc.ChatModel):
+class SimpleChatModel(mlflow.pyfunc.ChatModel):
     def predict(self, context, messages: list[ChatMessage], params: ChatParams) -> ChatResponse:
         mock_response = get_mock_response(messages, params)
         return ChatResponse.from_dict(mock_response)
@@ -137,7 +137,7 @@ class ChatModelWithToolCalling(mlflow.pyfunc.ChatModel):
 
 
 def test_chat_model_save_load(tmp_path):
-    model = TestChatModel()
+    model = SimpleChatModel()
     mlflow.pyfunc.save_model(python_model=model, path=tmp_path)
 
     loaded_model = mlflow.pyfunc.load_model(tmp_path)
@@ -170,7 +170,7 @@ def test_chat_model_with_trace(tmp_path):
 
 
 def test_chat_model_save_throws_with_signature(tmp_path):
-    model = TestChatModel()
+    model = SimpleChatModel()
 
     with pytest.raises(MlflowException, match="Please remove the `signature` parameter"):
         mlflow.pyfunc.save_model(
@@ -243,7 +243,7 @@ def test_save_throws_on_invalid_output(tmp_path, ret):
 
 # test that we can predict with the model
 def test_chat_model_predict(tmp_path):
-    model = TestChatModel()
+    model = SimpleChatModel()
     mlflow.pyfunc.save_model(python_model=model, path=tmp_path)
 
     loaded_model = mlflow.pyfunc.load_model(tmp_path)
@@ -285,7 +285,7 @@ def test_chat_model_predict(tmp_path):
 
 
 def test_chat_model_works_in_serving():
-    model = TestChatModel()
+    model = SimpleChatModel()
     messages = [
         {"role": "system", "content": "You are a helpful assistant"},
         {"role": "user", "content": "Hello!"},
@@ -318,7 +318,7 @@ def test_chat_model_works_in_serving():
 
 
 def test_chat_model_works_with_infer_signature_input_example(tmp_path):
-    model = TestChatModel()
+    model = SimpleChatModel()
     params_subset = {
         "max_tokens": 100,
     }
@@ -363,7 +363,7 @@ def test_chat_model_works_with_infer_signature_input_example(tmp_path):
 
 
 def test_chat_model_works_with_chat_message_input_example(tmp_path):
-    model = TestChatModel()
+    model = SimpleChatModel()
     input_example = [
         ChatMessage(role="user", content="What is Retrieval-augmented Generation?", name="chat")
     ]
@@ -394,7 +394,7 @@ def test_chat_model_works_with_chat_message_input_example(tmp_path):
 
 
 def test_chat_model_works_with_infer_signature_multi_input_example(tmp_path):
-    model = TestChatModel()
+    model = SimpleChatModel()
     params_subset = {
         "max_tokens": 100,
     }
@@ -443,7 +443,7 @@ def test_chat_model_works_with_infer_signature_multi_input_example(tmp_path):
 
 
 def test_chat_model_predict_stream(tmp_path):
-    model = TestChatModel()
+    model = SimpleChatModel()
     mlflow.pyfunc.save_model(python_model=model, path=tmp_path)
 
     loaded_model = mlflow.pyfunc.load_model(tmp_path)
