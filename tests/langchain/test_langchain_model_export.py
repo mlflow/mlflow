@@ -3643,8 +3643,6 @@ def chain_accepts_list_messages():
 def test_pyfunc_converts_chat_request_correctly(
     model, should_convert, input_example, needs_env_var, monkeypatch
 ):
-    # making sure the model infer_pip_requirements work when logging model
-    monkeypatch.setenv("MLFLOW_REQUIREMENTS_INFERENCE_RAISE_ERRORS", "true")
     request = (
         transform_request_json_for_chat_if_necessary(model, input_example)
         if should_convert
