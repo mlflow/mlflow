@@ -102,7 +102,7 @@ LLM Evaluation Metrics
 
 There are two types of LLM evaluation metrics in MLflow:
 
-1. **Heuristic-based metrics**: These metrics calculate a score for each data record (row in terms of Pandas/Spark dataframe), based on certain functions, like Rouge (:py:func:`~mlflow.metrics.rougeL`) or Flesch Kincaid (:py:func:`~mlflow.metrics.flesch_kincaid_grade_level`) or Bilingual Evaluation Understudy (BLEU) (:py:func:`~mlflow.metrics.bleu`). These metrics are similar to traditional metrics. For the list of built-in heuristic metrics and how to define a custom metric with your own function definition, see the `Heuristic-based Metrics <#heuristic-based-metrics>`_ section.
+1. **Heuristic-based metrics**: These metrics calculate a score for each data record (row in terms of Pandas/Spark dataframe), based on certain functions, such as: Rouge (:py:func:`~mlflow.metrics.rougeL`), Flesch Kincaid (:py:func:`~mlflow.metrics.flesch_kincaid_grade_level`) or Bilingual Evaluation Understudy (BLEU) (:py:func:`~mlflow.metrics.bleu`). These metrics are similar to traditional continuous value metrics. For the list of built-in heuristic metrics and how to define a custom metric with your own function definition, see the `Heuristic-based Metrics <#heuristic-based-metrics>`_ section.
 
 2. **LLM-as-a-Judge metrics**: LLM-as-a-Judge is a new type of metric that uses LLMs to score the quality of model outputs. It overcomes the limitations of heuristic-based metrics, which often miss nuances like context and semantic accuracy. LLM-as-a-Judge metrics provides a more human-like evaluation for complex language tasks while being more scalable and cost-effective than human evaluation. MLflow provides various built-in LLM-as-a-Judge metrics and supports creating custom metrics with your own prompt, grading criteria, and reference examples. See the `LLM-as-a-Judge Metrics <#llm-as-a-judge-metrics>`_ section for more details.
 
@@ -215,22 +215,17 @@ Create Custom heuristic-based LLM Evaluation Metrics
 This is very similar to creating custom traditional metrics, with the exception of returning a :py:func:`mlflow.metrics.MetricValue` instance.
 Basically you need to:
 
-1. Implement a ``eval_fn`` to define your scoring logic, it must take in 2 args ``predictions`` and ``targets``.
+1. Implement An ``eval_fn`` to define your scoring logic. This function must take in 2 args: ``predictions`` and ``targets``.
    ``eval_fn`` must return a :py:func:`mlflow.metrics.MetricValue` instance.
-2. Pass ``eval_fn`` and other arguments to ``mlflow.metrics.make_metric`` API to create the metric. 
+2. Pass ``eval_fn`` and other arguments to the ``mlflow.metrics.make_metric`` API to create the metric. 
 
-The following code creates a dummy per-row metric called ``"over_10_chars"``: if the model output is greater than 10, 
-the score is "yes" otherwise "no".
+The following code creates a dummy per-row metric called ``"over_10_chars"``; if the model output is greater than 10, 
+the score is "yes", otherwise it is "no".
 
 .. code-block:: python
 
     def eval_fn(predictions, targets):
-        scores = []
-        for i in range(len(predictions)):
-            if len(predictions[i]) > 10:
-                scores.append("yes")
-            else:
-                scores.append("no")
+        scores = ["yes" if len(pred) > 10 else "no" for pred in predictions]
         return MetricValue(
             scores=scores,
             aggregate_results=standard_aggregations(scores),
@@ -245,17 +240,15 @@ the score is "yes" otherwise "no".
 To create a custom metric that is dependent on other metrics, include those other metrics' names as an argument after ``predictions`` and ``targets``. This can be the name of a builtin metric or another custom metric.
 Ensure that you do not accidentally have any circular dependencies in your metrics, or the evaluation will fail.
 
-The following code creates a dummy per-row metric called ``"toxic_or_over_10_chars"``: if the model output is greater than 10 or the toxicity score is greater than 0.5, the score is "yes" otherwise "no".
+The following code creates a dummy per-row metric called ``"toxic_or_over_10_chars"``: if the model output is greater than 10 or the toxicity score is greater than 0.5, the score is "yes", otherwise it is "no".
 
 .. code-block:: python
 
     def eval_fn(predictions, targets, toxicity, over_10_chars):
-        scores = []
-        for i in range(len(predictions)):
-            if toxicity.scores[i] > 0.5 or over_10_chars.scores[i]:
-                scores.append("yes")
-            else:
-                scores.append("no")
+        scores = [
+            "yes" if toxicity.scores[i] > 0.5 or over_10_chars.scores[i] else "no"
+            for i in len(toxicity.scores)
+        ]
         return MetricValue(scores=scores)
 
 
@@ -296,8 +289,8 @@ The following example uses the built-in answer correctness metric for evaluation
 
 Here is the list of built-in LLM-as-a-Judge metrics. Click on the link to see the full documentation for each metric:
 
-* :py:func:`~mlflow.metrics.genai.answer_similarity`: Evaluate how similar the model generated output is compared to the information in the ground_truth.
-* :py:func:`~mlflow.metrics.genai.answer_correctness`: Evaluate how factually correct the model generated output is based on the information in the ground_truth.
+* :py:func:`~mlflow.metrics.genai.answer_similarity`: Evaluate how similar a model's generated output is compared to the information in the ground truth data.
+* :py:func:`~mlflow.metrics.genai.answer_correctness`: Evaluate how factually correct a model's generated output is based on the information within the ground truth data.
 * :py:func:`~mlflow.metrics.genai.answer_relevance`: Evaluate how relevant the model generated output is to the input (context is ignored).
 * :py:func:`~mlflow.metrics.genai.relevance`: Evaluate how relevant the model generated output is with respect to both the input and the context.
 * :py:func:`~mlflow.metrics.genai.faithfulness`: Evaluate how faithful the model generated output is based on the context provided.
@@ -305,12 +298,12 @@ Here is the list of built-in LLM-as-a-Judge metrics. Click on the link to see th
 Selecting the Judge Model
 *************************
 
-By default, MLflow use OpenAI GPT-4 model as the judge model that scores metrics. You can change the judge model by passing an override to the ``model`` argument within the metric definition.
+By default, MLflow will use OpenAI's GPT-4 model as the judge model that scores metrics. You can change the judge model by passing an override to the ``model`` argument within the metric definition.
 
 1. SaaS LLM Providers
 #####################
 
-To use SaaS LLM providers, such as OpenAI, Anthropic, set the ``model`` parameter in the metrics definition, in the format of ``<provider>:/<model-name>``. For example, to use Anthropic Claude 3.5 model as the judge model, set ``anthropic`` as the provider.
+To use SaaS LLM providers, such as OpenAI or Anthropic, set the ``model`` parameter in the metrics definition, in the format of ``<provider>:/<model-name>``. For example, to use Anthropic Claude 3.5 model as the judge model, set ``anthropic`` as the provider.
 
 .. code-block:: python
 
@@ -320,7 +313,7 @@ To use SaaS LLM providers, such as OpenAI, Anthropic, set the ``model`` paramete
         parameters={"temperature": 0, "max_tokens": 256},
     )
 
-Currently, MLflow supports ``["openai", "anthropic", "bedrock", "mistral", "togetherai"]`` as an LLM provider for the judge model. Azure OpenAI endpoints can be accessed via the ``openai:/<model-name>`` URI, by setting the environment variables, such as ``OPENAI_API_BASE``, ``OPENAI_API_TYPE``, etc.
+Currently, MLflow supports ``["openai", "anthropic", "bedrock", "mistral", "togetherai"]`` as viable LLM providers for any judge model. Azure OpenAI endpoints can be accessed via the ``openai:/<model-name>`` URI, by setting the environment variables, such as ``OPENAI_API_BASE``, ``OPENAI_API_TYPE``, etc.
 
 .. note::
 
@@ -347,7 +340,7 @@ If you are accessing SaaS LLM providers via a proxy endpoint (e.g., for security
 `MLflow AI Gateway <../deployments/index.html>`_ is a self-hosted solution that allows you to query various LLM providers in a unified interface. To use an endpoint hosted by MLflow AI Gateway:
 
 1. Start the MLflow AI Gateway server with your LLM setting by following `these steps <../deployments/index.html#quickstart>`_.
-2. Set MLflow deployment client to target the server address by using :py:func:`~mlflow.deployments.set_deployments_target()`.
+2. Set the MLflow deployment client to target the server address by using :py:func:`~mlflow.deployments.set_deployments_target()`.
 3. Set ``endpoints:/<endpoint-name>`` to the ``model`` parameter in the metrics definition.
 
 .. code-block:: python
@@ -363,7 +356,7 @@ If you are accessing SaaS LLM providers via a proxy endpoint (e.g., for security
 4. Databricks Model Serving
 ###########################
 
-If you have a model hosted on Databricks, you can use it as a judge model by setting ``endpoints:/<endpoint-name>`` to the ``model`` parameter in the metrics definition. The following code uses a Llama 3.1 405B model available via `Foundation Model API <https://docs.databricks.com/en/machine-learning/model-serving/index.html>`_.
+If you have a model hosted on Databricks, you can use it as a judge model by setting ``endpoints:/<endpoint-name>`` to the ``model`` parameter in the metrics definition. The following code uses a Llama 3.1 405B model available via the `Foundation Model API <https://docs.databricks.com/en/machine-learning/model-serving/index.html>`_.
 
 .. code-block:: python
 
@@ -385,7 +378,7 @@ By default, MLflow queries the judge LLM model with the following parameters:
     max_tokens: 200
     top_p: 1.0
 
-However, this might not be suitable for all LLM providers. For example, accessing Anthropic's Claude models on Amazon Bedrock requires ``anthropic_version`` parameter to be specified in the request payload. You can override these default parameters by passing the ``parameters`` argument to the metrics definition.
+However, this might not be suitable for all LLM providers. For example, accessing Anthropic's Claude models on Amazon Bedrock requires an ``anthropic_version`` parameter to be specified in the request payload. You can override these default parameters by passing the ``parameters`` argument to the metrics definition.
 
 .. code-block:: python
 
@@ -398,7 +391,7 @@ However, this might not be suitable for all LLM providers. For example, accessin
         },
     )
 
-Note that the parameters dictionary you pass in the ``parameters`` argument will replace the default parameters, instead of being merged with them. For example, ``top_p`` will **not** be sent to the model in the above code example.
+Note that the parameters dictionary you pass in the ``parameters`` argument will **replace the default parameters**, instead of being merged with them. For example, ``top_p`` will **not** be sent to the model in the above code example.
 
 
 Creating Custom LLM-as-a-Judge Metrics
@@ -409,7 +402,7 @@ You can also create your own LLM-as-a-Judge evaluation metrics with :py:func:`ml
 * ``name``: the name of your custom metric.
 * ``definition``: describe what's the metric doing. 
 * ``grading_prompt``: describe the scoring criteria. 
-* ``examples`` (Optional): a few input/output examples with score, they are used as a reference for LLM judge.
+* ``examples`` (Optional): a few input/output examples with scores provided; used as a reference for the LLM judge.
 
 See the :py:func:`API documentation <mlflow.metrics.genai.make_genai_metric>` for the full list of the configurations.
 
@@ -487,7 +480,7 @@ Now let's define the ``professionalism`` metric, you will see how each field is 
 Prepare Your Target Models
 --------------------------
 
-In order to evaluate your model with ``mlflow.evaluate()``, your model has to be one of the following type:
+In order to evaluate your model with ``mlflow.evaluate()``, your model has to be one of the following types:
 
 1. A :py:func:`mlflow.pyfunc.PyFuncModel` instance or a URI pointing to a logged ``mlflow.pyfunc.PyFuncModel`` model. In
    general we call that MLflow model. The 
