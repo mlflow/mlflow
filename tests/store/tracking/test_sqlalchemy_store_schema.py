@@ -109,6 +109,8 @@ def test_sqlalchemy_store_detects_schema_mismatch(db_url):
     _verify_schema(engine)
 
 
+# if this test is failing after writing a DB migration, please make sure you've
+# updated the ORM definitions in `mlflow/store/tracking/dbmodels/models.py`.
 def test_store_generated_schema_matches_base(tmp_path, db_url):
     # Create a SQLAlchemyStore against tmpfile, directly verify that tmpfile contains a
     # database with a valid schema

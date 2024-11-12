@@ -494,7 +494,7 @@ class SqlDataset(Base):
     Dataset UUID: `String` (limit 36 characters). Defined as *Non-null* in schema.
     Part of *Primary Key* for ``datasets`` table.
     """
-    experiment_id = Column(Integer, ForeignKey("experiments.experiment_id"))
+    experiment_id = Column(Integer, ForeignKey("experiments.experiment_id", ondelete="CASCADE"))
     """
     Experiment ID to which this dataset belongs: *Foreign Key* into ``experiments`` table.
     """
