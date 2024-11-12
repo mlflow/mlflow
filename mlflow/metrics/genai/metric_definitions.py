@@ -23,7 +23,9 @@ def answer_similarity(
     """
     This function will create a genai metric used to evaluate the answer similarity of an LLM
     using the model provided. Answer similarity will be assessed by the semantic similarity of the
-    output to the ``ground_truth``, which should be specified in the ``targets`` column.
+    output to the ``ground_truth``, which should be specified in the ``targets`` column. High
+    scores mean that your model outputs contain similar information as the ground_truth, while
+    low scores mean that outputs may disagree with the ground_truth.
 
     The ``targets`` eval_arg must be provided as part of the input dataset or output
     predictions. This can be mapped to a column of a different name using ``col_mapping``
@@ -32,10 +34,9 @@ def answer_similarity(
     An MlflowException will be raised if the specified version for this metric does not exist.
 
     Args:
-        model: (Optional) Model uri of an openai or gateway judge model in the format of
-            "openai:/gpt-4" or "gateway:/my-route". Defaults to
-            "openai:/gpt-4". Your use of a third party LLM service (e.g., OpenAI) for
-            evaluation may be subject to and governed by the LLM service's terms of use.
+        model: (Optional) Model uri of the judge model that will be used to compute the metric,
+            e.g., ``openai:/gpt-4``. Refer to the `LLM-as-a-Judge Metrics <https://mlflow.org/docs/latest/llms/llm-evaluate/index.html#selecting-the-llm-as-judge-model>`_
+            documentation for the supported model types and their URI format.
         metric_version: (Optional) The version of the answer similarity metric to use.
             Defaults to the latest version.
         examples: (Optional) Provide a list of examples to help the judge model evaluate the
@@ -110,6 +111,10 @@ def answer_correctness(
     This function will create a genai metric used to evaluate the answer correctness of an LLM
     using the model provided. Answer correctness will be assessed by the accuracy of the provided
     output based on the ``ground_truth``, which should be specified in the ``targets`` column.
+    High scores mean that your model outputs contain similar information as the ground_truth and
+    that this information is correct, while low scores mean that outputs may disagree with the
+    ground_truth or that the information in the output is incorrect. Note that this builds onto
+    answer_similarity.
 
     The ``targets`` eval_arg must be provided as part of the input dataset or output
     predictions. This can be mapped to a column of a different name using ``col_mapping``
@@ -118,10 +123,9 @@ def answer_correctness(
     An MlflowException will be raised if the specified version for this metric does not exist.
 
     Args:
-        model: Model uri of an openai or gateway judge model in the format of
-            "openai:/gpt-4" or "gateway:/my-route". Defaults to
-            "openai:/gpt-4". Your use of a third party LLM service (e.g., OpenAI) for
-            evaluation may be subject to and governed by the LLM service's terms of use.
+        model: (Optional) Model uri of the judge model that will be used to compute the metric,
+            e.g., ``openai:/gpt-4``. Refer to the `LLM-as-a-Judge Metrics <https://mlflow.org/docs/latest/llms/llm-evaluate/index.html#selecting-the-llm-as-judge-model>`_
+            documentation for the supported model types and their URI format.
         metric_version: The version of the answer correctness metric to use.
             Defaults to the latest version.
         examples: Provide a list of examples to help the judge model evaluate the
@@ -194,7 +198,9 @@ def faithfulness(
     """
     This function will create a genai metric used to evaluate the faithfullness of an LLM using the
     model provided. Faithfulness will be assessed based on how factually consistent the output
-    is to the ``context``.
+    is to the ``context``. High scores mean that the outputs contain information that is in
+    line with the context, while low scores mean that outputs may disagree with the context
+    (input is ignored).
 
     The ``context`` eval_arg must be provided as part of the input dataset or output
     predictions. This can be mapped to a column of a different name using ``col_mapping``
@@ -203,10 +209,9 @@ def faithfulness(
     An MlflowException will be raised if the specified version for this metric does not exist.
 
     Args:
-        model: Model uri of an openai or gateway judge model in the format of
-            "openai:/gpt-4" or "gateway:/my-route". Defaults to
-            "openai:/gpt-4". Your use of a third party LLM service (e.g., OpenAI) for
-            evaluation may be subject to and governed by the LLM service's terms of use.
+        model: (Optional) Model uri of the judge model that will be used to compute the metric,
+            e.g., ``openai:/gpt-4``. Refer to the `LLM-as-a-Judge Metrics <https://mlflow.org/docs/latest/llms/llm-evaluate/index.html#selecting-the-llm-as-judge-model>`_
+            documentation for the supported model types and their URI format.
         metric_version: The version of the faithfulness metric to use.
             Defaults to the latest version.
         examples: Provide a list of examples to help the judge model evaluate the
@@ -278,15 +283,16 @@ def answer_relevance(
     """
     This function will create a genai metric used to evaluate the answer relevance of an LLM
     using the model provided. Answer relevance will be assessed based on the appropriateness and
-    applicability of the output with respect to the input.
+    applicability of the output with respect to the input. High scores mean that your model
+    outputs are about the same subject as the input, while low scores mean that outputs may
+    be non-topical.
 
     An MlflowException will be raised if the specified version for this metric does not exist.
 
     Args:
-        model: Model uri of an openai or gateway judge model in the format of
-            "openai:/gpt-4" or "gateway:/my-route". Defaults to
-            "openai:/gpt-4". Your use of a third party LLM service (e.g., OpenAI) for
-            evaluation may be subject to and governed by the LLM service's terms of use.
+        model: (Optional) Model uri of the judge model that will be used to compute the metric,
+            e.g., ``openai:/gpt-4``. Refer to the `LLM-as-a-Judge Metrics <https://mlflow.org/docs/latest/llms/llm-evaluate/index.html#selecting-the-llm-as-judge-model>`_
+            documentation for the supported model types and their URI format.
         metric_version: The version of the answer relevance metric to use.
             Defaults to the latest version.
         examples: Provide a list of examples to help the judge model evaluate the
@@ -355,7 +361,10 @@ def relevance(
     """
     This function will create a genai metric used to evaluate the evaluate the relevance of an
     LLM using the model provided. Relevance will be assessed by the appropriateness, significance,
-    and applicability of the output with respect to the input and ``context``.
+    and applicability of the output with respect to the input and ``context``. High scores mean
+    that the model has understood the context and correct extracted relevant information from
+    the context, while low score mean that output has completely ignored the question and the
+    context and could be hallucinating.
 
     The ``context`` eval_arg must be provided as part of the input dataset or output
     predictions. This can be mapped to a column of a different name using ``col_mapping``
@@ -364,10 +373,9 @@ def relevance(
     An MlflowException will be raised if the specified version for this metric does not exist.
 
     Args:
-        model: (Optional) Model uri of an openai or gateway judge model in the format of
-            "openai:/gpt-4" or "gateway:/my-route". Defaults to
-            "openai:/gpt-4". Your use of a third party LLM service (e.g., OpenAI) for
-            evaluation may be subject to and governed by the LLM service's terms of use.
+        model: (Optional) Model uri of the judge model that will be used to compute the metric,
+            e.g., ``openai:/gpt-4``. Refer to the `LLM-as-a-Judge Metrics <https://mlflow.org/docs/latest/llms/llm-evaluate/index.html#selecting-the-llm-as-judge-model>`_
+            documentation for the supported model types and their URI format.
         metric_version: (Optional) The version of the relevance metric to use.
             Defaults to the latest version.
         examples: (Optional) Provide a list of examples to help the judge model evaluate the

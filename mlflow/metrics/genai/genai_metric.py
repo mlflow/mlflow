@@ -219,12 +219,9 @@ def make_genai_metric_from_prompt(
             scores can be parsed. The prompt may use f-string formatting to include variables.
             Corresponding variables must be passed as keyword arguments into the
             resulting metric's eval function.
-        model: (Optional) Model uri of an openai, gateway, or deployments judge model in the
-            format of "openai:/gpt-4", "gateway:/my-route",
-            "endpoints:/databricks-llama-2-70b-chat".  Defaults to "openai:/gpt-4". If using
-            Azure OpenAI, the ``OPENAI_DEPLOYMENT_NAME`` environment variable will take precedence.
-            Your use of a third party LLM service (e.g., OpenAI) for evaluation may be subject to
-            and governed by the LLM service's terms of use.
+        model: (Optional) Model uri of the judge model that will be used to compute the metric,
+            e.g., ``openai:/gpt-4``. Refer to the `LLM-as-a-Judge Metrics <https://mlflow.org/docs/latest/llms/llm-evaluate/index.html#selecting-the-llm-as-judge-model>`_
+            documentation for the supported model types and their URI format.
         parameters: (Optional) Parameters for the LLM used to compute the metric. By default, we
             set the temperature to 0.0, max_tokens to 200, and top_p to 1.0. We recommend
             setting the temperature to 0.0 for the LLM used as a judge to ensure consistent results.
@@ -357,12 +354,9 @@ def make_genai_metric(
         grading_prompt: Grading criteria of the metric.
         examples: (Optional) Examples of the metric.
         version: (Optional) Version of the metric. Currently supported versions are: v1.
-        model: (Optional) Model uri of an openai, gateway, or deployments judge model in the
-            format of "openai:/gpt-4", "gateway:/my-route",
-            "endpoints:/databricks-llama-2-70b-chat".  Defaults to "openai:/gpt-4". If using
-            Azure OpenAI, the ``OPENAI_DEPLOYMENT_NAME`` environment variable will take precedence.
-            Your use of a third party LLM service (e.g., OpenAI) for evaluation may be subject to
-            and governed by the LLM service's terms of use.
+        model: (Optional) Model uri of the judge model that will be used to compute the metric,
+            e.g., ``openai:/gpt-4``. Refer to the `LLM-as-a-Judge Metrics <https://mlflow.org/docs/latest/llms/llm-evaluate/index.html#selecting-the-llm-as-judge-model>`_
+            documentation for the supported model types and their URI format.
         grading_context_columns: (Optional) The name of the grading context column, or a list of
             grading context column names, required to compute the metric. The
             ``grading_context_columns`` are used by the LLM as a judge as additional information to
