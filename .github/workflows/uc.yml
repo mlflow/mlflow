@@ -1,0 +1,19 @@
+# .github/workflows/uc.yml
+name: UC
+
+on:
+  schedule:
+    # Run this workflow daily at 13:00 UTC
+    - cron: "0 13 * * *"
+
+jobs:
+  uc:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          # install UC server
+      - run: |
+          # install MLflow
+
+      - run: |
+          # run tests
