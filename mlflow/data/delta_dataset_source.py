@@ -29,6 +29,10 @@ DATABRICKS_SAMPLES_CATALOG_NAME = "samples"
 _logger = logging.getLogger(__name__)
 
 
+def _is_backticked(s: str) -> bool:
+    return s.startswith("`") and s.endswith("`")
+
+
 class DeltaDatasetSource(DatasetSource):
     """
     Represents the source of a dataset stored at in a delta table.
@@ -79,7 +83,8 @@ class DeltaDatasetSource(DatasetSource):
             return spark_read_op.load(self._path)
         else:
             backticked_delta_table_name = ".".join(
-                f"`{part}`" for part in self._delta_table_name.split(".")
+                f"`{part}`" if not _is_backticked(part) else part
+                for part in self._delta_table_name.split(".")
             )
             return spark_read_op.table(backticked_delta_table_name)
 
