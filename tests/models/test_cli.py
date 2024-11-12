@@ -532,8 +532,6 @@ def test_prepare_env_passes(sk_model):
             [
                 sys.executable,
                 "-m",
-                sys.executable,
-                "-m",
                 "mlflow",
                 "models",
                 "prepare-env",
