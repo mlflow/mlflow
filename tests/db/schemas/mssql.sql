@@ -179,7 +179,7 @@ CREATE TABLE params (
 
 CREATE TABLE tags (
 	key VARCHAR(250) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
-	value VARCHAR(5000) COLLATE "SQL_Latin1_General_CP1_CI_AS",
+	value VARCHAR(8000) COLLATE "SQL_Latin1_General_CP1_CI_AS",
 	run_uuid VARCHAR(32) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
 	CONSTRAINT tag_pk PRIMARY KEY (key, run_uuid),
 	CONSTRAINT "FK__tags__run_uuid__412EB0B6" FOREIGN KEY(run_uuid) REFERENCES runs (run_uuid)
@@ -198,7 +198,7 @@ CREATE TABLE trace_request_metadata (
 CREATE TABLE trace_tags (
 	key VARCHAR(250) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
 	value VARCHAR(8000) COLLATE "SQL_Latin1_General_CP1_CI_AS",
-	request_id VARCHAR(50)COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
+	request_id VARCHAR(50) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
 	CONSTRAINT trace_tag_pk PRIMARY KEY (key, request_id),
-	CONSTRAINT fk_trace_tags_request_id FOREIGN KEY(request_id) REFERENCES trace_info (request_id)
+	CONSTRAINT fk_trace_tags_request_id FOREIGN KEY(request_id) REFERENCES trace_info (request_id) ON DELETE CASCADE
 )
