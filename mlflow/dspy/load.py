@@ -1,7 +1,10 @@
+import json
 import os
 
 import cloudpickle
 
+from mlflow.dspy.callback import MlflowCallback
+from mlflow.models import Model
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.annotations import experimental
 from mlflow.utils.model_utils import (
@@ -10,6 +13,28 @@ from mlflow.utils.model_utils import (
 )
 
 _DEFAULT_MODEL_PATH = "data/model.pkl"
+
+
+def _update_dependencies_schemas_in_prediction_context(model_path, callbacks):
+    tracer = None
+    for callback in callbacks:
+        if isinstance(callback, MlflowCallback):
+            tracer = callback
+
+    if tracer is None:
+        return
+
+    model = Model.load(model_path)
+    context = tracer._prediction_context
+
+    if model.metadata and context:
+        dependencies_schemas = model.metadata.get("dependencies_schemas", {})
+        context.update(
+            dependencies_schemas={
+                dependency: json.dumps(schema)
+                for dependency, schema in dependencies_schemas.items()
+            }
+        )
 
 
 def _load_model(model_uri, dst_path=None):
@@ -22,8 +47,11 @@ def _load_model(model_uri, dst_path=None):
     model_path = flavor_conf.get("model_path", _DEFAULT_MODEL_PATH)
     with open(os.path.join(local_model_path, model_path), "rb") as f:
         loaded_wrapper = cloudpickle.load(f)
+
     # Set the global dspy settings and return the dspy wrapper.
     dspy.settings.configure(**loaded_wrapper.dspy_settings)
+
+    _update_dependencies_schemas_in_prediction_context(local_model_path, dspy.settings.callbacks)
     return loaded_wrapper
 
 
