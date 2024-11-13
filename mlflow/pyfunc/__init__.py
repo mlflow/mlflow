@@ -500,7 +500,7 @@ from mlflow.types.llm import (
     CHAT_MODEL_OUTPUT_SCHEMA,
     ChatMessage,
     ChatParams,
-    ChatResponse,
+    ChatCompletionResponse,
 )
 from mlflow.utils import (
     PYTHON_VERSION,
@@ -2949,12 +2949,12 @@ def save_model(
             context = PythonModelContext(artifacts, model_config)
             python_model.load_context(context)
             output = python_model.predict(context, messages, params)
-            if not isinstance(output, ChatResponse):
+            if not isinstance(output, ChatCompletionResponse):
                 raise MlflowException(
                     "Failed to save ChatModel. Please ensure that the model's predict() method "
-                    "returns a ChatResponse object. If your predict() method currently returns "
-                    "a dict, you can instantiate a ChatResponse using `from_dict()`, e.g. "
-                    "`ChatResponse.from_dict(output)`",
+                    "returns a ChatCompletionResponse object. If your predict() method currently returns "
+                    "a dict, you can instantiate a ChatCompletionResponse using `from_dict()`, e.g. "
+                    "`ChatCompletionResponse.from_dict(output)`",
                 )
         elif isinstance(python_model, PythonModel):
             saved_example = _save_example(mlflow_model, input_example, path, example_no_conversion)

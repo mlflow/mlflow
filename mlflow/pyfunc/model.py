@@ -9,7 +9,7 @@ import os
 import shutil
 from abc import ABCMeta, abstractmethod
 from pathlib import Path
-from typing import Any, Iterator, Optional, Union
+from typing import Any, Generator, Optional, Union
 
 import cloudpickle
 import pandas as pd
@@ -20,13 +20,11 @@ import mlflow.utils
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
 from mlflow.models.model import MLMODEL_FILE_NAME, MODEL_CODE_PATH
-from mlflow.models.rag_signatures import ChatCompletionRequest, SplitChatMessagesRequest
 from mlflow.models.signature import _extract_type_hints
 from mlflow.models.utils import _load_model_code_path
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
-from mlflow.pyfunc.utils.input_converter import _hydrate_dataclass
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
-from mlflow.types.llm import ChatMessage, ChatParams, ChatResponse
+from mlflow.types.llm import ChatMessage, ChatParams, ChatCompletionResponse, ChatCompletionChunk
 from mlflow.types.utils import _is_list_dict_str, _is_list_str
 from mlflow.utils.annotations import experimental
 from mlflow.utils.environment import (
@@ -226,33 +224,14 @@ class ChatModel(PythonModel, metaclass=ABCMeta):
 
     See the documentation of the ``predict()`` method below for details on that parameters and
     outputs that are expected by the ``ChatModel`` API.
-
-    .. warning::
-
-        In an upcoming release of MLflow, we will be requiring a ``predict_stream`` implementation,
-        changing ``ChatRequest`` to a new ``ChatCompletionRequest`` type, and changing
-        ``ChatResponse`` to a new ``ChatCompletionResponse`` type.
-
     """
 
-    def __new__(cls, *args, **kwargs):
-        _logger.warning(
-            "In an upcoming MLflow release, we will be requiring a "
-            "predict_stream implementation, changing ChatRequest to "
-            "a new ChatCompletionRequest type, and changing "
-            "ChatResponse to a new ChatCompletionResponse type."
-        )
-        return super().__new__(cls)
-
     @abstractmethod
-    def predict(self, context, messages: list[ChatMessage], params: ChatParams) -> ChatResponse:
+    def predict(
+        self, context, messages: list[ChatMessage], params: ChatParams
+    ) -> ChatCompletionResponse:
         """
         Evaluates a chat input and produces a chat output.
-
-        .. warning::
-
-            In an upcoming MLflow release, we will be changing the output type from
-            ``ChatResponse`` to a new ``ChatCompletionResponse`` type.
 
         Args:
             context: A :class:`~PythonModelContext` instance containing artifacts that the model
@@ -272,18 +251,11 @@ class ChatModel(PythonModel, metaclass=ABCMeta):
 
     def predict_stream(
         self, context, messages: list[ChatMessage], params: ChatParams
-    ) -> Iterator[ChatResponse]:
+    ) -> Generator[ChatCompletionChunk, None, None]:
         """
         Evaluates a chat input and produces a chat output.
         Overrides this function to implement a real stream prediction.
         By default, this function just yields result of `predict` function.
-
-        .. warning::
-
-            In an upcoming MLflow release, ``predict_stream`` will be returning a
-            true streaming interface that returns a generator of ``ChatCompletionChunks``
-            instead of the current behavior of yielding the entire prediction as a single
-            ``ChatResponse`` generator entry.
 
         Args:
             context: A :class:`~PythonModelContext` instance containing artifacts that the model
@@ -297,10 +269,10 @@ class ChatModel(PythonModel, metaclass=ABCMeta):
                 inference.
 
         Returns:
-            An iterator over :py:class:`ChatResponse <mlflow.types.llm.ChatResponse>` object
+            A generator over :py:class:`ChatCompletionChunk <mlflow.types.llm.ChatCompletionChunk>` object
             containing the model's response(s), as well as other metadata.
         """
-        yield self.predict(context, messages, params)
+        raise NotImplementedError()
 
 
 def _save_model_with_class_artifacts_params(  # noqa: D417
@@ -642,19 +614,6 @@ class _PythonModelPyfuncWrapper:
             elif isinstance(model_input, list) and all(isinstance(x, dict) for x in model_input):
                 keys = [x.name for x in self.signature.inputs]
                 return [{k: d[k] for k in keys} for d in model_input]
-        elif isinstance(hints.input, type) and (
-            issubclass(hints.input, ChatCompletionRequest)
-            or issubclass(hints.input, SplitChatMessagesRequest)
-        ):
-            # If the type hint is a RAG dataclass, we hydrate it
-            if isinstance(model_input, pd.DataFrame):
-                # If there are multiple rows, we should throw
-                if len(model_input) > 1:
-                    raise MlflowException(
-                        "Expected a single input for dataclass type hint, but got multiple rows"
-                    )
-                # Since single input is expected, we take the first row
-                return _hydrate_dataclass(hints.input, model_input.iloc[0])
         return model_input
 
     def predict(self, model_input, params: Optional[dict[str, Any]] = None):

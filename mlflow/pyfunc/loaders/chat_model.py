@@ -1,4 +1,4 @@
-from typing import Any, Iterator, Optional
+from typing import Any, Generator, Optional
 
 from mlflow.exceptions import MlflowException
 from mlflow.models.utils import _convert_llm_ndarray_to_list
@@ -6,7 +6,7 @@ from mlflow.protos.databricks_pb2 import INTERNAL_ERROR
 from mlflow.pyfunc.model import (
     _load_context_model_and_signature,
 )
-from mlflow.types.llm import ChatMessage, ChatParams, ChatResponse
+from mlflow.types.llm import ChatMessage, ChatParams, ChatCompletionResponse, ChatCompletionChunk
 from mlflow.utils.annotations import experimental
 
 
@@ -77,8 +77,8 @@ class _ChatModelPyfuncWrapper:
         response = self.chat_model.predict(self.context, messages, params)
         return self._response_to_dict(response)
 
-    def _response_to_dict(self, response: ChatResponse) -> dict[str, Any]:
-        if not isinstance(response, ChatResponse):
+    def _response_to_dict(self, response: ChatCompletionResponse) -> dict[str, Any]:
+        if not isinstance(response, ChatCompletionResponse):
             raise MlflowException(
                 "Model returned an invalid response. Expected a ChatResponse, but "
                 f"got {type(response)} instead.",
@@ -86,9 +86,18 @@ class _ChatModelPyfuncWrapper:
             )
         return response.to_dict()
 
+    def _streaming_response_to_dict(self, response: ChatCompletionChunk) -> dict[str, Any]:
+        if not isinstance(response, ChatCompletionChunk):
+            raise MlflowException(
+                "Model returned an invalid response. Expected a ChatCompletionChunk, but "
+                f"got {type(response)} instead.",
+                error_code=INTERNAL_ERROR,
+            )
+        return response.to_dict()
+
     def predict_stream(
         self, model_input: dict[str, Any], params: Optional[dict[str, Any]] = None
-    ) -> Iterator[dict[str, Any]]:
+    ) -> Generator[dict[str, Any], None, None]:
         """
         Args:
             model_input: Model input data in the form of a chat request.
@@ -100,5 +109,5 @@ class _ChatModelPyfuncWrapper:
             Iterator over model predictions in :py:class:`~ChatResponse` format.
         """
         messages, params = self._convert_input(model_input)
-        response = self.chat_model.predict_stream(self.context, messages, params)
-        return map(self._response_to_dict, response)
+        for response in self.chat_model.predict_stream(self.context, messages, params):
+            yield self._streaming_response_to_dict(response)
