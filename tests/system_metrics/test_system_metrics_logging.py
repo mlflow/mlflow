@@ -5,6 +5,7 @@ import pytest
 
 import mlflow
 from mlflow.system_metrics.system_metrics_monitor import SystemMetricsMonitor
+from mlflow.utils.os import is_windows
 
 
 @pytest.fixture(autouse=True)
@@ -59,9 +60,12 @@ def test_manual_system_metrics_monitor():
     assert metrics_history[-1].step > 0
 
 
-def test_automatic_system_metrics_monitor():
+@pytest.mark.parametrize(
+    ("wait_time", "exit_wait_time", "polling_freq"), [(5, 3, 0.5) if is_windows() else (2, 2, 0.2)]
+)
+def test_automatic_system_metrics_monitor(wait_time, exit_wait_time, polling_freq):
     mlflow.enable_system_metrics_logging()
-    mlflow.set_system_metrics_sampling_interval(0.2)
+    mlflow.set_system_metrics_sampling_interval(polling_freq)
     mlflow.set_system_metrics_samples_before_logging(2)
     with mlflow.start_run() as run:
         thread_names = [thread.name for thread in threading.enumerate()]
@@ -69,10 +73,10 @@ def test_automatic_system_metrics_monitor():
         assert "SystemMetricsMonitor" in thread_names
 
         # Pause for a bit to allow system metrics to be logged.
-        time.sleep(2)
+        time.sleep(wait_time)
 
     # Pause for a bit to allow the system metrics monitoring to exit.
-    time.sleep(1)
+    time.sleep(exit_wait_time)
     thread_names = [thread.name for thread in threading.enumerate()]
     # Check the system metrics monitoring thread has exited.
     assert "SystemMetricsMonitor" not in thread_names
