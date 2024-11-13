@@ -670,10 +670,11 @@ class AnyType:
         AnyType can store any json-serializable data including None values.
 
         .. Note::
-            AnyType should not be used to host variant types in a schema.
-            It should only be used when the field is None, or the type is not known
-            at the time of data creation. e.g. for GenAI flavors, the model output
-            could contain `None` values, and `AnyType` can be used to represent them.
+            AnyType should not be used to host union types in a schema.
+            It should only be used when the field is None, the type is not known
+            at the time of data creation, or the field can have multiple types.
+            e.g. for GenAI flavors, the model output could contain `None` values,
+            and `AnyType` can be used to represent them.
         """
 
     def __repr__(self) -> str:
