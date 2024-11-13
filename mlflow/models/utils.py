@@ -1249,7 +1249,6 @@ def _enforce_datatype(data: Any, dtype: DataType, required=True):
     if not isinstance(dtype, DataType):
         raise MlflowException(f"Expected dtype to be DataType, got {type(dtype).__name__}")
     if not np.isscalar(data):
-        # raise Exception(f"{_is_none_or_nan(data)}, {data}, {required}")
         raise MlflowException(f"Expected data to be scalar, got {type(data).__name__}")
     # Reuse logic in _enforce_mlflow_datatype for type conversion
     pd_series = pd.Series(data)
