@@ -3,7 +3,6 @@ sidebar_position: 17
 ---
 
 import { APILink } from "@site/src/components/APILink";
-import TOCInline from "@theme/TOCInline";
 
 # MLflow Plugins
 
@@ -30,8 +29,6 @@ The MLflow Python API supports several types of plugins:
 - **Model Registry Store**: override model registry backend logic, e.g. to log to a third-party storage solution
 - **MLflow Project backend**: override the local execution backend to execute a project on your own cluster (Databricks, kubernetes, etc.)
 - **MLflow ModelEvaluator**: Define custom model evaluator, which can be used in <APILink fn="mlflow.evaluate" /> API.
-
-<TOCInline toc={toc} maxHeadingLevel={3} minHeadingLevel={2} />
 
 ## Using an MLflow Plugin
 
@@ -173,14 +170,15 @@ plugin:
       <td>Plugins for overriding definitions of tracking APIs like `mlflow.log_metric`, `mlflow.start_run` for a specific tracking URI scheme.</td>
       <td>mlflow.tracking_store</td>
       <td>
-      The entry point value (e.g. `mlflow_test_plugin.local_store:PluginFileStore`) specifies a custom subclass of
+        The entry point value (e.g. `mlflow_test_plugin.local_store:PluginFileStore`) specifies a custom subclass of
         [mlflow.tracking.store.AbstractStore](https://github.com/mlflow/mlflow/blob/branch-1.5/mlflow/store/tracking/abstract_store.py#L8)
         (e.g., the [PluginFileStore class](https://github.com/mlflow/mlflow/blob/branch-1.5/tests/resources/mlflow-test-plugin/mlflow_test_plugin/__init__.py#L9)
         within the `mlflow_test_plugin` module).
 
         The entry point name (e.g. `file-plugin`) is the tracking URI scheme with which to associate the custom AbstractStore implementation.
 
-        Users who install the example plugin and set a tracking URI of the form `file-plugin://<path>` will use the custom AbstractStore implementation defined in `PluginFileStore`. The full tracking URI is passed to the `PluginFileStore` constructor.
+        Users who install the example plugin and set a tracking URI of the form `file-plugin://<path>` will use the custom AbstractStore implementation defined in
+        `PluginFileStore`. The full tracking URI is passed to the `PluginFileStore` constructor.
       </td>
       <td>[FileStore](https://github.com/mlflow/mlflow/blob/branch-1.5/mlflow/store/tracking/file_store.py#L80)</td>
     </tr>
@@ -301,12 +299,280 @@ plugin:
       <td>mlflow.app</td>
       <td>
         The entry point `<app_name>=<object_reference>` (e.g. `custom_app=mlflow_test_plugin.app:app`) specifies a customized flask application. This can be useful for implementing
-        request hooks for authentication/authorization, custom logging and custom flask configurations. The plugin must import `mlflow.server.app` (e.g. `from mlflow.server import app`) and may add custom configuration, middleware etc. to the app.
-        The plugin should avoid altering the existing application routes, handlers and environment variables to avoid unexpected behavior.
-        Users who install the example plugin will have a customized flask application. To run the customized flask application, use `mlflow server --app-name <app_name>`.
+        request hooks for authentication/authorization, custom logging and custom flask configurations. The plugin must import `mlflow.server.app` (e.g. `from mlflow.server import app`)
+        and may add custom configuration, middleware etc. to the app. The plugin should avoid altering the existing application routes, handlers and environment variables to avoid
+        unexpected behavior. Users who install the example plugin will have a customized flask application. To run the customized flask application, use `mlflow server --app-name <app_name>`.
       </td>
       <td>[app](https://github.com/mlflow/mlflow/blob/v2.3.0/tests/resources/mlflow-test-plugin/mlflow_test_plugin/app.py)</td>
     </tr>
 
   </tbody>
 </table>
+
+### Testing Your Plugin
+
+We recommend testing your plugin to ensure that it follows the contract expected by MLflow. For
+example, a Tracking Store plugin should contain tests verifying correctness of its
+`log_metric`, `log_param`, ... etc implementations. See also the tests for MLflow's
+reference implementations as an example:
+
+- [Example Tracking Store tests](https://github.com/mlflow/mlflow/blob/branch-1.5/tests/store/tracking/test_file_store.py)
+- [Example ArtifactRepository tests](https://github.com/mlflow/mlflow/blob/branch-1.5/tests/store/artifact/test_local_artifact_repo.py)
+- [Example RunContextProvider tests](https://github.com/mlflow/mlflow/blob/branch-1.5/tests/tracking/context/test_git_context.py)
+- [Example Model Registry Store tests](https://github.com/mlflow/mlflow/blob/branch-1.5/tests/store/model_registry/test_sqlalchemy_store.py)
+- [Example Custom MLflow Evaluator tests](https://github.com/mlflow/mlflow/blob/branch-1.23/tests/resources/mlflow-test-plugin/mlflow_test_plugin/dummy_evaluator.py)
+- [Example Custom MLflow server tests](https://github.com/mlflow/mlflow/blob/branch-2.2.0/tests/server/test_handlers.py)
+
+### Distributing Your Plugin
+
+Assuming you've structured your plugin similarly to the example plugin, you can
+[distribute it via PyPI](https://packaging.python.org/guides/distributing-packages-using-setuptools).
+
+Congrats, you've now written and distributed your own MLflow plugin!
+
+## Community Plugins
+
+### SQL Server Plugin
+
+The [mlflow-dbstore plugin](https://pypi.org/project/mlflow-dbstore/) allows MLflow to use a relational database as an artifact store.
+As of now, it has only been tested with SQL Server as the artifact store.
+
+You can install MLflow with the SQL Server plugin via:
+
+```bash
+pip install mlflow[sqlserver]
+```
+
+and then use MLflow as normal. The SQL Server artifact store support will be provided automatically.
+
+The plugin implements all of the MLflow artifact store APIs. To use SQL server as an artifact store, a database URI must be provided, as shown in the example below:
+
+```python
+db_uri = "mssql+pyodbc://username:password@host:port/database?driver=ODBC+Driver+17+for+SQL+Server"
+
+client.create_experiment(exp_name, artifact_location=db_uri)
+mlflow.set_experiment(exp_name)
+
+mlflow.onnx.log_model(onnx, "model")
+```
+
+The first time an artifact is logged in the artifact store, the plugin automatically creates an `artifacts` table in the database specified by the database URI and stores the artifact there as a BLOB.
+Subsequent logged artifacts are stored in the same table.
+
+In the example provided above, the `log_model` operation creates three entries in the database table to store the ONNX model, the MLmodel file
+and the conda.yaml file associated with the model.
+
+### Aliyun(Alibaba Cloud) OSS Plugin
+
+The [aliyunstoreplugin](https://pypi.org/project/aliyunstoreplugin/) allows MLflow to use Alibaba Cloud OSS storage as an artifact store.
+
+```bash
+pip install mlflow[aliyun-oss]
+```
+
+and then use MLflow as normal. The Alibaba Cloud OSS artifact store support will be provided automatically.
+
+The plugin implements all of the MLflow artifact store APIs.
+It expects Aliyun Storage access credentials in the `MLFLOW_OSS_ENDPOINT_URL`, `MLFLOW_OSS_KEY_ID` and `MLFLOW_OSS_KEY_SECRET` environment variables,
+so you must set these variables on both your client application and your MLflow tracking server.
+To use Aliyun OSS as an artifact store, an OSS URI of the form `oss://<bucket>/<path>` must be provided, as shown in the example below:
+
+```python
+import mlflow
+import mlflow.pyfunc
+
+
+class Mod(mlflow.pyfunc.PythonModel):
+    def predict(self, ctx, inp, params=None):
+        return 7
+
+
+exp_name = "myexp"
+mlflow.create_experiment(exp_name, artifact_location="oss://mlflow-test/")
+mlflow.set_experiment(exp_name)
+mlflow.pyfunc.log_model("model_test", python_model=Mod())
+```
+
+In the example provided above, the `log_model` operation creates three entries in the OSS storage
+`oss://mlflow-test/$RUN_ID/artifacts/model_test/`, the MLmodel file and the conda.yaml
+file associated with the model.
+
+### XetHub Plugin
+
+The [xethub plugin](https://pypi.org/project/mlflow-xethub/) allows MLflow to use XetHub storage as an artifact store.
+
+```bash
+pip install mlflow[xethub]
+```
+
+and then use MLflow as normal. The XetHub artifact store support will be provided automatically.
+
+The plugin implements all of the MLflow artifact store APIs.
+It expects XetHub access credentials through `xet login` CLI command or in the `XET_USER_EMAIL`, `XET_USER_NAME` and `XET_USER_TOKEN` environment variables,
+so you must authenticate with XetHub for both your client application and your MLflow tracking server.
+To use XetHub as an artifact store, an XetHub URI of the form `xet://<username>/<repo>/<branch>` must be provided, as shown in the example below:
+
+```python
+import mlflow
+import mlflow.pyfunc
+
+
+class Mod(mlflow.pyfunc.PythonModel):
+    def predict(self, ctx, inp, params=None):
+        return 7
+
+
+exp_name = "myexp"
+mlflow.create_experiment(
+    exp_name, artifact_location="xet://<your_username>/mlflow-test/main"
+)
+mlflow.set_experiment(exp_name)
+mlflow.pyfunc.log_model("model_test", python_model=Mod())
+```
+
+In the example provided above, the `log_model` operation creates three entries in the OSS storage `xet://mlflow-test/$RUN_ID/artifacts/model_test/`, the MLmodel file
+and the conda.yaml file associated with the model.
+
+### Deployment Plugins
+
+The following known plugins provide support for deploying models to custom serving tools using
+MLflow's [model deployment APIs](/models#deployment-plugin). See the individual plugin pages
+for installation instructions, and see the <APILink fn="mlflow.deployments">Python API docs</APILink>
+and [CLI docs](/cli#mlflow-deployments) for usage instructions and examples.
+
+- [mlflow-redisai](https://github.com/RedisAI/mlflow-redisai)
+- [mlflow-torchserve](https://github.com/mlflow/mlflow-torchserve)
+- [mlflow-algorithmia](https://github.com/algorithmiaio/mlflow-algorithmia)
+- [mlflow-ray-serve](https://github.com/ray-project/mlflow-ray-serve)
+- [mlflow-azureml](https://docs.microsoft.com/en-us/azure/machine-learning/how-to-deploy-mlflow-models)
+- [oci-mlflow](https://github.com/oracle/oci-mlflow) Leverages Oracle Cloud Infrastructure (OCI) Model Deployment
+  service for the deployment of MLflow models.
+- [mlflow-jfrog-plugin](https://github.com/jfrog/mlflow-jfrog-plugin) Optimize your artifact governance by seamlessly
+  storing them in your preferred repository within JFrog Artifactory.
+
+### Model Evaluation Plugins
+
+The following known plugins provide support for evaluating models with custom validation tools using MLflow's [mlflow.evaluate() API](/models#model-evaluation):
+
+- [mlflow-giskard](https://docs.giskard.ai/en/latest/integrations/mlflow/index.html): Detect hidden vulnerabilities in ML models, from tabular to LLMs, before moving to production.
+  Anticipate issues such as [Performance bias](https://docs.giskard.ai/en/latest/getting-started/key_vulnerabilities/performance_bias/index.html),
+  [Unrobustness](https://docs.giskard.ai/en/latest/getting-started/key_vulnerabilities/robustness/index.html), [Overconfidence](https://docs.giskard.ai/en/latest/getting-started/key_vulnerabilities/overconfidence/index.html),
+  [Underconfidence](https://docs.giskard.ai/en/latest/getting-started/key_vulnerabilities/underconfidence/index.html), [Ethical bias](https://docs.giskard.ai/en/latest/getting-started/key_vulnerabilities/ethics/index.html),
+  [Data leakage](https://docs.giskard.ai/en/latest/getting-started/key_vulnerabilities/data_leakage/index.html), [Stochasticity](https://docs.giskard.ai/en/latest/getting-started/key_vulnerabilities/stochasticity/index.html),
+  [Spurious correlation](https://docs.giskard.ai/en/latest/getting-started/key_vulnerabilities/spurious/index.html), and others. Conduct model comparisons using a wide range of tests, either through custom or domain-specific
+  test suites.
+- [mlflow-trubrics](https://github.com/trubrics/trubrics-sdk/tree/main/trubrics/integrations/mlflow): validating ML models with Trubrics
+
+### Project Backend Plugins
+
+The following known plugins provide support for running [MLflow projects](https://www.mlflow.org/docs/latest/projects.html)
+against custom execution backends.
+
+- [mlflow-yarn](https://github.com/criteo/mlflow-yarn) Running mlflow on Hadoop/YARN
+- [oci-mlflow](https://github.com/oracle/oci-mlflow) Running mlflow projects on Oracle Cloud Infrastructure (OCI)
+
+### Tracking Store Plugins
+
+The following known plugins provide support for running [MLflow Tracking Store](https://www.mlflow.org/docs/latest/tracking.html)
+against custom databases.
+
+- [mlflow-elasticsearchstore](https://github.com/criteo/mlflow-elasticsearchstore) Running MLflow Tracking Store with Elasticsearch
+
+For additional information regarding this plugin, refer to https://github.com/criteo/mlflow-elasticsearchstore/issues.
+The library is available on PyPI here : https://pypi.org/project/mlflow-elasticsearchstore/
+
+### Artifact Repository Plugins
+
+- [oci-mlflow](https://github.com/oracle/oci-mlflow) Leverages Oracle Cloud Infrastructure (OCI) Object Storage service to store MLflow models artifacts.
+
+### JFrog Artifactory MLflow plugin
+
+- [mlflow-jfrog-plugin](https://github.com/jfrog/mlflow-jfrog-plugin) Optimize your artifact governance by seamlessly storing them in your preferred repository within JFrog Artifactory.
+
+**Overview**
+
+The JFrog MLflow plugin extends MLflow functionality by replacing the default artifacts location of MLflow with JFrog Artifactory.
+Once MLflow experiments artifacts are available inside JFrog Artifactory, they become an integral part of the company's release lifecycle as any other artifact and are also covered by all the security tools provided through the JFrog platform.
+
+**Features**
+
+- Experiments artifacts log/save are performed against JFrog Artifactory
+- Experiments artifacts viewing and downloading using MLflow UI and APIs as well as JFrog UI and APIs are done against JFrog Artifactory
+- Experiments Artifacts deletion follow experiments lifecycle (automatically or through mlflow gc)
+- Changing specific experiments artifacts destination is allowed through experiment creation command (by changing artifact_location)
+
+**Installation**
+
+Install the plugin using pip, installation should be done on the mlflow tracking server.
+optionally the plugin can be installed on any client that wants to change the default artifacts location for a specific artifactory repository
+
+```bash
+pip install mlflow[jfrog]
+```
+
+or
+
+```bash
+pip install mlflow-jfrog-plugin
+```
+
+Set the JFrog Artifactory authentication token, using the ARTIFACTORY_AUTH_TOKEN environment variable:
+Preferably, for security reasons use a token with minimum permissions required rather than an admin token
+
+```bash
+export ARTIFACTORY_AUTH_TOKEN=<your artifactory token goes here>
+```
+
+Once the plugin is installed and token set, your mlflow tracking server can be started with JFrog artifactory repository as a target artifacts destination
+USe the mlflowdocumentation for additional mlflow server options
+
+```bash
+mlflow server --host <mlflow tracking server host> --port <mlflow tracking server port> --artifacts-destination artifactory://<JFrog artifactory URL>/artifactory/<repository[/optional base path]>
+```
+
+For allowing large artifacts upload to JFrog artifactory, it is advisable to increase upload timeout settings when starting th mlflow server:
+--gunicorn-opts '--timeout \<timeout in seconds\>'
+
+**Usage**
+
+MLflow model logging code example:
+
+```python
+import mlflow
+from mlflow import MlflowClient
+from transformers import pipeline
+
+mlflow.set_tracking_uri("<your mlflow tracking server uri>")
+mlflow.create_experiment("<your_exp_name>")
+classifier = pipeline(
+    "sentiment-analysis", model="michellejieli/emotion_text_classifier"
+)
+
+with mlflow.start_run():
+    mlflow.transformers.log_model(
+        transformers_model=classifier, artifact_path=MODEL_NAME
+    )
+mlflow.end_run()
+```
+
+**Configuration**
+
+Additional optional settings (set on mlflow tracking server before its started):
+to use no-ssl artifactory URL, set ARTIFACTORY_NO_SSL to true. default is false
+
+```bash
+export ARTIFACTORY_NO_SSL=true
+```
+
+to allow JFrog operations debug logging, set ARTIFACTORY_DEBUG to true. default is false
+
+```bash
+export ARTIFACTORY_DEBUG=true
+```
+
+to prevent MLflow garbage collection remove any artifacts from being removed from artifactory, set ARTIFACTORY_ARTIFACTS_DELETE_SKIP to true. default is false
+Notice this settings might cause significant storage usage and might require JFrog files retention setup.
+
+```bash
+export ARTIFACTORY_ARTIFACTS_DELETE_SKIP=true
+```
