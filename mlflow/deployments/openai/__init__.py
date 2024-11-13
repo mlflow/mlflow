@@ -1,19 +1,14 @@
-import logging
 import os
 
+from mlflow.deployments import BaseDeploymentClient
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.utils.openai_utils import (
-    REQUEST_URL_CHAT,
     _OAITokenHolder,
     _OpenAIApiConfig,
     _OpenAIEnvVar,
 )
 from mlflow.utils.rest_utils import augmented_raise_for_status
-
-_logger = logging.getLogger(__name__)
-
-from mlflow.deployments import BaseDeploymentClient
 
 
 class OpenAIDeploymentClient(BaseDeploymentClient):
@@ -105,54 +100,30 @@ class OpenAIDeploymentClient(BaseDeploymentClient):
         """
         _check_openai_key()
 
-        from mlflow.openai.api_request_parallel_processor import process_api_requests
-
         api_config = _get_api_config_without_openai_dep()
         api_token = _OAITokenHolder(api_config.api_type)
 
-        if api_config.api_type in ("azure", "azure_ad", "azuread"):
-            api_base = api_config.api_base
-            api_version = api_config.api_version
-            engine = api_config.engine
-            deployment_id = api_config.deployment_id
+        if api_config.api_type == "azure":
+            from openai import AzureOpenAI
 
-            if engine:
-                # Avoid using both parameters as they serve the same purpose
-                # Invalid inputs:
-                #   - Wrong engine + correct/wrong deployment_id
-                #   - No engine + wrong deployment_id
-                # Valid inputs:
-                #   - Correct engine + correct/wrong deployment_id
-                #   - No engine + correct deployment_id
-                if deployment_id is not None:
-                    _logger.warning(
-                        "Both engine and deployment_id are set. "
-                        "Using engine as it takes precedence."
-                    )
-                inputs = {"engine": engine, **inputs}
-            elif deployment_id is None:
-                raise MlflowException(
-                    "Either engine or deployment_id must be set for Azure OpenAI API",
-                )
-
-            request_url = (
-                f"{api_base}/openai/deployments/{deployment_id}"
-                f"/chat/completions?api-version={api_version}"
+            client = AzureOpenAI(
+                api_key=api_token.token,
+                azure_endpoint=api_config.api_base,
+                api_version=api_config.api_version,
+                azure_deployment=api_config.deployment_id,
             )
         else:
-            inputs = {"model": endpoint, **inputs}
-            request_url = REQUEST_URL_CHAT
+            from openai import OpenAI
+
+            client = OpenAI(
+                api_key=api_token.token,
+                base_url=api_config.api_base,
+            )
 
         try:
-            return process_api_requests(
-                [inputs],
-                request_url,
-                api_token=api_token,
-                throw_original_error=True,
-                max_workers=1,
-            )[0]
-        except MlflowException:
-            raise
+            return client.with_options(
+                max_retries=api_config.max_retries, timeout=api_config.timeout
+            ).chat.completions.create(messages=inputs["messages"], model=endpoint)
         except Exception as e:
             raise MlflowException(f"Error response from OpenAI:\n {e}")
 
