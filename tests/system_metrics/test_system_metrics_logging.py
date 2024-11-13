@@ -5,7 +5,6 @@ import pytest
 
 import mlflow
 from mlflow.system_metrics.system_metrics_monitor import SystemMetricsMonitor
-from mlflow.utils.os import is_windows
 
 
 @pytest.fixture(autouse=True)
@@ -17,8 +16,21 @@ def disable_system_metrics_logging():
     mlflow.set_system_metrics_samples_before_logging(None)
     mlflow.set_system_metrics_node_id(None)
 
+@pytest.fixture
+def wait_for_condition():
+    def _wait(condition_func):
+        timeout = 10
+        check_interval = 1
+        for _ in range(timeout // check_interval):
+            if condition_func():
+                return True
+            time.sleep(check_interval)
+        return False
 
-def test_manual_system_metrics_monitor():
+    return _wait
+
+@pytest.mark.parametrize("x", range(200))
+def test_manual_system_metrics_monitor(wait_for_condition):
     with mlflow.start_run(log_system_metrics=False) as run:
         system_monitor = SystemMetricsMonitor(
             run.info.run_id,
@@ -30,12 +42,13 @@ def test_manual_system_metrics_monitor():
         # Check the system metrics monitoring thread has been started.
         assert "SystemMetricsMonitor" in thread_names
 
-        time.sleep(2)
-    # Pause for a bit to allow the system metrics monitoring to exit.
-    time.sleep(1)
-    thread_names = [thread.name for thread in threading.enumerate()]
-    # Check the system metrics monitoring thread has exited.
-    assert "SystemMetricsMonitor" not in thread_names
+        assert wait_for_condition(
+            lambda: len(mlflow.get_run(run.info.run_id).data.metrics) >= 7
+        )
+
+    assert wait_for_condition(
+        lambda: "SystemMetricsMonitor" not in [thread.name for thread in threading.enumerate()]
+    )
 
     mlflow_run = mlflow.get_run(run.info.run_id)
     metrics = mlflow_run.data.metrics
@@ -60,26 +73,23 @@ def test_manual_system_metrics_monitor():
     assert metrics_history[-1].step > 0
 
 
-@pytest.mark.parametrize(
-    ("wait_time", "exit_wait_time", "polling_freq"), [(5, 3, 0.5) if is_windows() else (2, 2, 0.2)]
-)
-def test_automatic_system_metrics_monitor(wait_time, exit_wait_time, polling_freq):
+@pytest.mark.parametrize("x", range(200))
+def test_automatic_system_metrics_monitor(wait_for_condition):
     mlflow.enable_system_metrics_logging()
-    mlflow.set_system_metrics_sampling_interval(polling_freq)
+    mlflow.set_system_metrics_sampling_interval(0.2)
     mlflow.set_system_metrics_samples_before_logging(2)
     with mlflow.start_run() as run:
         thread_names = [thread.name for thread in threading.enumerate()]
         # Check the system metrics monitoring thread has been started.
         assert "SystemMetricsMonitor" in thread_names
 
-        # Pause for a bit to allow system metrics to be logged.
-        time.sleep(wait_time)
+        assert wait_for_condition(
+            lambda: len(mlflow.get_run(run.info.run_id).data.metrics) >= 7
+        )
 
-    # Pause for a bit to allow the system metrics monitoring to exit.
-    time.sleep(exit_wait_time)
-    thread_names = [thread.name for thread in threading.enumerate()]
-    # Check the system metrics monitoring thread has exited.
-    assert "SystemMetricsMonitor" not in thread_names
+    assert wait_for_condition(
+        lambda: "SystemMetricsMonitor" not in [thread.name for thread in threading.enumerate()]
+    )
 
     mlflow_run = mlflow.get_run(run.info.run_id)
     metrics = mlflow_run.data.metrics
@@ -104,18 +114,16 @@ def test_automatic_system_metrics_monitor(wait_time, exit_wait_time, polling_fre
     assert metrics_history[-1].step > 0
 
 
-def test_automatic_system_metrics_monitor_resume_existing_run():
+def test_automatic_system_metrics_monitor_resume_existing_run(wait_for_condition):
     mlflow.enable_system_metrics_logging()
     mlflow.set_system_metrics_sampling_interval(0.2)
     mlflow.set_system_metrics_samples_before_logging(2)
     with mlflow.start_run() as run:
         time.sleep(2)
 
-    # Pause for a bit to allow the system metrics monitoring to exit.
-    time.sleep(1)
-    thread_names = [thread.name for thread in threading.enumerate()]
-    # Check the system metrics monitoring thread has exited.
-    assert "SystemMetricsMonitor" not in thread_names
+    assert wait_for_condition(
+        lambda: "SystemMetricsMonitor" not in [thread.name for thread in threading.enumerate()]
+    )
 
     # Get the last step.
     metrics_history = mlflow.MlflowClient().get_metric_history(
@@ -148,7 +156,7 @@ def test_automatic_system_metrics_monitor_resume_existing_run():
     assert metrics_history[-1].step > last_step
 
 
-def test_system_metrics_monitor_with_multi_node():
+def test_system_metrics_monitor_with_multi_node(wait_for_condition):
     mlflow.enable_system_metrics_logging()
     mlflow.set_system_metrics_sampling_interval(0.2)
     mlflow.set_system_metrics_samples_before_logging(2)
@@ -160,13 +168,9 @@ def test_system_metrics_monitor_with_multi_node():
     for node_id in node_ids:
         mlflow.set_system_metrics_node_id(node_id)
         with mlflow.start_run(run_id=run_id, log_system_metrics=True):
-            for _ in range(10):
-                run = mlflow.get_run(run_id)
-                if any(k.startswith(f"system/{node_id}/") for k in run.data.metrics.keys()):
-                    break
-                time.sleep(1)
-            else:
-                raise pytest.fail("No system metrics are logged within 10 seconds.")
+            assert wait_for_condition(
+                lambda: any(k.startswith(f"system/{node_id}/") for k in mlflow.get_run(run_id).data.metrics.keys())
+            )
 
     mlflow_run = mlflow.get_run(run_id)
     metrics = mlflow_run.data.metrics
