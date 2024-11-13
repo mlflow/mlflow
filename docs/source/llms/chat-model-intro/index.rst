@@ -163,6 +163,7 @@ These are what we must map to the Ollama inputs and outputs. Here's a simplified
 
 
 .. code-block:: python
+
     # if you are using a jupyter notebook
     # %%writefile ollama_model.py
     from mlflow.pyfunc import ChatModel
@@ -325,6 +326,7 @@ Now, let's configure our custom ChatModel to handle inference parameters.
 Setting up a ChatModel with inference parameters is straightforward: just like with the input messages, we need to map the inference parameters to the format expected by the Ollama client. In the Ollama client, inference parameters are passed to the model as an ``options`` dictionary. When defining our custom ChatModel, we can access the inference parameters passed to ``predict`` via the ``params`` keyword argument. Our job is to map the predict method's ``params`` dictionary to the Ollama client's ``options`` dictionary. You can find the list of options supported by Ollama `here <https://github.com/ollama/ollama/blob/main/docs/api.md#generate-request-with-options>`__.
 
 .. code-block:: python
+
     # if you are using a jupyter notebook
     # %%writefile ollama_model.py
 
@@ -503,6 +505,7 @@ To illustrate some of the benefits and trade-offs of setting up a chat model via
 **Ollama Model Version 3: Custom PyFunc Model**
 
 .. code-block:: python
+
     # if you are using a jupyter notebook
     # %%writefile ollama_pyfunc_model.py
 
