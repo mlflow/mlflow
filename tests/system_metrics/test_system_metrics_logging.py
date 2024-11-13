@@ -31,7 +31,7 @@ def wait_for_condition():
     return _wait
 
 
-@pytest.mark.parametrize("x", range(1))
+@pytest.mark.parametrize("x", range(200))
 def test_manual_system_metrics_monitor(wait_for_condition, x: int):
     metric_test = "system/cpu_utilization_percentage"
     with mlflow.start_run(log_system_metrics=False) as run:
@@ -75,6 +75,7 @@ def test_manual_system_metrics_monitor(wait_for_condition, x: int):
 
 @pytest.mark.parametrize("x", range(200))
 def test_automatic_system_metrics_monitor(wait_for_condition, x: int):
+    metric_test = "system/cpu_utilization_percentage"
     mlflow.enable_system_metrics_logging()
     mlflow.set_system_metrics_sampling_interval(0.2)
     mlflow.set_system_metrics_samples_before_logging(2)
@@ -83,7 +84,9 @@ def test_automatic_system_metrics_monitor(wait_for_condition, x: int):
         # Check the system metrics monitoring thread has been started.
         assert "SystemMetricsMonitor" in thread_names
 
-        assert wait_for_condition(lambda: len(mlflow.get_run(run.info.run_id).data.metrics) > 7)
+        assert wait_for_condition(
+            lambda: len(mlflow.MlflowClient().get_metric_history(run.info.run_id, metric_test)) > 1
+        )
 
     assert wait_for_condition(
         lambda: "SystemMetricsMonitor" not in [thread.name for thread in threading.enumerate()]
@@ -107,7 +110,7 @@ def test_automatic_system_metrics_monitor(wait_for_condition, x: int):
 
     # Check the step is correctly logged.
     metrics_history = mlflow.MlflowClient().get_metric_history(
-        run.info.run_id, "system/cpu_utilization_percentage"
+        run.info.run_id, metric_test
     )
     assert metrics_history[-1].step > 0
 
