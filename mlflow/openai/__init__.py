@@ -701,7 +701,6 @@ class _OpenAIWrapper:
         if self.api_config.api_type == "azure":
             from openai import AzureOpenAI
 
-            self.api_token.refresh()
             return AzureOpenAI(
                 api_key=self.api_token.token,
                 azure_endpoint=self.api_config.api_base,
@@ -804,7 +803,6 @@ class _OpenAIWrapper:
         Returns:
             Model predictions.
         """
-
         self.api_token.refresh()
         if self.task == "chat.completions":
             return self._predict_chat(data, params or {})
