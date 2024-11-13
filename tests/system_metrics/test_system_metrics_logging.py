@@ -35,7 +35,7 @@ def test_manual_system_metrics_monitor(wait_for_condition, x:int):
         system_monitor = SystemMetricsMonitor(
             run.info.run_id,
             sampling_interval=0.1,
-            samples_before_logging=2,
+            samples_before_logging=5,
         )
         system_monitor.start()
         thread_names = [thread.name for thread in threading.enumerate()]
