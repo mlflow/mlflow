@@ -87,9 +87,7 @@ def _try_get_delta_table_latest_version_from_table_name(table_name: str) -> Opti
 
     try:
         spark = SparkSession.builder.getOrCreate()
-        backticked_table_name = ".".join(
-            part if _is_backticked(part) else f"`{part}`" for part in table_name.split(".")
-        )
+        backticked_table_name = ".".join(map(_is_backticked, table_name.split(".")))
         j_delta_table = spark._jvm.io.delta.tables.DeltaTable.forName(
             spark._jsparkSession, backticked_table_name
         )

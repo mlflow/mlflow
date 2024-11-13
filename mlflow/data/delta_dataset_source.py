@@ -18,7 +18,7 @@ from mlflow.utils.rest_utils import (
     call_endpoint,
     extract_api_info_for_service,
 )
-from mlflow.utils.string_utils import _is_backticked
+from mlflow.utils.string_utils import _backtick_quote
 
 DATABRICKS_HIVE_METASTORE_NAME = "hive_metastore"
 # these two catalog names both points to the workspace local default HMS (hive metastore).
@@ -80,8 +80,7 @@ class DeltaDatasetSource(DatasetSource):
             return spark_read_op.load(self._path)
         else:
             backticked_delta_table_name = ".".join(
-                part if _is_backticked(part) else f"`{part}`"
-                for part in self._delta_table_name.split(".")
+                map(_backtick_quote, self._delta_table_name.split("."))
             )
             return spark_read_op.table(backticked_delta_table_name)
 
