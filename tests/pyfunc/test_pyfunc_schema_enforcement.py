@@ -3003,7 +3003,7 @@ def test_zero_or_one_longs_convert_to_floats():
         ),
         (
             {"a": {"x": None}},
-            Schema([ColSpec(type=Object([Property("x", AnyType())]), name="a")]),
+            Schema([ColSpec(type=Object([Property("x", AnyType(), required=False)]), name="a")]),
             {"a": {"x": 234}},
         ),
         (
@@ -3050,11 +3050,11 @@ def test_zero_or_one_longs_convert_to_floats():
                             Object(
                                 properties=[
                                     Property("content", DataType.string),
-                                    Property("additional_kwargs", AnyType()),
-                                    Property("response_metadata", AnyType()),
+                                    Property("additional_kwargs", AnyType(), required=False),
+                                    Property("response_metadata", AnyType(), required=False),
                                     Property("type", DataType.string),
-                                    Property("name", AnyType()),
-                                    Property("id", AnyType()),
+                                    Property("name", AnyType(), required=False),
+                                    Property("id", AnyType(), required=False),
                                     Property("example", DataType.boolean, required=False),
                                     Property("tool_calls", AnyType(), required=False),
                                     Property("invalid_tool_calls", AnyType(), required=False),

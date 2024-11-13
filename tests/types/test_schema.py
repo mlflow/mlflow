@@ -1711,7 +1711,7 @@ def test_schema_inference_with_empty_lists():
 
     data = [{"data": {"key": []}}]
     assert _infer_schema(data) == Schema(
-        [ColSpec(Object([Property("key", AnyType())]), name="data")]
+        [ColSpec(Object([Property("key", AnyType(), required=False)]), name="data")]
     )
 
 
