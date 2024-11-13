@@ -490,10 +490,8 @@ def test_chat_model_predict_stream(tmp_path):
         {"role": "user", "content": "Hello!"},
     ]
 
-    i = 0
-    for response in loaded_model.predict_stream({"messages": messages}):
+    for i, response in enumerate(loaded_model.predict_stream({"messages": messages})):
         assert response["choices"][0]["message"]["delta"] == f"message {i}"
-        i += 1
 
 
 def test_chat_model_can_receive_and_return_metadata():
