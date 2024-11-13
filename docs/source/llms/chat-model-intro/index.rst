@@ -50,19 +50,19 @@ The output is also returned in a standardized format that looks like this:
 .. code-block:: python
 
     {
-        'choices': [
+        "choices": [
             {
-                'index': 0,
-                'message': {
-                    'role': 'assistant',
-                    'content': "MLflow is an open-source platform for machine learning (ML) and artificial intelligence (AI). It's designed to manage,"
+                "index": 0,
+                "message": {
+                    "role": "assistant",
+                    "content": "MLflow is an open-source platform for machine learning (ML) and artificial intelligence (AI). It's designed to manage,",
                 },
-                'finish_reason': 'stop'
+                "finish_reason": "stop",
             }
         ],
-        'model': 'llama3.2:1b',
-        'object': 'chat.completion',
-        'created': 1729190863
+        "model": "llama3.2:1b",
+        "object": "chat.completion",
+        "created": 1729190863,
     }
 
 You can find details of the full chat response object `here <https://mlflow.org/docs/latest/python_api/mlflow.types.html#mlflow.types.llm.ChatResponse>`__.
@@ -104,14 +104,14 @@ In order to map the Ollama input/output schema to the ChatModel input/output sch
     from rich import print
 
     response = ollama.chat(
-        model='llama3.2:1b',
+        model="llama3.2:1b",
         messages=[
             {
-                'role': 'user',
-                'content': 'What is MLflow Tracking?',
+                "role": "user",
+                "content": "What is MLflow Tracking?",
             }
         ],
-        options=Options({"num_predict": 25})
+        options=Options({"num_predict": 25}),
     )
 
     print(response)
@@ -171,6 +171,7 @@ These are what we must map to the Ollama inputs and outputs. Here's a simplified
     from mlflow.models import set_model
     import ollama
 
+
     class SimpleOllamaModel(ChatModel):
         def __init__(self):
             self.model_name = "llama3.2:1b"
@@ -188,14 +189,10 @@ These are what we must map to the Ollama inputs and outputs. Here's a simplified
 
             # Prepare and return the ChatResponse
             return ChatResponse(
-                choices=[
-                    {
-                        "index": 0,
-                        "message": response['message']
-                    }
-                ],
-                model=self.model_name
+                choices=[{"index": 0, "message": response["message"]}],
+                model=self.model_name,
             )
+
 
     set_model(SimpleOllamaModel())
 
@@ -222,10 +219,8 @@ Now we can log this model to MLflow as follows, passing the path to the file con
             "ollama_model",
             python_model=code_path,
             input_example={
-                "messages": [
-                    {"role": "user", "content": "Hello, how are you?"}
-                ]
-            }
+                "messages": [{"role": "user", "content": "Hello, how are you?"}]
+            },
         )
 
 Again, we used the models-from-code approach to log the model, so we passed the path to the file containing our model definition to the ``python_model`` parameter. Now we can load the model and try it out:
@@ -235,50 +230,31 @@ Again, we used the models-from-code approach to log the model, so we passed the 
 
     loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
 
-    result = loaded_model.predict(data={
-        "messages": [{"role": "user", "content": "What is MLflow?"}],
-        "max_tokens": 25,
-    })
+    result = loaded_model.predict(
+        data={
+            "messages": [{"role": "user", "content": "What is MLflow?"}],
+            "max_tokens": 25,
+        }
+    )
     print(result)
 
 .. code-block:: python
 
     {
-        'choices': [
+        "choices": [
             {
-                'index': 0,
-                'message': {
-                    'role': 'assistant',
-                    'content': 'MLflow is an open-source platform for model deployment, monitoring, and tracking. It 
-    was created by Databricks, a cloud-based data analytics company, in collaboration with The Data Science Experience 
-    (TDEE), a non-profit organization that focuses on providing high-quality, free machine learning 
-    resources.\n\nMLflow allows users to build, train, and deploy machine learning models in various frameworks, such 
-    as TensorFlow, PyTorch, and scikit-learn. It provides a unified platform for model development, deployment, and 
-    tracking across different environments, including local machines, cloud platforms (e.g., AWS), and edge 
-    devices.\n\nSome key features of MLflow include:\n\n1. **Model versioning**: Each time a model is trained or 
-    deployed, it generates a unique version number. This allows users to track changes, identify conflicts, and manage 
-    multiple versions.\n2. **Model deployment**: MLflow provides tools for deploying models in various environments, 
-    including Docker containers, Kubernetes, and cloud platforms (e.g., AWS).\n3. **Monitoring and logging**: The 
-    platform includes built-in monitoring and logging capabilities to track model performance, errors, and other 
-    metrics.\n4. **Integration with popular frameworks**: MLflow integrates with popular machine learning frameworks, 
-    making it easy to incorporate the platform into existing workflows.\n5. **Collaboration and sharing**: MLflow 
-    allows multiple users to collaborate on models and tracks changes in real-time.\n\nMLflow has several benefits, 
-    including:\n\n1. **Improved model management**: The platform provides a centralized view of all models, allowing 
-    for better model tracking and management.\n2. **Increased collaboration**: MLflow enables team members to work 
-    together on machine learning projects more effectively.\n3. **Better model performance monitoring**: The platform 
-    offers real-time insights into model performance, helping users identify issues quickly.\n4. **Simplified model 
-    deployment**: MLflow makes it easy to deploy models in various environments, reducing the complexity of model 
-    deployment.\n\nOverall, MLflow is a powerful tool for managing and deploying machine learning models, providing a 
-    comprehensive platform for model development, tracking, and collaboration.'
+                "index": 0,
+                "message": {
+                    "role": "assistant",
+                    "content": "MLflow is an open-source platform for model deployment, monitoring, and tracking. It was created by Databricks, a cloud-based data analytics company, in collaboration with The Data Science Experience (TDEE), a non-profit organization that focuses on providing high-quality, free machine learning resources.\n\nMLflow allows users to build, train, and deploy machine learning models in various frameworks, such as TensorFlow, PyTorch, and scikit-learn. It provides a unified platform for model development, deployment, and tracking across different environments, including local machines, cloud platforms (e.g., AWS), and edge devices.\n\nSome key features of MLflow include:\n\n1. **Model versioning**: Each time a model is trained or deployed, it generates a unique version number. This allows users to track changes, identify conflicts, and manage multiple versions.\n2. **Model deployment**: MLflow provides tools for deploying models in various environments, including Docker containers, Kubernetes, and cloud platforms (e.g., AWS).\n3. **Monitoring and logging**: The platform includes built-in monitoring and logging capabilities to track model performance, errors, and other metrics.\n4. **Integration with popular frameworks**: MLflow integrates with popular machine learning frameworks, making it easy to incorporate the platform into existing workflows.\n5. **Collaboration and sharing**: MLflow allows multiple users to collaborate on models and tracks changes in real-time.\n\nMLflow has several benefits, including:\n\n1. **Improved model management**: The platform provides a centralized view of all models, allowing for better model tracking and management.\n2. **Increased collaboration**: MLflow enables team members to work together on machine learning projects more effectively.\n3. **Better model performance monitoring**: The platform offers real-time insights into model performance, helping users identify issues quickly.\n4. **Simplified model deployment**: MLflow makes it easy to deploy models in various environments, reducing the complexity of model deployment.\n\nOverall, MLflow is a powerful tool for managing and deploying machine learning models, providing a comprehensive platform for model development, tracking, and collaboration.",
                 },
-                'finish_reason': 'stop'
+                "finish_reason": "stop",
             }
         ],
-        'model': 'llama3.2:1b',
-        'object': 'chat.completion',
-        'created': 1730739510
+        "model": "llama3.2:1b",
+        "object": "chat.completion",
+        "created": 1730739510,
     }
-    
 Now we have received a chat response in a standardized, OpenAI-compatible format. But something is wrong: even though we set ``max_tokens`` to 25, the response is well over 25 tokens! Why is this?
 
 We have not yet handled the inference parameters in our custom ChatModel: in addition to mapping the input/output messages between the ChatModel and Ollama formats, we also need to map the inference parameters between the two formats. We will address this in the next version of our custom ChatModel.
@@ -295,11 +271,13 @@ When using a ChatModel, parameters are passed alongside messages in the input:
 
 .. code-block:: python
 
-    result = model.predict({
-        "messages": [{"role": "user", "content": "Write a story"}],
-        "max_tokens": 100,
-        "temperature": 0.7
-    })
+    result = model.predict(
+        {
+            "messages": [{"role": "user", "content": "Write a story"}],
+            "max_tokens": 100,
+            "temperature": 0.7,
+        }
+    )
 
 You can find the full list of supported parameters `here <https://mlflow.org/docs/latest/python_api/mlflow.types.html#mlflow.types.llm.ChatParams>`__. Furthermore, you can pass arbitrary additional parameters to a ChatModel via the ``metadata`` key in the input, which we will cover in more detail in the next section.
 
@@ -337,6 +315,7 @@ Setting up a ChatModel with inference parameters is straightforward: just like w
     import ollama
     from ollama import Options
 
+
     class OllamaModelWithMetadata(ChatModel):
         def __init__(self):
             self.model_name = None
@@ -345,7 +324,7 @@ Setting up a ChatModel with inference parameters is straightforward: just like w
         def load_context(self, context):
             self.model_name = "llama3.2:1b"
             self.client = ollama.Client()
-        
+
         def _prepare_options(self, params):
             # Prepare options from params
             options = {}
@@ -358,32 +337,30 @@ Setting up a ChatModel with inference parameters is straightforward: just like w
                     options["top_p"] = params.top_p
                 if params.stop is not None:
                     options["stop"] = params.stop
-                
+
                 if params.metadata is not None:
                     options["seed"] = int(params.metadata.get("seed", None))
-            
+
             return Options(options)
 
-
         def predict(self, context, messages, params=None):
-            ollama_messages = [{"role": msg.role, "content": msg.content} for msg in messages]
+            ollama_messages = [
+                {"role": msg.role, "content": msg.content} for msg in messages
+            ]
             options = self._prepare_options(params)
 
             # Call Ollama
-            response = self.client.chat(model=self.model_name,
-            messages=ollama_messages, options=options)
+            response = self.client.chat(
+                model=self.model_name, messages=ollama_messages, options=options
+            )
 
             # Prepare the ChatResponse
             return ChatResponse(
-                choices=[
-                    {
-                        "index": 0,
-                        "message": response['message']
-                    }
-                ],
-                model=self.model_name
+                choices=[{"index": 0, "message": response["message"]}],
+                model=self.model_name,
             )
-                
+
+
     set_model(OllamaModelWithMetadata())
 
 Here's what we changed from the previous version:
@@ -403,18 +380,18 @@ Now we can log this model to MLflow, load it, and try it out in the same way as 
             "ollama_model",
             python_model=code_path,
             input_example={
-                "messages": [
-                    {"role": "user", "content": "Hello, how are you?"}
-                ]
-            }
+                "messages": [{"role": "user", "content": "Hello, how are you?"}]
+            },
         )
 
     loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
 
-    result = loaded_model.predict(data={
-        "messages": [{"role": "user", "content": "What is MLflow?"}],
-        "max_tokens": 25,
-    })
+    result = loaded_model.predict(
+        data={
+            "messages": [{"role": "user", "content": "What is MLflow?"}],
+            "max_tokens": 25,
+        }
+    )
     print(result)
 
 Which returns:
@@ -422,20 +399,19 @@ Which returns:
 .. code-block:: python
 
     {
-        'choices': [
+        "choices": [
             {
-                'index': 0,
-                'message': {
-                    'role': 'assistant',
-                    'content': 'MLflow is an open-source platform that provides a set of tools for managing and 
-    tracking machine learning (ML) model deployments,'
+                "index": 0,
+                "message": {
+                    "role": "assistant",
+                    "content": "MLflow is an open-source platform that provides a set of tools for managing and tracking machine learning (ML) model deployments,",
                 },
-                'finish_reason': 'stop'
+                "finish_reason": "stop",
             }
         ],
-        'model': 'llama3.2:1b',
-        'object': 'chat.completion',
-        'created': 1730724514
+        "model": "llama3.2:1b",
+        "object": "chat.completion",
+        "created": 1730724514,
     }
 
 Now that we have appropriately mapped ``max_tokens`` from the ChatModel input schema to the Ollama client's ``num_predict`` parameter, we receive a response with the expected number of tokens.
@@ -453,11 +429,13 @@ Because we included this, we can now pass a ``seed`` value via the ``metadata`` 
 
 .. code-block:: python
 
-    result = loaded_model.predict(data={
-          "messages": [{"role": "user", "content": "What is MLflow?"}],
-          "max_tokens": 25,
-          "metadata": {"seed": "321"}
-    })
+    result = loaded_model.predict(
+        data={
+            "messages": [{"role": "user", "content": "What is MLflow?"}],
+            "max_tokens": 25,
+            "metadata": {"seed": "321"},
+        }
+    )
 
     print(result)
 
@@ -466,20 +444,19 @@ Which returns:
 .. code-block:: python
 
     {
-        'choices': [
+        "choices": [
             {
-                'index': 0,
-                'message': {
-                    'role': 'assistant',
-                    'content': "MLflow is an open-source software framework used for machine learning model management,
-    monitoring, and deployment. It's designed to provide"
+                "index": 0,
+                "message": {
+                    "role": "assistant",
+                    "content": "MLflow is an open-source software framework used for machine learning model management, monitoring, and deployment. It's designed to provide",
                 },
-                'finish_reason': 'stop'
+                "finish_reason": "stop",
             }
         ],
-        'model': 'llama3.2:1b',
-        'object': 'chat.completion',
-        'created': 1730724533
+        "model": "llama3.2:1b",
+        "object": "chat.completion",
+        "created": 1730724533,
     }
 
 .. tip:: Using vs. Defining ChatModels
@@ -490,10 +467,7 @@ Which returns:
 
    .. code:: python
 
-      model.predict({
-          "messages": [{"role": "user", "content": "Hello"}],
-          "temperature": 0.7
-      })
+      model.predict({"messages": [{"role": "user", "content": "Hello"}], "temperature": 0.7})
 
    When *defining* the custom ChatModel's ``predict`` method, on the other hand, we access the data through separate ``messages`` and ``params`` arguments, where ``messages`` is a list of ``ChatMessage`` objects and ``params`` is a ``ChatParams`` object. Understanding this distinction—unified input for users, structured access for developers—is important to working effectively with ChatModels.
 
@@ -518,6 +492,7 @@ To illustrate some of the benefits and trade-offs of setting up a chat model via
     import pandas as pd
     from typing import List, Dict
 
+
     class OllamaPyfunc(PythonModel):
         def __init__(self):
             self.model_name = None
@@ -526,7 +501,7 @@ To illustrate some of the benefits and trade-offs of setting up a chat model via
         def load_context(self, context):
             self.model_name = "llama3.2:1b"
             self.client = ollama.Client()
-        
+
         def _prepare_options(self, params):
             options = {}
             if params:
@@ -540,37 +515,38 @@ To illustrate some of the benefits and trade-offs of setting up a chat model via
                     options["stop"] = params["stop"]
                 if "seed" in params:
                     options["seed"] = params["seed"]
-            
+
             return Options(options)
 
         def predict(self, context, model_input, params=None):
             if isinstance(model_input, (pd.DataFrame, pd.Series)):
-                messages = model_input.to_dict(orient='records')[0]['messages']
+                messages = model_input.to_dict(orient="records")[0]["messages"]
             else:
                 messages = model_input.get("messages", [])
-            
-            options = self._prepare_options(params)
-            ollama_messages = [{"role": msg["role"], "content": msg["content"]} for msg in messages]
-            
 
+            options = self._prepare_options(params)
+            ollama_messages = [
+                {"role": msg["role"], "content": msg["content"]} for msg in messages
+            ]
 
             response = self.client.chat(
-                model=self.model_name,
-                messages=ollama_messages,
-                options=options
+                model=self.model_name, messages=ollama_messages, options=options
             )
 
             chat_response = ChatResponse(
                 choices=[
                     ChatChoice(
                         index=0,
-                        message=ChatMessage(role="assistant", content=response['message']['content'])
+                        message=ChatMessage(
+                            role="assistant", content=response["message"]["content"]
+                        ),
                     )
                 ],
-                model=self.model_name
+                model=self.model_name,
             )
 
             return chat_response.to_dict()
+
 
     set_model(OllamaPyfunc())
 
@@ -589,7 +565,13 @@ Some of the biggest differences come up when it's time to log the model:
 
     code_path = "ollama_pyfunc_model.py"
 
-    params = {"max_tokens": 25, "temperature": 0.5, "top_p": 0.5, "stop": ["\n"], "seed": 123}
+    params = {
+        "max_tokens": 25,
+        "temperature": 0.5,
+        "top_p": 0.5,
+        "stop": ["\n"],
+        "seed": 123,
+    }
     request = {"messages": [{"role": "user", "content": "What is MLflow?"}]}
 
     signature = infer_signature(model_input=request, params=params)
@@ -599,7 +581,7 @@ Some of the biggest differences come up when it's time to log the model:
             "ollama_pyfunc_model",
             python_model=code_path,
             signature=signature,
-            input_example=(request, params)
+            input_example=(request, params),
         )
 
 With a custom :py:class:`mlflow.pyfunc.PythonModel`, we need to manually define the model signature and input example. This is a significant difference from the ChatModel API, which automatically configured the signature to conform to the standardized OpenAI-compatible input/output/parameter schemas.
@@ -611,10 +593,8 @@ There is also one notable difference in how we call the loaded model's ``predict
     loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
 
     result = loaded_model.predict(
-        data={
-            "messages": [{"role": "user", "content": "What is MLflow?"}]
-        },
-        params = {"max_tokens": 25, "seed": 42}
+        data={"messages": [{"role": "user", "content": "What is MLflow?"}]},
+        params={"max_tokens": 25, "seed": 42},
     )
     print(result)
 
@@ -623,19 +603,19 @@ Which returns:
 .. code-block:: python
 
     {
-        'choices': [
+        "choices": [
             {
-                'index': 0,
-                'message': {
-                    'role': 'assistant',
-                    'content': 'MLflow is an open-source platform for machine learning (ML) and deep learning (DL) model management, monitoring, and'
+                "index": 0,
+                "message": {
+                    "role": "assistant",
+                    "content": "MLflow is an open-source platform for machine learning (ML) and deep learning (DL) model management, monitoring, and",
                 },
-                'finish_reason': 'stop'
+                "finish_reason": "stop",
             }
         ],
-        'model': 'llama3.2:1b',
-        'object': 'chat.completion',
-        'created': 1731000733
+        "model": "llama3.2:1b",
+        "object": "chat.completion",
+        "created": 1731000733,
     }
 
 In summary, ``ChatModel`` provides a more structured approach to defining custom chat models, with a focus on standardized, OpenAI-compatible inputs and outputs. While it requires a bit more setup work to map the input/output schemas between the ``ChatModel`` schema and the application it wraps, it can be easier to use than a fully custom :py:class:`mlflow.pyfunc.PythonModel` as it handles the often-challenging task of defining input/output/parameter schemas. The :py:class:`mlflow.pyfunc.PythonModel` approach, on the other hand, provides the most flexibility but requires the developer to manually handle all of the input/output/parameter mapping logic.
