@@ -21,9 +21,9 @@ from __future__ import annotations
 
 import logging
 import threading
-from concurrent.futures import ALL_COMPLETED, ThreadPoolExecutor, wait
+from concurrent.futures import FIRST_EXCEPTION, ThreadPoolExecutor, wait
 from dataclasses import dataclass
-from typing import Callable
+from typing import Any, Callable
 
 import mlflow
 
@@ -85,9 +85,9 @@ def call_api(
 
 
 def process_api_requests(
-    requests: list[Callable],
+    requests: list[Callable[[], Any]],
     max_workers: int = 10,
-    throw_original_error=True,
+    throw_original_error: bool = True,
 ):
     """Processes API requests in parallel"""
     # initialize trackers
@@ -107,11 +107,11 @@ def process_api_requests(
             )
             for index, task in requests_iter
         ]
-        wait(futures, return_when=ALL_COMPLETED)
+        wait(futures, return_when=FIRST_EXCEPTION)
 
     # after finishing, log final status
     if status_tracker.num_tasks_failed > 0:
-        if throw_original_error and len(requests) == 1:
+        if throw_original_error and status_tracker.num_tasks_failed == 1:
             raise status_tracker.error
         raise mlflow.MlflowException(
             f"{status_tracker.num_tasks_failed} tasks failed. See logs for details."

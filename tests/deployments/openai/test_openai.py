@@ -67,7 +67,7 @@ def test_predict_openai(mock_openai_creds):
     with mock.patch(
         "openai.OpenAI",
     ) as mock_client:
-        mock_client().with_options().chat.completions.create.return_value = mock_resp
+        mock_client().with_options().chat.completions.create().model_dump.return_value = mock_resp
         resp = client.predict(
             endpoint="test",
             inputs={
@@ -76,7 +76,7 @@ def test_predict_openai(mock_openai_creds):
                 ],
             },
         )
-        mock_client().with_options().chat.completions.create.assert_called_once_with(
+        mock_client().with_options().chat.completions.create.assert_called_with(
             messages=[{"role": "user", "content": "Hello!"}], model="test"
         )
         assert resp == mock_resp
@@ -179,7 +179,7 @@ def test_predict_azure_openai(mock_azure_openai_creds):
         "headers": {"Content-Type": "application/json"},
     }
     with mock.patch("openai.AzureOpenAI") as mock_client:
-        mock_client().with_options().chat.completions.create.return_value = mock_resp
+        mock_client().with_options().chat.completions.create().model_dump.return_value = mock_resp
         resp = client.predict(
             endpoint="test",
             inputs={
@@ -188,7 +188,7 @@ def test_predict_azure_openai(mock_azure_openai_creds):
                 ],
             },
         )
-        mock_client().with_options().chat.completions.create.assert_called_once_with(
+        mock_client().with_options().chat.completions.create.assert_called_with(
             messages=[{"role": "user", "content": "Hello!"}],
             model="test",
         )

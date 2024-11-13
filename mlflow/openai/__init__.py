@@ -695,17 +695,16 @@ class _OpenAIWrapper:
         timeout = params.pop("timeout", self.api_config.timeout)
 
         messages_list = self.format_completions(self.get_params_list(data))
+        client = self.client.with_options(max_retries=max_retries, timeout=timeout)
 
         requests = [
             partial(
-                self.client.with_options(
-                    max_retries=max_retries, timeout=timeout
-                ).chat.completions.create,
-                messages=message,
+                client.chat.completions.create,
+                messages=messages,
                 model=self.model["model"],
                 **params,
             )
-            for message in messages_list
+            for messages in messages_list
         ]
 
         results = process_api_requests(requests=requests)
@@ -722,11 +721,11 @@ class _OpenAIWrapper:
         batch_size = params.pop("batch_size", self.api_config.batch_size)
         _logger.debug(f"Requests are being batched by {batch_size} samples.")
 
+        client = self.client.with_options(max_retries=max_retries, timeout=timeout)
+
         requests = [
             partial(
-                self.client.with_options(
-                    max_retries=max_retries, timeout=timeout
-                ).completions.create,
+                client.completions.create,
                 prompt=prompts_list[i : i + batch_size],
                 model=self.model["model"],
                 **params,
@@ -750,11 +749,11 @@ class _OpenAIWrapper:
         first_string_column = _first_string_column(data)
         texts = data[first_string_column].tolist()
 
+        client = self.client.with_options(max_retries=max_retries, timeout=timeout)
+
         requests = [
             partial(
-                self.client.with_options(
-                    max_retries=max_retries, timeout=timeout
-                ).embeddings.create,
+                client.embeddings.create,
                 input=texts[i : i + batch_size],
                 model=self.model["model"],
                 **params,

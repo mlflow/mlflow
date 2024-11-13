@@ -7,7 +7,6 @@ import requests
 
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
-from mlflow.utils.openai_utils import REQUEST_URL_CHAT
 
 if TYPE_CHECKING:
     from mlflow.gateway.providers import BaseProvider
@@ -56,7 +55,7 @@ def score_model_on_payload(
 
     if prefix == "openai":
         # TODO: Migrate OpenAI schema to use _call_llm_provider_api.
-        return _call_openai_api(suffix, payload, eval_parameters, extra_headers, proxy_url)
+        return _call_openai_api(suffix, payload, eval_parameters, extra_headers)
     elif prefix == "gateway":
         return _call_gateway_api(suffix, payload, eval_parameters)
     elif prefix == "endpoints":
@@ -91,7 +90,7 @@ def _parse_model_uri(model_uri):
     return scheme, path
 
 
-def _call_openai_api(openai_uri, payload, eval_parameters, extra_headers, proxy_url):
+def _call_openai_api(openai_uri, payload, eval_parameters, extra_headers):
     if "OPENAI_API_KEY" not in os.environ:
         raise MlflowException(
             "OPENAI_API_KEY environment variable not set",
@@ -99,65 +98,40 @@ def _call_openai_api(openai_uri, payload, eval_parameters, extra_headers, proxy_
         )
 
     from mlflow.openai import _get_api_config
-    from mlflow.openai.api_request_parallel_processor import process_api_requests
     from mlflow.utils.openai_utils import _OAITokenHolder
 
     api_config = _get_api_config()
     api_token = _OAITokenHolder(api_config.api_type)
+    api_token.refresh()
 
-    payload = {
-        "messages": [{"role": "user", "content": payload}],
-        **eval_parameters,
-    }
+    if api_config.api_type == "azure":
+        from openai import AzureOpenAI
 
-    if api_config.api_type in ("azure", "azure_ad", "azuread"):
-        api_base = getattr(api_config, "api_base")
-        api_version = getattr(api_config, "api_version")
-        engine = getattr(api_config, "engine")
-        deployment_id = getattr(api_config, "deployment_id")
-
-        if engine:
-            # Avoid using both parameters as they serve the same purpose
-            # Invalid inputs:
-            #   - Wrong engine + correct/wrong deployment_id
-            #   - No engine + wrong deployment_id
-            # Valid inputs:
-            #   - Correct engine + correct/wrong deployment_id
-            #   - No engine + correct deployment_id
-            if deployment_id is not None:
-                _logger.warning(
-                    "Both engine and deployment_id are set. Using engine as it takes precedence."
-                )
-            payload = {"engine": engine, **payload}
-        elif deployment_id is None:
-            raise MlflowException(
-                "Either engine or deployment_id must be set for Azure OpenAI API",
-            )
-        payload = payload
-
-        request_url = proxy_url or (
-            f"{api_base}/openai/deployments/{deployment_id}"
-            f"/chat/completions?api-version={api_version}"
-        )
+        client = AzureOpenAI(
+            api_key=api_token.token,
+            azure_endpoint=api_config.api_base,
+            api_version=api_config.api_version,
+            azure_deployment=api_config.deployment_id,
+        ).with_options(max_retries=api_config.max_retries, timeout=api_config.timeout)
     else:
-        payload = {"model": openai_uri, **payload}
-        request_url = proxy_url or REQUEST_URL_CHAT
+        from openai import OpenAI
+
+        client = OpenAI(
+            api_key=api_token.token,
+            base_url=api_config.api_base,
+        ).with_options(max_retries=api_config.max_retries, timeout=api_config.timeout)
 
     try:
-        resp = process_api_requests(
-            [payload],
-            request_url,
-            api_token=api_token,
-            throw_original_error=True,
-            max_workers=1,
+        response = client.chat.completions.create(
+            messages=[{"role": "user", "content": payload}],
+            model=openai_uri,
             extra_headers=extra_headers,
-        )[0]
-    except MlflowException as e:
-        raise e
+            **eval_parameters,
+        )
+        # to_dict is not available before openai v1.17.0
+        return _parse_chat_response_format(response.model_dump())
     except Exception as e:
         raise MlflowException(f"Error response from OpenAI:\n {e}")
-
-    return _parse_chat_response_format(resp)
 
 
 _PREDICT_ERROR_MSG = """\
