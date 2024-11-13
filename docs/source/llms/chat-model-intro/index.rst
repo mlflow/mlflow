@@ -255,6 +255,7 @@ Again, we used the models-from-code approach to log the model, so we passed the 
         "object": "chat.completion",
         "created": 1730739510,
     }
+
 Now we have received a chat response in a standardized, OpenAI-compatible format. But something is wrong: even though we set ``max_tokens`` to 25, the response is well over 25 tokens! Why is this?
 
 We have not yet handled the inference parameters in our custom ChatModel: in addition to mapping the input/output messages between the ChatModel and Ollama formats, we also need to map the inference parameters between the two formats. We will address this in the next version of our custom ChatModel.
