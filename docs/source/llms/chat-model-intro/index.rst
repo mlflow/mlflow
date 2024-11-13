@@ -163,8 +163,8 @@ These are what we must map to the Ollama inputs and outputs. Here's a simplified
 
 
 .. code-block:: python
-
-    %%writefile ollama_model.py #if you are using a jupyter notebook
+    # if you are using a jupyter notebook
+    # %%writefile ollama_model.py
     from mlflow.pyfunc import ChatModel
     from mlflow.types.llm import ChatMessage, ChatResponse, ChatChoice
     from mlflow.models import set_model
@@ -188,10 +188,10 @@ These are what we must map to the Ollama inputs and outputs. Here's a simplified
             # Prepare and return the ChatResponse
             return ChatResponse(
                 choices=[
-                    ChatChoice(
-                        index=0,
-                        message=ChatMessage(role="assistant", content=response['message']['content'])
-                    )
+                    {
+                        "index": 0,
+                        "message": response['message']
+                    }
                 ],
                 model=self.model_name
             )
@@ -202,11 +202,11 @@ These are what we must map to the Ollama inputs and outputs. Here's a simplified
 In the above code, we mapped the ``ChatModel`` inputs to the Ollama inputs, and the Ollama output back to the ``ChatModel`` output schema. More specifically:
 
 - The ``messages`` key in the ``ChatModel`` input schema is a list of ``ChatMessage`` objects. We converted this to a list of dictionaries with ``role`` and ``content`` keys, which is the expected input format for Ollama.
-- The ``ChatResponse`` that the ``predict`` method returns is a dataclass with a ``choices`` key that is a list of ``ChatChoice`` objects. We mapped the Ollama output from ``response['message']['content']`` to the ``ChatMessage`` content in the ``ChatChoice``.
+- The ``ChatResponse`` that the ``predict`` method returns must be created using the ``ChatResponse`` dataclass, but the nested message and choice data can be provided as dictionaries that match the expected schema. MLflow will automatically convert these dictionaries to the appropriate dataclass objects. In our case, we created a ``ChatResponse`` but provided the choices and messages as dictionaries.
 
-You'll note that we saved the model to a file called ``ollama_model.py`` with the ``%%writefile`` magic command and called ``set_model(SimpleOllamaModel())``. This is because we are going to log the model using the "models from code" approach, which you can read more about :doc:`here </model/models-from-code>`.
+In a notebook environment, we can save the model to a file called ``ollama_model.py`` with the ``%%writefile`` magic command and call ``set_model(SimpleOllamaModel())``. This is the "models from code" approach to model logging, which you can read more about :doc:`here </model/models-from-code>`.
 
-Now we can log this model to MLflow as follows:
+Now we can log this model to MLflow as follows, passing the path to the file containing the model definition we just created:
 
 
 .. code-block:: python
@@ -227,7 +227,7 @@ Now we can log this model to MLflow as follows:
             }
         )
 
-Again, we used the models from code approach to log the model, so we passed the path to the file containing our model definition to the ``python_model`` parameter. Now we can load the model and try it out:
+Again, we used the models-from-code approach to log the model, so we passed the path to the file containing our model definition to the ``python_model`` parameter. Now we can load the model and try it out:
 
 
 .. code-block:: python
@@ -325,8 +325,8 @@ Now, let's configure our custom ChatModel to handle inference parameters.
 Setting up a ChatModel with inference parameters is straightforward: just like with the input messages, we need to map the inference parameters to the format expected by the Ollama client. In the Ollama client, inference parameters are passed to the model as an ``options`` dictionary. When defining our custom ChatModel, we can access the inference parameters passed to ``predict`` via the ``params`` keyword argument. Our job is to map the predict method's ``params`` dictionary to the Ollama client's ``options`` dictionary. You can find the list of options supported by Ollama `here <https://github.com/ollama/ollama/blob/main/docs/api.md#generate-request-with-options>`__.
 
 .. code-block:: python
-
-    %%writefile ollama_model.py # if you are using a jupyter notebook
+    # if you are using a jupyter notebook
+    # %%writefile ollama_model.py
 
     import mlflow
     from mlflow.pyfunc import ChatModel
@@ -343,49 +343,51 @@ Setting up a ChatModel with inference parameters is straightforward: just like w
         def load_context(self, context):
             self.model_name = "llama3.2:1b"
             self.client = ollama.Client()
+        
+        def _prepare_options(self, params):
+            # Prepare options from params
+            options = {}
+            if params:
+                if params.max_tokens is not None:
+                    options["num_predict"] = params.max_tokens
+                if params.temperature is not None:
+                    options["temperature"] = params.temperature
+                if params.top_p is not None:
+                    options["top_p"] = params.top_p
+                if params.stop is not None:
+                    options["stop"] = params.stop
+                
+                if params.metadata is not None:
+                    options["seed"] = int(params.metadata.get("seed", None))
+            
+            return Options(options)
+
 
         def predict(self, context, messages, params=None):
-            with mlflow.start_span("Ollama_Chat") as root_span:
-                ollama_messages = [{"role": msg.role, "content": msg.content} for msg in messages]
+            ollama_messages = [{"role": msg.role, "content": msg.content} for msg in messages]
+            options = self._prepare_options(params)
 
-                # Prepare options from params
-                options = {}
-                if params:
-                    if params.max_tokens is not None:
-                        options["num_predict"] = params.max_tokens
-                    if params.temperature is not None:
-                        options["temperature"] = params.temperature
-                    if params.top_p is not None:
-                        options["top_p"] = params.top_p
-                    if params.stop is not None:
-                        options["stop"] = params.stop
-                    
-                    if params.metadata is not None:
-                        options["seed"] = int(params.metadata.get("seed", None))
+            # Call Ollama
+            response = self.client.chat(model=self.model_name,
+            messages=ollama_messages, options=options)
 
-                # Call Ollama
-                response = self.client.chat(model=self.model_name,
-                messages=ollama_messages, options=Options(options))
-
-                # Prepare the ChatResponse
-                chat_response = ChatResponse(
-                    choices=[
-                        ChatChoice(
-                            index=0,
-                            message=ChatMessage(role="assistant", content=response['message']['content'])
-                        )
-                    ],
-                    model=self.model_name
-                )
-
-            return chat_response
-
+            # Prepare the ChatResponse
+            return ChatResponse(
+                choices=[
+                    {
+                        "index": 0,
+                        "message": response['message']
+                    }
+                ],
+                model=self.model_name
+            )
+                
     set_model(OllamaModelWithMetadata())
 
 Here's what we changed from the previous version:
 
 - We mapped ``max_tokens``, ``temperature``, ``top_p``, and ``stop`` from the ``params`` dictionary to ``num_predict``, ``temperature``, ``top_p``, and ``stop`` in the Ollama client's ``options`` dictionary (note the different parameter name for ``max_tokens`` expected by Ollama)
-- We passed the ``options`` dictionary to the Ollama client's ``chat`` method.
+- We passed the ``options`` dictionary to the Ollama client's ``chat`` method. Note that we created a new private method, ``_prepare_options``, to handle the mapping from ``params`` to ``options``. Additional methods can be added to a custom ``ChatModel`` to keep code clean and organized while handling custom logic.
 - We checked the ``metadata`` key in the ``params`` dictionary for a ``seed`` value—we'll cover this in more detail in the next section.
 
 Now we can log this model to MLflow, load it, and try it out in the same way as before:
@@ -501,8 +503,8 @@ To illustrate some of the benefits and trade-offs of setting up a chat model via
 **Ollama Model Version 3: Custom PyFunc Model**
 
 .. code-block:: python
-
-    %%writefile ollama_pyfunc_model.py # if you are using a jupyter notebook
+    # if you are using a jupyter notebook
+    # %%writefile ollama_pyfunc_model.py
 
     import mlflow
     from mlflow.pyfunc import PythonModel
@@ -521,15 +523,8 @@ To illustrate some of the benefits and trade-offs of setting up a chat model via
         def load_context(self, context):
             self.model_name = "llama3.2:1b"
             self.client = ollama.Client()
-
-        def predict(self, context, model_input, params=None):
-            if isinstance(model_input, (pd.DataFrame, pd.Series)):
-                messages = model_input.to_dict(orient='records')[0]['messages']
-            else:
-                messages = model_input.get("messages", [])
-            
-            ollama_messages = [{"role": msg["role"], "content": msg["content"]} for msg in messages]
-            
+        
+        def _prepare_options(self, params):
             options = {}
             if params:
                 if "max_tokens" in params:
@@ -542,11 +537,24 @@ To illustrate some of the benefits and trade-offs of setting up a chat model via
                     options["stop"] = params["stop"]
                 if "seed" in params:
                     options["seed"] = params["seed"]
+            
+            return Options(options)
+
+        def predict(self, context, model_input, params=None):
+            if isinstance(model_input, (pd.DataFrame, pd.Series)):
+                messages = model_input.to_dict(orient='records')[0]['messages']
+            else:
+                messages = model_input.get("messages", [])
+            
+            options = self._prepare_options(params)
+            ollama_messages = [{"role": msg["role"], "content": msg["content"]} for msg in messages]
+            
+
 
             response = self.client.chat(
                 model=self.model_name,
                 messages=ollama_messages,
-                options=Options(options)
+                options=options
             )
 
             chat_response = ChatResponse(
