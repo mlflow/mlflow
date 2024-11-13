@@ -55,7 +55,7 @@ def score_model_on_payload(
 
     if prefix == "openai":
         # TODO: Migrate OpenAI schema to use _call_llm_provider_api.
-        return _call_openai_api(suffix, payload, eval_parameters, extra_headers)
+        return _call_openai_api(suffix, payload, eval_parameters, extra_headers, proxy_url)
     elif prefix == "gateway":
         return _call_gateway_api(suffix, payload, eval_parameters)
     elif prefix == "endpoints":
@@ -90,7 +90,7 @@ def _parse_model_uri(model_uri):
     return scheme, path
 
 
-def _call_openai_api(openai_uri, payload, eval_parameters, extra_headers):
+def _call_openai_api(openai_uri, payload, eval_parameters, extra_headers, proxy_url):
     if "OPENAI_API_KEY" not in os.environ:
         raise MlflowException(
             "OPENAI_API_KEY environment variable not set",
@@ -120,6 +120,9 @@ def _call_openai_api(openai_uri, payload, eval_parameters, extra_headers):
             api_key=api_token.token,
             base_url=api_config.api_base,
         ).with_options(max_retries=api_config.max_retries, timeout=api_config.timeout)
+
+    if proxy_url is not None:
+        client.base_url = proxy_url
 
     try:
         response = client.chat.completions.create(
