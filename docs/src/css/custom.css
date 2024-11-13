@@ -11,7 +11,7 @@
   --card-shadow2: rgba(50, 50, 93, 0.1);
   --card-shadow3: rgba(0, 0, 0, 0.02);
   --card-hover-shadow: 0 0 0 1px var(--card-shadow1),
-    0 7px 14px 0 var(--card-shadow2), 0 3px 6px 0 var(--card-shadow3);
+  0 7px 14px 0 var(--card-shadow2), 0 3px 6px 0 var(--card-shadow3);
 
   --ifm-color-primary: #2e8555;
   --ifm-color-primary-dark: #29784c;
@@ -54,6 +54,9 @@
   --ifm-color-info-light: #33928c;
   --ifm-color-info-lighter: #359994;
   --ifm-color-info-lightest: #3cada7;
+
+  /* Increase h4 font-size to differentiate from regular bold text */
+  --ifm-h4-font-size: 1.125rem;
 }
 
 /* For readability concerns, you should choose a lighter palette in dark mode. */
