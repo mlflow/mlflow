@@ -133,6 +133,6 @@ def quote(s):
 
 def _backtick_quote(s: str) -> str:
     """
-    Quotes the given string with backticks.
+    Quotes the given string with backticks if it is not already quoted with backticks.
     """
     return f"`{s}`" if not (s.startswith("`") and s.endswith("`")) else s
