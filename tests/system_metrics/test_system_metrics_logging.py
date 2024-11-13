@@ -17,7 +17,8 @@ def disable_system_metrics_logging():
     mlflow.set_system_metrics_node_id(None)
 
 
-def test_manual_system_metrics_monitor():
+@pytest.mark.parametrize("x", range(500))
+def test_manual_system_metrics_monitor(x: int):
     with mlflow.start_run(log_system_metrics=False) as run:
         system_monitor = SystemMetricsMonitor(
             run.info.run_id,
@@ -59,7 +60,8 @@ def test_manual_system_metrics_monitor():
     assert metrics_history[-1].step > 0
 
 
-def test_automatic_system_metrics_monitor():
+@pytest.mark.parametrize("x", range(500))
+def test_automatic_system_metrics_monitor(x: int):
     mlflow.enable_system_metrics_logging()
     mlflow.set_system_metrics_sampling_interval(0.2)
     mlflow.set_system_metrics_samples_before_logging(2)
@@ -100,7 +102,8 @@ def test_automatic_system_metrics_monitor():
     assert metrics_history[-1].step > 0
 
 
-def test_automatic_system_metrics_monitor_resume_existing_run():
+@pytest.mark.parametrize("x", range(500))
+def test_automatic_system_metrics_monitor_resume_existing_run(x: int):
     mlflow.enable_system_metrics_logging()
     mlflow.set_system_metrics_sampling_interval(0.2)
     mlflow.set_system_metrics_samples_before_logging(2)

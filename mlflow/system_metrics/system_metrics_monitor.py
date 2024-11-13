@@ -118,9 +118,12 @@ class SystemMetricsMonitor:
         from mlflow.tracking.fluent import get_run
 
         while not self._shutdown_event.is_set():
-            for _ in range(self.samples_before_logging):
+            for sample in range(self.samples_before_logging):
+                _logger.info(f"Collecting sample {sample + 1} of {self.samples_before_logging}")
                 self.collect_metrics()
+                _logger.info(f"Metrics collected: {[monitor._metrics for monitor in self.monitors]}")
                 self._shutdown_event.wait(self.sampling_interval)
+                _logger.info(f"Thread shutdown wait complete.")
                 try:
                     # Get the MLflow run to check if the run is not RUNNING.
                     run = get_run(self._run_id)
@@ -130,6 +133,8 @@ class SystemMetricsMonitor:
                 if run.info.status != "RUNNING" or self._shutdown_event.is_set():
                     # If the mlflow run is terminated or receives the shutdown signal, stop
                     # monitoring.
+                    _logger.info(f"Metrics monitoring complete with run state {run.info.status}.  "
+                                 f"Shutdown event status: {self._shutdown_event.is_set()}")
                     return
             metrics = self.aggregate_metrics()
             try:
