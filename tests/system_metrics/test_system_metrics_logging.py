@@ -36,15 +36,15 @@ def test_manual_system_metrics_monitor(wait_for_condition, x: int):
     with mlflow.start_run(log_system_metrics=False) as run:
         system_monitor = SystemMetricsMonitor(
             run.info.run_id,
-            sampling_interval=0.1,
-            samples_before_logging=1,
+            sampling_interval=0.2,
+            samples_before_logging=2,
         )
         system_monitor.start()
         thread_names = [thread.name for thread in threading.enumerate()]
         # Check the system metrics monitoring thread has been started.
         assert "SystemMetricsMonitor" in thread_names
 
-        assert wait_for_condition(lambda: len(mlflow.get_run(run.info.run_id).data.metrics) >= 7)
+        assert wait_for_condition(lambda: len(mlflow.get_run(run.info.run_id).data.metrics) > 7)
 
     assert wait_for_condition(
         lambda: "SystemMetricsMonitor" not in [thread.name for thread in threading.enumerate()]
@@ -83,7 +83,7 @@ def test_automatic_system_metrics_monitor(wait_for_condition, x: int):
         # Check the system metrics monitoring thread has been started.
         assert "SystemMetricsMonitor" in thread_names
 
-        assert wait_for_condition(lambda: len(mlflow.get_run(run.info.run_id).data.metrics) >= 7)
+        assert wait_for_condition(lambda: len(mlflow.get_run(run.info.run_id).data.metrics) > 7)
 
     assert wait_for_condition(
         lambda: "SystemMetricsMonitor" not in [thread.name for thread in threading.enumerate()]
