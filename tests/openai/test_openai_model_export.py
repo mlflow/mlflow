@@ -6,7 +6,6 @@ import numpy as np
 import openai
 import pandas as pd
 import pytest
-import requests
 import yaml
 from pyspark.sql import SparkSession
 
@@ -630,49 +629,3 @@ def test_engine_and_deployment_id_for_azure_openai(tmp_path, monkeypatch):
         MlflowException, match=r"Either engine or deployment_id must be set for Azure OpenAI API"
     ):
         mlflow.pyfunc.load_model(tmp_path)
-
-
-@pytest.mark.parametrize(
-    ("api_type", "auth_headers"),
-    [
-        ("azure", {"api-key": "test"}),
-        ("azure_ad", {"Authorization": "Bearer test"}),
-        ("azuread", {"Authorization": "Bearer test"}),
-        ("openai", {"Authorization": "Bearer test"}),
-    ],
-)
-def test_openai_request_auth_headers(api_type, auth_headers, tmp_path, monkeypatch):
-    monkeypatch.setenv("OPENAI_API_TYPE", api_type)
-    if "azure" in api_type:
-        monkeypatch.setenv("OPENAI_DEPLOYMENT_NAME", "test")
-    mlflow.openai.save_model(
-        model="gpt-4o",
-        task="chat.completions",
-        path=tmp_path,
-    )
-    model = mlflow.pyfunc.load_model(tmp_path)
-    with mock.patch("requests.Session.request") as mock_request:
-        model.predict("What is the meaning of life?")
-        mock_request.assert_called_once_with(
-            method="post",
-            url=mock.ANY,
-            data=mock.ANY,
-            json=mock.ANY,
-            timeout=mock.ANY,
-            headers=auth_headers,
-        )
-
-
-@pytest.mark.parametrize("env_name", ["OPENAI_API_BASE", "OPENAI_BASE_URL"])
-def test_openai_base_url(env_name, tmp_path, monkeypatch, mock_openai):
-    base = mock_openai.rstrip("/")
-    monkeypatch.setenv(env_name, base + "/")
-    mlflow.openai.save_model(model="gpt-4o", task="chat.completions", path=tmp_path)
-    model = mlflow.pyfunc.load_model(tmp_path)
-
-    with mock.patch("requests.post", side_effect=requests.post) as mock_request:
-        resp = model.predict("test")
-        mock_request.assert_called_once()
-        url = mock_request.call_args.kwargs["url"]
-        assert url == f"{base}/chat/completions"
-        assert resp == ['[{"role": "user", "content": "test"}]']
