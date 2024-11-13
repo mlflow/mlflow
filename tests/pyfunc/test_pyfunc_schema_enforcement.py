@@ -2983,18 +2983,28 @@ def test_zero_or_one_longs_convert_to_floats():
 
 
 @pytest.mark.parametrize(
-    ("input_example", "expected_schema"),
+    ("input_example", "expected_schema", "payload_example"),
     [
-        ({"a": None}, Schema([ColSpec(type=AnyType(), name="a", required=False)])),
-        ([[None], []], Schema([ColSpec(Array(AnyType()))])),
-        ({"a": [None]}, Schema([ColSpec(type=Array(AnyType()), name="a", required=False)])),
+        ({"a": None}, Schema([ColSpec(type=AnyType(), name="a", required=False)]), {"a": "string"}),
+        (
+            {"a": [None, []]},
+            Schema([ColSpec(Array(AnyType()), name="a", required=False)]),
+            {"a": ["abc", "123"]},
+        ),
+        (
+            {"a": [None]},
+            Schema([ColSpec(type=Array(AnyType()), name="a", required=False)]),
+            {"a": ["abc"]},
+        ),
         (
             {"a": [None, "string"]},
             Schema([ColSpec(type=Array(DataType.string), name="a", required=False)]),
+            {"a": ["abc"]},
         ),
         (
             {"a": {"x": None}},
             Schema([ColSpec(type=Object([Property("x", AnyType())]), name="a")]),
+            {"a": {"x": 234}},
         ),
         (
             [
@@ -3057,10 +3067,27 @@ def test_zero_or_one_longs_convert_to_floats():
                     ColSpec(DataType.string, name="text"),
                 ]
             ),
+            [
+                {
+                    "messages": [
+                        {
+                            "content": "You are a helpful assistant.",
+                            "additional_kwargs": {"x": "x"},
+                            "response_metadata": {"y": "y"},
+                            "type": "system",
+                            "name": "test",
+                            "id": 1234567,
+                            "tool_calls": [{"tool1": "abc"}],
+                            "invalid_tool_calls": ["tool2", "tool3"],
+                        },
+                    ],
+                    "text": "Hello?",
+                }
+            ],
         ),
     ],
 )
-def test_schema_enforcement_for_anytype(input_example, expected_schema):
+def test_schema_enforcement_for_anytype(input_example, expected_schema, payload_example):
     class MyModel(mlflow.pyfunc.PythonModel):
         def predict(self, context, model_input, params=None):
             return model_input
@@ -3073,15 +3100,15 @@ def test_schema_enforcement_for_anytype(input_example, expected_schema):
         )
     assert model_info.signature.inputs == expected_schema
     loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
-    prediction = loaded_model.predict(input_example)
+    prediction = loaded_model.predict(payload_example)
     df = (
-        pd.DataFrame(input_example)
-        if isinstance(input_example, list)
-        else pd.DataFrame([input_example])
+        pd.DataFrame(payload_example)
+        if isinstance(payload_example, list)
+        else pd.DataFrame([payload_example])
     )
     pd.testing.assert_frame_equal(prediction, df)
 
-    data = convert_input_example_to_serving_input(input_example)
+    data = convert_input_example_to_serving_input(payload_example)
     response = pyfunc_serve_and_score_model(
         model_info.model_uri,
         data=data,

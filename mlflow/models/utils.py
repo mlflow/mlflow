@@ -1263,7 +1263,12 @@ def _enforce_datatype(data: Any, dtype: DataType, required=True):
 
 
 def _enforce_array(data: Any, arr: Array, required=True):
-    if not required:
+    """
+    Enforce data against an Array type.
+    If the field is required, then the data must be provided.
+    If Array's internal dtype is AnyType, then None and empty lists are also accepted.
+    """
+    if not required or arr.dtype == AnyType():
         if data is None:
             return None
         if isinstance(data, list) and not data:

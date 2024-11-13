@@ -302,8 +302,8 @@ def _infer_schema(data: Any) -> Schema:
                 col_data_mapping[k].append(v)
         requiredness = {}
         for col in col_data_mapping:
-            # if col exists in item but its value is empty, then it is not required
-            requiredness[col] = all(item.get(col) for item in data)
+            # if col exists in item but its value is None, then it is not required
+            requiredness[col] = all(item.get(col) is not None for item in data)
 
         schema = Schema(
             [

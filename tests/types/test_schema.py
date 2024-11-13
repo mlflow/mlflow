@@ -1667,13 +1667,14 @@ def test_schema_inference_with_empty_lists():
     data = [[None, np.nan]]
     assert _infer_schema(data) == Schema([ColSpec(Array(AnyType()))])
 
-    # Nested list contains only an empty list is not allowed.
-    data = [[]]
+    assert _infer_schema([[]]) == Schema([ColSpec(AnyType())])
+
+    # Empty numpy array is not allowed.
     with pytest.raises(
         MlflowException,
-        match=r"A column of nested array type must include at least one non-empty array.",
+        match=r"Numpy array must include at least one non-empty item",
     ):
-        _infer_schema(data)
+        _infer_schema([np.array([])])
 
     # If at least one of sublists is not empty, we can assume other empty lists have the same type.
     data = [
@@ -1708,10 +1709,10 @@ def test_schema_inference_with_empty_lists():
     expected_schema = Schema([ColSpec(Array(Array(Array(DataType.string))), name="data")])
     assert inferred_schema == expected_schema
 
-    # Property value cannot be an empty list
     data = [{"data": {"key": []}}]
-    with pytest.raises(MlflowException, match=r"Dictionary value must not be an empty list."):
-        _infer_schema(data)
+    assert _infer_schema(data) == Schema(
+        [ColSpec(Object([Property("key", AnyType())]), name="data")]
+    )
 
 
 def test_repr_of_objects():
@@ -1847,9 +1848,23 @@ def test_convert_dataclass_to_schema_invalid():
 @pytest.mark.parametrize(
     ("data", "expected_schema"),
     [
+        # Pure empty list is inferred as string type for backwards compatibility
+        ([], Schema([ColSpec(type=DataType.string)])),
+        # None type is inferred as AnyType
         (None, Schema([ColSpec(AnyType())])),
         ({"a": None}, Schema([ColSpec(type=AnyType(), name="a", required=False)])),
+        # Empty list in dictionary is inferred as AnyType
+        ({"a": []}, Schema([ColSpec(type=AnyType(), name="a")])),
+        (
+            [{"a": []}],
+            Schema([ColSpec(type=AnyType(), name="a")]),
+        ),
+        (
+            [{"a": []}, {"a": None}],
+            Schema([ColSpec(type=AnyType(), name="a", required=False)]),
+        ),
         ({"a": [None]}, Schema([ColSpec(type=Array(AnyType()), name="a", required=False)])),
+        ({"a": [[], None]}, Schema([ColSpec(type=Array(AnyType()), name="a", required=False)])),
         (
             {"a": [None, "string"]},
             Schema([ColSpec(type=Array(DataType.string), name="a", required=False)]),

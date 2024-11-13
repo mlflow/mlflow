@@ -302,10 +302,7 @@ class Property:
                 return Property(name=self.name, dtype=self.dtype, required=required)
             raise MlflowException(f"Properties are incompatible for {self.dtype} and {other.dtype}")
 
-        if (
-            isinstance(self.dtype, (Array, Object, Map, AnyType))
-            and self.dtype.__class__ is other.dtype.__class__
-        ):
+        if isinstance(self.dtype, (Array, Object, Map, AnyType)):
             obj = self.dtype._merge(other.dtype)
             return Property(name=self.name, dtype=obj, required=required)
 
@@ -547,10 +544,7 @@ class Array:
                 f"{other} with dtype={other.dtype}"
             )
 
-        if (
-            isinstance(self.dtype, (Array, Object, Map, AnyType))
-            and self.dtype.__class__ is other.dtype.__class__
-        ):
+        if isinstance(self.dtype, (Array, Object, Map, AnyType)):
             return Array(dtype=self.dtype._merge(other.dtype))
 
         raise MlflowException(f"Array type {self!r} and {other!r} are incompatible")
@@ -664,10 +658,7 @@ class Map:
                 f"{map_type} with value_type={map_type.value_type}"
             )
 
-        if (
-            isinstance(self.value_type, (Array, Object, Map))
-            and self.value_type.__class__ is map_type.value_type.__class__
-        ):
+        if isinstance(self.value_type, (Array, Object, Map, AnyType)):
             return Map(value_type=self.value_type._merge(map_type.value_type))
 
         raise MlflowException(f"Map type {self!r} and {map_type!r} are incompatible")
@@ -693,19 +684,6 @@ class AnyType:
 
     def to_dict(self):
         return {"type": ANY_TYPE}
-
-    # @classmethod
-    # def from_json_dict(cls, **kwargs):
-    #     """
-    #     Deserialize from a json loaded dictionary.
-    #     The dictionary is expected to contain `type` keys
-    #     Example: {"type": "any"}
-    #     """
-    #     if not {"type"} <= set(kwargs.keys()):
-    #         raise MlflowException("Missing keys in Array JSON. Expected to find key `type`")
-    #     if kwargs["type"] != ANY_TYPE:
-    #         raise MlflowException(f"Type mismatch, Any expects `{ANY_TYPE}` as the type")
-    #     return cls()
 
     def _merge(
         self, another_type: Union["AnyType", Array, Object, Map, DataType]
