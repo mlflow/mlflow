@@ -132,7 +132,7 @@ class _OpenAIApiConfig(NamedTuple):
     api_base: str
     engine: Optional[str]
     deployment_id: Optional[str]
-    max_retries: int = 5
+    max_retries: int = 10
     timeout: float = 60.0
 
 

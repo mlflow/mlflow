@@ -1,5 +1,4 @@
 import json
-import time
 from typing import Union
 
 import fastapi
@@ -124,7 +123,6 @@ async def chat(payload: ChatPayload):
             media_type="text/event-stream",
         )
     else:
-        time.sleep(0.1)  # avoid busy API
         return chat_response(payload)
 
 
