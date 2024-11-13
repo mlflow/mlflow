@@ -11,7 +11,6 @@ from pyspark.sql import SparkSession
 
 import mlflow
 import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
-from mlflow.exceptions import MlflowException
 from mlflow.models.signature import ModelSignature
 from mlflow.models.utils import load_serving_example
 from mlflow.types.schema import ColSpec, ParamSchema, ParamSpec, Schema, TensorSpec
@@ -616,16 +615,3 @@ def test_inference_params_overlap(tmp_path):
                 params=ParamSchema([ParamSpec(name="prefix", default=None, dtype="string")]),
             ),
         )
-
-
-def test_engine_and_deployment_id_for_azure_openai(tmp_path, monkeypatch):
-    monkeypatch.setenv("OPENAI_API_TYPE", "azure")
-    mlflow.openai.save_model(
-        model="text-embedding-ada-002",
-        task=embeddings(),
-        path=tmp_path,
-    )
-    with pytest.raises(
-        MlflowException, match=r"Either engine or deployment_id must be set for Azure OpenAI API"
-    ):
-        mlflow.pyfunc.load_model(tmp_path)

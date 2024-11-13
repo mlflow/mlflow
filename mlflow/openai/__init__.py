@@ -637,34 +637,6 @@ class _OpenAIWrapper:
         self.task = task
         self.api_config = _get_api_config()
         self.api_token = _OAITokenHolder(self.api_config.api_type)
-        # If the same parameter exists in self.model & self.api_config,
-        # we use the parameter from self.model
-        self.request_configs = {}
-        for x in ["api_base", "api_version", "api_type", "engine", "deployment_id"]:
-            if x in self.model:
-                self.request_configs[x] = self.model.pop(x)
-            elif value := getattr(self.api_config, x):
-                self.request_configs[x] = value
-
-        if self.request_configs.get("api_type") in ("azure", "azure_ad", "azuread"):
-            deployment_id = self.request_configs.get("deployment_id")
-            if self.request_configs.get("engine"):
-                # Avoid using both parameters as they serve the same purpose
-                # Invalid inputs:
-                #   - Wrong engine + correct/wrong deployment_id
-                #   - No engine + wrong deployment_id
-                # Valid inputs:
-                #   - Correct engine + correct/wrong deployment_id
-                #   - No engine + correct deployment_id
-                if deployment_id is not None:
-                    _logger.warning(
-                        "Both engine and deployment_id are set. "
-                        "Using engine as it takes precedence."
-                    )
-            elif deployment_id is None:
-                raise MlflowException(
-                    "Either engine or deployment_id must be set for Azure OpenAI API",
-                )
 
         if self.task != "embeddings":
             self._setup_completions()
