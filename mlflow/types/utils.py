@@ -133,7 +133,9 @@ def _infer_datatype(data: Any) -> Union[DataType, Array, Object, AnyType]:
             dtype = _infer_datatype(v)
             if dtype is None:
                 raise MlflowException("Dictionary value must not be an empty numpy array.")
-            properties.append(Property(name=k, dtype=dtype))
+            properties.append(
+                Property(name=k, dtype=dtype, required=not isinstance(dtype, AnyType))
+            )
         return Object(properties=properties)
 
     if isinstance(data, (list, np.ndarray)):

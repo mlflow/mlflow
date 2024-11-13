@@ -1871,7 +1871,70 @@ def test_convert_dataclass_to_schema_invalid():
         ),
         (
             {"a": {"x": None}},
-            Schema([ColSpec(type=Object([Property("x", AnyType())]), name="a")]),
+            Schema([ColSpec(type=Object([Property("x", AnyType(), required=False)]), name="a")]),
+        ),
+        (
+            [
+                {
+                    "id": None,
+                    "object": "chat.completion",
+                    "created": 1731491873,
+                    "model": None,
+                    "choices": [
+                        {
+                            "index": 0,
+                            "message": {
+                                "role": "assistant",
+                                "content": "MLflow",
+                            },
+                            "finish_reason": None,
+                        }
+                    ],
+                    "usage": {
+                        "prompt_tokens": None,
+                        "completion_tokens": None,
+                        "total_tokens": None,
+                    },
+                }
+            ],
+            Schema(
+                [
+                    ColSpec(type=AnyType(), name="id", required=False),
+                    ColSpec(type=DataType.string, name="object"),
+                    ColSpec(type=DataType.long, name="created"),
+                    ColSpec(type=AnyType(), name="model", required=False),
+                    ColSpec(
+                        type=Array(
+                            Object(
+                                properties=[
+                                    Property("index", dtype=DataType.long),
+                                    Property(
+                                        "message",
+                                        dtype=Object(
+                                            [
+                                                Property("role", DataType.string),
+                                                Property("content", DataType.string),
+                                            ]
+                                        ),
+                                    ),
+                                    Property("finish_reason", dtype=AnyType(), required=False),
+                                ]
+                            )
+                        ),
+                        name="choices",
+                    ),
+                    ColSpec(
+                        type=Object(
+                            [
+                                Property("prompt_tokens", AnyType(), required=False),
+                                Property("completion_tokens", AnyType(), required=False),
+                                Property("total_tokens", AnyType(), required=False),
+                            ]
+                        ),
+                        name="usage",
+                    ),
+                ]
+            ),
         ),
         (
             [
@@ -1917,11 +1980,11 @@ def test_convert_dataclass_to_schema_invalid():
                             Object(
                                 properties=[
                                     Property("content", DataType.string),
-                                    Property("additional_kwargs", AnyType()),
-                                    Property("response_metadata", AnyType()),
+                                    Property("additional_kwargs", AnyType(), required=False),
+                                    Property("response_metadata", AnyType(), required=False),
                                     Property("type", DataType.string),
-                                    Property("name", AnyType()),
-                                    Property("id", AnyType()),
+                                    Property("name", AnyType(), required=False),
+                                    Property("id", AnyType(), required=False),
                                     Property("example", DataType.boolean, required=False),
                                     Property("tool_calls", AnyType(), required=False),
                                     Property("invalid_tool_calls", AnyType(), required=False),
