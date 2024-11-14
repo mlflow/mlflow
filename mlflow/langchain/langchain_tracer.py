@@ -37,40 +37,25 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
     input arguments added to original function call.
 
     Args:
-        parent_span: Optional parent span for the trace. If provided, spans will be
-            created under the given parent span. Otherwise, a single trace will be
-            created. Example usage:
-
-            .. code-block:: python
-
-                from mlflow.langchain.langchain_tracer import MlflowLangchainTracer
-                from langchain_community.chat_models import ChatDatabricks
-
-                chat_model = ChatDatabricks(endpoint="databricks-llama-2-70b-chat")
-                with mlflow.start_span("Custom root span") as root_span:
-                    chat_model.invoke(
-                        "What is MLflow?",
-                        config={"callbacks": [MlflowLangchainTracer(root_span)]},
-                    )
         prediction_context: Optional prediction context object to be set for the
             thread-local context. Occasionally this has to be passed manually because
             the callback may be invoked asynchronously and Langchain doesn't correctly
             propagate the thread-local context.
+        set_span_in_context: If True, the span created by this callback will be set as
+            the active span and attached to the current context. This will allow using
+            fluent APIs or other auto-tracing integrations with this callback. If set
+            to False, the span will not be set as active span.
     """
 
     def __init__(
         self,
-        parent_span: Optional[LiveSpan] = None,
         prediction_context: Optional[Context] = None,
         set_span_in_context: bool = True,
     ):
-        """ """
         # NB: The tracer can handle multiple traces in parallel under multi-threading scenarios.
         # DO NOT use instance variables to manage the state of single trace.
         super().__init__()
         self._mlflow_client = MlflowClient()
-        # Parent span created by the user beyond the callback scope
-        self._parent_span = parent_span or mlflow.get_current_active_span()
         # run_id: (LiveSpan, OTel token)
         self._run_span_mapping: dict[str, tuple[LiveSpan, Any]] = {}
         self._active_request_ids: set[str] = set()
@@ -128,10 +113,9 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
     def _get_parent_span(self, parent_run_id) -> Optional[LiveSpan]:
         """
         Get parent span from multiple sources:
-        1. If parent_run_id is provided, get the corresponding span from the run -> span mapping
-        2. If parent_span argument is passed to the callback, use it as parent span
-        3. If there is an active span, use it as parent span
-        4. If none of the above, return None
+        1. If there is an active span in current context, use it as parent span
+        2. If parent_run_id is provided, get the corresponding span from the run -> span mapping
+        3. If none of the above, return None
         """
         # Span created from this callback must be set as active span, except two cases
         #  1. Root span
@@ -141,8 +125,6 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
             return active_span
         elif parent_run_id:
             return self._get_span_by_run_id(parent_run_id)
-        elif self._parent_span:
-            return self._parent_span
         return None
 
     def _end_span(
@@ -188,15 +170,16 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
 
     def _is_trace_active(self, request_id: str) -> bool:
         """Check if a trace with the given request ID is active (i.e. not ended yet)"""
-        return (
-            # Case 1: The root span is started by this callback, the ID
-            # should be in the active list, otherwise it's already ended.
-            request_id in self._active_request_ids
-            # Case 2: The root span is created by client API outside this callback,
-            # and passed via the `parent_span` argument of the callback. In this case,
-            # we have no way to check if it is active or not, so just assume it is.
-            or self._parent_span
-        )
+        # Case 1: The root span is started by this callback, the ID
+        # should be in the active list, otherwise it's already ended.
+        if request_id in self._active_request_ids:
+            return True
+
+        # Case 2: The root span is created by fluent API outside this callback
+        if active_span := mlflow.get_current_active_span():
+            return active_span.request_id == request_id
+
+        return False
 
     def flush(self):
         """Flush the state of the tracer."""
