@@ -186,9 +186,9 @@ class ChatMessage(_BaseDataclass):
             **Optional** Supplied if a refusal response is provided.
         name (str): The name of the entity that sent the message. **Optional**.
         tool_calls (List[:py:class:`ToolCall`]): A list of tool calls made by the model.
-            **Optional**
+            **Optional** defaults to ``None``
         tool_call_id (str): The ID of the tool call that this message is a response to.
-            **Optional**
+            **Optional** defaults to ``None``
     """
 
     role: str
@@ -223,18 +223,19 @@ class ChatChunkMessage(_BaseDataclass):
     Args:
         role (str): The role of the entity that sent the message (e.g. ``"user"``,
             ``"system"``, ``"assistant"``, ``"tool"``).
+            defaults to ``"assistant"``
         delta (str): The new token being streamed
             **Optional** Can be ``None`` if refusal or tool_calls are provided.
         refusal (str): The refusal message content.
             **Optional** Supplied if a refusal response is provided.
         name (str): The name of the entity that sent the message. **Optional**.
         tool_calls (List[:py:class:`ToolCall`]): A list of tool calls made by the model.
-            **Optional**
+            **Optional** defaults to ``None``
         tool_call_id (str): The ID of the tool call that this message is a response to.
-            **Optional**
+            **Optional** defaults to ``None``
     """
 
-    role: str
+    role: str = "assistant"
     delta: Optional[str] = None
     refusal: Optional[str] = None
     name: Optional[str] = None
@@ -433,7 +434,7 @@ class ChatParams(_BaseDataclass):
         self._validate_field("presence_penalty", float, False)
         self._convert_dataclass_list("tools", ToolDefinition, False)
 
-        # validate that the metadata field is a map from string to string
+        # validate that the custom_inputs field is a map from string to string
         if self.custom_inputs is not None:
             if not isinstance(self.custom_inputs, dict):
                 raise ValueError(
@@ -449,7 +450,8 @@ class ChatParams(_BaseDataclass):
                 if not isinstance(value, str):
                     raise ValueError(
                         "Expected `custom_inputs` to be of type `Dict[str, str]`, "
-                        f"received value of type `{type(value).__name__}` in `custom_inputs['{key}']`)"
+                        f"received value of type `{type(value).__name__}` in "
+                        f"`custom_inputs['{key}']`)"
                     )
 
 
@@ -465,12 +467,29 @@ class ChatCompletionRequest(ChatParams):
             **Optional**, defaults to ``1.0``
         max_tokens (int): The maximum number of new tokens to generate.
             **Optional**, defaults to ``None`` (unlimited)
-        stop (List[str]): A list of tokens at which to stop generation. **Optional**,
-            defaults to ``None``
-        n (int): The number of responses to generate. **Optional**,
-            defaults to ``1``
-        stream (bool): Whether to stream back responses as they are generated. **Optional**,
-            defaults to ``False``
+        stop (List[str]): A list of tokens at which to stop generation.
+            **Optional**, defaults to ``None``
+        n (int): The number of responses to generate.
+            **Optional**, defaults to ``1``
+        stream (bool): Whether to stream back responses as they are generated.
+            **Optional**, defaults to ``False``
+        top_p (float): An optional param to control sampling with temperature, the model considers
+            the results of the tokens with top_p probability mass. E.g., 0.1 means only the tokens
+            comprising the top 10% probability mass are considered.
+        top_k (int): An optional param for reducing the vocabulary size to top k tokens
+            (sorted in descending order by their probabilites).
+        frequency_penalty: (float): An optional param of positive or negative value,
+            positive values penalize new tokens based on
+            their existing frequency in the text so far, decreasing the model's likelihood to repeat
+            the same line verbatim.
+        presence_penalty: (float): An optional param of positive or negative value,
+            positive values penalize new tokens based on whether they appear in the text so far,
+            increasing the model's likelihood to talk about new topics.
+        custom_inputs (Dict[str, str]): An optional param to provide arbitrary additional context
+            to the model. Both the keys and the values must be strings (i.e. nested dictionaries
+            are not supported).
+        tools (List[:py:class:`ToolDefinition`]): An optional list of tools that can be called by
+            the model.
     """
 
     messages: list[ChatMessage] = field(default_factory=list)
@@ -562,14 +581,16 @@ class ChatChoice(_BaseDataclass):
 
     Args:
         index (int): The index of the response in the list of responses.
+            defaults to ``0``
         message (:py:class:`ChatMessage`): The message that was generated.
         finish_reason (str): The reason why generation stopped.
             **Optional**, defaults to ``"stop"``
         logprobs (:py:class:`ChatChoiceLogProbs`): Log probability information for the choice.
+            **Optional**, defaults to ``None``
     """
 
-    index: int
     message: ChatMessage
+    index: int = 0
     finish_reason: str = "stop"
     logprobs: Optional[ChatChoiceLogProbs] = None
 
@@ -584,24 +605,26 @@ class ChatChoice(_BaseDataclass):
 class ChatChunkChoice(_BaseDataclass):
     """
     A single chat response chunk generated by the model.
-    ref: https://platform.openai.com/docs/api-reference/chat/object
+    ref: https://platform.openai.com/docs/api-reference/chat/streaming
 
     Args:
         index (int): The index of the response in the list of responses.
+            defaults to ``0``
         message (:py:class:`ChatChunkMessage`): The streaming chunk message that was generated.
         finish_reason (str): The reason why generation stopped.
-            **Optional**, defaults to ``"stop"``
+            **Optional**, defaults to ``None``
         logprobs (:py:class:`ChatChoiceLogProbs`): Log probability information for the choice.
+            **Optional**, defaults to ``None``
     """
 
-    index: int
     message: ChatChunkMessage
-    finish_reason: str = "stop"
+    index: int = 0
+    finish_reason: Optional[str] = None
     logprobs: Optional[ChatChoiceLogProbs] = None
 
     def __post_init__(self):
         self._validate_field("index", int, True)
-        self._validate_field("finish_reason", str, True)
+        self._validate_field("finish_reason", str, False)
         self._convert_dataclass("message", ChatChunkMessage, True)
         self._convert_dataclass("logprobs", ChatChoiceLogProbs, False)
 
@@ -670,6 +693,7 @@ class ChatCompletionResponse(_BaseDataclass):
 class ChatCompletionChunk(_BaseDataclass):
     """
     The streaming chunk returned by the chat endpoint.
+    ref: https://platform.openai.com/docs/api-reference/chat/streaming
 
     Args:
         choices (List[:py:class:`ChatChunkChoice`]): A list of :py:class:`ChatChunkChoice` objects

@@ -2,9 +2,9 @@ import pytest
 
 from mlflow.types.llm import (
     ChatChoice,
-    ChatMessage,
     ChatCompletionRequest,
     ChatCompletionResponse,
+    ChatMessage,
     TokenUsageStats,
 )
 

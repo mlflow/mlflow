@@ -9,7 +9,7 @@ import os
 import shutil
 from abc import ABCMeta, abstractmethod
 from pathlib import Path
-from typing import Any, Generator, Optional, Union
+from typing import Any, Optional, Generator, Union
 
 import cloudpickle
 import pandas as pd
@@ -25,7 +25,7 @@ from mlflow.models.signature import _extract_type_hints
 from mlflow.models.utils import _load_model_code_path
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
-from mlflow.types.llm import ChatMessage, ChatParams, ChatCompletionResponse, ChatCompletionChunk
+from mlflow.types.llm import ChatCompletionChunk, ChatCompletionResponse, ChatMessage, ChatParams
 from mlflow.pyfunc.utils.input_converter import _hydrate_dataclass
 from mlflow.types.utils import _is_list_dict_str, _is_list_str
 from mlflow.utils.annotations import experimental
@@ -271,8 +271,8 @@ class ChatModel(PythonModel, metaclass=ABCMeta):
                 inference.
 
         Returns:
-            A generator over :py:class:`ChatCompletionChunk <mlflow.types.llm.ChatCompletionChunk>` object
-            containing the model's response(s), as well as other metadata.
+            A generator over :py:class:`ChatCompletionChunk <mlflow.types.llm.ChatCompletionChunk>`
+            object containing the model's response(s), as well as other metadata.
         """
         raise NotImplementedError()
 

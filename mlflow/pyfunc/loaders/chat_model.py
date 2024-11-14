@@ -1,4 +1,4 @@
-from typing import Any, Generator, Optional
+from typing import Any, Optional, Generator
 
 from mlflow.exceptions import MlflowException
 from mlflow.models.utils import _convert_llm_ndarray_to_list
