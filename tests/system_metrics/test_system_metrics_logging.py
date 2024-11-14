@@ -19,7 +19,7 @@ def disable_system_metrics_logging():
 
 
 def wait_for_condition(
-    condition_func: Callable[..., Any], timeout: int = 10, check_interval: int = 1
+    condition_func: Callable[[], Any], timeout: int = 10, check_interval: int = 1
 ) -> None:
     start_time = time.time()
     while time.time() - start_time < timeout:
