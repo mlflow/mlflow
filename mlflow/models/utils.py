@@ -1267,11 +1267,9 @@ def _enforce_array(data: Any, arr: Array, required=True):
     If the field is required, then the data must be provided.
     If Array's internal dtype is AnyType, then None and empty lists are also accepted.
     """
-    if not required or arr.dtype == AnyType():
-        if data is None:
-            return None
-        if isinstance(data, list) and not data:
-            return []
+    if not required or isinstance(arr.dtype, AnyType):
+        if data is None or data == []:
+            return data
         if isinstance(data, np.ndarray) and not data.tolist():
             return np.array([])
 
@@ -1292,11 +1290,8 @@ def _enforce_property(data: Any, property: Property):
 
 
 def _enforce_object(data: dict[str, Any], obj: Object, required=True):
-    if not required:
-        if data is None:
-            return None
-        if isinstance(data, dict) and not data:
-            return {}
+    if not required and (data is None or data == {}):
+        return data
     if HAS_PYSPARK and isinstance(data, Row):
         data = data.asDict(True)
     if not isinstance(data, dict):
@@ -1331,11 +1326,8 @@ def _enforce_object(data: dict[str, Any], obj: Object, required=True):
 
 
 def _enforce_map(data: Any, map_type: Map, required=True):
-    if not required:
-        if data is None:
-            return None
-        if isinstance(data, dict) and not data:
-            return {}
+    if (not required or isinstance(map_type.value_type, AnyType)) and (data is None or data == {}):
+        return data
 
     if not isinstance(data, dict):
         raise MlflowException(f"Expected data to be a dict, got {type(data).__name__}")
