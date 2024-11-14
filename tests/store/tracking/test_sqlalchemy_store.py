@@ -4180,13 +4180,14 @@ def _create_trace(
         "mlflow.store.tracking.sqlalchemy_store.generate_request_id",
         side_effect=lambda: request_id,
     ):
-        # In case if under the hood of `store` is a GO implementation it is
+        # In case if under the hood of `store` is a GO implementation, it is
         # not possible to mock `generate.request_id`. Let's send generated
-        # `request_id` via special tag='request_id' so GO implementation can catch it.
+        # `request_id` via special tag='mock.generate_request_id.fa4bcce6c7b1b57d16ff01c82504b18b.tag'
+        # so GO implementation can catch it.if tags:
         if tags:
-            tags["request_id"] = request_id
+            tags["mock.generate_request_id.fa4bcce6c7b1b57d16ff01c82504b18b.tag"] = request_id
         else:
-            tags = {"request_id": request_id}
+            tags = {"mock.generate_request_id.fa4bcce6c7b1b57d16ff01c82504b18b.tag": request_id}
 
         trace_info = store.start_trace(
             experiment_id=experiment_id,

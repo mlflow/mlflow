@@ -1592,11 +1592,11 @@ class SqlAlchemyStore(AbstractStore):
                 status=TraceStatus.IN_PROGRESS,
             )
 
-            # tags could contain special tag='request_id' to make it possible to
-            # override `request_id` from Python tests in other stores like GO store.
+            # tags could contain special tag='mock.generate_request_id.fa4bcce6c7b1b57d16ff01c82504b18b.tag'
+            # to make it possible to override `request_id` from Python tests in other stores like GO store.
             # Filter it from here.
-            if "request_id" in tags:
-                del tags["request_id"]
+            if "mock.generate_request_id.fa4bcce6c7b1b57d16ff01c82504b18b.tag" in tags:
+                del tags["mock.generate_request_id.fa4bcce6c7b1b57d16ff01c82504b18b.tag"]
             trace_info.tags = [SqlTraceTag(key=k, value=v) for k, v in tags.items()]
             trace_info.tags.append(self._get_trace_artifact_location_tag(experiment, request_id))
 
