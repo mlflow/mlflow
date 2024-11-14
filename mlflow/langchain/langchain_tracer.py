@@ -104,7 +104,7 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
                 )
 
             # Attach the span to the current context to mark it "active"
-            token = set_span_in_context(span._span) if self._set_span_in_context else None
+            token = set_span_in_context(span) if self._set_span_in_context else None
             self._run_span_mapping[str(run_id)] = (span, token)
         return span
 

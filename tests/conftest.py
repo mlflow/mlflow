@@ -64,6 +64,15 @@ def reset_tracing():
     IPythonTraceDisplayHandler._instance = None
 
 
+@pytest.fixture(autouse=True)
+def validate_trace_finish():
+    yield
+
+    # Validate all spans are finished by the end of the each test.
+    # Leaked span is critical problem and also hard to find without an explicit check.
+    assert mlflow.get_current_active_span() is None
+
+
 @pytest.fixture(autouse=True, scope="session")
 def enable_test_mode_by_default_for_autologging_integrations():
     """

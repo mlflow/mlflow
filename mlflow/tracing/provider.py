@@ -10,7 +10,7 @@ use OpenTelemetry e.g. PromptFlow, Snowpark.
 import functools
 import json
 import logging
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
 
 from opentelemetry import context as context_api
 from opentelemetry import trace
@@ -25,6 +25,9 @@ from mlflow.utils.databricks_utils import (
     is_in_databricks_model_serving_environment,
     is_mlflow_tracing_enabled_in_model_serving,
 )
+
+if TYPE_CHECKING:
+    from mlflow.entities import Span
 
 # Global tracer provider instance. We manage the tracer provider by ourselves instead of using
 # the global tracer provider provided by OpenTelemetry.
@@ -87,14 +90,14 @@ def start_detached_span(
     return tracer.start_span(name, context=context, attributes=attributes, start_time=start_time_ns)
 
 
-def set_span_in_context(span: trace.Span):
+def set_span_in_context(span: "Span"):
     """
     Set the given OpenTelemetry span as the active span in the current context.
 
     Args:
-        span: The OpenTelemetry span to be set as the active span.
+        span: An MLflow span object to set as the active span.
     """
-    context = trace.set_span_in_context(span)
+    context = trace.set_span_in_context(span._span)
     token = context_api.attach(context)
     return token  # noqa: RET504
 
