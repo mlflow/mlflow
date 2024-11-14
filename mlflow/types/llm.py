@@ -612,6 +612,44 @@ class ChatResponse(_BaseDataclass):
         self._convert_dataclass("usage", TokenUsageStats, False)
 
 
+# need to disable refusla if we choose not to include it in our final spec
+@dataclass
+class ChatAgentMessage(ChatMessage):
+    # Disabled by setting it to None and preventing instantiation
+    refusal: Optional[str] = field(init=False, default=None)
+    attachments: Optional[dict[str, str]] = None
+
+    def __post_init__(self):
+        super().__post_init__()
+        self._validate_field("attachments", dict, False)
+
+
+@dataclass
+class ChatAgentRequest(_BaseDataclass):
+    messages: list[ChatAgentMessage]
+    custom_inputs: Optional[dict[str, str]] = None
+    tools: Optional[list[ToolDefinition]] = None
+    stream: Optional[bool] = False
+
+    def __post_init__(self):
+        self._convert_dataclass_list("messages", ChatAgentMessage)
+        self._validate_field("custom_inputs", dict, False)
+        self._convert_dataclass_list("tools", ToolDefinition, False)
+        self._validate_field("stream", bool, False)
+
+
+@dataclass
+class ChatAgentResponse(_BaseDataclass):
+    messages: list[ChatAgentMessage]
+    custom_outputs: Optional[dict[str, str]] = None
+    usage: Optional[TokenUsageStats] = None
+
+    def __post_init__(self):
+        self._convert_dataclass_list("messages", ChatAgentMessage)
+        self._validate_field("custom_outputs", dict, False)
+        self._convert_dataclass("usage", TokenUsageStats, False)
+
+
 # turn off formatting for the model signatures to preserve readability
 # fmt: off
 CHAT_MODEL_INPUT_SCHEMA = Schema(
