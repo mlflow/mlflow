@@ -59,7 +59,7 @@ def build_docker(
     Args:
         model_uri: URI to the model. A local path, a 'runs:/' URI, or a remote storage URI (e.g.,
             an 's3://' URI). For more information about supported remote URIs for model artifacts,
-            see https://mlflow.org/docs/latest/tracking.html#artifact-stores"
+            see https://mlflow.org/docs/latest/tracking.html#artifact-stores
         name: Name of the Docker image to build. Defaults to 'mlflow-pyfunc'.
         env_manager: If specified, create an environment for MLmodel using the specified environment
             manager. The following values are supported: (1) virtualenv (default): use virtualenv
