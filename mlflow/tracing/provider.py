@@ -12,6 +12,7 @@ import json
 import logging
 from typing import Optional
 
+from opentelemetry import context as context_api
 from opentelemetry import trace
 from opentelemetry.sdk.trace import TracerProvider
 
@@ -84,6 +85,28 @@ def start_detached_span(
     if experiment_id:
         attributes[SpanAttributeKey.EXPERIMENT_ID] = json.dumps(experiment_id)
     return tracer.start_span(name, context=context, attributes=attributes, start_time=start_time_ns)
+
+
+def set_span_in_context(span: trace.Span):
+    """
+    Set the given OpenTelemetry span as the active span in the current context.
+
+    Args:
+        span: The OpenTelemetry span to be set as the active span.
+    """
+    context = trace.set_span_in_context(span)
+    token = context_api.attach(context)
+    return token  # noqa: RET504
+
+
+def detach_span_from_context(token):
+    """
+    Remove the active span from the current context.
+
+    Args:
+        token: The token returned by `_set_span_to_active` function.
+    """
+    context_api.detach(token)
 
 
 def _get_tracer(module_name: str):
