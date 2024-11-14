@@ -149,3 +149,9 @@ must be applied to the wrapping div along with the desired max-height */
     width: auto;
   }
 }
+
+/* This class is to be used in non-heading elements that contain a hash link reference.
+In headlines Ducousaurus adds this for us. */
+.anchor-with-sticky-navbar {
+  scroll-margin-top: calc(var(--ifm-navbar-height) + 0.5rem);
+}
