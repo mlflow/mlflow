@@ -130,7 +130,8 @@ def test_get_registered_model(store):
         RegisteredModelTag("anotherKey", "some other value"),
         # In case if under the hood of `store` is a GO implementation, it is
         # not possible to mock `time.time` dynamically.
-        # Let's send generated value via special tag='mock.time.time.fa4bcce6c7b1b57d16ff01c82504b18b.tag'
+        # Let's send generated value via special
+        # tag='mock.time.time.fa4bcce6c7b1b57d16ff01c82504b18b.tag'
         # so GO implementation can catch it.
         RegisteredModelTag("mock.time.time.fa4bcce6c7b1b57d16ff01c82504b18b.tag", "1234000"),
     ]
@@ -1349,8 +1350,10 @@ def test_search_registered_model_order_by(store):
         ):
             rms.append(_rm_maker(store, f"RM{i:03}", [
                 # In case if under the hood of `store` is a GO implementation, it is
-                # not possible to mock `mlflow.store.model_registry.sqlalchemy_store.get_current_time_millis`.
-                # Let's send generated value via special tag='mock.time.time.fa4bcce6c7b1b57d16ff01c82504b18b.tag'
+                # not possible to mock
+                # `mlflow.store.model_registry.sqlalchemy_store.get_current_time_millis`.
+                # Let's send generated value via special
+                # tag='mock.time.time.fa4bcce6c7b1b57d16ff01c82504b18b.tag'
                 # so GO implementation can catch it.
                 RegisteredModelTag("mock.time.time.fa4bcce6c7b1b57d16ff01c82504b18b.tag", f"{i}")
             ]).name)
@@ -1422,15 +1425,19 @@ def test_search_registered_model_order_by(store):
     ):
         rm1 = _rm_maker(store, "MR1", [
             # In case if under the hood of `store` is a GO implementation, it is
-            # not possible to mock `mlflow.store.model_registry.sqlalchemy_store.get_current_time_millis`.
-            # Let's send generated value via special tag='mock.time.time.fa4bcce6c7b1b57d16ff01c82504b18b.tag'
+            # not possible to mock
+            # `mlflow.store.model_registry.sqlalchemy_store.get_current_time_millis`.
+            # Let's send generated value via special
+            # tag='mock.time.time.fa4bcce6c7b1b57d16ff01c82504b18b.tag'
             # so GO implementation can catch it.
             RegisteredModelTag("mock.time.time.fa4bcce6c7b1b57d16ff01c82504b18b.tag", "1")
         ]).name
         rm2 = _rm_maker(store, "MR2", [
             # In case if under the hood of `store` is a GO implementation, it is
-            # not possible to mock `mlflow.store.model_registry.sqlalchemy_store.get_current_time_millis`.
-            # Let's send generated value via special tag='mock.time.time.fa4bcce6c7b1b57d16ff01c82504b18b.tag'
+            # not possible to mock
+            # `mlflow.store.model_registry.sqlalchemy_store.get_current_time_millis`.
+            # Let's send generated value via special
+            # tag='mock.time.time.fa4bcce6c7b1b57d16ff01c82504b18b.tag'
             # so GO implementation can catch it.
             RegisteredModelTag("mock.time.time.fa4bcce6c7b1b57d16ff01c82504b18b.tag", "1")
         ]).name
@@ -1440,15 +1447,19 @@ def test_search_registered_model_order_by(store):
     ):
         rm3 = _rm_maker(store, "MR3",[
             # In case if under the hood of `store` is a GO implementation, it is
-            # not possible to mock `mlflow.store.model_registry.sqlalchemy_store.get_current_time_millis`.
-            # Let's send generated value via special tag='mock.time.time.fa4bcce6c7b1b57d16ff01c82504b18b.tag'
+            # not possible to mock
+            # `mlflow.store.model_registry.sqlalchemy_store.get_current_time_millis`.
+            # Let's send generated value via special
+            # tag='mock.time.time.fa4bcce6c7b1b57d16ff01c82504b18b.tag'
             # so GO implementation can catch it.
             RegisteredModelTag("mock.time.time.fa4bcce6c7b1b57d16ff01c82504b18b.tag", "2")
         ]).name
         rm4 = _rm_maker(store, "MR4", [
             # In case if under the hood of `store` is a GO implementation, it is
-            # not possible to mock `mlflow.store.model_registry.sqlalchemy_store.get_current_time_millis`.
-            # Let's send generated value via special tag='mock.time.time.fa4bcce6c7b1b57d16ff01c82504b18b.tag'
+            # not possible to mock
+            # `mlflow.store.model_registry.sqlalchemy_store.get_current_time_millis`.
+            # Let's send generated value via special
+            # tag='mock.time.time.fa4bcce6c7b1b57d16ff01c82504b18b.tag'
             # so GO implementation can catch it.
             RegisteredModelTag("mock.time.time.fa4bcce6c7b1b57d16ff01c82504b18b.tag", "2")
         ]).name

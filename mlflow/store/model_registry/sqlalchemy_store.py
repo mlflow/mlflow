@@ -167,9 +167,10 @@ class SqlAlchemyStore(AbstractStore):
         """
         _validate_model_name(name)
 
-        # In case if under the hood of `store` is a GO implementation, it is impossible to use Pythin dynamic mocking.
-        # Tag with key="mock.time.time.fa4bcce6c7b1b57d16ff01c82504b18b.tag" is a special tag which is used to
-        # override some values in GO implementation.
+        # In case if under the hood of `store` is a GO implementation,
+        # it is impossible to use Pythin dynamic mocking.
+        # Tag with key="mock.time.time.fa4bcce6c7b1b57d16ff01c82504b18b.tag"
+        # is a special tag which is used to override some values in GO implementation.
         # This tag is not necessary in Pythin implementation, so let's clean it.
         for i in range(len(tags or [])):
             if tags[i].key == "mock.time.time.fa4bcce6c7b1b57d16ff01c82504b18b.tag":
