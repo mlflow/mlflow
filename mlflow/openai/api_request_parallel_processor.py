@@ -73,15 +73,17 @@ def call_api(
         results.append((index, result))
     except openai.RateLimitError as e:
         status_tracker.complete_task(success=False)
-        _logger.debug(f"Request #{index} failed with {e}")
+        _logger.debug(f"Request #{index} failed with: {e}")
         status_tracker.increment_num_rate_limit_errors()
         status_tracker.error = mlflow.MlflowException(
             f"Request #{index} failed with rate limit: {e}."
         )
     except Exception as e:
         status_tracker.complete_task(success=False)
-        _logger.debug(f"Request #{index} failed with {e}")
-        status_tracker.error = mlflow.MlflowException(f"Request #{index} failed with {e.__cause__}")
+        _logger.debug(f"Request #{index} failed with: {e}")
+        status_tracker.error = mlflow.MlflowException(
+            f"Request #{index} failed with: {e.__cause__}"
+        )
 
 
 def process_api_requests(

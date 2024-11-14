@@ -668,8 +668,7 @@ class _OpenAIWrapper:
         else:
             return data[self.formater.variables].to_dict(orient="records")
 
-    @property
-    def client(self):
+    def get_client(self, max_retries: int, timeout: float):
         if self.api_config.api_type == "azure":
             from openai import AzureOpenAI
 
@@ -678,6 +677,8 @@ class _OpenAIWrapper:
                 azure_endpoint=self.api_config.api_base,
                 api_version=self.api_config.api_version,
                 azure_deployment=self.api_config.deployment_id,
+                max_retries=max_retries,
+                timeout=timeout,
             )
         else:
             from openai import OpenAI
@@ -685,6 +686,8 @@ class _OpenAIWrapper:
             return OpenAI(
                 api_key=self.api_token.token,
                 base_url=self.api_config.api_base,
+                max_retries=max_retries,
+                timeout=timeout,
             )
 
     def _predict_chat(self, data, params):
@@ -695,7 +698,7 @@ class _OpenAIWrapper:
         timeout = params.pop("timeout", self.api_config.timeout)
 
         messages_list = self.format_completions(self.get_params_list(data))
-        client = self.client.with_options(max_retries=max_retries, timeout=timeout)
+        client = self.get_client(max_retries=max_retries, timeout=timeout)
 
         requests = [
             partial(
@@ -721,7 +724,7 @@ class _OpenAIWrapper:
         batch_size = params.pop("batch_size", self.api_config.batch_size)
         _logger.debug(f"Requests are being batched by {batch_size} samples.")
 
-        client = self.client.with_options(max_retries=max_retries, timeout=timeout)
+        client = self.get_client(max_retries=max_retries, timeout=timeout)
 
         requests = [
             partial(
@@ -749,7 +752,7 @@ class _OpenAIWrapper:
         first_string_column = _first_string_column(data)
         texts = data[first_string_column].tolist()
 
-        client = self.client.with_options(max_retries=max_retries, timeout=timeout)
+        client = self.get_client(max_retries=max_retries, timeout=timeout)
 
         requests = [
             partial(
