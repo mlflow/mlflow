@@ -176,7 +176,7 @@ Explore the Native Providers of the MLflow AI Gateway
 The MLflow AI Gateway supports a large range of foundational models from popular SaaS model vendors, as well as providing a means of self-hosting your 
 own open source model via an integration with MLflow model serving. 
 
-Please refer to `Supported Provider Models <deployments/index.html#providers>`_ for the full list of supported providers and models.
+Please refer to `Supported Providers <deployments/index.html#providers>`_ for the full list of supported providers and models.
 
 If you're interested in learning about how to set up the MLflow AI Gateway for a specific provider, follow the links below for our up-to-date 
 documentation on GitHub. Each link will take you to a README file that will explain how to set up a route for the provider. In the same directory as 

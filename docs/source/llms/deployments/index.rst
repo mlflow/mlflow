@@ -213,60 +213,41 @@ The MLflow AI Gateway is designed to support a variety of model providers.
 A provider represents the source of the machine learning models, such as OpenAI, Anthropic, and so on.
 Each provider has its specific characteristics and configurations that are encapsulated within the model part of an endpoint in the MLflow AI Gateway.
 
-Supported Provider Models
-~~~~~~~~~~~~~~~~~~~~~~~~~
-The table below presents a non-exhaustive list of models and a corresponding endpoint type within the MLflow AI Gateway.
-With the rapid development of LLMs, there is no guarantee that this list will be up to date at all times. However, the associations listed
-below can be used as a helpful guide when configuring a given endpoint for any newly released model types as they become available with a given provider.
-``N/A`` means that either the provider or the MLflow AI Gateway implementation currently doesn't support the endpoint type.
+Supported Providers
+~~~~~~~~~~~~~~~~~~~
+The table below presents supported corresponding endpoint type for each LLM provider within the MLflow AI Gateway.
+Note that ✅ mark does not mean all models from the provider are compatible with the endpoint types. For example, OpenAI provider supports all three endpoint types, but the model ``gpt-4`` is only compatible with the ``llm/v1/chat`` endpoint types.
 
++------------------+------------------------+---------------------+------------------------+
+|    Provider      | llm/v1/completions     |    llm/v1/chat      | llm/v1/embeddings      |
++==================+========================+=====================+========================+
+| OpenAI §         |          ✅            |          ✅         |          ✅            |
++------------------+------------------------+---------------------+------------------------+
+| Azure OpenAI     |          ✅            |          ✅         |          ✅            |
++------------------+------------------------+---------------------+------------------------+
+| MosaicML         |          ✅            |          ✅         |          ✅            |
++------------------+------------------------+---------------------+------------------------+
+| Anthropic        |          ✅            |          ✅         |          ❌            |
++------------------+------------------------+---------------------+------------------------+
+| Cohere           |          ✅            |          ✅         |          ✅            |
++------------------+------------------------+---------------------+------------------------+
+| PaLM             |          ✅            |          ✅         |          ✅            |
++------------------+------------------------+---------------------+------------------------+
+| MLflow           |          ✅*           |          ✅*        |          ✅**          |
++------------------+------------------------+---------------------+------------------------+
+| HuggingFace TGI  |          ❌            |          ✅         |          ❌            |
++------------------+------------------------+---------------------+------------------------+
+| AI21 Labs        |          ✅            |          ❌         |          ❌            |
++------------------+------------------------+---------------------+------------------------+
+| Amazon Bedrock   |          ✅            |          ✅         |          ❌            |
++------------------+------------------------+---------------------+------------------------+
+| Mistral          |          ✅            |          ✅         |          ✅            |
++------------------+------------------------+---------------------+------------------------+
+| TogetherAI       |          ✅            |          ✅         |          ✅            |
++------------------+------------------------+---------------------+------------------------+
 
-+--------------------------+--------------------------+--------------------------+--------------------------+
-|  Provider                | Endpoints                                                                      |
-+--------------------------+--------------------------+--------------------------+--------------------------+
-|                          | llm/v1/completions       | llm/v1/chat              | llm/v1/embeddings        |
-+==========================+==========================+==========================+==========================+
-| OpenAI §                 | - gpt-3.5-turbo-instruct | - gpt-3.5-turbo          | - text-embedding-ada-002 |
-|                          | - davinci-002            | - gpt-4                  |                          |
-+--------------------------+--------------------------+--------------------------+--------------------------+
-| MosaicML                 | - mpt-7b-instruct        | - llama2-70b-chat†       | - instructor-large       |
-|                          | - mpt-30b-instruct       |                          | - instructor-xl          |
-|                          | - llama2-70b-chat†       |                          |                          |
-+--------------------------+--------------------------+--------------------------+--------------------------+
-| Anthropic                | - claude-instant-1.2     | - claude-instant-1.2     | N/A                      |
-|                          | - claude-2.1             | - claude-2.1             |                          |
-|                          | - claude-2.0             | - claude-2.0             |                          |
-+--------------------------+--------------------------+--------------------------+--------------------------+
-| Cohere                   | - command                | - command                | - embed-english-v2.0     |
-|                          | - command-light          | - command-light          | - embed-multilingual-v2.0|
-+--------------------------+--------------------------+--------------------------+--------------------------+
-| Azure OpenAI             | - text-davinci-003       | - gpt-35-turbo           | - text-embedding-ada-002 |
-|                          | - gpt-35-turbo           | - gpt-4                  |                          |
-+--------------------------+--------------------------+--------------------------+--------------------------+
-| PaLM                     | - text-bison-001         | - chat-bison-001         | - embedding-gecko-001    |
-+--------------------------+--------------------------+--------------------------+--------------------------+
-| MLflow                   | - MLflow served models*  | - MLflow served models*  | - MLflow served models** |
-+--------------------------+--------------------------+--------------------------+--------------------------+
-| HuggingFace TGI          | N/A                      | - HF TGI Models          | N/A                      |
-+--------------------------+--------------------------+--------------------------+--------------------------+
-| AI21 Labs                | - j2-ultra               | N/A                      | N/A                      |
-|                          | - j2-mid                 |                          |                          |
-|                          | - j2-light               |                          |                          |
-+--------------------------+--------------------------+--------------------------+--------------------------+
-| Amazon Bedrock           | - Amazon Titan           | N/A                      | N/A                      |
-|                          | - Third-party providers  |                          |                          |
-+--------------------------+--------------------------+--------------------------+--------------------------+
-| Mistral                  | - mistral-tiny           | N/A                      |  - mistral-embed         |
-|                          | - mistral-small          |                          |                          |
-+--------------------------+--------------------------+--------------------------+--------------------------+
-+--------------------------+--------------------------+--------------------------+--------------------------+
-| TogetherAI               | - google/gemma-2b        | - dbrx-instruct          |  - BAAI/bge-large-en-v1.5|
-|                          | - microsoft/phi-2        |                          |                          |
-+--------------------------+--------------------------+--------------------------+--------------------------+
 
 § For full compatibility references for ``OpenAI``, see the `OpenAI Model Compatibility Matrix <https://platform.openai.com/docs/models/model-endpoint-compatibility>`_.
-
-† Llama 2 is licensed under the `LLAMA 2 Community License <https://ai.meta.com/llama/license/>`_, Copyright © Meta Platforms, Inc. All Rights Reserved.
 
 Within each model block in the configuration file, the provider field is used to specify the name
 of the provider for that model. This is a string value that needs to correspond to a provider the MLflow AI Gateway supports.
