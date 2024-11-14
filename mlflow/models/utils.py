@@ -1268,10 +1268,8 @@ def _enforce_array(data: Any, arr: Array, required=True):
     If Array's internal dtype is AnyType, then None and empty lists are also accepted.
     """
     if not required or isinstance(arr.dtype, AnyType):
-        if data is None or data == []:
+        if data is None or (isinstance(data, (list, np.ndarray)) and len(data) == 0):
             return data
-        if isinstance(data, np.ndarray) and not data.tolist():
-            return np.array([])
 
     if not isinstance(data, (list, np.ndarray)):
         raise MlflowException(f"Expected data to be list or numpy array, got {type(data).__name__}")
