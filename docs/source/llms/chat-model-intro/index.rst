@@ -3,7 +3,7 @@ Tutorial: Getting Started with ChatModel
 
 MLflow's :py:class:`~mlflow.pyfunc.ChatModel` class provides a standardized way to create production-ready conversational AI models. The resulting models are fully integrated with MLflow's tracking, evaluation, and lifecycle management capabilities. They can be shared with others in the MLflow Model Registry, deployed as a REST API, or loaded in a notebook for interactive use. Furthermore, they are compatible with the widely-adopted OpenAI chat API spec, making them easy to integrate with other AI systems and tools.
 
-If you're falready amiliar with :py:class:`~mlflow.pyfunc.PythonModel`, you might wonder why :py:class:`~mlflow.pyfunc.ChatModel` is needed. As GenAI applications grow more complex, mapping inputs, outputs, and parameters with a custom ``PythonModel`` can be challenging. ``ChatModel`` simplifies this by offering a structured, OpenAI-compatible schema for conversational AI models.
+If you're already familiar with :py:class:`~mlflow.pyfunc.PythonModel`, you might wonder why :py:class:`~mlflow.pyfunc.ChatModel` is needed. As GenAI applications grow more complex, mapping inputs, outputs, and parameters with a custom ``PythonModel`` can be challenging. ``ChatModel`` simplifies this by offering a structured, OpenAI-compatible schema for conversational AI models.
 
 .. include:: chat-model-vs-pyfunc-table.rst
 
