@@ -448,11 +448,6 @@ def test_tracer_handle_tracking_uri_update(tmp_path):
 
 
 @pytest.mark.skipif(
-    llama_core_version >= Version("0.11.10"),
-    reason="Workflow tracing does not work correctly in >= 0.11.10 until "
-    "https://github.com/run-llama/llama_index/issues/16283 is fixed",
-)
-@pytest.mark.skipif(
     llama_core_version < Version("0.11.0"),
     reason="Workflow was introduced in 0.11.0",
 )
@@ -474,11 +469,6 @@ async def test_tracer_simple_workflow():
     assert all(s.status.status_code == SpanStatusCode.OK for s in traces[0].data.spans)
 
 
-@pytest.mark.skipif(
-    llama_core_version >= Version("0.11.10"),
-    reason="Workflow tracing does not work correctly in >= 0.11.10 until "
-    "https://github.com/run-llama/llama_index/issues/16283 is fixed",
-)
 @pytest.mark.skipif(
     llama_core_version < Version("0.11.0"),
     reason="Workflow was introduced in 0.11.0",
@@ -537,3 +527,78 @@ async def test_tracer_parallel_workflow():
     root_span = traces[0].data.spans[0]
     assert root_span.inputs == {"kwargs": {"inputs": ["apple", "grape", "orange", "banana"]}}
     assert root_span.outputs == "apple, banana, grape, orange"
+
+
+@pytest.mark.skipif(
+    llama_core_version < Version("0.11.0"),
+    reason="Workflow was introduced in 0.11.0",
+)
+@pytest.mark.asyncio
+async def test_tracer_parallel_workflow_with_custom_spans():
+    from llama_index.core.workflow import (
+        Context,
+        Event,
+        StartEvent,
+        StopEvent,
+        Workflow,
+        step,
+    )
+
+    class ProcessEvent(Event):
+        data: str
+
+    class ResultEvent(Event):
+        result: str
+
+    class ParallelWorkflow(Workflow):
+        @step
+        async def start(self, ctx: Context, ev: StartEvent) -> ProcessEvent:
+            await ctx.set("num_to_collect", len(ev.inputs))
+            for item in ev.inputs:
+                ctx.send_event(ProcessEvent(data=item))
+            return None
+
+        @step(num_workers=3)
+        async def process_data(self, ev: ProcessEvent) -> ResultEvent:
+            # Simulate some time-consuming processing
+            await asyncio.sleep(random.randint(1, 2))
+            with mlflow.start_span(name="custom_inner_span_worker"):
+                pass
+            return ResultEvent(result=ev.data)
+
+        @step
+        async def combine_results(self, ctx: Context, ev: ResultEvent) -> StopEvent:
+            num_to_collect = await ctx.get("num_to_collect")
+            results = ctx.collect_events(ev, [ResultEvent] * num_to_collect)
+            if results is None:
+                return None
+
+            with mlflow.start_span(name="custom_inner_result_span") as span:
+                span.set_inputs(results)
+                combined_result = ", ".join(sorted([event.result for event in results]))
+                span.set_outputs(combined_result)
+            return StopEvent(result=combined_result)
+
+    w = ParallelWorkflow()
+    inputs = ["apple", "grape", "orange", "banana"]
+
+    result = await w.run(inputs=inputs)
+    assert result == "apple, banana, grape, orange"
+
+    traces = _get_all_traces()
+    assert len(traces) == 1
+    assert traces[0].info.status == TraceStatus.OK
+
+    spans = traces[0].data.spans
+    assert all(s.status.status_code == SpanStatusCode.OK for s in spans)
+
+    workflow_span = spans[0]
+    assert workflow_span.inputs == {"kwargs": {"inputs": inputs}}
+    assert workflow_span.outputs == result
+
+    inner_worker_spans = [s for s in spans if s.name.startswith("custom_inner_span_worker")]
+    assert len(inner_worker_spans) == len(inputs)
+
+    inner_result_span = next(s for s in spans if s.name == "custom_inner_result_span")
+    assert inner_result_span.inputs is not None
+    assert inner_result_span.outputs == result
