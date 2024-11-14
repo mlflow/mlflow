@@ -17,6 +17,7 @@ from mlflow.metrics.genai.model_utils import (
 def set_envs(monkeypatch):
     monkeypatch.setenvs(
         {
+            "OPENAI_API_TYPE": "openai",
             "OPENAI_API_KEY": "test",
         }
     )

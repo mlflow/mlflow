@@ -81,13 +81,12 @@ def call_api(
     except Exception as e:
         status_tracker.complete_task(success=False)
         _logger.debug(f"Request #{index} failed with {e}")
-        status_tracker.error = mlflow.MlflowException(f"Request #{index} failed with {e}")
+        status_tracker.error = mlflow.MlflowException(f"Request #{index} failed with {e.__cause__}")
 
 
 def process_api_requests(
     request_tasks: list[Callable[[], Any]],
     max_workers: int = 10,
-    throw_original_error: bool = True,
 ):
     """Processes API requests in parallel"""
     # initialize trackers
@@ -111,7 +110,7 @@ def process_api_requests(
 
     # after finishing, log final status
     if status_tracker.num_tasks_failed > 0:
-        if throw_original_error and status_tracker.num_tasks_failed == 1:
+        if status_tracker.num_tasks_failed == 1:
             raise status_tracker.error
         raise mlflow.MlflowException(
             f"{status_tracker.num_tasks_failed} tasks failed. See logs for details."

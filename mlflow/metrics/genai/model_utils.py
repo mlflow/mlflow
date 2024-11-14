@@ -109,7 +109,7 @@ def _call_openai_api(openai_uri, payload, eval_parameters, extra_headers, proxy_
 
         client = AzureOpenAI(
             api_key=api_token.token,
-            azure_endpoint=api_config.api_base,
+            azure_endpoint=proxy_url or api_config.api_base,
             api_version=api_config.api_version,
             azure_deployment=api_config.deployment_id,
             max_retries=api_config.max_retries,
@@ -120,13 +120,10 @@ def _call_openai_api(openai_uri, payload, eval_parameters, extra_headers, proxy_
 
         client = OpenAI(
             api_key=api_token.token,
-            base_url=api_config.api_base,
+            base_url=proxy_url or api_config.api_base,
             max_retries=api_config.max_retries,
             timeout=api_config.timeout,
         )
-
-    if proxy_url is not None:
-        client.base_url = proxy_url
 
     try:
         response = client.chat.completions.create(
