@@ -27,6 +27,7 @@ Note that there are additional tutorials within the `"Explore the Native LLM Fla
     rag/index
     custom-pyfunc-for-llms/index
     llm-evaluate/notebooks/index
+    chat-model-intro/index
     chat-model-guide/index
     notebooks/chat-model-tool-calling.ipynb
 
@@ -36,12 +37,22 @@ Note that there are additional tutorials within the `"Explore the Native LLM Fla
     <section>
         <article class="simple-grid">
             <div class="simple-card">
-                <a href="chat-model-guide/index.html" >
+                <a href="chat-model-intro/index.html" >
                     <div class="header">
-                        Simplified Custom GenAI Models
+                        Custom GenAI Models with ChatModel
                     </div>
                     <p>
-                        Learn how to build a custom GenAI Agent with a simplified developer experience using MLflow's <code>ChatModel</code>.
+                        Learn the basics of creating custom chat models using MLflow's <code>ChatModel</code> by wrapping a local LLM provider.
+                    </p>
+                </a>
+            </div>
+            <div class="simple-card">
+                <a href="chat-model-guide/index.html" >
+                    <div class="header">
+                        Advanced ChatModel Development
+                    </div>
+                    <p>
+                        Take an in-depth look at the full range of <code>ChatModel</code> features, such as tracing and configuration management.
                     </p>
                 </a>
             </div>
