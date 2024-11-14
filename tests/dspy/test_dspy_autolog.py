@@ -1,4 +1,5 @@
 import importlib
+import json
 import time
 from unittest import mock
 
@@ -12,6 +13,7 @@ from dspy.utils.dummies import DummyLM
 from packaging.version import Version
 
 import mlflow
+from mlflow.dspy.callback import MlflowCallback
 from mlflow.entities import SpanType
 
 from tests.tracing.helper import get_traces
@@ -366,6 +368,58 @@ def test_autolog_should_not_override_existing_callbacks():
 
     mlflow.dspy.autolog(disable=True)
     assert callback in dspy.settings.callbacks
+
+
+def test_custom_tracer_context():
+    dspy.settings.configure(
+        lm=DummyLM(
+            [
+                {
+                    "answer": "test output",
+                    "reasoning": "No more responses",
+                },
+            ]
+        )
+    )
+
+    dspy_model = RAG()
+    mlflow.dspy.autolog()
+
+    dspy_model = RAG()
+    mlflow.models.set_retriever_schema(
+        primary_key="primary_key",
+        text_column="page_content",
+        doc_uri="doc_uri",
+    )
+    with mlflow.start_run() as run:
+        mlflow.dspy.log_model(
+            dspy_model,
+            "model",
+        )
+
+    # Clear the lm setting to test the loading logic.
+    dspy.settings.configure(lm=None, callbacks=[])
+
+    model_url = f"runs:/{run.info.run_id}/model"
+    loaded_model = mlflow.dspy.load_model(model_url)
+
+    callbacks = dspy.settings.callbacks
+    assert len(callbacks) == 1
+    assert isinstance(callbacks[0], MlflowCallback)
+
+    loaded_model("What castle did David Gregory inherit?")
+
+    trace = mlflow.get_last_active_trace()
+
+    assert json.loads(trace.info.tags["retrievers"]) == [
+        {
+            "name": "retriever",
+            "primary_key": "primary_key",
+            "text_column": "page_content",
+            "doc_uri": "doc_uri",
+            "other_columns": [],
+        }
+    ]
 
 
 def test_disable_autolog():

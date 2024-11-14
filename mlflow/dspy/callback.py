@@ -18,7 +18,7 @@ class MlflowCallback(BaseCallback):
     def __init__(self, prediction_context: Optional[Context] = None):
         self._client = mlflow.MlflowClient()
         self._call_id_to_span = {}
-        self._prediction_context = prediction_context
+        self._prediction_context = prediction_context or Context()
 
     def on_module_start(self, call_id: str, instance: Any, inputs: dict[str, Any]):
         span_type = self._get_span_type_for_module(instance)

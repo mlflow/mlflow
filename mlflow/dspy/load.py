@@ -15,7 +15,10 @@ from mlflow.utils.model_utils import (
 _DEFAULT_MODEL_PATH = "data/model.pkl"
 
 
-def _update_dependencies_schemas_in_prediction_context(model_path, callbacks):
+def _set_tracer_context(model_path, callbacks):
+    """
+    Set the tracer context from the saved metadata.
+    """
     tracer = None
     for callback in callbacks:
         if isinstance(callback, MlflowCallback):
@@ -27,8 +30,10 @@ def _update_dependencies_schemas_in_prediction_context(model_path, callbacks):
     model = Model.load(model_path)
     context = tracer._prediction_context
 
-    if model.metadata and context:
-        dependencies_schemas = model.metadata.get("dependencies_schemas", {})
+    if model.metadata and "dependencies_schemas" in model.metadata:
+        # `dependencies_schemas` is a dictionary that defines the dependencies schemas, such as
+        # the retriever schemas. This code is now only useful for Databricks integration.
+        dependencies_schemas = model.metadata["dependencies_schemas"]
         context.update(
             dependencies_schemas={
                 dependency: json.dumps(schema)
@@ -51,7 +56,7 @@ def _load_model(model_uri, dst_path=None):
     # Set the global dspy settings and return the dspy wrapper.
     dspy.settings.configure(**loaded_wrapper.dspy_settings)
 
-    _update_dependencies_schemas_in_prediction_context(local_model_path, dspy.settings.callbacks)
+    _set_tracer_context(local_model_path, dspy.settings.callbacks)
     return loaded_wrapper
 
 
