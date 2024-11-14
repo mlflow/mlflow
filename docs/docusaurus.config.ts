@@ -1,6 +1,7 @@
 import { themes as prismThemes } from "prism-react-renderer";
 import type { Config } from "@docusaurus/types";
 import type * as Preset from "@docusaurus/preset-classic";
+import { postProcessSidebar } from "./postProcessSidebar";
 
 const config: Config = {
   title: "MLflow",
@@ -12,11 +13,7 @@ const config: Config = {
 
   // when building for production, check this environment
   // variable to determine the correct base URL
-  baseUrl:
-    process.env.CIRCLECI_BASE_URL ??
-    (process.env.MLFLOW_DOCS_VERSION
-      ? `/docs/${process.env.MLFLOW_DOCS_VERSION}/`
-      : "/"),
+  baseUrl: process.env.CIRCLECI_BASE_URL ?? (process.env.MLFLOW_DOCS_VERSION ? `/docs/${process.env.MLFLOW_DOCS_VERSION}/` : "/"),
 
   // GitHub pages deployment config.
   // If you aren't using GitHub pages, you don't need these.
@@ -44,6 +41,10 @@ const config: Config = {
         docs: {
           routeBasePath: "/",
           sidebarPath: "./sidebars.ts",
+          async sidebarItemsGenerator({ defaultSidebarItemsGenerator, ...args }) {
+            const sidebarItems = await defaultSidebarItemsGenerator(args);
+            return postProcessSidebar(sidebarItems);
+          },
         },
         theme: {
           customCss: "./src/css/custom.css",
