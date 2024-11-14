@@ -17,21 +17,15 @@ def disable_system_metrics_logging():
     mlflow.set_system_metrics_node_id(None)
 
 
-@pytest.fixture
-def wait_for_condition():
-    def _wait(condition_func):
-        timeout = 10
-        check_interval = 1
-        for _ in range(timeout // check_interval):
-            if condition_func():
-                return True
-            time.sleep(check_interval)
-        return False
-
-    return _wait
+def wait_for_condition(condition_func, timeout=10, check_interval=1):
+    for _ in range(timeout // check_interval):
+        if condition_func():
+            return True
+        time.sleep(check_interval)
+    return False
 
 
-def test_manual_system_metrics_monitor(wait_for_condition):
+def test_manual_system_metrics_monitor():
     metric_test = "system/cpu_utilization_percentage"
     with mlflow.start_run(log_system_metrics=False) as run:
         system_monitor = SystemMetricsMonitor(
@@ -72,7 +66,7 @@ def test_manual_system_metrics_monitor(wait_for_condition):
     assert metrics_history[-1].step > 0
 
 
-def test_automatic_system_metrics_monitor(wait_for_condition):
+def test_automatic_system_metrics_monitor():
     metric_test = "system/cpu_utilization_percentage"
     mlflow.enable_system_metrics_logging()
     mlflow.set_system_metrics_sampling_interval(0.2)
@@ -111,7 +105,7 @@ def test_automatic_system_metrics_monitor(wait_for_condition):
     assert metrics_history[-1].step > 0
 
 
-def test_automatic_system_metrics_monitor_resume_existing_run(wait_for_condition):
+def test_automatic_system_metrics_monitor_resume_existing_run():
     mlflow.enable_system_metrics_logging()
     mlflow.set_system_metrics_sampling_interval(0.2)
     mlflow.set_system_metrics_samples_before_logging(2)
@@ -153,7 +147,7 @@ def test_automatic_system_metrics_monitor_resume_existing_run(wait_for_condition
     assert metrics_history[-1].step > last_step
 
 
-def test_system_metrics_monitor_with_multi_node(wait_for_condition):
+def test_system_metrics_monitor_with_multi_node():
     mlflow.enable_system_metrics_logging()
     mlflow.set_system_metrics_sampling_interval(0.2)
     mlflow.set_system_metrics_samples_before_logging(2)
