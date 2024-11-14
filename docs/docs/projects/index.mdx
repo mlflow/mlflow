@@ -24,12 +24,40 @@ adding a `MLproject` file, which is a [YAML](https://learnxinyminutes.com/docs/y
 text file. Each project can specify several properties:
 
 <dl>
-  <dt>Name</dt>
-  <dd>A human-readable name for the project.</dd>
-  <dt>Entry Points</dt>
-  <dd>Commands that can be run within the project, and information about their parameters. Most projects contain at least one entry point that you want other users to call. Some projects can also contain more than one entry point: for example, you might have a single Git repository containing multiple featurization algorithms. You can also call any `.py` or `.sh` file in the project as an entry point. If you list your entry points in a `MLproject` file, however, you can also specify _parameters_ for them, including datatypes and default values.</dd>
-  <dt>Environment</dt>
-  <dd>The software environment that should be used to execute project entry points. This includes all library dependencies required by the project code. See [Project Environments](#project-environments) for more information about the software environments supported by MLflow Projects, including [Conda environments](#project-conda-environments), [Virtualenv environments](#project-virtualenv-environments), and [Docker containers](#project-docker-container-environments).</dd>
+  <dt>
+    #### Name
+
+  </dt>
+  <dd>
+    A human-readable name for the project.
+  
+  </dd>
+  <dt>
+    #### Entry Points
+
+  </dt>
+  <dd>
+    Commands that can be run within the project, and information about their parameters.
+    Most projects contain at least one entry point that you want other users to call.
+    Some projects can also contain more than one entry point: for example, you might have
+    a single Git repository containing multiple featurization algorithms. You can also
+    call any `.py` or `.sh` file in the project as an entry point. If you list your entry
+    points in a `MLproject` file, however, you can also specify _parameters_ for them,
+    including datatypes and default values.
+  
+  </dd>
+  <dt>
+    #### Environment
+
+  </dt>
+  <dd>
+    The software environment that should be used to execute project entry points.
+    This includes all library dependencies required by the project code. See [Project Environments](#project-environments)
+    for more information about the software environments supported by MLflow Projects, including
+    [Conda environments](#project-conda-environments), [Virtualenv environments](#project-virtualenv-environments),
+    and [Docker containers](#project-docker-container-environments).
+  
+  </dd>
 </dl>
 
 You can run any project from a Git URI or from a local directory using the `mlflow run`
@@ -62,8 +90,9 @@ MLflow currently supports the following project environments: Virtualenv environ
 Docker container environment, and system environment.
 
 <dl>
-  <a name="project-virtualenv-environments" />
-  <dt>Virtualenv Environment (preferrred)</dt>
+  <dt>
+  #### Virtualenv Environment (preferrred) \{#project-virtualenv-environments}
+  </dt>
   <dd>
     Virtualenv environments support Python packages available on PyPI. When an MLflow Project
     specifies a Virtualenv environment, MLflow will download the specified version of Python by using
@@ -74,8 +103,9 @@ Docker container environment, and system environment.
     `MLproject` file. For details, see the [Project Directories](#project-directories) and [Specifying an Environment](#mlproject-specify-environment) sections.
 
   </dd>
-  <a name="project-docker-container-environments" />
-  <dt>Docker container environment</dt>
+  <dt>
+  #### Docker container environment \{#project-docker-container-environments}
+  </dt>
   <dd>
     [Docker containers](https://www.docker.com/resources/what-container) allow you to capture
     non-Python dependencies such as Java libraries.
@@ -102,8 +132,9 @@ Docker container environment, and system environment.
     [Specifying an Environment](#mlproject-specify-environment).
 
   </dd>
-  <a name="project-conda-environments" />
-  <dt>Conda environment</dt> 
+  <dt>
+  #### Conda environment \{#project-conda-environments}
+  </dt>
   <dd>
     [Conda](https://conda.io/docs) environments support
     both Python packages and native libraries (e.g, CuDNN or Intel MKL). When an MLflow Project
@@ -134,7 +165,9 @@ Docker container environment, and system environment.
     :::
 
   </dd>
-  <dt>System environment</dt>
+  <dt>
+  #### System environment
+  </dt>
   <dd>
     You can also run MLflow Projects directly in your current system environment. All of the
     project's dependencies must be installed on your system prior to project execution. The system
@@ -205,7 +238,9 @@ This section describes how to specify Conda and Docker container environments in
 `MLproject` files cannot specify _both_ a Conda environment and a Docker environment.
 
 <dl>
-  <dt>Virtualenv environment</dt>
+  <dt>
+  #### Virtualenv environment
+  </dt>
   <dd>
     Include a top-level `python_env` entry in the `MLproject` file.
     The value of this entry must be a _relative_ path to a `python_env` YAML file
@@ -237,7 +272,9 @@ This section describes how to specify Conda and Docker container environments in
     ```
 
   </dd>
-  <dt>Conda environment</dt>
+  <dt>
+  #### Conda environment
+  </dt>
   <dd>
     Include a top-level `conda_env` entry in the `MLproject` file.
     The value of this entry must be a _relative_ path to a
@@ -253,7 +290,9 @@ This section describes how to specify Conda and Docker container environments in
     `<MLFLOW_PROJECT_DIRECTORY>` is the path to the MLflow project's root directory.
 
   </dd>
-  <dt>Docker container environment</dt>
+  <dt>
+  #### Docker container environment
+  </dt>
   <dd>
     Include a top-level `docker_env` entry in the `MLproject` file. The value of this entry must be the name
     of a Docker image that is accessible on the system executing the project; this image name
@@ -360,24 +399,32 @@ MLflow supports four parameter types, some of which it treats specially (for exa
 data to local files). Any undeclared parameters are treated as `string`. The parameter types are:
 
 <dl>
-  <dt>string</dt>
+  <dt>
+  #### string
+  </dt>
   <dd>
     A text string.
 
   </dd>
-  <dt>float</dt>
+  <dt>
+  #### float
+  </dt>
   <dd>
     A real number. MLflow validates that the parameter is a number.
 
   </dd>
-  <dt>path</dt>
+  <dt>
+  #### path
+  </dt>
   <dd>
     A path on the local file system. MLflow converts any relative `path` parameters to absolute paths.
     MLflow also downloads any paths passed as distributed storage URIs (`s3://`, `dbfs://`, `gs://`, etc.)
     to local files. Use this type for programs that can only read local files.
     
   </dd>
-  <dt>uri</dt>
+  <dt>
+  #### uri
+  </dt>
   <dd>
     A URI for data either in a local or distributed storage system. MLflow converts
     relative paths to absolute paths, as in the `path` type. Use this type for programs
@@ -392,7 +439,9 @@ MLflow provides two ways to run projects: the `mlflow run` [command-line tool](/
 the <APILink fn="mlflow.projects.run" /> Python API. Both tools take the following parameters:
 
 <dl>
-  <dt>Project URI</dt>
+  <dt>
+  #### Project URI
+  </dt>
   <dd>
     A directory on the local file system or a Git repository path,
     specified as a URI of the form `https://<repo>` (to use HTTPS) or `user@host:path`
@@ -400,22 +449,30 @@ the <APILink fn="mlflow.projects.run" /> Python API. Both tools take the followi
     add a '#' to the end of the URI argument, followed by the relative path from the project's root directory
     to the subdirectory containing the desired project.
   </dd>
-  <dt>Project Version</dt>
+  <dt>
+  #### Project Version
+  </dt>
   <dd>
     For Git-based projects, the commit hash or branch name in the Git repository.
   </dd>
-  <dt>Entry Point</dt>
+  <dt>
+  #### Entry Point
+  </dt>
   <dd>
     The name of the entry point, which defaults to `main`. You can use any
     entry point named in the `MLproject` file, or any `.py` or `.sh` file in the project,
     given as a path from the project root (for example, `src/test.py`).
   </dd>
-  <dt>Parameters</dt>
+  <dt>
+  #### Parameters
+  </dt>
   <dd>
     Key-value parameters. Any parameters with
     [declared types](#project_parameters) are validated and transformed if needed.
   </dd>
-  <dt>Deployment Mode</dt>
+  <dt>
+  #### Deployment Mode
+  </dt>
   <dd>
     - Both the command-line and API let you [launch projects remotely](#databricks_execution)
       in a [Databricks](https://databricks.com) environment. This includes setting cluster
@@ -427,7 +484,9 @@ the <APILink fn="mlflow.projects.run" /> Python API. Both tools take the followi
       using the `mlflow run` CLI (see [Run an MLflow Project on Kubernetes](#kubernetes_execution)).
 
   </dd>
-  <dt>Environment</dt>
+  <dt>
+  #### Environment
+  </dt>
   <dd>
     By default, MLflow Projects are run in the environment specified by the project directory
     or the `MLproject` file (see [Specifying Project Environments](#project-environments)).
@@ -606,7 +665,9 @@ You can coordinate all of the workflow in a single Python program that looks at 
 step and decides what to submit next using custom code. Some example use cases for multi-step workflows include:
 
 <dl>
-  <dt>Modularizing Your Data Science Code</dt>
+  <dt>
+  #### Modularizing Your Data Science Code
+  </dt>
   <dd>
     Different users can publish reusable steps for data featurization, training, validation, and so on,
     that other users or team can run in their workflows. Because MLflow supports Git versioning,
@@ -614,7 +675,9 @@ step and decides what to submit next using custom code. Some example use cases f
     on their own schedule.
 
   </dd>
-  <dt>Hyperparameter Tuning</dt>
+  <dt>
+  #### Hyperparameter Tuning
+  </dt>
   <dd>
     Using <APILink fn="mlflow.projects.run" /> you can launch multiple runs in parallel either on the
     local machine or on a cloud platform like Databricks. Your driver program can then inspect the
@@ -622,7 +685,9 @@ step and decides what to submit next using custom code. Some example use cases f
     run on a target metric.
 
   </dd>
-  <dt>Cross-validation</dt>
+  <dt>
+  #### Cross-validation
+  </dt>
   <dd>
     Sometimes you want to run the same training code on different random splits of training and validation
     data. With MLflow Projects, you can package the project in a way that allows this, for example, by
