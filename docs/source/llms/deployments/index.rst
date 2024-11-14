@@ -213,37 +213,37 @@ The MLflow AI Gateway is designed to support a variety of model providers.
 A provider represents the source of the machine learning models, such as OpenAI, Anthropic, and so on.
 Each provider has its specific characteristics and configurations that are encapsulated within the model part of an endpoint in the MLflow AI Gateway.
 
-Supported Provider Models
-~~~~~~~~~~~~~~~~~~~~~~~~~
+Supported Providers
+~~~~~~~~~~~~~~~~~~~
 The table below presents supported corresponding endpoint type for each LLM provider within the MLflow AI Gateway.
-Note that ✅ mark does not mean all models from the provider are compatible with the endpoint type. For example, OpenAI provider supports all three endpoint types, but the model ``gpt-4`` is only compatible with the ``llm/v1/chat`` endpoint types.
+Note that ✅ mark does not mean all models from the provider are compatible with the endpoint types. For example, OpenAI provider supports all three endpoint types, but the model ``gpt-4`` is only compatible with the ``llm/v1/chat`` endpoint types.
 
 +------------------+------------------------+---------------------+------------------------+
 |    Provider      | llm/v1/completions     |    llm/v1/chat      | llm/v1/embeddings      |
 +==================+========================+=====================+========================+
-|     OpenAI §     |          ✅            |          ✅         |          ✅            |
+| OpenAI §         |          ✅            |          ✅         |          ✅            |
 +------------------+------------------------+---------------------+------------------------+
-|   Azure OpenAI   |          ✅            |          ✅         |          ✅            |
+| Azure OpenAI     |          ✅            |          ✅         |          ✅            |
 +------------------+------------------------+---------------------+------------------------+
-|    MosaicML      |          ✅            |          ✅         |          ✅            |
+| MosaicML         |          ✅            |          ✅         |          ✅            |
 +------------------+------------------------+---------------------+------------------------+
-|    Anthropic     |          ✅            |          ✅         |          ❌            |
+| Anthropic        |          ✅            |          ✅         |          ❌            |
 +------------------+------------------------+---------------------+------------------------+
-|      Cohere      |          ✅            |          ✅         |          ✅            |
+| Cohere           |          ✅            |          ✅         |          ✅            |
 +------------------+------------------------+---------------------+------------------------+
-|       PaLM       |          ✅            |          ✅         |          ✅            |
+| PaLM             |          ✅            |          ✅         |          ✅            |
 +------------------+------------------------+---------------------+------------------------+
-|      MLflow      |          ✅*           |          ✅*        |          ✅**          |
+| MLflow           |          ✅*           |          ✅*        |          ✅**          |
 +------------------+------------------------+---------------------+------------------------+
-|  HuggingFace TGI |          ❌            |          ✅         |          ❌            |
+| HuggingFace TGI  |          ❌            |          ✅         |          ❌            |
 +------------------+------------------------+---------------------+------------------------+
-|     AI21 Labs    |          ✅            |          ❌         |          ❌            |
+| AI21 Labs        |          ✅            |          ❌         |          ❌            |
 +------------------+------------------------+---------------------+------------------------+
-|  Amazon Bedrock  |          ✅            |          ✅         |          ❌            |
+| Amazon Bedrock   |          ✅            |          ✅         |          ❌            |
 +------------------+------------------------+---------------------+------------------------+
-|      Mistral     |          ✅            |          ✅         |          ✅            |
+| Mistral          |          ✅            |          ✅         |          ✅            |
 +------------------+------------------------+---------------------+------------------------+
-|    TogetherAI    |          ✅            |          ✅         |          ✅            |
+| TogetherAI       |          ✅            |          ✅         |          ✅            |
 +------------------+------------------------+---------------------+------------------------+
 
 
