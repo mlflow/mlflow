@@ -142,6 +142,10 @@ def test_langgraph_tracing_diy_graph():
     assert len(chat_spans) == 3
 
 
+@pytest.mark.skipif(
+    Version(langchain.__version__) < Version("0.2.0"),
+    reason="Agent behavior is not stable across minor versions",
+)
 def test_langgraph_tracing_with_custom_span():
     mlflow.langchain.autolog()
 
