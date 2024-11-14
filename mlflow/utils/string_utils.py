@@ -129,3 +129,10 @@ def mslex_quote(s, for_cmd=True):
 
 def quote(s):
     return mslex_quote(s) if is_windows() else shlex.quote(s)
+
+
+def _backtick_quote(s: str) -> str:
+    """
+    Quotes the given string with backticks if it is not already quoted with backticks.
+    """
+    return f"`{s}`" if not (s.startswith("`") and s.endswith("`")) else s
