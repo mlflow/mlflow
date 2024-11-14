@@ -1,5 +1,6 @@
 import threading
 import time
+from typing import Any, Callable
 
 import pytest
 
@@ -17,12 +18,15 @@ def disable_system_metrics_logging():
     mlflow.set_system_metrics_node_id(None)
 
 
-def wait_for_condition(condition_func, timeout=10, check_interval=1):
-    for _ in range(timeout // check_interval):
+def wait_for_condition(
+    condition_func: Callable[..., Any], timeout: int = 10, check_interval: int = 1
+) -> None:
+    start_time = time.time()
+    while time.time() - start_time < timeout:
         if condition_func():
-            return True
+            return
         time.sleep(check_interval)
-    return False
+    pytest.fail(f"Condition not met within {timeout} seconds.")
 
 
 def test_manual_system_metrics_monitor():
@@ -38,10 +42,10 @@ def test_manual_system_metrics_monitor():
         # Check the system metrics monitoring thread has been started.
         assert "SystemMetricsMonitor" in thread_names
 
-        assert wait_for_condition(
+        wait_for_condition(
             lambda: len(mlflow.MlflowClient().get_metric_history(run.info.run_id, metric_test)) > 1
         )
-    assert wait_for_condition(
+    wait_for_condition(
         lambda: "SystemMetricsMonitor" not in [thread.name for thread in threading.enumerate()]
     )
 
@@ -76,11 +80,11 @@ def test_automatic_system_metrics_monitor():
         # Check the system metrics monitoring thread has been started.
         assert "SystemMetricsMonitor" in thread_names
 
-        assert wait_for_condition(
+        wait_for_condition(
             lambda: len(mlflow.MlflowClient().get_metric_history(run.info.run_id, metric_test)) > 1
         )
 
-    assert wait_for_condition(
+    wait_for_condition(
         lambda: "SystemMetricsMonitor" not in [thread.name for thread in threading.enumerate()]
     )
 
@@ -112,7 +116,7 @@ def test_automatic_system_metrics_monitor_resume_existing_run():
     with mlflow.start_run() as run:
         time.sleep(2)
 
-    assert wait_for_condition(
+    wait_for_condition(
         lambda: "SystemMetricsMonitor" not in [thread.name for thread in threading.enumerate()]
     )
 
@@ -159,7 +163,7 @@ def test_system_metrics_monitor_with_multi_node():
     for node_id in node_ids:
         mlflow.set_system_metrics_node_id(node_id)
         with mlflow.start_run(run_id=run_id, log_system_metrics=True):
-            assert wait_for_condition(
+            wait_for_condition(
                 lambda: any(
                     k.startswith(f"system/{node_id}/")
                     for k in mlflow.get_run(run_id).data.metrics.keys()
