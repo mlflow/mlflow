@@ -112,14 +112,18 @@ def _call_openai_api(openai_uri, payload, eval_parameters, extra_headers, proxy_
             azure_endpoint=api_config.api_base,
             api_version=api_config.api_version,
             azure_deployment=api_config.deployment_id,
-        ).with_options(max_retries=api_config.max_retries, timeout=api_config.timeout)
+            max_retries=api_config.max_retries,
+            timeout=api_config.timeout,
+        )
     else:
         from openai import OpenAI
 
         client = OpenAI(
             api_key=api_token.token,
             base_url=api_config.api_base,
-        ).with_options(max_retries=api_config.max_retries, timeout=api_config.timeout)
+            max_retries=api_config.max_retries,
+            timeout=api_config.timeout,
+        )
 
     if proxy_url is not None:
         client.base_url = proxy_url

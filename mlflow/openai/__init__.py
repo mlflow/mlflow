@@ -707,7 +707,7 @@ class _OpenAIWrapper:
             for messages in messages_list
         ]
 
-        results = process_api_requests(requests=requests)
+        results = process_api_requests(request_tasks=requests)
 
         return [r.choices[0].message.content for r in results]
 
@@ -733,7 +733,7 @@ class _OpenAIWrapper:
             for i in range(0, len(prompts_list), batch_size)
         ]
 
-        results = process_api_requests(requests=requests)
+        results = process_api_requests(request_tasks=requests)
 
         return [row.text for batch in results for row in batch.choices]
 
@@ -761,7 +761,7 @@ class _OpenAIWrapper:
             for i in range(0, len(texts), batch_size)
         ]
 
-        results = process_api_requests(requests=requests)
+        results = process_api_requests(request_tasks=requests)
 
         return [row.embedding for batch in results for row in batch.data]
 

@@ -85,7 +85,7 @@ def call_api(
 
 
 def process_api_requests(
-    requests: list[Callable[[], Any]],
+    request_tasks: list[Callable[[], Any]],
     max_workers: int = 10,
     throw_original_error: bool = True,
 ):
@@ -94,8 +94,8 @@ def process_api_requests(
     status_tracker = StatusTracker()  # single instance to track a collection of variables
 
     results: list[tuple[int, any]] = []
-    requests_iter = enumerate(requests)
-    _logger.debug(f"Request pool executor will run {len(requests)} requests")
+    request_tasks_iter = enumerate(request_tasks)
+    _logger.debug(f"Request pool executor will run {len(request_tasks)} requests")
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
         futures = [
             executor.submit(
@@ -105,7 +105,7 @@ def process_api_requests(
                 results=results,
                 status_tracker=status_tracker,
             )
-            for index, task in requests_iter
+            for index, task in request_tasks_iter
         ]
         wait(futures, return_when=FIRST_EXCEPTION)
 

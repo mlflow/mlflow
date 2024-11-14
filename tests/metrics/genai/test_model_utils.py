@@ -119,13 +119,11 @@ _OAI_RESPONSE = {
 
 def test_score_model_openai(set_envs):
     with mock.patch("openai.OpenAI") as mock_client:
-        mock_client().with_options().chat.completions.create().model_dump.return_value = (
-            _OAI_RESPONSE
-        )
+        mock_client().chat.completions.create().model_dump.return_value = _OAI_RESPONSE
         resp = score_model_on_payload("openai:/gpt-4o-mini", "my prompt", {"temperature": 0.1})
 
         assert resp == "\n\nThis is a test!"
-        mock_client().with_options().chat.completions.create.assert_called_with(
+        mock_client().chat.completions.create.assert_called_with(
             messages=[{"role": "user", "content": "my prompt"}],
             model="gpt-4o-mini",
             extra_headers={},
@@ -135,9 +133,7 @@ def test_score_model_openai(set_envs):
 
 def test_score_model_openai_with_custom_header_and_proxy_url(set_envs):
     with mock.patch("openai.OpenAI") as mock_client:
-        mock_client().with_options().chat.completions.create().model_dump.return_value = (
-            _OAI_RESPONSE
-        )
+        mock_client().chat.completions.create().model_dump.return_value = _OAI_RESPONSE
         resp = score_model_on_payload(
             model_uri="openai:/gpt-4o-mini",
             payload="my prompt",
@@ -147,7 +143,7 @@ def test_score_model_openai_with_custom_header_and_proxy_url(set_envs):
         )
 
         assert resp == "\n\nThis is a test!"
-        mock_client().with_options().chat.completions.create.assert_called_with(
+        mock_client().chat.completions.create.assert_called_with(
             messages=[{"role": "user", "content": "my prompt"}],
             model="gpt-4o-mini",
             extra_headers={"foo": "bar"},
@@ -157,21 +153,19 @@ def test_score_model_openai_with_custom_header_and_proxy_url(set_envs):
 
 def test_openai_other_error(set_envs):
     with mock.patch("openai.OpenAI") as mock_client:
-        mock_client().with_options().chat.completions.create.side_effect = (Exception("foo"),)
+        mock_client().chat.completions.create.side_effect = (Exception("foo"),)
         with pytest.raises(MlflowException, match="Error response from OpenAI"):
             score_model_on_payload("openai:/gpt-4o-mini", "my prompt", {"temperature": 0.1})
-        mock_client().with_options().chat.completions.create.assert_called_once()
+        mock_client().chat.completions.create.assert_called_once()
 
 
 def test_score_model_azure_openai(set_azure_envs):
     with mock.patch("openai.AzureOpenAI") as mock_client:
-        mock_client().with_options().chat.completions.create().model_dump.return_value = (
-            _OAI_RESPONSE
-        )
+        mock_client().chat.completions.create().model_dump.return_value = _OAI_RESPONSE
         resp = score_model_on_payload("openai:/gpt-4o-mini", "my prompt", {"temperature": 0.1})
 
         assert resp == "\n\nThis is a test!"
-        mock_client().with_options().chat.completions.create.assert_called_with(
+        mock_client().chat.completions.create.assert_called_with(
             messages=[{"role": "user", "content": "my prompt"}],
             model="gpt-4o-mini",
             extra_headers={},
