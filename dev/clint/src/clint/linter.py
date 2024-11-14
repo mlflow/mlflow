@@ -435,6 +435,7 @@ def lint_file(path: Path, config: Config) -> list[Violation]:
             for idx, cell in enumerate(cells, start=1):
                 violations.extend(_lint_cell(path, config, cell, idx))
             return violations
+        return []
     else:
         linter = Linter(path=path, config=config, ignore=ignore_map(code))
         linter.visit(ast.parse(code))
