@@ -669,6 +669,7 @@ class _OpenAIWrapper:
             return data[self.formater.variables].to_dict(orient="records")
 
     def get_client(self, max_retries: int, timeout: float):
+        # with_option method should not be used before v1.3.8: https://github.com/openai/openai-python/issues/865
         if self.api_config.api_type == "azure":
             from openai import AzureOpenAI
 

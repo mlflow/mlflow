@@ -107,6 +107,7 @@ def _call_openai_api(openai_uri, payload, eval_parameters, extra_headers, proxy_
     if api_config.api_type == "azure":
         from openai import AzureOpenAI
 
+        # TODO: support usecases that proxy API does not follow OpenAI path design
         client = AzureOpenAI(
             api_key=api_token.token,
             azure_endpoint=proxy_url or api_config.api_base,
@@ -132,7 +133,8 @@ def _call_openai_api(openai_uri, payload, eval_parameters, extra_headers, proxy_
             extra_headers=extra_headers,
             **eval_parameters,
         )
-        # to_dict is not available before openai v1.17.0
+        # to_dict is not available before openai v1.17.0.
+        # TODO: Consider removing the conversion by using mock server in tests
         return _parse_chat_response_format(response.model_dump())
     except Exception as e:
         raise MlflowException(f"Error response from OpenAI:\n {e}")
