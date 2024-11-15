@@ -18,22 +18,29 @@ annotations.
 The Model Registry introduces a few concepts that describe and facilitate the full lifecycle of an MLflow Model.
 
 <dl>
-  <dt>Model</dt>
+  <dt>
+    #### Model
+  </dt>
   <dd>
     An MLflow Model is created from an experiment or run that is logged with one of the model flavor’s
     **`mlflow.<model_flavor>.log_model()`** methods. Once logged, this model can then be registered with the Model Registry.
   </dd>
-  <dt>Registered Model</dt>
+  <dt>
+    #### Registered Model
+  </dt>
   <dd>
     An MLflow Model can be registered with the Model Registry. A registered model has a unique name, contains versions, aliases, tags, and other metadata.
   </dd>
-  <dt>Model Version</dt>
+  <dt>
+    #### Model Version
+  </dt>
   <dd>
     Each registered model can have one or many versions. When a new model is added to the Model Registry, it is added as version 1. Each new model registered to
     the same model name increments the version number. Model versions have tags, which can be useful for tracking attributes of the model version (e.g. _`pre_deploy_checks: "PASSED"`_)
   </dd>
-  <a name="using-registered-model-aliases" />
-  <dt>Model Alias</dt>
+  <dt>
+    #### Model Alias \{#using-registered-model-aliases}
+  </dt>
   <dd>
     Model aliases allow you to assign a mutable, named reference to a particular version of a registered model. By assigning an alias to a specific model version,
     you can use the alias to refer that model version via a model URI or the model registry API. For example, you can create an alias named **`champion`** that
@@ -43,14 +50,18 @@ The Model Registry introduces a few concepts that describe and facilitate the fu
     and target this alias in production workloads. You can then update the model serving production traffic by reassigning the **`champion`** alias to a different model version.
 
   </dd>
-  <dt>Tags</dt>
+  <dt>
+    #### Tags
+  </dt>
   <dd>
     Tags are key-value pairs that you associate with registered models and model versions, allowing you to label and categorize them by function or status. For example, you
     could apply a tag with key **`"task"`** and value **`"question-answering"`** (displayed in the UI as **`task:question-answering`**) to registered models intended for question
     answering tasks. At the model version level, you could tag versions undergoing pre-deployment validation with **`validation_status:pending`** and those cleared for deployment
     with **`validation_status:approved`**.
   </dd>
-  <dt>Annotations and Descriptions</dt>
+  <dt>
+    #### Annotations and Descriptions
+  </dt>
   <dd>
     You can annotate the top-level model and each version individually using Markdown, including description and any relevant information useful for the team such as algorithm
     descriptions, dataset employed or methodology.
