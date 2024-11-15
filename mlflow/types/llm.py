@@ -616,8 +616,8 @@ class ChatResponse(_BaseDataclass):
 @dataclass
 class ChatAgentMessage(ChatMessage):
     # Disabled by setting it to None and preventing instantiation
-    id: str
     refusal: Optional[str] = field(init=False, default=None)
+    id: Optional[str] = None
     attachments: Optional[dict[str, str]] = None
 
     def __post_init__(self):
