@@ -97,26 +97,6 @@ const config: Config = {
       additionalLanguages: ["diff"],
       theme: prismThemes.github,
       darkTheme: prismThemes.dracula,
-      // Extending magic comments to highlight added and removed lines
-      // in diff code blocks.
-      // @see https://github.com/facebook/docusaurus/issues/3318#issuecomment-1909563681
-      magicComments: [
-        {
-          className: "theme-code-block-highlighted-line",
-          line: "highlight-next-line",
-          block: { start: "highlight-start", end: "highlight-end" },
-        },
-        {
-          className: "code-block-diff-add",
-          line: "diff-add",
-          block: { start: "diff-add-start", end: "diff-add-end" },
-        },
-        {
-          className: "code-block-diff-remove",
-          line: "diff-remove",
-          block: { start: "diff-remove-start", end: "diff-remove-end" },
-        },
-      ],
     },
   } satisfies Preset.ThemeConfig,
 };

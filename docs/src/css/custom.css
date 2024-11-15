@@ -30,6 +30,15 @@
   --ifm-color-secondary-lighter: #996235;
   --ifm-color-secondary-lightest: #ad6e3c;
 
+  /* Temporary danger styles */
+  --ifm-color-danger: #852e5e;
+  --ifm-color-danger-dark: #782955;
+  --ifm-color-danger-darker: #712750;
+  --ifm-color-danger-darkest: #5d2042;
+  --ifm-color-danger-light: #923368;
+  --ifm-color-danger-lighter: #99356c;
+  --ifm-color-danger-lightest: #ad3c7b;
+
   --ifm-code-font-size: 95%;
   --docusaurus-highlighted-code-line-bg: rgba(0, 0, 0, 0.1);
   --padding-xs: 4px;
@@ -73,6 +82,15 @@
   --ifm-color-secondary-light: #d5b029;
   --ifm-color-secondary-lighter: #d8b432;
   --ifm-color-secondary-lightest: #ddbf4f;
+
+  /* Temporary danger styles */
+  --ifm-color-danger: #c22547;
+  --ifm-color-danger-dark: #af2140;
+  --ifm-color-danger-darker: #a51f3c;
+  --ifm-color-danger-darkest: #881a32;
+  --ifm-color-danger-light: #d5294e;
+  --ifm-color-danger-lighter: #d83256;
+  --ifm-color-danger-lightest: #dd4f6d;
 
   --docusaurus-highlighted-code-line-bg: rgba(0, 0, 0, 0.3);
 
@@ -129,24 +147,5 @@ must be applied to the wrapping div along with the desired max-height */
   img {
     max-height: 100%;
     width: auto;
-  }
-}
-
-/* Styles for magic comments diff-add and diff-remove
-  @see https://docusaurus.io/docs/3.5.2/markdown-features/code-blocks#custom-magic-comments
-  @see https://github.com/facebook/docusaurus/issues/3318#issuecomment-1909563681
-*/
-.code-block-diff-add {
-  background-color: var(--ifm-color-success-lightest);
-}
-.code-block-diff-remove {
-  background-color: var(--ifm-color-danger-lightest);
-}
-[data-theme="dark"] {
-  .code-block-diff-add {
-    background-color: var(--ifm-color-success-darkest);
-  }
-  .code-block-diff-remove {
-    background-color: var(--ifm-color-danger-darkest);
   }
 }
