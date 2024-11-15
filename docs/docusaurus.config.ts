@@ -98,6 +98,8 @@ const config: Config = {
       copyright: `Copyright © ${new Date().getFullYear()} My Project, Inc. Built with Docusaurus.`,
     },
     prism: {
+      // There is an array of languages enabled by default.
+      // @see https://github.com/FormidableLabs/prism-react-renderer/blob/master/packages/generate-prism-languages/index.ts#L9-L26
       additionalLanguages: ["bash", "diff", "java", "r", "sql"],
       theme: prismThemes.github,
       darkTheme: prismThemes.dracula,
