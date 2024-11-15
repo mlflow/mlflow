@@ -4,6 +4,7 @@ sidebar_position: 14
 
 import TOCInline from "@theme/TOCInline";
 import { APILink } from "@site/src/components/APILink";
+import Link from "@docusaurus/Link";
 
 # MLflow Models
 
@@ -82,12 +83,13 @@ the following fields:
 
 For environment recreation, we automatically log `conda.yaml`, `python_env.yaml`, and `requirements.txt` files whenever a model is logged.
 These files can then be used to reinstall dependencies using `conda` or `virtualenv` with `pip`. Please see
-:ref:`How MLflow Model Records Dependencies <how-mlflow-records-dependencies>` for more details about these files.
+[How MLflow Model Records Dependencies](dependencies#how-mlflow-records-dependencies) for more details about these files.
 
 If a model input example is provided when logging the model, two additional files `input_example.json` and `serving_input_example.json` are logged.
-See `Model Input Example <model/signatures.html#input-example>`\_ for more details.
+See [Model Input Example](signatures#input-example) for more details.
 
-When logging a model, model metadata files (`MLmodel`, `conda.yaml`, `python_env.yaml`, `requirements.txt`) are copied to a subdirectory named `metadata`. For wheeled models, `original_requirements.txt` file is also copied.
+When logging a model, model metadata files (`MLmodel`, `conda.yaml`, `python_env.yaml`, `requirements.txt`) are copied to a subdirectory named `metadata`.
+For wheeled models, `original_requirements.txt` file is also copied.
 
 :::note
 When a model registered in the MLflow Model Registry is downloaded, a YAML file named
@@ -101,3 +103,593 @@ If you log a model within Databricks, MLflow also creates a `metadata` subdirect
 the model directory. This subdirectory contains the lightweight copy of aforementioned
 metadata files for internal use.
 :::
+
+### Environment variables file
+
+MLflow records the environment variables that are used during model inference in `environment_variables.txt`
+file when logging a model.
+
+:::warning attention
+`environment_variables.txt` file **only contains names** of the environment variables that are used during
+model inference, **values are not stored**.
+:::
+
+Currently MLflow only logs the environment variables whose name contains any of the following keywords:
+
+```python
+RECORD_ENV_VAR_ALLOWLIST = {
+    # api key related
+    "API_KEY",  # e.g. OPENAI_API_KEY
+    "API_TOKEN",
+    # databricks auth related
+    "DATABRICKS_HOST",
+    "DATABRICKS_USERNAME",
+    "DATABRICKS_PASSWORD",
+    "DATABRICKS_TOKEN",
+    "DATABRICKS_INSECURE",
+    "DATABRICKS_CLIENT_ID",
+    "DATABRICKS_CLIENT_SECRET",
+    "_DATABRICKS_WORKSPACE_HOST",
+    "_DATABRICKS_WORKSPACE_ID",
+}
+```
+
+Example of a pyfunc model that uses environment variables:
+
+```python
+import mlflow
+import os
+
+os.environ["TEST_API_KEY"] = "test_api_key"
+
+
+class MyModel(mlflow.pyfunc.PythonModel):
+    def predict(self, context, model_input, params=None):
+        if os.environ.get("TEST_API_KEY"):
+            return model_input
+        raise Exception("API key not found")
+
+
+with mlflow.start_run():
+    model_info = mlflow.pyfunc.log_model(
+        "model", python_model=MyModel(), input_example="data"
+    )
+```
+
+Environment variable `TEST_API_KEY` is logged in the environment_variables.txt file like below
+
+```
+# This file records environment variable names that are used during model inference.
+# They might need to be set when creating a serving endpoint from this model.
+# Note: it is not guaranteed that all environment variables listed here are required
+TEST_API_KEY
+```
+
+:::warning attention
+Before you deploy a model to a serving endpoint, **review the environment_variables.txt file** to ensure
+all necessary environment variables for model inference are set. Note that **not all environment variables
+listed in the file are always required for model inference.** For detailed instructions on setting
+environment variables on a databricks serving endpoint, refer to
+[this guidance](https://docs.databricks.com/en/machine-learning/model-serving/store-env-variable-model-serving.html#add-plain-text-environment-variables).
+:::
+
+:::note
+To disable this feature, set the environment variable `MLFLOW_RECORD_ENV_VARS_IN_MODEL_LOGGING` to `false`.
+:::
+
+## Managing Model Dependencies
+
+An MLflow Model infers dependencies required for the model flavor and automatically logs them. However, it also allows
+you to define extra dependencies or custom Python code, and offer a tool to validate them in a sandbox environment.
+Please refer to [Managing Dependencies in MLflow Models](dependencies) for more details.
+
+## Model Signatures And Input Examples \{#model-metadata}
+
+In MLflow, understanding the intricacies of model signatures and input examples is crucial for
+effective model management and deployment.
+
+- **Model Signature**: Defines the schema for model inputs, outputs, and additional inference parameters,
+  promoting a standardized interface for model interaction.
+- **Model Input Example**: Provides a concrete instance of valid model input, aiding in understanding and
+  testing model requirements. Additionally, if an input example is provided when logging a model, a model
+  signature will be automatically inferred and stored if not explicitly provided.
+- **Model Serving Payload Example**: Provides a json payload example for querying a deployed model endpoint.
+  If an input example is provided when logging a model, a serving paylod example is automatically generated
+  from the input example and saved as `serving_input_example.json`.
+
+Our documentation delves into several key areas:
+
+- **Supported Signature Types**: We cover the different data types that are supported, such as tabular data
+  for traditional machine learning models and tensors for deep learning models.
+- **Signature Enforcement**: Discusses how MLflow enforces schema compliance, ensuring that the provided
+  inputs match the model's expectations.
+- **Logging Models with Signatures**: Guides on how to incorporate signatures when logging models, enhancing
+  clarity and reliability in model operations.
+
+For a detailed exploration of these concepts, including examples and best practices, visit the
+[Model Signatures and Examples Guide](signatures). If you would like to see signature enforcement in action,
+see the [notebook tutorial on Model Signatures](notebooks/signature_examples) to learn more.
+
+## Model API
+
+You can save and load MLflow Models in multiple ways. First, MLflow includes integrations with
+several common libraries. For example, <APILink fn="mlflow.sklearn">mlflow.sklearn</APILink>
+contains <APILink fn="mlflow.sklearn.save_model">save_model</APILink>, <APILink fn="mlflow.sklearn.log_model">log_model</APILink>,
+and <APILink fn="mlflow.sklearn.load_model">load_model</APILink> functions for scikit-learn models. Second,
+you can use the <APILink fn="mlflow.models.Model">mlflow.models.Model</APILink> class to create and write models. This
+class has four key functions:
+
+- {""}<APILink fn="mlflow.models.Model.add_flavor">add_flavor</APILink> to add a flavor to the model. Each flavor
+  has a string name and a dictionary of key-value attributes, where the values can be any object
+  that can be serialized to YAML.
+- {""}<APILink fn="mlflow.models.Model.save">save</APILink> to save the model to a local directory.
+- {""}<APILink fn="mlflow.models.Model.log">log</APILink> to log the model as an artifact in the
+  current run using MLflow Tracking.
+- {""}<APILink fn="mlflow.models.Model.load">load</APILink> to load a model from a local directory or
+  from an artifact in a previous run.
+
+## Models From Code
+
+To **learn more about the Models From Code feature**, please visit [the deep dive guide](models-from-code)
+for more in-depth explanation and to see additional examples.
+
+:::note
+The Models from Code feature is available in MLflow versions 2.12.2 and later. This feature is experimental and may change in future releases.
+:::
+
+The Models from Code feature allows you to define and log models directly from a stand-alone python script. This feature is particularly useful when you want to
+log models that can be effectively stored as a code representation (models that do not need optimized weights through training) or applications
+that rely on external services (e.g., LangChain chains). Another benefit is that this approach entirely bypasses the use of the `pickle` or
+`cloudpickle` modules within Python, which can carry security risks when loading untrusted models.
+
+:::note
+This feature is only supported for **LangChain**, **LlamaIndex**, and **PythonModel** models.
+:::
+
+In order to log a model from code, you can leverage the <APILink fn="mlflow.models.set_model" /> API. This API allows you to define a model by specifying
+an instance of the model class directly within the file where the model is defined. When logging such a model, a
+file path is specified (instead of an object) that points to the Python file containing both the model class definition and the usage of the
+`set_model` API applied on an instance of your custom model.
+
+The figure below provides a comparison of the standard model logging process and the Models from Code feature for models that are eligible to be
+saved using the Models from Code feature:
+
+<div class="center-div" style={{ width: "60%" }}>
+  ![Models from Code](/images/models/models_from_code.png)
+</div>
+
+For example, defining a model in a separate file named `my_model.py`:
+
+```python
+import mlflow
+from mlflow.models import set_model
+
+
+class MyModel(mlflow.pyfunc.PythonModel):
+    def predict(self, context, model_input):
+        return model_input
+
+
+# Define the custom PythonModel instance that will be used for inference
+set_model(MyModel())
+```
+
+:::note
+The Models from code feature does not support capturing import statements that are from external file references. If you have dependencies that
+are not captured via a `pip` install, dependencies will need to be included and resolved via appropriate absolute path import references from
+using the [code_paths feature](https://mlflow.org/docs/latest/model/dependencies.html#saving-extra-code-with-an-mlflow-model-manual-declaration).
+For simplicity's sake, it is recommended to encapsulate all of your required local dependencies for a model defined from code within the same
+python script file due to limitations around `code_paths` dependency pathing resolution.
+:::
+
+:::tip
+When defining a model from code and using the <APILink fn="mlflow.models.set_model" /> API, the code that is defined in the script that is being logged
+will be executed internally to ensure that it is valid code. If you have connections to external services within your script (e.g. you are connecting
+to a GenAI service within LangChain), be aware that you will incur a connection request to that service when the model is being logged.
+:::
+
+Then, logging the model from the file path in a different python script:
+
+```python
+import mlflow
+
+model_path = "my_model.py"
+
+with mlflow.start_run():
+    model_info = mlflow.pyfunc.log_model(
+        python_model=model_path,  # Define the model as the path to the Python file
+        artifact_path="my_model",
+    )
+
+# Loading the model behaves exactly as if an instance of MyModel had been logged
+my_model = mlflow.pyfunc.load_model(model_info.model_uri)
+```
+
+:::warning
+The <APILink fn="mlflow.models.set_model" /> API is **not threadsafe**. Do not attempt to use this feature if you are logging models concurrently
+from multiple threads. This fluent API utilizes a global active model state that has no consistency guarantees. If you are interested in threadsafe
+logging APIs, please use the <APILink fn="mlflow.client.MlflowClient">mlflow.client.MlflowClient</APILink> APIs for logging models.
+:::
+
+## Built-In Model Flavors \{#models_built-in-model-flavors}
+
+MLflow provides several standard flavors that might be useful in your applications. Specifically,
+many of its deployment tools support these flavors, so you can export your own model in one of these
+flavors to benefit from all these tools:
+
+<TOCInline toc={toc.slice(toc.findIndex((l) => l.id === "models_built-in-model-flavors") + 1)} />
+
+### Python Function (`python_function`) \{#pyfunc-model-flavor}
+
+The `python_function` model flavor serves as a default model interface for MLflow Python models.
+Any MLflow Python model is expected to be loadable as a `python_function` model. This enables
+other MLflow tools to work with any python model regardless of which persistence module or
+framework was used to produce the model. This interoperability is very powerful because it allows
+any Python model to be productionized in a variety of environments.
+
+In addition, the `python_function` model flavor defines a generic
+filesystem <Link to="/api_reference/python_api/mlflow.pyfunc.html#pyfunc-filesystem-format" target="_blank">model format</Link>
+for Python models and provides utilities for saving and loading models
+to and from this format. The format is self-contained in the sense that it includes all the
+information necessary to load and use a model. Dependencies are stored either directly with the
+model or referenced via conda environment. This model format allows other tools to integrate
+their models with MLflow.
+
+#### How To Save Model As Python Function
+
+Most `python_function` models are saved as part of other model flavors - for example, all mlflow
+built-in flavors include the `python_function` flavor in the exported models. In addition,
+the <APILink fn="mlflow.pyfunc">mlflow.pyfunc</APILink> module defines functions for creating `python_function` models explicitly.
+This module also includes utilities for creating custom Python models, which is a convenient way of
+adding custom python code to ML models. For more information, see the [custom Python models
+documentation](#custom-python-models).
+
+For information on how to store a custom model from a python script (models from code functionality),
+see the [guide to models from code](models-from-code) for the recommended approaches.
+
+#### How To Load And Score Python Function Models
+
+##### Loading Models
+
+You can load `python_function` models in Python by using the <APILink fn="mlflow.pyfunc.load_model" /> function. It is important
+to note that `load_model` assumes all dependencies are already available and _will not_ perform any checks or installations
+of dependencies. For deployment options that handle dependencies, refer to the [model deployment section](#built-in-deployment).
+
+##### Scoring Models
+
+Once a model is loaded, it can be scored in two primary ways:
+
+1.  **Synchronous Scoring**
+    The standard method for scoring is using the :py:func:`predict <mlflow.pyfunc.PyFuncModel.predict>` method, which supports various
+    input types and returns a scalar or collection based on the input data. The method signature is:
+
+    ```
+    predict(data: Union[pandas.Series, pandas.DataFrame, numpy.ndarray, csc_matrix, csr_matrix, List[Any], Dict[str, Any], str],
+            params: Optional[Dict[str, Any]] = None) → Union[pandas.Series, pandas.DataFrame, numpy.ndarray, list, str]
+    ```
+
+2.  **Synchronous Streaming Scoring**
+
+    :::note
+    `predict_stream` is a new interface that was added to MLflow in the 2.12.2 release. Previous versions of MLflow will not support this interface.
+    In order to utilize `predict_stream` in a custom Python Function Model, you must implement the `predict_stream` method in your model class and
+    return a generator type.
+    :::
+
+    For models that support streaming data processing, <APILink fn="mlflow.pyfunc.PyFuncModel.predict_stream">predict_stream</APILink>
+    method is available. This method returns a`generator`, which yields a stream of responses, allowing for efficient processing of
+    large datasets or continuous data streams. Note that the `predict_stream` method is not available for all model types.
+    The usage involves iterating over the generator to consume the responses:
+
+    ```
+    predict_stream(data: Any, params: Optional[Dict[str, Any]] = None) → GeneratorType
+    ```
+
+##### Demonstrating `predict_stream()`
+
+Below is an example demonstrating how to define, save, load, and use a streamable model with the `predict_stream()` method:
+
+```python
+import mlflow
+import os
+
+
+# Define a custom model that supports streaming
+class StreamableModel(mlflow.pyfunc.PythonModel):
+    def predict(self, context, model_input, params=None):
+        # Regular predict method implementation (optional for this demo)
+        return "regular-predict-output"
+
+    def predict_stream(self, context, model_input, params=None):
+        # Yielding elements one at a time
+        for element in ["a", "b", "c", "d", "e"]:
+            yield element
+
+
+# Save the model to a directory
+tmp_path = "/tmp/test_model"
+pyfunc_model_path = os.path.join(tmp_path, "pyfunc_model")
+python_model = StreamableModel()
+mlflow.pyfunc.save_model(path=pyfunc_model_path, python_model=python_model)
+
+# Load the model
+loaded_pyfunc_model = mlflow.pyfunc.load_model(model_uri=pyfunc_model_path)
+
+# Use predict_stream to get a generator
+stream_output = loaded_pyfunc_model.predict_stream("single-input")
+
+# Consuming the generator using next
+print(next(stream_output))  # Output: 'a'
+print(next(stream_output))  # Output: 'b'
+
+# Alternatively, consuming the generator using a for-loop
+for response in stream_output:
+    print(response)  # This will print 'c', 'd', 'e'
+```
+
+#### Python Function Model Interfaces
+
+All PyFunc models will support `pandas.DataFrame` as an input. In addition to `pandas.DataFrame`,
+DL PyFunc models will also support tensor inputs in the form of `numpy.ndarrays`. To verify
+whether a model flavor supports tensor inputs, please check the flavor's documentation.
+
+For models with a column-based schema, inputs are typically provided in the form of a `pandas.DataFrame`.
+If a dictionary mapping column name to values is provided as input for schemas with named columns or if a
+python `List` or a `numpy.ndarray` is provided as input for schemas with unnamed columns, MLflow will cast the
+input to a DataFrame. Schema enforcement and casting with respect to the expected data types is performed against
+the DataFrame.
+
+For models with a tensor-based schema, inputs are typically provided in the form of a `numpy.ndarray` or a
+dictionary mapping the tensor name to its np.ndarray value. Schema enforcement will check the provided input's
+shape and type against the shape and type specified in the model's schema and throw an error if they do not match.
+
+For models where no schema is defined, no changes to the model inputs and outputs are made. MLflow will
+propagate any errors raised by the model if the model does not accept the provided input type.
+
+The python environment that a PyFunc model is loaded into for prediction or inference may differ from the environment
+in which it was trained. In the case of an environment mismatch, a warning message will be printed when
+calling <APILink fn="mlflow.pyfunc.load_model" />. This warning statement will identify the packages that have a version mismatch
+between those used during training and the current environment. In order to get the full dependencies of the
+environment in which the model was trained, you can call <APILink fn="mlflow.pyfunc.get_model_dependencies" />.
+Furthermore, if you want to run model inference in the same environment used in model training, you can
+call <APILink fn="mlflow.pyfunc.spark_udf" /> with the `env_manager` argument set as "conda". This will generate the environment
+from the `conda.yaml` file, ensuring that the python UDF will execute with the exact package versions that were used
+during training.
+
+Some PyFunc models may accept model load configuration, which controls how the model is loaded and predictions
+computed. You can learn which configuration the model supports by inspecting the model's flavor metadata:
+
+```python
+model_info = mlflow.models.get_model_info(model_uri)
+model_info.flavors[mlflow.pyfunc.FLAVOR_NAME][mlflow.pyfunc.MODEL_CONFIG]
+```
+
+Alternatively, you can load the PyFunc model and inspect the `model_config` property:
+
+```python
+pyfunc_model = mlflow.pyfunc.load_model(model_uri)
+pyfunc_model.model_config
+```
+
+Model configuration can be changed at loading time by indicating `model_config` parameter in
+the <APILink fn="mlflow.pyfunc.load_model" /> method:
+
+```python
+pyfunc_model = mlflow.pyfunc.load_model(model_uri, model_config=dict(temperature=0.93))
+```
+
+When a model configuration value is changed, those values the configuration the model was saved with. Indicating an
+invalid model configuration key for a model results in that configuration being ignored. A warning is displayed mentioning
+the ignored entries.
+
+:::note
+**Model configuration vs parameters with default values in signatures:** Use model configuration when you need to provide
+model publishers for a way to change how the model is loaded into memory and how predictions are computed for all the
+samples. For instance, a key like `user_gpu`. Model consumers are not able to change those values at predict time. Use
+parameters with default values in the signature to provide a users the ability to change how predictions are computed on
+each data sample.
+:::
+
+### R Function (`crate`)
+
+The `crate` model flavor defines a generic model format for representing an arbitrary R prediction
+function as an MLflow model using the `crate` function from the
+[carrier](https://github.com/r-lib/carrier) package. The prediction function is expected to take a dataframe as input and
+produce a dataframe, a vector or a list with the predictions as output.
+
+This flavor requires R to be installed in order to be used.
+
+#### `crate` usage
+
+For a minimal crate model, an example configuration for the predict function is:
+
+```r
+library(mlflow)
+library(carrier)
+# Load iris dataset
+data("iris")
+
+# Learn simple linear regression model
+model <- lm(Sepal.Width~Sepal.Length, data = iris)
+
+# Define a crate model
+# call package functions with an explicit :: namespace.
+crate_model <- crate(
+  function(new_obs)  stats::predict(model, data.frame("Sepal.Length" = new_obs)),
+  model = model
+)
+
+# log the model
+model_path <- mlflow_log_model(model = crate_model, artifact_path = "iris_prediction")
+
+# load the logged model and make a prediction
+model_uri <- paste0(mlflow_get_run()$artifact_uri, "/iris_prediction")
+mlflow_model <- mlflow_load_model(model_uri = model_uri,
+                                  flavor = NULL,
+                                  client = mlflow_client())
+
+prediction <- mlflow_predict(model = mlflow_model, data = 5)
+print(prediction)
+```
+
+### H<sub>2</sub>O (`h2o`)
+
+The `h2o` model flavor enables logging and loading H2O models.
+
+The <APILink fn="mlflow.h2o">mlflow.h2o</APILink> module defines <APILink fn="mlflow.h2o.save_model">save_model()</APILink>
+and <APILink fn="mlflow.h2o.log_model">log_model()</APILink> methods in python,
+and <Link to="/api_reference/R-api.html#mlflow-save-model-h2o" target="_blank">mlflow_save_model</Link>
+and <Link to="/api_reference/R-api.html#mlflow-log-model" target="_blank">mlflow_log_model</Link> in R for saving H2O
+models in MLflow Model format. These methods produce MLflow Models with the `python_function` flavor, allowing you to load them
+as generic Python functions for inference via <APILink fn="mlflow.pyfunc.load_model" />.
+This loaded PyFunc model can be scored with only DataFrame input. When you load
+MLflow Models with the `h2o` flavor using <APILink fn="mlflow.pyfunc.load_model" />,
+the [h2o.init()](http://docs.h2o.ai/h2o/latest-stable/h2o-py/docs/h2o.html#h2o.init) method is
+called. Therefore, the correct version of `h2o(-py)` must be installed in the loader's
+environment. You can customize the arguments given to
+[h2o.init()](http://docs.h2o.ai/h2o/latest-stable/h2o-py/docs/h2o.html#h2o.init) by modifying the
+`init` entry of the persisted H2O model's YAML configuration file: `model.h2o/h2o.yaml`.
+
+Finally, you can use the <APILink fn="mlflow.h2o.load_model" /> method to load MLflow Models with the
+`h2o` flavor as H2O model objects.
+
+For more information, see <APILink fn="mlflow.h2o">mlflow.h2o</APILink>.
+
+#### h2o pyfunc usage
+
+For a minimal h2o model, here is an example of the pyfunc predict() method in a classification scenario:
+
+```python
+import mlflow
+import h2o
+
+h2o.init()
+from h2o.estimators.glm import H2OGeneralizedLinearEstimator
+
+# import the prostate data
+df = h2o.import_file(
+    "http://s3.amazonaws.com/h2o-public-test-data/smalldata/prostate/prostate.csv.zip"
+)
+
+# convert the columns to factors
+df["CAPSULE"] = df["CAPSULE"].asfactor()
+df["RACE"] = df["RACE"].asfactor()
+df["DCAPS"] = df["DCAPS"].asfactor()
+df["DPROS"] = df["DPROS"].asfactor()
+
+# split the data
+train, test, valid = df.split_frame(ratios=[0.7, 0.15])
+
+# generate a GLM model
+glm_classifier = H2OGeneralizedLinearEstimator(
+    family="binomial", lambda_=0, alpha=0.5, nfolds=5, compute_p_values=True
+)
+
+with mlflow.start_run():
+    glm_classifier.train(
+        y="CAPSULE", x=["AGE", "RACE", "VOL", "GLEASON"], training_frame=train
+    )
+    metrics = glm_classifier.model_performance()
+    metrics_to_track = ["MSE", "RMSE", "r2", "logloss"]
+    metrics_to_log = {
+        key: value
+        for key, value in metrics._metric_json.items()
+        if key in metrics_to_track
+    }
+    params = glm_classifier.params
+    mlflow.log_params(params)
+    mlflow.log_metrics(metrics_to_log)
+    model_info = mlflow.h2o.log_model(glm_classifier, artifact_path="h2o_model_info")
+
+# load h2o model and make a prediction
+h2o_pyfunc = mlflow.pyfunc.load_model(model_uri=model_info.model_uri)
+test_df = test.as_data_frame()
+predictions = h2o_pyfunc.predict(test_df)
+print(predictions)
+
+# it is also possible to load the model and predict using h2o methods on the h2o frame
+
+# h2o_model = mlflow.h2o.load_model(model_info.model_uri)
+# predictions = h2o_model.predict(test)
+```
+
+### Keras (`keras`) \{#tf-keras-example}
+
+The `keras` model flavor enables logging and loading Keras models. It is available in both Python
+and R clients. In R, you can save or log the model using
+`mlflow_save_model` and `mlflow_log_model`.
+These functions serialize Keras models as HDF5 files using the Keras library's built-in
+model persistence functions. You can use
+`mlflow_load_model` function in R to load MLflow Models
+with the `keras` flavor as [Keras Model objects](https://keras.io/models/about-keras-models/).
+
+#### Keras pyfunc usage
+
+For a minimal Sequential model, an example configuration for the pyfunc predict() method is:
+
+```python
+import mlflow
+import numpy as np
+import pathlib
+import shutil
+from tensorflow import keras
+
+mlflow.tensorflow.autolog()
+
+X = np.array([-2, -1, 0, 1, 2, 1]).reshape(-1, 1)
+y = np.array([0, 0, 1, 1, 1, 0])
+model = keras.Sequential(
+    [
+        keras.Input(shape=(1,)),
+        keras.layers.Dense(1, activation="sigmoid"),
+    ]
+)
+model.compile(loss="binary_crossentropy", optimizer="adam", metrics=["accuracy"])
+model.fit(X, y, batch_size=3, epochs=5, validation_split=0.2)
+
+local_artifact_dir = "/tmp/mlflow/keras_model"
+pathlib.Path(local_artifact_dir).mkdir(parents=True, exist_ok=True)
+
+model_uri = f"runs:/{mlflow.last_active_run().info.run_id}/model"
+keras_pyfunc = mlflow.pyfunc.load_model(
+    model_uri=model_uri, dst_path=local_artifact_dir
+)
+
+data = np.array([-4, 1, 0, 10, -2, 1]).reshape(-1, 1)
+predictions = keras_pyfunc.predict(data)
+
+shutil.rmtree(local_artifact_dir)
+```
+
+### MLeap (`mleap`)
+
+:::warning
+The `mleap` model flavor is deprecated as of MLflow 2.6.0 and will be removed in a future release.
+:::
+
+The `mleap` model flavor supports saving Spark models in MLflow format using the
+[MLeap](https://combust.github.io/mleap-docs/) persistence mechanism. MLeap is an inference-optimized
+format and execution engine for Spark models that does not depend on
+[SparkContext](https://spark.apache.org/docs/latest/api/python/pyspark.html#pyspark.SparkContext)
+to evaluate inputs.
+
+:::note
+You can save Spark models in MLflow format with the `mleap` flavor by specifying the
+`sample_input` argument of the <APILink fn="mlflow.spark.save_model" />
+or <APILink fn="mlflow.spark.log_model" /> method (recommended). For more details see [Spark MLlib](#model-spark).
+:::
+
+The <APILink fn="mlflow.mleap">mlflow.mleap</APILink> module also
+defines <APILink fn="mlflow.mleap.save_model">save_model()</APILink>
+and <APILink fn="mlflow.mleap.log_model">log_model()</APILink> methods for saving MLeap models in MLflow format,
+but these methods do not include the `python_function` flavor in the models they produce.
+Similarly, `mleap` models can be saved in R with `mlflow_save_model` and loaded with `mlflow_load_model`, with
+`mlflow_save_model` requiring `sample_input` to be specified as a
+sample Spark dataframe containing input data to the model is required by MLeap for data schema
+inference.
+
+A companion module for loading MLflow Models with the MLeap flavor is available in the
+`mlflow/java` package.
+
+For more information, see <APILink fn="mlflow.spark">mlflow.spark</APILink>, <APILink fn="mlflow.mleap">mlflow.mleap</APILink>, and the
+[MLeap documentation](https://combust.github.io/mleap-docs/).
