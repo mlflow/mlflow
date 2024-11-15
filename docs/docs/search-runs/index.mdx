@@ -124,7 +124,7 @@ all_runs = mlflow.search_runs(search_all_experiments=True)
 print(all_runs)
 ```
 
-```text title="Output"
+```_ title="Output"
                              run_id  ... tags.mlflow.user
 0  5984a3488161440f92de9847e846b342  ...     michael.berk
 1  41160f238a5841998dda263794b26067  ...     michael.berk
@@ -151,7 +151,7 @@ bad_runs = mlflow.search_runs(
 print(bad_runs)
 ```
 
-```text title="Output"
+```_ title="Output"
                              run_id  ... tags.mlflow.source.name
 0  67973142b9c0470d8d764ada07c5a988  ...               delete.py
 1  59853d5f17f946218f63de1dc82de07b  ...               delete.py
@@ -472,7 +472,7 @@ print(runs_with_complex_filter)
 
 The output will be a pandas DataFrame with the runs that match the specified filters, as shown below.
 
-```plaintext
+```
                              run_id  ... tags.mlflow.runName
 0  22db81f070f6413588641c8c343cdd72  ...   orderly-quail-568
 1  c3680e37d0fa44eb9c9fb7828f6b5481  ...    melodic-lynx-301
