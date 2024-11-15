@@ -3,6 +3,7 @@ name: uc-oss
 
 on:
   pull_request:  # for testing
+    types:
       - opened
       - synchronize
       - reopened
