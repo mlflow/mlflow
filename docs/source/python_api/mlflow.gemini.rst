@@ -1,4 +1,4 @@
-mlflow.autogen
+mlflow.gemini
 ==============
 
 .. automodule:: mlflow.gemini

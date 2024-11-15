@@ -314,7 +314,8 @@ _ML_PACKAGE_VERSIONS = {
     },
     "gemini": {
         "package_info": {
-            "pip_release": "google-generativeai"
+            "pip_release": "google-generativeai",
+            "module_name": "google.generativeai"
         },
         "autologging": {
             "minimum": "0.8.0",
@@ -372,6 +373,6 @@ FLAVOR_TO_MODULE_NAME = {
     "langchain": "langchain",
     "llama_index": "llama_index.core",
     "autogen": "autogen",
-    "gemini": "gemini",
+    "gemini": "google.generativeai",
     "pyspark.ml": "pyspark"
 }

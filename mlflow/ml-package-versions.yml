@@ -833,6 +833,7 @@ autogen:
 gemini:
   package_info:
     pip_release: "google-generativeai"
+    module_name: "google.generativeai"
     install_dev: |
       pip install git+https://github.com/google-gemini/generative-ai-python
   autologging:

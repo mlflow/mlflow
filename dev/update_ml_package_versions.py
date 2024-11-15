@@ -144,6 +144,8 @@ def update_ml_package_versions_py(config_path):
                         "pip_release": pip_release,
                     }
                 }
+                if module_name:
+                    config[name]["package_info"]["module_name"] = module_name
 
             min_version = extract_field(cfg, ("autologging", "minimum"))
             max_version = extract_field(cfg, ("autologging", "maximum"))

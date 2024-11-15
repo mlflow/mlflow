@@ -19,7 +19,7 @@ def autolog(
     silent: bool = False,
 ):
     """
-    Enables (or disables) and configures autologging from Gemini to MLflow. 
+    Enables (or disables) and configures autologging from Gemini to MLflow.
 
     Args:
         log_traces: If ``True``, traces are logged for Gemini models by using runtime logging.

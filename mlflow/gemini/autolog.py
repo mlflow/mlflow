@@ -1,7 +1,8 @@
 import inspect
+
 import mlflow
-from mlflow.entities import SpanType
 import mlflow.gemini
+from mlflow.entities import SpanType
 from mlflow.utils.autologging_utils.config import AutoLoggingConfig
 
 
@@ -14,13 +15,14 @@ def _get_span_type(task) -> str:
     }
     return span_type_mapping.get(task, SpanType.UNKNOWN)
 
+
 def construct_full_inputs(func, self, *args, **kwargs):
     signature = inspect.signature(func)
     arguments = signature.bind_partial(self, *args, **kwargs).arguments
-    
+
     if "self" in arguments:
         arguments.pop("self")
-    
+
     if hasattr(self, "model_name"):
         arguments["model_name"] = self.model_name
 
@@ -34,7 +36,7 @@ def patched_call(original, self, *args, **kwargs):
         with mlflow.start_span(
             name=self.__class__.__name__,
             span_type=_get_span_type(self.__class__),
-            ) as span:
+        ) as span:
             inputs = construct_full_inputs(original, self, *args, **kwargs)
             span.set_inputs(inputs)
             result = original(self, *args, **kwargs)
