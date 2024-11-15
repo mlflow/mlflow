@@ -216,24 +216,18 @@ As noted above, MLflow search syntax is similar to SQL with a few notable except
 - The SQL `OR` keyword is not supported.
 - For fields that contain special characters or start with numbers, these should be wrapped in **backticks**.
 
-```plaintext
-{/* diff-remove */}
+```diff
 - Bad:  metrics.cross-entropy-loss < 0.5
-{/* diff-add */}
 + Good: metrics.`cross-entropy-loss` < 0.5
 
-{/* diff-remove */}
 - Bad:  params.1st_iteration_timestamp = "2022-01-01"
-{/* diff-add */}
 + Good: params.`1st_iteration_timestamp` = "2022-01-01"
 ```
 
 - For the SQL `IN` keyword, you must surround the values of your list with **single quotes**.
 
-```plaintext
-{/* diff-remove */}
+```diff
 - Bad:  attributes.run_id IN ("5984a3488161440f92de9847e846b342", "babe221a676b4fa4b204f8240f2c4f14")
-{/* diff-add */}
 + Good: attributes.run_id IN ('5984a3488161440f92de9847e846b342', 'babe221a676b4fa4b204f8240f2c4f14')
 ```
 
