@@ -362,3 +362,19 @@ def test_autolog_use_active_run_id(client, log_models):
     assert traces[1].info.request_metadata[TraceMetadataKey.SOURCE_RUN] == run_2.info.run_id
     assert traces[2].info.request_metadata[TraceMetadataKey.SOURCE_RUN] == run_2.info.run_id
     assert traces[3].info.request_metadata[TraceMetadataKey.SOURCE_RUN] == run_3.info.run_id
+
+
+def test_autolog_raw_response(client):
+    mlflow.openai.autolog()
+
+    with mlflow.start_run():
+        client.chat.completions.with_raw_response.create(
+            model="gpt-4o-mini",
+            messages=[{"role": "user", "content": "test"}],
+        )
+
+    trace = mlflow.get_last_active_trace()
+    assert len(trace.data.spans) == 1
+    span = trace.data.spans[0]
+    assert isinstance(span.outputs, dict)
+    assert "id" in span.outputs

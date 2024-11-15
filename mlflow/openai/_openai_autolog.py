@@ -4,7 +4,7 @@ import logging
 import os
 from contextlib import contextmanager
 from copy import deepcopy
-from typing import Iterator
+from typing import Any, Iterator
 
 from packaging.version import Version
 
@@ -92,6 +92,23 @@ def _get_span_type(task) -> str:
     return span_type_mapping.get(task, SpanType.UNKNOWN)
 
 
+def _parse_raw_response(response: Any) -> Any:
+    from pydantic import BaseModel
+
+    if isinstance(response, BaseModel):
+        return response
+
+    # As documented at https://github.com/openai/openai-python/tree/52357cff50bee57ef442e94d78a0de38b4173fc2?tab=readme-ov-file#accessing-raw-response-data-eg-headers,
+    # a `LegacyAPIResponse` (not exposed as a public class) object is returned when the `create`
+    # method is invoked with `with_raw_response`.
+    try:
+        return response.parse()
+    except Exception as e:
+        _logger.debug(f"Failed to parse {response} (type: {response.__class__}): {e}")
+
+    return response
+
+
 def patched_call(original, self, *args, **kwargs):
     from openai import Stream
     from openai.types.chat.chat_completion_chunk import ChatCompletionChunk
@@ -160,6 +177,8 @@ def patched_call(original, self, *args, **kwargs):
             except Exception as inner_e:
                 _logger.warning(f"Encountered unexpected error when ending trace: {inner_e}")
         raise e
+
+    result = _parse_raw_response(result)
 
     if isinstance(result, Stream):
         # If the output is a stream, we add a hook to store the intermediate chunks
