@@ -94,6 +94,7 @@ const config: Config = {
       copyright: `Copyright © ${new Date().getFullYear()} My Project, Inc. Built with Docusaurus.`,
     },
     prism: {
+      additionalLanguages: ["diff"],
       theme: prismThemes.github,
       darkTheme: prismThemes.dracula,
       // Extending magic comments to highlight added and removed lines
