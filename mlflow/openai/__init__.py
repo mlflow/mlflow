@@ -183,7 +183,6 @@ def _get_api_config() -> _OpenAIApiConfig:
     api_base = os.getenv(_OpenAIEnvVar.OPENAI_API_BASE.value) or os.getenv(
         _OpenAIEnvVar.OPENAI_BASE_URL.value
     )
-    engine = os.getenv(_OpenAIEnvVar.OPENAI_ENGINE.value, None)
     deployment_id = os.getenv(_OpenAIEnvVar.OPENAI_DEPLOYMENT_NAME.value, None)
     if api_type in ("azure", "azure_ad", "azuread"):
         batch_size = 16
@@ -201,7 +200,6 @@ def _get_api_config() -> _OpenAIApiConfig:
         max_tokens_per_minute=max_tokens_per_minute,
         api_base=api_base,
         api_version=api_version,
-        engine=engine,
         deployment_id=deployment_id,
     )
 
@@ -670,7 +668,7 @@ class _OpenAIWrapper:
 
     def get_client(self, max_retries: int, timeout: float):
         # with_option method should not be used before v1.3.8: https://github.com/openai/openai-python/issues/865
-        if self.api_config.api_type == "azure":
+        if self.api_config.api_type in ("azure", "azure_ad", "azuread"):
             from openai import AzureOpenAI
 
             return AzureOpenAI(

@@ -130,7 +130,6 @@ class _OpenAIApiConfig(NamedTuple):
     max_tokens_per_minute: int
     api_version: Optional[str]
     api_base: str
-    engine: Optional[str]
     deployment_id: Optional[str]
     max_retries: int = 5
     timeout: float = 60.0

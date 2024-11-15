@@ -104,7 +104,7 @@ def _call_openai_api(openai_uri, payload, eval_parameters, extra_headers, proxy_
     api_token = _OAITokenHolder(api_config.api_type)
     api_token.refresh()
 
-    if api_config.api_type == "azure":
+    if api_config.api_type in ("azure", "azure_ad", "azuread"):
         from openai import AzureOpenAI
 
         # TODO: support usecases that proxy API does not follow OpenAI path design

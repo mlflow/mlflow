@@ -104,7 +104,7 @@ class OpenAIDeploymentClient(BaseDeploymentClient):
         api_token = _OAITokenHolder(api_config.api_type)
         api_token.refresh()
 
-        if api_config.api_type == "azure":
+        if api_config.api_type in ("azure", "azure_ad", "azuread"):
             from openai import AzureOpenAI
 
             client = AzureOpenAI(
@@ -226,7 +226,6 @@ def _get_api_config_without_openai_dep() -> _OpenAIApiConfig:
     api_type = os.getenv(_OpenAIEnvVar.OPENAI_API_TYPE.value)
     api_version = os.getenv(_OpenAIEnvVar.OPENAI_API_VERSION.value)
     api_base = os.getenv(_OpenAIEnvVar.OPENAI_API_BASE.value, None)
-    engine = os.getenv(_OpenAIEnvVar.OPENAI_ENGINE.value, None)
     deployment_id = os.getenv(_OpenAIEnvVar.OPENAI_DEPLOYMENT_NAME.value, None)
     if api_type in ("azure", "azure_ad", "azuread"):
         batch_size = 16
@@ -244,7 +243,6 @@ def _get_api_config_without_openai_dep() -> _OpenAIApiConfig:
         max_tokens_per_minute=max_tokens_per_minute,
         api_base=api_base,
         api_version=api_version,
-        engine=engine,
         deployment_id=deployment_id,
     )
 
