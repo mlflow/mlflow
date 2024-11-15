@@ -368,13 +368,35 @@ def test_autolog_raw_response(client):
     mlflow.openai.autolog()
 
     with mlflow.start_run():
-        client.chat.completions.with_raw_response.create(
+        resp = client.chat.completions.with_raw_response.create(
             model="gpt-4o-mini",
             messages=[{"role": "user", "content": "test"}],
         )
+        resp = resp.parse()  # ensure the raw response is returned
 
+    assert resp.choices[0].message.content == '[{"role": "user", "content": "test"}]'
     trace = mlflow.get_last_active_trace()
     assert len(trace.data.spans) == 1
     span = trace.data.spans[0]
     assert isinstance(span.outputs, dict)
-    assert "id" in span.outputs
+    assert (
+        span.outputs["choices"][0]["message"]["content"] == '[{"role": "user", "content": "test"}]'
+    )
+
+
+def test_autolog_raw_response_stream(client):
+    mlflow.openai.autolog()
+
+    with mlflow.start_run():
+        resp = client.chat.completions.with_raw_response.create(
+            model="gpt-4o-mini",
+            messages=[{"role": "user", "content": "test"}],
+            stream=True,
+        )
+        resp = resp.parse()  # ensure the raw response is returned
+
+    assert [c.choices[0].delta.content for c in resp] == ["Hello", " world"]
+    trace = mlflow.get_last_active_trace()
+    assert len(trace.data.spans) == 1
+    span = trace.data.spans[0]
+    assert span.outputs == "Hello world"
