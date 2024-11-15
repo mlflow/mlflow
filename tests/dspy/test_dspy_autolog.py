@@ -1,3 +1,4 @@
+import json
 import importlib
 import time
 from unittest import mock
@@ -13,6 +14,7 @@ from packaging.version import Version
 
 import mlflow
 from mlflow.entities import SpanType
+from mlflow.models.dependencies_schemas import _clear_retriever_schema, set_retriever_schema
 
 from tests.tracing.helper import get_traces
 
@@ -388,3 +390,40 @@ def test_disable_autolog():
 
     # no additional trace should be created
     assert len(get_traces()) == 1
+
+
+def test_autolog_set_retriever_schema():
+    mlflow.dspy.autolog()
+    dspy.settings.configure(lm=DummyLM([{"output": "test output"}]))
+
+    class DummyRetriever(dspy.Retrieve):
+        def __init__(self):
+            super().__init__()
+            set_retriever_schema(
+                primary_key="id",
+                text_column="text",
+                doc_uri="source",
+            )
+
+        def forward(self, query: str, n: int) -> list[str]:
+            return ["test output"] * n
+
+    # Reset retriever schema
+    _clear_retriever_schema()
+
+    retriever = DummyRetriever()
+    result = retriever(query="test query", n=3)
+    assert result == ["test output"] * 3
+
+    trace = mlflow.get_last_active_trace()
+    assert trace is not None
+    assert trace.info.status == "OK"
+    assert json.loads(trace.info.tags["retrievers"]) == [
+        {
+            "name": "retriever",
+            "primary_key": "id",
+            "text_column": "text",
+            "doc_uri": "source",
+            "other_columns": [],
+        }
+    ]

@@ -219,10 +219,26 @@ def maybe_get_request_id(is_evaluate=False) -> Optional[str]:
     return context.request_id
 
 
-def maybe_get_dependencies_schemas() -> Optional[dict]:
+def maybe_get_dependencies_schemas() -> Optional[dict[str, str]]:
+    # Retrieve dependency schema from the prediction context.
+    # This is for models logged via the legacy serialization-based logging.
+    # Users call set_retriever_schema() within their model script (outside
+    # the model class) and MLflow will record it to the model metadata,
+    # which will be set to prediction context at loading time.
     context = _try_get_prediction_context()
     if context:
         return context.dependencies_schemas
+
+    # Retrieve dependency schema directly from the global variable.
+    # This is for models logged via the legacy serialization-based logging.
+    # For such case, the dependency schema is not logged in the model metadata,
+    # so, it needs to be set at runtime by calling set_retriever_schema()
+    # within the model implementation.
+    from mlflow.models.dependencies_schemas import DependenciesSchemas, _get_retriever_schema
+
+    if retriever_schemas := _get_retriever_schema():
+        # Json encoding to align with _update_dependencies_schemas_in_prediction_context
+        return {k: json.dumps(v) for k, v in retriever_schemas[0].to_dict().items()}
 
 
 def exclude_immutable_tags(tags: dict[str, str]) -> dict[str, str]:
