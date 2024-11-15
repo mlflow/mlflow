@@ -17,37 +17,25 @@ MLflow Tracing is currently in **Experimental Status** and is subject to change 
 <section>
   <div class="logo-grid">
     <a href="../langchain/autologging.html">
-      <div class="logo-card">
-        !["LangChain Logo](/images/logos/langchain-logo.png)
-      </div>
+      <div class="logo-card">!["LangChain Logo](/images/logos/langchain-logo.png)</div>
     </a>
     <a href="../langchain/autologging.html">
-      <div class="logo-card">
-        !["LangGraph Logo](/images/logos/langgraph-logo.png)
-      </div>
+      <div class="logo-card">!["LangGraph Logo](/images/logos/langgraph-logo.png)</div>
     </a>
     <a href="../llama-index/index.html##enable-tracing">
-      <div class="logo-card">
-        !["LlamaIndex Logo](/images/logos/llamaindex-logo.svg)
-      </div>
+      <div class="logo-card">!["LlamaIndex Logo](/images/logos/llamaindex-logo.svg)</div>
     </a>
     <a href="#automatic-tracing">
       <div class="logo-card">!["DSPy Logo](/images/logos/dspy-logo.png)</div>
     </a>
     <a href="../openai/autologging.html">
-      <div class="logo-card">
-        !["OpenAI Logo](/images/logos/openai-logo.png)
-      </div>
+      <div class="logo-card">!["OpenAI Logo](/images/logos/openai-logo.png)</div>
     </a>
     <a href="../openai/autologging.html#auto-tracing-for-openai-swarm">
-      <div class="logo-card">
-        !["OpenAI Swarm Logo](/images/logos/openai-swarm-logo.png)
-      </div>
+      <div class="logo-card">!["OpenAI Swarm Logo](/images/logos/openai-swarm-logo.png)</div>
     </a>
     <a href="#automatic-tracing">
-      <div class="logo-card">
-        !["AutoGen Logo](/images/logos/autogen-logo.svg)
-      </div>
+      <div class="logo-card">!["AutoGen Logo](/images/logos/autogen-logo.svg)</div>
     </a>
   </div>
 </section>
@@ -459,10 +447,7 @@ The following span types are available:
     </tr>
     <tr>
       <td>`"CHAT_MODEL"`</td>
-      <td>
-        Represents a query to a chat model. This is a special case of an LLM
-        interaction.
-      </td>
+      <td>Represents a query to a chat model. This is a special case of an LLM interaction.</td>
     </tr>
     <tr>
       <td>`"CHAIN"`</td>
@@ -474,10 +459,7 @@ The following span types are available:
     </tr>
     <tr>
       <td>`"TOOL"`</td>
-      <td>
-        Represents a tool execution (typically by an agent), such as querying a
-        search engine.
-      </td>
+      <td>Represents a tool execution (typically by an agent), such as querying a search engine.</td>
     </tr>
     <tr>
       <td>`"EMBEDDING"`</td>
@@ -485,30 +467,19 @@ The following span types are available:
     </tr>
     <tr>
       <td>`"RETRIEVER"`</td>
-      <td>
-        Represents a context retrieval operation, such as querying a vector
-        database.
-      </td>
+      <td>Represents a context retrieval operation, such as querying a vector database.</td>
     </tr>
     <tr>
       <td>`"PARSER"`</td>
-      <td>
-        Represents a parsing operation, transforming text into a structured
-        format.
-      </td>
+      <td>Represents a parsing operation, transforming text into a structured format.</td>
     </tr>
     <tr>
       <td>`"RERANKER"`</td>
-      <td>
-        Represents a re-ranking operation, ordering the retrieved contexts based
-        on relevance.
-      </td>
+      <td>Represents a re-ranking operation, ordering the retrieved contexts based on relevance.</td>
     </tr>
     <tr>
       <td>`"UNKNOWN"`</td>
-      <td>
-        A default span type that is used when no other span type is specified.
-      </td>
+      <td>A default span type that is used when no other span type is specified.</td>
     </tr>
   </tbody>
 </table>
@@ -769,7 +740,7 @@ print(traces)
 
 This outputs:
 
-```text
+```
     request_id                              ...     span1.inputs        span1.outputs.c
 0   tr-97c4ef97c21f4348a5698f069c1320f1     ...     {'a': 1, 'b': 2}    3.0
 1   tr-4dc3cd5567764499b5532e3af61b9f78     ...     {'a': 1, 'b': 2}    3.0
@@ -1086,7 +1057,7 @@ pprint(trace_data.to_dict(), indent=1)  # Minimum indent due to depth of Span ob
 
 In an interactive environment, such as a Jupyter Notebook, the `stdout` return will render an output like this:
 
-```text
+```
 {'spans': [{'name': 'A Span',
     'context': {'span_id': '0x896ff177c0942903',
         'trace_id': '0xcae9cb08ec0a273f4c0aab36c484fe87'},
