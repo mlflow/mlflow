@@ -76,7 +76,6 @@ class IPythonTraceDisplayHandler:
                 return
 
             MAX_TRACES_TO_DISPLAY = MLFLOW_MAX_TRACES_TO_DISPLAY_IN_NOTEBOOK.get()
-            print("max traces to display", MAX_TRACES_TO_DISPLAY)
             traces_to_display = list(self.traces_to_display.values())[:MAX_TRACES_TO_DISPLAY]
             if len(traces_to_display) == 0:
                 self.traces_to_display = {}
