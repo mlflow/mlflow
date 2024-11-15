@@ -60,10 +60,28 @@ jobs:
         run: |
           source ./dev/install-common-deps.sh --ml
           pip install fastapi uvicorn tf-keras
+
+      # Set up Java 17
+      - name: Set up Java 17
+        uses: actions/setup-java@v3
+        with:
+          java-version: '17'
+          distribution: 'temurin'  # Use Temurin distribution of OpenJDK
+
       # Clone UnityCatalog at tag v0.2.0
       - name: Clone UnityCatalog at tag v0.2.0
         run: |
           git clone --branch v0.2.0 --depth 1 https://github.com/unitycatalog/unitycatalog.git
+
+      # Start the mlflow server
+      - name: Start mlflow tracking server
+        run: |
+          mlflow ui
+
+      # Start the uc-oss server
+      - name: Start mlflow tracking server
+        run: |
+          unitycatalog/bin/start-uc-server
 
       # Run tests or perform actions for UnityCatalog
       - name: Run tests for UnityCatalog
