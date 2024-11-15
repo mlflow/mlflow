@@ -2,6 +2,7 @@ import os
 
 import cloudpickle
 
+from mlflow.tracing.provider import trace_disabled
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.annotations import experimental
 from mlflow.utils.model_utils import (
@@ -28,6 +29,7 @@ def _load_model(model_uri, dst_path=None):
 
 
 @experimental
+@trace_disabled  # Suppress traces for internal calls while loading model
 def load_model(model_uri, dst_path=None):
     """
     Load a Dspy model from a run.
