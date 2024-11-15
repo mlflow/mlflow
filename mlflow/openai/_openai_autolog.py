@@ -92,28 +92,26 @@ def _get_span_type(task) -> str:
     return span_type_mapping.get(task, SpanType.UNKNOWN)
 
 
-def _parse_raw_response(response: Any) -> Any:
-    from openai import Stream
-    from pydantic import BaseModel
-
-    if isinstance(response, (BaseModel, Stream)):
-        return response
-
-    # As documented at https://github.com/openai/openai-python/tree/52357cff50bee57ef442e94d78a0de38b4173fc2?tab=readme-ov-file#accessing-raw-response-data-eg-headers,
-    # a `LegacyAPIResponse` (not exposed as a public class) object is returned when the `create`
-    # method is invoked with `with_raw_response`.
+def _try_parse_raw_response(response: Any) -> Any:
+    """
+    As documented at https://github.com/openai/openai-python/tree/52357cff50bee57ef442e94d78a0de38b4173fc2?tab=readme-ov-file#accessing-raw-response-data-eg-headers,
+    a `LegacyAPIResponse` (https://github.com/openai/openai-python/blob/52357cff50bee57ef442e94d78a0de38b4173fc2/src/openai/_legacy_response.py#L45)
+    object is returned when the `create` method is invoked with `with_raw_response`.
+    `LegacyAPIResponse` is not exposed as a public class.
+    """
     try:
         return response.parse()
     except Exception as e:
         _logger.debug(f"Failed to parse {response} (type: {response.__class__}): {e}")
 
-    return response
+    return response  # should be either a `pydantic.BaseModel` or a `openai.Stream` object
 
 
 def patched_call(original, self, *args, **kwargs):
     from openai import Stream
     from openai.types.chat.chat_completion_chunk import ChatCompletionChunk
     from openai.types.completion import Completion
+    from pydantic import BaseModel
 
     config = AutoLoggingConfig.init(flavor_name=mlflow.openai.FLAVOR_NAME)
     active_run = mlflow.active_run()
@@ -179,7 +177,10 @@ def patched_call(original, self, *args, **kwargs):
                 _logger.warning(f"Encountered unexpected error when ending trace: {inner_e}")
         raise e
 
-    result = _parse_raw_response(raw_result)
+    if not isinstance(raw_result, (BaseModel, Stream)):
+        result = _try_parse_raw_response(raw_result)
+    else:
+        result = raw_result
 
     if isinstance(result, Stream):
         # If the output is a stream, we add a hook to store the intermediate chunks
