@@ -26,7 +26,13 @@ from mlflow.models.utils import _load_model_code_path
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.pyfunc.utils.input_converter import _hydrate_dataclass
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
-from mlflow.types.llm import ChatMessage, ChatParams, ChatResponse
+from mlflow.types.llm import (
+    ChatMessage,
+    ChatParams,
+    ChatResponse,
+    ChatAgentMessage,
+    ChatAgentResponse,
+)
 from mlflow.types.utils import _is_list_dict_str, _is_list_str
 from mlflow.utils.annotations import experimental
 from mlflow.utils.environment import (
@@ -301,6 +307,70 @@ class ChatModel(PythonModel, metaclass=ABCMeta):
             containing the model's response(s), as well as other metadata.
         """
         yield self.predict(context, messages, params)
+
+
+@experimental
+class ChatAgent(PythonModel, metaclass=ABCMeta):
+    """
+    A subclass of :class:`~PythonModel` that makes it more convenient to implement models
+    that are compatible with popular LLM chat APIs. By subclassing :class:`~ChatModel`,
+    users can create MLflow models with a ``predict()`` method that is more convenient
+    for chat tasks than the generic :class:`~PythonModel` API. ChatModels automatically
+    define input/output signatures and an input example, so manually specifying these values
+    when calling :func:`mlflow.pyfunc.save_model() <mlflow.pyfunc.save_model>` is not necessary.
+
+    See the documentation of the ``predict()`` method below for details on that parameters and
+    outputs that are expected by the ``ChatModel`` API.
+    """
+
+    def __new__(cls, *args, **kwargs):
+        return super().__new__(cls)
+
+    @abstractmethod
+    def predict(self, context, messages: list[ChatAgentMessage]) -> ChatAgentResponse:
+        """
+        Evaluates a chat input and produces a chat output.
+
+        .. warning::
+
+            In an upcoming MLflow release, we will be changing the output type from
+            ``ChatResponse`` to a new ``ChatCompletionResponse`` type.
+
+        Args:
+            context: A :class:`~PythonModelContext` instance containing artifacts that the model
+                can use to perform inference.
+            messages (List[:py:class:`ChatMessage <mlflow.types.llm.ChatMessage>`]):
+                A list of :py:class:`ChatMessage <mlflow.types.llm.ChatMessage>`
+                objects representing chat history.
+            params (:py:class:`ChatParams <mlflow.types.llm.ChatParams>`):
+                A :py:class:`ChatParams <mlflow.types.llm.ChatParams>` object
+                containing various parameters used to modify model behavior during
+                inference.
+
+        Returns:
+            A :py:class:`ChatResponse <mlflow.types.llm.ChatResponse>` object containing
+            the model's response(s), as well as other metadata.
+        """
+
+    @abstractmethod
+    def predict_stream(
+        self, context, messages: list[ChatAgentMessage]
+    ) -> Iterator[ChatAgentResponse]:
+        """
+        Evaluates a chat input and produces a chat output.
+        Overrides this function to implement a real stream prediction.
+        By default, this function just yields result of `predict` function.
+
+        .. warning::
+
+            In an upcoming MLflow release, ``predict_stream`` will be returning a
+            true streaming interface that returns a generator of ``ChatCompletionChunks``
+            instead of the current behavior of yielding the entire prediction as a single
+            ``ChatResponse`` generator entry.
+
+        Args:
+            context: A :class:`~PythonModelContext` instance containing artifacts that
+        """
 
 
 def _save_model_with_class_artifacts_params(  # noqa: D417
