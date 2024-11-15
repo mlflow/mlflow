@@ -12,11 +12,7 @@ const config: Config = {
 
   // when building for production, check this environment
   // variable to determine the correct base URL
-  baseUrl:
-    process.env.CIRCLECI_BASE_URL ??
-    (process.env.MLFLOW_DOCS_VERSION
-      ? `/docs/${process.env.MLFLOW_DOCS_VERSION}/`
-      : "/"),
+  baseUrl: process.env.CIRCLECI_BASE_URL ?? (process.env.MLFLOW_DOCS_VERSION ? `/docs/${process.env.MLFLOW_DOCS_VERSION}/` : "/"),
 
   // GitHub pages deployment config.
   // If you aren't using GitHub pages, you don't need these.
@@ -100,6 +96,26 @@ const config: Config = {
     prism: {
       theme: prismThemes.github,
       darkTheme: prismThemes.dracula,
+      // Extending magic comments to highlight added and removed lines
+      // in diff code blocks.
+      // @see https://github.com/facebook/docusaurus/issues/3318#issuecomment-1909563681
+      magicComments: [
+        {
+          className: "theme-code-block-highlighted-line",
+          line: "highlight-next-line",
+          block: { start: "highlight-start", end: "highlight-end" },
+        },
+        {
+          className: "code-block-diff-add",
+          line: "diff-add",
+          block: { start: "diff-add-start", end: "diff-add-end" },
+        },
+        {
+          className: "code-block-diff-remove",
+          line: "diff-remove",
+          block: { start: "diff-remove-start", end: "diff-remove-end" },
+        },
+      ],
     },
   } satisfies Preset.ThemeConfig,
 };
