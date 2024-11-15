@@ -11,6 +11,9 @@ $ python dev/update_ml_package_versions.py
 import argparse
 import json
 import re
+import sys
+import time
+import urllib.error
 import urllib.request
 from pathlib import Path
 
@@ -30,8 +33,17 @@ def save_file(src, path):
 
 def get_package_versions(package_name):
     url = f"https://pypi.python.org/pypi/{package_name}/json"
-    with urllib.request.urlopen(url) as res:
-        data = json.load(res)
+    for _ in range(5):  # Retry up to 5 times
+        try:
+            with urllib.request.urlopen(url) as res:
+                data = json.load(res)
+        except ConnectionResetError as e:
+            sys.stderr.write(f"Retrying {url} due to {e}\n")
+            time.sleep(1)
+        else:
+            break
+    else:
+        raise Exception(f"Failed to fetch {url}")
 
     def is_dev_or_pre_release(version_str):
         v = Version(version_str)
