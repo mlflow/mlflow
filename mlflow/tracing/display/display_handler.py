@@ -90,7 +90,7 @@ class IPythonTraceDisplayHandler:
                 )
             else:
                 html = HTML(sketch.format(
-                    traces=self.get_mimebundle(traces_to_display).replace("{", "{{").replace("}", "}}")
+                    trace_id=traces_to_display[-1].info.request_id
                 ))
                 display(html)
 
