@@ -188,7 +188,7 @@ for model/API invocations to the active MLflow Experiment.
 
         |
 
-        The MLflow OpenAI flavor's autologging feature has a direct integration with MLflow tracing. When OpenAI autologging is enabled with :py:func:`mlflow.openai.autolog`, 
+        The `MLflow OpenAI flavor <../openai/index.html>`_'s autologging feature has a direct integration with MLflow tracing. When OpenAI autologging is enabled with :py:func:`mlflow.openai.autolog`, 
         usage of the OpenAI SDK will automatically record generated traces during interactive development. 
 
         .. code-block:: python
@@ -245,7 +245,7 @@ for model/API invocations to the active MLflow Experiment.
 
         |
 
-        The MLflow OpenAI flavor supports automatic tracing for `Swarm <https://github.com/openai/swarm>`_, a multi-agent orchestration
+        The `MLflow OpenAI flavor <../openai/index.html>`_ supports automatic tracing for `Swarm <https://github.com/openai/swarm>`_, a multi-agent orchestration
         framework from OpenAI. To enable tracing for **Swarm**, just call :py:func:`mlflow.openai.autolog`
         before running your multi-agent interactions. MLflow will trace all LLM interactions,
         tool calls, and agent operations automatically.
@@ -308,7 +308,7 @@ for model/API invocations to the active MLflow Experiment.
 
         |
 
-        The MLflow LlamaIndex flavor's autologging feature has a direct integration with MLflow tracing. When LlamaIndex autologging is enabled with :py:func:`mlflow.llama_index.autolog`, invocation of components
+        The `MLflow LlamaIndex flavor <../llama-index/index.html>`_'s autologging feature has a direct integration with MLflow tracing. When LlamaIndex autologging is enabled with :py:func:`mlflow.llama_index.autolog`, invocation of components
         such as LLMs, agents, and query/chat engines will automatically record generated traces during interactive development.
 
         .. code-block:: python
@@ -333,7 +333,7 @@ for model/API invocations to the active MLflow Experiment.
 
         |
 
-        The MLflow DSPy flavor's autologging feature has a direct integration with MLflow tracing. When DSPy autologging is enabled with :py:func:`mlflow.dspy.autolog`, invocation of components
+        The `MLflow DSPy flavor <../dspy/index.html>`_'s autologging feature has a direct integration with MLflow tracing. When DSPy autologging is enabled with :py:func:`mlflow.dspy.autolog`, invocation of components
         such as LMs, Adapters and Modules, will automatically record generated traces during interactive development.
 
         .. code-block:: python
