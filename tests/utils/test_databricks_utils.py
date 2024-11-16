@@ -65,6 +65,13 @@ def test_databricks_no_creds_found():
     with pytest.raises(MlflowException, match="Reading databricks credential configuration failed"):
         databricks_utils.get_databricks_host_creds()
 
+def test_databricks_no_creds_found_in_model_serving(monkeypatch):
+    monkeypatch.setenv("IS_IN_DB_MODEL_SERVING_ENV", "true")
+    with pytest.raises(
+            MlflowException,
+            match="Reading databricks credential configuration in model serving failed"):
+        databricks_utils.get_databricks_host_creds()
+
 
 def test_databricks_single_slash_in_uri_scheme_throws():
     with pytest.raises(MlflowException, match="URI is formatted incorrectly"):

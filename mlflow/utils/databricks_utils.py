@@ -666,18 +666,19 @@ def _fail_malformed_databricks_auth(uri):
         uri_scheme = "databricks"
     if is_in_databricks_model_serving_environment():
         raise MlflowException(
-            f"Reading Databricks credential configuration failed with MLflow {uri_name} '{uri}' "
-            f"in Databricks model serving. Most commonly, this happens because the model "
-            f"currently being served was logged without Databricks resource dependencies "
+            f"Reading Databricks credential configuration in model serving failed. "
+            f"Most commonly, this happens because the model currently "
+            f"being served was logged without Databricks resource dependencies "
             f"properly specified. Re-log your model, specifying resource dependencies as "
             f"described in "
             f"https://docs.databricks.com/en/generative-ai/agent-framework/log-agent.html#specify-resources-for-pyfunc-or-langchain-agent "
             f"and then register and attempt to serve it again. Alternatively, you can explicitly "
             f"configure authentication by setting environment variables as described in "
             f"https://docs.databricks.com/en/generative-ai/agent-framework/deploy-agent.html#manual-authentication."
+            f"Additional debug info: the MLflow {uri_name} was set to '{uri}'"
         )
     raise MlflowException(
-        f"Reading Databricks credential configuration failed with MLflow {uri_name} '{uri}', "
+        f"Reading Databricks credential configuration failed with MLflow {uri_name} '{uri}'. "
         "Please ensure that the 'databricks-sdk' PyPI library is installed, the tracking "
         "URI is set correctly, and Databricks authentication is properly configured. "
         f"The {uri_name} can be either '{uri_scheme}' "
@@ -685,7 +686,7 @@ def _fail_malformed_databricks_auth(uri):
         "You can configure Databricks authentication in several ways, for example by "
         "specifying environment variables (e.g. DATABRICKS_HOST + DATABRICKS_TOKEN) or "
         "logging in using 'databricks auth login'. \n"
-        "For details of these authentication types, please refer to "
+        "For details on configuring Databricks authentication, please refer to "
         "'https://docs.databricks.com/en/dev-tools/auth/index.html#unified-auth'."
     )
 
