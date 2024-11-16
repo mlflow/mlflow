@@ -807,7 +807,8 @@ class PyFuncModel:
         self, data: PyFuncLLMSingleInput, params: Optional[dict[str, Any]] = None
     ) -> Iterator[PyFuncLLMOutputChunk]:
         with self._try_get_or_generate_prediction_context() as context:
-            self._update_dependencies_schemas_in_prediction_context(context)
+            if schema := _get_dependencies_schema_from_model(self._model_meta):
+                context.update(**schema)
             return self._predict_stream(data, params)
 
     def _predict_stream(
