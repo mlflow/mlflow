@@ -40,9 +40,7 @@ def patched_call(original, self, *args, **kwargs):
             inputs = construct_full_inputs(original, self, *args, **kwargs)
             span.set_inputs(inputs)
             result = original(self, *args, **kwargs)
-            if hasattr(result, "to_dict"):
-                outputs = result.to_dict()
-            else:
-                outputs = result
+            outputs = result.to_dict() if hasattr(result, "to_dict") else result
             span.set_outputs(outputs)
+
             return result
