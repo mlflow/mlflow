@@ -382,7 +382,7 @@ FLAVOR_TO_MODULE_NAME = {
     "langchain": "langchain",
     "llama_index": "llama_index.core",
     "autogen": "autogen",
-    "litellm": "litellm",
     "gemini": "google.generativeai",
+    "litellm": "litellm",
     "pyspark.ml": "pyspark"
 }
