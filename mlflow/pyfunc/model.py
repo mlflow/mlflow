@@ -233,6 +233,8 @@ class ChatModel(PythonModel, metaclass=ABCMeta):
         changing ``ChatRequest`` to a new ``ChatCompletionRequest`` type, and changing
         ``ChatResponse`` to a new ``ChatCompletionResponse`` type.
 
+    .. include:: ../llms/chat-model-intro/chat-model-vs-pyfunc-table.rst
+
     """
 
     def __new__(cls, *args, **kwargs):
