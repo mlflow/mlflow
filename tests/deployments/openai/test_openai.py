@@ -212,7 +212,7 @@ def test_openai_exception(mock_openai_creds):
     client = get_deploy_client("openai")
     with mock.patch("openai.OpenAI") as mock_client:
         mock_client().chat.completions.create.side_effect = (Exception("foo"),)
-        with pytest.raises(MlflowException, match="Error response from OpenAI:\n foo"):
+        with pytest.raises(Exception, match="foo"):
             client.predict(
                 endpoint="test",
                 inputs={

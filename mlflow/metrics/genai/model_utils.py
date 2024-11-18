@@ -126,18 +126,15 @@ def _call_openai_api(openai_uri, payload, eval_parameters, extra_headers, proxy_
             timeout=api_config.timeout,
         )
 
-    try:
-        response = client.chat.completions.create(
-            messages=[{"role": "user", "content": payload}],
-            model=openai_uri,
-            extra_headers=extra_headers,
-            **eval_parameters,
-        )
-        # to_dict is not available before openai v1.17.0.
-        # TODO: Consider removing the conversion by using mock server in tests
-        return _parse_chat_response_format(response.model_dump())
-    except Exception as e:
-        raise MlflowException(f"Error response from OpenAI:\n {e}")
+    response = client.chat.completions.create(
+        messages=[{"role": "user", "content": payload}],
+        model=openai_uri,
+        extra_headers=extra_headers,
+        **eval_parameters,
+    )
+    # to_dict is not available before openai v1.17.0.
+    # TODO: Consider removing the conversion by using mock server in tests
+    return _parse_chat_response_format(response.model_dump())
 
 
 _PREDICT_ERROR_MSG = """\

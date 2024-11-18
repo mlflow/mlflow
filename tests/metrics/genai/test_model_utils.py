@@ -155,7 +155,7 @@ def test_score_model_openai_with_custom_header_and_proxy_url(set_envs):
 def test_openai_other_error(set_envs):
     with mock.patch("openai.OpenAI") as mock_client:
         mock_client().chat.completions.create.side_effect = (Exception("foo"),)
-        with pytest.raises(MlflowException, match="Error response from OpenAI"):
+        with pytest.raises(Exception, match="foo"):
             score_model_on_payload("openai:/gpt-4o-mini", "my prompt", {"temperature": 0.1})
         mock_client().chat.completions.create.assert_called_once()
 

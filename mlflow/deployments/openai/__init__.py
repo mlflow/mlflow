@@ -125,12 +125,9 @@ class OpenAIDeploymentClient(BaseDeploymentClient):
                 timeout=api_config.timeout,
             )
 
-        try:
-            return client.chat.completions.create(
-                messages=inputs["messages"], model=endpoint
-            ).model_dump()
-        except Exception as e:
-            raise MlflowException(f"Error response from OpenAI:\n {e}")
+        return client.chat.completions.create(
+            messages=inputs["messages"], model=endpoint
+        ).model_dump()
 
     def create_endpoint(self, name, config=None):
         """
