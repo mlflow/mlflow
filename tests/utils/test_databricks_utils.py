@@ -62,7 +62,15 @@ def test_databricks_registry_profile(ProfileConfigProvider):
 
 
 def test_databricks_no_creds_found():
-    with pytest.raises(MlflowException, match="Reading databricks credential configuration failed"):
+    with pytest.raises(MlflowException, match="Reading Databricks credential configuration failed"):
+        databricks_utils.get_databricks_host_creds()
+
+
+def test_databricks_no_creds_found_in_model_serving(monkeypatch):
+    monkeypatch.setenv("IS_IN_DB_MODEL_SERVING_ENV", "true")
+    with pytest.raises(
+        MlflowException, match="Reading Databricks credential configuration in model serving failed"
+    ):
         databricks_utils.get_databricks_host_creds()
 
 
@@ -278,7 +286,7 @@ def test_databricks_params_throws_errors(ProfileConfigProvider):
         None, "user", "pass", insecure=True
     )
     ProfileConfigProvider.return_value = mock_provider
-    with pytest.raises(Exception, match="Reading databricks credential configuration failed with"):
+    with pytest.raises(Exception, match="Reading Databricks credential configuration failed with"):
         databricks_utils.get_databricks_host_creds()
 
     # No authentication
@@ -287,7 +295,7 @@ def test_databricks_params_throws_errors(ProfileConfigProvider):
         "host", None, None, insecure=True
     )
     ProfileConfigProvider.return_value = mock_provider
-    with pytest.raises(Exception, match="Reading databricks credential configuration failed with"):
+    with pytest.raises(Exception, match="Reading Databricks credential configuration failed with"):
         databricks_utils.get_databricks_host_creds()
 
 
