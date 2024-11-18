@@ -1,5 +1,27 @@
 # CHANGELOG
 
+## 2.18.0 (2024-11-18)
+
+MLflow 2.18.0 includes several major features and improvements
+
+Features:
+
+- [Tracking] LiteLLM tracing (#13585, @B-Step62)
+- [Docs / Examples] Introduce Gemini tracing (#13801, @TomeHirata)
+- [Tracking] Support setting retriever schema for DSPy model within constructor (#13800, @B-Step62)
+
+Bug fixes:
+
+- [] Handle raw response in openai autolog (#13802, @harupy)
+
+Documentation updates:
+
+- [Docs] Adds "Tutorial: Getting Started with ChatModel" docs page (#13706, @djliden)
+
+Small bug fixes and documentation updates:
+
+#13785, @Rick-McCoy; #13807, #13798, #13787, #13786, #13762, @B-Step62; #13808, @smurching; #13775, #13768, #13764, @harupy; #13776, @daniellok-db; #13718, @annzhang-db; #13773, @BenWilson2; #13676, @hyolim-e; #13699, @serena-ruan; #13705, @williamjamir; #13745, #13743, @WeichenXu123
+
 ## 2.18.0rc0 (2024-11-12)
 
 We are excited to announce the release candidate for MLflow 2.18.0! 
