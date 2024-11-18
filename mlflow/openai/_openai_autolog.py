@@ -100,11 +100,13 @@ def _try_parse_raw_response(response: Any) -> Any:
     `LegacyAPIResponse` is not exposed as a public class.
     """
     try:
+        # `parse` returns either a `pydantic.BaseModel` or a `openai.Stream` object
+        # depending on whether the request has a `stream` parameter set to `True`.
         return response.parse()
     except Exception as e:
         _logger.debug(f"Failed to parse {response} (type: {response.__class__}): {e}")
 
-    return response  # should be either a `pydantic.BaseModel` or a `openai.Stream` object
+    return response
 
 
 def patched_call(original, self, *args, **kwargs):
