@@ -227,7 +227,8 @@ class ChatChoiceDelta(_BaseDataclass):
             This is optional because OpenAI clients can explicitly return None for
             the role
         content (str): The content of the new token being streamed
-            **Optional** Can be ``None`` if refusal or tool_calls are provided.
+            **Optional** Can be ``None`` on the last delta chunk or if refusal or
+            tool_calls are provided
         refusal (str): The refusal message content.
             **Optional** Supplied if a refusal response is provided.
         name (str): The name of the entity that sent the message. **Optional**.
@@ -248,11 +249,7 @@ class ChatChoiceDelta(_BaseDataclass):
             self._validate_field("refusal", str, True)
             if self.content:
                 raise ValueError("Both `content` and `refusal` cannot be set")
-        elif self.tool_calls:
-            self._validate_field("content", str, False)
-        else:
-            self._validate_field("content", str, True)
-
+        self._validate_field("content", str, False)
         self._validate_field("name", str, False)
         self._convert_dataclass_list("tool_calls", ToolCall, False)
 
