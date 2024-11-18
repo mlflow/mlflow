@@ -46,6 +46,11 @@ Introduction to MLflow Tracing
                     <img src="../../_static/images/logos/autogen-logo.svg" alt="AutoGen Logo"/>
                 </div>
             </a>
+            <a href="#automatic-tracing">
+                <div class="logo-card">
+                    <img src="../../_static/images/logos/litellm-logo.jpg" alt="LiteLLM Logo"/>
+                </div>
+            </a>
     </section>
 
 
@@ -405,6 +410,34 @@ for model/API invocations to the active MLflow Experiment.
 
         .. figure:: ../../_static/images/llms/autogen/autogen-trace.png
             :alt: AutoGen Tracing
+            :width: 100%
+            :align: center
+
+
+    .. tab:: LiteLLM
+
+        .. raw:: html
+
+            <h3>LiteLLM Automatic Tracing</h3>
+
+        |
+
+        LiteLLM allows developers to call all LLM APIs using the OpenAI format. MLflow support auto-tracing for LiteLLM. You can enable it by calling :py:func:`mlflow.litellm.autolog`, then any LLM interactions via LiteLLM will be recorded to the active MLflow Experiment, including various metadata such as token usage, cost, cache hit, and more.
+
+        .. code-block:: python
+
+            import mlflow
+
+            mlflow.litellm.autolog()
+
+            # Call Anthropic API via LiteLLM
+            response = litellm.completion(
+                model="claude-3-opus-20240229",
+                messages=[{"role": "system", "content": "Hey! how's it going?"}],
+            )
+
+        .. figure:: ../../_static/images/llms/litellm/litellm-tracing.png
+            :alt: LiteLLM Tracing
             :width: 100%
             :align: center
 
