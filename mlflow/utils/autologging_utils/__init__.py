@@ -89,6 +89,7 @@ MLFLOW_EVALUATE_RESTRICT_LANGCHAIN_AUTOLOG_TO_TRACES_CONFIG = {
 _AUTOLOGGING_SUPPORTED_VERSION_WARNING_SUPPRESS_LIST = [
     "langchain",
     "llama_index",
+    "litellm",
     "openai",
     "dspy",
 ]
