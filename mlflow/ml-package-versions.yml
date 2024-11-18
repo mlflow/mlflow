@@ -663,14 +663,14 @@ dspy:
       pip install git+https://github.com/stanfordnlp/dspy.git
   models:
     minimum: "2.5.6"
-    maximum: "2.5.29"
+    maximum: "2.5.31"
     requirements:
       ">= 0.0.0": ["openai"]
     run: |
       pytest tests/dspy --ignore tests/dspy/test_dspy_autolog.py
   autologging:
     minimum: "2.5.17"
-    maximum: "2.5.29"
+    maximum: "2.5.31"
     requirements:
       ">= 0.0.0": ["openai"]
     run: |
@@ -867,7 +867,7 @@ johnsnowlabs:
     pip_release: "johnsnowlabs"
   models:
     minimum: "4.4.6"
-    maximum: "5.5.0"
+    maximum: "5.5.1"
     requirements:
       ">= 0.0.0": ["pandas<=1.5.3"]
       "< 5.2.8": ["pyspark<3.4"]
