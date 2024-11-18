@@ -216,31 +216,28 @@ class ChatMessage(_BaseDataclass):
 
 
 @dataclass
-class ChatChunkMessage(_BaseDataclass):
+class ChatChoiceDelta(_BaseDataclass):
     """
-    A streaming message chunk in a chat response.
+    A streaming message delta in a chat response.
 
     Args:
         role (str): The role of the entity that sent the message (e.g. ``"user"``,
             ``"system"``, ``"assistant"``, ``"tool"``).
             defaults to ``"assistant"``
-        delta (str): The new token being streamed
+        content (str): The content of the new token being streamed
             **Optional** Can be ``None`` if refusal or tool_calls are provided.
         refusal (str): The refusal message content.
             **Optional** Supplied if a refusal response is provided.
         name (str): The name of the entity that sent the message. **Optional**.
         tool_calls (List[:py:class:`ToolCall`]): A list of tool calls made by the model.
             **Optional** defaults to ``None``
-        tool_call_id (str): The ID of the tool call that this message is a response to.
-            **Optional** defaults to ``None``
     """
 
     role: str = "assistant"
-    delta: Optional[str] = None
+    content: Optional[str] = None
     refusal: Optional[str] = None
     name: Optional[str] = None
     tool_calls: Optional[list[ToolCall]] = None
-    tool_call_id: Optional[str] = None
 
     def __post_init__(self):
         self._validate_field("role", str, True)
@@ -250,13 +247,12 @@ class ChatChunkMessage(_BaseDataclass):
             if self.content:
                 raise ValueError("Both `content` and `refusal` cannot be set")
         elif self.tool_calls:
-            self._validate_field("delta", str, False)
+            self._validate_field("content", str, False)
         else:
-            self._validate_field("delta", str, True)
+            self._validate_field("content", str, True)
 
         self._validate_field("name", str, False)
         self._convert_dataclass_list("tool_calls", ToolCall, False)
-        self._validate_field("tool_call_id", str, False)
 
 
 @dataclass
@@ -610,14 +606,14 @@ class ChatChunkChoice(_BaseDataclass):
     Args:
         index (int): The index of the response in the list of responses.
             defaults to ``0``
-        message (:py:class:`ChatChunkMessage`): The streaming chunk message that was generated.
+        message (:py:class:`ChatChoiceDelta`): The streaming chunk message that was generated.
         finish_reason (str): The reason why generation stopped.
             **Optional**, defaults to ``None``
         logprobs (:py:class:`ChatChoiceLogProbs`): Log probability information for the choice.
             **Optional**, defaults to ``None``
     """
 
-    message: ChatChunkMessage
+    delta: ChatChoiceDelta
     index: int = 0
     finish_reason: Optional[str] = None
     logprobs: Optional[ChatChoiceLogProbs] = None
@@ -625,7 +621,7 @@ class ChatChunkChoice(_BaseDataclass):
     def __post_init__(self):
         self._validate_field("index", int, True)
         self._validate_field("finish_reason", str, False)
-        self._convert_dataclass("message", ChatChunkMessage, True)
+        self._convert_dataclass("delta", ChatChoiceDelta, True)
         self._convert_dataclass("logprobs", ChatChoiceLogProbs, False)
 
 

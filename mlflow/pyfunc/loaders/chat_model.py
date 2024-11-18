@@ -106,7 +106,7 @@ class _ChatModelPyfuncWrapper:
                        via ``self._convert_input()``.
 
         Returns:
-            Iterator over model predictions in :py:class:`~ChatResponse` format.
+            Generator over model predictions in :py:class:`~ChatCompletionChunk` format.
         """
         messages, params = self._convert_input(model_input)
         for response in self.chat_model.predict_stream(self.context, messages, params):

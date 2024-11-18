@@ -49,9 +49,9 @@ def get_mock_streaming_response(message):
         "choices": [
             {
                 "index": 0,
-                "message": {
+                "delta": {
                     "role": "assistant",
-                    "delta": message,
+                    "content": message,
                 },
                 "finish_reason": "stop",
             }
@@ -491,7 +491,7 @@ def test_chat_model_predict_stream(tmp_path):
     ]
 
     for i, response in enumerate(loaded_model.predict_stream({"messages": messages})):
-        assert response["choices"][0]["message"]["delta"] == f"message {i}"
+        assert response["choices"][0]["delta"]["content"] == f"message {i}"
 
 
 def test_chat_model_can_receive_and_return_metadata():
