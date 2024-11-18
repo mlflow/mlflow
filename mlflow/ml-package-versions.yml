@@ -620,7 +620,7 @@ openai:
       pip install git+https://github.com/openai/openai-python
   models:
     minimum: "1.0.1"
-    maximum: "1.54.3"
+    maximum: "1.54.4"
     requirements:
       ">= 0.0.0": [
           "pyspark",
@@ -635,7 +635,7 @@ openai:
       pytest tests/openai tests/openai/test_openai_model_export.py
   autologging:
     minimum: "1.17.0"
-    maximum: "1.54.3"
+    maximum: "1.54.4"
     python:
       # OpenAI Swarm requires Python >=3.10
       ">= 1.33.0": "3.10"
@@ -780,7 +780,7 @@ llama_index:
   models:
     # New event/span framework is fully implemented in 0.10.44
     minimum: "0.10.44"
-    maximum: "0.11.22"
+    maximum: "0.11.23"
     requirements:
       ">= 0.0.0": [
           "openai",
@@ -798,7 +798,7 @@ llama_index:
     run: pytest tests/llama_index --ignore tests/llama_index/test_llama_index_autolog.py --ignore tests/llama_index/test_llama_index_tracer.py
   autologging:
     minimum: "0.10.44"
-    maximum: "0.11.22"
+    maximum: "0.11.23"
     requirements:
       ">= 0.0.0": [
           "openai",
@@ -829,6 +829,18 @@ autogen:
           "uvicorn",
         ]
     run: pytest tests/autogen
+
+gemini:
+  package_info:
+    pip_release: "google-generativeai"
+    module_name: "google.generativeai"
+    install_dev: |
+      pip install git+https://github.com/google-gemini/generative-ai-python
+  autologging:
+    minimum: "0.8.0"
+    maximum: "0.8.3"
+    requirements:
+    run: pytest tests/gemini
 
 sentence_transformers:
   package_info:

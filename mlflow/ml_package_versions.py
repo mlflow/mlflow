@@ -256,11 +256,11 @@ _ML_PACKAGE_VERSIONS = {
         },
         "models": {
             "minimum": "1.0.1",
-            "maximum": "1.54.3"
+            "maximum": "1.54.4"
         },
         "autologging": {
             "minimum": "1.17.0",
-            "maximum": "1.54.3"
+            "maximum": "1.54.4"
         }
     },
     "dspy": {
@@ -296,11 +296,11 @@ _ML_PACKAGE_VERSIONS = {
         },
         "models": {
             "minimum": "0.10.44",
-            "maximum": "0.11.22"
+            "maximum": "0.11.23"
         },
         "autologging": {
             "minimum": "0.10.44",
-            "maximum": "0.11.22"
+            "maximum": "0.11.23"
         }
     },
     "autogen": {
@@ -310,6 +310,16 @@ _ML_PACKAGE_VERSIONS = {
         "autologging": {
             "minimum": "0.2.36",
             "maximum": "0.2.38"
+        }
+    },
+    "gemini": {
+        "package_info": {
+            "pip_release": "google-generativeai",
+            "module_name": "google.generativeai"
+        },
+        "autologging": {
+            "minimum": "0.8.0",
+            "maximum": "0.8.3"
         }
     },
     "sentence_transformers": {
@@ -363,5 +373,6 @@ FLAVOR_TO_MODULE_NAME = {
     "langchain": "langchain",
     "llama_index": "llama_index.core",
     "autogen": "autogen",
+    "gemini": "google.generativeai",
     "pyspark.ml": "pyspark"
 }
