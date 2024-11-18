@@ -424,6 +424,7 @@ for model/API invocations to the active MLflow Experiment.
         MLflow Tracing ensures observability for your interactions with Gemini AI models.
         When Gemini autologging is enabled with :py:func:`mlflow.gemini.autolog`, 
         usage of the Gemini SDK will automatically record generated traces during interactive development.
+        Note that only synchronous calls for text interactions are supported. Asynchronous API is not traced, and full inputs cannnot be recorded for multi-modal inputs.
 
 
         .. code-block:: python

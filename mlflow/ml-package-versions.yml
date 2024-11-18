@@ -839,8 +839,6 @@ gemini:
   autologging:
     minimum: "0.8.0"
     maximum: "0.8.3"
-    python:
-      "== dev": "3.10"
     requirements:
     run: pytest tests/gemini
 
