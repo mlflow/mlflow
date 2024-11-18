@@ -23,6 +23,7 @@ from mlflow.models.rag_signatures import SIGNATURE_FOR_LLM_INFERENCE_TASK
 from mlflow.models.resources import Resource, _ResourceBuilder
 from mlflow.models.signature import _infer_signature_from_input_example
 from mlflow.models.utils import _save_example
+from mlflow.tracing.provider import trace_disabled
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.utils.annotations import experimental
 from mlflow.utils.docstring_utils import LOG_MODEL_PARAM_DOCS, format_docstring
@@ -70,6 +71,7 @@ def get_default_conda_env():
 
 @experimental
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
+@trace_disabled  # Suppress traces for internal predict calls while logging model
 def save_model(
     model,
     path: str,
@@ -251,6 +253,7 @@ def save_model(
 
 @experimental
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
+@trace_disabled  # Suppress traces for internal predict calls while logging model
 def log_model(
     dspy_model,
     artifact_path: str,
