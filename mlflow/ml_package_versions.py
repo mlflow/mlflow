@@ -348,6 +348,15 @@ _ML_PACKAGE_VERSIONS = {
             "minimum": "1.3.0",
             "maximum": "1.16.1"
         }
+    },
+    "litellm": {
+        "package_info": {
+            "pip_release": "litellm"
+        },
+        "autologging": {
+            "minimum": "1.52.9",
+            "maximum": "1.52.9"
+        }
     }
 }
 
@@ -374,5 +383,6 @@ FLAVOR_TO_MODULE_NAME = {
     "llama_index": "llama_index.core",
     "autogen": "autogen",
     "gemini": "google.generativeai",
+    "litellm": "litellm",
     "pyspark.ml": "pyspark"
 }
