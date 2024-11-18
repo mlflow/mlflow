@@ -671,10 +671,12 @@ def _fail_malformed_databricks_auth(uri):
             f"being served was logged without Databricks resource dependencies "
             f"properly specified. Re-log your model, specifying resource dependencies as "
             f"described in "
-            f"https://docs.databricks.com/en/generative-ai/agent-framework/log-agent.html#specify-resources-for-pyfunc-or-langchain-agent "
+            f"https://docs.databricks.com/en/generative-ai/agent-framework/log-agent.html"
+            f"#specify-resources-for-pyfunc-or-langchain-agent "
             f"and then register and attempt to serve it again. Alternatively, you can explicitly "
             f"configure authentication by setting environment variables as described in "
-            f"https://docs.databricks.com/en/generative-ai/agent-framework/deploy-agent.html#manual-authentication."
+            f"https://docs.databricks.com/en/generative-ai/agent-framework/deploy-agent.html"
+            f"#manual-authentication. "
             f"Additional debug info: the MLflow {uri_name} was set to '{uri}'"
         )
     raise MlflowException(
