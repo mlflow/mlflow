@@ -893,10 +893,10 @@ litellm:
     maximum: "1.52.9"
     requirements:
       ">= 0.0.0": [
-        "openai",
-        "pytest-asyncio",
-        # Required to run tests/openai/mock_openai.py
-        "fastapi",
-        "uvicorn",
-    ]
+          "openai",
+          "pytest-asyncio",
+          # Required to run tests/openai/mock_openai.py
+          "fastapi",
+          "uvicorn",
+        ]
     run: pytest tests/litellm
