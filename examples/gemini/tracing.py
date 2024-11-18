@@ -22,9 +22,17 @@ response = model.generate_content("The opposite of hot is")
 print(response.text)
 
 # Also leverage the chat feature to conduct multi-turn interactions
-model = genai.GenerativeModel("gemini-1.5-flash")
 chat = model.start_chat(history=[])
 response = chat.send_message("In one sentence, explain how a computer works to a young child.")
 print(response.text)
 response = chat.send_message("Okay, how about a more detailed explanation to a high schooler?")
 print(response.text)
+
+# Count tokens for your statement
+response = model.count_tokens("The quick brown fox jumps over the lazy dog.")
+print(response.total_tokens)
+
+# Generate text embeddings for your content
+text = "Hello world"
+result = genai.embed_content(model="models/text-embedding-004", content=text)
+print(result['embedding'])
