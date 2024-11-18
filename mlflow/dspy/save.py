@@ -17,6 +17,7 @@ from mlflow.models import (
     ModelSignature,
     infer_pip_requirements,
 )
+from mlflow.models.dependencies_schemas import _get_dependencies_schemas
 from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.rag_signatures import SIGNATURE_FOR_LLM_INFERENCE_TASK
 from mlflow.models.resources import Resource, _ResourceBuilder
@@ -142,6 +143,13 @@ def save_model(
         saved_example = _save_example(mlflow_model, input_example, path)
     if metadata is not None:
         mlflow_model.metadata = metadata
+
+    with _get_dependencies_schemas() as dependencies_schemas:
+        schema = dependencies_schemas.to_dict()
+        if schema is not None:
+            if mlflow_model.metadata is None:
+                mlflow_model.metadata = {}
+            mlflow_model.metadata.update(schema)
 
     model_data_subpath = _MODEL_DATA_PATH
     # Construct new data folder in existing path.

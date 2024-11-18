@@ -1,4 +1,5 @@
 import importlib
+import json
 import time
 from unittest import mock
 
@@ -8,11 +9,12 @@ from dspy.evaluate import Evaluate
 from dspy.primitives.example import Example
 from dspy.teleprompt import BootstrapFewShot
 from dspy.utils.callback import BaseCallback, with_callbacks
-from dspy.utils.dummies import DummyLM
+from dspy.utils.dummies import DSPDummyLM, DummyLM
 from packaging.version import Version
 
 import mlflow
 from mlflow.entities import SpanType
+from mlflow.models.dependencies_schemas import DependenciesSchemasType, _clear_retriever_schema
 
 from tests.tracing.helper import get_traces
 
@@ -388,3 +390,46 @@ def test_disable_autolog():
 
     # no additional trace should be created
     assert len(get_traces()) == 1
+
+
+def test_autolog_set_retriever_schema():
+    mlflow.dspy.autolog()
+    dspy.settings.configure(lm=DSPDummyLM(answers=["4", "6", "8", "10"]))
+
+    class CoT(dspy.Module):
+        def __init__(self):
+            super().__init__()
+            self.prog = dspy.ChainOfThought("question -> answer")
+            mlflow.models.set_retriever_schema(
+                primary_key="id",
+                text_column="text",
+                doc_uri="source",
+            )
+
+        def forward(self, question):
+            return self.prog(question=question)
+
+    with mlflow.start_run():
+        model_info = mlflow.dspy.log_model(
+            dspy_model=CoT(),
+            artifact_path="model",
+        )
+
+    # Reset retriever schema
+    _clear_retriever_schema()
+
+    loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
+    loaded_model.predict({"question": "What is 2 + 2?"})
+
+    trace = mlflow.get_last_active_trace()
+    assert trace is not None
+    assert trace.info.status == "OK"
+    assert json.loads(trace.info.tags[DependenciesSchemasType.RETRIEVERS.value]) == [
+        {
+            "name": "retriever",
+            "primary_key": "id",
+            "text_column": "text",
+            "doc_uri": "source",
+            "other_columns": [],
+        }
+    ]
