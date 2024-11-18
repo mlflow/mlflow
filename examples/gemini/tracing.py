@@ -35,4 +35,4 @@ print(response.total_tokens)
 # Generate text embeddings for your content
 text = "Hello world"
 result = genai.embed_content(model="models/text-embedding-004", content=text)
-print(result['embedding'])
+print(result["embedding"])
