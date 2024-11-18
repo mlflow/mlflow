@@ -894,3 +894,21 @@ promptflow:
       "< 1.18": ["numpy<2"]
     run: |
       pytest tests/promptflow/test_promptflow_model_export.py
+
+litellm:
+  package_info:
+    pip_release: "litellm"
+    install_dev: |
+      pip install git+https://github.com/BerriAI/litellm.git
+  autologging:
+    minimum: "1.52.9"
+    maximum: "1.52.9"
+    requirements:
+      ">= 0.0.0": [
+          "openai",
+          "pytest-asyncio",
+          # Required to run tests/openai/mock_openai.py
+          "fastapi",
+          "uvicorn",
+        ]
+    run: pytest tests/litellm

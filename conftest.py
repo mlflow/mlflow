@@ -179,6 +179,7 @@ def pytest_ignore_collect(collection_path, config):
             "tests/llama_index",
             "tests/langchain",
             "tests/lightgbm",
+            "tests/litellm",
             "tests/mleap",
             "tests/models",
             "tests/onnx",
