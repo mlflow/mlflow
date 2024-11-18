@@ -168,7 +168,9 @@ async def test_litellm_tracing_async_streaming(is_in_databricks):
 
     # Await the logger task to ensure that the trace is logged.
     logger_task = next(
-        t for t in asyncio.all_tasks() if "async_success_handler" in t.get_coro().__name__
+        task
+        for task in asyncio.all_tasks()
+        if "async_success_handler" in getattr(t.get_coro(), "__name__", "")
     )
     await logger_task
 
