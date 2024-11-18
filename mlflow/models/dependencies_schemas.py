@@ -1,11 +1,15 @@
+import json
 import logging
 from abc import ABC, abstractmethod
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
 
 from mlflow.utils.annotations import experimental
+
+if TYPE_CHECKING:
+    from mlflow.models.model import Model
 
 _logger = logging.getLogger(__name__)
 
@@ -138,6 +142,24 @@ def _get_dependencies_schemas():
         yield dependencies_schemas
     finally:
         _clear_dependencies_schemas()
+
+
+def _get_dependencies_schema_from_model(model: "Model") -> Optional[dict]:
+    """
+    Get the dependencies schema from the logged model metadata.
+
+    `dependencies_schemas` is a dictionary that defines the dependencies schemas, such as
+    the retriever schemas. This code is now only useful for Databricks integration.
+    """
+    if model.metadata and "dependencies_schemas" in model.metadata:
+        dependencies_schemas = model.metadata["dependencies_schemas"]
+        return {
+            "dependencies_schemas": {
+                dependency: json.dumps(schema)
+                for dependency, schema in dependencies_schemas.items()
+            }
+        }
+    return None
 
 
 @dataclass
