@@ -42,26 +42,47 @@ DEFAULT_PARAMS = {
 }
 
 
-def get_mock_streaming_response(message):
-    return {
-        "id": "123",
-        "model": "MyChatModel",
-        "choices": [
-            {
-                "index": 0,
-                "delta": {
-                    "role": "assistant",
-                    "content": message,
-                },
-                "finish_reason": "stop",
-            }
-        ],
-        "usage": {
-            "prompt_tokens": 10,
-            "completion_tokens": 10,
-            "total_tokens": 20,
-        },
-    }
+def get_mock_streaming_response(message, is_last_chunk=False):
+    if is_last_chunk:
+        return {
+            "id": "123",
+            "model": "MyChatModel",
+            "choices": [
+                {
+                    "index": 0,
+                    "delta": {
+                        "role": None,
+                        "content": None,
+                    },
+                    "finish_reason": "stop",
+                }
+            ],
+            "usage": {
+                "prompt_tokens": 10,
+                "completion_tokens": 10,
+                "total_tokens": 20,
+            },
+        }
+    else:
+        return {
+            "id": "123",
+            "model": "MyChatModel",
+            "choices": [
+                {
+                    "index": 0,
+                    "delta": {
+                        "role": "assistant",
+                        "content": message,
+                    },
+                    "finish_reason": "stop",
+                }
+            ],
+            "usage": {
+                "prompt_tokens": 10,
+                "completion_tokens": 10,
+                "total_tokens": 20,
+            },
+        }
 
 
 def get_mock_response(messages, params):
@@ -102,8 +123,11 @@ class SimpleChatModel(mlflow.pyfunc.ChatModel):
         return ChatCompletionResponse.from_dict(mock_response)
 
     def predict_stream(self, context, messages: list[ChatMessage], params: ChatParams):
-        for i in range(10):
-            mock_response = get_mock_streaming_response(f"message {i}")
+        num_chunks = 10
+        for i in range(num_chunks):
+            mock_response = get_mock_streaming_response(
+                f"message {i}", is_last_chunk=(i == num_chunks - 1)
+            )
             yield ChatCompletionChunk.from_dict(mock_response)
 
 
@@ -490,8 +514,11 @@ def test_chat_model_predict_stream(tmp_path):
         {"role": "user", "content": "Hello!"},
     ]
 
-    for i, response in enumerate(loaded_model.predict_stream({"messages": messages})):
-        assert response["choices"][0]["delta"]["content"] == f"message {i}"
+    responses = list(loaded_model.predict_stream({"messages": messages}))
+    for i, resp in enumerate(responses[:-1]):
+        assert resp["choices"][0]["delta"]["content"] == f"message {i}"
+
+    assert responses[-1]["choices"][0]["delta"] == {}
 
 
 def test_chat_model_can_receive_and_return_metadata():
