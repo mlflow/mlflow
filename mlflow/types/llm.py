@@ -223,7 +223,9 @@ class ChatChoiceDelta(_BaseDataclass):
     Args:
         role (str): The role of the entity that sent the message (e.g. ``"user"``,
             ``"system"``, ``"assistant"``, ``"tool"``).
-            defaults to ``"assistant"``
+            **Optional** defaults to ``"assistant"``
+            This is optional because OpenAI clients can explicitly return None for
+            the role
         content (str): The content of the new token being streamed
             **Optional** Can be ``None`` if refusal or tool_calls are provided.
         refusal (str): The refusal message content.
@@ -233,14 +235,14 @@ class ChatChoiceDelta(_BaseDataclass):
             **Optional** defaults to ``None``
     """
 
-    role: str = "assistant"
+    role: Optional[str] = "assistant"
     content: Optional[str] = None
     refusal: Optional[str] = None
     name: Optional[str] = None
     tool_calls: Optional[list[ToolCall]] = None
 
     def __post_init__(self):
-        self._validate_field("role", str, True)
+        self._validate_field("role", str, False)
 
         if self.refusal:
             self._validate_field("refusal", str, True)
