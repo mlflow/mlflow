@@ -46,6 +46,11 @@ Introduction to MLflow Tracing
                     <img src="../../_static/images/logos/autogen-logo.svg" alt="AutoGen Logo"/>
                 </div>
             </a>
+            <a href="#automatic-tracing">
+                <div class="logo-card">
+                    <img src="../../_static/images/logos/google-gemini-logo.svg" alt="Gemini Logo"/>
+                </div>
+            </a>
     </section>
 
 
@@ -405,6 +410,33 @@ for model/API invocations to the active MLflow Experiment.
 
         .. figure:: ../../_static/images/llms/autogen/autogen-trace.png
             :alt: AutoGen Tracing
+            :width: 100%
+            :align: center
+
+    .. tab:: Gemini
+
+        .. raw:: html
+
+            <h3>Gemini Automatic Tracing</h3>
+
+        |
+
+        MLflow Tracing ensures observability for your interactions with Gemini AI models.
+        When Gemini autologging is enabled with :py:func:`mlflow.gemini.autolog`, 
+        usage of the Gemini SDK will automatically record generated traces during interactive development.
+        Note that only synchronous calls for text interactions are supported. Asynchronous API is not traced, and full inputs cannnot be recorded for multi-modal inputs.
+
+
+        .. code-block:: python
+
+            import mlflow
+
+            mlflow.gemini.autolog()
+
+        To see the full example of tracing Gemini, please refer to the `Gemini Tracing example <https://github.com/mlflow/mlflow/tree/master/examples/gemini/tracing.py>`_.
+
+        .. figure:: ../../_static/images/llms/gemini/gemini-tracing.png
+            :alt: Gemini Tracing
             :width: 100%
             :align: center
 
