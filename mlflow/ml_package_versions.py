@@ -269,11 +269,11 @@ _ML_PACKAGE_VERSIONS = {
         },
         "models": {
             "minimum": "2.5.6",
-            "maximum": "2.5.29"
+            "maximum": "2.5.31"
         },
         "autologging": {
             "minimum": "2.5.17",
-            "maximum": "2.5.29"
+            "maximum": "2.5.31"
         }
     },
     "langchain": {
@@ -337,7 +337,7 @@ _ML_PACKAGE_VERSIONS = {
         },
         "models": {
             "minimum": "4.4.6",
-            "maximum": "5.5.0"
+            "maximum": "5.5.1"
         }
     },
     "promptflow": {
