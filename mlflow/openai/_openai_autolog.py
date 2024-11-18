@@ -97,14 +97,20 @@ def _try_parse_raw_response(response: Any) -> Any:
     As documented at https://github.com/openai/openai-python/tree/52357cff50bee57ef442e94d78a0de38b4173fc2?tab=readme-ov-file#accessing-raw-response-data-eg-headers,
     a `LegacyAPIResponse` (https://github.com/openai/openai-python/blob/52357cff50bee57ef442e94d78a0de38b4173fc2/src/openai/_legacy_response.py#L45)
     object is returned when the `create` method is invoked with `with_raw_response`.
-    `LegacyAPIResponse` is not exposed as a public class.
     """
     try:
-        # `parse` returns either a `pydantic.BaseModel` or a `openai.Stream` object
-        # depending on whether the request has a `stream` parameter set to `True`.
-        return response.parse()
-    except Exception as e:
-        _logger.debug(f"Failed to parse {response} (type: {response.__class__}): {e}")
+        from openai._legacy_response import LegacyAPIResponse
+    except ImportError:
+        _logger.debug("Failed to import `LegacyAPIResponse` from `openai._legacy_response`")
+        return response
+
+    if isinstance(response, LegacyAPIResponse):
+        try:
+            # `parse` returns either a `pydantic.BaseModel` or a `openai.Stream` object
+            # depending on whether the request has a `stream` parameter set to `True`.
+            return response.parse()
+        except Exception as e:
+            _logger.debug(f"Failed to parse {response} (type: {response.__class__}): {e}")
 
     return response
 
@@ -113,7 +119,6 @@ def patched_call(original, self, *args, **kwargs):
     from openai import Stream
     from openai.types.chat.chat_completion_chunk import ChatCompletionChunk
     from openai.types.completion import Completion
-    from pydantic import BaseModel
 
     config = AutoLoggingConfig.init(flavor_name=mlflow.openai.FLAVOR_NAME)
     active_run = mlflow.active_run()
@@ -179,10 +184,7 @@ def patched_call(original, self, *args, **kwargs):
                 _logger.warning(f"Encountered unexpected error when ending trace: {inner_e}")
         raise e
 
-    if not isinstance(raw_result, (BaseModel, Stream)):
-        result = _try_parse_raw_response(raw_result)
-    else:
-        result = raw_result
+    result = _try_parse_raw_response(raw_result)
 
     if isinstance(result, Stream):
         # If the output is a stream, we add a hook to store the intermediate chunks
@@ -190,7 +192,6 @@ def patched_call(original, self, *args, **kwargs):
         def _stream_output_logging_hook(stream: Iterator) -> Iterator:
             chunks = []
             output = []
-
             for chunk in stream:
                 # `chunk.choices` can be empty: https://github.com/mlflow/mlflow/issues/13361
                 if isinstance(chunk, Completion) and chunk.choices:
