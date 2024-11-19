@@ -17,7 +17,7 @@ export const Card = ({ children, link }): JSX.Element => (
     className={clsx(styles.Link, styles.Card, styles.CardBordered)}
     href={link}
   >
-    <div style={{ display: "flex" }}>{children}</div>
+    {children}
   </a>
 );
 
