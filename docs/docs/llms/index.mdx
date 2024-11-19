@@ -2,7 +2,7 @@
 sidebar_position: 5
 ---
 
-import { CardGroup, PageCard } from "@site/src/components/Card";
+import { CardGroup, PageCard, SmallLogoCard } from "@site/src/components/Card";
 import { APILink } from "@site/src/components/APILink";
 
 # LLMs
@@ -26,45 +26,11 @@ Look in the tutorials and guides below to learn more about interesting use cases
 Note that there are additional tutorials within the ["Explore the Native LLM Flavors" section below](#explore-the-native-llm-flavors), so be sure to check those out as well!
 
 <CardGroup>
-  <PageCard
-    link="chat-model-guide/"
-    headerText="Simplified Custom GenAI Models"
-    text={[
-      "Learn how to build a custom GenAI Agent with a simplified developer experience using MLflow's ",
-      <code>ChatModel</code>,
-    ]}
-  />
-  <PageCard
-    link="notebooks/chat-model-tool-calling/"
-    headerText="Tool Calling Models"
-    text={[
-      "Learn how to build a simple tool-calling model using MLflow's ",
-      <code>ChatModel</code>,
-    ]}
-  />
-  <PageCard
-    link="llm-evaluate/"
-    headerText="Evaluating LLMs"
-    text={[
-      "Learn how to evaluate LLMs with various metrics including LLM-as-a-Judge using ",
-      <code>mlflow.evaluate()</code>,
-      " API.",
-    ]}
-  />
-  <PageCard
-    link="custom-pyfunc-for-llms/"
-    headerText="Using Custom PyFunc with LLMs"
-    text={[
-      "Explore the nuances of packaging, customizing, and deploying advanced LLMs in MLflow using custom PyFuncs.",
-    ]}
-  />
-  <PageCard
-    link="rag/notebooks/"
-    headerText="Evaluation for RAG"
-    text={[
-      "Learn how to evaluate Retrieval Augmented Generation applications by leveraging LLMs to generate a evaluation dataset and evaluate it using the built-in metrics in the MLflow Evaluate API.",
-    ]}
-  />
+  <PageCard link="chat-model-guide/" headerText="Simplified Custom GenAI Models" text={["Learn how to build a custom GenAI Agent with a simplified developer experience using MLflow's ", <code>ChatModel</code>]} />
+  <PageCard link="notebooks/chat-model-tool-calling/" headerText="Tool Calling Models" text={["Learn how to build a simple tool-calling model using MLflow's ", <code>ChatModel</code>]} />
+  <PageCard link="llm-evaluate/" headerText="Evaluating LLMs" text={["Learn how to evaluate LLMs with various metrics including LLM-as-a-Judge using ", <code>mlflow.evaluate()</code>, " API."]} />
+  <PageCard link="custom-pyfunc-for-llms/" headerText="Using Custom PyFunc with LLMs" text={["Explore the nuances of packaging, customizing, and deploying advanced LLMs in MLflow using custom PyFuncs."]} />
+  <PageCard link="rag/notebooks/" headerText="Evaluation for RAG" text={["Learn how to evaluate Retrieval Augmented Generation applications by leveraging LLMs to generate a evaluation dataset and evaluate it using the built-in metrics in the MLflow Evaluate API."]} />
 </CardGroup>
 
 ## MLflow Tracing
@@ -132,52 +98,39 @@ documentation on GitHub. Each link will take you to a README file that will expl
 the README, you will find a runnable example of how to query the routes that the example creates, providing you with a quick reference for getting started
 with your favorite provider!
 
-<section>
-  <div class="logo-grid">
-    <a href="https://github.com/mlflow/mlflow/blob/master/examples/deployments/deployments_server/openai/README.md">
-      <div class="logo-card">![OpenAI Logo](/images/logos/openai-logo.png)</div>
-    </a>
-    <a href="https://github.com/mlflow/mlflow/blob/master/examples/deployments/deployments_server/mosaicml/README.md">
-      <div class="logo-card">
-        ![MosaicML Logo](/images/logos/mosaicml-logo.svg)
-      </div>
-    </a>
-    <a href="https://github.com/mlflow/mlflow/blob/master/examples/deployments/deployments_server/openai/README.md">
-      <div class="logo-card">
-        ![Anthropic Logo](/images/logos/anthropic-logo.svg)
-      </div>
-    </a>
-    <a href="https://github.com/mlflow/mlflow/blob/master/examples/deployments/deployments_server/cohere/README.md">
-      <div class="logo-card">![Cohere Logo](/images/logos/cohere-logo.png)</div>
-    </a>
-    <a href="https://github.com/mlflow/mlflow/blob/master/examples/deployments/deployments_server/mlflow_models/README.md">
-      <div class="logo-card">![MLflow Logo](/images/logos/mlflow-logo.svg)</div>
-    </a>
-    <a href="https://github.com/mlflow/mlflow/blob/master/examples/deployments/deployments_server/bedrock/README.md">
-      <div class="logo-card">
-        ![AWS BedLock Logo](/images/logos/aws-logo.svg)
-      </div>
-    </a>
-    <a href="https://github.com/mlflow/mlflow/blob/master/examples/deployments/deployments_server/palm/README.md">
-      <div class="logo-card">![PaLM Logo](/images/logos/PaLM-logo.png)</div>
-    </a>
-    <a href="https://github.com/mlflow/mlflow/blob/master/examples/deployments/deployments_server/ai21_labs/README.md">
-      <div class="logo-card">
-        ![ai21Labs Logo](/images/logos/ai21labs-logo.svg)
-      </div>
-    </a>
-    <a href="https://github.com/mlflow/mlflow/blob/master/examples/deployments/deployments_server/azure_openai/README.md">
-      <div class="logo-card">
-        ![Azure OpenAI Logo](/images/logos/azure-ml-logo.png)
-      </div>
-    </a>
-    <a href="https://github.com/mlflow/mlflow/blob/master/examples/deployments/deployments_server/huggingface/README.md">
-      <div class="logo-card">
-        ![Hugging Face Logo](/images/logos/huggingface-logo.svg)
-      </div>
-    </a>
-  </div>
-</section>
+<CardGroup isSmall>
+  <SmallLogoCard link="https://github.com/mlflow/mlflow/blob/master/examples/deployments/deployments_server/openai/README.md">
+    <span>![OpenAI Logo](/images/logos/openai-logo.png)</span>
+  </SmallLogoCard>
+  <SmallLogoCard link="https://github.com/mlflow/mlflow/blob/master/examples/deployments/deployments_server/mosaicml/README.md">
+    <span>![MosaicML Logo](/images/logos/mosaicml-logo.svg)</span>
+  </SmallLogoCard>
+  <SmallLogoCard link="https://github.com/mlflow/mlflow/blob/master/examples/deployments/deployments_server/openai/README.md">
+    <span>![Anthropic Logo](/images/logos/anthropic-logo.svg)</span>
+  </SmallLogoCard>
+  <SmallLogoCard link="https://github.com/mlflow/mlflow/blob/master/examples/deployments/deployments_server/cohere/README.md">
+    <span>![Cohere Logo](/images/logos/cohere-logo.png)</span>
+  </SmallLogoCard>
+  <SmallLogoCard link="https://github.com/mlflow/mlflow/blob/master/examples/deployments/deployments_server/mlflow_models/README.md">
+    <span>![MLflow Logo](/images/logos/mlflow-logo.svg)</span>
+  </SmallLogoCard>
+  <SmallLogoCard link="https://github.com/mlflow/mlflow/blob/master/examples/deployments/deployments_server/bedrock/README.md">
+    <span style={{ minWidth: "80px" }}>![AWS BedLock Logo](/images/logos/aws-logo.svg)</span>
+  </SmallLogoCard>
+  <SmallLogoCard link="https://github.com/mlflow/mlflow/blob/master/examples/deployments/deployments_server/palm/README.md">
+    <span>![PaLM Logo](/images/logos/PaLM-logo.png)</span>
+  </SmallLogoCard>
+  <SmallLogoCard link="https://github.com/mlflow/mlflow/blob/master/examples/deployments/deployments_server/ai21_labs/README.md">
+    <span>![ai21Labs Logo](/images/logos/ai21labs-logo.svg)</span>
+  </SmallLogoCard>
+  <SmallLogoCard link="https://github.com/mlflow/mlflow/blob/master/examples/deployments/deployments_server/azure_openai/README.md">
+    <span>![Azure OpenAI Logo](/images/logos/azure-ml-logo.png)</span>
+  </SmallLogoCard>
+  <SmallLogoCard link="https://github.com/mlflow/mlflow/blob/master/examples/deployments/deployments_server/huggingface/README.md">
+    <span>![Hugging Face Logo](/images/logos/huggingface-logo.svg)</span>
+  </SmallLogoCard>
+</CardGroup>
+<br />
 
 :::note
 The **MLflow** and **Hugging Face TGI** providers are for self-hosted LLM serving of either foundation open-source LLM models, fine-tuned open-source
