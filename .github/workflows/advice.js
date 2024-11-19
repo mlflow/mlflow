@@ -45,14 +45,14 @@ pip install git+https://github.com/mlflow/mlflow.git@refs/pull/${issue_number}/m
 %sh
 
 TEMP_DIR=$(mktemp -d)
-git clone --filter=blob:none --no-checkout https://github.com/mlflow/mlflow.git $TEMP_DIR \
-    && cd $TEMP_DIR \
-    && git config advice.detachedHead false \
-    && git sparse-checkout set mlflow pyproject.skinny.toml \
-    && git fetch origin refs/pull/${issue_number}/merge \
-    && git checkout FETCH_HEAD \
-    && cat pyproject.skinny.toml > pyproject.toml \
-    && pip install --no-build-isolation '.[databricks]' \
+git clone --filter=blob:none --no-checkout https://github.com/mlflow/mlflow.git $TEMP_DIR \\
+    && cd $TEMP_DIR \\
+    && git config advice.detachedHead false \\
+    && git sparse-checkout set mlflow pyproject.skinny.toml \\
+    && git fetch origin refs/pull/${issue_number}/merge \\
+    && git checkout FETCH_HEAD \\
+    && cat pyproject.skinny.toml > pyproject.toml \\
+    && pip install --no-build-isolation '.[databricks]' \\
     && rm -rf $TEMP_DIR
 \`\`\`
 
