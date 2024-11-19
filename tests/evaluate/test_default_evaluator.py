@@ -1522,7 +1522,7 @@ def test_custom_metric_logs_artifacts_from_paths(
         # images
         for ext in img_formats:
             fig = Figure(figsize=(fig_x, fig_y), dpi=fig_dpi)
-            ax = fig.add_subplot()
+            ax = fig.subplots()
             ax.plot([1, 2, 3])
             fig.savefig(path_join(tmp_path, f"test.{ext}"), format=ext)
             example_artifacts[f"test_{ext}_artifact"] = path_join(tmp_path, f"test.{ext}")
@@ -1567,7 +1567,7 @@ def test_custom_metric_logs_artifacts_from_paths(
             assert isinstance(result.artifacts[f"test_{img_ext}_artifact"], ImageEvaluationArtifact)
 
             fig = Figure(figsize=(fig_x, fig_y), dpi=fig_dpi)
-            ax = fig.add_subplot()
+            ax = fig.subplots()
             ax.plot([1, 2, 3])
             fig.savefig(path_join(tmp_dir, f"test.{img_ext}"), format=img_ext)
 
