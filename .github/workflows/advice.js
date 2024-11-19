@@ -66,13 +66,6 @@ git clone --filter=blob:none --no-checkout https://github.com/mlflow/mlflow.git 
     body: devtools,
   });
 
-  await github.rest.pulls.update({
-    owner,
-    repo,
-    pull_number: issue_number,
-    body: `${newSection}\n\n${body}`,
-  });
-
   const dcoCheck = await getDcoCheck(github, owner, repo, sha);
   if (dcoCheck && dcoCheck.conclusion !== "success") {
     messages.push(
