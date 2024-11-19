@@ -2,7 +2,7 @@
 sidebar_position: 5
 ---
 
-import { CardGroup, Card } from "@site/src/components/Card";
+import { CardGroup, PageCard } from "@site/src/components/Card";
 import { APILink } from "@site/src/components/APILink";
 
 # LLMs
@@ -26,7 +26,7 @@ Look in the tutorials and guides below to learn more about interesting use cases
 Note that there are additional tutorials within the ["Explore the Native LLM Flavors" section below](#explore-the-native-llm-flavors), so be sure to check those out as well!
 
 <CardGroup>
-  <Card
+  <PageCard
     link="chat-model-guide/"
     headerText="Simplified Custom GenAI Models"
     text={[
@@ -34,7 +34,7 @@ Note that there are additional tutorials within the ["Explore the Native LLM Fla
       <code>ChatModel</code>,
     ]}
   />
-  <Card
+  <PageCard
     link="notebooks/chat-model-tool-calling/"
     headerText="Tool Calling Models"
     text={[
@@ -42,7 +42,7 @@ Note that there are additional tutorials within the ["Explore the Native LLM Fla
       <code>ChatModel</code>,
     ]}
   />
-  <Card
+  <PageCard
     link="llm-evaluate/"
     headerText="Evaluating LLMs"
     text={[
@@ -51,14 +51,14 @@ Note that there are additional tutorials within the ["Explore the Native LLM Fla
       " API.",
     ]}
   />
-  <Card
+  <PageCard
     link="custom-pyfunc-for-llms/"
     headerText="Using Custom PyFunc with LLMs"
     text={[
       "Explore the nuances of packaging, customizing, and deploying advanced LLMs in MLflow using custom PyFuncs.",
     ]}
   />
-  <Card
+  <PageCard
     link="rag/notebooks/"
     headerText="Evaluation for RAG"
     text={[
