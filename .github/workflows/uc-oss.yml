@@ -83,8 +83,10 @@ jobs:
       - name: Start mlflow tracking server
         working-directory: unitycatalog
         run: |
+          echo $(which java)
+          build/sbt package
           bin/start-uc-server
-          
+
       # Start the mlflow server
       - name: Start mlflow tracking server
         working-directory: mlflow
