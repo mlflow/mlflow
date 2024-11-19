@@ -73,15 +73,23 @@ jobs:
         run: |
           git clone --branch v0.2.0 --depth 1 https://github.com/unitycatalog/unitycatalog.git
 
-      # Start the mlflow server
-      - name: Start mlflow tracking server
+      - name: Build UI
+        working-directory: mlflow/server/js
         run: |
-          mlflow ui
+          yarn
+          yarn build
 
       # Start the uc-oss server
       - name: Start mlflow tracking server
+        working-directory: unitycatalog
         run: |
-          unitycatalog/bin/start-uc-server
+          bin/start-uc-server
+          
+      # Start the mlflow server
+      - name: Start mlflow tracking server
+        working-directory: mlflow
+        run: |
+          mlflow ui
 
       # Run tests or perform actions for UnityCatalog
       - name: Run tests for UnityCatalog
