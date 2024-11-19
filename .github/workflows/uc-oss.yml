@@ -36,20 +36,6 @@ jobs:
           repository: ${{ github.event_name == 'schedule' && 'mlflow/mlflow' || github.event.inputs.repository }}
           ref: ${{ github.event.inputs.ref }}
           submodules: recursive
-      - uses: ./.github/actions/free-disk-space
-      - name: Check diff
-        id: check-diff
-        if: github.event_name == 'pull_request'
-        run: |
-          REPO="${{ github.repository }}"
-          PR_NUMBER="${{ github.event.pull_request.number }}"
-          BASE_REF="${{ github.base_ref }}"
-          CHANGED_FILES=$(python dev/list_changed_files.py --repository $REPO --pr-num $PR_NUMBER | grep "tests/examples\|examples" || true);
-          EXAMPLES_CHANGED=$([[ ! -z "$CHANGED_FILES" ]] && echo "true" || echo "false")
-
-          echo -e "CHANGED_FILES:\nCHANGED_FILES"
-          echo "EXAMPLES_CHANGED: $EXAMPLES_CHANGED"
-          echo "examples_changed=$EXAMPLES_CHANGED" >> $GITHUB_OUTPUT
 
       - uses: ./.github/actions/setup-python
       - uses: ./.github/actions/setup-pyenv
