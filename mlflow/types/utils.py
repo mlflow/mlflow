@@ -107,7 +107,7 @@ def _infer_colspec_type(data: Any) -> Union[DataType, Array, Object, AnyType]:
     return dtype
 
 
-def _infer_datatype(data: Any) -> Union[DataType, Array, Object, AnyType]:
+def _infer_datatype(data: Any) -> Optional[Union[DataType, Array, Object, AnyType]]:
     """
     Infer the datatype of input data.
     Data type and inferred schema type mapping:
@@ -118,9 +118,10 @@ def _infer_datatype(data: Any) -> Union[DataType, Array, Object, AnyType]:
         - None, emty dictionary/list -> AnyType
 
     .. Note::
-        Empty numpy arrays are inferred as None
+        Empty numpy arrays are inferred as None to keep the backward compatibility, as numpy
+        arrays are used by some traditional ML flavors.
         e.g. numpy.array([]) -> None, numpy.array([[], []]) -> None
-        While empty lists are inferred as AnyType
+        While empty lists are inferred as AnyType instead of None after the support of AnyType.
         e.g. [] -> AnyType, [[], []] -> Array(Any)
     """
 

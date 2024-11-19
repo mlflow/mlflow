@@ -1,8 +1,11 @@
+from __future__ import annotations
+
 import builtins
 import datetime as dt
 import importlib.util
 import json
 import string
+from abc import ABC, abstractmethod
 from copy import deepcopy
 from dataclasses import is_dataclass
 from enum import Enum
@@ -145,8 +148,25 @@ class DataType(Enum):
         return next((v for v in cls._member_map_.values() if v.to_numpy() == np_type), None)
 
 
-@experimental
-class Property:
+class BaseType(ABC):
+    @abstractmethod
+    def __eq__(self, other) -> bool:
+        raise NotImplementedError
+
+    @abstractmethod
+    def __repr__(self) -> str:
+        raise NotImplementedError
+
+    @abstractmethod
+    def to_dict(self) -> dict:
+        raise NotImplementedError
+
+    @abstractmethod
+    def _merge(self, other: BaseType) -> BaseType:
+        raise NotImplementedError
+
+
+class Property(BaseType):
     """
     Specification used to represent a json-convertible object property.
     """
@@ -251,7 +271,7 @@ class Property:
             return cls(name=name, dtype=AnyType(), required=required)
         return cls(name=name, dtype=dtype, required=required)
 
-    def _merge(self, other: Union["Property", "AnyType"]) -> "Property":
+    def _merge(self, other: BaseType) -> Property:
         """
         Check if current property is compatible with another property and return
         the updated property.
@@ -289,7 +309,7 @@ class Property:
 
         """
         if isinstance(other, AnyType):
-            return deepcopy(self)
+            return Property(name=self.name, dtype=self.dtype, required=False)
         if not isinstance(other, Property):
             raise MlflowException(
                 f"Can't merge property with non-property type: {type(other).__name__}"
@@ -309,8 +329,7 @@ class Property:
         raise MlflowException("Properties are incompatible")
 
 
-@experimental
-class Object:
+class Object(BaseType):
     """
     Specification used to represent a json-convertible object.
     """
@@ -391,7 +410,7 @@ class Object:
             [Property.from_json_dict(**{name: prop}) for name, prop in kwargs["properties"].items()]
         )
 
-    def _merge(self, other: Union["Object", "AnyType"]) -> "Object":
+    def _merge(self, other: BaseType) -> Object:
         """
         Check if the current object is compatible with another object and return
         the updated object.
@@ -457,7 +476,7 @@ class Object:
         return Object(properties=updated_properties)
 
 
-class Array:
+class Array(BaseType):
     """
     Specification used to represent a json-convertible array.
     """
@@ -531,7 +550,7 @@ class Array:
     def __repr__(self) -> str:
         return f"Array({self.dtype!r})"
 
-    def _merge(self, other: Union["Array", "AnyType"]) -> "Array":
+    def _merge(self, other: BaseType) -> Array:
         if isinstance(other, AnyType) or self == other:
             return deepcopy(self)
         if not isinstance(other, Array):
@@ -571,13 +590,13 @@ class SparkMLVector(Array):
     def __eq__(self, other) -> bool:
         return isinstance(other, SparkMLVector)
 
-    def _merge(self, arr: Array) -> Array:
+    def _merge(self, arr: BaseType) -> SparkMLVector:
         if isinstance(arr, SparkMLVector):
             return deepcopy(self)
         raise MlflowException("SparkML vector type can't be merged with another Array type.")
 
 
-class Map:
+class Map(BaseType):
     """
     Specification used to represent a json-convertible map with string type keys.
     """
@@ -645,36 +664,45 @@ class Map:
             return cls(value_type=AnyType())
         return cls(value_type=kwargs["values"]["type"])
 
-    def _merge(self, map_type: "Map") -> "Map":
-        if not isinstance(map_type, Map):
-            raise MlflowException(f"Can't merge map with non-map type: {type(map_type).__name__}")
-        if self == map_type:
+    def _merge(self, other: BaseType) -> Map:
+        if isinstance(other, AnyType) or self == other:
             return deepcopy(self)
+        if not isinstance(other, Map):
+            raise MlflowException(f"Can't merge map with non-map type: {type(other).__name__}")
         if isinstance(self.value_type, DataType):
-            if self.value_type == map_type.value_type:
+            if self.value_type == other.value_type:
                 return Map(value_type=self.value_type)
             raise MlflowException(
                 f"Map types are incompatible for {self} with value_type={self.value_type} and "
-                f"{map_type} with value_type={map_type.value_type}"
+                f"{other} with value_type={other.value_type}"
             )
 
         if isinstance(self.value_type, (Array, Object, Map, AnyType)):
-            return Map(value_type=self.value_type._merge(map_type.value_type))
+            return Map(value_type=self.value_type._merge(other.value_type))
 
-        raise MlflowException(f"Map type {self!r} and {map_type!r} are incompatible")
+        raise MlflowException(f"Map type {self!r} and {other!r} are incompatible")
 
 
+@experimental
 class AnyType:
     def __init__(self):
         """
         AnyType can store any json-serializable data including None values.
+        For example:
+
+        .. code-block::python
+
+            from mlflow.types.schema import AnyType, Schema, ColSpec
+
+            schema = Schema([ColSpec(type=AnyType(), name="id")])
 
         .. Note::
-            AnyType should not be used to host union types in a schema.
-            It should only be used when the field is None, the type is not known
+            AnyType should be used when the field is None, the type is not known
             at the time of data creation, or the field can have multiple types.
             e.g. for GenAI flavors, the model output could contain `None` values,
             and `AnyType` can be used to represent them.
+            AnyType has no data validation at all, please be aware of this when
+            using it.
         """
 
     def __repr__(self) -> str:
@@ -686,14 +714,15 @@ class AnyType:
     def to_dict(self):
         return {"type": ANY_TYPE}
 
-    def _merge(
-        self, another_type: Union["AnyType", Array, Object, Map, DataType]
-    ) -> Union["AnyType", Array, Object, Map, DataType]:
+    def _merge(self, another_type: BaseType) -> BaseType:
         if self == another_type:
             return deepcopy(self)
-        if not isinstance(another_type, (Array, Object, Map, DataType)):
-            raise MlflowException(f"Can't merge AnyType with {type(another_type).__name__}")
-        return another_type
+        if not isinstance(another_type, BaseType):
+            raise MlflowException(
+                f"Can't merge AnyType with {type(another_type).__name__}, it must be a BaseType"
+            )
+        # Merging AnyType with another type makes the other type optional
+        return another_type._merge(self)
 
 
 class ColSpec:

@@ -1288,10 +1288,10 @@ def _enforce_property(data: Any, property: Property):
 
 
 def _enforce_object(data: dict[str, Any], obj: Object, required=True):
+    if HAS_PYSPARK and isinstance(data, Row):
+        data = None if len(data) == 0 else data.asDict(True)
     if not required and (data is None or data == {}):
         return data
-    if HAS_PYSPARK and isinstance(data, Row):
-        data = data.asDict(True)
     if not isinstance(data, dict):
         raise MlflowException(
             f"Failed to enforce schema of '{data}' with type '{obj}'. "
