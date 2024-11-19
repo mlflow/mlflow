@@ -620,7 +620,7 @@ openai:
       pip install git+https://github.com/openai/openai-python
   models:
     minimum: "1.0.1"
-    maximum: "1.54.3"
+    maximum: "1.54.4"
     requirements:
       ">= 0.0.0": [
           "pyspark",
@@ -635,7 +635,7 @@ openai:
       pytest tests/openai tests/openai/test_openai_model_export.py
   autologging:
     minimum: "1.17.0"
-    maximum: "1.54.3"
+    maximum: "1.54.4"
     python:
       # OpenAI Swarm requires Python >=3.10
       ">= 1.33.0": "3.10"
@@ -663,14 +663,14 @@ dspy:
       pip install git+https://github.com/stanfordnlp/dspy.git
   models:
     minimum: "2.5.6"
-    maximum: "2.5.29"
+    maximum: "2.5.31"
     requirements:
       ">= 0.0.0": ["openai"]
     run: |
       pytest tests/dspy --ignore tests/dspy/test_dspy_autolog.py
   autologging:
     minimum: "2.5.17"
-    maximum: "2.5.29"
+    maximum: "2.5.31"
     requirements:
       ">= 0.0.0": ["openai"]
     run: |
@@ -780,7 +780,7 @@ llama_index:
   models:
     # New event/span framework is fully implemented in 0.10.44
     minimum: "0.10.44"
-    maximum: "0.11.22"
+    maximum: "0.11.23"
     requirements:
       ">= 0.0.0": [
           "openai",
@@ -798,7 +798,7 @@ llama_index:
     run: pytest tests/llama_index --ignore tests/llama_index/test_llama_index_autolog.py --ignore tests/llama_index/test_llama_index_tracer.py
   autologging:
     minimum: "0.10.44"
-    maximum: "0.11.22"
+    maximum: "0.11.23"
     requirements:
       ">= 0.0.0": [
           "openai",
@@ -830,6 +830,18 @@ autogen:
         ]
     run: pytest tests/autogen
 
+gemini:
+  package_info:
+    pip_release: "google-generativeai"
+    module_name: "google.generativeai"
+    install_dev: |
+      pip install git+https://github.com/google-gemini/generative-ai-python
+  autologging:
+    minimum: "0.8.0"
+    maximum: "0.8.3"
+    requirements:
+    run: pytest tests/gemini
+
 sentence_transformers:
   package_info:
     pip_release: "sentence-transformers"
@@ -855,7 +867,7 @@ johnsnowlabs:
     pip_release: "johnsnowlabs"
   models:
     minimum: "4.4.6"
-    maximum: "5.5.0"
+    maximum: "5.5.1"
     requirements:
       ">= 0.0.0": ["pandas<=1.5.3"]
       "< 5.2.8": ["pyspark<3.4"]
@@ -882,3 +894,21 @@ promptflow:
       "< 1.18": ["numpy<2"]
     run: |
       pytest tests/promptflow/test_promptflow_model_export.py
+
+litellm:
+  package_info:
+    pip_release: "litellm"
+    install_dev: |
+      pip install git+https://github.com/BerriAI/litellm.git
+  autologging:
+    minimum: "1.52.9"
+    maximum: "1.52.9"
+    requirements:
+      ">= 0.0.0": [
+          "openai",
+          "pytest-asyncio",
+          # Required to run tests/openai/mock_openai.py
+          "fastapi",
+          "uvicorn",
+        ]
+    run: pytest tests/litellm

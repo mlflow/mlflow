@@ -27,6 +27,7 @@ Note that there are additional tutorials within the `"Explore the Native LLM Fla
     rag/index
     custom-pyfunc-for-llms/index
     llm-evaluate/notebooks/index
+    chat-model-intro/index
     chat-model-guide/index
     notebooks/chat-model-tool-calling.ipynb
 
@@ -36,12 +37,22 @@ Note that there are additional tutorials within the `"Explore the Native LLM Fla
     <section>
         <article class="simple-grid">
             <div class="simple-card">
-                <a href="chat-model-guide/index.html" >
+                <a href="chat-model-intro/index.html" >
                     <div class="header">
-                        Simplified Custom GenAI Models
+                        Custom GenAI Models with ChatModel
                     </div>
                     <p>
-                        Learn how to build a custom GenAI Agent with a simplified developer experience using MLflow's <code>ChatModel</code>.
+                        Learn the basics of creating custom chat models using MLflow's <code>ChatModel</code> by wrapping a local LLM provider.
+                    </p>
+                </a>
+            </div>
+            <div class="simple-card">
+                <a href="chat-model-guide/index.html" >
+                    <div class="header">
+                        Advanced ChatModel Development
+                    </div>
+                    <p>
+                        Take an in-depth look at the full range of <code>ChatModel</code> features, such as tracing and configuration management.
                     </p>
                 </a>
             </div>
@@ -91,9 +102,6 @@ Note that there are additional tutorials within the `"Explore the Native LLM Fla
 
 `MLflow Tracing <tracing/index.html>`_
 --------------------------------------
-
-.. note::
-    MLflow Tracing is currently in **Experimental Status** and is subject to change without deprecation warning or notification. 
 
 MLflow offers comprehensive tracing capabilities to monitor and analyze the execution of GenAI applications. This includes automated tracing GenAI frameworks such as
 LangChain, OpenAI, LlamaIndex, manual trace instrumentation using high-level fluent APIs, and low-level client APIs for fine-grained control. This functionality 
@@ -165,7 +173,7 @@ Explore the Native Providers of the MLflow AI Gateway
 The MLflow AI Gateway supports a large range of foundational models from popular SaaS model vendors, as well as providing a means of self-hosting your 
 own open source model via an integration with MLflow model serving. 
 
-Please refer to `Supported Provider Models <deployments/index.html#providers>`_ for the full list of supported providers and models.
+Please refer to `Supported Providers <deployments/index.html#providers>`_ for the full list of supported providers and models.
 
 If you're interested in learning about how to set up the MLflow AI Gateway for a specific provider, follow the links below for our up-to-date 
 documentation on GitHub. Each link will take you to a README file that will explain how to set up a route for the provider. In the same directory as 
