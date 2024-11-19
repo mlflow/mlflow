@@ -13,10 +13,11 @@ export const CardGroup = ({ children, isSmall }): JSX.Element => (
 );
 
 export const Card = ({ children, link }): JSX.Element => (
-  <a className={clsx(styles.Link)} href={link}>
-    <div className={clsx(styles.Card, styles.CardBordered)}>
-      <div>{children}</div>
-    </div>
+  <a
+    className={clsx(styles.Link, styles.Card, styles.CardBordered)}
+    href={link}
+  >
+    <div>{children}</div>
   </a>
 );
 
