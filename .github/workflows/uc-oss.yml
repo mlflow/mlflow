@@ -84,7 +84,6 @@ jobs:
       - name: Start mlflow tracking server
         working-directory: mlflow
         run: |
-          mlflow ui
           nohup mlflow ui > mlflow-tracking.log 2>&1 &
 
       - name: Run tests for UnityCatalog
