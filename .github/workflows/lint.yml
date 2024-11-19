@@ -11,6 +11,9 @@ on:
     branches:
       - master
       - branch-[0-9]+.[0-9]+
+  merge_group:
+    types:
+      - checks_requested
 
 permissions:
   contents: read

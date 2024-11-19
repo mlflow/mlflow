@@ -95,7 +95,6 @@ def _get_registry_uri_from_spark_session():
 
 
 def _get_registry_uri_from_context():
-    global _registry_uri
     if _registry_uri is not None:
         return _registry_uri
     elif (uri := MLFLOW_REGISTRY_URI.get()) or (uri := _get_registry_uri_from_spark_session()):

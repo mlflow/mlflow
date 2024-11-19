@@ -3,7 +3,7 @@ import type { EmotionJSX } from '@storybook/theming/dist/ts3.9/_modules/@emotion
 import React, { type CSSProperties } from 'react';
 import { type ButtonProps } from '../Button';
 import type { DesignSystemEventProviderAnalyticsEventTypes } from '../DesignSystemEventProvider';
-import type { AnalyticsEventOptionalProps } from '../types';
+import type { AnalyticsEventProps } from '../types';
 export interface SidebarProps {
     /** The layout direction */
     position?: 'left' | 'right';
@@ -33,7 +33,7 @@ export interface NavButtonProps extends ButtonProps {
     /** Applies emotion styles to the top-level element in the component. Ask in #dubois before using. */
     dangerouslyAppendEmotionCSS?: Interpolation<EmotionTheme>;
 }
-export interface ContentProps extends AnalyticsEventOptionalProps<DesignSystemEventProviderAnalyticsEventTypes.OnClick> {
+export interface ContentProps extends AnalyticsEventProps<DesignSystemEventProviderAnalyticsEventTypes.OnClick> {
     /** The open panel id */
     openPanelId?: number;
     /** The content width, default is 200px */
@@ -73,7 +73,7 @@ export interface PanelProps {
     /** Applies emotion styles to the top-level element in the component. Ask in #dubois before using. */
     dangerouslyAppendEmotionCSS?: Interpolation<EmotionTheme>;
 }
-export interface PanelHeaderProps extends AnalyticsEventOptionalProps<DesignSystemEventProviderAnalyticsEventTypes.OnClick> {
+export interface PanelHeaderProps extends AnalyticsEventProps<DesignSystemEventProviderAnalyticsEventTypes.OnClick> {
     /** Contents displayed in the header section of the panel */
     children?: React.ReactNode;
     /** Applies emotion styles to the top-level element in the component. Ask in #dubois before using. */

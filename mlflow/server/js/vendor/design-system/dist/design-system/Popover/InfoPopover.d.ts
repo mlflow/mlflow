@@ -1,7 +1,8 @@
 import type { PopoverProps } from './Popover';
+import type { IconProps } from '../Icon';
 export interface InfoPopoverProps extends React.HTMLAttributes<HTMLButtonElement> {
     popoverProps?: Omit<PopoverProps, 'children' | 'title'>;
-    iconProps?: React.HTMLAttributes<HTMLSpanElement>;
+    iconProps?: IconProps;
     iconTitle?: string;
     isKeyboardFocusable?: boolean;
     ariaLabel?: string;

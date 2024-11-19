@@ -168,3 +168,33 @@ class ImplicitOptional(Rule):
         Returns True if `value` represents `None`.
         """
         return isinstance(value, ast.Constant) and value.value is None
+
+
+class OsEnvironSetInTest(Rule):
+    def _id(self) -> str:
+        return "MLF0011"
+
+    def _message(self) -> str:
+        return "Do not set `os.environ` in test directly. Use `monkeypatch.setenv` (https://docs.pytest.org/en/stable/reference/reference.html#pytest.MonkeyPatch.setenv)."
+
+
+class OsEnvironDeleteInTest(Rule):
+    def _id(self) -> str:
+        return "MLF0012"
+
+    def _message(self) -> str:
+        return "Do not delete `os.environ` in test directly. Use `monkeypatch.delenv` (https://docs.pytest.org/en/stable/reference/reference.html#pytest.MonkeyPatch.delenv)."
+
+
+class ForbiddenTopLevelImport(Rule):
+    def __init__(self, module: str) -> None:
+        self.module = module
+
+    def _id(self) -> str:
+        return "MLF0013"
+
+    def _message(self) -> str:
+        return (
+            f"Importing module `{self.module}` at the top level is not allowed "
+            "in this file. Use lazy import instead."
+        )

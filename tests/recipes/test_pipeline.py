@@ -77,13 +77,13 @@ def test_create_recipe_fails_with_path_containing_space(tmp_path):
 @pytest.mark.usefixtures("enter_recipe_example_directory")
 @pytest.mark.parametrize("custom_execution_directory", [None, "custom"])
 def test_recipes_execution_directory_is_managed_as_expected(
-    custom_execution_directory, enter_recipe_example_directory, tmp_path
+    custom_execution_directory, enter_recipe_example_directory, tmp_path, monkeypatch
 ):
     if custom_execution_directory is not None:
         custom_execution_directory = tmp_path / custom_execution_directory
 
     if custom_execution_directory is not None:
-        os.environ["MLFLOW_RECIPES_EXECUTION_DIRECTORY"] = str(custom_execution_directory)
+        monkeypatch.setenv("MLFLOW_RECIPES_EXECUTION_DIRECTORY", str(custom_execution_directory))
 
     expected_execution_directory_location = (
         pathlib.Path(custom_execution_directory)

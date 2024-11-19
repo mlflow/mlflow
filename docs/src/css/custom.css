@@ -11,7 +11,7 @@
   --card-shadow2: rgba(50, 50, 93, 0.1);
   --card-shadow3: rgba(0, 0, 0, 0.02);
   --card-hover-shadow: 0 0 0 1px var(--card-shadow1),
-    0 7px 14px 0 var(--card-shadow2), 0 3px 6px 0 var(--card-shadow3);
+  0 7px 14px 0 var(--card-shadow2), 0 3px 6px 0 var(--card-shadow3);
 
   --ifm-color-primary: #2e8555;
   --ifm-color-primary-dark: #29784c;
@@ -54,6 +54,9 @@
   --ifm-color-info-light: #33928c;
   --ifm-color-info-lighter: #359994;
   --ifm-color-info-lightest: #3cada7;
+
+  /* Increase h4 font-size to differentiate from regular bold text */
+  --ifm-h4-font-size: 1.125rem;
 }
 
 /* For readability concerns, you should choose a lighter palette in dark mode. */
@@ -119,4 +122,36 @@
 
 .padding-md {
   padding: var(--padding-md);
+}
+
+/* Most of our images are PNGs with transparent
+backgrounds so they look bad in dark mode */
+main img {
+  background-color: white;
+}
+
+.center-div {
+  margin-inline: auto;
+}
+
+/* We need to this class to limit image size using max-height. The class
+must be applied to the wrapping div along with the desired max-height */
+.max-height-img-container {
+  display: flex;
+
+  p {
+    display: flex;
+    justify-content: center;
+  }
+
+  img {
+    max-height: 100%;
+    width: auto;
+  }
+}
+
+/* This class is to be used in non-heading elements that contain a hash link reference.
+In headlines Ducousaurus adds this for us. */
+.anchor-with-sticky-navbar {
+  scroll-margin-top: calc(var(--ifm-navbar-height) + 0.5rem);
 }

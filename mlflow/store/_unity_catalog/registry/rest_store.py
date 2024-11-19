@@ -7,7 +7,6 @@ from contextlib import contextmanager
 
 import mlflow
 from mlflow.entities import Run
-from mlflow.environment_variables import MLFLOW_USE_DATABRICKS_SDK_MODEL_ARTIFACTS_REPO_FOR_UC
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INTERNAL_ERROR
 from mlflow.protos.databricks_uc_registry_messages_pb2 import (
@@ -78,6 +77,7 @@ from mlflow.utils._spark_utils import _get_active_spark_session
 from mlflow.utils._unity_catalog_utils import (
     get_artifact_repo_from_storage_info,
     get_full_name_from_sc,
+    is_databricks_sdk_models_artifact_repository_enabled,
     model_version_from_uc_proto,
     model_version_search_from_uc_proto,
     registered_model_from_uc_proto,
@@ -214,6 +214,13 @@ def get_model_version_dependencies(model_dir):
                 "DATABRICKS_UC_CONNECTION",
             )
         )
+        dependencies.extend(
+            _fetch_langchain_dependency_from_model_resources(
+                databricks_dependencies,
+                ResourceType.TABLE.value,
+                "DATABRICKS_TABLE",
+            )
+        )
     else:
         # These types of dependencies are required for old models that didn't use
         # resources so they can be registered correctly to UC
@@ -248,8 +255,8 @@ def get_model_version_dependencies(model_dir):
 def _fetch_langchain_dependency_from_model_resources(databricks_dependencies, key, resource_type):
     dependencies = databricks_dependencies.get(key, [])
     deps = []
-    for depndency in dependencies:
-        deps.append({"type": resource_type, **depndency})
+    for dependency in dependencies:
+        deps.append({"type": resource_type, **dependency})
     return deps
 
 
@@ -808,7 +815,7 @@ class UcModelRegistryStore(BaseRestStore):
                 name=model_version.name, version=model_version.version
             )
 
-        if MLFLOW_USE_DATABRICKS_SDK_MODEL_ARTIFACTS_REPO_FOR_UC.get():
+        if is_databricks_sdk_models_artifact_repository_enabled(self.get_host_creds()):
             return DatabricksSDKModelsArtifactRepository(model_name, model_version.version)
 
         scoped_token = base_credential_refresh_def()

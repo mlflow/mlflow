@@ -15,7 +15,7 @@ import { FormattedMessage, type IntlShape, injectIntl } from 'react-intl';
 import { Interpolation, Theme } from '@emotion/react';
 import {
   DesignSystemHocProps,
-  MinusBoxIcon,
+  MinusSquareIcon,
   PlusSquareIcon,
   WithDesignSystemThemeHoc,
 } from '@databricks/design-system';
@@ -185,7 +185,7 @@ export class SchemaTableImpl extends React.PureComponent<Props> {
           expandIcon={({ expanded, onExpand, record }) =>
             expanded ? (
               <span onClick={(e) => onExpand(record, e)}>
-                <MinusBoxIcon />
+                <MinusSquareIcon />
               </span>
             ) : (
               <span onClick={(e) => onExpand(record, e)}>

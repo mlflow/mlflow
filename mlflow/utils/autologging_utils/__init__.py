@@ -3,6 +3,7 @@ import importlib
 import inspect
 import logging
 import sys
+import threading
 import time
 
 import mlflow
@@ -70,7 +71,6 @@ MLFLOW_EVALUATE_RESTRICT_LANGCHAIN_AUTOLOG_TO_TRACES_CONFIG = {
     "log_model_signatures": False,
     "log_models": False,
     "log_datasets": False,
-    "log_inputs_outputs": False,
     "disable": False,
     "exclusive": False,
     "disable_for_unsupported_versions": False,
@@ -93,7 +93,23 @@ _AUTOLOGGING_SUPPORTED_VERSION_WARNING_SUPPRESS_LIST = [
     "dspy",
 ]
 
+# Global lock for turning on / off autologging
+# Note "RLock" is required instead of plain lock, for avoid dead-lock
+_autolog_conf_global_lock = threading.RLock()
+
 _logger = logging.getLogger(__name__)
+
+
+def autologging_conf_lock(fn):
+    """
+    Apply a global lock on functions that enable / disable autologging.
+    """
+
+    def wrapper(*args, **kwargs):
+        with _autolog_conf_global_lock:
+            return fn(*args, **kwargs)
+
+    return update_wrapper_extended(wrapper, fn)
 
 
 def get_mlflow_run_params_for_fn_args(fn, args, kwargs, unlogged=None):
@@ -415,6 +431,7 @@ def autologging_integration(name):
         AUTOLOGGING_INTEGRATIONS[name] = {}
         default_params = {param.name: param.default for param in param_spec.values()}
 
+        @autologging_conf_lock
         def autolog(*args, **kwargs):
             config_to_store = dict(default_params)
             config_to_store.update(

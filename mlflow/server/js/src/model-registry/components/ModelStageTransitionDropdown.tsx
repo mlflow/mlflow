@@ -12,16 +12,13 @@ import { DirectTransitionForm } from './DirectTransitionForm';
 import _ from 'lodash';
 import { FormattedMessage } from 'react-intl';
 
-type OwnModelStageTransitionDropdownProps = {
+type ModelStageTransitionDropdownProps = {
   currentStage?: string;
   permissionLevel?: string;
   onSelect?: (...args: any[]) => any;
 };
 
 type ModelStageTransitionDropdownState = any;
-
-type ModelStageTransitionDropdownProps = OwnModelStageTransitionDropdownProps &
-  typeof ModelStageTransitionDropdown.defaultProps;
 
 export class ModelStageTransitionDropdown extends React.Component<
   ModelStageTransitionDropdownProps,
@@ -148,7 +145,7 @@ export class ModelStageTransitionDropdown extends React.Component<
       <span>
         <Dropdown overlay={this.getMenu()} trigger={['click']} className="stage-transition-dropdown">
           <span>
-            {StageTagComponents[currentStage]}
+            {StageTagComponents[currentStage ?? Stages.NONE]}
             <ChevronDownIcon css={{ cursor: 'pointer', marginLeft: -4 }} />
           </span>
         </Dropdown>

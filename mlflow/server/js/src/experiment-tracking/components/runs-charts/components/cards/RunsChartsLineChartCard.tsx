@@ -25,7 +25,6 @@ import {
   shouldUseNewRunRowsVisibilityModel,
   shouldEnableRelativeTimeDateAxis,
   shouldEnableManualRangeControls,
-  shouldEnableHidingChartsWithNoData,
   shouldEnableChartExpressions,
   shouldEnableDraggableChartsGridLayout,
 } from '../../../../../common/utils/FeatureUtils';
@@ -130,9 +129,6 @@ export const RunsChartsLineChartCard = ({
   const isGrouped = useMemo(() => slicedRuns.some((r) => r.groupParentInfo), [slicedRuns]);
 
   const isEmptyDataset = useMemo(() => {
-    if (!shouldEnableHidingChartsWithNoData()) {
-      return false;
-    }
     const metricKeys = config.selectedMetricKeys ?? [config.metricKey];
     const metricsInRuns = slicedRuns.flatMap(({ metrics }) => Object.keys(metrics));
     return intersection(metricKeys, uniq(metricsInRuns)).length === 0;

@@ -39,6 +39,11 @@ class QueueStatus(enum.Enum):
     IDLE = 3
 
 
+_MAX_ITEMS_PER_BATCH = 1000
+_MAX_PARAMS_PER_BATCH = 100
+_MAX_TAGS_PER_BATCH = 100
+
+
 class AsyncLoggingQueue:
     """
     This is a queue based run data processor that queues incoming batches and processes them using
@@ -143,11 +148,16 @@ class AsyncLoggingQueue:
                 # `queue_size` is an estimate, so we need to check if the queue is empty.
                 break
             batch = self._queue.get()
+
             if (
                 merged_batch.run_id != batch.run_id
-                or len(merged_batch.metrics) + len(batch.metrics) >= 1000
-                or len(merged_batch.params) + len(batch.params) >= 100
-                or len(merged_batch.tags) + len(batch.tags) >= 100
+                or (
+                    len(merged_batch.metrics + merged_batch.params + merged_batch.tags)
+                    + len(batch.metrics + batch.params + batch.tags)
+                )
+                >= _MAX_ITEMS_PER_BATCH
+                or len(merged_batch.params) + len(batch.params) >= _MAX_PARAMS_PER_BATCH
+                or len(merged_batch.tags) + len(batch.tags) >= _MAX_TAGS_PER_BATCH
             ):
                 # Make a new batch if the run_id is different or the batch is full.
                 batches.append(merged_batch)

@@ -17,5 +17,7 @@ dependencies:
   - protobuf<4.0.0
   # Pinning pandas version less than 1.4.4 due to https://github.com/facebook/Ax/issues/1153
   - pandas<=1.4.4
+  # Numpy>=2 is not compatible with pandas<=1.4.4
+  - numpy<2
   # TODO: Remove this requirement once ax-platform achieves compatibility with SQLAlchemy 2.x
   - sqlalchemy<2

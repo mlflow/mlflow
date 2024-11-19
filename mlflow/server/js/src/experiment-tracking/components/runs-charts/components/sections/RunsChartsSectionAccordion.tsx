@@ -26,10 +26,7 @@ import { useUpdateRunsChartsUIConfiguration } from '../../hooks/useRunsChartsUIC
 import { isArray } from 'lodash';
 import { RunsChartCardSetFullscreenFn } from '../cards/ChartCard.common';
 import type { RunsGroupByConfig } from '../../../experiment-page/utils/experimentPage.group-row-utils';
-import {
-  shouldEnableHidingChartsWithNoData,
-  shouldUseRegexpBasedChartFiltering,
-} from '../../../../../common/utils/FeatureUtils';
+import { shouldUseRegexpBasedChartFiltering } from '../../../../../common/utils/FeatureUtils';
 import type { RunsChartsGlobalLineChartConfig } from '../../../experiment-page/models/ExperimentPageUIState';
 
 const chartMatchesFilter = (filter: string, config: RunsChartsCardConfig) => {
@@ -354,7 +351,7 @@ export const RunsChartsSectionAccordion = ({
     return null;
   }
 
-  if (noRunsSelected && shouldEnableHidingChartsWithNoData()) {
+  if (noRunsSelected) {
     return (
       <div css={{ marginTop: theme.spacing.lg }}>
         <Empty

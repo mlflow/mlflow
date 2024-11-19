@@ -170,6 +170,7 @@ export const getModelVersionSchemas = (state: any, modelName: any, version: any)
           // @ts-expect-error TS(7053): Element implicitly has an 'any' type because expre... Remove this comment to see the full error message
           schemaMap['inputs'] = JSON.parse(artifact.signature.inputs.replace(/(\r\n|\n|\r)/gm, ''));
         } catch (error) {
+          // eslint-disable-next-line no-console -- TODO(FEINF-3587)
           console.error(error);
         }
       }
@@ -178,6 +179,7 @@ export const getModelVersionSchemas = (state: any, modelName: any, version: any)
           // @ts-expect-error TS(7053): Element implicitly has an 'any' type because expre... Remove this comment to see the full error message
           schemaMap['outputs'] = JSON.parse(artifact.signature.outputs.replace(/(\r\n|\n|\r)/gm, ''));
         } catch (error) {
+          // eslint-disable-next-line no-console -- TODO(FEINF-3587)
           console.error(error);
         }
       }

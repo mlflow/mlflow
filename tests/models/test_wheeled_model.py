@@ -365,7 +365,7 @@ def test_wheel_download_works(tmp_path):
     assert simple_dependency in wheels[0]  # Cloudpickle wheel downloaded
 
 
-def test_wheel_download_override_option_works(tmp_path):
+def test_wheel_download_override_option_works(tmp_path, monkeypatch):
     dependency = "pyspark"
     requirements_file = os.path.join(tmp_path, "req.txt")
     wheel_dir = os.path.join(tmp_path, "wheels")
@@ -379,7 +379,7 @@ def test_wheel_download_override_option_works(tmp_path):
         WheeledModel._download_wheels(requirements_file, wheel_dir)
 
     # Set option override
-    os.environ["MLFLOW_WHEELED_MODEL_PIP_DOWNLOAD_OPTIONS"] = "--prefer-binary"
+    monkeypatch.setenv("MLFLOW_WHEELED_MODEL_PIP_DOWNLOAD_OPTIONS", "--prefer-binary")
     WheeledModel._download_wheels(requirements_file, wheel_dir)
     assert len(os.listdir(wheel_dir))  # Wheel dir is not empty
 

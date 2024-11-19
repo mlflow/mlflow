@@ -36,7 +36,7 @@ pytorch:
 
   models:
     minimum: "1.9.0"
-    maximum: "2.4.1"
+    maximum: "2.5.1"
     requirements:
       ">= 0.0.0": ["torchvision", "scikit-learn"]
       ">= 1.8": ["transformers"]
@@ -46,7 +46,7 @@ pytorch:
 
   autologging:
     minimum: "1.9.0"
-    maximum: "2.4.1"
+    maximum: "2.5.1"
     requirements:
       ">= 0.0.0": ["tensorboard"]
     run: |
@@ -99,7 +99,7 @@ tensorflow:
 
   models:
     minimum: "2.7.4"
-    maximum: "2.17.0"
+    maximum: "2.18.0"
     requirements:
       # Requirements to run tests for keras
       ">= 0.0.0": ["scikit-learn", "pyspark", "pyarrow", "transformers!=4.38.0,!=4.38.1"]
@@ -118,7 +118,7 @@ tensorflow:
 
   autologging:
     minimum: "2.7.4"
-    maximum: "2.17.0"
+    maximum: "2.18.0"
     requirements:
       "== dev": ["scikit-learn"]
       "< 2.12.0": ["numpy<2"]
@@ -137,7 +137,7 @@ xgboost:
 
   models:
     minimum: "1.4.2"
-    maximum: "2.1.1"
+    maximum: "2.1.2"
     requirements:
       ">= 0.0.0": ["scikit-learn"]
       "< 1.6": ["pandas<2", "numpy<2"]
@@ -148,7 +148,7 @@ xgboost:
 
   autologging:
     minimum: "1.4.2"
-    maximum: "2.1.1"
+    maximum: "2.1.2"
     requirements:
       ">= 0.0.0": ["scikit-learn", "matplotlib"]
       "< 1.6": ["pandas<2", "numpy<2"]
@@ -234,7 +234,7 @@ fastai:
 
   models:
     minimum: "2.4.1"
-    maximum: "2.7.17"
+    maximum: "2.7.18"
     requirements:
       # TODO: fastai depends on spacy, but spacy>=3.8.2 requires python>=3.9
       #  Once migrating fastai tests to python 3.9, we should remove spacy<3.8.2
@@ -247,7 +247,7 @@ fastai:
 
   autologging:
     minimum: "2.4.1"
-    maximum: "2.7.17"
+    maximum: "2.7.18"
     requirements:
       "> 0.0.0": ["spacy<3.8.2", "torch<1.13.0", "torchvision<0.14.0"]
     run: |
@@ -490,7 +490,7 @@ h2o:
     pip_release: "h2o"
   models:
     minimum: "3.40.0.1"
-    maximum: "3.46.0.5"
+    maximum: "3.46.0.6"
     run: |
       pytest tests/h2o
 
@@ -531,7 +531,7 @@ transformers:
       pip install git+https://github.com/huggingface/transformers
   models:
     minimum: "4.25.1"
-    maximum: "4.45.2"
+    maximum: "4.46.2"
     unsupported: [
         # Avoid this patch: https://github.com/huggingface/transformers/pull/29032
         "4.38.0",
@@ -576,7 +576,7 @@ transformers:
       pytest tests/transformers/test_transformers_model_export.py -k "test_transformers_tf_model_save_without_conda_env_uses_default_env_with_expected_dependencies or test_transformers_pt_model_save_dependencies_without_accelerate"
   autologging:
     minimum: "4.25.1"
-    maximum: "4.45.2"
+    maximum: "4.46.2"
     unsupported: [
         # Avoid this patch: https://github.com/huggingface/transformers/pull/29032
         "4.38.0",
@@ -620,7 +620,7 @@ openai:
       pip install git+https://github.com/openai/openai-python
   models:
     minimum: "1.0.1"
-    maximum: "1.51.2"
+    maximum: "1.54.3"
     requirements:
       ">= 0.0.0": [
           "pyspark",
@@ -635,7 +635,7 @@ openai:
       pytest tests/openai tests/openai/test_openai_model_export.py
   autologging:
     minimum: "1.17.0"
-    maximum: "1.51.2"
+    maximum: "1.54.3"
     python:
       # OpenAI Swarm requires Python >=3.10
       ">= 1.33.0": "3.10"
@@ -663,14 +663,14 @@ dspy:
       pip install git+https://github.com/stanfordnlp/dspy.git
   models:
     minimum: "2.5.6"
-    maximum: "2.5.6"
+    maximum: "2.5.29"
     requirements:
       ">= 0.0.0": ["openai"]
     run: |
       pytest tests/dspy --ignore tests/dspy/test_dspy_autolog.py
   autologging:
     minimum: "2.5.17"
-    maximum: "2.5.17"
+    maximum: "2.5.29"
     requirements:
       ">= 0.0.0": ["openai"]
     run: |
@@ -684,7 +684,7 @@ langchain:
   models:
     # Where the large package update was made (langchain-core, community, ...)
     minimum: "0.0.354"
-    maximum: "0.3.3"
+    maximum: "0.3.7"
     requirements:
       ">= 0.0.0": [
           "pyspark",
@@ -720,18 +720,18 @@ langchain:
           "git+https://github.com/unitycatalog/unitycatalog.git#subdirectory=ai/integrations/langchain",
         ]
     run: |
-      # Run all langchain tests except autologging
-      pytest tests/langchain --ignore tests/langchain/test_langchain_autolog.py
+      # Run all langchain tests except autologging and evaluation
+      pytest tests/langchain --ignore tests/langchain/test_langchain_autolog.py --ignore tests/langchain/test_langchain_evaluation.py
       # test both pydantic v1 and v2
       PYDANTIC_VERSION=$(python -c "import pydantic; print(pydantic.__version__)")
       if [[ $PYDANTIC_VERSION == 1.* ]]; then
         pip install 'pydantic>2' 'fastapi>=0.100.0'
         echo "Testing langchain model export with pydantic v2"
-        pytest tests/langchain --ignore tests/langchain/test_langchain_autolog.py
+        pytest tests/langchain --ignore tests/langchain/test_langchain_autolog.py --ignore tests/langchain/test_langchain_evaluation.py
       fi
   autologging:
     minimum: "0.1.0"
-    maximum: "0.3.3"
+    maximum: "0.3.7"
     requirements:
       ">= 0.0.0": [
           "pyspark",
@@ -763,10 +763,13 @@ langchain:
         pytest tests/langchain/test_langchain_autolog.py
       fi
 
-      echo "Testing langchain autolog with langchain-community"
+      echo "Testing langchain autolog and evaluation with langchain-community"
       # Install with 'langchain' to ensure the compatible version is installed
       pip install langchain langchain-community
+
+      # TODO: an unexpected issue happens when autolog test and evaluation test are run together, which need investigations
       pytest tests/langchain/test_langchain_autolog.py
+      pytest tests/langchain/test_langchain_evaluation.py
 
 llama_index:
   package_info:
@@ -777,7 +780,7 @@ llama_index:
   models:
     # New event/span framework is fully implemented in 0.10.44
     minimum: "0.10.44"
-    maximum: "0.11.17"
+    maximum: "0.11.22"
     requirements:
       ">= 0.0.0": [
           "openai",
@@ -795,7 +798,7 @@ llama_index:
     run: pytest tests/llama_index --ignore tests/llama_index/test_llama_index_autolog.py --ignore tests/llama_index/test_llama_index_tracer.py
   autologging:
     minimum: "0.10.44"
-    maximum: "0.11.17"
+    maximum: "0.11.22"
     requirements:
       ">= 0.0.0": [
           "openai",
@@ -816,7 +819,7 @@ autogen:
     #  pip install git+https://github.com/microsoft/autogen#subdirectory=python/packages/autogen-agentchat
   autologging:
     minimum: "0.2.36"
-    maximum: "0.2.36"
+    maximum: "0.2.38"
     python:
       "== dev": "3.10"
     requirements:
@@ -834,7 +837,7 @@ sentence_transformers:
       pip install git+https://github.com/UKPLab/sentence-transformers#egg=sentence-transformers
   models:
     minimum: "2.2.2"
-    maximum: "3.2.0"
+    maximum: "3.3.0"
     requirements:
       ">= 0.0.0": [
           "pyspark",
@@ -852,7 +855,7 @@ johnsnowlabs:
     pip_release: "johnsnowlabs"
   models:
     minimum: "4.4.6"
-    maximum: "5.4.5"
+    maximum: "5.5.0"
     requirements:
       ">= 0.0.0": ["pandas<=1.5.3"]
       "< 5.2.8": ["pyspark<3.4"]

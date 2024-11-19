@@ -1,10 +1,8 @@
 import time
 from typing import Any
 
-from fastapi import HTTPException
-from fastapi.encoders import jsonable_encoder
-
 from mlflow.gateway.config import HuggingFaceTextGenerationInferenceConfig, RouteConfig
+from mlflow.gateway.exceptions import AIGatewayException
 from mlflow.gateway.providers.base import BaseProvider
 from mlflow.gateway.providers.utils import (
     rename_payload_keys,
@@ -35,6 +33,8 @@ class HFTextGenerationInferenceServerProvider(BaseProvider):
         )
 
     async def completions(self, payload: completions.RequestPayload) -> completions.ResponsePayload:
+        from fastapi.encoders import jsonable_encoder
+
         payload = jsonable_encoder(payload, exclude_none=True)
         self.check_for_model_field(payload)
         key_mapping = {
@@ -42,14 +42,14 @@ class HFTextGenerationInferenceServerProvider(BaseProvider):
         }
         for k1, k2 in key_mapping.items():
             if k2 in payload:
-                raise HTTPException(
+                raise AIGatewayException(
                     status_code=422, detail=f"Invalid parameter {k2}. Use {k1} instead."
                 )
 
         # HF TGI does not support generating multiple candidates.
         n = payload.pop("n", 1)
         if n != 1:
-            raise HTTPException(
+            raise AIGatewayException(
                 status_code=422,
                 detail="'n' must be '1' for the Text Generation Inference provider."
                 f"Received value: '{n}'.",
