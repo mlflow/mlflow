@@ -1116,9 +1116,12 @@ __mlflow_model__ = None
 
 
 def _validate_langchain_model(model):
-    from mlflow.langchain import _validate_and_prepare_lc_model_or_path
+    from mlflow.models.utils import _validate_and_get_model_code_path
 
-    return _validate_and_prepare_lc_model_or_path(model, None)
+    if isinstance(model, str):
+        return _validate_and_get_model_code_path(model, None)
+
+    return model
 
 
 def _validate_llama_index_model(model):
