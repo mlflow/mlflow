@@ -88,7 +88,6 @@ jobs:
           nohup mlflow ui > mlflow-tracking.log 2>&1 &
 
       - name: Run tests for UnityCatalog
-        working-directory: mlflow
         run: |
           echo "Running tests for UnityCatalog..."
           python tests/uc_oss/uc-oss-integration-test.py
