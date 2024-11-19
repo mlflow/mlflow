@@ -2,7 +2,7 @@
 sidebar_position: 5
 ---
 
-import { CardGroup, PageCard, SmallLogoCard } from "@site/src/components/Card";
+import { LogoCard, CardGroup, PageCard, SmallLogoCard } from "@site/src/components/Card";
 import { APILink } from "@site/src/components/APILink";
 
 # LLMs
@@ -212,76 +212,27 @@ Harnessing the power of LLMs becomes effortless with flavors designed specifical
 
 Select the integration below to read the documentation on how to leverage MLflow's native integration with these popular libraries:
 
-    <section>
-        <article class="simple-grid">
-            <div class="simple-card">
-                <a href="transformers/index.html">
-                    <div class="header-with-image">
-                        ![HuggingFace Logo](/images/logos/huggingface-logo.svg)
-                    </div>
-                    <p>
-                        Learn about MLflow's native integration with the Transformers 🤗 library and see example notebooks that leverage
-                        MLflow and Transformers to build Open-Source LLM powered solutions.
-                    </p>
-                </a>
-            </div>
-            <div class="simple-card">
-                <a href="openai/index.html">
-                    <div class="header-with-image">
-                        ![OpenAI Logo](/images/logos/openai-logo.png)
-                    </div>
-                    <p>
-                        Learn about MLflow's native integration with the OpenAI SDK and see example notebooks that leverage
-                        MLflow and OpenAI's advanced LLMs to build interesting and fun applications.
-                    </p>
-                </a>
-            </div>
-            <div class="simple-card">
-                <a href="sentence-transformers/index.html">
-                    <div class="header-with-image">
-                        ![Sentence Transformers Logo](/images/logos/sentence-transformers-logo.png)
-                    </div>
-                    <p>
-                        Learn about MLflow's native integration with the Sentence Transformers library and see example notebooks that leverage
-                        MLflow and Sentence Transformers to perform operations with encoded text such as semantic search, text similarity, and information retrieval.
-                    </p>
-                </a>
-            </div>
-            <div class="simple-card">
-                <a href="langchain/index.html">
-                    <div class="header-with-image">
-                        ![LangChain Logo](/images/logos/langchain-logo.png)
-                    </div>
-                    <p>
-                        Learn about MLflow's native integration with LangChain and see example notebooks that leverage
-                        MLflow and LangChain to build LLM-backed applications.
-                    </p>
-                </a>
-            </div>
-            <div class="simple-card">
-                <a href="llama-index/index.html">
-                    <div class="header-with-image">
-                        ![LlamaIndex Logo](/images/logos/llamaindex-logo.svg)
-                    </div>
-                    <p>
-                        Learn about MLflow's native integration with LlamaIndex and see example notebooks that leverage
-                        MLflow and LlamaIndex to build advanced QA systems, chatbots, and other AI-driven applications.
-                    </p>
-                </a>
-            </div>
-            <div class="simple-card">
-                <a href="dspy/index.html">
-                    <div class="header-with-image">
-                        ![DSPy Logo](/images/logos/dspy-logo.png)
-                    </div>
-                    <p>
-                        Learn about MLflow's native integration with DSPy and see example notebooks that leverage
-                        MLflow and DSPy to optimize your GenAI applications.
-                    </p>
-                </a>
-            </div>
-        </article>
-    </section>
+<CardGroup>
+  <LogoCard description="Learn about MLflow's native integration with the Transformers 🤗 library and see example notebooks that leverage MLflow and Transformers to build Open-Source LLM powered solutions." link="/transformers">
+    <span>![HuggingFace Logo](/images/logos/huggingface-logo.svg)</span>
+  </LogoCard>
+  <LogoCard description="Learn about MLflow's native integration with the OpenAI SDK and see example notebooks that leverage MLflow and OpenAI's advanced LLMs to build interesting and fun applications." link="/openai">
+    <span>![OpenAI Logo](/images/logos/openai-logo.png)</span>
+  </LogoCard>
+  <LogoCard description="Learn about MLflow's native integration with the Sentence Transformers library and see example notebooks that leverage MLflow and Sentence Transformers to perform operations with encoded text such as semantic search, text similarity, and information retrieval." link="/sentence-transformers">
+    <span>![Sentence Transformers Logo](/images/logos/sentence-transformers-logo.png)</span>
+  </LogoCard>
+  <LogoCard description="Learn about MLflow's native integration with LangChain and see example notebooks that leverage MLflow and LangChain to build LLM-backed applications." link="/langchain">
+    <span>![LangChain Logo](/images/logos/langchain-logo.png)</span>
+  </LogoCard>
+  <LogoCard description="Learn about MLflow's native integration with LlamaIndex and see example notebooks that leverage MLflow and LlamaIndex to build advanced QA systems, chatbots, and other AI-driven applications." link="/llama-index">
+    <span>![LlamaIndex Logo](/images/logos/llamaindex-logo.svg)</span>
+  </LogoCard>
+  <LogoCard description="Learn about MLflow's native integration with DSPy and see example notebooks that leverage MLflow and DSPy to optimize your GenAI applications." link="/dspy">
+    <span>![DSPy Logo](/images/logos/dspy-logo.png)</span>
+  </LogoCard>
+</CardGroup>
+<br />
 
 ## LLM Tracking in MLflow
 
