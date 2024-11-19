@@ -1,10 +1,10 @@
 import json
 import pathlib
 
-import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import pytest
+from matplotlib.figure import Figure
 
 from mlflow.exceptions import MlflowException
 from mlflow.models.evaluation.artifacts import (
@@ -38,9 +38,9 @@ class __DummyClass:
 @pytest.mark.parametrize(
     ("is_file", "artifact", "artifact_type", "ext"),
     [
-        (True, lambda path: plt.figure().savefig(path), ImageEvaluationArtifact, "png"),
-        (True, lambda path: plt.figure().savefig(path), ImageEvaluationArtifact, "jpg"),
-        (True, lambda path: plt.figure().savefig(path), ImageEvaluationArtifact, "jpeg"),
+        (True, lambda path: Figure().savefig(path), ImageEvaluationArtifact, "png"),
+        (True, lambda path: Figure().savefig(path), ImageEvaluationArtifact, "jpg"),
+        (True, lambda path: Figure().savefig(path), ImageEvaluationArtifact, "jpeg"),
         (True, __generate_dummy_json_file, JsonEvaluationArtifact, "json"),
         (True, lambda path: pathlib.Path(path).write_text("test"), TextEvaluationArtifact, "txt"),
         (
@@ -63,7 +63,7 @@ class __DummyClass:
         ),
         (False, pd.DataFrame({"test": [1, 2, 3]}), CsvEvaluationArtifact, "csv"),
         (False, np.array([1, 2, 3]), NumpyEvaluationArtifact, "npy"),
-        (False, plt.figure(), ImageEvaluationArtifact, "png"),
+        (False, Figure(), ImageEvaluationArtifact, "png"),
         (False, {"a": 1, "b": "e", "c": 1.2, "d": [1, 2]}, JsonEvaluationArtifact, "json"),
         (False, [1, 2, 3, "test"], JsonEvaluationArtifact, "json"),
         (False, '{"a": 1, "b": [1.2, 3]}', JsonEvaluationArtifact, "json"),
