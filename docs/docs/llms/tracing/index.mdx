@@ -4,6 +4,7 @@ sidebar_position: 1
 ---
 
 import { APILink } from "@site/src/components/APILink";
+import { Card, CardGroup, SmallLogoCard } from "@site/src/components/Card";
 import TOCInline from "@theme/TOCInline";
 import Tabs from "@theme/Tabs";
 import TabItem from "@theme/TabItem";
@@ -14,43 +15,29 @@ import TabItem from "@theme/TabItem";
 MLflow Tracing is currently in **Experimental Status** and is subject to change without deprecation warning or notification.
 :::
 
-<section>
-  <div class="logo-grid">
-    <a href="../langchain/autologging.html">
-      <div class="logo-card">
-        !["LangChain Logo](/images/logos/langchain-logo.png)
-      </div>
-    </a>
-    <a href="../langchain/autologging.html">
-      <div class="logo-card">
-        !["LangGraph Logo](/images/logos/langgraph-logo.png)
-      </div>
-    </a>
-    <a href="../llama-index/index.html##enable-tracing">
-      <div class="logo-card">
-        !["LlamaIndex Logo](/images/logos/llamaindex-logo.svg)
-      </div>
-    </a>
-    <a href="#automatic-tracing">
-      <div class="logo-card">!["DSPy Logo](/images/logos/dspy-logo.png)</div>
-    </a>
-    <a href="../openai/autologging.html">
-      <div class="logo-card">
-        !["OpenAI Logo](/images/logos/openai-logo.png)
-      </div>
-    </a>
-    <a href="../openai/autologging.html#auto-tracing-for-openai-swarm">
-      <div class="logo-card">
-        !["OpenAI Swarm Logo](/images/logos/openai-swarm-logo.png)
-      </div>
-    </a>
-    <a href="#automatic-tracing">
-      <div class="logo-card">
-        !["AutoGen Logo](/images/logos/autogen-logo.svg)
-      </div>
-    </a>
-  </div>
-</section>
+<CardGroup isSmall>
+  <SmallLogoCard link="/llms/langchain/autologging">
+    <span>!["LangChain Logo](/images/logos/langchain-logo.png)</span>
+  </SmallLogoCard>
+  <SmallLogoCard link="/llms/langchain/autologging">
+    <span>!["LangGraph Logo](/images/logos/langgraph-logo.png)</span>
+  </SmallLogoCard>
+  <SmallLogoCard link="/llms/llama-index#enable-tracing">
+    <span>!["LlamaIndex Logo](/images/logos/llamaindex-logo.svg)</span>
+  </SmallLogoCard>
+  <SmallLogoCard link="#automatic-tracing">
+    <span>!["DSPy Logo](/images/logos/dspy-logo.png)</span>
+  </SmallLogoCard>
+  <SmallLogoCard link="/llms/openai/autologging">
+    <span>!["OpenAI Logo](/images/logos/openai-logo.png)</span>
+  </SmallLogoCard>
+  <SmallLogoCard link="/llms/openai/autologging#auto-tracing-for-openai-swarm">
+    <span>!["OpenAI Swarm Logo](/images/logos/openai-swarm-logo.png)</span>
+  </SmallLogoCard>
+  <SmallLogoCard link="#automatic-tracing">
+    <span>!["AutoGen Logo](/images/logos/autogen-logo.svg)</span>
+  </SmallLogoCard>
+</CardGroup>
 <br />
 
 MLflow Tracing is a feature that enhances LLM observability in your Generative
