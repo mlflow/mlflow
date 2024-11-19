@@ -63,14 +63,14 @@ def _get_conda_env_name(conda_env_path, env_id=None, env_root_dir=None):
         conda_env_contents += env_id
 
     env_name = "mlflow-{}".format(
-        hashlib.sha1(conda_env_contents.encode("utf-8"), usedforsecurity=False).hexdigest()
+        hashlib.sha256(conda_env_contents.encode("utf-8"), usedforsecurity=False).hexdigest()
     )
     if env_root_dir:
         env_root_dir = os.path.normpath(env_root_dir)
         # Generate env name with format "mlflow-{conda_env_contents_hash}-{env_root_dir_hash}"
         # hashing `conda_env_contents` and `env_root_dir` separately helps debugging
         env_name += "-{}".format(
-            hashlib.sha1(env_root_dir.encode("utf-8"), usedforsecurity=False).hexdigest()
+            hashlib.sha256(env_root_dir.encode("utf-8"), usedforsecurity=False).hexdigest()
         )
 
     return env_name

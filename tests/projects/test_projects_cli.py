@@ -91,7 +91,7 @@ def test_run_local_conda_env():
     with open(os.path.join(TEST_PROJECT_DIR, "conda.yaml")) as handle:
         conda_env_contents = handle.read()
     expected_env_name = "mlflow-{}".format(
-        hashlib.sha1(conda_env_contents.encode("utf-8"), usedforsecurity=False).hexdigest()
+        hashlib.sha256(conda_env_contents.encode("utf-8")).hexdigest()
     )
     try:
         process._exec_cmd(cmd=["conda", "env", "remove", "--name", expected_env_name])

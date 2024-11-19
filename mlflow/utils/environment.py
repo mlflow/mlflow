@@ -748,7 +748,7 @@ def _get_mlflow_env_name(s):
         (e.g. "mlflow-da39a3ee5e6b4b0d3255bfef95601890afd80709")
 
     """
-    return "mlflow-" + hashlib.sha1(s.encode("utf-8"), usedforsecurity=False).hexdigest()
+    return "mlflow-" + hashlib.sha256(s.encode("utf-8")).hexdigest()
 
 
 def _get_pip_install_mlflow():

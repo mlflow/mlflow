@@ -2507,7 +2507,7 @@ Compound types:
                     model_path = os.path.join(
                         tempfile.gettempdir(),
                         "mlflow",
-                        hashlib.sha1(model_uri.encode(), usedforsecurity=False).hexdigest(),
+                        hashlib.sha256(model_uri.encode()).hexdigest(),
                         # Use pid to avoid conflict when multiple spark UDF tasks
                         str(os.getpid()),
                     )
