@@ -72,13 +72,11 @@ export const LogoCard = ({ alt, description, link, src }): JSX.Element => (
 
 export const SmallLogoCard = ({ children, link }) => (
   <Card link={link}>
-    <div style={{ height: 80, display: "flex", alignItems: "center" }}>
-      <div
-        className="max-height-img-container"
-        style={{ maxWidth: 150, maxHeight: 80 }}
-      >
-        {children}
-      </div>
+    <div
+      className="max-height-img-container"
+      style={{ maxWidth: 150, maxHeight: 80, justifyContent: "center" }}
+    >
+      {children}
     </div>
   </Card>
 );
