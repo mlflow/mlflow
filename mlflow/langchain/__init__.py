@@ -16,7 +16,6 @@ import contextlib
 import functools
 import importlib
 import inspect
-import json
 import logging
 import os
 import tempfile
@@ -47,6 +46,7 @@ from mlflow.langchain.utils import (
 from mlflow.models import Model, ModelInputExample, ModelSignature, get_model_info
 from mlflow.models.dependencies_schemas import (
     _clear_dependencies_schemas,
+    _get_dependencies_schema_from_model,
     _get_dependencies_schemas,
 )
 from mlflow.models.model import MLMODEL_FILE_NAME, MODEL_CODE_PATH, MODEL_CONFIG
@@ -709,14 +709,8 @@ class _LangChainModelWrapper:
         ):
             model = Model.load(self.model_path)
             context = tracer._prediction_context
-            if model.metadata and context:
-                dependencies_schemas = model.metadata.get("dependencies_schemas", {})
-                context.update(
-                    dependencies_schemas={
-                        dependency: json.dumps(schema)
-                        for dependency, schema in dependencies_schemas.items()
-                    }
-                )
+            if schema := _get_dependencies_schema_from_model(model):
+                context.update(**schema)
 
     @experimental
     def _predict_with_callbacks(

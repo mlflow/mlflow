@@ -15,6 +15,7 @@ import sys
 import time
 import urllib.error
 import urllib.request
+from datetime import datetime
 from pathlib import Path
 
 import yaml
@@ -29,6 +30,12 @@ def read_file(path):
 def save_file(src, path):
     with open(path, "w") as f:
         f.write(src)
+
+
+def uploaded_recently(dist) -> bool:
+    if ut := dist.get("upload_time"):
+        return (datetime.now() - datetime.fromisoformat(ut)).days < 1
+    return False
 
 
 def get_package_versions(package_name):
@@ -52,7 +59,11 @@ def get_package_versions(package_name):
     return [
         version
         for version, dist_files in data["releases"].items()
-        if len(dist_files) > 0 and not is_dev_or_pre_release(version)
+        if (
+            len(dist_files) > 0
+            and not is_dev_or_pre_release(version)
+            and not any(uploaded_recently(dist) for dist in dist_files)
+        )
     ]
 
 
@@ -148,15 +159,14 @@ def update_ml_package_versions_py(config_path):
                         "maximum": max_version,
                     },
                 }
-                if module_name:
-                    config[name]["package_info"]["module_name"] = module_name
             else:
                 config[name] = {
                     "package_info": {
                         "pip_release": pip_release,
                     }
                 }
-
+            if module_name:
+                config[name]["package_info"]["module_name"] = module_name
             min_version = extract_field(cfg, ("autologging", "minimum"))
             max_version = extract_field(cfg, ("autologging", "maximum"))
             if (pip_release, min_version, max_version).count(None) > 0:

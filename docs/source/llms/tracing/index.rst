@@ -4,9 +4,6 @@
 Introduction to MLflow Tracing
 ==============================
 
-.. note::
-    MLflow Tracing is currently in **Experimental Status** and is subject to change without deprecation warning or notification. 
-
 .. raw:: html
 
     <section>
@@ -44,6 +41,16 @@ Introduction to MLflow Tracing
             <a href="#automatic-tracing">
                 <div class="logo-card">
                     <img src="../../_static/images/logos/autogen-logo.svg" alt="AutoGen Logo"/>
+                </div>
+            </a>
+            <a href="#automatic-tracing">
+                <div class="logo-card">
+                    <img src="../../_static/images/logos/google-gemini-logo.svg" alt="Gemini Logo"/>
+                </div>
+            </a>
+            <a href="#automatic-tracing">
+                <div class="logo-card">
+                    <img src="../../_static/images/logos/litellm-logo.jpg" alt="LiteLLM Logo"/>
                 </div>
             </a>
     </section>
@@ -188,7 +195,7 @@ for model/API invocations to the active MLflow Experiment.
 
         |
 
-        The MLflow OpenAI flavor's autologging feature has a direct integration with MLflow tracing. When OpenAI autologging is enabled with :py:func:`mlflow.openai.autolog`, 
+        The `MLflow OpenAI flavor <../openai/index.html>`_'s autologging feature has a direct integration with MLflow tracing. When OpenAI autologging is enabled with :py:func:`mlflow.openai.autolog`, 
         usage of the OpenAI SDK will automatically record generated traces during interactive development. 
 
         .. code-block:: python
@@ -245,7 +252,7 @@ for model/API invocations to the active MLflow Experiment.
 
         |
 
-        The MLflow OpenAI flavor supports automatic tracing for `Swarm <https://github.com/openai/swarm>`_, a multi-agent orchestration
+        The `MLflow OpenAI flavor <../openai/index.html>`_ supports automatic tracing for `Swarm <https://github.com/openai/swarm>`_, a multi-agent orchestration
         framework from OpenAI. To enable tracing for **Swarm**, just call :py:func:`mlflow.openai.autolog`
         before running your multi-agent interactions. MLflow will trace all LLM interactions,
         tool calls, and agent operations automatically.
@@ -308,7 +315,7 @@ for model/API invocations to the active MLflow Experiment.
 
         |
 
-        The MLflow LlamaIndex flavor's autologging feature has a direct integration with MLflow tracing. When LlamaIndex autologging is enabled with :py:func:`mlflow.llama_index.autolog`, invocation of components
+        The `MLflow LlamaIndex flavor <../llama-index/index.html>`_'s autologging feature has a direct integration with MLflow tracing. When LlamaIndex autologging is enabled with :py:func:`mlflow.llama_index.autolog`, invocation of components
         such as LLMs, agents, and query/chat engines will automatically record generated traces during interactive development.
 
         .. code-block:: python
@@ -333,7 +340,7 @@ for model/API invocations to the active MLflow Experiment.
 
         |
 
-        The MLflow DSPy flavor's autologging feature has a direct integration with MLflow tracing. When DSPy autologging is enabled with :py:func:`mlflow.dspy.autolog`, invocation of components
+        The `MLflow DSPy flavor <../dspy/index.html>`_'s autologging feature has a direct integration with MLflow tracing. When DSPy autologging is enabled with :py:func:`mlflow.dspy.autolog`, invocation of components
         such as LMs, Adapters and Modules, will automatically record generated traces during interactive development.
 
         .. code-block:: python
@@ -405,6 +412,61 @@ for model/API invocations to the active MLflow Experiment.
 
         .. figure:: ../../_static/images/llms/autogen/autogen-trace.png
             :alt: AutoGen Tracing
+            :width: 100%
+            :align: center
+
+    .. tab:: Gemini
+
+        .. raw:: html
+
+            <h3>Gemini Automatic Tracing</h3>
+
+        |
+
+        MLflow Tracing ensures observability for your interactions with Gemini AI models.
+        When Gemini autologging is enabled with :py:func:`mlflow.gemini.autolog`, 
+        usage of the Gemini SDK will automatically record generated traces during interactive development.
+        Note that only synchronous calls for text interactions are supported. Asynchronous API is not traced, and full inputs cannnot be recorded for multi-modal inputs.
+
+
+        .. code-block:: python
+
+            import mlflow
+
+            mlflow.gemini.autolog()
+
+        To see the full example of tracing Gemini, please refer to the `Gemini Tracing example <https://github.com/mlflow/mlflow/tree/master/examples/gemini/tracing.py>`_.
+
+        .. figure:: ../../_static/images/llms/gemini/gemini-tracing.png
+            :alt: Gemini Tracing
+            :width: 100%
+            :align: center
+
+
+    .. tab:: LiteLLM
+
+        .. raw:: html
+
+            <h3>LiteLLM Automatic Tracing</h3>
+
+        |
+
+        LiteLLM allows developers to call all LLM APIs using the OpenAI format. MLflow support auto-tracing for LiteLLM. You can enable it by calling :py:func:`mlflow.litellm.autolog`, then any LLM interactions via LiteLLM will be recorded to the active MLflow Experiment, including various metadata such as token usage, cost, cache hit, and more.
+
+        .. code-block:: python
+
+            import mlflow
+
+            mlflow.litellm.autolog()
+
+            # Call Anthropic API via LiteLLM
+            response = litellm.completion(
+                model="claude-3-opus-20240229",
+                messages=[{"role": "system", "content": "Hey! how's it going?"}],
+            )
+
+        .. figure:: ../../_static/images/llms/litellm/litellm-tracing.png
+            :alt: LiteLLM Tracing
             :width: 100%
             :align: center
 
