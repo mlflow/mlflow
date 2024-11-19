@@ -89,7 +89,6 @@ except Exception as e:
 # COMMAND ----------
 
 path = os.path.join("/tmp", "models", model_name, str(model_version))
-print(path)
 
 try:
     # download_artifacts will use the UC OSS model URI and make REST API calls
@@ -101,7 +100,11 @@ try:
     artifact_uri=f"models:/{model_name}/{model_version}",
     dst_path=path,
     )
-    os.system(f"cat {path}/requirements.txt")
+    requirements_path = f"{path}/requirements.txt"
+    assert os.path.exists(requirements_path), f"File {requirements_path} does not exist."
+    with open(requirements_path, 'r') as file:
+        lines = file.readlines()
+    assert len(lines) == 9
     pass
 except Exception as e:
     assert False
@@ -129,8 +132,9 @@ assert model_v1_2.version == 1
 assert model_v1_2.description == mv_desc
 
 rms = mlflow.MlflowClient().search_registered_models()
+print(f"rms len = {len(rms)}\n")
 total_rms = len(rms)
-assert len(rms) > 1
+assert total_rms > 1
 mvs = mlflow.MlflowClient().search_model_versions(f"name='{model_name}'")
 assert len(mvs) == 1
 mlflow.MlflowClient().delete_model_version(name=model_name, version=1)
