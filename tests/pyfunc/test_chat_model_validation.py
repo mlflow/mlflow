@@ -209,7 +209,7 @@ def test_to_dict_excludes_nones():
 def test_chat_response_defaults():
     tokens = TokenUsageStats()
     message = ChatMessage("user", "Hello")
-    choice = ChatChoice(0, message)
+    choice = ChatChoice(message)
     response = ChatCompletionResponse([choice], tokens)
 
     assert response.usage.prompt_tokens is None
