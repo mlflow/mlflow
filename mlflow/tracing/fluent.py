@@ -571,6 +571,34 @@ def get_last_active_trace() -> Optional[Trace]:
 
 
 @experimental
+def update_current_trace(
+    tags: Optional[dict[str, str]] = None,
+):
+    """
+    Update the current active trace with the given tags.
+
+    .. code-block:: python
+
+        # TODO: add example of updating trace with fluent API
+    """
+    active_span = get_current_active_span()
+
+    if not active_span:
+        raise MlflowException(
+            "No active trace found. Please create a span using `mlflow.start_span` or "
+            "`@mlflow.trace` before calling this function.",
+            error_code=BAD_REQUEST,
+        )
+
+    # Update tags for the trace stored in-memory rather than directly updating the
+    # backend store. The in-memory trace will be exported when it is ended. By doing
+    # this, we can avoid unnecessary server requests for each tag update.
+    request_id = active_span.request_id
+    with InMemoryTraceManager.get_instance().get_trace(request_id) as trace:
+        trace.info.tags.update(tags or {})
+
+
+@experimental
 def add_trace(trace: Union[Trace, dict[str, Any]], target: Optional[LiveSpan] = None):
     """
     Add a completed trace object into another trace.
