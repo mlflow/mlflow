@@ -116,3 +116,16 @@
     }
   }
 }
+
+.SmallLogoCardContent {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.SmallLogoCardImage {
+  max-width: 150px;
+  max-height: 80px;
+  justify-content: center;
+}
