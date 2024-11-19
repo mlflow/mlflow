@@ -63,10 +63,12 @@ export const PageCard = ({ headerText, link, text }): JSX.Element => (
   </Card>
 );
 
-export const LogoCard = ({ alt, description, link, src }): JSX.Element => (
+export const LogoCard = ({ description, children, link }): JSX.Element => (
   <Card link={link}>
-    <img src={src} alt={alt} />
-    <p className={styles.TextColor}>{description}</p>
+    <div className={styles.LogoCardContent}>
+      <div className={styles.LogoCardImage}>{children}</div>
+      <p className={styles.TextColor}>{description}</p>
+    </div>
   </Card>
 );
 
