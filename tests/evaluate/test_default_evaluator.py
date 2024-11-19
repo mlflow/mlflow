@@ -9,10 +9,10 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest import mock
 
-import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import pytest
+from matplotlib.figure import Figure
 from PIL import Image, ImageChops
 from pyspark.ml.linalg import Vectors
 from pyspark.sql import SparkSession
@@ -1521,10 +1521,10 @@ def test_custom_metric_logs_artifacts_from_paths(
 
         # images
         for ext in img_formats:
-            fig = plt.figure(figsize=(fig_x, fig_y), dpi=fig_dpi)
-            plt.plot([1, 2, 3])
+            fig = Figure(figsize=(fig_x, fig_y), dpi=fig_dpi)
+            ax = fig.subplots()
+            ax.plot([1, 2, 3])
             fig.savefig(path_join(tmp_path, f"test.{ext}"), format=ext)
-            plt.clf()
             example_artifacts[f"test_{ext}_artifact"] = path_join(tmp_path, f"test.{ext}")
 
         # json
@@ -1566,10 +1566,10 @@ def test_custom_metric_logs_artifacts_from_paths(
             assert f"test_{img_ext}_artifact.{img_ext}" in artifacts
             assert isinstance(result.artifacts[f"test_{img_ext}_artifact"], ImageEvaluationArtifact)
 
-            fig = plt.figure(figsize=(fig_x, fig_y), dpi=fig_dpi)
-            plt.plot([1, 2, 3])
+            fig = Figure(figsize=(fig_x, fig_y), dpi=fig_dpi)
+            ax = fig.subplots()
+            ax.plot([1, 2, 3])
             fig.savefig(path_join(tmp_dir, f"test.{img_ext}"), format=img_ext)
-            plt.clf()
 
             saved_img = Image.open(path_join(tmp_dir, f"test.{img_ext}"))
             result_img = result.artifacts[f"test_{img_ext}_artifact"].content
@@ -1624,8 +1624,9 @@ class _ExampleToBePickledObject:
 def test_custom_metric_logs_artifacts_from_objects(
     binary_logistic_regressor_model_uri, breast_cancer_dataset
 ):
-    fig = plt.figure()
-    plt.plot([1, 2, 3])
+    fig = Figure()
+    ax = fig.subplots()
+    ax.plot([1, 2, 3])
     buf = io.BytesIO()
     fig.savefig(buf)
     buf.seek(0)
