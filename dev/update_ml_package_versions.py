@@ -15,6 +15,7 @@ import sys
 import time
 import urllib.error
 import urllib.request
+from datetime import datetime
 from pathlib import Path
 
 import yaml
@@ -29,6 +30,12 @@ def read_file(path):
 def save_file(src, path):
     with open(path, "w") as f:
         f.write(src)
+
+
+def uploaded_recently(dist) -> bool:
+    if ut := dist.get("upload_time"):
+        return (datetime.now() - datetime.fromisoformat(ut)).days < 1
+    return False
 
 
 def get_package_versions(package_name):
@@ -52,7 +59,11 @@ def get_package_versions(package_name):
     return [
         version
         for version, dist_files in data["releases"].items()
-        if len(dist_files) > 0 and not is_dev_or_pre_release(version)
+        if (
+            len(dist_files) > 0
+            and not is_dev_or_pre_release(version)
+            and not any(uploaded_recently(dist) for dist in dist_files)
+        )
     ]
 
 
