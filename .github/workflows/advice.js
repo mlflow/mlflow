@@ -29,14 +29,9 @@ module.exports = async ({ context, github }) => {
   const { user, body } = context.payload.pull_request;
   const messages = [];
 
-  const title = "&#x1F6E0 DevTools &#x1F6E0";
-  if (body && !body.includes(title)) {
-    const codespacesBadge = `[![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/${user.login}/mlflow/pull/${issue_number}?quickstart=1)`;
-    const newSection = `
-<details><summary>${title}</summary>
+  const devtools = `
+<details><summary>&#x1F6E0 DevTools &#x1F6E0</summary>
 <p>
-
-${codespacesBadge}
 
 #### Install mlflow from this PR
 
@@ -44,22 +39,39 @@ ${codespacesBadge}
 pip install git+https://github.com/mlflow/mlflow.git@refs/pull/${issue_number}/merge
 \`\`\`
 
-#### Checkout with GitHub CLI
+#### Fast install for Databricks
 
 \`\`\`
-gh pr checkout ${issue_number}
+%sh
+
+TEMP_DIR=$(mktemp -d)
+git clone --filter=blob:none --no-checkout https://github.com/mlflow/mlflow.git $TEMP_DIR \
+    && cd $TEMP_DIR \
+    && git config advice.detachedHead false \
+    && git sparse-checkout set mlflow pyproject.skinny.toml \
+    && git fetch origin refs/pull/${issue_number}/merge \
+    && git checkout FETCH_HEAD \
+    && cat pyproject.skinny.toml > pyproject.toml \
+    && pip install --no-build-isolation '.[databricks]' \
+    && rm -rf $TEMP_DIR
 \`\`\`
 
 </p>
 </details>
 `.trim();
-    await github.rest.pulls.update({
-      owner,
-      repo,
-      pull_number: issue_number,
-      body: `${newSection}\n\n${body}`,
-    });
-  }
+  await github.rest.issues.createComment({
+    owner,
+    repo,
+    issue_number,
+    body: devtools,
+  });
+
+  await github.rest.pulls.update({
+    owner,
+    repo,
+    pull_number: issue_number,
+    body: `${newSection}\n\n${body}`,
+  });
 
   const dcoCheck = await getDcoCheck(github, owner, repo, sha);
   if (dcoCheck && dcoCheck.conclusion !== "success") {
