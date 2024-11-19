@@ -717,9 +717,12 @@ class AnyType:
     def _merge(self, another_type: BaseType) -> BaseType:
         if self == another_type:
             return deepcopy(self)
+        if isinstance(another_type, DataType):
+            return another_type
         if not isinstance(another_type, BaseType):
             raise MlflowException(
-                f"Can't merge AnyType with {type(another_type).__name__}, it must be a BaseType"
+                f"Can't merge AnyType with {type(another_type).__name__}, "
+                "it must be a BaseType or DataType"
             )
         # Merging AnyType with another type makes the other type optional
         return another_type._merge(self)
