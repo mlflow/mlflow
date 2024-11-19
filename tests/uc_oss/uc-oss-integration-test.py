@@ -132,9 +132,7 @@ assert model_v1_2.version == 1
 assert model_v1_2.description == mv_desc
 
 rms = mlflow.MlflowClient().search_registered_models()
-print(f"rms len = {len(rms)}\n")
-total_rms = len(rms)
-assert total_rms > 1
+assert len(rms) == 1
 mvs = mlflow.MlflowClient().search_model_versions(f"name='{model_name}'")
 assert len(mvs) == 1
 mlflow.MlflowClient().delete_model_version(name=model_name, version=1)
@@ -142,6 +140,7 @@ mvs = mlflow.MlflowClient().search_model_versions(f"name='{model_name}'")
 assert len(mvs) == 0
 mlflow.MlflowClient().delete_registered_model(name=model_name)
 rms = mlflow.MlflowClient().search_registered_models()
+assert len(rms) == 0
 try:
     mlflow.MlflowClient().get_registered_model(model_name)
 except Exception as e:
