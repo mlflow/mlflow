@@ -46,9 +46,9 @@ def custom_artifact(eval_df, builtin_metrics, _artifacts_dir):
     example_image = Figure()
     ax = example_image.subplots()
     ax.scatter(eval_df["prediction"], eval_df["target"])
-    ax.xlabel("Targets")
-    ax.ylabel("Predictions")
-    ax.title("Targets vs. Predictions")
+    ax.set_xlabel("Targets")
+    ax.set_ylabel("Predictions")
+    ax.set_title("Targets vs. Predictions")
     example_custom_class = ExampleClass(10)
 
     return {
