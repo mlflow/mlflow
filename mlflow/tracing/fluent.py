@@ -577,9 +577,26 @@ def update_current_trace(
     """
     Update the current active trace with the given tags.
 
+    You can use this function either within a function decorated with `@mlflow.trace` or the scope
+    of the `with mlflow.start_span` context manager. If there is no active trace found, this
+    function will raise an exception.
+
+    Using within a function decorated with `@mlflow.trace`:
+
     .. code-block:: python
 
-        # TODO: add example of updating trace with fluent API
+        @mlflow.trace
+        def my_func(x):
+            mlflow.update_current_trace(tags={"fruit": "apple"})
+            return x + 1
+
+    Using within the `with mlflow.start_span` context manager:
+
+    .. code-block:: python
+
+        with mlflow.start_span("span"):
+            mlflow.update_current_trace(tags={"fruit": "apple"})
+
     """
     active_span = get_current_active_span()
 

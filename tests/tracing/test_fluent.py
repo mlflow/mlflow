@@ -1145,7 +1145,7 @@ def test_update_current_trace():
 
     @mlflow.trace
     def g(y):
-        with mlflow.start_span() as span:
+        with mlflow.start_span():
             mlflow.update_current_trace(tags={"fruit": "orange", "vegetable": "carrot"})
             return y * 2
 
