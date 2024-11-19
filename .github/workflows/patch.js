@@ -1,10 +1,16 @@
 module.exports = async ({ context, github, core }) => {
-  const { body, base } = context.payload.pull_request;
   const { owner, repo } = context.repo;
-
+  const { base, number: pull_number } = context.payload.pull_request;
   if (base.ref.match(/^branch-\d+\.\d+$/)) {
     return;
   }
+
+  const pr = await github.rest.pulls.get({
+    owner,
+    repo,
+    pull_number,
+  });
+  const { body } = pr.data;
 
   // Skip running this check on CD automation PRs
   if (!body) {
