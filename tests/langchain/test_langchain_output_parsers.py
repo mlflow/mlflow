@@ -1,4 +1,10 @@
-from mlflow.langchain.output_parsers import ChatCompletionsOutputParser, StringResponseOutputParser
+from mlflow.langchain.output_parsers import (
+    ChatCompletionOutputParser,
+    ChatCompletionsOutputParser,
+    StringResponseOutputParser,
+)
+from langchain_core.runnables.config import RunnableConfig
+from langchain_core.messages.base import BaseMessage
 
 
 def test_chatcompletions_output_parser_parse_response():
@@ -6,6 +12,8 @@ def test_chatcompletions_output_parser_parse_response():
     message = "The weather today is"
 
     parsed_response = parser.parse(message)
+    print("AAAAAAAA")
+    print(parsed_response)
     assert parsed_response == {
         "choices": [
             {
@@ -24,3 +32,45 @@ def test_chatcompletions_output_parser_is_lc_serializable():
 
     parsed_response = parser.parse(message)
     assert parsed_response == {"content": "The weather today is"}
+
+
+def test_chatcompletion_output_parser_parse_response():
+    parser = ChatCompletionOutputParser()
+    message = "The weather today is"
+
+    parsed_response = parser.parse(message)
+    assert isinstance(parsed_response["created"], int)
+    del parsed_response["created"]
+
+    assert parsed_response == {
+        "choices": [
+            {
+                "finish_reason": "stop",
+                "index": 0,
+                "message": {
+                    "content": "The weather today is",
+                    "role": "assistant",
+                },
+            }
+        ],
+        "object": "chat.completion",
+    }
+
+    streaming_messages = ["The ", "weather ", "today ", "is"]
+    base_messages = map(lambda m: BaseMessage(content=m, type="test"), streaming_messages)
+    streaming_chunks = parser.transform(base_messages, RunnableConfig())
+    for i, chunk in enumerate(streaming_chunks):
+        assert isinstance(chunk["created"], int)
+        del chunk["created"]
+        assert chunk == {
+            "choices": [
+                {
+                    "delta": {
+                        "content": streaming_messages[i],
+                        "role": "assistant",
+                    },
+                    "index": 0,
+                }
+            ],
+            "object": "chat.completion.chunk",
+        }
