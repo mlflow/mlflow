@@ -17,7 +17,7 @@ export const Card = ({ children, link }): JSX.Element => (
     className={clsx(styles.Link, styles.Card, styles.CardBordered)}
     href={link}
   >
-    <div>{children}</div>
+    <div style={{ display: "flex" }}>{children}</div>
   </a>
 );
 
@@ -70,10 +70,15 @@ export const LogoCard = ({ alt, description, link, src }): JSX.Element => (
   </Card>
 );
 
-export const SmallLogoCard = ({ alt, link, src }) => (
+export const SmallLogoCard = ({ children, link }) => (
   <Card link={link}>
     <div style={{ height: 80, display: "flex", alignItems: "center" }}>
-      <img alt={alt} src={src} style={{ maxWidth: 150, maxHeight: 80 }} />
+      <div
+        className="max-height-img-container"
+        style={{ maxWidth: 150, maxHeight: 80 }}
+      >
+        {children}
+      </div>
     </div>
   </Card>
 );
