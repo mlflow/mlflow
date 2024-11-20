@@ -330,7 +330,8 @@ This is useful when you load the pretrained model from HuggingFace Hub and want 
 it to MLflow without modifying the model weights. In such case, specifying this flag to
 ``False`` will save the storage space and reduce time to save the model. Please refer to the
 `Storage-Efficient Model Logging
-<../../llms/transformers/large-models.html#transformers-save-pretrained-guide>`_ for more detailed usage.
+<../../llms/transformers/large-models.html#transformers-save-pretrained-guide>`_ for more detailed
+usage.
 
 
 .. warning::
