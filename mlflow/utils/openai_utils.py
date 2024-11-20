@@ -90,14 +90,6 @@ class _OAITokenHolder:
     def token(self):
         return self._api_token_env or self._azure_ad_token.token
 
-    def auth_headers(self):
-        if self._api_type == "azure":
-            # For Azure OpenAI API keys, the `api-key` header must be used:
-            # https://learn.microsoft.com/en-us/azure/ai-services/openai/reference#authentication
-            return {"api-key": self.token}
-        else:
-            return {"Authorization": f"Bearer {self.token}"}
-
     def refresh(self, logger=None):
         """Validates the token or API key configured for accessing the OpenAI resource."""
 
@@ -138,8 +130,9 @@ class _OpenAIApiConfig(NamedTuple):
     max_tokens_per_minute: int
     api_version: Optional[str]
     api_base: str
-    engine: Optional[str]
     deployment_id: Optional[str]
+    max_retries: int = 5
+    timeout: float = 60.0
 
 
 # See https://github.com/openai/openai-python/blob/cf03fe16a92cd01f2a8867537399c12e183ba58e/openai/__init__.py#L30-L38
