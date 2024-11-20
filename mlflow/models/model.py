@@ -1125,7 +1125,8 @@ def _validate_langchain_model(model):
 
     if not isinstance(model, Runnable):
         raise MlflowException.invalid_parameter_value(
-            "Model must be a Langchain Runnable type or path to a Langchain model."
+            "Model must be a Langchain Runnable type or path to a Langchain model, "
+            f"got {type(model)}"
         )
 
     return model
