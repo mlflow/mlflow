@@ -108,19 +108,20 @@ def patched_inference(func_name, original, self, *args, **kwargs):
         args, kwargs = _get_args_with_mlflow_tracer(tracer, func_name, args, kwargs)
 
     # Traces does not require an MLflow run, only the other optional artifacts require it.
-    if not IS_PATCHING_DISABLED_FOR_ARTIFACTS and config.should_log_optional_artifacts():
-        with _setup_autolog_run(config, self) as run_id:
+    try:
+        if not IS_PATCHING_DISABLED_FOR_ARTIFACTS and config.should_log_optional_artifacts():
+            with _setup_autolog_run(config, self) as run_id:
+                result = _invoke(self, *args, **kwargs)
+                _log_optional_artifacts(config, run_id, result, self, func_name, *args, **kwargs)
+        else:
             result = _invoke(self, *args, **kwargs)
-            _log_optional_artifacts(config, run_id, result, self, func_name, *args, **kwargs)
-    else:
-        result = _invoke(self, *args, **kwargs)
-
-    if should_trace:
-        # Make sure all spans are flushed before finishing the inference. LangChain's on_xyz_end
-        # callbacks are not guaranteed to be invoked always, which results in leaking the active
-        # span context to the next inference call. Flushing the tracer ensures that all spans are
-        # finished and detached from the context.
-        tracer.flush()
+    finally:
+        if should_trace:
+            # Make sure all spans are flushed before finishing the inference. LangChain's on_xyz_end
+            # callbacks are not guaranteed to be invoked always, which results in leaking the active
+            # span context to the next inference call. Flushing the tracer ensures that all spans are
+            # finished and detached from the context.
+            tracer.flush()
 
     return result
 
