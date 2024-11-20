@@ -1321,3 +1321,13 @@ be as follows:
     pprint(traces["trace"][0].data.spans[0].to_dict(), indent=1)
 
 The stdout values that will be rendered from this call are identical to those from the example span data above. 
+
+
+Q: I cannot open my trace in the MLflow UI. What should I do?
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+There are multiple possible reasons why a trace may not be viewable in the MLflow UI.
+
+1. **The trace is not completed yet**: If the trace is still being collected, MLflow cannot display spans in the UI. Ensure that all spans are properly ended with either "OK" or "ERROR" status.
+
+2. **The browser cache is outdated**: When you upgrade MLflow to a new version, the browser cache may contain outdated data and prevent the UI from displaying traces correctly. Clear your browser cache (Shift+F5) and refresh the page.
