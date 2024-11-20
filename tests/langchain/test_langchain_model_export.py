@@ -25,6 +25,9 @@ from langchain.chains.base import Chain
 from langchain.chains.qa_with_sources import load_qa_with_sources_chain
 from langchain.evaluation.qa import QAEvalChain
 
+from mlflow.environment_variables import (
+    MLFLOW_CONVERT_MESSAGES_DICT_FOR_LANGCHAIN,
+)
 from mlflow.tracing.export.inference_table import pop_trace
 from mlflow.tracing.provider import reset_tracer_setup
 
@@ -76,7 +79,10 @@ from mlflow.langchain.utils import (
     IS_PICKLE_SERIALIZATION_RESTRICTED,
     lc_runnables_types,
 )
-from mlflow.langchain.utils.chat import try_transform_response_to_chat_format
+from mlflow.langchain.utils.chat import (
+    transform_request_json_for_chat_if_necessary,
+    try_transform_response_to_chat_format,
+)
 from mlflow.models import Model
 from mlflow.models.dependencies_schemas import DependenciesSchemasType
 from mlflow.models.resources import (
@@ -3599,3 +3605,86 @@ def test_custom_resources(chain_model_signature, tmp_path):
         model_path = _download_artifact_from_uri(model_uri)
         reloaded_model = Model.load(os.path.join(model_path, "MLmodel"))
         assert reloaded_model.resources == expected_resources
+
+
+def chain_accepts_list_messages():
+    prompt = ChatPromptTemplate.from_messages(
+        [
+            ("system", "You are a chatbot that can answer questions about Databricks."),
+            ("user", "{question}"),
+        ]
+    )
+    fake_chat_model = get_fake_chat_model()
+    return prompt | fake_chat_model | StrOutputParser()
+
+
+@pytest.mark.skipif(
+    Version(langchain.__version__) < Version("0.1.20"), reason="feature not existing"
+)
+@pytest.mark.parametrize(
+    ("model", "should_convert", "input_example", "needs_env_var"),
+    [
+        (
+            chain_accepts_list_messages(),
+            True,
+            {"messages": [{"role": "user", "content": "Hello"}]},
+            False,
+        ),
+        (
+            # This model is an example when the model expects a chat request
+            # format input, but the input should not be converted to List[BaseMessage]
+            RunnablePassthrough.assign(problem=lambda x: x["messages"][-1]["content"])
+            | itemgetter("problem"),
+            False,
+            {
+                "messages": [
+                    {
+                        "role": "user",
+                        "content": "Databricks",
+                    }
+                ]
+            },
+            True,
+        ),
+    ],
+)
+def test_pyfunc_converts_chat_request_correctly(
+    model, should_convert, input_example, needs_env_var, monkeypatch
+):
+    request = (
+        transform_request_json_for_chat_if_necessary(model, input_example)
+        if should_convert
+        else input_example
+    )
+    assert model.invoke(request) == "Databricks"
+
+    if needs_env_var:
+        monkeypatch.setenv(
+            MLFLOW_CONVERT_MESSAGES_DICT_FOR_LANGCHAIN.name,
+            str(should_convert),
+        )
+    # pyfunc model can accepts chat request format even the chain
+    # itself does not accept it, but we need to use the correct
+    # input example to infer model signature
+    with mlflow.start_run():
+        model_info = mlflow.langchain.log_model(
+            model,
+            "model",
+            input_example=input_example,
+        )
+    pyfunc_model = mlflow.pyfunc.load_model(model_info.model_uri)
+    result = pyfunc_model.predict(input_example)
+    if should_convert:
+        # output are converted to chatResponse format if input is converted
+        assert result[0]["choices"][0]["message"]["content"] == "Databricks"
+    else:
+        assert result == ["Databricks"]
+
+    # Test stream output
+    response = pyfunc_model.predict_stream(input_example)
+    if should_convert:
+        assert isinstance(response, map)
+        assert list(response)[0]["choices"][0]["delta"]["content"] == "Databricks"
+    else:
+        assert inspect.isgenerator(response)
+        assert list(response) == ["Databricks"], list(response)
