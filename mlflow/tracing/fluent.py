@@ -54,7 +54,6 @@ TRACE_BUFFER = TTLCache(
 )
 
 
-@experimental
 def trace(
     func: Optional[Callable] = None,
     name: Optional[str] = None,
@@ -180,7 +179,6 @@ def trace(
     return decorator(func) if func else decorator
 
 
-@experimental
 @contextlib.contextmanager
 def start_span(
     name: str = "span",
@@ -283,7 +281,6 @@ def start_span(
             )
 
 
-@experimental
 def get_trace(request_id: str) -> Optional[Trace]:
     """
     Get a trace by the given request ID if it exists.
@@ -327,7 +324,6 @@ def get_trace(request_id: str) -> Optional[Trace]:
         return None
 
 
-@experimental
 def search_traces(
     experiment_ids: Optional[list[str]] = None,
     filter_string: Optional[str] = None,
@@ -476,7 +472,6 @@ def search_traces(
     return traces_df
 
 
-@experimental
 def get_current_active_span() -> Optional[LiveSpan]:
     """
     Get the current active span in the global context.
@@ -516,7 +511,6 @@ def get_current_active_span() -> Optional[LiveSpan]:
     return trace_manager.get_span_from_id(request_id, encode_span_id(otel_span.context.span_id))
 
 
-@experimental
 def get_last_active_trace() -> Optional[Trace]:
     """
     Get the last active trace in the same process if exists.
