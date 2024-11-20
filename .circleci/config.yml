@@ -70,6 +70,11 @@ jobs:
           command: |
             python dev/show_package_release_dates.py
       - run:
+          name: Build API documentation
+          working_directory: docs/api_reference
+          command: |
+            make rsthtml
+      - run:
           name: Build documentation
           working_directory: docs
           command: |
