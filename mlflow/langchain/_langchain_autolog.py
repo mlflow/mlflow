@@ -91,7 +91,7 @@ def patched_inference(func_name, original, self, *args, **kwargs):
     if should_trace:
         tracer = MlflowLangchainTracer(
             # NB: RunnableSequence's batch() and abatch() methods are implemented in a peculiar way
-            # that iterate on steps->items sequentially within the same thread. For example, if a
+            # that iterates on steps->items sequentially within the same thread. For example, if a
             # sequence has 2 steps and the batch size is 3, the execution flow will be:
             #  - Step 1 for item 1
             #  - Step 1 for item 2

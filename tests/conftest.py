@@ -6,6 +6,7 @@ import uuid
 from unittest import mock
 
 import pytest
+from opentelemetry import trace as trace_api
 
 import mlflow
 from mlflow.tracing.display.display_handler import IPythonTraceDisplayHandler
@@ -64,13 +65,30 @@ def reset_tracing():
     IPythonTraceDisplayHandler._instance = None
 
 
+def _is_span_active():
+    span = trace_api.get_current_span()
+    return (span is not None) and not isinstance(span, trace_api.NonRecordingSpan)
+
+
 @pytest.fixture(autouse=True)
 def validate_trace_finish():
+    """
+    Validate all spans are finished and detached from the context by the end of the each test.
+
+    Leaked span is critical problem and also hard to find without an explicit check.
+    """
+    # When the span is leaked, it causes confusing test failure in the subsequent tests. To avoid
+    # this and make the test failure more clear, we fail first here.
+    if _is_span_active():
+        pytest.skip(reason="A leaked active span is found before starting the test.")
+
     yield
 
-    # Validate all spans are finished by the end of the each test.
-    # Leaked span is critical problem and also hard to find without an explicit check.
-    assert mlflow.get_current_active_span() is None
+    assert not _is_span_active(), (
+        "A span is still active at the end of the test. All spans must be finished "
+        "and detached from the context before the test ends. The leaked span context "
+        "may cause other subsequent tests to fail."
+    )
 
 
 @pytest.fixture(autouse=True, scope="session")

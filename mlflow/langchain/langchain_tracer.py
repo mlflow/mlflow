@@ -1,5 +1,7 @@
 import ast
+import contextvars
 import logging
+from dataclasses import dataclass
 from typing import Any, Optional, Sequence, Union
 from uuid import UUID
 
@@ -30,6 +32,21 @@ VS_INDEX_ID_COL = "chunk_id"
 VS_INDEX_DOC_URL_COL = "doc_uri"
 
 
+@dataclass
+class SpanWithToken:
+    """
+    A utility container to hold an MLflow span and its corresponding OpenTelemetry token.
+
+    The token is a special object that is generated when setting a span as active within
+    the Open Telemetry span context. This token is required when inactivate the span i.e.
+    detaching the span from the context. This will only be used when MlflowLangchainTracer
+    is configured to set the span as active span by setting `set_span_in_context=True`.
+    """
+
+    span: LiveSpan
+    token: Optional[contextvars.Token] = None
+
+
 class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstractClass):
     """
     Callback for auto-logging traces.
@@ -57,14 +74,14 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
         super().__init__()
         self._mlflow_client = MlflowClient()
         # run_id: (LiveSpan, OTel token)
-        self._run_span_mapping: dict[str, tuple[LiveSpan, Any]] = {}
+        self._run_span_mapping: dict[str, SpanWithToken] = {}
         self._prediction_context = prediction_context
         self._set_span_in_context = set_span_in_context
 
     def _get_span_by_run_id(self, run_id: UUID) -> Optional[LiveSpan]:
-        span, token = self._run_span_mapping.get(str(run_id), (None, None))
-        if span:
-            return span
+        span_with_token = self._run_span_mapping.get(str(run_id), None)
+        if span_with_token:
+            return span_with_token.span
         raise MlflowException(f"Span for run_id {run_id!s} not found.")
 
     def _start_span(
@@ -105,7 +122,7 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
 
             # Attach the span to the current context to mark it "active"
             token = set_span_in_context(span) if self._set_span_in_context else None
-            self._run_span_mapping[str(run_id)] = (span, token)
+            self._run_span_mapping[str(run_id)] = SpanWithToken(span, token)
         return span
 
     def _get_parent_span(self, parent_run_id) -> Optional[LiveSpan]:
@@ -139,23 +156,23 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
                 status=status,
             )
 
-        _, token = self._run_span_mapping.pop(str(run_id), (None, None))
-        if self._set_span_in_context:
-            if token is None:
+        st = self._run_span_mapping.pop(str(run_id), None)
+        if st and self._set_span_in_context:
+            if st.token is None:
                 raise MlflowException(
-                    f"Token for span {span} is not found. Cannot detach the span from context."
+                    f"Token for span {st.span} is not found. Cannot detach the span from context."
                 )
-            detach_span_from_context(token)
+            detach_span_from_context(st.token)
 
     def flush(self):
         """Flush the state of the tracer."""
         # Ideally, all spans should be popped and ended. However, LangChain sometimes
         # does not trigger the end event properly and some spans may be left open.
         # To avoid leaking tracing context, we remove all psans from the mapping.
-        for span, token in self._run_span_mapping.values():
-            if token:
-                _logger.debug(f"Found leaked span {span}. Force ending it.")
-                detach_span_from_context(token)
+        for st in self._run_span_mapping.values():
+            if st.token:
+                _logger.debug(f"Found leaked span {st.span}. Force ending it.")
+                detach_span_from_context(st.token)
 
         self._run_span_mapping = {}
 

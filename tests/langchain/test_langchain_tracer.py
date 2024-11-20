@@ -198,9 +198,6 @@ def test_llm_internal_exception():
     finally:
         callback.flush()
 
-    # Active span should not leak after flush
-    assert mlflow.get_current_active_span() is None
-
 
 def test_retriever_success():
     callback = MlflowLangchainTracer()
@@ -290,9 +287,6 @@ def test_retriever_internal_exception():
             )
     finally:
         callback.flush()
-
-    # Active span should not leak after flush
-    assert mlflow.get_current_active_span() is None
 
 
 def test_multiple_components():
