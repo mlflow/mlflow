@@ -146,7 +146,6 @@ class MlflowCallback(BaseCallback):
 
         token = set_span_in_context(span)
         self._call_id_to_span[call_id] = SpanWithToken(span, token)
-        assert mlflow.get_current_active_span() == span
 
     def _end_span(
         self,
