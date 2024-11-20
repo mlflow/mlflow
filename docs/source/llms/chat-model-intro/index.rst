@@ -486,7 +486,12 @@ To illustrate some of the benefits and trade-offs of setting up a chat model via
 
     import mlflow
     from mlflow.pyfunc import PythonModel
-    from mlflow.types.llm import ChatCompletionRequest, ChatCompletionResponse, ChatMessage, ChatChoice
+    from mlflow.types.llm import (
+        ChatCompletionRequest,
+        ChatCompletionResponse,
+        ChatMessage,
+        ChatChoice,
+    )
     from mlflow.models import set_model
     import ollama
     from ollama import Options
