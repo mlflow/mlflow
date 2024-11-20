@@ -20,6 +20,7 @@ from langchain_community.vectorstores import FAISS
 from langchain_core.documents import Document
 from langchain_core.output_parsers.string import StrOutputParser
 from langchain_core.outputs import LLMResult
+from langchain_core.runnables import RunnableLambda
 from langchain_core.tools import tool
 from packaging.version import Version
 
@@ -188,12 +189,14 @@ def test_llm_internal_exception():
         run_id=run_id,
         name="test_llm",
     )
-    callback._run_span_mapping = {}
-    with pytest.raises(
-        Exception,
-        match=f"Span for run_id {run_id} not found.",
-    ):
-        callback.on_llm_end(LLMResult(generations=[[{"text": "generated text"}]]), run_id=run_id)
+    try:
+        with pytest.raises(
+            Exception,
+            match="Span for run_id dummy not found.",
+        ):
+            callback.on_llm_end(LLMResult(generations=[[{"text": "generated"}]]), run_id="dummy")
+    finally:
+        callback.flush()
 
 
 def test_retriever_success():
@@ -267,20 +270,23 @@ def test_retriever_internal_exception():
         run_id=run_id,
         name="test_retriever",
     )
-    callback._run_span_mapping = {}
-    with pytest.raises(
-        Exception,
-        match=f"Span for run_id {run_id} not found.",
-    ):
-        callback.on_retriever_end(
-            [
-                Document(
-                    page_content="document content 1",
-                    metadata={"chunk_id": "1", "doc_uri": "uri1"},
-                )
-            ],
-            run_id=run_id,
-        )
+
+    try:
+        with pytest.raises(
+            Exception,
+            match="Span for run_id dummy not found.",
+        ):
+            callback.on_retriever_end(
+                [
+                    Document(
+                        page_content="document content 1",
+                        metadata={"chunk_id": "1", "doc_uri": "uri1"},
+                    )
+                ],
+                run_id="dummy",
+            )
+    finally:
+        callback.flush()
 
 
 def test_multiple_components():
@@ -590,35 +596,49 @@ def test_tracer_noop_when_tracing_disabled(monkeypatch):
     Version(langchain.__version__) < Version("0.1.0"),
     reason="ChatPromptTemplate expecting dict input",
 )
-def test_tracer_nested_trace():
-    # Validate if the callback works properly if it is used in a context
-    # of an active span created by MLflow fluent API.
+def test_tracer_with_manual_traces():
+    # Validate if the callback works properly when outer and inner spans
+    # are created by fluent APIs.
     llm = OpenAI(temperature=0.9)
     prompt = PromptTemplate(
-        input_variables=["product"],
-        template="What is {product}?",
+        input_variables=["color"],
+        template="What is the complementary color of {color}?",
     )
-    chain = prompt | llm | StrOutputParser()
+
+    # Inner spans are created within RunnableLambda
+    def foo(s: str):
+        with mlflow.start_span(name="foo_inner") as span:
+            span.set_inputs(s)
+            s = s.replace("red", "blue")
+            s = bar(s)
+            span.set_outputs(s)
+        return s
+
+    @mlflow.trace
+    def bar(s):
+        return s.replace("blue", "green")
+
+    chain = RunnableLambda(foo) | prompt | llm | StrOutputParser()
 
     @mlflow.trace(name="parent", span_type="SPECIAL")
     def run(message):
         return chain.invoke(message, config={"callbacks": [MlflowLangchainTracer()]})
 
-    response = run("MLflow")
-    expected_response = TEST_CONTENT
+    response = run("red")
+    expected_response = "What is the complementary color of green?"
     assert response == expected_response
 
     trace = mlflow.get_last_active_trace()
     assert trace is not None
     spans = trace.data.spans
     assert spans[0].name == "parent"
-    assert spans[0].span_type == "SPECIAL"
-    assert spans[0].inputs == {"message": "MLflow"}
-    assert spans[0].outputs == TEST_CONTENT
-    assert spans[0].status == SpanStatus(SpanStatusCode.OK)
     assert spans[1].name == "RunnableSequence"
-    assert spans[1].span_type == "CHAIN"
-    assert spans[1].inputs == "MLflow"
-    assert spans[1].outputs == TEST_CONTENT
-    assert spans[1].status == SpanStatus(SpanStatusCode.OK)
     assert spans[1].parent_id == spans[0].span_id
+    assert spans[2].name == "foo"
+    assert spans[2].parent_id == spans[1].span_id
+    assert spans[3].name == "foo_inner"
+    assert spans[3].parent_id == spans[2].span_id
+    assert spans[4].name == "bar"
+    assert spans[4].parent_id == spans[3].span_id
+    assert spans[5].name == "PromptTemplate"
+    assert spans[5].parent_id == spans[1].span_id
