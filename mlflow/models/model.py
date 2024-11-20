@@ -1116,9 +1116,20 @@ __mlflow_model__ = None
 
 
 def _validate_langchain_model(model):
-    from mlflow.langchain import _validate_and_prepare_lc_model_or_path
+    from langchain_core.runnables.base import Runnable
 
-    return _validate_and_prepare_lc_model_or_path(model, None)
+    from mlflow.models.utils import _validate_and_get_model_code_path
+
+    if isinstance(model, str):
+        return _validate_and_get_model_code_path(model, None)
+
+    if not isinstance(model, Runnable):
+        raise MlflowException.invalid_parameter_value(
+            "Model must be a Langchain Runnable type or path to a Langchain model, "
+            f"got {type(model)}"
+        )
+
+    return model
 
 
 def _validate_llama_index_model(model):
