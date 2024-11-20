@@ -56,7 +56,7 @@ def test_chatcompletion_output_parser_parse_response():
     }
 
     streaming_messages = ["The ", "weather ", "today ", "is"]
-    base_messages = map(lambda m: BaseMessage(content=m, type="test"), streaming_messages)
+    base_messages = [BaseMessage(content=m, type="test") for m in streaming_messages]
     streaming_chunks = parser.transform(base_messages, RunnableConfig())
     for i, chunk in enumerate(streaming_chunks):
         assert isinstance(chunk["created"], int)
