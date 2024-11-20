@@ -5,7 +5,8 @@ import subprocess
 import click
 
 
-@click.option("--with-r", "with_r", default=False, help="The version to release")
+@click.command()
+@click.option("--with-r", "with_r", is_flag=True, default=False, help="The version to release")
 def main(with_r):
     try:
         # Run "make rsthtml" in "api_reference" subfolder
