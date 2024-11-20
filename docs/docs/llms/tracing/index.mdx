@@ -4,47 +4,46 @@ sidebar_position: 1
 ---
 
 import { APILink } from "@site/src/components/APILink";
+import { Card, CardGroup, SmallLogoCard } from "@site/src/components/Card";
 import TOCInline from "@theme/TOCInline";
 import Tabs from "@theme/Tabs";
 import TabItem from "@theme/TabItem";
 
 # MLflow Tracing
 
-<section>
-  <div class="logo-grid">
-    <a href="../langchain/autologging.html">
-      <div class="logo-card">!["LangChain Logo](/images/logos/langchain-logo.png)</div>
-    </a>
-    <a href="../langchain/autologging.html">
-      <div class="logo-card">!["LangGraph Logo](/images/logos/langgraph-logo.png)</div>
-    </a>
-    <a href="../llama-index/index.html##enable-tracing">
-      <div class="logo-card">!["LlamaIndex Logo](/images/logos/llamaindex-logo.svg)</div>
-    </a>
-    <a href="#automatic-tracing">
-      <div class="logo-card">!["DSPy Logo](/images/logos/dspy-logo.png)</div>
-    </a>
-    <a href="../openai/autologging.html">
-      <div class="logo-card">!["OpenAI Logo](/images/logos/openai-logo.png)</div>
-    </a>
-    <a href="../openai/autologging.html#auto-tracing-for-openai-swarm">
-      <div class="logo-card">!["OpenAI Swarm Logo](/images/logos/openai-swarm-logo.png)</div>
-    </a>
-    <a href="#automatic-tracing">
-      <div class="logo-card">!["AutoGen Logo](/images/logos/autogen-logo.svg)</div>
-    </a>
-    <a href="#automatic-tracing">
-      <div class="logo-card">
-        !["Gemini Logo](/images/logos/google-gemini-logo.svg)
-      </div>
-    </a>
-    <a href="#automatic-tracing">
-      <div class="logo-card">
-        !["LiteLLM Logo](/images/logos/litellm-logo.jpg)
-      </div>
-    </a>
-  </div>
-</section>
+:::note
+MLflow Tracing is currently in **Experimental Status** and is subject to change without deprecation warning or notification.
+:::
+
+<CardGroup isSmall>
+  <SmallLogoCard link="/llms/langchain/autologging">
+    <span>![LangChain Logo](/images/logos/langchain-logo.png)</span>
+  </SmallLogoCard>
+  <SmallLogoCard link="/llms/langchain/autologging">
+    <span>![LangGraph Logo](/images/logos/langgraph-logo.png)</span>
+  </SmallLogoCard>
+  <SmallLogoCard link="/llms/llama-index#enable-tracing">
+    <span>![LlamaIndex Logo](/images/logos/llamaindex-logo.svg)</span>
+  </SmallLogoCard>
+  <SmallLogoCard link="#automatic-tracing">
+    <span>![DSPy Logo](/images/logos/dspy-logo.png)</span>
+  </SmallLogoCard>
+  <SmallLogoCard link="/llms/openai/autologging">
+    <span>![OpenAI Logo](/images/logos/openai-logo.png)</span>
+  </SmallLogoCard>
+  <SmallLogoCard link="/llms/openai/autologging#auto-tracing-for-openai-swarm">
+    <span>![OpenAI Swarm Logo](/images/logos/openai-swarm-logo.png)</span>
+  </SmallLogoCard>
+  <SmallLogoCard link="#automatic-tracing">
+    <span>![AutoGen Logo](/images/logos/autogen-logo.svg)</span>
+  </SmallLogoCard>
+  <SmallLogoCard link="#automatic-tracing">
+    <span>![Gemini Logo](/images/logos/google-gemini-logo.svg)</span>
+  </SmallLogoCard>
+  <SmallLogoCard link="#automatic-tracing">
+    <span>![LiteLLM Logo](/images/logos/litellm-logo.jpg)</span>
+  </SmallLogoCard>
+</CardGroup>
 <br />
 
 MLflow Tracing is a feature that enhances LLM observability in your Generative
@@ -357,7 +356,7 @@ for model/API invocations to the active MLflow Experiment.
     ### Gemini Automatic Tracing
 
     MLflow Tracing ensures observability for your interactions with Gemini AI models.
-    When Gemini autologging is enabled with <APILink fn="mlflow.gemini.autolog" />, 
+    When Gemini autologging is enabled with <APILink fn="mlflow.gemini.autolog" />,
     usage of the Gemini SDK will automatically record generated traces during interactive development.
     Note that only synchronous calls for text interactions are supported. Asynchronous API is not traced, and full inputs cannnot be recorded for multi-modal inputs.
 

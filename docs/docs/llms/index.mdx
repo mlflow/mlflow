@@ -2,7 +2,7 @@
 sidebar_position: 5
 ---
 
-import { CardGroup, Card } from "@site/src/components/Card";
+import { LogoCard, CardGroup, PageCard, SmallLogoCard } from "@site/src/components/Card";
 import { APILink } from "@site/src/components/APILink";
 
 # LLMs
@@ -26,55 +26,12 @@ Look in the tutorials and guides below to learn more about interesting use cases
 Note that there are additional tutorials within the ["Explore the Native LLM Flavors" section below](#explore-the-native-llm-flavors), so be sure to check those out as well!
 
 <CardGroup>
-  <Card
-    link="chat-model-intro/"
-    headerText="Custom GenAI Models with ChatModel"
-    text={[
-      "Learn the basics of creating custom chat models using MLflow's ",
-      <code>ChatModel</code>,
-      " by wrapping a local LLM provider."
-    ]}
-  />
-  <Card
-    link="chat-model-guide/"
-    headerText="Advanced ChatModel Development"
-    text={[
-      "Take an in-depth look at the full range of ",
-      <code>ChatModel</code>,
-      " features, such as tracing and configuration management."
-    ]}
-  />
-  <Card
-    link="notebooks/chat-model-tool-calling/"
-    headerText="Tool Calling Models"
-    text={[
-      "Learn how to build a simple tool-calling model using MLflow's ",
-      <code>ChatModel</code>,
-    ]}
-  />
-  <Card
-    link="llm-evaluate/"
-    headerText="Evaluating LLMs"
-    text={[
-      "Learn how to evaluate LLMs with various metrics including LLM-as-a-Judge using ",
-      <code>mlflow.evaluate()</code>,
-      " API.",
-    ]}
-  />
-  <Card
-    link="custom-pyfunc-for-llms/"
-    headerText="Using Custom PyFunc with LLMs"
-    text={[
-      "Explore the nuances of packaging, customizing, and deploying advanced LLMs in MLflow using custom PyFuncs.",
-    ]}
-  />
-  <Card
-    link="rag/notebooks/"
-    headerText="Evaluation for RAG"
-    text={[
-      "Learn how to evaluate Retrieval Augmented Generation applications by leveraging LLMs to generate a evaluation dataset and evaluate it using the built-in metrics in the MLflow Evaluate API.",
-    ]}
-  />
+  <PageCard link="chat-model-intro/" headerText="Custom GenAI Models with ChatModel" text={["Learn the basics of creating custom chat models using MLflow's ", <code>ChatModel</code>, " by wrapping a local LLM provider."]} />
+  <PageCard link="chat-model-guide/" headerText="Advanced ChatModel Development" text={["Take an in-depth look at the full range of ", <code>ChatModel</code>, " features, such as tracing and configuration management."]} />
+  <PageCard link="notebooks/chat-model-tool-calling/" headerText="Tool Calling Models" text={["Learn how to build a simple tool-calling model using MLflow's ", <code>ChatModel</code>]} />
+  <PageCard link="llm-evaluate/" headerText="Evaluating LLMs" text={["Learn how to evaluate LLMs with various metrics including LLM-as-a-Judge using ", <code>mlflow.evaluate()</code>, " API."]} />
+  <PageCard link="custom-pyfunc-for-llms/" headerText="Using Custom PyFunc with LLMs" text={["Explore the nuances of packaging, customizing, and deploying advanced LLMs in MLflow using custom PyFuncs."]} />
+  <PageCard link="rag/notebooks/" headerText="Evaluation for RAG" text={["Learn how to evaluate Retrieval Augmented Generation applications by leveraging LLMs to generate a evaluation dataset and evaluate it using the built-in metrics in the MLflow Evaluate API."]} />
 </CardGroup>
 
 ## MLflow Tracing
@@ -138,52 +95,39 @@ documentation on GitHub. Each link will take you to a README file that will expl
 the README, you will find a runnable example of how to query the routes that the example creates, providing you with a quick reference for getting started
 with your favorite provider!
 
-<section>
-  <div class="logo-grid">
-    <a href="https://github.com/mlflow/mlflow/blob/master/examples/deployments/deployments_server/openai/README.md">
-      <div class="logo-card">![OpenAI Logo](/images/logos/openai-logo.png)</div>
-    </a>
-    <a href="https://github.com/mlflow/mlflow/blob/master/examples/deployments/deployments_server/mosaicml/README.md">
-      <div class="logo-card">
-        ![MosaicML Logo](/images/logos/mosaicml-logo.svg)
-      </div>
-    </a>
-    <a href="https://github.com/mlflow/mlflow/blob/master/examples/deployments/deployments_server/openai/README.md">
-      <div class="logo-card">
-        ![Anthropic Logo](/images/logos/anthropic-logo.svg)
-      </div>
-    </a>
-    <a href="https://github.com/mlflow/mlflow/blob/master/examples/deployments/deployments_server/cohere/README.md">
-      <div class="logo-card">![Cohere Logo](/images/logos/cohere-logo.png)</div>
-    </a>
-    <a href="https://github.com/mlflow/mlflow/blob/master/examples/deployments/deployments_server/mlflow_models/README.md">
-      <div class="logo-card">![MLflow Logo](/images/logos/mlflow-logo.svg)</div>
-    </a>
-    <a href="https://github.com/mlflow/mlflow/blob/master/examples/deployments/deployments_server/bedrock/README.md">
-      <div class="logo-card">
-        ![AWS BedLock Logo](/images/logos/aws-logo.svg)
-      </div>
-    </a>
-    <a href="https://github.com/mlflow/mlflow/blob/master/examples/deployments/deployments_server/palm/README.md">
-      <div class="logo-card">![PaLM Logo](/images/logos/PaLM-logo.png)</div>
-    </a>
-    <a href="https://github.com/mlflow/mlflow/blob/master/examples/deployments/deployments_server/ai21_labs/README.md">
-      <div class="logo-card">
-        ![ai21Labs Logo](/images/logos/ai21labs-logo.svg)
-      </div>
-    </a>
-    <a href="https://github.com/mlflow/mlflow/blob/master/examples/deployments/deployments_server/azure_openai/README.md">
-      <div class="logo-card">
-        ![Azure OpenAI Logo](/images/logos/azure-ml-logo.png)
-      </div>
-    </a>
-    <a href="https://github.com/mlflow/mlflow/blob/master/examples/deployments/deployments_server/huggingface/README.md">
-      <div class="logo-card">
-        ![Hugging Face Logo](/images/logos/huggingface-logo.svg)
-      </div>
-    </a>
-  </div>
-</section>
+<CardGroup isSmall>
+  <SmallLogoCard link="https://github.com/mlflow/mlflow/blob/master/examples/deployments/deployments_server/openai/README.md">
+    <span>![OpenAI Logo](/images/logos/openai-logo.png)</span>
+  </SmallLogoCard>
+  <SmallLogoCard link="https://github.com/mlflow/mlflow/blob/master/examples/deployments/deployments_server/mosaicml/README.md">
+    <span>![MosaicML Logo](/images/logos/mosaicml-logo.svg)</span>
+  </SmallLogoCard>
+  <SmallLogoCard link="https://github.com/mlflow/mlflow/blob/master/examples/deployments/deployments_server/openai/README.md">
+    <span>![Anthropic Logo](/images/logos/anthropic-logo.svg)</span>
+  </SmallLogoCard>
+  <SmallLogoCard link="https://github.com/mlflow/mlflow/blob/master/examples/deployments/deployments_server/cohere/README.md">
+    <span>![Cohere Logo](/images/logos/cohere-logo.png)</span>
+  </SmallLogoCard>
+  <SmallLogoCard link="https://github.com/mlflow/mlflow/blob/master/examples/deployments/deployments_server/mlflow_models/README.md">
+    <span>![MLflow Logo](/images/logos/mlflow-logo.svg)</span>
+  </SmallLogoCard>
+  <SmallLogoCard link="https://github.com/mlflow/mlflow/blob/master/examples/deployments/deployments_server/bedrock/README.md">
+    <span style={{ minWidth: "80px" }}>![AWS BedLock Logo](/images/logos/aws-logo.svg)</span>
+  </SmallLogoCard>
+  <SmallLogoCard link="https://github.com/mlflow/mlflow/blob/master/examples/deployments/deployments_server/palm/README.md">
+    <span>![PaLM Logo](/images/logos/PaLM-logo.png)</span>
+  </SmallLogoCard>
+  <SmallLogoCard link="https://github.com/mlflow/mlflow/blob/master/examples/deployments/deployments_server/ai21_labs/README.md">
+    <span>![ai21Labs Logo](/images/logos/ai21labs-logo.svg)</span>
+  </SmallLogoCard>
+  <SmallLogoCard link="https://github.com/mlflow/mlflow/blob/master/examples/deployments/deployments_server/azure_openai/README.md">
+    <span>![Azure OpenAI Logo](/images/logos/azure-ml-logo.png)</span>
+  </SmallLogoCard>
+  <SmallLogoCard link="https://github.com/mlflow/mlflow/blob/master/examples/deployments/deployments_server/huggingface/README.md">
+    <span>![Hugging Face Logo](/images/logos/huggingface-logo.svg)</span>
+  </SmallLogoCard>
+</CardGroup>
+<br />
 
 :::note
 The **MLflow** and **Hugging Face TGI** providers are for self-hosted LLM serving of either foundation open-source LLM models, fine-tuned open-source
@@ -265,76 +209,27 @@ Harnessing the power of LLMs becomes effortless with flavors designed specifical
 
 Select the integration below to read the documentation on how to leverage MLflow's native integration with these popular libraries:
 
-    <section>
-        <article class="simple-grid">
-            <div class="simple-card">
-                <a href="transformers/index.html">
-                    <div class="header-with-image">
-                        ![HuggingFace Logo](/images/logos/huggingface-logo.svg)
-                    </div>
-                    <p>
-                        Learn about MLflow's native integration with the Transformers 🤗 library and see example notebooks that leverage
-                        MLflow and Transformers to build Open-Source LLM powered solutions.
-                    </p>
-                </a>
-            </div>
-            <div class="simple-card">
-                <a href="openai/index.html">
-                    <div class="header-with-image">
-                        ![OpenAI Logo](/images/logos/openai-logo.png)
-                    </div>
-                    <p>
-                        Learn about MLflow's native integration with the OpenAI SDK and see example notebooks that leverage
-                        MLflow and OpenAI's advanced LLMs to build interesting and fun applications.
-                    </p>
-                </a>
-            </div>
-            <div class="simple-card">
-                <a href="sentence-transformers/index.html">
-                    <div class="header-with-image">
-                        ![Sentence Transformers Logo](/images/logos/sentence-transformers-logo.png)
-                    </div>
-                    <p>
-                        Learn about MLflow's native integration with the Sentence Transformers library and see example notebooks that leverage
-                        MLflow and Sentence Transformers to perform operations with encoded text such as semantic search, text similarity, and information retrieval.
-                    </p>
-                </a>
-            </div>
-            <div class="simple-card">
-                <a href="langchain/index.html">
-                    <div class="header-with-image">
-                        ![LangChain Logo](/images/logos/langchain-logo.png)
-                    </div>
-                    <p>
-                        Learn about MLflow's native integration with LangChain and see example notebooks that leverage
-                        MLflow and LangChain to build LLM-backed applications.
-                    </p>
-                </a>
-            </div>
-            <div class="simple-card">
-                <a href="llama-index/index.html">
-                    <div class="header-with-image">
-                        ![LlamaIndex Logo](/images/logos/llamaindex-logo.svg)
-                    </div>
-                    <p>
-                        Learn about MLflow's native integration with LlamaIndex and see example notebooks that leverage
-                        MLflow and LlamaIndex to build advanced QA systems, chatbots, and other AI-driven applications.
-                    </p>
-                </a>
-            </div>
-            <div class="simple-card">
-                <a href="dspy/index.html">
-                    <div class="header-with-image">
-                        ![DSPy Logo](/images/logos/dspy-logo.png)
-                    </div>
-                    <p>
-                        Learn about MLflow's native integration with DSPy and see example notebooks that leverage
-                        MLflow and DSPy to optimize your GenAI applications.
-                    </p>
-                </a>
-            </div>
-        </article>
-    </section>
+<CardGroup>
+  <LogoCard description="Learn about MLflow's native integration with the Transformers 🤗 library and see example notebooks that leverage MLflow and Transformers to build Open-Source LLM powered solutions." link="/transformers">
+    <span>![HuggingFace Logo](/images/logos/huggingface-logo.svg)</span>
+  </LogoCard>
+  <LogoCard description="Learn about MLflow's native integration with the OpenAI SDK and see example notebooks that leverage MLflow and OpenAI's advanced LLMs to build interesting and fun applications." link="/openai">
+    <span>![OpenAI Logo](/images/logos/openai-logo.png)</span>
+  </LogoCard>
+  <LogoCard description="Learn about MLflow's native integration with the Sentence Transformers library and see example notebooks that leverage MLflow and Sentence Transformers to perform operations with encoded text such as semantic search, text similarity, and information retrieval." link="/sentence-transformers">
+    <span>![Sentence Transformers Logo](/images/logos/sentence-transformers-logo.png)</span>
+  </LogoCard>
+  <LogoCard description="Learn about MLflow's native integration with LangChain and see example notebooks that leverage MLflow and LangChain to build LLM-backed applications." link="/langchain">
+    <span>![LangChain Logo](/images/logos/langchain-logo.png)</span>
+  </LogoCard>
+  <LogoCard description="Learn about MLflow's native integration with LlamaIndex and see example notebooks that leverage MLflow and LlamaIndex to build advanced QA systems, chatbots, and other AI-driven applications." link="/llama-index">
+    <span>![LlamaIndex Logo](/images/logos/llamaindex-logo.svg)</span>
+  </LogoCard>
+  <LogoCard description="Learn about MLflow's native integration with DSPy and see example notebooks that leverage MLflow and DSPy to optimize your GenAI applications." link="/dspy">
+    <span>![DSPy Logo](/images/logos/dspy-logo.png)</span>
+  </LogoCard>
+</CardGroup>
+<br />
 
 ## LLM Tracking in MLflow
 

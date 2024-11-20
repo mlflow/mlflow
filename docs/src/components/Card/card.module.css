@@ -1,30 +1,31 @@
 .CardGroup {
   position: relative;
-  display: flex;
-  flex-direction: column;
-}
-
-.CardGroup .CardGroupCards {
-  position: relative;
   display: grid;
-  grid-template-columns: repeat(3, minmax(200px, 33%));
   grid-gap: 20px;
   margin-top: 20px;
 }
 
+.MaxThreeColumns {
+  grid-template-columns: repeat(3, minmax(200px, 33%));
+}
+
+.AutofillColumns {
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+}
+
+@media (max-width: 1150px) {
+  .MaxThreeColumns {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
 @media (max-width: 750px) {
-  .CardGroup .CardGroupCards {
-    grid-template-columns: 100% !important;
+  .MaxThreeColumns {
+    grid-template-columns: 1fr;
   }
 }
 @media (max-width: 650px) {
-  .CardGroup .CardGroupCards {
-    grid-template-columns: 100% !important;
-  }
-}
-@media (max-width: 1150px) {
-  .CardGroup .CardGroupCards {
-    grid-template-columns: repeat(2, 1fr);
+  .MaxThreeColumns {
+    grid-template-columns: 1fr;
   }
 }
 
@@ -32,6 +33,7 @@
   display: flex;
   flex: 1;
   flex-direction: column;
+  align-items: center;
 }
 
 .CardBordered {
@@ -92,4 +94,38 @@
 
 .PaddingBottom4 {
   padding-bottom: var(--padding-xs);
+}
+
+.LogoCardContent {
+  display: flex;
+  flex-direction: column;
+  gap: var(--padding-md);
+}
+
+.LogoCardImage {
+  height: 80px;
+  display: flex;
+  justify-content: center;
+
+  span {
+    display: flex;
+
+    img {
+      max-height: 100%;
+      object-fit: contain;
+    }
+  }
+}
+
+.SmallLogoCardContent {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.SmallLogoCardImage {
+  max-width: 150px;
+  max-height: 80px;
+  justify-content: center;
 }

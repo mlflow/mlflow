@@ -1,52 +1,85 @@
 import clsx from "clsx";
 import styles from "./card.module.css";
 
-export const CardGroup = ({ children }): JSX.Element => (
-  <div className={styles.CardGroup}>
-    <div className={styles.CardGroupCards}>{children}</div>
+export const CardGroup = ({ children, isSmall }): JSX.Element => (
+  <div
+    className={clsx(
+      styles.CardGroup,
+      isSmall ? styles.AutofillColumns : styles.MaxThreeColumns
+    )}
+  >
+    {children}
   </div>
 );
 
-export const Card = ({ headerText, link, text }): JSX.Element => (
-  <div className={clsx(styles.Card, styles.CardBordered)}>
-    <a className={clsx(styles.Link)} title="headerText" href={link}>
-      <span>
+export const Card = ({ children, link }): JSX.Element => (
+  <a
+    className={clsx(styles.Link, styles.Card, styles.CardBordered)}
+    href={link}
+  >
+    {children}
+  </a>
+);
+
+export const PageCard = ({ headerText, link, text }): JSX.Element => (
+  <Card link={link}>
+    <span>
+      <div
+        className={clsx(
+          styles.CardTitle,
+          styles.BoxRoot,
+          styles.PaddingBottom4
+        )}
+        style={{ pointerEvents: "none" }}
+      >
         <div
           className={clsx(
-            styles.CardTitle,
             styles.BoxRoot,
-            styles.PaddingBottom4
+            styles.FlexFlex,
+            styles.FlexAlignItemsCenter,
+            styles.FlexDirectionRow,
+            styles.FlexJustifyContentFlexStart,
+            styles.FlexWrapNowrap
           )}
-          style={{ pointerEvents: "none" }}
+          style={{ marginLeft: "-4px", marginTop: "-4px" }}
         >
           <div
             className={clsx(
               styles.BoxRoot,
-              styles.FlexFlex,
-              styles.FlexAlignItemsCenter,
-              styles.FlexDirectionRow,
-              styles.FlexJustifyContentFlexStart,
-              styles.FlexWrapNowrap
+              styles.BoxHideIfEmpty,
+              styles.MarginTop4,
+              styles.MarginLeft4
             )}
-            style={{ marginLeft: "-4px", marginTop: "-4px" }}
+            style={{ pointerEvents: "auto" }}
           >
-            <div
-              className={clsx(
-                styles.BoxRoot,
-                styles.BoxHideIfEmpty,
-                styles.MarginTop4,
-                styles.MarginLeft4
-              )}
-              style={{ pointerEvents: "auto" }}
-            >
-              <span className="">{headerText}</span>
-            </div>
+            <span className="">{headerText}</span>
           </div>
         </div>
-        <span className={clsx(styles.TextColor, styles.CardBody)}>
-          <p>{text}</p>
-        </span>
+      </div>
+      <span className={clsx(styles.TextColor, styles.CardBody)}>
+        <p>{text}</p>
       </span>
-    </a>
-  </div>
+    </span>
+  </Card>
+);
+
+export const LogoCard = ({ description, children, link }): JSX.Element => (
+  <Card link={link}>
+    <div className={styles.LogoCardContent}>
+      <div className={styles.LogoCardImage}>{children}</div>
+      <p className={styles.TextColor}>{description}</p>
+    </div>
+  </Card>
+);
+
+export const SmallLogoCard = ({ children, link }) => (
+  <Card link={link}>
+    <div className={styles.SmallLogoCardContent}>
+      <div
+        className={clsx("max-height-img-container", styles.SmallLogoCardImage)}
+      >
+        {children}
+      </div>
+    </div>
+  </Card>
 );
