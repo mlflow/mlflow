@@ -37,6 +37,7 @@ import itertools
 import logging
 import os
 import warnings
+from functools import partial
 from string import Formatter
 from typing import Any, Optional
 
@@ -86,9 +87,6 @@ from mlflow.utils.model_utils import (
     _validate_and_prepare_target_save_path,
 )
 from mlflow.utils.openai_utils import (
-    REQUEST_URL_CHAT,
-    REQUEST_URL_COMPLETIONS,
-    REQUEST_URL_EMBEDDINGS,
     _OAITokenHolder,
     _OpenAIApiConfig,
     _OpenAIEnvVar,
@@ -185,7 +183,6 @@ def _get_api_config() -> _OpenAIApiConfig:
     api_base = os.getenv(_OpenAIEnvVar.OPENAI_API_BASE.value) or os.getenv(
         _OpenAIEnvVar.OPENAI_BASE_URL.value
     )
-    engine = os.getenv(_OpenAIEnvVar.OPENAI_ENGINE.value, None)
     deployment_id = os.getenv(_OpenAIEnvVar.OPENAI_DEPLOYMENT_NAME.value, None)
     if api_type in ("azure", "azure_ad", "azuread"):
         batch_size = 16
@@ -203,7 +200,6 @@ def _get_api_config() -> _OpenAIApiConfig:
         max_tokens_per_minute=max_tokens_per_minute,
         api_base=api_base,
         api_version=api_version,
-        engine=engine,
         deployment_id=deployment_id,
     )
 
@@ -639,34 +635,6 @@ class _OpenAIWrapper:
         self.task = task
         self.api_config = _get_api_config()
         self.api_token = _OAITokenHolder(self.api_config.api_type)
-        # If the same parameter exists in self.model & self.api_config,
-        # we use the parameter from self.model
-        self.request_configs = {}
-        for x in ["api_base", "api_version", "api_type", "engine", "deployment_id"]:
-            if x in self.model:
-                self.request_configs[x] = self.model.pop(x)
-            elif value := getattr(self.api_config, x):
-                self.request_configs[x] = value
-
-        if self.request_configs.get("api_type") in ("azure", "azure_ad", "azuread"):
-            deployment_id = self.request_configs.get("deployment_id")
-            if self.request_configs.get("engine"):
-                # Avoid using both parameters as they serve the same purpose
-                # Invalid inputs:
-                #   - Wrong engine + correct/wrong deployment_id
-                #   - No engine + wrong deployment_id
-                # Valid inputs:
-                #   - Correct engine + correct/wrong deployment_id
-                #   - No engine + correct deployment_id
-                if deployment_id is not None:
-                    _logger.warning(
-                        "Both engine and deployment_id are set. "
-                        "Using engine as it takes precedence."
-                    )
-            elif deployment_id is None:
-                raise MlflowException(
-                    "Either engine or deployment_id must be set for Azure OpenAI API",
-                )
 
         if self.task != "embeddings":
             self._setup_completions()
@@ -698,91 +666,106 @@ class _OpenAIWrapper:
         else:
             return data[self.formater.variables].to_dict(orient="records")
 
-    def _construct_request_url(self, task_url, default_url):
-        api_type = self.request_configs.get("api_type")
-        api_base = base.rstrip("/") if (base := self.request_configs.get("api_base")) else None
-        if api_type in ("azure", "azure_ad", "azuread"):
-            api_version = self.request_configs.get("api_version")
-            deployment_id = self.request_configs.get("deployment_id")
+    def get_client(self, max_retries: int, timeout: float):
+        # with_option method should not be used before v1.3.8: https://github.com/openai/openai-python/issues/865
+        if self.api_config.api_type in ("azure", "azure_ad", "azuread"):
+            from openai import AzureOpenAI
 
-            return (
-                f"{api_base}/openai/deployments/{deployment_id}/"
-                f"{task_url}?api-version={api_version}"
+            return AzureOpenAI(
+                api_key=self.api_token.token,
+                azure_endpoint=self.api_config.api_base,
+                api_version=self.api_config.api_version,
+                azure_deployment=self.api_config.deployment_id,
+                max_retries=max_retries,
+                timeout=timeout,
             )
+        else:
+            from openai import OpenAI
 
-        return f"{api_base}/{task_url}" if api_base else default_url
+            return OpenAI(
+                api_key=self.api_token.token,
+                base_url=self.api_config.api_base,
+                max_retries=max_retries,
+                timeout=timeout,
+            )
 
     def _predict_chat(self, data, params):
         from mlflow.openai.api_request_parallel_processor import process_api_requests
 
         _validate_model_params(self.task, self.model, params)
-        messages_list = self.format_completions(self.get_params_list(data))
-        requests = [{**self.model, **params, "messages": messages} for messages in messages_list]
-        request_url = self._construct_request_url("chat/completions", REQUEST_URL_CHAT)
+        max_retries = params.pop("max_retries", self.api_config.max_retries)
+        timeout = params.pop("timeout", self.api_config.timeout)
 
-        results = process_api_requests(
-            requests,
-            request_url,
-            api_token=self.api_token,
-            max_requests_per_minute=self.api_config.max_requests_per_minute,
-            max_tokens_per_minute=self.api_config.max_tokens_per_minute,
-        )
-        return [r["choices"][0]["message"]["content"] for r in results]
+        messages_list = self.format_completions(self.get_params_list(data))
+        client = self.get_client(max_retries=max_retries, timeout=timeout)
+
+        requests = [
+            partial(
+                client.chat.completions.create,
+                messages=messages,
+                model=self.model["model"],
+                **params,
+            )
+            for messages in messages_list
+        ]
+
+        results = process_api_requests(request_tasks=requests)
+
+        return [r.choices[0].message.content for r in results]
 
     def _predict_completions(self, data, params):
         from mlflow.openai.api_request_parallel_processor import process_api_requests
 
         _validate_model_params(self.task, self.model, params)
         prompts_list = self.format_completions(self.get_params_list(data))
-
+        max_retries = params.pop("max_retries", self.api_config.max_retries)
+        timeout = params.pop("timeout", self.api_config.timeout)
         batch_size = params.pop("batch_size", self.api_config.batch_size)
         _logger.debug(f"Requests are being batched by {batch_size} samples.")
+
+        client = self.get_client(max_retries=max_retries, timeout=timeout)
+
         requests = [
-            {
-                **self.model,
+            partial(
+                client.completions.create,
+                prompt=prompts_list[i : i + batch_size],
+                model=self.model["model"],
                 **params,
-                "prompt": prompts_list[i : i + batch_size],
-            }
+            )
             for i in range(0, len(prompts_list), batch_size)
         ]
-        request_url = self._construct_request_url("completions", REQUEST_URL_COMPLETIONS)
 
-        results = process_api_requests(
-            requests,
-            request_url,
-            api_token=self.api_token,
-            max_requests_per_minute=self.api_config.max_requests_per_minute,
-            max_tokens_per_minute=self.api_config.max_tokens_per_minute,
-        )
-        return [row["text"] for batch in results for row in batch["choices"]]
+        results = process_api_requests(request_tasks=requests)
+
+        return [row.text for batch in results for row in batch.choices]
 
     def _predict_embeddings(self, data, params):
         from mlflow.openai.api_request_parallel_processor import process_api_requests
 
         _validate_model_params(self.task, self.model, params)
+        max_retries = params.pop("max_retries", self.api_config.max_retries)
+        timeout = params.pop("timeout", self.api_config.timeout)
         batch_size = params.pop("batch_size", self.api_config.batch_size)
         _logger.debug(f"Requests are being batched by {batch_size} samples.")
 
         first_string_column = _first_string_column(data)
         texts = data[first_string_column].tolist()
+
+        client = self.get_client(max_retries=max_retries, timeout=timeout)
+
         requests = [
-            {
-                **self.model,
+            partial(
+                client.embeddings.create,
+                input=texts[i : i + batch_size],
+                model=self.model["model"],
                 **params,
-                "input": texts[i : i + batch_size],
-            }
+            )
             for i in range(0, len(texts), batch_size)
         ]
-        request_url = self._construct_request_url("embeddings", REQUEST_URL_EMBEDDINGS)
 
-        results = process_api_requests(
-            requests,
-            request_url,
-            api_token=self.api_token,
-            max_requests_per_minute=self.api_config.max_requests_per_minute,
-            max_tokens_per_minute=self.api_config.max_tokens_per_minute,
-        )
-        return [row["embedding"] for batch in results for row in batch["data"]]
+        results = process_api_requests(request_tasks=requests)
+
+        return [row.embedding for batch in results for row in batch.data]
 
     def predict(self, data, params: Optional[dict[str, Any]] = None):
         """
@@ -793,7 +776,6 @@ class _OpenAIWrapper:
         Returns:
             Model predictions.
         """
-
         self.api_token.refresh()
         if self.task == "chat.completions":
             return self._predict_chat(data, params or {})
