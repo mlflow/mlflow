@@ -97,7 +97,7 @@ from mlflow.pyfunc.context import Context
 from mlflow.tracing.constant import TRACE_SCHEMA_VERSION, TRACE_SCHEMA_VERSION_KEY
 from mlflow.tracing.processor.inference_table import _HEADER_REQUEST_ID_KEY
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
-from mlflow.types.schema import Array, ColSpec, DataType, Object, Property
+from mlflow.types.schema import AnyType, Array, ColSpec, DataType, Object, Property
 
 from tests.helper_functions import _compare_logged_code_paths, pyfunc_serve_and_score_model
 from tests.langchain.conftest import DeterministicDummyEmbeddings
@@ -2133,28 +2133,6 @@ def test_predict_with_builtin_pyfunc_chat_conversion(spark):
         "ai: What would you like to ask?\n"
         "human: Who owns MLflow?"
     )
-    example_output = {
-        "id": "some_id",
-        "object": "chat.completion",
-        "created": 1677858242,
-        "model": "some_model",
-        "choices": [
-            {
-                "index": 0,
-                "message": {
-                    "role": "assistant",
-                    "content": content,
-                },
-                "finish_reason": "stop",
-            }
-        ],
-        "usage": {
-            "prompt_tokens": 13,
-            "completion_tokens": 7,
-            "total_tokens": 20,
-        },
-    }
-    signature = infer_signature(model_input=input_example, model_output=example_output)
 
     chain = ChatModel() | StrOutputParser()
     assert chain.invoke([HumanMessage(content="Who owns MLflow?")]) == "human: Who owns MLflow?"
@@ -2162,9 +2140,7 @@ def test_predict_with_builtin_pyfunc_chat_conversion(spark):
         chain.invoke(input_example)
 
     with mlflow.start_run():
-        model_info = mlflow.langchain.log_model(
-            chain, "model_path", signature=signature, input_example=input_example
-        )
+        model_info = mlflow.langchain.log_model(chain, "model_path", input_example=input_example)
 
     loaded_model = mlflow.langchain.load_model(model_info.model_uri)
     assert (
@@ -2226,7 +2202,6 @@ def test_predict_with_builtin_pyfunc_chat_conversion_for_aimessage_response():
             {"role": "user", "content": "Who owns MLflow?"},
         ]
     }
-    signature = infer_signature(model_input=input_example)
 
     chain = ChatModel()
     result = chain.invoke([HumanMessage(content="Who owns MLflow?")])
@@ -2234,9 +2209,7 @@ def test_predict_with_builtin_pyfunc_chat_conversion_for_aimessage_response():
     assert result.content == "You own MLflow"
 
     with mlflow.start_run():
-        model_info = mlflow.langchain.log_model(
-            chain, "model_path", signature=signature, input_example=input_example
-        )
+        model_info = mlflow.langchain.log_model(chain, "model_path", input_example=input_example)
 
     loaded_model = mlflow.langchain.load_model(model_info.model_uri)
     result = loaded_model.invoke([HumanMessage(content="Who owns MLflow?")])
@@ -2378,15 +2351,15 @@ def test_pyfunc_builtin_chat_response_conversion_fails_gracefully():
             {"role": "user", "content": "Who owns MLflow?"},
         ]
     }
-    signature = infer_signature(model_input=input_example)
 
     with mlflow.start_run():
         logged_model = mlflow.langchain.log_model(
             chain,
             "langchain_model",
-            signature=signature,
             input_example=input_example,
         )
+    assert logged_model.signature is not None
+    assert logged_model.signature.outputs is not None
     loaded_model = mlflow.pyfunc.load_model(logged_model.model_uri)
     result = loaded_model.predict(input_example)
     # Verify that the chat request format was converted into LangChain messages correctly, but
@@ -3485,7 +3458,7 @@ def test_agent_executor_model_with_messages_input():
     assert list(response) == expected_response
 
 
-def test_signature_inference_fails(monkeypatch: pytest.MonkeyPatch):
+def test_signature_inference_succeeds_with_any_type(monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setenv("MLFLOW_TESTING", "false")
 
     model = RunnableLambda(lambda x: x)
@@ -3494,10 +3467,12 @@ def test_signature_inference_fails(monkeypatch: pytest.MonkeyPatch):
         model_info = mlflow.langchain.log_model(
             model,
             "model",
-            # Use an empty array to trigger an error in signature inference
             input_example={"chat": []},
         )
-        assert model_info.signature is None
+
+    schema = Schema([ColSpec(AnyType(), name="chat")])
+    assert model_info.signature.inputs == schema
+    assert model_info.signature.outputs == schema
 
 
 @pytest.mark.skipif(

@@ -30,7 +30,7 @@ from mlflow.pyfunc import PyFuncModel
 from mlflow.pyfunc.scoring_server import is_unified_llm_input
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.types import ColSpec, DataType, ParamSchema, ParamSpec, Schema, TensorSpec
-from mlflow.types.schema import Array, Map, Object, Property
+from mlflow.types.schema import AnyType, Array, Map, Object, Property
 from mlflow.utils.proto_json_utils import dump_input_data
 
 from tests.helper_functions import pyfunc_scoring_endpoint, pyfunc_serve_and_score_model
@@ -2980,3 +2980,142 @@ def test_zero_or_one_longs_convert_to_floats():
     pd.testing.assert_series_equal(
         data["temperature"], pd.Series([0.0, 0.9, 1.0, np.nan], dtype=np.float64), check_names=False
     )
+
+
+@pytest.mark.parametrize(
+    ("input_example", "expected_schema", "payload_example"),
+    [
+        ({"a": None}, Schema([ColSpec(type=AnyType(), name="a", required=False)]), {"a": "string"}),
+        (
+            {"a": [None, []]},
+            Schema([ColSpec(Array(AnyType()), name="a", required=False)]),
+            {"a": ["abc", "123"]},
+        ),
+        (
+            {"a": [None]},
+            Schema([ColSpec(type=Array(AnyType()), name="a", required=False)]),
+            {"a": ["abc"]},
+        ),
+        (
+            {"a": [None, "string"]},
+            Schema([ColSpec(type=Array(DataType.string), name="a", required=False)]),
+            {"a": ["abc"]},
+        ),
+        (
+            {"a": {"x": None}},
+            Schema([ColSpec(type=Object([Property("x", AnyType(), required=False)]), name="a")]),
+            {"a": {"x": 234}},
+        ),
+        (
+            [
+                {
+                    "messages": [
+                        {
+                            "content": "You are a helpful assistant.",
+                            "additional_kwargs": {},
+                            "response_metadata": {},
+                            "type": "system",
+                            "name": None,
+                            "id": None,
+                        },
+                        {
+                            "content": "What would you like to ask?",
+                            "additional_kwargs": {},
+                            "response_metadata": {},
+                            "type": "ai",
+                            "name": None,
+                            "id": None,
+                            "example": False,
+                            "tool_calls": [],
+                            "invalid_tool_calls": [],
+                            "usage_metadata": None,
+                        },
+                        {
+                            "content": "Who owns MLflow?",
+                            "additional_kwargs": {},
+                            "response_metadata": {},
+                            "type": "human",
+                            "name": None,
+                            "id": None,
+                            "example": False,
+                        },
+                    ],
+                    "text": "Hello?",
+                }
+            ],
+            Schema(
+                [
+                    ColSpec(
+                        Array(
+                            Object(
+                                properties=[
+                                    Property("content", DataType.string),
+                                    Property("additional_kwargs", AnyType(), required=False),
+                                    Property("response_metadata", AnyType(), required=False),
+                                    Property("type", DataType.string),
+                                    Property("name", AnyType(), required=False),
+                                    Property("id", AnyType(), required=False),
+                                    Property("example", DataType.boolean, required=False),
+                                    Property("tool_calls", AnyType(), required=False),
+                                    Property("invalid_tool_calls", AnyType(), required=False),
+                                    Property("usage_metadata", AnyType(), required=False),
+                                ]
+                            )
+                        ),
+                        name="messages",
+                    ),
+                    ColSpec(DataType.string, name="text"),
+                ]
+            ),
+            [
+                {
+                    "messages": [
+                        {
+                            "content": "You are a helpful assistant.",
+                            "additional_kwargs": {"x": "x"},
+                            "response_metadata": {"y": "y"},
+                            "type": "system",
+                            "name": "test",
+                            "id": 1234567,
+                            "tool_calls": [{"tool1": "abc"}],
+                            "invalid_tool_calls": ["tool2", "tool3"],
+                        },
+                    ],
+                    "text": "Hello?",
+                }
+            ],
+        ),
+    ],
+)
+def test_schema_enforcement_for_anytype(input_example, expected_schema, payload_example):
+    class MyModel(mlflow.pyfunc.PythonModel):
+        def predict(self, context, model_input, params=None):
+            return model_input
+
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model(
+            "test_model",
+            python_model=MyModel(),
+            input_example=input_example,
+        )
+    assert model_info.signature.inputs == expected_schema
+    loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
+    prediction = loaded_model.predict(payload_example)
+    df = (
+        pd.DataFrame(payload_example)
+        if isinstance(payload_example, list)
+        else pd.DataFrame([payload_example])
+    )
+    pd.testing.assert_frame_equal(prediction, df)
+
+    data = convert_input_example_to_serving_input(payload_example)
+    response = pyfunc_serve_and_score_model(
+        model_info.model_uri,
+        data=data,
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
+        extra_args=["--env-manager", "local"],
+    )
+    assert response.status_code == 200, response.content
+    result = json.loads(response.content.decode("utf-8"))["predictions"]
+    expected_result = df.to_dict(orient="records")
+    np.testing.assert_equal(result, expected_result)
