@@ -4,17 +4,17 @@ import subprocess
 
 
 def build_and_copy_docs():
-    # try:
-    #     # Run "make rsthtml" in "api_reference" subfolder
-    #     print("Building API reference documentation...")
-    #     subprocess.run(["make", "clean"], check=True, cwd="api_reference")
-    #     subprocess.run(["make", "rsthtml"], check=True, cwd="api_reference")
-    #     # subprocess.run(["make", "javadocs"], check=True, cwd="api_reference")
-    #     # subprocess.run(["make", "rdocs"], check=True, cwd="api_reference")
-    #     print("Build successful.")
-    # except subprocess.CalledProcessError as e:
-    #     print(f"Build failed: {e}")
-    #     exit(1)
+    try:
+        # Run "make rsthtml" in "api_reference" subfolder
+        print("Building API reference documentation...")
+        subprocess.run(["make", "clean"], check=True, cwd="api_reference")
+        subprocess.run(["make", "rsthtml"], check=True, cwd="api_reference")
+        # subprocess.run(["make", "javadocs"], check=True, cwd="api_reference")
+        # subprocess.run(["make", "rdocs"], check=True, cwd="api_reference")
+        print("Build successful.")
+    except subprocess.CalledProcessError as e:
+        print(f"Build failed: {e}")
+        exit(1)
 
     destination_folder = "static/api_reference"
     source_folder = "api_reference/build/html"

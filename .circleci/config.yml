@@ -62,18 +62,14 @@ jobs:
           name: Install Python dependencies
           command: |
             pip --version
-            pip install --progress-bar off -r requirements/doc-requirements.txt pytest pytest-cov plotly .[gateway]
+            pip install --progress-bar off -r requirements/doc-requirements.txt pytest pytest-cov plotly
+            pip install -e .[gateway]
           environment:
             PIP_EXTRA_INDEX_URL: https://download.pytorch.org/whl/cpu
       - run:
           name: Show package release dates
           command: |
             python dev/show_package_release_dates.py
-      - run:
-          name: Build API documentation
-          working_directory: docs/api_reference
-          command: |
-            make rsthtml
       - run:
           name: Build documentation
           working_directory: docs
