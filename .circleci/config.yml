@@ -55,7 +55,9 @@ jobs:
           name: Build documentation
           working_directory: docs
           command: |
-            yarn install && yarn build
+            yarn install]
+            yarn build-api-docs
+            yarn build
             python changed_pages.py
       - store_artifacts:
           path: docs/build/

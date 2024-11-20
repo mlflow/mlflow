@@ -1590,7 +1590,7 @@ Request Structure
 Get Latest ModelVersions
 ========================
 
-.. warning:: Model Stages are deprecated and will be removed in a future major release. To learn more about this deprecation, see our :ref:`migration guide<migrating-from-stages>`.
+.. warning:: Model Stages are deprecated and will be removed in a future major release. To learn more about this deprecation, see our `migration guide <../../model-registry#migrating-from-stages>`_.
 
 +------------------------------------------------------+-------------+
 |                       Endpoint                       | HTTP Method |
@@ -2006,7 +2006,7 @@ Response Structure
 Transition ModelVersion Stage
 =============================
 
-.. warning:: Model Stages are deprecated and will be removed in a future major release. To learn more about this deprecation, see our :ref:`migration guide<migrating-from-stages>`.
+.. warning:: Model Stages are deprecated and will be removed in a future major release. To learn more about this deprecation, see our `migration guide <../../model-registry#migrating-from-stages>`_.
 
 +------------------------------------------------+-------------+
 |                    Endpoint                    | HTTP Method |

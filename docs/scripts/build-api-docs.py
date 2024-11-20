@@ -9,6 +9,8 @@ def build_and_copy_docs():
         print("Building API reference documentation...")
         subprocess.run(["make", "clean"], check=True, cwd="api_reference")
         subprocess.run(["make", "rsthtml"], check=True, cwd="api_reference")
+        # subprocess.run(["make", "javadocs"], check=True, cwd="api_reference")
+        # subprocess.run(["make", "rdocs"], check=True, cwd="api_reference")
         print("Build successful.")
     except subprocess.CalledProcessError as e:
         print(f"Build failed: {e}")
