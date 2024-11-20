@@ -247,8 +247,8 @@ class ChatModel(PythonModel, metaclass=ABCMeta):
                 inference.
 
         Returns:
-            A :py:class:`ChatCompletionResponse <mlflow.types.llm.ChatCompletionResponse>` object containing
-            the model's response(s), as well as other metadata.
+            A :py:class:`ChatCompletionResponse <mlflow.types.llm.ChatCompletionResponse>`
+            object containing the model's response(s), as well as other metadata.
         """
 
     def predict_stream(

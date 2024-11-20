@@ -576,7 +576,7 @@ class ChatChoice(_BaseDataclass):
 
     Args:
         index (int): The index of the response in the list of responses.
-            defaults to ``0``
+            Defaults to ``0``
         message (:py:class:`ChatMessage`): The message that was generated.
         finish_reason (str): The reason why generation stopped.
             **Optional**, defaults to ``"stop"``
