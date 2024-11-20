@@ -187,6 +187,17 @@ def _get_experiment_id_from_view_args():
     if artifact_path := request.view_args.get("artifact_path"):
         if m := _EXPERIMENT_ID_PATTERN.match(artifact_path):
             return m.group(1)
+        else:
+            # <custom root location>/<run id>/<artifact path>
+            #                        ^^^^^^^^ Extract this part
+            run_id = artifact_path.split("/")[1]
+            try:
+                run = _get_tracking_store().get_run(run_id)
+            except MlflowException:
+                pass
+            else:
+                return run.info.experiment_id
+
     return None
 
 
