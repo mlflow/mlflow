@@ -23,6 +23,10 @@ from mlflow.types.schema import (
     TensorSpec,
 )
 
+MULTIPLE_TYPES_ERROR_MSG = (
+    "Expected all values in list to be of same type; if the list contains multiple types, "
+    "use Array(AnyType()) in mlflow.models.schema to represent list of mixed types explicitly."
+)
 _logger = logging.getLogger(__name__)
 
 
@@ -178,14 +182,10 @@ def _infer_array_datatype(data: Union[list, np.ndarray]) -> Optional[Array]:
             try:
                 result = Array(result.dtype._merge(dtype))
             except MlflowException as e:
-                raise MlflowException.invalid_parameter_value(
-                    "Expected all values in list to be of same type"
-                ) from e
+                raise MlflowException.invalid_parameter_value(MULTIPLE_TYPES_ERROR_MSG) from e
         elif isinstance(result.dtype, DataType):
             if not isinstance(dtype, AnyType) and dtype != result.dtype:
-                raise MlflowException.invalid_parameter_value(
-                    "Expected all values in list to be of same type"
-                )
+                raise MlflowException.invalid_parameter_value(MULTIPLE_TYPES_ERROR_MSG)
         else:
             raise MlflowException.invalid_parameter_value(
                 f"{dtype} is not a valid type for an item of a list or numpy array."

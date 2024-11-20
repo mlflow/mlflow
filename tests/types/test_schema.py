@@ -30,6 +30,7 @@ from mlflow.types.schema import (
     convert_dataclass_to_schema,
 )
 from mlflow.types.utils import (
+    MULTIPLE_TYPES_ERROR_MSG,
     _get_tensor_shape,
     _infer_colspec_type,
     _infer_param_schema,
@@ -349,7 +350,7 @@ def test_schema_inference_on_dictionary_of_strings(data, schema):
 
 def test_schema_inference_on_list_with_errors():
     data = [{"a": 1, "b": "c"}, {"a": 1, "b": ["a", "b"]}]
-    with pytest.raises(MlflowException, match=r"Expected all values in list to be of same type"):
+    with pytest.raises(MlflowException, match=re.escape(MULTIPLE_TYPES_ERROR_MSG)):
         _infer_schema(data)
 
 
@@ -360,10 +361,10 @@ def test_schema_inference_validating_dictionary_keys():
 
 
 def test_schema_inference_on_lists_with_errors():
-    with pytest.raises(MlflowException, match="Expected all values in list to be of same type"):
+    with pytest.raises(MlflowException, match=re.escape(MULTIPLE_TYPES_ERROR_MSG)):
         _infer_schema(["a", 1])
 
-    with pytest.raises(MlflowException, match="Expected all values in list to be of same type"):
+    with pytest.raises(MlflowException, match=re.escape(MULTIPLE_TYPES_ERROR_MSG)):
         _infer_schema(["a", ["b", "c"]])
 
 
