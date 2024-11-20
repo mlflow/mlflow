@@ -24,8 +24,9 @@ from mlflow.types.schema import (
 )
 
 MULTIPLE_TYPES_ERROR_MSG = (
-    "Expected all values in list to be of same type; if the list contains multiple types, "
-    "use Array(AnyType()) in mlflow.models.schema to represent list of mixed types explicitly."
+    "Expected all values in the list to be of the same type. To specify a model signature "
+    "with a list containing elements of multiple types, define the signature manually "
+    "using the Array(AnyType()) type from mlflow.models.schema."
 )
 _logger = logging.getLogger(__name__)
 

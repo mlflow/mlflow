@@ -21,7 +21,7 @@ OBJECT_TYPE = "object"
 MAP_TYPE = "map"
 ANY_TYPE = "any"
 SPARKML_VECTOR_TYPE = "sparkml_vector"
-SUPPORTED_TYPES = Union["Array", "DataType", "Map", "Object", "AnyType", str]
+ALOWWED_DTYPES = Union["Array", "DataType", "Map", "Object", "AnyType", str]
 EXPECTED_TYPE_MESSAGE = (
     "Expected mlflow.types.schema.Datatype, mlflow.types.schema.Array, "
     "mlflow.types.schema.Object, mlflow.types.schema.Map, mlflow.types.schema.AnyType "
@@ -151,18 +151,30 @@ class DataType(Enum):
 class BaseType(ABC):
     @abstractmethod
     def __eq__(self, other) -> bool:
+        """
+        Determine if two objects are equal.
+        """
         raise NotImplementedError
 
     @abstractmethod
     def __repr__(self) -> str:
+        """
+        The string representation of the object.
+        """
         raise NotImplementedError
 
     @abstractmethod
     def to_dict(self) -> dict:
+        """
+        Dictionary representation of the object.
+        """
         raise NotImplementedError
 
     @abstractmethod
     def _merge(self, other: BaseType) -> BaseType:
+        """
+        Merge two objects and return the updated object if they're compatible.
+        """
         raise NotImplementedError
 
 
@@ -174,7 +186,7 @@ class Property(BaseType):
     def __init__(
         self,
         name: str,
-        dtype: SUPPORTED_TYPES,
+        dtype: ALOWWED_DTYPES,
         required: bool = True,
     ) -> None:
         """
@@ -483,7 +495,7 @@ class Array(BaseType):
 
     def __init__(
         self,
-        dtype: SUPPORTED_TYPES,
+        dtype: ALOWWED_DTYPES,
     ) -> None:
         try:
             self._dtype = DataType[dtype] if isinstance(dtype, str) else dtype
@@ -601,7 +613,7 @@ class Map(BaseType):
     Specification used to represent a json-convertible map with string type keys.
     """
 
-    def __init__(self, value_type: SUPPORTED_TYPES):
+    def __init__(self, value_type: ALOWWED_DTYPES):
         try:
             self._value_type = DataType[value_type] if isinstance(value_type, str) else value_type
         except KeyError:
@@ -735,7 +747,7 @@ class ColSpec:
 
     def __init__(
         self,
-        type: SUPPORTED_TYPES,
+        type: ALOWWED_DTYPES,
         name: Optional[str] = None,
         required: bool = True,
     ):
