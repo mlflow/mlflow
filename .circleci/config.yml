@@ -77,7 +77,7 @@ jobs:
             JAVA_HOME: /usr/lib/jvm/default-java
           command: |
             yarn install
-            yarn build-api-docs
+            yarn build-api-docs:no-r
             yarn build
             python changed_pages.py
       - store_artifacts:

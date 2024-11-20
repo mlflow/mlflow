@@ -2,15 +2,19 @@ import os
 import shutil
 import subprocess
 
+import click
 
-def build_and_copy_docs():
+
+@click.option("--with-r", "with_r", default=False, help="The version to release")
+def main(with_r):
     try:
         # Run "make rsthtml" in "api_reference" subfolder
         print("Building API reference documentation...")
         subprocess.run(["make", "clean"], check=True, cwd="api_reference")
         subprocess.run(["make", "rsthtml"], check=True, cwd="api_reference")
         subprocess.run(["make", "javadocs"], check=True, cwd="api_reference")
-        subprocess.run(["make", "rdocs"], check=True, cwd="api_reference")
+        if with_r:
+            subprocess.run(["make", "rdocs"], check=True, cwd="api_reference")
         print("Build successful.")
     except subprocess.CalledProcessError as e:
         print(f"Build failed: {e}")
@@ -28,5 +32,5 @@ def build_and_copy_docs():
     shutil.copytree(source_folder, destination_folder)
     print(f"Copied files from {source_folder} to {destination_folder}.")
 
-
-build_and_copy_docs()
+if __name__ == "__main__":
+    main()
