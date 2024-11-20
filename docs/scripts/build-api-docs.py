@@ -33,5 +33,6 @@ def main(with_r):
     shutil.copytree(source_folder, destination_folder)
     print(f"Copied files from {source_folder} to {destination_folder}.")
 
+
 if __name__ == "__main__":
     main()
