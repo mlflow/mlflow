@@ -459,7 +459,7 @@ for rm in client.search_registered_models():
 
 This outputs:
 
-```text
+```
 {   'creation_timestamp': 1582671933216,
     'description': None,
     'last_updated_timestamp': 1582671960712,
@@ -597,7 +597,7 @@ filename = "lr_model.pkl"
 pickle.dump(lr_model, open(filename, "wb"))
 ```
 
-```text
+```
 Coefficients:
 [938.23786125]
 Mean squared error: 2548.07
@@ -634,7 +634,7 @@ mlflow.sklearn.log_model(
 )
 ```
 
-```text
+```
 --
 Successfully registered model 'SklearnLinearRegression'.
 2021/04/02 16:30:57 INFO mlflow.tracking._model_registry.client: Waiting up to 300 seconds for model version to finish creation.
@@ -655,7 +655,7 @@ diabetes_y_pred = loaded_model.predict(diabetes_X_test)
 print_predictions(loaded_model, diabetes_y_pred)
 ```
 
-```text
+```
 --
 Coefficients:
 [938.23786125]
@@ -779,7 +779,7 @@ loaded_model = mlflow.pyfunc.load_model(model_uri)
 score_model(loaded_model)
 ```
 
-```text
+```
 Successfully registered model 'PyFuncVaderSentiments'.
 2021/04/05 10:34:15 INFO mlflow.tracking._model_registry.client: Waiting up to 300 seconds for model version to finish creation.
 Created version '1' of model 'PyFuncVaderSentiments'.
