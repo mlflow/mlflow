@@ -73,6 +73,8 @@ jobs:
       - run:
           name: Build documentation
           working_directory: docs
+          environment:
+            JAVA_HOME: /usr/lib/jvm/default-java
           command: |
             yarn install
             yarn build-api-docs
