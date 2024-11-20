@@ -119,8 +119,8 @@ def patched_inference(func_name, original, self, *args, **kwargs):
         if should_trace:
             # Make sure all spans are flushed before finishing the inference. LangChain's on_xyz_end
             # callbacks are not guaranteed to be invoked always, which results in leaking the active
-            # span context to the next inference call. Flushing the tracer ensures that all spans are
-            # finished and detached from the context.
+            # span context to the next inference call. Flushing the tracer ensures that all spans
+            # are finished and detached from the context.
             tracer.flush()
 
     return result

@@ -1,7 +1,5 @@
 import ast
-import contextvars
 import logging
-from dataclasses import dataclass
 from typing import Any, Optional, Sequence, Union
 from uuid import UUID
 
@@ -24,27 +22,13 @@ from mlflow.entities import LiveSpan, SpanEvent, SpanStatus, SpanStatusCode, Spa
 from mlflow.exceptions import MlflowException
 from mlflow.pyfunc.context import Context, maybe_set_prediction_context
 from mlflow.tracing.provider import detach_span_from_context, set_span_in_context
+from mlflow.tracing.utils.token import SpanWithToken
 from mlflow.utils.autologging_utils import ExceptionSafeAbstractClass
 
 _logger = logging.getLogger(__name__)
 # Vector Search index column names
 VS_INDEX_ID_COL = "chunk_id"
 VS_INDEX_DOC_URL_COL = "doc_uri"
-
-
-@dataclass
-class SpanWithToken:
-    """
-    A utility container to hold an MLflow span and its corresponding OpenTelemetry token.
-
-    The token is a special object that is generated when setting a span as active within
-    the Open Telemetry span context. This token is required when inactivate the span i.e.
-    detaching the span from the context. This will only be used when MlflowLangchainTracer
-    is configured to set the span as active span by setting `set_span_in_context=True`.
-    """
-
-    span: LiveSpan
-    token: Optional[contextvars.Token] = None
 
 
 class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstractClass):
@@ -79,8 +63,7 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
         self._set_span_in_context = set_span_in_context
 
     def _get_span_by_run_id(self, run_id: UUID) -> Optional[LiveSpan]:
-        span_with_token = self._run_span_mapping.get(str(run_id), None)
-        if span_with_token:
+        if span_with_token := self._run_span_mapping.get(str(run_id), None):
             return span_with_token.span
         raise MlflowException(f"Span for run_id {run_id!s} not found.")
 
