@@ -330,7 +330,7 @@ This is useful when you load the pretrained model from HuggingFace Hub and want 
 it to MLflow without modifying the model weights. In such case, specifying this flag to
 ``False`` will save the storage space and reduce time to save the model. Please refer to the
 `Storage-Efficient Model Logging
-<../../llms/transformers/large-models#transformers-save-pretrained-guide>`_ for more detailed usage.
+<../../llms/transformers/large-models.html#transformers-save-pretrained-guide>`_ for more detailed usage.
 
 
 .. warning::
@@ -340,7 +340,7 @@ it to MLflow without modifying the model weights. In such case, specifying this 
     can be registered, you can use :py:func:`mlflow.transformers.persist_pretrained_model()`
     to download the model weights from the HuggingFace Hub and save it in the existing model
     artifacts. Please refer to `Transformers flavor documentation
-    <../../llms/transformers/large-models#persist-pretrained-guide>`_
+    <../../llms/transformers/large-models.html#persist-pretrained-guide>`_
     for more detailed usage.
 
     .. code-block:: python

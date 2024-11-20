@@ -324,8 +324,8 @@ def validate_evaluation_results(
                 baseline_result,
             )
 
-        See `the Model Validation documentation <../../models#performing-model-validation>`_
-        for more details.
+        See `the Model Validation documentation
+        <../../models/index.html#performing-model-validation>`_ for more details.
     """
     try:
         assert type(validation_thresholds) is dict
