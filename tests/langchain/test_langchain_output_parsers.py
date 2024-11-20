@@ -12,8 +12,6 @@ def test_chatcompletions_output_parser_parse_response():
     message = "The weather today is"
 
     parsed_response = parser.parse(message)
-    print("AAAAAAAA")
-    print(parsed_response)
     assert parsed_response == {
         "choices": [
             {

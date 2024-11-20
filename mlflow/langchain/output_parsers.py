@@ -1,5 +1,5 @@
 from dataclasses import asdict
-from typing import Any, Iterator, List
+from typing import Any, Iterator
 
 from langchain_core.output_parsers.transform import BaseTransformOutputParser
 from langchain_core.messages.base import BaseMessage
@@ -58,11 +58,6 @@ class ChatCompletionOutputParser(BaseTransformOutputParser[str]):
     def is_lc_serializable(cls) -> bool:
         """Return whether this class is serializable."""
         return True
-
-    @classmethod
-    def get_lc_namespace(cls) -> List[str]:
-        """Get the namespace of the langchain object."""
-        return ["langchain", "schema", "output_parser"]
 
     @property
     def _type(self) -> str:
