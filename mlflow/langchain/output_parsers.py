@@ -1,14 +1,16 @@
 from dataclasses import asdict
 from typing import Any, Iterator
 
-from langchain_core.output_parsers.transform import BaseTransformOutputParser
 from langchain_core.messages.base import BaseMessage
+from langchain_core.output_parsers.transform import BaseTransformOutputParser
 
 from mlflow.models.rag_signatures import (
     ChainCompletionChoice,
-    ChatCompletionResponse as RagChatCompletionResponse,
     Message,
     StringResponse,
+)
+from mlflow.models.rag_signatures import (
+    ChatCompletionResponse as RagChatCompletionResponse,
 )
 from mlflow.types.llm import (
     ChatChoice,

@@ -1,10 +1,11 @@
+from langchain_core.messages.base import BaseMessage
+from langchain_core.runnables.config import RunnableConfig
+
 from mlflow.langchain.output_parsers import (
     ChatCompletionOutputParser,
     ChatCompletionsOutputParser,
     StringResponseOutputParser,
 )
-from langchain_core.runnables.config import RunnableConfig
-from langchain_core.messages.base import BaseMessage
 
 
 def test_chatcompletions_output_parser_parse_response():
