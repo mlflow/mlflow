@@ -71,7 +71,7 @@ class _ChatModelPyfuncWrapper:
                        via ``self._convert_input()``.
 
         Returns:
-            Model predictions in :py:class:`~ChatResponse` format.
+            Model predictions in :py:class:`~ChatCompletionResponse` format.
         """
         messages, params = self._convert_input(model_input)
         response = self.chat_model.predict(self.context, messages, params)
@@ -80,7 +80,7 @@ class _ChatModelPyfuncWrapper:
     def _response_to_dict(self, response: ChatCompletionResponse) -> dict[str, Any]:
         if not isinstance(response, ChatCompletionResponse):
             raise MlflowException(
-                "Model returned an invalid response. Expected a ChatResponse, but "
+                "Model returned an invalid response. Expected a ChatCompletionResponse, but "
                 f"got {type(response)} instead.",
                 error_code=INTERNAL_ERROR,
             )

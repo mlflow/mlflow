@@ -247,7 +247,7 @@ class ChatModel(PythonModel, metaclass=ABCMeta):
                 inference.
 
         Returns:
-            A :py:class:`ChatResponse <mlflow.types.llm.ChatResponse>` object containing
+            A :py:class:`ChatCompletionResponse <mlflow.types.llm.ChatCompletionResponse>` object containing
             the model's response(s), as well as other metadata.
         """
 
@@ -256,8 +256,7 @@ class ChatModel(PythonModel, metaclass=ABCMeta):
     ) -> Generator[ChatCompletionChunk, None, None]:
         """
         Evaluates a chat input and produces a chat output.
-        Overrides this function to implement a real stream prediction.
-        By default, this function just yields result of `predict` function.
+        Override this function to implement a real stream prediction.
 
         Args:
             context: A :class:`~PythonModelContext` instance containing artifacts that the model
