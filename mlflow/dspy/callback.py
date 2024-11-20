@@ -2,7 +2,7 @@ import logging
 from typing import Any, Optional
 
 import dspy
-from dspy.utils.callback import ACTIVE_CALL_ID, BaseCallback
+from dspy.utils.callback import BaseCallback
 
 import mlflow
 from mlflow.entities import SpanStatusCode, SpanType
@@ -19,7 +19,6 @@ class MlflowCallback(BaseCallback):
 
     def __init__(self, prediction_context: Optional[Context] = None):
         self._client = mlflow.MlflowClient()
-        self._call_id_to_span = {}
         self._prediction_context = prediction_context or Context()
         # call_id: (LiveSpan, OTel token)
         self._call_id_to_span: dict[str, SpanWithToken] = {}
@@ -114,18 +113,9 @@ class MlflowCallback(BaseCallback):
         inputs: dict[str, Any],
         attributes: dict[str, Any],
     ):
-        # Get parent span in this order:
-        # 1. If there is an active span in MLflow, use it as parent span.
-        # 2. Use DSPy's active call ID to find the parent span as a fallback.
-        # 3. Otherwise, start a new root span.
-        if active_span := mlflow.get_current_active_span():
-            parent_span = active_span
-        elif parent_call_id := ACTIVE_CALL_ID.get():
-            parent_span, _ = self._call_id_to_span.get(parent_call_id)
-            if not parent_span:
-                _logger.warning("Failed to create a span. Parent span not found.")
-        else:
-            parent_span = None
+        # If there is an active span in MLflow, use it as parent span.
+        # Otherwise, start a new root span.
+        parent_span = mlflow.get_current_active_span()
 
         common_params = {
             "name": name,
