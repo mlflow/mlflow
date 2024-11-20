@@ -12,8 +12,7 @@ class SpanWithToken:
 
     The token is a special object that is generated when setting a span as active within
     the Open Telemetry span context. This token is required when inactivate the span i.e.
-    detaching the span from the context. This will only be used when MlflowLangchainTracer
-    is configured to set the span as active span by setting `set_span_in_context=True`.
+    detaching the span from the context.
     """
 
     span: LiveSpan

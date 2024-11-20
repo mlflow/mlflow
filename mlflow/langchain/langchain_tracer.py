@@ -130,28 +130,31 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
         status=SpanStatus(SpanStatusCode.OK),
     ):
         """Close MLflow Span (or Trace if it is root component)"""
-        with maybe_set_prediction_context(self._prediction_context):
-            self._mlflow_client.end_span(
-                request_id=span.request_id,
-                span_id=span.span_id,
-                outputs=outputs,
-                attributes=attributes,
-                status=status,
-            )
-
-        st = self._run_span_mapping.pop(str(run_id), None)
-        if st and self._set_span_in_context:
-            if st.token is None:
-                raise MlflowException(
-                    f"Token for span {st.span} is not found. Cannot detach the span from context."
+        try:
+            with maybe_set_prediction_context(self._prediction_context):
+                self._mlflow_client.end_span(
+                    request_id=span.request_id,
+                    span_id=span.span_id,
+                    outputs=outputs,
+                    attributes=attributes,
+                    status=status,
                 )
-            detach_span_from_context(st.token)
+        finally:
+            # Span should be detached from the context even when the client.end_span fails
+            st = self._run_span_mapping.pop(str(run_id), None)
+            if self._set_span_in_context:
+                if st.token is None:
+                    raise MlflowException(
+                        f"Token for span {st.span} is not found. "
+                        "Cannot detach the span from context."
+                    )
+                detach_span_from_context(st.token)
 
     def flush(self):
         """Flush the state of the tracer."""
         # Ideally, all spans should be popped and ended. However, LangChain sometimes
         # does not trigger the end event properly and some spans may be left open.
-        # To avoid leaking tracing context, we remove all psans from the mapping.
+        # To avoid leaking tracing context, we remove all spans from the mapping.
         for st in self._run_span_mapping.values():
             if st.token:
                 _logger.debug(f"Found leaked span {st.span}. Force ending it.")
