@@ -67,7 +67,7 @@ class ChatCompletionOutputParser(BaseTransformOutputParser[str]):
         return "mlflow_chat_completion"
 
     def parse(self, text: str) -> dict[str, Any]:
-        """Returns the input text as a ChatCOmpletionResponse with no changes."""
+        """Returns the input text as a ChatCompletionResponse with no changes."""
         return ChatCompletionResponse(
             choices=[ChatChoice(message=ChatMessage(role="assistant", content=text))]
         ).to_dict()
