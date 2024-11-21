@@ -470,6 +470,33 @@ for model/API invocations to the active MLflow Experiment.
             :width: 100%
             :align: center
 
+    .. tab:: Anthropic
+
+        .. raw:: html
+
+            <h3>Anthropic Automatic Tracing</h3>
+
+        |
+
+        MLflow Tracing ensures observability for your interactions with Anthropic AI models.
+        When Anthropic autologging is enabled with :py:func:`mlflow.anthropic.autolog`,
+        usage of the Anthropic SDK will automatically record generated traces during interactive development.
+        Note that only synchronous calls for text interactions are supported.
+        Asynchronous API and streaming methods are not traced.
+
+        .. code-block:: python
+
+            import mlflow
+
+            mlflow.anthropic.autolog()
+
+        To see the full example of tracing Anthropic, please refer to the `Anthropic Tracing example <https://github.com/mlflow/mlflow/tree/master/examples/anthropic/tracing.py>`_.
+
+        .. figure:: ../../_static/images/llms/anthropic/anthropic-tracing.png
+            :alt: Anthropic Tracing
+            :width: 100%
+            :align: center
+
 
 Tracing Fluent APIs
 -------------------
