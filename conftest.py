@@ -388,3 +388,46 @@ def serve_wheel(request, tmp_path_factory):
             yield
         finally:
             prc.terminate()
+
+
+def patch_isinstance():
+    try:
+        from pyspark.sql import DataFrame
+        from pyspark.sql.connect.dataframe import DataFrame as ConnectDataFrame
+    except ImportError:
+        pass
+    else:
+        import builtins  # clint: disable=lazy-builtin-import
+        import functools  # clint: disable=lazy-builtin-import
+
+        original_isinstance = builtins.isinstance
+
+        @functools.wraps(original_isinstance)
+        def new_isinstance(object, classinfo):
+            if original_isinstance(classinfo, tuple):
+                if DataFrame in classinfo and ConnectDataFrame not in classinfo:
+                    raise Exception(
+                        "Make sure to use both pyspark.sql.DataFrame and "
+                        "pyspark.sql.connect.dataframe.DataFrame"
+                    )
+            else:
+                if classinfo is DataFrame:
+                    raise Exception(
+                        "Make sure to use both pyspark.sql.DataFrame and "
+                        "pyspark.sql.connect.dataframe.DataFrame"
+                    )
+
+            return original_isinstance(object, classinfo)
+
+        builtins.isinstance = new_isinstance
+
+        isinstance("x", str)
+        try:
+            isinstance("x", DataFrame)
+        except Exception:
+            pass
+        else:
+            raise Exception("Should not reach here")
+
+
+patch_isinstance()
