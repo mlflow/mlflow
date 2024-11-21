@@ -248,7 +248,7 @@ def patched_call(original, self, *args, **kwargs):
                 # so that the model can be logged.
                 with _set_api_key_env_var(self._client):
                     mlflow.openai.log_model(
-                        kwargs.get("model", None),
+                        kwargs.get("model"),
                         task,
                         "model",
                         input_example=input_example,
