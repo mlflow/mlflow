@@ -48,14 +48,37 @@ jobs:
           command: |
             echo "export CIRCLECI_BASE_URL=/output/job/$CIRCLE_WORKFLOW_JOB_ID/artifacts/0/docs/build/" >> "$BASH_ENV"
       - run:
-          name: Install dependencies
+          name: Install Java
           command: |
-            pip install requests
+            sudo apt-get update --yes
+            sudo apt-get install default-jdk --yes
+            sudo apt-get install maven --yes
+            java -version
+      - run:
+          name: Install Pandoc
+          command: |
+            sudo apt-get install pandoc
+      - run:
+          name: Install Python dependencies
+          command: |
+            pip --version
+            pip install --progress-bar off -r requirements/doc-requirements.txt pytest pytest-cov plotly
+            pip install -e .[gateway]
+          environment:
+            PIP_EXTRA_INDEX_URL: https://download.pytorch.org/whl/cpu
+      - run:
+          name: Show package release dates
+          command: |
+            python dev/show_package_release_dates.py
       - run:
           name: Build documentation
           working_directory: docs
+          environment:
+            JAVA_HOME: /usr/lib/jvm/default-java
           command: |
-            yarn install && yarn build
+            yarn install
+            yarn build-api-docs:no-r
+            yarn build
             python changed_pages.py
       - store_artifacts:
           path: docs/build/
