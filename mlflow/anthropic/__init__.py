@@ -19,10 +19,10 @@ def autolog(
     Only synchronous calls are supported. Asynchnorous APIs and streaming are not recorded.
 
     Args:
-        log_traces: If ``True``, traces are logged for Gemini models.
+        log_traces: If ``True``, traces are logged for Anthropic models.
             If ``False``, no traces are collected during inference. Default to ``True``.
-        disable: If ``True``, disables the Gemini autologging. Default to ``False``.
-        silent: If ``True``, suppress all event logs and warnings from MLflow during Gemini
+        disable: If ``True``, disables the Anthropic autologging. Default to ``False``.
+        silent: If ``True``, suppress all event logs and warnings from MLflow during Anthropic
             autologging. If ``False``, show all events and warnings.
     """
     from anthropic.resources import Messages
