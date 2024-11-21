@@ -1,128 +1,27 @@
-import json
 import logging
-import time
-from typing import Literal, Optional, Union
+from typing import Union
 
 import pydantic
 from langchain.agents import AgentExecutor
 from langchain.schema import AIMessage, HumanMessage, SystemMessage
 from langchain.schema import ChatMessage as LangChainChatMessage
-from packaging.version import Version
 
 from mlflow.environment_variables import (
     MLFLOW_CONVERT_MESSAGES_DICT_FOR_LANGCHAIN,
 )
 from mlflow.exceptions import MlflowException
-from mlflow.types.schema import Array, ColSpec, DataType, Schema
+from mlflow.types.llm import (
+    ChatChoice,
+    ChatChoiceDelta,
+    ChatChunkChoice,
+    ChatCompletionChunk,
+    ChatCompletionRequest,
+    ChatCompletionResponse,
+    ChatMessage,
+    TokenUsageStats,
+)
 
 _logger = logging.getLogger(__name__)
-
-IS_PYDANTIC_V1 = Version(pydantic.__version__).major < 2
-
-
-# NB: Even though _ChatMessage is only referenced in one method within this module
-# (as of 12/27/2023), it must be defined at the module level for compatibility with
-# pydantic < 2
-class _ChatMessage(pydantic.BaseModel, extra="forbid"):
-    role: str
-    content: str
-
-    def to_langchain_message(self) -> LangChainChatMessage:
-        if self.role == "system":
-            return SystemMessage(content=self.content)
-        elif self.role == "assistant":
-            return AIMessage(content=self.content)
-        elif self.role == "user":
-            return HumanMessage(content=self.content)
-        else:
-            raise MlflowException.invalid_parameter_value(
-                f"Unrecognized chat message role: {self.role}"
-            )
-
-    @staticmethod
-    def get_schema():
-        return Schema([ColSpec(DataType.string, "role"), ColSpec(DataType.string, "content")])
-
-
-class _ChatDeltaMessage(pydantic.BaseModel):
-    role: str
-    content: str
-
-
-class _ChatRequest(pydantic.BaseModel, extra="forbid"):
-    messages: list[_ChatMessage]
-
-
-class _ChatChoice(pydantic.BaseModel, extra="forbid"):
-    index: int
-    message: Optional[_ChatMessage] = None
-    finish_reason: Optional[str] = None
-
-    @staticmethod
-    def get_schema():
-        return Schema(
-            [
-                ColSpec(DataType.integer, "index"),
-                ColSpec(_ChatMessage.get_schema(), "message", required=False),
-                ColSpec(DataType.string, "finish_reason", required=False),
-            ]
-        )
-
-
-class _ChatChoiceDelta(pydantic.BaseModel):
-    index: int
-    finish_reason: Optional[str] = None
-    delta: _ChatDeltaMessage
-
-
-class _ChatUsage(pydantic.BaseModel, extra="forbid"):
-    prompt_tokens: Optional[int] = None
-    completion_tokens: Optional[int] = None
-    total_tokens: Optional[int] = None
-
-    @staticmethod
-    def get_schema():
-        return Schema(
-            [
-                ColSpec(DataType.integer, "prompt_tokens", required=False),
-                ColSpec(DataType.integer, "completion_tokens", required=False),
-                ColSpec(DataType.integer, "total_tokens", required=False),
-            ]
-        )
-
-
-class _ChatResponse(pydantic.BaseModel, extra="forbid"):
-    id: Optional[str] = None
-    object: Literal["chat.completion"] = "chat.completion"
-    created: int
-    # Make the model field optional since we may not be able to get a stable model identifier
-    # for an arbitrary LangChain model
-    model: Optional[str] = None
-    choices: list[_ChatChoice]
-    usage: _ChatUsage
-
-    @staticmethod
-    def get_schema():
-        return Schema(
-            [
-                ColSpec(DataType.string, "id", required=False),
-                ColSpec(DataType.string, "object"),
-                ColSpec(DataType.integer, "created"),
-                ColSpec(DataType.string, "model", required=False),
-                ColSpec(Array(_ChatChoice.get_schema()), "choices"),
-                ColSpec(_ChatUsage.get_schema(), "usage"),
-            ]
-        )
-
-
-class _ChatChunkResponse(pydantic.BaseModel):
-    id: Optional[str] = None
-    object: Literal["chat.completion.chunk"] = "chat.completion.chunk"
-    created: int
-    # Make the model field optional since we may not be able to get a stable model identifier
-    # for an arbitrary LangChain model
-    model: Optional[str] = None
-    choices: list[_ChatChoiceDelta]
 
 
 def try_transform_response_to_chat_format(response):
@@ -135,57 +34,39 @@ def try_transform_response_to_chat_format(response):
     else:
         return response
 
-    transformed_response = _ChatResponse(
+    return ChatCompletionResponse(
         id=message_id,
-        created=int(time.time()),
         model=None,
         choices=[
-            _ChatChoice(
-                index=0,
-                message=_ChatMessage(
+            ChatChoice(
+                message=ChatMessage(
                     role="assistant",
                     content=message_content,
                 ),
-                finish_reason=None,
             )
         ],
-        usage=_ChatUsage(
+        usage=TokenUsageStats(
             prompt_tokens=None,
             completion_tokens=None,
             total_tokens=None,
         ),
-    )
-
-    if IS_PYDANTIC_V1:
-        return json.loads(transformed_response.json())
-    else:
-        return transformed_response.model_dump(mode="json")
+    ).to_dict()
 
 
 def try_transform_response_iter_to_chat_format(chunk_iter):
     from langchain_core.messages.ai import AIMessageChunk
 
     def _gen_converted_chunk(message_content, message_id, finish_reason):
-        transformed_response = _ChatChunkResponse(
+        return ChatCompletionChunk(
             id=message_id,
-            created=int(time.time()),
             model=None,
             choices=[
-                _ChatChoiceDelta(
-                    index=0,
-                    delta=_ChatDeltaMessage(
-                        role="assistant",
-                        content=message_content,
-                    ),
+                ChatChunkChoice(
+                    delta=ChatChoiceDelta(role="assistant", content=message_content),
                     finish_reason=finish_reason,
                 )
             ],
-        )
-
-        if IS_PYDANTIC_V1:
-            return json.loads(transformed_response.json())
-        else:
-            return transformed_response.model_dump(mode="json")
+        ).to_dict()
 
     def _convert(chunk):
         if isinstance(chunk, str):
@@ -218,12 +99,21 @@ def try_transform_response_iter_to_chat_format(chunk_iter):
 
 
 def _convert_chat_request_or_throw(chat_request: dict):
-    if IS_PYDANTIC_V1:
-        model = _ChatRequest.parse_obj(chat_request)
-    else:
-        model = _ChatRequest.model_validate(chat_request)
+    model = ChatCompletionRequest.from_dict(chat_request)
 
-    return [message.to_langchain_message() for message in model.messages]
+    def _to_langchain_message(chat_message) -> LangChainChatMessage:
+        if chat_message.role == "system":
+            return SystemMessage(content=chat_message.content)
+        elif chat_message.role == "assistant":
+            return AIMessage(content=chat_message.content)
+        elif chat_message.role == "user":
+            return HumanMessage(content=chat_message.content)
+        else:
+            raise MlflowException.invalid_parameter_value(
+                f"Unrecognized chat message role: {chat_message.role}"
+            )
+
+    return [_to_langchain_message(message) for message in model.messages]
 
 
 def convert_chat_request(chat_request: Union[dict, list[dict]]):
