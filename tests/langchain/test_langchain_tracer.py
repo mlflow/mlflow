@@ -3,12 +3,10 @@ import time
 import uuid
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any, Optional
-from unittest import mock
 from unittest.mock import MagicMock
 
 import langchain
 import pytest
-from langchain.agents import AgentType, initialize_agent, load_tools
 from langchain.chains.llm import LLMChain
 from langchain.prompts import PromptTemplate
 from langchain.prompts.chat import SystemMessagePromptTemplate
@@ -61,36 +59,6 @@ def create_retriever():
     embeddings = FakeEmbeddings(size=5)
     db = FAISS.from_documents(docs, embeddings)
     return db.as_retriever()
-
-
-def create_openai_llmagent():
-    # First, let's load the language model we're going to use to control the agent.
-    with mock.patch("openai.OpenAI") as mock_openai:
-        mock_openai.return_value.completions.create.return_value = {
-            "id": "chatcmpl-123",
-            "object": "chat.completion",
-            "created": 1677652288,
-            "choices": [
-                {
-                    "index": 0,
-                    "finish_reason": "stop",
-                    "text": "Final Answer: test",
-                }
-            ],
-            "usage": {"prompt_tokens": 9, "completion_tokens": 12, "total_tokens": 21},
-        }
-        llm = OpenAI(temperature=0)
-
-    # Next, let's load some tools to use.
-    tools = load_tools(["llm-math"], llm=llm)
-
-    # Finally, let's initialize an agent with the tools.
-    return initialize_agent(
-        tools,
-        llm,
-        agent=AgentType.ZERO_SHOT_REACT_DESCRIPTION,
-        verbose=True,
-    )
 
 
 def _validate_trace_json_serialization(trace):
@@ -413,19 +381,29 @@ def test_e2e_rag_model_tracing_in_serving(mock_databricks_serving_with_tracing_e
     _validate_trace_json_serialization(trace)
 
 
+@pytest.mark.skipif(
+    Version(langchain.__version__) < Version("0.2.0"),
+    reason="ToolCall message is not available in older versions",
+)
 def test_agent_success(mock_databricks_serving_with_tracing_env):
-    agent = create_openai_llmagent()
-    langchain_input = {"input": "What is 123 raised to the .023 power?"}
-    expected_output = {"output": "test"}
+    # Load the agent definition (with OpenAI mock) from the sample script
+    from tests.langchain.sample_code.openai_agent import create_openai_agent
+
+    agent = create_openai_agent()
+
+    langchain_input = {"input": "what is the value of magic_function(3)?"}
+    expected_output = {"output": "The result of 2 * 3 is 6."}
     request_id = "test_request_id"
     response, trace_dict = _predict_with_callbacks(agent, request_id, langchain_input)
 
     assert response == expected_output
-    trace = Trace.from_dict(trace_dict)
-    spans = trace.data.spans
-    assert len(spans) == 3
 
-    # AgentExecutor
+    trace = Trace.from_dict(trace_dict)
+    assert trace.info.status == "OK"
+
+    spans = trace.data.spans
+    assert len(spans) == 16
+
     root_span = spans[0]
     assert root_span.name == "AgentExecutor"
     assert root_span.span_type == "CHAIN"
@@ -436,20 +414,6 @@ def test_agent_success(mock_databricks_serving_with_tracing_env):
         root_span.end_time_ns // 1_000_000
         - (trace.info.timestamp_ms + trace.info.execution_time_ms)
     ) <= 1
-    root_span_id = root_span.span_id
-
-    # LLMChain of the agent
-    llm_chain_span = spans[1]
-    assert llm_chain_span.parent_id == root_span_id
-    assert llm_chain_span.span_type == "CHAIN"
-    assert llm_chain_span.inputs["input"] == langchain_input["input"]
-    assert llm_chain_span.outputs == {"text": "Final Answer: test"}
-
-    # LLM of the LLMChain
-    llm_span = spans[2]
-    assert llm_span.parent_id == llm_chain_span.span_id
-    assert llm_span.span_type == "LLM"
-    assert llm_span.outputs["generations"][0][0]["text"] == "Final Answer: test"
 
     _validate_trace_json_serialization(trace)
 
