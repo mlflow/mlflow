@@ -33,10 +33,12 @@ from llama_index.core.schema import NodeWithScore
 from llama_index.core.tools import BaseTool
 from packaging.version import Version
 
+import mlflow
 from mlflow.entities import LiveSpan, SpanEvent, SpanType
 from mlflow.entities.document import Document
 from mlflow.entities.span_status import SpanStatusCode
 from mlflow.tracing.constant import SpanAttributeKey
+from mlflow.tracing.provider import detach_span_from_context, set_span_in_context
 from mlflow.tracking.client import MlflowClient
 
 _logger = logging.getLogger(__name__)
@@ -91,7 +93,7 @@ class _LlamaSpan(BaseSpan, extra="allow"):
         self._mlflow_span = mlflow_span
 
 
-def _end_span(span: LiveSpan, status=SpanStatusCode.OK, outputs=None):
+def _end_span(span: LiveSpan, status=SpanStatusCode.OK, outputs=None, token=None):
     """An utility function to end the span or trace."""
     if isinstance(outputs, (StreamingResponse, AsyncStreamingResponse, StreamingAgentChatResponse)):
         _logger.warning(
@@ -116,16 +118,22 @@ def _end_span(span: LiveSpan, status=SpanStatusCode.OK, outputs=None):
     if outputs is None:
         outputs = span.outputs
 
-    if span.parent_id is None:
-        # NB: Initiate the new client every time to handle tracking URI updates.
-        MlflowClient().end_trace(span.request_id, status=status, outputs=outputs)
-    else:
-        MlflowClient().end_span(span.request_id, span.span_id, status=status, outputs=outputs)
+    try:
+        if span.parent_id is None:
+            # NB: Initiate the new client every time to handle tracking URI updates.
+            MlflowClient().end_trace(span.request_id, status=status, outputs=outputs)
+        else:
+            MlflowClient().end_span(span.request_id, span.span_id, status=status, outputs=outputs)
+    finally:
+        # We should detach span even when end_span / end_trace API call fails
+        if token:
+            detach_span_from_context(token)
 
 
 class MlflowSpanHandler(BaseSpanHandler[_LlamaSpan], extra="allow"):
     def __init__(self):
         super().__init__()
+        self._span_id_to_token = {}
         self._stream_resolver = StreamResolver()
         self._pending_spans: dict[str, _LlamaSpan] = {}
 
@@ -148,12 +156,13 @@ class MlflowSpanHandler(BaseSpanHandler[_LlamaSpan], extra="allow"):
         with self.lock:
             parent = self.open_spans.get(parent_span_id) if parent_span_id else None
 
+        parent_span = parent._mlflow_span if parent else mlflow.get_current_active_span()
+
         try:
             input_args = bound_args.arguments
             attributes = self._get_instance_attributes(instance)
             span_type = self._get_span_type(instance) or SpanType.UNKNOWN
-            if parent:
-                parent_span = parent._mlflow_span
+            if parent_span:
                 # NB: Initiate the new client every time to handle tracking URI updates.
                 span = MlflowClient().start_span(
                     request_id=parent_span.request_id,
@@ -170,6 +179,9 @@ class MlflowSpanHandler(BaseSpanHandler[_LlamaSpan], extra="allow"):
                     inputs=input_args,
                     attributes=attributes,
                 )
+
+            token = set_span_in_context(span)
+            self._span_id_to_token[span.span_id] = token
             return _LlamaSpan(id_=id_, parent_id=parent_span_id, mlflow_span=span)
         except BaseException as e:
             _logger.debug(f"Failed to create a new span: {e}", exc_info=True)
@@ -187,6 +199,7 @@ class MlflowSpanHandler(BaseSpanHandler[_LlamaSpan], extra="allow"):
                 return
 
             span = llama_span._mlflow_span
+            token = self._span_id_to_token.pop(span.span_id, None)
 
             if self._stream_resolver.is_streaming_result(result):
                 # If the result is a generator, we keep the span in progress for streaming
@@ -194,11 +207,14 @@ class MlflowSpanHandler(BaseSpanHandler[_LlamaSpan], extra="allow"):
                 is_pended = self._stream_resolver.register_stream_span(span, result)
                 if is_pended:
                     self._pending_spans[id_] = llama_span
+                    # We still need to detach the span from the context, otherwise it will
+                    # be considered as "active"
+                    detach_span_from_context(token)
                 else:
                     # If the span is not pended successfully, end it immediately
-                    _end_span(span=span, outputs=result)
+                    _end_span(span=span, outputs=result, token=token)
             else:
-                _end_span(span=span, outputs=result)
+                _end_span(span=span, outputs=result, token=token)
             return llama_span
         except BaseException as e:
             _logger.debug(f"Failed to end a span: {e}", exc_info=True)
@@ -213,6 +229,7 @@ class MlflowSpanHandler(BaseSpanHandler[_LlamaSpan], extra="allow"):
         with self.lock:
             llama_span = self.open_spans.get(id_)
         span = llama_span._mlflow_span
+        token = self._span_id_to_token.pop(span.span_id, None)
 
         if LLAMA_INDEX_VERSION >= Version("0.10.59"):
             # LlamaIndex determines if a workflow is terminated or not by propagating an special
@@ -220,10 +237,10 @@ class MlflowSpanHandler(BaseSpanHandler[_LlamaSpan], extra="allow"):
             from llama_index.core.workflow.errors import WorkflowDone
 
             if err and isinstance(err, WorkflowDone):
-                return _end_span(span=span, status=SpanStatusCode.OK)
+                return _end_span(span=span, status=SpanStatusCode.OK, token=token)
 
         span.add_event(SpanEvent.from_exception(err))
-        _end_span(span=span, status="ERROR")
+        _end_span(span=span, status="ERROR", token=token)
         return llama_span
 
     def _get_span_type(self, instance: Any) -> SpanType:
