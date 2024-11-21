@@ -154,28 +154,24 @@ class BaseType(ABC):
         """
         Determine if two objects are equal.
         """
-        raise NotImplementedError
 
     @abstractmethod
     def __repr__(self) -> str:
         """
         The string representation of the object.
         """
-        raise NotImplementedError
 
     @abstractmethod
     def to_dict(self) -> dict:
         """
         Dictionary representation of the object.
         """
-        raise NotImplementedError
 
     @abstractmethod
     def _merge(self, other: BaseType) -> BaseType:
         """
         Merge two objects and return the updated object if they're compatible.
         """
-        raise NotImplementedError
 
 
 class Property(BaseType):
