@@ -55,7 +55,7 @@ Introduction to MLflow Tracing
             </a>
             <a href="#automatic-tracing">
                 <div class="logo-card">
-                    <img src="../../_static/images/logos/anthropic-logo.jpg" alt="Anthropic Logo"/>
+                    <img src="../../_static/images/logos/anthropic-logo.svg" alt="Anthropic Logo"/>
                 </div>
             </a>
     </section>
