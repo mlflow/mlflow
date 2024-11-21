@@ -90,7 +90,6 @@ class MlflowFormatter(logging.Formatter):
         if color := getattr(record, "color", None):
             if color in self.COLORS and sys.platform != "win32":
                 color_code = self._escape(self.COLORS[color])
-                record.msg = f"{color_code}{record.msg}{self.RESET}"
                 return f"{color_code}{super().format(record)}{self.RESET}"
         return super().format(record)
 
