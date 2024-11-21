@@ -62,10 +62,10 @@ class MlflowFormatter(logging.Formatter):
     """
     Custom Formatter Class to support colored log
     ANSI characters might not work natively on older Windows, so disabling the feature for win32.
-    See https://github.com/borntyping/python-colorlog/blob/main/colorlog/escape_codes.py#L16C8-L16C31
+    See https://github.com/borntyping/python-colorlog/blob/dfa10f59186d3d716aec4165ee79e58f2265c0eb/colorlog/escape_codes.py#L16C8-L16C31
     """
 
-    # Copied from color log package https://github.com/borntyping/python-colorlog/blob/main/colorlog/escape_codes.py
+    # Copied from color log package https://github.com/borntyping/python-colorlog/blob/dfa10f59186d3d716aec4165ee79e58f2265c0eb/colorlog/escape_codes.py#L33-L50
     COLORS = {
         "black": 30,
         "red": 31,
