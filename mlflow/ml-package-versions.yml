@@ -706,7 +706,6 @@ langchain:
           "uvicorn",
           # Required for testing Databricks dependency extraction
           "databricks-vectorsearch",
-          "pydantic<2.10",
         ]
       # langchain-openai 0.1.22 is imcomptible with earlier langchain-core due to
       # https://github.com/langchain-ai/langchain/commit/b83f1eb0d56dbf99605a1fce93953ee09d77aabf
@@ -726,7 +725,7 @@ langchain:
       # test both pydantic v1 and v2
       PYDANTIC_VERSION=$(python -c "import pydantic; print(pydantic.__version__)")
       if [[ $PYDANTIC_VERSION == 1.* ]]; then
-        pip install 'pydantic>=2,<2.10' 'fastapi>=0.100.0'
+        pip install 'pydantic>=2' 'fastapi>=0.100.0'
         echo "Testing langchain model export with pydantic v2"
         pytest tests/langchain --ignore tests/langchain/test_langchain_autolog.py --ignore tests/langchain/test_langchain_evaluation.py
       fi
@@ -759,7 +758,7 @@ langchain:
       # test both pydantic v1 and v2
       PYDANTIC_VERSION=$(python -c "import pydantic; print(pydantic.__version__)")
       if [[ $PYDANTIC_VERSION == 1.* ]]; then
-        pip install 'pydantic>2' 'fastapi>=0.100.0'
+        pip install 'pydantic>=2' 'fastapi>=0.100.0'
         echo "Testing langchain autolog with pydantic v2"
         pytest tests/langchain/test_langchain_autolog.py
       fi
