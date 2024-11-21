@@ -243,11 +243,11 @@ _ML_PACKAGE_VERSIONS = {
         },
         "models": {
             "minimum": "4.25.1",
-            "maximum": "4.46.2"
+            "maximum": "4.46.3"
         },
         "autologging": {
             "minimum": "4.25.1",
-            "maximum": "4.46.2"
+            "maximum": "4.46.3"
         }
     },
     "openai": {
@@ -256,11 +256,11 @@ _ML_PACKAGE_VERSIONS = {
         },
         "models": {
             "minimum": "1.0.1",
-            "maximum": "1.54.4"
+            "maximum": "1.54.5"
         },
         "autologging": {
             "minimum": "1.17.0",
-            "maximum": "1.54.4"
+            "maximum": "1.54.5"
         }
     },
     "dspy": {
@@ -269,11 +269,11 @@ _ML_PACKAGE_VERSIONS = {
         },
         "models": {
             "minimum": "2.5.6",
-            "maximum": "2.5.31"
+            "maximum": "2.5.32"
         },
         "autologging": {
             "minimum": "2.5.17",
-            "maximum": "2.5.31"
+            "maximum": "2.5.32"
         }
     },
     "langchain": {
@@ -296,11 +296,11 @@ _ML_PACKAGE_VERSIONS = {
         },
         "models": {
             "minimum": "0.10.44",
-            "maximum": "0.11.23"
+            "maximum": "0.12.0"
         },
         "autologging": {
             "minimum": "0.10.44",
-            "maximum": "0.11.23"
+            "maximum": "0.12.0"
         }
     },
     "autogen": {
@@ -337,7 +337,7 @@ _ML_PACKAGE_VERSIONS = {
         },
         "models": {
             "minimum": "2.2.2",
-            "maximum": "3.3.0"
+            "maximum": "3.3.1"
         }
     },
     "johnsnowlabs": {
@@ -364,7 +364,7 @@ _ML_PACKAGE_VERSIONS = {
         },
         "autologging": {
             "minimum": "1.52.9",
-            "maximum": "1.52.9"
+            "maximum": "1.52.11"
         }
     }
 }
