@@ -575,9 +575,9 @@ class ChatChoice(_BaseDataclass):
     ref: https://platform.openai.com/docs/api-reference/chat/object
 
     Args:
+        message (:py:class:`ChatMessage`): The message that was generated.
         index (int): The index of the response in the list of responses.
             Defaults to ``0``
-        message (:py:class:`ChatMessage`): The message that was generated.
         finish_reason (str): The reason why generation stopped.
             **Optional**, defaults to ``"stop"``
         logprobs (:py:class:`ChatChoiceLogProbs`): Log probability information for the choice.
@@ -697,7 +697,7 @@ class ChatCompletionChunk(_BaseDataclass):
             **Optional**, defaults to ``None``.
         id (str): The ID of the response. **Optional**, defaults to ``None``
         model (str): The name of the model used. **Optional**, defaults to ``None``
-        object (str): The object type. Defaults to 'chat.completion'
+        object (str): The object type. Defaults to 'chat.completion.chunk'
         created (int): The time the response was created.
             **Optional**, defaults to the current time.
         custom_outputs (Dict[str, str]): An field that can contain arbitrary additional context.
