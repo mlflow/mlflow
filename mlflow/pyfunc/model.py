@@ -9,7 +9,7 @@ import os
 import shutil
 from abc import ABCMeta, abstractmethod
 from pathlib import Path
-from typing import Any, Iterator, Optional, Union
+from typing import Any, Generator, Optional, Union
 
 import cloudpickle
 import pandas as pd
@@ -26,7 +26,7 @@ from mlflow.models.utils import _load_model_code_path
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.pyfunc.utils.input_converter import _hydrate_dataclass
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
-from mlflow.types.llm import ChatMessage, ChatParams, ChatResponse
+from mlflow.types.llm import ChatCompletionChunk, ChatCompletionResponse, ChatMessage, ChatParams
 from mlflow.types.utils import _is_list_dict_str, _is_list_str
 from mlflow.utils.annotations import experimental
 from mlflow.utils.environment import (
@@ -226,35 +226,14 @@ class ChatModel(PythonModel, metaclass=ABCMeta):
 
     See the documentation of the ``predict()`` method below for details on that parameters and
     outputs that are expected by the ``ChatModel`` API.
-
-    .. warning::
-
-        In an upcoming release of MLflow, we will be requiring a ``predict_stream`` implementation,
-        changing ``ChatRequest`` to a new ``ChatCompletionRequest`` type, and changing
-        ``ChatResponse`` to a new ``ChatCompletionResponse`` type.
-
-    .. include:: ../llms/chat-model-intro/chat-model-vs-pyfunc-table.rst
-
     """
 
-    def __new__(cls, *args, **kwargs):
-        _logger.warning(
-            "In an upcoming MLflow release, we will be requiring a "
-            "predict_stream implementation, changing ChatRequest to "
-            "a new ChatCompletionRequest type, and changing "
-            "ChatResponse to a new ChatCompletionResponse type."
-        )
-        return super().__new__(cls)
-
     @abstractmethod
-    def predict(self, context, messages: list[ChatMessage], params: ChatParams) -> ChatResponse:
+    def predict(
+        self, context, messages: list[ChatMessage], params: ChatParams
+    ) -> ChatCompletionResponse:
         """
         Evaluates a chat input and produces a chat output.
-
-        .. warning::
-
-            In an upcoming MLflow release, we will be changing the output type from
-            ``ChatResponse`` to a new ``ChatCompletionResponse`` type.
 
         Args:
             context: A :class:`~PythonModelContext` instance containing artifacts that the model
@@ -268,24 +247,16 @@ class ChatModel(PythonModel, metaclass=ABCMeta):
                 inference.
 
         Returns:
-            A :py:class:`ChatResponse <mlflow.types.llm.ChatResponse>` object containing
-            the model's response(s), as well as other metadata.
+            A :py:class:`ChatCompletionResponse <mlflow.types.llm.ChatCompletionResponse>`
+            object containing the model's response(s), as well as other metadata.
         """
 
     def predict_stream(
         self, context, messages: list[ChatMessage], params: ChatParams
-    ) -> Iterator[ChatResponse]:
+    ) -> Generator[ChatCompletionChunk, None, None]:
         """
         Evaluates a chat input and produces a chat output.
-        Overrides this function to implement a real stream prediction.
-        By default, this function just yields result of `predict` function.
-
-        .. warning::
-
-            In an upcoming MLflow release, ``predict_stream`` will be returning a
-            true streaming interface that returns a generator of ``ChatCompletionChunks``
-            instead of the current behavior of yielding the entire prediction as a single
-            ``ChatResponse`` generator entry.
+        Override this function to implement a real stream prediction.
 
         Args:
             context: A :class:`~PythonModelContext` instance containing artifacts that the model
@@ -299,10 +270,14 @@ class ChatModel(PythonModel, metaclass=ABCMeta):
                 inference.
 
         Returns:
-            An iterator over :py:class:`ChatResponse <mlflow.types.llm.ChatResponse>` object
-            containing the model's response(s), as well as other metadata.
+            A generator over :py:class:`ChatCompletionChunk <mlflow.types.llm.ChatCompletionChunk>`
+            object containing the model's response(s), as well as other metadata.
         """
-        yield self.predict(context, messages, params)
+        raise NotImplementedError(
+            "Streaming implementation not provided. Please override the "
+            "`predict_stream` method on your model to generate streaming "
+            "predictions"
+        )
 
 
 def _save_model_with_class_artifacts_params(  # noqa: D417

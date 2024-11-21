@@ -45,14 +45,6 @@ provider example to use any managed LLM hosting service with ease (`Amazon Bedro
 `Azure AI Studio <https://learn.microsoft.com/en-us/azure/ai-studio/concepts/deployments-overview>`_, 
 `OpenAI <https://platform.openai.com/docs/libraries/python-library>`_, `Anthropic <https://docs.anthropic.com/en/api/client-sdks#python>`_, and many others).
 
-.. warning::
-
-    In an upcoming MLflow release, we will be making the following changes to :py:class:`mlflow.pyfunc.ChatModel`:
-
-    - :py:class:`mlflow.types.llm.ChatRequest` will be renamed to ``ChatCompletionRequest``
-    - :py:class:`mlflow.types.llm.ChatResponse` will be renamed to ``ChatCompletionResponse``
-    - ``predict_stream`` will be returning a true streaming interface that returns a generator of ``ChatCompletionChunks`` instead of the current behavior of yielding the entire prediction as a single ``ChatResponse`` generator entry.
-
 
 Core Concepts
 -------------
@@ -261,7 +253,7 @@ Core Concepts
           your service is expecting. 
 
         - The returned response from ``predict`` should adhere to the output structure defined within the ``ChatModel`` output signature: 
-          :py:class:`mlflow.types.llm.ChatResponse`. 
+          :py:class:`mlflow.types.llm.ChatCompletionResponse`.
     
     .. tab:: Pitfalls
 
@@ -453,7 +445,7 @@ The implementation below highlights the following key aspects:
     - We implement a multi-step agent interaction pattern using methods like `_get_system_message`, `_get_agent_response`, and `_call_agent`. These 
       methods manage the flow of communication between multiple agents, such as an "oracle" and a "judge" role, each configured with specific instructions
       and parameters.
-    - **Static Input/Output Structures**: By adhering to the ``ChatModel``'s required input (`List[ChatMessage]`) and output (`ChatResponse`) formats, 
+    - **Static Input/Output Structures**: By adhering to the ``ChatModel``'s required input (`List[ChatMessage]`) and output (`ChatCompletionResponse`) formats,
       we eliminate the complexities associated with converting JSON or tabular data, which is common in more general models like ``PythonModel``.
 
 - **Common Pitfalls Avoided**:
@@ -464,7 +456,7 @@ The implementation below highlights the following key aspects:
 .. code-block:: python
 
     import mlflow
-    from mlflow.types.llm import ChatResponse, ChatMessage, ChatParams, ChatChoice
+    from mlflow.types.llm import ChatCompletionResponse, ChatMessage, ChatParams, ChatChoice
     from mlflow.pyfunc import ChatModel
     from mlflow import deployments
     from typing import List, Optional, Dict
@@ -575,7 +567,7 @@ The implementation below highlights the following key aspects:
 
         def predict(
             self, context, messages: List[ChatMessage], params: Optional[ChatParams] = None
-        ) -> ChatResponse:
+        ) -> ChatCompletionResponse:
             """
             Predict method to handle agent conversation.
 
@@ -585,7 +577,7 @@ The implementation below highlights the following key aspects:
                 params (Optional[ChatParams]): Additional parameters for the conversation.
 
             Returns:
-                ChatResponse: The structured response object.
+                ChatCompletionResponse: The structured response object.
             """
             # Use the fluent API context handler to have added control over what is included in the span
             with mlflow.start_span(name="Audit Agent") as root_span:
@@ -609,7 +601,7 @@ The implementation below highlights the following key aspects:
                 # Reset the conversation history and return the final response
                 self.conversation_history = []
 
-                output = ChatResponse(
+                output = ChatCompletionResponse(
                     choices=[ChatChoice(index=0, message=ChatMessage(**judge_response))],
                     usage={},
                     model=judge_params.get("endpoint", "unknown"),

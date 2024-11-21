@@ -14,7 +14,7 @@ This guide will take you through the basics of using the ChatModel API to define
 
 #. How to map your application logic to the ``ChatModel``'s input/output schema
 #. How to use the pre-defined inference parameters supported by ChatModels
-#. How to pass custom parameters to a ChatModel using ``metadata``
+#. How to pass custom parameters to a ChatModel using ``custom_inputs``
 #. How :py:class:`~mlflow.pyfunc.ChatModel` compares to :py:class:`~mlflow.pyfunc.PythonModel` for defining custom chat models
 
 To illustrate these points, this guide will walk you through building a custom ``ChatModel``, using a locally-hosted Ollama model as our example. There is no built-in Ollama model flavor, so creating a custom ``ChatModel`` provides a way to use MLflow's extensive tracking, evaluation, and lifecycle management capabilities with Ollama models.
@@ -43,7 +43,7 @@ When using a custom ChatModel, the ``predict`` method expects standardized input
         "max_tokens": 25,
     }
 
-with a ``messages`` key containing a list of messages, and optional inference parameters such as ``max_tokens``, ``temperature``, ``top_p``, and ``stop``. You can find details of the full chat request object `here <https://mlflow.org/docs/latest/python_api/mlflow.types.html#mlflow.types.llm.ChatRequest>`__.
+with a ``messages`` key containing a list of messages, and optional inference parameters such as ``max_tokens``, ``temperature``, ``top_p``, and ``stop``. You can find details of the full chat request object `here <https://mlflow.org/docs/latest/python_api/mlflow.types.html#mlflow.types.llm.ChatCompletionRequest>`__.
 
 The output is also returned in a standardized format that looks like this:
 
@@ -65,7 +65,7 @@ The output is also returned in a standardized format that looks like this:
         "created": 1729190863,
     }
 
-You can find details of the full chat response object `here <https://mlflow.org/docs/latest/python_api/mlflow.types.html#mlflow.types.llm.ChatResponse>`__.
+You can find details of the full chat response object `here <https://mlflow.org/docs/latest/python_api/mlflow.types.html#mlflow.types.llm.ChatCompletionResponse>`__.
 
 These input/output schemas are compatible with the widely-adopted OpenAI spec, making ``ChatModel`` s easy to use in a wide variety of contexts.
 
@@ -157,7 +157,7 @@ Most of the customization, at least in this simple version, will occur in the ``
 - ``messages``: a list of ``ChatMessage`` objects
 - ``params``: a ``ChatParams`` object, which contains the inference parameters
 
-And we need to return a ``ChatResponse`` object, which is a dataclass made up of a list of ``ChatChoice`` objects, along with (optional) usage data and other metadata.
+And we need to return a ``ChatCompletionResponse`` object, which is a dataclass made up of a list of ``ChatChoice`` objects, along with (optional) usage data and other metadata.
 
 These are what we must map to the Ollama inputs and outputs. Here's a simplified version that, for now, only handles the input/output messages:
 
@@ -167,7 +167,7 @@ These are what we must map to the Ollama inputs and outputs. Here's a simplified
     # if you are using a jupyter notebook
     # %%writefile ollama_model.py
     from mlflow.pyfunc import ChatModel
-    from mlflow.types.llm import ChatMessage, ChatResponse, ChatChoice
+    from mlflow.types.llm import ChatMessage, ChatCompletionResponse, ChatChoice
     from mlflow.models import set_model
     import ollama
 
@@ -187,8 +187,8 @@ These are what we must map to the Ollama inputs and outputs. Here's a simplified
             # Call Ollama
             response = self.client.chat(model=self.model_name, messages=ollama_messages)
 
-            # Prepare and return the ChatResponse
-            return ChatResponse(
+            # Prepare and return the ChatCompletionResponse
+            return ChatCompletionResponse(
                 choices=[{"index": 0, "message": response["message"]}],
                 model=self.model_name,
             )
@@ -200,7 +200,7 @@ These are what we must map to the Ollama inputs and outputs. Here's a simplified
 In the above code, we mapped the ``ChatModel`` inputs to the Ollama inputs, and the Ollama output back to the ``ChatModel`` output schema. More specifically:
 
 - The ``messages`` key in the ``ChatModel`` input schema is a list of ``ChatMessage`` objects. We converted this to a list of dictionaries with ``role`` and ``content`` keys, which is the expected input format for Ollama.
-- The ``ChatResponse`` that the ``predict`` method returns must be created using the ``ChatResponse`` dataclass, but the nested message and choice data can be provided as dictionaries that match the expected schema. MLflow will automatically convert these dictionaries to the appropriate dataclass objects. In our case, we created a ``ChatResponse`` but provided the choices and messages as dictionaries.
+- The ``ChatCompletionResponse`` that the ``predict`` method returns must be created using the ``ChatCompletionResponse`` dataclass, but the nested message and choice data can be provided as dictionaries that match the expected schema. MLflow will automatically convert these dictionaries to the appropriate dataclass objects. In our case, we created a ``ChatCompletionResponse`` but provided the choices and messages as dictionaries.
 
 In a notebook environment, we can save the model to a file called ``ollama_model.py`` with the ``%%writefile`` magic command and call ``set_model(SimpleOllamaModel())``. This is the "models from code" approach to model logging, which you can read more about :doc:`here </model/models-from-code>`.
 
@@ -280,7 +280,7 @@ When using a ChatModel, parameters are passed alongside messages in the input:
         }
     )
 
-You can find the full list of supported parameters `here <https://mlflow.org/docs/latest/python_api/mlflow.types.html#mlflow.types.llm.ChatParams>`__. Furthermore, you can pass arbitrary additional parameters to a ChatModel via the ``metadata`` key in the input, which we will cover in more detail in the next section.
+You can find the full list of supported parameters `here <https://mlflow.org/docs/latest/python_api/mlflow.types.html#mlflow.types.llm.ChatParams>`__. Furthermore, you can pass arbitrary additional parameters to a ChatModel via the ``custom_inputs`` key in the input, which we will cover in more detail in the next section.
 
 **Comparison to Parameter Handling in Custom PyFunc Models**
 
@@ -311,7 +311,7 @@ Setting up a ChatModel with inference parameters is straightforward: just like w
 
     import mlflow
     from mlflow.pyfunc import ChatModel
-    from mlflow.types.llm import ChatMessage, ChatResponse, ChatChoice
+    from mlflow.types.llm import ChatMessage, ChatCompletionResponse, ChatChoice
     from mlflow.models import set_model
     import ollama
     from ollama import Options
@@ -339,8 +339,8 @@ Setting up a ChatModel with inference parameters is straightforward: just like w
                 if params.stop is not None:
                     options["stop"] = params.stop
 
-                if params.metadata is not None:
-                    options["seed"] = int(params.metadata.get("seed", None))
+                if params.custom_inputs is not None:
+                    options["seed"] = int(params.custom_inputs.get("seed", None))
 
             return Options(options)
 
@@ -355,8 +355,8 @@ Setting up a ChatModel with inference parameters is straightforward: just like w
                 model=self.model_name, messages=ollama_messages, options=options
             )
 
-            # Prepare the ChatResponse
-            return ChatResponse(
+            # Prepare the ChatCompletionResponse
+            return ChatCompletionResponse(
                 choices=[{"index": 0, "message": response["message"]}],
                 model=self.model_name,
             )
@@ -368,7 +368,7 @@ Here's what we changed from the previous version:
 
 - We mapped ``max_tokens``, ``temperature``, ``top_p``, and ``stop`` from the ``params`` dictionary to ``num_predict``, ``temperature``, ``top_p``, and ``stop`` in the Ollama client's ``options`` dictionary (note the different parameter name for ``max_tokens`` expected by Ollama)
 - We passed the ``options`` dictionary to the Ollama client's ``chat`` method. Note that we created a new private method, ``_prepare_options``, to handle the mapping from ``params`` to ``options``. Additional methods can be added to a custom ``ChatModel`` to keep code clean and organized while handling custom logic.
-- We checked the ``metadata`` key in the ``params`` dictionary for a ``seed`` value—we'll cover this in more detail in the next section.
+- We checked the ``custom_inputs`` key in the ``params`` dictionary for a ``seed`` value—we'll cover this in more detail in the next section.
 
 Now we can log this model to MLflow, load it, and try it out in the same way as before:
 
@@ -419,14 +419,14 @@ Now that we have appropriately mapped ``max_tokens`` from the ChatModel input sc
 
 **Passing Custom Parameters**
 
-What if we want to pass a custom paramerter that is not included in the list of built-in inference parameters? The ChatModel API provides a way to do this via the ``metadata`` key, which accepts a dictionary of key-value pairs that are passed through to the model as-is. Both the keys and values must be strings, so it might be necessary to handle type conversions in the ``predict`` method. In the above example, we configured the Ollama model to use a custom ``seed`` value by adding a ``seed`` key to the ``metadata`` dictionary:
+What if we want to pass a custom parameter that is not included in the list of built-in inference parameters? The ChatModel API provides a way to do this via the ``custom_inputs`` key, which accepts a dictionary of key-value pairs that are passed through to the model as-is. Both the keys and values must be strings, so it might be necessary to handle type conversions in the ``predict`` method. In the above example, we configured the Ollama model to use a custom ``seed`` value by adding a ``seed`` key to the ``custom_inputs`` dictionary:
 
 .. code-block:: python
 
-    if params.metadata is not None:
-        options["seed"] = int(params.metadata.get("seed", None))
+    if params.custom_inputs is not None:
+        options["seed"] = int(params.custom_inputs.get("seed", None))
 
-Because we included this, we can now pass a ``seed`` value via the ``metadata`` key in the ``predict`` method. If you call ``predict`` multiple times with the same seed value, you will always receive the same response.
+Because we included this, we can now pass a ``seed`` value via the ``custom_inputs`` key in the ``predict`` method. If you call ``predict`` multiple times with the same seed value, you will always receive the same response.
 
 .. code-block:: python
 
@@ -434,7 +434,7 @@ Because we included this, we can now pass a ``seed`` value via the ``metadata`` 
         data={
             "messages": [{"role": "user", "content": "What is MLflow?"}],
             "max_tokens": 25,
-            "metadata": {"seed": "321"},
+            "custom_inputs": {"seed": "321"},
         }
     )
 
@@ -486,7 +486,12 @@ To illustrate some of the benefits and trade-offs of setting up a chat model via
 
     import mlflow
     from mlflow.pyfunc import PythonModel
-    from mlflow.types.llm import ChatRequest, ChatResponse, ChatMessage, ChatChoice
+    from mlflow.types.llm import (
+        ChatCompletionRequest,
+        ChatCompletionResponse,
+        ChatMessage,
+        ChatChoice,
+    )
     from mlflow.models import set_model
     import ollama
     from ollama import Options
@@ -534,7 +539,7 @@ To illustrate some of the benefits and trade-offs of setting up a chat model via
                 model=self.model_name, messages=ollama_messages, options=options
             )
 
-            chat_response = ChatResponse(
+            chat_response = ChatCompletionResponse(
                 choices=[
                     ChatChoice(
                         index=0,
@@ -556,7 +561,7 @@ This looks quite similar to how we defined our ``ChatModel`` above, and you coul
 
 - We had to handle the input data as a pandas DataFrame, even though the input is ultimately just a list of messages.
 - Instead of receiving the inference parameters as a pre-configured ``ChatParams`` object, receive a ``params`` dictionary. One consequence of this is that we did not have to treat ``seed`` any differently from the other inference parameters: they're *all* custom parameters in the ``PythonModel`` API.
-- We had to call ``chat_response.to_dict()`` to convert the ``ChatResponse`` object to a dictionary rather than a ``ChatResponse`` object. This is handled automatically by ``ChatModel``.
+- We had to call ``chat_response.to_dict()`` to convert the ``ChatCompletionResponse`` object to a dictionary rather than a ``ChatCompletionResponse`` object. This is handled automatically by ``ChatModel``.
 
 Some of the biggest differences come up when it's time to log the model:
 
@@ -628,7 +633,7 @@ In this guide, you have learned:
 
 - How to map the input/output schemas between the ChatModel API and your application
 - How to configure commonly-used chat model inference parameters with the ChatModel API
-- How to pass custom parameters to a ``ChatModel`` using the ``metadata`` key
+- How to pass custom parameters to a ``ChatModel`` using the ``custom_inputs`` key
 - How :py:class:`~mlflow.pyfunc.ChatModel` compares to the :py:class:`~mlflow.pyfunc.PythonModel` for defining custom chat models
 
 You should now have a good sense of what the ChatModel API is and how it can be used to define custom chat models.
