@@ -59,11 +59,12 @@ def create_openai_agent():
         ]
     )
     agent = create_openai_tools_agent(llm, tools, prompt)
+    return_immediate = os.environ.get("RETURN_INTERMEDIATE_STEPS", "false").lower() == "true"
     return AgentExecutor(
         agent=agent,
         tools=tools,
         # Use env var to switch model configuration during testing
-        return_intermediate_steps=os.environ.get("RETURN_INTERMEDIATE_STEPS", "false") == "true",
+        return_intermediate_steps=return_immediate,
     )
 
 
