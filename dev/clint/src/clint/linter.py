@@ -226,11 +226,6 @@ class Linter(ast.NodeVisitor):
     def _is_at_top_level(self) -> bool:
         return not self.stack
 
-    def _is_abstract_method(self, node: ast.FunctionDef | ast.AsyncFunctionDef) -> bool:
-        return any(
-            isinstance(d, ast.Name) and d.id == "abstractmethod" for d in node.decorator_list
-        )
-
     def _parse_func_args(self, func: ast.FunctionDef | ast.AsyncFunctionDef) -> list[str]:
         args: list[str] = []
         for arg in func.args.posonlyargs:
