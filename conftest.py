@@ -422,10 +422,11 @@ def patch_isinstance():
         builtins.isinstance = new_isinstance
 
         isinstance("x", str)
+        isinstance("x", (DataFrame, ConnectDataFrame))
         try:
             isinstance("x", DataFrame)
-        except Exception:
-            pass
+        except Exception as e:
+            assert "Make sure to use both" in str(e)
         else:
             raise Exception("Should not reach here")
 
