@@ -53,6 +53,11 @@ Introduction to MLflow Tracing
                     <img src="../../_static/images/logos/litellm-logo.jpg" alt="LiteLLM Logo"/>
                 </div>
             </a>
+            <a href="#automatic-tracing">
+                <div class="logo-card">
+                    <img src="../../_static/images/logos/anthropic-logo.jpg" alt="Anthropic Logo"/>
+                </div>
+            </a>
     </section>
 
 
