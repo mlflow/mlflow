@@ -58,13 +58,50 @@ def enable_logging():
     MLFLOW_LOGGING_STREAM.enabled = True
 
 
+class MlflowFormatter(logging.Formatter):
+    """Custom Formatter Class to support colored log"""
+
+    # Copied from color log package https://github.com/borntyping/python-colorlog/blob/main/colorlog/escape_codes.py
+    COLORS = {
+        "black": 30,
+        "red": 31,
+        "green": 32,
+        "yellow": 33,
+        "blue": 34,
+        "purple": 35,
+        "cyan": 36,
+        "white": 37,
+        "light_black": 90,
+        "light_red": 91,
+        "light_green": 92,
+        "light_yellow": 93,
+        "light_blue": 94,
+        "light_purple": 95,
+        "light_cyan": 96,
+        "light_white": 97,
+    }
+    RESET = "\033[0m"
+
+    def format(self, record):
+        if color := getattr(record, "color", None):
+            if color in self.COLORS:
+                color_code = self._escape(self.COLORS[color])
+                record.msg = f"{color_code}{record.msg}{self.RESET}"
+        return super().format(record)
+
+    def _escape(self, code: int) -> str:
+        return f"\033[{code}m"
+
+
 def _configure_mlflow_loggers(root_module_name):
+    # logging.setLoggerClass(MlflowLogger)
     logging.config.dictConfig(
         {
             "version": 1,
             "disable_existing_loggers": False,
             "formatters": {
                 "mlflow_formatter": {
+                    "()": MlflowFormatter,
                     "format": LOGGING_LINE_FORMAT,
                     "datefmt": LOGGING_DATETIME_FORMAT,
                 },
