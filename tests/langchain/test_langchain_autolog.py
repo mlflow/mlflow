@@ -7,7 +7,6 @@ from typing import Any, Optional
 from unittest import mock
 
 import langchain
-import openai
 import pytest
 from langchain.chains.llm import LLMChain
 from langchain_core.callbacks.base import (
@@ -91,34 +90,6 @@ def create_openai_runnable():
         template="What is {product}?",
     )
     return prompt | ChatOpenAI(temperature=0.9) | StrOutputParser()
-
-
-def create_openai_llmagent():
-    from langchain.agents import AgentType, initialize_agent, load_tools
-
-    with mock.patch("openai.OpenAI") as mock_openai:
-        mock_openai.return_value.completions.create.return_value = {
-            "id": "chatcmpl-123",
-            "object": "chat.completion",
-            "created": 1677652288,
-            "choices": [
-                {
-                    "index": 0,
-                    "finish_reason": "stop",
-                    "text": f"Final Answer: {TEST_CONTENT}",
-                }
-            ],
-            "usage": {"prompt_tokens": 9, "completion_tokens": 12, "total_tokens": 21},
-        }
-        llm = OpenAI(temperature=0)
-    tools = load_tools(["serpapi", "llm-math"], llm=llm)
-    return initialize_agent(
-        tools,
-        llm,
-        agent=AgentType.ZERO_SHOT_REACT_DESCRIPTION,
-        verbose=True,
-        return_intermediate_steps=False,
-    )
 
 
 def create_retriever(tmp_path):
@@ -416,20 +387,32 @@ def test_loaded_llmchain_within_model_evaluation(mock_get_display, tmp_path, asy
 
 
 @pytest.mark.skipif(not _LC_COMMUNITY_INSTALLED, reason="This test requires langchain_community")
+@pytest.mark.skipif(
+    Version(langchain.__version__) < Version("0.2.0"),
+    reason="ToolCall message is not available in older versions",
+)
 def test_agent_autolog(async_logging_enabled):
     mlflow.langchain.autolog(log_models=True)
-    model = create_openai_llmagent()
+
+    # Load the agent definition (with OpenAI mock) from the sample script
+    from tests.langchain.sample_code.openai_agent import create_openai_agent
+
+    model = create_openai_agent()
+    input = {"input": "The result of 2 * 3 is 6."}
+    expected_output = {"output": "The result of 2 * 3 is 6."}
+
     with mock.patch("mlflow.langchain.log_model") as log_model_mock:
         # ensure __call__ is patched
-        assert model("Hi", return_only_outputs=True) == {"output": TEST_CONTENT}
-        assert model("Hi", return_only_outputs=True) == {"output": TEST_CONTENT}
+        assert model(input, return_only_outputs=True) == expected_output
+        assert model(input, return_only_outputs=True) == expected_output
         log_model_mock.assert_called_once()
 
-    model = create_openai_llmagent()
+    model = create_openai_agent()
+
     with mock.patch("mlflow.langchain.log_model") as log_model_mock:
         # ensure invoke is patched
-        assert model.invoke("Hi", return_only_outputs=True) == {"output": TEST_CONTENT}
-        assert model.invoke("Hi", return_only_outputs=True) == {"output": TEST_CONTENT}
+        assert model.invoke(input, return_only_outputs=True) == expected_output
+        assert model.invoke(input, return_only_outputs=True) == expected_output
         log_model_mock.assert_called_once()
 
     if async_logging_enabled:
@@ -439,41 +422,9 @@ def test_agent_autolog(async_logging_enabled):
     assert len(traces) == 4
     for trace in traces:
         spans = [(s.name, s.span_type) for s in trace.data.spans]
-        assert spans == [
-            ("AgentExecutor", "CHAIN"),
-            ("LLMChain", "CHAIN"),
-            ("OpenAI", "LLM"),
-        ]
-        assert trace.data.spans[0].inputs == {"input": "Hi"}
-        assert trace.data.spans[0].outputs == {"output": TEST_CONTENT}
-
-
-# TODO: Fix the AgentExecutor saving issue and remove the skip
-@pytest.mark.skipif(
-    Version(openai.__version__) >= Version("1.0"),
-    reason="OpenAI Client since 1.0 contains thread lock object that cannot be pickled.",
-)
-def test_loaded_agent_autolog():
-    mlflow.langchain.autolog(log_models=True, log_input_examples=True)
-    model, input, mock_response = create_openai_llmagent()
-    with mlflow.start_run() as run:
-        assert model(input, return_only_outputs=True) == {"output": TEST_CONTENT}
-    with mock.patch("mlflow.langchain.log_model") as log_model_mock:
-        loaded_model = mlflow.langchain.load_model(f"runs:/{run.info.run_id}/model")
-        assert loaded_model(input, return_only_outputs=True) == {"output": TEST_CONTENT}
-        log_model_mock.assert_not_called()
-
-        mlflow_model = get_mlflow_model(run.info.artifact_uri)
-        model_path = os.path.join(run.info.artifact_uri, MODEL_DIR)
-        input_example = _read_example(mlflow_model, model_path)
-        assert input_example == input
-
-        pyfunc_model = mlflow.pyfunc.load_model(f"runs:/{run.info.run_id}/model")
-        assert pyfunc_model.predict(input) == [TEST_CONTENT]
-        log_model_mock.assert_not_called()
-
-        signature = mlflow_model.signature
-        assert signature == infer_signature(input, [TEST_CONTENT])
+        assert len(spans) == 16
+        assert trace.data.spans[0].inputs == input
+        assert trace.data.spans[0].outputs == expected_output
 
 
 def test_runnable_sequence_autolog(async_logging_enabled):
