@@ -63,7 +63,7 @@ def create_openai_agent():
         agent=agent,
         tools=tools,
         # Use env var to switch model configuration during testing
-        return_intermediate_steps=os.environ.get("RETURN_INTERMEDIATE_STEPS", False),
+        return_intermediate_steps=os.environ.get("RETURN_INTERMEDIATE_STEPS", "false") == "true",
     )
 
 
