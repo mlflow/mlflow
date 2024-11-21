@@ -78,17 +78,13 @@ class BaseProvider(ABC):
 
 
 class ProviderAdapter(ABC):
-    """ """
+    @classmethod
+    @abstractmethod
+    def model_to_embeddings(cls, resp, config): ...
 
     @classmethod
     @abstractmethod
-    def model_to_embeddings(cls, resp, config):
-        raise NotImplementedError
-
-    @classmethod
-    @abstractmethod
-    def model_to_completions(cls, resp, config):
-        raise NotImplementedError
+    def model_to_completions(cls, resp, config): ...
 
     @classmethod
     def model_to_completions_streaming(cls, resp, config):
@@ -96,8 +92,7 @@ class ProviderAdapter(ABC):
 
     @classmethod
     @abstractmethod
-    def completions_to_model(cls, payload, config):
-        raise NotImplementedError
+    def completions_to_model(cls, payload, config): ...
 
     @classmethod
     def completions_streaming_to_model(cls, payload, config):
@@ -121,8 +116,7 @@ class ProviderAdapter(ABC):
 
     @classmethod
     @abstractmethod
-    def embeddings_to_model(cls, payload, config):
-        raise NotImplementedError
+    def embeddings_to_model(cls, payload, config): ...
 
     @classmethod
     def check_keys_against_mapping(cls, mapping, payload):

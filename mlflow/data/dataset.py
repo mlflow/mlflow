@@ -37,7 +37,6 @@ class Dataset:
 
         """
 
-    @abstractmethod
     def to_dict(self) -> dict[str, str]:
         """Create config dictionary for the dataset.
 

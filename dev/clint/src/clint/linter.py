@@ -314,10 +314,15 @@ class Linter(ast.NodeVisitor):
                     params = [a for a, b in zip(func_args, doc_args) if a != b]
                     self._check(Location.from_node(node), rules.DocstringParamOrder(params))
 
+    def _invalid_abstract_method(self, node: ast.FunctionDef | ast.AsyncFunctionDef) -> None:
+        if rules.InvalidAbstractMethod.check(node):
+            self._check(Location.from_node(node), rules.InvalidAbstractMethod())
+
     def visit_FunctionDef(self, node: ast.FunctionDef) -> None:
         self._test_name_typo(node)
         self._syntax_error_example(node)
         self._param_mismatch(node)
+        self._invalid_abstract_method(node)
         self.stack.append(node)
         self._no_rst(node)
         self.generic_visit(node)
@@ -327,6 +332,7 @@ class Linter(ast.NodeVisitor):
         self._test_name_typo(node)
         self._syntax_error_example(node)
         self._param_mismatch(node)
+        self._invalid_abstract_method(node)
         self.stack.append(node)
         self._no_rst(node)
         self.generic_visit(node)
