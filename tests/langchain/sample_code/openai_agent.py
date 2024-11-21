@@ -1,3 +1,4 @@
+import itertools
 import os
 
 from langchain.agents import AgentExecutor, create_openai_tools_agent
@@ -19,19 +20,8 @@ class FakeOpenAI(ChatOpenAI, extra="allow"):
     # Therefore, we mock the OpenAI client in the model definition here.
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self._reset()
-
-    def _stream(self, *args, **kwargs):
-        try:
-            chunk = next(self._responses)
-        except StopIteration:
-            self._reset()
-            chunk = next(self._responses)
-
-        yield ChatGenerationChunk(message=chunk)
-
-    def _reset(self):
-        self._responses = iter(
+        # Using itertools.cycle to create an infinite iterator
+        self._responses = itertools.cycle(
             [
                 AIMessageChunk(
                     content="",
@@ -40,6 +30,9 @@ class FakeOpenAI(ChatOpenAI, extra="allow"):
                 AIMessageChunk(content="The result of 2 * 3 is 6."),
             ]
         )
+
+    def _stream(self, *args, **kwargs):
+        yield ChatGenerationChunk(message=next(self._responses))
 
 
 @tool

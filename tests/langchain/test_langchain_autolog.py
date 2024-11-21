@@ -387,6 +387,10 @@ def test_loaded_llmchain_within_model_evaluation(mock_get_display, tmp_path, asy
 
 
 @pytest.mark.skipif(not _LC_COMMUNITY_INSTALLED, reason="This test requires langchain_community")
+@pytest.mark.skipif(
+    Version(langchain.__version__) < Version("0.2.0"),
+    reason="ToolCall message is not available in older versions",
+)
 def test_agent_autolog(async_logging_enabled):
     mlflow.langchain.autolog(log_models=True)
 

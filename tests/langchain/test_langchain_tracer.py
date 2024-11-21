@@ -381,6 +381,10 @@ def test_e2e_rag_model_tracing_in_serving(mock_databricks_serving_with_tracing_e
     _validate_trace_json_serialization(trace)
 
 
+@pytest.mark.skipif(
+    Version(langchain.__version__) < Version("0.2.0"),
+    reason="ToolCall message is not available in older versions",
+)
 def test_agent_success(mock_databricks_serving_with_tracing_env):
     # Load the agent definition (with OpenAI mock) from the sample script
     from tests.langchain.sample_code.openai_agent import create_openai_agent
