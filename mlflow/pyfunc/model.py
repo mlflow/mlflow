@@ -273,7 +273,11 @@ class ChatModel(PythonModel, metaclass=ABCMeta):
             A generator over :py:class:`ChatCompletionChunk <mlflow.types.llm.ChatCompletionChunk>`
             object containing the model's response(s), as well as other metadata.
         """
-        raise NotImplementedError()
+        raise NotImplementedError(
+            "Streaming implementation not provided. Please override the "
+            "`predict_stream` method on your model to generate streaming "
+            "predictions"
+        )
 
 
 def _save_model_with_class_artifacts_params(  # noqa: D417
