@@ -700,12 +700,33 @@ class ChatCompletionResponse(_BaseDataclass):
         self._convert_dataclass("usage", TokenUsageStats, False)
 
 
-# need to disable refusla if we choose not to include it in our final spec
+@dataclass
+class Context(_BaseDataclass):
+    """
+    Context to be used in the chat endpoint.
+
+    Args:
+        messages (List[:py:class:`ChatMessage`]): A list of :py:class:`ChatMessage` objects
+            containing the context messages.
+        custom_inputs (Dict[str, str]): An optional field that can contain arbitrary additional
+            context.
+    """
+
+    conversation_id: Optional[str] = None
+    user_id: Optional[str] = None
+
+    def __post_init__(self):
+        self._validate_field("conversation_id", str, False)
+        self._validate_field("user_id", str, False)
+
+
+# need to disable refusal if we choose not to include it in our final spec
 @dataclass
 class ChatAgentMessage(ChatMessage):
     # Disabled by setting it to None and preventing instantiation
     refusal: Optional[str] = field(init=False, default=None)
     id: Optional[str] = None
+    # TODO bbqiu: make this a dataclass with subtypes
     attachments: Optional[dict[str, str]] = None
 
     def __post_init__(self):
@@ -714,17 +735,47 @@ class ChatAgentMessage(ChatMessage):
 
 
 @dataclass
-class ChatAgentRequest(_BaseDataclass):
-    messages: list[ChatAgentMessage]
+class ChatAgentParams(_BaseDataclass):
+    """
+    Common parameters used for ChatAgent
+    """
+
+    context: Optional[Context] = None
     custom_inputs: Optional[dict[str, str]] = None
-    tools: Optional[list[ToolDefinition]] = None
     stream: Optional[bool] = False
 
     def __post_init__(self):
-        self._convert_dataclass_list("messages", ChatAgentMessage)
-        self._validate_field("custom_inputs", dict, False)
-        self._convert_dataclass_list("tools", ToolDefinition, False)
+        self._convert_dataclass("context", Context, False)
         self._validate_field("stream", bool, False)
+
+        # validate that the custom_inputs field is a map from string to string
+        if self.custom_inputs is not None:
+            if not isinstance(self.custom_inputs, dict):
+                raise ValueError(
+                    "Expected `custom_inputs` to be a dictionary, "
+                    f"received `{type(self.custom_inputs).__name__}`"
+                )
+            for key, value in self.custom_inputs.items():
+                if not isinstance(key, str):
+                    raise ValueError(
+                        "Expected `custom_inputs` to be of type `Dict[str, str]`, "
+                        f"received key of type `{type(key).__name__}` (key: {key})"
+                    )
+                if not isinstance(value, str):
+                    raise ValueError(
+                        "Expected `custom_inputs` to be of type `Dict[str, str]`, "
+                        f"received value of type `{type(value).__name__}` in "
+                        f"`custom_inputs['{key}']`)"
+                    )
+
+
+@dataclass
+class ChatAgentRequest(ChatAgentParams):
+    messages: list[ChatAgentMessage]
+
+    def __post_init__(self):
+        self._convert_dataclass_list("messages", ChatAgentMessage)
+        super().__post_init__()
 
 
 @dataclass

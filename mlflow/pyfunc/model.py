@@ -27,6 +27,7 @@ from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.pyfunc.utils.input_converter import _hydrate_dataclass
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.types.llm import (
+    ChatAgentParams,
     ChatMessage,
     ChatParams,
     ChatCompletionChunk,
@@ -310,7 +311,9 @@ class ChatAgent(PythonModel, metaclass=ABCMeta):
         return super().__new__(cls)
 
     @abstractmethod
-    def predict(self, context, messages: list[ChatAgentMessage]) -> ChatAgentResponse:
+    def predict(
+        self, context, messages: list[ChatAgentMessage], params: ChatAgentParams
+    ) -> ChatAgentResponse:
         """
         Evaluates a chat input and produces a chat output.
 
@@ -335,10 +338,9 @@ class ChatAgent(PythonModel, metaclass=ABCMeta):
             the model's response(s), as well as other metadata.
         """
 
-    @abstractmethod
     def predict_stream(
-        self, context, messages: list[ChatAgentMessage]
-    ) -> Iterator[ChatAgentResponse]:
+        self, context, messages: list[ChatAgentMessage], params: ChatAgentParams
+    ) -> Generator[ChatAgentResponse, None, None]:
         """
         Evaluates a chat input and produces a chat output.
         Overrides this function to implement a real stream prediction.
@@ -354,6 +356,11 @@ class ChatAgent(PythonModel, metaclass=ABCMeta):
         Args:
             context: A :class:`~PythonModelContext` instance containing artifacts that
         """
+        raise NotImplementedError(
+            "Streaming implementation not provided. Please override the "
+            "`predict_stream` method on your model to generate streaming "
+            "predictions"
+        )
 
 
 def _save_model_with_class_artifacts_params(  # noqa: D417
