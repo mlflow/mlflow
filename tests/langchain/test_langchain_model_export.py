@@ -1276,6 +1276,7 @@ def test_predict_with_callbacks_supports_chat_response_conversion(fake_chat_mode
         "created": 1677858242,
         "choices": [
             {
+                "finish_reason": "stop",
                 "index": 0,
                 "message": {"role": "assistant", "content": "Databricks"},
             }
@@ -2144,6 +2145,7 @@ def test_predict_with_builtin_pyfunc_chat_conversion(spark):
     expected_chat_response = {
         "object": "chat.completion",
         "created": 1677858242,
+        "id": None,
         "choices": [
             {
                 "finish_reason": "stop",
@@ -2215,6 +2217,7 @@ def test_predict_with_builtin_pyfunc_chat_conversion_for_aimessage_response():
                 "created": 1677858242,
                 "choices": [
                     {
+                        "finish_reason": "stop",
                         "index": 0,
                         "message": {
                             "role": "assistant",
@@ -2907,6 +2910,7 @@ def test_simple_chat_model_stream_inference(fake_chat_stream_model, provide_sign
                     ],
                 },
                 {
+                    "id": None,
                     "object": "chat.completion.chunk",
                     "created": 1677858242,
                     "choices": [
@@ -2917,6 +2921,7 @@ def test_simple_chat_model_stream_inference(fake_chat_stream_model, provide_sign
                     ],
                 },
                 {
+                    "id": None,
                     "object": "chat.completion.chunk",
                     "created": 1677858242,
                     "choices": [
