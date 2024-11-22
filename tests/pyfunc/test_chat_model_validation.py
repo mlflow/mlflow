@@ -231,7 +231,7 @@ def test_chat_response_defaults():
         ({1: "example"}, r"received key of type `int` \(key: 1\)"),
     ],
 )
-def test_chat_request_custom_inputs_must_be_string_map(custom_inputs, match):
+def test_chat_request_custom_inputs_must_be_valid_map(custom_inputs, match):
     message = ChatMessage("user", "Hello")
     with pytest.raises(ValueError, match=match):
         ChatCompletionRequest(messages=[message], custom_inputs=custom_inputs)
