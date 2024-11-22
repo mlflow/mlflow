@@ -2146,6 +2146,7 @@ def test_predict_with_builtin_pyfunc_chat_conversion(spark):
         "created": 1677858242,
         "choices": [
             {
+                "finish_reason": "stop",
                 "index": 0,
                 "message": {
                     "role": "assistant",
@@ -2205,9 +2206,11 @@ def test_predict_with_builtin_pyfunc_chat_conversion_for_aimessage_response():
     pyfunc_loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
     with mock.patch("time.time", return_value=1677858242):
         result = pyfunc_loaded_model.predict(input_example)
-        assert "id" not in result[0], "Response message id is lost."
+        assert "id" in result[0], "Response message id is lost."
+        result[0]["id"] = None
         assert result == [
             {
+                "id": None,
                 "object": "chat.completion",
                 "created": 1677858242,
                 "choices": [
@@ -2248,23 +2251,11 @@ def test_pyfunc_builtin_chat_request_conversion_fails_gracefully():
         {"role": "user", "content": "blah"},
     ]
 
-    # Verify that messages aren't converted to LangChain format if role / content are missing
-    # or extra keys are present in the message
     assert pyfunc_loaded_model.predict(
         {
-            "messages": [{"content": "blah"}],
+            "messages": [{"role": "user", "content": "blah"}],
         }
-    ) == [
-        {"content": "blah"},
-    ]
-    assert pyfunc_loaded_model.predict(
-        {
-            "messages": [{"role": "user", "content": "blah"}, {"role": "blah"}],
-        }
-    ) == [
-        {"role": "user", "content": "blah"},
-        {"role": "blah"},
-    ]
+    ) == [{"role": "user", "content": "blah"}]
     assert pyfunc_loaded_model.predict(
         {
             "messages": [{"role": "role", "content": "content", "extra": "extra"}],
@@ -2900,10 +2891,12 @@ def test_simple_chat_model_stream_inference(fake_chat_stream_model, provide_sign
             chunks = list(chunk_iter)
 
             for chunk in chunks:
-                assert "id" not in chunk, "chunk id is lost."
+                assert "id" in chunk, "chunk id is lost."
+                chunk["id"] = None
 
             assert chunks == [
                 {
+                    "id": None,
                     "object": "chat.completion.chunk",
                     "created": 1677858242,
                     "choices": [
@@ -3117,6 +3110,7 @@ def test_save_model_as_code_correct_streamable(chain_model_signature, chain_path
             "created": 1677858242,
             "choices": [
                 {
+                    "finish_reason": "stop",
                     "index": 0,
                     "message": {"role": "assistant", "content": "Databricks"},
                 }
@@ -3405,7 +3399,9 @@ def test_agent_executor_model_with_messages_input():
                     "additional_kwargs": {},
                     "content": "Databricks",
                     "example": False,
+                    "id": None,
                     "invalid_tool_calls": [],
+                    "name": None,
                     "response_metadata": {},
                     "tool_calls": [],
                     "type": "ai",

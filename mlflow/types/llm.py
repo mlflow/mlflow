@@ -159,12 +159,12 @@ class ToolCall(_BaseDataclass):
     Args:
         function (:py:class:`FunctionToolCallArguments`): The arguments of the function tool call.
         id (str): The ID of the tool call. Defaults to a random UUID.
-        type (str): The type of the object. Currently only "function" is supported.
+        type (str): The type of the object.
     """
 
     function: FunctionToolCallArguments
     id: str = field(default_factory=lambda: str(uuid.uuid4()))
-    type: Literal["function"] = "function"
+    type: str = "function"
 
     def __post_init__(self):
         self._validate_field("id", str, True)
