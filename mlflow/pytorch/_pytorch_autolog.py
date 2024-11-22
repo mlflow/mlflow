@@ -30,7 +30,7 @@ def patched_add_event(original, self, event, *args, mlflow_log_every_n_step, **k
     run = mlflow.active_run()
     if run is not None and event.WhichOneof("what") == "summary" and mlflow_log_every_n_step:
         summary = event.summary
-        global_step = args[0] if len(args) > 0 else kwargs.get("global_step", None)
+        global_step = args[0] if len(args) > 0 else kwargs.get("global_step")
         global_step = global_step or 0
         for v in summary.value:
             if v.HasField("simple_value") and global_step % mlflow_log_every_n_step == 0:

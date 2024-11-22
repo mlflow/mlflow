@@ -401,7 +401,6 @@ import functools
 import hashlib
 import importlib
 import inspect
-import json
 import logging
 import os
 import shutil
@@ -437,6 +436,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.models import Model, ModelInputExample, ModelSignature
 from mlflow.models.dependencies_schemas import (
     _clear_dependencies_schemas,
+    _get_dependencies_schema_from_model,
     _get_dependencies_schemas,
 )
 from mlflow.models.flavor_backend_registry import get_flavor_backend
@@ -498,9 +498,9 @@ from mlflow.types.llm import (
     CHAT_MODEL_INPUT_EXAMPLE,
     CHAT_MODEL_INPUT_SCHEMA,
     CHAT_MODEL_OUTPUT_SCHEMA,
+    ChatCompletionResponse,
     ChatMessage,
     ChatParams,
-    ChatResponse,
 )
 from mlflow.utils import (
     PYTHON_VERSION,
@@ -747,16 +747,6 @@ class PyFuncModel:
         """
         return self.__model_impl
 
-    def _update_dependencies_schemas_in_prediction_context(self, context: Context):
-        if self._model_meta and self._model_meta.metadata:
-            dependencies_schemas = self._model_meta.metadata.get("dependencies_schemas", {})
-            context.update(
-                dependencies_schemas={
-                    dependency: json.dumps(schema)
-                    for dependency, schema in dependencies_schemas.items()
-                }
-            )
-
     @contextmanager
     def _try_get_or_generate_prediction_context(self):
         # set context for prediction if it's not set
@@ -768,7 +758,8 @@ class PyFuncModel:
 
     def predict(self, data: PyFuncInput, params: Optional[dict[str, Any]] = None) -> PyFuncOutput:
         with self._try_get_or_generate_prediction_context() as context:
-            self._update_dependencies_schemas_in_prediction_context(context)
+            if schema := _get_dependencies_schema_from_model(self._model_meta):
+                context.update(**schema)
             return self._predict(data, params)
 
     def _predict(self, data: PyFuncInput, params: Optional[dict[str, Any]] = None) -> PyFuncOutput:
@@ -816,7 +807,8 @@ class PyFuncModel:
         self, data: PyFuncLLMSingleInput, params: Optional[dict[str, Any]] = None
     ) -> Iterator[PyFuncLLMOutputChunk]:
         with self._try_get_or_generate_prediction_context() as context:
-            self._update_dependencies_schemas_in_prediction_context(context)
+            if schema := _get_dependencies_schema_from_model(self._model_meta):
+                context.update(**schema)
             return self._predict_stream(data, params)
 
     def _predict_stream(
@@ -2949,12 +2941,12 @@ def save_model(
             context = PythonModelContext(artifacts, model_config)
             python_model.load_context(context)
             output = python_model.predict(context, messages, params)
-            if not isinstance(output, ChatResponse):
+            if not isinstance(output, ChatCompletionResponse):
                 raise MlflowException(
                     "Failed to save ChatModel. Please ensure that the model's predict() method "
-                    "returns a ChatResponse object. If your predict() method currently returns "
-                    "a dict, you can instantiate a ChatResponse using `from_dict()`, e.g. "
-                    "`ChatResponse.from_dict(output)`",
+                    "returns a ChatCompletionResponse object. If your predict() method currently "
+                    "returns a dict, you can instantiate a ChatCompletionResponse using "
+                    "`from_dict()`, e.g. `ChatCompletionResponse.from_dict(output)`",
                 )
         elif isinstance(python_model, PythonModel):
             saved_example = _save_example(mlflow_model, input_example, path, example_no_conversion)

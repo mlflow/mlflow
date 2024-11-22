@@ -9,7 +9,7 @@ import os
 import shutil
 from abc import ABCMeta, abstractmethod
 from pathlib import Path
-from typing import Any, Iterator, Optional, Union
+from typing import Any, Generator, Optional, Union
 
 import cloudpickle
 import pandas as pd
@@ -29,7 +29,8 @@ from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.types.llm import (
     ChatMessage,
     ChatParams,
-    ChatResponse,
+    ChatCompletionChunk,
+    ChatCompletionResponse,
     ChatAgentMessage,
     ChatAgentResponse,
 )
@@ -46,7 +47,10 @@ from mlflow.utils.environment import (
     _PythonEnv,
 )
 from mlflow.utils.file_utils import TempDir, get_total_file_size, write_to
-from mlflow.utils.model_utils import _get_flavor_configuration, _validate_infer_and_copy_code_paths
+from mlflow.utils.model_utils import (
+    _get_flavor_configuration,
+    _validate_infer_and_copy_code_paths,
+)
 from mlflow.utils.requirements_utils import _get_pinned_requirement
 
 CONFIG_KEY_ARTIFACTS = "artifacts"
@@ -131,7 +135,9 @@ class PythonModel:
             params: Additional parameters to pass to the model for inference.
         """
 
-    def predict_stream(self, context, model_input, params: Optional[dict[str, Any]] = None):
+    def predict_stream(
+        self, context, model_input, params: Optional[dict[str, Any]] = None
+    ):
         """
         Evaluates a pyfunc-compatible input and produces an iterator of output.
         For more information about the pyfunc input API, see the :ref:`pyfunc-inference-api`.
@@ -232,33 +238,14 @@ class ChatModel(PythonModel, metaclass=ABCMeta):
 
     See the documentation of the ``predict()`` method below for details on that parameters and
     outputs that are expected by the ``ChatModel`` API.
-
-    .. warning::
-
-        In an upcoming release of MLflow, we will be requiring a ``predict_stream`` implementation,
-        changing ``ChatRequest`` to a new ``ChatCompletionRequest`` type, and changing
-        ``ChatResponse`` to a new ``ChatCompletionResponse`` type.
-
     """
 
-    def __new__(cls, *args, **kwargs):
-        _logger.warning(
-            "In an upcoming MLflow release, we will be requiring a "
-            "predict_stream implementation, changing ChatRequest to "
-            "a new ChatCompletionRequest type, and changing "
-            "ChatResponse to a new ChatCompletionResponse type."
-        )
-        return super().__new__(cls)
-
     @abstractmethod
-    def predict(self, context, messages: list[ChatMessage], params: ChatParams) -> ChatResponse:
+    def predict(
+        self, context, messages: list[ChatMessage], params: ChatParams
+    ) -> ChatCompletionResponse:
         """
         Evaluates a chat input and produces a chat output.
-
-        .. warning::
-
-            In an upcoming MLflow release, we will be changing the output type from
-            ``ChatResponse`` to a new ``ChatCompletionResponse`` type.
 
         Args:
             context: A :class:`~PythonModelContext` instance containing artifacts that the model
@@ -272,24 +259,16 @@ class ChatModel(PythonModel, metaclass=ABCMeta):
                 inference.
 
         Returns:
-            A :py:class:`ChatResponse <mlflow.types.llm.ChatResponse>` object containing
-            the model's response(s), as well as other metadata.
+            A :py:class:`ChatCompletionResponse <mlflow.types.llm.ChatCompletionResponse>`
+            object containing the model's response(s), as well as other metadata.
         """
 
     def predict_stream(
         self, context, messages: list[ChatMessage], params: ChatParams
-    ) -> Iterator[ChatResponse]:
+    ) -> Generator[ChatCompletionChunk, None, None]:
         """
         Evaluates a chat input and produces a chat output.
-        Overrides this function to implement a real stream prediction.
-        By default, this function just yields result of `predict` function.
-
-        .. warning::
-
-            In an upcoming MLflow release, ``predict_stream`` will be returning a
-            true streaming interface that returns a generator of ``ChatCompletionChunks``
-            instead of the current behavior of yielding the entire prediction as a single
-            ``ChatResponse`` generator entry.
+        Override this function to implement a real stream prediction.
 
         Args:
             context: A :class:`~PythonModelContext` instance containing artifacts that the model
@@ -303,10 +282,14 @@ class ChatModel(PythonModel, metaclass=ABCMeta):
                 inference.
 
         Returns:
-            An iterator over :py:class:`ChatResponse <mlflow.types.llm.ChatResponse>` object
-            containing the model's response(s), as well as other metadata.
+            A generator over :py:class:`ChatCompletionChunk <mlflow.types.llm.ChatCompletionChunk>`
+            object containing the model's response(s), as well as other metadata.
         """
-        yield self.predict(context, messages, params)
+        raise NotImplementedError(
+            "Streaming implementation not provided. Please override the "
+            "`predict_stream` method on your model to generate streaming "
+            "predictions"
+        )
 
 
 @experimental
@@ -498,7 +481,9 @@ def _save_model_with_class_artifacts_params(  # noqa: D417
                             f"{artifact_uri}. Error: {e}"
                         )
                     saved_artifact_subpath = (
-                        Path(snapshot_location).relative_to(Path(os.path.realpath(path))).as_posix()
+                        Path(snapshot_location)
+                        .relative_to(Path(os.path.realpath(path)))
+                        .as_posix()
                     )
                 else:
                     tmp_artifact_path = _download_artifact_from_uri(
@@ -520,7 +505,10 @@ def _save_model_with_class_artifacts_params(  # noqa: D417
                     CONFIG_KEY_ARTIFACT_URI: artifact_uri,
                 }
 
-            shutil.move(tmp_artifacts_dir.path(), os.path.join(path, saved_artifacts_dir_subpath))
+            shutil.move(
+                tmp_artifacts_dir.path(),
+                os.path.join(path, saved_artifacts_dir_subpath),
+            )
         custom_model_config_kwargs[CONFIG_KEY_ARTIFACTS] = saved_artifacts_config
 
     if streamable is None:
@@ -557,7 +545,9 @@ def _save_model_with_class_artifacts_params(  # noqa: D417
         infer_code_paths,
         mlflow.pyfunc.FLAVOR_NAME,
     )
-    mlflow_model.flavors[mlflow.pyfunc.FLAVOR_NAME][mlflow.pyfunc.CODE] = saved_code_subpath
+    mlflow_model.flavors[mlflow.pyfunc.FLAVOR_NAME][mlflow.pyfunc.CODE] = (
+        saved_code_subpath
+    )
 
     # `mlflow_model.code` is updated, re-generate `MLmodel` file.
     mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
@@ -606,13 +596,17 @@ def _load_context_model_and_signature(
 
     if MODEL_CODE_PATH in pyfunc_config:
         conf_model_code_path = pyfunc_config.get(MODEL_CODE_PATH)
-        model_code_path = os.path.join(model_path, os.path.basename(conf_model_code_path))
+        model_code_path = os.path.join(
+            model_path, os.path.basename(conf_model_code_path)
+        )
         python_model = _load_model_code_path(model_code_path, model_config)
 
         if callable(python_model):
             python_model = _FunctionPythonModel(python_model, signature=signature)
     else:
-        python_model_cloudpickle_version = pyfunc_config.get(CONFIG_KEY_CLOUDPICKLE_VERSION, None)
+        python_model_cloudpickle_version = pyfunc_config.get(
+            CONFIG_KEY_CLOUDPICKLE_VERSION, None
+        )
         if python_model_cloudpickle_version is None:
             mlflow.pyfunc._logger.warning(
                 "The version of CloudPickle used to save the model could not be found in the "
@@ -632,7 +626,9 @@ def _load_context_model_and_signature(
 
         python_model_subpath = pyfunc_config.get(CONFIG_KEY_PYTHON_MODEL, None)
         if python_model_subpath is None:
-            raise MlflowException("Python model path was not specified in the model configuration")
+            raise MlflowException(
+                "Python model path was not specified in the model configuration"
+            )
         with open(os.path.join(model_path, python_model_subpath), "rb") as f:
             python_model = cloudpickle.load(f)
 
@@ -651,7 +647,9 @@ def _load_context_model_and_signature(
 
 
 def _load_pyfunc(model_path: str, model_config: Optional[dict[str, Any]] = None):
-    context, python_model, signature = _load_context_model_and_signature(model_path, model_config)
+    context, python_model, signature = _load_context_model_and_signature(
+        model_path, model_config
+    )
     return _PythonModelPyfuncWrapper(
         python_model=python_model,
         context=context,
@@ -660,7 +658,9 @@ def _load_pyfunc(model_path: str, model_config: Optional[dict[str, Any]] = None)
 
 
 def _get_first_string_column(pdf):
-    iter_string_columns = (col for col, val in pdf.iloc[0].items() if isinstance(val, str))
+    iter_string_columns = (
+        col for col, val in pdf.iloc[0].items() if isinstance(val, str)
+    )
     return next(iter_string_columns, None)
 
 
@@ -709,7 +709,9 @@ class _PythonModelPyfuncWrapper:
                     return model_input[[first_string_column]].to_dict(orient="records")
                 columns = [x.name for x in self.signature.inputs]
                 return model_input[columns].to_dict(orient="records")
-            elif isinstance(model_input, list) and all(isinstance(x, dict) for x in model_input):
+            elif isinstance(model_input, list) and all(
+                isinstance(x, dict) for x in model_input
+            ):
                 keys = [x.name for x in self.signature.inputs]
                 return [{k: d[k] for k in keys} for d in model_input]
         elif isinstance(hints.input, type) and (
@@ -758,7 +760,9 @@ class _PythonModelPyfuncWrapper:
                 self.context, self._convert_input(model_input), params=params
             )
         _log_warning_if_params_not_in_predict_signature(_logger, params)
-        return self.python_model.predict_stream(self.context, self._convert_input(model_input))
+        return self.python_model.predict_stream(
+            self.context, self._convert_input(model_input)
+        )
 
 
 def _get_pyfunc_loader_module(python_model):
@@ -778,7 +782,9 @@ class ModelFromDeploymentEndpoint(PythonModel):
         self.params = params
 
     def predict(
-        self, context, model_input: Union[pd.DataFrame, dict[str, Any], list[dict[str, Any]]]
+        self,
+        context,
+        model_input: Union[pd.DataFrame, dict[str, Any], list[dict[str, Any]]],
     ):
         """
         Run prediction on the input data.
@@ -802,7 +808,9 @@ class ModelFromDeploymentEndpoint(PythonModel):
         """
         if isinstance(model_input, dict):
             return self._predict_single(model_input)
-        elif isinstance(model_input, list) and all(isinstance(data, dict) for data in model_input):
+        elif isinstance(model_input, list) and all(
+            isinstance(data, dict) for data in model_input
+        ):
             return [self._predict_single(data) for data in model_input]
         elif isinstance(model_input, pd.DataFrame):
             if len(model_input.columns) != 1:
@@ -814,7 +822,9 @@ class ModelFromDeploymentEndpoint(PythonModel):
                 )
             input_column = model_input.columns[0]
 
-            predictions = [self._predict_single(data) for data in model_input[input_column]]
+            predictions = [
+                self._predict_single(data) for data in model_input[input_column]
+            ]
             return pd.Series(predictions)
         else:
             raise MlflowException(
@@ -836,7 +846,10 @@ class ModelFromDeploymentEndpoint(PythonModel):
         Returns:
             The prediction result from the MLflow Deployments endpoint as a dictionary.
         """
-        from mlflow.metrics.genai.model_utils import call_deployments_api, get_endpoint_type
+        from mlflow.metrics.genai.model_utils import (
+            call_deployments_api,
+            get_endpoint_type,
+        )
 
         endpoint_type = get_endpoint_type(f"endpoints:/{self.endpoint}")
 
@@ -845,11 +858,15 @@ class ModelFromDeploymentEndpoint(PythonModel):
             # payload based on the endpoint type. If the endpoint type is not
             # set on the endpoint, we will default to chat format.
             endpoint_type = endpoint_type or "llm/v1/chat"
-            prediction = call_deployments_api(self.endpoint, data, self.params, endpoint_type)
+            prediction = call_deployments_api(
+                self.endpoint, data, self.params, endpoint_type
+            )
         elif isinstance(data, dict):
             # If the input is dictionary, we assume the input is already in the
             # compatible format for the endpoint.
-            prediction = call_deployments_api(self.endpoint, data, self.params, endpoint_type)
+            prediction = call_deployments_api(
+                self.endpoint, data, self.params, endpoint_type
+            )
         else:
             raise MlflowException(
                 f"Invalid input data type: {type(data)}. The feature column of the evaluation "
