@@ -1272,22 +1272,15 @@ def test_predict_with_callbacks_supports_chat_response_conversion(fake_chat_mode
 
     pyfunc_loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
     expected_chat_response = {
-        "id": None,
         "object": "chat.completion",
         "created": 1677858242,
-        "model": None,
         "choices": [
             {
                 "index": 0,
                 "message": {"role": "assistant", "content": "Databricks"},
-                "finish_reason": None,
             }
         ],
-        "usage": {
-            "prompt_tokens": None,
-            "completion_tokens": None,
-            "total_tokens": None,
-        },
+        "usage": {},
     }
     with mock.patch("time.time", return_value=1677858242):
         assert (
@@ -2149,10 +2142,8 @@ def test_predict_with_builtin_pyfunc_chat_conversion(spark):
 
     pyfunc_loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
     expected_chat_response = {
-        "id": None,
         "object": "chat.completion",
         "created": 1677858242,
-        "model": None,
         "choices": [
             {
                 "index": 0,
@@ -2160,14 +2151,9 @@ def test_predict_with_builtin_pyfunc_chat_conversion(spark):
                     "role": "assistant",
                     "content": content,
                 },
-                "finish_reason": None,
             }
         ],
-        "usage": {
-            "prompt_tokens": None,
-            "completion_tokens": None,
-            "total_tokens": None,
-        },
+        "usage": {},
     }
 
     with mock.patch("time.time", return_value=1677858242):
@@ -2219,14 +2205,11 @@ def test_predict_with_builtin_pyfunc_chat_conversion_for_aimessage_response():
     pyfunc_loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
     with mock.patch("time.time", return_value=1677858242):
         result = pyfunc_loaded_model.predict(input_example)
-        assert "id" in result[0], "Response message id is lost."
-        result[0]["id"] = None
+        assert "id" not in result[0], "Response message id is lost."
         assert result == [
             {
-                "id": None,
                 "object": "chat.completion",
                 "created": 1677858242,
-                "model": None,
                 "choices": [
                     {
                         "index": 0,
@@ -2234,14 +2217,9 @@ def test_predict_with_builtin_pyfunc_chat_conversion_for_aimessage_response():
                             "role": "assistant",
                             "content": "You own MLflow",
                         },
-                        "finish_reason": None,
                     }
                 ],
-                "usage": {
-                    "prompt_tokens": None,
-                    "completion_tokens": None,
-                    "total_tokens": None,
-                },
+                "usage": {},
             }
         ]
 
@@ -2922,41 +2900,32 @@ def test_simple_chat_model_stream_inference(fake_chat_stream_model, provide_sign
             chunks = list(chunk_iter)
 
             for chunk in chunks:
-                assert "id" in chunk, "chunk id is lost."
-                chunk["id"] = None
+                assert "id" not in chunk, "chunk id is lost."
 
             assert chunks == [
                 {
-                    "id": None,
                     "object": "chat.completion.chunk",
                     "created": 1677858242,
-                    "model": None,
                     "choices": [
                         {
                             "index": 0,
-                            "finish_reason": None,
                             "delta": {"role": "assistant", "content": "Da"},
                         }
                     ],
                 },
                 {
-                    "id": None,
                     "object": "chat.completion.chunk",
                     "created": 1677858242,
-                    "model": None,
                     "choices": [
                         {
                             "index": 0,
-                            "finish_reason": None,
                             "delta": {"role": "assistant", "content": "tab"},
                         }
                     ],
                 },
                 {
-                    "id": None,
                     "object": "chat.completion.chunk",
                     "created": 1677858242,
-                    "model": None,
                     "choices": [
                         {
                             "index": 0,
@@ -3144,22 +3113,15 @@ def test_save_model_as_code_correct_streamable(chain_model_signature, chain_path
 
     with mock.patch("time.time", return_value=1677858242):
         assert pyfunc_loaded_model._model_impl._predict_with_callbacks(input_example) == {
-            "id": None,
             "object": "chat.completion",
             "created": 1677858242,
-            "model": None,
             "choices": [
                 {
                     "index": 0,
                     "message": {"role": "assistant", "content": "Databricks"},
-                    "finish_reason": None,
                 }
             ],
-            "usage": {
-                "prompt_tokens": None,
-                "completion_tokens": None,
-                "total_tokens": None,
-            },
+            "usage": {},
         }
 
     inference_payload = load_serving_example(model_info.model_uri)
@@ -3443,9 +3405,7 @@ def test_agent_executor_model_with_messages_input():
                     "additional_kwargs": {},
                     "content": "Databricks",
                     "example": False,
-                    "id": None,
                     "invalid_tool_calls": [],
-                    "name": None,
                     "response_metadata": {},
                     "tool_calls": [],
                     "type": "ai",
