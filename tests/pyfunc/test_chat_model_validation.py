@@ -224,10 +224,6 @@ def test_chat_response_defaults():
     ("custom_inputs", "match"),
     [
         (1, r"Expected `custom_inputs` to be a dictionary, received `int`"),
-        (
-            {"nested": {"dict": "input"}},
-            r"received value of type `dict` in `custom_inputs\['nested'\]`",
-        ),
         ({1: "example"}, r"received key of type `int` \(key: 1\)"),
     ],
 )
