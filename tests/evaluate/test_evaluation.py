@@ -1225,6 +1225,16 @@ def test_resolve_evaluators_and_configs():
         resolve_evaluators_and_configs(["default", "dummy_evaluator"], {"abc": {"a": 3}})
 
 
+def test_resolve_evaluators_raise_for_missing_databricks_agent_dependency():
+    with pytest.raises(
+        MlflowException,
+        match="Databricks Agents SDK must be installed to use the `databricks-agent` model type.",
+    ):
+        resolve_evaluators_and_configs(
+            evaluators=None, evaluator_config=None, model_type="databricks-agent"
+        )
+
+
 def test_evaluate_env_manager_params(multiclass_logistic_regressor_model_uri, iris_dataset):
     model = mlflow.pyfunc.load_model(multiclass_logistic_regressor_model_uri)
 
