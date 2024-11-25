@@ -748,11 +748,11 @@ def signup():
   </div>
   <label for="username">Username:</label>
   <br>
-  <input type="text" id="username" name="username">
+  <input type="text" id="username" name="username" minlength="4">
   <br>
   <label for="password">Password:</label>
   <br>
-  <input type="password" id="password" name="password">
+  <input type="password" id="password" name="password" minlength="4">
   <br>
   <br>
   <input type="submit" value="Sign up">
