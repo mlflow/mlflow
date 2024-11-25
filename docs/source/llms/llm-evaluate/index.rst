@@ -303,22 +303,149 @@ By default, MLflow will use OpenAI's GPT-4 model as the judge model that scores 
 1. SaaS LLM Providers
 #####################
 
-To use SaaS LLM providers, such as OpenAI or Anthropic, set the ``model`` parameter in the metrics definition, in the format of ``<provider>:/<model-name>``. For example, to use Anthropic Claude 3.5 model as the judge model, set ``anthropic`` as the provider.
+To use SaaS LLM providers, such as OpenAI or Anthropic, set the ``model`` parameter in the metrics definition, in the format of ``<provider>:/<model-name>``. Currently, MLflow supports ``["openai", "anthropic", "bedrock", "mistral", "togetherai"]`` as viable LLM providers for any judge model. 
 
-.. code-block:: python
 
-    my_answer_similarity = mlflow.metrics.genai.answer_similarity(
-        model="anthropic:/claude-3-5-sonnet-20241022",
-        # Override default judge parameters to meet Claude endpoint requirements.
-        parameters={"temperature": 0, "max_tokens": 256},
-    )
+.. tabs::
 
-Currently, MLflow supports ``["openai", "anthropic", "bedrock", "mistral", "togetherai"]`` as viable LLM providers for any judge model. Azure OpenAI endpoints can be accessed via the ``openai:/<model-name>`` URI, by setting the environment variables, such as ``OPENAI_API_BASE``, ``OPENAI_API_TYPE``, etc.
+    .. tab:: OpenAI / Azure OpenAI
+
+        OpenAI models can be accessed via the ``openai:/<model-name>`` URI.
+
+        .. code-block:: python
+
+            import mlflow
+            import os
+
+            os.environ["OPENAI_API_KEY"] = "<your-openai-api-key>"
+
+            answer_correctness = mlflow.metrics.genai.answer_correctness(model="openai:/gpt-4o")
+
+            # Test the metric definition
+            answer_correctness(
+                inputs="What is MLflow?",
+                predictions="MLflow is an innovative full self-driving airship.",
+                targets="MLflow is an open-source platform for managing the end-to-end ML lifecycle.",
+            )
+
+        Azure OpenAI endpoints can be accessed via the same ``openai:/<model-name>`` URI, by setting the environment variables, such as ``OPENAI_API_BASE``, ``OPENAI_API_TYPE``, etc.
+
+        .. code-block:: python
+
+            os.environ["OPENAI_API_TYPE"] = "azure"
+            os.environ["OPENAI_API_BASE"] = "https:/my-azure-openai-endpoint.azure.com/"
+            os.environ["OPENAI_DEPLOYMENT_NAME"] = "gpt-4o-mini"
+            os.environ["OPENAI_API_VERSION"] = "2024-08-01-preview"
+            os.environ["OPENAI_API_KEY"] = "<your-api-key-for-azure-openai-endpoint>"
+
+    .. tab:: Anthropic
+
+        Anthropic models can be accessed via the ``anthropic:/<model-name>`` URI. Note that the `default judge parameters <#overriding-default-judge-parameters>` need to be overridden by passing the ``parameters`` argument to the metrics definition, since the default parameters violates the Anthropic endpoint requirement (``temperature`` and ``top_p`` cannot be specified together).
+
+        .. code-block:: python
+
+            import mlflow
+            import os
+
+            os.environ["ANTHROPIC_API_KEY"] = "<your-anthropic-api-key>"
+
+            answer_correctness = mlflow.metrics.genai.answer_correctness(
+                model="anthropic:/claude-3-5-sonnet-20241022",
+                # Override default judge parameters to meet Claude endpoint requirements.
+                parameters={"temperature": 0, "max_tokens": 256},
+            )
+
+            # Test the metric definition
+            answer_correctness(
+                inputs="What is MLflow?",
+                predictions="MLflow is an innovative full self-driving airship.",
+                targets="MLflow is an open-source platform for managing the end-to-end ML lifecycle.",
+            )
+
+    .. tab:: Bedrock
+
+        Bedrock models can be accessed via the ``bedrock:/<model-name>`` URI. Make sure you have set the authentication information via the environment variables. You can use both role-based or API key-based authentication for accessing Bedrock models.
+
+        .. code-block:: python
+
+            import mlflow
+            import os
+
+            os.environ["AWS_REGION"] = "<your-aws-region>"
+
+            # Option 1. Role-based authentication
+            os.environ["AWS_ROLE_ARN"] = "<your-aws-role-arn>"
+
+            # Option 2. API key-based authentication
+            os.environ["AWS_ACCESS_KEY_ID"] = "<your-aws-access-key-id>"
+            os.environ["AWS_SECRET_ACCESS_KEY"] = "<your-aws-secret-access-key>"
+            # You can also use session token for temporary credentials.
+            # os.environ["AWS_SESSION_TOKEN"] = "<your-aws-session-token>"
+
+            answer_correctness = mlflow.metrics.genai.answer_correctness(
+                model="bedrock:/anthropic.claude-3-5-sonnet-20241022-v2:0",
+                parameters={
+                    "temperature": 0,
+                    "max_tokens": 256,
+                    "anthropic_version": "bedrock-2023-05-31",
+                },
+            )
+
+            # Test the metric definition
+            answer_correctness(
+                inputs="What is MLflow?",
+                predictions="MLflow is an innovative full self-driving airship.",
+                targets="MLflow is an open-source platform for managing the end-to-end ML lifecycle.",
+            )
+
+    .. tab:: Mistral
+
+        Mistral models can be accessed via the ``mistral:/<model-name>`` URI.
+
+        .. code-block:: python
+
+            import mlflow
+            import os
+
+            os.environ["MISTRAL_API_KEY"] = "<your-mistral-api-key>"
+
+            answer_correctness = mlflow.metrics.genai.answer_correctness(
+                model="mistral:/mistral-small-latest",
+            )
+
+            # Test the metric definition
+            answer_correctness(
+                inputs="What is MLflow?",
+                predictions="MLflow is an innovative full self-driving airship.",
+                targets="MLflow is an open-source platform for managing the end-to-end ML lifecycle.",
+            )
+
+    .. tab:: TogetherAI
+
+        TogetherAI models can be accessed via the ``togetherai:/<model-name>`` URI.
+
+        .. code-block:: python
+
+            import mlflow
+            import os
+
+            os.environ["TOGETHERAI_API_KEY"] = "<your-togetherai-api-key>"
+
+            answer_correctness = mlflow.metrics.genai.answer_correctness(
+                model="togetherai:/togetherai-small-latest",
+            )
+
+            # Test the metric definition
+            answer_correctness(
+                inputs="What is MLflow?",
+                predictions="MLflow is an innovative full self-driving airship.",
+                targets="MLflow is an open-source platform for managing the end-to-end ML lifecycle.",
+            )
+
 
 .. note::
 
-    To use SaaS LLM providers, make sure you have set the API key for the provider via
-    the environment variable, e.g., ``ANTHROPIC_API_KEY``. Your use of a third party LLM service (e.g., OpenAI) for evaluation may be subject to and governed by the LLM service's terms of use.
+    Your use of a third party LLM service (e.g., OpenAI) for evaluation may be subject to and governed by the LLM service's terms of use.
 
 2. Self-hosted Proxy Endpoints
 ##############################
