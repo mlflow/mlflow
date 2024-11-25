@@ -165,7 +165,7 @@ Column-based signature also support composite data types of these primitives.
     `mlflow.models.infer_signature` function infers a field as AnyType only if the field is always None (e.g. ``{"a": None} --> ['a': Any (optional)]``); if the field has other valid types, the field is inferred
     as optional instead (e.g. ``[{"a": None}, {"a": "abc"}] --> ['a': string (optional)]``).
     If one field explicitly accepts multiple valid types (e.g. ``[{"a": "string"}, {"a": 123}]``), `infer_signature` function would fail and you need to manually construct the signature using `ModelSignature` object
-    with `AnyType` type for the field.
+    with `AnyType` type for the field. (e.g. ``ModelSignature(Schema([ColSpec(AnyType(), "a", required=False)]))``)
 
 .. warning::
 
@@ -638,6 +638,8 @@ The same signature can be created explicitly as follows:
         inputs=input_schema, outputs=output_schema, params=params_schema
     )
 
+.. _genai_model_signature_example:
+
 Model signature examples for GenAI flavors
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 GenAI flavors such as langchain, OpenAI, and transformers normally require an object (dictionary) based model signature.
@@ -808,10 +810,25 @@ If your model's output contains None values, these fields will be inferred as An
 
     print(infer_signature(data))
     # inputs:
-    # ['id': Any (optional), 'object': string (required), 'created': long (required), 'model': Any (optional),
-    # 'choices': Array({finish_reason: Any (optional), index: long (required),
-    # message: {content: string (required), role: string (required)} (required)}) (required),
-    # 'usage': {completion_tokens: Any (optional), prompt_tokens: Any (optional), total_tokens: Any (optional)} (required)]
+    # [
+    #     'id': Any (optional),
+    #     'object': string (required),
+    #     'created': long (required),
+    #     'model': Any (optional),
+    #     'choices': Array({
+    #         'finish_reason': Any (optional),
+    #         'index': long (required),
+    #         'message': {
+    #             'content': string (required),
+    #             'role': string (required)
+    #         } (required)
+    #     }) (required),
+    #     'usage': {
+    #         'completion_tokens': Any (optional),
+    #         'prompt_tokens': Any (optional),
+    #         'total_tokens': Any (optional)
+    #     } (required)
+    # ]
     # outputs:
     # None
     # params:
