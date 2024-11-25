@@ -50,6 +50,9 @@ class _ModelType:
     TEXT_SUMMARIZATION = "text-summarization"
     TEXT = "text"
     RETRIEVER = "retriever"
+    # This model type is used for Mosaic AI Agent evaluation and only available in Databricks
+    # https://docs.databricks.com/en/generative-ai/agent-evaluation/index.html
+    DATABRICKS_AGENT = "databricks-agent"
 
     def __init__(self):
         raise NotImplementedError("This class is not meant to be instantiated.")
@@ -840,6 +843,21 @@ def resolve_evaluators_and_configs(
         A list of EvaluatorBundle that contains name, evaluator, config for each evaluator.
     """
     from mlflow.models.evaluation.evaluator_registry import _model_evaluation_registry as rg
+
+    # NB: The `databricks-agents` package must be installed to use the 'databricks-agent' model
+    # type. Ideally this check should be done in the 'databricks-agent' evaluator implementation,
+    # but we need to do it here because the code won't reach the evaluator implementation if the
+    # package is not installed.
+    if model_type == _ModelType.DATABRICKS_AGENT:
+        try:
+            import databricks.agents  # noqa: F401
+        except ImportError as e:
+            raise MlflowException(
+                message="Databricks Agents SDK must be installed to use the "
+                f"`{_ModelType.DATABRICKS_AGENT}` model type. Run `pip install databricks-agents` "
+                "to install the package and try again.",
+                error_code=INVALID_PARAMETER_VALUE,
+            ) from e
 
     def check_nesting_config_dict(_evaluator_name_list, _evaluator_name_to_conf_map):
         return isinstance(_evaluator_name_to_conf_map, dict) and all(
