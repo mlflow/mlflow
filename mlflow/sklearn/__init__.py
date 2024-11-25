@@ -372,12 +372,11 @@ def save_model(
                 text=True,
             )
             _logger.info(f"Took {time.time() - s:.2f} seconds to compile requirements via uv")
-            pip_bin = shutil.which("pip")
-            _logger.info("Verifying compiled requirements via pip")
+            _logger.info("Verifying compiled requirements via uv")
             s = time.time()
             try:
                 subprocess.check_call(
-                    [pip_bin, "install", "--requirement", out.name, "--dry-run"],
+                    [uv_bin, "pip", "install", "--requirement", out.name, "--dry-run"],
                     stderr=subprocess.STDOUT,
                     stdout=subprocess.PIPE,
                     text=True,
