@@ -140,8 +140,8 @@ repos:
 
       - id: typos
         name: typos
-        entry: typos --format brief --force-exclude
-        files: '\.py$'
+        entry: typos --format brief --force-exclude --color never
+        files: '\.(py|rst)$'
         language: system
         stages: [pre-commit]
         require_serial: true
