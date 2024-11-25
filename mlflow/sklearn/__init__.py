@@ -342,14 +342,49 @@ def save_model(
                 "uv is required to use `compile_requirements`. Please install it by following "
                 "the instructions at https://docs.astral.sh/uv/getting-started/installation/"
             )
-        with tempfile.NamedTemporaryFile("w") as f:
-            f.write(output)
-            f.flush()
+        with (
+            tempfile.NamedTemporaryFile(
+                "w",
+                suffix=".source.txt",
+            ) as src,
+            tempfile.NamedTemporaryFile(
+                "w",
+                suffix=".compiled.txt",
+            ) as out,
+        ):
+            src.write(output)
+            src.flush()
             s = time.time()
+            _logger.info("Compiling requirements via uv")
             output = subprocess.check_output(
-                [uv_bin, "pip", "compile", "--universal", "--color=never", f.name], text=True
+                [
+                    uv_bin,
+                    "pip",
+                    "compile",
+                    "--universal",
+                    "--color",
+                    "never",
+                    "--output-file",
+                    out.name,
+                    src.name,
+                ],
+                text=True,
             )
             _logger.info(f"Took {time.time() - s:.2f} seconds to compile requirements via uv")
+            pip_bin = shutil.which("pip")
+            _logger.info("Verifying compiled requirements via pip")
+            s = time.time()
+            try:
+                subprocess.check_call(
+                    [pip_bin, "install", "--requirement", out.name, "--dry-run"],
+                    stderr=subprocess.STDOUT,
+                    stdout=subprocess.PIPE,
+                    text=True,
+                )
+            except subprocess.CalledProcessError as e:
+                raise RuntimeError(f"Failed to verify compiled requirements: {e.stdout}")
+
+            _logger.info(f"Took {time.time() - s:.2f} seconds to verify the compiled requirements")
 
     write_to(os.path.join(path, _REQUIREMENTS_FILE_NAME), output)
 
