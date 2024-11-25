@@ -16,6 +16,9 @@ import inspect
 import logging
 import os
 import pickle
+import shutil
+import subprocess
+import tempfile
 import weakref
 from collections import OrderedDict, defaultdict
 from copy import deepcopy
@@ -168,6 +171,7 @@ def save_model(
     extra_pip_requirements=None,
     pyfunc_predict_fn="predict",
     metadata=None,
+    compile_requirements: bool = False,
 ):
     """
     Save a scikit-learn model to a path on the local file system. Produces a MLflow Model
@@ -199,6 +203,8 @@ def save_model(
             are: ``"predict"``, ``"predict_proba"``, ``"predict_log_proba"``,
             ``"predict_joint_log_proba"``, and ``"score"``.
         metadata: {{ metadata }}
+        compile_requirements: If True, compile the `requirements.txt` file using
+            `uv pip complile --universal`. By default, false.
 
     .. code-block:: python
         :caption: Example
@@ -326,7 +332,23 @@ def save_model(
         write_to(os.path.join(path, _CONSTRAINTS_FILE_NAME), "\n".join(pip_constraints))
 
     # Save `requirements.txt`
-    write_to(os.path.join(path, _REQUIREMENTS_FILE_NAME), "\n".join(pip_requirements))
+
+    output = "\n".join(pip_requirements)
+    if compile_requirements:
+        uv_bin = shutil.which("uv")
+        if uv_bin is None:
+            raise RuntimeError(
+                "uv is required to use `compile_requirements`. Please install it by following "
+                "the instructions at https://docs.astral.sh/uv/getting-started/installation/"
+            )
+        with tempfile.NamedTemporaryFile("w") as f:
+            f.write(output)
+            f.flush()
+            output = subprocess.check_output(
+                [uv_bin, "pip", "compile", "--universal", f.name], text=True
+            )
+
+    write_to(os.path.join(path, _REQUIREMENTS_FILE_NAME), output)
 
     _PythonEnv.current().to_yaml(os.path.join(path, _PYTHON_ENV_FILE_NAME))
 
@@ -346,6 +368,7 @@ def log_model(
     extra_pip_requirements=None,
     pyfunc_predict_fn="predict",
     metadata=None,
+    compile_requirements: bool = False,
 ):
     """
     Log a scikit-learn model as an MLflow artifact for the current run. Produces an MLflow Model
@@ -381,6 +404,8 @@ def log_model(
             are: ``"predict"``, ``"predict_proba"``, ``"predict_log_proba"``,
             ``"predict_joint_log_proba"``, and ``"score"``.
         metadata: {{ metadata }}
+        compile_requirements: If True, compile the `requirements.txt` file using
+            `uv pip compile --universal`. By default, false.
 
     Returns:
         A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
@@ -425,6 +450,7 @@ def log_model(
         extra_pip_requirements=extra_pip_requirements,
         pyfunc_predict_fn=pyfunc_predict_fn,
         metadata=metadata,
+        compile_requirements=compile_requirements,
     )
 
 
