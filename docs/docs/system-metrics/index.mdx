@@ -123,7 +123,7 @@ print(mlflow.MlflowClient().get_run(run.info.run_id).data)
 ### Enabling System Metrics Logging for a Single Run
 
 In addition to controlling system metrics logging globally, you can also control it for a
-single run. To do so, set `log_system_metrics` as `True` or `False` accordingly in :py:func:`mlflow.start_run()`:
+single run. To do so, set `log_system_metrics` as `True` or `False` accordingly in <APILink fn="mlflow.start_run" />:
 
 ```python
 with mlflow.start_run(log_system_metrics=True) as run:
