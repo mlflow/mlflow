@@ -788,9 +788,11 @@ class Model:
             # fallback when not provided by user, which is set during flavor's save_model() call.
             if mlflow_model.signature is None:
                 if serving_input is None:
-                    _logger.warning(_LOG_MODEL_MISSING_INPUT_EXAMPLE_WARNING)
+                    _logger.warning(
+                        _LOG_MODEL_MISSING_INPUT_EXAMPLE_WARNING, extra={"color": "red"}
+                    )
                 elif tracking_uri == "databricks" or get_uri_scheme(tracking_uri) == "databricks":
-                    _logger.warning(_LOG_MODEL_MISSING_SIGNATURE_WARNING)
+                    _logger.warning(_LOG_MODEL_MISSING_SIGNATURE_WARNING, extra={"color": "red"})
 
             env_vars = None
             # validate input example works for serving when logging the model

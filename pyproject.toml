@@ -152,7 +152,7 @@ exclude = ["tests", "tests.*"]
 [tool.ruff]
 line-length = 100
 target-version = "py39"
-required-version = "0.6.4"
+required-version = "0.7.4"
 force-exclude = true
 extend-include = ["*.ipynb"]
 extend-exclude = [
@@ -218,7 +218,7 @@ select = [
   "T20",     # flake8-print
   "TID251",  # banned-api
   "TID252",  # relative-improt
-  "TRY302",  # useless-try-except
+  "TRY203",  # useless-try-except
   "UP004",   # useless-object-inheritance
   "UP006",   # non-pep585-annotation
   "UP008",   # super-call-with-parameters

@@ -1,6 +1,12 @@
 import pytest
 
-from mlflow.types.llm import ChatChoice, ChatMessage, ChatRequest, ChatResponse, TokenUsageStats
+from mlflow.types.llm import (
+    ChatChoice,
+    ChatCompletionRequest,
+    ChatCompletionResponse,
+    ChatMessage,
+    TokenUsageStats,
+)
 
 MOCK_RESPONSE = {
     "id": "123",
@@ -170,7 +176,7 @@ def test_chat_message_succeeds_on_valid_data(data):
 )
 def test_list_validation_throws_on_invalid_lists(data, match):
     with pytest.raises(ValueError, match=match):
-        ChatRequest.from_dict(data)
+        ChatCompletionRequest.from_dict(data)
 
 
 @pytest.mark.parametrize(
@@ -178,7 +184,7 @@ def test_list_validation_throws_on_invalid_lists(data, match):
     [MOCK_RESPONSE, MOCK_OPENAI_CHAT_COMPLETION_RESPONSE, MOCK_OPENAI_CHAT_REFUSAL_RESPONSE],
 )
 def test_dataclass_constructs_nested_types_from_dict(sample_output):
-    response = ChatResponse.from_dict(sample_output)
+    response = ChatCompletionResponse.from_dict(sample_output)
     assert isinstance(response.usage, TokenUsageStats)
     assert isinstance(response.choices[0], ChatChoice)
     assert isinstance(response.choices[0].message, ChatMessage)
@@ -189,22 +195,22 @@ def test_dataclass_constructs_nested_types_from_dict(sample_output):
     [MOCK_RESPONSE, MOCK_OPENAI_CHAT_COMPLETION_RESPONSE, MOCK_OPENAI_CHAT_REFUSAL_RESPONSE],
 )
 def test_to_dict_converts_nested_dataclasses(sample_output):
-    response = ChatResponse.from_dict(sample_output).to_dict()
+    response = ChatCompletionResponse.from_dict(sample_output).to_dict()
     assert isinstance(response["choices"][0], dict)
     assert isinstance(response["usage"], dict)
     assert isinstance(response["choices"][0]["message"], dict)
 
 
 def test_to_dict_excludes_nones():
-    response = ChatResponse.from_dict(MOCK_RESPONSE).to_dict()
+    response = ChatCompletionResponse.from_dict(MOCK_RESPONSE).to_dict()
     assert "name" not in response["choices"][0]["message"]
 
 
 def test_chat_response_defaults():
     tokens = TokenUsageStats()
     message = ChatMessage("user", "Hello")
-    choice = ChatChoice(0, message)
-    response = ChatResponse([choice], tokens)
+    choice = ChatChoice(message)
+    response = ChatCompletionResponse([choice], tokens)
 
     assert response.usage.prompt_tokens is None
     assert response.usage.completion_tokens is None
@@ -215,17 +221,20 @@ def test_chat_response_defaults():
 
 
 @pytest.mark.parametrize(
-    ("metadata", "match"),
+    ("custom_inputs", "match"),
     [
-        (1, r"Expected `metadata` to be a dictionary, received `int`"),
-        ({"nested": {"dict": "input"}}, r"received value of type `dict` in `metadata\['nested'\]`"),
+        (1, r"Expected `custom_inputs` to be a dictionary, received `int`"),
+        (
+            {"nested": {"dict": "input"}},
+            r"received value of type `dict` in `custom_inputs\['nested'\]`",
+        ),
         ({1: "example"}, r"received key of type `int` \(key: 1\)"),
     ],
 )
-def test_chat_request_metadata_must_be_string_map(metadata, match):
+def test_chat_request_custom_inputs_must_be_string_map(custom_inputs, match):
     message = ChatMessage("user", "Hello")
     with pytest.raises(ValueError, match=match):
-        ChatRequest(messages=[message], metadata=metadata)
+        ChatCompletionRequest(messages=[message], custom_inputs=custom_inputs)
 
 
 @pytest.mark.parametrize(
@@ -237,7 +246,7 @@ def test_chat_request_metadata_must_be_string_map(metadata, match):
             "Expected `message` to be either an instance of `ChatMessage` or a dict",
         ),
         (
-            ChatResponse,
+            ChatCompletionResponse,
             {"choices": [], "usage": 123},
             "Expected `usage` to be either an instance of `TokenUsageStats` or a dict",
         ),
