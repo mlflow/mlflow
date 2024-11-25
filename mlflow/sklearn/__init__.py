@@ -19,6 +19,7 @@ import pickle
 import shutil
 import subprocess
 import tempfile
+import time
 import weakref
 from collections import OrderedDict, defaultdict
 from copy import deepcopy
@@ -344,9 +345,11 @@ def save_model(
         with tempfile.NamedTemporaryFile("w") as f:
             f.write(output)
             f.flush()
+            s = time.time()
             output = subprocess.check_output(
                 [uv_bin, "pip", "compile", "--universal", "--color=never", f.name], text=True
             )
+            _logger.info(f"Took {time.time() - s:.2f} seconds to compile requirements")
 
     write_to(os.path.join(path, _REQUIREMENTS_FILE_NAME), output)
 
