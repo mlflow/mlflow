@@ -345,7 +345,7 @@ def save_model(
             f.write(output)
             f.flush()
             output = subprocess.check_output(
-                [uv_bin, "pip", "compile", "--universal", f.name], text=True
+                [uv_bin, "pip", "compile", "--universal", "--color=never", f.name], text=True
             )
 
     write_to(os.path.join(path, _REQUIREMENTS_FILE_NAME), output)
