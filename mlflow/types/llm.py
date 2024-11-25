@@ -771,7 +771,7 @@ class ChatAgentParams(_BaseDataclass):
 
 @dataclass
 class ChatAgentRequest(ChatAgentParams):
-    messages: list[ChatAgentMessage]
+    messages: list[ChatAgentMessage] = field(default_factory=list)
 
     def __post_init__(self):
         self._convert_dataclass_list("messages", ChatAgentMessage)
