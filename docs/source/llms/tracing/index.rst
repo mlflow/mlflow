@@ -986,6 +986,11 @@ For example, the following code example adds the ``"fruit": "apple"`` tag to the
         return x + 1
 
 
+.. note::
+
+    The ::py:func:`mlflow.update_current_trace` function adds the specified tag(s) to the current trace when the key is not already present. If the key is already present, it updates the key with the new value.
+
+
 Setting Tags on on a Finished Trace
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
