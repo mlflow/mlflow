@@ -349,7 +349,7 @@ def save_model(
             output = subprocess.check_output(
                 [uv_bin, "pip", "compile", "--universal", "--color=never", f.name], text=True
             )
-            _logger.info(f"Took {time.time() - s:.2f} seconds to compile requirements")
+            _logger.info(f"Took {time.time() - s:.2f} seconds to compile requirements via uv")
 
     write_to(os.path.join(path, _REQUIREMENTS_FILE_NAME), output)
 
