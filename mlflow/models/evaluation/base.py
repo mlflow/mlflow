@@ -706,7 +706,6 @@ class ModelEvaluator(metaclass=ABCMeta):
             True if the evaluator can evaluate the specified model on the
             specified dataset. False otherwise.
         """
-        raise NotImplementedError()
 
     @abstractmethod
     def evaluate(
@@ -749,7 +748,6 @@ class ModelEvaluator(metaclass=ABCMeta):
             A :py:class:`mlflow.models.EvaluationResult` instance containing
             evaluation metrics and artifacts for the model.
         """
-        raise NotImplementedError()
 
 
 def list_evaluators():

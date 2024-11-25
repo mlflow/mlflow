@@ -184,3 +184,96 @@ class OsEnvironDeleteInTest(Rule):
 
     def _message(self) -> str:
         return "Do not delete `os.environ` in test directly. Use `monkeypatch.delenv` (https://docs.pytest.org/en/stable/reference/reference.html#pytest.MonkeyPatch.delenv)."
+
+
+class ForbiddenTopLevelImport(Rule):
+    def __init__(self, module: str) -> None:
+        self.module = module
+
+    def _id(self) -> str:
+        return "MLF0013"
+
+    def _message(self) -> str:
+        return (
+            f"Importing module `{self.module}` at the top level is not allowed "
+            "in this file. Use lazy import instead."
+        )
+
+
+class UseSysExecutable(Rule):
+    def _id(self) -> str:
+        return "MLF0014"
+
+    def _message(self) -> str:
+        return (
+            "Use `[sys.executable, '-m', 'mlflow', ...]` when running mlflow CLI in a subprocess."
+        )
+
+    @staticmethod
+    def check(node: ast.Call) -> bool:
+        """
+        Returns True if `node` looks like `subprocess.Popen(["mlflow", ...])`.
+        """
+        if (
+            isinstance(node.func, ast.Attribute)
+            and isinstance(node.func.value, ast.Name)
+            and (node.func.value.id == "subprocess")
+            and (node.func.attr in ["Popen", "run", "check_output", "check_call"])
+            and node.args
+        ):
+            first_arg = node.args[0]
+            if isinstance(first_arg, ast.List) and first_arg.elts:
+                first_elem = first_arg.elts[0]
+                return (
+                    isinstance(first_elem, ast.Constant)
+                    and isinstance(first_elem.value, str)
+                    and first_elem.value == "mlflow"
+                )
+        return False
+
+
+def _is_abstract_method(node: ast.FunctionDef | ast.AsyncFunctionDef) -> bool:
+    return any(
+        (isinstance(d, ast.Name) and d.id == "abstractmethod")
+        or (
+            isinstance(d, ast.Attribute)
+            and isinstance(d.value, ast.Name)
+            and d.value.id == "abc"
+            and d.attr == "abstractmethod"
+        )
+        for d in node.decorator_list
+    )
+
+
+class InvalidAbstractMethod(Rule):
+    def _id(self) -> str:
+        return "MLF0015"
+
+    def _message(self) -> str:
+        return (
+            "Abstract method should only contain a single statement/expression, "
+            "and it must be `pass`, `...`, or a docstring."
+        )
+
+    @staticmethod
+    def check(node: ast.FunctionDef | ast.AsyncFunctionDef) -> bool:
+        return _is_abstract_method(node) and (
+            # Does this abstract method have multiple statements/expressions?
+            len(node.body) > 1
+            # This abstract method has a single statement/expression.
+            # Check if it's `pass`, `...`, or a docstring. If not, it's invalid.
+            or not (
+                # pass
+                isinstance(node.body[0], ast.Pass)
+                or (
+                    isinstance(node.body[0], ast.Expr)
+                    and isinstance(node.body[0].value, ast.Constant)
+                    and (
+                        # `...`
+                        node.body[0].value.value is ...
+                        # docstring
+                        or isinstance(node.body[0].value.value, str)
+                    )
+                )
+            )
+        )

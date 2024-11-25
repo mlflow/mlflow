@@ -1,3 +1,4 @@
+import json
 from unittest import mock
 
 import pytest
@@ -16,6 +17,7 @@ from mlflow.metrics.genai.model_utils import (
 def set_envs(monkeypatch):
     monkeypatch.setenvs(
         {
+            "OPENAI_API_TYPE": "openai",
             "OPENAI_API_KEY": "test",
         }
     )
@@ -117,34 +119,22 @@ _OAI_RESPONSE = {
 
 
 def test_score_model_openai(set_envs):
-    with mock.patch(
-        "mlflow.openai.api_request_parallel_processor.process_api_requests",
-        return_value=[_OAI_RESPONSE],
-    ) as mock_post:
+    with mock.patch("openai.OpenAI") as mock_client:
+        mock_client().chat.completions.create().model_dump.return_value = _OAI_RESPONSE
         resp = score_model_on_payload("openai:/gpt-4o-mini", "my prompt", {"temperature": 0.1})
 
-    assert resp == "\n\nThis is a test!"
-    mock_post.assert_called_once_with(
-        [
-            {
-                "model": "gpt-4o-mini",
-                "temperature": 0.1,
-                "messages": [{"role": "user", "content": "my prompt"}],
-            }
-        ],
-        "https://api.openai.com/v1/chat/completions",
-        api_token=mock.ANY,
-        throw_original_error=True,
-        max_workers=1,
-        extra_headers=None,
-    )
+        assert resp == "\n\nThis is a test!"
+        mock_client().chat.completions.create.assert_called_with(
+            messages=[{"role": "user", "content": "my prompt"}],
+            model="gpt-4o-mini",
+            extra_headers={},
+            temperature=0.1,
+        )
 
 
 def test_score_model_openai_with_custom_header_and_proxy_url(set_envs):
-    with mock.patch(
-        "mlflow.openai.api_request_parallel_processor.process_api_requests",
-        return_value=[_OAI_RESPONSE],
-    ) as mock_post:
+    with mock.patch("openai.OpenAI") as mock_client:
+        mock_client().chat.completions.create().model_dump.return_value = _OAI_RESPONSE
         resp = score_model_on_payload(
             model_uri="openai:/gpt-4o-mini",
             payload="my prompt",
@@ -153,81 +143,200 @@ def test_score_model_openai_with_custom_header_and_proxy_url(set_envs):
             proxy_url="https://my-proxy.com/chat",
         )
 
-    assert resp == "\n\nThis is a test!"
-    mock_post.assert_called_once_with(
-        [
-            {
-                "model": "gpt-4o-mini",
-                "temperature": 0.1,
-                "messages": [{"role": "user", "content": "my prompt"}],
-            }
-        ],
-        "https://my-proxy.com/chat",
-        api_token=mock.ANY,
-        throw_original_error=True,
-        max_workers=1,
-        extra_headers={"foo": "bar"},
-    )
-
-
-def test_openai_authentication_error(set_envs):
-    mock_response = mock.Mock()
-    mock_response.status_code = 401
-    mock_response.json.return_value = {
-        "error": {
-            "message": "Incorrect API key provided: redacted. You can find your API key at https://platform.openai.com/account/api-keys.",
-            "type": "invalid_request_error",
-            "param": None,
-            "code": "invalid_api_key",
-        }
-    }
-
-    with mock.patch("requests.post", return_value=mock_response) as mock_post:
-        with pytest.raises(
-            MlflowException, match="Authentication Error for OpenAI. Error response"
-        ):
-            score_model_on_payload("openai:/gpt-4o-mini", "my prompt", {"temperature": 0.1})
-        mock_post.assert_called_once()
+        assert resp == "\n\nThis is a test!"
+        mock_client().chat.completions.create.assert_called_with(
+            messages=[{"role": "user", "content": "my prompt"}],
+            model="gpt-4o-mini",
+            extra_headers={"foo": "bar"},
+            temperature=0.1,
+        )
 
 
 def test_openai_other_error(set_envs):
-    with mock.patch(
-        "mlflow.openai.api_request_parallel_processor.process_api_requests",
-        side_effect=Exception("foo"),
-    ) as mock_post:
-        with pytest.raises(MlflowException, match="Error response from OpenAI"):
+    with mock.patch("openai.OpenAI") as mock_client:
+        mock_client().chat.completions.create.side_effect = (Exception("foo"),)
+        with pytest.raises(Exception, match="foo"):
             score_model_on_payload("openai:/gpt-4o-mini", "my prompt", {"temperature": 0.1})
-        mock_post.assert_called_once()
+        mock_client().chat.completions.create.assert_called_once()
 
 
 def test_score_model_azure_openai(set_azure_envs):
-    with mock.patch(
-        "mlflow.openai.api_request_parallel_processor.process_api_requests",
-        return_value=[_OAI_RESPONSE],
-    ) as mock_post:
+    with mock.patch("openai.AzureOpenAI") as mock_client:
+        mock_client().chat.completions.create().model_dump.return_value = _OAI_RESPONSE
         resp = score_model_on_payload("openai:/gpt-4o-mini", "my prompt", {"temperature": 0.1})
 
-    assert resp == "\n\nThis is a test!"
-    mock_post.assert_called_once_with(
-        [
+        assert resp == "\n\nThis is a test!"
+        mock_client().chat.completions.create.assert_called_with(
+            messages=[{"role": "user", "content": "my prompt"}],
+            model="gpt-4o-mini",
+            extra_headers={},
+            temperature=0.1,
+        )
+
+
+def test_score_model_anthropic(monkeypatch):
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key")
+
+    resp = {
+        "content": [
             {
-                "temperature": 0.1,
-                "messages": [{"role": "user", "content": "my prompt"}],
+                "text": "This is a test!",
+                "type": "text",
             }
         ],
-        "https://openai-for.openai.azure.com//openai/deployments/test-openai/chat/completions?api-version=2023-05-15",
-        api_token=mock.ANY,
-        throw_original_error=True,
-        max_workers=1,
-        extra_headers=None,
+        "id": "msg_013Zva2CMHLNnXjNJJKqJ2EF",
+        "model": "claude-3-5-sonnet-20241022",
+        "role": "assistant",
+        "stop_reason": "end_turn",
+        "stop_sequence": None,
+        "type": "message",
+        "usage": {"input_tokens": 2095, "output_tokens": 503},
+    }
+
+    with mock.patch(
+        "mlflow.metrics.genai.model_utils._send_request", return_value=resp
+    ) as mock_request:
+        response = score_model_on_payload(
+            model_uri="anthropic:/claude-3-5-sonnet-20241022",
+            payload="input prompt",
+            eval_parameters={"max_tokens": 1000, "top_p": 1},
+            extra_headers={"anthropic-version": "2024-10-22"},
+        )
+
+    assert response == "This is a test!"
+    mock_request.assert_called_once_with(
+        endpoint="https://api.anthropic.com/v1/messages",
+        headers={
+            "x-api-key": "test-key",
+            "anthropic-version": "2024-10-22",
+        },
+        payload={
+            "model": "claude-3-5-sonnet-20241022",
+            "messages": [{"role": "user", "content": "input prompt"}],
+            "max_tokens": 1000,
+            "top_p": 1,
+        },
     )
 
 
-def test_score_model_azure_openai_bad_envs(set_bad_azure_envs):
-    with pytest.raises(
-        MlflowException, match="Either engine or deployment_id must be set for Azure OpenAI API"
-    ):
-        score_model_on_payload("openai:/gpt-4o-mini", "my prompt", {"temperature": 0.1})
+def test_score_model_bedrock(monkeypatch):
+    monkeypatch.setenv("AWS_ACCESS_KEY_ID", "test-access-key")
+    monkeypatch.setenv("AWS_SECRET_ACCESS_KEY", "test-secret-key")
+    monkeypatch.setenv("AWS_SESSION_TOKEN", "test-session-token")
+
+    resp = {
+        "content": [
+            {
+                "text": "This is a test!",
+                "type": "text",
+            }
+        ],
+        "id": "msg_013Zva2CMHLNnXjNJJKqJ2EF",
+        "model": "claude-3-5-sonnet-20241022",
+        "role": "assistant",
+        "stop_reason": "end_turn",
+        "stop_sequence": None,
+        "type": "message",
+        "usage": {"input_tokens": 2095, "output_tokens": 503},
+    }
+
+    mock_bedrock = mock.MagicMock()
+    with mock.patch("boto3.Session.client", return_value=mock_bedrock) as mock_session:
+        mock_bedrock.invoke_model.return_value = {
+            "body": mock.MagicMock(read=mock.MagicMock(return_value=json.dumps(resp).encode()))
+        }
+
+        response = score_model_on_payload(
+            model_uri="bedrock:/anthropic.claude-3-5-sonnet-20241022-v2:0",
+            payload="input prompt",
+            eval_parameters={
+                "temperature": 0,
+                "max_tokens": 1000,
+                "anthropic_version": "2023-06-01",
+            },
+        )
+
+    assert response == "This is a test!"
+    mock_session.assert_called_once_with(
+        service_name="bedrock-runtime",
+        aws_access_key_id="test-access-key",
+        aws_secret_access_key="test-secret-key",
+        aws_session_token="test-session-token",
+    )
+    mock_bedrock.invoke_model.assert_called_once_with(
+        # Anthropic models in Bedrock does not accept "model" and "stream" key,
+        # and requires "anthropic_version" put within the body not headers.
+        body=json.dumps(
+            {
+                "temperature": 0,
+                "max_tokens": 1000,
+                "messages": [{"role": "user", "content": "input prompt"}],
+                "anthropic_version": "2023-06-01",
+            }
+        ).encode(),
+        modelId="anthropic.claude-3-5-sonnet-20241022-v2:0",
+        accept="application/json",
+        contentType="application/json",
+    )
+
+
+def test_score_model_mistral(monkeypatch):
+    monkeypatch.setenv("MISTRAL_API_KEY", "test-key")
+
+    # Mistral AI API is compatible with OpenAI format
+    with mock.patch(
+        "mlflow.metrics.genai.model_utils._send_request", return_value=_OAI_RESPONSE
+    ) as mock_request:
+        response = score_model_on_payload(
+            model_uri="mistral:/mistral-small-latest",
+            payload="input prompt",
+            eval_parameters={"temperature": 0.1},
+        )
+
+    assert response == "\n\nThis is a test!"
+    mock_request.assert_called_once_with(
+        endpoint="https://api.mistral.ai/v1/chat/completions",
+        headers={"Authorization": "Bearer test-key"},
+        payload={
+            "model": "mistral-small-latest",
+            "messages": [{"role": "user", "content": "input prompt"}],
+            "temperature": 0.1,
+        },
+    )
+
+
+def test_score_model_togetherai(monkeypatch):
+    monkeypatch.setenv("TOGETHERAI_API_KEY", "test-key")
+
+    resp = {
+        "id": "8448080b880415ea-SJC",
+        "choices": [{"message": {"role": "assistant", "content": "This is a test!"}}],
+        "usage": {"prompt_tokens": 13, "completion_tokens": 7, "total_tokens": 20},
+        "created": 1705090115,
+        "model": "mistralai/Mixtral-8x7B-Instruct-v0.1",
+        "object": "chat.completion",
+    }
+
+    with mock.patch(
+        "mlflow.metrics.genai.model_utils._send_request", return_value=resp
+    ) as mock_request:
+        response = score_model_on_payload(
+            model_uri="togetherai:/mistralai/Mixtral-8x7B-Instruct-v0.1",
+            payload="input prompt",
+            eval_parameters={"temperature": 0, "max_tokens": 1000},
+        )
+
+    assert response == "This is a test!"
+    mock_request.assert_called_once_with(
+        endpoint="https://api.together.xyz/v1/chat/completions",
+        headers={"Authorization": "Bearer test-key"},
+        payload={
+            "model": "mistralai/Mixtral-8x7B-Instruct-v0.1",
+            "messages": [{"role": "user", "content": "input prompt"}],
+            "temperature": 0,
+            "max_tokens": 1000,
+        },
+    )
 
 
 def test_score_model_gateway_completions():

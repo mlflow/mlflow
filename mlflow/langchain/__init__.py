@@ -16,7 +16,6 @@ import contextlib
 import functools
 import importlib
 import inspect
-import json
 import logging
 import os
 import tempfile
@@ -47,10 +46,11 @@ from mlflow.langchain.utils import (
 from mlflow.models import Model, ModelInputExample, ModelSignature, get_model_info
 from mlflow.models.dependencies_schemas import (
     _clear_dependencies_schemas,
+    _get_dependencies_schema_from_model,
     _get_dependencies_schemas,
 )
 from mlflow.models.model import MLMODEL_FILE_NAME, MODEL_CODE_PATH, MODEL_CONFIG
-from mlflow.models.resources import DatabricksFunction, _ResourceBuilder
+from mlflow.models.resources import DatabricksFunction, Resource, _ResourceBuilder
 from mlflow.models.signature import _infer_signature_from_input_example
 from mlflow.models.utils import (
     _convert_llm_input_data,
@@ -366,6 +366,15 @@ def save_model(
     needs_databricks_auth = False
     if Version(langchain.__version__) >= Version("0.0.311") and mlflow_model.resources is None:
         if databricks_resources := _detect_databricks_dependencies(lc_model):
+            logger.info(
+                "Attempting to auto-detect Databricks resource dependencies for the "
+                "current langchain model. Dependency auto-detection is "
+                "best-effort and may not capture all dependencies of your langchain "
+                "model, resulting in authorization errors when serving or querying "
+                "your model. We recommend that you explicitly pass `resources` "
+                "to mlflow.langchain.log_model() to ensure authorization to "
+                "dependent resources succeeds when the model is deployed."
+            )
             serialized_databricks_resources = _ResourceBuilder.from_resources(databricks_resources)
             mlflow_model.resources = serialized_databricks_resources
             needs_databricks_auth = any(
@@ -436,7 +445,7 @@ def log_model(
     run_id=None,
     model_config=None,
     streamable=None,
-    resources=None,
+    resources: Optional[Union[list[Resource], str]] =None,
     name: Optional[str] = None,
     params: Optional[dict[str, Any]] = None,
     tags: Optional[dict[str, Any]] = None,
@@ -563,10 +572,10 @@ def log_model(
             True, the model must implement `stream` method. If None, If None, streamable is
             set to True if the model implements `stream` method. Default to `None`.
         resources: A list of model resources or a resources.yaml file containing a list of
-                    resources required to serve the model.
-
-            .. Note:: Experimental: This parameter may change or be removed in a future
-                                    release without warning.
+            resources required to serve the model. If logging a LangChain model with dependencies
+            (e.g. on LLM model serving endpoints), we encourage explicitly passing dependencies
+            via this parameter. Otherwise, ``log_model`` will attempt to infer dependencies,
+            but dependency auto-inference is best-effort and may miss some dependencies.
 
         name: {{ name }}
         params: {{ params }}
@@ -721,14 +730,8 @@ class _LangChainModelWrapper:
         ):
             model = Model.load(self.model_path)
             context = tracer._prediction_context
-            if model.metadata and context:
-                dependencies_schemas = model.metadata.get("dependencies_schemas", {})
-                context.update(
-                    dependencies_schemas={
-                        dependency: json.dumps(schema)
-                        for dependency, schema in dependencies_schemas.items()
-                    }
-                )
+            if schema := _get_dependencies_schema_from_model(model):
+                context.update(**schema)
 
     @experimental
     def _predict_with_callbacks(
@@ -1012,7 +1015,6 @@ def autolog(
     log_model_signatures=False,
     log_models=False,
     log_datasets=False,
-    log_inputs_outputs=None,
     disable=False,
     exclusive=False,
     disable_for_unsupported_versions=False,
@@ -1044,14 +1046,6 @@ def autolog(
             are also omitted when ``log_models`` is ``False``.
         log_datasets: If ``True``, dataset information is logged to MLflow Tracking
             if applicable. If ``False``, dataset information is not logged.
-        log_inputs_outputs: **Deprecated** The legacy parameter used for logging inference
-            inputs and outputs. This argument will be removed in a future version of MLflow.
-            The alternative is to use ``log_traces`` which logs traces for Langchain models,
-            including inputs and outputs for each stage.
-            If ``True``, inference data and results are combined into a single
-            pandas DataFrame and logged to MLflow Tracking as an artifact.
-            If ``False``, inference data and results are not logged.
-            Default to ``False``.
         disable: If ``True``, disables the Langchain autologging integration. If ``False``,
             enables the Langchain autologging integration.
         exclusive: If ``True``, autologged content is not logged to user-created fluent runs.

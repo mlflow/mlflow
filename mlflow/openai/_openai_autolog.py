@@ -4,7 +4,7 @@ import logging
 import os
 from contextlib import contextmanager
 from copy import deepcopy
-from typing import Iterator
+from typing import Any, Iterator
 
 from packaging.version import Version
 
@@ -90,6 +90,29 @@ def _get_span_type(task) -> str:
         Embeddings: SpanType.EMBEDDING,
     }
     return span_type_mapping.get(task, SpanType.UNKNOWN)
+
+
+def _try_parse_raw_response(response: Any) -> Any:
+    """
+    As documented at https://github.com/openai/openai-python/tree/52357cff50bee57ef442e94d78a0de38b4173fc2?tab=readme-ov-file#accessing-raw-response-data-eg-headers,
+    a `LegacyAPIResponse` (https://github.com/openai/openai-python/blob/52357cff50bee57ef442e94d78a0de38b4173fc2/src/openai/_legacy_response.py#L45)
+    object is returned when the `create` method is invoked with `with_raw_response`.
+    """
+    try:
+        from openai._legacy_response import LegacyAPIResponse
+    except ImportError:
+        _logger.debug("Failed to import `LegacyAPIResponse` from `openai._legacy_response`")
+        return response
+
+    if isinstance(response, LegacyAPIResponse):
+        try:
+            # `parse` returns either a `pydantic.BaseModel` or a `openai.Stream` object
+            # depending on whether the request has a `stream` parameter set to `True`.
+            return response.parse()
+        except Exception as e:
+            _logger.debug(f"Failed to parse {response} (type: {response.__class__}): {e}")
+
+    return response
 
 
 def patched_call(original, self, *args, **kwargs):
@@ -188,7 +211,7 @@ def patched_call(original, self, *args, **kwargs):
 
     # Execute the original function
     try:
-        result = original(self, *args, **kwargs)
+        raw_result = original(self, *args, **kwargs)
     except Exception as e:
         # We have to end the trace even the exception is raised
         if config.log_traces and request_id:
@@ -198,6 +221,8 @@ def patched_call(original, self, *args, **kwargs):
             except Exception as inner_e:
                 _logger.warning(f"Encountered unexpected error when ending trace: {inner_e}")
         raise e
+
+    result = _try_parse_raw_response(raw_result)
 
     if isinstance(result, Stream):
         # If the output is a stream, we add a hook to store the intermediate chunks
@@ -238,6 +263,40 @@ def patched_call(original, self, *args, **kwargs):
             except Exception as e:
                 _logger.warning(f"Encountered unexpected error when ending trace: {e}")
 
+    input_example = None
+    if config.log_models and not hasattr(self, "_mlflow_model_logged"):
+        if config.log_input_examples:
+            input_example = deepcopy(_get_input_from_model(self, kwargs))
+            if not config.log_model_signatures:
+                _logger.info(
+                    "Signature is automatically generated for logged model if "
+                    "input_example is provided. To disable log_model_signatures, "
+                    "please also disable log_input_examples."
+                )
+
+        registered_model_name = get_autologging_config(
+            mlflow.openai.FLAVOR_NAME, "registered_model_name", None
+        )
+        try:
+            task = mlflow.openai._get_task_name(self.__class__)
+            with disable_autologging():
+                # If the user is using `openai.OpenAI()` client,
+                # they do not need to set the "OPENAI_API_KEY" environment variable.
+                # This temporarily sets the API key as an environment variable
+                # so that the model can be logged.
+                with _set_api_key_env_var(self._client):
+                    mlflow.openai.log_model(
+                        kwargs.get("model"),
+                        task,
+                        "model",
+                        input_example=input_example,
+                        registered_model_name=registered_model_name,
+                        run_id=run_id,
+                    )
+        except Exception as e:
+            _logger.warning(f"Failed to log model due to error: {e}")
+        self._mlflow_model_logged = True
+
     # Even if the model is not logged, we keep a single run per model
     self._mlflow_run_id = run_id
 
@@ -245,7 +304,7 @@ def patched_call(original, self, *args, **kwargs):
     if run_id is not None and (active_run is None or active_run.info.run_id != run_id):
         mlflow_client.set_terminated(run_id)
 
-    return result
+    return raw_result
 
 
 def patched_agent_get_chat_completion(original, self, *args, **kwargs):

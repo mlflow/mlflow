@@ -14,41 +14,8 @@ When building GenAI applications in MLflow, it's essential to choose the right m
 customization you need. MLflow offers two primary classes for this purpose: :py:class:`mlflow.pyfunc.ChatModel` and 
 :py:class:`mlflow.pyfunc.PythonModel`. Each has its own strengths and trade-offs, making it crucial to understand which one best suits your use case.
 
-**When to Use ChatModel**
+.. include:: ../chat-model-intro/chat-model-vs-pyfunc-table.rst
 
-- **Simplified Interface**: :py:class:`mlflow.pyfunc.ChatModel` provides a streamlined interface specifically designed for conversational AI applications. 
-  It adheres to a standardized input-output format compatible with popular GenAI services like OpenAI, ensuring consistency across deployments.
-  
-- **Standardization**: This model type enforces the widely adopted OpenAI API specification, which simplifies model deployment and integration 
-  by reducing the need to handle complex input schemas manually.
-
-- **Quick Start**: If your goal is to get started quickly with minimal setup, :py:class:`mlflow.pyfunc.ChatModel` is an excellent choice. It abstracts away 
-  much of the complexity, allowing you to focus on your application logic rather than on managing detailed model signatures.
-
-- **Less Customization**: The trade-off for this simplicity is a more rigid structure. :py:class:`mlflow.pyfunc.ChatModel` is ideal when your use case aligns 
-  well with the standardized interface, but it might restrict you if you need to deviate from the prescribed input-output patterns.
-
-**When to Use PythonModel**
-
-- **Full Customization**: :py:class:`mlflow.pyfunc.PythonModel` offers complete control over the input, output, and processing logic of your model. This makes 
-  it the preferred choice when building highly customized applications or when integrating with models and services that don't follow a standardized API.
-
-- **Complex Integrations**: If your application requires complex data processing, multiple steps of data transformation, or integration with 
-  unique APIs that don’t conform to a standard schema, :py:class:`mlflow.pyfunc.PythonModel` provides the flexibility needed to handle these tasks.
-
-- **Increased Complexity**: However, with great flexibility comes increased complexity. Using :py:class:`mlflow.pyfunc.PythonModel` requires you to define and manage 
-  your model's input and output signatures, which can be more challenging, particularly when handling JSON structures common in GenAI use cases.
-
-**Key Considerations**
-
-- **ChatModel Pros**: Simplicity, standardization, faster deployment, less code to manage.
-- **ChatModel Cons**: Limited flexibility, standardized inputs may not fit all custom needs.
-- **PythonModel Pros**: Highly customizable, can handle any input/output format, adaptable to complex requirements.
-- **PythonModel Cons**: More setup required, potentially more prone to errors in defining custom signatures, requires careful management of input transformations.
-
-**Recommendation**: Use :py:class:`mlflow.pyfunc.ChatModel` when you need a quick, standardized, and reliable solution for conversational agents that align with 
-popular GenAI interfaces. Opt for :py:class:`mlflow.pyfunc.PythonModel` when your project demands flexibility and the ability to customize every aspect of your 
-model's behavior.
 
 Purpose of this tutorial
 ------------------------
@@ -286,7 +253,7 @@ Core Concepts
           your service is expecting. 
 
         - The returned response from ``predict`` should adhere to the output structure defined within the ``ChatModel`` output signature: 
-          :py:class:`mlflow.types.llm.ChatResponse`. 
+          :py:class:`mlflow.types.llm.ChatCompletionResponse`.
     
     .. tab:: Pitfalls
 
@@ -478,7 +445,7 @@ The implementation below highlights the following key aspects:
     - We implement a multi-step agent interaction pattern using methods like `_get_system_message`, `_get_agent_response`, and `_call_agent`. These 
       methods manage the flow of communication between multiple agents, such as an "oracle" and a "judge" role, each configured with specific instructions
       and parameters.
-    - **Static Input/Output Structures**: By adhering to the ``ChatModel``'s required input (`List[ChatMessage]`) and output (`ChatResponse`) formats, 
+    - **Static Input/Output Structures**: By adhering to the ``ChatModel``'s required input (`List[ChatMessage]`) and output (`ChatCompletionResponse`) formats,
       we eliminate the complexities associated with converting JSON or tabular data, which is common in more general models like ``PythonModel``.
 
 - **Common Pitfalls Avoided**:
@@ -489,7 +456,7 @@ The implementation below highlights the following key aspects:
 .. code-block:: python
 
     import mlflow
-    from mlflow.types.llm import ChatResponse, ChatMessage, ChatParams, ChatChoice
+    from mlflow.types.llm import ChatCompletionResponse, ChatMessage, ChatParams, ChatChoice
     from mlflow.pyfunc import ChatModel
     from mlflow import deployments
     from typing import List, Optional, Dict
@@ -600,7 +567,7 @@ The implementation below highlights the following key aspects:
 
         def predict(
             self, context, messages: List[ChatMessage], params: Optional[ChatParams] = None
-        ) -> ChatResponse:
+        ) -> ChatCompletionResponse:
             """
             Predict method to handle agent conversation.
 
@@ -610,7 +577,7 @@ The implementation below highlights the following key aspects:
                 params (Optional[ChatParams]): Additional parameters for the conversation.
 
             Returns:
-                ChatResponse: The structured response object.
+                ChatCompletionResponse: The structured response object.
             """
             # Use the fluent API context handler to have added control over what is included in the span
             with mlflow.start_span(name="Audit Agent") as root_span:
@@ -634,7 +601,7 @@ The implementation below highlights the following key aspects:
                 # Reset the conversation history and return the final response
                 self.conversation_history = []
 
-                output = ChatResponse(
+                output = ChatCompletionResponse(
                     choices=[ChatChoice(index=0, message=ChatMessage(**judge_response))],
                     usage={},
                     model=judge_params.get("endpoint", "unknown"),

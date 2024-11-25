@@ -71,7 +71,6 @@ MLFLOW_EVALUATE_RESTRICT_LANGCHAIN_AUTOLOG_TO_TRACES_CONFIG = {
     "log_model_signatures": False,
     "log_models": False,
     "log_datasets": False,
-    "log_inputs_outputs": False,
     "disable": False,
     "exclusive": False,
     "disable_for_unsupported_versions": False,
@@ -90,6 +89,7 @@ MLFLOW_EVALUATE_RESTRICT_LANGCHAIN_AUTOLOG_TO_TRACES_CONFIG = {
 _AUTOLOGGING_SUPPORTED_VERSION_WARNING_SUPPRESS_LIST = [
     "langchain",
     "llama_index",
+    "litellm",
     "openai",
     "dspy",
 ]

@@ -62,6 +62,10 @@ def _register_plugin_providers(registry: ProviderRegistry):
         registry.register(p.name, cls)
 
 
+def is_supported_provider(name: str) -> bool:
+    return name in provider_registry.keys()
+
+
 provider_registry = ProviderRegistry()
 _register_default_providers(provider_registry)
 _register_plugin_providers(provider_registry)

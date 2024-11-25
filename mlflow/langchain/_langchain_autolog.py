@@ -8,6 +8,7 @@ from copy import deepcopy
 from typing import Union
 
 from langchain_core.callbacks.base import BaseCallbackHandler, BaseCallbackManager
+from langchain_core.runnables import RunnableSequence
 from packaging.version import Version
 
 import mlflow
@@ -86,6 +87,7 @@ def patched_inference(func_name, original, self, *args, **kwargs):
             return original(self, *args, **kwargs)
 
     config = AutoLoggingConfig.init(mlflow.langchain.FLAVOR_NAME)
+
     if mid := _LOADED_MODEL_TRACKER.get(self):
         model_id = mid
     elif config.log_models:
@@ -94,27 +96,53 @@ def patched_inference(func_name, original, self, *args, **kwargs):
     else:
         model_id = None
 
-    if not IS_PATCHING_DISABLED_FOR_TRACING.get() and config.log_traces:
-        args, kwargs = _get_args_with_mlflow_tracer(func_name, model_id, args, kwargs)
+    should_trace = not IS_PATCHING_DISABLED_FOR_TRACING.get() and config.log_traces
+
+    if should_trace:
+        tracer = MlflowLangchainTracer(
+            model_id=model_id,
+            # NB: RunnableSequence's batch() and abatch() methods are implemented in a peculiar way
+            # that iterates on steps->items sequentially within the same thread. For example, if a
+            # sequence has 2 steps and the batch size is 3, the execution flow will be:
+            #  - Step 1 for item 1
+            #  - Step 1 for item 2
+            #  - Step 1 for item 3
+            #  - Step 2 for item 1
+            #  - Step 2 for item 2
+            #  - Step 2 for item 3
+            # Due to this behavior, we cannot attach the span to the context for this particular
+            # API, otherwise spans for different inputs will be mixed up.
+            set_span_in_context=not (
+                isinstance(self, RunnableSequence) and func_name in ["batch", "abatch"]
+            )
+        )
+        args, kwargs = _get_args_with_mlflow_tracer(tracer, func_name, model_id, args, kwargs)
 
     # Traces does not require an MLflow run, only the other optional artifacts require it.
-    if not IS_PATCHING_DISABLED_FOR_ARTIFACTS and config.should_log_optional_artifacts():
-        with _setup_autolog_run(config, self) as run_id:
+    try:
+        if not IS_PATCHING_DISABLED_FOR_ARTIFACTS and config.should_log_optional_artifacts():
+            with _setup_autolog_run(config, self) as run_id:
+                result = _invoke(self, *args, **kwargs)
+                _log_optional_artifacts(
+                    config, run_id, result, self, func_name, model_id, *args, **kwargs
+                )
+        else:
             result = _invoke(self, *args, **kwargs)
-            _log_optional_artifacts(
-                config, run_id, result, self, func_name, model_id, *args, **kwargs
-            )
-    else:
-        result = _invoke(self, *args, **kwargs)
+    finally:
+        if should_trace:
+            # Make sure all spans are flushed before finishing the inference. LangChain's on_xyz_end
+            # callbacks are not guaranteed to be invoked always, which results in leaking the active
+            # span context to the next inference call. Flushing the tracer ensures that all spans
+            # are finished and detached from the context.
+            tracer.flush()
+
     return result
 
 
-def _get_args_with_mlflow_tracer(func_name, model_id, args, kwargs):
+def _get_args_with_mlflow_tracer(mlflow_tracer, func_name, model_id, args, kwargs):
     """
     Get the patched arguments with MLflow tracer injected.
     """
-    mlflow_tracer = MlflowLangchainTracer(model_id=model_id)
-
     if func_name in ["invoke", "batch", "stream", "ainvoke", "abatch", "astream"]:
         # `config` is the second positional argument of runnable APIs such as
         # invoke, batch, stream, ainvoke, abatch, and astream
@@ -470,29 +498,5 @@ def _log_optional_artifacts(
         if not hasattr(self, "session_id"):
             self.session_id = uuid.uuid4().hex
         self.inference_id = getattr(self, "inference_id", 0) + 1
-
-    if autolog_config.log_inputs_outputs:
-        if input_example is None:
-            input_data = deepcopy(_get_input_data_from_function(func_name, self, args, kwargs))
-            if input_data is None:
-                _logger.info("Input data gathering failed, only log inference results.")
-        else:
-            input_data = input_example
-        # we do not convert stream output iterator for logging as tracing
-        # will provide much more information than this function, we might drop
-        # this in the future
-        if func_name == "stream":
-            _logger.warning(f"Unsupported function {func_name} for logging inputs and outputs.")
-        else:
-            try:
-                data_dict = _combine_input_and_output(
-                    input_data, result, self.session_id, func_name
-                )
-                mlflow.log_table(data_dict, INFERENCE_FILE_NAME, run_id=self.run_id)
-            except Exception as e:
-                _logger.warning(
-                    f"Failed to log inputs and outputs into `{INFERENCE_FILE_NAME}` "
-                    f"file due to error {e}."
-                )
 
     return result

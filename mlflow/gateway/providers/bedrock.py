@@ -18,6 +18,13 @@ AWS_BEDROCK_ANTHROPIC_MAXIMUM_MAX_TOKENS = 8191
 
 class AmazonBedrockAnthropicAdapter(AnthropicAdapter):
     @classmethod
+    def chat_to_model(cls, payload, config):
+        payload = super().chat_to_model(payload, config)
+        # "model" keys are not supported in Bedrock"
+        payload.pop("model", None)
+        return payload
+
+    @classmethod
     def completions_to_model(cls, payload, config):
         payload = super().completions_to_model(payload, config)
 
@@ -28,6 +35,9 @@ class AmazonBedrockAnthropicAdapter(AnthropicAdapter):
             payload.get("max_tokens_to_sample", MLFLOW_AI_GATEWAY_ANTHROPIC_DEFAULT_MAX_TOKENS),
             AWS_BEDROCK_ANTHROPIC_MAXIMUM_MAX_TOKENS,
         )
+
+        # "model" keys are not supported in Bedrock"
+        payload.pop("model", None)
         return payload
 
     @classmethod
@@ -137,7 +147,7 @@ class AmazonBedrockModelProvider(Enum):
     ANTHROPIC = "anthropic"
 
     @property
-    def adapter(self):
+    def adapter_class(self) -> type[ProviderAdapter]:
         return AWS_MODEL_PROVIDER_TO_ADAPTER.get(self)
 
     @classmethod
@@ -243,14 +253,14 @@ class AmazonBedrockProvider(BaseProvider):
         return AmazonBedrockModelProvider.of_str(provider)
 
     @property
-    def underlying_provider_adapter(self) -> ProviderAdapter:
+    def adapter_class(self) -> type[ProviderAdapter]:
         provider = self._underlying_provider
         if not provider:
             raise AIGatewayException(
                 status_code=422,
                 detail=f"Unknown Amazon Bedrock model type {self._underlying_provider}",
             )
-        adapter = provider.adapter
+        adapter = provider.adapter_class
         if not adapter:
             raise AIGatewayException(
                 status_code=422,
@@ -284,6 +294,6 @@ class AmazonBedrockProvider(BaseProvider):
 
         self.check_for_model_field(payload)
         payload = jsonable_encoder(payload, exclude_none=True, exclude_defaults=True)
-        payload = self.underlying_provider_adapter.completions_to_model(payload, self.config)
+        payload = self.adapter_class.completions_to_model(payload, self.config)
         response = self._request(payload)
-        return self.underlying_provider_adapter.model_to_completions(response, self.config)
+        return self.adapter_class.model_to_completions(response, self.config)

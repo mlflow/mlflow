@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "mlflow"
-version = "2.17.2"
+version = "2.18.1.dev0"
 description = "MLflow is an open source platform for the complete machine learning lifecycle"
 readme = "README.rst"
 keywords = ["mlflow", "ai", "databricks"]
@@ -103,7 +103,7 @@ sqlserver = ["mlflow-dbstore"]
 aliyun-oss = ["aliyunstoreplugin"]
 xethub = ["mlflow-xethub"]
 jfrog = ["mlflow-jfrog-plugin"]
-langchain = ["langchain>=0.1.0,<=0.3.3"]
+langchain = ["langchain>=0.1.0,<=0.3.7"]
 
 [project.urls]
 homepage = "https://mlflow.org"
@@ -152,7 +152,7 @@ exclude = ["tests", "tests.*"]
 [tool.ruff]
 line-length = 100
 target-version = "py39"
-required-version = "0.6.4"
+required-version = "0.7.4"
 force-exclude = true
 extend-include = ["*.ipynb"]
 extend-exclude = [
@@ -218,7 +218,7 @@ select = [
   "T20",     # flake8-print
   "TID251",  # banned-api
   "TID252",  # relative-improt
-  "TRY302",  # useless-try-except
+  "TRY203",  # useless-try-except
   "UP004",   # useless-object-inheritance
   "UP006",   # non-pep585-annotation
   "UP008",   # super-call-with-parameters
@@ -270,3 +270,6 @@ exclude = [
   "mlflow/store/db_migrations",
   "tests/protos",
 ]
+
+[tool.clint.forbidden-top-level-imports]
+"mlflow/gateway/providers/*" = ["fastapi"]

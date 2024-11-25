@@ -196,6 +196,8 @@ def test_predict(iris_data, sk_model):
         # Test with no conda & model registry URI
         subprocess.run(
             [
+                sys.executable,
+                "-m",
                 "mlflow",
                 "models",
                 "predict",
@@ -221,6 +223,8 @@ def test_predict(iris_data, sk_model):
         # With conda + --install-mlflow
         subprocess.run(
             [
+                sys.executable,
+                "-m",
                 "mlflow",
                 "models",
                 "predict",
@@ -243,6 +247,8 @@ def test_predict(iris_data, sk_model):
         # explicit json format with default orient (should be split)
         subprocess.run(
             [
+                sys.executable,
+                "-m",
                 "mlflow",
                 "models",
                 "predict",
@@ -268,6 +274,8 @@ def test_predict(iris_data, sk_model):
         # explicit json format with orient==split
         subprocess.run(
             [
+                sys.executable,
+                "-m",
                 "mlflow",
                 "models",
                 "predict",
@@ -319,6 +327,8 @@ def test_predict(iris_data, sk_model):
         # csv
         subprocess.run(
             [
+                sys.executable,
+                "-m",
                 "mlflow",
                 "models",
                 "predict",
@@ -520,6 +530,8 @@ def test_prepare_env_passes(sk_model):
         # With conda
         subprocess.run(
             [
+                sys.executable,
+                "-m",
                 "mlflow",
                 "models",
                 "prepare-env",
@@ -533,6 +545,8 @@ def test_prepare_env_passes(sk_model):
         # Should be idempotent
         subprocess.run(
             [
+                sys.executable,
+                "-m",
                 "mlflow",
                 "models",
                 "prepare-env",

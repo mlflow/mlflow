@@ -934,9 +934,11 @@ class Model:
             # fallback when not provided by user, which is set during flavor's save_model() call.
             if mlflow_model.signature is None:
                 if serving_input is None:
-                    _logger.warning(_LOG_MODEL_MISSING_INPUT_EXAMPLE_WARNING)
+                    _logger.warning(
+                        _LOG_MODEL_MISSING_INPUT_EXAMPLE_WARNING, extra={"color": "red"}
+                    )
                 elif tracking_uri == "databricks" or get_uri_scheme(tracking_uri) == "databricks":
-                    _logger.warning(_LOG_MODEL_MISSING_SIGNATURE_WARNING)
+                    _logger.warning(_LOG_MODEL_MISSING_SIGNATURE_WARNING, extra={"color": "red"})
 
             env_vars = None
             # validate input example works for serving when logging the model
@@ -1265,9 +1267,20 @@ __mlflow_model__ = None
 
 
 def _validate_langchain_model(model):
-    from mlflow.langchain import _validate_and_prepare_lc_model_or_path
+    from langchain_core.runnables.base import Runnable
 
-    return _validate_and_prepare_lc_model_or_path(model, None)
+    from mlflow.models.utils import _validate_and_get_model_code_path
+
+    if isinstance(model, str):
+        return _validate_and_get_model_code_path(model, None)
+
+    if not isinstance(model, Runnable):
+        raise MlflowException.invalid_parameter_value(
+            "Model must be a Langchain Runnable type or path to a Langchain model, "
+            f"got {type(model)}"
+        )
+
+    return model
 
 
 def _validate_llama_index_model(model):
