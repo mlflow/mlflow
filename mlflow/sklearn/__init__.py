@@ -336,6 +336,7 @@ def save_model(
 
     output = "\n".join(pip_requirements)
     if compile_requirements:
+        write_to(os.path.join(path, "requirements.source.txt"), output)
         uv_bin = shutil.which("uv")
         if uv_bin is None:
             raise RuntimeError(
