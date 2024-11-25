@@ -12,45 +12,61 @@ from mlflow.models.evaluation import evaluate
 from mlflow.models.evaluation.evaluators.default import DefaultEvaluator
 from mlflow.tracing.constant import TraceMetadataKey
 from mlflow.tracing.fluent import TRACE_BUFFER
-from mlflow.utils.autologging_utils import (
-    MLFLOW_EVALUATE_RESTRICT_LANGCHAIN_AUTOLOG_TO_TRACES_CONFIG,
-)
 
 from tests.tracing.helper import get_traces
 
-INFERENCE_FILE_NAME = "inference_inputs_outputs.json"
 
+_EVAL_DATA = pd.DataFrame(
+    {
+        "question": [
+            "What is MLflow?",
+            "What is Spark?",
+        ],
+        "ground_truth": ["What is MLflow?", "Not what is Spark?"],
+    }
+)
 
-def test_langchain_evaluate_autologs_traces():
-    # Check langchain autolog parameters are restored after evaluation
-    mlflow.langchain.autolog(log_models=True)
-
+def create_fake_chain():
     prompt = PromptTemplate(
-        input_variables=["input"],
-        template="Test Prompt {input}",
+        input_variables=["question"],
+        template="Answer user's question: {question}",
     )
     llm = FakeListLLM(responses=["response"])
-    chain = prompt | llm
+    return prompt | llm
+
+
+@pytest.fixture(autouse=True)
+def reset_autolog_state():
+    # Autologging state is global, so we need to reset it between tests
+    mlflow.langchain.autolog(disable=True)
+    # Reset the fact that it is 'disabled'
+    del mlflow.utils.autologging_utils.AUTOLOGGING_INTEGRATIONS["langchain"]
+
+
+
+@pytest.mark.parametrize(
+    "original_autolog_config", [
+        None,
+        {"log_traces": False},
+        {"log_models": True},
+        {"log_traces": False, "log_models": False},
+    ]
+)
+def test_langchain_evaluate(original_autolog_config):
+    if original_autolog_config:
+        mlflow.langchain.autolog(**original_autolog_config)
+
+    chain = create_fake_chain()
 
     with mock.patch("mlflow.langchain.log_model") as log_model_mock:
 
         def model(inputs):
-            return [chain.invoke({"input": input}) for input in inputs["inputs"]]
-
-        eval_data = pd.DataFrame(
-            {
-                "inputs": [
-                    "What is MLflow?",
-                    "What is Spark?",
-                ],
-                "ground_truth": ["What is MLflow?", "Not what is Spark?"],
-            }
-        )
+            return [chain.invoke({"question": input}) for input in inputs["question"]]
 
         with mlflow.start_run() as run:
             evaluate(
                 model,
-                eval_data,
+                data=_EVAL_DATA,
                 targets="ground_truth",
                 extra_metrics=[mlflow.metrics.exact_match()],
             )
@@ -63,52 +79,22 @@ def test_langchain_evaluate_autologs_traces():
 
     # Test original langchain autolog configs is restored
     with mock.patch("mlflow.langchain.log_model") as log_model_mock:
-        with mlflow.start_run() as run:
-            chain.invoke({"input": "text"})
+        chain.invoke({"question": "text"})
 
-        log_model_mock.assert_called_once()
-        assert len(get_traces()) == 3
-        assert len(get_traces()[0].data.spans) == 3
+        if original_autolog_config and original_autolog_config.get("log_models", False):
+            log_model_mock.assert_called_once()
 
-
-def test_langchain_pyfunc_autologs_traces():
-    prompt = PromptTemplate(
-        input_variables=["inputs"],
-        template="Test Prompt {inputs}",
-    )
-    llm = FakeListLLM(responses=["response"])
-    chain = prompt | llm
-
-    eval_data = pd.DataFrame(
-        {
-            "inputs": ["What is MLflow?"],
-            "ground_truth": ["What is MLflow?"],
-        }
-    )
-
-    with mlflow.start_run() as run:
-        model_info = mlflow.langchain.log_model(chain, "model")
-        evaluate(
-            model_info.model_uri,
-            eval_data,
-            targets="ground_truth",
-            extra_metrics=[mlflow.metrics.exact_match()],
-        )
-    assert len(get_traces()) == 1
-    assert len(get_traces()[0].data.spans) == 3
-    assert run.info.run_id == get_traces()[0].info.request_metadata[TraceMetadataKey.SOURCE_RUN]
+        if original_autolog_config and original_autolog_config.get("log_traces", True):
+            assert len(get_traces()) == 3
+        else:
+            assert len(get_traces()) == 2
 
 
 def test_langchain_evaluate_fails_with_an_exception():
     # Check langchain autolog parameters are restored after evaluation
     mlflow.langchain.autolog(log_models=True)
 
-    prompt = PromptTemplate(
-        input_variables=["input"],
-        template="Test Prompt {input}",
-    )
-    llm = FakeListLLM(responses=["response"])
-    chain = prompt | llm
+    chain = create_fake_chain()
 
     with (
         mock.patch("mlflow.langchain.log_model") as log_model_mock,
@@ -116,24 +102,14 @@ def test_langchain_evaluate_fails_with_an_exception():
             DefaultEvaluator, "evaluate", side_effect=MlflowException("evaluate mock error")
         ),
     ):
-
         def model(inputs):
-            return [chain.invoke({"input": input}) for input in inputs["inputs"]]
+            return [chain.invoke({"question": input}) for input in inputs["question"]]
 
-        eval_data = pd.DataFrame(
-            {
-                "inputs": [
-                    "What is MLflow?",
-                    "What is Spark?",
-                ],
-                "ground_truth": ["What is MLflow?", "Not what is Spark?"],
-            }
-        )
         with mlflow.start_run():
             with pytest.raises(MlflowException, match="evaluate mock error"):
                 evaluate(
                     model,
-                    eval_data,
+                    data=_EVAL_DATA,
                     targets="ground_truth",
                     extra_metrics=[mlflow.metrics.exact_match()],
                 )
@@ -141,47 +117,45 @@ def test_langchain_evaluate_fails_with_an_exception():
 
     assert len(get_traces()) == 0
 
-    TRACE_BUFFER.clear()
-
     # Test original langchain autolog configs is restored
     with mock.patch("mlflow.langchain.log_model") as log_model_mock:
-        with mlflow.start_run():
-            chain.invoke({"input": "text"})
+        chain.invoke({"question": "text"})
 
         log_model_mock.assert_called_once()
         assert len(get_traces()) == 1
         assert len(get_traces()[0].data.spans) == 3
 
 
-def test_langchain_autolog_parameters_matches_default_parameters():
-    # The custom config is to restrict langchain autologging to only log traces.
-    # The parameters in this configuration should match the signature of
-    # mlflow.langchain.autolog exactly. The values of the parameters should be set
-    # in a way that disables logging anything but traces.
-    params = inspect.signature(mlflow.langchain.autolog).parameters
-    for name in params:
-        assert name in MLFLOW_EVALUATE_RESTRICT_LANGCHAIN_AUTOLOG_TO_TRACES_CONFIG
-    for name in MLFLOW_EVALUATE_RESTRICT_LANGCHAIN_AUTOLOG_TO_TRACES_CONFIG:
-        assert name in params
+def test_langchain_pyfunc_evaluate():
+    chain = create_fake_chain()
 
-
-def test_evaluate_works_with_no_langchain_installed():
-    with mock.patch.dict("sys.modules", {"langchain": None}):
-        # Import within the test context
-        with pytest.raises(ImportError, match="import of langchain halted"):
-            import langchain  # noqa: F401
-        eval_data = pd.DataFrame(
-            {
-                "inputs": [1],
-                "ground_truth": [1],
-            }
-        )
-
-        @mlflow.trace
-        def model(inputs):
-            return inputs
-
+    with mlflow.start_run() as run:
+        model_info = mlflow.langchain.log_model(chain, "model")
         evaluate(
-            model, eval_data, targets="ground_truth", extra_metrics=[mlflow.metrics.exact_match()]
+            model_info.model_uri,
+            data=_EVAL_DATA,
+            targets="ground_truth",
+            extra_metrics=[mlflow.metrics.exact_match()],
         )
-        assert len(get_traces()) == 1
+    assert len(get_traces()) == 2
+    assert len(get_traces()[0].data.spans) == 3
+    assert run.info.run_id == get_traces()[0].info.request_metadata[TraceMetadataKey.SOURCE_RUN]
+
+
+def test_langchain_evaluate_should_not_log_traces_when_disabled():
+    mlflow.langchain.autolog(disable=True)
+
+    chain = create_fake_chain()
+
+    def model(inputs):
+        return [chain.invoke({"question": input}) for input in inputs["question"]]
+
+    with mlflow.start_run() as run:
+        evaluate(
+            model,
+            data=_EVAL_DATA,
+            targets="ground_truth",
+            extra_metrics=[mlflow.metrics.exact_match()],
+        )
+
+    assert len(get_traces()) == 0

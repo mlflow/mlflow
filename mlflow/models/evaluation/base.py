@@ -29,6 +29,7 @@ from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.tracking.client import MlflowClient
 from mlflow.utils import _get_fully_qualified_class_name
 from mlflow.utils.annotations import developer_stable, experimental
+from mlflow.utils.autologging_utils import enable_tracing_and_disable_other_autologging
 from mlflow.utils.class_utils import _get_class_from_string
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.mlflow_tags import MLFLOW_DATASET_CONTEXT
@@ -1019,17 +1020,20 @@ def _evaluate(
         _logger.debug(f"Evaluating the model with the {eval_.name} evaluator.")
         _last_failed_evaluator = eval_.name
         if eval_.evaluator.can_evaluate(model_type=model_type, evaluator_config=eval_.config):
-            eval_result = eval_.evaluator.evaluate(
-                model=model,
-                model_type=model_type,
-                dataset=dataset,
-                run_id=run_id,
-                evaluator_config=eval_.config,
-                custom_metrics=custom_metrics,
-                extra_metrics=extra_metrics,
-                custom_artifacts=custom_artifacts,
-                predictions=predictions,
-            )
+
+            with enable_tracing_and_disable_other_autologging():
+                eval_result = eval_.evaluator.evaluate(
+                    model=model,
+                    model_type=model_type,
+                    dataset=dataset,
+                    run_id=run_id,
+                    evaluator_config=eval_.config,
+                    custom_metrics=custom_metrics,
+                    extra_metrics=extra_metrics,
+                    custom_artifacts=custom_artifacts,
+                    predictions=predictions,
+                )
+
             if eval_result is not None:
                 eval_results.append(eval_result)
 

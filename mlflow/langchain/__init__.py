@@ -683,13 +683,6 @@ class _LangChainModelWrapper:
             from mlflow.langchain.langchain_tracer import MlflowLangchainTracer
 
             callbacks = [MlflowLangchainTracer()]
-        elif (context := get_prediction_context()) and context.is_evaluate:
-            # NB: We enable traces automatically for the model evaluation. Note that we have to
-            #   manually pass the context instance to callback, because LangChain callback may be
-            #   invoked asynchronously and it doesn't correctly propagate the thread-local context.
-            from mlflow.langchain.langchain_tracer import MlflowLangchainTracer
-
-            callbacks = [MlflowLangchainTracer(prediction_context=context)]
         else:
             callbacks = None
 
