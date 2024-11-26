@@ -580,8 +580,8 @@ Some of the biggest differences come up when it's time to log the model:
             input_example=(request, params),
         )
 
-With a custom :py:class:`~mlflow.pyfunc.PythonModel`, we need to manually define the input example, so that model signature can be inferred from it. This is a significant difference from the ChatModel API, which automatically configured the signature to conform to the standardized OpenAI-compatible input/output/parameter schemas.
-To learn more about auto inference of model signature based on an input example, see :ref:`GenAI model signature example <genai_model_signature_example>` section for details.
+With a custom :py:class:`~mlflow.pyfunc.PythonModel`, we need to manually define the input example so that a model signature can be inferred using the example. This is a significant difference from the ChatModel API, which automatically configures a signature that conforms to the standard OpenAI-compatible input/output/parameter schemas.
+To learn more about auto inference of model signature based on an input example, see the :ref:`GenAI model signature example <genai_model_signature_example>` section for details.
 
 There is also one notable difference in how we call the loaded model's ``predict`` method: parameters are passed as a dictionary via the ``params`` keyword argument, rather than in the dictionary containing the messages.
 
