@@ -294,12 +294,16 @@ extend-exclude = [
 
 [tool.typos.default]
 extend-ignore-re = [
-  # Line ignore with trailing "spellchecker:disable-line"
-  "(?Rm)^.*#\\s*spellchecker:disable-line$",
+  # Line ignore with trailing `# spellchecker: disable-line`
+  "(?Rm)^.*#\\s*spellchecker: disable-line$",
+  # Line block with `# spellchecker: <on|off>`
+  "(?s)(#|//)\\s*spellchecker: off.*?\\n\\s*(#|//)\\s*spellchecker: on",
   # numpy.arange
   "(?i)(numpy|np)\\.arange",
   # nd array
   "(?i)nd( |_|\\.)?array",
   "aNothEr",
+  # German words/sentences used for testing
   "MLflow ist",
+  "Ich habe eine schöne Haufe von Kokos",
 ]

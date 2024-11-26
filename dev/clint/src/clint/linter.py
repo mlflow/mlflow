@@ -212,10 +212,10 @@ class Linter(ast.NodeVisitor):
         return None
 
     def _no_rst(self, node: ast.FunctionDef | ast.AsyncFunctionDef) -> None:
-        if (nd := self._docstring(node)) and (
-            PARAM_REGEX.search(nd.s) or RETURN_REGEX.search(nd.s)
+        if (node := self._docstring(node)) and (
+            PARAM_REGEX.search(node.s) or RETURN_REGEX.search(node.s)
         ):
-            self._check(nd, rules.NoRst())
+            self._check(node, rules.NoRst())
 
     def _is_in_function(self) -> bool:
         return self.stack and isinstance(self.stack[-1], (ast.FunctionDef, ast.AsyncFunctionDef))

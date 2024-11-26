@@ -44,6 +44,7 @@ jobs:
           echo "::add-matcher::.github/workflows/matchers/clint.json"
           echo "::add-matcher::.github/workflows/matchers/format.json"
           echo "::add-matcher::.github/workflows/matchers/ruff.json"
+          echo "::add-matcher::.github/workflows/matchers/typos.json"
       - uses: ./.github/actions/cache-pip
       - name: Install dependencies
         run: |
@@ -51,6 +52,7 @@ jobs:
           source .venv/bin/activate
           pip install -r requirements/lint-requirements.txt
           dev/install-taplo.sh
+          dev/install-typos.sh
       - uses: ./.github/actions/show-versions
       - uses: ./.github/actions/pipdeptree
       - name: Install pre-commit hooks
