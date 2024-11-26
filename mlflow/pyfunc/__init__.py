@@ -2927,6 +2927,8 @@ def save_model(
                 python_model = _load_model_code_path(model_code_path, model_config)
 
             _validate_function_python_model(python_model)
+            _logger.info(python_model)
+            _logger.info(callable(python_model))
             if callable(python_model) and all(
                 a is None
                 for a in (input_example, pip_requirements, extra_pip_requirements)
@@ -2989,7 +2991,8 @@ def save_model(
             "should be a python module. A `python_model` should be a subclass of PythonModel"
         )
         raise MlflowException(message=msg, error_code=INVALID_PARAMETER_VALUE)
-
+    _logger.info("first argument set" + str(first_argument_set))
+    _logger.info("second argument set" + str(second_argument_set))
     if mlflow_model is None:
         mlflow_model = Model()
     saved_example = None
@@ -3007,12 +3010,14 @@ def save_model(
     elif python_model is not None:
         _logger.info("python_model not none")
         if callable(python_model):
+            _logger.info("python_model is callable")
             input_arg_index = 0  # first argument
             if signature := _infer_signature_from_type_hints(
                 python_model, input_arg_index, input_example=input_example
             ):
                 mlflow_model.signature = signature
         elif isinstance(python_model, ChatModel):
+            _logger.info("inside of chatmodel")
             mlflow_model.signature = ModelSignature(
                 CHAT_MODEL_INPUT_SCHEMA,
                 CHAT_MODEL_OUTPUT_SCHEMA,
@@ -3095,6 +3100,7 @@ def save_model(
                     "`from_dict()`, e.g. `ChatAgentResponse.from_dict(output)`",
                 )
         elif isinstance(python_model, PythonModel):
+            _logger.info("inside of pythonmodel")
             saved_example = _save_example(
                 mlflow_model, input_example, path, example_no_conversion
             )
