@@ -28,23 +28,28 @@ typos --write-changes [PATH]
 
 ## Ignoring false positives
 
-There are three ways to ignore false positives:
+There are two ways to ignore false positives:
 
-### Option 1: Ignore a line containing false positives
+### Option 1: Ignore a line/block containing false positives
 
-```python
-typo  # spellchecker: disable-line
-```
-
-### Option 2: Ignore a block containing false positives
+This option is preferred if the false positive is a one-off.
 
 ```python
+# Ignore a line containing a typo:
+
+"<false_positive>"  # spellchecker: disable-line
+
+# Ignore a block containing typos:
+
 # spellchecker: off
-typo
+"<false_positive>"
+"<another_false_positive>"
 # spellchecker: on
 ```
 
-### Option 3: Extend the ignore list in [`pyproject.toml`](../pyproject.toml)
+### Option 2: Extend the ignore list in [`pyproject.toml`](../pyproject.toml)
+
+This option is preferred if the false positive is common across multiple files/lines.
 
 ```toml
 # pyproject.toml
@@ -52,7 +57,7 @@ typo
 [tool.typos.default]
 extend-ignore-re = [
   ...,
-  "typo",
+  "false_positive",
 ]
 ```
 
