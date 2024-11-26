@@ -8,4 +8,4 @@ if ! command -v typos &> /dev/null; then
 fi
 
 # Make the error message more actionable
-typos --format brief --force-exclude --color never "$@" | sed 's/$/. See `dev\/typos.md` for how to fix or ignore typos./'
+typos --format brief --force-exclude --color never "$@" | sed 's/$/. See `dev\/typos.md` for how to fix typos./'
