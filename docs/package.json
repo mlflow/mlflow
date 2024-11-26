@@ -10,6 +10,7 @@
     "build-api-docs": "python scripts/build-api-docs.py --with-r",
     "build-api-docs:no-r": "python scripts/build-api-docs.py",
     "update-api-modules": "tsx scripts/update-api-modules.ts",
+    "convert-notebooks": "python scripts/convert-notebooks.py",
     "swizzle": "docusaurus swizzle",
     "deploy": "docusaurus deploy",
     "clear": "docusaurus clear",
