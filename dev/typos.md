@@ -1,4 +1,4 @@
-## Typos
+# Typos
 
 A quick guide on how to use [`typos`](https://github.com/crate-ci/typos) to find, fix, and ignore typos.
 
