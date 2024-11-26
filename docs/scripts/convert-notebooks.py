@@ -13,6 +13,7 @@ from nbconvert.preprocessors import Preprocessor
 
 SOURCE_DIR = Path("docs/")
 
+
 class EscapeBackticksPreprocessor(Preprocessor):
     def preprocess_cell(self, cell, resources, cell_index):
         if cell.cell_type == "code":
@@ -31,9 +32,10 @@ class EscapeBackticksPreprocessor(Preprocessor):
                             if isinstance(value, str):
                                 output["data"][key] = value.replace("`", r"\`")
         elif cell.cell_type == "raw":
-          cell.source = cell.source.replace("<br>", "<br />")
+            cell.source = cell.source.replace("<br>", "<br />")
 
         return cell, resources
+
 
 exporter = MarkdownExporter(
     preprocessors=[EscapeBackticksPreprocessor],
@@ -41,35 +43,38 @@ exporter = MarkdownExporter(
     extra_template_basedirs=["./scripts/nbconvert_templates"],
 )
 
+
 # add the imports for our custom cell output components
 def add_custom_component_imports(
-  body: str,
+    body: str,
 ) -> str:
-  return f"""import {{ NotebookCodeCell }} from "@site/src/components/NotebookCodeCell"
+    return f"""import {{ NotebookCodeCell }} from "@site/src/components/NotebookCodeCell"
 import {{ NotebookCellOutput }} from "@site/src/components/NotebookCellOutput"
 
 {body}
 """
 
+
 def convert_path(nb_path: Path):
-  mdx_path = nb_path.with_suffix(".mdx")
-  with open(nb_path) as f:
-    nb = nbformat.read(f, as_version=4)
+    mdx_path = nb_path.with_suffix(".mdx")
+    with open(nb_path) as f:
+        nb = nbformat.read(f, as_version=4)
 
-    body, _ = exporter.from_notebook_node(nb)
-    body = add_custom_component_imports(body)
+        body, _ = exporter.from_notebook_node(nb)
+        body = add_custom_component_imports(body)
 
-    with open(mdx_path, "w") as f:
-          f.write(body)
-    
-    return mdx_path
+        with open(mdx_path, "w") as f:
+            f.write(body)
+
+        return mdx_path
+
 
 def main():
-  nb_paths = list(SOURCE_DIR.rglob("*.ipynb"))
+    nb_paths = list(SOURCE_DIR.rglob("*.ipynb"))
 
-  with multiprocessing.Pool() as pool:
-    pool.map(convert_path, nb_paths)
+    with multiprocessing.Pool() as pool:
+        pool.map(convert_path, nb_paths)
 
 
 if __name__ == "__main__":
-  main()
+    main()
