@@ -577,8 +577,8 @@ def update_current_trace(
     """
     Update the current active trace with the given tags.
 
-    You can use this function either within a function decorated with `@mlflow.trace` or the scope
-    of the `with mlflow.start_span` context manager. If there is no active trace found, this
+    You can use this function either within a function decorated with `@mlflow.trace` or within the
+    scope of the `with mlflow.start_span` context manager. If there is no active trace found, this
     function will raise an exception.
 
     Using within a function decorated with `@mlflow.trace`:
