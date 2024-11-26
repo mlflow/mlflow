@@ -547,7 +547,7 @@ def _get_mlflow_model_input_example_dict(mlflow_model: Model, path: str):
 
 def _load_serving_input_example(mlflow_model: Model, path: str) -> Optional[str]:
     """
-    Load serving input exaple from a model directory. Returns None if there is no serving input
+    Load serving input example from a model directory. Returns None if there is no serving input
     example.
 
     Args:
@@ -1227,7 +1227,7 @@ def _enforce_pyspark_dataframe_schema(
     columns_not_dropped_for_feature_store_model = []
     for col, dtype in new_pf_input.dtypes:
         if col not in input_names:
-            # to support backwards compatability with feature store models
+            # to support backwards compatibility with feature store models
             if any(x in dtype for x in ["array", "map", "struct"]):
                 if flavor == _FEATURE_STORE_FLAVOR:
                     columns_not_dropped_for_feature_store_model.append(col)

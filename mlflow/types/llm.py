@@ -344,7 +344,7 @@ class FunctionToolDefinition(_BaseDataclass):
 
     def to_tool_definition(self):
         """
-        Convenience function for wrapping this in a ToolDefiniton
+        Convenience function for wrapping this in a ToolDefinition
         """
         return ToolDefinition(type="function", function=self)
 
@@ -387,7 +387,7 @@ class ChatParams(_BaseDataclass):
             the results of the tokens with top_p probability mass. E.g., 0.1 means only the tokens
             comprising the top 10% probability mass are considered.
         top_k (int): An optional param for reducing the vocabulary size to top k tokens
-            (sorted in descending order by their probabilites).
+            (sorted in descending order by their probabilities).
         frequency_penalty: (float): An optional param of positive or negative value,
             positive values penalize new tokens based on
             their existing frequency in the text so far, decreasing the model's likelihood to repeat
@@ -472,7 +472,7 @@ class ChatCompletionRequest(ChatParams):
             the results of the tokens with top_p probability mass. E.g., 0.1 means only the tokens
             comprising the top 10% probability mass are considered.
         top_k (int): An optional param for reducing the vocabulary size to top k tokens
-            (sorted in descending order by their probabilites).
+            (sorted in descending order by their probabilities).
         frequency_penalty: (float): An optional param of positive or negative value,
             positive values penalize new tokens based on
             their existing frequency in the text so far, decreasing the model's likelihood to repeat

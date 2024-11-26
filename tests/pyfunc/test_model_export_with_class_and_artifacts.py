@@ -1019,7 +1019,7 @@ def test_log_model_with_unsupported_argument_combinations_throws_exception():
         mlflow.pyfunc.log_model("pyfunc_model", python_model=None, loader_module=None)
 
 
-def test_repr_can_be_called_withtout_run_id_or_artifact_path():
+def test_repr_can_be_called_without_run_id_or_artifact_path():
     model_meta = Model(
         artifact_path=None,
         run_id=None,
