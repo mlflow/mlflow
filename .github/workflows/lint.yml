@@ -40,6 +40,8 @@ jobs:
       - uses: ./.github/actions/setup-python
         id: setup-python
       - uses: astral-sh/setup-uv@v3
+        with:
+          version: 0.5.4
       - name: Add problem matchers
         run: |
           echo "::add-matcher::.github/workflows/matchers/clint.json"
@@ -48,7 +50,7 @@ jobs:
           echo "::add-matcher::.github/workflows/matchers/typos.json"
       - name: Install dependencies
         run: |
-          uv pip install --python-preference only-system install -r requirements/lint-requirements.txt
+          uv pip install --system -r requirements/lint-requirements.txt
           dev/install-taplo.sh
           dev/install-typos.sh
       - uses: ./.github/actions/show-versions
