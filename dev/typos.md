@@ -8,8 +8,9 @@ A quick guide on how to use [`typos`](https://github.com/crate-ci/typos) to find
 # Replace `<version>` with the version installed in `dev/install-typos.sh`.
 brew install typos-cli@<version>
 
-# See https://github.com/crate-ci/typos?tab=readme-ov-file#install for other installation methods
 ```
+
+See https://github.com/crate-ci/typos?tab=readme-ov-file#install for other installation methods.
 
 ## Finding typos
 
