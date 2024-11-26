@@ -158,11 +158,20 @@ Column-based signature also support composite data types of these primitives.
 - Array (list, numpy arrays)
 - Spark ML vector (it inherits ``Array[double]`` type)
 - Object (dictionary)
+- AnyType
+
+.. note::
+    AnyType is a special type that can be used to represent any data type, including None values. If this type is used, input data is not validated at all during schema enforcement process in pyfunc predict.
+    `mlflow.models.infer_signature` function infers a field as AnyType only if the field is always None (e.g. ``{"a": None} --> ['a': Any (optional)]``); if the field has other valid types, the field is inferred
+    as optional instead (e.g. ``[{"a": None}, {"a": "abc"}] --> ['a': string (optional)]``).
+    If one field explicitly accepts multiple valid types (e.g. ``[{"a": "string"}, {"a": 123}]``), `infer_signature` function would fail and you need to manually construct the signature using `ModelSignature` object
+    with `AnyType` type for the field. (e.g. ``ModelSignature(Schema([ColSpec(AnyType(), "a", required=False)]))``)
 
 .. warning::
 
     * Support for Array and Object types was introduced in MLflow version **2.10.0**. These types will not be recognized in previous versions of MLflow.  If you are saving a model that uses these signature types, you should ensure that any other environment that attempts to load these models  has a version of MLflow installed that is at least 2.10.0.
     * Support for Spark ML vector type was introduced in MLflow version **2.15.0**, These type will not be recognized in previous versions of MLflow.
+    * Support for AnyType was introduced in MLflow version **2.19.0**. This type will not be recognized in previous versions of MLflow.
 
 Additional examples for composite data types can be seen by viewing the `signature examples notebook <notebooks/signature_examples.html>`_.
 
@@ -629,6 +638,8 @@ The same signature can be created explicitly as follows:
         inputs=input_schema, outputs=output_schema, params=params_schema
     )
 
+.. _genai_model_signature_example:
+
 Model signature examples for GenAI flavors
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 GenAI flavors such as langchain, OpenAI, and transformers normally require an object (dictionary) based model signature.
@@ -766,6 +777,63 @@ If your model has an optional input field, you can use below input_example as a 
     }
 
     print(infer_signature(input_example))
+
+If your model's output contains None values, these fields will be inferred as AnyType (since MLflow 2.19.0), for example:
+
+.. code-block:: python
+
+    from mlflow.models import infer_signature
+
+    data = [
+        {
+            "id": None,
+            "object": "chat.completion",
+            "created": 1731491873,
+            "model": None,
+            "choices": [
+                {
+                    "index": 0,
+                    "message": {
+                        "role": "assistant",
+                        "content": "MLflow",
+                    },
+                    "finish_reason": None,
+                }
+            ],
+            "usage": {
+                "prompt_tokens": None,
+                "completion_tokens": None,
+                "total_tokens": None,
+            },
+        }
+    ]
+
+    print(infer_signature(data))
+    # inputs:
+    # [
+    #     'id': Any (optional),
+    #     'object': string (required),
+    #     'created': long (required),
+    #     'model': Any (optional),
+    #     'choices': Array({
+    #         'finish_reason': Any (optional),
+    #         'index': long (required),
+    #         'message': {
+    #             'content': string (required),
+    #             'role': string (required)
+    #         } (required)
+    #     }) (required),
+    #     'usage': {
+    #         'completion_tokens': Any (optional),
+    #         'prompt_tokens': Any (optional),
+    #         'total_tokens': Any (optional)
+    #     } (required)
+    # ]
+    # outputs:
+    # None
+    # params:
+    # None
+
 
 3. Load the model back and make predictions:
 

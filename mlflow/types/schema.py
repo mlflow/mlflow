@@ -21,7 +21,7 @@ OBJECT_TYPE = "object"
 MAP_TYPE = "map"
 ANY_TYPE = "any"
 SPARKML_VECTOR_TYPE = "sparkml_vector"
-ALOWWED_DTYPES = Union["Array", "DataType", "Map", "Object", "AnyType", str]
+ALLOWED_DTYPES = Union["Array", "DataType", "Map", "Object", "AnyType", str]
 EXPECTED_TYPE_MESSAGE = (
     "Expected mlflow.types.schema.Datatype, mlflow.types.schema.Array, "
     "mlflow.types.schema.Object, mlflow.types.schema.Map, mlflow.types.schema.AnyType "
@@ -182,7 +182,7 @@ class Property(BaseType):
     def __init__(
         self,
         name: str,
-        dtype: ALOWWED_DTYPES,
+        dtype: ALLOWED_DTYPES,
         required: bool = True,
     ) -> None:
         """
@@ -491,7 +491,7 @@ class Array(BaseType):
 
     def __init__(
         self,
-        dtype: ALOWWED_DTYPES,
+        dtype: ALLOWED_DTYPES,
     ) -> None:
         try:
             self._dtype = DataType[dtype] if isinstance(dtype, str) else dtype
@@ -609,7 +609,7 @@ class Map(BaseType):
     Specification used to represent a json-convertible map with string type keys.
     """
 
-    def __init__(self, value_type: ALOWWED_DTYPES):
+    def __init__(self, value_type: ALLOWED_DTYPES):
         try:
             self._value_type = DataType[value_type] if isinstance(value_type, str) else value_type
         except KeyError:
@@ -692,7 +692,7 @@ class Map(BaseType):
 
 
 @experimental
-class AnyType:
+class AnyType(BaseType):
     def __init__(self):
         """
         AnyType can store any json-serializable data including None values.
@@ -722,18 +722,18 @@ class AnyType:
     def to_dict(self):
         return {"type": ANY_TYPE}
 
-    def _merge(self, another_type: BaseType) -> BaseType:
-        if self == another_type:
+    def _merge(self, other: BaseType) -> BaseType:
+        if self == other:
             return deepcopy(self)
-        if isinstance(another_type, DataType):
-            return another_type
-        if not isinstance(another_type, BaseType):
+        if isinstance(other, DataType):
+            return other
+        if not isinstance(other, BaseType):
             raise MlflowException(
-                f"Can't merge AnyType with {type(another_type).__name__}, "
+                f"Can't merge AnyType with {type(other).__name__}, "
                 "it must be a BaseType or DataType"
             )
         # Merging AnyType with another type makes the other type optional
-        return another_type._merge(self)
+        return other._merge(self)
 
 
 class ColSpec:
@@ -743,7 +743,7 @@ class ColSpec:
 
     def __init__(
         self,
-        type: ALOWWED_DTYPES,
+        type: ALLOWED_DTYPES,
         name: Optional[str] = None,
         required: bool = True,
     ):

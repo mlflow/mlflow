@@ -15,7 +15,7 @@ from typing import TYPE_CHECKING, Any, Optional, Union, get_type_hints
 import numpy as np
 import pandas as pd
 
-from mlflow import environment_variables
+from mlflow.environment_variables import _MLFLOW_TESTING
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
 from mlflow.models.model import MLMODEL_FILE_NAME
@@ -24,7 +24,7 @@ from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, RESOURCE_DOES_
 from mlflow.store.artifact.models_artifact_repo import ModelsArtifactRepository
 from mlflow.store.artifact.runs_artifact_repo import RunsArtifactRepository
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri, _upload_artifact_to_uri
-from mlflow.types.schema import ParamSchema, Schema, convert_dataclass_to_schema
+from mlflow.types.schema import AnyType, ColSpec, ParamSchema, Schema, convert_dataclass_to_schema
 from mlflow.types.utils import _infer_param_schema, _infer_schema, _infer_schema_from_type_hint
 from mlflow.utils.uri import append_to_uri_path
 
@@ -44,8 +44,7 @@ _logger = logging.getLogger(__name__)
 _LOG_MODEL_INFER_SIGNATURE_WARNING_TEMPLATE = (
     "Failed to infer the model signature from the input example. Reason: %s. To see the full "
     "traceback, set the logging level to DEBUG via "
-    '`logging.getLogger("mlflow").setLevel(logging.DEBUG)`. To disable automatic signature '
-    "inference, set `signature` to `False` in your `log_model` or `save_model` call."
+    '`logging.getLogger("mlflow").setLevel(logging.DEBUG)`.'
 )
 
 
@@ -409,19 +408,12 @@ def _infer_signature_from_input_example(
             and prediction.ndim == 1
         ):
             prediction = pd.Series(prediction)
+
+        output_schema = None
         try:
             output_schema = _infer_schema(prediction)
-        except Exception as e:
-            _logger.warning(
-                "Failed to infer model output schema from prediction "
-                f"result {prediction}. Detailed exception: {e}"
-            )
-            signature = ModelSignature(inputs=input_schema, params=params_schema)
-        else:
-            signature = ModelSignature(input_schema, output_schema, params_schema)
-
-        # try assign output schema if failing to infer it from prediction for langchain models
-        if signature.outputs is None:
+        except Exception:
+            # try assign output schema if failing to infer it from prediction for langchain models
             try:
                 from mlflow.langchain import _LangChainModelWrapper
                 from mlflow.langchain.utils.chat import _ChatResponse
@@ -431,15 +423,24 @@ def _infer_signature_from_input_example(
                 if isinstance(wrapped_model, _LangChainModelWrapper) and isinstance(
                     prediction, _ChatResponse
                 ):
-                    signature.outputs = prediction.get_schema()
+                    output_schema = prediction.get_schema()
+            if output_schema is None:
+                _logger.warning(
+                    "Failed to infer model output schema from prediction result, setting "
+                    "output schema to AnyType. For full traceback, set logging level to debug.",
+                    exc_info=_logger.isEnabledFor(logging.DEBUG),
+                )
+                output_schema = Schema([ColSpec(type=AnyType())])
 
-        return signature
+        return ModelSignature(input_schema, output_schema, params_schema)
     except Exception as e:
-        if environment_variables._MLFLOW_TESTING.get():
+        if _MLFLOW_TESTING.get():
             raise
-        _logger.warning(_LOG_MODEL_INFER_SIGNATURE_WARNING_TEMPLATE, repr(e))
-        _logger.debug("", exc_info=True)
-        return None
+        _logger.warning(
+            _LOG_MODEL_INFER_SIGNATURE_WARNING_TEMPLATE,
+            repr(e),
+            exc_info=_logger.isEnabledFor(logging.DEBUG),
+        )
 
 
 def set_signature(
