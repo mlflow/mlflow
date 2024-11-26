@@ -3054,7 +3054,7 @@ def save_model(
                     "`from_dict()`, e.g. `ChatCompletionResponse.from_dict(output)`",
                 )
         elif isinstance(python_model, ChatAgent):
-            _logger.warning("inside of chatagent")
+            _logger.info("inside of chatagent")
             mlflow_model.signature = ModelSignature(
                 CHAT_AGENT_INPUT_SCHEMA,
                 CHAT_AGENT_OUTPUT_SCHEMA,
@@ -3155,6 +3155,7 @@ def save_model(
             infer_code_paths=infer_code_paths,
         )
     elif second_argument_set_specified:
+        _logger.info("second argument set specified")
         return mlflow.pyfunc.model._save_model_with_class_artifacts_params(
             path=path,
             signature=signature,
