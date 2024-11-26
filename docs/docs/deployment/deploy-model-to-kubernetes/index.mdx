@@ -4,8 +4,8 @@ sidebar_position: 3
 
 import Tabs from "@theme/Tabs";
 import TabItem from "@theme/TabItem";
-import Link from "@docusaurus/Link";
 import { CardGroup, PageCard } from "@site/src/components/Card";
+import { APILink } from "@site/src/components/APILink";
 
 # Deploy MLflow Model to Kubernetes
 
@@ -44,7 +44,7 @@ The essential step to deploy an MLflow model to Kubernetes is to build a Docker 
     ```
 
     If you want to use the bare-bones Flask server instead of MLServer, remove ``enable_mlserver=True``. For other options, see
-    the <Link target="_blank" to="/api_reference/python_api/mlflow.models.html#mlflow.models.build_docker">mlflow.models.build_docker</Link> function documentation.
+    the <APILink fn="mlflow.models.build_docker">mlflow.models.build_docker</APILink> function documentation.
 
   </TabItem>
 </Tabs>
