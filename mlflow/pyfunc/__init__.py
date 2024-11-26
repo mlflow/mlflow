@@ -482,6 +482,7 @@ from mlflow.pyfunc.dbconnect_artifact_cache import (
     extract_archive_to_dir,
 )
 from mlflow.pyfunc.model import (
+    ChatAgent,
     ChatModel,
     PythonModel,
     PythonModelContext,
@@ -498,9 +499,15 @@ from mlflow.types.llm import (
     CHAT_MODEL_INPUT_EXAMPLE,
     CHAT_MODEL_INPUT_SCHEMA,
     CHAT_MODEL_OUTPUT_SCHEMA,
+    CHAT_AGENT_INPUT_SCHEMA,
+    CHAT_AGENT_OUTPUT_SCHEMA,
+    CHAT_AGENT_INPUT_EXAMPLE,
     ChatCompletionResponse,
     ChatMessage,
     ChatParams,
+    ChatAgentParams,
+    ChatAgentMessage,
+    ChatAgentResponse,
 )
 from mlflow.utils import (
     PYTHON_VERSION,
@@ -2989,9 +2996,9 @@ def save_model(
 
     hints = None
     if signature is not None:
-        if isinstance(python_model, ChatModel):
+        if isinstance(python_model, ChatModel) or isinstance(python_model, ChatAgent):
             raise MlflowException(
-                "ChatModel subclasses have a standard signature that is set "
+                "ChatModel and ChatAgent subclasses have a standard signature that is set "
                 "automatically. Please remove the `signature` parameter from "
                 "the call to log_model() or save_model().",
                 error_code=INVALID_PARAMETER_VALUE,
@@ -3044,6 +3051,46 @@ def save_model(
                     "returns a ChatCompletionResponse object. If your predict() method currently "
                     "returns a dict, you can instantiate a ChatCompletionResponse using "
                     "`from_dict()`, e.g. `ChatCompletionResponse.from_dict(output)`",
+                )
+        elif isinstance(python_model, ChatAgent):
+            mlflow_model.signature = ModelSignature(
+                CHAT_AGENT_INPUT_SCHEMA,
+                CHAT_AGENT_OUTPUT_SCHEMA,
+            )
+            input_example = input_example or CHAT_AGENT_INPUT_EXAMPLE
+            input_example, input_params = _split_input_data_and_params(input_example)
+
+            if isinstance(input_example, list):
+                params = ChatAgentParams()
+                messages = []
+                for each_message in input_example:
+                    if isinstance(each_message, ChatAgentMessage):
+                        messages.append(each_message)
+                    else:
+                        messages.append(ChatAgentMessage.from_dict(each_message))
+            else:
+                # If the input example is a dictionary, convert it to ChatMessage format
+                messages = [
+                    ChatAgentMessage.from_dict(m) if isinstance(m, dict) else m
+                    for m in input_example["messages"]
+                ]
+                params = ChatAgentParams.from_dict(input_example)
+            input_example = {
+                "messages": [m.to_dict() for m in messages],
+                **params.to_dict(),
+                **(input_params or {}),
+            }
+            # call load_context() first, as predict may depend on it
+            _logger.info("Predicting on input example to validate output")
+            context = PythonModelContext(artifacts, model_config)
+            python_model.load_context(context)
+            output = python_model.predict(context, messages, params)
+            if not isinstance(output, ChatAgentResponse):
+                raise MlflowException(
+                    "Failed to save ChatAgent. Please ensure that the model's predict() method "
+                    "returns a ChatAgentResponse object. If your predict() method currently "
+                    "returns a dict, you can instantiate a ChatAgentResponse using "
+                    "`from_dict()`, e.g. `ChatAgentResponse.from_dict(output)`",
                 )
         elif isinstance(python_model, PythonModel):
             saved_example = _save_example(

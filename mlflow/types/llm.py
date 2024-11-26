@@ -829,6 +829,21 @@ class ChatCompletionChunk(_BaseDataclass):
 
 # turn off formatting for the model signatures to preserve readability
 # fmt: off
+
+_token_usage_stats_col_spec = ColSpec(
+            name="usage",
+            type=Object(
+                [
+                    Property("prompt_tokens", DataType.long),
+                    Property("completion_tokens", DataType.long),
+                    Property("total_tokens", DataType.long),
+                ]
+            ),
+            required=False,
+        )
+_custom_inputs_col_spec = ColSpec(name="custom_inputs", type=Map(DataType.string), required=False)
+_custom_outputs_col_spec = ColSpec(name="custom_outputs", type=Map(DataType.string), required=False)
+
 CHAT_MODEL_INPUT_SCHEMA = Schema(
     [
         ColSpec(
@@ -887,7 +902,7 @@ CHAT_MODEL_INPUT_SCHEMA = Schema(
             ),
             required=False,
         ),
-        ColSpec(name="custom_inputs", type=Map(DataType.string), required=False),
+        _custom_inputs_col_spec,
     ]
 )
 
@@ -919,18 +934,8 @@ CHAT_MODEL_OUTPUT_SCHEMA = Schema(
                 Property("finish_reason", DataType.string),
             ])),
         ),
-        ColSpec(
-            name="usage",
-            type=Object(
-                [
-                    Property("prompt_tokens", DataType.long),
-                    Property("completion_tokens", DataType.long),
-                    Property("total_tokens", DataType.long),
-                ]
-            ),
-            required=False,
-        ),
-        ColSpec(name="custom_outputs", type=Map(DataType.string), required=False),
+        _token_usage_stats_col_spec,
+        _custom_outputs_col_spec
     ]
 )
 
@@ -943,6 +948,58 @@ CHAT_MODEL_INPUT_EXAMPLE = {
     "max_tokens": 10,
     "stop": ["\n"],
     "n": 1,
+    "stream": False,
+}
+
+_chat_agent_message_col_spec = ColSpec(
+    name="messages",
+    type=Array(
+        Object(
+            [
+                Property("role", DataType.string),
+                Property("content", DataType.string, False),
+                Property("name", DataType.string, False),
+                Property("tool_calls", Array(Object([
+                    Property("id", DataType.string),
+                    Property("function", Object([
+                        Property("name", DataType.string),
+                        Property("arguments", DataType.string),
+                    ])),
+                    Property("type", DataType.string),
+                ])), False),
+                Property("tool_call_id", DataType.string, False),
+                Property("id", DataType.string, False),
+                Property("attachments", Map(DataType.string), False),
+            ]
+        )
+    ),
+)
+
+CHAT_AGENT_INPUT_SCHEMA = Schema(
+    [
+        _chat_agent_message_col_spec,
+        ColSpec(name="context", type=Object([
+            Property("conversation_id", DataType.string, False),
+            Property("user_id", DataType.string, False),
+        ]), required=False),
+        _custom_inputs_col_spec,
+        ColSpec(name="stream", type=DataType.boolean, required=False),
+    ]
+)
+
+CHAT_AGENT_OUTPUT_SCHEMA = Schema(
+    [
+        _chat_agent_message_col_spec,
+        _custom_outputs_col_spec,
+        _token_usage_stats_col_spec,
+    ]
+)
+
+CHAT_AGENT_INPUT_EXAMPLE = {
+    "messages": [
+        {"role": "system", "content": "You are a helpful assistant."},
+        {"role": "user", "content": "Hello!"},
+    ],
     "stream": False,
 }
 
