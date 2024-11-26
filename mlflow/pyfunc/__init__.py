@@ -3005,6 +3005,7 @@ def save_model(
             )
         mlflow_model.signature = signature
     elif python_model is not None:
+        _logger.info("python_model not none")
         if callable(python_model):
             input_arg_index = 0  # first argument
             if signature := _infer_signature_from_type_hints(
@@ -3053,6 +3054,7 @@ def save_model(
                     "`from_dict()`, e.g. `ChatCompletionResponse.from_dict(output)`",
                 )
         elif isinstance(python_model, ChatAgent):
+            _logger.warning("inside of chatagent")
             mlflow_model.signature = ModelSignature(
                 CHAT_AGENT_INPUT_SCHEMA,
                 CHAT_AGENT_OUTPUT_SCHEMA,
