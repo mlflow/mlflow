@@ -273,3 +273,40 @@ exclude = [
 
 [tool.clint.forbidden-top-level-imports]
 "mlflow/gateway/providers/*" = ["fastapi"]
+
+# typos
+[tool.typos.default.extend-words]
+als = "als"   # alternating least squares
+mape = "mape" # mean absolute percentage error
+fpr = "fpr"   # false positive rate
+gam = "gam"   # generalized additive models
+ser = "ser"   # serialization
+yhat = "yhat" # ŷ
+
+# https://github.com/crate-ci/typos/blob/master/docs/reference.md
+[tool.typos.files]
+extend-exclude = [
+  # Ignore proto files
+  "mlflow/protos/**/*",
+  # Vendored files
+  "mlflow/utils/gorilla.py",
+]
+
+[tool.typos.default]
+extend-ignore-re = [
+  # Line ignore with trailing `# spellchecker: disable-line`
+  "(?Rm)^.*#\\s*spellchecker: disable-line$",
+  # Line block with `# spellchecker: <on|off>`
+  "(?s)(#|//)\\s*spellchecker: off.*?\\n\\s*(#|//)\\s*spellchecker: on",
+  # numpy.arange
+  "(?i)(numpy|np)\\.arange",
+  # nd array
+  "(?i)nd( |_|\\.)?array",
+  "aNothEr",
+  # German words/sentences used for testing
+  "MLflow ist",
+  "Ich habe eine schöne Haufe von Kokos",
+  "Ich bin das Modell eines modernen General",
+  # pytorch-lightning
+  "lightning",
+]

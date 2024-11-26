@@ -120,7 +120,7 @@ def _infer_datatype(data: Any) -> Optional[Union[DataType, Array, Object, AnyTyp
         - list -> Array
         - numpy.ndarray -> Array
         - scalar -> DataType
-        - None, emty dictionary/list -> AnyType
+        - None, empty dictionary/list -> AnyType
 
     .. Note::
         Empty numpy arrays are inferred as None to keep the backward compatibility, as numpy

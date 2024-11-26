@@ -159,7 +159,7 @@ def test_model_logging_and_inference(basic_model):
             "Just a small town girl",
             "livin in a lonely world",
             "she took the midnight train",
-            "goin anywhere",
+            "going anywhere",
         ]
     )
 

@@ -461,7 +461,7 @@ def init(model: PyFuncModel):
 
         # Content-Type can include other attributes like CHARSET
         # Content-type RFC: https://datatracker.ietf.org/doc/html/rfc2045#section-5.1
-        # TODO: Suport ";" in quoted parameter values
+        # TODO: Support ";" in quoted parameter values
         data = flask.request.data.decode("utf-8")
         content_type = flask.request.content_type
         result = invocations(data, content_type, model, input_schema)

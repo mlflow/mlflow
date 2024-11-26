@@ -32,5 +32,5 @@ def test_rename_payload_keys():
         ),
     ],
 )
-def test_rename_payload_keys_parametrized(payload, mapping, expected):
+def test_rename_payload_keys_parameterized(payload, mapping, expected):
     assert rename_payload_keys(payload, mapping) == expected

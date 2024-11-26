@@ -959,7 +959,7 @@ def resolve_evaluators_and_configs(
 def _model_validation_contains_model_comparison(validation_thresholds):
     """
     Helper function for determining if validation_thresholds contains
-    thresholds for model comparsion: either min_relative_change or min_absolute_change
+    thresholds for model comparison: either min_relative_change or min_absolute_change
     """
     if not validation_thresholds:
         return False
@@ -1267,7 +1267,7 @@ def evaluate(  # noqa: D417
           Explainer based on the model.
         - **explainability_nsamples**: The number of sample rows to use for computing model
           explainability insights. Default value is 2000.
-        - **explainability_kernel_link**: The kernel link function used by shap kernal explainer.
+        - **explainability_kernel_link**: The kernel link function used by shap kernel explainer.
           Available values are "identity" and "logit". Default value is "identity".
         - **max_classes_for_multiclass_roc_pr**:
           For multiclass classification tasks, the maximum number of classes for which to log

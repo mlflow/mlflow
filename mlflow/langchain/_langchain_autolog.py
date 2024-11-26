@@ -25,7 +25,7 @@ from mlflow.utils.autologging_utils.safety import _resolve_extra_tags
 
 _logger = logging.getLogger(__name__)
 
-UNSUPPORT_LOG_MODEL_MESSAGE = (
+UNSUPPORTED_LOG_MODEL_MESSAGE = (
     "MLflow autologging does not support logging models containing BaseRetriever because "
     "logging the model requires `loader_fn` and `persist_dir`. Please log the model manually "
     "using `mlflow.langchain.log_model(model, artifact_path, loader_fn=..., persist_dir=...)`"
@@ -432,10 +432,10 @@ def _log_optional_artifacts(autolog_config, run_id, result, self, func_name, *ar
             or _runnable_with_retriever(self)
             or _chain_with_retriever(self)
         ):
-            _logger.info(UNSUPPORT_LOG_MODEL_MESSAGE)
+            _logger.info(UNSUPPORTED_LOG_MODEL_MESSAGE)
         else:
             # warn user in case we did't capture some cases where retriever is used
-            warnings.warn(UNSUPPORT_LOG_MODEL_MESSAGE)
+            warnings.warn(UNSUPPORTED_LOG_MODEL_MESSAGE)
             if autolog_config.log_input_examples:
                 input_example = deepcopy(
                     _get_input_data_from_function(func_name, self, args, kwargs)

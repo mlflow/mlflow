@@ -243,7 +243,7 @@ def test_predict_with_input_none(mock_backend):
         (1, _CONTENT_TYPE_JSON, '{"inputs": 1}'),
         # Float
         (1.0, _CONTENT_TYPE_JSON, '{"inputs": 1.0}'),
-        # Datatime
+        # Datetime
         (
             datetime.datetime(2021, 1, 1, 0, 0, 0),
             _CONTENT_TYPE_JSON,

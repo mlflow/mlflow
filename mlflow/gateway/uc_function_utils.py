@@ -203,12 +203,12 @@ def execute_function(
     from databricks.sdk.service.sql import StatementState
 
     # TODO: async so we can run functions in parallel
-    parametrized_statement = get_execute_function_sql_stmt(function, parameters)
+    parameterized_statement = get_execute_function_sql_stmt(function, parameters)
     # TODO: make limits and wait timeout configurable
     response = ws.statement_execution.execute_statement(
-        statement=parametrized_statement.statement,
+        statement=parameterized_statement.statement,
         warehouse_id=warehouse_id,
-        parameters=parametrized_statement.parameters,
+        parameters=parameterized_statement.parameters,
         wait_timeout="30s",
         row_limit=100,
         byte_limit=4096,

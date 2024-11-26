@@ -53,7 +53,7 @@ GOOD_ALIAS_NAMES = [
     "test-alias",
     "1a2b5cDeFgH",
     "a" * 255,
-    "lates",
+    "lates",  # spellchecker: disable-line
     "v123_temp",
     "123",
     "123v",

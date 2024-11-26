@@ -411,7 +411,7 @@ def test_model_save_load_evaluate_pyfunc_format_multiple_inputs(
 # is fixed.
 
 
-def test_pyfunc_representation_of_float32_model_casts_and_evalutes_float64_inputs(
+def test_pyfunc_representation_of_float32_model_casts_and_evaluates_float64_inputs(
     onnx_model_multiple_inputs_float32, model_path, data_multiple_inputs, predicted_multiple_inputs
 ):
     """

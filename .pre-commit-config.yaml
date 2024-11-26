@@ -137,3 +137,12 @@ repos:
         language: system
         stages: [pre-commit]
         require_serial: true
+
+      - id: typos
+        name: typos
+        entry: typos --format brief --force-exclude --color never
+        # TODO: Add more file types
+        files: '\.py$'
+        language: system
+        stages: [pre-commit]
+        require_serial: true

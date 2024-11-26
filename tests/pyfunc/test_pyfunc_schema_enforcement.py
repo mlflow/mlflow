@@ -297,7 +297,7 @@ def test_column_schema_enforcement():
         "g": ["a", "b", "c"],
         "f": [bytes(0), bytes(1), bytes(1)],
         "h": np.array(["2020-01-01", "2020-02-02", "2020-03-03"], dtype=np.datetime64),
-        # Extraneous multi-dimensional numpy array should be silenty dropped
+        # Extraneous multi-dimensional numpy array should be silently dropped
         "i": np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]]),
         # Extraneous multi-dimensional list should be silently dropped
         "j": [[1, 2, 3], [4, 5, 6], [7, 8, 9]],

@@ -362,9 +362,9 @@ def min_absolute_change_threshold_test_spec(request):
         - metrics: A dictionary mapping scalar metric names to scalar metric values.
         - baseline_model_metrics: A dictionary mapping scalar metric names
             to scalar metric values of baseline_model.
-        - validation_thresholds: A dictonary mapping scalar metric names
+        - validation_thresholds: A dictionary mapping scalar metric names
             to MetricThreshold(threshold=0.2, greater_is_better=True).
-        - expected_validation_results: A dictonary mapping scalar metric names
+        - expected_validation_results: A dictionary mapping scalar metric names
             to _MetricValidationResult.
     """
     acc_threshold = MetricThreshold(min_absolute_change=0.1, greater_is_better=True)
@@ -834,9 +834,9 @@ def multi_thresholds_test_spec(request):
         - metrics: A dictionary mapping scalar metric names to scalar metric values.
         - baseline_model_metrics: A dictionary mapping scalar metric names
             to scalar metric values of baseline_model.
-        - validation_thresholds: A dictonary mapping scalar metric names
+        - validation_thresholds: A dictionary mapping scalar metric names
             to MetricThreshold(threshold=0.2, greater_is_better=True).
-        - expected_validation_results: A dictonary mapping scalar metric names
+        - expected_validation_results: A dictionary mapping scalar metric names
             to _MetricValidationResult.
     """
     acc_threshold = MetricThreshold(

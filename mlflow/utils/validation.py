@@ -101,7 +101,7 @@ tracking store."""
 
 def invalid_value(path, value, message=None):
     """
-    Compose a standarized error message for invalid parameter values.
+    Compose a standardized error message for invalid parameter values.
     """
     formattedValue = json.dumps(value, sort_keys=True, separators=(",", ":"))
 
@@ -119,14 +119,14 @@ def exceeds_maximum_length(path, limit):
     return f"'{path}' exceeds the maximum length of {limit} characters"
 
 
-def append_to_json_path(currenPath, value):
-    if not currenPath:
+def append_to_json_path(currentPath, value):
+    if not currentPath:
         return value
 
     if value.startswith("["):
-        return f"{currenPath}{value}"
+        return f"{currentPath}{value}"
 
-    return f"{currenPath}.{value}"
+    return f"{currentPath}.{value}"
 
 
 def bad_path_message(name):

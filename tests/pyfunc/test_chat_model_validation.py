@@ -273,5 +273,5 @@ def test_convert_dataclass_throws_on_invalid_data(cls, data, match):
         ),
     ],
 )
-def test_from_dict_ingores_extra_fields(cls, data):
+def test_from_dict_ignores_extra_fields(cls, data):
     assert isinstance(cls.from_dict(data), cls)

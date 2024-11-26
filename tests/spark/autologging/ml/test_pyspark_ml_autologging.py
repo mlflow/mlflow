@@ -953,7 +953,7 @@ def test_log_post_training_metrics_configuration(dataset_iris_binomial):
     mce = MulticlassClassificationEvaluator()
     metric_name = mce.getMetricName()
 
-    # Ensure post-traning metrics autologging can be toggled on / off
+    # Ensure post-training metrics autologging can be toggled on / off
     for log_post_training_metrics in [True, False, True]:
         mlflow.pyspark.ml.autolog(log_post_training_metrics=log_post_training_metrics)
 

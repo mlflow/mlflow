@@ -246,7 +246,7 @@ def _get_lc_model_input_fields(lc_model) -> set[str]:
     return set()
 
 
-def should_transform_requst_json_for_chat(lc_model):
+def should_transform_request_json_for_chat(lc_model):
     # Avoid converting the request to LangChain's Message format if the chain
     # is an AgentExecutor, as LangChainChatMessage might not be accepted by the chain
     if isinstance(lc_model, AgentExecutor):
@@ -298,7 +298,7 @@ def transform_request_json_for_chat_if_necessary(request_json, lc_model):
 
     should_convert = MLFLOW_CONVERT_MESSAGES_DICT_FOR_LANGCHAIN.get()
     if should_convert is None:
-        should_convert = should_transform_requst_json_for_chat(lc_model) and (
+        should_convert = should_transform_request_json_for_chat(lc_model) and (
             json_dict_might_be_chat_request(request_json) or is_list_of_chat_messages(request_json)
         )
         if should_convert:

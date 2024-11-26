@@ -161,7 +161,7 @@ def test_evaluations_to_dataframes_basic():
     assert evaluations_df["inputs_id"].iloc[0] == "inputs1"
     assert evaluations_df["inputs"].iloc[0] == {"feature1": 1.0, "feature2": 2.0}
 
-    # Check that the othe
+    # Check that the other
 
 
 def test_evaluations_to_dataframes_different_assessments():

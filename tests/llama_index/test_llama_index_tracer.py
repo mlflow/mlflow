@@ -142,7 +142,7 @@ def test_trace_llm_chat(is_async):
     assert spans[0].inputs == {
         "messages": [{"role": "system", "content": "Hello", "additional_kwargs": {}}]
     }
-    # `addtional_kwargs` was broken until 0.1.30 release of llama-index-llms-openai
+    # `additional_kwargs` was broken until 0.1.30 release of llama-index-llms-openai
     expected_kwargs = (
         {"completion_tokens": 12, "prompt_tokens": 9, "total_tokens": 21}
         if llama_oai_version >= Version("0.1.30")
@@ -200,7 +200,7 @@ def test_trace_llm_chat_stream():
     assert spans[0].inputs == {
         "messages": [{"role": "system", "content": "Hello", "additional_kwargs": {}}]
     }
-    # `addtional_kwargs` was broken until 0.1.30 release of llama-index-llms-openai
+    # `additional_kwargs` was broken until 0.1.30 release of llama-index-llms-openai
     expected_kwargs = (
         {"completion_tokens": 12, "prompt_tokens": 9, "total_tokens": 21}
         if llama_oai_version >= Version("0.1.30")
