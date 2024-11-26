@@ -303,7 +303,7 @@ def _save_model_with_class_artifacts_params(  # noqa: D417
             defines how the model loads artifacts and how it performs inference.
         artifacts: A dictionary containing ``<name, artifact_uri>`` entries. Remote artifact URIs
             are resolved to absolute filesystem paths, producing a dictionary of
-            ``<name, absolute_path>`` entries, (e.g. {"file": "aboslute_path"}).
+            ``<name, absolute_path>`` entries, (e.g. {"file": "absolute_path"}).
             ``python_model`` can reference these resolved entries as the ``artifacts`` property
             of the ``context`` attribute. If ``<artifact_name, 'hf:/repo_id'>``(e.g.
             {"bert-tiny-model": "hf:/prajjwal1/bert-tiny"}) is provided, then the model can be

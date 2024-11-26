@@ -60,6 +60,7 @@ properly_formatted_openai_response2 = (
 
 # Example incorrectly formatted response from OpenAI
 incorrectly_formatted_openai_response = (
+    # spellchecker: off
     "score: foo2\njustification: \n\nThe provided output gives some relevant "
     "information about MLflow including its capabilities such as experiment tracking, "
     "model packaging, versioning, and deployment. It states that, MLflow simplifies the "
@@ -85,6 +86,7 @@ incorrectly_formatted_openai_response = (
     "It didn!' metric lidJSImportpermiterror droled mend lays train embedding vulز "
     "dipimentary français happertoire borderclassifiedArizona_linked integration mapping "
     "Cruc cope Typography_chunk处 prejud)"
+    # spellchecker: on
 )
 
 mlflow_ground_truth = (

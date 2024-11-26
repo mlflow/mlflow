@@ -388,7 +388,7 @@ def _validate(
         baseline_metric_value = baseline_metrics[metric_name] if baseline_metrics else None
 
         # If metric is higher is better, >= is used, otherwise <= is used
-        # for thresholding metric value and model comparsion
+        # for thresholding metric value and model comparison
         comparator_fn = operator.__ge__ if metric_threshold.greater_is_better else operator.__le__
         operator_fn = operator.add if metric_threshold.greater_is_better else operator.sub
 
@@ -407,7 +407,7 @@ def _validate(
             continue
 
         if metric_threshold.min_absolute_change is not None:
-            # metric comparsion aboslute change fails
+            # metric comparison absolute change fails
             # - if not (metric_value >= baseline + min_absolute_change) for higher is better
             # - if not (metric_value <= baseline - min_absolute_change) for lower is better
             validation_result.min_absolute_change_failed = not comparator_fn(
@@ -428,7 +428,7 @@ def _validate(
                     Decimal(operator_fn(baseline_metric_value, 1e-10)),
                 )
                 continue
-            # metric comparsion relative change fails
+            # metric comparison relative change fails
             # - if (metric_value - baseline) / baseline < min_relative_change for higher is better
             # - if (baseline - metric_value) / baseline < min_relative_change for lower is better
             if metric_threshold.greater_is_better:

@@ -650,21 +650,21 @@ class _OpenAIWrapper:
             self.template = self.model.get("messages", [])
         else:
             self.template = self.model.get("prompt")
-        self.formater = _ContentFormatter(self.task, self.template)
+        self.formatter = _ContentFormatter(self.task, self.template)
 
     def format_completions(self, params_list):
-        return [self.formater.format(**params) for params in params_list]
+        return [self.formatter.format(**params) for params in params_list]
 
     def get_params_list(self, data):
-        if len(self.formater.variables) == 1:
-            variable = self.formater.variables[0]
+        if len(self.formatter.variables) == 1:
+            variable = self.formatter.variables[0]
             if variable in data.columns:
                 return data[[variable]].to_dict(orient="records")
             else:
                 first_string_column = _first_string_column(data)
                 return [{variable: s} for s in data[first_string_column]]
         else:
-            return data[self.formater.variables].to_dict(orient="records")
+            return data[self.formatter.variables].to_dict(orient="records")
 
     def get_client(self, max_retries: int, timeout: float):
         # with_option method should not be used before v1.3.8: https://github.com/openai/openai-python/issues/865
