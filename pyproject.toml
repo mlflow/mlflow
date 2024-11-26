@@ -306,6 +306,7 @@ extend-ignore-re = [
   # German words/sentences used for testing
   "MLflow ist",
   "Ich habe eine schöne Haufe von Kokos",
+  "Ich bin das Modell eines modernen General",
   # pytorch-lightning
   "lightning",
 ]

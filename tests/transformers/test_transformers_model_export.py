@@ -1449,7 +1449,7 @@ def test_custom_components_pipeline(custom_components_pipeline, model_path):
                 "Once upon a time, there was a little turtle",
             ],
             [
-                "Ich bin das Model eines modernen Generals.",
+                "Ich bin das Modell eines modernen Generals.",
                 "Einmal gab es eine kleine Schildkröte.",
             ],
         ),
