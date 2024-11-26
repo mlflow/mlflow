@@ -337,7 +337,7 @@ class OpenAIProvider(BaseProvider):
             headers=self.headers,
             base_url=self.base_url,
             path="chat/completions",
-            payload=OpenAIAdapter.chat_to_model(payload, self.config),
+            payload=self.adapter_class.chat_to_model(payload, self.config),
         )
 
         async for chunk in handle_incomplete_chunks(stream):
@@ -362,7 +362,7 @@ class OpenAIProvider(BaseProvider):
             headers=self.headers,
             base_url=self.base_url,
             path="chat/completions",
-            payload=OpenAIAdapter.chat_to_model(payload, self.config),
+            payload=self.adapter_class.chat_to_model(payload, self.config),
         )
 
     async def _chat_uc_function(self, payload: chat.RequestPayload) -> chat.ResponsePayload:
@@ -405,7 +405,7 @@ class OpenAIProvider(BaseProvider):
                 headers=self.headers,
                 base_url=self.base_url,
                 path="chat/completions",
-                payload=OpenAIAdapter.chat_to_model(
+                payload=self.adapter_class.chat_to_model(
                     {
                         **payload,
                         "messages": messages,
@@ -442,7 +442,7 @@ class OpenAIProvider(BaseProvider):
                     headers=self.headers,
                     base_url=self.base_url,
                     path="chat/completions",
-                    payload=OpenAIAdapter.chat_to_model(
+                    payload=self.adapter_class.chat_to_model(
                         {
                             **payload,
                             "messages": messages,
@@ -533,7 +533,7 @@ class OpenAIProvider(BaseProvider):
                 headers=self.headers,
                 base_url=self.base_url,
                 path="chat/completions",
-                payload=OpenAIAdapter.chat_to_model(payload, self.config),
+                payload=self.adapter_class.chat_to_model(payload, self.config),
             )
             token_usage_accumulator.update(resp.get("usage", {}))
 
