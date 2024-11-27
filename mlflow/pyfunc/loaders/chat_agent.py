@@ -89,7 +89,7 @@ class _ChatAgentPyfuncWrapper:
             Model predictions in :py:class:`~ChatCompletionResponse` format.
         """
         messages, params = self._convert_input(model_input)
-        response = self.chat_model.predict(self.context, messages, params)
+        response = self.chat_agent.predict(self.context, messages, params)
         return self._response_to_dict(response)
 
     # used for both streaming and non streaming
