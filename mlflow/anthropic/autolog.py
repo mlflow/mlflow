@@ -19,10 +19,7 @@ def construct_full_inputs(func, *args, **kwargs):
     arguments = signature.bind_partial(*args, **kwargs).arguments
 
     if "self" in arguments:
-        self = arguments.pop("self")
-
-        if hasattr(self, "model_name"):
-            arguments["model_name"] = self.model_name
+        arguments.pop("self")
 
     return arguments
 

@@ -50,6 +50,6 @@ def test_messages_autolog():
         client = anthropic.Anthropic(api_key="test_key")
         client.messages.create(**DUMMY_CREATE_MESSAGE_REQUEST)
 
-        # No new trace should be created
-        traces = get_traces()
-        assert len(traces) == 1
+    # No new trace should be created
+    traces = get_traces()
+    assert len(traces) == 1
