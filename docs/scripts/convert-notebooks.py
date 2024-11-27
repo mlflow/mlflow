@@ -69,7 +69,7 @@ def convert_path(nb_path: Path):
         return mdx_path
 
 
-def main():
+def main(): 
     nb_paths = list(SOURCE_DIR.rglob("*.ipynb"))
 
     with multiprocessing.Pool() as pool:
