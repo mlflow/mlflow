@@ -944,11 +944,8 @@ To retrieve a specific trace by its request ID, use the :py:meth:`mlflow.client.
     # Retrieve a trace by request ID
     trace = client.get_trace(request_id="12345678")
 
-Managing Trace Data
--------------------
-
 Deleting Traces
-^^^^^^^^^^^^^^^
+---------------
 
 You can delete traces based on specific criteria using the :py:meth:`mlflow.client.MlflowClient.delete_traces` method. This method allows you to delete traces by **experiment ID**,
 **maximum timestamp**, or **request IDs**.
@@ -969,19 +966,63 @@ You can delete traces based on specific criteria using the :py:meth:`mlflow.clie
         experiment_id="1", max_timestamp_millis=current_time, max_traces=10
     )
 
-Setting and Deleting Trace Tags
+Trace Tags
+----------
+
+Tags can be added to traces to provide additional metadata at the trace level. For example, you can attach a session ID to a trace to group traces by a conversation session. MLflow provides APIs to set and delete tags on traces. Select the right API based on whether you want to set tags on an active trace or on an already finished trace.
+
+
+.. list-table::
+    :header-rows: 1
+
+    * - Use Case
+      - API / Method
+
+    * - Setting Tags on an Active Trace
+      - Use :py:func:`mlflow.update_current_trace` API.
+    * - Setting Tags on a Finished Trace
+      - Use :py:meth:`mlflow.client.MlflowClient.set_trace_tag` API, or update via the MLflow UI.
+
+
+Setting Tags on an Active Trace
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Tags can be added to traces to provide additional metadata. Use the :py:meth:`mlflow.client.MlflowClient.set_trace_tag` method to set a tag on a trace, 
+If you are using automatic tracing or fluent APIs to create traces and want to add tags to the trace during its execution, you can use the :py:func:`mlflow.update_current_trace` function.
+
+For example, the following code example adds the ``"fruit": "apple"`` tag to the trace created for the ``my_func`` function:
+
+.. code-block:: python
+
+    @mlflow.trace
+    def my_func(x):
+        mlflow.update_current_trace(tags={"fruit": "apple"})
+        return x + 1
+
+
+.. note::
+
+    The ::py:func:`mlflow.update_current_trace` function adds the specified tag(s) to the current trace when the key is not already present. If the key is already present, it updates the key with the new value.
+
+
+Setting Tags on a Finished Trace
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+To set tags on a trace that has already been completed and logged in the backend store, use the :py:meth:`mlflow.client.MlflowClient.set_trace_tag` method to set a tag on a trace, 
 and the :py:meth:`mlflow.client.MlflowClient.delete_trace_tag` method to remove a tag from a trace.
 
 .. code-block:: python
 
+    # Get the request ID fof the most recently created trace
+    trace = mlflow.get_last_active_trace()
+    request_id = trace.info.request_id
+
     # Set a tag on a trace
-    client.set_trace_tag(request_id="12345678", key="tag_key", value="tag_value")
+    client.set_trace_tag(request_id=request_id, key="tag_key", value="tag_value")
 
     # Delete a tag from a trace
-    client.delete_trace_tag(request_id="12345678", key="tag_key")
+    client.delete_trace_tag(request_id=request_id, key="tag_key")
+
+Alternatively, you can update or delete tags on a trace from the MLflow UI. To do this, navigate to the trace tab, then click on the pencil icon next to the tag you want to update.
 
 
 Async Logging
@@ -1331,3 +1372,72 @@ There are multiple possible reasons why a trace may not be viewable in the MLflo
 1. **The trace is not completed yet**: If the trace is still being collected, MLflow cannot display spans in the UI. Ensure that all spans are properly ended with either "OK" or "ERROR" status.
 
 2. **The browser cache is outdated**: When you upgrade MLflow to a new version, the browser cache may contain outdated data and prevent the UI from displaying traces correctly. Clear your browser cache (Shift+F5) and refresh the page.
+
+
+Q. How to group multiple traces within a single conversation session?
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+In conversational AI applications, it is common that users interact with the model multiple times within a single conversation session. Since each interaction generates a trace in the typical MLflow setup, it is useful to group these traces together to analyze the conversation as a whole. You can achieve this by attaching the session ID as a **tag** to each trace.
+
+The following example shows how to use session ID in a chat model that has been implemented using the :py:class:`mlflow.pyfunc.ChatModel` class. Refer to the `Trace Tags <#trace-tags>`_ section for more information on how to set tags on traces.
+
+.. code-block:: python
+
+            import mlflow
+            from mlflow.entities import SpanType
+            from mlflow.types.llm import ChatMessage, ChatParams, ChatResponse
+
+            import openai
+            from typing import Optional
+
+            mlflow.set_experiment("Tracing Session ID Demo")
+
+
+            class ChatModelWithSession(mlflow.pyfunc.ChatModel):
+                @mlflow.trace(span_type=SpanType.CHAT_MODEL)
+                def predict(
+                    self, context, messages: list[ChatMessage], params: Optional[ChatParams] = None
+                ) -> ChatResponse:
+                    if session_id := (params.metadata or {}).get("session_id"):
+                        # Set session ID tag on the current trace
+                        mlflow.update_current_trace(tags={"session_id": session_id})
+
+                    response = openai.OpenAI().chat.completions.create(
+                        messages=[m.to_dict() for m in messages],
+                        model="gpt-4o-mini",
+                    )
+
+                    return ChatResponse.from_dict(response.to_dict())
+
+
+            model = ChatModelWithSession()
+
+            # Invoke the chat model multiple times with the same session ID
+            session_id = "123"
+            messages = [ChatMessage(role="user", content="What is MLflow Tracing?")]
+            response = model.predict(
+                None, messages, ChatParams(metadata={"session_id": session_id})
+            )
+
+            # Invoke again with the same session ID
+            messages.append(
+                ChatMessage(role="assistant", content=response.choices[0].message.content)
+            )
+            messages.append(ChatMessage(role="user", content="How to get started?"))
+            response = model.predict(
+                None, messages, ChatParams(metadata={"session_id": session_id})
+            )
+
+The above code creates two new traces with the same session ID tag. Within the MLflow UI, you can search for these traces that have this defined session ID using ``tag.session_id = '123'``.
+
+.. figure:: ../../_static/images/llms/tracing/trace-session-id.png
+    :alt: Traces with session IDs
+    :width: 100%
+    :align: center
+
+
+Alternatively, you can use the :py:func:`mlflow.search_traces` function to get these traces programmatically.
+
+.. code-block:: python
+
+    traces = mlflow.search_traces(filter_string="tag.session_id = '123456'")
