@@ -31,6 +31,11 @@ VS_INDEX_ID_COL = "chunk_id"
 VS_INDEX_DOC_URL_COL = "doc_uri"
 
 
+# Langchain config Keys
+CONFIGURABLE_KEY = "configurable"
+SESSION_ID_KEY = "session_id"
+
+
 class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstractClass):
     """
     Callback for auto-logging traces.
