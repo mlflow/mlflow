@@ -33,6 +33,7 @@ from mlflow.tracing.constant import (
 from mlflow.tracing.export.inference_table import pop_trace
 from mlflow.tracing.fluent import TRACE_BUFFER
 from mlflow.tracing.provider import _get_trace_exporter, _get_tracer
+from mlflow.tracking.default_experiment import DEFAULT_EXPERIMENT_ID
 from mlflow.utils.file_utils import local_file_uri_to_path
 from mlflow.utils.os import is_windows
 
@@ -1134,6 +1135,40 @@ def test_get_last_active_trace():
     trace.info.status = TraceStatus.ERROR
     original_trace = mlflow.MlflowClient().get_trace(trace.info.request_id)
     assert original_trace.info.status == TraceStatus.OK
+
+
+def test_update_current_trace():
+    @mlflow.trace
+    def f(x):
+        mlflow.update_current_trace(tags={"fruit": "apple", "animal": "dog"})
+        return g(x) + 1
+
+    @mlflow.trace
+    def g(y):
+        with mlflow.start_span():
+            mlflow.update_current_trace(tags={"fruit": "orange", "vegetable": "carrot"})
+            return y * 2
+
+    f(1)
+
+    expected_tags = {
+        "animal": "dog",
+        "fruit": "orange",
+        "vegetable": "carrot",
+    }
+
+    # Validate in-memory trace
+    trace = mlflow.get_last_active_trace()
+    assert trace.info.status == "OK"
+    tags = {k: v for k, v in trace.info.tags.items() if not k.startswith("mlflow.")}
+    assert tags == expected_tags
+
+    # Validate backend trace
+    traces = mlflow.MlflowClient().search_traces(experiment_ids=[DEFAULT_EXPERIMENT_ID])
+    assert len(traces) == 1
+    assert traces[0].info.status == "OK"
+    tags = {k: v for k, v in traces[0].info.tags.items() if not k.startswith("mlflow.")}
+    assert tags == expected_tags
 
 
 def test_non_ascii_characters_not_encoded_as_unicode():
