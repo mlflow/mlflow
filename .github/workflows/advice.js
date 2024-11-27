@@ -43,7 +43,7 @@ ${codespacesBadge}
 \`\`\`
 # Use \`%sh\` to run this command on Databricks
 OPTIONS=$(if pip freeze | grep -q 'mlflow @ git+https://github.com/mlflow/mlflow.git'; then echo '--force-reinstall --no-deps'; fi)
-pip install $OPTIONS git+https://github.com/mlflow/mlflow.git@refs/pull/13797/merge
+pip install $OPTIONS git+https://github.com/mlflow/mlflow.git@refs/pull/${issue_number}/merge
 \`\`\`
 
 #### Checkout with GitHub CLI
