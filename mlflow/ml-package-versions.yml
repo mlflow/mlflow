@@ -531,7 +531,7 @@ transformers:
       pip install git+https://github.com/huggingface/transformers
   models:
     minimum: "4.25.1"
-    maximum: "4.46.3"
+    maximum: "4.46.2"
     unsupported: [
         # Avoid this patch: https://github.com/huggingface/transformers/pull/29032
         "4.38.0",
@@ -576,7 +576,7 @@ transformers:
       pytest tests/transformers/test_transformers_model_export.py -k "test_transformers_tf_model_save_without_conda_env_uses_default_env_with_expected_dependencies or test_transformers_pt_model_save_dependencies_without_accelerate"
   autologging:
     minimum: "4.25.1"
-    maximum: "4.46.3"
+    maximum: "4.46.2"
     unsupported: [
         # Avoid this patch: https://github.com/huggingface/transformers/pull/29032
         "4.38.0",
@@ -620,7 +620,7 @@ openai:
       pip install git+https://github.com/openai/openai-python
   models:
     minimum: "1.0.1"
-    maximum: "1.54.5"
+    maximum: "1.54.4"
     requirements:
       ">= 0.0.0": [
           "pyspark",
@@ -635,7 +635,7 @@ openai:
       pytest tests/openai tests/openai/test_openai_model_export.py
   autologging:
     minimum: "1.17.0"
-    maximum: "1.54.5"
+    maximum: "1.54.4"
     python:
       # OpenAI Swarm requires Python >=3.10
       ">= 1.33.0": "3.10"
@@ -663,14 +663,14 @@ dspy:
       pip install git+https://github.com/stanfordnlp/dspy.git
   models:
     minimum: "2.5.6"
-    maximum: "2.5.32"
+    maximum: "2.5.31"
     requirements:
       ">= 0.0.0": ["openai"]
     run: |
       pytest tests/dspy --ignore tests/dspy/test_dspy_autolog.py
   autologging:
     minimum: "2.5.17"
-    maximum: "2.5.32"
+    maximum: "2.5.31"
     requirements:
       ">= 0.0.0": ["openai"]
     run: |
@@ -781,7 +781,7 @@ llama_index:
   models:
     # New event/span framework is fully implemented in 0.10.44
     minimum: "0.10.44"
-    maximum: "0.12.0"
+    maximum: "0.11.23"
     requirements:
       ">= 0.0.0": [
           "openai",
@@ -799,7 +799,7 @@ llama_index:
     run: pytest tests/llama_index --ignore tests/llama_index/test_llama_index_autolog.py --ignore tests/llama_index/test_llama_index_tracer.py
   autologging:
     minimum: "0.10.44"
-    maximum: "0.12.0"
+    maximum: "0.11.23"
     requirements:
       ">= 0.0.0": [
           "openai",
@@ -861,7 +861,7 @@ sentence_transformers:
       pip install git+https://github.com/UKPLab/sentence-transformers#egg=sentence-transformers
   models:
     minimum: "2.2.2"
-    maximum: "3.3.1"
+    maximum: "3.3.0"
     requirements:
       ">= 0.0.0": [
           "pyspark",
@@ -914,7 +914,7 @@ litellm:
       pip install git+https://github.com/BerriAI/litellm.git
   autologging:
     minimum: "1.52.9"
-    maximum: "1.52.11"
+    maximum: "1.52.9"
     requirements:
       ">= 0.0.0": [
           "openai",
