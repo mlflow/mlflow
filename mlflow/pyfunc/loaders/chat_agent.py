@@ -15,12 +15,8 @@ from mlflow.utils.annotations import experimental
 
 
 def _load_pyfunc(model_path: str, model_config: Optional[dict[str, Any]] = None):
-    context, chat_model, signature = _load_context_model_and_signature(
-        model_path, model_config
-    )
-    return _ChatAgentPyfuncWrapper(
-        chat_model=chat_model, context=context, signature=signature
-    )
+    context, chat_model, signature = _load_context_model_and_signature(model_path, model_config)
+    return _ChatAgentPyfuncWrapper(chat_model=chat_model, context=context, signature=signature)
 
 
 @experimental
@@ -65,8 +61,7 @@ class _ChatAgentPyfuncWrapper:
             )
 
         messages = [
-            ChatAgentMessage.from_dict(message)
-            for message in dict_input.pop("messages", [])
+            ChatAgentMessage.from_dict(message) for message in dict_input.pop("messages", [])
         ]
         params = ChatAgentParams.from_dict(dict_input)
         return messages, params

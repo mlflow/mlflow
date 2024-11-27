@@ -1847,8 +1847,7 @@ def build_model_env(model_uri, save_path):
     os.makedirs(save_path, exist_ok=True)
 
     local_model_path = _download_artifact_from_uri(
-        artifact_uri=model_uri,
-        output_path=_create_model_downloading_tmp_dir(should_use_nfs=False),
+        artifact_uri=model_uri, output_path=_create_model_downloading_tmp_dir(should_use_nfs=False)
     )
     archive_name = _gen_prebuilt_env_archive_name(_get_active_spark_session(), local_model_path)
     dest_path = os.path.join(save_path, archive_name + ".tar.gz")
@@ -3007,7 +3006,6 @@ def save_model(
                     "`from_dict()`, e.g. `ChatAgentResponse.from_dict(output)`",
                 )
         elif isinstance(python_model, PythonModel):
-            _logger.info("inside of pythonmodel")
             saved_example = _save_example(mlflow_model, input_example, path, example_no_conversion)
             input_arg_index = 1  # second argument
             if signature := _infer_signature_from_type_hints(
@@ -3062,7 +3060,6 @@ def save_model(
             infer_code_paths=infer_code_paths,
         )
     elif second_argument_set_specified:
-        _logger.info("second argument set specified")
         return mlflow.pyfunc.model._save_model_with_class_artifacts_params(
             path=path,
             signature=signature,
