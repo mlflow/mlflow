@@ -277,7 +277,11 @@ class EvaluationDataset:
             # add checking `'pyspark' in sys.modules` to avoid importing pyspark when user
             # run code not related to pyspark.
             if "pyspark" in sys.modules:
-                from pyspark.sql import DataFrame as SparkDataFrame
+                from mlflow.utils.spark_utils import is_spark_connect_mode
+                if is_spark_connect_mode():
+                    from pyspark.sql.connect.dataframe import DataFrame as SparkDataFrame
+                else:
+                    from pyspark.sql import DataFrame as SparkDataFrame
 
                 self._supported_dataframe_types = (pd.DataFrame, SparkDataFrame)
                 self._spark_df_type = SparkDataFrame
