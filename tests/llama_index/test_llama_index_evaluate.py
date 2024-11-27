@@ -16,17 +16,12 @@ _EVAL_DATA = pd.DataFrame(
             "What is MLflow?",
             "What is Spark?",
         ],
-        "ground_truth": ["What is MLflow?", "Not what is Spark?"],
+        "ground_truth": [
+            "MLflow is an open-source platform to manage the ML lifecycle.",
+            "Spark is a unified analytics engine for big data processing.",
+        ],
     }
 )
-
-
-@pytest.fixture(autouse=True)
-def reset_autolog_state():
-    # Autologging state is global, so we need to reset it between tests
-    mlflow.llama_index.autolog(disable=True)
-    # Reset the fact that it is 'disabled'
-    del mlflow.utils.autologging_utils.AUTOLOGGING_INTEGRATIONS["llama_index"]
 
 
 @pytest.mark.parametrize(
@@ -68,18 +63,15 @@ def test_llama_index_evaluate(single_index, original_autolog_config):
 
 @pytest.mark.parametrize("engine_type", ["query", "chat"])
 def test_llama_index_pyfunc_evaluate(engine_type, single_index):
-    with mlflow.start_run():
+    with mlflow.start_run() as run:
         model_info = mlflow.llama_index.log_model(
             single_index,
             "llama_index",
             engine_type=engine_type,
         )
 
-    pyfunc_model = mlflow.pyfunc.load_model(model_info.model_uri)
-
-    with mlflow.start_run() as run:
         eval_result = mlflow.evaluate(
-            pyfunc_model,
+            model_info.model_uri,
             data=_EVAL_DATA,
             targets="ground_truth",
             extra_metrics=[latency()],
@@ -94,6 +86,7 @@ def test_llama_index_pyfunc_evaluate(engine_type, single_index):
 
 def test_llama_index_evaluate_should_not_log_traces_when_disabled(single_index):
     mlflow.llama_index.autolog(disable=True)
+    mlflow.openai.autolog(disable=True)  # Our model contains OpenAI call as well
 
     def model(inputs):
         engine = single_index.as_query_engine()

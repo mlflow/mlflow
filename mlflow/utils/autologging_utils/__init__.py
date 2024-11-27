@@ -578,8 +578,11 @@ def enable_tracing_and_disable_other_autologging():
             if original_config:
                 autolog(**original_config)
             else:
-                # If the original configuration is empty, autologging was not enabled before so we disable it.
+                # If the original configuration is empty, autologging was not enabled before so we disable
                 autolog(disable=True)
+                # We also need to remove the configuration entry from AUTOLOGGING_INTEGRATIONS, so as not
+                # to confuse with the case user explicitly disabled autologging.
+                del AUTOLOGGING_INTEGRATIONS[flavor]
 
 
 def _get_autolog_function(flavor_name: str):

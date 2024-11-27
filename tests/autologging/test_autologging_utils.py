@@ -17,6 +17,7 @@ from mlflow.utils.autologging_utils import (
     autologging_integration,
     autologging_is_disabled,
     batch_metrics_logger,
+    enable_tracing_and_disable_other_autologging,
     get_autologging_config,
     get_instance_method_first_arg_value,
     get_method_call_arg_value,
@@ -867,3 +868,35 @@ def test_get_method_call_arg_value():
     assert get_method_call_arg_value(1, "b", 3, [1, 2], {}) == 2
     assert get_method_call_arg_value(1, "b", 3, [1], {}) == 3
     assert get_method_call_arg_value(1, "b", 3, [1], {"b": 2}) == 2
+
+
+@pytest.mark.parametrize(
+    "original_autolog_config",
+    {
+        "openai": {"disable": True},
+
+    }
+)
+def test_enable_tracing_and_disable_other_autologging(monkeypatch):
+    monkeypatch.setenv("OPENAI_API_KEY", "fake-key")
+
+    mlflow.openai.autolog()
+    mlflow.langchain.autolog()
+    mlflow.llama_index.autolog()
+    mlflow.sklearn.autolog()
+    mlflow.transformers.autolog()
+
+    original_config = AUTOLOGGING_INTEGRATIONS.copy()
+
+    # Dummy LangChain model
+    from langchain_core.output_parsers import StrOutputParser
+
+    prompt = PromptTemplate(
+        input_variables=["product"],
+        template="What is {product}?",
+    )
+    return prompt | ChatOpenAI(temperature=0.9) | StrOutputParser()
+
+
+    with enable_tracing_and_disable_other_autologging():
+        

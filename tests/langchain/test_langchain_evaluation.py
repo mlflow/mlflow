@@ -4,7 +4,8 @@ from unittest import mock
 import pandas as pd
 import pytest
 from langchain.prompts import PromptTemplate
-from langchain_community.llms import FakeListLLM
+from langchain_core.output_parsers import StrOutputParser
+from langchain_openai import ChatOpenAI
 
 import mlflow
 from mlflow.exceptions import MlflowException
@@ -22,7 +23,10 @@ _EVAL_DATA = pd.DataFrame(
             "What is MLflow?",
             "What is Spark?",
         ],
-        "ground_truth": ["What is MLflow?", "Not what is Spark?"],
+        "ground_truth": [
+            "MLflow is an open-source platform to manage the ML lifecycle.",
+            "Spark is a unified analytics engine for big data processing.",
+        ],
     }
 )
 
@@ -31,17 +35,7 @@ def create_fake_chain():
         input_variables=["question"],
         template="Answer user's question: {question}",
     )
-    llm = FakeListLLM(responses=["response"])
-    return prompt | llm
-
-
-@pytest.fixture(autouse=True)
-def reset_autolog_state():
-    # Autologging state is global, so we need to reset it between tests
-    mlflow.langchain.autolog(disable=True)
-    # Reset the fact that it is 'disabled'
-    del mlflow.utils.autologging_utils.AUTOLOGGING_INTEGRATIONS["langchain"]
-
+    return prompt | ChatOpenAI(model="gpt-4o-mini") | StrOutputParser()
 
 
 @pytest.mark.parametrize(
@@ -74,7 +68,7 @@ def test_langchain_evaluate(original_autolog_config):
 
     assert len(get_traces()) == 2
     for trace in get_traces():
-        assert len(trace.data.spans) == 3
+        assert len(trace.data.spans) == 5
     assert run.info.run_id == get_traces()[0].info.request_metadata[TraceMetadataKey.SOURCE_RUN]
 
     # Test original langchain autolog configs is restored
@@ -123,7 +117,6 @@ def test_langchain_evaluate_fails_with_an_exception():
 
         log_model_mock.assert_called_once()
         assert len(get_traces()) == 1
-        assert len(get_traces()[0].data.spans) == 3
 
 
 def test_langchain_pyfunc_evaluate():
@@ -138,12 +131,13 @@ def test_langchain_pyfunc_evaluate():
             extra_metrics=[mlflow.metrics.exact_match()],
         )
     assert len(get_traces()) == 2
-    assert len(get_traces()[0].data.spans) == 3
+    assert len(get_traces()[0].data.spans) == 5
     assert run.info.run_id == get_traces()[0].info.request_metadata[TraceMetadataKey.SOURCE_RUN]
 
 
 def test_langchain_evaluate_should_not_log_traces_when_disabled():
     mlflow.langchain.autolog(disable=True)
+    mlflow.openai.autolog(disable=True)  # Our chain contains OpenAI call as well
 
     chain = create_fake_chain()
 

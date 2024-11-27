@@ -30,6 +30,8 @@ def autolog(
             autologging. If ``False``, show all events and warnings.
     """
     import litellm
+    # Importing here so we only patch when the LiteLLM version supports MLflow integration.
+    from litellm.integrations.mlflow import MlflowLogger  # noqa: F401
 
     # NB: The @autologging_integration annotation is used for adding shared logic. However,
     # the wrapped function is NOT executed when disable=True is passed. As a workaround,
