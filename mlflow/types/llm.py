@@ -159,7 +159,7 @@ class ToolCall(_BaseDataclass):
     Args:
         function (:py:class:`FunctionToolCallArguments`): The arguments of the function tool call.
         id (str): The ID of the tool call. Defaults to a random UUID.
-        type (str): The type of the object.
+        type (str): The type of the object. Defaults to "function".
     """
 
     function: FunctionToolCallArguments
