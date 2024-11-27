@@ -681,7 +681,7 @@ to evaluate inputs.
 :::note
 You can save Spark models in MLflow format with the `mleap` flavor by specifying the
 `sample_input` argument of the <APILink fn="mlflow.spark.save_model" />
-or <APILink fn="mlflow.spark.log_model" /> method (recommended). For more details see [Spark MLlib](#model-spark).
+or <APILink fn="mlflow.spark.log_model" /> method (recommended). For more details see [Spark MLlib](#spark-mllib-spark).
 :::
 
 The <APILink fn="mlflow.mleap">mlflow.mleap</APILink> module also
@@ -809,7 +809,7 @@ predictions = sklearn_pyfunc.predict(data)
 
 For more information, see <APILink fn="mlflow.sklearn">mlflow.sklearn</APILink>.
 
-### Spark MLlib (`spark`) \{#model-spark}
+### Spark MLlib (`spark`)
 
 The `spark` model flavor enables exporting Spark MLlib models as MLflow Models.
 
