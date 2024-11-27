@@ -50,6 +50,7 @@ def add_custom_component_imports(
 ) -> str:
     return f"""import {{ NotebookCodeCell }} from "@site/src/components/NotebookCodeCell"
 import {{ NotebookCellOutput }} from "@site/src/components/NotebookCellOutput"
+import {{ NotebookHTMLOutput }} from "@site/src/components/NotebookHTMLOutput"
 
 {body}
 """

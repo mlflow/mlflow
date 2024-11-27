@@ -25,9 +25,9 @@
 {%- endblock data_text -%}
 
 {%- block data_html scoped -%}
-<NotebookCellOutput>
-{`{{ output.data['text/html'] | safe }}`}
-</NotebookCellOutput>{{ "\n" }}
+<NotebookHTMLOutput>
+  <div dangerouslySetInnerHTML={% raw %}{{{% endraw %} __html: `{{ output.data['text/html'] | safe }}`{% raw %}}}{% endraw %} />
+</NotebookHTMLOutput>{{ "\n" }}
 {%- endblock data_html -%}
 
 {%- block data_jpg scoped -%}
