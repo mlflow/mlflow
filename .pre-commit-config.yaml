@@ -140,7 +140,7 @@ repos:
 
       - id: typos
         name: typos
-        entry: typos --format brief --force-exclude --color never
+        entry: dev/typos.sh
         # TODO: Add more file types
         files: '\.py$'
         language: system
