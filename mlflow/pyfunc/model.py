@@ -27,13 +27,13 @@ from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.pyfunc.utils.input_converter import _hydrate_dataclass
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.types.llm import (
+    ChatAgentMessage,
     ChatAgentParams,
-    ChatMessage,
-    ChatParams,
+    ChatAgentResponse,
     ChatCompletionChunk,
     ChatCompletionResponse,
-    ChatAgentMessage,
-    ChatAgentResponse,
+    ChatMessage,
+    ChatParams,
 )
 from mlflow.types.utils import _is_list_dict_str, _is_list_str
 from mlflow.utils.annotations import experimental
@@ -136,9 +136,7 @@ class PythonModel:
             params: Additional parameters to pass to the model for inference.
         """
 
-    def predict_stream(
-        self, context, model_input, params: Optional[dict[str, Any]] = None
-    ):
+    def predict_stream(self, context, model_input, params: Optional[dict[str, Any]] = None):
         """
         Evaluates a pyfunc-compatible input and produces an iterator of output.
         For more information about the pyfunc input API, see the :ref:`pyfunc-inference-api`.
@@ -488,9 +486,7 @@ def _save_model_with_class_artifacts_params(  # noqa: D417
                             f"{artifact_uri}. Error: {e}"
                         )
                     saved_artifact_subpath = (
-                        Path(snapshot_location)
-                        .relative_to(Path(os.path.realpath(path)))
-                        .as_posix()
+                        Path(snapshot_location).relative_to(Path(os.path.realpath(path))).as_posix()
                     )
                 else:
                     tmp_artifact_path = _download_artifact_from_uri(
@@ -552,9 +548,7 @@ def _save_model_with_class_artifacts_params(  # noqa: D417
         infer_code_paths,
         mlflow.pyfunc.FLAVOR_NAME,
     )
-    mlflow_model.flavors[mlflow.pyfunc.FLAVOR_NAME][mlflow.pyfunc.CODE] = (
-        saved_code_subpath
-    )
+    mlflow_model.flavors[mlflow.pyfunc.FLAVOR_NAME][mlflow.pyfunc.CODE] = saved_code_subpath
 
     # `mlflow_model.code` is updated, re-generate `MLmodel` file.
     mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
@@ -603,17 +597,13 @@ def _load_context_model_and_signature(
 
     if MODEL_CODE_PATH in pyfunc_config:
         conf_model_code_path = pyfunc_config.get(MODEL_CODE_PATH)
-        model_code_path = os.path.join(
-            model_path, os.path.basename(conf_model_code_path)
-        )
+        model_code_path = os.path.join(model_path, os.path.basename(conf_model_code_path))
         python_model = _load_model_code_path(model_code_path, model_config)
 
         if callable(python_model):
             python_model = _FunctionPythonModel(python_model, signature=signature)
     else:
-        python_model_cloudpickle_version = pyfunc_config.get(
-            CONFIG_KEY_CLOUDPICKLE_VERSION, None
-        )
+        python_model_cloudpickle_version = pyfunc_config.get(CONFIG_KEY_CLOUDPICKLE_VERSION, None)
         if python_model_cloudpickle_version is None:
             mlflow.pyfunc._logger.warning(
                 "The version of CloudPickle used to save the model could not be found in the "
@@ -633,9 +623,7 @@ def _load_context_model_and_signature(
 
         python_model_subpath = pyfunc_config.get(CONFIG_KEY_PYTHON_MODEL, None)
         if python_model_subpath is None:
-            raise MlflowException(
-                "Python model path was not specified in the model configuration"
-            )
+            raise MlflowException("Python model path was not specified in the model configuration")
         with open(os.path.join(model_path, python_model_subpath), "rb") as f:
             python_model = cloudpickle.load(f)
 
@@ -654,9 +642,7 @@ def _load_context_model_and_signature(
 
 
 def _load_pyfunc(model_path: str, model_config: Optional[dict[str, Any]] = None):
-    context, python_model, signature = _load_context_model_and_signature(
-        model_path, model_config
-    )
+    context, python_model, signature = _load_context_model_and_signature(model_path, model_config)
     return _PythonModelPyfuncWrapper(
         python_model=python_model,
         context=context,
@@ -665,9 +651,7 @@ def _load_pyfunc(model_path: str, model_config: Optional[dict[str, Any]] = None)
 
 
 def _get_first_string_column(pdf):
-    iter_string_columns = (
-        col for col, val in pdf.iloc[0].items() if isinstance(val, str)
-    )
+    iter_string_columns = (col for col, val in pdf.iloc[0].items() if isinstance(val, str))
     return next(iter_string_columns, None)
 
 
@@ -716,9 +700,7 @@ class _PythonModelPyfuncWrapper:
                     return model_input[[first_string_column]].to_dict(orient="records")
                 columns = [x.name for x in self.signature.inputs]
                 return model_input[columns].to_dict(orient="records")
-            elif isinstance(model_input, list) and all(
-                isinstance(x, dict) for x in model_input
-            ):
+            elif isinstance(model_input, list) and all(isinstance(x, dict) for x in model_input):
                 keys = [x.name for x in self.signature.inputs]
                 return [{k: d[k] for k in keys} for d in model_input]
         elif isinstance(hints.input, type) and (
@@ -767,9 +749,7 @@ class _PythonModelPyfuncWrapper:
                 self.context, self._convert_input(model_input), params=params
             )
         _log_warning_if_params_not_in_predict_signature(_logger, params)
-        return self.python_model.predict_stream(
-            self.context, self._convert_input(model_input)
-        )
+        return self.python_model.predict_stream(self.context, self._convert_input(model_input))
 
 
 def _get_pyfunc_loader_module(python_model):
@@ -818,9 +798,7 @@ class ModelFromDeploymentEndpoint(PythonModel):
         """
         if isinstance(model_input, dict):
             return self._predict_single(model_input)
-        elif isinstance(model_input, list) and all(
-            isinstance(data, dict) for data in model_input
-        ):
+        elif isinstance(model_input, list) and all(isinstance(data, dict) for data in model_input):
             return [self._predict_single(data) for data in model_input]
         elif isinstance(model_input, pd.DataFrame):
             if len(model_input.columns) != 1:
@@ -832,9 +810,7 @@ class ModelFromDeploymentEndpoint(PythonModel):
                 )
             input_column = model_input.columns[0]
 
-            predictions = [
-                self._predict_single(data) for data in model_input[input_column]
-            ]
+            predictions = [self._predict_single(data) for data in model_input[input_column]]
             return pd.Series(predictions)
         else:
             raise MlflowException(
@@ -868,15 +844,11 @@ class ModelFromDeploymentEndpoint(PythonModel):
             # payload based on the endpoint type. If the endpoint type is not
             # set on the endpoint, we will default to chat format.
             endpoint_type = endpoint_type or "llm/v1/chat"
-            prediction = call_deployments_api(
-                self.endpoint, data, self.params, endpoint_type
-            )
+            prediction = call_deployments_api(self.endpoint, data, self.params, endpoint_type)
         elif isinstance(data, dict):
             # If the input is dictionary, we assume the input is already in the
             # compatible format for the endpoint.
-            prediction = call_deployments_api(
-                self.endpoint, data, self.params, endpoint_type
-            )
+            prediction = call_deployments_api(self.endpoint, data, self.params, endpoint_type)
         else:
             raise MlflowException(
                 f"Invalid input data type: {type(data)}. The feature column of the evaluation "

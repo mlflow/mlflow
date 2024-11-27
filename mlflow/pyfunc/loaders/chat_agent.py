@@ -10,10 +10,6 @@ from mlflow.types.llm import (
     ChatAgentMessage,
     ChatAgentParams,
     ChatAgentResponse,
-    ChatCompletionChunk,
-    ChatCompletionResponse,
-    ChatMessage,
-    ChatParams,
 )
 from mlflow.utils.annotations import experimental
 

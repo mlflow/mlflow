@@ -496,18 +496,18 @@ from mlflow.tracing.utils import _try_get_prediction_context
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.types.llm import (
+    CHAT_AGENT_INPUT_EXAMPLE,
+    CHAT_AGENT_INPUT_SCHEMA,
+    CHAT_AGENT_OUTPUT_SCHEMA,
     CHAT_MODEL_INPUT_EXAMPLE,
     CHAT_MODEL_INPUT_SCHEMA,
     CHAT_MODEL_OUTPUT_SCHEMA,
-    CHAT_AGENT_INPUT_SCHEMA,
-    CHAT_AGENT_OUTPUT_SCHEMA,
-    CHAT_AGENT_INPUT_EXAMPLE,
+    ChatAgentMessage,
+    ChatAgentParams,
+    ChatAgentResponse,
     ChatCompletionResponse,
     ChatMessage,
     ChatParams,
-    ChatAgentParams,
-    ChatAgentMessage,
-    ChatAgentResponse,
 )
 from mlflow.utils import (
     PYTHON_VERSION,
@@ -666,9 +666,7 @@ def _load_model_env(path):
     Returned value is a model-relative path to a Conda Environment file,
     or None if none was specified at model save time
     """
-    return _get_flavor_configuration(model_path=path, flavor_name=FLAVOR_NAME).get(
-        ENV, None
-    )
+    return _get_flavor_configuration(model_path=path, flavor_name=FLAVOR_NAME).get(ENV, None)
 
 
 def _validate_params(params, model_metadata):
@@ -684,9 +682,7 @@ def _validate_params(params, model_metadata):
     return
 
 
-def _validate_prediction_input(
-    data: PyFuncInput, params, input_schema, params_schema, flavor=None
-):
+def _validate_prediction_input(data: PyFuncInput, params, input_schema, params_schema, flavor=None):
     """
     Internal helper function to transform and validate input data and params for prediction.
     Any additional transformation logics related to input data and params should be added here.
@@ -733,9 +729,7 @@ class PyFuncModel:
         predict_stream_fn: Optional[str] = None,
     ):
         if not hasattr(model_impl, predict_fn):
-            raise MlflowException(
-                f"Model implementation is missing required {predict_fn} method."
-            )
+            raise MlflowException(f"Model implementation is missing required {predict_fn} method.")
         if not model_meta:
             raise MlflowException("Model is missing metadata.")
         self._model_meta = model_meta
@@ -769,17 +763,13 @@ class PyFuncModel:
         with set_prediction_context(context):
             yield context
 
-    def predict(
-        self, data: PyFuncInput, params: Optional[dict[str, Any]] = None
-    ) -> PyFuncOutput:
+    def predict(self, data: PyFuncInput, params: Optional[dict[str, Any]] = None) -> PyFuncOutput:
         with self._try_get_or_generate_prediction_context() as context:
             if schema := _get_dependencies_schema_from_model(self._model_meta):
                 context.update(**schema)
             return self._predict(data, params)
 
-    def _predict(
-        self, data: PyFuncInput, params: Optional[dict[str, Any]] = None
-    ) -> PyFuncOutput:
+    def _predict(self, data: PyFuncInput, params: Optional[dict[str, Any]] = None) -> PyFuncOutput:
         """
         Generates model predictions.
 
@@ -925,9 +915,7 @@ class PyFuncModel:
             if python_model is None:
                 raise AttributeError("Expected python_model attribute not to be None.")
         except AttributeError as e:
-            raise MlflowException(
-                "Unable to retrieve base model object from pyfunc."
-            ) from e
+            raise MlflowException("Unable to retrieve base model object from pyfunc.") from e
         return python_model
 
     def __eq__(self, other):
@@ -959,10 +947,7 @@ class PyFuncModel:
     def __repr__(self):
         info = {}
         if self._model_meta is not None:
-            if (
-                hasattr(self._model_meta, "run_id")
-                and self._model_meta.run_id is not None
-            ):
+            if hasattr(self._model_meta, "run_id") and self._model_meta.run_id is not None:
                 info["run_id"] = self._model_meta.run_id
             if (
                 hasattr(self._model_meta, "artifact_path")
@@ -970,9 +955,7 @@ class PyFuncModel:
             ):
                 info["artifact_path"] = self._model_meta.artifact_path
             info["flavor"] = self._model_meta.flavors[FLAVOR_NAME]["loader_module"]
-        return yaml.safe_dump(
-            {"mlflow.pyfunc.loaded_model": info}, default_flow_style=False
-        )
+        return yaml.safe_dump({"mlflow.pyfunc.loaded_model": info}, default_flow_style=False)
 
     @experimental
     def get_raw_model(self):
@@ -981,9 +964,7 @@ class PyFuncModel:
         """
         if hasattr(self._model_impl, "get_raw_model"):
             return self._model_impl.get_raw_model()
-        raise NotImplementedError(
-            "`get_raw_model` is not implemented by the underlying model"
-        )
+        raise NotImplementedError("`get_raw_model` is not implemented by the underlying model")
 
 
 def _get_pip_requirements_from_model_path(model_path: str):
@@ -991,9 +972,7 @@ def _get_pip_requirements_from_model_path(model_path: str):
     if not os.path.exists(req_file_path):
         return []
 
-    return [
-        req.req_str for req in _parse_requirements(req_file_path, is_constraint=False)
-    ]
+    return [req.req_str for req in _parse_requirements(req_file_path, is_constraint=False)]
 
 
 @trace_disabled  # Suppress traces while loading model
@@ -1048,15 +1027,11 @@ def load_model(
             notebook_entity = Notebook(id=notebook_id)
             entity_list.append(Entity(notebook=notebook_entity))
 
-        if databricks_utils.is_in_databricks_job() and (
-            job_id := databricks_utils.get_job_id()
-        ):
+        if databricks_utils.is_in_databricks_job() and (job_id := databricks_utils.get_job_id()):
             job_entity = Job(id=job_id)
             entity_list.append(Entity(job=job_entity))
 
-        lineage_header_info = (
-            LineageHeaderInfo(entities=entity_list) if entity_list else None
-        )
+        lineage_header_info = LineageHeaderInfo(entities=entity_list) if entity_list else None
 
     local_path = _download_artifact_from_uri(
         artifact_uri=model_uri,
@@ -1078,9 +1053,7 @@ def load_model(
         )
     model_py_version = conf.get(PY_VERSION)
     if not suppress_warnings:
-        _warn_potentially_incompatible_py_version_if_necessary(
-            model_py_version=model_py_version
-        )
+        _warn_potentially_incompatible_py_version_if_necessary(model_py_version=model_py_version)
 
     _add_code_from_conf_to_system_path(local_path, conf, code_key=CODE)
     data_path = os.path.join(local_path, conf[DATA]) if (DATA in conf) else local_path
@@ -1094,9 +1067,7 @@ def load_model(
 
     try:
         if model_config:
-            model_impl = importlib.import_module(conf[MAIN])._load_pyfunc(
-                data_path, model_config
-            )
+            model_impl = importlib.import_module(conf[MAIN])._load_pyfunc(data_path, model_config)
         else:
             model_impl = importlib.import_module(conf[MAIN])._load_pyfunc(data_path)
     except ModuleNotFoundError as e:
@@ -1105,9 +1076,7 @@ def load_model(
         # module might be "databricks", "databricks.feature_store" or full package. So we will
         # raise the error with the following note if "databricks" presents in the error. All non-
         # databricks moduel errors will just be re-raised.
-        if conf[MAIN] == _DATABRICKS_FS_LOADER_MODULE and e.name.startswith(
-            "databricks"
-        ):
+        if conf[MAIN] == _DATABRICKS_FS_LOADER_MODULE and e.name.startswith("databricks"):
             raise MlflowException(
                 f"{e.msg}; "
                 "Note: mlflow.pyfunc.load_model is not supported for Feature Store models. "
@@ -1122,9 +1091,7 @@ def load_model(
         _clear_dependencies_schemas()
     predict_fn = conf.get("predict_fn", "predict")
     streamable = conf.get("streamable", False)
-    predict_stream_fn = (
-        conf.get("predict_stream_fn", "predict_stream") if streamable else None
-    )
+    predict_stream_fn = conf.get("predict_stream_fn", "predict_stream") if streamable else None
 
     return PyFuncModel(
         model_meta=model_meta,
@@ -1135,9 +1102,7 @@ def load_model(
 
 
 class _ServedPyFuncModel(PyFuncModel):
-    def __init__(
-        self, model_meta: Model, client: Any, server_pid: int, env_manager="local"
-    ):
+    def __init__(self, model_meta: Model, client: Any, server_pid: int, env_manager="local"):
         super().__init__(model_meta=model_meta, model_impl=client, predict_fn="invoke")
         self._client = client
         self._server_pid = server_pid
@@ -1221,9 +1186,7 @@ def _load_model_or_server(
     # Set capture_output to True in Databricks so that when environment preparation fails, the
     # exception message of the notebook cell output will include child process command execution
     # stdout/stderr output.
-    pyfunc_backend.prepare_env(
-        model_uri=local_path, capture_output=is_in_databricks_runtime()
-    )
+    pyfunc_backend.prepare_env(model_uri=local_path, capture_output=is_in_databricks_runtime())
     if is_port_connectable:
         server_port = find_free_port()
         scoring_server_proc = pyfunc_backend.serve(
@@ -1239,9 +1202,7 @@ def _load_model_or_server(
         )
         client = ScoringServerClient("127.0.0.1", server_port)
     else:
-        scoring_server_proc = pyfunc_backend.serve_stdin(
-            local_path, model_config=model_config
-        )
+        scoring_server_proc = pyfunc_backend.serve_stdin(local_path, model_config=model_config)
         client = StdinScoringServerClient(scoring_server_proc)
 
     _logger.info(f"Scoring server process started at PID: {scoring_server_proc.pid}")
@@ -1399,9 +1360,7 @@ def _warn_potentially_incompatible_py_version_if_necessary(model_py_version=None
             " incompatible with the version of Python that is currently running: Python %s",
             PYTHON_VERSION,
         )
-    elif get_major_minor_py_version(model_py_version) != get_major_minor_py_version(
-        PYTHON_VERSION
-    ):
+    elif get_major_minor_py_version(model_py_version) != get_major_minor_py_version(PYTHON_VERSION):
         _logger.warning(
             "The version of Python that the model was saved in, `Python %s`, differs"
             " from the version of Python that is currently running, `Python %s`,"
@@ -1412,9 +1371,7 @@ def _warn_potentially_incompatible_py_version_if_necessary(model_py_version=None
 
 
 def _create_model_downloading_tmp_dir(should_use_nfs):
-    root_tmp_dir = (
-        get_or_create_nfs_tmp_dir() if should_use_nfs else get_or_create_tmp_dir()
-    )
+    root_tmp_dir = get_or_create_nfs_tmp_dir() if should_use_nfs else get_or_create_tmp_dir()
 
     root_model_cache_dir = os.path.join(root_tmp_dir, "models")
     os.makedirs(root_model_cache_dir, exist_ok=True)
@@ -1495,9 +1452,7 @@ def _infer_spark_udf_return_type(model_output_schema):
 
     return StructType(
         [
-            StructField(
-                name=spec.name or str(i), dataType=_cast_output_spec_to_spark_type(spec)
-            )
+            StructField(name=spec.name or str(i), dataType=_cast_output_spec_to_spark_type(spec))
             for i, spec in enumerate(model_output_schema.inputs)
         ]
     )
@@ -1603,9 +1558,7 @@ def _check_udf_return_struct_type(struct_type):
         ):
             continue
 
-        if isinstance(field_type, StructType) and _check_udf_return_struct_type(
-            field_type
-        ):
+        if isinstance(field_type, StructType) and _check_udf_return_struct_type(field_type):
             continue
 
         return False
@@ -1691,8 +1644,7 @@ def _convert_struct_values(
         elif isinstance(field_type, ArrayType):
             if is_pandas_df:
                 field_values = pandas.Series(
-                    _convert_array_values(field_value, field_type)
-                    for field_value in field_values
+                    _convert_array_values(field_value, field_type) for field_value in field_values
                 )
             else:
                 field_values = _convert_array_values(field_values, field_type)
@@ -1745,9 +1697,9 @@ def _gen_prebuilt_env_archive_name(spark, local_model_path):
 def _verify_prebuilt_env(spark, local_model_path, env_archive_path):
     # Use `[:-7]` to truncate ".tar.gz" in the end
     archive_name = os.path.basename(env_archive_path)[:-7]
-    prebuilt_env_sha, prebuilt_runtime_version, prebuilt_platform_machine = (
-        archive_name.split("-")[-3:]
-    )
+    prebuilt_env_sha, prebuilt_runtime_version, prebuilt_platform_machine = archive_name.split("-")[
+        -3:
+    ]
 
     python_env = _get_python_env(Path(local_model_path))
     env_sha = _get_virtualenv_name(python_env, local_model_path).split("-")[-1]
@@ -1809,9 +1761,7 @@ def _download_prebuilt_env_if_needed(prebuilt_env_uri):
         model_env_uc_path = parsed_url.path
 
         # download file from DBFS.
-        local_model_env_path = os.path.join(
-            tmp_dir, os.path.basename(model_env_uc_path)
-        )
+        local_model_env_path = os.path.join(tmp_dir, os.path.basename(model_env_uc_path))
         if os.path.exists(local_model_env_path):
             # file is already downloaded.
             return local_model_env_path
@@ -1890,9 +1840,7 @@ def build_model_env(model_uri, save_path):
     from mlflow.utils._spark_utils import _get_active_spark_session
 
     if not is_in_databricks_runtime():
-        raise RuntimeError(
-            "'build_model_env' only support running in Databricks runtime."
-        )
+        raise RuntimeError("'build_model_env' only support running in Databricks runtime.")
 
     if os.path.isfile(save_path):
         raise RuntimeError(f"The saving path '{save_path}' must be a directory.")
@@ -1902,9 +1850,7 @@ def build_model_env(model_uri, save_path):
         artifact_uri=model_uri,
         output_path=_create_model_downloading_tmp_dir(should_use_nfs=False),
     )
-    archive_name = _gen_prebuilt_env_archive_name(
-        _get_active_spark_session(), local_model_path
-    )
+    archive_name = _gen_prebuilt_env_archive_name(_get_active_spark_session(), local_model_path)
     dest_path = os.path.join(save_path, archive_name + ".tar.gz")
     if os.path.exists(dest_path):
         raise RuntimeError(
@@ -2142,11 +2088,7 @@ def spark_udf(
             "environment."
         )
 
-    if (
-        prebuilt_env_uri is None
-        and is_dbconnect_mode
-        and not is_in_databricks_runtime()
-    ):
+    if prebuilt_env_uri is None and is_dbconnect_mode and not is_in_databricks_runtime():
         raise RuntimeError(
             "'prebuilt_env_uri' param is required if using Databricks Connect to connect "
             "to Databricks cluster from your own machine."
@@ -2156,9 +2098,7 @@ def spark_udf(
     # But for Databricks shared cluster runtime, it can directly write to NFS, so exclude it
     # Note for Databricks Serverles runtime (notebook REPL), it runs on Servereless VM that
     # can't access NFS, so it needs to use `spark.addArtifact`.
-    use_dbconnect_artifact = (
-        is_dbconnect_mode and not is_in_databricks_shared_cluster_runtime()
-    )
+    use_dbconnect_artifact = is_dbconnect_mode and not is_in_databricks_shared_cluster_runtime()
 
     if use_dbconnect_artifact:
         udf_sandbox_info = get_dbconnect_udf_sandbox_info(spark)
@@ -2180,10 +2120,7 @@ def spark_udf(
     should_use_nfs = nfs_root_dir is not None
 
     should_use_spark_to_broadcast_file = not (
-        is_spark_in_local_mode
-        or should_use_nfs
-        or is_spark_connect
-        or use_dbconnect_artifact
+        is_spark_in_local_mode or should_use_nfs or is_spark_connect or use_dbconnect_artifact
     )
 
     # For spark connect mode,
@@ -2276,9 +2213,7 @@ def spark_udf(
                     env_archive_path = _prebuild_env_internal(
                         local_model_path, env_cache_key, get_or_create_tmp_dir()
                     )
-                dbconnect_artifact_cache.add_artifact_archive(
-                    env_cache_key, env_archive_path
-                )
+                dbconnect_artifact_cache.add_artifact_archive(env_cache_key, env_archive_path)
 
         if not dbconnect_artifact_cache.has_cache_key(model_uri):
             model_archive_path = os.path.join(
@@ -2387,27 +2322,17 @@ Compound types:
         if isinstance(result, dict):
             result = {k: list(v) for k, v in result.items()}
 
-        if isinstance(result_type, ArrayType) and isinstance(
-            result_type.elementType, ArrayType
-        ):
+        if isinstance(result_type, ArrayType) and isinstance(result_type.elementType, ArrayType):
             result_values = _convert_array_values(result, result_type)
             return pandas.Series(result_values)
 
         if not isinstance(result, pandas.DataFrame):
-            result = (
-                pandas.DataFrame([result])
-                if np.isscalar(result)
-                else pandas.DataFrame(result)
-            )
+            result = pandas.DataFrame([result]) if np.isscalar(result) else pandas.DataFrame(result)
 
         if isinstance(result_type, SparkStructType):
             return _convert_struct_values(result, result_type)
 
-        elem_type = (
-            result_type.elementType
-            if isinstance(result_type, ArrayType)
-            else result_type
-        )
+        elem_type = result_type.elementType if isinstance(result_type, ArrayType) else result_type
 
         if type(elem_type) == IntegerType:
             result = result.select_dtypes(
@@ -2415,9 +2340,9 @@ Compound types:
             ).astype(np.int32)
 
         elif type(elem_type) == LongType:
-            result = result.select_dtypes(
-                [np.byte, np.ubyte, np.short, np.ushort, int]
-            ).astype(np.int64)
+            result = result.select_dtypes([np.byte, np.ubyte, np.short, np.ushort, int]).astype(
+                np.int64
+            )
 
         elif type(elem_type) == FloatType:
             result = result.select_dtypes(include=(np.number,)).astype(np.float32)
@@ -2487,9 +2412,7 @@ Compound types:
                     local_model_path_on_executor = (
                         dbconnect_artifact_cache.get_unpacked_artifact_dir(model_uri)
                     )
-                    env_src_dir = dbconnect_artifact_cache.get_unpacked_artifact_dir(
-                        env_cache_key
-                    )
+                    env_src_dir = dbconnect_artifact_cache.get_unpacked_artifact_dir(env_cache_key)
 
                     # Create symlink if it does not exist
                     if not os.path.exists(prebuilt_env_root_dir):
@@ -2504,8 +2427,8 @@ Compound types:
                     if not os.path.exists(prebuilt_env_root_dir):
                         os.symlink(prebuilt_env_nfs_dir, prebuilt_env_root_dir)
                 elif should_use_spark_to_broadcast_file:
-                    local_model_path_on_executor = (
-                        _SparkDirectoryDistributor.get_or_extract(archive_path)
+                    local_model_path_on_executor = _SparkDirectoryDistributor.get_or_extract(
+                        archive_path
                     )
                     # Call "prepare_env" in advance in order to reduce scoring server launch time.
                     # So that we can use a shorter timeout when call `client.wait_server_ready`,
@@ -2567,15 +2490,12 @@ Compound types:
                 server_redirect_log_thread.start()
 
                 try:
-                    client.wait_server_ready(
-                        timeout=90, scoring_server_proc=scoring_server_proc
-                    )
+                    client.wait_server_ready(timeout=90, scoring_server_proc=scoring_server_proc)
                 except Exception as e:
-                    err_msg = "During spark UDF task execution, mlflow model server failed to launch. "
-                    if (
-                        len(server_tail_logs)
-                        == _MLFLOW_SERVER_OUTPUT_TAIL_LINES_TO_KEEP
-                    ):
+                    err_msg = (
+                        "During spark UDF task execution, mlflow model server failed to launch. "
+                    )
+                    if len(server_tail_logs) == _MLFLOW_SERVER_OUTPUT_TAIL_LINES_TO_KEEP:
                         err_msg += (
                             f"Last {_MLFLOW_SERVER_OUTPUT_TAIL_LINES_TO_KEEP} "
                             "lines of MLflow model server output:\n"
@@ -2593,16 +2513,12 @@ Compound types:
 
             elif env_manager == _EnvManager.LOCAL:
                 if use_dbconnect_artifact:
-                    model_path = dbconnect_artifact_cache.get_unpacked_artifact_dir(
-                        model_uri
-                    )
+                    model_path = dbconnect_artifact_cache.get_unpacked_artifact_dir(model_uri)
                 elif is_spark_connect and not should_spark_connect_use_nfs:
                     model_path = os.path.join(
                         tempfile.gettempdir(),
                         "mlflow",
-                        hashlib.sha1(
-                            model_uri.encode(), usedforsecurity=False
-                        ).hexdigest(),
+                        hashlib.sha1(model_uri.encode(), usedforsecurity=False).hexdigest(),
                         # Use pid to avoid conflict when multiple spark UDF tasks
                         str(os.getpid()),
                     )
@@ -2920,9 +2836,7 @@ def save_model(
                 python_model = os.fspath(python_model)
 
             if isinstance(python_model, str):
-                model_code_path = _validate_and_get_model_code_path(
-                    python_model, temp_dir
-                )
+                model_code_path = _validate_and_get_model_code_path(python_model, temp_dir)
                 _validate_and_copy_file_to_directory(model_code_path, path, "code")
                 python_model = _load_model_code_path(model_code_path, model_config)
 
@@ -2930,8 +2844,7 @@ def save_model(
             _logger.info(python_model)
             _logger.info(callable(python_model))
             if callable(python_model) and all(
-                a is None
-                for a in (input_example, pip_requirements, extra_pip_requirements)
+                a is None for a in (input_example, pip_requirements, extra_pip_requirements)
             ):
                 raise MlflowException(
                     "If `python_model` is a callable object, at least one of `input_example`, "
@@ -2957,9 +2870,7 @@ def save_model(
 
     if code_paths is not None:
         if not isinstance(code_paths, list):
-            raise TypeError(
-                f"Argument code_path should be a list, not {type(code_paths)}"
-            )
+            raise TypeError(f"Argument code_path should be a list, not {type(code_paths)}")
 
     first_argument_set = {
         "loader_module": loader_module,
@@ -2969,12 +2880,8 @@ def save_model(
         "artifacts": artifacts,
         "python_model": python_model,
     }
-    first_argument_set_specified = any(
-        item is not None for item in first_argument_set.values()
-    )
-    second_argument_set_specified = any(
-        item is not None for item in second_argument_set.values()
-    )
+    first_argument_set_specified = any(item is not None for item in first_argument_set.values())
+    second_argument_set_specified = any(item is not None for item in second_argument_set.values())
     if first_argument_set_specified and second_argument_set_specified:
         raise MlflowException(
             message=(
@@ -3101,9 +3008,7 @@ def save_model(
                 )
         elif isinstance(python_model, PythonModel):
             _logger.info("inside of pythonmodel")
-            saved_example = _save_example(
-                mlflow_model, input_example, path, example_no_conversion
-            )
+            saved_example = _save_example(mlflow_model, input_example, path, example_no_conversion)
             input_arg_index = 1  # second argument
             if signature := _infer_signature_from_type_hints(
                 python_model.predict,
@@ -3120,16 +3025,12 @@ def save_model(
                         _PythonModelPyfuncWrapper(python_model, None, None),
                     )
                 except Exception as e:
-                    _logger.warning(
-                        f"Failed to infer model signature from input example. {e}"
-                    )
+                    _logger.warning(f"Failed to infer model signature from input example. {e}")
 
     if metadata is not None:
         mlflow_model.metadata = metadata
     if saved_example is None:
-        saved_example = _save_example(
-            mlflow_model, input_example, path, example_no_conversion
-        )
+        saved_example = _save_example(mlflow_model, input_example, path, example_no_conversion)
 
     with _get_dependencies_schemas() as dependencies_schemas:
         schema = dependencies_schemas.to_dict()

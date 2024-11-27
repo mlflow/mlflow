@@ -48,12 +48,8 @@ class _BaseDataclass:
             raise ValueError(f"`{key}` is required")
 
         if values is not None:
-            if isinstance(values, list) and not all(
-                isinstance(v, val_type) for v in values
-            ):
-                raise ValueError(
-                    f"All items in `{key}` must be of type {val_type.__name__}"
-                )
+            if isinstance(values, list) and not all(isinstance(v, val_type) for v in values):
+                raise ValueError(f"All items in `{key}` must be of type {val_type.__name__}")
             elif not isinstance(values, list):
                 raise ValueError(f"`{key}` must be a list, got {type(values).__name__}")
 
@@ -93,9 +89,7 @@ class _BaseDataclass:
                 try:
                     setattr(self, key, [cls.from_dict(v) for v in values])
                 except TypeError as e:
-                    raise ValueError(
-                        f"Error when coercing {values} to {cls.__name__}: {e}"
-                    )
+                    raise ValueError(f"Error when coercing {values} to {cls.__name__}: {e}")
             elif any(not isinstance(v, cls) for v in values):
                 raise ValueError(
                     f"Items in `{key}` must all have the same type: {cls.__name__} or dict"
@@ -129,9 +123,7 @@ class _BaseDataclass:
         setattr(self, key, new_mapping)
 
     def to_dict(self):
-        return asdict(
-            self, dict_factory=lambda obj: {k: v for (k, v) in obj if v is not None}
-        )
+        return asdict(self, dict_factory=lambda obj: {k: v for (k, v) in obj if v is not None})
 
     @classmethod
     def from_dict(cls, data):
