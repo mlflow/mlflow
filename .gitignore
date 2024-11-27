@@ -104,9 +104,11 @@ travis_wait*.log
 # Pytorch logs
 lightning_logs
 
+# One-off scripts/notebooks/notes
 a.py
 a.ipynb
 a.md
+z.py
 
 # Log file created by pre-commit hook for black
 .black.log
