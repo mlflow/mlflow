@@ -108,6 +108,8 @@
   justify-content: center;
 
   span {
+    font-size: 1.25rem;
+    align-items: center;
     display: flex;
 
     img {
