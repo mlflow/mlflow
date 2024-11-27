@@ -278,6 +278,7 @@ class EvaluationDataset:
             # run code not related to pyspark.
             if "pyspark" in sys.modules:
                 from mlflow.utils.spark_utils import is_spark_connect_mode
+
                 if is_spark_connect_mode():
                     from pyspark.sql.connect.dataframe import DataFrame as SparkDataFrame
                 else:
