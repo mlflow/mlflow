@@ -2096,7 +2096,7 @@ def spark_udf(
             raise MlflowException(
                 "Using 'mlflow.pyfunc.spark_udf' in Databricks Serverless or in remote "
                 "Databricks Connect requires UDF sandbox image installed with MLflow "
-                "of version >= 2.18."
+                "of version >= 2.18.0"
             )
         # `udf_sandbox_info.runtime_version` format is like '<major_version>.<minor_version>'.
         # It's safe to apply `Version`.
