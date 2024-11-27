@@ -14,7 +14,15 @@ from mlflow.types.schema import Array, ColSpec, DataType, Map, Object, Property,
 #       is not supported, so the code here is a little ugly.
 
 
-JSON_SCHEMA_TYPES = ["string", "number", "integer", "object", "array", "boolean", "null"]
+JSON_SCHEMA_TYPES = [
+    "string",
+    "number",
+    "integer",
+    "object",
+    "array",
+    "boolean",
+    "null",
+]
 
 
 class _BaseDataclass:
@@ -685,6 +693,96 @@ class ChatCompletionResponse(_BaseDataclass):
 
 
 @dataclass
+class Context(_BaseDataclass):
+    """
+    Context to be used in the chat endpoint.
+
+    Args:
+        messages (List[:py:class:`ChatMessage`]): A list of :py:class:`ChatMessage` objects
+            containing the context messages.
+        custom_inputs (Dict[str, str]): An optional field that can contain arbitrary additional
+            context.
+    """
+
+    conversation_id: Optional[str] = None
+    user_id: Optional[str] = None
+
+    def __post_init__(self):
+        self._validate_field("conversation_id", str, False)
+        self._validate_field("user_id", str, False)
+
+
+# need to disable refusal if we choose not to include it in our final spec
+@dataclass
+class ChatAgentMessage(ChatMessage):
+    # Disabled by setting it to None and preventing instantiation
+    refusal: Optional[str] = field(init=False, default=None)
+    id: Optional[str] = None
+    # TODO bbqiu: make this a dataclass with subtypes
+    attachments: Optional[dict[str, str]] = None
+
+    def __post_init__(self):
+        super().__post_init__()
+        self._validate_field("attachments", dict, False)
+
+
+@dataclass
+class ChatAgentParams(_BaseDataclass):
+    """
+    Common parameters used for ChatAgent
+    """
+
+    context: Optional[Context] = None
+    custom_inputs: Optional[dict[str, str]] = None
+    stream: Optional[bool] = False
+
+    def __post_init__(self):
+        self._convert_dataclass("context", Context, False)
+        self._validate_field("stream", bool, False)
+
+        # validate that the custom_inputs field is a map from string to string
+        if self.custom_inputs is not None:
+            if not isinstance(self.custom_inputs, dict):
+                raise ValueError(
+                    "Expected `custom_inputs` to be a dictionary, "
+                    f"received `{type(self.custom_inputs).__name__}`"
+                )
+            for key, value in self.custom_inputs.items():
+                if not isinstance(key, str):
+                    raise ValueError(
+                        "Expected `custom_inputs` to be of type `Dict[str, str]`, "
+                        f"received key of type `{type(key).__name__}` (key: {key})"
+                    )
+                if not isinstance(value, str):
+                    raise ValueError(
+                        "Expected `custom_inputs` to be of type `Dict[str, str]`, "
+                        f"received value of type `{type(value).__name__}` in "
+                        f"`custom_inputs['{key}']`)"
+                    )
+
+
+@dataclass
+class ChatAgentRequest(ChatAgentParams):
+    messages: list[ChatAgentMessage] = field(default_factory=list)
+
+    def __post_init__(self):
+        self._convert_dataclass_list("messages", ChatAgentMessage)
+        super().__post_init__()
+
+
+@dataclass
+class ChatAgentResponse(_BaseDataclass):
+    messages: list[ChatAgentMessage]
+    custom_outputs: Optional[dict[str, str]] = None
+    usage: Optional[TokenUsageStats] = None
+
+    def __post_init__(self):
+        self._convert_dataclass_list("messages", ChatAgentMessage)
+        self._validate_field("custom_outputs", dict, False)
+        self._convert_dataclass("usage", TokenUsageStats, False)
+
+
+@dataclass
 class ChatCompletionChunk(_BaseDataclass):
     """
     The streaming chunk returned by the chat endpoint.
@@ -723,6 +821,21 @@ class ChatCompletionChunk(_BaseDataclass):
 
 # turn off formatting for the model signatures to preserve readability
 # fmt: off
+
+_token_usage_stats_col_spec = ColSpec(
+            name="usage",
+            type=Object(
+                [
+                    Property("prompt_tokens", DataType.long),
+                    Property("completion_tokens", DataType.long),
+                    Property("total_tokens", DataType.long),
+                ]
+            ),
+            required=False,
+        )
+_custom_inputs_col_spec = ColSpec(name="custom_inputs", type=Map(DataType.string), required=False)
+_custom_outputs_col_spec = ColSpec(name="custom_outputs", type=Map(DataType.string), required=False)
+
 CHAT_MODEL_INPUT_SCHEMA = Schema(
     [
         ColSpec(
@@ -781,7 +894,7 @@ CHAT_MODEL_INPUT_SCHEMA = Schema(
             ),
             required=False,
         ),
-        ColSpec(name="custom_inputs", type=Map(DataType.string), required=False),
+        _custom_inputs_col_spec,
     ]
 )
 
@@ -813,18 +926,8 @@ CHAT_MODEL_OUTPUT_SCHEMA = Schema(
                 Property("finish_reason", DataType.string),
             ])),
         ),
-        ColSpec(
-            name="usage",
-            type=Object(
-                [
-                    Property("prompt_tokens", DataType.long),
-                    Property("completion_tokens", DataType.long),
-                    Property("total_tokens", DataType.long),
-                ]
-            ),
-            required=False,
-        ),
-        ColSpec(name="custom_outputs", type=Map(DataType.string), required=False),
+        _token_usage_stats_col_spec,
+        _custom_outputs_col_spec
     ]
 )
 
@@ -837,6 +940,58 @@ CHAT_MODEL_INPUT_EXAMPLE = {
     "max_tokens": 10,
     "stop": ["\n"],
     "n": 1,
+    "stream": False,
+}
+
+_chat_agent_message_col_spec = ColSpec(
+    name="messages",
+    type=Array(
+        Object(
+            [
+                Property("role", DataType.string),
+                Property("content", DataType.string, False),
+                Property("name", DataType.string, False),
+                Property("tool_calls", Array(Object([
+                    Property("id", DataType.string),
+                    Property("function", Object([
+                        Property("name", DataType.string),
+                        Property("arguments", DataType.string),
+                    ])),
+                    Property("type", DataType.string),
+                ])), False),
+                Property("tool_call_id", DataType.string, False),
+                Property("id", DataType.string, False),
+                Property("attachments", Map(DataType.string), False),
+            ]
+        )
+    ),
+)
+
+CHAT_AGENT_INPUT_SCHEMA = Schema(
+    [
+        _chat_agent_message_col_spec,
+        ColSpec(name="context", type=Object([
+            Property("conversation_id", DataType.string, False),
+            Property("user_id", DataType.string, False),
+        ]), required=False),
+        _custom_inputs_col_spec,
+        ColSpec(name="stream", type=DataType.boolean, required=False),
+    ]
+)
+
+CHAT_AGENT_OUTPUT_SCHEMA = Schema(
+    [
+        _chat_agent_message_col_spec,
+        _custom_outputs_col_spec,
+        _token_usage_stats_col_spec,
+    ]
+)
+
+CHAT_AGENT_INPUT_EXAMPLE = {
+    "messages": [
+        {"role": "system", "content": "You are a helpful assistant."},
+        {"role": "user", "content": "Hello!"},
+    ],
     "stream": False,
 }
 
