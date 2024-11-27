@@ -23,7 +23,7 @@ The core components of MLflow are:
 
 ## Installation
 
-To install MLflow Python package, run the following command:
+To install the MLflow Python package, run the following command:
 
 ```
 pip install mlflow
@@ -44,7 +44,7 @@ Official documentation for MLflow can be found at [here](https://mlflow.org/docs
 
 ## Usage
 
-### Experiment Tracking ([Doc](https://www.mlflow.org/docs/latest/tracking.html))
+### Experiment Tracking ([Doc](https://mlflow.org/docs/latest/tracking.html))
 
 The following examples trains a simple regression model with scikit-learn, while enabling MLflow's [autologging](https://mlflow.org/docs/latest/tracking/autolog.html) feature for experiment tracking.
 
@@ -70,7 +70,7 @@ rf.fit(X_train, y_train)
 Once the above code finishes, run the following command in a separate terminal and access the MLflow UI via the printed URL. An MLflow **Run** should be automatically created, which tracks the training dataset, hyper parameters, performance metrics, the trained model, dependencies, and even more.
 
 ```
-$ mlflow ui
+mlflow ui
 ```
 
 ### Serving Models ([Doc](https://mlflow.org/docs/latest/deployment/index.html))
@@ -78,7 +78,7 @@ $ mlflow ui
 You can deploy the logged model to a local inference server by a one-line command using the MLflow CLI. Visit the documentation for how to deploy models to other hosting platforms.
 
 ```bash
-$ mlflow models serve --model-uri runs:/<run-id>/model
+mlflow models serve --model-uri runs:/<run-id>/model
 ```
 
 ### Evaluating Models ([Doc](https://mlflow.org/docs/latest/model-evaluation/index.html))
@@ -92,13 +92,10 @@ import pandas as pd
 # Evaluation set contains (1) input question (2) model outputs (3) ground truth
 df = pd.DataFrame(
     {
-        "inputs": [
-            "What is MLflow?",
-            "What is Spark?"
-        ],
+        "inputs": ["What is MLflow?", "What is Spark?"],
         "outputs": [
-             "MLflow is an innovative fully self-driving airship powered by AI.",
-             "Sparks is an American pop and rock duo formed in Los Angeles.",
+            "MLflow is an innovative fully self-driving airship powered by AI.",
+            "Sparks is an American pop and rock duo formed in Los Angeles.",
         ],
         "ground_truth": [
             "MLflow is an open-source platform for managing the end-to-end machine learning (ML) "
@@ -108,7 +105,9 @@ df = pd.DataFrame(
         ],
     }
 )
-eval_dataset = mlflow.data.from_pandas(df, predictions="outputs", targets="ground_truth")
+eval_dataset = mlflow.data.from_pandas(
+    df, predictions="outputs", targets="ground_truth"
+)
 
 # Start an MLflow Run to record the evaluation results to
 with mlflow.start_run(run_name="evaluate_qa"):
