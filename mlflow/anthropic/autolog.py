@@ -34,9 +34,8 @@ def patched_class_call(original, self, *args, **kwargs):
         ) as span:
             inputs = construct_full_inputs(original, self, *args, **kwargs)
             span.set_inputs(inputs)
-            result = original(self, *args, **kwargs)
-            # need to convert the response of generate_content for better visualization
-            outputs = result.to_dict() if hasattr(result, "to_dict") else result
+            outputs = original(self, *args, **kwargs)
+            # # need to convert the response of generate_content for better visualization
+            # outputs = result.to_dict() if hasattr(result, "to_dict") else result
             span.set_outputs(outputs)
-
-            return result
+            return outputs
