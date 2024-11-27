@@ -309,4 +309,6 @@ extend-ignore-re = [
   "Ich bin das Modell eines modernen General",
   # pytorch-lightning
   "lightning",
+  # `typos` flags 'lok' as a typo of 'look'
+  "(?i)daniel lok",
 ]
