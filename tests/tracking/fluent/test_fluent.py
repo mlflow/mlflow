@@ -1661,10 +1661,7 @@ def test_subprocess_inherit_registry_uri(tmp_path):
     assert sqlite_uri in stdout
 
 
-def test_end_run_inside_context_manager(tmp_path):
-    sqlite_uri = "sqlite:///{}".format(tmp_path.joinpath("test.db"))
-    mlflow.set_registry_uri(sqlite_uri)
-
+def test_end_run_inside_context_manager():
     client = MlflowClient()
 
     with mlflow.start_run() as parent_run:
