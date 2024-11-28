@@ -2163,11 +2163,7 @@ def test_enable_tracing_and_disable_other_autologging_during_model_logging(monke
         # `mlflow.autolog(disable=True)` once the issue is fixed.
         mlflow.langchain.autolog(disable=True)
         mlflow.openai.autolog(disable=True)
-        mlflow.dspy.autolog(disable=True)
         mlflow.llama_index.autolog(disable=True)
-        mlflow.autogen.autolog(disable=True)
-        mlflow.litellm.autolog(disable=True)
-        mlflow.gemini.autolog(disable=True)
 
     original_config = AUTOLOGGING_INTEGRATIONS.copy()
 
@@ -2208,11 +2204,8 @@ def test_enable_tracing_and_disable_other_autologging_during_model_logging(monke
     assert len(get_traces()) == (0 if disable else 1)
 
     # A message should be issued about the tracing being enabled
-    if disable:
-        assert mock_logger.info.call_count == 0
-    else:
-        assert mock_logger.info.call_count == 1
-        assert mock_logger.info.call_args[0][0].startswith("Tracing is temporarily enabled")
+    assert mock_logger.info.call_count == 1
+    assert mock_logger.info.call_args[0][0].startswith("Tracing is temporarily enabled")
 
     # Model autologging should not be triggered.
     mock_log_model.assert_not_called()
