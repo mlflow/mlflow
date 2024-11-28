@@ -734,6 +734,7 @@ def main(args):
         mat = {"include": mat, "job_name": [x.job_name for x in mat]}
         print(divider(f"Matrix {idx}"))
         print(json.dumps(mat, indent=2, cls=CustomEncoder))
+        print(mat)
         if "GITHUB_ACTIONS" in os.environ:
             set_action_output(f"matrix{idx}", json.dumps(mat, cls=CustomEncoder))
             set_action_output(f"is_matrix{idx}_empty", "true" if len(mat) == 0 else "false")
