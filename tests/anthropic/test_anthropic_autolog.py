@@ -36,16 +36,17 @@ def test_messages_autolog():
         client = anthropic.Anthropic(api_key="test_key")
         client.messages.create(**DUMMY_CREATE_MESSAGE_REQUEST)
 
-        traces = get_traces()
-        assert len(traces) == 1
-        assert traces[0].info.status == "OK"
-        assert len(traces[0].data.spans) == 1
-        span = traces[0].data.spans[0]
-        assert span.name == "Messages.create"
-        assert span.span_type == SpanType.CHAT_MODEL
-        assert span.inputs == DUMMY_CREATE_MESSAGE_REQUEST
-        assert span.outputs == DUMMY_CREATE_MESSAGE_RESPONSE.to_dict()
+    traces = get_traces()
+    assert len(traces) == 1
+    assert traces[0].info.status == "OK"
+    assert len(traces[0].data.spans) == 1
+    span = traces[0].data.spans[0]
+    assert span.name == "Messages.create"
+    assert span.span_type == SpanType.CHAT_MODEL
+    assert span.inputs == DUMMY_CREATE_MESSAGE_REQUEST
+    assert span.outputs == DUMMY_CREATE_MESSAGE_RESPONSE.to_dict()
 
+    with patch("anthropic.resources.Messages.create", new=create):
         mlflow.anthropic.autolog(disable=True)
         client = anthropic.Anthropic(api_key="test_key")
         client.messages.create(**DUMMY_CREATE_MESSAGE_REQUEST)
