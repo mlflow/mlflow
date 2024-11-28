@@ -348,7 +348,7 @@ def remove_comments(s):
 
 
 def make_pip_install_command(packages):
-    return "pip install " + " ".join(f"'{x}'" for x in packages)
+    return "uv pip install --system " + " ".join(f"'{x}'" for x in packages)
 
 
 def divider(title, length=None):
@@ -640,7 +640,7 @@ def apply_changed_files(changed_files, matrix):
     changed_flavors = (
         # If this file has been changed, re-run all tests
         all_flavors
-        if (__file__ in changed_files)
+        if (str(Path(__file__).relative_to(Path.cwd())) in changed_files)
         else get_changed_flavors(changed_files, all_flavors)
     )
 
