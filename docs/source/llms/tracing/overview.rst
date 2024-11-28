@@ -3,7 +3,7 @@ Tracing Concepts
 
 In this guide, you can learn about what tracing is as it applies to Generative AI (GenAI) applications and what the main components of tracing are. 
 
-.. figure:: ../../_static/images/intro/tracing-ui.gif
+.. figure:: ../../_static/images/llms/tracing/tracing-top.gif
     :alt: MLflow Tracing
     :width: 80%
     :align: center

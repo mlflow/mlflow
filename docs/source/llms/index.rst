@@ -127,6 +127,11 @@ MLflow traces and their schema, see the `Tracing Schema <tracing/tracing-schema.
 
 If you're interested in contributing to the development of MLflow Tracing, please refer to the `Contribute to MLflow Tracing <tracing/contribute.html>`_ guide.
 
+.. figure:: ../_static/images/llms/tracing/tracing-top.gif
+    :alt: Tracing Gateway Video
+    :width: 80%
+    :align: center
+
 `MLflow AI Gateway for LLMs <deployments/index.html>`_
 --------------------------------------------------------------
 

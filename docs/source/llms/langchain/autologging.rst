@@ -38,7 +38,7 @@ To enable autologging for LangChain models, call :py:func:`mlflow.langchain.auto
 
 Once you have invoked the chain, you can view the logged traces and artifacts in the MLflow UI.
 
-.. figure:: ../../_static/images/llms/tracing/langchain-tracing.gif
+.. figure:: ../../_static/images/llms/tracing/tracing-top.gif
     :alt: LangChain Tracing via autolog
     :width: 100%
     :align: center
