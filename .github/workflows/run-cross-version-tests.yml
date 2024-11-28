@@ -23,7 +23,7 @@ env:
   PIP_EXTRA_INDEX_URL: https://download.pytorch.org/whl/cpu
 
 jobs:
-  run:
+  job:
     runs-on: ${{ matrix.runs_on }}
     timeout-minutes: 120
     strategy:
