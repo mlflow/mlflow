@@ -76,8 +76,7 @@ jobs:
       - uses: ./.github/actions/setup-python
       - name: Install dependencies
         run: |
-          pip install -r dev/requirements.txt
-          pip install pytest pytest-cov
+          uv pip install --system -r dev/requirements.txt pytest pytest-cov
       - name: Check labels
         uses: actions/github-script@v7
         id: check-labels
