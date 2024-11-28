@@ -10,7 +10,7 @@ class GitRunContext(RunContextProvider):
     @functools.cached_property
     def _git_info(self) -> Optional[GitInfo]:
         if main_file := _get_main_file():
-            return GitInfo.load(main_file)
+            return GitInfo.from_path(main_file)
         return None
 
     def in_context(self):

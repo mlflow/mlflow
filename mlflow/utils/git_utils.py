@@ -26,7 +26,7 @@ class GitInfo:
         return tags
 
     @classmethod
-    def load(cls, path: str) -> Optional["GitInfo"]:
+    def from_path(cls, path: str) -> Optional["GitInfo"]:
         try:
             from git import Repo
         except ImportError as e:
@@ -54,12 +54,13 @@ class GitInfo:
             return None
 
 
+# TODO: Remove the following functions in favor of the GitInfo class.
 def get_git_repo_url(path: str) -> Optional[str]:
     """
     Obtains the url of the git repository associated with the specified path,
     returning ``None`` if the path does not correspond to a git repository.
     """
-    return info.url if (info := GitInfo.load(path)) else None
+    return info.url if (info := GitInfo.from_path(path)) else None
 
 
 def get_git_commit(path: str) -> Optional[str]:
@@ -68,7 +69,7 @@ def get_git_commit(path: str) -> Optional[str]:
     with the specified path, returning ``None`` if the path does not correspond to a git
     repository.
     """
-    return info.commit if (info := GitInfo.load(path)) else None
+    return info.commit if (info := GitInfo.from_path(path)) else None
 
 
 def get_git_branch(path: str) -> Optional[str]:
@@ -76,4 +77,4 @@ def get_git_branch(path: str) -> Optional[str]:
     Obtains the name of the current branch of the git repository associated with the specified
     path, returning ``None`` if the path does not correspond to a git repository.
     """
-    return info.branch if (info := GitInfo.load(path)) else None
+    return info.branch if (info := GitInfo.from_path(path)) else None
