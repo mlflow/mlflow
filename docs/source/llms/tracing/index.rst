@@ -67,6 +67,11 @@ Tracing provides a way to record the inputs, outputs, and metadata associated wi
                     <img src="../../_static/images/logos/anthropic-logo.svg" alt="Anthropic Logo"/>
                 </div>
             </a>
+            <a href="#automatic-tracing">
+                <div class="logo-card">
+                    <img src="../../_static/images/logos/crewai-logo.png" alt="CrewAI Logo"/>
+                </div>
+            </a>
     </section>
 
 
@@ -461,6 +466,7 @@ for model/API invocations to the active MLflow Experiment.
 
         |
 
+
         MLflow Tracing ensures observability for your interactions with Anthropic AI models.
         When Anthropic autologging is enabled with :py:func:`mlflow.anthropic.autolog`,
         usage of the Anthropic SDK will automatically record generated traces during interactive development.
@@ -475,11 +481,32 @@ for model/API invocations to the active MLflow Experiment.
 
         To see the full example of tracing Anthropic, please refer to the `Anthropic Tracing example <https://github.com/mlflow/mlflow/tree/master/examples/anthropic/tracing.py>`_.
 
+    .. tab:: CrewAI
+
+        .. raw:: html
+
+            <h3>CrewAI Automatic Tracing</h3>
+
+        |
+
+        MLflow Tracing ensures observability for the interactions of CrewAI agents.
+        When CrewAI autologging is enabled with :py:func:`mlflow.crewai.autolog`, 
+        traces are generated for the usage of the CrewAI framework.
+        Note that asynchronous task and kickoff are not supported now.
+
         .. figure:: ../../_static/images/llms/anthropic/anthropic-tracing.png
             :alt: Anthropic Tracing
             :width: 100%
             :align: center
 
+            mlflow.crewai.autolog()
+
+        To see the full example of tracing CrewAI, please refer to the `CrewAI Tracing example <https://github.com/mlflow/mlflow/tree/master/examples/crewai/tracing.py>`_.
+
+        .. figure:: ../../_static/images/llms/crewai/crewai-trace.png
+            :alt: CrewAI Tracing
+            :width: 100%
+            :align: center
 
 Tracing Fluent APIs
 -------------------
