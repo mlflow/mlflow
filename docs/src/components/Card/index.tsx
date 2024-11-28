@@ -1,5 +1,6 @@
 import clsx from "clsx";
 import styles from "./card.module.css";
+import Link from "@docusaurus/Link";
 
 export const CardGroup = ({ children, isSmall }): JSX.Element => (
   <div
@@ -13,12 +14,12 @@ export const CardGroup = ({ children, isSmall }): JSX.Element => (
 );
 
 export const Card = ({ children, link }): JSX.Element => (
-  <a
+  <Link
     className={clsx(styles.Link, styles.Card, styles.CardBordered)}
-    href={link}
+    to={link}
   >
     {children}
-  </a>
+  </Link>
 );
 
 export const PageCard = ({ headerText, link, text }): JSX.Element => (
