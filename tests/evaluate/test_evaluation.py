@@ -2145,29 +2145,17 @@ def test_enable_tracing_and_disable_other_autologging_during_model_logging(monke
     Similar tests exist in each flavor's test suite that validates tracing behavior more closely.
     This test is for testing an environment where many GenAI libraries are installed together.
     """
+    from langchain.chat_models.base import SimpleChatModel
     from langchain.prompts import PromptTemplate
     from langchain_core.output_parsers import StrOutputParser
-    from langchain_openai import ChatOpenAI
-    from openai.types.chat.chat_completion import ChatCompletion, ChatCompletionMessage, Choice
 
-    monkeypatch.setenv("OPENAI_API_KEY", "fake-key")
-    mock_oai_client = mock.MagicMock()
-    mock_oai_client.create.return_value = ChatCompletion(
-        id="123",
-        choices=[
-            Choice(
-                index=0,
-                message=ChatCompletionMessage(
-                    content="This is a response",
-                    role="assistant",
-                ),
-                finish_reason="length",
-            )
-        ],
-        created=0,
-        model="gpt-4o-mini",
-        object="chat.completion",
-    )
+    class FakeChatModel(SimpleChatModel):
+        def _call(self, messages, **kwargs):
+            return "This is a response"
+
+        @property
+        def _llm_type(self):
+            return "fake chat model"
 
     if disable:
         # TODO: Currently, mlflow.autolog(disable=True) does not work with tracing, so users need
@@ -2190,7 +2178,7 @@ def test_enable_tracing_and_disable_other_autologging_during_model_logging(monke
         input_variables=["product"],
         template="What is {product}?",
     )
-    chain = prompt | ChatOpenAI(client=mock_oai_client) | StrOutputParser()
+    chain = prompt | FakeChatModel() | StrOutputParser()
 
     # Tracing is not enabled by default
     chain.invoke("What is MLflow?")
@@ -2203,7 +2191,7 @@ def test_enable_tracing_and_disable_other_autologging_during_model_logging(monke
         mock.patch("mlflow.models.evaluation.utils.trace._logger") as mock_logger,
         mock.patch("mlflow.langchain.log_model") as mock_log_model,
     ):
-        with mlflow.start_run() as run:
+        with mlflow.start_run():
             mlflow.evaluate(
                 model=model_wrapper,
                 data=pd.DataFrame(

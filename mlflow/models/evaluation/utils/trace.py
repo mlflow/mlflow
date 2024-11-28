@@ -4,7 +4,10 @@ import logging
 
 import mlflow
 from mlflow.ml_package_versions import FLAVOR_TO_MODULE_NAME
-from mlflow.utils.autologging_utils import AUTOLOGGING_INTEGRATIONS
+from mlflow.utils.autologging_utils import (
+    AUTOLOGGING_CONF_KEY_IS_GLOBALLY_CONFIGURED,
+    AUTOLOGGING_INTEGRATIONS,
+)
 
 _logger = logging.getLogger(__name__)
 
@@ -16,7 +19,12 @@ def configure_autologging_for_evaluation(enable_tracing: bool = True):
     for flavor in FLAVOR_TO_MODULE_NAME:
         try:
             if autolog := _get_autolog_function(flavor):
-                original_config = AUTOLOGGING_INTEGRATIONS.get(flavor, {})
+                original_config = AUTOLOGGING_INTEGRATIONS.get(flavor, {}).copy()
+
+                # "globally_configured" is a special key that is added to the config when it was
+                # enabled via mlflow.autolog() rather than each flavor's autolog() function.
+                # It is not present in the autolog()'s signature, so we need to remove it.
+                original_config.pop(AUTOLOGGING_CONF_KEY_IS_GLOBALLY_CONFIGURED, None)
 
                 # If autologging is explicitly disabled, do nothing.
                 if original_config.get("disable", False):
@@ -46,6 +54,7 @@ def configure_autologging_for_evaluation(enable_tracing: bool = True):
                 del AUTOLOGGING_INTEGRATIONS[flavor]
 
         except Exception as e:
+            raise
             _logger.info(f"Failed to update autologging configuration for flavor {flavor}. {e}")
 
     if trace_enabled_flavors:
