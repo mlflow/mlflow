@@ -729,6 +729,7 @@ def main(args):
     matrix = generate_matrix(args)
     matrix = sorted(matrix, key=lambda x: (x.name, x.category, x.version))
     matrix = [x for x in matrix if x.flavor not in ("gluon", "mleap")]
+    print(matrix)
     assert len(matrix) <= MAX_ITEMS * 2, f"Too many jobs: {len(matrix)} > {MAX_ITEMS * NUM_JOBS}"
     for idx, mat in enumerate(split(matrix, NUM_JOBS), start=1):
         mat = {"include": mat, "job_name": [x.job_name for x in mat]}
