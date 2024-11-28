@@ -322,6 +322,15 @@ _ML_PACKAGE_VERSIONS = {
             "maximum": "0.8.3"
         }
     },
+    "anthropic": {
+        "package_info": {
+            "pip_release": "anthropic"
+        },
+        "autologging": {
+            "minimum": "0.30.0",
+            "maximum": "0.39.0"
+        }
+    },
     "sentence_transformers": {
         "package_info": {
             "pip_release": "sentence-transformers"
@@ -383,6 +392,7 @@ FLAVOR_TO_MODULE_NAME = {
     "llama_index": "llama_index.core",
     "autogen": "autogen",
     "gemini": "google.generativeai",
+    "anthropic": "anthropic",
     "litellm": "litellm",
     "pyspark.ml": "pyspark"
 }

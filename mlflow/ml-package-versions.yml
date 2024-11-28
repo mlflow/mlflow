@@ -842,6 +842,17 @@ gemini:
     requirements:
     run: pytest tests/gemini
 
+anthropic:
+  package_info:
+    pip_release: "anthropic"
+    install_dev: |
+      pip install git+https://github.com/anthropics/anthropic-sdk-python
+  autologging:
+    minimum: "0.30.0"
+    maximum: "0.39.0"
+    requirements:
+    run: pytest tests/anthropic
+
 sentence_transformers:
   package_info:
     pip_release: "sentence-transformers"
