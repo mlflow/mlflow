@@ -2,7 +2,6 @@ import contextlib
 import importlib
 import inspect
 import logging
-import sys
 import threading
 import time
 
@@ -533,69 +532,6 @@ def disable_autologging():
         yield
     finally:
         _AUTOLOGGING_GLOBALLY_DISABLED = False
-
-
-@contextlib.contextmanager
-def enable_tracing_and_disable_other_autologging():
-    global AUTOLOGGING_INTEGRATIONS
-
-    flavor_to_original_config = {}
-    for flavor in FLAVOR_TO_MODULE_NAME:
-        try:
-            if autolog := _get_autolog_function(flavor):
-                original_config = AUTOLOGGING_INTEGRATIONS.get(flavor, {})
-
-                # If the autologging is explicitly disabled, skip updating autologging configuration.
-                if original_config.get("disable", False):
-                    continue
-
-                elif _is_trace_autologging_supported(flavor):
-                    # set all log_xyz params to False except log_traces
-                    new_config = {
-                        k: False if k.startswith("log_") else v
-                        for k, v in original_config.items()
-                    }
-                    new_config = {**new_config, "log_traces": True, "silent": True}
-                    autolog(**new_config)
-                else:
-                    # For flavors that does not support tracing, disable autologging
-                    autolog(disable=True)
-
-                flavor_to_original_config[flavor] = original_config
-
-        except ImportError:
-            _logger.debug(f"Flavor {flavor} is not installed. Skip updating autologging configuration.")
-
-        except Exception as e:
-            _logger.info(f"Failed to update autologging configuration for flavor {flavor}. {e}")
-
-    try:
-        yield
-    finally:
-        # Restore original autologging configurations.
-        for flavor, original_config in flavor_to_original_config.items():
-            autolog = _get_autolog_function(flavor)
-            if original_config:
-                autolog(**original_config)
-            else:
-                # If the original configuration is empty, autologging was not enabled before so we disable
-                autolog(disable=True)
-                # We also need to remove the configuration entry from AUTOLOGGING_INTEGRATIONS, so as not
-                # to confuse with the case user explicitly disabled autologging.
-                del AUTOLOGGING_INTEGRATIONS[flavor]
-
-
-def _get_autolog_function(flavor_name: str):
-    """Get the autolog() function for the specified flavor."""
-    flavor_module = getattr(mlflow, flavor_name, None)
-    return getattr(flavor_module, "autolog", None)
-
-
-def _is_trace_autologging_supported(flavor_name: str):
-    """Check if the given flavor supports trace autologging."""
-    if autolog_func := _get_autolog_function(flavor_name):
-        return "log_traces" in inspect.signature(autolog_func).parameters
-    return False
 
 
 @contextlib.contextmanager

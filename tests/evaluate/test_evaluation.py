@@ -55,6 +55,7 @@ from mlflow.pyfunc import _ServedPyFuncModel
 from mlflow.pyfunc.scoring_server.client import ScoringServerClient
 from mlflow.tracing.constant import TraceMetadataKey
 from mlflow.tracking.artifact_utils import get_artifact_uri
+from mlflow.utils.autologging_utils import AUTOLOGGING_INTEGRATIONS
 from mlflow.utils.file_utils import TempDir
 
 from tests.tracing.helper import create_test_trace_info, get_traces
@@ -2134,3 +2135,103 @@ def test_env_manager_set_on_served_pyfunc_model(multiclass_logistic_regressor_mo
     served_model_1 = _ServedPyFuncModel(model_meta=model.metadata, client=client, server_pid=1)
     served_model_1.env_manager = "virtualenv"
     assert served_model_1.env_manager == "virtualenv"
+
+
+@pytest.mark.parametrize("disable", [False, True])
+def test_enable_tracing_and_disable_other_autologging_during_model_logging(monkeypatch, disable):
+    """
+    Validate if the tracing is enabled during model evaluation temporarily.
+
+    Similar tests exist in each flavor's test suite that validates tracing behavior more closely.
+    This test is for testing an environment where many GenAI libraries are installed together.
+    """
+    from langchain.prompts import PromptTemplate
+    from langchain_core.output_parsers import StrOutputParser
+    from langchain_openai import ChatOpenAI
+    from openai.types.chat.chat_completion import ChatCompletion, ChatCompletionMessage, Choice
+
+    monkeypatch.setenv("OPENAI_API_KEY", "fake-key")
+    mock_oai_client = mock.MagicMock()
+    mock_oai_client.create.return_value = ChatCompletion(
+        id="123",
+        choices=[
+            Choice(
+                index=0,
+                message=ChatCompletionMessage(
+                    content="This is a response",
+                    role="assistant",
+                ),
+                finish_reason="length",
+            )
+        ],
+        created=0,
+        model="gpt-4o-mini",
+        object="chat.completion",
+    )
+
+    if disable:
+        # TODO: Currently, mlflow.autolog(disable=True) does not work with tracing, so users need
+        # to disable each autologging integration separately. Replace the following lines with
+        # `mlflow.autolog(disable=True)` once the issue is fixed.
+        mlflow.langchain.autolog(disable=True)
+        mlflow.openai.autolog(disable=True)
+        mlflow.dspy.autolog(disable=True)
+        mlflow.llama_index.autolog(disable=True)
+        mlflow.autogen.autolog(disable=True)
+        mlflow.litellm.autolog(disable=True)
+        mlflow.gemini.autolog(disable=True)
+
+    original_config = AUTOLOGGING_INTEGRATIONS.copy()
+
+    # Dummy LangChain model
+    from langchain_core.output_parsers import StrOutputParser
+
+    prompt = PromptTemplate(
+        input_variables=["product"],
+        template="What is {product}?",
+    )
+    chain = prompt | ChatOpenAI(client=mock_oai_client) | StrOutputParser()
+
+    # Tracing is not enabled by default
+    chain.invoke("What is MLflow?")
+    assert len(get_traces()) == 0
+
+    def model_wrapper(model_inputs):
+        return [chain.invoke(input) for input in model_inputs]
+
+    with (
+        mock.patch("mlflow.models.evaluation.utils.trace._logger") as mock_logger,
+        mock.patch("mlflow.langchain.log_model") as mock_log_model,
+    ):
+        with mlflow.start_run() as run:
+            mlflow.evaluate(
+                model=model_wrapper,
+                data=pd.DataFrame(
+                    {
+                        "inputs": ["What is MLflow?"],
+                        "ground_truth": ["MLflow is an open-source platform for ML."],
+                    }
+                ),
+                targets="ground_truth",
+                model_type="question-answering",
+            )
+
+    # Tracing is enabled during evaluation unless explicitly disabled
+    assert len(get_traces()) == (0 if disable else 1)
+
+    # A message should be issued about the tracing being enabled
+    if disable:
+        assert mock_logger.info.call_count == 0
+    else:
+        assert mock_logger.info.call_count == 1
+        assert mock_logger.info.call_args[0][0].startswith("Tracing is temporarily enabled")
+
+    # Model autologging should not be triggered.
+    mock_log_model.assert_not_called()
+
+    # Tracing is disabled after the evaluation
+    chain.invoke("What is MLflow?")
+    assert len(get_traces()) == (0 if disable else 1)
+
+    # Autologging config should be restored
+    assert AUTOLOGGING_INTEGRATIONS == original_config

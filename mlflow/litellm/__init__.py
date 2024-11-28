@@ -30,6 +30,7 @@ def autolog(
             autologging. If ``False``, show all events and warnings.
     """
     import litellm
+
     # Importing here so we only patch when the LiteLLM version supports MLflow integration.
     from litellm.integrations.mlflow import MlflowLogger  # noqa: F401
 

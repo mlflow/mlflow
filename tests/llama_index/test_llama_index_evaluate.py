@@ -2,13 +2,12 @@ import pandas as pd
 import pytest
 
 import mlflow
+import mlflow.utils
+import mlflow.utils.autologging_utils
 from mlflow.metrics import latency
 from mlflow.tracing.constant import TraceMetadataKey
 
-import mlflow.utils
-import mlflow.utils.autologging_utils
 from tests.tracing.helper import get_traces
-
 
 _EVAL_DATA = pd.DataFrame(
     {
@@ -25,11 +24,12 @@ _EVAL_DATA = pd.DataFrame(
 
 
 @pytest.mark.parametrize(
-    "original_autolog_config", [
+    "original_autolog_config",
+    [
         None,
         {"log_traces": False},
         {"log_traces": True},
-    ]
+    ],
 )
 def test_llama_index_evaluate(single_index, original_autolog_config):
     if original_autolog_config:
@@ -83,7 +83,6 @@ def test_llama_index_pyfunc_evaluate(engine_type, single_index):
     assert run.info.run_id == get_traces()[0].info.request_metadata[TraceMetadataKey.SOURCE_RUN]
 
 
-
 def test_llama_index_evaluate_should_not_log_traces_when_disabled(single_index):
     mlflow.llama_index.autolog(disable=True)
     mlflow.openai.autolog(disable=True)  # Our model contains OpenAI call as well
@@ -92,7 +91,7 @@ def test_llama_index_evaluate_should_not_log_traces_when_disabled(single_index):
         engine = single_index.as_query_engine()
         return [engine.query(question) for question in inputs["inputs"]]
 
-    with mlflow.start_run() as run:
+    with mlflow.start_run():
         eval_result = mlflow.evaluate(
             model,
             data=_EVAL_DATA,

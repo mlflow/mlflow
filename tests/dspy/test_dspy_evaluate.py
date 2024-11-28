@@ -1,17 +1,14 @@
 import dspy
 import pandas as pd
 import pytest
-
 from dspy.utils.dummies import DummyLM
 
 import mlflow
-from mlflow.tracing.constant import TraceMetadataKey
-
-
 import mlflow.utils
 import mlflow.utils.autologging_utils
-from tests.tracing.helper import get_traces
+from mlflow.tracing.constant import TraceMetadataKey
 
+from tests.tracing.helper import get_traces
 
 _EVAL_DATA = pd.DataFrame(
     {
@@ -29,16 +26,18 @@ _EVAL_DATA = pd.DataFrame(
 
 def get_fake_model():
     dspy.settings.configure(
-        lm=DummyLM({
-            "What is MLflow?": {
-                "answer": "MLflow is an open-source platform to manage the ML lifecycle.",
-                "reasoning": "No reasoning provided.",
-            },
-            "What is Spark?": {
-                "answer": "Spark is a unified analytics engine for big data processing.",
-                "reasoning": "No reasoning provided.",
-            },
-        })
+        lm=DummyLM(
+            {
+                "What is MLflow?": {
+                    "answer": "MLflow is an open-source platform to manage the ML lifecycle.",
+                    "reasoning": "No reasoning provided.",
+                },
+                "What is Spark?": {
+                    "answer": "Spark is a unified analytics engine for big data processing.",
+                    "reasoning": "No reasoning provided.",
+                },
+            }
+        )
     )
 
     class CoT(dspy.Module):
@@ -54,11 +53,12 @@ def get_fake_model():
 
 
 @pytest.mark.parametrize(
-    "original_autolog_config", [
+    "original_autolog_config",
+    [
         None,
         {"log_traces": False},
         {"log_traces": True},
-    ]
+    ],
 )
 def test_dspy_evaluate(original_autolog_config):
     if original_autolog_config:
@@ -90,7 +90,7 @@ def test_dspy_evaluate(original_autolog_config):
         assert len(get_traces()) == 2
 
 
-# TODO: DSPy pyfunc wrapper does not support batch inputs, which is requirement for using OSS evaluator.
+# TODO: DSPy pyfunc wrapper does not support batch inputs, which is requirement for eval.
 #       Uncomment this test when we add support for batch inputs in DSPy pyfunc wrapper.
 # def test_dspy_pyfunc_evaluate():
 #     with mlflow.start_run() as run:
@@ -108,7 +108,6 @@ def test_dspy_evaluate(original_autolog_config):
 #     assert run.info.run_id == get_traces()[0].info.request_metadata[TraceMetadataKey.SOURCE_RUN]
 
 
-
 def test_dspy_evaluate_should_not_log_traces_when_disabled():
     mlflow.dspy.autolog(disable=True)
 
@@ -117,7 +116,7 @@ def test_dspy_evaluate_should_not_log_traces_when_disabled():
     def model(inputs):
         return [cot(question).answer for question in inputs["inputs"]]
 
-    with mlflow.start_run() as run:
+    with mlflow.start_run():
         eval_result = mlflow.evaluate(
             model,
             data=_EVAL_DATA,

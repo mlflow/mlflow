@@ -1,4 +1,3 @@
-import inspect
 from unittest import mock
 
 import pandas as pd
@@ -12,10 +11,8 @@ from mlflow.exceptions import MlflowException
 from mlflow.models.evaluation import evaluate
 from mlflow.models.evaluation.evaluators.default import DefaultEvaluator
 from mlflow.tracing.constant import TraceMetadataKey
-from mlflow.tracing.fluent import TRACE_BUFFER
 
 from tests.tracing.helper import get_traces
-
 
 _EVAL_DATA = pd.DataFrame(
     {
@@ -30,6 +27,7 @@ _EVAL_DATA = pd.DataFrame(
     }
 )
 
+
 def create_fake_chain():
     prompt = PromptTemplate(
         input_variables=["question"],
@@ -39,12 +37,13 @@ def create_fake_chain():
 
 
 @pytest.mark.parametrize(
-    "original_autolog_config", [
+    "original_autolog_config",
+    [
         None,
         {"log_traces": False},
         {"log_models": True},
         {"log_traces": False, "log_models": False},
-    ]
+    ],
 )
 def test_langchain_evaluate(original_autolog_config):
     if original_autolog_config:
@@ -96,6 +95,7 @@ def test_langchain_evaluate_fails_with_an_exception():
             DefaultEvaluator, "evaluate", side_effect=MlflowException("evaluate mock error")
         ),
     ):
+
         def model(inputs):
             return [chain.invoke({"question": input}) for input in inputs["question"]]
 
@@ -144,7 +144,7 @@ def test_langchain_evaluate_should_not_log_traces_when_disabled():
     def model(inputs):
         return [chain.invoke({"question": input}) for input in inputs["question"]]
 
-    with mlflow.start_run() as run:
+    with mlflow.start_run():
         evaluate(
             model,
             data=_EVAL_DATA,
