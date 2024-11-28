@@ -178,3 +178,33 @@ def test_display_traces_if_not_in_databricks():
         handler = get_display_handler()
         handler.display_traces([create_trace("a")])
         mock_get_ipython.assert_not_called()
+
+
+@in_databricks
+def test_enable_and_disable_display(monkeypatch):
+    mock_ipython = MockIPython()
+    monkeypatch.setattr("IPython.get_ipython", lambda: mock_ipython)
+    mock_display_handle = Mock()
+    mock_display = Mock(return_value=mock_display_handle)
+    monkeypatch.setattr("IPython.display.display", mock_display)
+    trace_a = create_trace("a")
+
+    # test that disabling the display handler prevents display() from being called
+    mlflow.tracing.disable_notebook_display()
+    handler = get_display_handler()
+    handler.display_traces([trace_a])
+    mock_ipython.mock_run_cell()
+
+    mock_display.assert_not_called()
+
+    # test that re-enabling it will make things display again
+    mlflow.tracing.enable_notebook_display()
+    handler = get_display_handler()
+    handler.display_traces([trace_a])
+    mock_ipython.mock_run_cell()
+
+    assert mock_display.call_count == 1
+    assert mock_display.call_args[0][0] == {
+        "application/databricks.mlflow.trace": trace_a._serialize_for_mimebundle(),
+        "text/plain": repr(trace_a),
+    }
