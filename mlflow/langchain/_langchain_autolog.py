@@ -15,6 +15,7 @@ import mlflow
 from mlflow.entities import RunTag
 from mlflow.entities.run_status import RunStatus
 from mlflow.exceptions import MlflowException
+from mlflow.langchain import _LOADED_MODEL_TRACKER
 from mlflow.langchain.langchain_tracer import MlflowLangchainTracer
 from mlflow.langchain.runnables import get_runnable_steps
 from mlflow.tracking.context import registry as context_registry
@@ -86,10 +87,20 @@ def patched_inference(func_name, original, self, *args, **kwargs):
             return original(self, *args, **kwargs)
 
     config = AutoLoggingConfig.init(mlflow.langchain.FLAVOR_NAME)
+
+    if mid := _LOADED_MODEL_TRACKER.get(self):
+        model_id = mid
+    elif config.log_models:
+        logged_model = mlflow.create_logged_model()
+        model_id = logged_model.model_id
+    else:
+        model_id = None
+
     should_trace = not IS_PATCHING_DISABLED_FOR_TRACING.get() and config.log_traces
 
     if should_trace:
         tracer = MlflowLangchainTracer(
+            model_id=model_id,
             # NB: RunnableSequence's batch() and abatch() methods are implemented in a peculiar way
             # that iterates on steps->items sequentially within the same thread. For example, if a
             # sequence has 2 steps and the batch size is 3, the execution flow will be:
@@ -105,14 +116,16 @@ def patched_inference(func_name, original, self, *args, **kwargs):
                 isinstance(self, RunnableSequence) and func_name in ["batch", "abatch"]
             )
         )
-        args, kwargs = _get_args_with_mlflow_tracer(tracer, func_name, args, kwargs)
+        args, kwargs = _get_args_with_mlflow_tracer(tracer, func_name, model_id, args, kwargs)
 
     # Traces does not require an MLflow run, only the other optional artifacts require it.
     try:
         if not IS_PATCHING_DISABLED_FOR_ARTIFACTS and config.should_log_optional_artifacts():
             with _setup_autolog_run(config, self) as run_id:
                 result = _invoke(self, *args, **kwargs)
-                _log_optional_artifacts(config, run_id, result, self, func_name, *args, **kwargs)
+                _log_optional_artifacts(
+                    config, run_id, result, self, func_name, model_id, *args, **kwargs
+                )
         else:
             result = _invoke(self, *args, **kwargs)
     finally:
@@ -126,7 +139,7 @@ def patched_inference(func_name, original, self, *args, **kwargs):
     return result
 
 
-def _get_args_with_mlflow_tracer(mlflow_tracer, func_name, args, kwargs):
+def _get_args_with_mlflow_tracer(mlflow_tracer, func_name, model_id, args, kwargs):
     """
     Get the patched arguments with MLflow tracer injected.
     """
@@ -424,7 +437,16 @@ def _chain_with_retriever(model):
     return False
 
 
-def _log_optional_artifacts(autolog_config, run_id, result, self, func_name, *args, **kwargs):
+def _log_optional_artifacts(
+    autolog_config,
+    run_id,
+    result,
+    self,
+    func_name,
+    model_id,
+    *args,
+    **kwargs,
+):
     input_example = None
     if autolog_config.log_models and not hasattr(self, "_mlflow_model_logged"):
         if (
@@ -458,6 +480,7 @@ def _log_optional_artifacts(autolog_config, run_id, result, self, func_name, *ar
                         input_example=input_example,
                         registered_model_name=registered_model_name,
                         run_id=run_id,
+                        model_id=model_id,
                     )
             except Exception as e:
                 _logger.warning(f"Failed to log model due to error {e}.")

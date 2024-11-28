@@ -490,6 +490,7 @@ from mlflow.pyfunc.model import (
     get_default_conda_env,  # noqa: F401
     get_default_pip_requirements,
 )
+from mlflow.store.artifact.utils.models import _parse_model_id_if_present
 from mlflow.tracing.provider import trace_disabled
 from mlflow.tracing.utils import _try_get_prediction_context
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
@@ -720,6 +721,7 @@ class PyFuncModel:
         model_impl: Any,
         predict_fn: str = "predict",
         predict_stream_fn: Optional[str] = None,
+        model_id: Optional[str] = None,
     ):
         if not hasattr(model_impl, predict_fn):
             raise MlflowException(f"Model implementation is missing required {predict_fn} method.")
@@ -736,6 +738,7 @@ class PyFuncModel:
             self._predict_stream_fn = getattr(model_impl, predict_stream_fn)
         else:
             self._predict_stream_fn = None
+        self._model_id = model_id
 
     @property
     @developer_stable
@@ -746,6 +749,26 @@ class PyFuncModel:
         NOTE: This is a stable developer API.
         """
         return self.__model_impl
+
+    @property
+    def model_id(self) -> Optional[str]:
+        """
+        The model ID of the model.
+
+        Returns:
+            The model ID of the model.
+        """
+        return self._model_id
+
+    def _update_dependencies_schemas_in_prediction_context(self, context: Context):
+        if self._model_meta and self._model_meta.metadata:
+            dependencies_schemas = self._model_meta.metadata.get("dependencies_schemas", {})
+            context.update(
+                dependencies_schemas={
+                    dependency: json.dumps(schema)
+                    for dependency, schema in dependencies_schemas.items()
+                }
+            )
 
     @contextmanager
     def _try_get_or_generate_prediction_context(self):
@@ -1089,6 +1112,7 @@ def load_model(
         model_impl=model_impl,
         predict_fn=predict_fn,
         predict_stream_fn=predict_stream_fn,
+        model_id=_parse_model_id_if_present(model_uri),
     )
 
 
@@ -3024,7 +3048,7 @@ def save_model(
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name="scikit-learn"))
 @trace_disabled  # Suppress traces for internal predict calls while logging model
 def log_model(
-    artifact_path,
+    artifact_path=None,
     loader_module=None,
     data_path=None,
     code_path=None,  # deprecated
@@ -3044,6 +3068,12 @@ def log_model(
     example_no_conversion=None,
     streamable=None,
     resources: Optional[Union[str, list[Resource]]] = None,
+    name=None,
+    params: Optional[dict[str, Any]] = None,
+    tags: Optional[dict[str, Any]] = None,
+    model_type: Optional[str] = None,
+    step: int = 0,
+    model_id: Optional[str] = None,
 ):
     """
     Log a Pyfunc model with custom inference logic and optional data dependencies as an MLflow
@@ -3056,7 +3086,7 @@ def log_model(
     and the parameters for the first workflow: ``python_model``, ``artifacts`` together.
 
     Args:
-        artifact_path: The run-relative artifact path to which to log the Python model.
+        artifact_path: Deprecated. Use `name` instead.
         loader_module: The name of the Python module that is used to load the model
             from ``data_path``. This module must define a method with the prototype
             ``_load_pyfunc(data_path)``. If not ``None``, this module and its
@@ -3239,12 +3269,20 @@ def log_model(
             .. Note:: Experimental: This parameter may change or be removed in a future
                                     release without warning.
 
+        name: {{ name }}
+        params: {{ params }}
+        tags: {{ tags }}
+        model_type: {{ model_type }}
+        step: {{ step }}
+        model_id: {{ model_id }}
+
     Returns:
         A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
         metadata of the logged model.
     """
     return Model.log(
         artifact_path=artifact_path,
+        name=name,
         flavor=mlflow.pyfunc,
         loader_module=loader_module,
         data_path=data_path,
@@ -3265,6 +3303,11 @@ def log_model(
         streamable=streamable,
         resources=resources,
         infer_code_paths=infer_code_paths,
+        params=params,
+        tags=tags,
+        model_type=model_type,
+        step=step,
+        model_id=model_id,
     )
 
 

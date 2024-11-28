@@ -59,6 +59,7 @@ from mlflow.models.utils import (
 )
 from mlflow.pyfunc import FLAVOR_NAME as PYFUNC_FLAVOR_NAME
 from mlflow.pyfunc.context import get_prediction_context
+from mlflow.store.artifact.utils.models import _parse_model_uri
 from mlflow.tracing.provider import trace_disabled
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
@@ -101,6 +102,7 @@ from mlflow.utils.model_utils import (
     _validate_and_prepare_target_save_path,
 )
 from mlflow.utils.requirements_utils import _get_pinned_requirement
+from mlflow.utils.uri import is_models_uri
 
 logger = logging.getLogger(mlflow.__name__)
 
@@ -427,7 +429,7 @@ def save_model(
 @trace_disabled  # Suppress traces for internal predict calls while logging model
 def log_model(
     lc_model,
-    artifact_path,
+    artifact_path: Optional[str] = None,
     conda_env=None,
     code_paths=None,
     registered_model_name=None,
@@ -443,7 +445,13 @@ def log_model(
     run_id=None,
     model_config=None,
     streamable=None,
-    resources: Optional[Union[list[Resource], str]] = None,
+    resources: Optional[Union[list[Resource], str]] =None,
+    name: Optional[str] = None,
+    params: Optional[dict[str, Any]] = None,
+    tags: Optional[dict[str, Any]] = None,
+    model_type: Optional[str] = None,
+    step: int = 0,
+    model_id: Optional[str] = None,
 ):
     """
     Log a LangChain model as an MLflow artifact for the current run.
@@ -459,7 +467,7 @@ def log_model(
 
             .. Note:: Experimental: Using model as path may change or be removed in a future
                                     release without warning.
-        artifact_path: Run-relative artifact path.
+        artifact_path: Deprecated. Use `name` instead.
         conda_env: {{ conda_env }}
         code_paths: {{ code_paths }}
         registered_model_name: This argument may change or be removed in a
@@ -569,12 +577,20 @@ def log_model(
             via this parameter. Otherwise, ``log_model`` will attempt to infer dependencies,
             but dependency auto-inference is best-effort and may miss some dependencies.
 
+        name: {{ name }}
+        params: {{ params }}
+        tags: {{ tags }}
+        model_type: {{ model_type }}
+        step: {{ step }}
+        model_id: {{ model_id }}
+
     Returns:
         A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
         metadata of the logged model.
     """
     return Model.log(
         artifact_path=artifact_path,
+        name=name,
         flavor=mlflow.langchain,
         registered_model_name=registered_model_name,
         lc_model=lc_model,
@@ -593,6 +609,11 @@ def log_model(
         model_config=model_config,
         streamable=streamable,
         resources=resources,
+        params=params,
+        tags=tags,
+        model_type=model_type,
+        step=step,
+        model_id=model_id,
     )
 
 
@@ -887,6 +908,24 @@ def _load_model_from_local_fs(local_model_path, model_config_overrides=None):
         return _load_model(local_model_path, flavor_conf)
 
 
+class _LoadedModelTracker:
+    """
+    Tracks models loaded by `load_model`.
+    """
+
+    def __init__(self):
+        self.model_ids: dict[int, str] = {}
+
+    def get(self, model: Any) -> Optional[str]:
+        return self.model_ids.get(id(model))
+
+    def set(self, model: Any, model_id: str) -> None:
+        self.model_ids[id(model)] = model_id
+
+
+_LOADED_MODEL_TRACKER = _LoadedModelTracker()
+
+
 @experimental
 @docstring_version_compatibility_warning(FLAVOR_NAME)
 @trace_disabled  # Suppress traces while loading model
@@ -913,7 +952,12 @@ def load_model(model_uri, dst_path=None):
         A LangChain model instance.
     """
     local_model_path = _download_artifact_from_uri(artifact_uri=model_uri, output_path=dst_path)
-    return _load_model_from_local_fs(local_model_path)
+    model = _load_model_from_local_fs(local_model_path)
+    if is_models_uri(model_uri):
+        parsed_model_uri = _parse_model_uri(model_uri)
+        if parsed_model_uri.model_id:
+            _LOADED_MODEL_TRACKER.set(model, parsed_model_uri.model_id)
+    return model
 
 
 def _patch_runnable_cls(cls):

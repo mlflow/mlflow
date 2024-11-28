@@ -20,6 +20,7 @@ from mlflow import MlflowClient
 from mlflow.entities import Document as MlflowDocument
 from mlflow.entities import LiveSpan, SpanEvent, SpanStatus, SpanStatusCode, SpanType
 from mlflow.exceptions import MlflowException
+from mlflow.tracing.constant import SpanAttributeKey
 from mlflow.pyfunc.context import Context, maybe_set_prediction_context
 from mlflow.tracing.provider import detach_span_from_context, set_span_in_context
 from mlflow.tracing.utils.token import SpanWithToken
@@ -55,7 +56,9 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
 
     def __init__(
         self,
+        parent_span: Optional[LiveSpan] = None,
         prediction_context: Optional[Context] = None,
+        model_id: Optional[str] = None,
         set_span_in_context: bool = True,
     ):
         # NB: The tracer can handle multiple traces in parallel under multi-threading scenarios.
@@ -65,6 +68,7 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
         # run_id: (LiveSpan, OTel token)
         self._run_span_mapping: dict[str, SpanWithToken] = {}
         self._prediction_context = prediction_context
+        self._model_id = model_id
         self._set_span_in_context = set_span_in_context
 
     def _get_span_by_run_id(self, run_id: UUID) -> Optional[LiveSpan]:
@@ -82,6 +86,11 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
         attributes: Optional[dict[str, Any]] = None,
     ) -> LiveSpan:
         """Start MLflow Span (or Trace if it is root component)"""
+        if self._model_id:
+            attributes = {
+                **(attributes or {}),
+                SpanAttributeKey.MODEL_ID: self._model_id,
+            }
         with maybe_set_prediction_context(self._prediction_context):
             parent = self._get_parent_span(parent_run_id)
             if parent:

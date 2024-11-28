@@ -14,7 +14,7 @@ from mlflow.entities import RunTag, SpanType
 from mlflow.entities.span_event import SpanEvent
 from mlflow.entities.span_status import SpanStatusCode
 from mlflow.ml_package_versions import _ML_PACKAGE_VERSIONS
-from mlflow.tracing.constant import TraceMetadataKey
+from mlflow.tracing.constant import SpanAttributeKey, TraceMetadataKey
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracking.context import registry as context_registry
 from mlflow.tracking.fluent import _get_experiment_id
@@ -146,6 +146,42 @@ def patched_call(original, self, *args, **kwargs):
             )
             run_id = run.info.run_id
 
+    input_example = None
+    model_id = None
+    if config.log_models and not hasattr(self, "_mlflow_model_logged"):
+        if config.log_input_examples:
+            input_example = deepcopy(_get_input_from_model(self, kwargs))
+            if not config.log_model_signatures:
+                _logger.info(
+                    "Signature is automatically generated for logged model if "
+                    "input_example is provided. To disable log_model_signatures, "
+                    "please also disable log_input_examples."
+                )
+
+        registered_model_name = get_autologging_config(
+            mlflow.openai.FLAVOR_NAME, "registered_model_name", None
+        )
+        try:
+            task = mlflow.openai._get_task_name(self.__class__)
+            with disable_autologging():
+                # If the user is using `openai.OpenAI()` client,
+                # they do not need to set the "OPENAI_API_KEY" environment variable.
+                # This temporarily sets the API key as an environment variable
+                # so that the model can be logged.
+                with _set_api_key_env_var(self._client):
+                    logged_model = mlflow.openai.log_model(
+                        model=kwargs.get("model", None),
+                        task=task,
+                        name="model",
+                        input_example=input_example,
+                        registered_model_name=registered_model_name,
+                        run_id=run_id,
+                    )
+                    model_id = logged_model.model_id
+        except Exception as e:
+            _logger.warning(f"Failed to log model due to error: {e}")
+        self._mlflow_model_logged = True
+
     if config.log_traces:
         # If there is an active span, create a child span under it, otherwise create a new trace
         if active_span := mlflow.get_current_active_span():
@@ -155,12 +191,14 @@ def patched_call(original, self, *args, **kwargs):
                 parent_id=active_span.span_id,
                 span_type=_get_span_type(self.__class__),
                 inputs=kwargs,
+                attributes={SpanAttributeKey.MODEL_ID: model_id} if model_id else None,
             )
         else:
             span = mlflow_client.start_trace(
                 name=self.__class__.__name__,
                 span_type=_get_span_type(self.__class__),
                 inputs=kwargs,
+                attributes={SpanAttributeKey.MODEL_ID: model_id} if model_id else None,
             )
 
         request_id = span.request_id

@@ -44,7 +44,8 @@ class ModelsArtifactRepository(ArtifactRepository):
 
         super().__init__(artifact_uri)
         registry_uri = mlflow.get_registry_uri()
-        if is_databricks_unity_catalog_uri(uri=registry_uri):
+        is_logged_models_uri = artifact_uri.rstrip("/").count("/") == 1  # e.g. 'models:/{model_id}'
+        if is_databricks_unity_catalog_uri(uri=registry_uri) and not is_logged_models_uri:
             self.repo = UnityCatalogModelsArtifactRepository(
                 artifact_uri=artifact_uri, registry_uri=registry_uri
             )
@@ -56,7 +57,7 @@ class ModelsArtifactRepository(ArtifactRepository):
             )
             self.model_name = self.repo.model_name
             self.model_version = self.repo.model_version
-        elif is_using_databricks_registry(artifact_uri):
+        elif is_using_databricks_registry(artifact_uri) and not is_logged_models_uri:
             # Use the DatabricksModelsArtifactRepository if a databricks profile is being used.
             self.repo = DatabricksModelsArtifactRepository(artifact_uri)
             self.model_name = self.repo.model_name
@@ -100,8 +101,15 @@ class ModelsArtifactRepository(ArtifactRepository):
             get_databricks_profile_uri_from_artifact_uri(uri) or mlflow.get_registry_uri()
         )
         client = MlflowClient(registry_uri=databricks_profile_uri)
-        name, version = get_model_name_and_version(client, uri)
-        download_uri = client.get_model_version_download_uri(name, version)
+        name_and_version_or_id = get_model_name_and_version(client, uri)
+        if len(name_and_version_or_id) == 1:
+            name = None
+            version = None
+            model_id = name_and_version_or_id[0]
+            download_uri = client.get_logged_model(model_id).artifact_location
+        else:
+            name, version = name_and_version_or_id
+            download_uri = client.get_model_version_download_uri(name, version)
 
         return (
             name,
