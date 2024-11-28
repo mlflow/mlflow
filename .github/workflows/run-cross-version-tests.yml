@@ -24,7 +24,6 @@ env:
 
 jobs:
   run:
-    if: ${{ inputs.empty == 'false' }}
     runs-on: ${{ matrix.runs_on }}
     timeout-minutes: 120
     strategy:
