@@ -640,7 +640,7 @@ def apply_changed_files(changed_files, matrix):
     changed_flavors = (
         # If this file has been changed, re-run all tests
         all_flavors
-        if (__file__ in changed_files)
+        if str(Path(__file__).relative_to(Path.cwd()) in changed_files)
         else get_changed_flavors(changed_files, all_flavors)
     )
 
@@ -729,13 +729,13 @@ def main(args):
     matrix = generate_matrix(args)
     matrix = sorted(matrix, key=lambda x: (x.name, x.category, x.version))
     matrix = [x for x in matrix if x.flavor not in ("gluon", "mleap")]
-    print(matrix)
-    assert len(matrix) <= MAX_ITEMS * 2, f"Too many jobs: {len(matrix)} > {MAX_ITEMS * NUM_JOBS}"
+    assert (
+        len(matrix) <= MAX_ITEMS * NUM_JOBS
+    ), f"Too many jobs: {len(matrix)} > {MAX_ITEMS * NUM_JOBS}. Increase the number of jobs."
     for idx, mat in enumerate(split(matrix, NUM_JOBS), start=1):
         mat = {"include": mat, "job_name": [x.job_name for x in mat]}
         print(divider(f"Matrix {idx}"))
         print(json.dumps(mat, indent=2, cls=CustomEncoder))
-        print(mat)
         if "GITHUB_ACTIONS" in os.environ:
             set_action_output(f"matrix{idx}", json.dumps(mat, cls=CustomEncoder))
             set_action_output(f"is_matrix{idx}_empty", "true" if len(mat) == 0 else "false")
