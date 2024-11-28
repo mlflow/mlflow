@@ -481,6 +481,12 @@ for model/API invocations to the active MLflow Experiment.
 
         To see the full example of tracing Anthropic, please refer to the `Anthropic Tracing example <https://github.com/mlflow/mlflow/tree/master/examples/anthropic/tracing.py>`_.
 
+        .. figure:: ../../_static/images/llms/anthropic/anthropic-tracing.png
+            :alt: Anthropic Tracing
+            :width: 100%
+            :align: center
+
+
     .. tab:: CrewAI
 
         .. raw:: html
@@ -494,10 +500,9 @@ for model/API invocations to the active MLflow Experiment.
         traces are generated for the usage of the CrewAI framework.
         Note that asynchronous task and kickoff are not supported now.
 
-        .. figure:: ../../_static/images/llms/anthropic/anthropic-tracing.png
-            :alt: Anthropic Tracing
-            :width: 100%
-            :align: center
+        .. code-block:: python
+
+            import mlflow
 
             mlflow.crewai.autolog()
 
