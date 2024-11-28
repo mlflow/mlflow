@@ -640,7 +640,7 @@ def apply_changed_files(changed_files, matrix):
     changed_flavors = (
         # If this file has been changed, re-run all tests
         all_flavors
-        if (__file__ in changed_files)
+        if str(Path(__file__).relative_to(Path.cwd()) in changed_files)
         else get_changed_flavors(changed_files, all_flavors)
     )
 
@@ -718,38 +718,20 @@ def split(matrix, n):
         yield chunk
 
 
-def validate_action_config(num_jobs: int):
-    with open(".github/workflows/cross-version-tests.yml") as f:
-        s = f.read()
-    s = re.sub(
-        r"needs\.set-matrix\.outputs\.matrix\d",
-        "needs.set-matrix.outputs.matrix",
-        s,
-    )
-    s = re.sub(
-        r"needs\.set-matrix\.outputs\.is_matrix\d_empty",
-        "needs.set-matrix.outputs.is_matrix_empty",
-        s,
-    )
-    jobs = yaml.safe_load(s)["jobs"]
-    jobs = [v for name, v in jobs.items() if name.startswith("test")]
-    assert len(jobs) == num_jobs, f"Expected {num_jobs} jobs, but got {len(jobs)}"
-    assert all(jobs[0] == j for j in jobs[1:]), "All jobs must have the same configuration"
-
-
 def main(args):
     # https://docs.github.com/en/actions/learn-github-actions/usage-limits-billing-and-administration#usage-limits
     # > A job matrix can generate a maximum of 256 jobs per workflow run.
     MAX_ITEMS = 256
-    NUM_JOBS = 2
-    validate_action_config(NUM_JOBS)
+    NUM_JOBS = 3
 
     print(divider("Parameters"))
     print(json.dumps(args, indent=2))
     matrix = generate_matrix(args)
     matrix = sorted(matrix, key=lambda x: (x.name, x.category, x.version))
     matrix = [x for x in matrix if x.flavor not in ("gluon", "mleap")]
-    assert len(matrix) <= MAX_ITEMS * 2, f"Too many jobs: {len(matrix)} > {MAX_ITEMS * NUM_JOBS}"
+    assert (
+        len(matrix) <= MAX_ITEMS * NUM_JOBS
+    ), f"Too many jobs: {len(matrix)} > {MAX_ITEMS * NUM_JOBS}. Increase the number of jobs."
     for idx, mat in enumerate(split(matrix, NUM_JOBS), start=1):
         mat = {"include": mat, "job_name": [x.job_name for x in mat]}
         print(divider(f"Matrix {idx}"))

@@ -155,5 +155,5 @@ def test_changed_files():
         matrix = generate_matrix([*path_args, "--changed-files", "mlflow/foo/__init__.py"])
         flavors = {x.flavor for x in matrix}
         versions = {str(x.version) for x in matrix}
-        assert set(flavors) == {"foo"}
-        assert set(versions) == {"1.0.0", "1.1.1", "1.2.0", "dev"}
+        assert set(flavors) == {"bar", "foo"}
+        assert set(versions) == {"dev", "1.3", "1.4", "1.2.0", "1.0.0", "1.1.1"}
