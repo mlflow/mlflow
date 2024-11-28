@@ -155,7 +155,7 @@ jobs:
           java-version: ${{ matrix.java }}
       - name: Install mlflow & test dependencies
         run: |
-          uv pip install --system install .[extras] wheel -r requirements/test-requirements.txt
+          uv pip install --system .[extras] wheel -r requirements/test-requirements.txt
       - name: Install ${{ matrix.package }} ${{ matrix.version }}
         run: |
           ${{ matrix.install }}
@@ -202,7 +202,7 @@ jobs:
           java-version: ${{ matrix.java }}
       - name: Install mlflow & test dependencies
         run: |
-          uv pip install --system install .[extras] wheel -r requirements/test-requirements.txt
+          uv pip install --system .[extras] wheel -r requirements/test-requirements.txt
       - name: Install ${{ matrix.package }} ${{ matrix.version }}
         run: |
           ${{ matrix.install }}
