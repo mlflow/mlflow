@@ -7,6 +7,8 @@ from mlflow.utils.autologging_utils.config import AutoLoggingConfig
 
 
 def _get_span_type(task_name: str) -> str:
+    # Anthropic has a few APIs in beta, e.g., count_tokens.
+    # Once they are stable, we can add them to the mapping.
     span_type_mapping = {
         "create": SpanType.CHAT_MODEL,
     }
@@ -35,7 +37,5 @@ def patched_class_call(original, self, *args, **kwargs):
             inputs = construct_full_inputs(original, self, *args, **kwargs)
             span.set_inputs(inputs)
             outputs = original(self, *args, **kwargs)
-            # # need to convert the response of generate_content for better visualization
-            # outputs = result.to_dict() if hasattr(result, "to_dict") else result
             span.set_outputs(outputs)
             return outputs
