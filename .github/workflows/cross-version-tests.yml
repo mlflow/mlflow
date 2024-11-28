@@ -127,7 +127,7 @@ jobs:
             python dev/set_matrix.py
           fi
 
-  g1:
+  1:
     needs: set-matrix
     if: ${{ needs.set-matrix.outputs.is_matrix1_empty == 'false' }}
     uses: ./.github/workflows/run-cross-version-tests.yml
@@ -137,7 +137,7 @@ jobs:
       ref: ${{ github.event.inputs.ref }}
       id: 1
 
-  g2:
+  2:
     needs: set-matrix
     if: ${{ needs.set-matrix.outputs.is_matrix2_empty == 'false' }}
     uses: ./.github/workflows/run-cross-version-tests.yml
@@ -147,7 +147,7 @@ jobs:
       ref: ${{ github.event.inputs.ref }}
       id: 2
 
-  g3:
+  3:
     needs: set-matrix
     if: ${{ needs.set-matrix.outputs.is_matrix3_empty == 'false' }}
     uses: ./.github/workflows/run-cross-version-tests.yml
