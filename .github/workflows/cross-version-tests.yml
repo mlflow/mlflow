@@ -129,21 +129,21 @@ jobs:
 
   g1:
     needs: set-matrix
+    if: ${{ needs.set-matrix.outputs.is_matrix1_empty == 'false' }}
     uses: ./.github/workflows/run-cross-version-tests.yml
     with:
       matrix: ${{ toJson(fromJson(needs.set-matrix.outputs.matrix1)) }}
-      empty: ${{ needs.set-matrix.outputs.is_matrix1_empty }}
 
   g2:
     needs: set-matrix
+    if: ${{ needs.set-matrix.outputs.is_matrix2_empty == 'false' }}
     uses: ./.github/workflows/run-cross-version-tests.yml
     with:
       matrix: ${{ toJson(fromJson(needs.set-matrix.outputs.matrix2)) }}
-      empty: ${{ needs.set-matrix.outputs.is_matrix2_empty }}
 
   g3:
     needs: set-matrix
+    if: ${{ needs.set-matrix.outputs.is_matrix3_empty == 'false' }}
     uses: ./.github/workflows/run-cross-version-tests.yml
     with:
       matrix: ${{ toJson(fromJson(needs.set-matrix.outputs.matrix3)) }}
-      empty: ${{ needs.set-matrix.outputs.is_matrix3_empty }}

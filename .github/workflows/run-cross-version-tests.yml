@@ -6,9 +6,6 @@ on:
       matrix:
         required: true
         type: string
-      empty:
-        required: true
-        type: string
 
 permissions:
   contents: read
