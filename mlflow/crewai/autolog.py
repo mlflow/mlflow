@@ -1,8 +1,6 @@
 import inspect
 import json
 
-from crewai.flow.flow import Flow
-
 import mlflow
 from mlflow.entities import SpanType
 from mlflow.entities.span import LiveSpan
@@ -31,6 +29,8 @@ def patched_class_call(original, self, *args, **kwargs):
 
 
 def _get_span_type(cls, task_name: str) -> str:
+    from crewai.flow.flow import Flow
+
     if issubclass(cls, Flow):
         return SpanType.CHAIN
     span_type_mapping = {
