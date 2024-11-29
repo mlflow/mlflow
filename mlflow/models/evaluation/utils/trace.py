@@ -38,7 +38,7 @@ def configure_autologging_for_evaluation(enable_tracing: bool = True):
                     new_config = {**new_config, "log_traces": True, "silent": True}
                     autolog(**new_config)
                     trace_enabled_flavors.append(flavor)
-                else:
+                elif flavor in AUTOLOGGING_INTEGRATIONS:
                     # For flavors that does not support tracing, disable autologging
                     autolog(disable=True)
 
@@ -54,7 +54,6 @@ def configure_autologging_for_evaluation(enable_tracing: bool = True):
                 del AUTOLOGGING_INTEGRATIONS[flavor]
 
         except Exception as e:
-            raise
             _logger.info(f"Failed to update autologging configuration for flavor {flavor}. {e}")
 
     if trace_enabled_flavors:
