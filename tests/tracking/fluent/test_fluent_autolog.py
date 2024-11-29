@@ -3,10 +3,18 @@ from collections import namedtuple
 from io import StringIO
 from unittest import mock
 
+import anthropic
+import autogen
+import dspy
 import fastai
+import google.generativeai
 import keras
+import langchain
 import lightgbm
 import lightning
+import litellm
+import llama_index.core
+import openai
 import pyspark
 import pyspark.ml
 import pytest
@@ -44,6 +52,14 @@ library_to_mlflow_module_without_spark_datasource = {
     lightning: mlflow.pytorch,
     transformers: mlflow.transformers,
     setfit: mlflow.transformers,
+    openai: mlflow.openai,
+    llama_index.core: mlflow.llama_index,
+    langchain: mlflow.langchain,
+    anthropic: mlflow.anthropic,
+    autogen: mlflow.autogen,
+    dspy: mlflow.dspy,
+    litellm: mlflow.litellm,
+    google.generativeai: mlflow.gemini,
 }
 
 library_to_mlflow_module = {
@@ -142,6 +158,7 @@ def test_universal_autolog_calls_specific_autologs_correctly(library, mlflow_mod
     args_to_test = {
         "log_models": False,
         "log_datasets": False,
+        "log_traces": False,
         "disable": True,
         "exclusive": True,
         "disable_for_unsupported_versions": True,

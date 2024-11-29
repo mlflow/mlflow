@@ -10,8 +10,8 @@ fastai>=2.4.1
 # TODO: Remove `<3.8` once we bump the minimim supported python version of MLflow to 3.9.
 spacy>=3.3.0,<3.8
 # Required by mlflow.tensorflow
-tensorflow>=2.10.0
-# tensorflow-macos>=2.10.0  # Comment out the line above and uncomment this line if setting up dev
+# tensorflow>=2.10.0
+tensorflow-macos>=2.10.0  # Comment out the line above and uncomment this line if setting up dev
                             # environment on local ARM macOS.
                             # Only do this for the purpose of setting up the dev environment, do not
                             # commit this change to the repo.
@@ -75,3 +75,13 @@ langchain
 promptflow
 # Required by mlflow.sentence_transformers
 sentence-transformers
+# mlflow.anthropic
+anthropic
+# mlflow.autogen
+autogen
+# mlflow.dspy
+dspy
+# mlflow.litellm
+litellm
+# gemini
+google-generativeai
