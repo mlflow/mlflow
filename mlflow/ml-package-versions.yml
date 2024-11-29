@@ -853,7 +853,7 @@ anthropic:
     minimum: "0.30.0"
     maximum: "0.39.0"
     requirements:
-      "< 1.55.3": ["httpx<0.28.0"]
+      "< 0.40.0": ["httpx<0.28.0"]
     run: pytest tests/anthropic
 
 sentence_transformers:
