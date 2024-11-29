@@ -76,8 +76,8 @@ jobs:
       - uses: ./.github/actions/setup-python
       - name: Install dependencies
         run: |
-          pip install -r dev/requirements.txt
-          pip install pytest pytest-cov
+          uv pip install --system -r dev/requirements.txt
+          uv pip install --system pytest pytest-cov
       - name: Check labels
         uses: actions/github-script@v7
         id: check-labels
@@ -144,15 +144,18 @@ jobs:
       - uses: ./.github/actions/setup-python
         with:
           python-version: ${{ matrix.python }}
+      - uses: astral-sh/setup-uv@v3
+        with:
+          version: 0.5.4
       - uses: ./.github/actions/setup-pyenv
       - uses: ./.github/actions/setup-java
         with:
           java-version: ${{ matrix.java }}
       - name: Install mlflow & test dependencies
         run: |
-          pip install wheel
-          pip install .[extras]
-          pip install -r requirements/test-requirements.txt
+          uv pip install --system wheel
+          uv pip install --system .[extras]
+          uv pip install --system -r requirements/test-requirements.txt
       - name: Install ${{ matrix.package }} ${{ matrix.version }}
         run: |
           ${{ matrix.install }}
@@ -190,15 +193,18 @@ jobs:
       - uses: ./.github/actions/setup-python
         with:
           python-version: ${{ matrix.python }}
+      - uses: astral-sh/setup-uv@v3
+        with:
+          version: 0.5.4
       - uses: ./.github/actions/setup-pyenv
       - uses: ./.github/actions/setup-java
         with:
           java-version: ${{ matrix.java }}
       - name: Install mlflow & test dependencies
         run: |
-          pip install wheel
-          pip install .[extras]
-          pip install -r requirements/test-requirements.txt
+          uv pip install --system wheel
+          uv pip install --system .[extras]
+          uv pip install --system -r requirements/test-requirements.txt
       - name: Install ${{ matrix.package }} ${{ matrix.version }}
         run: |
           ${{ matrix.install }}
