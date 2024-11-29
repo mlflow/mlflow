@@ -646,7 +646,7 @@ def apply_changed_files(changed_files, matrix):
     changed_flavors = (
         # If this file has been changed, re-run all tests
         all_flavors
-        if rel_this_file_path in changed_files
+        if str(rel_this_file_path) in changed_files
         else get_changed_flavors(changed_files, all_flavors)
     )
 
