@@ -84,6 +84,7 @@ class TestConfig(BaseModel, extra="forbid"):
     run: str
     allow_unreleased_max_version: Optional[bool] = None
     pre_test: Optional[str] = None
+    test_every_n_versions: Optional[int] = 1
 
     class Config:
         arbitrary_types_allowed = True
@@ -204,7 +205,13 @@ def get_latest_micro_versions(versions):
 
 
 def filter_versions(
-    flavor, versions, min_ver, max_ver, unsupported=None, allow_unreleased_max_version=False
+    flavor,
+    versions,
+    min_ver,
+    max_ver,
+    unsupported=None,
+    allow_unreleased_max_version=False,
+    test_every_n_versions=1,
 ):
     """
     Returns the versions that satisfy the following conditions:
@@ -243,7 +250,7 @@ def filter_versions(
             ],
             versions,
         )
-    )
+    )[::-test_every_n_versions][::-1]
 
 
 FLAVOR_FILE_PATTERN = re.compile(r"^(mlflow|tests)/(.+?)(_autolog(ging)?)?(\.py|/)")
@@ -563,6 +570,7 @@ def expand_config(config: dict[str, Any], *, is_ref: bool = False) -> set[Matrix
                 cfg.maximum,
                 cfg.unsupported or [],
                 allow_unreleased_max_version=cfg.allow_unreleased_max_version or False,
+                test_every_n_versions=cfg.test_every_n_versions,
             )
             versions = get_latest_micro_versions(versions)
 
