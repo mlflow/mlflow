@@ -611,6 +611,7 @@ transformers:
       "== 4.34.1": ["accelerate<0.32.0", "sentence-transformers<3.1.0"]
       "< 4.38": ["tensorflow<2.14"] # Older versions of transformers are incompatible with tensorflow >= 2.14
       ">= 4.38": ["tf-keras"] # Transformers doesn't support Keras 3.0. tf-keras needs to be installed.
+      "< 4.46.0": ["fsspec<2023.10.0"]
     run: |
       pytest tests/transformers/test_transformers_autolog.py
 
