@@ -18,7 +18,7 @@ mlflow.set_experiment("CrewAI")
 # Turn on auto tracing by calling mlflow.crewai.autolog()
 mlflow.crewai.autolog()
 
-content = "Users have some experience in machine learning development"
+content = "Users name is John. He is 30 years old and lives in San Francisco."
 string_source = StringKnowledgeSource(content=content, metadata={"preference": "personal"})
 
 search_tool = SerperDevTool()
