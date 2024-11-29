@@ -94,7 +94,7 @@ def build(package_type: PackageType) -> None:
             "description": (
                 "MLflow is an open source platform for the complete machine learning lifecycle"
             ),
-            "readme": "README.rst",
+            "readme": "README.md",
             "license": {
                 "file": "LICENSE.txt",
             },

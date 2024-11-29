@@ -55,14 +55,6 @@ repos:
         stages: [pre-commit]
         require_serial: true
 
-      - id: rstcheck
-        name: rstcheck
-        entry: rstcheck
-        language: system
-        files: README.rst
-        stages: [pre-commit]
-        require_serial: true
-
       - id: must-have-signoff
         name: must-have-signoff
         entry: 'grep "Signed-off-by:"'
