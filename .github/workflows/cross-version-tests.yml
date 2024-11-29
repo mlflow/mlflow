@@ -74,6 +74,9 @@ jobs:
           ref: ${{ github.event.inputs.ref }}
       - uses: ./.github/actions/untracked
       - uses: ./.github/actions/setup-python
+      - uses: astral-sh/setup-uv@v3
+        with:
+          version: 0.5.4
       - name: Install dependencies
         run: |
           uv pip install --system -r dev/requirements.txt
