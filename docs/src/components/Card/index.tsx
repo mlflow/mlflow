@@ -92,3 +92,48 @@ export const SmallLogoCard = ({ children, link }) => (
     </div>
   </Card>
 );
+
+const RELEASE_URL = "https://github.com/mlflow/mlflow/releases/tag/v";
+
+export const NewFeatureCard = ({
+  children,
+  description,
+  name,
+  releaseVersion,
+  learnMoreLink = "",
+}) => (
+  <Card>
+    <div className={styles.NewFeatureCardWrapper}>
+      <div className={styles.NewFeatureCardContent}>
+        <div className={styles.NewFeatureCardHeading}>
+          {name}
+          <br />
+          <hr className={styles.NewFeatureCardHeadingSeparator} />
+        </div>
+        <div className={styles.LogoCardImage}>{children}</div>
+        <br />
+        <p>{description}</p>
+        <br />
+      </div>
+
+      <div className={styles.NewFeatureCardTags}>
+        <div>
+          {learnMoreLink && (
+            <Link
+              className="button button--outline button--sm button--primary"
+              to={learnMoreLink}
+            >
+              Learn more
+            </Link>
+          )}
+        </div>
+        <Link
+          className="button button--outline button--sm button--primary"
+          to={`${RELEASE_URL}${releaseVersion}`}
+        >
+          released in {releaseVersion}
+        </Link>
+      </div>
+    </div>
+  </Card>
+);

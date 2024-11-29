@@ -131,3 +131,36 @@
   max-height: 80px;
   justify-content: center;
 }
+
+.NewFeatureCardContent {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.NewFeatureCardHeading {
+  color: var(--ifm-color-primary-darkest);
+  font-size: 1.75rem;
+  font-weight: bold;
+  line-height: 1;
+  text-align: center;
+}
+
+.NewFeatureCardHeadingSeparator {
+  display: inline-block;
+  width: 40%;
+  height: 2;
+}
+
+.NewFeatureCardTags {
+  align-self: stretch;
+  display: flex;
+  justify-content: space-between;
+}
+
+.NewFeatureCardWrapper {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  flex: 1;
+}
