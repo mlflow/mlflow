@@ -14,6 +14,9 @@ from mlflow.utils.databricks_utils import (
 from mlflow.utils.file_utils import TempDir
 
 _logger = logging.getLogger(__name__)
+UV_INSTALLATION_INSTRUCTIONS = (
+    "Install the 'uv' package by running `pip install uv` or `pip install mlflow[extras]`."
+)
 
 
 def build_docker(
@@ -198,10 +201,16 @@ def predict(
         if not shutil.which("uv"):
             raise MlflowException(
                 f"Found '{env_manager}' as env_manager, but the 'uv' command is not found in the "
-                "PATH. Please install the 'uv' package by running `pip install uv` or install "
-                "the `mlflow[extras]` package. Alternatively, you can use 'virtualenv' or "
-                "'conda' as the environment manager."
+                f"PATH. {UV_INSTALLATION_INSTRUCTIONS} Alternatively, you can use 'virtualenv' or "
+                "'conda' as the environment manager, but note their performances are not "
+                "as good as 'uv'."
             )
+    else:
+        _logger.info(
+            f"It is highly recommended to use `{_EnvManager.UV}` as the environment manager for "
+            "predicting with MLflow models as its performance is significantly better than other "
+            f"environment managers. {UV_INSTALLATION_INSTRUCTIONS}"
+        )
 
     is_dbconnect_mode = is_databricks_connect()
     if is_dbconnect_mode:
