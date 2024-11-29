@@ -83,6 +83,7 @@ def _construct_full_inputs(func, *args, **kwargs):
 
 def _set_span_attributes(span: LiveSpan, instance):
     instance_name = instance.__class__.__name__
+    ## memory does not have helpful attributes
     if instance_name == "Crew":
         for key, value in instance.__dict__.items():
             key = f"crewai.crew.{key}"
@@ -120,13 +121,11 @@ def _set_span_attributes(span: LiveSpan, instance):
             if value is not None and _is_serializable(value):
                 span.set_attribute(key, str(value) if isinstance(value, list) else value)
 
-    elif instance_name == "Flow" or instance_name == "Flow":
+    elif instance_name == "Flow":
         for key, value in instance.__dict__.items():
             key = f"crewai.flow.{key}"
             if value is not None and _is_serializable(value):
                 span.set_attribute(key, str(value) if isinstance(value, list) else value)
-
-    ## memory does not have helpful attributes
 
 
 def _get_agent_attributes(instance):
