@@ -863,13 +863,13 @@ crewai:
   package_info:
     pip_release: "crewai"
     module_name: "crewai"
-    python:
-      ">= 0.80.0": "3.10"
     install_dev: |
       pip install git+https://github.com/crewAIInc/crewAI
   autologging:
     minimum: "0.80.0"
     maximum: "0.83.0"
+    python:
+      ">= 0.80.0": "3.10"
     requirements:
     run: pytest tests/crewai
 
