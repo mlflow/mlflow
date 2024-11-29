@@ -13,14 +13,22 @@ export const CardGroup = ({ children, isSmall }): JSX.Element => (
   </div>
 );
 
-export const Card = ({ children, link }): JSX.Element => (
-  <Link
-    className={clsx(styles.Link, styles.Card, styles.CardBordered)}
-    to={link}
-  >
-    {children}
-  </Link>
-);
+export const Card = ({ children, link = "" }): JSX.Element => {
+  if (!link) {
+    return (
+      <div className={clsx(styles.Card, styles.CardBordered)}>{children}</div>
+    );
+  }
+
+  return (
+    <Link
+      className={clsx(styles.Link, styles.Card, styles.CardBordered)}
+      to={link}
+    >
+      {children}
+    </Link>
+  );
+};
 
 export const PageCard = ({ headerText, link, text }): JSX.Element => (
   <Card link={link}>
