@@ -620,7 +620,7 @@ openai:
       pip install git+https://github.com/openai/openai-python
   models:
     minimum: "1.0.1"
-    maximum: "1.55.2"
+    maximum: "1.54.4"
     requirements:
       ">= 0.0.0": [
           "pyspark",
@@ -639,7 +639,7 @@ openai:
     test_every_n_versions: 10
   autologging:
     minimum: "1.17.0"
-    maximum: "1.55.2"
+    maximum: "1.54.4"
     python:
       # OpenAI Swarm requires Python >=3.10
       ">= 1.33.0": "3.10"
