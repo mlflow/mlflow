@@ -31,9 +31,10 @@ class LogDemotionFilter(logging.Filter):
             record.levelno = logging.DEBUG  # Change the log level to DEBUG
             record.levelname = "DEBUG"
 
-        # Check the log level for the logger is debug or not
-        logger = logging.getLogger(self.module)
-        return logger.isEnabledFor(logging.DEBUG)
+            # Check the log level for the logger is debug or not
+            logger = logging.getLogger(self.module)
+            return logger.isEnabledFor(logging.DEBUG)
+        return True
 
 
 def suppress_token_detach_warning_to_debug_level():
