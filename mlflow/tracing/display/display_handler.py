@@ -1,10 +1,11 @@
 import json
 import logging
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, List
+from urllib.parse import urlencode
 
+import mlflow
 from mlflow.environment_variables import MLFLOW_MAX_TRACES_TO_DISPLAY_IN_NOTEBOOK
 from mlflow.utils.databricks_utils import is_in_databricks_runtime
-from mlflow.tracing.display.sketch import sketch
 
 _logger = logging.getLogger(__name__)
 _logger.setLevel(logging.DEBUG)
@@ -12,8 +13,13 @@ _logger.setLevel(logging.DEBUG)
 if TYPE_CHECKING:
     from mlflow.entities import Trace
 
+def _get_notebook_iframe_html(traces):
+    # uri = mlflow.get_tracking_uri()
+    src = "http://localhost:3000" + "/static-files/lib/ml-model-trace-renderer/index.html?" + _serialize_trace_list_for_oss(traces)
+    return f'<iframe id="trace-renderer" style="width: 100%; height: 500px; border: none;" src="{src}" />'
 
-def _serialize_trace_list(traces: list["Trace"]):
+
+def _serialize_trace_list(traces: List[Trace]):
     return json.dumps(
         # we can't just call trace.to_json() because this
         # will cause the trace to be serialized twice (once
@@ -21,6 +27,10 @@ def _serialize_trace_list(traces: list["Trace"]):
         [json.loads(trace._serialize_for_mimebundle()) for trace in traces],
         ensure_ascii=False,
     )
+
+
+def _serialize_trace_list_for_oss(traces: List[Trace]):
+    return urlencode([("trace_id", trace.info.request_id) for trace in traces])
 
 
 class IPythonTraceDisplayHandler:
@@ -88,9 +98,7 @@ class IPythonTraceDisplayHandler:
                     raw=True,
                 )
             else:
-                html = HTML(sketch.format(
-                    trace_id=traces_to_display[-1].info.request_id
-                ))
+                html = HTML(_get_notebook_iframe_html(traces_to_display))
                 display(html)
 
             # reset state
