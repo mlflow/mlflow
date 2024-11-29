@@ -78,6 +78,7 @@ jobs:
           command: |
             yarn install
             yarn build-api-docs:no-r
+            yarn convert-notebooks
             yarn build
             python changed_pages.py
       - store_artifacts:
