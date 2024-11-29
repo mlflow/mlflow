@@ -13,7 +13,7 @@
   grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
 }
 
-@media (max-width: 1500px) {
+@media (max-width: 1150px) {
   .MaxThreeColumns {
     grid-template-columns: repeat(2, 1fr);
   }
@@ -141,7 +141,6 @@
 .NewFeatureCardHeading {
   color: var(--ifm-color-primary-darkest);
   font-size: 1.75rem;
-  font-weight: bold;
   line-height: 1;
   text-align: center;
 }
