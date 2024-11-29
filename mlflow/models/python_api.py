@@ -1,5 +1,6 @@
 import logging
 import os
+import shutil
 from io import StringIO
 from typing import ForwardRef, get_args, get_origin
 
@@ -102,7 +103,7 @@ def predict(
     input_path=None,
     content_type=_CONTENT_TYPE_JSON,
     output_path=None,
-    env_manager=_EnvManager.VIRTUALENV,
+    env_manager=_EnvManager.UV,
     install_mlflow=False,
     pip_requirements_override=None,
     extra_envs=None,
@@ -127,7 +128,8 @@ def predict(
         output_path: File to output results to as json. If not provided, output to stdout.
         env_manager: Specify a way to create an environment for MLmodel inference:
 
-            - "virtualenv" (default): use virtualenv (and pyenv for Python version management)
+            - "uv"(default): use uv
+            - "virtualenv": use virtualenv (and pyenv for Python version management)
             - "local": use the local environment
             - "conda": use conda
 
@@ -183,18 +185,30 @@ def predict(
         raise MlflowException.invalid_parameter_value(
             f"Content type must be one of {_CONTENT_TYPE_JSON} or {_CONTENT_TYPE_CSV}."
         )
-    if extra_envs and env_manager not in (_EnvManager.VIRTUALENV, _EnvManager.CONDA):
+    if extra_envs and env_manager not in (
+        _EnvManager.VIRTUALENV,
+        _EnvManager.CONDA,
+        _EnvManager.UV,
+    ):
         raise MlflowException.invalid_parameter_value(
             "Extra environment variables are only supported when env_manager is "
-            f"set to '{_EnvManager.VIRTUALENV}' or '{_EnvManager.CONDA}'."
+            f"set to '{_EnvManager.VIRTUALENV}', '{_EnvManager.CONDA}' or '{_EnvManager.UV}'."
         )
+    if env_manager == _EnvManager.UV:
+        if not shutil.which("uv"):
+            raise MlflowException(
+                f"Found '{env_manager}' as env_manager, but the 'uv' command is not found in the "
+                "PATH. Please install the 'uv' package by running `pip install uv` or install "
+                "the `mlflow[extras]` package. Alternatively, you can use 'virtualenv' or "
+                "'conda' as the environment manager."
+            )
 
     is_dbconnect_mode = is_databricks_connect()
     if is_dbconnect_mode:
-        if env_manager != _EnvManager.VIRTUALENV:
+        if env_manager not in (_EnvManager.VIRTUALENV, _EnvManager.UV):
             raise MlflowException(
-                "Databricks Connect only supports virtualenv as the environment manager. "
-                f"Got {env_manager}."
+                f"Databricks Connect only supports '{_EnvManager.VIRTUALENV}' or '{_EnvManager.UV}'"
+                f" as the environment manager. Got {env_manager}."
             )
         pyfunc_backend_env_root_config = {
             "create_env_root_dir": False,

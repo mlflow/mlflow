@@ -134,6 +134,8 @@ def build(package_type: PackageType) -> None:
                     # Required for exporting metrics from the MLflow server to Prometheus
                     # as part of the MLflow server monitoring add-on
                     "prometheus-flask-exporter",
+                    # Required for env management in mlflow.models.predict
+                    "uv<1,>=0.5.5",
                 ],
                 "databricks": [
                     # Required to write model artifacts to unity catalog locations
