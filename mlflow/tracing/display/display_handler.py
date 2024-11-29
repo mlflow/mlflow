@@ -16,7 +16,7 @@ if TYPE_CHECKING:
 def _get_notebook_iframe_html(traces):
     # uri = mlflow.get_tracking_uri()
     src = "http://localhost:3000" + "/static-files/lib/ml-model-trace-renderer/index.html?" + _serialize_trace_list_for_oss(traces)
-    return f'<iframe id="trace-renderer" style="width: 100%; height: 500px; border: none;" src="{src}" />'
+    return f'<iframe id="trace-renderer" style="width: 100%; height: 500px; border: 1px solid rgb(209, 217, 225); border-top: none;" src="{src}" />'
 
 
 def _serialize_trace_list(traces: List[Trace]):
