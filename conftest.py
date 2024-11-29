@@ -385,6 +385,11 @@ def serve_wheel(request, tmp_path_factory):
             if existing_url := os.environ.get("PIP_EXTRA_INDEX_URL"):
                 url = f"{existing_url} {url}"
             os.environ["PIP_EXTRA_INDEX_URL"] = url
+            # Set this env var to accelerate uv installation, as http.server
+            # is not able to handle tons of concurrent requests from uv
+            # if we add the url into UV_INDEX environment variable.
+            # used by _create_virtualenv in mlflow.utils.virtualenv
+            os.environ["MLFLOW_DEV_WHEEL"] = f"{mlflow_dir}/mlflow-{VERSION}-py3-none-any.whl"
 
             yield
         finally:
