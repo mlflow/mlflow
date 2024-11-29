@@ -10,6 +10,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.types import DataType
 from mlflow.types.schema import (
+    HAS_PYSPARK,
     AnyType,
     Array,
     ColSpec,
@@ -194,27 +195,34 @@ def _infer_array_datatype(data: Union[list, np.ndarray]) -> Optional[Array]:
     return result
 
 
+# datetime is not included here
+SCALAR_TO_DATATYPE_MAPPING = {
+    bool: DataType.boolean,
+    np.bool_: DataType.boolean,
+    int: DataType.long,
+    np.int64: DataType.long,
+    np.int32: DataType.integer,
+    float: DataType.double,
+    np.float64: DataType.double,
+    np.float32: DataType.float,
+    str: DataType.string,
+    np.str_: DataType.string,
+    object: DataType.string,
+    bytes: DataType.binary,
+    np.bytes_: DataType.binary,
+    bytearray: DataType.binary,
+}
+
+
 def _infer_scalar_datatype(data) -> DataType:
-    if DataType.is_boolean(data):
-        return DataType.boolean
-    # Order of is_long & is_integer matters
-    # as both of their python_types are int
-    if DataType.is_long(data):
-        return DataType.long
-    if DataType.is_integer(data):
-        return DataType.integer
-    # Order of is_double & is_float matters
-    # as both of their python_types are float
-    if DataType.is_double(data):
-        return DataType.double
-    if DataType.is_float(data):
-        return DataType.float
-    if DataType.is_string(data):
-        return DataType.string
-    if DataType.is_binary(data):
-        return DataType.binary
-    if DataType.is_datetime(data):
+    if data_type := SCALAR_TO_DATATYPE_MAPPING.get(type(data)):
+        return data_type
+    if DataType.check_type(DataType.datetime, data):
         return DataType.datetime
+    if HAS_PYSPARK:
+        for data_type in DataType.all_types():
+            if isinstance(data, type(data_type.to_spark())):
+                return data_type
     raise MlflowException.invalid_parameter_value(
         f"Data {data} is not one of the supported DataType"
     )
@@ -798,11 +806,11 @@ def _infer_type_and_shape(value):
             raise MlflowException.invalid_parameter_value(
                 f"Expected parameters to be 1D array or scalar, got {ndim}D array",
             )
-        if all(DataType.is_datetime(v) for v in value):
+        if all(DataType.check_type(DataType.datetime, v) for v in value):
             return DataType.datetime, (-1,)
         value_type = _infer_numpy_dtype(np.array(value).dtype)
         return value_type, (-1,)
-    elif DataType.is_datetime(value):
+    elif DataType.check_type(DataType.datetime, value):
         return DataType.datetime, None
     elif np.isscalar(value):
         try:

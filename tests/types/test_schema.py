@@ -761,33 +761,39 @@ def test_enforce_tensor_spec_variable_signature():
 
 
 def test_datatype_type_check():
-    assert DataType.is_string("string")
+    assert DataType.check_type(DataType.string, "string")
 
-    assert DataType.is_integer(1)
-    assert DataType.is_integer(np.int32(1))
-    assert not DataType.is_integer(np.int64(1))
+    integer_type = DataType.integer
+    assert DataType.check_type(integer_type, 1)
+    assert DataType.check_type(integer_type, np.int32(1))
+    assert not DataType.check_type(integer_type, np.int64(1))
     # Note that isinstance(True, int) returns True
-    assert not DataType.is_integer(True)
+    assert not DataType.check_type(integer_type, True)
 
-    assert DataType.is_long(1)
-    assert DataType.is_long(np.int64(1))
-    assert not DataType.is_long(np.int32(1))
+    long_type = DataType.long
+    assert DataType.check_type(long_type, 1)
+    assert DataType.check_type(long_type, np.int64(1))
+    assert not DataType.check_type(long_type, np.int32(1))
 
-    assert DataType.is_boolean(True)
-    assert DataType.is_boolean(np.bool_(True))
-    assert not DataType.is_boolean(1)
+    bool_type = DataType.boolean
+    assert DataType.check_type(bool_type, True)
+    assert DataType.check_type(bool_type, np.bool_(True))
+    assert not DataType.check_type(bool_type, 1)
 
-    assert DataType.is_double(1.0)
-    assert DataType.is_double(np.float64(1.0))
-    assert not DataType.is_double(np.float32(1.0))
+    double_type = DataType.double
+    assert DataType.check_type(double_type, 1.0)
+    assert DataType.check_type(double_type, np.float64(1.0))
+    assert not DataType.check_type(double_type, np.float32(1.0))
 
-    assert DataType.is_float(1.0)
-    assert DataType.is_float(np.float32(1.0))
-    assert not DataType.is_float(np.float64(1.0))
+    float_type = DataType.float
+    assert DataType.check_type(float_type, 1.0)
+    assert DataType.check_type(float_type, np.float32(1.0))
+    assert not DataType.check_type(float_type, np.float64(1.0))
 
-    assert DataType.is_datetime(datetime.date(2023, 6, 26))
-    assert DataType.is_datetime(np.datetime64("2023-06-26 00:00:00"))
-    assert not DataType.is_datetime("2023-06-26 00:00:00")
+    datetime_type = DataType.datetime
+    assert DataType.check_type(datetime_type, datetime.date(2023, 6, 26))
+    assert DataType.check_type(datetime_type, np.datetime64("2023-06-26 00:00:00"))
+    assert not DataType.check_type(datetime_type, "2023-06-26 00:00:00")
 
 
 def test_param_schema_find_duplicates():

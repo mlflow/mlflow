@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import builtins
 import datetime as dt
-import importlib.util
 import json
 import string
 from abc import ABC, abstractmethod
@@ -27,6 +26,13 @@ EXPECTED_TYPE_MESSAGE = (
     "mlflow.types.schema.Object, mlflow.types.schema.Map, mlflow.types.schema.AnyType "
     "or str for the '{arg_name}' argument, but got {passed_type}"
 )
+
+try:
+    import pyspark  # noqa: F401
+
+    HAS_PYSPARK = True
+except ImportError:
+    HAS_PYSPARK = False
 
 
 class DataType(Enum):
@@ -96,48 +102,21 @@ class DataType(Enum):
         return self._python_type
 
     @classmethod
-    def is_boolean(cls, value):
-        return type(value) in DataType.boolean.get_all_types()
-
-    @classmethod
-    def is_integer(cls, value):
-        return type(value) in DataType.integer.get_all_types()
-
-    @classmethod
-    def is_long(cls, value):
-        return type(value) in DataType.long.get_all_types()
-
-    @classmethod
-    def is_float(cls, value):
-        return type(value) in DataType.float.get_all_types()
-
-    @classmethod
-    def is_double(cls, value):
-        return type(value) in DataType.double.get_all_types()
-
-    @classmethod
-    def is_string(cls, value):
-        return type(value) in DataType.string.get_all_types()
-
-    @classmethod
-    def is_binary(cls, value):
-        return type(value) in DataType.binary.get_all_types()
-
-    @classmethod
-    def is_datetime(cls, value):
-        return type(value) in DataType.datetime.get_all_types()
-
-    def get_all_types(self):
-        types = [self.to_numpy(), self.to_pandas(), self.to_python()]
-        if importlib.util.find_spec("pyspark") is not None:
-            types.append(self.to_spark())
-        if self.name == "datetime":
+    def check_type(cls, data_type, value):
+        types = [data_type.to_numpy(), data_type.to_pandas(), data_type.to_python()]
+        if data_type.name == "datetime":
             types.extend([np.datetime64, dt.datetime])
-        if self.name == "binary":
-            # This is to support identifying bytearrays as binary data
-            # for pandas DataFrame schema inference
-            types.extend([bytearray])
-        return types
+        if data_type.name == "binary":
+            types.append(bytearray)
+        if type(value) in types:
+            return True
+        if HAS_PYSPARK:
+            return isinstance(value, type(data_type.to_spark()))
+        return False
+
+    @classmethod
+    def all_types(cls):
+        return list(DataType.__members__.values())
 
     @classmethod
     def get_spark_types(cls):
@@ -1225,19 +1204,22 @@ class ParamSpec:
             )
 
         # Always convert to python native type for params
-        if getattr(DataType, f"is_{dtype.name}")(value):
-            return DataType[dtype.name].to_python()(value)
+        if DataType.check_type(dtype, value):
+            return dtype.to_python()(value)
 
         if (
             (
-                DataType.is_integer(value)
+                DataType.check_type(DataType.integer, value)
                 and dtype in (DataType.long, DataType.float, DataType.double)
             )
-            or (DataType.is_long(value) and dtype in (DataType.float, DataType.double))
-            or (DataType.is_float(value) and dtype == DataType.double)
+            or (
+                DataType.check_type(DataType.long, value)
+                and dtype in (DataType.float, DataType.double)
+            )
+            or (DataType.check_type(DataType.float, value) and dtype == DataType.double)
         ):
             try:
-                return DataType[dtype.name].to_python()(value)
+                return dtype.to_python()(value)
             except ValueError as e:
                 raise MlflowException.invalid_parameter_value(
                     f"Failed to convert value {value} from type {type(value).__name__} "
