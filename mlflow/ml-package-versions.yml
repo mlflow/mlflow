@@ -631,6 +631,7 @@ openai:
           "fastapi",
           "uvicorn",
         ]
+      "< 1.55.3": ["httpx<0.28.0"]
     run: |
       pytest tests/openai tests/openai/test_openai_model_export.py
   autologging:
