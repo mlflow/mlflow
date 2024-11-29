@@ -219,8 +219,10 @@ class ActiveRun(Run):
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        status = RunStatus.FINISHED if exc_type is None else RunStatus.FAILED
-        end_run(RunStatus.to_string(status))
+        active_run_stack = _active_run_stack.get()
+        if self in active_run_stack:  # Is this run still active?
+            status = RunStatus.FINISHED if exc_type is None else RunStatus.FAILED
+            end_run(RunStatus.to_string(status))
         return exc_type is None
 
 
