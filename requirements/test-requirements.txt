@@ -26,8 +26,6 @@ flaml[automl]!=2.3.0
 # this is pinned because huggingface_hub >= 0.24.0 causes setfit to be unimportable, see
 # https://github.com/huggingface/setfit/issues/544
 huggingface_hub<0.24.0
-# Required by evaluator tests
-shap
 # Required to evaluate language models in `mlflow.evaluate`
 evaluate
 nltk
