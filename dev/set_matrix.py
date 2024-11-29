@@ -569,7 +569,7 @@ def expand_config(config: dict[str, Any], *, is_ref: bool = False) -> set[Matrix
 
             # Test every n minor versions if specified
             if cfg.test_every_n_versions > 1:
-                versions = versions[:: -cfg.test_every_n_versions][::-1]
+                versions = sorted(versions)[:: -cfg.test_every_n_versions][::-1]
 
             # Always test the minimum version
             if cfg.minimum not in versions:
