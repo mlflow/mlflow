@@ -205,13 +205,7 @@ def get_latest_micro_versions(versions):
 
 
 def filter_versions(
-    flavor,
-    versions,
-    min_ver,
-    max_ver,
-    unsupported=None,
-    allow_unreleased_max_version=False,
-    test_every_n_versions=1,
+    flavor, versions, min_ver, max_ver, unsupported=None, allow_unreleased_max_version=False
 ):
     """
     Returns the versions that satisfy the following conditions:
@@ -250,7 +244,7 @@ def filter_versions(
             ],
             versions,
         )
-    )[::-test_every_n_versions][::-1]
+    )
 
 
 FLAVOR_FILE_PATTERN = re.compile(r"^(mlflow|tests)/(.+?)(_autolog(ging)?)?(\.py|/)")
@@ -570,9 +564,12 @@ def expand_config(config: dict[str, Any], *, is_ref: bool = False) -> set[Matrix
                 cfg.maximum,
                 cfg.unsupported or [],
                 allow_unreleased_max_version=cfg.allow_unreleased_max_version or False,
-                test_every_n_versions=cfg.test_every_n_versions,
             )
             versions = get_latest_micro_versions(versions)
+
+            # Test every n minor versions if specified
+            if cfg.test_every_n_versions > 1:
+                versions = versions[:: -cfg.test_every_n_versions][::-1]
 
             # Always test the minimum version
             if cfg.minimum not in versions:
