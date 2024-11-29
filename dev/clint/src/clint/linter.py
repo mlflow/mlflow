@@ -378,9 +378,12 @@ class Linter(ast.NodeVisitor):
         if rules.UseSysExecutable.check(node):
             self._check(Location.from_node(node), rules.UseSysExecutable())
 
+        self.generic_visit(node)
+
     def visit_AnnAssign(self, node: ast.AnnAssign) -> None:
         if rules.ImplicitOptional.check(node):
             self._check(Location.from_node(node), rules.ImplicitOptional())
+        self.generic_visit(node)
 
     @staticmethod
     def _is_os_environ(node: ast.AST) -> bool:
@@ -400,6 +403,8 @@ class Linter(ast.NodeVisitor):
             ):
                 self._check(Location.from_node(node), rules.OsEnvironSetInTest())
 
+        self.generic_visit(node)
+
     def visit_Delete(self, node: ast.Delete):
         if self._is_in_test():
             if (
@@ -408,6 +413,8 @@ class Linter(ast.NodeVisitor):
                 and self._is_os_environ(node.targets[0].value)
             ):
                 self._check(Location.from_node(node), rules.OsEnvironDeleteInTest())
+
+        self.generic_visit(node)
 
 
 def _lint_cell(path: Path, config: Config, cell: dict[str, Any], index: int) -> list[Violation]:
