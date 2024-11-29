@@ -349,7 +349,7 @@ def validate_evaluation_results(
 
 
 def _validate(
-    validation_thresholds: MetricThreshold,
+    validation_thresholds: dict[str, MetricThreshold],
     candidate_metrics: dict[str, float],
     baseline_metrics: dict[str, float],
 ):
@@ -376,8 +376,7 @@ def _validate(
         for (metric_name, threshold) in validation_thresholds.items()
     }
 
-    for metric_name in validation_thresholds.keys():
-        metric_threshold = validation_thresholds[metric_name]
+    for metric_name, metric_threshold in validation_thresholds.items():
         validation_result = validation_results[metric_name]
 
         if metric_name not in candidate_metrics:
