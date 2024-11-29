@@ -13,7 +13,7 @@
   grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
 }
 
-@media (max-width: 1150px) {
+@media (max-width: 1500px) {
   .MaxThreeColumns {
     grid-template-columns: repeat(2, 1fr);
   }
