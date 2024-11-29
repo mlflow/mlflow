@@ -165,5 +165,5 @@ def autolog(
             "query",
             patched_class_call,
         )
-    except ImportError:
+    except AttributeError:
         pass
