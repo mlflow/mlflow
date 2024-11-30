@@ -1,7 +1,8 @@
 import json
 import logging
-from typing import TYPE_CHECKING, List
-from urllib.parse import urlencode
+import uuid
+from typing import TYPE_CHECKING
+from urllib.parse import urlencode, urljoin
 
 import mlflow
 from mlflow.environment_variables import MLFLOW_MAX_TRACES_TO_DISPLAY_IN_NOTEBOOK
@@ -13,13 +14,27 @@ _logger.setLevel(logging.DEBUG)
 if TYPE_CHECKING:
     from mlflow.entities import Trace
 
-def _get_notebook_iframe_html(traces):
-    # uri = mlflow.get_tracking_uri()
-    src = "http://localhost:3000" + "/static-files/lib/ml-model-trace-renderer/index.html?" + _serialize_trace_list_for_oss(traces)
-    return f'<iframe id="trace-renderer" style="width: 100%; height: 500px; border: 1px solid rgb(209, 217, 225); border-top: none;" src="{src}" />'
+
+TRACE_RENDERER_ASSET_PATH = "/static-files/lib/notebook-trace-renderer/index.html"
+
+IFRAME_HTML = '''
+<iframe
+  id="trace-renderer"
+  style="width: 100%; height: 600px; border: none;"
+  src="{src}"
+/>
+'''
+
+def _get_notebook_iframe_html(traces: list["Trace"]):
+    # uri = urljoin(mlflow.get_tracking_uri(), TRACE_RENDERER_ASSET_PATH)
+    uri = urljoin("http://localhost:3000/", TRACE_RENDERER_ASSET_PATH)
+    query_string = _serialize_trace_list_for_iframe(traces)
+    # include mlflow version to invalidate cache when mlflow updates
+    src = f"{uri}?{query_string}&version={mlflow.__version__}"
+    return IFRAME_HTML.format(src=src)
 
 
-def _serialize_trace_list(traces: List[Trace]):
+def _serialize_trace_list(traces: list["Trace"]):
     return json.dumps(
         # we can't just call trace.to_json() because this
         # will cause the trace to be serialized twice (once
@@ -29,7 +44,7 @@ def _serialize_trace_list(traces: List[Trace]):
     )
 
 
-def _serialize_trace_list_for_oss(traces: List[Trace]):
+def _serialize_trace_list_for_iframe(traces: list["Trace"]):
     return urlencode([("trace_id", trace.info.request_id) for trace in traces])
 
 
@@ -80,7 +95,7 @@ class IPythonTraceDisplayHandler:
         # this should do nothing if not in an IPython environment
         try:
             from IPython import get_ipython
-            from IPython.display import display, HTML
+            from IPython.display import HTML, display
 
             if get_ipython() is None:
                 return
@@ -109,27 +124,23 @@ class IPythonTraceDisplayHandler:
             # get_traces, search_traces), and we don't want to block
             # the core functionality if the display fails.
             _logger.debug("Failed to display traces", exc_info=True)
+            self.traces_to_display = {}
 
     def get_mimebundle(self, traces: list["Trace"]):
         if len(traces) == 1:
-            if is_in_databricks_runtime():
-                return traces[0]._repr_mimebundle_()
-            return traces[0].to_json()
+            return traces[0]._repr_mimebundle_()
         else:
-            if is_in_databricks_runtime():
-                return {
-                    "application/databricks.mlflow.trace": _serialize_trace_list(traces),
-                    "text/plain": repr(traces),
-                }
-            thing = json.dumps([json.loads(trace.to_json()) for trace in traces])
-            
-            return thing
+            return {
+                "application/databricks.mlflow.trace": _serialize_trace_list(traces),
+                "text/plain": repr(traces),
+            }
 
     def display_traces(self, traces: list["Trace"]):
         # This only works in Databricks notebooks
         if not is_in_databricks_runtime() or self.disabled:
             return
 
+        # this should do nothing if not in an IPython environment
         try:
             from IPython import get_ipython
 
