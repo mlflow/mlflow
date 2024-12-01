@@ -606,7 +606,8 @@ def test_mlflow_ui_is_alias_for_mlflow_server():
         [sys.executable, "-m", "mlflow", "server", "--help"], text=True
     )
     assert (
-        mlflow_ui_stdout.replace("Usage: mlflow ui", "Usage: mlflow server") == mlflow_server_stdout
+        mlflow_ui_stdout.replace("Usage: python -m mlflow ui", "Usage: python -m mlflow server")
+        == mlflow_server_stdout
     )
 
 
