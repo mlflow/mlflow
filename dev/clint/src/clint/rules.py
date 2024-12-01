@@ -277,3 +277,11 @@ class InvalidAbstractMethod(Rule):
                 )
             )
         )
+
+
+class IncorrectAnyTypeAnnotation(Rule):
+    def _id(self) -> str:
+        return "MLF0016"
+
+    def _message(self) -> str:
+        return "Did you mean `Any` instead of `any`?"

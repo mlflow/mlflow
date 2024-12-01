@@ -392,10 +392,7 @@ def test_autolog_set_retriever_schema():
             return self.prog(question=question)
 
     with mlflow.start_run():
-        model_info = mlflow.dspy.log_model(
-            dspy_model=CoT(),
-            artifact_path="model",
-        )
+        model_info = mlflow.dspy.log_model(CoT(), "model")
 
     # Reset retriever schema
     _clear_retriever_schema()

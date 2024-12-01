@@ -186,6 +186,7 @@ class Linter(ast.NodeVisitor):
         self.ignore = ignore
         self.cell = cell
         self.violations: list[Violation] = []
+        self.in_type_annotation = False
 
     def _check(self, loc: Location, rule: rules.Rule) -> None:
         if (lines := self.ignore.get(rule.name)) and loc.lineno in lines:
@@ -316,11 +317,22 @@ class Linter(ast.NodeVisitor):
         if rules.InvalidAbstractMethod.check(node):
             self._check(Location.from_node(node), rules.InvalidAbstractMethod())
 
+    def visit_Name(self, node) -> None:
+        if self.in_type_annotation and node.id == "any":
+            self._check(Location.from_node(node), rules.IncorrectAnyTypeAnnotation())
+
+        self.generic_visit(node)
+
     def visit_FunctionDef(self, node: ast.FunctionDef) -> None:
         self._test_name_typo(node)
         self._syntax_error_example(node)
         self._param_mismatch(node)
         self._invalid_abstract_method(node)
+
+        for arg in node.args.args + node.args.kwonlyargs + node.args.posonlyargs:
+            if arg.annotation:
+                self.visit_type_annotation(arg.annotation)
+
         self.stack.append(node)
         self._no_rst(node)
         self.generic_visit(node)
@@ -378,9 +390,16 @@ class Linter(ast.NodeVisitor):
         if rules.UseSysExecutable.check(node):
             self._check(Location.from_node(node), rules.UseSysExecutable())
 
+        self.generic_visit(node)
+
     def visit_AnnAssign(self, node: ast.AnnAssign) -> None:
         if rules.ImplicitOptional.check(node):
             self._check(Location.from_node(node), rules.ImplicitOptional())
+
+        if node.annotation:
+            self.visit_type_annotation(node.annotation)
+
+        self.generic_visit(node)
 
     @staticmethod
     def _is_os_environ(node: ast.AST) -> bool:
@@ -400,6 +419,8 @@ class Linter(ast.NodeVisitor):
             ):
                 self._check(Location.from_node(node), rules.OsEnvironSetInTest())
 
+        self.generic_visit(node)
+
     def visit_Delete(self, node: ast.Delete):
         if self._is_in_test():
             if (
@@ -408,6 +429,13 @@ class Linter(ast.NodeVisitor):
                 and self._is_os_environ(node.targets[0].value)
             ):
                 self._check(Location.from_node(node), rules.OsEnvironDeleteInTest())
+
+        self.generic_visit(node)
+
+    def visit_type_annotation(self, node: ast.AST) -> None:
+        self.in_type_annotation = True
+        self.generic_visit(node)
+        self.in_type_annotation = False
 
 
 def _lint_cell(path: Path, config: Config, cell: dict[str, Any], index: int) -> list[Violation]:
