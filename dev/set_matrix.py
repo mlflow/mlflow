@@ -84,7 +84,7 @@ class TestConfig(BaseModel, extra="forbid"):
     run: str
     allow_unreleased_max_version: Optional[bool] = None
     pre_test: Optional[str] = None
-    test_every_n_versions: Optional[int] = 1
+    test_every_n_versions: int = 1
 
     class Config:
         arbitrary_types_allowed = True
