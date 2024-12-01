@@ -604,7 +604,10 @@ class SqlAlchemyStore(AbstractStore):
         _validate_registered_model_tag(tag.key, tag.value)
         with self.ManagedSessionMaker() as session:
             # check if registered model exists
-            self._get_registered_model(session, name)
+            updated_time = get_current_time_millis()
+            sql_model_version = self._get_sql_model_version(session, name=name)
+            sql_model_version.last_updated_time = updated_time
+            session.add(sql_model_version)
             session.merge(SqlRegisteredModelTag(name=name, key=tag.key, value=tag.value))
 
     def delete_registered_model_tag(self, name, key):
@@ -1084,10 +1087,10 @@ class SqlAlchemyStore(AbstractStore):
         _validate_model_version_tag(tag.key, tag.value)
         with self.ManagedSessionMaker() as session:
             # check if model version exists
-            self._get_sql_model_version(session, name, version)
             updated_time = get_current_time_millis()
             sql_model_version = self._get_sql_model_version(session, name=name, version=version)
             sql_model_version.last_updated_time = updated_time
+            session.add(sql_model_version)
             session.merge(
                 SqlModelVersionTag(name=name, version=version, key=tag.key, value=tag.value)
             )
