@@ -95,6 +95,8 @@ def test_mlflow_is_not_installed_unless_specified():
         # The following should fail because there should be no mlflow in the env:
         prc = subprocess.run(
             [
+                sys.executable,
+                "-m",
                 "mlflow",
                 "models",
                 "predict",
@@ -130,7 +132,7 @@ def test_model_with_no_deployable_flavors_fails_pollitely():
         m.save(tmp.path("model", "MLmodel"))
         # The following should fail because there should be no suitable flavor
         prc = subprocess.run(
-            ["mlflow", "models", "predict", "-m", tmp.path("model")],
+            [sys.executable, "-m", "mlflow", "models", "predict", "-m", tmp.path("model")],
             stderr=subprocess.PIPE,
             cwd=tmp.path(""),
             check=False,
@@ -300,6 +302,8 @@ def test_predict(iris_data, sk_model):
         # read from stdin, write to stdout.
         prc = subprocess.run(
             [
+                sys.executable,
+                "-m",
                 "mlflow",
                 "models",
                 "predict",
@@ -368,6 +372,8 @@ def test_predict_check_content_type(iris_data, sk_model, tmp_path):
     # Throw errors for invalid content_type
     prc = subprocess.run(
         [
+            sys.executable,
+            "-m",
             "mlflow",
             "models",
             "predict",
@@ -408,6 +414,8 @@ def test_predict_check_input_path(iris_data, sk_model, tmp_path):
     # Valid input path with space
     prc = subprocess.run(
         [
+            sys.executable,
+            "-m",
             "mlflow",
             "models",
             "predict",
@@ -431,6 +439,8 @@ def test_predict_check_input_path(iris_data, sk_model, tmp_path):
     # Throw errors for invalid input_path
     prc = subprocess.run(
         [
+            sys.executable,
+            "-m",
             "mlflow",
             "models",
             "predict",
@@ -455,6 +465,8 @@ def test_predict_check_input_path(iris_data, sk_model, tmp_path):
 
     prc = subprocess.run(
         [
+            sys.executable,
+            "-m",
             "mlflow",
             "models",
             "predict",
@@ -496,6 +508,8 @@ def test_predict_check_output_path(iris_data, sk_model, tmp_path):
 
     prc = subprocess.run(
         [
+            sys.executable,
+            "-m",
             "mlflow",
             "models",
             "predict",
@@ -572,6 +586,8 @@ def test_prepare_env_fails(sk_model):
         # With conda - should fail due to bad conda environment.
         prc = subprocess.run(
             [
+                sys.executable,
+                "-m",
                 "mlflow",
                 "models",
                 "prepare-env",

@@ -599,10 +599,15 @@ def test_mlflow_artifact_only_prints_warning_for_configs():
 
 
 def test_mlflow_ui_is_alias_for_mlflow_server():
-    mlflow_ui_stdout = subprocess.check_output(["mlflow", "ui", "--help"], text=True)
-    mlflow_server_stdout = subprocess.check_output(["mlflow", "server", "--help"], text=True)
+    mlflow_ui_stdout = subprocess.check_output(
+        [sys.executable, "-m", "mlflow", "ui", "--help"], text=True
+    )
+    mlflow_server_stdout = subprocess.check_output(
+        [sys.executable, "-m", "mlflow", "server", "--help"], text=True
+    )
     assert (
-        mlflow_ui_stdout.replace("Usage: mlflow ui", "Usage: mlflow server") == mlflow_server_stdout
+        mlflow_ui_stdout.replace("Usage: python -m mlflow ui", "Usage: python -m mlflow server")
+        == mlflow_server_stdout
     )
 
 
