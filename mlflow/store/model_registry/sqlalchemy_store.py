@@ -1085,6 +1085,9 @@ class SqlAlchemyStore(AbstractStore):
         with self.ManagedSessionMaker() as session:
             # check if model version exists
             self._get_sql_model_version(session, name, version)
+            updated_time = get_current_time_millis()
+            sql_model_version = self._get_sql_model_version(session, name=name, version=version)
+            sql_model_version.last_updated_time = updated_time
             session.merge(
                 SqlModelVersionTag(name=name, version=version, key=tag.key, value=tag.value)
             )
