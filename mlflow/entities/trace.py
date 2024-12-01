@@ -77,6 +77,11 @@ class Trace(_MlflowObject):
         which contains a JSON representation of the Trace object. This object is deserialized
         in Databricks notebooks to display the Trace object in a nicer UI.
         """
+        from mlflow.tracing.display import get_display_handler
+
+        if get_display_handler()._disabled:
+            return repr(self)
+
         return {
             "application/databricks.mlflow.trace": self._serialize_for_mimebundle(),
             "text/plain": repr(self),
