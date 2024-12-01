@@ -729,6 +729,8 @@ class _PyTorchWrapper:
     def __init__(self, pytorch_model, device):
         self.pytorch_model = pytorch_model
         self.device = device
+        import torch
+        self.torch = torch
 
     def get_raw_model(self):
         """
@@ -736,56 +738,113 @@ class _PyTorchWrapper:
         """
         return self.pytorch_model
 
-    def predict(self, data, params: Optional[dict[str, Any]] = None):
+    def predict(self, data: Any, params: Optional[dict[str, Any]] = None) -> Any:
         """
+        Overrides the predict method to handle dict and list of dict inputs.
+
         Args:
-            data: Model input data.
-            params: Additional parameters to pass to the model for inference.
+            data: Input data, which can be pandas DataFrame, numpy ndarray,
+                  dict of numpy arrays, or list of dicts of numpy arrays.
+            params: Additional parameters for inference (currently not used).
 
         Returns:
-            Model predictions.
+            Model predictions as numpy arrays or pandas DataFrames.
         """
-        import torch
 
         if params and "device" in params:
             raise ValueError(
-                "device' can no longer be specified as an inference parameter. "
+                "'device' can no longer be specified as an inference parameter. "
                 "It must be specified at load time. "
                 "Please specify the device at load time, for example: "
                 "`mlflow.pyfunc.load_model(model_uri, model_config={'device': 'cuda'})`."
             )
 
-        if isinstance(data, pd.DataFrame):
-            inp_data = data.values.astype(np.float32)
-        elif isinstance(data, np.ndarray):
-            inp_data = data
-        elif isinstance(data, (list, dict)):
-            raise TypeError(
-                "The PyTorch flavor does not support List or Dict input types. "
-                "Please use a pandas.DataFrame or a numpy.ndarray"
-            )
-        else:
-            raise TypeError("Input data should be pandas.DataFrame or numpy.ndarray")
+        # Preprocess the input data
+        input_tensor = self._preprocess_input(data)
 
-        device = self.device
-        with torch.no_grad():
-            input_tensor = torch.from_numpy(inp_data).to(device)
+        # Perform inference
+        with self.torch.no_grad():
             preds = self.pytorch_model(input_tensor)
-            # if the predictions happened on a remote device, copy them back to
-            # the host CPU for processing
-            if device != _TORCH_CPU_DEVICE_NAME:
-                preds = preds.to(_TORCH_CPU_DEVICE_NAME)
-            if not isinstance(preds, torch.Tensor):
-                raise TypeError(
-                    "Expected PyTorch model to output a single output tensor, "
-                    f"but got output of type '{type(preds)}'"
-                )
+
+        # Post-process the output
+        predicted = self._postprocess_output(preds, data)
+
+        return predicted
+
+    def _preprocess_input(self, data: Any):
+        """
+        Preprocesses input data to convert it into torch.Tensors suitable for the model.
+
+        Args:
+            data: Input data.
+
+        Returns:
+            Torch tensor or dictionary of torch tensors suitable for model input.
+        """
+        device = self.device
+
+        if isinstance(data, pd.DataFrame):
+            # Convert DataFrame to tensor
+            input_tensor = self.torch.from_numpy(data.values.astype(np.float32)).to(device)
+            return input_tensor
+        elif isinstance(data, np.ndarray):
+            # Convert ndarray to tensor
+            input_tensor = self.torch.from_numpy(data.astype(np.float32)).to(device)
+            return input_tensor
+        elif isinstance(data, dict):
+            # Convert each value in the dict to tensor
+            input_tensor = {
+                k: self.torch.as_tensor(v, dtype=self.torch.float32, device=device)
+                for k, v in data.items()
+            }
+            return input_tensor
+        elif isinstance(data, list) and all(isinstance(item, dict) for item in data):
+            # Aggregate data for each key
+            aggregated = {}
+            for item in data:
+                for key, value in item.items():
+                    if key not in aggregated:
+                        aggregated[key] = []
+                    aggregated[key].append(value.astype(np.float32))
+
+            # Concatenate and convert to tensors
+            input_tensor = {
+                k: self.torch.from_numpy(np.concatenate(v, axis=0)).to(device)
+                for k, v in aggregated.items()
+            }
+            return input_tensor
+        else:
+            raise TypeError(
+                "Input data must be a pandas DataFrame, numpy ndarray, dict, or list of dicts."
+            )
+
+    def _postprocess_output(self, preds: Any, data: Any) -> Any:
+        """
+        Converts model outputs to numpy arrays or pandas DataFrames as appropriate.
+
+        Args:
+            preds: Model predictions.
+            data: Original input data.
+
+        Returns:
+            Predictions in the same format as the input data.
+        """
+        if isinstance(preds, self.torch.Tensor):
+            preds = preds.cpu().numpy()
             if isinstance(data, pd.DataFrame):
-                predicted = pd.DataFrame(preds.numpy())
-                predicted.index = data.index
+                return pd.DataFrame(preds, index=data.index)
             else:
-                predicted = preds.numpy()
-            return predicted
+                return preds
+        elif isinstance(preds, dict):
+            preds = {k: v.cpu().numpy() for k, v in preds.items()}
+            if isinstance(data, pd.DataFrame):
+                return {k: pd.DataFrame(v, index=data.index) for k, v in preds.items()}
+            else:
+                return preds
+        else:
+            raise TypeError(
+                "Model output must be a torch.Tensor or a dict of torch.Tensors."
+            )
 
 
 def log_state_dict(state_dict, artifact_path, **kwargs):
