@@ -609,6 +609,7 @@ class SqlAlchemyStore(AbstractStore):
             sql_model_version.last_updated_time = updated_time
             session.add(sql_model_version)
             session.merge(SqlRegisteredModelTag(name=name, key=tag.key, value=tag.value))
+            session.flush()
 
     def delete_registered_model_tag(self, name, key):
         """
@@ -1094,6 +1095,7 @@ class SqlAlchemyStore(AbstractStore):
             session.merge(
                 SqlModelVersionTag(name=name, version=version, key=tag.key, value=tag.value)
             )
+            session.flush()
 
     def delete_model_version_tag(self, name, version, key):
         """
