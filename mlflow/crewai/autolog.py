@@ -57,11 +57,8 @@ def _get_span_type(instance) -> str:
                 crewai.memory.UserMemory,
                 crewai.memory.EntityMemory,
                 crewai.Knowledge,
+                crewai.agents.agent_builder.base_agent_executor_mixin.CrewAgentExecutorMixin,
             ),
-        ):
-            return SpanType.RETRIEVER
-        if isinstance(
-            instance, crewai.agents.agent_builder.base_agent_executor_mixin.CrewAgentExecutorMixin
         ):
             return SpanType.RETRIEVER
 
