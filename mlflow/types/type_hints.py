@@ -199,7 +199,8 @@ def model_fields(model: pydantic.BaseModel) -> dict[str, pydantic.fields.FieldIn
 
 def model_validate(model: pydantic.BaseModel, values: Any) -> None:
     if PYDANTIC_V2:
-        # TODO: strict needed or not?
+        # use strict mode to avoid any data conversion here
+        # e.g. "123" will not be converted to 123 if the type is int
         model.model_validate(values, strict=True)
     else:
         model.validate(values)
