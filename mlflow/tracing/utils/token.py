@@ -26,7 +26,7 @@ class LogDemotionFilter(logging.Filter):
         self.module = module
         self.message = message
 
-    def filter(self, record):
+    def filter(self, record: logging.LogRecord) -> bool:
         if record.name == self.module and self.message in record.getMessage():
             record.levelno = logging.DEBUG  # Change the log level to DEBUG
             record.levelname = "DEBUG"
