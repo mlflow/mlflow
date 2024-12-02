@@ -54,7 +54,12 @@ Tracing provides a way to record the inputs, outputs, and metadata associated wi
             </a>
             <a href="#automatic-tracing">
                 <div class="logo-card">
-                    <img src="../../_static/images/logos/autogen-logo.svg" alt="AutoGen Logo"/>
+                    <img src="../../_static/images/logos/instructor-logo.svg" alt="Instructor Logo"/>
+                </div>
+            </a>
+            <a href="#automatic-tracing">
+                <div class="logo-card">
+                    <img src="../../_static/images/logos/autogen-logo.png" alt="AutoGen Logo"/>
                 </div>
             </a>
             <a href="#automatic-tracing">
@@ -524,17 +529,19 @@ for model/API invocations to the active MLflow Experiment.
 
         .. code-block:: python
 
+            from openai import OpenAI
+
             client = OpenAI(
-                base_url = 'http://localhost:11434/v1',  # The local Ollama REST endpoint
-                api_key='dummy', # Required to instantiate OpenAI client, it can be a random string
+                base_url="http://localhost:11434/v1",  # The local Ollama REST endpoint
+                api_key="dummy",  # Required to instantiate OpenAI client, it can be a random string
             )
 
             response = client.chat.completions.create(
                 model="llama3.2:1b",
                 messages=[
                     {"role": "system", "content": "You are a science teacher."},
-                    {"role": "user", "content": "Why is the sky blue?"}
-                ]
+                    {"role": "user", "content": "Why is the sky blue?"},
+                ],
             )
 
         .. figure:: ../../_static/images/llms/tracing/ollama-tracing.png
@@ -542,6 +549,7 @@ for model/API invocations to the active MLflow Experiment.
             :width: 100%
             :align: center
 
+<<<<<<< HEAD
     .. tab:: CrewAI
 
         .. raw:: html
@@ -554,10 +562,27 @@ for model/API invocations to the active MLflow Experiment.
         When CrewAI autologging is enabled with :py:func:`mlflow.crewai.autolog`, 
         traces are generated for the usage of the CrewAI framework.
         Note that asynchronous task and kickoff are not supported now.
+=======
+    .. tab:: Instructor
+
+        .. raw:: html
+
+            <h3>Instructor Automatic Tracing</h3>
+
+        |
+
+        `Instructor <https://python.useinstructor.com>`_ is an open-source Python library built on top of Pydantic, simplifying structured LLM outputs with validation, retries, and streaming.
+
+        MLflow Tracing works with Instructor by enabling auto-tracing for the underlying LLM libraries.
+        For example, if you use Instructor for OpenAI LLMs, you can enable tracing with :py:func:`mlflow.openai.autolog` and the generated traces will capture the structured outputs from Instructor.
+
+        Similarly, you can also trace Instructor with other LLM providers, such as Anthropic, Gemini, and LiteLLM, by enabling the corresponding autologging in MLflow.
+>>>>>>> 085625848 (Add guide for Instructor tracing)
 
         .. code-block:: python
 
             import mlflow
+<<<<<<< HEAD
 
             mlflow.crewai.autolog()
 
@@ -567,6 +592,35 @@ for model/API invocations to the active MLflow Experiment.
             :alt: CrewAI Tracing
             :width: 100%
             :align: center
+=======
+            import instructor
+            from pydantic import BaseModel
+            from openai import OpenAI
+
+            # Use other autologging function e.g., mlflow.anthropic.autolog() if you are using Instructor with different LLM providers
+            mlflow.openai.autolog()
+
+            # Optional, create an experiment to store traces
+            mlflow.set_experiment("Instructor")
+
+
+            # Use Instructor as usual
+            class ExtractUser(BaseModel):
+                name: str
+                age: int
+
+
+            client = instructor.from_openai(OpenAI())
+
+            res = client.chat.completions.create(
+                model="gpt-4o-mini",
+                response_model=ExtractUser,
+                messages=[{"role": "user", "content": "John Doe is 30 years old."}],
+            )
+            print(f"Name: {res.name}, Age:{res.age}")
+
+        .. figure:: ../../_static/images/llms/tracing/instructor-tracing.png
+>>>>>>> 085625848 (Add guide for Instructor tracing)
 
 Tracing Fluent APIs
 -------------------
