@@ -1164,6 +1164,11 @@ def _enforce_schema(pf_input: PyFuncInput, input_schema: Schema, flavor: Optiona
             if extra_cols:
                 message += f" Note that there were extra inputs: {extra_cols}"
             raise MlflowException(message)
+        if extra_cols:
+            _logger.warning(
+                "Found extra inputs in the model input that are not defined in the model "
+                f"signature: `{extra_cols}`. These inputs will be ignored."
+            )
     elif not input_schema.is_tensor_spec():
         # The model signature does not specify column names => we can only verify column count.
         num_actual_columns = len(pf_input.columns)

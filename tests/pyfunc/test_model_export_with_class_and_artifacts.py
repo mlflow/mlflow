@@ -1372,21 +1372,45 @@ def list_dict_to_list_dict(x: list[dict[str, str]]) -> list[dict[str, str]]:
     return [{v: k for k, v in d.items()} for d in x]  # swap keys and values
 
 
-def test_functional_python_model_list_dict_to_list_dict(tmp_path):
-    mlflow.pyfunc.save_model(
-        path=tmp_path,
-        python_model=list_dict_to_list_dict,
-        input_example=[{"a": "x", "b": "y"}],
-    )
-    model = Model.load(tmp_path)
-    assert model.signature.inputs.to_dict() == [
+def test_functional_python_model_list_dict_to_list_dict():
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model(
+            "test_model",
+            python_model=list_dict_to_list_dict,
+            input_example=[{"a": "x", "b": "y"}],
+        )
+
+    assert model_info.signature.inputs.to_dict() == [
         {"name": "a", "type": "string", "required": True},
         {"name": "b", "type": "string", "required": True},
     ]
-    assert model.signature.outputs.to_dict() == [
+    assert model_info.signature.outputs.to_dict() == [
         {"name": "x", "type": "string", "required": True},
         {"name": "y", "type": "string", "required": True},
     ]
+
+    pyfunc_model = mlflow.pyfunc.load_model(model_info.model_uri)
+    assert pyfunc_model.predict([{"a": "x", "b": "y"}]) == [{"x": "a", "y": "b"}]
+
+
+def test_list_dict_with_signature_override():
+    class CustomModel(mlflow.pyfunc.PythonModel):
+        def predict(self, context, model_input: list[dict[str, str]], params=None):
+            return model_input
+
+    signature = infer_signature([{"a": "x", "b": "y"}, {"a": "z"}])
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model(
+            "test_model",
+            python_model=CustomModel(),
+            signature=signature,
+        )
+    assert model_info.signature.inputs.to_dict() == [
+        {"name": "a", "type": "string", "required": True},
+        {"name": "b", "type": "string", "required": False},
+    ]
+    pyfunc_model = mlflow.pyfunc.load_model(model_info.model_uri)
+    assert pyfunc_model.predict([{"a": "z"}]) == [{"a": "z"}]
 
 
 def list_dict_to_list_dict_pep585(x: list[dict[str, str]]) -> list[dict[str, str]]:

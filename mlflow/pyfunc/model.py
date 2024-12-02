@@ -614,8 +614,7 @@ class _PythonModelPyfuncWrapper:
                 ):
                     first_string_column = _get_first_string_column(model_input)
                     return model_input[[first_string_column]].to_dict(orient="records")
-                columns = [x.name for x in self.signature.inputs]
-                return model_input[columns].to_dict(orient="records")
+                return model_input.to_dict(orient="records")
             elif isinstance(model_input, list) and all(isinstance(x, dict) for x in model_input):
                 keys = [x.name for x in self.signature.inputs]
                 return [{k: d[k] for k in keys} for d in model_input]
