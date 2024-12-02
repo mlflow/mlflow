@@ -115,6 +115,7 @@ from tensorflow import keras
 import math
 import mlflow
 
+
 class MlflowCallback(keras.callbacks.Callback):
     def on_epoch_end(self, epoch, logs=None):
         logs = logs or {}
@@ -229,14 +230,16 @@ from tensorflow import keras
 from mlflow.types import Schema, TensorSpec
 from mlflow.models import ModelSignature
 
-model = keras.Sequential([
-    keras.Input([28, 28, 3]),
-    keras.layers.Conv2D(8, 2),
-    keras.layers.MaxPool2D(2),
-    keras.layers.Flatten(),
-    keras.layers.Dense(2),
-    keras.layers.Softmax(),
-])
+model = keras.Sequential(
+    [
+        keras.Input([28, 28, 3]),
+        keras.layers.Conv2D(8, 2),
+        keras.layers.MaxPool2D(2),
+        keras.layers.Flatten(),
+        keras.layers.Dense(2),
+        keras.layers.Softmax(),
+    ]
+)
 
 input_schema = Schema(
     [
