@@ -1,5 +1,5 @@
 import datetime
-from typing import Any, Optional, Union
+from typing import Any, Dict, List, Optional, Union
 
 import pydantic
 import pytest
@@ -113,10 +113,14 @@ def test_infer_schema_from_pydantic_model(type_hint, expected_schema):
         (datetime.datetime, Schema([ColSpec(type=DataType.datetime)])),
         # lists
         (list[str], Schema([ColSpec(type=Array(DataType.string))])),
+        (List[str], Schema([ColSpec(type=Array(DataType.string))])),  # noqa: UP006
         (list[list[str]], Schema([ColSpec(type=Array(Array(DataType.string)))])),
+        (List[List[str]], Schema([ColSpec(type=Array(Array(DataType.string)))])),  # noqa: UP006
         # dictionaries
         (dict[str, int], Schema([ColSpec(type=Map(DataType.long))])),
+        (Dict[str, int], Schema([ColSpec(type=Map(DataType.long))])),  # noqa: UP006
         (dict[str, list[str]], Schema([ColSpec(type=Map(Array(DataType.string)))])),
+        (Dict[str, List[str]], Schema([ColSpec(type=Map(Array(DataType.string)))])),  # noqa: UP006
         # Union
         (Union[int, str], Schema([ColSpec(type=AnyType())])),
         # Any
