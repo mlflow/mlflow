@@ -91,9 +91,9 @@ def test_openai_evaluate(client, original_autolog_config):
 def test_openai_pyfunc_evaluate(client):
     with mlflow.start_run() as run:
         model_info = mlflow.openai.log_model(
-            model="gpt-4o-mini",
-            task="chat.completions",
-            artifact_path="model",
+            "gpt-4o-mini",
+            "chat.completions",
+            "model",
             messages=[{"role": "system", "content": "You are an MLflow expert."}],
         )
 

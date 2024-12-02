@@ -674,14 +674,14 @@ dspy:
     requirements:
       ">= 0.0.0": ["openai"]
     run: |
-      pytest tests/dspy --ignore tests/dspy/test_dspy_autolog.py --ignore tests/dspy/test_dspy_evaluate.py
+      pytest tests/dspy --ignore tests/dspy/test_dspy_autolog.py
   autologging:
     minimum: "2.5.17"
     maximum: "2.5.41"
     requirements:
       ">= 0.0.0": ["openai"]
     run: |
-      pytest tests/dspy/test_dspy_autolog.py tests/dspy/test_dspy_evaluate.py
+      pytest tests/dspy/test_dspy_autolog.py
 
 langchain:
   package_info:

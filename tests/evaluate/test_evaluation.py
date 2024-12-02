@@ -55,7 +55,6 @@ from mlflow.pyfunc import _ServedPyFuncModel
 from mlflow.pyfunc.scoring_server.client import ScoringServerClient
 from mlflow.tracing.constant import TraceMetadataKey
 from mlflow.tracking.artifact_utils import get_artifact_uri
-from mlflow.utils.autologging_utils import AUTOLOGGING_INTEGRATIONS
 from mlflow.utils.file_utils import TempDir
 
 from tests.tracing.helper import create_test_trace_info, get_traces
