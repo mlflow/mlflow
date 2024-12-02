@@ -1,6 +1,7 @@
 import json
 import os
 import posixpath
+from typing import Optional, List
 
 import mlflow.utils.databricks_utils
 from mlflow.entities import FileInfo
@@ -131,7 +132,7 @@ class DbfsRestArtifactRepository(ArtifactRepository):
                 file_path = os.path.join(dirpath, name)
                 self.log_artifact(file_path, artifact_subdir)
 
-    def list_artifacts(self, path=None):
+    def list_artifacts(self, path: Optional[str] = None) -> List:
         dbfs_path = self._get_dbfs_path(path) if path else self._get_dbfs_path("")
         dbfs_list_json = {"path": dbfs_path}
         response = self._dbfs_list_api(dbfs_list_json)

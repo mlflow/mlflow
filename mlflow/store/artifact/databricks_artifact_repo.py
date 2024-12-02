@@ -4,7 +4,7 @@ import logging
 import os
 import posixpath
 import uuid
-from typing import Any
+from typing import Any, Optional, List
 
 import requests
 
@@ -720,7 +720,7 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
             artifact_file_path=artifact_file_path,
         )
 
-    def list_artifacts(self, path=None):
+    def list_artifacts(self, path: Optional[str] = None) -> List:
         if path:
             run_relative_path = posixpath.join(self.run_relative_artifact_repo_root_path, path)
         else:

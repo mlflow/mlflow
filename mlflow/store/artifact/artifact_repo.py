@@ -8,7 +8,7 @@ from abc import ABC, ABCMeta, abstractmethod
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any, Optional, List
 
 from mlflow.entities.file_info import FileInfo
 from mlflow.entities.multipart_upload import CreateMultipartUploadResponse, MultipartUploadPart
@@ -151,7 +151,7 @@ class ArtifactRepository:
         """
 
     @abstractmethod
-    def list_artifacts(self, path):
+    def list_artifacts(self, path: Optional[str] = None) -> List:
         """
         Return all the artifacts for this run_id directly under path. If path is a file, returns
         an empty list. Will error if path is neither a file nor directory.
@@ -162,6 +162,7 @@ class ArtifactRepository:
         Returns:
             List of artifacts as FileInfo listed directly under path.
         """
+        raise NotImplementedError
 
     def _is_directory(self, artifact_path):
         listing = self.list_artifacts(artifact_path)
