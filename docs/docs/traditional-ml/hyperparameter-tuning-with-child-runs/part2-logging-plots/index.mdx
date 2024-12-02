@@ -1,5 +1,6 @@
 ---
 sidebar_position: 3
+sidebar_label: Logging plots with MLflow
 ---
 
 import { NotebookDownloadButton } from "@site/src/components/NotebookDownloadButton";
@@ -305,7 +306,7 @@ After downloading the notebook and opening it with Jupyter:
 4. Use the `mlflow.log_artifacts()` (not `mlflow.log_artifact()`) to log the directory contents to the run.
 5. Validate the rendering of the plots within the MLflow UI.
 
-:::hint
+:::info hint
 The `log_artifacts()` API has an optional `artifact_path` argument that can be overridden from the default of `None` in to segregate these additional plots
 in their own directory within the MLflow artifact store (and the UI). This can be very beneficial if you're logging dozens of plots that have distinct categorical
 groupings among them, without the need for filling the UI display pane in the artifact viewer with a large amount of files in the main root directory.
