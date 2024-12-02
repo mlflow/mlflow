@@ -184,6 +184,7 @@ def _get_api_config() -> _OpenAIApiConfig:
         _OpenAIEnvVar.OPENAI_BASE_URL.value
     )
     deployment_id = os.getenv(_OpenAIEnvVar.OPENAI_DEPLOYMENT_NAME.value, None)
+    organization = os.getenv(_OpenAIEnvVar.OPENAI_ORGANIZATION.value, None)
     if api_type in ("azure", "azure_ad", "azuread"):
         batch_size = 16
         max_tokens_per_minute = 60_000
@@ -201,6 +202,7 @@ def _get_api_config() -> _OpenAIApiConfig:
         api_base=api_base,
         api_version=api_version,
         deployment_id=deployment_id,
+        organization=organization,
     )
 
 

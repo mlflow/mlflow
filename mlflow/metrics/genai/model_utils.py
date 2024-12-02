@@ -53,10 +53,7 @@ def score_model_on_payload(
 
     prefix, suffix = _parse_model_uri(model_uri)
 
-    if prefix == "openai":
-        # TODO: Migrate OpenAI schema to use _call_llm_provider_api.
-        return _call_openai_api(suffix, payload, eval_parameters, extra_headers, proxy_url)
-    elif prefix == "gateway":
+    if prefix == "gateway":
         return _call_gateway_api(suffix, payload, eval_parameters)
     elif prefix == "endpoints":
         return call_deployments_api(suffix, payload, eval_parameters, endpoint_type)
@@ -88,53 +85,6 @@ def _parse_model_uri(model_uri):
         )
     path = path.lstrip("/")
     return scheme, path
-
-
-def _call_openai_api(openai_uri, payload, eval_parameters, extra_headers, proxy_url):
-    if "OPENAI_API_KEY" not in os.environ:
-        raise MlflowException(
-            "OPENAI_API_KEY environment variable not set",
-            error_code=INVALID_PARAMETER_VALUE,
-        )
-
-    from mlflow.openai import _get_api_config
-    from mlflow.utils.openai_utils import _OAITokenHolder
-
-    api_config = _get_api_config()
-    api_token = _OAITokenHolder(api_config.api_type)
-    api_token.refresh()
-
-    if api_config.api_type in ("azure", "azure_ad", "azuread"):
-        from openai import AzureOpenAI
-
-        # TODO: support usecases that proxy API does not follow OpenAI path design
-        client = AzureOpenAI(
-            api_key=api_token.token,
-            azure_endpoint=proxy_url or api_config.api_base,
-            api_version=api_config.api_version,
-            azure_deployment=api_config.deployment_id,
-            max_retries=api_config.max_retries,
-            timeout=api_config.timeout,
-        )
-    else:
-        from openai import OpenAI
-
-        client = OpenAI(
-            api_key=api_token.token,
-            base_url=proxy_url or api_config.api_base,
-            max_retries=api_config.max_retries,
-            timeout=api_config.timeout,
-        )
-
-    response = client.chat.completions.create(
-        messages=[{"role": "user", "content": payload}],
-        model=openai_uri,
-        extra_headers=extra_headers,
-        **eval_parameters,
-    )
-    # to_dict is not available before openai v1.17.0.
-    # TODO: Consider removing the conversion by using mock server in tests
-    return _parse_chat_response_format(response.model_dump())
 
 
 _PREDICT_ERROR_MSG = """\
@@ -240,7 +190,25 @@ def _get_provider_instance(provider: str, model: str) -> "BaseProvider":
 
     # NB: Not all LLM providers in MLflow Gateway are supported here. We can add
     # new ones as requested, as long as the provider support chat endpoints.
-    if provider == Provider.ANTHROPIC:
+    if provider == Provider.OPENAI:
+        from mlflow.gateway.providers.openai import OpenAIConfig, OpenAIProvider
+        from mlflow.openai import _get_api_config, _OAITokenHolder
+
+        api_config = _get_api_config()
+        api_token = _OAITokenHolder(api_config.api_type)
+        api_token.refresh()
+
+        config = OpenAIConfig(
+            openai_api_key=api_token.token,
+            openai_api_type=api_config.api_type or "openai",
+            openai_api_base=api_config.api_base,
+            openai_api_version=api_config.api_version,
+            openai_deployment_name=api_config.deployment_id,
+            openai_organization=api_config.organization,
+        )
+        return OpenAIProvider(_get_route_config(config))
+
+    elif provider == Provider.ANTHROPIC:
         from mlflow.gateway.providers.anthropic import AnthropicConfig, AnthropicProvider
 
         config = AnthropicConfig(anthropic_api_key=os.environ.get("ANTHROPIC_API_KEY"))
