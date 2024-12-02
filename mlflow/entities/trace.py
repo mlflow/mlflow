@@ -79,13 +79,12 @@ class Trace(_MlflowObject):
         """
         from mlflow.tracing.display import get_display_handler
 
-        if get_display_handler()._disabled:
-            return repr(self)
+        bundle = { "text/plain": repr(self) }
 
-        return {
-            "application/databricks.mlflow.trace": self._serialize_for_mimebundle(),
-            "text/plain": repr(self),
-        }
+        if not get_display_handler()._disabled:
+            bundle["application/databricks.mlflow.trace"] = self._serialize_for_mimebundle()
+
+        return bundle
 
     def to_pandas_dataframe_row(self) -> dict[str, Any]:
         return {
