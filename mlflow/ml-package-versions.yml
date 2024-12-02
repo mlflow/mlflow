@@ -529,6 +529,7 @@ transformers:
     pip_release: "transformers"
     install_dev: |
       uv pip install --system git+https://github.com/huggingface/transformers
+      uv pip install --system --upgrade setfit
   models:
     minimum: "4.25.1"
     maximum: "4.46.2"
@@ -555,6 +556,7 @@ transformers:
           "protobuf<=3.20.3", # fix error `Couldn't build proto file into descriptor pool: duplicate file name sentencepiece_model.proto`
           "typing_extensions>=4.6.0", # fix error for SqlAlchemy == 2.0.25 cannot import name 'TypeAliasType' from 'typing_extensions'
           "accelerate<1",
+          "fsspec<2023.10.0",
         ]
       # tensorflow 2.13.0 made all Keras private functions inaccessible. transformers versions
       # prior to 4.30.0 are incompatible with this breaking change in Keras.
@@ -566,7 +568,6 @@ transformers:
       # Pin torchvision to <0.20.0 to avoid https://github.com/pytorch/torchchat/issues/1158
       "< 4.38": ["tensorflow<2.14"] # Older versions of transformers are incompatible with tensorflow >= 2.14
       ">= 4.38": ["tf-keras"] # Transformers doesn't support Keras 3.0. tf-keras needs to be installed.
-      "< 4.46.0": ["fsspec<2023.10.0"]
     pre_test: |
       export PYTHONPATH=./
       python tests/transformers/helper.py
