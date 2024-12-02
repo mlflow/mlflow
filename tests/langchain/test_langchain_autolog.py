@@ -48,7 +48,7 @@ import mlflow
 from mlflow import MlflowClient
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.langchain._langchain_autolog import (
-    UNSUPPORT_LOG_MODEL_MESSAGE,
+    UNSUPPORTED_LOG_MODEL_MESSAGE,
     _resolve_tags,
 )
 from mlflow.models import Model
@@ -492,7 +492,7 @@ def test_retriever_autolog(tmp_path, async_logging_enabled):
     ):
         model.get_relevant_documents(query)
         log_model_mock.assert_not_called()
-        logger_mock.assert_called_once_with(UNSUPPORT_LOG_MODEL_MESSAGE)
+        logger_mock.assert_called_once_with(UNSUPPORTED_LOG_MODEL_MESSAGE)
 
     if async_logging_enabled:
         mlflow.flush_trace_async_logging(terminate=True)
@@ -530,7 +530,7 @@ def test_unsupported_log_model_models_autolog(tmp_path):
         mock.patch("mlflow.langchain.log_model") as log_model_mock,
     ):
         assert retrieval_chain.invoke(question) == TEST_CONTENT
-        logger_mock.assert_called_once_with(UNSUPPORT_LOG_MODEL_MESSAGE)
+        logger_mock.assert_called_once_with(UNSUPPORTED_LOG_MODEL_MESSAGE)
         log_model_mock.assert_not_called()
 
 

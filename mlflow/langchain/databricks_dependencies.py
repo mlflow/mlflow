@@ -93,7 +93,7 @@ def _extract_databricks_dependencies_from_tools(tools) -> Generator[Resource, No
                     ):
                         uc_function_toolkit = nonlocal_vars.get("self")
                         # As we are iterating through each tool, adding a warehouse id everytime
-                        # is a duplicative resouce. Use a set to dedup warehouse ids and add
+                        # is a duplicative resource. Use a set to dedup warehouse ids and add
                         # them in the end
                         warehouse_ids.add(uc_function_toolkit.warehouse_id)
 

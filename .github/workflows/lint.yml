@@ -39,23 +39,24 @@ jobs:
       - uses: ./.github/actions/untracked
       - uses: ./.github/actions/setup-python
         id: setup-python
+      - uses: astral-sh/setup-uv@v3
+        with:
+          version: 0.5.4
       - name: Add problem matchers
         run: |
           echo "::add-matcher::.github/workflows/matchers/clint.json"
           echo "::add-matcher::.github/workflows/matchers/format.json"
           echo "::add-matcher::.github/workflows/matchers/ruff.json"
-      - uses: ./.github/actions/cache-pip
+          echo "::add-matcher::.github/workflows/matchers/typos.json"
       - name: Install dependencies
         run: |
-          python -m venv .venv
-          source .venv/bin/activate
-          pip install -r requirements/lint-requirements.txt
+          uv pip install --system -r requirements/lint-requirements.txt
           dev/install-taplo.sh
+          dev/install-typos.sh
       - uses: ./.github/actions/show-versions
       - uses: ./.github/actions/pipdeptree
       - name: Install pre-commit hooks
         run: |
-          source .venv/bin/activate
           pre-commit install
       - name: Run pre-commit
         id: pre-commit
@@ -63,5 +64,4 @@ jobs:
           IS_MAINTAINER: ${{ contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.pull_request.author_association )}}
           NO_FIX: "true"
         run: |
-          source .venv/bin/activate
           pre-commit run --all-files

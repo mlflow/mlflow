@@ -84,6 +84,7 @@ class TestConfig(BaseModel, extra="forbid"):
     run: str
     allow_unreleased_max_version: Optional[bool] = None
     pre_test: Optional[str] = None
+    test_every_n_versions: int = 1
 
     class Config:
         arbitrary_types_allowed = True
@@ -565,6 +566,10 @@ def expand_config(config: dict[str, Any], *, is_ref: bool = False) -> set[Matrix
                 allow_unreleased_max_version=cfg.allow_unreleased_max_version or False,
             )
             versions = get_latest_micro_versions(versions)
+
+            # Test every n minor versions if specified
+            if cfg.test_every_n_versions > 1:
+                versions = sorted(versions)[:: -cfg.test_every_n_versions][::-1]
 
             # Always test the minimum version
             if cfg.minimum not in versions:

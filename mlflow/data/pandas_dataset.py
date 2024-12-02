@@ -199,7 +199,7 @@ def from_pandas(
         import pandas as pd
 
         x = pd.DataFrame(
-            [["tom", 10, 1, 1], ["nick", 15, 0, 1], ["juli", 14, 1, 1]],
+            [["tom", 10, 1, 1], ["nick", 15, 0, 1], ["july", 14, 1, 1]],
             columns=["Name", "Age", "Label", "ModelOutput"],
         )
         dataset = mlflow.data.from_pandas(x, targets="Label", predictions="ModelOutput")

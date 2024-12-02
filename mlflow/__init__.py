@@ -47,6 +47,7 @@ from mlflow.utils.lazy_load import LazyLoader
 from mlflow.utils.logging_utils import _configure_mlflow_loggers
 
 # Lazily load mlflow flavors to avoid excessive dependencies.
+anthropic = LazyLoader("mlflow.anthropic", globals(), "mlflow.anthropic")
 autogen = LazyLoader("mlflow.autogen", globals(), "mlflow.autogen")
 catboost = LazyLoader("mlflow.catboost", globals(), "mlflow.catboost")
 diviner = LazyLoader("mlflow.diviner", globals(), "mlflow.diviner")
@@ -121,6 +122,7 @@ from mlflow.tracing.fluent import (
     search_traces,
     start_span,
     trace,
+    update_current_trace,
 )
 from mlflow.tracking._model_registry.fluent import (
     register_model,
@@ -241,6 +243,7 @@ __all__ = [
     "start_span",
     "trace",
     "add_trace",
+    "update_current_trace",
 ]
 
 

@@ -50,6 +50,9 @@ class _ModelType:
     TEXT_SUMMARIZATION = "text-summarization"
     TEXT = "text"
     RETRIEVER = "retriever"
+    # This model type is used for Mosaic AI Agent evaluation and only available in Databricks
+    # https://docs.databricks.com/en/generative-ai/agent-evaluation/index.html
+    DATABRICKS_AGENT = "databricks-agent"
 
     def __init__(self):
         raise NotImplementedError("This class is not meant to be instantiated.")
@@ -841,6 +844,21 @@ def resolve_evaluators_and_configs(
     """
     from mlflow.models.evaluation.evaluator_registry import _model_evaluation_registry as rg
 
+    # NB: The `databricks-agents` package must be installed to use the 'databricks-agent' model
+    # type. Ideally this check should be done in the 'databricks-agent' evaluator implementation,
+    # but we need to do it here because the code won't reach the evaluator implementation if the
+    # package is not installed.
+    if model_type == _ModelType.DATABRICKS_AGENT:
+        try:
+            import databricks.agents  # noqa: F401
+        except ImportError as e:
+            raise MlflowException(
+                message="Databricks Agents SDK must be installed to use the "
+                f"`{_ModelType.DATABRICKS_AGENT}` model type. Run `pip install databricks-agents` "
+                "to install the package and try again.",
+                error_code=INVALID_PARAMETER_VALUE,
+            ) from e
+
     def check_nesting_config_dict(_evaluator_name_list, _evaluator_name_to_conf_map):
         return isinstance(_evaluator_name_to_conf_map, dict) and all(
             k in _evaluator_name_list and isinstance(v, dict)
@@ -941,7 +959,7 @@ def resolve_evaluators_and_configs(
 def _model_validation_contains_model_comparison(validation_thresholds):
     """
     Helper function for determining if validation_thresholds contains
-    thresholds for model comparsion: either min_relative_change or min_absolute_change
+    thresholds for model comparison: either min_relative_change or min_absolute_change
     """
     if not validation_thresholds:
         return False
@@ -1249,7 +1267,7 @@ def evaluate(  # noqa: D417
           Explainer based on the model.
         - **explainability_nsamples**: The number of sample rows to use for computing model
           explainability insights. Default value is 2000.
-        - **explainability_kernel_link**: The kernel link function used by shap kernal explainer.
+        - **explainability_kernel_link**: The kernel link function used by shap kernel explainer.
           Available values are "identity" and "logit". Default value is "identity".
         - **max_classes_for_multiclass_roc_pr**:
           For multiclass classification tasks, the maximum number of classes for which to log

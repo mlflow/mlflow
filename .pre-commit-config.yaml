@@ -55,14 +55,6 @@ repos:
         stages: [pre-commit]
         require_serial: true
 
-      - id: rstcheck
-        name: rstcheck
-        entry: rstcheck
-        language: system
-        files: README.rst
-        stages: [pre-commit]
-        require_serial: true
-
       - id: must-have-signoff
         name: must-have-signoff
         entry: 'grep "Signed-off-by:"'
@@ -134,6 +126,15 @@ repos:
         name: lint-proto
         entry: dev/lint-proto.sh
         files: '\.proto$'
+        language: system
+        stages: [pre-commit]
+        require_serial: true
+
+      - id: typos
+        name: typos
+        entry: dev/typos.sh
+        # TODO: Add more file types
+        files: '\.py$'
         language: system
         stages: [pre-commit]
         require_serial: true

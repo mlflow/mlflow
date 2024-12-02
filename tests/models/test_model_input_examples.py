@@ -299,7 +299,7 @@ class DummySklearnModel(BaseEstimator, ClassifierMixin):
 @pytest.mark.parametrize(
     ("input_is_tabular", "output_shape", "expected_signature"),
     [
-        # When the input example is column-based, output 1D numpy arrays are interpretted `ColSpec`s
+        # When the input example is column-based, output 1D numpy arrays are interpreted `ColSpec`s
         (
             True,
             (),
@@ -308,7 +308,7 @@ class DummySklearnModel(BaseEstimator, ClassifierMixin):
                 outputs=Schema([ColSpec(type=DataType.long)]),
             ),
         ),
-        # But if the output numpy array has higher dimensions, fallback to interpretting the model
+        # But if the output numpy array has higher dimensions, fallback to interpreting the model
         # output as `TensorSpec`s.
         (
             True,
@@ -318,7 +318,7 @@ class DummySklearnModel(BaseEstimator, ClassifierMixin):
                 outputs=Schema([TensorSpec(np.dtype("int64"), (-1, 2))]),
             ),
         ),
-        # If the input example is tensor-based, intrepret output numpy arrays as `TensorSpec`s
+        # If the input example is tensor-based, interpret output numpy arrays as `TensorSpec`s
         (
             False,
             (),

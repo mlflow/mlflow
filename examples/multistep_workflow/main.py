@@ -2,7 +2,7 @@
 Downloads the MovieLens dataset, ETLs it into Parquet, trains an
 ALS model, and uses the ALS model to train a Keras neural network.
 
-See README.rst for more details.
+See README.md for more details.
 """
 
 import os

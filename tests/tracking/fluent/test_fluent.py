@@ -1659,3 +1659,21 @@ def test_subprocess_inherit_registry_uri(tmp_path):
         text=True,
     )
     assert sqlite_uri in stdout
+
+
+def test_end_run_inside_start_run_context_manager():
+    client = MlflowClient()
+
+    with mlflow.start_run() as parent_run:
+        with mlflow.start_run(nested=True) as child_run:
+            mlflow.end_run("FAILED")
+            assert client.get_run(child_run.info.run_id).info.status == RunStatus.to_string(
+                RunStatus.FAILED
+            )
+
+        assert client.get_run(parent_run.info.run_id).info.status == RunStatus.to_string(
+            RunStatus.RUNNING
+        )
+    assert client.get_run(parent_run.info.run_id).info.status == RunStatus.to_string(
+        RunStatus.FINISHED
+    )

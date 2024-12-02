@@ -524,10 +524,7 @@ def test_chat_model_predict_stream(tmp_path):
 def test_chat_model_can_receive_and_return_metadata():
     messages = [{"role": "user", "content": "Hello!"}]
     params = {
-        "custom_inputs": {
-            "image_url": "example",
-            "detail": "high",
-        },
+        "custom_inputs": {"image_url": "example", "detail": "high", "other_dict": {"key": "value"}},
     }
     input_example = {
         "messages": messages,
