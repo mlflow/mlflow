@@ -252,7 +252,7 @@ def test_infer_schema_from_type_hints_errors():
     ],
 )
 def test_pydantic_model_validation(type_hint, example):
-    _validate_example_against_type_hint(type_hint, example)
+    _validate_example_against_type_hint(example=example, type_hint=type_hint)
 
 
 @pytest.mark.parametrize(
@@ -278,48 +278,48 @@ def test_pydantic_model_validation(type_hint, example):
     ],
 )
 def test_python_type_hints_validation(type_hint, example):
-    _validate_example_against_type_hint(type_hint, example)
+    _validate_example_against_type_hint(example=example, type_hint=type_hint)
 
 
 def test_type_hints_validation_errors():
     with pytest.raises(
         MlflowException, match=r"Input example is not valid for Pydantic model `CustomModel`"
     ):
-        _validate_example_against_type_hint(CustomModel, {"long_field": 1, "str_field": "a"})
+        _validate_example_against_type_hint({"long_field": 1, "str_field": "a"}, CustomModel)
 
     with pytest.raises(MlflowException, match=r"Expected type <class 'int'>, but got str"):
-        _validate_example_against_type_hint(int, "a")
+        _validate_example_against_type_hint("a", int)
 
     with pytest.raises(MlflowException, match=r"Expected list, but got str"):
-        _validate_example_against_type_hint(list[str], "a")
+        _validate_example_against_type_hint("a", list[str])
 
     with pytest.raises(
         MlflowException,
         match=r'Invalid elements in list: {\'1\': "Expected type <class \'str\'>, but got int"}',
     ):
-        _validate_example_against_type_hint(list[str], ["a", 1])
+        _validate_example_against_type_hint(["a", 1], list[str])
 
     with pytest.raises(
         MlflowException,
         match=r"Expected dict, but got list",
     ):
-        _validate_example_against_type_hint(dict[str, int], ["a", 1])
+        _validate_example_against_type_hint(["a", 1], dict[str, int])
 
     with pytest.raises(
         MlflowException,
         match=r"Invalid elements in dict: {'1': 'Key must be a string, got int', "
         r"'a': 'Expected list, but got int'}",
     ):
-        _validate_example_against_type_hint(dict[str, list[str]], {1: ["a", "b"], "a": 1})
+        _validate_example_against_type_hint({1: ["a", "b"], "a": 1}, dict[str, list[str]])
 
     with pytest.raises(
         MlflowException,
         match=r"Expected type <class 'int'>, but got str",
     ):
-        _validate_example_against_type_hint(Optional[int], "a")
+        _validate_example_against_type_hint("a", Optional[int])
 
     with pytest.raises(
         MlflowException,
         match=r"Unsupported type hint `<class 'list'>`, it must include a valid internal type.",
     ):
-        _validate_example_against_type_hint(list, ["a"])
+        _validate_example_against_type_hint(["a"], list)

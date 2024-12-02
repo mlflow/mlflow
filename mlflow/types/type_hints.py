@@ -221,7 +221,7 @@ def _infer_schema_from_type_hint(type_hint: type[Any]) -> Schema:
         return Schema([ColSpec(type=col_spec_type.dtype, required=col_spec_type.required)])
 
 
-def _validate_example_against_type_hint(type_hint: type[Any], example: Any) -> None:
+def _validate_example_against_type_hint(example: Any, type_hint: type[Any]) -> None:
     if _is_pydantic_type_hint(type_hint):
         try:
             model_validate(type_hint, example)
@@ -251,7 +251,7 @@ def _validate_example_against_type_hint(type_hint: type[Any], example: Any) -> N
                 if len(args) == 2:
                     effective_type = next(arg for arg in args if arg is not type(None))
                     return _validate_example_against_type_hint(
-                        type_hint=effective_type, example=example
+                        example=example, type_hint=effective_type
                     )
             # Union type with all valid types is matched as AnyType
             # no validation needed for AnyType
@@ -260,9 +260,9 @@ def _validate_example_against_type_hint(type_hint: type[Any], example: Any) -> N
         _invalid_type_hint_error(type_hint)
 
 
-def _get_example_validation_error_message(type_hint: type[Any], example: Any) -> Optional[str]:
+def _get_example_validation_error_message(example: Any, type_hint: type[Any]) -> Optional[str]:
     try:
-        _validate_example_against_type_hint(type_hint, example)
+        _validate_example_against_type_hint(example=example, type_hint=type_hint)
     except MlflowException as e:
         return e.message
 
@@ -274,7 +274,7 @@ def _validate_list_elements(element_type: type[Any], example: Any) -> None:
         )
     invalid_elems = {}
     for elem in example:
-        if message := _get_example_validation_error_message(type_hint=element_type, example=elem):
+        if message := _get_example_validation_error_message(example=elem, type_hint=element_type):
             invalid_elems[str(elem)] = message
     if invalid_elems:
         raise MlflowException.invalid_parameter_value(f"Invalid elements in list: {invalid_elems}")
@@ -290,7 +290,7 @@ def _validate_dict_elements(element_type: type[Any], example: Any) -> None:
         if not isinstance(key, str):
             invalid_elems[str(key)] = f"Key must be a string, got {type(key).__name__}"
         elif message := _get_example_validation_error_message(
-            type_hint=element_type, example=value
+            example=value, type_hint=element_type
         ):
             invalid_elems[key] = message
     if invalid_elems:
