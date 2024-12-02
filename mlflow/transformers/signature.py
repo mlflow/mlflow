@@ -178,6 +178,11 @@ def generate_signature_output(pipeline, data, model_config=None, flavor_config=N
     # out from __init__.py to avoid this.
     from mlflow.transformers import _TransformersWrapper
 
+    _logger.warning(
+                    "`generate_signature_output` function is deprecated."
+                    "Instead directly use `input_example` parameter in `mlflow.transformers.log_model` with parameters and mlflow willdirectly inferthe signature."
+                )
+
     return _TransformersWrapper(
         pipeline=pipeline, model_config=model_config, flavor_config=flavor_config
     ).predict(data, params=params)
