@@ -393,7 +393,7 @@ def test_extra_tags_mlflow_autolog():
 
 @pytest.mark.parametrize(("library", "mlflow_module"), library_to_mlflow_module.items())
 def test_excluded_flavors(library, mlflow_module):
-    mlflow.autolog(excluded_flavors=[mlflow_module.__name__.replace("mlflow.", "")])
+    mlflow.autolog(exclude_flavors=[mlflow_module.__name__.replace("mlflow.", "")])
     mlflow.utils.import_hooks.notify_module_loaded(library)
 
     assert get_autologging_config(mlflow_module.autolog.integration_name, "disable") is None

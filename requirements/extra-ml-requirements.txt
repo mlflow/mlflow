@@ -75,13 +75,13 @@ langchain
 promptflow
 # Required by mlflow.sentence_transformers
 sentence-transformers
-# mlflow.anthropic
+# Required by mlflow.anthropic
 anthropic
-# mlflow.autogen
+# Required by mlflow.autogen
 autogen
-# mlflow.dspy
+# Required by mlflow.dspy
 dspy
-# mlflow.litellm
-litellm
-# gemini
+# Required by mlflow.litellm
+litellm>=1.49.0
+# Required by mlflow.gemini
 google-generativeai
