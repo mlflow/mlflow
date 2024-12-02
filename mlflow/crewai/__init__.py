@@ -2,11 +2,17 @@
 The ``mlflow.crewai`` module provides an API for tracing CrewAI AI agents.
 """
 
+import logging
+
+from packaging.version import Version
+
 from mlflow.crewai.autolog import (
     patched_class_call,
 )
 from mlflow.utils.annotations import experimental
 from mlflow.utils.autologging_utils import autologging_integration, safe_patch
+
+_logger = logging.getLogger(__name__)
 
 FLAVOR_NAME = "crewai"
 
@@ -20,7 +26,7 @@ def autolog(
 ):
     """
     Enables (or disables) and configures autologging from CrewAI to MLflow.
-    Only synchronous calls are supported. Asynchnorous APIs and streaming are not recorded.
+    Note that asynchnorous APIs and Tool calling are not recorded now.
 
     Args:
         log_traces: If ``True``, traces are logged for CrewAI agents.
@@ -29,141 +35,41 @@ def autolog(
         silent: If ``True``, suppress all event logs and warnings from MLflow during CrewAI
             autologging. If ``False``, show all events and warnings.
     """
-    # TODO: handle asynchronous tasks and crew executions
-    # TODO: interface of tool in CrewAI is changing drastically. Add patching once it's stabilized
+    # TODO: Handle asynchronous tasks and crew executions
+    # TODO: Tool calling is not supported since the interface of tool in CrewAI is
+    # changing drastically. Add patching once it's stabilized
     import crewai
 
-    safe_patch(
-        FLAVOR_NAME,
-        crewai.Crew,
-        "kickoff",
-        patched_class_call,
-    )
-
-    safe_patch(
-        FLAVOR_NAME,
-        crewai.Crew,
-        "kickoff_for_each",
-        patched_class_call,
-    )
-
-    safe_patch(
-        FLAVOR_NAME,
-        crewai.Crew,
-        "train",
-        patched_class_call,
-    )
-
-    safe_patch(
-        FLAVOR_NAME,
-        crewai.Agent,
-        "execute_task",
-        patched_class_call,
-    )
-
-    safe_patch(
-        FLAVOR_NAME,
-        crewai.Task,
-        "execute_sync",
-        patched_class_call,
-    )
-
-    safe_patch(
-        FLAVOR_NAME,
-        crewai.LLM,
-        "call",
-        patched_class_call,
-    )
-
-    safe_patch(
-        FLAVOR_NAME,
-        crewai.Flow,
-        "kickoff",
-        patched_class_call,
-    )
     try:
-        # knowledge and memory are not available before 0.83.0
-        safe_patch(
-            FLAVOR_NAME,
-            crewai.memory.ShortTermMemory,
-            "save",
-            patched_class_call,
-        )
+        class_method_map = {
+            crewai.Crew: ["kickoff", "kickoff_for_each", "train"],
+            crewai.Agent: ["execute_task"],
+            crewai.Task: ["execute_sync"],
+            crewai.LLM: ["call"],
+            crewai.Flow: ["kickoff"],
+        }
+        if Version(crewai.__version__) >= Version("0.83.0"):
+            # knowledge and memory are not available before 0.83.0
+            class_method_map.update(
+                {
+                    crewai.memory.ShortTermMemory: ["save", "search"],
+                    crewai.memory.LongTermMemory: ["save", "search"],
+                    crewai.memory.UserMemory: ["save", "search"],
+                    crewai.memory.EntityMemory: ["save", "search"],
+                    crewai.Knowledge: ["query"],
+                    crewai.agents.agent_builder.base_agent_executor_mixin.CrewAgentExecutorMixin: [
+                        "_create_long_term_memory"
+                    ],
+                }
+            )
 
-        safe_patch(
-            FLAVOR_NAME,
-            crewai.memory.ShortTermMemory,
-            "search",
-            patched_class_call,
-        )
-
-        safe_patch(
-            FLAVOR_NAME,
-            crewai.memory.ShortTermMemory,
-            "reset",
-            patched_class_call,
-        )
-
-        safe_patch(
-            FLAVOR_NAME,
-            crewai.memory.LongTermMemory,
-            "save",
-            patched_class_call,
-        )
-
-        safe_patch(
-            FLAVOR_NAME,
-            crewai.memory.LongTermMemory,
-            "search",
-            patched_class_call,
-        )
-
-        safe_patch(
-            FLAVOR_NAME,
-            crewai.memory.LongTermMemory,
-            "reset",
-            patched_class_call,
-        )
-
-        safe_patch(
-            FLAVOR_NAME,
-            crewai.memory.UserMemory,
-            "save",
-            patched_class_call,
-        )
-
-        safe_patch(
-            FLAVOR_NAME,
-            crewai.memory.UserMemory,
-            "search",
-            patched_class_call,
-        )
-
-        safe_patch(
-            FLAVOR_NAME,
-            crewai.memory.EntityMemory,
-            "search",
-            patched_class_call,
-        )
-
-        safe_patch(
-            FLAVOR_NAME,
-            crewai.memory.EntityMemory,
-            "save",
-            patched_class_call,
-        )
-
-        safe_patch(
-            FLAVOR_NAME,
-            crewai.memory.EntityMemory,
-            "reset",
-            patched_class_call,
-        )
-        safe_patch(
-            FLAVOR_NAME,
-            crewai.Knowledge,
-            "query",
-            patched_class_call,
-        )
-    except AttributeError:
-        pass
+        for cls, methods in class_method_map.items():
+            for method in methods:
+                safe_patch(
+                    FLAVOR_NAME,
+                    cls,
+                    method,
+                    patched_class_call,
+                )
+    except AttributeError as e:
+        _logger.error("An exception happens when applying auto-tracing to crewai. Exception: %s", e)

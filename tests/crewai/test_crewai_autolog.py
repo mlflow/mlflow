@@ -131,7 +131,7 @@ def test_kickoff_enable_disable_autolog(simple_agent_1, task_1):
         traces = get_traces()
         assert len(traces) == 1
         assert traces[0].info.status == "OK"
-        assert len(traces[0].data.spans) == 4
+        assert len(traces[0].data.spans) == 5
         # Crew
         span_0 = traces[0].data.spans[0]
         assert span_0.name == "Crew.kickoff"
@@ -176,6 +176,20 @@ def test_kickoff_enable_disable_autolog(simple_agent_1, task_1):
         assert span_3.parent_id is span_2.span_id
         assert span_3.inputs["messages"] is not None
         assert span_3.outputs == f"{FINAL_ANSWER_ACTION} What about Tokyo?"
+
+        # Create Long Term Memory
+        span_4 = traces[0].data.spans[4]
+        assert span_4.name == "CrewAgentExecutor._create_long_term_memory"
+        assert span_4.span_type == SpanType.RETRIEVER
+        assert span_4.parent_id is span_2.span_id
+        assert span_4.inputs == {
+            "output": {
+                "output": "What about Tokyo?",
+                "text": "Final Answer: What about Tokyo?",
+                "thought": "",
+            }
+        }
+        assert span_4.outputs is None
 
         mlflow.crewai.autolog(disable=True)
         crew.kickoff()
@@ -252,7 +266,7 @@ def test_multi_tasks(simple_agent_1, simple_agent_2, task_1, task_2):
         traces = get_traces()
         assert len(traces) == 1
         assert traces[0].info.status == "OK"
-        assert len(traces[0].data.spans) == 7
+        assert len(traces[0].data.spans) == 9
         # Crew
         span_0 = traces[0].data.spans[0]
         assert span_0.name == "Crew.kickoff"
@@ -333,16 +347,30 @@ def test_multi_tasks(simple_agent_1, simple_agent_2, task_1, task_2):
         assert span_3.inputs["messages"] is not None
         assert span_3.outputs == f"{FINAL_ANSWER_ACTION} What about Tokyo?"
 
-        # Task
+        # Create Long Term Memory
         span_4 = traces[0].data.spans[4]
-        assert span_4.name == "Task.execute_sync_2"
-        assert span_4.span_type == SpanType.CHAIN
-        assert span_4.parent_id is span_0.span_id
+        assert span_4.name == "CrewAgentExecutor._create_long_term_memory_1"
+        assert span_4.span_type == SpanType.RETRIEVER
+        assert span_4.parent_id is span_2.span_id
         assert span_4.inputs == {
+            "output": {
+                "output": "What about Tokyo?",
+                "text": "Final Answer: What about Tokyo?",
+                "thought": "",
+            }
+        }
+        assert span_4.outputs is None
+
+        # Task
+        span_5 = traces[0].data.spans[5]
+        assert span_5.name == "Task.execute_sync_2"
+        assert span_5.span_type == SpanType.CHAIN
+        assert span_5.parent_id is span_0.span_id
+        assert span_5.inputs == {
             "context": "What about Tokyo?",
             "tools": [],
         }
-        assert span_4.outputs == {
+        assert span_5.outputs == {
             "agent": "Local Expert at this city",
             "description": "Compile an in-depth guide",
             "expected_output": "Comprehensive city guide",
@@ -354,22 +382,35 @@ def test_multi_tasks(simple_agent_1, simple_agent_2, task_1, task_2):
             "summary": "Compile an in-depth guide...",
         }
         # Agent
-        span_5 = traces[0].data.spans[5]
-        assert span_5.name == "Agent.execute_task_2"
-        assert span_5.span_type == SpanType.AGENT
-        assert span_5.parent_id is span_4.span_id
-        assert span_5.inputs == {
+        span_6 = traces[0].data.spans[6]
+        assert span_6.name == "Agent.execute_task_2"
+        assert span_6.span_type == SpanType.AGENT
+        assert span_6.parent_id is span_5.span_id
+        assert span_6.inputs == {
             "context": "What about Tokyo?",
             "tools": [],
         }
-        assert span_5.outputs == "What about Tokyo?"
+        assert span_6.outputs == "What about Tokyo?"
         # LLM
-        span_6 = traces[0].data.spans[6]
-        assert span_6.name == "LLM.call_2"
-        assert span_6.span_type == SpanType.LLM
-        assert span_6.parent_id is span_5.span_id
-        assert span_6.inputs["messages"] is not None
-        assert span_6.outputs == f"{FINAL_ANSWER_ACTION} What about Tokyo?"
+        span_7 = traces[0].data.spans[7]
+        assert span_7.name == "LLM.call_2"
+        assert span_7.span_type == SpanType.LLM
+        assert span_7.parent_id is span_6.span_id
+        assert span_7.inputs["messages"] is not None
+        assert span_7.outputs == f"{FINAL_ANSWER_ACTION} What about Tokyo?"
+        # Create Long Term Memory
+        span_8 = traces[0].data.spans[8]
+        assert span_8.name == "CrewAgentExecutor._create_long_term_memory_2"
+        assert span_8.span_type == SpanType.RETRIEVER
+        assert span_8.parent_id is span_6.span_id
+        assert span_8.inputs == {
+            "output": {
+                "output": "What about Tokyo?",
+                "text": "Final Answer: What about Tokyo?",
+                "thought": "",
+            }
+        }
+        assert span_8.outputs is None
 
 
 @pytest.mark.skipif(
@@ -395,7 +436,7 @@ def test_memory(simple_agent_1, task_1, monkeypatch):
             traces = get_traces()
             assert len(traces) == 1
             assert traces[0].info.status == "OK"
-            assert len(traces[0].data.spans) == 8
+            assert len(traces[0].data.spans) == 9
             # Crew
             span_0 = traces[0].data.spans[0]
             assert span_0.name == "Crew.kickoff"
@@ -485,6 +526,20 @@ def test_memory(simple_agent_1, task_1, monkeypatch):
             }
             assert span_7.outputs is None
 
+            # Create Long Term Memory
+            span_8 = traces[0].data.spans[8]
+            assert span_8.name == "CrewAgentExecutor._create_long_term_memory"
+            assert span_8.span_type == SpanType.RETRIEVER
+            assert span_8.parent_id is span_2.span_id
+            assert span_8.inputs == {
+                "output": {
+                    "output": "What about Tokyo?",
+                    "text": "Final Answer: What about Tokyo?",
+                    "thought": "",
+                }
+            }
+            assert span_8.outputs is None
+
 
 @pytest.mark.skipif(
     Version(crewai.__version__) < Version("0.83.0"),
@@ -511,7 +566,7 @@ def test_knowledge(simple_agent_1, task_1, monkeypatch):
         traces = get_traces()
         assert len(traces) == 1
         assert traces[0].info.status == "OK"
-        assert len(traces[0].data.spans) == 5
+        assert len(traces[0].data.spans) == 6
         # Crew
         span_0 = traces[0].data.spans[0]
         assert span_0.name == "Crew.kickoff"
@@ -566,6 +621,20 @@ def test_knowledge(simple_agent_1, task_1, monkeypatch):
         assert span_4.inputs["messages"] is not None
         assert span_4.outputs == f"{FINAL_ANSWER_ACTION} What about Tokyo?"
 
+        # Create Long Term Memory
+        span_5 = traces[0].data.spans[5]
+        assert span_5.name == "CrewAgentExecutor._create_long_term_memory"
+        assert span_5.span_type == SpanType.RETRIEVER
+        assert span_5.parent_id is span_2.span_id
+        assert span_5.inputs == {
+            "output": {
+                "output": "What about Tokyo?",
+                "text": "Final Answer: What about Tokyo?",
+                "thought": "",
+            }
+        }
+        assert span_5.outputs is None
+
 
 def test_kickoff_for_each(simple_agent_1, task_1):
     with patch("litellm.completion", return_value=SIMPLE_CHAT_COMPLETION):
@@ -582,7 +651,7 @@ def test_kickoff_for_each(simple_agent_1, task_1):
         traces = get_traces()
         assert len(traces) == 1
         assert traces[0].info.status == "OK"
-        assert len(traces[0].data.spans) == 5
+        assert len(traces[0].data.spans) == 6
         span_0 = traces[0].data.spans[0]
         # kickoff_for_each
         assert span_0.name == "Crew.kickoff_for_each"
@@ -636,6 +705,19 @@ def test_kickoff_for_each(simple_agent_1, task_1):
         assert span_4.parent_id is span_3.span_id
         assert span_4.inputs["messages"] is not None
         assert span_4.outputs == f"{FINAL_ANSWER_ACTION} What about Tokyo?"
+        # Create Long Term Memory
+        span_5 = traces[0].data.spans[5]
+        assert span_5.name == "CrewAgentExecutor._create_long_term_memory"
+        assert span_5.span_type == SpanType.RETRIEVER
+        assert span_5.parent_id is span_3.span_id
+        assert span_5.inputs == {
+            "output": {
+                "output": "What about Tokyo?",
+                "text": "Final Answer: What about Tokyo?",
+                "thought": "",
+            }
+        }
+        assert span_5.outputs is None
 
 
 def test_flow(simple_agent_1, task_1):
@@ -660,7 +742,7 @@ def test_flow(simple_agent_1, task_1):
         traces = get_traces()
         assert len(traces) == 1
         assert traces[0].info.status == "OK"
-        assert len(traces[0].data.spans) == 5
+        assert len(traces[0].data.spans) == 6
         span_0 = traces[0].data.spans[0]
         # kickoff_for_each
         assert span_0.name == "TestFlow.kickoff"
@@ -712,3 +794,16 @@ def test_flow(simple_agent_1, task_1):
         assert span_4.parent_id is span_3.span_id
         assert span_4.inputs["messages"] is not None
         assert span_4.outputs == f"{FINAL_ANSWER_ACTION} What about Tokyo?"
+        # Create Long Term Memory
+        span_5 = traces[0].data.spans[5]
+        assert span_5.name == "CrewAgentExecutor._create_long_term_memory"
+        assert span_5.span_type == SpanType.RETRIEVER
+        assert span_5.parent_id is span_3.span_id
+        assert span_5.inputs == {
+            "output": {
+                "output": "What about Tokyo?",
+                "text": "Final Answer: What about Tokyo?",
+                "thought": "",
+            }
+        }
+        assert span_5.outputs is None
