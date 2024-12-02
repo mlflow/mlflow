@@ -15,11 +15,12 @@ from mlflow.types.type_hints import (
 class CustomModel(pydantic.BaseModel):
     long_field: int
     str_field: str
-    bool_field: Optional[bool] = None
+    bool_field: bool
     double_field: float
     binary_field: bytes
     datetime_field: datetime.datetime
     any_field: Any
+    optional_str: Optional[str] = None
 
 
 class Message(pydantic.BaseModel):
@@ -42,11 +43,12 @@ class CustomModel2(pydantic.BaseModel):
                 [
                     ColSpec(type=DataType.long, name="long_field"),
                     ColSpec(type=DataType.string, name="str_field"),
-                    ColSpec(type=DataType.boolean, name="bool_field", required=False),
+                    ColSpec(type=DataType.boolean, name="bool_field"),
                     ColSpec(type=DataType.double, name="double_field"),
                     ColSpec(type=DataType.binary, name="binary_field"),
                     ColSpec(type=DataType.datetime, name="datetime_field"),
                     ColSpec(type=AnyType(), name="any_field"),
+                    ColSpec(type=DataType.string, name="optional_str", required=False),
                 ]
             ),
         ),
@@ -60,13 +62,14 @@ class CustomModel2(pydantic.BaseModel):
                                 [
                                     Property(name="long_field", dtype=DataType.long),
                                     Property(name="str_field", dtype=DataType.string),
-                                    Property(
-                                        name="bool_field", dtype=DataType.boolean, required=False
-                                    ),
+                                    Property(name="bool_field", dtype=DataType.boolean),
                                     Property(name="double_field", dtype=DataType.double),
                                     Property(name="binary_field", dtype=DataType.binary),
                                     Property(name="datetime_field", dtype=DataType.datetime),
                                     Property(name="any_field", dtype=AnyType()),
+                                    Property(
+                                        name="optional_str", dtype=DataType.string, required=False
+                                    ),
                                 ]
                             )
                         )
@@ -194,10 +197,12 @@ def test_infer_schema_from_type_hints_errors():
             {
                 "long_field": 1,
                 "str_field": "a",
+                "bool_field": False,
                 "double_field": 1.0,
                 "binary_field": b"abc",
                 "datetime_field": datetime.datetime.now(),
                 "any_field": "a",
+                "optional_str": "b",
             },
         ),
         (
@@ -218,10 +223,12 @@ def test_infer_schema_from_type_hints_errors():
                 {
                     "long_field": 1,
                     "str_field": "a",
+                    "bool_field": True,
                     "double_field": 1.0,
                     "binary_field": b"abc",
                     "datetime_field": datetime.datetime.now(),
                     "any_field": "a",
+                    "optional_str": "b",
                 },
                 {
                     "long_field": 2,

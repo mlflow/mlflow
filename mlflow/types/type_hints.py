@@ -20,6 +20,7 @@ from mlflow.types.schema import (
 
 PYDANTIC_V2 = pydantic.VERSION.startswith("2.")
 _logger = logging.getLogger(__name__)
+NONE_TYPE = type(None)
 
 # numpy types are not supported
 TYPE_HINTS_TO_DATATYPE_MAPPING = {
@@ -80,7 +81,7 @@ def _infer_colspec_type_from_type_hint(type_hint: type[Any]) -> ColSpecType:
                 f"Dictionary type hint must contain two internal types, got {type_hint}"
             )
         if origin_type == Union:
-            if type(None) in args:
+            if NONE_TYPE in args:
                 # This case shouldn't happen, but added for completeness
                 if len(args) < 2:
                     raise MlflowException.invalid_parameter_value(
@@ -88,7 +89,7 @@ def _infer_colspec_type_from_type_hint(type_hint: type[Any]) -> ColSpecType:
                     )
                 # Optional type
                 elif len(args) == 2:
-                    effective_type = next(arg for arg in args if arg is not type(None))
+                    effective_type = next((arg for arg in args if arg is not NONE_TYPE), None)
                     return ColSpecType(
                         dtype=_infer_colspec_type_from_type_hint(effective_type).dtype,
                         required=False,
@@ -125,7 +126,7 @@ def _invalid_type_hint_error(type_hint: type[Any]) -> None:
 
 def _infer_fields_from_pydantic_model(
     model: pydantic.BaseModel, field_type: Literal["Property", "ColSpec"]
-) -> list:
+) -> list[Union[Property, ColSpec]]:
     """
     Infer the fields from a pydantic model.
     If field_type is "Property", the model is seen as an Object, and output fields
@@ -245,11 +246,11 @@ def _validate_example_against_type_hint(example: Any, type_hint: type[Any]) -> N
             return _validate_dict_elements(element_type=args[1], example=example)
         elif origin_type == Union:
             # Optional type
-            if type(None) in args:
+            if NONE_TYPE in args:
                 if example is None:
                     return
                 if len(args) == 2:
-                    effective_type = next(arg for arg in args if arg is not type(None))
+                    effective_type = next((arg for arg in args if arg is not NONE_TYPE), None)
                     return _validate_example_against_type_hint(
                         example=example, type_hint=effective_type
                     )
