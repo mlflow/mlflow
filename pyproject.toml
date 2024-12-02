@@ -272,7 +272,7 @@ exclude = [
 ]
 
 [tool.clint.forbidden-top-level-imports]
-"mlflow/gateway/providers/*" = ["fastapi"]
+"mlflow/gateway/providers/*" = ["fastapi", "starlette"]
 
 # typos
 [tool.typos.default.extend-words]
