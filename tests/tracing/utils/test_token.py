@@ -5,6 +5,7 @@ from mlflow.tracing.utils.token import suppress_token_detach_warning_to_debug_le
 
 def test_suppress_token_detach_warning(caplog):
     logger = logging.getLogger("opentelemetry.context")
+    logger.setLevel(logging.INFO)
 
     logger.exception("Failed to detach context")
     assert caplog.records[0].message == "Failed to detach context"
