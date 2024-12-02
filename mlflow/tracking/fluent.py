@@ -2226,6 +2226,7 @@ def autolog(
     disable_for_unsupported_versions: bool = False,
     silent: bool = False,
     extra_tags: Optional[dict[str, str]] = None,
+    exclude_flavors: Optional[list[str]] = None,
 ) -> None:
     """
     Enables (or disables) and configures autologging for all supported integrations.
@@ -2298,6 +2299,8 @@ def autolog(
             setup and training execution. If ``False``, show all events and warnings during
             autologging setup and training execution.
         extra_tags: A dictionary of extra tags to set on each managed run created by autologging.
+        exclude_flavors: A list of flavor names that are excluded from the auto-logging.
+            e.g. tensorflow, pyspark.ml
 
     .. code-block:: python
         :test:
@@ -2386,10 +2389,18 @@ def autolog(
         "dspy": "mlflow.dspy",
     }
 
-    if not is_in_databricks_runtime() or disable:
-        library_to_module = LIBRARY_TO_AUTOLOG_MODULE | GENAI_LIBRARY_TO_AUTOLOG_MODULE
+    # Currently genai libraries are not auto-logged when disable=False on Databricks.
+    # Remove this logic once a feature flag is implemented in Databricks Runtime init logic.
+    if is_in_databricks_runtime() and (not disable):
+        target_library_and_module = LIBRARY_TO_AUTOLOG_MODULE
     else:
-        library_to_module = LIBRARY_TO_AUTOLOG_MODULE
+        target_library_and_module = LIBRARY_TO_AUTOLOG_MODULE | GENAI_LIBRARY_TO_AUTOLOG_MODULE
+
+    if exclude_flavors:
+        excluded_modules = [f"mlflow.{flavor}" for flavor in exclude_flavors]
+        target_library_and_module = {
+            k: v for k, v in LIBRARY_TO_AUTOLOG_MODULE.items() if v not in excluded_modules
+        }
 
     def get_autologging_params(autolog_fn):
         try:
@@ -2406,7 +2417,7 @@ def autolog(
     def setup_autologging(module):
         try:
             autologging_params = None
-            autolog_module = importlib.import_module(library_to_module[module.__name__])
+            autolog_module = importlib.import_module(target_library_and_module[module.__name__])
             autolog_fn = autolog_module.autolog
             # Only call integration's autolog function with `mlflow.autolog` configs
             # if the integration's autolog function has not already been called by the user.
@@ -2449,7 +2460,7 @@ def autolog(
     # for each autolog library (except pyspark), register a post-import hook.
     # this way, we do not send any errors to the user until we know they are using the library.
     # the post-import hook also retroactively activates for previously-imported libraries.
-    for module in list(set(library_to_module.keys()) - {"pyspark", "pyspark.ml"}):
+    for module in list(set(target_library_and_module.keys()) - {"pyspark", "pyspark.ml"}):
         register_post_import_hook(setup_autologging, module, overwrite=True)
 
     if is_in_databricks_runtime():
@@ -2462,5 +2473,7 @@ def autolog(
         setup_autologging(pyspark_module)
         setup_autologging(pyspark_ml_module)
     else:
-        register_post_import_hook(setup_autologging, "pyspark", overwrite=True)
-        register_post_import_hook(setup_autologging, "pyspark.ml", overwrite=True)
+        if "spark" in target_library_and_module:
+            register_post_import_hook(setup_autologging, "pyspark", overwrite=True)
+        if "pyspark.ml" in target_library_and_module:
+            register_post_import_hook(setup_autologging, "pyspark.ml", overwrite=True)

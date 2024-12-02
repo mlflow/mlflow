@@ -1,3 +1,4 @@
+import inspect
 import sys
 from collections import namedtuple
 from io import StringIO
@@ -52,6 +53,9 @@ library_to_mlflow_module_without_spark_datasource = {
     lightning: mlflow.pytorch,
     transformers: mlflow.transformers,
     setfit: mlflow.transformers,
+}
+
+library_to_mlflow_module_genai = {
     openai: mlflow.openai,
     llama_index.core: mlflow.llama_index,
     langchain: mlflow.langchain,
@@ -62,9 +66,14 @@ library_to_mlflow_module_without_spark_datasource = {
     google.generativeai: mlflow.gemini,
 }
 
-library_to_mlflow_module = {
+library_to_mlflow_module_traditional_ai = {
     **library_to_mlflow_module_without_spark_datasource,
     pyspark: mlflow.spark,
+}
+
+library_to_mlflow_module = {
+    **library_to_mlflow_module_traditional_ai,
+    **library_to_mlflow_module_genai,
 }
 
 
@@ -150,9 +159,7 @@ def test_universal_autolog_throws_if_specific_autolog_throws_in_test_mode(librar
         autolog_mock.assert_called_once()
 
 
-@pytest.mark.parametrize(
-    ("library", "mlflow_module"), library_to_mlflow_module_without_spark_datasource.items()
-)
+@pytest.mark.parametrize(("library", "mlflow_module"), library_to_mlflow_module.items())
 def test_universal_autolog_calls_specific_autologs_correctly(library, mlflow_module):
     integrations_with_additional_config = [xgboost, lightgbm, sklearn]
     args_to_test = {
@@ -170,12 +177,37 @@ def test_universal_autolog_calls_specific_autologs_correctly(library, mlflow_mod
     mlflow.autolog(**args_to_test)
 
     mlflow.utils.import_hooks.notify_module_loaded(library)
+    params_to_check = set(inspect.signature(mlflow_module.autolog).parameters.keys()) & set(
+        args_to_test.keys()
+    )
 
-    for arg_key, arg_value in args_to_test.items():
+    for arg_key in params_to_check:
         assert (
             get_autologging_config(mlflow_module.autolog.integration_name, arg_key, None)
-            == arg_value
+            == args_to_test[arg_key]
         )
+
+
+@pytest.mark.parametrize("is_databricks", [False, True])
+@pytest.mark.parametrize("disable", [False, True])
+def test_genai_auto_logging(is_databricks, disable):
+    with mock.patch("mlflow.tracking.fluent.is_in_databricks_runtime", return_value=is_databricks):
+        mlflow.autolog(disable=disable)
+
+        for library, mlflow_module in library_to_mlflow_module_traditional_ai.items():
+            mlflow.utils.import_hooks.notify_module_loaded(library)
+            assert (
+                get_autologging_config(mlflow_module.autolog.integration_name, "disable") == disable
+            )
+
+        # Auto logging for genai libraries should be disabled when disable=False on Databricks
+        expected = None if is_databricks and (not disable) else disable
+        for library, mlflow_module in library_to_mlflow_module_genai.items():
+            mlflow.utils.import_hooks.notify_module_loaded(library)
+            assert (
+                get_autologging_config(mlflow_module.autolog.integration_name, "disable")
+                == expected
+            )
 
 
 def test_universal_autolog_calls_pyspark_immediately_in_databricks():
@@ -289,7 +321,8 @@ def test_autolog_success_message_obeys_disabled():
         autolog_logger_mock.assert_called()
 
 
-@pytest.mark.parametrize("library", library_to_mlflow_module.keys())
+# Currently some genai integrations do not fully obey silent argument
+@pytest.mark.parametrize("library", library_to_mlflow_module_traditional_ai.keys())
 @pytest.mark.parametrize("disable", [False, True])
 @pytest.mark.parametrize("exclusive", [False, True])
 @pytest.mark.parametrize("disable_for_unsupported_versions", [False, True])
@@ -356,3 +389,11 @@ def test_extra_tags_mlflow_autolog():
 
     with pytest.raises(MlflowException, match="Invalid `extra_tags` type"):
         mlflow.autolog(extra_tags="test_tag")
+
+
+@pytest.mark.parametrize(("library", "mlflow_module"), library_to_mlflow_module.items())
+def test_excluded_flavors(library, mlflow_module):
+    mlflow.autolog(excluded_flavors=[mlflow_module.__name__.replace("mlflow.", "")])
+    mlflow.utils.import_hooks.notify_module_loaded(library)
+
+    assert get_autologging_config(mlflow_module.autolog.integration_name, "disable") is None
