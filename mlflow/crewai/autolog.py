@@ -126,13 +126,13 @@ def _set_span_attributes(span: LiveSpan, instance):
 
         elif isinstance(instance, Flow):
             for key, value in instance.__dict__.items():
-                if value is not None and _is_serializable(value):
+                if value is not None:
                     span.set_attribute(key, str(value) if isinstance(value, list) else value)
 
         elif Version(crewai.__version__) >= Version("0.83.0"):
             if isinstance(instance, crewai.Knowledge):
                 for key, value in instance.__dict__.items():
-                    if value is not None and _is_serializable(value):
+                    if value is not None and key != "storage":
                         span.set_attribute(key, str(value) if isinstance(value, list) else value)
 
     except AttributeError as e:
