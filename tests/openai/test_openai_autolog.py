@@ -44,6 +44,8 @@ def test_chat_completions_autolog(client, log_models):
     span = trace.data.spans[0]
     assert span.inputs == {"messages": messages, "model": "gpt-4o-mini", "temperature": 0}
     assert span.outputs["id"] == "chatcmpl-123"
+    assert span.attributes["model"] == "gpt-4o-mini"
+    assert span.attributes["temperature"] == 0
 
     if log_models:
         run_id = client.chat.completions._mlflow_run_id

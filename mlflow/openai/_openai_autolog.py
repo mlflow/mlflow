@@ -147,6 +147,9 @@ def patched_call(original, self, *args, **kwargs):
             run_id = run.info.run_id
 
     if config.log_traces:
+        # Record input parameters to attributes
+        attributes = {k: v for k, v in kwargs.items() if k != "messages"}
+
         # If there is an active span, create a child span under it, otherwise create a new trace
         if active_span := mlflow.get_current_active_span():
             span = mlflow_client.start_span(
@@ -155,12 +158,14 @@ def patched_call(original, self, *args, **kwargs):
                 parent_id=active_span.span_id,
                 span_type=_get_span_type(self.__class__),
                 inputs=kwargs,
+                attributes=attributes,
             )
         else:
             span = mlflow_client.start_trace(
                 name=self.__class__.__name__,
                 span_type=_get_span_type(self.__class__),
                 inputs=kwargs,
+                attributes=attributes,
             )
 
         request_id = span.request_id
