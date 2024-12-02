@@ -209,6 +209,7 @@ def test_enable_and_disable_display(monkeypatch):
         "text/plain": repr(trace_a),
     }
 
+
 def test_mimebundle():
     # by default, it should contain the metadata
     # necessary for rendering the trace UI
