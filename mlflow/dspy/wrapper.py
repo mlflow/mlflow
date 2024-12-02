@@ -75,6 +75,8 @@ class DspyChatModelWrapper(DspyModelWrapper):
         import dspy
         import pandas as pd
 
+        # `dspy.settings` cannot be shared across threads, so we are setting it at every predict
+        # call.
         dspy.settings.configure(**self.dspy_settings)
 
         if isinstance(inputs, dict):

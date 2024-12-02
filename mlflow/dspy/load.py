@@ -37,12 +37,8 @@ def _set_tracer_context(model_path, callbacks):
 def _load_model(model_uri, dst_path=None):
     import dspy
 
-    local_model_path = _download_artifact_from_uri(
-        artifact_uri=model_uri, output_path=dst_path
-    )
-    flavor_conf = _get_flavor_configuration(
-        model_path=local_model_path, flavor_name="dspy"
-    )
+    local_model_path = _download_artifact_from_uri(artifact_uri=model_uri, output_path=dst_path)
+    flavor_conf = _get_flavor_configuration(model_path=local_model_path, flavor_name="dspy")
 
     _add_code_from_conf_to_system_path(local_model_path, flavor_conf)
     model_path = flavor_conf.get("model_path", _DEFAULT_MODEL_PATH)

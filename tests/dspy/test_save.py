@@ -9,6 +9,7 @@ from dspy.utils.dummies import DSPDummyLM, dummy_rm
 import mlflow
 from mlflow.models import Model, ModelSignature
 from mlflow.types.schema import ColSpec, Schema
+
 from tests.helper_functions import (
     _assert_pip_requirements,
     _compare_logged_code_paths,
@@ -88,10 +89,7 @@ def test_save_compiled_model():
     loaded_model = mlflow.dspy.load_model(model_url)
 
     assert isinstance(loaded_model, CoT)
-    assert (
-        loaded_model.prog.predictors()[0].demos
-        == optimized_cot.prog.predictors()[0].demos
-    )
+    assert loaded_model.prog.predictors()[0].demos == optimized_cot.prog.predictors()[0].demos
 
 
 def test_dspy_save_preserves_object_state():
@@ -204,15 +202,10 @@ def test_load_logged_model_in_native_dspy():
     loaded_dspy_model = mlflow.dspy.load_model(model_url)
 
     assert isinstance(loaded_dspy_model, CoT)
-    assert (
-        loaded_dspy_model.prog.predictors()[0].demos
-        == dspy_model.prog.predictors()[0].demos
-    )
+    assert loaded_dspy_model.prog.predictors()[0].demos == dspy_model.prog.predictors()[0].demos
 
 
 def test_serving_logged_model():
-    mlflow.dspy.autolog()
-
     # Need to redefine a CoT in the test case for cloudpickle to find the class.
     class CoT(dspy.Module):
         def __init__(self):
@@ -364,9 +357,7 @@ def test_additional_pip_requirements():
     artifact_path = "model"
     dspy_model = CoT()
     with mlflow.start_run():
-        mlflow.dspy.log_model(
-            dspy_model, artifact_path, extra_pip_requirements=["dummy"]
-        )
+        mlflow.dspy.log_model(dspy_model, artifact_path, extra_pip_requirements=["dummy"])
 
         _assert_pip_requirements(
             mlflow.get_artifact_uri("model"), [expected_mlflow_version, "dummy"]
