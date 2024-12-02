@@ -45,9 +45,7 @@ def configure_autologging_for_evaluation(enable_tracing: bool = True):
                 flavor_to_original_config[flavor] = original_config
 
         except ImportError:
-            _logger.debug(
-                f"Flavor {flavor} is not installed. Skip updating autologging configuration."
-            )
+            _logger.debug(f"Flavor {flavor} is not installed. Skip updating autologging.")
             # Global autologging configuration might be updated before the exception is raised,
             # which needs to be reverted.
             if flavor in AUTOLOGGING_INTEGRATIONS:
@@ -68,14 +66,17 @@ def configure_autologging_for_evaluation(enable_tracing: bool = True):
         # Restore original autologging configurations.
         for flavor, original_config in flavor_to_original_config.items():
             autolog = _get_autolog_function(flavor)
-            if original_config:
-                autolog(**original_config)
-            else:
-                # If the original configuration is empty, autologging was not enabled before
-                autolog(disable=True)
-                # We also need to remove the configuration entry from AUTOLOGGING_INTEGRATIONS,
-                # so as not to confuse with the case user explicitly disabled autologging.
-                del AUTOLOGGING_INTEGRATIONS[flavor]
+            try:
+                if original_config:
+                    autolog(**original_config)
+                else:
+                    # If the original configuration is empty, autologging was not enabled before
+                    autolog(disable=True)
+                    # We also need to remove the configuration entry from AUTOLOGGING_INTEGRATIONS,
+                    # so as not to confuse with the case user explicitly disabled autologging.
+                    del AUTOLOGGING_INTEGRATIONS[flavor]
+            except ImportError:
+                pass
 
 
 def _get_autolog_function(flavor_name: str):
