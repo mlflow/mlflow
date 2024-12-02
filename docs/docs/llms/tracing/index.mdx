@@ -933,7 +933,7 @@ and the <APILink fn="mlflow.client.MlflowClient.delete_trace_tag" /> method to r
 client.set_trace_tag(request_id=request_id, key="tag_key", value="tag_value")
 
 # Delete a tag from a trace
-  client.delete_trace_tag(request_id=request_id, key="tag_key")
+client.delete_trace_tag(request_id=request_id, key="tag_key")
 ```
 
 ### Setting Tags via the MLflow UI
@@ -1132,15 +1132,14 @@ with mlflow.start_span(name="Parent") as span:
 
 ```python
 parent_span = client.start_trace(
-    name="Parent Span",
-    attributes={"attribute1": "value1", "attribute2": "value2"}
+    name="Parent Span", attributes={"attribute1": "value1", "attribute2": "value2"}
 )
 
 child_span = client.start_span(
     name="Child Span",
     request_id=parent_span.request_id,
     parent_id=parent_span.span_id,
-    attributes={"attribute1": "value1", "attribute2": "value2"}
+    attributes={"attribute1": "value1", "attribute2": "value2"},
 )
 ```
 

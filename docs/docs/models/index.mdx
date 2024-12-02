@@ -883,11 +883,15 @@ by invoking <APILink fn="mlflow.mleap.add_to_model" /> .
 For example, the follow code block:
 
 ```python
-training_df = spark.createDataFrame([
-    (0, "a b c d e spark", 1.0),
-    (1, "b d", 0.0),
-    (2, "spark f g h", 1.0),
-    (3, "hadoop mapreduce", 0.0) ], ["id", "text", "label"])
+training_df = spark.createDataFrame(
+    [
+        (0, "a b c d e spark", 1.0),
+        (1, "b d", 0.0),
+        (2, "spark f g h", 1.0),
+        (3, "hadoop mapreduce", 0.0),
+    ],
+    ["id", "text", "label"],
+)
 
 tokenizer = Tokenizer(inputCol="text", outputCol="words")
 hashingTF = HashingTF(inputCol=tokenizer.getOutputCol(), outputCol="features")
@@ -2701,7 +2705,9 @@ from promptflow import load_flow
 
 import mlflow
 
-assert "OPENAI_API_KEY" in os.environ, "Please set the OPENAI_API_KEY environment variable."
+assert (
+    "OPENAI_API_KEY" in os.environ
+), "Please set the OPENAI_API_KEY environment variable."
 
 
 # The example flow will write a simple code snippet that displays the greeting message with specific language.
@@ -3206,7 +3212,9 @@ import mlflow
 X, y = shap.datasets.adult()
 
 # Split the data into training and test sets
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.33, random_state=42)
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.33, random_state=42
+)
 
 # Fit an XGBoost binary classifier on the training data split
 model = xgboost.XGBClassifier().fit(X_train, y_train)
@@ -3277,7 +3285,9 @@ import mlflow
 X, y = shap.datasets.adult()
 
 # Split the data into training and test sets
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.33, random_state=42)
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.33, random_state=42
+)
 
 # Fit an XGBoost binary classifier on the training data split
 model = xgboost.XGBClassifier().fit(X_train, y_train)
