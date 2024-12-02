@@ -18,7 +18,7 @@ from mlflow.types.schema import (
     Schema,
 )
 
-PYDANTIC_V2 = pydantic.VERSION.startswith("2.")
+PYDANTIC_V1 = pydantic.VERSION.startswith("1.")
 _logger = logging.getLogger(__name__)
 NONE_TYPE = type(None)
 
@@ -80,6 +80,7 @@ def _infer_colspec_type_from_type_hint(type_hint: type[Any]) -> ColSpecType:
             raise MlflowException.invalid_parameter_value(
                 f"Dictionary type hint must contain two internal types, got {type_hint}"
             )
+        # TODO: support | operator in python 3.10
         if origin_type == Union:
             if NONE_TYPE in args:
                 # This case shouldn't happen, but added for completeness
@@ -193,18 +194,18 @@ def _is_pydantic_type_hint(type_hint: type[Any]) -> bool:
 
 
 def model_fields(model: pydantic.BaseModel) -> dict[str, pydantic.fields.FieldInfo]:
-    if PYDANTIC_V2:
-        return model.model_fields
-    return model.__fields__
+    if PYDANTIC_V1:
+        return model.__fields__
+    return model.model_fields
 
 
 def model_validate(model: pydantic.BaseModel, values: Any) -> None:
-    if PYDANTIC_V2:
+    if PYDANTIC_V1:
+        model.validate(values)
+    else:
         # use strict mode to avoid any data conversion here
         # e.g. "123" will not be converted to 123 if the type is int
         model.model_validate(values, strict=True)
-    else:
-        model.validate(values)
 
 
 def _infer_schema_from_type_hint(type_hint: type[Any]) -> Schema:
