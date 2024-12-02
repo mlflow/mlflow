@@ -49,6 +49,11 @@ Tracing provides a way to record the inputs, outputs, and metadata associated wi
             </a>
             <a href="#automatic-tracing">
                 <div class="logo-card">
+                    <img src="../../_static/images/logos/ollama-logo.png" alt="Ollama Logo"/>
+                </div>
+            </a>
+            <a href="#automatic-tracing">
+                <div class="logo-card">
                     <img src="../../_static/images/logos/autogen-logo.svg" alt="AutoGen Logo"/>
                 </div>
             </a>
@@ -486,6 +491,56 @@ for model/API invocations to the active MLflow Experiment.
             :width: 100%
             :align: center
 
+    .. tab:: Ollama
+
+        .. raw:: html
+
+            <h3>Ollama Automatic Tracing</h3>
+
+        |
+
+        `Ollama <https://github.com/ollama/ollama>`_ is an open-source platform that enables users to run large language models (LLMs) locally on their devices, such as Llama 3.2, Gemma 2, Mistral, Code Llama, and more.
+
+        Since the local LLM endpoint served by Ollama is compatible with the OpenAI API, you can query it via OpenAI SDK and enable tracing for Ollama with :py:func:`mlflow.openai.autolog`. Any LLM interactions via Ollama will be recorded to the active MLflow Experiment.
+
+        1. Run the Ollama server with the desired LLM model.
+
+        .. code-block:: bash
+
+            ollama run llama3.2:1b
+
+        2. Enable auto-tracing for OpenAI SDK.
+
+        .. code-block:: python
+
+            import mlflow
+
+            mlflow.openai.autolog()
+
+            # Optional, create an experiment to store traces
+            mlflow.set_experiment("Ollama")
+
+        3. Query the LLM and see the traces in the MLflow UI.
+
+        .. code-block:: python
+
+            client = OpenAI(
+                base_url = 'http://localhost:11434/v1',  # The local Ollama REST endpoint
+                api_key='dummy', # Required to instantiate OpenAI client, it can be a random string
+            )
+
+            response = client.chat.completions.create(
+                model="llama3.2:1b",
+                messages=[
+                    {"role": "system", "content": "You are a science teacher."},
+                    {"role": "user", "content": "Why is the sky blue?"}
+                ]
+            )
+
+        .. figure:: ../../_static/images/llms/tracing/ollama-tracing.png
+            :alt: Ollama Tracing
+            :width: 100%
+            :align: center
 
     .. tab:: CrewAI
 
