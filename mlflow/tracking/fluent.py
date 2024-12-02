@@ -2389,8 +2389,8 @@ def autolog(
         "dspy": "mlflow.dspy",
     }
 
-    # Currently genai libraries are not auto-logged when disable=False on Databricks.
-    # Remove this logic once a feature flag is implemented in Databricks Runtime init logic.
+    # Currently, GenAI libraries are not auto-logged when disable=False on Databricks.
+    # TODO: Remove this logic once a feature flag is implemented in Databricks Runtime init logic.
     if is_in_databricks_runtime() and (not disable):
         target_library_and_module = LIBRARY_TO_AUTOLOG_MODULE
     else:

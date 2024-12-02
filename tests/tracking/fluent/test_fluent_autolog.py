@@ -321,7 +321,7 @@ def test_autolog_success_message_obeys_disabled():
         autolog_logger_mock.assert_called()
 
 
-# Currently some genai integrations do not fully obey silent argument
+# Currently some GenAI integrations do not fully follow standard autolog annotation
 @pytest.mark.parametrize("library", library_to_mlflow_module_traditional_ai.keys())
 @pytest.mark.parametrize("disable", [False, True])
 @pytest.mark.parametrize("exclusive", [False, True])
