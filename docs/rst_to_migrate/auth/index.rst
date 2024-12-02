@@ -16,11 +16,6 @@ Once enabled, any visitor will be required to login before they can view any res
 
 MLflow Authentication provides Python and REST API for managing users and permissions. 
 
-.. toctree::
-  :glob:
-  :maxdepth: 1
-
-  *
 
 Overview
 ========

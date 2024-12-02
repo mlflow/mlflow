@@ -38,13 +38,13 @@ If you are not sure about the answers, revisit the docs for a quick refresh.
     <details>
         <summary>Q. What is the easiest way to create a span for a function call?</summary>
         <p>A. Use the `@mlflow.trace` decorator to capture inputs, outputs, and execution duration automatically.\
-          <em>Reference:</em> [MLflow Tracing API Guide](../#trace-decorator)</p>
+          <em>Reference:</em> [MLflow Tracing API Guide](./#trace-decorator)</p>
     </details>
 
     <details>
         <summary>Q. When would you use the MLflow Client for creating traces?</summary>
         <p>A. The Client API is useful when you want fine-grained control over how you start and end a trace. For example, you can specify a parent span ID when starting a span.\
-        <em>Reference:</em> [MLflow Tracing API Guide](../#tracing-client-apis)</p>
+        <em>Reference:</em> [MLflow Tracing API Guide](./#tracing-client-apis)</p>
     </details>
 
     <details>
@@ -56,7 +56,7 @@ If you are not sure about the answers, revisit the docs for a quick refresh.
     <details>
         <summary>Q. Where is exception information stored in a Trace?</summary>
         <p>A. Exceptions are recorded in the `events` attribute of the span, including details such as exception type, message, and stack trace.\
-        <em>Reference:</em> [MLflow Tracing API Guide](../#q-how-can-i-see-the-stack-trace-of-a-span-that-captured-an-exception)</p>
+        <em>Reference:</em> [MLflow Tracing API Guide](./#error-handling-with-traces)</p>
 
   </details>
 </div>

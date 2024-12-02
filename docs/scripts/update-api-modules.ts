@@ -13,5 +13,8 @@ files.forEach((file) => {
   }
 });
 
+// manual mapping for auth since it's a special case in the docs hierarchy
+fileMap["mlflow.server.auth"] = "api_reference/auth/python-api.html";
+
 // write filemap to json file
 fs.writeFileSync("src/api_modules.json", JSON.stringify(fileMap, null, 2));
