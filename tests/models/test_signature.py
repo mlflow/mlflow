@@ -75,7 +75,7 @@ def test_model_signature_with_tensorspec():
     # Name mismatch
     signature4 = ModelSignature(
         inputs=Schema([TensorSpec(np.dtype("float"), (-1, 28, 28))]),
-        outputs=Schema([TensorSpec(np.dtype("float"), (-1, 10), "misMatch")]),
+        outputs=Schema([TensorSpec(np.dtype("float"), (-1, 10), "mismatch")]),
     )
     assert signature3 != signature4
     as_json = json.dumps(signature1.to_dict())

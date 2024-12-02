@@ -547,7 +547,7 @@ def _get_mlflow_model_input_example_dict(mlflow_model: Model, path: str):
 
 def _load_serving_input_example(mlflow_model: Model, path: str) -> Optional[str]:
     """
-    Load serving input exaple from a model directory. Returns None if there is no serving input
+    Load serving input example from a model directory. Returns None if there is no serving input
     example.
 
     Args:
@@ -1164,6 +1164,11 @@ def _enforce_schema(pf_input: PyFuncInput, input_schema: Schema, flavor: Optiona
             if extra_cols:
                 message += f" Note that there were extra inputs: {extra_cols}"
             raise MlflowException(message)
+        if extra_cols:
+            _logger.warning(
+                "Found extra inputs in the model input that are not defined in the model "
+                f"signature: `{extra_cols}`. These inputs will be ignored."
+            )
     elif not input_schema.is_tensor_spec():
         # The model signature does not specify column names => we can only verify column count.
         num_actual_columns = len(pf_input.columns)
@@ -1227,7 +1232,7 @@ def _enforce_pyspark_dataframe_schema(
     columns_not_dropped_for_feature_store_model = []
     for col, dtype in new_pf_input.dtypes:
         if col not in input_names:
-            # to support backwards compatability with feature store models
+            # to support backwards compatibility with feature store models
             if any(x in dtype for x in ["array", "map", "struct"]):
                 if flavor == _FEATURE_STORE_FLAVOR:
                     columns_not_dropped_for_feature_store_model.append(col)

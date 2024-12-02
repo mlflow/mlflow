@@ -271,7 +271,7 @@ def test_download_file(databricks_model_artifact_repo, remote_file_path, local_p
         ("output/test_file"),
     ],
 )
-def test_parallelized_download_file_using_http_uri_succcess(
+def test_parallelized_download_file_using_http_uri_success(
     databricks_model_artifact_repo, remote_file_path
 ):
     signed_uri_mock = {

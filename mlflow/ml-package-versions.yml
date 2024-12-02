@@ -631,8 +631,12 @@ openai:
           "fastapi",
           "uvicorn",
         ]
+      "< 1.55.3": ["httpx<0.28.0"]
     run: |
       pytest tests/openai tests/openai/test_openai_model_export.py
+    # Our CI runs tests for every minor version of the library by default, which results in
+    # many test tasks for openai. Reducing the number of testing only for every 10 version.
+    test_every_n_versions: 10
   autologging:
     minimum: "1.17.0"
     maximum: "1.54.4"
@@ -653,8 +657,10 @@ openai:
           # Install OpenAI Swarm from the main branch as it's not available on pip
           "git+https://github.com/openai/swarm.git",
         ]
+      "< 1.55.3": ["httpx<0.28.0"]
     run: |
       pytest tests/openai/test_openai_autolog.py tests/openai/test_openai_agent_autolog.py
+    test_every_n_versions: 10
 
 dspy:
   package_info:
@@ -841,6 +847,18 @@ gemini:
     maximum: "0.8.3"
     requirements:
     run: pytest tests/gemini
+
+anthropic:
+  package_info:
+    pip_release: "anthropic"
+    install_dev: |
+      pip install git+https://github.com/anthropics/anthropic-sdk-python
+  autologging:
+    minimum: "0.30.0"
+    maximum: "0.39.0"
+    requirements:
+      "< 0.40.0": ["httpx<0.28.0"]
+    run: pytest tests/anthropic
 
 sentence_transformers:
   package_info:

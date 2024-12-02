@@ -224,14 +224,10 @@ def test_chat_response_defaults():
     ("custom_inputs", "match"),
     [
         (1, r"Expected `custom_inputs` to be a dictionary, received `int`"),
-        (
-            {"nested": {"dict": "input"}},
-            r"received value of type `dict` in `custom_inputs\['nested'\]`",
-        ),
         ({1: "example"}, r"received key of type `int` \(key: 1\)"),
     ],
 )
-def test_chat_request_custom_inputs_must_be_string_map(custom_inputs, match):
+def test_chat_request_custom_inputs_must_be_valid_map(custom_inputs, match):
     message = ChatMessage("user", "Hello")
     with pytest.raises(ValueError, match=match):
         ChatCompletionRequest(messages=[message], custom_inputs=custom_inputs)
@@ -273,5 +269,5 @@ def test_convert_dataclass_throws_on_invalid_data(cls, data, match):
         ),
     ],
 )
-def test_from_dict_ingores_extra_fields(cls, data):
+def test_from_dict_ignores_extra_fields(cls, data):
     assert isinstance(cls.from_dict(data), cls)

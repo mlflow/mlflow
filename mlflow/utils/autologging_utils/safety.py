@@ -362,7 +362,7 @@ def safe_patch(
         destination, function_name, bypass_descriptor_protocol=True
     )
     if original_fn != raw_original_obj:
-        raise RuntimeError(f"Unsupport patch on {destination}.{function_name}")
+        raise RuntimeError(f"Unsupported patch on {destination}.{function_name}")
     elif isinstance(original_fn, property):
         is_property_method = True
 

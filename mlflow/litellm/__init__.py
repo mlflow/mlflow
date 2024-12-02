@@ -56,11 +56,11 @@ def autolog(
                 "transcription",
                 "speech",
             ]:
-                _patch_theading_in_function(litellm, func)
+                _patch_threading_in_function(litellm, func)
 
             # For streaming case, we need to patch the iterator because traces are generated
             # when consuming the generator, not when calling the main APIs.
-            _patch_theading_in_function(litellm.utils.CustomStreamWrapper, "__next__")
+            _patch_threading_in_function(litellm.utils.CustomStreamWrapper, "__next__")
 
             # NB: We don't need to patch async function because Databricks notebook waits
             # for the async task to finish before finishing the cell.
@@ -85,7 +85,7 @@ def _autolog(
     pass
 
 
-def _patch_theading_in_function(target, function_name: str):
+def _patch_threading_in_function(target, function_name: str):
     """
     Apply the threading patch to a synchronous function.
 
