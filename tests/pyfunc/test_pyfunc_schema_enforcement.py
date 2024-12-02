@@ -1130,6 +1130,16 @@ def test_schema_enforcement_for_list_inputs():
     assert pd_check == data
 
 
+def test_enforce_schema_warns_with_extra_fields():
+    schema = Schema([ColSpec("string", "a")])
+    with mock.patch("mlflow.models.utils._logger.warning") as mock_warning:
+        _enforce_schema({"a": "hi", "b": "bye"}, schema)
+        mock_warning.assert_called_once_with(
+            "Found extra inputs in the model input that are not defined in the model "
+            "signature: `['b']`. These inputs will be ignored."
+        )
+
+
 def test_enforce_params_schema_with_success():
     # Correct parameters & schema
     test_parameters = {
