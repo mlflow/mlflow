@@ -1,4 +1,5 @@
 import inspect
+import logging
 from datetime import datetime
 from typing import Any, Literal, NamedTuple, Optional, Union, get_args, get_origin
 
@@ -18,6 +19,7 @@ from mlflow.types.schema import (
 )
 
 PYDANTIC_V2 = pydantic.VERSION.startswith("2.")
+_logger = logging.getLogger(__name__)
 
 # numpy types are not supported
 TYPE_HINTS_TO_DATATYPE_MAPPING = {
@@ -93,10 +95,23 @@ def _infer_colspec_type_from_type_hint(type_hint: type[Any]) -> ColSpecType:
                     )
                 # Optional Union type
                 else:
+                    _logger.warning(
+                        "Union type hint with multiple non-None types is inferred as AnyType, "
+                        "and MLflow doesn't validate the data against its internal types."
+                    )
                     return ColSpecType(dtype=AnyType(), required=False)
             # Union type with all valid types is matched as AnyType
             else:
+                _logger.warning(
+                    "Union type hint is inferred as AnyType, and MLflow doesn't validate the data "
+                    "against its internal types."
+                )
                 return ColSpecType(dtype=AnyType(), required=True)
+    else:
+        _invalid_type_hint_error(type_hint)
+
+
+def _invalid_type_hint_error(type_hint: type[Any]) -> None:
     if type_hint in (list, dict, Optional, Union):
         raise MlflowException.invalid_parameter_value(
             f"Unsupported type hint `{type_hint}`, it must include a valid internal type."
@@ -182,6 +197,14 @@ def model_fields(model: pydantic.BaseModel) -> dict[str, pydantic.fields.FieldIn
     return model.__fields__
 
 
+def model_validate(model: pydantic.BaseModel, values: Any) -> None:
+    if PYDANTIC_V2:
+        # TODO: strict needed or not?
+        model.model_validate(values, strict=True)
+    else:
+        model.validate(values)
+
+
 def _infer_schema_from_type_hint(type_hint: type[Any]) -> Schema:
     if _is_pydantic_type_hint(type_hint):
         col_specs = _infer_fields_from_pydantic_model(type_hint, "ColSpec")
@@ -195,3 +218,79 @@ def _infer_schema_from_type_hint(type_hint: type[Any]) -> Schema:
                 "Pydantic models."
             )
         return Schema([ColSpec(type=col_spec_type.dtype, required=col_spec_type.required)])
+
+
+def _validate_example_against_type_hint(type_hint: type[Any], example: Any) -> None:
+    if _is_pydantic_type_hint(type_hint):
+        try:
+            model_validate(type_hint, example)
+        except pydantic.ValidationError as e:
+            raise MlflowException.invalid_parameter_value(
+                message=f"Input example is not valid for Pydantic model `{type_hint.__name__}`",
+            ) from e
+    elif type_hint == Any:
+        return
+    elif type_hint in TYPE_HINTS_TO_DATATYPE_MAPPING:
+        if isinstance(example, type_hint):
+            return
+        raise MlflowException.invalid_parameter_value(
+            f"Expected type {type_hint}, but got {type(example).__name__}"
+        )
+    elif origin_type := get_origin(type_hint):
+        args = get_args(type_hint)
+        if origin_type is list:
+            return _validate_list_elements(element_type=args[0], example=example)
+        elif origin_type is dict:
+            return _validate_dict_elements(element_type=args[1], example=example)
+        elif origin_type == Union:
+            # Optional type
+            if type(None) in args:
+                if example is None:
+                    return
+                if len(args) == 2:
+                    effective_type = next(arg for arg in args if arg is not type(None))
+                    return _validate_example_against_type_hint(
+                        type_hint=effective_type, example=example
+                    )
+            # Union type with all valid types is matched as AnyType
+            # no validation needed for AnyType
+            return
+    else:
+        _invalid_type_hint_error(type_hint)
+
+
+def _get_example_validation_error_message(type_hint: type[Any], example: Any) -> Optional[str]:
+    try:
+        _validate_example_against_type_hint(type_hint, example)
+    except MlflowException as e:
+        return e.message
+
+
+def _validate_list_elements(element_type: type[Any], example: Any) -> None:
+    if not isinstance(example, list):
+        raise MlflowException.invalid_parameter_value(
+            f"Expected list, but got {type(example).__name__}"
+        )
+    invalid_elems = {}
+    for elem in example:
+        if message := _get_example_validation_error_message(type_hint=element_type, example=elem):
+            invalid_elems[str(elem)] = message
+    if invalid_elems:
+        raise MlflowException.invalid_parameter_value(f"Invalid elements in list: {invalid_elems}")
+
+
+def _validate_dict_elements(element_type: type[Any], example: Any) -> None:
+    if not isinstance(example, dict):
+        raise MlflowException.invalid_parameter_value(
+            f"Expected dict, but got {type(example).__name__}"
+        )
+    invalid_elems = {}
+    for key, value in example.items():
+        if not isinstance(key, str):
+            invalid_elems[str(key)] = f"Key must be a string, got {type(key).__name__}"
+        elif message := _get_example_validation_error_message(
+            type_hint=element_type, example=value
+        ):
+            invalid_elems[key] = message
+    if invalid_elems:
+        raise MlflowException.invalid_parameter_value(f"Invalid elements in dict: {invalid_elems}")

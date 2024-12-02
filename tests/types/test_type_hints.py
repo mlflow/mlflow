@@ -6,7 +6,10 @@ import pytest
 
 from mlflow.exceptions import MlflowException
 from mlflow.types.schema import AnyType, Array, ColSpec, DataType, Map, Object, Property, Schema
-from mlflow.types.type_hints import _infer_schema_from_type_hint
+from mlflow.types.type_hints import (
+    _infer_schema_from_type_hint,
+    _validate_example_against_type_hint,
+)
 
 
 class CustomModel(pydantic.BaseModel):
@@ -177,3 +180,142 @@ def test_infer_schema_from_type_hints_errors():
 
     with pytest.raises(MlflowException, match=r"Unsupported type hint"):
         _infer_schema_from_type_hint(object)
+
+
+@pytest.mark.parametrize(
+    ("type_hint", "example"),
+    [
+        (
+            CustomModel,
+            {
+                "long_field": 1,
+                "str_field": "a",
+                "double_field": 1.0,
+                "binary_field": b"abc",
+                "datetime_field": datetime.datetime.now(),
+                "any_field": "a",
+            },
+        ),
+        (
+            CustomModel,
+            {
+                "long_field": 1,
+                "str_field": "a",
+                "bool_field": True,
+                "double_field": 1.0,
+                "binary_field": b"abc",
+                "datetime_field": datetime.datetime.now(),
+                "any_field": "a",
+            },
+        ),
+        (
+            list[CustomModel],
+            [
+                {
+                    "long_field": 1,
+                    "str_field": "a",
+                    "double_field": 1.0,
+                    "binary_field": b"abc",
+                    "datetime_field": datetime.datetime.now(),
+                    "any_field": "a",
+                },
+                {
+                    "long_field": 2,
+                    "str_field": "b",
+                    "bool_field": False,
+                    "double_field": 2.0,
+                    "binary_field": b"def",
+                    "datetime_field": datetime.datetime.now(),
+                    "any_field": "b",
+                },
+            ],
+        ),
+        (
+            CustomModel2,
+            {
+                "custom_field": {"a": 1},
+                "messages": [{"role": "a", "content": "b"}],
+                "optional_int": 1,
+            },
+        ),
+        (
+            CustomModel2,
+            {
+                "custom_field": {"a": "abc"},
+                "messages": [{"role": "a", "content": "b"}, {"role": "c", "content": "d"}],
+            },
+        ),
+    ],
+)
+def test_pydantic_model_validation(type_hint, example):
+    _validate_example_against_type_hint(type_hint, example)
+
+
+@pytest.mark.parametrize(
+    ("type_hint", "example"),
+    [
+        (int, 1),
+        (str, "a"),
+        (bool, True),
+        (float, 1.0),
+        (bytes, b"abc"),
+        (datetime.datetime, datetime.datetime.now()),
+        (Any, "a"),
+        (Any, ["a", 1]),
+        (list[str], ["a", "b"]),
+        (list[list[str]], [["a", "b"], ["c", "d"]]),
+        (dict[str, int], {"a": 1, "b": 2}),
+        (dict[str, list[str]], {"a": ["a", "b"], "b": ["c", "d"]}),
+        (Union[int, str], 1),
+        (Union[int, str], "a"),
+        # Union type is inferred as AnyType, so it accepts double here as well
+        (Union[int, str], 1.2),
+        (list[Any], [1, "a"]),
+    ],
+)
+def test_python_type_hints_validation(type_hint, example):
+    _validate_example_against_type_hint(type_hint, example)
+
+
+def test_type_hints_validation_errors():
+    with pytest.raises(
+        MlflowException, match=r"Input example is not valid for Pydantic model `CustomModel`"
+    ):
+        _validate_example_against_type_hint(CustomModel, {"long_field": 1, "str_field": "a"})
+
+    with pytest.raises(MlflowException, match=r"Expected type <class 'int'>, but got str"):
+        _validate_example_against_type_hint(int, "a")
+
+    with pytest.raises(MlflowException, match=r"Expected list, but got str"):
+        _validate_example_against_type_hint(list[str], "a")
+
+    with pytest.raises(
+        MlflowException,
+        match=r'Invalid elements in list: {\'1\': "Expected type <class \'str\'>, but got int"}',
+    ):
+        _validate_example_against_type_hint(list[str], ["a", 1])
+
+    with pytest.raises(
+        MlflowException,
+        match=r"Expected dict, but got list",
+    ):
+        _validate_example_against_type_hint(dict[str, int], ["a", 1])
+
+    with pytest.raises(
+        MlflowException,
+        match=r"Invalid elements in dict: {'1': 'Key must be a string, got int', "
+        r"'a': 'Expected list, but got int'}",
+    ):
+        _validate_example_against_type_hint(dict[str, list[str]], {1: ["a", "b"], "a": 1})
+
+    with pytest.raises(
+        MlflowException,
+        match=r"Expected type <class 'int'>, but got str",
+    ):
+        _validate_example_against_type_hint(Optional[int], "a")
+
+    with pytest.raises(
+        MlflowException,
+        match=r"Unsupported type hint `<class 'list'>`, it must include a valid internal type.",
+    ):
+        _validate_example_against_type_hint(list, ["a"])
