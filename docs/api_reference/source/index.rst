@@ -9,6 +9,8 @@ Placeholder landing page for the API docs
 
     python_api/index
     cli
+    auth/python-api
+    auth/rest-api
     R-api
     java_api/index
     rest-api
