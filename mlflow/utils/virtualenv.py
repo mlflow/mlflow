@@ -283,8 +283,6 @@ def _create_virtualenv(
         install_deps_cmd_prefix = "uv pip install --prerelease=allow"
         if _MLFLOW_TESTING:
             install_deps_cmd_prefix += " -v"
-        if dev_wheel_path := os.getenv("MLFLOW_DEV_WHEEL"):
-            install_deps_cmd_prefix += f" {dev_wheel_path}"
     with remove_on_error(
         env_dir,
         onerror=lambda e: _logger.warning(
