@@ -860,6 +860,20 @@ anthropic:
       "< 0.40.0": ["httpx<0.28.0"]
     run: pytest tests/anthropic
 
+crewai:
+  package_info:
+    pip_release: "crewai"
+    module_name: "crewai"
+    install_dev: |
+      pip install git+https://github.com/crewAIInc/crewAI
+  autologging:
+    minimum: "0.80.0"
+    maximum: "0.83.0"
+    python:
+      ">= 0.80.0": "3.10"
+    requirements:
+    run: pytest tests/crewai
+
 sentence_transformers:
   package_info:
     pip_release: "sentence-transformers"
