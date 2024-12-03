@@ -278,6 +278,7 @@ class EvaluationDataset:
             # run code not related to pyspark.
             if "pyspark" in sys.modules:
                 from mlflow.utils.spark_utils import get_spark_dataframe_type
+
                 spark_df_type = get_spark_dataframe_type()
                 self._supported_dataframe_types = (pd.DataFrame, spark_df_type)
                 self._spark_df_type = spark_df_type
