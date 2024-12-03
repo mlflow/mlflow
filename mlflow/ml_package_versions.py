@@ -268,7 +268,7 @@ _ML_PACKAGE_VERSIONS = {
             "pip_release": "dspy"
         },
         "models": {
-            "minimum": "2.5.6",
+            "minimum": "2.5.17",
             "maximum": "2.5.31"
         },
         "autologging": {
