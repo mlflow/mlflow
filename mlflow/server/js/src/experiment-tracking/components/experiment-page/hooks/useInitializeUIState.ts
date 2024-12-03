@@ -1,8 +1,5 @@
 import { useCallback, useEffect, useMemo, useReducer, useState } from 'react';
-import {
-  ExperimentPageUIState,
-  createExperimentPageUIState,
-} from '../models/ExperimentPageUIState';
+import { ExperimentPageUIState, createExperimentPageUIState } from '../models/ExperimentPageUIState';
 import { loadExperimentViewState } from '../utils/persistSearchFacets';
 import { keys, pick } from 'lodash';
 import { ExperimentRunsSelectorResult } from '../utils/experimentRuns.selector';

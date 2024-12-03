@@ -51,12 +51,14 @@ const defaultProps = {
   history: [],
   uiState: createExperimentPageUIState(),
   navigate: () => {},
-}
+};
 
 const mountComponent = (addedProps: any) => {
   const mockStore = configureStore([thunk, promiseMiddleware()]);
-  const props = {...defaultProps, ...addedProps}
-  props.setUIState = (setState: ((state: Record<string, unknown>) => Record<string, unknown>)) => {props.uiState = setState(props.uiState)}
+  const props = { ...defaultProps, ...addedProps };
+  props.setUIState = (setState: (state: Record<string, unknown>) => Record<string, unknown>) => {
+    props.uiState = setState(props.uiState);
+  };
   return renderWithIntl(
     <DesignSystemProvider>
       <Provider

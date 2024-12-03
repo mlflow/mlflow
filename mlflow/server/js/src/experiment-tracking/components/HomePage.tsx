@@ -64,13 +64,22 @@ const HomePage = () => {
       <div css={{ display: 'flex', height: 'calc(100% - 60px)' }}>
         {/* Left sidebar containing experiment list */}
         <div css={{ height: '100%', paddingTop: 24, display: 'flex' }}>
-          <ExperimentListView activeExperimentIds={experimentIds || []} experiments={experiments} uiState={uiState} setUIState={setUIState} />
+          <ExperimentListView
+            activeExperimentIds={experimentIds || []}
+            experiments={experiments}
+            uiState={uiState}
+            setUIState={setUIState}
+          />
         </div>
 
         {/* Main content with the experiment view */}
         <div css={{ height: '100%', flex: 1, padding: theme.spacing.md, paddingTop: theme.spacing.lg }}>
           <GetExperimentsContextProvider actions={getExperimentActions}>
-            {hasExperiments ? <ExperimentView uiState={uiState} setUIState={setUIState} seedInitialUIState={seedInitialUIState}/> : <NoExperimentView />}
+            {hasExperiments ? (
+              <ExperimentView uiState={uiState} setUIState={setUIState} seedInitialUIState={seedInitialUIState} />
+            ) : (
+              <NoExperimentView />
+            )}
           </GetExperimentsContextProvider>
         </div>
       </div>

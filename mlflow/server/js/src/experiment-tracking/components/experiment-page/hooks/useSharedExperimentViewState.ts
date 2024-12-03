@@ -63,7 +63,10 @@ export const useSharedExperimentViewState = (
         ) as ExperimentPageSearchFacetsState;
 
         // Then, extract UI state part of the shared view state
-        const sharedUiState = pick(parsedSharedViewState, Object.keys(createExperimentPageUIState())) as ExperimentPageUIState;
+        const sharedUiState = pick(
+          parsedSharedViewState,
+          Object.keys(createExperimentPageUIState()),
+        ) as ExperimentPageUIState;
 
         setSharedSearchFacetsState(sharedSearchFacetsState);
         setSharedUiState(sharedUiState);

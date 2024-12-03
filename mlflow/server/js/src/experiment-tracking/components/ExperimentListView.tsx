@@ -149,7 +149,7 @@ export const ExperimentListView = ({
       if (isChecked === false && activeExperimentIds.length !== 1) {
         checkedKeys = activeExperimentIds.filter((i: any) => i !== key);
       }
-      return { ...prevState, checkedKeys: checkedKeys }
+      return { ...prevState, checkedKeys: checkedKeys };
     });
   };
 
@@ -213,13 +213,13 @@ export const ExperimentListView = ({
         ></List.Item>
       </div>
     );
-  }
+  };
 
   if (uiState.experimentListHidden) {
     return (
       <CaretDownSquareIcon
         rotate={-90}
-        onClick={() => setUIState((uiState) => ({...uiState, experimentListHidden: false }))}
+        onClick={() => setUIState((uiState) => ({ ...uiState, experimentListHidden: false }))}
         css={classNames.icon(designSystemThemeApi.theme)}
         title="Show experiment list"
       />
@@ -230,10 +230,7 @@ export const ExperimentListView = ({
 
   return (
     <div id="experiment-list-outer-container" css={classNames.experimentListOuterContainer}>
-      <CreateExperimentModal
-        isOpen={state.showCreateExperimentModal}
-        onClose={handleCloseCreateExperimentModal}
-      />
+      <CreateExperimentModal isOpen={state.showCreateExperimentModal} onClose={handleCloseCreateExperimentModal} />
       <DeleteExperimentModal
         isOpen={state.showDeleteExperimentModal}
         onClose={handleCloseDeleteExperimentModal}
@@ -259,7 +256,7 @@ export const ExperimentListView = ({
             data-testid="create-experiment-button"
           />
           <CaretDownSquareIcon
-            onClick={() => setUIState((uiState) => ({...uiState, experimentListHidden: true }))}
+            onClick={() => setUIState((uiState) => ({ ...uiState, experimentListHidden: true }))}
             rotate={90}
             css={classNames.icon(designSystemThemeApi.theme)}
             title="Hide experiment list"
@@ -292,7 +289,7 @@ export const ExperimentListView = ({
       </div>
     </div>
   );
-}
+};
 
 const classNames = {
   experimentListOuterContainer: css({

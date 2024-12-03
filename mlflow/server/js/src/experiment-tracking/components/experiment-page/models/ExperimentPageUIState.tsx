@@ -6,7 +6,6 @@ import type { ChartSectionConfig } from '@mlflow/mlflow/src/experiment-tracking/
 import type { RunsGroupByConfig } from '../utils/experimentPage.group-row-utils';
 import { RunsChartsLineChartXAxisType } from '../../runs-charts/components/RunsCharts.common';
 
-
 const getDefaultSelectedColumns = () => {
   const result = [
     // "Source" and "Model" columns are visible by default
