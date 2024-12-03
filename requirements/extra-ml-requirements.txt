@@ -80,8 +80,8 @@ anthropic
 # Required by mlflow.autogen
 autogen
 # Required by mlflow.dspy
-dspy>=2.5.17
+dspy
 # Required by mlflow.litellm
-litellm>=1.51.0
+litellm
 # Required by mlflow.gemini
 google-generativeai
