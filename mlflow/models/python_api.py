@@ -15,7 +15,8 @@ from mlflow.utils.file_utils import TempDir
 
 _logger = logging.getLogger(__name__)
 UV_INSTALLATION_INSTRUCTIONS = (
-    "Install the 'uv' package by running `pip install uv` or `pip install mlflow[extras]`."
+    "Run `pip install uv` to install uv. See "
+    "https://docs.astral.sh/uv/getting-started/installation for other installation methods."
 )
 
 
