@@ -2401,7 +2401,7 @@ def autolog(
     if exclude_flavors:
         excluded_modules = [f"mlflow.{flavor}" for flavor in exclude_flavors]
         target_library_and_module = {
-            k: v for k, v in LIBRARY_TO_AUTOLOG_MODULE.items() if v not in excluded_modules
+            k: v for k, v in target_library_and_module.items() if v not in excluded_modules
         }
 
     def get_autologging_params(autolog_fn):
@@ -2462,7 +2462,7 @@ def autolog(
     # for each autolog library (except pyspark), register a post-import hook.
     # this way, we do not send any errors to the user until we know they are using the library.
     # the post-import hook also retroactively activates for previously-imported libraries.
-    for library in list(set(target_library_and_module) - {"pyspark", "pyspark.ml"}):
+    for library in sorted(set(target_library_and_module) - {"pyspark", "pyspark.ml"}):
         register_post_import_hook(setup_autologging, library, overwrite=True)
 
     if is_in_databricks_runtime():
