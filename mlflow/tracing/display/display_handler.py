@@ -23,7 +23,7 @@ def _serialize_trace_list(traces: list["Trace"]):
 
 class IPythonTraceDisplayHandler:
     _instance = None
-    _disabled = False
+    disabled = False
 
     @classmethod
     def get_instance(cls):
@@ -33,11 +33,11 @@ class IPythonTraceDisplayHandler:
 
     @classmethod
     def disable(cls):
-        cls._disabled = True
+        cls.disabled = True
 
     @classmethod
     def enable(cls):
-        cls._disabled = False
+        cls.disabled = False
         if cls._instance is None:
             cls._instance = IPythonTraceDisplayHandler()
 
@@ -64,7 +64,7 @@ class IPythonTraceDisplayHandler:
             _logger.debug("Failed to register post-run cell display hook", exc_info=True)
 
     def _display_traces_post_run(self, result):
-        if self._disabled:
+        if self.disabled:
             self.traces_to_display = {}
             return
 
@@ -108,7 +108,7 @@ class IPythonTraceDisplayHandler:
 
     def display_traces(self, traces: list["Trace"]):
         # This only works in Databricks notebooks
-        if not is_in_databricks_runtime() or self._disabled:
+        if not is_in_databricks_runtime() or self.disabled:
             return
 
         # this should do nothing if not in an IPython environment

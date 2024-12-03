@@ -208,3 +208,26 @@ def test_enable_and_disable_display(monkeypatch):
         "application/databricks.mlflow.trace": trace_a._serialize_for_mimebundle(),
         "text/plain": repr(trace_a),
     }
+
+
+def test_mimebundle():
+    # by default, it should contain the metadata
+    # necessary for rendering the trace UI
+    trace = create_trace("a")
+    assert trace._repr_mimebundle_() == {
+        "application/databricks.mlflow.trace": trace._serialize_for_mimebundle(),
+        "text/plain": repr(trace),
+    }
+
+    # if trace display is disabled, only "text/plain" should exist
+    mlflow.tracing.disable_notebook_display()
+    assert trace._repr_mimebundle_() == {
+        "text/plain": repr(trace),
+    }
+
+    # re-enabling should bring the metadata back
+    mlflow.tracing.enable_notebook_display()
+    assert trace._repr_mimebundle_() == {
+        "application/databricks.mlflow.trace": trace._serialize_for_mimebundle(),
+        "text/plain": repr(trace),
+    }
