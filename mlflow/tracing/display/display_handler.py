@@ -23,7 +23,7 @@ def _serialize_trace_list(traces: list["Trace"]):
 
 class IPythonTraceDisplayHandler:
     _instance = None
-    _disabled = False
+    disabled = False
 
     @classmethod
     def get_instance(cls):
@@ -33,17 +33,13 @@ class IPythonTraceDisplayHandler:
 
     @classmethod
     def disable(cls):
-        cls._disabled = True
+        cls.disabled = True
 
     @classmethod
     def enable(cls):
-        cls._disabled = False
-        if cls._instance is None:
-            cls._instance = IPythonTraceDisplayHandler()
-
-    @property
-    def disabled(self):
-        return self._disabled
+        cls.disabled = False
+        if cls.instance is None:
+            cls.instance = IPythonTraceDisplayHandler()
 
     def __init__(self):
         # This only works in Databricks notebooks
