@@ -89,7 +89,9 @@ class IPythonTraceDisplayHandler:
                 return
 
             # Register a post-run cell display hook to display traces
-            # after the cell has executed.
+            # after the cell has executed. We don't validate that the
+            # user is using a tracking server at this step, because
+            # the user might set it later using mlflow.set_tracking_uri()
             get_ipython().events.register("post_run_cell", self._display_traces_post_run)
         except Exception:
             # swallow exceptions. this function is called as
@@ -134,7 +136,7 @@ class IPythonTraceDisplayHandler:
             # a side-effect in a few other functions (e.g. log_trace,
             # get_traces, search_traces), and we don't want to block
             # the core functionality if the display fails.
-            _logger.debug("Failed to display traces", exc_info=True)
+            _logger.error("Failed to display traces", exc_info=True)
             self.traces_to_display = {}
 
     def get_databricks_mimebundle(self, traces: list["Trace"]):
