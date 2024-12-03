@@ -44,7 +44,10 @@ from mlflow.tracking.client import MlflowClient
 _logger = logging.getLogger(__name__)
 
 IS_PYDANTIC_V1 = Version(pydantic.__version__).major < 2
-LLAMA_INDEX_VERSION = Version(llama_index.core.__version__)
+
+
+def _get_llama_index_version() -> Version:
+    return Version(llama_index.core.__version__)
 
 
 def set_llama_index_tracer():
@@ -231,7 +234,7 @@ class MlflowSpanHandler(BaseSpanHandler[_LlamaSpan], extra="allow"):
         span = llama_span._mlflow_span
         token = self._span_id_to_token.pop(span.span_id, None)
 
-        if LLAMA_INDEX_VERSION >= Version("0.10.59"):
+        if _get_llama_index_version() >= Version("0.10.59"):
             # LlamaIndex determines if a workflow is terminated or not by propagating an special
             # exception WorkflowDone. We should treat this exception as a successful termination.
             from llama_index.core.workflow.errors import WorkflowDone

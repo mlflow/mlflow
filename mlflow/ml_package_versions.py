@@ -31,7 +31,8 @@ _ML_PACKAGE_VERSIONS = {
     },
     "pytorch-lightning": {
         "package_info": {
-            "pip_release": "pytorch-lightning"
+            "pip_release": "pytorch-lightning",
+            "module_name": "lightning"
         },
         "autologging": {
             "minimum": "1.9.0",
@@ -385,7 +386,7 @@ _ML_PACKAGE_VERSIONS = {
 FLAVOR_TO_MODULE_NAME = {
     "sklearn": "sklearn",
     "pytorch": "torch",
-    "pytorch-lightning": "pytorch-lightning",
+    "pytorch-lightning": "lightning",
     "keras": "keras",
     "tensorflow": "tensorflow",
     "xgboost": "xgboost",

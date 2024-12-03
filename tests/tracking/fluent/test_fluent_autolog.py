@@ -1,3 +1,4 @@
+import contextlib
 import inspect
 import sys
 from collections import namedtuple
@@ -28,6 +29,7 @@ import transformers
 import xgboost
 
 import mlflow
+from mlflow.ml_package_versions import FLAVOR_TO_MODULE_NAME
 from mlflow.utils.autologging_utils import (
     AutologgingEventLogger,
     autologging_is_disabled,
@@ -440,3 +442,41 @@ def test_autolog_genai_auto_tracing(mock_openai, is_databricks, disable, other_l
         span = trace.data.spans[0]
         assert span.inputs == {"prompt": "test", "model": "gpt-4o-mini", "temperature": 0}
         assert span.outputs["id"] == "cmpl-uqkvlQyYK7bGYrRHQ0eXlWi7"
+
+
+@contextlib.contextmanager
+def reset_module_import():
+    """
+    Temporarily reset the module import state to simulate the module being not imported.
+    """
+    original_modules = {}
+    for module_name in FLAVOR_TO_MODULE_NAME.values():
+        original_modules[module_name] = sys.modules.get(module_name)
+
+    try:
+        yield
+    finally:
+        for module_name, original_module in original_modules.items():
+            if original_module is not None:
+                sys.modules[module_name] = original_module
+
+
+@pytest.mark.parametrize("flavor_and_module", FLAVOR_TO_MODULE_NAME.items())
+@pytest.mark.parametrize("disable", [False, True])
+@pytest.mark.do_not_disable_new_import_hook_firing_if_module_already_exists
+def test_autolog_genai_import(disable, flavor_and_module):
+    flavor, module = flavor_and_module
+
+    # pytorch-lightning is not valid flavor name.
+    # gluon autologging is deprecated.
+    # paddle autologging is not in the list of autologging integrations.
+    # crewai requires Python 3.10+ (our CI runs on Python 3.9).
+    if flavor in {"gluon", "pytorch-lightning", "paddle", "crewai"}:
+        return
+
+    with reset_module_import():
+        mlflow.autolog(disable=disable)
+
+        __import__(module)
+
+        assert get_autologging_config(flavor, "disable") == disable
