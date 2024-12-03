@@ -2389,7 +2389,9 @@ def autolog(
         "dspy": "mlflow.dspy",
     }
 
-    # Currently, GenAI libraries are not auto-logged when disable=False on Databricks.
+    # Currently, GenAI libraries are not enabled by `mlflow.autolog` in Databricks,
+    # particularly when disable=False. This is because the function is automatically invoked
+    # by system and we don't want to take the risk of enabling GenAI libraries all at once.
     # TODO: Remove this logic once a feature flag is implemented in Databricks Runtime init logic.
     if is_in_databricks_runtime() and (not disable):
         target_library_and_module = LIBRARY_TO_AUTOLOG_MODULE
@@ -2460,8 +2462,8 @@ def autolog(
     # for each autolog library (except pyspark), register a post-import hook.
     # this way, we do not send any errors to the user until we know they are using the library.
     # the post-import hook also retroactively activates for previously-imported libraries.
-    for module in list(set(target_library_and_module.keys()) - {"pyspark", "pyspark.ml"}):
-        register_post_import_hook(setup_autologging, module, overwrite=True)
+    for library in list(set(target_library_and_module) - {"pyspark", "pyspark.ml"}):
+        register_post_import_hook(setup_autologging, library, overwrite=True)
 
     if is_in_databricks_runtime():
         # for pyspark, we activate autologging immediately, without waiting for a module import.

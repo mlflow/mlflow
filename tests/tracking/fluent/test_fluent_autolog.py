@@ -39,6 +39,7 @@ from tests.autologging.fixtures import (
     test_mode_off,
     test_mode_on,
 )
+from tests.helper_functions import start_mock_openai_server
 
 library_to_mlflow_module_without_spark_datasource = {
     tensorflow: mlflow.tensorflow,
@@ -177,9 +178,7 @@ def test_universal_autolog_calls_specific_autologs_correctly(library, mlflow_mod
     mlflow.autolog(**args_to_test)
 
     mlflow.utils.import_hooks.notify_module_loaded(library)
-    params_to_check = set(inspect.signature(mlflow_module.autolog).parameters.keys()) & set(
-        args_to_test.keys()
-    )
+    params_to_check = set(inspect.signature(mlflow_module.autolog).parameters) & set(args_to_test)
 
     for arg_key in params_to_check:
         assert (
@@ -194,20 +193,15 @@ def test_genai_auto_logging(is_databricks, disable):
     with mock.patch("mlflow.tracking.fluent.is_in_databricks_runtime", return_value=is_databricks):
         mlflow.autolog(disable=disable)
 
-        for library, mlflow_module in library_to_mlflow_module_traditional_ai.items():
-            mlflow.utils.import_hooks.notify_module_loaded(library)
-            assert (
-                get_autologging_config(mlflow_module.autolog.integration_name, "disable") == disable
-            )
+    for library, mlflow_module in library_to_mlflow_module_traditional_ai.items():
+        mlflow.utils.import_hooks.notify_module_loaded(library)
+        assert get_autologging_config(mlflow_module.autolog.integration_name, "disable") == disable
 
-        # Auto logging for genai libraries should be disabled when disable=False on Databricks
-        expected = None if is_databricks and (not disable) else disable
-        for library, mlflow_module in library_to_mlflow_module_genai.items():
-            mlflow.utils.import_hooks.notify_module_loaded(library)
-            assert (
-                get_autologging_config(mlflow_module.autolog.integration_name, "disable")
-                == expected
-            )
+    # Auto logging for GenAI libraries should be disabled when disable=False on Databricks
+    expected = None if is_databricks and (not disable) else disable
+    for library, mlflow_module in library_to_mlflow_module_genai.items():
+        mlflow.utils.import_hooks.notify_module_loaded(library)
+        assert get_autologging_config(mlflow_module.autolog.integration_name, "disable") == expected
 
 
 def test_universal_autolog_calls_pyspark_immediately_in_databricks():
@@ -392,8 +386,57 @@ def test_extra_tags_mlflow_autolog():
 
 
 @pytest.mark.parametrize(("library", "mlflow_module"), library_to_mlflow_module.items())
-def test_excluded_flavors(library, mlflow_module):
-    mlflow.autolog(exclude_flavors=[mlflow_module.__name__.replace("mlflow.", "")])
+def test_autolog_excluded_flavors(library, mlflow_module):
+    mlflow.autolog(exclude_flavors=[mlflow_module.__name__.removeprefix("mlflow.")])
     mlflow.utils.import_hooks.notify_module_loaded(library)
 
     assert get_autologging_config(mlflow_module.autolog.integration_name, "disable") is None
+
+
+# Tests for auto tracing
+@pytest.fixture
+def mock_openai(monkeypatch):
+    monkeypatch.setenvs(
+        {
+            "OPENAI_API_KEY": "test",
+            "OPENAI_API_BASE": mock_openai,
+        }
+    )
+    with start_mock_openai_server() as base_url:
+        yield base_url
+
+
+@pytest.fixture(params=[True, False])
+def other_library_present(request):
+    if request.param:
+        yield
+    else:
+        with mock.patch.dict(sys.modules, {"openai": openai}):
+            yield
+
+
+@pytest.mark.parametrize("is_databricks", [False, True])
+@pytest.mark.parametrize("disable", [False, True])
+def test_autolog_genai_auto_tracing(mock_openai, is_databricks, disable, other_library_present):
+    with mock.patch("mlflow.tracking.fluent.is_in_databricks_runtime", return_value=is_databricks):
+        mlflow.autolog(disable=disable)
+    mlflow.utils.import_hooks.notify_module_loaded(openai)
+    client = openai.OpenAI(api_key="test", base_url=mock_openai)
+    client.completions.create(
+        prompt="test",
+        model="gpt-4o-mini",
+        temperature=0,
+    )
+
+    # GenAI should not be enabled by mlflow.autolog even if disable=False on Databricks
+    if is_databricks or disable:
+        trace = mlflow.get_last_active_trace()
+        assert trace is None
+    else:
+        trace = mlflow.get_last_active_trace()
+        assert trace is not None
+        assert trace.info.status == "OK"
+        assert len(trace.data.spans) == 1
+        span = trace.data.spans[0]
+        assert span.inputs == {"prompt": "test", "model": "gpt-4o-mini", "temperature": 0}
+        assert span.outputs["id"] == "cmpl-uqkvlQyYK7bGYrRHQ0eXlWi7"

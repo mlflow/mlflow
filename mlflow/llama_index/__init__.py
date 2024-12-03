@@ -574,7 +574,7 @@ def autolog(
     # caveat is that the wrapped function is NOT executed when disable=True is passed. This prevents
     # us from running cleaning up logging when autologging is turned off. To workaround this, we
     # annotate _autolog() instead of this entrypoint, and define the cleanup logic outside it.
-    # TODO: since this implementation is inconsistent, explore an universal way to solve the issue.
+    # TODO: since this implementation is inconsistent, explore a universal way to solve the issue.
     if log_traces and not disable:
         set_llama_index_tracer()
     else:

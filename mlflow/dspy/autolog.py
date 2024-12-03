@@ -27,7 +27,7 @@ def autolog(
     # us from running cleaning up logging when autologging is turned off. To workaround this, we
     # annotate _autolog() instead of this entrypoint, and define the cleanup logic outside it.
     # This needs to be called before doing any safe-patching (otherwise safe-patch will be no-op).
-    # TODO: since this implementation is inconsistent, explore an universal way to solve the issue.
+    # TODO: since this implementation is inconsistent, explore a universal way to solve the issue.
     _autolog(log_traces=log_traces, disable=disable, silent=silent)
 
     import dspy
