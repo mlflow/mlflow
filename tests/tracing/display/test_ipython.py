@@ -1,6 +1,5 @@
 import json
 from collections import defaultdict
-from unittest import mock
 from unittest.mock import Mock
 
 import pytest
@@ -173,13 +172,6 @@ def test_display_respects_max_limit(monkeypatch):
     }
 
 
-def test_display_traces_if_not_in_databricks():
-    with mock.patch("IPython.get_ipython") as mock_get_ipython:
-        handler = get_display_handler()
-        handler.display_traces([create_trace("a")])
-        mock_get_ipython.assert_not_called()
-
-
 @in_databricks
 def test_enable_and_disable_display(monkeypatch):
     mock_ipython = MockIPython()
@@ -231,3 +223,31 @@ def test_mimebundle():
         "application/databricks.mlflow.trace": trace._serialize_for_mimebundle(),
         "text/plain": repr(trace),
     }
+
+
+def test_display_in_oss(monkeypatch):
+    mock_ipython = MockIPython()
+    monkeypatch.setattr("IPython.get_ipython", lambda: mock_ipython)
+    mock_display_handle = Mock()
+    mock_display = Mock(return_value=mock_display_handle)
+    monkeypatch.setattr("IPython.display.display", mock_display)
+    monkeypatch.setattr("IPython.display.HTML", Mock(side_effect=lambda html: html))
+
+    handler = get_display_handler()
+    handler.display_traces([create_trace("a")])
+
+    mock_ipython.mock_run_cell()
+
+    # default tracking uri is sqlite, so no display call should be made
+    assert mock_display.call_count == 0
+
+    # after setting an HTTP tracking URI, it should work
+    mlflow.set_tracking_uri("http://localhost:5000")
+
+    handler = get_display_handler()
+    handler.display_traces([create_trace("a")])
+
+    mock_ipython.mock_run_cell()
+
+    assert mock_display.call_count == 1
+    assert "<iframe" in mock_display.call_args[0][0]
