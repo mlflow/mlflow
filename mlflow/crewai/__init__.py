@@ -2,6 +2,7 @@
 The ``mlflow.crewai`` module provides an API for tracing CrewAI AI agents.
 """
 
+import importlib
 import logging
 
 from packaging.version import Version
@@ -40,30 +41,33 @@ def autolog(
     # changing drastically. Add patching once it's stabilized
     import crewai
 
+    class_method_map = {
+        "crewai.Crew": ["kickoff", "kickoff_for_each", "train"],
+        "crewai.Agent": ["execute_task"],
+        "crewai.Task": ["execute_sync"],
+        "crewai.LLM": ["call"],
+        "crewai.Flow": ["kickoff"],
+        "crewai.agents.agent_builder.base_agent_executor_mixin.CrewAgentExecutorMixin": [
+            "_create_long_term_memory"
+        ],
+    }
+    if Version(crewai.__version__) >= Version("0.83.0"):
+        # knowledge and memory are not available before 0.83.0
+        class_method_map.update(
+            {
+                "crewai.memory.ShortTermMemory": ["save", "search"],
+                "crewai.memory.LongTermMemory": ["save", "search"],
+                "crewai.memory.UserMemory": ["save", "search"],
+                "crewai.memory.EntityMemory": ["save", "search"],
+                "crewai.Knowledge": ["query"],
+            }
+        )
     try:
-        class_method_map = {
-            crewai.Crew: ["kickoff", "kickoff_for_each", "train"],
-            crewai.Agent: ["execute_task"],
-            crewai.Task: ["execute_sync"],
-            crewai.LLM: ["call"],
-            crewai.Flow: ["kickoff"],
-            crewai.agents.agent_builder.base_agent_executor_mixin.CrewAgentExecutorMixin: [
-                "_create_long_term_memory"
-            ],
-        }
-        if Version(crewai.__version__) >= Version("0.83.0"):
-            # knowledge and memory are not available before 0.83.0
-            class_method_map.update(
-                {
-                    crewai.memory.ShortTermMemory: ["save", "search"],
-                    crewai.memory.LongTermMemory: ["save", "search"],
-                    crewai.memory.UserMemory: ["save", "search"],
-                    crewai.memory.EntityMemory: ["save", "search"],
-                    crewai.Knowledge: ["query"],
-                }
-            )
-
-        for cls, methods in class_method_map.items():
+        for class_path, methods in class_method_map.items():
+            *module_parts, class_name = class_path.rsplit(".", 1)
+            module_path = ".".join(module_parts)
+            module = importlib.import_module(module_path)
+            cls = getattr(module, class_name)
             for method in methods:
                 safe_patch(
                     FLAVOR_NAME,
@@ -71,5 +75,5 @@ def autolog(
                     method,
                     patched_class_call,
                 )
-    except AttributeError as e:
+    except (AttributeError, ModuleNotFoundError) as e:
         _logger.error("An exception happens when applying auto-tracing to crewai. Exception: %s", e)

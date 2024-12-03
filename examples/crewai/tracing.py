@@ -3,6 +3,7 @@ This is an example for leveraging MLflow's auto tracing capabilities for CrewAI.
 Most codes are from https://github.com/crewAIInc/crewAI-examples/tree/main/trip_planner.
 
 For more information about MLflow Tracing, see: https://mlflow.org/docs/latest/llms/tracing/index.html
+Note that the following example works with crewai>=0.83.0.
 """
 
 from textwrap import dedent
