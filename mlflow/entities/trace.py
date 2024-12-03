@@ -81,7 +81,7 @@ class Trace(_MlflowObject):
 
         bundle = {"text/plain": repr(self)}
 
-        if not get_display_handler()._disabled:
+        if not get_display_handler().disabled:
             bundle["application/databricks.mlflow.trace"] = self._serialize_for_mimebundle()
 
         return bundle

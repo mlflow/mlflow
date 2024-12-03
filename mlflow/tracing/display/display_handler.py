@@ -41,6 +41,10 @@ class IPythonTraceDisplayHandler:
         if cls._instance is None:
             cls._instance = IPythonTraceDisplayHandler()
 
+    @property
+    def disabled(self):
+        return self._disabled
+
     def __init__(self):
         # This only works in Databricks notebooks
         if not is_in_databricks_runtime():
