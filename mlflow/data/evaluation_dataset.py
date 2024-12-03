@@ -183,6 +183,7 @@ def convert_data_to_mlflow_dataset(data, targets=None, predictions=None):
         from mlflow.utils.spark_utils import get_spark_dataframe_type
 
         spark_df_type = get_spark_dataframe_type()
+        supported_dataframe_types.append(spark_df_type)
 
     if predictions is not None:
         _validate_dataset_type_supports_predictions(
