@@ -82,6 +82,6 @@ autogen
 # Required by mlflow.dspy
 dspy
 # Required by mlflow.litellm
-litellm>=1.49.0
+litellm>=1.52.9
 # Required by mlflow.gemini
 google-generativeai

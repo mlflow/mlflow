@@ -396,13 +396,13 @@ def test_autolog_excluded_flavors(library, mlflow_module):
 # Tests for auto tracing
 @pytest.fixture
 def mock_openai(monkeypatch):
-    monkeypatch.setenvs(
-        {
-            "OPENAI_API_KEY": "test",
-            "OPENAI_API_BASE": mock_openai,
-        }
-    )
     with start_mock_openai_server() as base_url:
+        monkeypatch.setenvs(
+            {
+                "OPENAI_API_KEY": "test",
+                "OPENAI_API_BASE": base_url,
+            }
+        )
         yield base_url
 
 
