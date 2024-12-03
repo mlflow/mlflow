@@ -13,7 +13,11 @@ const config: Config = {
 
   // when building for production, check this environment
   // variable to determine the correct base URL
-  baseUrl: process.env.CIRCLECI_BASE_URL ?? (process.env.MLFLOW_DOCS_VERSION ? `/docs/${process.env.MLFLOW_DOCS_VERSION}/` : "/"),
+  baseUrl:
+    process.env.CIRCLECI_BASE_URL ??
+    (process.env.MLFLOW_DOCS_VERSION
+      ? `/docs/${process.env.MLFLOW_DOCS_VERSION}/`
+      : "/"),
 
   // GitHub pages deployment config.
   // If you aren't using GitHub pages, you don't need these.
@@ -41,7 +45,10 @@ const config: Config = {
         docs: {
           routeBasePath: "/",
           sidebarPath: "./sidebars.ts",
-          async sidebarItemsGenerator({ defaultSidebarItemsGenerator, ...args }) {
+          async sidebarItemsGenerator({
+            defaultSidebarItemsGenerator,
+            ...args
+          }) {
             const sidebarItems = await defaultSidebarItemsGenerator(args);
             return postProcessSidebar(sidebarItems);
           },
@@ -101,7 +108,7 @@ const config: Config = {
     prism: {
       // There is an array of languages enabled by default.
       // @see https://github.com/FormidableLabs/prism-react-renderer/blob/master/packages/generate-prism-languages/index.ts#L9-L26
-      additionalLanguages: ["bash", "diff", "java", "r", "sql"],
+      additionalLanguages: ["bash", "diff", "ini", "java", "r", "sql"],
       theme: prismThemes.github,
       darkTheme: prismThemes.dracula,
     },
