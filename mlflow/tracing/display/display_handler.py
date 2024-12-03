@@ -28,7 +28,7 @@ IFRAME_HTML = """
 def _get_notebook_iframe_html(traces: list["Trace"]):
     # fetch assets from tracking server
     uri = urljoin(mlflow.get_tracking_uri(), TRACE_RENDERER_ASSET_PATH)
-    query_string = _serialize_trace_list_for_iframe(traces)
+    query_string = _get_query_string_for_traces(traces)
 
     # include mlflow version to invalidate cache when mlflow updates
     src = f"{uri}?{query_string}&version={mlflow.__version__}"
@@ -45,7 +45,7 @@ def _serialize_trace_list(traces: list["Trace"]):
     )
 
 
-def _serialize_trace_list_for_iframe(traces: list["Trace"]):
+def _get_query_string_for_traces(traces: list["Trace"]):
     return urlencode([("trace_id", trace.info.request_id) for trace in traces])
 
 
