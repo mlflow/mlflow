@@ -1,5 +1,6 @@
 import asyncio
 import time
+from typing import Optional
 from unittest import mock
 
 import litellm
@@ -162,8 +163,13 @@ async def test_litellm_tracing_async_streaming(is_in_databricks):
         messages=[{"role": "system", "content": "Hello"}],
         stream=True,
     )
+    chunks: list[Optional[str]] = []
+    async for c in response:
+        chunks.append(c.choices[0].delta.content)
+        # Adding a sleep here to ensure that `content` in the span outputs is
+        # consistently 'Hello World', not 'Hello' or ''.
+        await asyncio.sleep(0.1)
 
-    chunks = [c.choices[0].delta.content async for c in response]
     assert chunks == ["Hello", " world", None]
 
     # Await the logger task to ensure that the trace is logged.
