@@ -680,3 +680,7 @@ MLFLOW_RECORD_ENV_VARS_IN_MODEL_LOGGING = _BooleanEnvironmentVariable(
 MLFLOW_CONVERT_MESSAGES_DICT_FOR_LANGCHAIN = _BooleanEnvironmentVariable(
     "MLFLOW_CONVERT_MESSAGES_DICT_FOR_LANGCHAIN", None
 )
+
+# Private environment variable used for testing to specify the URL of the local PyPI server that
+# serves a dev version of mlflow.
+_MLFLOW_LOCAL_PYPI_SERVER_URL = _EnvironmentVariable("_MLFLOW_LOCAL_PYPI_SERVER_URL", str, None)

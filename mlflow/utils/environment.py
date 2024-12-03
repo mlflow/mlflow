@@ -15,6 +15,7 @@ from packaging.requirements import InvalidRequirement, Requirement
 from packaging.version import Version
 
 from mlflow.environment_variables import (
+    _MLFLOW_LOCAL_PYPI_SERVER_URL,
     _MLFLOW_TESTING,
     MLFLOW_INPUT_EXAMPLE_INFERENCE_TIMEOUT,
     MLFLOW_REQUIREMENTS_INFERENCE_RAISE_ERRORS,
@@ -521,7 +522,10 @@ def _generate_mlflow_version_pinning() -> str:
     """
     if _MLFLOW_TESTING.get():
         # The local PyPI server should be running. It serves a wheel for the current MLflow version.
-        return f"mlflow=={VERSION}"
+        req = f"mlflow=={VERSION}"
+        if url := _MLFLOW_LOCAL_PYPI_SERVER_URL.get():
+            req += f" --index-url {url}"
+        return req
 
     version = Version(VERSION)
     if not version.is_devrelease:

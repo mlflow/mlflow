@@ -11,7 +11,11 @@ import traceback
 import click
 import pytest
 
-from mlflow.environment_variables import _MLFLOW_TESTING, MLFLOW_TRACKING_URI
+from mlflow.environment_variables import (
+    _MLFLOW_LOCAL_PYPI_SERVER_URL,
+    _MLFLOW_TESTING,
+    MLFLOW_TRACKING_URI,
+)
 from mlflow.utils.os import is_windows
 from mlflow.version import VERSION
 
@@ -382,9 +386,7 @@ def serve_wheel(request, tmp_path_factory):
     ) as prc:
         try:
             url = f"http://localhost:{port}"
-            if existing_url := os.environ.get("PIP_EXTRA_INDEX_URL"):
-                url = f"{existing_url} {url}"
-            os.environ["PIP_EXTRA_INDEX_URL"] = url
+            _MLFLOW_LOCAL_PYPI_SERVER_URL.set(url)
 
             yield
         finally:
