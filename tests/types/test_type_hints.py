@@ -7,6 +7,7 @@ import pytest
 from mlflow.exceptions import MlflowException
 from mlflow.types.schema import AnyType, Array, ColSpec, DataType, Map, Object, Property, Schema
 from mlflow.types.type_hints import (
+    PYDANTIC_V1_OR_OLDER,
     _infer_schema_from_type_hint,
     _validate_example_against_type_hint,
 )
@@ -139,18 +140,19 @@ def test_infer_schema_from_type_hints_errors():
     class InvalidModel(pydantic.BaseModel):
         bool_field: Optional[bool]
 
-    message = (
-        r"Optional field `bool_field` in Pydantic model `InvalidModel` "
-        r"doesn't have a default value. Please set default value to None for this field."
-    )
-    with pytest.raises(
-        MlflowException,
-        match=message,
-    ):
-        _infer_schema_from_type_hint(InvalidModel)
+    if not PYDANTIC_V1_OR_OLDER:
+        message = (
+            r"Optional field `bool_field` in Pydantic model `InvalidModel` "
+            r"doesn't have a default value. Please set default value to None for this field."
+        )
+        with pytest.raises(
+            MlflowException,
+            match=message,
+        ):
+            _infer_schema_from_type_hint(InvalidModel)
 
-    with pytest.raises(MlflowException, match=message):
-        _infer_schema_from_type_hint(list[InvalidModel])
+        with pytest.raises(MlflowException, match=message):
+            _infer_schema_from_type_hint(list[InvalidModel])
 
     message = r"Optional type hint is not supported"
     with pytest.raises(MlflowException, match=message):

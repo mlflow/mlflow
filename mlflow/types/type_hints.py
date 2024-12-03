@@ -4,6 +4,7 @@ from datetime import datetime
 from typing import Any, Literal, NamedTuple, Optional, Union, get_args, get_origin
 
 import pydantic
+from packaging.version import Version
 
 from mlflow.exceptions import MlflowException
 from mlflow.types.schema import (
@@ -18,7 +19,8 @@ from mlflow.types.schema import (
     Schema,
 )
 
-PYDANTIC_V1 = pydantic.VERSION.startswith("1.")
+PYDANTIC_V1_OR_OLDER = Version(pydantic.VERSION).major <= 1
+FIELD_TYPE = pydantic.fields.ModelField if PYDANTIC_V1_OR_OLDER else pydantic.fields.FieldInfo
 _logger = logging.getLogger(__name__)
 NONE_TYPE = type(None)
 
@@ -155,7 +157,7 @@ def _infer_fields_from_pydantic_model(
             invalid_fields.append(field_name)
             continue
         colspec_type = _infer_colspec_type_from_type_hint(annotation)
-        if colspec_type.required is False and field_info.is_required():
+        if colspec_type.required is False and field_required(field_info):
             raise MlflowException.invalid_parameter_value(
                 f"Optional field `{field_name}` in Pydantic model `{model.__name__}` "
                 "doesn't have a default value. Please set default value to None for this field."
@@ -193,19 +195,27 @@ def _is_pydantic_type_hint(type_hint: type[Any]) -> bool:
         return False
 
 
-def model_fields(model: pydantic.BaseModel) -> dict[str, pydantic.fields.FieldInfo]:
-    if PYDANTIC_V1:
+def model_fields(
+    model: pydantic.BaseModel,
+) -> dict[str, type[FIELD_TYPE]]:  # type: ignore
+    if PYDANTIC_V1_OR_OLDER:
         return model.__fields__
     return model.model_fields
 
 
 def model_validate(model: pydantic.BaseModel, values: Any) -> None:
-    if PYDANTIC_V1:
+    if PYDANTIC_V1_OR_OLDER:
         model.validate(values)
     else:
         # use strict mode to avoid any data conversion here
         # e.g. "123" will not be converted to 123 if the type is int
         model.model_validate(values, strict=True)
+
+
+def field_required(field: type[FIELD_TYPE]) -> bool:  # type: ignore
+    if PYDANTIC_V1_OR_OLDER:
+        return field.required
+    return field.is_required()
 
 
 def _infer_schema_from_type_hint(type_hint: type[Any]) -> Schema:
