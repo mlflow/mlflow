@@ -1,3 +1,5 @@
+import importlib.metadata
+
 import dspy
 import pandas as pd
 import pytest
@@ -10,11 +12,7 @@ from mlflow.tracing.constant import TraceMetadataKey
 
 from tests.tracing.helper import get_traces
 
-try:
-    from dspy.utils.callback import BaseCallback  # noqa: F401
-except ImportError:
-    # NB: We cannot test it with dspy.__version__ because the version info is
-    # hardcoded in their code base and not accurate.
+if importlib.metadata.version("dspy") < "2.5.17":
     pytest.skip("Evaluation test requires dspy>=2.5.17", allow_module_level=True)
 
 _EVAL_DATA = pd.DataFrame(

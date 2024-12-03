@@ -2460,6 +2460,7 @@ def autolog(
                     module.__name__,
                     str(e),
                 )
+                raise
 
     # for each autolog library (except pyspark), register a post-import hook.
     # this way, we do not send any errors to the user until we know they are using the library.
