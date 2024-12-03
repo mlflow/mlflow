@@ -153,9 +153,8 @@ async def test_litellm_tracing_async(is_in_databricks):
     assert spans[0].attributes["usage"] is not None
 
 
-@pytest.mark.parametrize("x", range(100))
 @pytest.mark.asyncio
-async def test_litellm_tracing_async_streaming(x, is_in_databricks):
+async def test_litellm_tracing_async_streaming(is_in_databricks):
     mlflow.litellm.autolog()
 
     response = await litellm.acompletion(
