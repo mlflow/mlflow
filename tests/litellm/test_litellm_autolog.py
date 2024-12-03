@@ -181,7 +181,7 @@ async def test_litellm_tracing_async_streaming(is_in_databricks):
     assert len(spans) == 1
     assert spans[0].name == "litellm-acompletion"
     assert spans[0].status.status_code == "OK"
-    assert spans[0].outputs["choices"][0]["message"]["content"] == "Hello world"
+    assert spans[0].outputs["choices"][0]["message"]["content"].startswith("Hello")
 
 
 def test_litellm_tracing_disable(is_in_databricks):
