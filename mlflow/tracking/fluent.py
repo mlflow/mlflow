@@ -2473,7 +2473,7 @@ def autolog(
         setup_autologging(pyspark_module)
         setup_autologging(pyspark_ml_module)
     else:
-        if "spark" in target_library_and_module:
+        if "pyspark" in target_library_and_module:
             register_post_import_hook(setup_autologging, "pyspark", overwrite=True)
         if "pyspark.ml" in target_library_and_module:
             register_post_import_hook(setup_autologging, "pyspark.ml", overwrite=True)
