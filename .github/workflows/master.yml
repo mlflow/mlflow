@@ -222,10 +222,14 @@ jobs:
       - uses: ./.github/actions/setup-python
       - uses: ./.github/actions/setup-pyenv
       - uses: ./.github/actions/setup-java
+      - name: Install the latest version of uv
+        uses: astral-sh/setup-uv@v4
+        with:
+          version: "latest"
       - name: Install dependencies
         run: |
           source ./dev/install-common-deps.sh
-          pip install pyspark langchain langchain-community '.[mlserver]' uv
+          pip install pyspark langchain langchain-community '.[mlserver]'
       - uses: ./.github/actions/show-versions
       - uses: ./.github/actions/pipdeptree
       - name: Run tests

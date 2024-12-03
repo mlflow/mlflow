@@ -232,7 +232,7 @@ def _get_virtualenv_name(python_env, work_dir_path, env_id=None):
     )
 
 
-def _get_virtualenv_activate_cmd(env_dir: Path):
+def _get_virtualenv_activate_cmd(env_dir: Path) -> str:
     # Created a command to activate the environment
     paths = ("bin", "activate") if not is_windows() else ("Scripts", "activate.bat")
     activate_cmd = env_dir.joinpath(*paths)
