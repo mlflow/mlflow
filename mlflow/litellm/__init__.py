@@ -31,7 +31,11 @@ def autolog(
     """
     import litellm
 
+    # NB: The @autologging_integration annotation is used for adding shared logic. However,
+    # the wrapped function is NOT executed when disable=True is passed. As a workaround,
+    # we annotate _autolog() instead of this entrypoint, and define the cleanup logic outside it.
     # This needs to be called before doing any safe-patching (otherwise safe-patch will be no-op).
+    # TODO: since this implementation is inconsistent, explore a universal way to solve the issue.
     _autolog(log_traces=log_traces, disable=disable, silent=silent)
 
     if log_traces and not disable:
@@ -70,6 +74,10 @@ def autolog(
         # Callback also needs to be removed from 'callbacks' as litellm adds
         # success/failure callbacks to there as well.
         litellm.callbacks = _remove_mlflow_callbacks(litellm.callbacks)
+
+
+# This is required by mlflow.autolog()
+autolog.integration_name = FLAVOR_NAME
 
 
 # NB: The @autologging_integration annotation must be applied here, and the callback injection

@@ -187,7 +187,9 @@ jobs:
           source .venv/bin/activate
           source ./dev/install-common-deps.sh --ml
           # transformers doesn't support Keras 3 yet. tf-keras needs to be installed as a workaround.
-          pip install tf-keras
+          pip install tf-keras uvicorn
+          # Required by mlflow.litellm. Temporarily update the version here due to version conflict with dspy.
+          pip install "litellm>=1.52.9"
       - uses: ./.github/actions/show-versions
       - uses: ./.github/actions/pipdeptree
       - name: Run tests
