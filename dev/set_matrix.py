@@ -341,7 +341,7 @@ def get_runs_on(runs_on: Optional[dict[str, str]], version: str) -> str:
     if runs_on and (match := next(_find_matches(runs_on, version), None)):
         return match
 
-    return "ubuntu-latest"
+    return "ubuntu-24.04"
 
 
 def remove_comments(s):

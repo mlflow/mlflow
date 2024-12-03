@@ -31,10 +31,10 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest]
+        os: [ubuntu-24.04, windows-latest]
         option: [--testPathPattern, --testPathIgnorePatterns]
         include:
-          - os: ubuntu-latest
+          - os: ubuntu-24.04
             shell: bash
           - os: windows-latest
             shell: pwsh

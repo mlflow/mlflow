@@ -15,7 +15,7 @@ permissions:
 
 jobs:
   closing-pr:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:
       pull-requests: read # closing-pr.js reads the PR body

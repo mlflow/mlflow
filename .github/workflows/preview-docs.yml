@@ -9,7 +9,7 @@ permissions:
 jobs:
   main:
     if: github.repository == 'mlflow/mlflow'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       statuses: read # preview_docs.py checks PR statuses
       pull-requests: write # preview_docs.py comments on PRs
