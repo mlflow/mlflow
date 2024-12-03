@@ -2997,9 +2997,9 @@ def save_model(
             _logger.info("Predicting on input example to validate output")
             context = PythonModelContext(artifacts, model_config)
             python_model.load_context(context)
-            _logger.info("context", context)
-            _logger.info("messages", messages)
-            _logger.info("params", params)
+            _logger.info("context" + context)
+            _logger.info("messages" + messages)
+            _logger.info("params" + params)
             output = python_model.predict(context, messages, params)
             if not isinstance(output, ChatAgentResponse):
                 raise MlflowException(
