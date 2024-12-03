@@ -47,6 +47,9 @@ def autolog(
             crewai.Task: ["execute_sync"],
             crewai.LLM: ["call"],
             crewai.Flow: ["kickoff"],
+            crewai.agents.agent_builder.base_agent_executor_mixin.CrewAgentExecutorMixin: [
+                "_create_long_term_memory"
+            ],
         }
         if Version(crewai.__version__) >= Version("0.83.0"):
             # knowledge and memory are not available before 0.83.0
@@ -57,9 +60,6 @@ def autolog(
                     crewai.memory.UserMemory: ["save", "search"],
                     crewai.memory.EntityMemory: ["save", "search"],
                     crewai.Knowledge: ["query"],
-                    crewai.agents.agent_builder.base_agent_executor_mixin.CrewAgentExecutorMixin: [
-                        "_create_long_term_memory"
-                    ],
                 }
             )
 

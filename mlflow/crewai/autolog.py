@@ -1,6 +1,7 @@
 import inspect
 import json
 import logging
+import warnings
 
 from packaging.version import Version
 
@@ -26,7 +27,7 @@ def patched_class_call(original, self, *args, **kwargs):
             span.set_inputs(inputs)
             _set_span_attributes(span=span, instance=self)
             result = original(self, *args, **kwargs)
-            # need to convert the response of generate_content for better visualization
+            # Need to convert the response of generate_content for better visualization
             outputs = result.__dict__ if hasattr(result, "__dict__") else result
             span.set_outputs(outputs)
 
@@ -38,36 +39,45 @@ def _get_span_type(instance) -> str:
     from crewai import LLM, Agent, Crew, Task
     from crewai.flow.flow import Flow
 
-    if isinstance(instance, (Flow, Crew, Task)):
-        return SpanType.CHAIN
-    elif isinstance(instance, Agent):
-        return SpanType.AGENT
-    elif isinstance(instance, LLM):
-        return SpanType.LLM
-    elif isinstance(instance, Flow):
-        return SpanType.CHAIN
-
-    # knowledge and memory are not available before 0.83.0
-    if Version(crewai.__version__) >= Version("0.83.0"):
-        if isinstance(
-            instance,
-            (
-                crewai.memory.ShortTermMemory,
-                crewai.memory.LongTermMemory,
-                crewai.memory.UserMemory,
-                crewai.memory.EntityMemory,
-                crewai.Knowledge,
-                crewai.agents.agent_builder.base_agent_executor_mixin.CrewAgentExecutorMixin,
-            ),
+    try:
+        if isinstance(instance, (Flow, Crew, Task)):
+            return SpanType.CHAIN
+        elif isinstance(instance, Agent):
+            return SpanType.AGENT
+        elif isinstance(instance, LLM):
+            return SpanType.LLM
+        elif isinstance(instance, Flow):
+            return SpanType.CHAIN
+        elif isinstance(
+            instance, crewai.agents.agent_builder.base_agent_executor_mixin.CrewAgentExecutorMixin
         ):
             return SpanType.RETRIEVER
+
+        # Knowledge and Memory are not available before 0.83.0
+        if Version(crewai.__version__) >= Version("0.83.0"):
+            if isinstance(
+                instance,
+                (
+                    crewai.memory.ShortTermMemory,
+                    crewai.memory.LongTermMemory,
+                    crewai.memory.UserMemory,
+                    crewai.memory.EntityMemory,
+                    crewai.Knowledge,
+                ),
+            ):
+                return SpanType.RETRIEVER
+    except AttributeError as e:
+        _logger.warn("An exception happens when resolving the span type. Exception: %s", e)
 
     return SpanType.UNKNOWN
 
 
 def _is_serializable(value):
     try:
-        json.dumps(value, cls=TraceJSONEncoder, ensure_ascii=False)
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            # There is type mismatch in some crewai class, suppress warning here
+            json.dumps(value, cls=TraceJSONEncoder, ensure_ascii=False)
         return True
     except (TypeError, ValueError):
         return False
@@ -75,7 +85,7 @@ def _is_serializable(value):
 
 def _construct_full_inputs(func, *args, **kwargs):
     signature = inspect.signature(func)
-    # this does not create copy. So values should not be mutated directly
+    # This does not create copy. So values should not be mutated directly
     arguments = signature.bind_partial(*args, **kwargs).arguments
 
     if "self" in arguments:
@@ -90,7 +100,7 @@ def _construct_full_inputs(func, *args, **kwargs):
 
 
 def _set_span_attributes(span: LiveSpan, instance):
-    # crewai is available only python >=3.10, so importing libraries inside methods.
+    # Crewai is available only python >=3.10, so importing libraries inside methods.
     try:
         import crewai
         from crewai import LLM, Agent, Crew, Task
@@ -172,7 +182,7 @@ def _get_llm_attributes(instance):
         if value is None:
             continue
         elif key in ["callbacks", "api_key"]:
-            # skip callbacks until how they should be logged are decided
+            # Skip callbacks until how they should be logged are decided
             continue
         else:
             llm[key] = str(value)
