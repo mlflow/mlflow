@@ -331,6 +331,16 @@ _ML_PACKAGE_VERSIONS = {
             "maximum": "0.39.0"
         }
     },
+    "crewai": {
+        "package_info": {
+            "pip_release": "crewai",
+            "module_name": "crewai"
+        },
+        "autologging": {
+            "minimum": "0.80.0",
+            "maximum": "0.83.0"
+        }
+    },
     "sentence_transformers": {
         "package_info": {
             "pip_release": "sentence-transformers"
@@ -393,6 +403,7 @@ FLAVOR_TO_MODULE_NAME = {
     "autogen": "autogen",
     "gemini": "google.generativeai",
     "anthropic": "anthropic",
+    "crewai": "crewai",
     "litellm": "litellm",
     "pyspark.ml": "pyspark"
 }
