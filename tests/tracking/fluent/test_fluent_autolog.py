@@ -470,7 +470,8 @@ def test_autolog_genai_import(disable, flavor_and_module):
     # pytorch-lightning is not valid flavor name.
     # gluon autologging is deprecated.
     # paddle autologging is not in the list of autologging integrations.
-    if flavor in {"gluon", "pytorch-lightning", "paddle"}:
+    # crewai requires Python 3.10+ (our CI runs on Python 3.9).
+    if flavor in {"gluon", "pytorch-lightning", "paddle", "crewai"}:
         return
 
     with reset_module_import():
