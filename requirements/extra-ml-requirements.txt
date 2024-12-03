@@ -80,7 +80,7 @@ anthropic
 # Required by mlflow.autogen
 autogen
 # Required by mlflow.dspy
-dspy
+dspy>=2.5.17
 # Required by mlflow.litellm
 litellm>=1.52.9
 # Required by mlflow.gemini
