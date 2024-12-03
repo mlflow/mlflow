@@ -5,7 +5,11 @@ from unittest.mock import Mock
 import pytest
 
 import mlflow
-from mlflow.tracing.display import IPythonTraceDisplayHandler, get_display_handler
+from mlflow.tracing.display import (
+    IPythonTraceDisplayHandler,
+    _get_notebook_iframe_html,
+    get_display_handler,
+)
 
 from tests.tracing.helper import create_trace
 
@@ -33,6 +37,12 @@ class MockIPython:
 @pytest.fixture
 def _in_databricks(monkeypatch):
     monkeypatch.setenv("DATABRICKS_RUNTIME_VERSION", "15.x")
+
+
+@pytest.fixture(autouse=True)
+def reset_singleton():
+    IPythonTraceDisplayHandler._instance = None
+    IPythonTraceDisplayHandler.disabled = False
 
 
 in_databricks = pytest.mark.usefixtures(_in_databricks.__name__)
@@ -202,7 +212,8 @@ def test_enable_and_disable_display(monkeypatch):
     }
 
 
-def test_mimebundle():
+@in_databricks
+def test_mimebundle_in_databricks():
     # by default, it should contain the metadata
     # necessary for rendering the trace UI
     trace = create_trace("a")
@@ -221,6 +232,28 @@ def test_mimebundle():
     mlflow.tracing.enable_notebook_display()
     assert trace._repr_mimebundle_() == {
         "application/databricks.mlflow.trace": trace._serialize_for_mimebundle(),
+        "text/plain": repr(trace),
+    }
+
+
+def test_mimebundle_in_oss():
+    # if the user is not using a tracking server, it should only contain text/plain
+    trace = create_trace("a")
+    assert trace._repr_mimebundle_() == {
+        "text/plain": repr(trace),
+    }
+
+    # if the user is using a tracking server, it
+    # should contain an iframe in the text/html key
+    mlflow.set_tracking_uri("http://localhost:5000")
+    assert trace._repr_mimebundle_() == {
+        "text/plain": repr(trace),
+        "text/html": _get_notebook_iframe_html([trace]),
+    }
+
+    # disabling should remove this key, even if tracking server is used
+    mlflow.tracing.disable_notebook_display()
+    assert trace._repr_mimebundle_() == {
         "text/plain": repr(trace),
     }
 
