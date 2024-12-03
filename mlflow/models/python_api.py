@@ -106,7 +106,7 @@ def predict(
     input_path=None,
     content_type=_CONTENT_TYPE_JSON,
     output_path=None,
-    env_manager=_EnvManager.UV,
+    env_manager=_EnvManager.VIRTUALENV,
     install_mlflow=False,
     pip_requirements_override=None,
     extra_envs=None,
@@ -131,8 +131,8 @@ def predict(
         output_path: File to output results to as json. If not provided, output to stdout.
         env_manager: Specify a way to create an environment for MLmodel inference:
 
-            - "uv"(default): use uv
-            - "virtualenv": use virtualenv (and pyenv for Python version management)
+            - "virtualenv" (default): use virtualenv (and pyenv for Python version management)
+            - "uv": use uv
             - "local": use the local environment
             - "conda": use conda
 
@@ -154,8 +154,8 @@ def predict(
             current os.environ are passed, and this parameter can be used to override them.
 
             .. note::
-                This parameter is only supported when `env_manager` is set to "virtualenv"
-                or "conda".
+                This parameter is only supported when `env_manager` is set to "virtualenv",
+                "conda" or "uv".
 
     Code example:
 
