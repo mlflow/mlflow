@@ -8,14 +8,13 @@ from copy import deepcopy
 from typing import Union
 
 from langchain_core.callbacks.base import BaseCallbackHandler, BaseCallbackManager
-from langchain_core.runnables import RunnableSequence
 from packaging.version import Version
 
 import mlflow
 from mlflow.entities import RunTag
 from mlflow.entities.run_status import RunStatus
 from mlflow.exceptions import MlflowException
-from mlflow.langchain.langchain_tracer import MlflowLangchainTracer
+from mlflow.langchain.langchain_tracer import MlflowLangchainTracer, should_attach_span_to_context
 from mlflow.langchain.runnables import get_runnable_steps
 from mlflow.tracking.context import registry as context_registry
 from mlflow.utils import name_utils
@@ -90,20 +89,7 @@ def patched_inference(func_name, original, self, *args, **kwargs):
 
     if should_trace:
         tracer = MlflowLangchainTracer(
-            # NB: RunnableSequence's batch() and abatch() methods are implemented in a peculiar way
-            # that iterates on steps->items sequentially within the same thread. For example, if a
-            # sequence has 2 steps and the batch size is 3, the execution flow will be:
-            #  - Step 1 for item 1
-            #  - Step 1 for item 2
-            #  - Step 1 for item 3
-            #  - Step 2 for item 1
-            #  - Step 2 for item 2
-            #  - Step 2 for item 3
-            # Due to this behavior, we cannot attach the span to the context for this particular
-            # API, otherwise spans for different inputs will be mixed up.
-            set_span_in_context=not (
-                isinstance(self, RunnableSequence) and func_name in ["batch", "abatch"]
-            )
+            set_span_in_context=should_attach_span_to_context(func_name, self)
         )
         args, kwargs = _get_args_with_mlflow_tracer(tracer, func_name, args, kwargs)
 

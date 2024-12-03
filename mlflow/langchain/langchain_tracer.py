@@ -4,6 +4,7 @@ from typing import Any, Optional, Sequence, Union
 from uuid import UUID
 
 from langchain.callbacks.base import BaseCallbackHandler
+from langchain.schema.runnable import RunnableSequence
 from langchain_core.agents import AgentAction, AgentFinish
 from langchain_core.documents import Document
 from langchain_core.load.dump import dumps
@@ -31,9 +32,37 @@ VS_INDEX_ID_COL = "chunk_id"
 VS_INDEX_DOC_URL_COL = "doc_uri"
 
 
-# Langchain config Keys
-CONFIGURABLE_KEY = "configurable"
-SESSION_ID_KEY = "session_id"
+def should_attach_span_to_context(func_name: str, instance: Any) -> bool:
+    """
+    Determine whether the span should be attached to the context during the execution
+    of the given function.
+
+    Spans should generally be attached to the context so that
+    they can work with fluent APIs or other auto-tracing integrations. However, there
+    are some tricky cases where attaching the span to the context can cause issues.
+
+    Args:
+        func_name: The name of the function (method) for which the span is being created.
+        instance: The instance of LangChain class that the function is being called on.
+
+    Returns:
+        True if the span should be attached to the context.
+    """
+    # NB: RunnableSequence's batch() methods are implemented in a peculiar way
+    # that iterates on steps->items sequentially within the same thread. For example, if a
+    # sequence has 2 steps and the batch size is 3, the execution flow will be:
+    #  - Step 1 for item 1
+    #  - Step 1 for item 2
+    #  - Step 1 for item 3
+    #  - Step 2 for item 1
+    #  - Step 2 for item 2
+    #  - Step 2 for item 3
+    # Due to this behavior, we cannot attach the span to the context for this particular
+    # API, otherwise spans for different inputs will be mixed up.
+    if isinstance(instance, RunnableSequence) and func_name == "batch":
+        return False
+
+    return True
 
 
 class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstractClass):
