@@ -55,7 +55,12 @@ def test_basic_save():
 
 
 def test_save_compiled_model():
-    train_data = ["What is 2 + 2?", "What is 3 + 3?", "What is 4 + 4?", "What is 5 + 5?"]
+    train_data = [
+        "What is 2 + 2?",
+        "What is 3 + 3?",
+        "What is 4 + 4?",
+        "What is 5 + 5?",
+    ]
     train_label = ["4", "6", "8", "10"]
     trainset = [
         dspy.Example(question=q, answer=a).with_inputs("question")
@@ -107,7 +112,7 @@ def test_dspy_save_preserves_object_state():
             prediction = self.generate_answer(context=context, question=question)
             return dspy.Prediction(context=context, answer=prediction.answer)
 
-    def dummy_metric(program):
+    def dummy_metric(*args, **kwargs):
         return 1.0
 
     random_answers = ["4", "6", "8", "10"]
@@ -115,7 +120,12 @@ def test_dspy_save_preserves_object_state():
     rm = dummy_rm(passages=["dummy1", "dummy2", "dummy3"])
     dspy.settings.configure(lm=lm, rm=rm)
 
-    train_data = ["What is 2 + 2?", "What is 3 + 3?", "What is 4 + 4?", "What is 5 + 5?"]
+    train_data = [
+        "What is 2 + 2?",
+        "What is 3 + 3?",
+        "What is 4 + 4?",
+        "What is 5 + 5?",
+    ]
     train_label = ["4", "6", "8", "10"]
     trainset = [
         dspy.Example(question=q, answer=a).with_inputs("question")
@@ -366,5 +376,8 @@ def test_infer_signature_from_input_examples():
         loaded_model = Model.load(model_uri)
         assert loaded_model.signature.inputs == Schema([ColSpec("string")])
         assert loaded_model.signature.outputs == Schema(
-            [ColSpec(name="rationale", type="string"), ColSpec(name="answer", type="string")]
+            [
+                ColSpec(name="rationale", type="string"),
+                ColSpec(name="answer", type="string"),
+            ]
         )
