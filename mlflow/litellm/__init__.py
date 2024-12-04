@@ -137,13 +137,16 @@ def _patch_thread_start():
         Thread.start = original
 
 
-def _append_mlflow_callbacks(original_callbacks):
-    if not any(cb == "mlflow" for cb in original_callbacks):
-        return original_callbacks + ["mlflow"]
-    return original_callbacks
+def _append_mlflow_callbacks(callbacks):
+    if not any(cb == "mlflow" for cb in callbacks):
+        return callbacks + ["mlflow"]
+    return callbacks
 
 
-def _remove_mlflow_callbacks(original_callbacks):
-    from litellm.integrations.mlflow import MlflowLogger
+def _remove_mlflow_callbacks(callbacks):
+    try:
+        from litellm.integrations.mlflow import MlflowLogger
 
-    return [cb for cb in original_callbacks if not (cb == "mlflow" or isinstance(cb, MlflowLogger))]
+        return [cb for cb in callbacks if not (cb == "mlflow" or isinstance(cb, MlflowLogger))]
+    except ImportError:
+        return callbacks
