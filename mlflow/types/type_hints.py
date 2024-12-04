@@ -197,7 +197,7 @@ def _is_pydantic_type_hint(type_hint: type[Any]) -> bool:
 
 def model_fields(
     model: pydantic.BaseModel,
-) -> dict[str, type[FIELD_TYPE]]:  # type: ignore
+) -> dict[str, type[FIELD_TYPE]]:
     if PYDANTIC_V1_OR_OLDER:
         return model.__fields__
     return model.model_fields
@@ -212,7 +212,7 @@ def model_validate(model: pydantic.BaseModel, values: Any) -> None:
         model.model_validate(values, strict=True)
 
 
-def field_required(field: type[FIELD_TYPE]) -> bool:  # type: ignore
+def field_required(field: type[FIELD_TYPE]) -> bool:
     if PYDANTIC_V1_OR_OLDER:
         return field.required
     return field.is_required()
