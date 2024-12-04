@@ -19,7 +19,7 @@ TRACE_RENDERER_ASSET_PATH = "/static-files/lib/notebook-trace-renderer/index.htm
 IFRAME_HTML = """
 <iframe
   id="trace-renderer"
-  style="width: 100%; height: 600px; border: none;"
+  style="width: 100%; height: 600px; border: none; resize: vertical;"
   src="{src}"
 />
 """
