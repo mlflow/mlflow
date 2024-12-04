@@ -46,7 +46,7 @@ jobs:
           name: Set env vars
           working_directory: docs
           command: |
-            echo "export CIRCLECI_BASE_URL=/output/job/$CIRCLE_WORKFLOW_JOB_ID/artifacts/0/docs/build/" >> "$BASH_ENV"
+            echo "export DOCS_BASE_URL=/output/job/$CIRCLE_WORKFLOW_JOB_ID/artifacts/0/docs/build/" >> "$BASH_ENV"
       - run:
           name: Install Java
           command: |
