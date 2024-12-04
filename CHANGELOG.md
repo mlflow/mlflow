@@ -1,5 +1,38 @@
 # CHANGELOG
 
+## 2.19.0rc0 (2024-12-04)
+
+MLflow 2.19.0rc0 includes several major features and improvements
+
+Features:
+
+- [Models] Tracing for non-LangChain models during evaluation. (#13897, @B-Step62)
+- [Docs / Examples] Introduce crewai tracing (#13903, @TomeHirata)
+- [] Add Anthropic autolog tracing integration (#13851, @gabrielfu)
+- [Tracking] Add an API for adding tags to an active trace. (#13828, @B-Step62)
+- [Tracking] [3/x] Support auto+manual tracing - DSPy (#13795, @B-Step62)
+- [Tracking] [2/x] Support auto+manual tracing - LlamaIndex (#13793, @B-Step62)
+- [Tracking] [1/x] Support auto+manual tracing - LangChain (#13790, @B-Step62)
+- [Models] Any type support (#13766, @serena-ruan)
+- [Deployments] Update databricks deployments to support AI gateway & additional update endpoints (#13513, @djliden)
+
+Bug fixes:
+
+- [Tracking] Fix mlflow.evaluate() to allow passing in a spark connect dataframe (#13889, @WeichenXu123)
+- [] Set dspy settings at `predict` call (#13895, @chenmoneygithub)
+- [Tracking] Fix `mlflow.end_run` inside a MLflow run context manager (#13888, @WeichenXu123)
+- [Scoring] Fix spark_udf conditional check on remote spark-connect client or Databricks Serverless (#13827, @WeichenXu123)
+- [Models] Allow changing max_workers for built-in LLM-as-a-Judge metrics (#13858, @B-Step62)
+- [] Support saving all langchain runnables using code-based logging (#13821, @serena-ruan)
+
+Documentation updates:
+
+- [Docs] Add Ollama and Instructor examples in tracing doc (#13937, @B-Step62)
+
+Small bug fixes and documentation updates:
+
+#13972, #13968, #13917, #13912, #13906, #13846, @serena-ruan; #13969, #13959, #13957, #13958, #13925, #13882, #13879, #13881, #13869, #13870, #13868, #13854, #13849, #13847, #13836, #13823, #13811, #13820, #13775, #13768, #13764, @harupy; #13960, #13914, #13862, #13892, #13916, #13918, #13915, #13878, #13891, #13863, #13859, #13850, #13844, #13835, #13818, #13762, @B-Step62; #13913, #13848, #13774, @TomeHirata; #13936, #13954, #13883, @daniellok-db; #13947, @AHB102; #13929, #13922, @Ajay-Satish-01; #13857, @stevenchen-db; #13773, @BenWilson2; #13705, @williamjamir; #13745, #13743, @WeichenXu123
+
 ## 2.18.0 (2024-11-18)
 
 We are excited to announce the release of MLflow 2.18.0! This release includes a number of significant features, enhancements, and bug fixes.
