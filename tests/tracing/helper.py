@@ -3,14 +3,18 @@ from dataclasses import dataclass
 from typing import Optional
 
 import opentelemetry.trace as trace_api
+import pytest
 from opentelemetry.sdk.trace import ReadableSpan
 
 import mlflow
 from mlflow.entities import Trace, TraceData, TraceInfo
 from mlflow.entities.trace_status import TraceStatus
+from mlflow.ml_package_versions import FLAVOR_TO_MODULE_NAME
 from mlflow.tracing.processor.mlflow import MlflowSpanProcessor
 from mlflow.tracing.provider import _get_tracer
 from mlflow.tracking.default_experiment import DEFAULT_EXPERIMENT_ID
+from mlflow.utils.autologging_utils import AUTOLOGGING_INTEGRATIONS, get_autolog_function
+from mlflow.utils.autologging_utils.safety import revert_patches
 
 
 def create_mock_otel_span(
@@ -130,3 +134,30 @@ def get_tracer_tracking_uri() -> Optional[str]:
 
     if isinstance(span_processor, MlflowSpanProcessor):
         return span_processor._client.tracking_uri
+
+
+@pytest.fixture
+def reset_autolog_state():
+    """Reset autologging state to avoid interference between tests"""
+    yield
+
+    for flavor in FLAVOR_TO_MODULE_NAME:
+        # 1. Remove post-import hooks (registered by global mlflow.autolog() function)
+        mlflow.utils.import_hooks._post_import_hooks.pop(flavor, None)
+
+        # 2. Disable autologging for the flavor. This is necessary because some autologging
+        #    update global settings (e.g. callbacks) and we need to revert them.
+        try:
+            if autolog := get_autolog_function(flavor):
+                autolog(disable=True)
+        except ImportError:
+            pass
+
+        # 3. Revert any patches applied by autologging
+        revert_patches(flavor)
+
+        # 4. Reset autologging state
+        AUTOLOGGING_INTEGRATIONS.pop(flavor, None)
+
+    # 4. Reset global autologging state
+    AUTOLOGGING_INTEGRATIONS["mlflow"] = {}
