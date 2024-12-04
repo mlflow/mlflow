@@ -403,7 +403,6 @@ def test_chat_model_works_with_infer_signature_input_example(tmp_path):
     local_path = _download_artifact_from_uri(model_info.model_uri)
     assert mlflow_model.load_input_example(local_path) == {
         "messages": input_example["messages"],
-        **DEFAULT_PARAMS,
         **params_subset,
     }
 
@@ -439,7 +438,6 @@ def test_chat_model_works_with_chat_message_input_example(tmp_path):
     local_path = _download_artifact_from_uri(model_info.model_uri)
     assert mlflow_model.load_input_example(local_path) == {
         "messages": [message.to_dict() for message in input_example],
-        **DEFAULT_PARAMS,
     }
 
     inference_payload = load_serving_example(model_info.model_uri)
@@ -483,7 +481,6 @@ def test_chat_model_works_with_infer_signature_multi_input_example(tmp_path):
     local_path = _download_artifact_from_uri(model_info.model_uri)
     assert mlflow_model.load_input_example(local_path) == {
         "messages": input_example["messages"],
-        **DEFAULT_PARAMS,
         **params_subset,
     }
 

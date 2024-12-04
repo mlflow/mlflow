@@ -2912,29 +2912,39 @@ def save_model(
                 CHAT_MODEL_INPUT_SCHEMA,
                 CHAT_MODEL_OUTPUT_SCHEMA,
             )
-            input_example = input_example or CHAT_MODEL_INPUT_EXAMPLE
-            input_example, input_params = _split_input_data_and_params(input_example)
-
-            if isinstance(input_example, list):
-                params = ChatParams()
-                messages = []
-                for each_message in input_example:
-                    if isinstance(each_message, ChatMessage):
-                        messages.append(each_message)
-                    else:
-                        messages.append(ChatMessage.from_dict(each_message))
+            if input_example:
+                input_example, input_params = _split_input_data_and_params(input_example)
+                valid_params = {}
+                if isinstance(input_example, list):
+                    messages = []
+                    for each_message in input_example:
+                        if isinstance(each_message, ChatMessage):
+                            messages.append(each_message)
+                        else:
+                            messages.append(ChatMessage.from_dict(each_message))
+                else:
+                    # If the input example is a dictionary, convert it to ChatMessage format
+                    messages = [
+                        ChatMessage.from_dict(m) if isinstance(m, dict) else m
+                        for m in input_example["messages"]
+                    ]
+                    valid_params = {
+                        k: v
+                        for k, v in input_example.items()
+                        if k != "messages" and k in ChatParams.keys()
+                    }
+                input_example = {
+                    "messages": [m.to_dict() for m in messages],
+                    **valid_params,
+                    **(input_params or {}),
+                }
             else:
-                # If the input example is a dictionary, convert it to ChatMessage format
-                messages = [
-                    ChatMessage.from_dict(m) if isinstance(m, dict) else m
-                    for m in input_example["messages"]
-                ]
-                params = ChatParams.from_dict(input_example)
-            input_example = {
-                "messages": [m.to_dict() for m in messages],
-                **params.to_dict(),
-                **(input_params or {}),
-            }
+                input_example = CHAT_MODEL_INPUT_EXAMPLE
+                messages = [ChatMessage.from_dict(m) for m in input_example["messages"]]
+            # extra params introduced by ChatParams will not be included in the
+            # logged input example file to avoid confusion
+            _save_example(mlflow_model, input_example, path, example_no_conversion)
+            params = ChatParams.from_dict(input_example)
 
             # call load_context() first, as predict may depend on it
             _logger.info("Predicting on input example to validate output")

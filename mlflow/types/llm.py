@@ -443,6 +443,13 @@ class ChatParams(_BaseDataclass):
                         f"received key of type `{type(key).__name__}` (key: {key})"
                     )
 
+    @classmethod
+    def keys(cls) -> set[str]:
+        """
+        Return the keys of the dataclass
+        """
+        return {field.name for field in fields(cls)}
+
 
 @dataclass()
 class ChatCompletionRequest(ChatParams):
