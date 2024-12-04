@@ -48,7 +48,20 @@ def configure_autologging_for_evaluation(enable_tracing: bool = True):
                     new_config = {
                         k: False if k.startswith("log_") else v for k, v in original_config.items()
                     }
-                    new_config |= {"log_traces": True, "silent": True}
+
+                    # TODO: This check is a temporary fix for Databricks. This line explicitly checks if
+                    # the autologging is globally disabled via mlflow.autolog(disable=True). In normal case,
+                    # this is reflected to each flavor's configuration. However, when user explicitly enables
+                    # autologging for a specific flavor via mlflow.<flavor>.autolog(), the global disablement
+                    # does not take precedence, which is intented.
+                    # However, in Databricks, sometimes mlflow.<flavor>.autolog() is automatically called in
+                    # the kernel startup, which is confused with the user's action. In such case, even when
+                    # user disables autologging globally, the flavor-specific autologging remains enabled.
+                    # We are going to fix the Databricks side issue, but until the fix is released, we need
+                    # to check the global configuration explicitly here.
+                    should_enable_trace = not global_config_snapshot.get("mlflow", {}).get("disable", False)
+
+                    new_config |= {"log_traces": should_enable_trace, "silent": True}
                     _kwargs_safe_invoke(autolog, new_config)
                     trace_enabled_flavors.append(flavor)
                 elif flavor in AUTOLOGGING_INTEGRATIONS:
