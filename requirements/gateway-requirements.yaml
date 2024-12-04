@@ -15,12 +15,12 @@ fastapi:
 uvicorn:
   pip_release: uvicorn
   extras:
-    - standard
+  - standard
   max_major_version: 0
 
 watchfiles:
   pip_release: watchfiles
-  max_major_version: 0
+  max_major_version: 1
 
 aiohttp:
   pip_release: aiohttp
