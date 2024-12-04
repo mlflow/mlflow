@@ -31,9 +31,6 @@ def autolog(
     """
     import litellm
 
-    # NB: The @autologging_integration annotation is used for adding shared logic. However,
-    # the wrapped function is NOT executed when disable=True is passed. As a workaround,
-    # we annotate _autolog() instead of this entrypoint, and define the cleanup logic outside it.
     # This needs to be called before doing any safe-patching (otherwise safe-patch will be no-op).
     # TODO: since this implementation is inconsistent, explore a universal way to solve the issue.
     _autolog(log_traces=log_traces, disable=disable, silent=silent)
@@ -140,13 +137,16 @@ def _patch_thread_start():
         Thread.start = original
 
 
-def _append_mlflow_callbacks(original_callbacks):
-    if not any(cb == "mlflow" for cb in original_callbacks):
-        return original_callbacks + ["mlflow"]
-    return original_callbacks
+def _append_mlflow_callbacks(callbacks):
+    if not any(cb == "mlflow" for cb in callbacks):
+        return callbacks + ["mlflow"]
+    return callbacks
 
 
-def _remove_mlflow_callbacks(original_callbacks):
-    from litellm.integrations.mlflow import MlflowLogger
+def _remove_mlflow_callbacks(callbacks):
+    try:
+        from litellm.integrations.mlflow import MlflowLogger
 
-    return [cb for cb in original_callbacks if not (cb == "mlflow" or isinstance(cb, MlflowLogger))]
+        return [cb for cb in callbacks if not (cb == "mlflow" or isinstance(cb, MlflowLogger))]
+    except ImportError:
+        return callbacks
