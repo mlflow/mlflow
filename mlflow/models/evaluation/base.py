@@ -24,6 +24,7 @@ from mlflow.data.evaluation_dataset import (
 from mlflow.entities.dataset_input import DatasetInput
 from mlflow.entities.input_tag import InputTag
 from mlflow.exceptions import MlflowException
+from mlflow.models.evaluation.utils.trace import configure_autologging_for_evaluation
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.tracking.client import MlflowClient
@@ -1015,21 +1016,24 @@ def _evaluate(
         dataset._log_dataset_tag(client, run_id, model_uuid)
 
     eval_results = []
+    should_enable_tracing = model is not None  # Do not enable tracing if static dataset is provided
     for eval_ in evaluators:
         _logger.debug(f"Evaluating the model with the {eval_.name} evaluator.")
         _last_failed_evaluator = eval_.name
         if eval_.evaluator.can_evaluate(model_type=model_type, evaluator_config=eval_.config):
-            eval_result = eval_.evaluator.evaluate(
-                model=model,
-                model_type=model_type,
-                dataset=dataset,
-                run_id=run_id,
-                evaluator_config=eval_.config,
-                custom_metrics=custom_metrics,
-                extra_metrics=extra_metrics,
-                custom_artifacts=custom_artifacts,
-                predictions=predictions,
-            )
+            with configure_autologging_for_evaluation(enable_tracing=should_enable_tracing):
+                eval_result = eval_.evaluator.evaluate(
+                    model=model,
+                    model_type=model_type,
+                    dataset=dataset,
+                    run_id=run_id,
+                    evaluator_config=eval_.config,
+                    custom_metrics=custom_metrics,
+                    extra_metrics=extra_metrics,
+                    custom_artifacts=custom_artifacts,
+                    predictions=predictions,
+                )
+
             if eval_result is not None:
                 eval_results.append(eval_result)
 
