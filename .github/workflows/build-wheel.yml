@@ -82,7 +82,9 @@ jobs:
 
           # Rename the wheel if it includes the databricks extra
           if [[ "${{ matrix.type }}" == *"databricks"* ]]; then
-            mv dist/*.whl dist/mlflow-${{ matrix.type }}.whl
+            wheel_path=$(find dist -type f -name "*.whl")
+            base_name=$(basename "$wheel_path" .whl)
+            mv "$wheel_path" "dist/${base_name}-databricks.whl"
           fi
 
           # List distribution files and check their file sizes
