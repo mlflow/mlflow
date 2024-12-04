@@ -13,11 +13,7 @@ const config: Config = {
 
   // when building for production, check this environment
   // variable to determine the correct base URL
-  baseUrl:
-    process.env.CIRCLECI_BASE_URL ??
-    (process.env.MLFLOW_DOCS_VERSION
-      ? `/docs/${process.env.MLFLOW_DOCS_VERSION}/`
-      : "/"),
+  baseUrl: process.env.DOCS_BASE_URL ?? "/",
 
   // GitHub pages deployment config.
   // If you aren't using GitHub pages, you don't need these.
