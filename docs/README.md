@@ -5,9 +5,9 @@ The `docusaurus` branch is the working branch for all Docusaurus migration work.
 ## Jobs to be Done
 
 1. Migrating all non-API related docs from `.rst` to `.mdx`, the Docusaurus format
-  a. These files can be found in the `rst_to_migrate` folder
+   a. These files can be found in the `rst_to_migrate` folder
 2. Migrating notebooks to be rendered via [this plugin](https://github.com/datalayer/jupyter-ui/tree/main/packages/docusaurus-plugin), rather than by `nbsphinx`
-  a. Notebooks are also found in the `rst_to_migrate` folder, but will end in `.ipynb` 
+   a. Notebooks are also found in the `rst_to_migrate` folder, but will end in `.ipynb`
 
 ### Installation
 
@@ -38,7 +38,6 @@ $ yarn format
 ```
 
 This command automatically formats all `.mdx` files within the `/docs` folder
-
 
 ### Deployment
 

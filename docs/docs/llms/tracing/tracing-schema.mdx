@@ -235,17 +235,15 @@ This object contains the following elements:
     <tr>
       <td>**request**</td>
       <td>
-        The `request` property is the input data for the entire trace. The input
-        `str` is a JSON-serialized string that contains the input data for the
-        trace, typically the end-user request that was submitted as a call to
-        the application.
+        The `request` property is the input data for the entire trace. The input `str` is a
+        JSON-serialized string that contains the input data for the trace, typically the end-user
+        request that was submitted as a call to the application.
       </td>
       <td>
-        Due to the varied structures of inputs that could go to a given
-        application that is being instrumented by MLflow Tracing, all inputs are
-        JSON serialized for compatibility’s sake. This allows for the input data
-        to be stored in a consistent format, regardless of the input data’s
-        structure.
+        Due to the varied structures of inputs that could go to a given application that is being
+        instrumented by MLflow Tracing, all inputs are JSON serialized for compatibility’s sake.
+        This allows for the input data to be stored in a consistent format, regardless of the input
+        data’s structure.
       </td>
     </tr>
     <tr>
@@ -255,20 +253,17 @@ This object contains the following elements:
         <APILink fn="mlflow.entities.Span">{"Span"}</APILink>
         {" objects that represent the individual steps of the trace."}
       </td>
-      <td>
-        For further information on the structure of Span objects, see the
-        section below.
-      </td>
+      <td>For further information on the structure of Span objects, see the section below.</td>
     </tr>
     <tr>
       <td>**response**</td>
       <td>
-        The response property is the final output data that will be returned to
-        the caller of the invocation of the application.
+        The response property is the final output data that will be returned to the caller of the
+        invocation of the application.
       </td>
       <td>
-        Similar to the request property, this value is a JSON-serialized string
-        to maximize compatibility of disparate formats.
+        Similar to the request property, this value is a JSON-serialized string to maximize
+        compatibility of disparate formats.
       </td>
     </tr>
   </tbody>

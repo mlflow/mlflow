@@ -26,12 +26,55 @@ Look in the tutorials and guides below to learn more about interesting use cases
 Note that there are additional tutorials within the ["Explore the Native LLM Flavors" section below](#explore-the-native-llm-flavors), so be sure to check those out as well!
 
 <CardGroup>
-  <PageCard link="chat-model-intro/" headerText="Custom GenAI Models with ChatModel" text={["Learn the basics of creating custom chat models using MLflow's ", <code>ChatModel</code>, " by wrapping a local LLM provider."]} />
-  <PageCard link="chat-model-guide/" headerText="Advanced ChatModel Development" text={["Take an in-depth look at the full range of ", <code>ChatModel</code>, " features, such as tracing and configuration management."]} />
-  <PageCard link="notebooks/chat-model-tool-calling/" headerText="Tool Calling Models" text={["Learn how to build a simple tool-calling model using MLflow's ", <code>ChatModel</code>]} />
-  <PageCard link="llm-evaluate/" headerText="Evaluating LLMs" text={["Learn how to evaluate LLMs with various metrics including LLM-as-a-Judge using ", <code>mlflow.evaluate()</code>, " API."]} />
-  <PageCard link="custom-pyfunc-for-llms/" headerText="Using Custom PyFunc with LLMs" text={["Explore the nuances of packaging, customizing, and deploying advanced LLMs in MLflow using custom PyFuncs."]} />
-  <PageCard link="rag/notebooks/" headerText="Evaluation for RAG" text={["Learn how to evaluate Retrieval Augmented Generation applications by leveraging LLMs to generate a evaluation dataset and evaluate it using the built-in metrics in the MLflow Evaluate API."]} />
+  <PageCard
+    link="chat-model-intro/"
+    headerText="Custom GenAI Models with ChatModel"
+    text={[
+      "Learn the basics of creating custom chat models using MLflow's ",
+      <code>ChatModel</code>,
+      " by wrapping a local LLM provider.",
+    ]}
+  />
+  <PageCard
+    link="chat-model-guide/"
+    headerText="Advanced ChatModel Development"
+    text={[
+      "Take an in-depth look at the full range of ",
+      <code>ChatModel</code>,
+      " features, such as tracing and configuration management.",
+    ]}
+  />
+  <PageCard
+    link="notebooks/chat-model-tool-calling/"
+    headerText="Tool Calling Models"
+    text={[
+      "Learn how to build a simple tool-calling model using MLflow's ",
+      <code>ChatModel</code>,
+    ]}
+  />
+  <PageCard
+    link="llm-evaluate/"
+    headerText="Evaluating LLMs"
+    text={[
+      "Learn how to evaluate LLMs with various metrics including LLM-as-a-Judge using ",
+      <code>mlflow.evaluate()</code>,
+      " API.",
+    ]}
+  />
+  <PageCard
+    link="custom-pyfunc-for-llms/"
+    headerText="Using Custom PyFunc with LLMs"
+    text={[
+      "Explore the nuances of packaging, customizing, and deploying advanced LLMs in MLflow using custom PyFuncs.",
+    ]}
+  />
+  <PageCard
+    link="rag/notebooks/"
+    headerText="Evaluation for RAG"
+    text={[
+      "Learn how to evaluate Retrieval Augmented Generation applications by leveraging LLMs to generate a evaluation dataset and evaluate it using the built-in metrics in the MLflow Evaluate API.",
+    ]}
+  />
 </CardGroup>
 
 ## MLflow Tracing
@@ -212,22 +255,40 @@ Harnessing the power of LLMs becomes effortless with flavors designed specifical
 Select the integration below to read the documentation on how to leverage MLflow's native integration with these popular libraries:
 
 <CardGroup>
-  <LogoCard description="Learn about MLflow's native integration with the Transformers 🤗 library and see example notebooks that leverage MLflow and Transformers to build Open-Source LLM powered solutions." link="transformers">
+  <LogoCard
+    description="Learn about MLflow's native integration with the Transformers 🤗 library and see example notebooks that leverage MLflow and Transformers to build Open-Source LLM powered solutions."
+    link="transformers"
+  >
     <span>![HuggingFace Logo](/images/logos/huggingface-logo.svg)</span>
   </LogoCard>
-  <LogoCard description="Learn about MLflow's native integration with the OpenAI SDK and see example notebooks that leverage MLflow and OpenAI's advanced LLMs to build interesting and fun applications." link="openai">
+  <LogoCard
+    description="Learn about MLflow's native integration with the OpenAI SDK and see example notebooks that leverage MLflow and OpenAI's advanced LLMs to build interesting and fun applications."
+    link="openai"
+  >
     <span>![OpenAI Logo](/images/logos/openai-logo.png)</span>
   </LogoCard>
-  <LogoCard description="Learn about MLflow's native integration with the Sentence Transformers library and see example notebooks that leverage MLflow and Sentence Transformers to perform operations with encoded text such as semantic search, text similarity, and information retrieval." link="sentence-transformers">
+  <LogoCard
+    description="Learn about MLflow's native integration with the Sentence Transformers library and see example notebooks that leverage MLflow and Sentence Transformers to perform operations with encoded text such as semantic search, text similarity, and information retrieval."
+    link="sentence-transformers"
+  >
     <span>![Sentence Transformers Logo](/images/logos/sentence-transformers-logo.png)</span>
   </LogoCard>
-  <LogoCard description="Learn about MLflow's native integration with LangChain and see example notebooks that leverage MLflow and LangChain to build LLM-backed applications." link="langchain">
+  <LogoCard
+    description="Learn about MLflow's native integration with LangChain and see example notebooks that leverage MLflow and LangChain to build LLM-backed applications."
+    link="langchain"
+  >
     <span>![LangChain Logo](/images/logos/langchain-logo.png)</span>
   </LogoCard>
-  <LogoCard description="Learn about MLflow's native integration with LlamaIndex and see example notebooks that leverage MLflow and LlamaIndex to build advanced QA systems, chatbots, and other AI-driven applications." link="llama-index">
+  <LogoCard
+    description="Learn about MLflow's native integration with LlamaIndex and see example notebooks that leverage MLflow and LlamaIndex to build advanced QA systems, chatbots, and other AI-driven applications."
+    link="llama-index"
+  >
     <span>![LlamaIndex Logo](/images/logos/llamaindex-logo.svg)</span>
   </LogoCard>
-  <LogoCard description="Learn about MLflow's native integration with DSPy and see example notebooks that leverage MLflow and DSPy to optimize your GenAI applications." link="dspy">
+  <LogoCard
+    description="Learn about MLflow's native integration with DSPy and see example notebooks that leverage MLflow and DSPy to optimize your GenAI applications."
+    link="dspy"
+  >
     <span>![DSPy Logo](/images/logos/dspy-logo.png)</span>
   </LogoCard>
 </CardGroup>

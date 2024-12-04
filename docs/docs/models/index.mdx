@@ -815,9 +815,12 @@ The `spark` model flavor enables exporting Spark MLlib models as MLflow Models.
 
 The <APILink fn="mlflow.spark" /> module defines
 
-- <APILink fn="mlflow.spark.save_model">`save_model()`</APILink> to save a Spark MLlib model to a DBFS path.
-- <APILink fn="mlflow.spark.log_model">`log_model()`</APILink> to upload a Spark MLlib model to the tracking server.
-- <APILink fn="mlflow.spark.load_model">`load_model()`</APILink> to load MLflow Models with the ``spark`` flavor as Spark MLlib pipelines.
+- <APILink fn="mlflow.spark.save_model">`save_model()`</APILink> to save a Spark MLlib model to a DBFS
+  path.
+- <APILink fn="mlflow.spark.log_model">`log_model()`</APILink> to upload a Spark MLlib model to the tracking
+  server.
+- <APILink fn="mlflow.spark.load_model">`load_model()`</APILink> to load MLflow Models with the ``spark``
+  flavor as Spark MLlib pipelines.
 
 MLflow Models produced by these functions contain the `python_function` flavor,
 allowing you to load them as generic Python functions via <APILink fn="mlflow.pyfunc.load_model" />.

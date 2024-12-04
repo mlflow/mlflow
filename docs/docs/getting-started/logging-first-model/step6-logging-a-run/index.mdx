@@ -39,15 +39,19 @@ I created a new MLflow Experiment to record the state of what I tried. Since I w
 sets and models, each subsequent modification that I was trying necessitated a new Experiment.
 
 <figure className="center-div" style={{ width: 1024, maxWidth: "100%", textAlign: "center" }}>
-  ![Using MLflow Tracking for building this demo](/images/tutorials/introductory/logging-first-model/dogfood-diagram.svg)
-  <figcaption>Using Experiments in MLflow Tracking to keep track of building this tutorial</figcaption>
+  ![Using MLflow Tracking for building this
+  demo](/images/tutorials/introductory/logging-first-model/dogfood-diagram.svg)
+  <figcaption>
+    Using Experiments in MLflow Tracking to keep track of building this tutorial
+  </figcaption>
 </figure>
 
 After finding a workable approach for the dataset generator, the results can be seen in the MLflow
 UI.
 
 <figure className="center-div" style={{ width: 1024, maxWidth: "100%", textAlign: "center" }}>
-  ![Checking the results of the test](/images/tutorials/introductory/logging-first-model/dogfood.gif)
+  ![Checking the results of the
+  test](/images/tutorials/introductory/logging-first-model/dogfood.gif)
   <figcaption>Validating the results of a training run in the MLflow UI</figcaption>
 </figure>
 
@@ -167,7 +171,8 @@ with mlflow.start_run(run_name=run_name) as run:
 To aid in visualizing how MLflow tracking API calls add in to an ML training code base, see the figure below.
 
 <div className="center-div" style={{ width: 1024, maxWidth: "100%" }}>
-  ![Explanation of MLflow integration into ML training code](/images/tutorials/introductory/logging-first-model/training-annotation.png)
+  ![Explanation of MLflow integration into ML training
+  code](/images/tutorials/introductory/logging-first-model/training-annotation.png)
 </div>
 
 ## Putting it all together
@@ -175,5 +180,6 @@ To aid in visualizing how MLflow tracking API calls add in to an ML training cod
 Let's see what this looks like when we run our model training code and navigate to the MLflow UI.
 
 <div className="center-div" style={{ width: 1024, maxWidth: "100%" }}>
-  ![Log the model to MLflow](/images/tutorials/introductory/logging-first-model/logging-first-model.gif)
+  ![Log the model to
+  MLflow](/images/tutorials/introductory/logging-first-model/logging-first-model.gif)
 </div>

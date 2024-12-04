@@ -19,14 +19,21 @@ and <Link to="/api_reference/java_api/index.html" target="_blank">Java</Link> AP
 
 <figure>
   ![](/images/tracking/tracking-metrics-ui-temp.png)
-  <figcaption>A screenshot of the MLflow Tracking UI, showing a plot of validation loss metrics during model training.</figcaption>
+  <figcaption>
+    A screenshot of the MLflow Tracking UI, showing a plot of validation loss metrics during model
+    training.
+  </figcaption>
 </figure>
 
 ## Quickstart
 
 If you haven't used MLflow Tracking before, we strongly recommend going through the following quickstart tutorial.
 
-<Card headerText="MLflow Tracking Quickstart" link="/getting-started/intro-quickstart" text="A great place to start to learn the fundamentals of MLflow Tracking! Learn in 5 minutes how to log, register, and load a model for inference. " />
+<Card
+  headerText="MLflow Tracking Quickstart"
+  link="/getting-started/intro-quickstart"
+  text="A great place to start to learn the fundamentals of MLflow Tracking! Learn in 5 minutes how to log, register, and load a model for inference. "
+/>
 
 ## Concepts
 
@@ -186,9 +193,24 @@ The following diagram and table show a few common setups for the MLflow Tracking
     </tr>
     <tr>
       <th>Use Case</th>
-      <td>By default, MLflow records metadata and artifacts for each run to a local directory, `mlruns`. This is the simplest way to get started with MLflow Tracking, without setting up any external server, database, and storage.</td>
-      <td>The MLflow client can interface with a SQLAlchemy-compatible database (e.g., SQLite, PostgreSQL, MySQL) for the [backend](backend-stores). Saving metadata to a database allows you cleaner management of your experiment data while skipping the effort of setting up a server.</td>
-      <td>MLflow Tracking Server can be configured with an artifacts HTTP proxy, passing artifact requests through the tracking server to store and retrieve artifacts without having to interact with underlying object store services. This is particularly useful for team development scenarios where you want to store artifacts and experiment metadata in a shared location with proper access control.</td>
+      <td>
+        By default, MLflow records metadata and artifacts for each run to a local directory,
+        `mlruns`. This is the simplest way to get started with MLflow Tracking, without setting up
+        any external server, database, and storage.
+      </td>
+      <td>
+        The MLflow client can interface with a SQLAlchemy-compatible database (e.g., SQLite,
+        PostgreSQL, MySQL) for the [backend](backend-stores). Saving metadata to a database allows
+        you cleaner management of your experiment data while skipping the effort of setting up a
+        server.
+      </td>
+      <td>
+        MLflow Tracking Server can be configured with an artifacts HTTP proxy, passing artifact
+        requests through the tracking server to store and retrieve artifacts without having to
+        interact with underlying object store services. This is particularly useful for team
+        development scenarios where you want to store artifacts and experiment metadata in a shared
+        location with proper access control.
+      </td>
     </tr>
     <tr>
       <th>Tutorial</th>

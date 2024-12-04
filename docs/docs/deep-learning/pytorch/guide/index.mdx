@@ -20,10 +20,14 @@ details, please refer to the MLflow Lightning Developer Guide.
 To log your PyTorch experiments, you can insert MLflow logging into your PyTorch training loop, which relies
 on the following APIs:
 
-- <APILink fn="mlflow.log_metric" /> / <APILink fn="mlflow.log_metrics" />: log metrics such as accuracy and loss during training.
-- <APILink fn="mlflow.log_param" /> / <APILink fn="mlflow.log_params" />: log parameters such as learning rate and batch size during training.
-- <APILink fn="mlflow.pytorch.log_model" />: save your PyTorch model to MLflow, which is usually called at the end of training.
-- <APILink fn="mlflow.log_artifact" />: log artifacts such as model checkpoints and plots during training.
+- <APILink fn="mlflow.log_metric" /> / <APILink fn="mlflow.log_metrics" />: log metrics such as
+  accuracy and loss during training.
+- <APILink fn="mlflow.log_param" /> / <APILink fn="mlflow.log_params" />: log parameters such as
+  learning rate and batch size during training.
+- <APILink fn="mlflow.pytorch.log_model" />: save your PyTorch model to MLflow, which is usually
+  called at the end of training.
+- <APILink fn="mlflow.log_artifact" />: log artifacts such as model checkpoints and plots during
+  training.
 
 #### Best Practice of Logging PyTorch to MLflow
 
@@ -148,7 +152,8 @@ If you run the above code and log to your local MLflow server (for how to use lo
 you will see results on MLflow UI similar to the screenshot below:
 
 <div className="center-div" style={{ width: "90%" }}>
-  ![Basic Example of PyTorch with MLflow](/images/deep-learning/pytorch/guide/pytorch-guide-basic-example-ui.png)
+  ![Basic Example of PyTorch with
+  MLflow](/images/deep-learning/pytorch/guide/pytorch-guide-basic-example-ui.png)
 </div>
 
 ## Saving Your PyTorch Model to MLflow
@@ -208,7 +213,8 @@ a model, you can still load the model and perform inferenece if you know the inp
 practice to include the signature for better model understanding. To add a model signature to PyTorch model, you
 can either use the <APILink fn="mlflow.models.infer_signature"/> API or manually set the signature.
 
-<APILink fn="mlflow.models.infer_signature" /> takes your input data and model outputs to automatically infer the model signature:
+<APILink fn="mlflow.models.infer_signature" /> takes your input data and model outputs to automatically
+infer the model signature:
 
 ```python
 input = np.random.uniform(size=[1, 28, 28])

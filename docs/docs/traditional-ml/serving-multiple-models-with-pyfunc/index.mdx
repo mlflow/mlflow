@@ -48,9 +48,19 @@ tutorial.
 To create an MME, you'll create a child implementation of <APILink fn="mlflow.pyfunc.PythonModel" >`PythonModel`</APILink>.
 More specifically, we'll need to focus on the below components...
 
-- <APILink fn="mlflow.pyfunc.PythonModel.load_context">`PythonModel.load_context()`</APILink>: This method defines artifacts from the specified PythonModelContext that can be used by `predict()` when evaluating inputs. When loading an MLflow model with load_model(), this method is called as soon as the PythonModel is constructed. In our example, this method will load our models from MLflow model registry.
-- <APILink fn="mlflow.pyfunc.PythonModel.predict">`PythonModel.predict()`</APILink>: This method evaluates a pyfunc-compatible input and produces a pyfunc-compatible output. In our example, it analyzes the input payload and, based on its parameters, selects and applies the appropriate model to return predictions.
-- <APILink fn="mlflow.models.ModelSignature">`ModelSignatures`</APILink>: This class defines the expected input, output and params format. In our example, the signature object will be passed when registering our custom PyFunc model and inputs to the model will be validated against the signature.
+- <APILink fn="mlflow.pyfunc.PythonModel.load_context">`PythonModel.load_context()`</APILink>: This
+  method defines artifacts from the specified PythonModelContext that can be used by `predict()`
+  when evaluating inputs. When loading an MLflow model with load_model(), this method is called as
+  soon as the PythonModel is constructed. In our example, this method will load our models from
+  MLflow model registry.
+- <APILink fn="mlflow.pyfunc.PythonModel.predict">`PythonModel.predict()`</APILink>: This method
+  evaluates a pyfunc-compatible input and produces a pyfunc-compatible output. In our example, it
+  analyzes the input payload and, based on its parameters, selects and applies the appropriate model
+  to return predictions.
+- <APILink fn="mlflow.models.ModelSignature">`ModelSignatures`</APILink>: This class defines the
+  expected input, output and params format. In our example, the signature object will be passed when
+  registering our custom PyFunc model and inputs to the model will be validated against the
+  signature.
 
 Ready to see this in action? Check out the accompanying notebooks for a hands-on experience. Let's dive in!
 

@@ -288,13 +288,39 @@ auto scaling out of the box.
     </tr>
     <tr>
       <td>**Performance**</td>
-      <td>Suitable for lightweight applications but not optimized for high performance, as being a WSGI application. WSGI is based on synchronous request/response paradigm, which is not ideal for ML workloads because of the blocking nature. ML prediction typically involves heavy computation and can take a long time to complete, hence blocking the server while the request is being processed is not ideal. While Flask can be augmented with asynchronous frameworks such as [Uvicorn](https://www.uvicorn.org/), MLflow does not support them out of the box and simply uses Flask’s default synchronous behavior.</td>
-      <td>Designed for high-performance ML workloads, often delivering better throughput and efficiency. MLServer support asynchronous request/response paradigm, by offloading ML inference workload to a separate worker pool (processes), so that the server can continue to accept new requests while the inference is being processed. Please refer to the [MLServer Parallel Inference](https://mlserver.readthedocs.io/en/latest/user-guide/parallel-inference.html) for more details on how they achieve this. Additionally, MLServer supports [Adaptive Bacthing](https://mlserver.readthedocs.io/en/latest/user-guide/adaptive-batching.html) that transparently batch requests together to improve throughput and efficiency.</td>
+      <td>
+        Suitable for lightweight applications but not optimized for high performance, as being a
+        WSGI application. WSGI is based on synchronous request/response paradigm, which is not ideal
+        for ML workloads because of the blocking nature. ML prediction typically involves heavy
+        computation and can take a long time to complete, hence blocking the server while the
+        request is being processed is not ideal. While Flask can be augmented with asynchronous
+        frameworks such as [Uvicorn](https://www.uvicorn.org/), MLflow does not support them out of
+        the box and simply uses Flask’s default synchronous behavior.
+      </td>
+      <td>
+        Designed for high-performance ML workloads, often delivering better throughput and
+        efficiency. MLServer support asynchronous request/response paradigm, by offloading ML
+        inference workload to a separate worker pool (processes), so that the server can continue to
+        accept new requests while the inference is being processed. Please refer to the [MLServer
+        Parallel
+        Inference](https://mlserver.readthedocs.io/en/latest/user-guide/parallel-inference.html) for
+        more details on how they achieve this. Additionally, MLServer supports [Adaptive
+        Bacthing](https://mlserver.readthedocs.io/en/latest/user-guide/adaptive-batching.html) that
+        transparently batch requests together to improve throughput and efficiency.
+      </td>
     </tr>
     <tr>
       <td>**Scalability**</td>
       <td>Not inherently scalable with the same reason as performance.</td>
-      <td>Additionally to the support for parallel inference as mentioned above, MLServer is used as the core inference server in Kubernetes-native frameworks such as [Seldon Core](https://docs.seldon.io/projects/seldon-core/en/latest/) and [KServe](https://kserve.github.io/website/) (formerly known as KFServing). By deploying [MLflow models to Kubernetes with MLServer](/deployment/deploy-model-to-kubernetes), you can leverage the advanced features of these frameworks such as autoscaling to achieve high scalability.</td>
+      <td>
+        Additionally to the support for parallel inference as mentioned above, MLServer is used as
+        the core inference server in Kubernetes-native frameworks such as [Seldon
+        Core](https://docs.seldon.io/projects/seldon-core/en/latest/) and
+        [KServe](https://kserve.github.io/website/) (formerly known as KFServing). By deploying
+        [MLflow models to Kubernetes with MLServer](/deployment/deploy-model-to-kubernetes), you can
+        leverage the advanced features of these frameworks such as autoscaling to achieve high
+        scalability.
+      </td>
     </tr>
   </tbody>
 </table>
