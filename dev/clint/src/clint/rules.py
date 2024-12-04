@@ -299,4 +299,6 @@ class IncorrectTypeAnnotation(Rule):
         if correct_hint := self.MAPPING.get(self.type_hint):
             return f"Did you mean `{correct_hint}` instead of `{self.type_hint}`?"
 
-        raise ValueError(f"Unknown type: {self.type_hint}")
+        raise ValueError(
+            f"Unexpected type: {self.type_hint}. It must be one of {list(self.MAPPING)}."
+        )
