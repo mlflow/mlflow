@@ -20,7 +20,7 @@ uvicorn:
 
 watchfiles:
   pip_release: watchfiles
-  max_major_version: 0
+  max_major_version: 1
 
 aiohttp:
   pip_release: aiohttp
