@@ -10,19 +10,6 @@ from mlflow.utils.autologging_utils import AUTOLOGGING_INTEGRATIONS, autologging
 _logger = logging.getLogger(__name__)
 
 
-def _kwargs_safe_invoke(func: callable, kwargs: dict[str, Any]):
-    """
-    Invoke the function with the given dictionary as keyword arguments, but only include the
-    arguments that are present in the function's signature.
-
-    This is particularly used for calling autolog() function with the configuration dictionary
-    stored in AUTOLOGGING_INTEGRATIONS. While the config keys mostly align with the autolog()'s
-    signature by design, some keys are not present in autolog(), such as "globally_configured".
-    """
-    sig = inspect.signature(func)
-    return func(**{k: v for k, v in kwargs.items() if k in sig.parameters})
-
-
 @contextlib.contextmanager
 @autologging_conf_lock
 def configure_autologging_for_evaluation(enable_tracing: bool = True):
@@ -102,6 +89,19 @@ def configure_autologging_for_evaluation(enable_tracing: bool = True):
                     AUTOLOGGING_INTEGRATIONS.pop(flavor, None)
             except ImportError:
                 pass
+
+
+def _kwargs_safe_invoke(func: callable, kwargs: dict[str, Any]):
+    """
+    Invoke the function with the given dictionary as keyword arguments, but only include the
+    arguments that are present in the function's signature.
+
+    This is particularly used for calling autolog() function with the configuration dictionary
+    stored in AUTOLOGGING_INTEGRATIONS. While the config keys mostly align with the autolog()'s
+    signature by design, some keys are not present in autolog(), such as "globally_configured".
+    """
+    sig = inspect.signature(func)
+    return func(**{k: v for k, v in kwargs.items() if k in sig.parameters})
 
 
 def _get_autolog_function(flavor_name: str):
