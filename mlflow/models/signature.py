@@ -233,12 +233,13 @@ def infer_signature(
                 )
             except Exception:
                 _logger.warning(
-                    f"Failed to infer schema for {data}. If the data type "
-                    "is not supported, manually set schema to `Schema([ColSpec(type=AnyType())]` "
-                    "to represent the data type. Note that MLflow doesn't validate data "
-                    "types during inference for AnyType."
+                    f"Failed to infer schema for {data}. "
+                    "Setting schema to `Schema([ColSpec(type=AnyType())]` as default. "
+                    "Note that MLflow doesn't validate data types during inference for AnyType. "
+                    "To see the full traceback, set logging level to DEBUG.",
+                    exc_info=_logger.isEnabledFor(logging.DEBUG),
                 )
-                raise
+                schemas[key] = Schema([ColSpec(type=AnyType())])
         else:
             schemas[key] = None
     schemas["params"] = _infer_param_schema(params) if params else None
