@@ -607,7 +607,6 @@ class SqlAlchemyStore(AbstractStore):
             sql_registered_model = self._get_registered_model(session, name)
             updated_time = get_current_time_millis()
             sql_registered_model.last_updated_time = updated_time
-            session.add(sql_registered_model)
             session.merge(SqlRegisteredModelTag(name=name, key=tag.key, value=tag.value))
             session.flush()
 
@@ -1091,7 +1090,6 @@ class SqlAlchemyStore(AbstractStore):
             updated_time = get_current_time_millis()
             sql_model_version = self._get_sql_model_version(session, name=name, version=version)
             sql_model_version.last_updated_time = updated_time
-            session.add(sql_model_version)
             session.merge(
                 SqlModelVersionTag(name=name, version=version, key=tag.key, value=tag.value)
             )
