@@ -244,8 +244,6 @@ def infer_signature(
                     exc_info=_logger.isEnabledFor(logging.DEBUG),
                 )
                 schemas[key] = Schema([ColSpec(type=AnyType())])
-        else:
-            schemas[key] = None
     schemas["params"] = _infer_param_schema(params) if params else None
     return ModelSignature(**schemas)
 
