@@ -1,11 +1,14 @@
 import contextlib
 import inspect
 import logging
-from typing import Any
+from typing import Any, Callable
 
-import mlflow
 from mlflow.ml_package_versions import FLAVOR_TO_MODULE_NAME
-from mlflow.utils.autologging_utils import AUTOLOGGING_INTEGRATIONS, autologging_conf_lock
+from mlflow.utils.autologging_utils import (
+    AUTOLOGGING_INTEGRATIONS,
+    autologging_conf_lock,
+    get_autolog_function,
+)
 
 _logger = logging.getLogger(__name__)
 
@@ -27,14 +30,13 @@ def configure_autologging_for_evaluation(enable_tracing: bool = True):
     # AUTOLOGGING_INTEGRATIONS can change during we iterate over flavors and enable/disable
     # autologging, therefore, we snapshot the current configuration to restore it later.
     global_config_snapshot = AUTOLOGGING_INTEGRATIONS.copy()
-
     for flavor in FLAVOR_TO_MODULE_NAME:
         # TODO: Remove this once Gluon autologging is actually removed
         if flavor == "gluon":
             continue
 
         try:
-            if autolog := _get_autolog_function(flavor):
+            if autolog := get_autolog_function(flavor):
                 original_config = global_config_snapshot.get(flavor, {}).copy()
 
                 # If autologging is explicitly disabled, do nothing.
@@ -50,16 +52,20 @@ def configure_autologging_for_evaluation(enable_tracing: bool = True):
                     _kwargs_safe_invoke(autolog, new_config)
                     trace_enabled_flavors.append(flavor)
                 elif flavor in AUTOLOGGING_INTEGRATIONS:
-                    # For flavors that does not support tracing, disable autologging
+                    # For flavors that do not support tracing, disable autologging
                     autolog(disable=True)
 
                 flavor_to_original_config[flavor] = original_config
 
         except Exception as e:
             if isinstance(e, ImportError):
-                _logger.debug(f"Failed to import {flavor}. Skip updating autologging.")
+                _logger.debug(
+                    f"Flavor {flavor} is not installed. Skip updating autologging. Error: {e!r}"
+                )
             else:
-                _logger.info(f"Failed to update autologging configuration for flavor {flavor}. {e}")
+                _logger.info(
+                    f"Failed to update autologging configuration for flavor {flavor}. Error: {e!r}"
+                )
 
             # Autologging configuration might be updated before the exception is raised,
             # which needs to be reverted.
@@ -76,7 +82,7 @@ def configure_autologging_for_evaluation(enable_tracing: bool = True):
     finally:
         # Restore original autologging configurations.
         for flavor, original_config in flavor_to_original_config.items():
-            autolog = _get_autolog_function(flavor)
+            autolog = get_autolog_function(flavor)
             try:
                 if original_config:
                     _kwargs_safe_invoke(autolog, original_config)
@@ -91,7 +97,7 @@ def configure_autologging_for_evaluation(enable_tracing: bool = True):
                 pass
 
 
-def _kwargs_safe_invoke(func: callable, kwargs: dict[str, Any]):
+def _kwargs_safe_invoke(func: Callable[..., Any], kwargs: dict[str, Any]):
     """
     Invoke the function with the given dictionary as keyword arguments, but only include the
     arguments that are present in the function's signature.
@@ -104,14 +110,8 @@ def _kwargs_safe_invoke(func: callable, kwargs: dict[str, Any]):
     return func(**{k: v for k, v in kwargs.items() if k in sig.parameters})
 
 
-def _get_autolog_function(flavor_name: str):
-    """Get the autolog() function for the specified flavor."""
-    flavor_module = getattr(mlflow, flavor_name, None)
-    return getattr(flavor_module, "autolog", None)
-
-
 def _is_trace_autologging_supported(flavor_name: str) -> bool:
     """Check if the given flavor supports trace autologging."""
-    if autolog_func := _get_autolog_function(flavor_name):
+    if autolog_func := get_autolog_function(flavor_name):
         return "log_traces" in inspect.signature(autolog_func).parameters
     return False

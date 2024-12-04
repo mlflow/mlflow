@@ -4,6 +4,7 @@ import inspect
 import logging
 import threading
 import time
+from typing import Any, Callable, Optional
 
 import mlflow
 from mlflow.entities import Metric
@@ -518,6 +519,15 @@ def autologging_is_disabled(integration_name):
         return get_autologging_config(integration_name, "disable_for_unsupported_versions", False)
 
     return False
+
+
+def get_autolog_function(integration_name: str) -> Optional[Callable[..., Any]]:
+    """
+    Get the autolog() function for the specified integration.
+    Returns None if the flavor does not have an autolog() function.
+    """
+    flavor_module = getattr(mlflow, integration_name, None)
+    return getattr(flavor_module, "autolog", None)
 
 
 @contextlib.contextmanager

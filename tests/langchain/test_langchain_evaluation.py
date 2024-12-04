@@ -12,7 +12,7 @@ from mlflow.models.evaluation import evaluate
 from mlflow.models.evaluation.evaluators.default import DefaultEvaluator
 from mlflow.tracing.constant import TraceMetadataKey
 
-from tests.tracing.helper import get_traces
+from tests.tracing.helper import get_traces, reset_autolog_state  # noqa: F401
 
 _EVAL_DATA = pd.DataFrame(
     {
@@ -45,6 +45,7 @@ def create_fake_chain():
         {"log_traces": False, "log_models": False},
     ],
 )
+@pytest.mark.usefixtures("reset_autolog_state")
 def test_langchain_evaluate(original_autolog_config):
     if original_autolog_config:
         mlflow.langchain.autolog(**original_autolog_config)
@@ -83,6 +84,7 @@ def test_langchain_evaluate(original_autolog_config):
             assert len(get_traces()) == 2
 
 
+@pytest.mark.usefixtures("reset_autolog_state")
 def test_langchain_evaluate_fails_with_an_exception():
     # Check langchain autolog parameters are restored after evaluation
     mlflow.langchain.autolog(log_models=True)
@@ -119,6 +121,7 @@ def test_langchain_evaluate_fails_with_an_exception():
         assert len(get_traces()) == 1
 
 
+@pytest.mark.usefixtures("reset_autolog_state")
 def test_langchain_pyfunc_evaluate():
     chain = create_fake_chain()
 
@@ -135,9 +138,14 @@ def test_langchain_pyfunc_evaluate():
     assert run.info.run_id == get_traces()[0].info.request_metadata[TraceMetadataKey.SOURCE_RUN]
 
 
-def test_langchain_evaluate_should_not_log_traces_when_disabled():
-    mlflow.langchain.autolog(disable=True)
-    mlflow.openai.autolog(disable=True)  # Our chain contains OpenAI call as well
+@pytest.mark.parametrize("globally_disabled", [True, False])
+@pytest.mark.usefixtures("reset_autolog_state")
+def test_langchain_evaluate_should_not_log_traces_when_disabled(globally_disabled):
+    if globally_disabled:
+        mlflow.autolog(disable=True)
+    else:
+        mlflow.langchain.autolog(disable=True)
+        mlflow.openai.autolog(disable=True)  # Our chain contains OpenAI call as well
 
     chain = create_fake_chain()
 

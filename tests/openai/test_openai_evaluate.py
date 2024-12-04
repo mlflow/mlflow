@@ -8,7 +8,7 @@ import mlflow
 from mlflow.models.evaluation import evaluate
 from mlflow.tracing.constant import TraceMetadataKey
 
-from tests.tracing.helper import get_traces
+from tests.tracing.helper import get_traces, reset_autolog_state  # noqa: F401
 
 _EVAL_DATA = pd.DataFrame(
     {
@@ -44,6 +44,7 @@ def client(monkeypatch, mock_openai):
         {"log_traces": False, "log_models": False},
     ],
 )
+@pytest.mark.usefixtures("reset_autolog_state")
 def test_openai_evaluate(client, original_autolog_config):
     if original_autolog_config:
         mlflow.openai.autolog(**original_autolog_config)
@@ -88,6 +89,7 @@ def test_openai_evaluate(client, original_autolog_config):
             assert len(get_traces()) == 2
 
 
+@pytest.mark.usefixtures("reset_autolog_state")
 def test_openai_pyfunc_evaluate(client):
     with mlflow.start_run() as run:
         model_info = mlflow.openai.log_model(
@@ -107,8 +109,13 @@ def test_openai_pyfunc_evaluate(client):
     assert run.info.run_id == get_traces()[0].info.request_metadata[TraceMetadataKey.SOURCE_RUN]
 
 
-def test_openai_evaluate_should_not_log_traces_when_disabled(client):
-    mlflow.openai.autolog(disable=True)  # Our chain contains OpenAI call as well
+@pytest.mark.parametrize("globally_disabled", [True, False])
+@pytest.mark.usefixtures("reset_autolog_state")
+def test_openai_evaluate_should_not_log_traces_when_disabled(client, globally_disabled):
+    if globally_disabled:
+        mlflow.autolog(disable=True)
+    else:
+        mlflow.openai.autolog(disable=True)
 
     def model(inputs):
         return [
