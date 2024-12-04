@@ -318,8 +318,8 @@ class Linter(ast.NodeVisitor):
             self._check(Location.from_node(node), rules.InvalidAbstractMethod())
 
     def visit_Name(self, node) -> None:
-        if self.in_type_annotation and node.id == "any":
-            self._check(Location.from_node(node), rules.IncorrectAnyTypeAnnotation())
+        if self.in_type_annotation and rules.IncorrectTypeAnnotation.check(node):
+            self._check(Location.from_node(node), rules.IncorrectTypeAnnotation(node.id))
 
         self.generic_visit(node)
 
