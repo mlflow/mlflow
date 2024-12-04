@@ -56,6 +56,7 @@ from mlflow.pyfunc import (
 from mlflow.pyfunc.spark_model_cache import SparkModelCache
 from mlflow.types import ColSpec, Schema, TensorSpec
 from mlflow.types.schema import Array, DataType, Object, Property
+from mlflow.types.utils import _infer_schema
 from mlflow.utils._spark_utils import modified_environ
 
 import tests
@@ -1369,7 +1370,7 @@ def test_spark_df_schema_inference_for_map_type(spark):
     with pytest.raises(
         MlflowException, match=r"Please construct spark DataFrame with schema using StructType"
     ):
-        infer_signature(complex_df)
+        _infer_schema(complex_df)
 
 
 def test_spark_udf_structs_and_arrays(spark, tmp_path):
