@@ -11,7 +11,6 @@ It also extends the functionality to support custom hooks for import errors
 (as opposed to only successful imports).
 """
 
-import contextlib
 import importlib  # noqa: F401
 import sys
 import threading
