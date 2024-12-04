@@ -147,8 +147,11 @@ def reset_autolog_state():
 
         # 2. Disable autologging for the flavor. This is necessary because some autologging
         #    update global settings (e.g. callbacks) and we need to revert them.
-        if autolog := get_autolog_function(flavor):
-            autolog(disable=True)
+        try:
+            if autolog := get_autolog_function(flavor):
+                autolog(disable=True)
+        except ImportError:
+            pass
 
         # 3. Revert any patches applied by autologging
         revert_patches(flavor)
