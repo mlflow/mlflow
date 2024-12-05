@@ -154,7 +154,7 @@ def test_infer_schema_from_type_hints_errors():
         with pytest.raises(MlflowException, match=message):
             _infer_schema_from_type_hint(list[InvalidModel])
 
-    message = r"Optional type hint is not supported"
+    message = r"If you would like to use Optional types, use a Pydantic-based type hint definition."
     with pytest.raises(MlflowException, match=message):
         _infer_schema_from_type_hint(Optional[str])
 

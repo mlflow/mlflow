@@ -1,4 +1,3 @@
-import inspect
 import logging
 from datetime import datetime
 from typing import Any, Literal, NamedTuple, Optional, Union, get_args, get_origin
@@ -189,7 +188,7 @@ def _infer_fields_from_pydantic_model(
 
 def _is_pydantic_type_hint(type_hint: type[Any]) -> bool:
     try:
-        return inspect.isclass(type_hint) and issubclass(type_hint, pydantic.BaseModel)
+        return issubclass(type_hint, pydantic.BaseModel)
     # inspect.isclass(dict[str, int]) is True, but issubclass raises a TypeError
     except TypeError:
         return False
@@ -227,8 +226,8 @@ def _infer_schema_from_type_hint(type_hint: type[Any]) -> Schema:
         # Creating Schema with unnamed optional inputs is not supported
         if col_spec_type.required is False:
             raise MlflowException.invalid_parameter_value(
-                "Optional type hint is not supported, it can only be used as a field type in "
-                "Pydantic models."
+                "If you would like to use Optional types, use a Pydantic-based type hint "
+                "definition."
             )
         return Schema([ColSpec(type=col_spec_type.dtype, required=col_spec_type.required)])
 
