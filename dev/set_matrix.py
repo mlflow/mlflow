@@ -349,7 +349,7 @@ def remove_comments(s):
 
 
 def make_pip_install_command(packages):
-    return "pip install " + " ".join(f"'{x}'" for x in packages)
+    return "uv pip install --system " + " ".join(f"'{x}'" for x in packages)
 
 
 def divider(title, length=None):
@@ -642,10 +642,11 @@ def expand_config(config: dict[str, Any], *, is_ref: bool = False) -> set[Matrix
 
 def apply_changed_files(changed_files, matrix):
     all_flavors = {x.flavor for x in matrix}
+    rel_this_file_path = Path(__file__).relative_to(Path.cwd())
     changed_flavors = (
         # If this file has been changed, re-run all tests
         all_flavors
-        if (__file__ in changed_files)
+        if str(rel_this_file_path) in changed_files
         else get_changed_flavors(changed_files, all_flavors)
     )
 
@@ -753,7 +754,7 @@ def main(args):
     print(json.dumps(args, indent=2))
     matrix = generate_matrix(args)
     matrix = sorted(matrix, key=lambda x: (x.name, x.category, x.version))
-    matrix = [x for x in matrix if x.flavor not in ("gluon", "mleap")]
+    matrix = [x for x in matrix if x.flavor not in ("gluon", "mleap", "johnsnowlabs")]
     assert len(matrix) <= MAX_ITEMS * 2, f"Too many jobs: {len(matrix)} > {MAX_ITEMS * NUM_JOBS}"
     for idx, mat in enumerate(split(matrix, NUM_JOBS), start=1):
         mat = {"include": mat, "job_name": [x.job_name for x in mat]}

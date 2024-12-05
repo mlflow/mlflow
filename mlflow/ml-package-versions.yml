@@ -2,7 +2,7 @@ sklearn:
   package_info:
     pip_release: "scikit-learn"
     install_dev: |
-      pip install git+https://github.com/scikit-learn/scikit-learn.git
+      uv pip install --system git+https://github.com/scikit-learn/scikit-learn.git
 
   models:
     minimum: "0.24.1"
@@ -32,7 +32,7 @@ pytorch:
     pip_release: "torch"
     module_name: "torch"
     install_dev: |
-      pip install --upgrade --pre torch -f https://download.pytorch.org/whl/nightly/cpu/torch_nightly.html
+      uv pip install --system --upgrade --pre torch -f https://download.pytorch.org/whl/nightly/cpu/torch_nightly.html
 
   models:
     minimum: "1.9.0"
@@ -58,7 +58,7 @@ pytorch-lightning:
     module_name: "lightning"
     install_dev: |
       export PACKAGE_NAME=pytorch
-      pip install git+https://github.com/PytorchLightning/pytorch-lightning.git
+      uv pip install --system git+https://github.com/PytorchLightning/pytorch-lightning.git
 
   autologging:
     minimum: "1.9.0"
@@ -72,7 +72,7 @@ keras:
   package_info:
     pip_release: "keras"
     install_dev: |
-      pip install --upgrade git+https://github.com/keras-team/keras.git
+      uv pip install --system --upgrade git+https://github.com/keras-team/keras.git
 
   models:
     minimum: "3.0.2"
@@ -96,7 +96,7 @@ tensorflow:
   package_info:
     pip_release: "tensorflow"
     install_dev: |
-      pip install --pre tf-nightly
+      uv pip install --system --pre tf-nightly
 
   models:
     minimum: "2.7.4"
@@ -134,7 +134,7 @@ xgboost:
   package_info:
     pip_release: "xgboost"
     install_dev: |
-      pip install git+https://github.com/dmlc/xgboost.git#subdirectory=python-package
+      uv pip install --system git+https://github.com/dmlc/xgboost.git#subdirectory=python-package
 
   models:
     minimum: "1.4.2"
@@ -202,7 +202,7 @@ gluon:
   package_info:
     pip_release: "mxnet"
     install_dev: |
-      pip install --pre mxnet -f https://dist.mxnet.io/python/cpu
+      uv pip install --system --pre mxnet -f https://dist.mxnet.io/python/cpu
 
   models:
     minimum: "1.5.1"
@@ -242,7 +242,7 @@ fastai:
       #  To migrate fastai tests to python 3.9, we need to address error
       #  when installing old version scipy: "No module named 'distutils.msvccompiler'"
       #  similar issue link: https://github.com/numpy/numpy/issues/27405
-      "> 0.0.0": ["spacy<3.8.2", "torch<1.13.0", "torchvision<0.14.0"]
+      "> 0.0.0": ["spacy<3.8.2", "torch<1.13.0", "torchvision<0.14.0", "numpy<2"]
     run: |
       pytest tests/fastai/test_fastai_model_export.py
 
@@ -250,7 +250,7 @@ fastai:
     minimum: "2.4.1"
     maximum: "2.7.18"
     requirements:
-      "> 0.0.0": ["spacy<3.8.2", "torch<1.13.0", "torchvision<0.14.0"]
+      "> 0.0.0": ["spacy<3.8.2", "torch<1.13.0", "torchvision<0.14.0", "numpy<2"]
     run: |
       pytest tests/fastai/test_fastai_autolog.py
 
@@ -274,7 +274,7 @@ onnx:
         quay.io/pypa/manylinux2014_x86_64 .github/workflows/manylinux/entrypoint.sh $python_version manylinux2014_x86_64 pull_request
 
       # Install wheel
-      pip install dist/*manylinux2014_x86_64.whl
+      uv pip install --system dist/*manylinux2014_x86_64.whl
 
   models:
     minimum: "1.13.1"
@@ -288,7 +288,7 @@ spacy:
   package_info:
     pip_release: "spacy"
     install_dev: |
-      pip install git+https://github.com/explosion/spaCy.git
+      uv pip install --system git+https://github.com/explosion/spaCy.git
 
   models:
     minimum: "3.0.0"
@@ -305,7 +305,7 @@ statsmodels:
   package_info:
     pip_release: "statsmodels"
     install_dev: |
-      pip install git+https://github.com/statsmodels/statsmodels.git
+      uv pip install --system git+https://github.com/statsmodels/statsmodels.git
 
   models:
     minimum: "0.12.2"
@@ -336,7 +336,7 @@ spark:
       # -Pconnect -Phive is required by spark connect
       ./build/sbt -Pconnect -Phive clean package connect/assembly
       cd python/packaging/classic
-      pip install '.[connect]'
+      uv pip install --system '.[connect]'
       pyspark --version
 
   models:
@@ -432,7 +432,7 @@ prophet:
     pip_release: "prophet"
     install_dev: |
       sudo apt-get -y install libtbb2
-      pip install git+https://github.com/facebook/prophet.git#subdirectory=python
+      uv pip install --system git+https://github.com/facebook/prophet.git#subdirectory=python
 
   models:
     minimum: "1.1.1"
@@ -452,8 +452,8 @@ pmdarima:
     pip_release: "pmdarima"
     # TODO: Uncomment once https://github.com/alkaline-ml/pmdarima/issues/582 is fixed.
     # install_dev: |
-    #   # pip install Cython
-    #   # pip install git+https://github.com/alkaline-ml/pmdarima.git
+    #   # uv pip install --system Cython
+    #   # uv pip install --system git+https://github.com/alkaline-ml/pmdarima.git
 
   models:
     minimum: "1.8.1"
@@ -469,7 +469,7 @@ diviner:
   package_info:
     pip_release: "diviner"
     install_dev: |
-      pip install git+https://github.com/databricks/diviner.git
+      uv pip install --system git+https://github.com/databricks/diviner.git
 
   models:
     minimum: "0.1.0"
@@ -529,7 +529,8 @@ transformers:
   package_info:
     pip_release: "transformers"
     install_dev: |
-      pip install git+https://github.com/huggingface/transformers
+      uv pip install --system git+https://github.com/huggingface/transformers
+      uv pip install --system --upgrade setfit
   models:
     minimum: "4.25.1"
     maximum: "4.46.3"
@@ -556,6 +557,7 @@ transformers:
           "protobuf<=3.20.3", # fix error `Couldn't build proto file into descriptor pool: duplicate file name sentencepiece_model.proto`
           "typing_extensions>=4.6.0", # fix error for SqlAlchemy == 2.0.25 cannot import name 'TypeAliasType' from 'typing_extensions'
           "accelerate<1",
+          "fsspec<2023.10.0",
         ]
       # tensorflow 2.13.0 made all Keras private functions inaccessible. transformers versions
       # prior to 4.30.0 are incompatible with this breaking change in Keras.
@@ -611,6 +613,7 @@ transformers:
       "== 4.34.1": ["accelerate<0.32.0", "sentence-transformers<3.1.0"]
       "< 4.38": ["tensorflow<2.14"] # Older versions of transformers are incompatible with tensorflow >= 2.14
       ">= 4.38": ["tf-keras"] # Transformers doesn't support Keras 3.0. tf-keras needs to be installed.
+      "< 4.46.0": ["fsspec<2023.10.0"]
     run: |
       pytest tests/transformers/test_transformers_autolog.py
 
@@ -618,7 +621,7 @@ openai:
   package_info:
     pip_release: "openai"
     install_dev: |
-      pip install git+https://github.com/openai/openai-python
+      uv pip install --system git+https://github.com/openai/openai-python
   models:
     minimum: "1.0.1"
     maximum: "1.56.0"
@@ -667,7 +670,7 @@ dspy:
   package_info:
     pip_release: "dspy"
     install_dev: |
-      pip install git+https://github.com/stanfordnlp/dspy.git
+      uv pip install --system git+https://github.com/stanfordnlp/dspy.git
   models:
     minimum: "2.5.17"
     maximum: "2.5.41"
@@ -687,7 +690,7 @@ langchain:
   package_info:
     pip_release: "langchain"
     install_dev: |
-      pip install git+https://github.com/hwchase17/langchain#subdirectory=libs/langchain
+      uv pip install --system git+https://github.com/hwchase17/langchain#subdirectory=libs/langchain
   models:
     # Where the large package update was made (langchain-core, community, ...)
     minimum: "0.0.354"
@@ -732,7 +735,7 @@ langchain:
       # test both pydantic v1 and v2
       PYDANTIC_VERSION=$(python -c "import pydantic; print(pydantic.__version__)")
       if [[ $PYDANTIC_VERSION == 1.* ]]; then
-        pip install 'pydantic>=2' 'fastapi>=0.100.0'
+        uv pip install --system 'pydantic>=2' 'fastapi>=0.100.0'
         echo "Testing langchain model export with pydantic v2"
         pytest tests/langchain --ignore tests/langchain/test_langchain_autolog.py --ignore tests/langchain/test_langchain_evaluation.py
       fi
@@ -765,14 +768,14 @@ langchain:
       # test both pydantic v1 and v2
       PYDANTIC_VERSION=$(python -c "import pydantic; print(pydantic.__version__)")
       if [[ $PYDANTIC_VERSION == 1.* ]]; then
-        pip install 'pydantic>=2' 'fastapi>=0.100.0'
+        uv pip install --system 'pydantic>=2' 'fastapi>=0.100.0'
         echo "Testing langchain autolog with pydantic v2"
         pytest tests/langchain/test_langchain_autolog.py
       fi
 
       echo "Testing langchain autolog and evaluation with langchain-community"
       # Install with 'langchain' to ensure the compatible version is installed
-      pip install langchain langchain-community
+      uv pip install --system langchain langchain-community
 
       # TODO: an unexpected issue happens when autolog test and evaluation test are run together, which need investigations
       pytest tests/langchain/test_langchain_autolog.py
@@ -783,7 +786,7 @@ llama_index:
     pip_release: "llama-index"
     module_name: "llama_index.core"
     install_dev: |
-      pip install git+https://github.com/run-llama/llama_index.git
+      uv pip install --system git+https://github.com/run-llama/llama_index.git
   models:
     # New event/span framework is fully implemented in 0.10.44
     minimum: "0.10.44"
@@ -823,7 +826,7 @@ autogen:
     pip_release: "autogen-agentchat"
     # TODO: Uncomment this once we support autogen 0.4
     # install_dev: |
-    #  pip install git+https://github.com/microsoft/autogen#subdirectory=python/packages/autogen-agentchat
+    #  uv pip install --system git+https://github.com/microsoft/autogen#subdirectory=python/packages/autogen-agentchat
   autologging:
     minimum: "0.2.36"
     maximum: "0.2.39"
@@ -842,7 +845,7 @@ gemini:
     pip_release: "google-generativeai"
     module_name: "google.generativeai"
     install_dev: |
-      pip install git+https://github.com/google-gemini/generative-ai-python
+      uv pip install --system git+https://github.com/google-gemini/generative-ai-python
   autologging:
     minimum: "0.8.0"
     maximum: "0.8.3"
@@ -879,7 +882,7 @@ sentence_transformers:
   package_info:
     pip_release: "sentence-transformers"
     install_dev: |
-      pip install git+https://github.com/UKPLab/sentence-transformers#egg=sentence-transformers
+      uv pip install --system git+https://github.com/UKPLab/sentence-transformers#egg=sentence-transformers
   models:
     minimum: "2.2.2"
     maximum: "3.3.1"
@@ -916,7 +919,7 @@ promptflow:
     pip_release: "promptflow"
     # Install dev subpackages to ensure test running on the latest code
     install_dev: |
-      pip install git+https://github.com/microsoft/promptflow#subdirectory=src/promptflow
+      uv pip install --system git+https://github.com/microsoft/promptflow#subdirectory=src/promptflow
   models:
     minimum: "1.3.0"
     maximum: "1.16.2"
@@ -932,7 +935,7 @@ litellm:
   package_info:
     pip_release: "litellm"
     install_dev: |
-      pip install git+https://github.com/BerriAI/litellm.git
+      uv pip install --system git+https://github.com/BerriAI/litellm.git
   autologging:
     minimum: "1.52.9"
     maximum: "1.53.1"
