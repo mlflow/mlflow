@@ -71,6 +71,7 @@ jobs:
           else
             SHA_OPT=""
           fi
+          
           if [[ "${{ matrix.type }}" == "skinny" || "${{ matrix.type }}" == "skinny-databricks" ]]; then
             PACKAGE_TYPE_OPT="--package-type skinny"
           else
