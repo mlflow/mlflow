@@ -172,7 +172,14 @@ def predict(
             content_type="json",
         )
 
-        # Run prediction with additional pip dependencies
+        # Run prediction with "uv" as the environment manager
+        mlflow.models.predict(
+            model_uri=f"runs:/{run_id}/model",
+            input_data={"x": 1, "y": 2},
+            env_manager="uv",
+        )
+
+        # Run prediction with additional pip dependencies and extra environment variables
         mlflow.models.predict(
             model_uri=f"runs:/{run_id}/model",
             input_data={"x": 1, "y": 2},
