@@ -11,6 +11,7 @@ import mlflow.utils
 import mlflow.utils.autologging_utils
 from mlflow.tracing.constant import TraceMetadataKey
 
+from tests.openai.test_openai_evaluate import purge_traces
 from tests.tracing.helper import get_traces, reset_autolog_state  # noqa: F401
 
 if Version(importlib.metadata.version("dspy")) < Version("2.5.17"):
@@ -59,7 +60,7 @@ def get_fake_model():
 
 
 @pytest.mark.parametrize(
-    "original_autolog_config",
+    "config",
     [
         None,
         {"log_traces": False},
@@ -67,9 +68,12 @@ def get_fake_model():
     ],
 )
 @pytest.mark.usefixtures("reset_autolog_state")
-def test_dspy_evaluate(original_autolog_config):
-    if original_autolog_config:
-        mlflow.dspy.autolog(**original_autolog_config)
+def test_dspy_evaluate(config):
+    if config:
+        mlflow.dspy.autolog(**config)
+
+    is_trace_disabled = config and not config.get("log_traces", True)
+    is_trace_enabled = config and config.get("log_traces", True)
 
     cot = get_fake_model()
 
@@ -85,16 +89,18 @@ def test_dspy_evaluate(original_autolog_config):
         )
     assert eval_result.metrics["exact_match/v1"] == 1.0
 
-    # Traces should be automatically enabled during evaluation
-    assert len(get_traces()) == 2
-    assert run.info.run_id == get_traces()[0].info.request_metadata[TraceMetadataKey.SOURCE_RUN]
+    # Traces should not be logged when disabled explicitly
+    if is_trace_disabled:
+        assert len(get_traces()) == 0
+    else:
+        assert len(get_traces()) == 2
+        assert run.info.run_id == get_traces()[0].info.request_metadata[TraceMetadataKey.SOURCE_RUN]
+
+    purge_traces()
 
     # Test original autolog configs is restored
     cot(question="What is MLflow?")
-    if original_autolog_config and original_autolog_config.get("log_traces", True):
-        assert len(get_traces()) == 3
-    else:
-        assert len(get_traces()) == 2
+    assert len(get_traces()) == (1 if is_trace_enabled else 0)
 
 
 @pytest.mark.skip(
