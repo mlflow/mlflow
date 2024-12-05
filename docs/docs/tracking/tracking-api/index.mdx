@@ -171,9 +171,12 @@ with mlflow.start_run() as parent_run:
 You can fetch all child runs under a parent run using tags.
 
 ```python
-child_runs = mlflow.search_runs(experiment_ids=[YOUR_EXPERIMENT_ID], filter_string=f"tags.mlflow.parentRunId = '{parent_run.info.run_id}'")
+child_runs = mlflow.search_runs(
+    experiment_ids=[YOUR_EXPERIMENT_ID],
+    filter_string=f"tags.mlflow.parentRunId = '{parent_run.info.run_id}'",
+)
 print("child runs:")
-print(results[['run_id', 'params.p', 'metrics.val_loss']])
+print(results[["run_id", "params.p", "metrics.val_loss"]])
 # child runs:
 #             run_id params.p  metrics.val_loss
 #   0        0c0b...     0.01            0.1234
