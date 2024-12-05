@@ -15,6 +15,7 @@ from mlflow.environment_variables import MLFLOW_ARTIFACT_UPLOAD_DOWNLOAD_TIMEOUT
 from mlflow.exceptions import MlflowException
 from mlflow.store.artifact.artifact_repo import ArtifactRepository, MultipartUploadMixin
 from mlflow.utils.credentials import get_default_host_creds
+from azure.core.exceptions import ResourceNotFoundError
 
 
 def encode_base64(data: Union[str, bytes]) -> str:
@@ -197,7 +198,23 @@ class AzureBlobArtifactRepository(ArtifactRepository, MultipartUploadMixin):
             blob.readinto(file)
 
     def delete_artifacts(self, artifact_path=None):
-        raise MlflowException("Not implemented yet")
+        (container, _, dest_path, _) = self.parse_wasbs_uri(self.artifact_uri)
+        container_client = self.client.get_container_client(container)
+        if artifact_path:
+            dest_path = posixpath.join(dest_path, artifact_path)
+
+        try:
+            blobs = container_client.list_blobs(name_starts_with=dest_path)
+            blob_list = list(blobs)
+            if not blob_list:
+                raise MlflowException(f"No such file or directory: '{dest_path}'")
+
+            for blob in blob_list:
+                container_client.delete_blob(blob.name)
+        except ResourceNotFoundError:
+            raise MlflowException(f"No such file or directory: '{dest_path}'")
+        except Exception as e:
+            raise MlflowException(f"Failed to delete artifacts at '{dest_path}': {e}")
 
     def create_multipart_upload(self, local_file, num_parts=1, artifact_path=None):
         from azure.storage.blob import BlobSasPermissions, generate_blob_sas
