@@ -128,7 +128,7 @@ jobs:
         if: github.event_name == 'workflow_dispatch'
         id: upload-wheel
         with:
-          name: ${{ steps.build-dist.outputs.wheel-name }}
+          name: ${{ steps.build-dist.outputs.wheel-name }}-${{ matrix.type }}
           path: ${{ steps.build-dist.outputs.wheel-path }}
           retention-days: 7
           if-no-files-found: error
