@@ -11,8 +11,8 @@ from mlflow.entities.trace_info import TraceInfo
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 
-
 _logger = logging.getLogger(__name__)
+
 
 @dataclass
 class Trace(_MlflowObject):
@@ -102,7 +102,6 @@ class Trace(_MlflowObject):
             "spans": [span.to_dict() for span in self.data.spans],
             "tags": self.info.tags,
         }
-
 
     def _deserialize_json_attr(self, value: str):
         try:

@@ -37,7 +37,7 @@ from mlflow.tracking.default_experiment import DEFAULT_EXPERIMENT_ID
 from mlflow.utils.file_utils import local_file_uri_to_path
 from mlflow.utils.os import is_windows
 
-from tests.tracing.helper import create_test_trace_info, create_trace, get_traces
+from tests.tracing.helper import create_test_trace_info, get_traces
 
 
 class DefaultTestModel:
