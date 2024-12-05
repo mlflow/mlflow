@@ -10,6 +10,7 @@ import mlflow
 import mlflow.tracking.context.default_context
 from mlflow.entities import SpanType, Trace, TraceData
 from mlflow.environment_variables import MLFLOW_TRACKING_USERNAME
+from mlflow.exceptions import MlflowException
 from mlflow.tracing.constant import TRACE_SCHEMA_VERSION, TRACE_SCHEMA_VERSION_KEY
 from mlflow.tracing.utils import TraceJSONEncoder
 from mlflow.utils.mlflow_tags import MLFLOW_ARTIFACT_LOCATION
@@ -245,7 +246,10 @@ def test_trace_pandas_dataframe_columns():
         (None, None, ["run", "add_one_1", "add_one_2", "add_two", "multiply_by_two"]),
         (SpanType.CHAIN, None, ["run"]),
         (None, "add_two", ["add_two"]),
-        (None, re.compile("add.*"), ["add_one_1", "add_one_2", "add_two"]),
+        (None, re.compile(r"add.*"), ["add_one_1", "add_one_2", "add_two"]),
+        (None, re.compile(r"^add"), ["add_one_1", "add_one_2", "add_two"]),
+        (None, re.compile(r"_two$"), ["add_two", "multiply_by_two"]),
+        (None, re.compile(r".*ONE", re.IGNORECASE), ["add_one_1", "add_one_2"]),
         (SpanType.TOOL, "multiply_by_two", ["multiply_by_two"]),
         (SpanType.AGENT, None, []),
         (None, "non_existent", []),
@@ -277,3 +281,18 @@ def test_search_spans(span_type, name, expected):
     spans = trace.search_spans(span_type=span_type, name=name)
 
     assert [span.name for span in spans] == expected
+
+
+def test_search_spans_raise_for_invalid_param_type():
+    @mlflow.trace(span_type=SpanType.CHAIN)
+    def run(x: int) -> int:
+        return x + 1
+
+    run(2)
+    trace = mlflow.get_last_active_trace()
+
+    with pytest.raises(MlflowException, match="Invalid type for 'span_type'"):
+        trace.search_spans(span_type=123)
+
+    with pytest.raises(MlflowException, match="Invalid type for 'name'"):
+        trace.search_spans(name=123)

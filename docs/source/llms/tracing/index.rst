@@ -1566,6 +1566,6 @@ Then you can use the :py:meth:`Trace.search_spans <mlflow.entities.Trace.search_
     # Output: [Span(name='add_one', ...), Span(name='add_two', ...), Span(name='multiply_by_two', ...)]
 
     # Search for spans whose name starts with "add"
-    spans = trace.search_spans(name=re.compile("add.*"))
+    spans = trace.search_spans(name=re.compile(r"add.*"))
     print(spans)
     # Output: [Span(name='add_one', ...), Span(name='add_two', ...)]

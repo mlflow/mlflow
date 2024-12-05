@@ -4,7 +4,7 @@ import json
 import logging
 import re
 from dataclasses import dataclass
-from typing import Any, Optional, Pattern, Union
+from typing import Any, Optional, Union
 
 from mlflow.entities._mlflow_object import _MlflowObject
 from mlflow.entities.span import Span, SpanType
@@ -113,7 +113,7 @@ class Trace(_MlflowObject):
             return value
 
     def search_spans(
-        self, span_type: Optional[SpanType] = None, name: Optional[Union[str, Pattern]] = None
+        self, span_type: Optional[SpanType] = None, name: Optional[Union[str, re.Pattern]] = None
     ) -> list[Span]:
         """
         Search for spans that match the given criteria within the trace.
@@ -166,7 +166,7 @@ class Trace(_MlflowObject):
             # Output: [Span(name='add_one', ...)]
 
             # 2. Search spans by name (regular expression)
-            pattern = re.compile("add.*")
+            pattern = re.compile(r"add.*")
             spans = trace.search_spans(name=pattern)
             print(spans)
             # Output: [Span(name='add_one', ...), Span(name='add_two', ...)]
@@ -186,11 +186,26 @@ class Trace(_MlflowObject):
             if isinstance(name, str):
                 return span.name == name
             elif isinstance(name, re.Pattern):
-                return name.match(span.name) is not None
-            return True
+                return name.search(span.name) is not None
+            elif name is None:
+                return True
+            else:
+                raise MlflowException(
+                    f"Invalid type for 'name'. Expected str or re.Pattern. Got: {type(name)}",
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
 
         def _match_type(span: Span) -> bool:
-            return span_type is None or span.span_type == span_type
+            if isinstance(span_type, str):
+                return span.span_type == span_type
+            elif span_type is None:
+                return True
+            else:
+                raise MlflowException(
+                    "Invalid type for 'span_type'. Expected str or mlflow.entities.SpanType. "
+                    f"Got: {type(span_type)}",
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
 
         return [span for span in self.data.spans if _match_name(span) and _match_type(span)]
 
