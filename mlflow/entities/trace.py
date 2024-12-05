@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 from dataclasses import dataclass
 from typing import Any
 
@@ -9,6 +10,8 @@ from mlflow.entities.trace_data import TraceData
 from mlflow.entities.trace_info import TraceInfo
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
+
+_logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -93,12 +96,19 @@ class Trace(_MlflowObject):
             "timestamp_ms": self.info.timestamp_ms,
             "status": self.info.status,
             "execution_time_ms": self.info.execution_time_ms,
-            "request": self.data.request,
-            "response": self.data.response,
+            "request": self._deserialize_json_attr(self.data.request),
+            "response": self._deserialize_json_attr(self.data.response),
             "request_metadata": self.info.request_metadata,
             "spans": [span.to_dict() for span in self.data.spans],
             "tags": self.info.tags,
         }
+
+    def _deserialize_json_attr(self, value: str):
+        try:
+            return json.loads(value)
+        except Exception:
+            _logger.debug(f"Failed to deserialize JSON attribute: {value}", exc_info=True)
+            return value
 
     @staticmethod
     def pandas_dataframe_columns() -> list[str]:
