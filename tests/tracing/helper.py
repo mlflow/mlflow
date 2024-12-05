@@ -123,6 +123,13 @@ def get_traces(experiment_id=DEFAULT_EXPERIMENT_ID) -> list[Trace]:
     return mlflow.MlflowClient().search_traces(experiment_ids=[experiment_id])
 
 
+def purge_traces(experiment_id=DEFAULT_EXPERIMENT_ID):
+    # Delete all traces from the backend
+    mlflow.tracking.MlflowClient().delete_traces(
+        experiment_id=experiment_id, max_traces=1000, max_timestamp_millis=0
+    )
+
+
 def get_tracer_tracking_uri() -> Optional[str]:
     """Get current tracking URI configured as the trace export destination."""
     from opentelemetry import trace
@@ -145,6 +152,7 @@ def reset_autolog_state():
         # 1. Remove post-import hooks (registered by global mlflow.autolog() function)
         mlflow.utils.import_hooks._post_import_hooks.pop(flavor, None)
 
+    for flavor in AUTOLOGGING_INTEGRATIONS.keys():
         # 2. Disable autologging for the flavor. This is necessary because some autologging
         #    update global settings (e.g. callbacks) and we need to revert them.
         try:
@@ -156,8 +164,4 @@ def reset_autolog_state():
         # 3. Revert any patches applied by autologging
         revert_patches(flavor)
 
-        # 4. Reset autologging state
-        AUTOLOGGING_INTEGRATIONS.pop(flavor, None)
-
-    # 4. Reset global autologging state
-    AUTOLOGGING_INTEGRATIONS["mlflow"] = {}
+    AUTOLOGGING_INTEGRATIONS.clear()
