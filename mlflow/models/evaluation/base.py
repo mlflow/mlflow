@@ -1475,7 +1475,7 @@ def evaluate(  # noqa: D417
 
 
                 def root_mean_squared_error(eval_df, _builtin_metrics):
-                    return np.sqrt((np.abs(eval_df["prediction"] - eval_df["target"]) ** 2).mean)
+                    return np.sqrt((np.abs(eval_df["prediction"] - eval_df["target"]) ** 2).mean())
 
 
                 rmse_metric = mlflow.models.make_metric(
