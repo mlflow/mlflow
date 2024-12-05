@@ -2,7 +2,7 @@ import json
 import logging
 import os
 import posixpath
-from typing import Optional, List
+from typing import Optional
 
 import mlflow.tracking
 from mlflow.entities import FileInfo
@@ -85,7 +85,7 @@ class DatabricksModelsArtifactRepository(ArtifactRepository):
             body["page_token"] = page_token
         return body
 
-    def list_artifacts(self, path: Optional[str] = None) -> List[FileInfo]:
+    def list_artifacts(self, path: Optional[str] = None) -> list[FileInfo]:
         infos = []
         page_token = None
         if not path:
