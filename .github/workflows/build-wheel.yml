@@ -80,14 +80,6 @@ jobs:
           # Build the wheel
           python dev/build.py $PACKAGE_TYPE_OPT $SHA_OPT
 
-          # Rename the wheel to include the databricks extra in the version
-          if [[ "${{ matrix.type }}" == *"databricks"* ]]; then
-            wheel_path=$(find dist -type f -name "*.whl")
-            base_name=$(basename "$wheel_path" .whl)
-            new_name=$(echo "$base_name" | sed 's/\([^-]*-[^-]*-[^-]*\)/\1+databricks/')  # Insert +databricks in version
-            mv "$wheel_path" "dist/${new_name}.whl"
-          fi
-
           # List distribution files and check their file sizes
           ls -lh dist
 
