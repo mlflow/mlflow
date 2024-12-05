@@ -1,5 +1,6 @@
 import importlib
 import json
+import re
 from datetime import datetime
 
 import pytest
@@ -194,6 +195,13 @@ def test_trace_to_from_dict_and_json():
     model.predict(2, 5)
 
     trace = mlflow.get_last_active_trace()
+
+    spans = trace.search_spans(span_type=SpanType.LLM)
+    assert len(spans) == 1
+
+    spans = trace.search_spans(name="predict")
+    assert len(spans) == 1
+
     trace_dict = trace.to_dict()
     trace_from_dict = Trace.from_dict(trace_dict)
     trace_json = trace.to_json()
@@ -229,3 +237,43 @@ def test_trace_pandas_dataframe_columns():
         data=TraceData(),
     )
     assert Trace.pandas_dataframe_columns() == list(t.to_pandas_dataframe_row())
+
+
+@pytest.mark.parametrize(
+    ("span_type", "name", "expected"),
+    [
+        (None, None, ["run", "add_one_1", "add_one_2", "add_two", "multiply_by_two"]),
+        (SpanType.CHAIN, None, ["run"]),
+        (None, "add_two", ["add_two"]),
+        (None, re.compile("add.*"), ["add_one_1", "add_one_2", "add_two"]),
+        (SpanType.TOOL, "multiply_by_two", ["multiply_by_two"]),
+        (SpanType.AGENT, None, []),
+        (None, "non_existent", []),
+    ],
+)
+def test_search_spans(span_type, name, expected):
+    @mlflow.trace(span_type=SpanType.CHAIN)
+    def run(x: int) -> int:
+        x = add_one(x)
+        x = add_one(x)
+        x = add_two(x)
+        return multiply_by_two(x)
+
+    @mlflow.trace(span_type=SpanType.TOOL)
+    def add_one(x: int) -> int:
+        return x + 1
+
+    @mlflow.trace(span_type=SpanType.TOOL)
+    def add_two(x: int) -> int:
+        return x + 2
+
+    @mlflow.trace(span_type=SpanType.TOOL)
+    def multiply_by_two(x: int) -> int:
+        return x * 2
+
+    run(2)
+    trace = mlflow.get_last_active_trace()
+
+    spans = trace.search_spans(span_type=span_type, name=name)
+
+    assert [span.name for span in spans] == expected
