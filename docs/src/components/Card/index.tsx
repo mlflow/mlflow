@@ -13,14 +13,22 @@ export const CardGroup = ({ children, isSmall }): JSX.Element => (
   </div>
 );
 
-export const Card = ({ children, link }): JSX.Element => (
-  <Link
-    className={clsx(styles.Link, styles.Card, styles.CardBordered)}
-    to={link}
-  >
-    {children}
-  </Link>
-);
+export const Card = ({ children, link = "" }): JSX.Element => {
+  if (!link) {
+    return (
+      <div className={clsx(styles.Card, styles.CardBordered)}>{children}</div>
+    );
+  }
+
+  return (
+    <Link
+      className={clsx(styles.Link, styles.Card, styles.CardBordered)}
+      to={link}
+    >
+      {children}
+    </Link>
+  );
+};
 
 export const PageCard = ({ headerText, link, text }): JSX.Element => (
   <Card link={link}>
@@ -80,6 +88,51 @@ export const SmallLogoCard = ({ children, link }) => (
         className={clsx("max-height-img-container", styles.SmallLogoCardImage)}
       >
         {children}
+      </div>
+    </div>
+  </Card>
+);
+
+const RELEASE_URL = "https://github.com/mlflow/mlflow/releases/tag/v";
+
+export const NewFeatureCard = ({
+  children,
+  description,
+  name,
+  releaseVersion,
+  learnMoreLink = "",
+}) => (
+  <Card>
+    <div className={styles.NewFeatureCardWrapper}>
+      <div className={styles.NewFeatureCardContent}>
+        <div className={styles.NewFeatureCardHeading}>
+          {name}
+          <br />
+          <hr className={styles.NewFeatureCardHeadingSeparator} />
+        </div>
+        <div className={styles.LogoCardImage}>{children}</div>
+        <br />
+        <p>{description}</p>
+        <br />
+      </div>
+
+      <div className={styles.NewFeatureCardTags}>
+        <div>
+          {learnMoreLink && (
+            <Link
+              className="button button--outline button--sm button--primary"
+              to={learnMoreLink}
+            >
+              Learn more
+            </Link>
+          )}
+        </div>
+        <Link
+          className="button button--outline button--sm button--primary"
+          to={`${RELEASE_URL}${releaseVersion}`}
+        >
+          released in {releaseVersion}
+        </Link>
       </div>
     </div>
   </Card>
