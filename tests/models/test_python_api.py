@@ -136,6 +136,30 @@ def test_predict_with_pip_requirements_override(env_manager):
 
 
 @pytest.mark.parametrize("env_manager", [VIRTUALENV, CONDA, UV])
+def test_predict_with_model_alias(env_manager):
+    class TestModel(mlflow.pyfunc.PythonModel):
+        def predict(self, context, model_input):
+            assert os.environ["TEST"] == "test"
+            return model_input
+
+    with mlflow.start_run():
+        mlflow.pyfunc.log_model(
+            "model",
+            python_model=TestModel(),
+            registered_model_name="model_name",
+        )
+    client = mlflow.MlflowClient()
+    client.set_registered_model_alias("model_name", "test_alias", 1)
+
+    mlflow.models.predict(
+        model_uri="models:/model_name@test_alias",
+        input_data="abc",
+        env_manager=env_manager,
+        extra_envs={"TEST": "test"},
+    )
+
+
+@pytest.mark.parametrize("env_manager", [VIRTUALENV, CONDA, UV])
 def test_predict_with_extra_envs(env_manager):
     class TestModel(mlflow.pyfunc.PythonModel):
         def predict(self, context, model_input):
