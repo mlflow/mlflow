@@ -13,7 +13,7 @@
   grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
 }
 
-@media (max-width: 1150px) {
+@media (max-width: 1500px) {
   .MaxThreeColumns {
     grid-template-columns: repeat(2, 1fr);
   }
@@ -37,7 +37,7 @@
 }
 
 .CardBordered {
-  padding: 18px;
+  padding: 24px;
   border: 1px solid var(--docusaurus-tag-list-border);
   border-radius: var(--card-border-radius);
   transition: box-shadow 0.2s ease-in-out;
@@ -106,11 +106,13 @@
   height: 80px;
   display: flex;
   justify-content: center;
+  align-self: stretch;
 
   span {
     font-size: 1.25rem;
     align-items: center;
     display: flex;
+    max-width: 80%;
 
     img {
       max-height: 100%;
@@ -130,4 +132,36 @@
   max-width: 150px;
   max-height: 80px;
   justify-content: center;
+}
+
+.NewFeatureCardContent {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.NewFeatureCardHeading {
+  color: var(--ifm-color-primary-darkest);
+  font-size: 1.5rem;
+  line-height: 1;
+  text-align: center;
+}
+
+.NewFeatureCardHeadingSeparator {
+  display: inline-block;
+  width: 40%;
+  height: 2;
+}
+
+.NewFeatureCardTags {
+  align-self: stretch;
+  display: flex;
+  justify-content: space-between;
+}
+
+.NewFeatureCardWrapper {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  flex: 1;
 }
