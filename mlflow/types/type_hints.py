@@ -22,6 +22,15 @@ PYDANTIC_V1_OR_OLDER = Version(pydantic.VERSION).major <= 1
 FIELD_TYPE = pydantic.fields.ModelField if PYDANTIC_V1_OR_OLDER else pydantic.fields.FieldInfo
 _logger = logging.getLogger(__name__)
 NONE_TYPE = type(None)
+UNION_TYPES = (Union,)
+try:
+    # this import is only available in Python 3.10+
+    from types import UnionType
+
+    UNION_TYPES += (UnionType,)
+except ImportError:
+    pass
+
 
 # numpy types are not supported
 TYPE_HINTS_TO_DATATYPE_MAPPING = {
@@ -81,8 +90,7 @@ def _infer_colspec_type_from_type_hint(type_hint: type[Any]) -> ColSpecType:
             raise MlflowException.invalid_parameter_value(
                 f"Dictionary type hint must contain two internal types, got {type_hint}"
             )
-        # TODO: support | operator in python 3.10
-        if origin_type == Union:
+        if origin_type in UNION_TYPES:
             if NONE_TYPE in args:
                 # This case shouldn't happen, but added for completeness
                 if len(args) < 2:
@@ -115,7 +123,15 @@ def _infer_colspec_type_from_type_hint(type_hint: type[Any]) -> ColSpecType:
 
 
 def _invalid_type_hint_error(type_hint: type[Any]) -> None:
-    if type_hint in (list, dict, Optional, Union):
+    if (
+        type_hint
+        in (
+            list,
+            dict,
+            Optional,
+        )
+        + UNION_TYPES
+    ):
         raise MlflowException.invalid_parameter_value(
             f"Unsupported type hint `{type_hint}`, it must include a valid internal type."
         )
@@ -254,7 +270,7 @@ def _validate_example_against_type_hint(example: Any, type_hint: type[Any]) -> N
             return _validate_list_elements(element_type=args[0], example=example)
         elif origin_type is dict:
             return _validate_dict_elements(element_type=args[1], example=example)
-        elif origin_type == Union:
+        elif origin_type in UNION_TYPES:
             # Optional type
             if NONE_TYPE in args:
                 if example is None:
