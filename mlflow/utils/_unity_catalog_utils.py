@@ -393,9 +393,13 @@ def get_full_name_from_sc(name, spark) -> str:
 
 
 def is_databricks_sdk_models_artifact_repository_enabled(host_creds):
+    from mlflow.utils.logging_utils import eprint
+    eprint("calling is_databricks_sdk_models_artifact_repository_enabled")
     # Return early if the environment variable is set to use the SDK models artifact repository
     if MLFLOW_USE_DATABRICKS_SDK_MODEL_ARTIFACTS_REPO_FOR_UC.defined:
+        eprint("MLFLOW_USE_DATABRICKS_SDK_MODEL_ARTIFACTS_REPO_FOR_UC is defined", MLFLOW_USE_DATABRICKS_SDK_MODEL_ARTIFACTS_REPO_FOR_UC.get())
         return MLFLOW_USE_DATABRICKS_SDK_MODEL_ARTIFACTS_REPO_FOR_UC.get()
+    eprint("MLFLOW_USE_DATABRICKS_SDK_MODEL_ARTIFACTS_REPO_FOR_UC is  undefined")
 
     endpoint, method = _METHOD_TO_INFO[IsDatabricksSdkModelsArtifactRepositoryEnabledRequest]
     req_body = message_to_json(IsDatabricksSdkModelsArtifactRepositoryEnabledRequest())
@@ -409,8 +413,10 @@ def is_databricks_sdk_models_artifact_repository_enabled(host_creds):
             json_body=req_body,
             response_proto=response_proto,
         )
+        eprint("resp of is_databricks_sdk_models_artifact_repository_enabled is", resp.is_databricks_sdk_models_artifact_repository_enabled)
         return resp.is_databricks_sdk_models_artifact_repository_enabled
     except Exception as e:
+        eprint("is_databricks_sdk_models_artifact_repository_enabled errored")
         _logger.warning(
             "Failed to confirm if DatabricksSDKModelsArtifactRepository should be used; "
             f"falling back to default. Error: {e}"
