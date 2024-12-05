@@ -228,6 +228,7 @@ select = [
   "UP030",   # format-literals
   "UP031",   # printf-string-format
   "UP034",   # extraneous-parenthesis
+  "UP035"    # deprecated-import
   "W",       # warning
 ]
 ignore = [
