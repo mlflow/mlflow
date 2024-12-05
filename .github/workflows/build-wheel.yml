@@ -65,7 +65,7 @@ jobs:
           if [[ "${{ matrix.type }}" == "full-databricks" || "${{ matrix.type }}" == "skinny-databricks" ]]; then
             pip install .[databricks]
           fi
-          
+
           if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
             SHA_OPT="--sha $(git rev-parse HEAD)"
           else
