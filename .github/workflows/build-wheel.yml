@@ -38,7 +38,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        type: ["full", "skinny"]
+        type: ["full", "skinny", "full-databricks", "skinny-databricks"]
     steps:
       - uses: actions/checkout@v4
         with:
@@ -61,18 +61,24 @@ jobs:
       - name: Build distribution files
         id: build-dist
         run: |
-          # if workflow_dispatch is triggered, use the specified ref
+          # Determine build type
+          if [[ "${{ matrix.type }}" == "full-databricks" || "${{ matrix.type }}" == "skinny-databricks" ]]; then
+            pip install .[databricks]
+          fi
+
           if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
             SHA_OPT="--sha $(git rev-parse HEAD)"
           else
             SHA_OPT=""
           fi
 
-          if [ "${{ matrix.type }}" == "skinny" ]; then
+          if [[ "${{ matrix.type }}" == "skinny" || "${{ matrix.type }}" == "skinny-databricks" ]]; then
             PACKAGE_TYPE_OPT="--package-type skinny"
           else
             PACKAGE_TYPE_OPT=""
           fi
+
+          # Build the wheel
           python dev/build.py $PACKAGE_TYPE_OPT $SHA_OPT
 
           # List distribution files and check their file sizes
