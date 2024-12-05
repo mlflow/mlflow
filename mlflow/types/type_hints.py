@@ -3,6 +3,7 @@ from datetime import datetime
 from typing import Any, Literal, NamedTuple, Optional, Union, get_args, get_origin
 
 import pydantic
+import pydantic.fields
 from packaging.version import Version
 
 from mlflow.exceptions import MlflowException
